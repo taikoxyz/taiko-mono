@@ -2,18 +2,27 @@
 
 use std::{path::Path, time::Duration};
 
+use alloy_eips::eip2718::Encodable2718;
+use alloy_primitives::{B256, Bytes};
+
 use super::{
     proposal::{
-        bft_time, incompressible, jump, mid_epoch, next_height, prepare, prepare_req, propose,
-        set_anchor_age,
+        bft_time, decide, hand_forced_envelope, incompressible, judge, jump, mid_epoch,
+        next_height, plant_due_entry, plant_entries, prepare, prepare_req, propose, sample_tx_list,
+        set_anchor_age, step,
     },
     *,
 };
 use crate::{
     engine::{EngineError, PayloadVerdict},
-    l1::L1Error,
+    envelope::EtnaEnvelope,
+    forced::{EMPTY_TX_LIST, FORCED_INCLUSION_EXPIRY_SECS},
+    l1::{L1Error, layout::inbox},
     rules::decode_extra_data,
-    test_utils::{GenesisSpec, L1Call, simple_block},
+    test_utils::{
+        BlobCall, GenesisSpec, L1Call, blob_versioned_hash, forced_blob, manifest_payload,
+        sample_transactions, simple_block,
+    },
 };
 
 /// Prepares the next height of `app`, expects no transactions and returns the halt label.
@@ -21,6 +30,38 @@ async fn refused(app: &mut App<MockL1, MockEngine>) -> String {
     let txs = prepare(app, prepare_req(next_height(app), bft_time(app))).await;
     assert!(txs.is_empty(), "no proposal expected");
     app.halt.clone().expect("a refused proposal records its label")
+}
+
+/// Whether `app` ever asked its EL to build a block.
+fn built_any(app: &App<MockL1, MockEngine>) -> bool {
+    app.engine().calls().iter().any(|c| matches!(c, EngineCall::BuildBlock { .. }))
+}
+
+/// The transaction list of the last block `app` asked its EL to build.
+fn built_tx_list(app: &App<MockL1, MockEngine>) -> Option<Bytes> {
+    let calls = app.engine().calls();
+    let Some(EngineCall::BuildBlock { attrs, .. }) =
+        calls.iter().rfind(|c| matches!(c, EngineCall::BuildBlock { .. }))
+    else {
+        panic!("no build: {calls:?}");
+    };
+    attrs.block_metadata.tx_list.clone()
+}
+
+/// The proof read of forced inclusion entry `index` in the Inbox at L1 block `block`.
+fn entry_read(fx: &Fixture, index: u64, block: u64) -> L1Call {
+    L1Call::AccountWitness {
+        address: fx.params.inbox,
+        slots: inbox::forced_inclusion_entry_slots(index).to_vec(),
+        block,
+    }
+}
+
+/// Accepts `env` as the next height of `app`, then finalizes and commits it.
+async fn accept_and_commit(app: &mut App<MockL1, MockEngine>, env: &EtnaEnvelope) {
+    let (resp, req) = judge(app, env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
+    decide(app, &req).await;
 }
 
 #[tokio::test]
@@ -472,4 +513,163 @@ async fn failing_pre_checks_skip_the_committee_discovery() {
     app.l1().state().calls.clear();
     assert_eq!(refused(&mut app).await, "anchor_too_old");
     assert_eq!(registry_reads(&app), 0, "freshness: {:?}", app.l1().calls());
+}
+
+/// A due entry at the cursor: the proposer proves it at the anchor, fetches its blob by the
+/// entry's timestamp and versioned hash, and builds the forced inclusion block from its
+/// transaction list, exactly the block an honest proposer builds. A validator rebuilds and
+/// accepts it, and the cursor advances.
+#[tokio::test]
+async fn prepare_builds_a_forced_block_when_due() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let blob = plant_due_entry(&fx, app.l1(), 66, fx.inbox.clone());
+
+    let env = propose(&mut app).await;
+    assert_eq!(built_tx_list(&app), Some(sample_tx_list()), "the build carries the list");
+    assert_eq!(env.block.transactions.len(), sample_transactions().len());
+    let forced = fx.forced_witness(app.l1(), 66, 0, blob.clone());
+    assert_eq!(env.forced.as_ref(), Some(&forced), "the envelope carries the blob");
+    let anchor = Some(fx.anchor_witness(app.l1(), 66));
+    assert_eq!(env, hand_forced_envelope(&app, anchor, None, forced, sample_tx_list()));
+    assert!(app.l1().calls().contains(&entry_read(&fx, 0, 66)), "{:?}", app.l1().calls());
+    let timestamp = Fixture::l1_timestamp(66) - fx.genesis.forced_inclusion_delay;
+    let versioned_hash = blob_versioned_hash(&blob);
+    assert_eq!(fx.blobs.calls(), [BlobCall { timestamp, versioned_hash }]);
+
+    accept_and_commit(&mut app, &env).await;
+    assert_eq!(app.state().unwrap().forced_cursor, 1);
+}
+
+/// An entry below the anchor's tail that is not yet due is peeked: the block carries the
+/// entry's proof with an empty blob and stays ordinary (the EL selects its transactions), and
+/// no blob is fetched. Once L1 finalizes a block at which the entry is due, the next proposal
+/// consumes it.
+#[tokio::test]
+async fn prepare_peeks_while_pending() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    // Due from an anchor at L1 block 67 on, so still pending at 66.
+    let entries = || {
+        vec![(Fixture::l1_timestamp(67) - fx.genesis.forced_inclusion_delay, sample_transactions())]
+    };
+    plant_entries(&fx, app.l1(), 66, fx.inbox.clone(), entries());
+
+    let env = propose(&mut app).await;
+    assert_eq!(env.forced, Some(fx.forced_witness(app.l1(), 66, 0, Bytes::new())), "a peek");
+    assert_eq!(built_tx_list(&app), None, "an ordinary block");
+    assert!(app.l1().calls().contains(&entry_read(&fx, 0, 66)), "{:?}", app.l1().calls());
+    assert_eq!(fx.blobs.calls(), [], "a pending entry needs no blob");
+    accept_and_commit(&mut app, &env).await;
+    assert_eq!(app.state().unwrap().forced_cursor, 0, "a peek consumes nothing");
+
+    let blob = plant_entries(&fx, app.l1(), 67, fx.inbox.clone(), entries()).remove(0);
+    let env = propose(&mut app).await;
+    assert_eq!(env.forced, Some(fx.forced_witness(app.l1(), 67, 0, blob)));
+    assert_eq!(built_tx_list(&app), Some(sample_tx_list()));
+    accept_and_commit(&mut app, &env).await;
+    assert_eq!(app.state().unwrap().forced_cursor, 1);
+}
+
+/// Review Focus 2: two entries due at once fill consecutive blocks. The second keeps the anchor
+/// and carries a fresh proof of the next entry (index `c + 1`) with that entry's own blob and
+/// list; the block after them is ordinary and carries no forced witness.
+#[tokio::test]
+async fn prepare_builds_consecutive_forced_blocks() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let due = Fixture::l1_timestamp(66) - fx.genesis.forced_inclusion_delay;
+    let second = sample_transactions()[..1].to_vec();
+    let blobs = plant_entries(
+        &fx,
+        app.l1(),
+        66,
+        fx.inbox.clone(),
+        vec![(due, sample_transactions()), (due, second.clone())],
+    );
+
+    let first = step(&mut app).await;
+    assert_eq!(first.forced, Some(fx.forced_witness(app.l1(), 66, 0, blobs[0].clone())));
+    assert_eq!(app.state().unwrap().forced_cursor, 1);
+
+    app.l1().state().calls.clear();
+    let env = propose(&mut app).await;
+    assert!(env.anchor.is_none(), "the anchor stays at 66");
+    assert_eq!(env.forced, Some(fx.forced_witness(app.l1(), 66, 1, blobs[1].clone())));
+    assert!(app.l1().calls().contains(&entry_read(&fx, 1, 66)), "{:?}", app.l1().calls());
+    assert_eq!(built_tx_list(&app), Some(protocol::shasta::encode_transactions(&second)));
+    let expected: Vec<Bytes> = second.iter().map(|tx| tx.encoded_2718().into()).collect();
+    assert_eq!(env.block.transactions, expected);
+    accept_and_commit(&mut app, &env).await;
+    assert_eq!(app.state().unwrap().forced_cursor, 2);
+
+    let env = step(&mut app).await;
+    assert_eq!(env.forced, None, "the cursor reached the tail");
+    assert_eq!(app.state().unwrap().forced_cursor, 2);
+    let hashes: Vec<B256> = fx.blobs.calls().iter().map(|c| c.versioned_hash).collect();
+    assert_eq!(hashes, [blob_versioned_hash(&blobs[0]), blob_versioned_hash(&blobs[1])]);
+}
+
+/// An entry expired at the anchor (exactly at the expiry) is consumed as an empty block: the
+/// witness carries no blob, the EL builds from the empty list, and the blob source is never
+/// asked, even while it is down.
+#[tokio::test]
+async fn prepare_builds_an_empty_forced_block_for_an_expired_entry_without_fetching() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let expired = Fixture::l1_timestamp(66) - FORCED_INCLUSION_EXPIRY_SECS;
+    plant_entries(&fx, app.l1(), 66, fx.inbox.clone(), vec![(expired, sample_transactions())]);
+    fx.blobs.state().fail = Some("beacon down".into());
+
+    let env = propose(&mut app).await;
+    assert_eq!(env.forced, Some(fx.forced_witness(app.l1(), 66, 0, Bytes::new())));
+    assert_eq!(built_tx_list(&app), Some(EMPTY_TX_LIST));
+    assert!(env.block.transactions.is_empty());
+    assert_eq!(fx.blobs.calls(), []);
+    accept_and_commit(&mut app, &env).await;
+    assert_eq!(app.state().unwrap().forced_cursor, 1);
+}
+
+/// A due entry whose blob the blob source cannot serve gets nothing proposed, never an ordinary
+/// block in its place: the source failing or serving another blob records `blob_unavailable`
+/// and the EL is never asked to build. Once the blob is served, the forced block is proposed.
+#[tokio::test]
+async fn prepare_records_blob_unavailable_and_proposes_nothing() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let blob = plant_due_entry(&fx, app.l1(), 66, fx.inbox.clone());
+    let versioned_hash = blob_versioned_hash(&blob);
+
+    fx.blobs.state().fail = Some("beacon down".into());
+    assert_eq!(refused(&mut app).await, "blob_unavailable");
+    assert!(!built_any(&app));
+
+    fx.blobs.state().fail = None;
+    let (other, _) = forced_blob(&manifest_payload(vec![]));
+    fx.blobs.insert(versioned_hash, other);
+    assert_eq!(refused(&mut app).await, "blob_unavailable", "another blob");
+    assert!(!built_any(&app));
+    assert_eq!(fx.blobs.calls().len(), 2);
+
+    fx.blobs.insert(versioned_hash, blob.clone());
+    let env = propose(&mut app).await;
+    assert_eq!(env.forced.map(|f| f.blob), Some(blob));
+    assert_eq!(app.halt, None);
+}
+
+/// A blob source slower than the proposal's deadline gets nothing proposed.
+#[tokio::test(start_paused = true)]
+async fn slow_blob_source_proposes_nothing() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    plant_due_entry(&fx, app.l1(), 66, fx.inbox.clone());
+    fx.blobs.state().delay = Some(app.opts.prepare_timeout + Duration::from_secs(1));
+    assert_eq!(refused(&mut app).await, "timeout");
+    assert!(!built_any(&app));
 }

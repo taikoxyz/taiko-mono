@@ -14,9 +14,10 @@
 //!   that proves the entry is not yet due (an ordinary block).
 //!
 //! [`derive_tx_list`] turns a consumed entry's blob into the EL transaction list exactly as
-//! Shasta derivation reads a forced inclusion source.
+//! Shasta derivation reads a forced inclusion source. Its KZG commitment needs the Ethereum
+//! trusted setup, which takes seconds to load: [`warm_kzg_settings`] loads it at startup.
 
-use alloy_eips::eip4844::{Blob, c_kzg, env_settings::EnvKzgSettings, kzg_to_versioned_hash};
+use alloy_eips::eip4844::{Blob, c_kzg, kzg_to_versioned_hash};
 use alloy_primitives::{Address, B256, Bytes, U256};
 use protocol::shasta::{BlobCoder, encode_transactions, manifest::DerivationSourceManifest};
 
@@ -246,13 +247,30 @@ pub fn check(
     Ok(Some(ForcedConsumption { index: cursor, tx_list }))
 }
 
+/// Loads the Ethereum KZG trusted setup [`derive_tx_list`] commits blobs under, unless loaded
+/// already (the setup is process-wide and shared with `rpc::blob`).
+///
+/// The first load takes seconds of CPU, so call it once at startup, off the async runtime
+/// (e.g. on `spawn_blocking`), before serving: no consensus handler then pays it.
+pub fn warm_kzg_settings() {
+    kzg_settings();
+}
+
+/// The Ethereum KZG trusted setup without precomputation: commitments do not use it, and
+/// alloy's default (precomputation 8) would add about 96 MiB.
+fn kzg_settings() -> &'static c_kzg::KzgSettings {
+    c_kzg::ethereum_kzg_settings(0)
+}
+
 /// The KZG versioned hash of the raw blob `blob` under the Ethereum trusted setup.
+///
+/// The 128 KiB `c_kzg::Blob` lives on the heap: handlers run on async worker stacks.
 fn versioned_hash(blob: &[u8]) -> Result<B256, ForcedError> {
-    let blob = c_kzg::Blob::from_bytes(blob).map_err(|_| ForcedError::BadBlob)?;
-    let commitment = EnvKzgSettings::Default
-        .get()
-        .blob_to_kzg_commitment(&blob)
-        .map_err(|_| ForcedError::BadBlob)?;
+    let blob = <&Blob>::try_from(blob).map_err(|_| ForcedError::BadBlob)?;
+    let mut kzg_blob = Box::<c_kzg::Blob>::default();
+    kzg_blob.copy_from_slice(blob.as_slice());
+    let commitment =
+        kzg_settings().blob_to_kzg_commitment(&kzg_blob).map_err(|_| ForcedError::BadBlob)?;
     Ok(kzg_to_versioned_hash(commitment.as_slice()))
 }
 

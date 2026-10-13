@@ -12,8 +12,8 @@
 //! inclusion block, which `ProcessProposal` and a cold `FinalizeBlock` run after
 //! [`validate_block`].
 //! [`Rejection`] also carries the reasons of the ¹ checks, of the envelope decoding, of the
-//! landing capacity guard, of a failed build and of a forced inclusion rebuild, so every handler
-//! reports one label set.
+//! landing capacity guard, of a failed build, of an unavailable forced inclusion blob and of a
+//! forced inclusion rebuild, so every handler reports one label set.
 
 use std::fmt;
 
@@ -78,7 +78,8 @@ impl fmt::Display for WitnessKind {
 /// handler-level ones ([`Rejection::Envelope`], [`Rejection::EmptyProposal`],
 /// [`Rejection::ChainSuperseded`], [`Rejection::PayloadInvalid`], [`Rejection::Registry`],
 /// [`Rejection::Oversize`], [`Rejection::BuiltHeader`], [`Rejection::LandingCapacity`],
-/// [`Rejection::ForcedRebuildMismatch`]) come from the handlers.
+/// [`Rejection::BlobUnavailable`], [`Rejection::ForcedRebuildMismatch`]) come from the
+/// handlers.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum Rejection {
     /// The block's transactions are not exactly one well-formed envelope.
@@ -158,6 +159,11 @@ pub enum Rejection {
     /// The block breaks the forced inclusion rule ([`forced::check`]).
     #[error("forced inclusion rule violated: {0}")]
     Forced(#[from] ForcedError),
+    /// `PrepareProposal`: the blob of the due forced inclusion entry the block must consume
+    /// cannot be fetched (or is not the entry's blob), so nothing is proposed: never an
+    /// ordinary block in its place.
+    #[error("forced inclusion blob unavailable: {0}")]
+    BlobUnavailable(String),
     /// A forced inclusion block is not the block the EL rebuilds on the committed parent from
     /// its entry's transaction list: their hashes differ.
     #[error("forced inclusion block {got} differs from the block {expected} rebuilt from its list")]
@@ -205,6 +211,7 @@ impl Rejection {
             Self::Oversize { .. } => "envelope_too_large",
             Self::BuiltHeader(_) => "built_header_mismatch",
             Self::Forced(_) => "forced_inclusion",
+            Self::BlobUnavailable(_) => "blob_unavailable",
             Self::ForcedRebuildMismatch { .. } => "forced_rebuild_mismatch",
             Self::LandingCapacity { .. } => "landing_capacity",
         }

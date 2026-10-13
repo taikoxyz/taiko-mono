@@ -6,14 +6,22 @@ publish = false
 license.workspace = true
 
 [dependencies]
+# async
+tokio = { workspace = true }
+
+# observability
+tracing = { workspace = true }
+
 # web
 http-body-util = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }
 tower = { workspace = true }
+url = { workspace = true }
 
 # ethereum
 alloy = { workspace = true, features = ["rpc-client"] }
+alloy-eips = { workspace = true, features = ["kzg"] }
 alloy-primitives = { workspace = true, default-features = false }
 alloy-provider = { workspace = true, features = ["reqwest"] }
 alloy-rpc-types-engine = { workspace = true }
@@ -25,11 +33,15 @@ alethia-reth-primitives = { workspace = true, features = ["net"] }
 
 # types
 anyhow = { workspace = true }
+once_cell = { workspace = true }
 thiserror = { workspace = true }
 
 # serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
 
+# crypto
+sha2 = { workspace = true }
+
 [dev-dependencies]
-tokio = { workspace = true }
+hyper = { workspace = true, features = ["server"] }

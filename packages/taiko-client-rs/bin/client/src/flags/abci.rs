@@ -4,6 +4,9 @@ use std::{path::PathBuf, time::Duration};
 
 use abci::{AppOptions, ListenAddr, server::DEFAULT_ADDR};
 use clap::Parser;
+use url::Url;
+
+use crate::flags::common::http_url;
 
 /// Upper bound of every `abci` timeout flag, in seconds: an hour, far above any useful
 /// deadline, so that adding deadlines to each other or to an `Instant` cannot overflow.
@@ -30,6 +33,17 @@ pub struct AbciArgs {
         help = "Directory of the persisted app state (abci-state.json); created when missing"
     )]
     pub data_dir: PathBuf,
+    /// HTTP(S) REST endpoint of the operator's L1 beacon node, which serves the blob of a due
+    /// forced inclusion entry when this node proposes the block consuming it.
+    #[clap(
+        long = "l1.beacon",
+        env = "L1_BEACON",
+        required = true,
+        value_parser = http_url,
+        help = "HTTP(S) endpoint of the L1 beacon node the proposer fetches forced inclusion \
+                blobs from (since Fulu this needs a supernode or semi-supernode)"
+    )]
+    pub l1_beacon_endpoint: Url,
     /// Optional TOML file overriding the built-in chain parameters (devnet only).
     #[clap(
         long = "chain-config",
@@ -44,7 +58,8 @@ pub struct AbciArgs {
         value_name = "SECONDS",
         default_value_t = AppOptions::default().l1_timeout.as_secs(),
         value_parser = clap::value_parser!(u64).range(1..=MAX_TIMEOUT_SECS),
-        help = "Deadline of one L1 read (finality check, header or proof), in seconds (1-3600)"
+        help = "Deadline of one L1 read (finality check, header, proof or beacon blob), in \
+                seconds (1-3600)"
     )]
     pub l1_timeout_secs: u64,
     /// Deadline of one Engine API or EL RPC call, in seconds.
@@ -120,6 +135,7 @@ mod tests {
             "ABCI_ENGINE_TIMEOUT",
             "ABCI_ELSYNC_TIMEOUT",
             "ABCI_PREPARE_TIMEOUT",
+            "L1_BEACON",
             "L1_HTTP",
             "L2_HTTP",
             "L2_AUTH",
@@ -130,8 +146,8 @@ mod tests {
         .collect()
     }
 
-    /// `taiko-client abci` with the common endpoints and `extra`.
-    fn argv(extra: &[&'static str]) -> Vec<&'static str> {
+    /// `taiko-client abci` with the common endpoints and `extra`, without `--l1.beacon`.
+    fn argv_without_beacon(extra: &[&'static str]) -> Vec<&'static str> {
         let mut argv = vec![
             "taiko-client",
             "abci",
@@ -144,6 +160,13 @@ mod tests {
             "--jwt.secret",
             "/tmp/jwt.hex",
         ];
+        argv.extend_from_slice(extra);
+        argv
+    }
+
+    /// `taiko-client abci` with the common endpoints, the beacon endpoint and `extra`.
+    fn argv(extra: &[&'static str]) -> Vec<&'static str> {
+        let mut argv = argv_without_beacon(&["--l1.beacon", "http://localhost:5052"]);
         argv.extend_from_slice(extra);
         argv
     }
@@ -166,6 +189,7 @@ mod tests {
         assert_eq!(flags.addr, DEFAULT_ADDR);
         assert_eq!(flags.data_dir, PathBuf::from("/var/lib/abci"));
         assert_eq!(flags.chain_config, None);
+        assert_eq!(flags.l1_beacon_endpoint.as_str(), "http://localhost:5052/");
         assert_eq!(flags.app_options(), AppOptions::default());
         assert_eq!(cmd.common_flags.l2_http_endpoint.as_str(), "http://localhost:28545/");
     }
@@ -218,6 +242,7 @@ mod tests {
             EnvGuard::set("ABCI_ENGINE_TIMEOUT", "8"),
             EnvGuard::set("ABCI_ELSYNC_TIMEOUT", "9"),
             EnvGuard::set("ABCI_PREPARE_TIMEOUT", "1"),
+            EnvGuard::set("L1_BEACON", "https://beacon.example/api"),
             EnvGuard::set("L1_HTTP", "http://localhost:8545"),
             EnvGuard::set("L2_HTTP", "http://localhost:28545"),
             EnvGuard::set("L2_AUTH", "http://localhost:28551"),
@@ -229,6 +254,7 @@ mod tests {
         assert_eq!(flags.addr, "tcp://0.0.0.0:36658");
         assert_eq!(flags.data_dir, PathBuf::from("/env/data"));
         assert_eq!(flags.chain_config, Some(PathBuf::from("/env/chain.toml")));
+        assert_eq!(flags.l1_beacon_endpoint.as_str(), "https://beacon.example/api");
         assert_eq!(
             flags.app_options(),
             AppOptions {
@@ -239,6 +265,24 @@ mod tests {
             }
         );
         assert_eq!(cmd.common_flags.l1_http_endpoint.as_str(), "http://localhost:8545/");
+    }
+
+    /// Validators must be able to fetch the blob of a due forced inclusion entry, so the beacon
+    /// endpoint is required, and it must be HTTP(S).
+    #[test]
+    fn l1_beacon_is_required_and_http() {
+        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
+        let _clear = clear_env();
+        let err = parse(argv_without_beacon(&["--data-dir", "/data"]))
+            .expect_err("--l1.beacon is required");
+        assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
+        assert!(err.to_string().contains("--l1.beacon"), "{err}");
+
+        for url in ["ws://localhost:5052", "beacon:5052"] {
+            let err = parse(argv_without_beacon(&["--data-dir", "/data", "--l1.beacon", url]))
+                .expect_err("not an HTTP(S) URL");
+            assert_eq!(err.kind(), ErrorKind::ValueValidation, "{url}: {err}");
+        }
     }
 
     #[test]

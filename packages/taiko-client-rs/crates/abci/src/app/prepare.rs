@@ -1,5 +1,6 @@
-//! `PrepareProposal`: choose the anchor, collect the L1 witnesses the height needs,
-//! check them as `ProcessProposal` would, and let the EL build the block.
+//! `PrepareProposal`: choose the anchor, collect the L1 witnesses the height needs (with the
+//! blob of a due forced inclusion entry), check them as `ProcessProposal` would, and let the EL
+//! build the block.
 
 use std::future::Future;
 
@@ -15,12 +16,14 @@ use super::{
 };
 use crate::{
     engine::Engine,
-    envelope::{AnchorWitness, CommitteeWitness, EtnaEnvelope},
+    envelope::{AnchorWitness, CommitteeWitness, EtnaEnvelope, ForcedWitness},
+    forced::{self, ForcedEntry, ForcedError},
     l1::{L1Error, L1Source, build_committee_witness_within, header_at, layout::inbox},
     metrics::{AbciMetrics, set_u64},
     rules,
     schedule::Schedule,
     store::AppState,
+    types::AnchorState,
 };
 
 impl<L: L1Source, E: Engine> App<L, E> {
@@ -30,9 +33,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// The whole build runs within [`AppOptions::prepare_timeout`](super::AppOptions) (each
     /// external call also keeps its own deadline), so the proposer answers before CometBFT's
     /// `timeout_propose` even when every call is slow but in time. A failed build (I/O error,
-    /// timeout, a failing pre-check, an envelope above `max_tx_bytes` or one landing) is recorded
-    /// as the halt reason and logged, and answers empty `txs`; it is never an error. The only
-    /// error is a request before `InitChain`.
+    /// timeout, a failing pre-check, an unavailable forced inclusion blob, an envelope above
+    /// `max_tx_bytes` or one landing) is recorded as the halt reason and logged, and answers
+    /// empty `txs`; it is never an error. The only error is a request before `InitChain`.
     pub(super) async fn prepare_proposal(
         &mut self,
         req: request::PrepareProposal,
@@ -68,8 +71,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// the header and checks that its timestamp keeps the anchor fresh (an anchor older than
     /// `maxAnchorAge` proposes nothing until L1 finalizes a newer block). At `H(t)-2`, discovers
     /// or reuses committee `t` under the committed parent's state root and anchor number. Then
-    /// verifies the candidate, builds through the EL, checks every derived header field and
-    /// ensures the envelope fits CometBFT's transaction limit and one landing on its own
+    /// verifies the candidate, collects the forced inclusion witness the anchor's queue requires
+    /// ([`App::forced_inclusion`]), builds through the EL (from the consumed entry's transaction
+    /// list for a forced inclusion block), checks every derived header field and ensures the
+    /// envelope fits CometBFT's transaction limit and one landing on its own
     /// ([`check_landing_capacity`]).
     async fn propose(
         &self,
@@ -118,7 +123,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if let Some((target_epoch, witness)) = &committee {
             self.cache_committee_witness(state.anchor.number, *target_epoch, witness);
         }
-        let attrs = rules::payload_attributes(&expected, facts.anchor.hash, None);
+        let (forced, tx_list) = self.forced_inclusion(state, &facts.anchor).await?;
+        let attrs = rules::payload_attributes(&expected, facts.anchor.hash, tx_list);
         let block = deadline(
             "engine block build",
             self.opts.engine_timeout,
@@ -128,7 +134,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         rules::check_header(&block.header, &expected).map_err(Rejection::BuiltHeader)?;
 
         let committee = committee.map(|(_, w)| w);
-        let envelope = EtnaEnvelope { block, anchor, committee, forced: None }.encode();
+        let envelope = EtnaEnvelope { block, anchor, committee, forced }.encode();
         if !i64::try_from(envelope.len()).is_ok_and(|len| len <= req.max_tx_bytes) {
             return Err(Rejection::Oversize { len: envelope.len(), max: req.max_tx_bytes });
         }
@@ -166,6 +172,66 @@ impl<L: L1Source, E: Engine> App<L, E> {
             &self.discovery,
         )
         .await?)
+    }
+
+    /// The forced inclusion witness of the block on top of `state` anchored at `anchor`, and the
+    /// EL transaction list of a forced inclusion block (`None`: the EL selects the transactions).
+    ///
+    /// With the cursor `c` at or past the anchor's queue tail the block is ordinary and carries no
+    /// witness. Otherwise it proves entry `c` at the anchor and, as the forced inclusion rule
+    /// requires (early inclusion is never chosen): carries the entry's blob and consumes it when
+    /// due; carries no blob and consumes it as an empty block when expired, without fetching
+    /// anything; carries no blob and stays ordinary (a peek) while it is pending. The witness is
+    /// then judged by [`forced::check`], as validators judge it. A due entry whose blob cannot be
+    /// fetched, or whose fetched blob is not the entry's, is [`Rejection::BlobUnavailable`].
+    async fn forced_inclusion(
+        &self,
+        state: &AppState,
+        anchor: &AnchorState,
+    ) -> Result<(Option<ForcedWitness>, Option<Bytes>), Rejection> {
+        let index = state.forced_cursor;
+        if index >= anchor.inbox.forced_inclusion_tail {
+            return Ok((None, None));
+        }
+        let inbox = self.params.inbox;
+        let slots = inbox::forced_inclusion_entry_slots(index);
+        let entry = self
+            .l1_read(
+                "forced inclusion entry read",
+                self.l1.account_witness(inbox, &slots, anchor.number),
+            )
+            .await?;
+        let delay = state.genesis.forced_inclusion_delay;
+        let proven = forced::verify_entry(anchor.state_root, &entry, inbox, index)?;
+        let blob = if forced::is_due(&proven, anchor.timestamp, delay) &&
+            !forced::is_expired(&proven, anchor.timestamp)
+        {
+            self.forced_blob(&proven).await?
+        } else {
+            Bytes::new()
+        };
+        let witness = ForcedWitness { index, entry, blob };
+        let consumed =
+            forced::check(index, anchor, delay, inbox, Some(&witness)).map_err(|e| match e {
+                ForcedError::BlobHashMismatch { .. } | ForcedError::BadBlob => {
+                    Rejection::BlobUnavailable(e.to_string())
+                }
+                e => Rejection::Forced(e),
+            })?;
+        Ok((Some(witness), consumed.map(|c| c.tx_list)))
+    }
+
+    /// The blob of the due forced inclusion `entry`, by the entry's timestamp and versioned hash,
+    /// from the blob source within the L1 deadline; a failed fetch is
+    /// [`Rejection::BlobUnavailable`].
+    async fn forced_blob(&self, entry: &ForcedEntry) -> Result<Bytes, Rejection> {
+        let fetch = async {
+            self.blobs
+                .blob(entry.timestamp, entry.blob_hash)
+                .await
+                .map_err(Rejection::BlobUnavailable)
+        };
+        deadline("forced inclusion blob read", self.opts.l1_timeout, fetch).await
     }
 
     /// The anchor witness at L1 block `n`: its canonical header (which must be block `n`) and the

@@ -8,10 +8,10 @@
 //!
 //! The `types`, `config`, `schedule`, `envelope`, `l1::header`, `l1::layout`, `l1::mpt`,
 //! `l1::witness`, `committee`, `compression`, `forced`, `rules` and `engine::convert` modules and
-//! the genesis `app_state` codec perform no I/O; `l1::source`, `engine` and `elsync` hold the L1
-//! and execution-engine adapters, `l1::fetch` and the genesis builder read L1 through them, `app`
-//! answers CometBFT's ABCI requests on top of them, and `server` serves the app on CometBFT's ABCI
-//! socket.
+//! the genesis `app_state` codec perform no I/O; `l1::source`, `l1::blobs`, `engine` and
+//! `elsync` hold the L1, beacon and execution-engine adapters, `l1::fetch` and the genesis
+//! builder read L1 through them, `app` answers CometBFT's ABCI requests on top of them, and
+//! `server` serves the app on CometBFT's ABCI socket.
 
 /// The ABCI++ application: request dispatch and the per-method handlers.
 pub mod app;
@@ -68,8 +68,9 @@ pub use genesis::{
     encode_app_state,
 };
 pub use l1::{
-    FetchError, L1Error, L1HeaderError, L1Source, RawL1Header, RpcL1Source,
-    build_committee_witness, build_committee_witness_at_cutoff, header_at, is_final_canonical,
+    BeaconBlobs, BlobSource, FetchError, L1Error, L1HeaderError, L1Source, RawL1Header,
+    RpcL1Source, build_committee_witness, build_committee_witness_at_cutoff, header_at,
+    is_final_canonical,
 };
 pub use metrics::AbciMetrics;
 pub use rules::{ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation};

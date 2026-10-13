@@ -4,6 +4,9 @@
 //! connection task with it: CometBFT sees exactly what it sees when the app process dies. Starting
 //! it again builds a fresh app over the same store directory and port, as an operator restarting
 //! the process would.
+//!
+//! The apps have no beacon yet: their [`BlobSource`] serves no blob, which no scenario needs as
+//! long as none fills the forced inclusion queue.
 
 use std::{
     fs,
@@ -13,8 +16,12 @@ use std::{
     time::Duration,
 };
 
-use abci::{App, AppOptions, ChainParams, Engine, RpcEngine, RpcL1Source, Store, serve_with};
+use abci::{
+    App, AppOptions, BlobSource, ChainParams, Engine, RpcEngine, RpcL1Source, Store, serve_with,
+};
+use alloy_primitives::{B256, Bytes};
 use anyhow::{Context, Result, anyhow, ensure};
+use async_trait::async_trait;
 use rpc::client::{connect_http_with_timeout, http_timeout_for};
 use tokio::{net::TcpStream, sync::oneshot};
 use url::Url;
@@ -29,6 +36,18 @@ const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Deadline for a started app to listen on its port.
 const LISTEN_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// A [`BlobSource`] without a beacon behind it: every fetch fails.
+#[derive(Debug)]
+struct NoBeacon;
+
+#[async_trait]
+impl BlobSource for NoBeacon {
+    /// Fails: there is no beacon to ask.
+    async fn blob(&self, _timestamp: u64, versioned_hash: B256) -> Result<Bytes, String> {
+        Err(format!("no beacon to fetch blob {versioned_hash} from"))
+    }
+}
 
 /// Everything needed to (re)start app `index`.
 #[derive(Clone, Debug)]
@@ -231,8 +250,10 @@ fn run(
     runtime.shutdown_timeout(SHUTDOWN_TIMEOUT);
 }
 
-/// Waits for the EL's Engine API and builds the app over its store.
+/// Waits for the EL's Engine API, loads the KZG trusted setup (as `taiko-client abci` does
+/// before serving) and builds the app over its store.
 async fn build_app(c: &AppConfig) -> Result<App<RpcL1Source, RpcEngine>> {
+    tokio::task::spawn_blocking(abci::forced::warm_kzg_settings).await?;
     let opts = AppOptions::default();
     let engine =
         RpcEngine::new(c.reth.http.clone(), c.reth.auth.clone(), &c.jwt, opts.engine_timeout)?;
@@ -253,7 +274,7 @@ async fn build_app(c: &AppConfig) -> Result<App<RpcL1Source, RpcEngine>> {
         http_timeout_for(opts.l1_timeout),
     ));
     let store = Store::new(c.store_dir.clone());
-    Ok(App::new(l1, engine, c.params.clone(), store, opts)?)
+    Ok(App::new(l1, engine, Arc::new(NoBeacon), c.params.clone(), store, opts)?)
 }
 
 /// A free host port (bound on all interfaces, then released).

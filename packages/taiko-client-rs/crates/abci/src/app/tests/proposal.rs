@@ -307,24 +307,44 @@ pub(super) fn with_extra_transaction(mut env: EtnaEnvelope) -> EtnaEnvelope {
 /// Plants `inbox` as the finalized L1 block `number` of `l1`, its forced inclusion queue holding
 /// one entry (index 0, tail 1) submitted `forcedInclusionDelay` before that block, so the entry
 /// is due at an anchor there. The entry's blob codes a one-block manifest of
-/// [`sample_transactions`]; returns the blob.
+/// [`sample_transactions`] and the fixture's blob source serves it; returns the blob.
 pub(super) fn plant_due_entry(
     fx: &Fixture,
     l1: &MockL1,
     number: u64,
-    mut inbox: InboxStorage,
+    inbox: InboxStorage,
 ) -> Bytes {
-    let (blob, blob_hash) = forced_blob(&manifest_payload(sample_transactions()));
-    inbox.forced_inclusion_tail = 1;
-    inbox.forced_inclusion_queue = vec![ForcedEntry {
-        index: 0,
-        fee_in_gwei: 7,
-        blob_hash,
-        offset: 0,
-        timestamp: Fixture::l1_timestamp(number) - fx.genesis.forced_inclusion_delay,
-    }];
+    let due = Fixture::l1_timestamp(number) - fx.genesis.forced_inclusion_delay;
+    plant_entries(fx, l1, number, inbox, vec![(due, sample_transactions())]).remove(0)
+}
+
+/// Plants `inbox` as the finalized L1 block `number` of `l1`, its forced inclusion queue holding
+/// one entry per `(timestamp, transactions)` (indices from 0, tail = their count). Each entry's
+/// blob codes a one-block manifest of its transactions, and the fixture's blob source
+/// ([`Fixture::blobs`]) serves it; returns the blobs, in entry order.
+pub(super) fn plant_entries(
+    fx: &Fixture,
+    l1: &MockL1,
+    number: u64,
+    mut inbox: InboxStorage,
+    entries: Vec<(u64, Vec<TxEnvelope>)>,
+) -> Vec<Bytes> {
+    let mut blobs = Vec::with_capacity(entries.len());
+    for (index, (timestamp, transactions)) in (0..).zip(entries) {
+        let (blob, blob_hash) = forced_blob(&manifest_payload(transactions));
+        fx.blobs.insert(blob_hash, blob.clone());
+        inbox.forced_inclusion_queue.push(ForcedEntry {
+            index,
+            fee_in_gwei: 7,
+            blob_hash,
+            offset: 0,
+            timestamp,
+        });
+        blobs.push(blob);
+    }
+    inbox.forced_inclusion_tail = inbox.forced_inclusion_queue.len() as u64;
     fx.advance_l1(l1, number, &inbox, &fx.registry);
-    blob
+    blobs
 }
 
 #[tokio::test]
@@ -526,16 +546,14 @@ async fn switch_height_forced_block_carries_both_witnesses() {
     let parent = fx.anchor_state(app.l1(), 66);
     jump(&mut app, switch - 1, parent, &[]);
 
-    // The proposer carries the committee witness (it does not build forced blocks yet).
+    // The proposer builds the honest forced block with both witnesses.
     let proposed = propose(&mut app).await;
     assert!(proposed.anchor.is_none(), "the anchor stays at 66");
     assert_eq!(proposed.committee.as_ref().unwrap().record.target_epoch, 1);
-    assert_eq!(
-        validate(&app, &proposed).map(|_| ()),
-        Err(Rejection::Forced(ForcedError::MissingWitness { index: 0 }))
-    );
     let forced = fx.forced_witness(app.l1(), 66, 0, blob);
-    let env = hand_forced_envelope(&app, None, proposed.committee, forced, sample_tx_list());
+    let env =
+        hand_forced_envelope(&app, None, proposed.committee.clone(), forced, sample_tx_list());
+    assert_eq!(proposed, env);
 
     let v = validate(&app, &env).expect("both witnesses verify");
     assert_eq!(v.forced.as_ref().map(|f| f.index), Some(0));
@@ -597,6 +615,7 @@ async fn restart_rejects_a_changed_committee_config_opening() {
         App::new(
             fx.l1(),
             fx.engine(),
+            fx.blob_source(),
             params,
             Store::new(dir.path().to_path_buf()),
             AppOptions::default()
@@ -638,7 +657,14 @@ fn persisted_fixed_cutoff_config_is_rejected_without_migration() {
     store.save(&state).unwrap();
     let file = dir.path().join(crate::store::STATE_FILE);
     let before = std::fs::read(&file).unwrap();
-    let result = App::new(fx.l1(), fx.engine(), fx.params.clone(), store, AppOptions::default());
+    let result = App::new(
+        fx.l1(),
+        fx.engine(),
+        fx.blob_source(),
+        fx.params.clone(),
+        store,
+        AppOptions::default(),
+    );
     assert!(matches!(result, Err(AbciError::StoredState(_))));
     assert_eq!(std::fs::read(file).unwrap(), before);
 }

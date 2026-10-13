@@ -6,6 +6,7 @@ publish = false
 
 [dependencies]
 # async
+async-trait = { workspace = true }
 tokio = { workspace = true }
 
 # ethereum

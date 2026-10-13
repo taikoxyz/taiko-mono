@@ -1,10 +1,10 @@
 //! The ABCI++ application.
 //!
-//! [`App`] owns the node's own L1 view, the execution engine, the chain parameters and the
-//! persisted [`AppState`], and answers CometBFT's requests through [`App::handle`]. `InitChain`
-//! lives in [`init`]; `Info`, `Query` and `CheckTx` in [`info`]; `PrepareProposal` in
-//! [`prepare`] and `ProcessProposal` in [`process`], both on top of the deterministic checks of
-//! [`validate`]; `FinalizeBlock` and `Commit` in [`finalize`].
+//! [`App`] owns the node's own L1 view, the execution engine, the forced inclusion blob source,
+//! the chain parameters and the persisted [`AppState`], and answers CometBFT's requests through
+//! [`App::handle`]. `InitChain` lives in [`init`]; `Info`, `Query` and `CheckTx` in [`info`];
+//! `PrepareProposal` in [`prepare`] and `ProcessProposal` in [`process`], both on top of the
+//! deterministic checks of [`validate`]; `FinalizeBlock` and `Commit` in [`finalize`].
 //!
 //! Errors returned by [`App::handle`] are fatal to the connection; [`AbciError::SafetyHalt`]
 //! marks the ones where the node must stop signing and an operator must investigate.
@@ -13,7 +13,7 @@
 use std::{
     collections::VecDeque,
     future::Future,
-    sync::{Mutex, MutexGuard, PoisonError},
+    sync::{Arc, Mutex, MutexGuard, PoisonError},
     time::Duration,
 };
 
@@ -32,7 +32,7 @@ use crate::{
     engine::{Engine, EngineError},
     envelope::CommitteeWitness,
     genesis::GenesisError,
-    l1::{DiscoveryProgress, L1Error, L1Source},
+    l1::{BlobSource, DiscoveryProgress, L1Error, L1Source},
     metrics::{AbciMetrics, set_u64},
     rules::{RuleViolation, generation_from_chain_id},
     schedule::ScheduleError,
@@ -95,7 +95,8 @@ pub const MAX_VERDICTS: usize = 4;
 /// Deadlines of the app's external calls.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AppOptions {
-    /// Deadline of one L1 operation (a finality check, a header or proof read).
+    /// Deadline of one L1 operation (a finality check, a header or proof read, a forced
+    /// inclusion blob read from the beacon node).
     pub l1_timeout: Duration,
     /// Deadline of one Engine API or EL RPC call.
     pub engine_timeout: Duration,
@@ -247,6 +248,9 @@ pub struct App<L: L1Source, E: Engine> {
     l1: L,
     /// The execution engine.
     engine: E,
+    /// Where `PrepareProposal` fetches the blob of a due forced inclusion entry (never used by
+    /// `ProcessProposal`, `FinalizeBlock` or replay: a forced inclusion block carries its blob).
+    blobs: Arc<dyn BlobSource>,
     /// The chain parameters (validated).
     params: ChainParams,
     /// Where [`App::state`] is persisted.
@@ -285,15 +289,20 @@ pub struct App<L: L1Source, E: Engine> {
 }
 
 impl<L: L1Source, E: Engine> App<L, E> {
-    /// Creates the app, validating `params` and loading any persisted state from `store`.
+    /// Creates the app, validating `params` and loading any persisted state from `store`;
+    /// `blobs` serves the forced inclusion blobs this node's proposals consume.
     ///
     /// A loaded state must be consistent with `params` and with itself: its schedule must pass
     /// [`Schedule::validate`] for `params`' unsettled cap and equal the one derived from its
     /// genesis record, its `chain_id` must name `params.l2_chain_id` and its generation, and
     /// its last height must equal its parent's number and fit a CometBFT height.
+    ///
+    /// The KZG trusted setup forced inclusion blocks need is not loaded here: a server calls
+    /// [`forced::warm_kzg_settings`](crate::forced::warm_kzg_settings) before serving.
     pub fn new(
         l1: L,
         engine: E,
+        blobs: Arc<dyn BlobSource>,
         params: ChainParams,
         store: Store,
         opts: AppOptions,
@@ -306,6 +315,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let app = Self {
             l1,
             engine,
+            blobs,
             params,
             store,
             opts,
