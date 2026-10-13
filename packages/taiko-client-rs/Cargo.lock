@@ -6251,6 +6251,7 @@ version = "2.3.0"
 dependencies = [
  "alethia-reth-primitives",
  "alloy",
+ "alloy-eips 1.8.3",
  "alloy-primitives",
  "alloy-provider",
  "alloy-rpc-types-engine 1.8.3",
@@ -6259,12 +6260,16 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "once_cell",
  "reqwest",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "thiserror 2.0.18",
  "tokio",
  "tower",
+ "tracing",
+ "url",
 ]
 
 [[package]]
@@ -7187,6 +7192,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-provider",
  "anyhow",
+ "async-trait",
  "base64",
  "ed25519-dalek",
  "reqwest",

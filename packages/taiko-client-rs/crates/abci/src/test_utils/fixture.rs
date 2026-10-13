@@ -5,7 +5,8 @@
 //! [`TestState`], derives the `e_0` committee from it at the genesis cutoff, records its hash at
 //! `genesisCommitteeRecordHash`, builds the EL chain up to the genesis anchor `B*`, and assembles
 //! the genesis witness and the CometBFT `InitChain` request that start the chain.
-//! [`Fixture::l1`] and [`Fixture::engine`] serve that L1 and EL; [`Fixture::expected_state`] is
+//! [`Fixture::l1`] and [`Fixture::engine`] serve that L1 and EL, and [`Fixture::blobs`] the
+//! forced inclusion blobs every app of the fixture fetches from; [`Fixture::expected_state`] is
 //! the `AppState` a correct `InitChain` persists.
 //!
 //! For proposal tests, [`Fixture::plant_l1_block`] and [`Fixture::advance_l1`] add later L1
@@ -14,7 +15,7 @@
 //! forced inclusion queue entry there, and [`Fixture::committee`] derives a later epoch's
 //! committee from the genesis snapshot.
 
-use std::{collections::BTreeMap, path::Path};
+use std::{collections::BTreeMap, path::Path, sync::Arc};
 
 use alloy_consensus::Header;
 use alloy_primitives::{Address, B256, Bytes, U256};
@@ -30,7 +31,7 @@ use tendermint::{
 };
 
 use super::{
-    InboxStorage, MockEngine, MockL1, RegistryStorage, TestState, committee_witness,
+    InboxStorage, MockBlobs, MockEngine, MockL1, RegistryStorage, TestState, committee_witness,
     filler_accounts, inbox_account, l1_header, registry_account, sample_entries,
 };
 use crate::{
@@ -39,7 +40,7 @@ use crate::{
     config::ChainParams,
     envelope::{AnchorWitness, ForcedWitness},
     genesis::{GenesisWitness, encode_app_state},
-    l1::{header::RawL1Header, layout::inbox, verify_anchor_witness},
+    l1::{BlobSource, header::RawL1Header, layout::inbox, verify_anchor_witness},
     rules::chain_id_for,
     schedule::Schedule,
     store::{AppState, CommitteeState, Store},
@@ -140,6 +141,9 @@ pub(crate) struct Fixture {
     pub(crate) el_chain: Vec<Header>,
     /// The `InitChain` request CometBFT sends for this genesis.
     pub(crate) request: InitChain,
+    /// The blob source of every app built by [`Fixture::app`] (or over
+    /// [`Fixture::blob_source`]): one shared beacon, serving no blob until a test adds one.
+    pub(crate) blobs: MockBlobs,
 }
 
 impl Fixture {
@@ -219,6 +223,7 @@ impl Fixture {
             members,
             el_chain,
             request,
+            blobs: MockBlobs::default(),
         }
     }
 
@@ -240,12 +245,18 @@ impl Fixture {
         (self.l1(), self.engine(), self.params.clone(), self.request.clone())
     }
 
-    /// An app over [`Fixture::l1`], [`Fixture::engine`] and a store in `dir`, with default
-    /// options.
+    /// The fixture's blob source ([`Fixture::blobs`]) as an app takes it.
+    pub(crate) fn blob_source(&self) -> Arc<dyn BlobSource> {
+        Arc::new(self.blobs.clone())
+    }
+
+    /// An app over [`Fixture::l1`], [`Fixture::engine`], [`Fixture::blob_source`] and a store in
+    /// `dir`, with default options.
     pub(crate) fn app(&self, dir: &Path) -> App<MockL1, MockEngine> {
         App::new(
             self.l1(),
             self.engine(),
+            self.blob_source(),
             self.params.clone(),
             Store::new(dir.to_path_buf()),
             AppOptions::default(),

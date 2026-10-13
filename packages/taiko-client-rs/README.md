@@ -123,6 +123,7 @@ Serves the ABCI++ application to a CometBFT node.
 | `--data-dir`                            | `ABCI_DATA_DIR`        | Directory of the persisted app state (`abci-state.json`), required            |
 | `--chain-config`                        | `ABCI_CHAIN_CONFIG`    | Optional TOML overriding the built-in chain parameters (devnet only)          |
 | `--l1.http`                             | `L1_HTTP`              | The operator's own L1 node, HTTP(S) only, required (see L1 node requirements) |
+| `--l1.beacon`                           | `L1_BEACON`            | L1 beacon node serving forced inclusion blobs, HTTP(S), required              |
 | `--l2.http`                             | `L2_HTTP`              | alethia-reth's JSON-RPC endpoint, required                                    |
 | `--l2.auth`                             | `L2_AUTH`              | alethia-reth's Engine API endpoint, plain `http` only, required               |
 | `--jwt.secret`                          | `JWT_SECRET`           | Engine API JWT secret file, required                                          |
@@ -382,7 +383,7 @@ or config opening differs.
    must listen before CometBFT connects):
 
    ```sh
-   taiko-client abci --l1.http http://l1-node:8545 \
+   taiko-client abci --l1.http http://l1-node:8545 --l1.beacon http://l1-beacon:5052 \
      --l2.http http://localhost:8545 --l2.auth http://localhost:8551 --jwt.secret ./jwt.hex \
      --data-dir ./abci-data
    ```
@@ -420,6 +421,10 @@ or config opening differs.
   app re-encodes the header from `eth_getBlockByNumber`, which works only while it knows every
   header field: after the next L1 fork that adds one, proposals fail with an error naming the
   unknown fields until the namespace is enabled.
+- **Validators** fetch the blob of a due forced inclusion entry from `--l1.beacon`
+  (`/eth/v1/beacon/blobs/{slot}`, which since Fulu needs a supernode or semi-supernode). Blobs
+  are kept for about 18 days, longer than the 14 days after which an entry expires and needs no
+  blob. The app reads the beacon's genesis and spec at startup and does not start without them.
 - `abci-genesis` reads the initialization block and the registry entries back to the Inbox's
   `genesisCutoff`. That block is fixed when the initializing DAO proposal is written, well before
   the initialization block, so in practice `abci-genesis` needs an archive node.

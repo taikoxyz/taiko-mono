@@ -1,7 +1,7 @@
 //! App handler tests over [`MockL1`], [`MockEngine`] and a tempdir [`Store`], driven by
 //! [`Fixture`] genesis setups.
 
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 use tendermint::{
     abci::request::InitChain,
@@ -12,7 +12,7 @@ use super::{AbciError, App, AppOptions};
 use crate::{
     config::ChainParams,
     store::Store,
-    test_utils::{EngineCall, Fixture, MockEngine, MockL1},
+    test_utils::{EngineCall, Fixture, MockBlobs, MockEngine, MockL1},
 };
 
 mod committee_witness;
@@ -25,7 +25,7 @@ mod prepare;
 mod process;
 mod proposal;
 
-/// A fresh app over the given parts with default options and a store in `dir`.
+/// A fresh app over the given parts and a blob source serving no blob, with a store in `dir`.
 fn app_with(
     l1: MockL1,
     engine: MockEngine,
@@ -33,7 +33,8 @@ fn app_with(
     dir: &Path,
     opts: AppOptions,
 ) -> App<MockL1, MockEngine> {
-    App::new(l1, engine, params, Store::new(dir.to_path_buf()), opts).expect("app starts")
+    let blobs = Arc::new(MockBlobs::default());
+    App::new(l1, engine, blobs, params, Store::new(dir.to_path_buf()), opts).expect("app starts")
 }
 
 /// Sends `InitChain` through [`App::handle`].

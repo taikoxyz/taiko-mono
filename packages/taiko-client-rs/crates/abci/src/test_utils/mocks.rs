@@ -1,12 +1,13 @@
-//! In-memory [`L1Source`] and [`Engine`] implementations for tests.
+//! In-memory [`L1Source`], [`Engine`] and [`BlobSource`] implementations for tests.
 //!
-//! Both record every call ([`L1Call`], [`EngineCall`]) so tests can assert which I/O a handler
-//! performed (e.g. that `FinalizeBlock` never touches L1), and expose their state behind a mutex
-//! ([`MockL1::state`], [`MockEngine::state`]) for scripting.
+//! All record every call ([`L1Call`], [`EngineCall`], [`BlobCall`]) so tests can assert which I/O
+//! a handler performed (e.g. that `FinalizeBlock` never touches L1), and expose their state
+//! behind a mutex ([`MockL1::state`], [`MockEngine::state`], [`MockBlobs::state`]) for
+//! scripting.
 
 use std::{
     collections::{BTreeMap, HashMap, VecDeque},
-    sync::{Mutex, MutexGuard},
+    sync::{Arc, Mutex, MutexGuard},
     time::Duration,
 };
 
@@ -23,6 +24,7 @@ use crate::{
     engine::{Engine, EngineError, PayloadVerdict},
     envelope::ExecutionBlock,
     l1::{
+        blobs::BlobSource,
         header::RawL1Header,
         source::{L1Error, L1Source},
     },
@@ -205,6 +207,70 @@ impl L1Source for MockL1 {
         self.pause().await;
         let state = self.record(L1Call::StorageAt { address, slot, block })?;
         Ok(Self::state_at(&state, address, block)?.storage(address, slot))
+    }
+}
+
+/// One call made to a [`MockBlobs`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct BlobCall {
+    /// The L1 block timestamp asked for.
+    pub(crate) timestamp: u64,
+    /// The versioned hash asked for.
+    pub(crate) versioned_hash: B256,
+}
+
+/// The scriptable state of a [`MockBlobs`].
+#[derive(Debug, Default)]
+pub(crate) struct MockBlobsState {
+    /// The blobs served, by versioned hash (any timestamp); others are not found.
+    pub(crate) blobs: HashMap<B256, Bytes>,
+    /// When set, every call fails with this error.
+    pub(crate) fail: Option<String>,
+    /// When set, every call first sleeps this long (tokio time), to exercise timeouts.
+    pub(crate) delay: Option<Duration>,
+    /// Every call, in order.
+    pub(crate) calls: Vec<BlobCall>,
+}
+
+/// An in-memory beacon node serving blobs by versioned hash. Clones share one state, so a test
+/// keeps a handle on the source it hands an app.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct MockBlobs {
+    state: Arc<Mutex<MockBlobsState>>,
+}
+
+impl MockBlobs {
+    /// Locks the state for scripting or inspection.
+    pub(crate) fn state(&self) -> MutexGuard<'_, MockBlobsState> {
+        self.state.lock().expect("mock blobs lock")
+    }
+
+    /// Serves `blob` under `versioned_hash` (not checked: a test may serve a wrong blob).
+    pub(crate) fn insert(&self, versioned_hash: B256, blob: Bytes) {
+        self.state().blobs.insert(versioned_hash, blob);
+    }
+
+    /// Every call so far, in order.
+    pub(crate) fn calls(&self) -> Vec<BlobCall> {
+        self.state().calls.clone()
+    }
+}
+
+#[async_trait]
+impl BlobSource for MockBlobs {
+    /// Sleeps the scripted `delay`, records the call, then fails with the scripted error or
+    /// serves the blob of `versioned_hash`.
+    async fn blob(&self, timestamp: u64, versioned_hash: B256) -> Result<Bytes, String> {
+        let delay = self.state().delay;
+        if let Some(delay) = delay {
+            tokio::time::sleep(delay).await;
+        }
+        let mut state = self.state();
+        state.calls.push(BlobCall { timestamp, versioned_hash });
+        if let Some(err) = &state.fail {
+            return Err(err.clone());
+        }
+        state.blobs.get(&versioned_hash).cloned().ok_or_else(|| format!("no blob {versioned_hash}"))
     }
 }
 

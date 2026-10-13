@@ -452,6 +452,7 @@ async fn rpc_engine_invalid_without_a_validation_error_is_a_safety_halt() {
     let mut app = App::new(
         fx.l1(),
         engine,
+        fx.blob_source(),
         fx.params.clone(),
         Store::new(dir.path().to_path_buf()),
         AppOptions::default(),
@@ -895,12 +896,17 @@ async fn replay_rebuilds_forced_block_without_l1_or_beacon() {
         "the cached verdict was rebuilt and executed already: {calls:?}"
     );
 
-    // Crash before Commit: the EL keeps the block, the store the previous height; L1 is down.
+    // Crash before Commit: the EL keeps the block, the store the previous height; L1 and the
+    // beacon are down.
     let engine = app.engine().reopen();
     drop(app);
     let l1 = fx.l1();
     l1.state().fail = Some(L1Error::Rpc("unreachable".into()));
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    fx.blobs.state().fail = Some("unreachable".into());
+    let store = Store::new(dir.path().to_path_buf());
+    let mut app =
+        App::new(l1, engine, fx.blob_source(), fx.params.clone(), store, AppOptions::default())
+            .expect("the app restarts");
     assert_eq!(app.state(), Some(&committed));
     info(&mut app).await.expect("Info reconciles with an EL ahead");
 
@@ -908,6 +914,7 @@ async fn replay_rebuilds_forced_block_without_l1_or_beacon() {
     let replayed = finalize(&mut app, req).await.expect("the replay finalizes");
     assert_eq!(replayed, first);
     assert!(app.l1().calls().is_empty(), "FinalizeBlock never calls L1");
+    assert!(fx.blobs.calls().is_empty(), "nor fetches a blob, before or after the crash");
     let calls = engine_calls_since(&app, before);
     let [
         EngineCall::BuildBlock { parent, attrs },

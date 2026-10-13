@@ -1,11 +1,14 @@
 //! `abci` subcommand: serves the Etna PoS chain's ABCI++ app to CometBFT.
 
-use abci::{AbciMetrics, App, Engine, RpcEngine, RpcL1Source, Store, serve};
+use std::{sync::Arc, time::Instant};
+
+use abci::{AbciMetrics, App, BeaconBlobs, Engine, RpcEngine, RpcL1Source, Store, serve};
 use alloy_provider::Provider;
 use async_trait::async_trait;
 use clap::Parser;
 use rpc::{
     RpcClientError,
+    blob::BlobDataSource,
     client::{DEFAULT_HTTP_TIMEOUT, connect_http_with_timeout, http_timeout_for},
 };
 use tracing::info;
@@ -62,8 +65,10 @@ impl Subcommand for AbciSubCommand {
     /// Connects to the EL and L1, loads the app state and serves the app.
     ///
     /// In order: logs and metrics; the L2 chain id from `--l2.http`; the chain parameters for it;
-    /// the Engine API client and its capability check; the L1 provider (`--l1.http`); the app
-    /// over the state in `--data-dir`; the ABCI server on `--abci.addr`.
+    /// the Engine API client and its capability check; the L1 provider (`--l1.http`); the beacon
+    /// client (`--l1.beacon`, which must answer its genesis and spec); the KZG trusted setup,
+    /// loaded before serving so that no ABCI request pays the load; the app over the state in
+    /// `--data-dir`; the ABCI server on `--abci.addr`.
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
         self.init_metrics()?;
@@ -84,7 +89,16 @@ impl Subcommand for AbciSubCommand {
             common.l1_http_endpoint.clone(),
             http_timeout_for(opts.l1_timeout),
         ));
-        let app = App::new(l1, engine, params, Store::new(flags.data_dir.clone()), opts)?;
+        let beacon =
+            BlobDataSource::new(Some(flags.l1_beacon_endpoint.clone()), None, false).await?;
+        let started = Instant::now();
+        tokio::task::spawn_blocking(abci::forced::warm_kzg_settings)
+            .await
+            .map_err(std::io::Error::other)?;
+        info!(elapsed = ?started.elapsed(), "loaded the KZG trusted setup");
+        let blobs = Arc::new(BeaconBlobs(beacon));
+        let store = Store::new(flags.data_dir.clone());
+        let app = App::new(l1, engine, blobs, params, store, opts)?;
         info!(
             chain_id,
             addr = %flags.addr,
