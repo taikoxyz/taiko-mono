@@ -16,8 +16,10 @@ use std::{
 
 /// Journal schema version; incompatible formats stop rather than discard outstanding nonces.
 ///
-/// Schema 5 jobs bind compressed V3 blob payloads and snapshots carrying the forced inclusion
-/// queue; schema 4 bound uncompressed V2 payloads and schema 3 complete V1 blocks.
+/// Schema 5 jobs bind the eighteen-word V6 statement over a six-field `LandInput` (forced
+/// inclusion head after the batch and fee recipient included), compressed V3 blob payloads and
+/// snapshots carrying the forced inclusion queue; schema 4 bound V5 statements over uncompressed
+/// V2 payloads and schema 3 complete V1 blocks.
 const JOURNAL_VERSION: u8 = 5;
 /// Hard allocation bound before reading or decoding an untrusted journal.
 pub(crate) const MAX_JOURNAL_BYTES: u64 = 256 * 1024 * 1024;

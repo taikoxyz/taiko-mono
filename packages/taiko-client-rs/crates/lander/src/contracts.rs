@@ -7,8 +7,16 @@ sol!(
     "contracts/IEtnaInbox.sol"
 );
 
+sol!(
+    /// `EtnaInbox`'s revert for a `LandInput` whose `feeRecipient` is zero. Custom errors live in
+    /// the implementation, not the interface snapshot above, so this one is declared here; a unit
+    /// test checks it against the pinned `EtnaInbox` ABI.
+    #[sol(all_derives)]
+    error ZeroFeeRecipient();
+);
+
 /// Protocol revision from which the interface and contract fixtures are generated.
-pub const PROTOCOL_REVISION: &str = "abdc6288d476c371ed0b60e32dd9ccce7cded1b8";
+pub const PROTOCOL_REVISION: &str = "07615285c93d6475d1863dd840bd94fe64866514";
 
 /// Journal representation of generated ABI values as canonical ABI bytes.
 pub(crate) mod land_input_serde {

@@ -1,19 +1,21 @@
 //! Exact V6 ABI encoding, including proxy/registry identities, parent-anchor configuration,
-//! ordered blobs and the forced inclusion queue heads before and after the batch.
+//! ordered blobs, the forced inclusion queue heads before and after the batch, and the fee
+//! recipient.
 
 use crate::{contracts::IEtnaInbox::LandInput, types::LandingSnapshot};
 use alloy_primitives::{B256, U256, keccak256};
 
-/// Byte length of the static seventeen-word public statement preimage.
-pub const PREIMAGE_BYTES: usize = 17 * 32;
+/// Byte length of the static eighteen-word public statement preimage.
+pub const PREIMAGE_BYTES: usize = 18 * 32;
 
 /// Hash Solidity's packed ordered bytes32 blob list, with no array offset or length words.
 pub fn blob_hashes_hash(hashes: &[B256]) -> B256 {
     keccak256(hashes.iter().flat_map(|h| h.as_slice()).copied().collect::<Vec<_>>())
 }
 
-/// The exact seventeen static ABI words authenticated by `hashLandStatement`: the fifteen V5
-/// words under the V6 domain, then the stored forced inclusion head and the batch's head after.
+/// The exact eighteen static ABI words authenticated by `hashLandStatement`: the fifteen V5
+/// words under the V6 domain, then the stored forced inclusion head, the batch's head after and
+/// its fee recipient (`LandInput.feeRecipient`, an address word).
 pub fn preimage(
     snapshot: &LandingSnapshot,
     input: &LandInput,
@@ -26,6 +28,8 @@ pub fn preimage(
     inbox[12..].copy_from_slice(snapshot.inbox.as_slice());
     let mut registry = [0u8; 32];
     registry[12..].copy_from_slice(snapshot.registry.as_slice());
+    let mut fee_recipient = [0u8; 32];
+    fee_recipient[12..].copy_from_slice(input.feeRecipient.as_slice());
     let words = [
         tag,
         snapshot.l1_chain_id.to_be_bytes::<32>(),
@@ -44,6 +48,7 @@ pub fn preimage(
         blob_hashes_hash(blob_hashes).0,
         U256::from(snapshot.forced_inclusion_head).to_be_bytes::<32>(),
         U256::from(input.forcedInclusionHead).to_be_bytes::<32>(),
+        fee_recipient,
     ];
     let mut out = [0; PREIMAGE_BYTES];
     for (word, target) in words.iter().zip(out.chunks_exact_mut(32)) {
@@ -68,7 +73,8 @@ mod tests {
     use crate::test_utils::protocol::request;
     use alloy_primitives::{address, aliases::U48, b256};
 
-    /// The V5 fixed-vector inputs plus forced inclusion heads 3 (stored) and 5 (input).
+    /// The V5 fixed-vector inputs plus forced inclusion heads 3 (stored) and 5 (input) and fee
+    /// recipient `0x…aa`.
     fn vector() -> (LandingSnapshot, LandInput, B256, Vec<B256>) {
         let mut snapshot = request().batch.snapshot;
         snapshot.l1_chain_id = U256::from(1);
@@ -87,6 +93,7 @@ mod tests {
             lastStateRoot: B256::from(U256::from(0x33)),
             l1ReferenceBlockNumber: 19_000_000,
             forcedInclusionHead: U48::from(5),
+            feeRecipient: address!("00000000000000000000000000000000000000aa"),
         };
         (
             snapshot,
@@ -96,21 +103,30 @@ mod tests {
         )
     }
 
+    /// The vector the contracts pin (`EtnaInboxLand.t.sol`), computed independently there with
+    /// `cast abi-encode` and `cast keccak` over the eighteen words.
     #[test]
-    fn matches_independent_v6_vector_and_exact_seventeen_words() {
+    fn matches_independent_v6_vector_and_exact_eighteen_words() {
         let (snapshot, input, reference, hashes) = vector();
         assert_eq!(
             blob_hashes_hash(&hashes),
             b256!("e7591a4eb3dcfdc958b08bf3db6054ebae1f9b1a82b8c685499c13314381ea64")
         );
         let preimage = preimage(&snapshot, &input, reference, &hashes);
-        assert_eq!(preimage.len(), 544);
+        assert_eq!(preimage.len(), 576);
         assert_eq!(
             hash(&snapshot, &input, reference, &hashes),
-            b256!("4815a3e1647da69f7c7cb55035aa8dd6fcf0e4690fe18e570d322a6d12a3699d")
+            b256!("05d7780cd6d28e0ddb88f9d1c6c60e04be965f69e40ac3c57c617a4fd3458928")
         );
         assert_eq!(preimage[15 * 32..16 * 32], U256::from(3).to_be_bytes::<32>());
-        assert_eq!(preimage[16 * 32..], U256::from(5).to_be_bytes::<32>());
+        assert_eq!(preimage[16 * 32..17 * 32], U256::from(5).to_be_bytes::<32>());
+        assert_eq!(preimage[17 * 32..17 * 32 + 12], [0; 12]);
+        assert_eq!(preimage[17 * 32 + 12..], input.feeRecipient.0);
+        // The recipient is appended: the first seventeen words are the former V6 vector.
+        assert_eq!(
+            keccak256(&preimage[..17 * 32]),
+            b256!("4815a3e1647da69f7c7cb55035aa8dd6fcf0e4690fe18e570d322a6d12a3699d")
+        );
         // Under the V5 domain, the first fifteen words are exactly the pinned V5 vector.
         let mut v5 = preimage;
         v5[b"TAIKO_ETNA_LAND_V6".len() - 1] = b'5';
@@ -121,11 +137,11 @@ mod tests {
     }
 
     #[test]
-    fn every_seventeen_word_and_v5_domain_mutation_changes_the_vector() {
+    fn every_eighteen_word_and_v5_domain_mutation_changes_the_vector() {
         let (snapshot, input, reference, hashes) = vector();
         let preimage = preimage(&snapshot, &input, reference, &hashes);
         let expected = keccak256(preimage);
-        for word in 0..17 {
+        for word in 0..18 {
             let mut changed = preimage;
             changed[word * 32 + 31] ^= 1;
             assert_ne!(keccak256(changed), expected, "word {word}");
@@ -161,7 +177,7 @@ mod tests {
                 "snapshot field {field}"
             );
         }
-        for field in 0..6 {
+        for field in 0..8 {
             let mut changed = input.clone();
             match field {
                 0 => changed.lastHeight += 1,
@@ -170,6 +186,8 @@ mod tests {
                 3 => changed.l1ReferenceBlockNumber += 1,
                 4 => changed.forcedInclusionHead += U48::from(1),
                 5 => changed.forcedInclusionHead = U48::MAX,
+                6 => changed.feeRecipient = alloy_primitives::Address::ZERO,
+                7 => changed.feeRecipient = address!("00000000000000000000000000000000000000ab"),
                 _ => unreachable!(),
             }
             assert_ne!(
@@ -196,12 +214,13 @@ mod tests {
         use alloy::sol_types::SolCall;
         assert_eq!(
             crate::contracts::IEtnaInbox::landCall::SIGNATURE,
-            "land((uint64,bytes32,bytes32,uint64,uint48),bytes)"
+            "land((uint64,bytes32,bytes32,uint64,uint48,address),bytes)"
         );
         assert_eq!(
             crate::contracts::IEtnaInbox::landCall::SELECTOR,
             keccak256(crate::contracts::IEtnaInbox::landCall::SIGNATURE)[..4]
         );
+        assert_eq!(crate::contracts::IEtnaInbox::landCall::SELECTOR, [0x25, 0xc4, 0x13, 0x48]);
         let (_, input, _, _) = vector();
         let call = crate::contracts::IEtnaInbox::landCall {
             _input: input.clone(),
