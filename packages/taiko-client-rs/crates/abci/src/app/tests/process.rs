@@ -7,9 +7,9 @@ use alloy_primitives::{Address, B256, Bytes, U256};
 
 use super::{
     proposal::{
-        MAX_TX_BYTES, bft_time, decide, hand_envelope, incompressible, judge, jump, mid_epoch,
-        next_height, plant_due_entry, prepare, prepare_req, process, process_req, propose,
-        rejected, set_anchor_age, validate,
+        MAX_TX_BYTES, bft_time, decide, hand_envelope, hand_forced_envelope, incompressible, judge,
+        jump, mid_epoch, next_height, plant_due_entry, prepare, prepare_req, process, process_req,
+        propose, rejected, sample_tx_list, set_anchor_age, validate, with_extra_transaction,
     },
     *,
 };
@@ -21,7 +21,7 @@ use crate::{
     forced::{ForcedConsumption, ForcedError},
     l1::L1Error,
     rules::{RuleViolation, encode_extra_data},
-    test_utils::{edit_l1_header, sample_transactions},
+    test_utils::{edit_l1_header, sample_transactions, simple_block},
 };
 
 /// One in-place header mutation.
@@ -346,8 +346,8 @@ async fn ordinary_block_skipping_a_due_entry_is_rejected() {
     );
     assert_eq!(rejected(&mut app, &peek).await, "forced_inclusion");
 
-    let mut forced = ordinary;
-    forced.forced = Some(fx.forced_witness(app.l1(), 66, 0, blob));
+    let witness = fx.forced_witness(app.l1(), 66, 0, blob);
+    let forced = hand_forced_envelope(&app, ordinary.anchor, None, witness, sample_tx_list());
     let consumed = ForcedConsumption {
         index: 0,
         tx_list: protocol::shasta::encode_transactions(&sample_transactions()),
@@ -355,6 +355,81 @@ async fn ordinary_block_skipping_a_due_entry_is_rejected() {
     assert_eq!(validate(&app, &forced).map(|v| v.forced), Ok(Some(consumed)));
     let (resp, _) = judge(&mut app, &forced).await;
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
+}
+
+/// A mid-epoch app whose own L1 finalized block 66 holding one due entry, and the forced block
+/// an honest proposer builds consuming it, anchored at 66.
+async fn forced_block(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, EtnaEnvelope) {
+    let app = mid_epoch(fx, dir, 5).await;
+    let blob = plant_due_entry(fx, app.l1(), 66, fx.inbox.clone());
+    let anchor = Some(fx.anchor_witness(app.l1(), 66));
+    let witness = fx.forced_witness(app.l1(), 66, 0, blob);
+    let env = hand_forced_envelope(&app, anchor, None, witness, sample_tx_list());
+    (app, env)
+}
+
+/// The EL rebuilds a forced inclusion block on the committed parent from the consumed entry's
+/// transaction list, with the derived header's attributes; a proposed block equal to the rebuild
+/// is then executed and accepted.
+#[tokio::test]
+async fn process_accepts_a_forced_block_equal_to_the_rebuild() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let (mut app, env) = forced_block(&fx, dir.path()).await;
+    assert_eq!(env.block.transactions.len(), sample_transactions().len());
+
+    let before = app.engine().calls().len();
+    let (resp, req) = judge(&mut app, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
+
+    let parent = app.state().unwrap().parent.hash;
+    let calls = app.engine().calls()[before..].to_vec();
+    let [EngineCall::BuildBlock { parent: built_on, attrs }, EngineCall::NewPayload(executed)] =
+        calls.as_slice()
+    else {
+        panic!("a rebuild, then the execution: {calls:?}");
+    };
+    assert_eq!(*built_on, parent);
+    assert_eq!(attrs.block_metadata.tx_list, Some(sample_tx_list()), "the explicit list");
+    assert!(attrs.l1_origin.is_forced_inclusion);
+    assert_eq!(simple_block(parent, attrs), env.block, "the attributes derive the block");
+    assert_eq!(*executed, env.block.header.hash_slow());
+    let v = app.verdicts.get(&req.hash).expect("the verdict is cached");
+    assert_eq!(v.forced.as_ref().map(|f| f.index), Some(0));
+    assert!(v.executed);
+}
+
+/// A forced inclusion block with one more transaction than its entry's list passes every
+/// deterministic check, but is not the block the EL rebuilds: rejected before it is executed.
+#[tokio::test]
+async fn process_rejects_a_forced_block_with_an_extra_transaction() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let (mut app, honest) = forced_block(&fx, dir.path()).await;
+    let env = with_extra_transaction(honest.clone());
+    assert!(validate(&app, &env).is_ok(), "deterministically valid");
+
+    let before = app.engine().calls().len();
+    assert_eq!(rejected(&mut app, &env).await, "forced_rebuild_mismatch");
+    let calls = app.engine().calls()[before..].to_vec();
+    assert!(matches!(calls.as_slice(), [EngineCall::BuildBlock { .. }]), "not executed: {calls:?}");
+    assert!(app.verdicts.is_empty());
+    assert_eq!(
+        Rejection::ForcedRebuildMismatch {
+            expected: honest.block.header.hash_slow(),
+            got: env.block.header.hash_slow(),
+        }
+        .label(),
+        "forced_rebuild_mismatch"
+    );
+
+    // An EL that cannot rebuild the block refuses it too (liveness only), without executing it.
+    let other_dir = tempfile::tempdir().unwrap();
+    let (mut app, env) = forced_block(&fx, other_dir.path()).await;
+    let build_failure = EngineError::BuildNotStarted("SYNCING".into());
+    app.engine().state().build_script.push_back(Err(build_failure));
+    assert_eq!(rejected(&mut app, &env).await, "engine_error");
+    assert!(!app.engine().calls().iter().any(|c| matches!(c, EngineCall::NewPayload(_))));
 }
 
 /// While the queue's next entry is pending but not due, ordinary blocks peek it (its proof with an

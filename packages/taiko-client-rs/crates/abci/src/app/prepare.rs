@@ -118,7 +118,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if let Some((target_epoch, witness)) = &committee {
             self.cache_committee_witness(state.anchor.number, *target_epoch, witness);
         }
-        let attrs = rules::payload_attributes(&expected, facts.anchor.hash);
+        let attrs = rules::payload_attributes(&expected, facts.anchor.hash, None);
         let block = deadline(
             "engine block build",
             self.opts.engine_timeout,

@@ -387,6 +387,7 @@ mod tests {
                 mix_hash: p.prev_randao,
             },
             B256::repeat_byte(0x11),
+            None,
         )
     }
 

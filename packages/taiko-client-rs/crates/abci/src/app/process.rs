@@ -1,12 +1,16 @@
 //! `ProcessProposal`: the deterministic checks of [`validate_block`], then the
-//! node-local ¹ checks (anchor finality in the own L1 view, EL execution).
+//! node-local ¹ checks (anchor finality in the own L1 view, EL execution), with the EL rebuild of
+//! a forced inclusion block before its execution.
 
 use alloy_primitives::Bytes;
 use tendermint::abci::{request, response};
 
 use super::{
     AbciError, App, deadline, unix_secs,
-    validate::{Rejection, Validated, check_landing_capacity, validate_block},
+    validate::{
+        Rejection, Validated, check_forced_rebuild, check_landing_capacity,
+        forced_rebuild_attributes, validate_block,
+    },
 };
 use crate::{
     engine::{Engine, PayloadVerdict},
@@ -56,7 +60,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// [`validate_block`] with the request's BFT time; the block must fit one landing on its own
     /// ([`check_landing_capacity`], a liveness guard `FinalizeBlock` does not repeat); a present
     /// anchor witness must be final and canonical in the own L1 view (L1 is not called when it is
-    /// absent); the EL must execute the block as `VALID`.
+    /// absent); a forced inclusion block must be the block the EL rebuilds on the committed parent
+    /// from its entry's transaction list ([`forced_rebuild_attributes`], [`check_forced_rebuild`]),
+    /// within the engine deadline; the EL must execute the block as `VALID`.
     ///
     /// Supersession is reported only after the supplied anchor is independently confirmed final
     /// and canonical, since a forged header could claim a later generation. Verified committee
@@ -92,6 +98,17 @@ impl<L: L1Source, E: Engine> App<L, E> {
         check_landing_capacity(&txs[0])?;
         if let Some(w) = &env.anchor {
             self.check_anchor_final(w).await?;
+        }
+        if let Some(attrs) =
+            forced_rebuild_attributes(state, &self.params, height, bft_secs, &validated)?
+        {
+            let rebuilt = deadline(
+                "engine block build",
+                self.opts.engine_timeout,
+                self.engine.build_block(state.parent.hash, attrs),
+            )
+            .await?;
+            check_forced_rebuild(&validated.block, &rebuilt)?;
         }
         let verdict = deadline(
             "engine_newPayload",

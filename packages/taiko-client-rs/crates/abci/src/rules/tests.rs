@@ -392,7 +392,7 @@ fn check_header_reports_the_first_mismatch() {
 fn payload_attributes_mirror_the_expected_header() {
     let e = non_genesis_expected();
     let anchor_hash = B256::repeat_byte(0xa1);
-    let attrs = payload_attributes(&e, anchor_hash);
+    let attrs = payload_attributes(&e, anchor_hash, None);
 
     let eth = &attrs.payload_attributes;
     assert_eq!(eth.timestamp, e.timestamp);
@@ -421,13 +421,35 @@ fn payload_attributes_mirror_the_expected_header() {
     assert_eq!(attrs.anchor_transaction, None);
 }
 
+/// A forced inclusion block's attributes carry its explicit transaction list (the EL builds
+/// from it alone) and mark the L1 origin forced; the list enters the payload id, every other
+/// field is the ordinary block's.
+#[test]
+fn payload_attributes_carry_a_forced_inclusion_tx_list() {
+    let e = non_genesis_expected();
+    let anchor_hash = B256::repeat_byte(0xa1);
+    let tx_list = Bytes::from_static(&[0xc2, 0x01, 0x02]);
+    let ordinary = payload_attributes(&e, anchor_hash, None);
+    let forced = payload_attributes(&e, anchor_hash, Some(tx_list.clone()));
+
+    assert_eq!(forced.block_metadata.tx_list, Some(tx_list));
+    assert!(forced.l1_origin.is_forced_inclusion);
+    assert_ne!(forced.l1_origin.build_payload_args_id, ordinary.l1_origin.build_payload_args_id);
+
+    let mut expected = ordinary;
+    expected.block_metadata.tx_list = forced.block_metadata.tx_list.clone();
+    expected.l1_origin.is_forced_inclusion = true;
+    expected.l1_origin.build_payload_args_id = forced.l1_origin.build_payload_args_id;
+    assert_eq!(forced, expected);
+}
+
 #[test]
 fn payload_attributes_id_depends_on_the_parent_hash() {
     let e = non_genesis_expected();
     let other = ExpectedHeader { parent_hash: B256::repeat_byte(0x42), ..e.clone() };
     assert_ne!(
-        payload_attributes(&e, B256::ZERO).l1_origin.build_payload_args_id,
-        payload_attributes(&other, B256::ZERO).l1_origin.build_payload_args_id
+        payload_attributes(&e, B256::ZERO, None).l1_origin.build_payload_args_id,
+        payload_attributes(&other, B256::ZERO, None).l1_origin.build_payload_args_id
     );
 }
 

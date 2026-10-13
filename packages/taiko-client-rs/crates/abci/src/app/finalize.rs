@@ -1,11 +1,12 @@
 //! `FinalizeBlock` and `Commit`.
 //!
 //! `FinalizeBlock` is deterministic: it judges a decided block on its envelope, the committed
-//! [`AppState`] and the EL alone, never L1 (every L1 fact a block consumes travels in the block),
-//! so a node replaying after a crash or block-syncing derives the same response and state as one
-//! that voted. A decided block that fails a deterministic check, that the EL rejects, or that
-//! contradicts a known committee is a safety halt: the process exits and an operator must
-//! investigate. The derived state stays pending until `Commit` persists it.
+//! [`AppState`] and the EL alone, never L1 or a beacon (every L1 fact a block consumes travels in
+//! the block, a forced inclusion block's blob included), so a node replaying after a crash or
+//! block-syncing derives the same response and state as one that voted. A decided block that fails
+//! a deterministic check, that the EL rejects, or that contradicts a known committee is a safety
+//! halt: the process exits and an operator must investigate. The derived state stays pending until
+//! `Commit` persists it.
 
 use std::{fmt, future::Future, time::Duration};
 
@@ -23,7 +24,9 @@ use tokio::time::Instant;
 use super::{
     AbciError, App, FINALIZE_RETRY_ESCALATE, FINALIZE_RETRY_INITIAL, FINALIZE_RETRY_MAX, app_hash,
     unix_secs,
-    validate::{Rejection, Validated, validate_block},
+    validate::{
+        Rejection, Validated, check_forced_rebuild, forced_rebuild_attributes, validate_block,
+    },
 };
 use crate::{
     committee,
@@ -42,19 +45,23 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// In order: the block's [`Validated`] verdict is taken from the `ProcessProposal` cache
     /// (by CometBFT block hash) or, when absent (crash replay, block sync), recomputed by
     /// [`validate_block`] from the block's single envelope and BFT time; the next state and the
-    /// validator updates are derived ([`next_state`]); the EL executes the block unless the
-    /// cached verdict already did, then moves its forkchoice to `head = safe =` the block and
-    /// `finalized =` the anchored `lastCheckpoint.blockHash` (the L1-accepted checkpoint, so the
-    /// EL can still rewind above it; zero stays zero); the next state becomes pending until
-    /// `Commit`. The state is derived before any EL call so a contradiction halts before the EL
-    /// moves.
+    /// validator updates are derived ([`next_state`]); with a recomputed verdict, a forced
+    /// inclusion block must be the block the EL rebuilds from its entry's transaction list
+    /// ([`App::rebuild_forced`]; `ProcessProposal` did so for a cached one); the EL executes the
+    /// block unless the cached verdict already did, then moves its forkchoice to `head = safe =`
+    /// the block and `finalized =` the anchored `lastCheckpoint.blockHash` (the L1-accepted
+    /// checkpoint, so the EL can still rewind above it; zero stays zero); the next state becomes
+    /// pending until `Commit`. The state is derived before any EL call so a contradiction halts
+    /// before the EL moves.
     ///
     /// The response carries one code-0 `ExecTxResult` for the envelope transaction, the
     /// validator updates of a switch height (CometBFT applies them two heights later, at
     /// `h_first`), `app_hash =` the block hash, no events and no parameter updates.
     ///
     /// Re-finalizing a block the EL already executed (a replay after a crash before `Commit`)
-    /// answers the same: the EL accepts a known payload and forkchoice again. EL calls block
+    /// answers the same: the EL accepts a known payload and forkchoice again, and rebuilds a
+    /// forced inclusion block on its parent although its head is that block (alethia-reth builds
+    /// on a canonical ancestor without moving its head). EL calls block
     /// until the EL settles the block ([`App::settle`]). Errors: [`AbciError::Uninitialized`]
     /// before `InitChain`; [`AbciError::SafetyHalt`] for any failure of the decided block.
     pub(super) async fn finalize_block(
@@ -66,22 +73,16 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let Some(state) = &self.state else {
             return Err(AbciError::Uninitialized("FinalizeBlock"));
         };
-        let validated = match self.verdicts.remove(&req.hash) {
-            Some(cached) => cached,
+        let bft_secs = unix_secs(req.time);
+        let (validated, cold) = match self.verdicts.remove(&req.hash) {
+            Some(cached) => (cached, false),
             None => {
                 let txs: Vec<Bytes> = req.txs.iter().cloned().map(Bytes::from).collect();
-                single_envelope(&txs)
+                let validated = single_envelope(&txs)
                     .map_err(Rejection::from)
-                    .and_then(|env| {
-                        validate_block(state, &self.params, &env, height, unix_secs(req.time))
-                    })
-                    .map_err(|rejection| {
-                        safety_halt(
-                            height,
-                            rejection.label(),
-                            format!("invalid block: {rejection}"),
-                        )
-                    })?
+                    .and_then(|env| validate_block(state, &self.params, &env, height, bft_secs))
+                    .map_err(|rejection| invalid_block(height, &rejection))?;
+                (validated, true)
             }
         };
         let (next, updates) = next_state(state, &validated, height)?;
@@ -89,6 +90,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
             .into_iter()
             .map(|update| validator_update(height, update))
             .collect::<Result<Vec<_>, _>>()?;
+        if cold {
+            self.rebuild_forced(state, height, bft_secs, &validated).await?;
+        }
 
         let hash = next.parent.hash;
         let finalized = next.anchor.inbox.last_checkpoint_hash;
@@ -200,6 +204,51 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
     }
 
+    /// Rebuilds the forced inclusion block of `v`, decided at `height` with BFT time `bft_secs` on
+    /// top of `state` and judged without a `ProcessProposal` verdict, and requires the decided
+    /// block to be it, as `ProcessProposal` does ([`forced_rebuild_attributes`],
+    /// [`check_forced_rebuild`]); an ordinary block needs nothing. The rebuild reads the envelope
+    /// alone, never L1 or a beacon.
+    ///
+    /// A build failing for a node-local reason is retried on its own [`Backoff`], as
+    /// [`App::settle`] retries: a retryable engine error ([`EngineError::is_retryable`]), an
+    /// elapsed engine deadline, or a build the EL did not start ([`EngineError::BuildNotStarted`],
+    /// e.g. while it lacks the parent, which the build's forkchoice update points it at). Every
+    /// other engine error, and a rebuilt block whose hash differs from the decided block's
+    /// ([`Rejection::ForcedRebuildMismatch`]), is an [`AbciError::SafetyHalt`].
+    async fn rebuild_forced(
+        &self,
+        state: &AppState,
+        height: u64,
+        bft_secs: u64,
+        v: &Validated,
+    ) -> Result<(), AbciError> {
+        let attrs = forced_rebuild_attributes(state, &self.params, height, bft_secs, v)
+            .map_err(|rule| invalid_block(height, &Rejection::Rule(rule)))?;
+        let Some(attrs) = attrs else {
+            return Ok(());
+        };
+        let limit = self.opts.engine_timeout;
+        let mut backoff = Backoff::new(height);
+        loop {
+            let build = self.engine.build_block(state.parent.hash, attrs.clone());
+            let reason = match tokio::time::timeout(limit, build).await {
+                Ok(Ok(rebuilt)) => {
+                    return check_forced_rebuild(&v.block, &rebuilt)
+                        .map_err(|rejection| invalid_block(height, &rejection));
+                }
+                Ok(Err(e)) if e.is_retryable() || matches!(e, EngineError::BuildNotStarted(_)) => {
+                    e.to_string()
+                }
+                Ok(Err(e)) => {
+                    return Err(safety_halt(height, "engine_error", format!("{BUILD} failed: {e}")));
+                }
+                Err(_) => format!("timed out after {limit:?}"),
+            };
+            backoff.wait(BUILD, &reason).await;
+        }
+    }
+
     /// Runs the EL call `call` (named `method`) for the decided block at `height` within the
     /// engine deadline and sorts its answer (see [`App::settle`]).
     async fn el_call(
@@ -226,6 +275,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
 /// The Engine API method name of a forkchoice update, for logs and safety-halt messages.
 const FCU: &str = "engine_forkchoiceUpdated";
+
+/// The name of an EL block build (a forkchoice update with attributes, then `getPayload`), for
+/// logs and safety-halt messages.
+const BUILD: &str = "engine block build";
 
 /// What one EL call of `FinalizeBlock` came to, short of a safety halt.
 #[derive(Debug)]
@@ -362,6 +415,12 @@ fn validator_update(
         safety_halt(height, "validator_power", format!("validator {pubkey} power {power}: {e}"))
     })?;
     Ok(validator::Update { pub_key, power })
+}
+
+/// The safety halt of the decided block at `height` that fails `rejection` ([`safety_halt`] with
+/// the rejection's label).
+fn invalid_block(height: u64, rejection: &Rejection) -> AbciError {
+    safety_halt(height, rejection.label(), format!("invalid block: {rejection}"))
 }
 
 /// Logs a safety halt of the decided block at `height` (ERROR, with its `reason` label) and
