@@ -2,7 +2,8 @@
 mod support;
 
 use alloy::{consensus::Transaction, sol_types::SolCall};
-use alloy_primitives::{B256, Bytes, U256};
+use alloy_eips::BlockId;
+use alloy_primitives::{B256, Bytes, U256, aliases::U48};
 use alloy_provider::Provider;
 use anyhow::{Context, Result};
 use lander::{
@@ -139,6 +140,66 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
         let signed = sign(&fixture, &next).await?;
         assert_landed(&fixture, &next, &signed).await?;
     }
+    fixture.anvil.stop().await
+}
+
+/// A user stores a forced inclusion on the real Inbox; the decided chain's next block after its
+/// L1 block is final consumes it with a real entry proof and its blob, and landing that batch moves
+/// the queue head and pays the entry's fee to the lander.
+#[tokio::test]
+#[ignore = "requires Docker: actual Etna contracts on Osaka anvil"]
+async fn lander_actual_contract_forced_inclusion_lands_and_pays_fee() -> Result<()> {
+    let fixture = ContractFixture::deploy().await?;
+    let p = &fixture.anvil.provider;
+    let mut chain = FixtureChain::new(&fixture).await?;
+    chain.extend(&fixture, 2).await?;
+
+    // A one-block Shasta source; the lander checks the blob's binding, not its transactions.
+    let payload = protocol::shasta::manifest::DerivationSourceManifest {
+        blocks: vec![protocol::shasta::manifest::BlockManifest::default()],
+    }
+    .encode_and_compress()?;
+    let (saved, blob, fee) = fixture.save_forced_inclusion(&payload).await?;
+    assert_eq!(fee, U256::from(1_000_000_000u64), "1 gwei with an empty queue");
+    assert_eq!(fixture.forced_inclusion_state().await?, (0, 1));
+    // Finalize the entry's L1 block, so the next block's anchor holds it.
+    mine_l1_blocks(p, 3).await?;
+    chain.forced_blobs.insert(0, blob.clone());
+    chain.extend(&fixture, 4).await?;
+    let forced = |height: usize| {
+        abci::EtnaEnvelope::decode(&chain.blocks[height - 1].block.data[0]).map(|e| e.forced)
+    };
+    let witness = forced(3)?.context("block 3 consumes the entry")?;
+    assert_eq!((witness.index, &witness.blob), (0, &blob));
+    assert!(chain.anchors[3].number >= saved.block_number.context("save block")?);
+    assert_eq!((forced(2)?, forced(4)?), (None, None));
+
+    let request = chain.prepare(&fixture, 4, SidecarMode::Eip7594).await?;
+    assert_eq!(request.batch.snapshot.forced_inclusion_head, 0);
+    assert_eq!(request.batch.input.forcedInclusionHead, U48::from(1));
+    fixture.expect_statement(request.batch.statement_hash).await?;
+    let signed = sign(&fixture, &request).await?;
+    assert_landed(&fixture, &request, &signed).await?;
+
+    let landed = receipt(p, signed.hash).await?;
+    let event = landed
+        .decoded_log::<EtnaInbox::ForcedInclusionsConsumed>()
+        .context("ForcedInclusionsConsumed event")?;
+    let lander = dev_signer().address();
+    assert_eq!(
+        (event.data.headBefore, event.data.headAfter, event.data.feesWei, event.data.recipient),
+        (U48::from(0), U48::from(1), fee, lander)
+    );
+    assert_eq!(fixture.forced_inclusion_state().await?, (1, 1));
+    // The lander's balance moves by the fee less what the landing transaction cost it.
+    let block = landed.block_number.context("landing block")?;
+    let balance = |number| async move {
+        anyhow::Ok(p.get_balance(lander).block_id(BlockId::number(number)).await?)
+    };
+    let cost = U256::from(landed.gas_used) * U256::from(landed.effective_gas_price) +
+        U256::from(landed.blob_gas_used.context("blob gas")?) *
+            U256::from(landed.blob_gas_price.context("blob gas price")?);
+    assert_eq!(balance(block).await? + cost, balance(block - 1).await? + fee);
     fixture.anvil.stop().await
 }
 

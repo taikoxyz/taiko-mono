@@ -5,12 +5,18 @@ use abci::{
     committee::{committee_config_hash, derive, record_hash},
 };
 use alloy::{
-    rpc::types::TransactionRequest,
+    rpc::types::{TransactionReceipt, TransactionRequest},
+    signers::{SignerSync, local::PrivateKeySigner},
     sol,
     sol_types::{SolCall, SolConstructor},
 };
-use alloy_consensus::Header;
-use alloy_eips::BlockId;
+use alloy_consensus::{
+    Header, SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope,
+};
+use alloy_eips::{
+    BlockId, eip2718::Encodable2718, eip4844::builder::SidecarBuilder,
+    eip7594::BlobTransactionSidecarVariant,
+};
 use alloy_primitives::{Address, B256, Bytes, U256};
 use alloy_provider::{Provider, RootProvider};
 use anyhow::{Context, Result, ensure};
@@ -39,6 +45,8 @@ pub const EPOCH_LEN: u64 = 8;
 pub const FORCED_INCLUSION_DELAY: u64 = 3_600;
 /// Maximum anchor age installed at genesis, in seconds.
 pub const MAX_ANCHOR_AGE: u64 = 7_200;
+/// Anvil's third development key: a forced inclusion user, neither the lander nor the admin.
+pub const USER_KEY: &str = "5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a";
 
 /// An actual deployed protocol instance on one disposable Osaka anvil.
 pub struct ContractFixture {
@@ -272,6 +280,68 @@ impl ContractFixture {
         .map(drop)
     }
 
+    /// The Inbox's forced inclusion queue `(head, tail)`.
+    pub async fn forced_inclusion_state(&self) -> Result<(u64, u64)> {
+        let state =
+            view(&self.anvil.provider, self.inbox, EtnaInbox::getForcedInclusionStateCall {}, None)
+                .await?;
+        Ok((state.head_.to(), state.tail_.to()))
+    }
+
+    /// Submits `payload` as one forced inclusion from [`USER_KEY`]: an EIP-7594 blob transaction
+    /// calling `saveForcedInclusion` for blob 0 at offset 0 and paying exactly the current fee.
+    /// Returns the receipt, the raw blob and the fee in wei.
+    pub async fn save_forced_inclusion(
+        &self,
+        payload: &[u8],
+    ) -> Result<(TransactionReceipt, Bytes, U256)> {
+        let p = &self.anvil.provider;
+        let fee_gwei =
+            view(p, self.inbox, EtnaInbox::getCurrentForcedInclusionFeeCall {}, None).await?;
+        let fee = U256::from(fee_gwei) * U256::from(1_000_000_000u64);
+        let sidecar =
+            SidecarBuilder::<protocol::shasta::BlobCoder>::from_slice(payload).build_7594()?;
+        ensure!(sidecar.blobs.len() == 1, "a forced inclusion source is one blob");
+        let blob = Bytes::copy_from_slice(sidecar.blobs[0].as_slice());
+        let signer: PrivateKeySigner = USER_KEY.parse()?;
+        let mut tx = TxEip4844 {
+            chain_id: p.get_chain_id().await?,
+            nonce: p.get_transaction_count(signer.address()).await?,
+            gas_limit: 0,
+            max_fee_per_gas: 20_000_000_000,
+            max_priority_fee_per_gas: 1_000_000_000,
+            to: self.inbox,
+            value: fee,
+            access_list: Default::default(),
+            blob_versioned_hashes: sidecar.versioned_hashes().collect(),
+            max_fee_per_blob_gas: 20_000_000_000,
+            input: EtnaInbox::saveForcedInclusionCall {
+                _blobReference: LibBlobs::BlobReference {
+                    blobStartIndex: 0,
+                    numBlobs: 1,
+                    offset: Default::default(),
+                },
+            }
+            .abi_encode()
+            .into(),
+        };
+        let mut estimate = TransactionRequest::from_transaction(tx.clone()).from(signer.address());
+        estimate.gas = None;
+        let gas = p.estimate_gas(estimate).await.context("saveForcedInclusion estimate")?;
+        tx.gas_limit = gas.saturating_add(gas / 5);
+        let variant: TxEip4844Variant = TxEip4844WithSidecar::from_tx_and_sidecar(
+            tx,
+            BlobTransactionSidecarVariant::Eip7594(sidecar),
+        )
+        .into();
+        let signature = signer.sign_hash_sync(&variant.signature_hash())?;
+        let network = TxEnvelope::Eip4844(variant.into_signed(signature)).encoded_2718();
+        let hash = *p.send_raw_transaction(&network).await?.tx_hash();
+        let saved = receipt(p, hash).await?;
+        ensure!(saved.status(), "saveForcedInclusion reverted: {hash}");
+        Ok((saved, blob, fee))
+    }
+
     /// Require the verifier to receive this exact V6 public statement.
     pub async fn expect_statement(&self, hash: B256) -> Result<()> {
         transact(
@@ -292,7 +362,7 @@ pub async fn transact(
     sender: Address,
     to: Address,
     input: Vec<u8>,
-) -> Result<alloy::rpc::types::TransactionReceipt> {
+) -> Result<TransactionReceipt> {
     let selector = alloy_primitives::hex::encode(input.get(..4).unwrap_or(&input));
     let mut request = TransactionRequest::default().from(sender).to(to).input(input.into());
     let estimate = provider
@@ -362,10 +432,7 @@ pub async fn view<C: SolCall>(
 }
 
 /// Wait for asynchronous anvil mining to expose a receipt after raw broadcast.
-pub async fn receipt(
-    provider: &RootProvider,
-    hash: B256,
-) -> Result<alloy::rpc::types::TransactionReceipt> {
+pub async fn receipt(provider: &RootProvider, hash: B256) -> Result<TransactionReceipt> {
     test_harness::wait_until(
         "actual-contract transaction receipt",
         std::time::Duration::from_secs(20),

@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use std::{collections::BTreeMap, sync::Arc};
 
 use abci::{
-    AnchorState, EtnaEnvelope, ExecutionBlock, ParentInfo, Schedule,
+    AnchorState, EtnaEnvelope, ExecutionBlock, ForcedWitness, ParentInfo, Schedule,
     committee::{record_hash, verify_committee_witness},
     envelope::AnchorWitness,
     l1::{
@@ -20,7 +20,7 @@ use abci::{
 };
 use alloy_consensus::{EMPTY_ROOT_HASH, Header};
 use alloy_eips::{BlockId, eip7685::EMPTY_REQUESTS_HASH};
-use alloy_primitives::{B256, U256};
+use alloy_primitives::{B256, Bytes, U256};
 use alloy_provider::Provider;
 use anyhow::{Result, ensure};
 use ed25519_dalek::{Signer, SigningKey};
@@ -59,6 +59,9 @@ pub struct FixtureChain {
     pub headers: Vec<Header>,
     pub anchors: Vec<AnchorState>,
     pub committees: BTreeMap<u64, AuthenticatedCommittee>,
+    /// Blobs of submitted forced inclusion entries, by queue index. The first block whose anchor
+    /// holds the cursor's entry consumes it when its blob is here and otherwise peeks at it.
+    pub forced_blobs: BTreeMap<u64, Bytes>,
 }
 
 impl FixtureChain {
@@ -78,6 +81,7 @@ impl FixtureChain {
             headers: vec![fixture.parent_header.clone()],
             anchors: vec![anchor],
             committees: BTreeMap::from([(0, committee)]),
+            forced_blobs: BTreeMap::new(),
         })
     }
 
@@ -106,6 +110,25 @@ impl FixtureChain {
                 Some(witness) => verify_anchor_witness(witness, fixture.inbox)?,
                 None => parent_anchor.clone(),
             };
+            // The entry at the cursor, while the anchor's queue holds one: its real entry proof at
+            // the anchor, with its blob when known (a forced inclusion block), else a peek.
+            let index = self.forced_cursor();
+            let forced = if index < anchor.inbox.forced_inclusion_tail {
+                Some(ForcedWitness {
+                    index,
+                    entry: source
+                        .account_witness(
+                            fixture.inbox,
+                            &inbox::forced_inclusion_entry_slots(index),
+                            anchor.number,
+                        )
+                        .await?,
+                    blob: self.forced_blobs.get(&index).cloned().unwrap_or_default(),
+                })
+            } else {
+                None
+            };
+            let consumed = forced.as_ref().filter(|w| !w.blob.is_empty()).map(|w| w.index);
             let committee = if let Some(target) = switch {
                 Some(
                     build_committee_witness(
@@ -180,7 +203,7 @@ impl FixtureChain {
                 block: ExecutionBlock { header: header.clone(), transactions: vec![] },
                 anchor: witness,
                 committee,
-                forced: None,
+                forced,
             };
             let current = &self.committees[&schedule.epoch_of(height)];
             let pair = signed_pair(
@@ -201,8 +224,11 @@ impl FixtureChain {
                     schedule: &schedule,
                     params: &fixture.params,
                     max_anchor_age: fixture.genesis.max_anchor_age,
+                    forced_cursor: index,
+                    forced_inclusion_delay: fixture.genesis.forced_inclusion_delay,
                 },
             )?;
+            ensure!(facts.forced == consumed, "forced inclusion at height {height}");
             if let Some(derived) = facts.derived {
                 let epoch = derived.record.target_epoch;
                 let hash = record_hash(L2_CHAIN_ID, &derived.record);
@@ -213,6 +239,17 @@ impl FixtureChain {
             self.anchors.push(facts.anchor);
         }
         Ok(())
+    }
+
+    /// The forced inclusion cursor after the last block: the entries the chain has consumed,
+    /// each by a block carrying its blob (the chain starts at genesis and consumes no expired
+    /// entry).
+    pub fn forced_cursor(&self) -> u64 {
+        self.blocks
+            .iter()
+            .filter_map(|pair| EtnaEnvelope::decode(&pair.block.data[0]).ok()?.forced)
+            .filter(|witness| !witness.blob.is_empty())
+            .count() as u64
     }
 
     /// Prepare immutable production transport inputs; the real Inbox helper independently hashes
@@ -264,6 +301,7 @@ impl FixtureChain {
             headers: self.headers[..=last as usize].to_vec(),
             anchors: self.anchors[..=last as usize].to_vec(),
             committees: self.committees.clone(),
+            forced_blobs: self.forced_blobs.clone(),
         });
         let adapter = Arc::new(FixtureLanding {
             chain: chain.clone(),
