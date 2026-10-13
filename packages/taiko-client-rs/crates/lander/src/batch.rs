@@ -10,27 +10,48 @@ use abci::{
 use async_trait::async_trait;
 
 use crate::{
-    blob, codec,
+    blob,
+    codec::{self, PayloadList},
     comet::{CometSource, CometStatus},
     committee::{AuthenticatedCommittee, authenticate},
+    config::COMET_BLOCK_MAX_BYTES,
     contracts::IEtnaInbox::LandInput,
     error::{LanderError, Result},
     history,
     l1::{LandingSource, ParentContext},
     proof::ProofRequest,
     statement,
+    store::MAX_JOURNAL_BYTES,
     types::{
         CertifiedBlock, CommitteeContext, LandingSnapshot, Limits, PreparedBatch, SidecarMode,
     },
     validate::{EnvelopeContext, verify_body, verify_commit, verify_envelope, verify_structure},
 };
 
+/// Uncompressed published bytes (the V3 RLP list) prefix selection admits into one batch.
+///
+/// The journal keeps a prepared batch's complete blocks as JSON, transactions in base64 (4/3 of
+/// their bytes), and refuses a journal above [`MAX_JOURNAL_BYTES`]; this keeps the blocks within
+/// half of it, so a selected batch can always be journaled. A maximal CometBFT block still fits on
+/// its own.
+pub const MAX_BATCH_LIST_BYTES: usize = 64 * 1024 * 1024;
+
+/// Uncompressed bytes prefix selection may deflate while sizing longer prefixes in one call.
+///
+/// Sizing the first block is never refused. A longer prefix whose sizing would pass this budget is
+/// left for a later batch, so the work of one poll stays bounded.
+pub const MAX_SELECTION_DEFLATE_BYTES: usize = 32 * 1024 * 1024;
+
+const _: () = assert!(MAX_BATCH_LIST_BYTES / 3 * 4 <= MAX_JOURNAL_BYTES as usize / 2);
+const _: () = assert!(COMET_BLOCK_MAX_BYTES <= MAX_BATCH_LIST_BYTES / 2);
+
 /// Decided backlog and complete-prefix facts used by the runner's publication policy.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BatchObservation {
     /// Highest certified CometBFT height reported by the configured chain.
     pub decided_height: u64,
-    /// Complete blocks fitting the configured block, codec, payload and blob bounds.
+    /// Complete blocks fitting the configured block, codec, payload and blob bounds and the
+    /// selection budgets.
     pub publishable_blocks: usize,
     /// The certified tip's anchored unsettled depth has reached `U - 1`.
     pub force_backpressure: bool,
@@ -42,9 +63,11 @@ pub struct BatchObservation {
 struct PublishablePrefix {
     /// Exact complete pairs selected without computing signatures, witnesses or KZG proofs.
     blocks: Vec<CertifiedBlock>,
-    /// Canonical V3 bytes, whose compressed size counts blobs, later building exactly one
-    /// sidecar.
-    payload: Vec<u8>,
+    /// The selected blocks' RLP list.
+    list: PayloadList,
+    /// The selected blocks' V3 payload, when sizing already compressed it; otherwise its
+    /// worst-case size fits and [`BatchBuilder::payload`] compresses it once.
+    payload: Option<Vec<u8>>,
 }
 
 /// Fully authenticated starting checkpoint and immutable derivation history.
@@ -108,6 +131,10 @@ pub struct BatchBuilder<C: ?Sized, L: ?Sized> {
     limits: Limits,
     /// Operator-selected target L1 sidecar representation.
     mode: SidecarMode,
+    /// Uncompressed list bytes one batch may select ([`MAX_BATCH_LIST_BYTES`]).
+    list_budget: usize,
+    /// Bytes one prefix selection may deflate ([`MAX_SELECTION_DEFLATE_BYTES`]).
+    deflate_budget: usize,
 }
 
 impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
@@ -121,7 +148,27 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     ) -> Result<Self> {
         params.validate().map_err(|e| LanderError::Configuration(e.to_string()))?;
         limits.validate()?;
-        Ok(Self { comet, l1, params, limits, mode })
+        Ok(Self {
+            comet,
+            l1,
+            params,
+            limits,
+            mode,
+            list_budget: MAX_BATCH_LIST_BYTES,
+            deflate_budget: MAX_SELECTION_DEFLATE_BYTES,
+        })
+    }
+
+    /// Replaces the selection budgets, so tests reach them with small blocks.
+    #[cfg(test)]
+    pub(crate) fn with_selection_budgets(
+        mut self,
+        list_bytes: usize,
+        deflate_bytes: usize,
+    ) -> Self {
+        self.list_budget = list_bytes;
+        self.deflate_budget = deflate_bytes;
+        self
     }
 
     /// Ensure one coherent Inbox context matches the configured chain and genesis schedule.
@@ -173,18 +220,24 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     ///
     /// An oversized first block is a capacity error; a later oversized block ends the prefix.
     /// This shared preview performs no signature/MPT validation, reference reads or KZG work.
+    /// Each block is validated and encoded once. A prefix whose worst-case compressed size fits
+    /// is accepted without deflating it; otherwise it is deflated off the async workers, within
+    /// the deflate budget. The list budget keeps the selected batch journalable.
     async fn publishable_prefix(
         &self,
         snapshot: &LandingSnapshot,
         decided_height: u64,
     ) -> Result<PublishablePrefix> {
+        let limits = self.selection_limits();
+        let capacity = limits
+            .max_payload_bytes
+            .min(limits.max_blobs.saturating_mul(blob::PAYLOAD_BYTES_PER_BLOB));
+        let mut list = PayloadList::new(&limits)?;
         let mut blocks = Vec::new();
-        let mut payload = Vec::new();
+        let mut payload = None;
+        let mut deflated = 0usize;
         let stop = decided_height
             .min(snapshot.checkpoint_height.saturating_add(self.limits.max_blocks as u64));
-        if stop <= snapshot.checkpoint_height {
-            return Ok(PublishablePrefix { blocks, payload });
-        }
         for height in snapshot.checkpoint_height + 1..=stop {
             let pair = self.comet.block(height).await?;
             if pair.block.header.height.value() != height {
@@ -193,24 +246,43 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                     pair.block.header.height
                 )));
             }
-            blocks.push(pair);
-            match codec::encode(&blocks, &self.limits) {
-                Ok(encoded) if blob::required_blobs(encoded.len()) <= self.limits.max_blobs => {
-                    payload = encoded;
+            match list.push(&pair) {
+                Ok(()) => {}
+                Err(LanderError::Capacity(_)) if !blocks.is_empty() => break,
+                Err(LanderError::Capacity(reason)) => {
+                    return Err(LanderError::Capacity(format!("block {height}: {reason}")))
+                }
+                Err(error) => return Err(error),
+            }
+            let list_len = list.list_len();
+            if codec::payload_bound(list_len) <= capacity {
+                blocks.push(pair);
+                payload = None;
+                continue;
+            }
+            if !blocks.is_empty() && deflated.saturating_add(list_len) > self.deflate_budget {
+                list.pop();
+                break;
+            }
+            deflated = deflated.saturating_add(list_len);
+            match compress(list.to_list(), limits).await {
+                Ok(encoded) if blob::required_blobs(encoded.len()) <= limits.max_blobs => {
+                    blocks.push(pair);
+                    payload = Some(encoded);
                 }
                 Ok(encoded) => {
-                    if blocks.len() == 1 {
+                    if blocks.is_empty() {
                         return Err(LanderError::Capacity(format!(
                             "block {height} needs {} blobs, configured {}",
                             blob::required_blobs(encoded.len()),
-                            self.limits.max_blobs
+                            limits.max_blobs
                         )));
                     }
-                    blocks.pop();
+                    list.pop();
                     break;
                 }
-                Err(LanderError::Capacity(_)) if blocks.len() > 1 => {
-                    blocks.pop();
+                Err(LanderError::Capacity(_)) if !blocks.is_empty() => {
+                    list.pop();
                     break;
                 }
                 Err(LanderError::Capacity(reason)) => {
@@ -219,7 +291,24 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 Err(error) => return Err(error),
             }
         }
-        Ok(PublishablePrefix { blocks, payload })
+        Ok(PublishablePrefix { blocks, list, payload })
+    }
+
+    /// The configured limits with the list budget applied to the decompressed bound.
+    fn selection_limits(&self) -> Limits {
+        Limits {
+            max_decompressed_bytes: self.limits.max_decompressed_bytes.min(self.list_budget),
+            ..self.limits
+        }
+    }
+
+    /// The selected prefix's V3 payload, compressing its list unless sizing already did.
+    async fn payload(&self, prefix: PublishablePrefix) -> Result<(Vec<CertifiedBlock>, Vec<u8>)> {
+        let payload = match prefix.payload {
+            Some(payload) => payload,
+            None => compress(prefix.list.to_list(), self.selection_limits()).await?,
+        };
+        Ok((prefix.blocks, payload))
     }
 
     /// Derive an epoch from its authenticated parent snapshot registry proof under an authenticated
@@ -556,10 +645,18 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
         }
         let mut committees = BTreeMap::new();
         let start = self.checkpoint(&snapshot, &schedule, &mut committees).await?;
-        let PublishablePrefix { blocks, payload } =
-            self.publishable_prefix(&snapshot, status.height).await?;
-        let anchors =
-            self.authenticate_blocks(&snapshot, &schedule, &start, &mut committees, &blocks)?;
+        let prefix = self.publishable_prefix(&snapshot, status.height).await?;
+        let anchors = self.authenticate_blocks(
+            &snapshot,
+            &schedule,
+            &start,
+            &mut committees,
+            &prefix.blocks,
+        )?;
+        if prefix.blocks.is_empty() {
+            return Ok(None);
+        }
+        let (blocks, payload) = self.payload(prefix).await?;
         let Some(terminal) = blocks.last() else {
             return Ok(None);
         };
@@ -613,6 +710,18 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
                 statement_hash: hash,
             },
         }))
+    }
+}
+
+/// Compresses `list` into a V3 payload on the blocking pool, keeping deflate off the async
+/// workers.
+async fn compress(list: Vec<u8>, limits: Limits) -> Result<Vec<u8>> {
+    match tokio::task::spawn_blocking(move || codec::compress(&list, &limits)).await {
+        Ok(payload) => payload,
+        Err(error) if error.is_panic() => std::panic::resume_unwind(error.into_panic()),
+        Err(error) => {
+            Err(LanderError::Temporary(format!("payload compression did not finish: {error}")))
+        }
     }
 }
 

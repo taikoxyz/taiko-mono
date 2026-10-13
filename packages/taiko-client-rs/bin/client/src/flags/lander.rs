@@ -6,15 +6,13 @@ use clap::Parser;
 use lander::{
     Limits, SidecarMode,
     blob::PAYLOAD_BYTES_PER_BLOB,
-    config::{BatchPolicy, FeeCaps, LanderConfig, MAX_TIMEOUT_SECS, Timeouts},
+    config::{
+        BatchPolicy, COMET_BLOCK_MAX_BYTES, FeeCaps, LanderConfig, MAX_TIMEOUT_SECS, Timeouts,
+    },
 };
 use url::Url;
 
 use crate::flags::common::http_url;
-
-/// CometBFT `block.max_bytes` in every Etna genesis, bounding one block's protobuf and so each
-/// published header and envelope.
-const COMET_BLOCK_MAX_BYTES: usize = 22_020_096;
 
 /// Public RPC, transaction budget and journal arguments for `taiko-client lander`.
 #[derive(Parser, Clone, Debug)]

@@ -295,19 +295,33 @@ impl Fixture {
         Self::with_epoch(checkpoint, tip, bytes, 23)
     }
 
+    /// As [`Fixture::with_calldata`], with all-zero calldata that payload V3 compresses to almost
+    /// nothing.
+    fn with_zero_calldata(checkpoint: u64, tip: u64, bytes: usize) -> Self {
+        Self::build(checkpoint, tip, bytes, true, 23, 7_200)
+    }
+
     pub fn with_epoch(checkpoint: u64, tip: u64, bytes: usize, epoch_len: u64) -> Self {
-        Self::build(checkpoint, tip, bytes, epoch_len, 7_200)
+        Self::build(checkpoint, tip, bytes, false, epoch_len, 7_200)
     }
 
     /// As [`Fixture::new`], with the genesis `maxAnchorAge` set to `max_anchor_age` seconds.
     /// Block `h` is at `100 + h` s and anchor `n` at `n` s, so the blocks of a genesis
     /// checkpoint (all anchored at 10) are `90 + h` s younger than their anchor.
     pub fn with_max_anchor_age(checkpoint: u64, tip: u64, max_anchor_age: u64) -> Self {
-        Self::build(checkpoint, tip, 0, 23, max_anchor_age)
+        Self::build(checkpoint, tip, 0, false, 23, max_anchor_age)
     }
 
-    /// Builds the decided chain up to `tip` over the genesis `maxAnchorAge` `max_anchor_age`.
-    fn build(checkpoint: u64, tip: u64, bytes: usize, epoch_len: u64, max_anchor_age: u64) -> Self {
+    /// Builds the decided chain up to `tip` over the genesis `maxAnchorAge` `max_anchor_age`; each
+    /// block carries one transaction with `bytes` of calldata (zeros if `zeros`) unless zero.
+    fn build(
+        checkpoint: u64,
+        tip: u64,
+        bytes: usize,
+        zeros: bool,
+        epoch_len: u64,
+        max_anchor_age: u64,
+    ) -> Self {
         assert!(checkpoint == 0 || checkpoint >= epoch_len - 3);
         let mut params = parameters();
         params.d_max = epoch_len - 3;
@@ -458,7 +472,11 @@ impl Fixture {
                     max_fee_per_gas: 1_000_001,
                     max_priority_fee_per_gas: 1,
                     to: alloy_primitives::TxKind::Call(params.fee_vault),
-                    input: incompressible(height, bytes),
+                    input: if zeros {
+                        vec![0; bytes].into()
+                    } else {
+                        incompressible(height, bytes)
+                    },
                     ..Default::default()
                 };
                 let signature =
@@ -756,6 +774,31 @@ mod readiness {
         .unwrap()
     }
 
+    /// RLP list lengths of the prefixes of `fixture`'s blocks `1..=tip`.
+    fn prefix_lists(fixture: &Fixture, limits: &Limits, tip: u64) -> Vec<usize> {
+        let mut list = codec::PayloadList::new(limits).unwrap();
+        (1..=tip)
+            .map(|height| {
+                list.push(&fixture.blocks[&height]).unwrap();
+                list.list_len()
+            })
+            .collect()
+    }
+
+    /// The longest prefix of blocks `1..=tip` every prefix of which encodes within `limits`'s
+    /// payload and blob bounds, found by encoding each candidate prefix in turn.
+    fn scan_every_prefix(fixture: &Fixture, limits: &Limits, tip: u64) -> usize {
+        let mut blocks = Vec::new();
+        for height in 1..=tip {
+            blocks.push(fixture.blocks[&height].clone());
+            match codec::encode(&blocks, limits) {
+                Ok(payload) if blob::required_blobs(payload.len()) <= limits.max_blobs => {}
+                _ => return blocks.len() - 1,
+            }
+        }
+        blocks.len()
+    }
+
     fn advance_checkpoint(fixture: &mut Fixture, height: u64) {
         fixture.snapshot.checkpoint_height = height;
         fixture.snapshot.checkpoint_hash = fixture.headers[&height].hash_slow();
@@ -886,6 +929,102 @@ mod readiness {
             builder(fixture.clone(), bound).observe(&fixture.snapshot).await,
             Err(LanderError::Capacity(_))
         ));
+    }
+
+    /// Below the selection budgets, the incremental selection equals encoding every candidate
+    /// prefix, whether a prefix is accepted by its worst-case bound or by deflating it.
+    #[tokio::test]
+    async fn selection_within_budgets_matches_encoding_every_prefix() {
+        for fixture in [
+            Fixture::new(0, 3),
+            Fixture::with_calldata(0, 3, 70_000),
+            Fixture::with_zero_calldata(0, 3, 150_000),
+        ] {
+            let fixture = Arc::new(fixture);
+            for (max_blobs, max_payload_bytes) in [(1, 240_000), (2, 240_000), (2, 140_000)] {
+                let bound = Limits { max_blobs, max_payload_bytes, ..limits(3) };
+                let expected = scan_every_prefix(&fixture, &bound, 3);
+                let observed = builder(fixture.clone(), bound).observe(&fixture.snapshot).await;
+                if expected == 0 {
+                    assert!(matches!(observed, Err(LanderError::Capacity(_))), "{bound:?}");
+                } else {
+                    assert_eq!(observed.unwrap().publishable_blocks, expected, "{bound:?}");
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn selection_stops_at_the_list_budget() {
+        let fixture = Arc::new(Fixture::with_zero_calldata(0, 3, 150_000));
+        let bound = Limits { max_blobs: 1, ..limits(3) };
+        let lists = prefix_lists(&fixture, &bound, 3);
+        for (budget, expected) in [
+            (usize::MAX, 3),
+            (lists[2], 3),
+            (lists[2] - 1, 2),
+            (lists[1], 2),
+            (lists[1] - 1, 1),
+            (lists[0], 1),
+        ] {
+            let observed = builder(fixture.clone(), bound)
+                .with_selection_budgets(budget, usize::MAX)
+                .observe(&fixture.snapshot)
+                .await
+                .unwrap();
+            assert_eq!(observed.publishable_blocks, expected, "list budget {budget}");
+        }
+        let error = builder(fixture.clone(), bound)
+            .with_selection_budgets(lists[0] - 1, usize::MAX)
+            .observe(&fixture.snapshot)
+            .await
+            .unwrap_err();
+        assert!(matches!(error, LanderError::Capacity(_)), "{error}");
+        assert!(error.to_string().contains("block 1"), "{error}");
+        let request = builder(fixture.clone(), bound)
+            .with_selection_budgets(lists[1], usize::MAX)
+            .prepare(fixture.snapshot.clone())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(request.batch.blocks.len(), 2);
+        let payload = blob::decode(request.batch.blobs.sidecar.blobs(), &bound).unwrap();
+        assert_eq!(
+            codec::decode(&payload, &bound).unwrap(),
+            request.batch.blocks.iter().map(codec::PublishedBlock::from).collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn selection_stops_at_the_deflate_budget() {
+        // Every prefix of these blocks exceeds one blob uncompressed, so each is deflated.
+        let fixture = Arc::new(Fixture::with_zero_calldata(0, 3, 150_000));
+        let bound = Limits { max_blobs: 1, ..limits(3) };
+        let lists = prefix_lists(&fixture, &bound, 3);
+        assert!(codec::payload_bound(lists[0]) > blob::PAYLOAD_BYTES_PER_BLOB);
+        let two = lists[0] + lists[1];
+        let three = two + lists[2];
+        // Sizing the first block is never refused.
+        for (budget, expected) in
+            [(0, 1), (two - 1, 1), (two, 2), (three - 1, 2), (three, 3), (usize::MAX, 3)]
+        {
+            let observed = builder(fixture.clone(), bound)
+                .with_selection_budgets(usize::MAX, budget)
+                .observe(&fixture.snapshot)
+                .await
+                .unwrap();
+            assert_eq!(observed.publishable_blocks, expected, "deflate budget {budget}");
+        }
+        // Prefixes whose worst-case payload fits are accepted without deflating anything.
+        let fixture = Arc::new(Fixture::with_calldata(0, 3, 70_000));
+        let lists = prefix_lists(&fixture, &limits(3), 3);
+        assert!(codec::payload_bound(lists[2]) <= limits(3).max_payload_bytes);
+        let observed = builder(fixture.clone(), limits(3))
+            .with_selection_budgets(usize::MAX, 0)
+            .observe(&fixture.snapshot)
+            .await
+            .unwrap();
+        assert_eq!(observed.publishable_blocks, 3);
     }
 
     #[tokio::test]
