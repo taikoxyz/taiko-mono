@@ -84,7 +84,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// grid that apply from `e_0 + 1` on) and requires its record hash to equal
     /// `genesisCommitteeRecordHash` and its members to be exactly the genesis validators; makes
     /// sure the EL serves `B*` with hash `H*` (EL sync if needed). The state has `last = (B*,
-    /// H*)`.
+    /// H*)` and forced inclusion cursor 0.
     async fn verify_genesis(&self, req: &request::InitChain) -> Result<AppState, AbciError> {
         let w = decode_app_state(&req.app_state_bytes)?;
         let params = &self.params;
@@ -127,6 +127,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             last_height: 0,
             parent,
             anchor: context.anchor,
+            forced_cursor: 0,
             committees: BTreeMap::from([(Schedule::E0, committee)]),
         })
     }

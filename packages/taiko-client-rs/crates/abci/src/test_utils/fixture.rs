@@ -10,13 +10,14 @@
 //!
 //! For proposal tests, [`Fixture::plant_l1_block`] and [`Fixture::advance_l1`] add later L1
 //! blocks with updated Inbox/registry storage to a [`MockL1`], [`Fixture::anchor_witness`] and
-//! [`Fixture::anchor_state`] read them back as an anchor, and [`Fixture::committee`] derives a
-//! later epoch's committee from the genesis snapshot.
+//! [`Fixture::anchor_state`] read them back as an anchor, [`Fixture::forced_witness`] proves a
+//! forced inclusion queue entry there, and [`Fixture::committee`] derives a later epoch's
+//! committee from the genesis snapshot.
 
 use std::{collections::BTreeMap, path::Path};
 
 use alloy_consensus::Header;
-use alloy_primitives::{Address, B256, U256};
+use alloy_primitives::{Address, B256, Bytes, U256};
 use tendermint::{
     Time,
     abci::request::InitChain,
@@ -36,7 +37,7 @@ use crate::{
     app::{App, AppOptions},
     committee::{self, Snapshot},
     config::ChainParams,
-    envelope::AnchorWitness,
+    envelope::{AnchorWitness, ForcedWitness},
     genesis::{GenesisWitness, encode_app_state},
     l1::{header::RawL1Header, layout::inbox, verify_anchor_witness},
     rules::chain_id_for,
@@ -316,6 +317,24 @@ impl Fixture {
         }
     }
 
+    /// A forced inclusion witness for entry `index` of the Inbox in the L1 block `number`
+    /// planted in `l1` (proofs of the entry's four slots), carrying `blob`.
+    pub(crate) fn forced_witness(
+        &self,
+        l1: &MockL1,
+        number: u64,
+        index: u64,
+        blob: Bytes,
+    ) -> ForcedWitness {
+        let guard = l1.state();
+        let state = guard.states.get(&number).expect("the L1 block has a state");
+        ForcedWitness {
+            index,
+            entry: state.witness(self.params.inbox, &inbox::forced_inclusion_entry_slots(index)),
+            blob,
+        }
+    }
+
     /// The anchor a witness of the L1 block `number` planted in `l1` proves.
     pub(crate) fn anchor_state(&self, l1: &MockL1, number: u64) -> AnchorState {
         let w = self.anchor_witness(l1, number);
@@ -378,6 +397,7 @@ impl Fixture {
                     forced_inclusion_tail: 0,
                 },
             },
+            forced_cursor: 0,
             committees: BTreeMap::from([(
                 Schedule::E0,
                 CommitteeState { record: self.record.clone(), members: self.members.clone() },

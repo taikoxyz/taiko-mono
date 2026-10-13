@@ -98,6 +98,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             height,
             %hash,
             anchor = next.anchor.number,
+            forced = ?validated.forced.as_ref().map(|f| f.index),
             validator_updates = validator_updates.len(),
             "block finalized"
         );
@@ -287,8 +288,9 @@ impl Backoff {
 /// validator updates the height emits.
 ///
 /// The parent becomes the block's header summary (its grandparent timestamp the old parent's)
-/// and the anchor the block's; the incoming committee derived at the switch is added before
-/// validator updates, a different record already known for its epoch being a
+/// and the anchor the block's; the forced inclusion cursor advances by one when the block
+/// consumes an entry ([`Validated::forced`]); the incoming committee derived at the switch is added
+/// before validator updates, a different record already known for its epoch being a
 /// [`AbciError::SafetyHalt`]. At the switch height to epoch `t`, `h_first(t) − 2` (CometBFT applies
 /// updates two heights later), the updates are [`committee::validator_updates`] from set `t − 1` to
 /// set `t`, and committees below `t − 1` are pruned; every other height emits none.
@@ -313,6 +315,11 @@ fn next_state(
         grandparent_timestamp: state.parent.timestamp,
     };
     next.anchor = v.anchor.clone();
+    if v.forced.is_some() {
+        // `forced::check` consumed exactly entry `state.forced_cursor`, which is below the
+        // anchor's `uint48` tail, so this cannot overflow.
+        next.forced_cursor = state.forced_cursor + 1;
+    }
     if let Some((epoch, derived)) = &v.derived {
         if let Some(known) = next.committees.get(epoch).filter(|known| *known != derived) {
             return Err(safety_halt(

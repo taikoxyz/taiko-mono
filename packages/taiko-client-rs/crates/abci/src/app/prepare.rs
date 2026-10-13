@@ -128,7 +128,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         rules::check_header(&block.header, &expected).map_err(Rejection::BuiltHeader)?;
 
         let committee = committee.map(|(_, w)| w);
-        let envelope = EtnaEnvelope { block, anchor, committee }.encode();
+        let envelope = EtnaEnvelope { block, anchor, committee, forced: None }.encode();
         if !i64::try_from(envelope.len()).is_ok_and(|len| len <= req.max_tx_bytes) {
             return Err(Rejection::Oversize { len: envelope.len(), max: req.max_tx_bytes });
         }

@@ -87,6 +87,7 @@ pub fn pair(
         },
         anchor: None,
         committee: None,
+        forced: None,
     };
     pair_with_envelope(envelope, committee, keys, previous)
 }
