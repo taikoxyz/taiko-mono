@@ -172,9 +172,96 @@ mod tests {
         let mut wrong = short.sidecar.blobs().to_vec();
         wrong.push(wrong[0]);
         assert!(decode(&wrong, &limits(2)).is_err());
-        // A truncated full prefix is rejected by the V3 zlib stream's end and checksum, rather than
-        // guessed by the blob codec.
+        // The blob codec returns a truncated collection's full first blob as is: its length is
+        // exactly one blob's payload. Rejecting such a prefix is left to the V3 payload's zlib
+        // stream end and checksum (`a_truncated_v3_payload_fails_its_zlib_stream`).
         let prefix = decode(&sidecar.sidecar.blobs()[..1], &limits(2)).unwrap();
         assert_eq!(prefix.len(), PAYLOAD_BYTES_PER_BLOB);
+    }
+
+    /// A height-1 certified block whose envelope carries one pseudo-random `len`-byte
+    /// transaction, which deflate cannot shrink.
+    fn noisy_block(len: usize) -> crate::types::CertifiedBlock {
+        let (_, committee, keys) = crate::test_utils::consensus::committee(&[1, 1, 1, 1], 0);
+        crate::test_utils::consensus::pair_with_envelope(
+            noisy_envelope(len),
+            &committee,
+            &keys,
+            None,
+        )
+    }
+
+    /// The envelope of [`noisy_block`].
+    fn noisy_envelope(len: usize) -> abci::EtnaEnvelope {
+        let noise = (0u64..)
+            .flat_map(|i| alloy_primitives::keccak256(i.to_be_bytes()).0)
+            .take(len)
+            .collect::<Vec<_>>();
+        abci::EtnaEnvelope {
+            block: abci::ExecutionBlock {
+                header: alloy_consensus::Header {
+                    number: 1,
+                    parent_hash: B256::repeat_byte(1),
+                    ..Default::default()
+                },
+                transactions: vec![noise.into()],
+            },
+            anchor: None,
+            committee: None,
+            forced: None,
+        }
+    }
+
+    /// Limits admitting one block as large as a landing allows.
+    fn landing_limits() -> Limits {
+        use abci::compression::MAX_LANDING_BLOBS;
+        Limits {
+            max_blocks: 1,
+            max_blobs: MAX_LANDING_BLOBS,
+            max_payload_bytes: MAX_LANDING_BLOBS * PAYLOAD_BYTES_PER_BLOB,
+            max_message_bytes: 2 << 20,
+            max_decompressed_bytes: 2 << 20,
+        }
+    }
+
+    /// The ABCI landing capacity guard admits a block whose zlib-compressed envelope plus
+    /// `HEADER_ALLOWANCE` is at most `MAX_BLOCK_LANDING_BYTES`. A block at that bound, with an
+    /// incompressible transaction, still encodes (`codec::encode`) and builds into at most
+    /// `MAX_LANDING_BLOBS` blobs, so every block the guard admits can land on its own.
+    #[test]
+    fn a_block_at_the_landing_guard_bound_fits_max_landing_blobs() {
+        use abci::compression::{
+            HEADER_ALLOWANCE, MAX_BLOCK_LANDING_BYTES, MAX_LANDING_BLOBS, zlib_compress,
+        };
+        let guarded =
+            |len: usize| zlib_compress(&noisy_envelope(len).encode()).len() + HEADER_ALLOWANCE;
+        // The longest transaction the guard admits.
+        let (mut low, mut high) = (0, MAX_BLOCK_LANDING_BYTES);
+        while low < high {
+            let mid = (low + high).div_ceil(2);
+            if guarded(mid) <= MAX_BLOCK_LANDING_BYTES { low = mid } else { high = mid - 1 }
+        }
+        let at_bound = guarded(low);
+        assert!(at_bound <= MAX_BLOCK_LANDING_BYTES, "{at_bound}");
+        assert!(MAX_BLOCK_LANDING_BYTES - at_bound < 8, "{at_bound} is at the bound");
+
+        let limits = landing_limits();
+        let payload = crate::codec::encode(&[noisy_block(low)], &limits).unwrap();
+        let blobs = build(&payload, &limits, SidecarMode::Eip4844).unwrap();
+        assert_eq!(blobs.versioned_hashes.len(), MAX_LANDING_BLOBS, "{} bytes", payload.len());
+    }
+
+    /// A real V3 payload spanning two blobs, cut to its first blob: the blob codec serves the
+    /// prefix, and the V3 codec rejects it at the zlib stream's end and checksum.
+    #[test]
+    fn a_truncated_v3_payload_fails_its_zlib_stream() {
+        let limits = landing_limits();
+        let payload = crate::codec::encode(&[noisy_block(200_000)], &limits).unwrap();
+        let sidecar = build(&payload, &limits, SidecarMode::Eip4844).unwrap();
+        assert_eq!(sidecar.versioned_hashes.len(), 2);
+        assert_eq!(crate::codec::decode(&payload, &limits).unwrap().len(), 1);
+        let prefix = decode(&sidecar.sidecar.blobs()[..1], &limits).unwrap();
+        assert_eq!(prefix.len(), PAYLOAD_BYTES_PER_BLOB);
+        assert!(matches!(crate::codec::decode(&prefix, &limits), Err(LanderError::Encoding(_))));
     }
 }
