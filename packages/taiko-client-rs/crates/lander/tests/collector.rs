@@ -65,7 +65,8 @@ async fn lander_live_comet_collector_preserves_and_authenticates_certificates() 
         max_message_bytes: 700_000,
     };
     let payload = codec::encode(&blocks, &limits)?;
-    assert_eq!(codec::decode(&payload, &limits)?, blocks);
+    let published = blocks.iter().map(codec::PublishedBlock::from).collect::<Vec<_>>();
+    assert_eq!(codec::decode(&payload, &limits)?, published);
     assert!(devnet.cmt(0).committee(1).await?.is_none(), "no switch witness exists by height 5");
     devnet.stop().await
 }

@@ -79,11 +79,11 @@ height 8 anchored 1020 may select a different committee; all nodes replaying one
 
 The config hash binds nine ABI words: `ETNA_PARENT_ANCHOR_V1`, L2 chain id, registry,
 `vp_unit`, `s_min`, `n_max`, `heartbeat_window`, heartbeat lookahead 2 and membership algorithm 1.
-The envelope is version 3 and the lander journal schema is 3. State files must contain
+The envelope is version 3 and the lander journal schema is 4. State files must contain
 `genesis.committee_config_hash`, and local parameters must open it correctly. Old version-2
-history, fixed-cutoff configuration/state openings and V4 journals/statements are rejected;
-never discard an outstanding signed nonce to force startup. No migration is provided.
-The outer complete-block blob codec and committee record encoding remain version 1.
+history, fixed-cutoff configuration/state openings, V4 journals/statements and schema-3 journals
+holding V1 blob payloads are rejected; never discard an outstanding signed nonce to force startup.
+No migration is provided. The committee record encoding remains version 1.
 
 Settlement back-pressure remains `height - anchoredCheckpointHeight <= d_max - margin_v`;
 generation behavior is unchanged. Thus committee authorization does not wait for `land`, while
@@ -227,16 +227,20 @@ required derivation parent is at most `epochLenL2 + 2` links behind the checkpoi
 The latest Inbox snapshot used to collect a coherent checkpoint is a separate operational
 input; it cannot replace a proof under an older reference chain.
 
-Blob payload V1 is `0x01 || rlp([[comet_block_proto, commit_proto], ...])`,
-using canonical `tendermint-proto` v0_38 messages. It retains the envelope inside
-each complete CometBFT block and publishes that block's commit as well. Existing
-`BlobCoder` handles multi-blob field encoding; there is no compression.
-`eip4844` and `eip7594` select different sidecar wrappers/proofs for the same
-payload and commitments. Choose the mode supported by the L1 fork.
+Blob payload V2 is `0x02 || rlp([[comet_header_proto, envelope], ...])`, using the
+canonical `tendermint-proto` v0_38 header and the exact envelope bytes of each block's single
+transaction. Each header hashes to the block id its committee signed, its `data_hash` commits
+to the envelope and its `last_block_id` links it to the preceding header; decoding rejects any
+item that breaks these links. Commits, last commits, evidence and signatures are not published:
+the proof provider receives the complete blocks and commits in `PreparedBatch.blocks`, and a
+guest must verify their signatures against the published header hashes. Existing `BlobCoder`
+handles multi-blob field encoding; there is no compression. `eip4844` and `eip7594` select
+different sidecar wrappers/proofs for the same payload and commitments. Choose the mode
+supported by the L1 fork.
 At height 1, the Rust domain form normalizes Go's present empty last commit and
 last block id to `None`. Certificate part-set verification reconstructs those
 Go protobuf defaults; a guest must apply that reconstruction when verifying
-the signed 64 KiB part-set root. The blob codec retains the canonical Rust
+the signed 64 KiB part-set root. The published header keeps the canonical Rust
 domain representation.
 
 The journal is `lander-state.json`, separate from `abci-state.json`, and the

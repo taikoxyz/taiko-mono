@@ -14,7 +14,9 @@ use std::{
 };
 
 /// Journal schema version; incompatible formats stop rather than discard outstanding nonces.
-const JOURNAL_VERSION: u8 = 3;
+///
+/// Schema 4 jobs bind V2 published-header blob payloads; schema 3 bound complete V1 blocks.
+const JOURNAL_VERSION: u8 = 4;
 /// Hard allocation bound before reading or decoding an untrusted journal.
 pub(crate) const MAX_JOURNAL_BYTES: u64 = 256 * 1024 * 1024;
 
@@ -174,9 +176,11 @@ impl Store {
         let schema: JournalSchema = serde_json::from_slice(&bytes)
             .map_err(|e| LanderError::Journal(format!("corrupt journal schema: {e}")))?;
         if schema.version != JOURNAL_VERSION {
-            return Err(LanderError::Journal(
-                "incompatible pre-V5 journal; signed transaction retained unchanged".into(),
-            ));
+            return Err(LanderError::Journal(format!(
+                "incompatible journal schema {} (expected {JOURNAL_VERSION}); signed transaction \
+                 retained unchanged",
+                schema.version
+            )));
         }
         let journal: Journal = serde_json::from_slice(&bytes)
             .map_err(|e| LanderError::Journal(format!("corrupt journal: {e}")))?;
@@ -387,20 +391,28 @@ mod tests {
         assert_eq!(store.load_with_wait().unwrap(), (JournalState::Idle, None));
     }
 
+    /// Schema 2 holds V4 statements and schema 3 holds complete-block V1 blob payloads.
     #[test]
-    fn legacy_v4_journal_is_rejected_without_modifying_its_file() {
-        let directory = tempfile::tempdir().unwrap();
-        let journal = serde_json::json!({
-            "version": 2,
-            "identity": identity(),
-            "state": { "phase": "idle" },
-        });
-        std::fs::write(directory.path().join("lander-state.json"), journal.to_string()).unwrap();
-        assert!(matches!(Store::open(directory.path(), identity()), Err(LanderError::Journal(_))));
-        assert_eq!(
-            std::fs::read_to_string(directory.path().join("lander-state.json")).unwrap(),
-            journal.to_string()
-        );
+    fn legacy_journals_are_rejected_without_modifying_their_files() {
+        for version in [2, 3] {
+            let directory = tempfile::tempdir().unwrap();
+            let journal = serde_json::json!({
+                "version": version,
+                "identity": identity(),
+                "state": { "phase": "idle" },
+            });
+            std::fs::write(directory.path().join("lander-state.json"), journal.to_string())
+                .unwrap();
+            let error = match Store::open(directory.path(), identity()) {
+                Err(e) => e,
+                Ok(_) => panic!("schema {version} must be rejected"),
+            };
+            assert!(error.to_string().contains("incompatible journal schema"), "{error}");
+            assert_eq!(
+                std::fs::read_to_string(directory.path().join("lander-state.json")).unwrap(),
+                journal.to_string()
+            );
+        }
     }
 
     #[tokio::test]
@@ -415,21 +427,23 @@ mod tests {
             registry: request.batch.snapshot.registry,
             sender: transaction.sender,
         };
-        let directory = tempfile::tempdir().unwrap();
         let state =
             JournalState::Pending { job: Box::new(ProvedJob { request, proof }), transaction };
-        let bytes = serde_json::to_vec(
-            &serde_json::json!({ "version": 2, "identity": id, "state": state }),
-        )
-        .unwrap();
-        let path = directory.path().join("lander-state.json");
-        std::fs::write(&path, &bytes).unwrap();
-        let error = match Store::open(directory.path(), id) {
-            Err(e) => e,
-            Ok(_) => panic!("V4 must be rejected"),
-        };
-        assert!(error.to_string().contains("incompatible pre-V5"));
-        assert_eq!(std::fs::read(path).unwrap(), bytes);
+        for version in [2, 3] {
+            let directory = tempfile::tempdir().unwrap();
+            let bytes = serde_json::to_vec(
+                &serde_json::json!({ "version": version, "identity": id, "state": state }),
+            )
+            .unwrap();
+            let path = directory.path().join("lander-state.json");
+            std::fs::write(&path, &bytes).unwrap();
+            let error = match Store::open(directory.path(), id.clone()) {
+                Err(e) => e,
+                Ok(_) => panic!("schema {version} must be rejected"),
+            };
+            assert!(error.to_string().contains("incompatible journal schema"), "{error}");
+            assert_eq!(std::fs::read(path).unwrap(), bytes);
+        }
     }
 
     #[test]

@@ -152,6 +152,11 @@ fn merkle(items: &[Vec<u8>]) -> Hash {
     >(items))
 }
 
+/// CometBFT `Data.Hash`: the simple Merkle root of the transactions' SHA-256 hashes.
+pub fn data_hash(txs: &[Vec<u8>]) -> Hash {
+    merkle(&txs.iter().map(|tx| Sha256::digest(tx).to_vec()).collect::<Vec<_>>())
+}
+
 /// Commit hash binds the signature protobufs, as CometBFT `Commit.Hash` does.
 pub fn commit_hash(commit: &Commit) -> Hash {
     merkle(
@@ -206,8 +211,7 @@ pub fn verify_body(
     if block.header.height.value() != expected_height {
         return Err(ValidationError::Certificate("requested block height mismatch".into()));
     }
-    let tx_hashes = block.data.iter().map(|tx| Sha256::digest(tx).to_vec()).collect::<Vec<_>>();
-    if block.header.data_hash != Some(merkle(&tx_hashes)) {
+    if block.header.data_hash != Some(data_hash(&block.data)) {
         return Err(ValidationError::Commitment("data"));
     }
     let evidence = block
