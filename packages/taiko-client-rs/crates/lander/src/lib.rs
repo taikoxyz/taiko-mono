@@ -12,7 +12,7 @@ pub mod contracts;
 pub mod error;
 /// Asynchronous proof-provider boundary and explicitly dummy implementation.
 pub mod proof;
-/// Exact V5 public statement encoding and hashing.
+/// Exact V6 public statement encoding and hashing.
 pub mod statement;
 /// Immutable contexts shared by collectors, proof providers and persistence.
 pub mod types;

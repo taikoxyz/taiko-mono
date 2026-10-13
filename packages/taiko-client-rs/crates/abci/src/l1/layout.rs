@@ -8,7 +8,7 @@
 //! Registry checkpoints must be strictly increasing and complete, with a checkpoint in every
 //! changing L1 block. Discovery reads historical entries before the next checkpoint and then
 //! verifies their authenticated root. Heartbeat sequence zero means no heartbeat; registration
-//! must protect unique non-exited public keys. Earliest-bond deduplication is defense in depth.
+//! must protect unique non-exited public keys. Lowest-bond-id deduplication is defense in depth.
 //! Packed Solidity fields are decoded low-order-first.
 
 use alloy_primitives::U256;

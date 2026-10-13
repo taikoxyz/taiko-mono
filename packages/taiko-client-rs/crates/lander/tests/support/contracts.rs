@@ -35,6 +35,10 @@ pub const STAKE: u128 = 1_000_000_000_000_000_000;
 pub const L2_CHAIN_ID: u64 = 167001;
 /// Epoch length is small enough for a cross-epoch actual-contract scenario.
 pub const EPOCH_LEN: u64 = 8;
+/// Forced inclusion delay installed at genesis, in seconds.
+pub const FORCED_INCLUSION_DELAY: u64 = 3_600;
+/// Maximum anchor age installed at genesis, in seconds.
+pub const MAX_ANCHOR_AGE: u64 = 7_200;
 
 /// An actual deployed protocol instance on one disposable Osaka anvil.
 pub struct ContractFixture {
@@ -85,6 +89,9 @@ impl ContractFixture {
                 _exitDelay: 20,
                 _withdrawalDelay: 30,
                 _heartbeatWindow: u64::MAX / 2,
+                _churnWindow: 0,
+                _churnBps: 0,
+                _minChurnPerWindow: U256::ZERO,
             }
             .abi_encode(),
         )
@@ -167,6 +174,8 @@ impl ContractFixture {
                     stakingRegistry: registry,
                     l2ChainId: L2_CHAIN_ID,
                     maxBatchBlocks: 1000,
+                    forcedInclusionFeeInGwei: 1,
+                    forcedInclusionFeeDoubleThreshold: 50,
                 },
             }
             .abi_encode(),
@@ -197,6 +206,8 @@ impl ContractFixture {
             genesisCutoff: cutoff,
             committeeRecordHash: record_hash(L2_CHAIN_ID, &committee.record),
             committeeConfigHash: committee_config_hash(&params),
+            forcedInclusionDelay: FORCED_INCLUSION_DELAY,
+            maxAnchorAge: MAX_ANCHOR_AGE,
         };
         let inbox = proxy(
             p,
@@ -216,8 +227,8 @@ impl ContractFixture {
             genesis_hash,
             genesis_state_root: parent_header.state_root,
             genesis_cutoff: cutoff,
-            forced_inclusion_delay: 3_600,
-            max_anchor_age: 7_200,
+            forced_inclusion_delay: FORCED_INCLUSION_DELAY,
+            max_anchor_age: MAX_ANCHOR_AGE,
         };
         mine_l1_blocks(p, 3).await?;
         ensure!(
@@ -261,7 +272,7 @@ impl ContractFixture {
         .map(drop)
     }
 
-    /// Require the verifier to receive this exact V5 public statement.
+    /// Require the verifier to receive this exact V6 public statement.
     pub async fn expect_statement(&self, hash: B256) -> Result<()> {
         transact(
             &self.anvil.provider,

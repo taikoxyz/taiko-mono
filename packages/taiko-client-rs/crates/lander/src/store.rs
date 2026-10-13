@@ -273,7 +273,7 @@ impl Store {
                 &batch.blobs.versioned_hashes,
             ) != batch.statement_hash
         {
-            return Err(LanderError::Journal("job V5 statement identity mismatch".into()));
+            return Err(LanderError::Journal("job V6 statement identity mismatch".into()));
         }
         let limits = crate::types::Limits {
             max_blocks: 100_000,

@@ -677,6 +677,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             lastBlockHash: last.hash_slow(),
             lastStateRoot: last.state_root,
             l1ReferenceBlockNumber: reference.number(),
+            forcedInclusionHead: snapshot.forced_inclusion_head_u48()?,
         };
         let blobs = blob::build(&payload, &self.limits, self.mode)?;
         let hash = statement::hash(&snapshot, &input, reference.hash(), &blobs.versioned_hashes);
@@ -686,7 +687,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             .await?;
         if contract_hash != hash {
             return Err(LanderError::Configuration(format!(
-                "local V5 statement {hash} differs from Inbox helper {contract_hash}"
+                "local V6 statement {hash} differs from Inbox helper {contract_hash}"
             )));
         }
         Ok(Some(ProofRequest {
@@ -1010,6 +1011,21 @@ mod tests {
             .unwrap(),
             request.batch.blocks.iter().map(codec::PublishedBlock::from).collect::<Vec<_>>()
         );
+    }
+
+    #[tokio::test]
+    async fn batch_input_and_statement_carry_the_stored_forced_inclusion_head() {
+        let fixture = Arc::new(Fixture::new(0, 3));
+        let snapshot = fixture.snapshot_with_forced_queue(fixture.snapshot.genesis.clone(), 3, 9);
+        let request = builder(fixture, limits(3)).prepare(snapshot.clone()).await.unwrap().unwrap();
+        let batch = &request.batch;
+        assert_eq!(batch.input.forcedInclusionHead, alloy_primitives::aliases::U48::from(3));
+        let reference = alloy_primitives::keccak256(&batch.reference_headers[0]);
+        let preimage =
+            statement::preimage(&snapshot, &batch.input, reference, &batch.blobs.versioned_hashes);
+        let three = alloy_primitives::U256::from(3).to_be_bytes::<32>();
+        assert_eq!((&preimage[15 * 32..16 * 32], &preimage[16 * 32..]), (&three[..], &three[..]));
+        assert_eq!(batch.statement_hash, alloy_primitives::keccak256(preimage));
     }
 
     #[tokio::test]
