@@ -82,18 +82,23 @@ the config hash and use the dummy proof provider, which does not enforce guest c
   immutables. As in Shasta, a new entry costs
   `forcedInclusionFeeInGwei * (threshold + pending) / threshold` Gwei (rounded down), so the fee
   doubles once `threshold` entries are pending. The landing that consumes an entry pays its fee to
-  the lander.
+  the `feeRecipient` that landing names. Size the fee to what an entry costs the lander: each
+  forced inclusion block re-publishes the entry's whole 128 KiB blob in the landing blobs (about
+  one extra landing blob, paid by the lander), and each due entry takes its own L2 block. The base
+  fee should cover about one to two landing blobs plus the entry's storage proof, which also
+  travels in the landing blobs, and the doubling threshold should be small.
 - `forcedInclusionDelay` (seconds) is fixed at genesis in slot 282; the node and guest read it
   from storage. An entry is due at an L2 block whose anchor timestamp is at least the entry's
   timestamp plus the delay; before that, validators may include it early. The delay must be
   below the 14-day expiry, after which an entry is consumed by an empty block.
 - `maxAnchorAge` (seconds) is fixed at genesis in slot 282. Every L2 block requires
   `block.timestamp - anchor.timestamp <= maxAnchorAge`, so it must exceed the usual L1 finality
-  lag; an L1 finality stall longer than it pauses L2 until finality resumes. Unless more than half
-  of the voting power withholds it, an entry becomes due within about
-  `forcedInclusionDelay + maxAnchorAge` of submission plus finality lag, so a longer value delays
-  forced transactions more. The proposed default is 2 hours; Ethereum finality stalls have lasted
-  about an hour.
+  lag; an L1 finality stall longer than it pauses L2 until finality resumes. The rule bounds how
+  far a block's anchor trails the block's derived timestamp, not real time: a pending entry is due
+  at any block whose timestamp has reached `entry.timestamp + forcedInclusionDelay + maxAnchorAge`,
+  so a longer value delays forced transactions more. Block timestamps follow BFT time, which a
+  large enough coalition can hold back (see Open items). The proposed default is 2 hours; Ethereum
+  finality stalls have lasted about an hour.
 - The registry and Inbox owners can upgrade the contracts; use the intended chain governance.
 
 ## Node-facing storage
@@ -178,12 +183,15 @@ only `R` through `R + 5`.
 - Initialization writes the genesis record, status 3, `genesisCutoff`, `genesisCommitteeRecordHash`,
   `committeeConfigHash`, `forcedInclusionDelay`, `maxAnchorAge` and
   `lastCheckpoint = (0, H*)`, and saves `(0, H*, S*)` in SignalService.
-- The forced inclusion head only moves in a verified landing, to the cursor the proof binds.
-  After every landing `head` equals the L2 cursor at `lastCheckpoint.height`; both start at 0.
-  Consumed entries stay in storage.
+- The forced inclusion head only moves in a verified landing, to the cursor the statement binds,
+  within the bounds in Landing. The proof guarantees that after every landing `head` equals the L2
+  cursor at `lastCheckpoint.height`; both start at 0. Consumed entries stay in storage.
 - `genesisCommitteeRecordHash` must be the record hash derived by the node at `genesisCutoff`: active entries
   with at least `max(s_min, vp_unit)`, lowest bond id per pubkey, top `n_max` by stake, and no
   heartbeat filter. The contract accepts the deployer's supplied record; the node verifies it.
+  With slot reuse the lowest bond id is not always the earliest registration; it is a
+  deterministic tie-break, and since registration keeps at most one non-exited entry per pubkey,
+  the deduplication is defence in depth.
 - Each L1 block changing an entry ends with one checkpoint. Same-block mutations overwrite the
   latest checkpoint; its `count` and root cover all used slots, including exited and withdrawn
   entries not yet reused.
@@ -236,7 +244,7 @@ At switch `S(t)`, registry proofs use exactly the committed parent's anchor root
 never the candidate's new anchor or a fresh finalized head. Select the latest registry checkpoint,
 authenticate its complete entry count/root, and evaluate `active_from <= snapshot < exit_effective`
 at the parent anchor number, rather than the checkpoint's mutation height. Keep effective stake,
-earliest eligible bondId per pubkey, `nMax` ranking, MEM-08 order/root, voting-power division and
+the lowest eligible bond id per pubkey, `nMax` ranking, MEM-08 order/root, voting-power division and
 existing overflow caps. Existing anchor progress ensures runtime anchors are at least `L1_0`,
 which is strictly after `genesisCutoff`; no extra runtime genesis floor is needed.
 
@@ -267,23 +275,28 @@ Outgoing-quorum, old-key/stake-retention/withdrawal and recovery-bootstrap limit
 
 ## Landing
 
-`LandInput` has exactly `lastHeight`, `lastBlockHash`, `lastStateRoot`, `l1ReferenceBlockNumber`
-and `forcedInclusionHead`, the forced inclusion cursor after the batch. With `p` and `parentHash`
-the stored checkpoint and `head`, `tail` the stored queue, `land` requires active status,
-`p < lastHeight <= p + maxBatchBlocks`, and `lastHeight <= type(uint48).max`. It also requires
-`head <= forcedInclusionHead <= tail` and `forcedInclusionHead - head <= lastHeight - p`, since
-each forced inclusion is its own block; otherwise it reverts `InvalidForcedInclusionHead`. The
-reference must be a past L1 block with a nonzero hash available from `blockhash` (256 blocks) or
-the EIP-2935 history contract (8191 blocks). At least one transaction blob is required.
+`LandInput` has exactly `lastHeight`, `lastBlockHash`, `lastStateRoot`, `l1ReferenceBlockNumber`,
+`forcedInclusionHead`, the forced inclusion cursor after the batch, and `feeRecipient`, the
+receiver of the consumed entries' fees. With `p` and `parentHash` the stored checkpoint and `head`,
+`tail` the stored queue, `land` requires active status, `p < lastHeight <= p + maxBatchBlocks`,
+`lastHeight <= type(uint48).max` and a non-zero `feeRecipient` (`ZeroFeeRecipient` otherwise,
+whether or not the batch consumes entries). It also requires `head <= forcedInclusionHead <= tail`
+and `forcedInclusionHead - head <= lastHeight - p`, since each forced inclusion is its own block;
+otherwise it reverts `InvalidForcedInclusionHead`. The reference must be a past L1 block with a
+nonzero hash available from `blockhash` (256 blocks) or the EIP-2935 history contract (8191
+blocks). At least one transaction blob is required.
 
 Landing saves the terminal checkpoint in the Inbox and SignalService, moves `head` to
 `forcedInclusionHead`, emits `BatchLanded`, and calls
 `proofVerifier.verifyProof(0, statementHash, proof)`. Failure rolls back all writes. Only after
 verification, and only if the head moved, does it pay the consumed entries' fees,
-`sum(queue[i].feeInGwei) * 1 gwei` for `i` in `[head, forcedInclusionHead)`, to `msg.sender` and
-emit `ForcedInclusionsConsumed(headBefore, headAfter, feesWei, recipient)`. A recipient that
-rejects the payment fails the landing. `land` and `saveForcedInclusion` share one reentrancy lock,
-so the recipient cannot re-enter either. The seventeen-word V6 preimage (544 bytes) is:
+`sum(queue[i].feeInGwei) * 1 gwei` for `i` in `[head, forcedInclusionHead)`, to `feeRecipient`,
+not `msg.sender`, and emit `ForcedInclusionsConsumed(headBefore, headAfter, feesWei, recipient)`.
+A recipient that rejects the payment fails the landing. `land` and `saveForcedInclusion` share one
+reentrancy lock, so the recipient cannot re-enter either. The statement binds `feeRecipient`, so
+whoever copies a public landing transaction (calldata and blob sidecar) and lands it first still
+pays the original recipient, and a copy naming another recipient fails verification. The
+eighteen-word V6 preimage (576 bytes) is:
 
 ```solidity
 statementHash = keccak256(abi.encode(
@@ -293,17 +306,18 @@ statementHash = keccak256(abi.encode(
     lastHeight, lastBlockHash, lastStateRoot,
     l1ReferenceBlockNumber, l1ReferenceBlockHash,
     keccak256(abi.encodePacked(blobHashes)),
-    forcedInclusionHeadBefore, forcedInclusionHeadAfter
+    forcedInclusionHeadBefore, forcedInclusionHeadAfter, feeRecipient
 ));
 ```
 
 The two heads are `uint48`: `forcedInclusionHeadBefore` is the stored `head` and
-`forcedInclusionHeadAfter` is `LandInput.forcedInclusionHead`. Both identities, config hash,
-generation, parent and head before come from the contract. The reference hash and ordered blob
-hashes come from the actual L1 execution context. `hashLandStatement` derives identities and config
-internally but accepts raw generation, parent, head before and terminal inputs for encoding; it does
-not authenticate them. Call it through the proxy to bind that proxy's address.
-V5 digests, four-field `LandInput`s, fixed-cutoff configuration openings, envelope-3 histories, V2
+`forcedInclusionHeadAfter` is `LandInput.forcedInclusionHead`; `feeRecipient` is the `address`
+from `LandInput`. Both identities, config hash, generation, parent and head before come from the
+contract. The reference hash and ordered blob hashes come from the actual L1 execution context.
+`hashLandStatement` derives identities and config internally but accepts raw generation, parent,
+head before and terminal inputs for encoding; it does not authenticate them. Call it through the
+proxy to bind that proxy's address. V5 digests, seventeen-word V6 digests without `feeRecipient`,
+four- and five-field `LandInput`s, fixed-cutoff configuration openings, envelope-3 histories, V2
 blob payloads and journal-schema-4 jobs are incompatible with this prelaunch version. The envelope
 version is 4, the blob payload version 3 and the journal schema 5; record encoding stays 1. No
 deployed-chain migration is provided. Reject old signed jobs without discarding their nonce,
@@ -314,7 +328,7 @@ cancelling or automatically replacing their transaction.
 Every account proof must derive its trie path from the corresponding bound Inbox or registry
 address. Authenticate storage under that proved account root and an authenticated L1 header.
 Open `committeeConfigHash` exactly as above and authenticate the genesis schedule. Apply the
-existing membership, earliest eligible bond per key, stake ranking, MEM-08 ordering, floor power
+existing membership, lowest eligible bond id per key, stake ranking, MEM-08 ordering, floor power
 mapping and overflow rules at the authenticated snapshot. Keep heartbeat evaluation at the target
 schedule instant with its two-epoch lookahead, capped at the snapshot window, including the nonzero
 sequence guard and launch exemptions for epochs 0, 1 and 2. The lookahead does not select a snapshot.
@@ -384,7 +398,8 @@ inherited one), with `tail(A)` the queue tail in `A`'s state, `D = forcedInclusi
   unrecoverable transactions, unsupported types, invalid transactions and those whose gas limit
   exceeds the remaining block gas, and stops at zk gas exhaustion.
 
-The list of a non-expired entry comes from its blob `B`: require
+Reject an entry whose proven `blobHashes` length is not exactly 1; the store never writes one, so
+this is defence in depth. The list of a non-expired entry comes from its blob `B`: require
 `kzg_to_versioned_hash(blob_to_kzg_commitment(B)) == entry.blobHashes[0]`, decode the blob as Shasta
 derivation does, and decode Shasta's forced inclusion `DerivationSourceManifest` at `entry.offset`
 with at most one block, stopping decompression at 1 MiB. A manifest with exactly one block gives
@@ -396,14 +411,17 @@ The guest checks, per block, these rules, the witness presence rules, the KZG bi
 derivation and the EL semantics, and that the batch consumes exactly entries
 `[forcedInclusionHeadBefore, forcedInclusionHeadAfter)` in order. Entry facts and `tail` are
 authenticated by storage proofs (slots 280–281) under anchors already authenticated by the
-reference header chain; `D` and `M` (slot 282) under the genesis proof.
+reference header chain; `D` and `M` (slot 282) under the genesis proof. Read `tail(A)` from each
+anchor's state, never from genesis: `saveForcedInclusion` can follow `init` in the same L1 block,
+so the queue need not be empty at `L1_0`. Block 1 always carries its own anchor witness.
+`feeRecipient` is a public input the guest binds but does not constrain.
 
 The existing status, generation, anchor progress and back-pressure checks remain. In particular,
 `height - checkpoint <= d_max - margin_v` can still stop block production during a settlement
 outage, and `epochLenL2 >= unsettledCap + 3` remains the schedule bound. Committee authorization
 is autonomous, while settlement progress still matters for overall liveness.
 
-The fixed Solidity vector pins the five-field ABI, nine-word config and V6 statement against an
+The fixed Solidity vector pins the six-field ABI, nine-word config and V6 statement against an
 independent `cast abi-encode` encoding. Tests use an explicitly dummy verifier for batching,
 statement binding and rollback; they do not prove the authoritative guest rules. Dummy proof
 `0x00` remains explicit; no real ZK guest is part of this change, and host/contract integration
@@ -423,8 +441,19 @@ assumptions remain unchanged.
 - The spec's separate heartbeat key, signed payload and relayed heartbeats are not implemented;
   the bond owner heartbeats directly. Epochs 0, 1 and 2 have no heartbeat eligibility filter.
 - Forced inclusion is enforced only by the guest and by honest validators; no guest exists yet,
-  so a stand-in verifier lets any lander skip entries and collect their fees. A committee with more
-  than two-thirds of the voting power controls BFT time and can still delay forced inclusions;
-  closing that would need an L1-clock check at landing, which would make batches delayed by a long
-  lander outage unlandable.
+  so a stand-in verifier lets any lander skip entries and collect their fees.
+- Anchor freshness does not keep block timestamps up with real time. Etna enables no
+  proposer-based timestamps (PBTS), so BFT time is the voting-power-weighted median of the
+  precommit timestamps a proposer includes in its block's last commit. A coalition with more than
+  1/2 of the voting power sets that median outright. One with more than 1/3 can too: it withholds
+  its votes from honest proposals, so only its own proposals are decided, and includes in them
+  only enough honest precommits to clear 2/3 (the exact threshold lies between 1/3 and 1/2,
+  depending on stake granularity). Either coalition can hold block timestamps back and, while
+  satisfying freshness, keep anchors stale and delay forced inclusions; each block still advances
+  the timestamp by at least one second. A delay that reaches the 14-day expiry becomes a drop: the
+  entry is then consumed by an empty block. Freshness only bounds anchor lag relative to the
+  derived block timestamp, and pauses L2 during L1 finality stalls longer than `maxAnchorAge`.
+  A validator-local clock check (PBTS-style timeliness) would raise the bound; it is an open,
+  launch-blocking decision and is not implemented. An L1-clock check at landing would instead
+  make batches delayed by a long lander outage unlandable.
 - An L2-to-L1 fee sweep remains separate work.

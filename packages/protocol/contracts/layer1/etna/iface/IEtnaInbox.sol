@@ -84,7 +84,7 @@ interface IEtnaInbox {
     }
 
     /// @notice The batch of `land`: the L2 blocks after the last checkpoint up to `lastHeight`,
-    /// and the forced inclusions they consume.
+    /// the forced inclusions they consume, and the receiver of those inclusions' fees.
     struct LandInput {
         /// @notice The height of the batch's last block.
         uint64 lastHeight;
@@ -103,6 +103,10 @@ interface IEtnaInbox {
         /// @dev At least the stored head, at most the queue tail, and ahead of the stored head by
         /// at most the batch's block count, since each forced inclusion is its own block.
         uint48 forcedInclusionHead;
+        /// @notice The receiver of the fees of the forced inclusions the batch consumes.
+        /// @dev Non-zero, and bound into the V6 statement, so a copy of a public landing
+        /// transaction cannot redirect the fees. A lander normally names its own sending address.
+        address feeRecipient;
     }
 
     // ---------------------------------------------------------------
@@ -150,7 +154,7 @@ interface IEtnaInbox {
     /// @param headAfter The queue head after the batch; entries [headBefore, headAfter) are
     /// consumed.
     /// @param feesWei The consumed entries' total fee in wei, paid to `recipient`.
-    /// @param recipient The lander, the caller of `land`.
+    /// @param recipient The batch's `feeRecipient`, which the landing statement binds.
     event ForcedInclusionsConsumed(
         uint48 headBefore, uint48 headAfter, uint256 feesWei, address indexed recipient
     );
@@ -174,16 +178,17 @@ interface IEtnaInbox {
 
     /// @notice Lands the L2 blocks after the last checkpoint up to `_input.lastHeight`.
     /// @dev Permissionless. Requires active status, progress, at most `maxBatchBlocks` blocks,
-    /// and a last height at or below `type(uint48).max`. The reference is a past L1 block with
-    /// a non-zero hash available through blockhash (256 blocks) or EIP-2935 (8191 blocks).
+    /// a last height at or below `type(uint48).max` and a non-zero fee recipient. The reference
+    /// is a past L1 block with a non-zero hash available through blockhash (256 blocks) or
+    /// EIP-2935 (8191 blocks).
     /// At least one blob is required, and every actual transaction blob hash is bound in order.
     /// The forced inclusion head must satisfy head <= forcedInclusionHead <= tail and advance by
     /// at most the batch's block count. Saves the terminal checkpoint in the Inbox and
     /// SignalService, moves the queue head, emits BatchLanded, then verifies the V6 statement
     /// with proposal age 0; verifier failure rolls back every write. Only then, if the head
-    /// moved, are the consumed entries' fees paid to the caller and ForcedInclusionsConsumed
-    /// emitted. Consumed entries are not deleted. No future committee record is an input or
-    /// output of landing.
+    /// moved, are the consumed entries' fees paid to `_input.feeRecipient`, not the caller, and
+    /// ForcedInclusionsConsumed emitted. Consumed entries are not deleted. No future committee
+    /// record is an input or output of landing.
     ///
     /// A valid Etna proof must authenticate every Inbox/registry account and storage proof under
     /// the respective bound address and authenticated L1 state root. It must open the stored
@@ -198,7 +203,7 @@ interface IEtnaInbox {
     /// checked arithmetic. At S(t), derive the incoming set at exactly the committed parent's
     /// anchor number, under that parent's authenticated L1 root; never the candidate's anchor.
     /// Authenticate complete registry entries/count/root and evaluate active/exit eligibility at
-    /// that snapshot number. Preserve effective stake, earliest eligible bondId per pubkey,
+    /// that snapshot number. Preserve effective stake, the lowest eligible bondId per pubkey,
     /// nMax ranking, MEM-08 ordering/root, voting-power division and overflow caps. Heartbeats
     /// retain target-epoch evaluation with lookahead 2 and exemptions for epochs 0, 1 and 2.
     /// Non-switch blocks forbid runtime committee witnesses. No empty-set fallback is implied.
@@ -237,6 +242,10 @@ interface IEtnaInbox {
     /// entry is consumed with an empty list and no blob. The batch consumes entries
     /// [forcedInclusionHeadBefore, forcedInclusionHeadAfter) in order. Authenticate entries and
     /// tail by storage proofs under the authenticated anchors, and slot 282 under genesis state.
+    /// Reject an entry whose proven blobHashes length is not exactly 1 (the store never writes
+    /// one). Read tail(A) from A's state, never genesis: a save can follow init in the same L1
+    /// block, so the queue may be non-empty at L1_0; block 1 always carries its own anchor
+    /// witness. feeRecipient is a public input the guest binds but does not constrain.
     ///
     /// Prove contiguous execution from the parent hash to the terminal hash/state root, every
     /// anchor and actual proving L1 root on the header chain ending at the reference hash, and
@@ -250,18 +259,19 @@ interface IEtnaInbox {
     /// discard or replace a signed nonce. The verifier must pin a guest enforcing these V6
     /// rules. Dummy proof 0x00 is for development only; no real guest exists here and the dummy
     /// verifier does not establish consensus validity or ZK soundness.
-    /// @param _input The five-field batch: terminal checkpoint, reference block and forced
-    /// inclusion head.
+    /// @param _input The six-field batch: terminal checkpoint, reference block, forced inclusion
+    /// head and fee recipient.
     /// @param _proof The proof of the V6 landing statement.
     function land(LandInput calldata _input, bytes calldata _proof) external;
 
     /// @notice Encodes the V6 landing statement for supplied batch public inputs.
-    /// @dev Seventeen static ABI words (544 bytes): bytes32("TAIKO_ETNA_LAND_V6"), block.chainid,
+    /// @dev Eighteen static ABI words (576 bytes): bytes32("TAIKO_ETNA_LAND_V6"), block.chainid,
     /// l2ChainId, address(this), address(stakingRegistry), _generation, _parentHeight, _parentHash,
     /// committeeConfigHash, lastHeight, lastBlockHash, lastStateRoot, l1ReferenceBlockNumber,
     /// _l1ReferenceBlockHash, keccak256(abi.encodePacked(_blobHashes)),
-    /// _forcedInclusionHeadBefore, forcedInclusionHead. Chain id is uint256; generation/heights
-    /// are uint64, forced inclusion heads uint48, identities address and hashes bytes32.
+    /// _forcedInclusionHeadBefore, forcedInclusionHead, feeRecipient. Chain id is uint256;
+    /// generation/heights are uint64, forced inclusion heads uint48, identities and the fee
+    /// recipient address, and hashes bytes32.
     /// Identities and the config hash are read internally; call through the Inbox proxy to bind
     /// its address. This helper does not authenticate supplied batch values. land reads the
     /// stored parent, generation and forced inclusion head, resolves the reference hash and reads
@@ -270,7 +280,7 @@ interface IEtnaInbox {
     /// @param _parentHeight The parent checkpoint height.
     /// @param _parentHash The parent checkpoint block hash.
     /// @param _forcedInclusionHeadBefore The forced inclusion queue head before the batch.
-    /// @param _input The five-field batch.
+    /// @param _input The six-field batch.
     /// @param _l1ReferenceBlockHash The hash of `_input.l1ReferenceBlockNumber`.
     /// @param _blobHashes The versioned blob hashes in transaction order.
     /// @return statementHash_ The V6 statement hash.

@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import { EtnaInboxTestBase } from "./EtnaInboxTestBase.sol";
 import { VmSafe } from "forge-std/src/Vm.sol";
 import { DeployEtnaDevnet } from "script/layer1/etna/DeployEtnaDevnet.s.sol";
+import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
@@ -137,12 +138,20 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(checkpoint.blockHash, genesisBlockHash, "checkpoint zero hash");
         assertEq(checkpoint.stateRoot, genesisStateRoot, "checkpoint zero root");
 
+        vm.deal(Alice, 1 ether);
+        vm.blobhashes(_getBlobHashes(1));
+        vm.prank(Alice);
+        deployed.saveForcedInclusion{ value: uint256(FORCED_INCLUSION_FEE_GWEI) * 1 gwei }(
+            LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 })
+        );
+
         IEtnaInbox.LandInput memory input = IEtnaInbox.LandInput({
             lastHeight: 1,
             lastBlockHash: keccak256("first Etna block"),
             lastStateRoot: keccak256("first Etna state"),
             l1ReferenceBlockNumber: uint64(block.number - 1),
-            forcedInclusionHead: 0
+            forcedInclusionHead: 1,
+            feeRecipient: Carol
         });
         bytes32 l1ReferenceBlockHash = keccak256("genesis anchor");
         vm.setBlockhash(input.l1ReferenceBlockNumber, l1ReferenceBlockHash);
@@ -155,10 +164,18 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
             address(landVerifier),
             abi.encodeCall(IProofVerifier.verifyProof, (0, statement, bytes("proof")))
         );
+        uint256 recipientBefore = Carol.balance;
         deployed.land(input, "proof");
         assertEq(deployed.lastCheckpoint().height, 1, "first landed block");
         assertEq(
             deployedSignals.getCheckpoint(1).blockHash, input.lastBlockHash, "new syncer authorized"
+        );
+        (uint48 head,) = deployed.getForcedInclusionState();
+        assertEq(head, 1, "forced inclusion consumed");
+        assertEq(
+            Carol.balance - recipientBefore,
+            uint256(FORCED_INCLUSION_FEE_GWEI) * 1 gwei,
+            "fee paid to the bound recipient"
         );
     }
 
