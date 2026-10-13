@@ -22,7 +22,7 @@ import "./EtnaInbox_Layout.sol"; // DO NOT DELETE
 /// logic. Slots 251–257, 259–267 and 275–277 are reserved to keep the node-facing slots unchanged.
 /// The forced inclusion store reuses Shasta's queue, fee rule, events and errors; its queue lives
 /// at slots 280–281 and its genesis delay and maximum anchor age at slot 282. Landing advances the
-/// queue head and pays the consumed entries' fees to the lander.
+/// queue head and pays the consumed entries' fees to the recipient its statement binds.
 /// @custom:security-contact security@taiko.xyz
 contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
     using LibAddress for address;
@@ -33,7 +33,7 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     /// @dev The V6 statement in wire order. All fields are static, so abi.encode of this
-    /// memory-only struct is the same seventeen-word encoding as the flat field list. Building
+    /// memory-only struct is the same eighteen-word encoding as the flat field list. Building
     /// it one field at a time keeps the non-IR compiler within its stack limit.
     struct LandStatement {
         bytes32 domain;
@@ -53,6 +53,7 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
         bytes32 blobHashesHash;
         uint48 forcedInclusionHeadBefore;
         uint48 forcedInclusionHeadAfter;
+        address feeRecipient;
     }
 
     /// @dev The genesis forced inclusion parameters, packed into one storage word.
@@ -248,6 +249,7 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
         require(lastHeight > parent.height, NoProgress());
         require(lastHeight - parent.height <= _maxBatchBlocks, BatchTooLarge());
         require(lastHeight <= type(uint48).max, HeightOverflow());
+        require(_input.feeRecipient != address(0), ZeroFeeRecipient());
 
         uint48 headBefore = _forcedInclusionStorage.head;
         uint48 headAfter = _input.forcedInclusionHead;
@@ -294,8 +296,8 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
         _proofVerifier.verifyProof(0, statementHash, _proof);
 
         if (headAfter != headBefore) {
-            msg.sender.sendEtherAndVerify(feesWei);
-            emit ForcedInclusionsConsumed(headBefore, headAfter, feesWei, msg.sender);
+            _input.feeRecipient.sendEtherAndVerify(feesWei);
+            emit ForcedInclusionsConsumed(headBefore, headAfter, feesWei, _input.feeRecipient);
         }
     }
 
@@ -456,6 +458,7 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
         statement.blobHashesHash = keccak256(abi.encodePacked(_blobHashes));
         statement.forcedInclusionHeadBefore = _forcedInclusionHeadBefore;
         statement.forcedInclusionHeadAfter = _input.forcedInclusionHead;
+        statement.feeRecipient = _input.feeRecipient;
         return keccak256(abi.encode(statement));
     }
 
@@ -532,4 +535,5 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
     error NoProgress();
     error ZeroCommitteeRecord();
     error ZeroCommitteeConfigHash();
+    error ZeroFeeRecipient();
 }
