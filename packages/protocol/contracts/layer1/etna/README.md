@@ -26,15 +26,17 @@ implements no Shasta-to-Etna migration. The protocol specification is #22262.
    nonce `n`, the L1 SignalService proxy is CREATE at `n + 1` and the Inbox proxy at `n + 3`.
    Keep the wallet's nonce unchanged until `deployInbox()` runs.
 4. Call `DeployEtnaDevnet.deployInbox()` with the genesis hash, state root, epoch lengths,
-   `genesisCutoff`, committee record hash and `committeeConfigHash`. It deploys fresh SignalService and EtnaInbox proxies.
+   `genesisCutoff`, committee record hash, `committeeConfigHash`, forced inclusion delay and
+   maximum anchor age. It deploys fresh SignalService and EtnaInbox proxies.
    The Inbox is initialized atomically in the proxy constructor and saves a block-0 checkpoint to
    SignalService. SignalService authorizes the predicted Inbox proxy address.
 5. Once the L1 initialization block is final, run `abci-genesis` and start CometBFT and the EL.
    The first consensus block is L2 block 1. Configure the EL's Etna fork from genesis.
 
 `init(owner, params)` requires non-zero genesis hash, state root, committee record hash and committee config hash;
-`epochLenL2 >= 3`; `epochLenL1 > 0`; and a past `genesisCutoff` at or after the registry's first
-checkpoint. It runs once; implementation contracts have initializers disabled. SignalService must
+`epochLenL2 >= 3`; `epochLenL1 > 0`; a past `genesisCutoff` at or after the registry's first
+checkpoint; `0 < forcedInclusionDelay < 14 days`; and `maxAnchorAge > 0`. It runs once;
+implementation contracts have initializers disabled. SignalService must
 authorize this proxy, or initialization reverts without retaining ownership or genesis state.
 
 The genesis hash, state root, committee record and config hash are trusted bootstrap inputs. The deployer must
@@ -44,8 +46,10 @@ check that they match the L2 genesis file and the registry snapshot. The contrac
 The deployment script's NatSpec lists its environment variables. Both calls use `PRIVATE_KEY` and
 optional `CONTRACT_OWNER`; `run()` needs `TAIKO_TOKEN` and `REGISTRY_*`. `deployInbox()` needs
 `STAKING_REGISTRY`, `REMOTE_SIGNAL_SERVICE` (L2), `ETNA_PROOF_VERIFIER`, `L2_CHAIN_ID`,
-`MAX_BATCH_BLOCKS`, `GENESIS_BLOCK_HASH`, `GENESIS_STATE_ROOT`, `EPOCH_LEN_L2`, `EPOCH_LEN_L1`,
-`GENESIS_CUTOFF`, `COMMITTEE_RECORD_HASH` and `COMMITTEE_CONFIG_HASH`. Use the same deployer for the four consecutive CREATEs
+`MAX_BATCH_BLOCKS`, `FORCED_INCLUSION_FEE_GWEI`, `FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD`,
+`GENESIS_BLOCK_HASH`, `GENESIS_STATE_ROOT`, `EPOCH_LEN_L2`, `EPOCH_LEN_L1`, `GENESIS_CUTOFF`,
+`COMMITTEE_RECORD_HASH`, `COMMITTEE_CONFIG_HASH`, `FORCED_INCLUSION_DELAY` and `MAX_ANCHOR_AGE`
+(both in seconds). Use the same deployer for the four consecutive CREATEs
 of the Inbox deployment; the script predicts the final proxy using its current nonce.
 
 No Etna guest exists yet, so a devnet's `EtnaInbox` uses a stand-in proof verifier such as the
@@ -65,6 +69,21 @@ the config hash and use the dummy proof provider, which does not enforce guest c
   checks only the minimum of 3 because those node parameters are not on-chain.
 - The genesis snapshot must contain live eligible validators. A cutoff close to the L1
   initialization block reduces the chance of entries exiting or going offline before startup.
+- `forcedInclusionFeeInGwei` and `forcedInclusionFeeDoubleThreshold` are non-zero implementation
+  immutables. As in Shasta, a new entry costs
+  `forcedInclusionFeeInGwei * (threshold + pending) / threshold` Gwei (rounded down), so the fee
+  doubles once `threshold` entries are pending.
+- `forcedInclusionDelay` (seconds) is fixed at genesis in slot 282; the node and guest read it
+  from storage. An entry is due at an L2 block whose anchor timestamp is at least the entry's
+  timestamp plus the delay; before that, validators may include it early. The delay must be
+  below the 14-day expiry, after which an entry is consumed by an empty block.
+- `maxAnchorAge` (seconds) is fixed at genesis in slot 282. Every L2 block requires
+  `block.timestamp - anchor.timestamp <= maxAnchorAge`, so it must exceed the usual L1 finality
+  lag; an L1 finality stall longer than it pauses L2 until finality resumes. Unless more than half
+  of the voting power withholds it, an entry becomes due within about
+  `forcedInclusionDelay + maxAnchorAge` of submission plus finality lag, so a longer value delays
+  forced transactions more. The proposed default is 2 hours; Ethereum finality stalls have lasted
+  about an hour.
 - The registry and Inbox owners can upgrade the contracts; use the intended chain governance.
 
 ## Node-facing storage
@@ -93,7 +112,14 @@ interface stable; they do not contain Shasta state.
 | 275–277 | reserved                                               | —                                                  |
 | 278     | `genesisCommitteeRecordHash`                           | `bytes32`; direct genesis committee commitment     |
 | 279     | `genesisCutoff`                                        | `uint64` bits 0–63                                 |
-| 280–300 | `__gap`                                                | —                                                  |
+| 280     | forced inclusion `queue` mapping                       | entry `i` at `keccak256(abi.encode(i, 280))`       |
+| 281     | forced inclusion `head`, `tail`                        | `uint48` bits 0–47, `uint48` bits 48–95            |
+| 282     | `forcedInclusionDelay`, `maxAnchorAge`                 | `uint64` bits 0–63, `uint64` bits 64–127 (seconds) |
+| 283–300 | `__gap`                                                | —                                                  |
+
+Forced inclusion entry `i` starts at `base = keccak256(abi.encode(i, 280))`: `feeInGwei` (`uint64`
+bits 0–63) at `base`, `blobHashes.length` (always 1) at `base + 1`, `offset` (`uint24` bits 0–23)
+and `timestamp` (`uint48` bits 24–71) at `base + 2`, and `blobHashes[0]` at `keccak256(base + 1)`.
 
 `migrationState()` retains its name as a compatibility getter for the ABCI status word.
 It exposes no migration state machine. `activation()` returns the genesis record.
@@ -130,7 +156,7 @@ one entry gives leaf 0 and no entry gives `bytes32(0)`. At most 4096 entries exi
 ## Contract obligations
 
 - Initialization writes the genesis record, status 3, `genesisCutoff`, `genesisCommitteeRecordHash`,
-  `committeeConfigHash` and
+  `committeeConfigHash`, `forcedInclusionDelay`, `maxAnchorAge` and
   `lastCheckpoint = (0, H*)`, and saves `(0, H*, S*)` in SignalService.
 - `genesisCommitteeRecordHash` must be the record hash derived by the node at `genesisCutoff`: active entries
   with at least `max(s_min, vp_unit)`, lowest bond id per pubkey, top `n_max` by stake, and no

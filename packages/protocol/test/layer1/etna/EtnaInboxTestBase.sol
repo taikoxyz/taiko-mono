@@ -56,11 +56,15 @@ abstract contract EtnaInboxTestBase is CommonTest {
     uint256 internal constant GENESIS_CUTOFF_SLOT = 279;
     uint256 internal constant FORCED_INCLUSION_QUEUE_SLOT = 280;
     uint256 internal constant FORCED_INCLUSION_HEAD_TAIL_SLOT = 281;
+    uint256 internal constant FORCED_INCLUSION_CONFIG_SLOT = 282;
 
     uint64 internal constant L2_CHAIN_ID = 167_001;
     uint64 internal constant MAX_BATCH_BLOCKS = 1000;
     uint64 internal constant FORCED_INCLUSION_FEE_GWEI = 10_000_000;
     uint64 internal constant FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD = 50;
+    uint64 internal constant FORCED_INCLUSION_DELAY = 1 hours;
+    uint64 internal constant MAX_ANCHOR_AGE = 2 hours;
+    uint64 internal constant FORCED_INCLUSION_EXPIRY = 14 days;
     uint64 internal constant EPOCH_LEN_L2 = 10;
     uint64 internal constant EPOCH_LEN_L1 = 32;
     bytes32 internal constant COMMITTEE_RECORD_0 = keccak256("committee record 0");
@@ -155,7 +159,9 @@ abstract contract EtnaInboxTestBase is CommonTest {
             epochLenL1: EPOCH_LEN_L1,
             genesisCutoff: registryCheckpointBlock,
             committeeRecordHash: COMMITTEE_RECORD_0,
-            committeeConfigHash: COMMITTEE_CONFIG_HASH
+            committeeConfigHash: COMMITTEE_CONFIG_HASH,
+            forcedInclusionDelay: FORCED_INCLUSION_DELAY,
+            maxAnchorAge: MAX_ANCHOR_AGE
         });
     }
 

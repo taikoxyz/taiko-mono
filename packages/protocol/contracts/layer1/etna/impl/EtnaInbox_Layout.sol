@@ -29,4 +29,5 @@ pragma solidity ^0.8.26;
 //   _genesisCommitteeRecordHash    | bytes32                                            | Slot: 278  | Offset: 0    | Bytes: 32
 //   _genesisCutoff                 | uint64                                             | Slot: 279  | Offset: 0    | Bytes: 8
 //   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 280  | Offset: 0    | Bytes: 64
-//   __gap                          | uint256[19]                                        | Slot: 282  | Offset: 0    | Bytes: 608
+//   _forcedInclusionConfig         | struct EtnaInbox.ForcedInclusionConfig             | Slot: 282  | Offset: 0    | Bytes: 32
+//   __gap                          | uint256[18]                                        | Slot: 283  | Offset: 0    | Bytes: 576

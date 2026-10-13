@@ -47,6 +47,12 @@ interface IEtnaInbox {
         bytes32 committeeRecordHash;
         /// @notice The non-zero commitment to the parent-anchor committee derivation configuration.
         bytes32 committeeConfigHash;
+        /// @notice The forced inclusion delay in seconds, non-zero and below the 14-day expiry: an
+        /// entry is due at an L2 block whose anchor timestamp is at least its timestamp plus it.
+        uint64 forcedInclusionDelay;
+        /// @notice The maximum anchor age in seconds, non-zero: every L2 block requires
+        /// `block.timestamp - anchor.timestamp <= maxAnchorAge`.
+        uint64 maxAnchorAge;
     }
 
     /// @notice The genesis record; named activation for the existing node storage interface.
@@ -139,8 +145,9 @@ interface IEtnaInbox {
 
     /// @notice Initializes a fresh Etna proxy and its L2 block-0 checkpoint.
     /// @dev Call atomically in the proxy constructor. Requires non-zero genesis hash, state root,
-    /// committee record and derivation configuration hash, epochLenL2 >= 3, epochLenL1 > 0, and
-    /// a past genesis cutoff at or after the registry's first checkpoint. The SignalService must
+    /// committee record and derivation configuration hash, epochLenL2 >= 3, epochLenL1 > 0,
+    /// a past genesis cutoff at or after the registry's first checkpoint, a forced inclusion
+    /// delay in (0, 14 days) and a non-zero maximum anchor age. The SignalService must
     /// authorize this proxy as its
     /// syncer: initialization saves its block-0 checkpoint too, and any failure rolls back all
     /// state. The owner supplies the trusted genesis values and the committee record computed
@@ -262,6 +269,16 @@ interface IEtnaInbox {
     /// @dev Committee 0 alone uses this explicit snapshot; runtime sets use switch-parent anchors.
     /// @return The genesis cutoff; zero before initialization.
     function genesisCutoff() external view returns (uint64);
+
+    /// @notice Returns the forced inclusion delay in seconds.
+    /// @dev Stored at slot 282, bits 0–63; installed once from the trusted genesis input.
+    /// @return The forced inclusion delay; zero before initialization.
+    function forcedInclusionDelay() external view returns (uint64);
+
+    /// @notice Returns the maximum age in seconds of an L2 block's anchor.
+    /// @dev Stored at slot 282, bits 64–127; installed once from the trusted genesis input.
+    /// @return The maximum anchor age; zero before initialization.
+    function maxAnchorAge() external view returns (uint64);
 
     /// @notice Returns the status word consumed by the existing ABCI node.
     /// @dev The name is retained for node compatibility; there is no migration state machine.

@@ -83,6 +83,16 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         assertEq(bytes32(_loadSlot(278)), COMMITTEE_RECORD_0, "bootstrap committee installed");
     }
 
+    function test_init_StoresForcedInclusionConfigAtSlot282() external view {
+        assertEq(
+            vm.load(address(etnaInbox), bytes32(FORCED_INCLUSION_CONFIG_SLOT)),
+            bytes32(uint256(FORCED_INCLUSION_DELAY) | (uint256(MAX_ANCHOR_AGE) << 64)),
+            "282: delay bits 0-63, maximum anchor age bits 64-127"
+        );
+        assertEq(etnaInbox.forcedInclusionDelay(), FORCED_INCLUSION_DELAY, "delay getter");
+        assertEq(etnaInbox.maxAnchorAge(), MAX_ANCHOR_AGE, "maximum anchor age getter");
+    }
+
     function test_init_SavesTheBlockZeroSignalCheckpoint() external view {
         ICheckpointStore.Checkpoint memory checkpoint = signalService.getCheckpoint(0);
         assertEq(checkpoint.blockNumber, 0, "checkpoint block");
@@ -115,6 +125,7 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
             bytes32(_loadSlot(GENESIS_COMMITTEE_SLOT)), COMMITTEE_RECORD_0, "278: genesis committee"
         );
         assertEq(_loadSlot(GENESIS_CUTOFF_SLOT), registryCheckpointBlock, "279: genesis cutoff");
+        assertEq(_loadSlot(FORCED_INCLUSION_HEAD_TAIL_SLOT), 0, "281: empty forced inclusion queue");
     }
 
     function test_init_LeavesReservedSlotsEmpty() external view {
@@ -128,8 +139,8 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         for (uint256 slot = 275; slot <= 277; ++slot) {
             assertEq(_loadSlot(slot), 0, "275-277");
         }
-        for (uint256 slot = 280; slot <= 300; ++slot) {
-            assertEq(_loadSlot(slot), 0, "280-300");
+        for (uint256 slot = 283; slot <= 300; ++slot) {
+            assertEq(_loadSlot(slot), 0, "283-300");
         }
     }
 
@@ -189,10 +200,21 @@ contract EtnaInboxGenesisValidationTest is EtnaInboxTestBase {
         params.epochLenL2 = 3;
         params.epochLenL1 = 1;
         params.genesisCutoff = uint64(block.number - 1);
+        params.forcedInclusionDelay = FORCED_INCLUSION_EXPIRY - 1;
+        params.maxAnchorAge = 1;
         etnaInbox.init(address(this), params);
         assertEq(etnaInbox.activation().epochLenL2, 3, "epoch length L2");
         assertEq(etnaInbox.activation().epochLenL1, 1, "epoch length L1");
         assertEq(etnaInbox.genesisCutoff(), block.number - 1, "genesis cutoff");
+        assertEq(etnaInbox.forcedInclusionDelay(), FORCED_INCLUSION_EXPIRY - 1, "delay");
+        assertEq(etnaInbox.maxAnchorAge(), 1, "maximum anchor age");
+    }
+
+    function test_init_AcceptsTheSmallestForcedInclusionDelay() external {
+        IEtnaInbox.GenesisParams memory params = _defaultGenesisParams();
+        params.forcedInclusionDelay = 1;
+        etnaInbox.init(address(this), params);
+        assertEq(etnaInbox.forcedInclusionDelay(), 1, "delay");
     }
 
     function test_init_RevertWhen_GenesisBlockHashIsZero() external {
@@ -251,6 +273,26 @@ contract EtnaInboxGenesisValidationTest is EtnaInboxTestBase {
         _expectInvalidGenesis(params, EtnaInbox.ZeroCommitteeConfigHash.selector);
     }
 
+    function test_init_RevertWhen_ForcedInclusionDelayIsZero() external {
+        IEtnaInbox.GenesisParams memory params = _defaultGenesisParams();
+        params.forcedInclusionDelay = 0;
+        _expectInvalidGenesis(params, EtnaInbox.InvalidForcedInclusionDelay.selector);
+    }
+
+    function test_init_RevertWhen_ForcedInclusionDelayIsAtExpiry() external {
+        IEtnaInbox.GenesisParams memory params = _defaultGenesisParams();
+        params.forcedInclusionDelay = FORCED_INCLUSION_EXPIRY;
+        _expectInvalidGenesis(params, EtnaInbox.InvalidForcedInclusionDelay.selector);
+        params.forcedInclusionDelay = type(uint64).max;
+        _expectInvalidGenesis(params, EtnaInbox.InvalidForcedInclusionDelay.selector);
+    }
+
+    function test_init_RevertWhen_MaxAnchorAgeIsZero() external {
+        IEtnaInbox.GenesisParams memory params = _defaultGenesisParams();
+        params.maxAnchorAge = 0;
+        _expectInvalidGenesis(params, EtnaInbox.InvalidMaxAnchorAge.selector);
+    }
+
     function test_init_CanRetryAfterRejectedParameters() external {
         IEtnaInbox.GenesisParams memory params = _defaultGenesisParams();
         params.genesisBlockHash = 0;
@@ -292,6 +334,8 @@ contract EtnaInboxGenesisValidationTest is EtnaInboxTestBase {
         assertEq(etnaInbox.genesisCutoff(), 0, "cutoff not installed");
         assertEq(etnaInbox.genesisCommitteeRecordHash(), bytes32(0), "committee not installed");
         assertEq(etnaInbox.committeeConfigHash(), bytes32(0), "config not installed");
+        assertEq(etnaInbox.forcedInclusionDelay(), 0, "delay not installed");
+        assertEq(etnaInbox.maxAnchorAge(), 0, "maximum anchor age not installed");
         assertEq(_loadSlot(COMMITTEE_CONFIG_SLOT), 0, "config storage not installed");
         assertEq(_loadSlot(GENESIS_COMMITTEE_SLOT), 0, "committee storage not installed");
         assertEq(etnaInbox.lastCheckpoint().blockHash, bytes32(0), "checkpoint not installed");
