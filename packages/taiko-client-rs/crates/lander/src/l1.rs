@@ -20,6 +20,7 @@ use alloy_provider::{Provider, RootProvider};
 use alloy_rpc_types::TransactionRequest;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 use crate::{
     contracts::IEtnaInbox::{LandInput, hashLandStatementCall},
@@ -107,12 +108,26 @@ pub struct RpcLandingSource {
     anchors: RpcL1Source,
     /// Authenticated chain configuration and expected contract identities.
     params: ChainParams,
+    /// How long a head whose Inbox proof fails under its own header is re-read.
+    head_proof_grace: Duration,
 }
 
 impl RpcLandingSource {
     /// Wrap public providers whose HTTP deadlines are configured by the caller.
     pub fn new(l1: RootProvider, l2: RootProvider, params: ChainParams) -> Self {
-        Self { anchors: RpcL1Source::new(l1.clone()), l1, l2, params }
+        Self {
+            anchors: RpcL1Source::new(l1.clone()),
+            l1,
+            l2,
+            params,
+            head_proof_grace: HEAD_PROOF_GRACE,
+        }
+    }
+
+    /// Override [`HEAD_PROOF_GRACE`], the re-read window for an unverifiable head proof.
+    pub fn with_head_proof_grace(mut self, grace: Duration) -> Self {
+        self.head_proof_grace = grace;
+        self
     }
 
     /// Decode and independently hash one public EL header.
@@ -152,25 +167,48 @@ impl RpcLandingSource {
     }
 }
 
+/// How long the newest L1 block is re-read while its Inbox proof does not verify under its header.
+///
+/// An endpoint can answer the head's proofs from state the next block is still extending: anvil
+/// stores block `n`'s state only when it starts mining `n + 1`, so a transaction being mined
+/// leaks into `n`'s proofs until `n + 1` appears. The lander acts on no unverified data, so
+/// re-reading only delays the safety stop for an endpoint that stays inconsistent.
+pub const HEAD_PROOF_GRACE: Duration = Duration::from_secs(5);
+/// Pause between head re-reads within the grace.
+const HEAD_PROOF_RETRY: Duration = Duration::from_millis(100);
+
 #[async_trait]
 impl LandingSource for RpcLandingSource {
     async fn snapshot(&self) -> Result<LandingSnapshot> {
-        let latest = self.l1.get_block_number().await.map_err(rpc_error)?;
-        let raw = self.anchors.header_hash_pinned(latest).await.map_err(anchor_error)?;
-        let l1_chain_id = U256::from(self.l1.get_chain_id().await.map_err(rpc_error)?);
-        let l2_chain_id = self.l2.get_chain_id().await.map_err(rpc_error)?;
-        if l2_chain_id != self.params.l2_chain_id {
-            return Err(LanderError::Configuration(format!(
-                "L2 endpoint chain id {l2_chain_id}, configured {}",
-                self.params.l2_chain_id
-            )));
+        let deadline = tokio::time::Instant::now() + self.head_proof_grace;
+        loop {
+            let latest = self.l1.get_block_number().await.map_err(rpc_error)?;
+            let raw = self.anchors.header_hash_pinned(latest).await.map_err(anchor_error)?;
+            let l1_chain_id = U256::from(self.l1.get_chain_id().await.map_err(rpc_error)?);
+            let l2_chain_id = self.l2.get_chain_id().await.map_err(rpc_error)?;
+            if l2_chain_id != self.params.l2_chain_id {
+                return Err(LanderError::Configuration(format!(
+                    "L2 endpoint chain id {l2_chain_id}, configured {}",
+                    self.params.l2_chain_id
+                )));
+            }
+            let witness = self
+                .anchors
+                .account_witness_hash_canonical(self.params.inbox, &snapshot_slots(), raw.hash())
+                .await
+                .map_err(anchor_error)?;
+            let unverifiable = witness.address == self.params.inbox &&
+                verify_account_witness(raw.state_root(), &witness, &snapshot_slots()).is_err();
+            if unverifiable && tokio::time::Instant::now() < deadline {
+                tracing::warn!(
+                    l1_block = latest,
+                    "Inbox proof does not verify under the head's own header; re-reading the head"
+                );
+                tokio::time::sleep(HEAD_PROOF_RETRY).await;
+                continue;
+            }
+            return decode_snapshot(raw, witness, l1_chain_id, l2_chain_id, &self.params);
         }
-        let witness = self
-            .anchors
-            .account_witness_hash_canonical(self.params.inbox, &snapshot_slots(), raw.hash())
-            .await
-            .map_err(anchor_error)?;
-        decode_snapshot(raw, witness, l1_chain_id, l2_chain_id, &self.params)
     }
 
     async fn parent_header(&self, snapshot: &LandingSnapshot) -> Result<ParentContext> {
