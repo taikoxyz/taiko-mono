@@ -6,7 +6,7 @@ use tendermint::abci::{request, response};
 
 use super::{
     AbciError, App, deadline, unix_secs,
-    validate::{Rejection, Validated, validate_block},
+    validate::{Rejection, Validated, check_landing_capacity, validate_block},
 };
 use crate::{
     engine::{Engine, PayloadVerdict},
@@ -53,9 +53,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// In order: a superseded chain rejects everything; no transaction at all is an
     /// [`Rejection::EmptyProposal`]; the transactions must be exactly one envelope;
-    /// [`validate_block`] with the request's BFT time; a present anchor witness must be final and
-    /// canonical in the own L1 view (L1 is not called when it is absent); the EL must execute the
-    /// block as `VALID`.
+    /// [`validate_block`] with the request's BFT time; the block must fit one landing on its own
+    /// ([`check_landing_capacity`], a liveness guard `FinalizeBlock` does not repeat); a present
+    /// anchor witness must be final and canonical in the own L1 view (L1 is not called when it is
+    /// absent); the EL must execute the block as `VALID`.
     ///
     /// Supersession is reported only after the supplied anchor is independently confirmed final
     /// and canonical, since a forged header could claim a later generation. Verified committee
@@ -88,6 +89,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if let (Some((target_epoch, _)), Some(witness)) = (&validated.derived, &env.committee) {
             self.cache_committee_witness(state.anchor.number, *target_epoch, witness);
         }
+        check_landing_capacity(&txs[0])?;
         if let Some(w) = &env.anchor {
             self.check_anchor_final(w).await?;
         }

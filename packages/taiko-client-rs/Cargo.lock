@@ -17,6 +17,7 @@ dependencies = [
  "alloy-trie",
  "anyhow",
  "async-trait",
+ "flate2",
  "futures",
  "once_cell",
  "prometheus",

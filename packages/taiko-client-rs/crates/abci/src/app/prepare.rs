@@ -8,7 +8,10 @@ use tendermint::abci::{request, response};
 
 use super::{
     AbciError, App, deadline, unix_secs,
-    validate::{Candidate, Rejection, check_candidate_anchor, expected_header, finish_candidate},
+    validate::{
+        Candidate, Rejection, check_candidate_anchor, check_landing_capacity, expected_header,
+        finish_candidate,
+    },
 };
 use crate::{
     engine::Engine,
@@ -27,9 +30,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// The whole build runs within [`AppOptions::prepare_timeout`](super::AppOptions) (each
     /// external call also keeps its own deadline), so the proposer answers before CometBFT's
     /// `timeout_propose` even when every call is slow but in time. A failed build (I/O error,
-    /// timeout, a failing pre-check, an oversized envelope) is recorded as the halt reason and
-    /// logged, and answers empty `txs`; it is never an error. The only error is a request before
-    /// `InitChain`.
+    /// timeout, a failing pre-check, an envelope above `max_tx_bytes` or one landing) is recorded
+    /// as the halt reason and logged, and answers empty `txs`; it is never an error. The only
+    /// error is a request before `InitChain`.
     pub(super) async fn prepare_proposal(
         &mut self,
         req: request::PrepareProposal,
@@ -66,7 +69,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// `maxAnchorAge` proposes nothing until L1 finalizes a newer block). At `H(t)-2`, discovers
     /// or reuses committee `t` under the committed parent's state root and anchor number. Then
     /// verifies the candidate, builds through the EL, checks every derived header field and
-    /// ensures the envelope fits CometBFT's transaction limit.
+    /// ensures the envelope fits CometBFT's transaction limit and one landing on its own
+    /// ([`check_landing_capacity`]).
     async fn propose(
         &self,
         state: &AppState,
@@ -125,11 +129,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
         let committee = committee.map(|(_, w)| w);
         let envelope = EtnaEnvelope { block, anchor, committee }.encode();
-        if i64::try_from(envelope.len()).is_ok_and(|len| len <= req.max_tx_bytes) {
-            Ok(envelope)
-        } else {
-            Err(Rejection::Oversize { len: envelope.len(), max: req.max_tx_bytes })
+        if !i64::try_from(envelope.len()).is_ok_and(|len| len <= req.max_tx_bytes) {
+            return Err(Rejection::Oversize { len: envelope.len(), max: req.max_tx_bytes });
         }
+        check_landing_capacity(&envelope)?;
+        Ok(envelope)
     }
 
     /// The committee witness of `target_epoch` under `schedule` against the parent's anchor

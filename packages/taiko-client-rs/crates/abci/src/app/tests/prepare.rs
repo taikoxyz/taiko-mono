@@ -4,7 +4,8 @@ use std::{path::Path, time::Duration};
 
 use super::{
     proposal::{
-        bft_time, jump, mid_epoch, next_height, prepare, prepare_req, propose, set_anchor_age,
+        bft_time, incompressible, jump, mid_epoch, next_height, prepare, prepare_req, propose,
+        set_anchor_age,
     },
     *,
 };
@@ -88,6 +89,28 @@ async fn envelope_above_max_tx_bytes_is_not_proposed() {
     let mut req = prepare_req(next_height(&app), bft_time(&app));
     req.max_tx_bytes = i64::try_from(len).unwrap();
     assert_eq!(prepare(&mut app, req).await.len(), 1);
+}
+
+/// An EL that builds a block whose compressed envelope cannot fit one landing gets nothing
+/// proposed, though the envelope fits `max_tx_bytes`; a zero-heavy block several times larger
+/// is proposed.
+#[tokio::test]
+async fn prepare_does_not_propose_an_oversized_block() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let built = propose(&mut app).await.block;
+
+    let mut random = built.clone();
+    random.transactions.push(incompressible(800_000));
+    app.engine().state().build_script.push_back(Ok(random));
+    assert_eq!(refused(&mut app).await, "landing_capacity");
+
+    let mut zeros = built;
+    zeros.transactions.push(vec![0u8; 5_000_000].into());
+    app.engine().state().build_script.push_back(Ok(zeros.clone()));
+    assert_eq!(propose(&mut app).await.block, zeros);
+    assert_eq!(app.halt, None);
 }
 
 #[tokio::test]
