@@ -52,47 +52,16 @@ pub fn encode(blocks: &[CertifiedBlock], limits: &Limits) -> Result<Vec<u8>> {
     if blocks.is_empty() || blocks.len() > limits.max_blocks {
         return Err(LanderError::Capacity("batch is empty or exceeds block limit".into()));
     }
-    let mut messages = Vec::with_capacity(blocks.len());
-    let mut payload_length = 0usize;
-    let mut previous: Option<PublishedBlock> = None;
+    let mut list = PayloadList::new(limits)?;
     for pair in blocks {
-        validate_pair(pair)?;
-        check_message_limits(pair, limits)?;
-        let published = PublishedBlock::from(pair);
-        validate_published(&published, previous.as_ref())?;
-        let header = RawHeader::from(published.header.clone()).encode_to_vec();
-        let length = header
-            .as_slice()
-            .length()
-            .checked_add(published.envelope.as_slice().length())
-            .ok_or_else(|| LanderError::Capacity("RLP item length overflow".into()))?;
-        payload_length = payload_length
-            .checked_add(Header { list: true, payload_length: length }.length())
-            .and_then(|n| n.checked_add(length))
-            .ok_or_else(|| LanderError::Capacity("RLP payload length overflow".into()))?;
-        // Bound retained message bytes incrementally; no whole-batch allocation precedes this.
-        if payload_length > limits.max_decompressed_bytes {
-            return Err(LanderError::Capacity("batch exceeds decompressed limit".into()));
-        }
-        messages.push((header, length));
-        previous = Some(published);
+        list.push(pair)?;
     }
-    let outer = Header { list: true, payload_length };
-    let total = outer
-        .length()
-        .checked_add(payload_length)
-        .ok_or_else(|| LanderError::Capacity("payload length overflow".into()))?;
-    if total > limits.max_decompressed_bytes {
-        return Err(LanderError::Capacity("batch exceeds decompressed limit".into()));
-    }
-    let mut list = Vec::with_capacity(total);
-    outer.encode(&mut list);
-    for (pair, (header, length)) in blocks.iter().zip(messages) {
-        Header { list: true, payload_length: length }.encode(&mut list);
-        header.as_slice().encode(&mut list);
-        pair.block.data[0].as_slice().encode(&mut list);
-    }
-    let compressed = zlib_compress(&list);
+    compress(&list.to_list(), limits)
+}
+
+/// `0x03 || zlib(list)`, bounded by `max_payload_bytes`.
+pub(crate) fn compress(list: &[u8], limits: &Limits) -> Result<Vec<u8>> {
+    let compressed = zlib_compress(list);
     // The version byte precedes the compressed list.
     if compressed.len() + 1 > limits.max_payload_bytes {
         return Err(LanderError::Capacity("batch exceeds payload limit".into()));
@@ -101,6 +70,92 @@ pub fn encode(blocks: &[CertifiedBlock], limits: &Limits) -> Result<Vec<u8>> {
     out.push(VERSION);
     out.extend_from_slice(&compressed);
     Ok(out)
+}
+
+/// An upper bound on [`compress`]'s output for a `list_len`-byte list: the version byte plus
+/// deflate's worst case, which stores incompressible input with a few bytes of overhead per block
+/// (zlib bounds it by `n + n/4096 + n/16384 + n/2^25 + 13`). Prefix selection accepts a list whose
+/// bound already fits without compressing it.
+pub(crate) const fn payload_bound(list_len: usize) -> usize {
+    list_len.saturating_add(list_len / 256).saturating_add(64)
+}
+
+/// A V3 payload's RLP list, built one validated block at a time so prefix selection checks and
+/// encodes each block once rather than once per candidate prefix.
+pub(crate) struct PayloadList {
+    /// Bounds applied to every appended block and to the whole list.
+    limits: Limits,
+    /// Encoded `[header_proto, envelope]` items, without the outer list header.
+    items: Vec<u8>,
+    /// End offset in `items` of each block's item.
+    ends: Vec<usize>,
+    /// Each block's header, linking its successor.
+    headers: Vec<tendermint::block::Header>,
+}
+
+impl PayloadList {
+    /// An empty list under `limits`.
+    pub(crate) fn new(limits: &Limits) -> Result<Self> {
+        limits.validate()?;
+        Ok(Self { limits: *limits, items: Vec::new(), ends: Vec::new(), headers: Vec::new() })
+    }
+
+    /// Validates `pair` as the next block and appends its item; on error the list is unchanged.
+    pub(crate) fn push(&mut self, pair: &CertifiedBlock) -> Result<()> {
+        if self.ends.len() >= self.limits.max_blocks {
+            return Err(LanderError::Capacity("batch is empty or exceeds block limit".into()));
+        }
+        validate_pair(pair)?;
+        check_message_limits(pair, &self.limits)?;
+        let published = PublishedBlock::from(pair);
+        validate_published(&published, self.headers.last())?;
+        let header = RawHeader::from(published.header.clone()).encode_to_vec();
+        let length = header
+            .as_slice()
+            .length()
+            .checked_add(published.envelope.as_slice().length())
+            .ok_or_else(|| LanderError::Capacity("RLP item length overflow".into()))?;
+        let items = self
+            .items
+            .len()
+            .checked_add(Header { list: true, payload_length: length }.length())
+            .and_then(|n| n.checked_add(length))
+            .ok_or_else(|| LanderError::Capacity("RLP payload length overflow".into()))?;
+        let total = Header { list: true, payload_length: items }
+            .length()
+            .checked_add(items)
+            .ok_or_else(|| LanderError::Capacity("payload length overflow".into()))?;
+        // Bound retained message bytes before appending; no whole-batch allocation precedes this.
+        if total > self.limits.max_decompressed_bytes {
+            return Err(LanderError::Capacity("batch exceeds decompressed limit".into()));
+        }
+        Header { list: true, payload_length: length }.encode(&mut self.items);
+        header.as_slice().encode(&mut self.items);
+        published.envelope.as_slice().encode(&mut self.items);
+        self.ends.push(self.items.len());
+        self.headers.push(published.header);
+        Ok(())
+    }
+
+    /// Removes the last block, if any.
+    pub(crate) fn pop(&mut self) {
+        self.ends.pop();
+        self.headers.pop();
+        self.items.truncate(self.ends.last().copied().unwrap_or(0));
+    }
+
+    /// Bytes of the RLP list: the outer header and every item; at most `max_decompressed_bytes`.
+    pub(crate) fn list_len(&self) -> usize {
+        Header { list: true, payload_length: self.items.len() }.length() + self.items.len()
+    }
+
+    /// The RLP list `rlp([[header_proto, envelope], ...])`.
+    pub(crate) fn to_list(&self) -> Vec<u8> {
+        let mut list = Vec::with_capacity(self.list_len());
+        Header { list: true, payload_length: self.items.len() }.encode(&mut list);
+        list.extend_from_slice(&self.items);
+        list
+    }
 }
 
 /// Bound one block and certificate without retaining a complete backlog or encoding its payload.
@@ -176,7 +231,7 @@ pub fn decode(payload: &[u8], limits: &Limits) -> Result<Vec<PublishedBlock>> {
             return Err(LanderError::Encoding("noncanonical CometBFT header form".into()));
         }
         let block = PublishedBlock { header, envelope: envelope.to_vec() };
-        validate_published(&block, blocks.last())?;
+        validate_published(&block, blocks.last().map(|previous| &previous.header))?;
         blocks.push(block);
     }
     if blocks.is_empty() {
@@ -208,20 +263,23 @@ pub(crate) fn validate_pair(pair: &CertifiedBlock) -> Result<()> {
 
 /// Require consecutive heights linked by `last_block_id`, a `data_hash` committing to exactly
 /// the envelope, and a decodable envelope.
-fn validate_published(block: &PublishedBlock, previous: Option<&PublishedBlock>) -> Result<()> {
+fn validate_published(
+    block: &PublishedBlock,
+    previous: Option<&tendermint::block::Header>,
+) -> Result<()> {
     let height = block.header.height.value();
     if height == 0 {
         return Err(LanderError::Encoding("published block at height 0".into()));
     }
     let linked = match previous {
         Some(previous) => {
-            if previous.header.height.value().checked_add(1) != Some(height) {
+            if previous.height.value().checked_add(1) != Some(height) {
                 return Err(LanderError::Encoding(format!(
                     "nonconsecutive block height {height} after {}",
-                    previous.header.height
+                    previous.height
                 )));
             }
-            block.header.last_block_id.map(|id| id.hash) == Some(previous.header.hash())
+            block.header.last_block_id.map(|id| id.hash) == Some(previous.hash())
         }
         None => block.header.last_block_id.is_none() == (height == 1),
     };
@@ -437,6 +495,53 @@ mod tests {
             decode(&wire(&[(header_bytes(&blocks[0].block.header), padded)]), &limits()).is_err()
         );
         assert!(decode(&frame(VERSION, &[0xf8, 0x00]), &limits()).is_err()); // noncanonical empty RLP list.
+    }
+
+    #[test]
+    fn payload_list_appends_and_removes_whole_blocks() {
+        let blocks = chain(3);
+        let mut payload_list = PayloadList::new(&limits()).unwrap();
+        for pair in &blocks {
+            payload_list.push(pair).unwrap();
+        }
+        assert_eq!(payload_list.to_list(), list(&items(&blocks)));
+        payload_list.pop();
+        let two = list(&items(&blocks[..2]));
+        assert_eq!((payload_list.to_list(), payload_list.list_len()), (two.clone(), two.len()));
+        // A block that does not link is refused without changing the list.
+        assert!(payload_list.push(&blocks[0]).is_err());
+        assert_eq!(payload_list.to_list(), two);
+        payload_list.push(&blocks[2]).unwrap();
+        assert_eq!(
+            compress(&payload_list.to_list(), &limits()).unwrap(),
+            encode(&blocks, &limits()).unwrap()
+        );
+
+        let cap = Limits { max_decompressed_bytes: two.len(), ..limits() };
+        let mut bounded = PayloadList::new(&cap).unwrap();
+        bounded.push(&blocks[0]).unwrap();
+        bounded.push(&blocks[1]).unwrap();
+        assert!(matches!(bounded.push(&blocks[2]), Err(LanderError::Capacity(_))));
+        assert_eq!(bounded.to_list(), two);
+    }
+
+    #[test]
+    fn payload_bound_covers_incompressible_lists() {
+        let mut state = 0x2545_f491_4f6c_dd1d_u64;
+        let unbounded = Limits { max_payload_bytes: usize::MAX, ..limits() };
+        for len in [0, 1, 100, 65_535, 65_536, 300_000, 1 << 20] {
+            let data = (0..len)
+                .map(|_| {
+                    state ^= state << 13;
+                    state ^= state >> 7;
+                    state ^= state << 17;
+                    (state >> 56) as u8
+                })
+                .collect::<Vec<_>>();
+            let payload = compress(&data, &unbounded).unwrap();
+            assert!(payload.len() > len, "random bytes do not compress");
+            assert!(payload.len() <= payload_bound(len), "{len}: {}", payload.len());
+        }
     }
 
     #[test]

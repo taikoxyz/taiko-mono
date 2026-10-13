@@ -236,10 +236,14 @@ to the envelope and its `last_block_id` links it to the preceding header; decodi
 item that breaks these links. Decoding also rejects bytes after the zlib stream and a list that
 inflates beyond `--max-blocks` times CometBFT's `block.max_bytes` (22,020,096). Batch sizing
 counts compressed bytes, so `--max-blobs` must be at least 6: the guard admits any block whose
-compressed item fits six blobs on its own. Commits, last commits, evidence and signatures are
-not published: the proof provider receives the complete blocks and commits in
-`PreparedBatch.blocks`, and a guest must verify their signatures against the published header
-hashes. Existing `BlobCoder` handles multi-blob field encoding of the compressed payload.
+compressed item fits six blobs on its own. Prefix selection also caps a batch at 64 MiB of
+uncompressed list, so its journal stays within 256 MiB, and deflates at most 32 MiB per selection
+to size candidate prefixes (a prefix whose worst-case compressed size fits is not deflated; the
+first block is always sized). A prefix past either budget waits for a later batch. Commits, last
+commits, evidence and signatures are not published: the proof provider receives the complete
+blocks and commits in `PreparedBatch.blocks`, and a guest must verify their signatures against the
+published header hashes. Existing `BlobCoder` handles multi-blob field encoding of the compressed
+payload.
 `eip4844` and `eip7594` select different sidecar wrappers/proofs for the same payload and
 commitments. Choose the mode supported by the L1 fork.
 At height 1, the Rust domain form normalizes Go's present empty last commit and

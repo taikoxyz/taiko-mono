@@ -496,6 +496,70 @@ mod tests {
         assert_eq!(store.load().unwrap(), job);
     }
 
+    /// Journaled blocks grow the journal by at most 4/3 of their published list bytes (their
+    /// transactions are base64), the factor `batch::MAX_BATCH_LIST_BYTES` is sized by.
+    #[test]
+    fn journaled_blocks_cost_at_most_four_thirds_of_their_list_bytes() {
+        use crate::test_utils::{
+            consensus,
+            runtime::{rebind, request},
+        };
+        let cap = crate::types::Limits {
+            max_blocks: 2,
+            max_blobs: 2,
+            max_payload_bytes: 1_000_000,
+            max_message_bytes: 4 << 20,
+            max_decompressed_bytes: 8 << 20,
+        };
+        let list_len = |request: &ProofRequest| {
+            let mut list = codec::PayloadList::new(&cap).unwrap();
+            for pair in &request.batch.blocks {
+                list.push(pair).unwrap();
+            }
+            list.list_len()
+        };
+        let journal_len = |request: &ProofRequest| {
+            let snapshot = &request.batch.snapshot;
+            let identity = JournalIdentity {
+                l1_chain_id: snapshot.l1_chain_id,
+                l2_chain_id: snapshot.l2_chain_id,
+                inbox: snapshot.inbox,
+                registry: snapshot.registry,
+                sender: Address::repeat_byte(5),
+            };
+            let directory = tempfile::tempdir().unwrap();
+            let store = Store::open(directory.path(), identity).unwrap();
+            let job = ProvedJob { request: request.clone(), proof: Bytes::from_static(&[0]) };
+            store.save(&JournalState::Prepared { job: Box::new(job) }).unwrap();
+            std::fs::metadata(directory.path().join("lander-state.json")).unwrap().len() as usize
+        };
+        let small = request();
+        let (_, committee, keys) = consensus::committee(&[3, 3, 3], 0);
+        let mut blocks: Vec<crate::CertifiedBlock> = Vec::new();
+        for height in 1..=2 {
+            let envelope = abci::EtnaEnvelope {
+                block: abci::ExecutionBlock {
+                    header: alloy_consensus::Header { number: height, ..Default::default() },
+                    transactions: vec![vec![0; 1 << 20].into()],
+                },
+                anchor: None,
+                committee: None,
+            };
+            blocks.push(consensus::pair_with_envelope(envelope, &committee, &keys, blocks.last()));
+        }
+        let mut large = small.clone();
+        large.batch.blocks = blocks;
+        let payload = codec::encode(&large.batch.blocks, &cap).unwrap();
+        rebind(&mut large, &payload);
+        let list_growth = list_len(&large) - list_len(&small);
+        let journal_growth = journal_len(&large) - journal_len(&small);
+        assert!(list_growth > 2 << 20);
+        assert!(
+            journal_growth <= list_growth / 3 * 4 + 4_096,
+            "{journal_growth} for {list_growth}"
+        );
+    }
+
     #[test]
     fn wait_marker_on_prepared_journal_is_rejected() {
         let request = crate::test_utils::runtime::request();
