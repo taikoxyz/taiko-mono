@@ -254,9 +254,9 @@ impl Planter {
         Ok(*entry)
     }
 
-    /// Plants one forced inclusion entry per element of `sources` (at most
-    /// [`MAX_BLOBS_PER_PLANT`]), as consecutive entries from the queue's tail in one L1 block,
-    /// hence with one timestamp, and returns them in order.
+    /// Plants one forced inclusion entry per element of `sources` (at most six, the blobs of one
+    /// transaction), as consecutive entries from the queue's tail in one L1 block, hence with one
+    /// timestamp, and returns them in order.
     ///
     /// Each entry's source is a one-block Shasta manifest of its transactions (the other fields
     /// default), coded by [`BlobCoder`] into one blob read at offset 0. The L1 block, mined as a

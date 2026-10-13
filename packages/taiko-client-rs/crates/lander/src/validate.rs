@@ -376,7 +376,7 @@ pub fn verify_envelope(
         .map_err(|e| ValidationError::Etna(e.to_string()))?;
     rules::check_header(&envelope.block.header, &expected)
         .map_err(|e| ValidationError::Etna(e.to_string()))?;
-    let forced = abci::forced::check(
+    let forced_index = abci::forced::check(
         forced_cursor,
         &anchor,
         forced_inclusion_delay,
@@ -398,7 +398,7 @@ pub fn verify_envelope(
         difficulty: header.difficulty,
         grandparent_timestamp: parent.timestamp,
     };
-    Ok(BlockFacts { envelope, anchor, derived, parent: next_parent, forced })
+    Ok(BlockFacts { envelope, anchor, derived, parent: next_parent, forced: forced_index })
 }
 
 #[cfg(test)]

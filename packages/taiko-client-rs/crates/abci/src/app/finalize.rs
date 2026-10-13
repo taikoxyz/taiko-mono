@@ -61,9 +61,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Re-finalizing a block the EL already executed (a replay after a crash before `Commit`)
     /// answers the same: the EL accepts a known payload and forkchoice again, and rebuilds a
     /// forced inclusion block on its parent although its head is that block (alethia-reth builds
-    /// on a canonical ancestor without moving its head). EL calls block
-    /// until the EL settles the block ([`App::settle`]). Errors: [`AbciError::Uninitialized`]
-    /// before `InitChain`; [`AbciError::SafetyHalt`] for any failure of the decided block.
+    /// on a canonical ancestor without moving its head). EL calls block until the EL settles the
+    /// block ([`App::settle`]). Errors: [`AbciError::Uninitialized`] before `InitChain`;
+    /// [`AbciError::SafetyHalt`] for any failure of the decided block.
     pub(super) async fn finalize_block(
         &mut self,
         req: request::FinalizeBlock,

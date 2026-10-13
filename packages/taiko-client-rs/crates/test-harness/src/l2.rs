@@ -14,7 +14,7 @@ use anyhow::{Context, Result};
 /// genesis funds.
 pub const DEV_KEY: B256 = b256!("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
 
-/// Priority fee of [`send_transfer`]'s transactions: 1 gwei.
+/// Priority fee of [`sign_transfer`]'s transactions: 1 gwei.
 const PRIORITY_FEE: u128 = 1_000_000_000;
 
 /// The signer of [`DEV_KEY`].
@@ -38,8 +38,8 @@ pub async fn send_transfer(
 }
 
 /// Signs an EIP-1559 transfer of `value` wei to `to` from `signer` with `nonce` for `l2`'s chain
-/// (21 000 gas, a max fee of twice the latest base fee plus [`PRIORITY_FEE`]) without sending
-/// it.
+/// (21 000 gas, a 1 gwei priority fee and a max fee of twice the latest base fee plus it) without
+/// sending it.
 pub async fn sign_transfer(
     l2: &RootProvider,
     signer: &PrivateKeySigner,
