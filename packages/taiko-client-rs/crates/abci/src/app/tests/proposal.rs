@@ -204,6 +204,18 @@ pub(super) fn set_anchor_age(app: &mut App<MockL1, MockEngine>, age: u64) {
     state.parent.timestamp = state.anchor.timestamp + age - 2;
 }
 
+/// `len` deterministic bytes zlib cannot compress: a keccak256 chain.
+pub(super) fn incompressible(len: usize) -> Bytes {
+    let mut out = Vec::with_capacity(len + 32);
+    let mut word = B256::ZERO;
+    while out.len() < len {
+        word = keccak256(word);
+        out.extend_from_slice(word.as_slice());
+    }
+    out.truncate(len);
+    out.into()
+}
+
 /// An initialized app whose committed head sits `offset` heights after `B*`, anchored at the
 /// genesis L1 block (last checkpoint `B*`). With `offset` in 1..=9 the next height is a plain
 /// height: no witness required, back-pressure satisfied.

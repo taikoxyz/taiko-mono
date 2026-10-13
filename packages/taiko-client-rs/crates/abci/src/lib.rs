@@ -7,9 +7,9 @@
 //! inside the block as a raw L1 header plus EIP-1186 proofs, so replay never calls L1.
 //!
 //! The `types`, `config`, `schedule`, `envelope`, `l1::header`, `l1::layout`, `l1::mpt`,
-//! `l1::witness`, `committee`, `forced`, `rules` and `engine::convert` modules and the genesis
-//! `app_state` codec perform no I/O; `l1::source`, `engine` and `elsync` hold the L1 and
-//! execution-engine adapters, `l1::fetch` and the genesis builder read L1 through them, `app`
+//! `l1::witness`, `committee`, `compression`, `forced`, `rules` and `engine::convert` modules and
+//! the genesis `app_state` codec perform no I/O; `l1::source`, `engine` and `elsync` hold the L1
+//! and execution-engine adapters, `l1::fetch` and the genesis builder read L1 through them, `app`
 //! answers CometBFT's ABCI requests on top of them, and `server` serves the app on CometBFT's ABCI
 //! socket.
 
@@ -17,6 +17,8 @@
 pub mod app;
 /// Committee derivation from staking-registry snapshots, MEM-08 set roots and record hashes.
 pub mod committee;
+/// zlib helpers shared with landing payload V3, and the capacity of one landing.
+pub mod compression;
 /// Chain parameters (built-in per L2 chain id, optional TOML override).
 pub mod config;
 /// Execution-layer sync to a trusted head over devp2p.

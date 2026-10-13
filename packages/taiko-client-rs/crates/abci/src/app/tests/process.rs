@@ -7,13 +7,15 @@ use alloy_primitives::{Address, B256, Bytes, U256};
 
 use super::{
     proposal::{
-        bft_time, hand_envelope, judge, jump, mid_epoch, next_height, prepare, prepare_req,
-        process, process_req, propose, rejected, set_anchor_age, validate,
+        MAX_TX_BYTES, bft_time, decide, hand_envelope, incompressible, judge, jump, mid_epoch,
+        next_height, prepare, prepare_req, process, process_req, propose, rejected, set_anchor_age,
+        validate,
     },
     *,
 };
 use crate::{
-    app::validate::{Rejection, WitnessKind},
+    app::validate::{Rejection, WitnessKind, check_landing_capacity},
+    compression::{HEADER_ALLOWANCE, MAX_BLOCK_LANDING_BYTES, zlib_compress},
     engine::{EngineError, PayloadVerdict},
     envelope::{EnvelopeError, EtnaEnvelope},
     l1::L1Error,
@@ -317,6 +319,49 @@ async fn stale_anchor_proposal_is_rejected() {
         Err(Rejection::Rule(RuleViolation::AnchorTooOld { age: max + 1, max }))
     );
     assert_eq!(rejected(&mut app, &env).await, "anchor_too_old");
+}
+
+/// A block whose compressed envelope cannot fit one landing is refused before L1 and the EL are
+/// asked; it is a liveness guard only, so the same block, once decided, still commits.
+#[tokio::test]
+async fn process_rejects_a_block_that_cannot_fit_one_landing() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let (mut app, mut env) = plain(&fx, dir.path()).await;
+    env.block.transactions.push(incompressible(800_000));
+    assert!(validate(&app, &env).is_ok(), "deterministically valid");
+    let encoded = env.encode();
+    assert!(i64::try_from(encoded.len()).unwrap() < MAX_TX_BYTES, "fits CometBFT's tx limit");
+    assert_eq!(
+        check_landing_capacity(&encoded),
+        Err(Rejection::LandingCapacity {
+            bytes: zlib_compress(&encoded).len() + HEADER_ALLOWANCE,
+            max: MAX_BLOCK_LANDING_BYTES,
+        })
+    );
+
+    let engine_calls = app.engine().calls().len();
+    let (resp, req) = judge(&mut app, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Reject);
+    assert_eq!(app.halt.as_deref(), Some("landing_capacity"));
+    assert_eq!(app.engine().calls().len(), engine_calls, "the EL is not asked");
+    assert!(app.verdicts.is_empty());
+
+    // FinalizeBlock does not re-check it.
+    decide(&mut app, &req).await;
+    assert_eq!(app.state().unwrap().parent.hash, env.block.header.hash_slow());
+}
+
+/// 5 MB of zero calldata is far beyond one landing uncompressed, but compresses under the bound.
+#[tokio::test]
+async fn process_accepts_a_zero_heavy_block() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let (mut app, mut env) = plain(&fx, dir.path()).await;
+    env.block.transactions.push(Bytes::from(vec![0u8; 5_000_000]));
+    assert!(env.encode().len() > MAX_BLOCK_LANDING_BYTES);
+    let (resp, _) = judge(&mut app, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
 }
 
 #[tokio::test]

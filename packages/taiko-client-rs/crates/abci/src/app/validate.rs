@@ -6,8 +6,10 @@
 //! no EL, in its steps (a)–(i). [`check_candidate`] holds the witness steps (b)–(h);
 //! `PrepareProposal` runs its two halves ([`check_candidate_anchor`], [`finish_candidate`]) on
 //! its own witnesses before it asks the EL to build.
-//! [`Rejection`] also carries the reasons of the ¹ checks, of the envelope decoding and of a
-//! failed build, so every handler reports one label set.
+//! [`check_landing_capacity`] is the landing capacity guard `ProcessProposal` and
+//! `PrepareProposal` run on the encoded envelope (liveness only, never in `FinalizeBlock`).
+//! [`Rejection`] also carries the reasons of the ¹ checks, of the envelope decoding, of the
+//! landing capacity guard and of a failed build, so every handler reports one label set.
 
 use std::fmt;
 
@@ -17,6 +19,7 @@ use protocol::shasta::constants::min_base_fee_for_chain;
 
 use crate::{
     committee::{CommitteeError, verify_committee_witness},
+    compression::{HEADER_ALLOWANCE, MAX_BLOCK_LANDING_BYTES, zlib_compress},
     config::ChainParams,
     engine::EngineError,
     envelope::{AnchorWitness, CommitteeWitness, EnvelopeError, EtnaEnvelope, ExecutionBlock},
@@ -65,7 +68,8 @@ impl fmt::Display for WitnessKind {
 /// envelope; the ¹ node-local ones (anchor finality, L1, engine, EL sync state, timeouts) and the
 /// handler-level ones ([`Rejection::Envelope`], [`Rejection::EmptyProposal`],
 /// [`Rejection::ChainSuperseded`], [`Rejection::PayloadInvalid`], [`Rejection::Registry`],
-/// [`Rejection::Oversize`], [`Rejection::BuiltHeader`]) come from the handlers.
+/// [`Rejection::Oversize`], [`Rejection::BuiltHeader`], [`Rejection::LandingCapacity`]) come from
+/// the handlers.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum Rejection {
     /// The block's transactions are not exactly one well-formed envelope.
@@ -142,6 +146,15 @@ pub enum Rejection {
     /// `PrepareProposal`: the EL built a header that breaks the derived fields.
     #[error("built block breaks the derived header: {0}")]
     BuiltHeader(RuleViolation),
+    /// The block cannot land on its own: its envelope compressed as landing payload V3 would
+    /// publish it, plus [`HEADER_ALLOWANCE`], exceeds [`MAX_BLOCK_LANDING_BYTES`].
+    #[error("block needs {bytes} compressed landing bytes, above the {max} one landing carries")]
+    LandingCapacity {
+        /// The compressed envelope length plus [`HEADER_ALLOWANCE`], in bytes.
+        bytes: usize,
+        /// [`MAX_BLOCK_LANDING_BYTES`].
+        max: usize,
+    },
 }
 
 impl Rejection {
@@ -170,6 +183,7 @@ impl Rejection {
             Self::Registry(_) => "registry_discovery",
             Self::Oversize { .. } => "envelope_too_large",
             Self::BuiltHeader(_) => "built_header_mismatch",
+            Self::LandingCapacity { .. } => "landing_capacity",
         }
     }
 
@@ -191,6 +205,20 @@ impl From<FetchError> for Rejection {
             FetchError::Committee(e) => Self::Committee(e),
         }
     }
+}
+
+/// The landing capacity guard: the block of the encoded `envelope` must fit one landing on its
+/// own, i.e. the envelope compressed as landing payload V3 would publish it, plus
+/// [`HEADER_ALLOWANCE`] for the published header, is at most [`MAX_BLOCK_LANDING_BYTES`].
+///
+/// A liveness guard, not a validity rule: `ProcessProposal` and `PrepareProposal` run it,
+/// `FinalizeBlock` and the guest never do, so a decided block always commits.
+pub(crate) fn check_landing_capacity(envelope: &[u8]) -> Result<(), Rejection> {
+    let bytes = zlib_compress(envelope).len() + HEADER_ALLOWANCE;
+    if bytes > MAX_BLOCK_LANDING_BYTES {
+        return Err(Rejection::LandingCapacity { bytes, max: MAX_BLOCK_LANDING_BYTES });
+    }
+    Ok(())
 }
 
 /// The witnesses of a block candidate and what its `extraData` claims; the input of
