@@ -408,12 +408,7 @@ mod tests {
         let old = request();
         let proof = Bytes::from_static(&[0]);
         let mut new = old.clone();
-        let limits = crate::types::Limits {
-            max_blocks: 2,
-            max_blobs: 2,
-            max_payload_bytes: 1_000_000,
-            max_message_bytes: 500_000,
-        };
+        let limits = crate::test_utils::runtime::limits();
         let payload = crate::blob::decode(old.batch.blobs.sidecar.blobs(), &limits).unwrap();
         new.batch.blobs =
             crate::blob::build(&payload, &limits, crate::SidecarMode::Eip7594).unwrap();

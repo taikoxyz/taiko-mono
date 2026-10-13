@@ -43,7 +43,13 @@ use super::contracts::{CONSENSUS_SEED, ContractFixture, EtnaInbox, L2_CHAIN_ID, 
 
 /// Generous explicit fixture limits; no block is truncated to fit a blob.
 pub fn limits() -> Limits {
-    Limits { max_blocks: 100, max_blobs: 6, max_payload_bytes: 700_000, max_message_bytes: 650_000 }
+    Limits {
+        max_blocks: 100,
+        max_blobs: 6,
+        max_payload_bytes: 700_000,
+        max_message_bytes: 650_000,
+        max_decompressed_bytes: 100 * 650_000,
+    }
 }
 
 /// The decided chain survives checkpoint advances so later fixtures preserve exact history.

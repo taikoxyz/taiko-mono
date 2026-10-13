@@ -45,21 +45,32 @@ pub(crate) fn request() -> ProofRequest {
     request.batch.committees = vec![committee.state];
     let reference = RawL1Header::from(&Header { number: 15, ..Default::default() });
     request.batch.reference_headers = vec![reference.raw().clone()];
-    let limits = Limits {
+    let payload = codec::encode(&request.batch.blocks, &limits()).unwrap();
+    rebind(&mut request, &payload);
+    request
+}
+
+/// Limits fitting [`request`]'s two blocks.
+pub(crate) fn limits() -> Limits {
+    Limits {
         max_blocks: 2,
         max_blobs: 2,
         max_payload_bytes: 1_000_000,
         max_message_bytes: 500_000,
-    };
-    let payload = codec::encode(&request.batch.blocks, &limits).unwrap();
-    request.batch.blobs = blob::build(&payload, &limits, SidecarMode::Eip4844).unwrap();
+        max_decompressed_bytes: 1_000_000,
+    }
+}
+
+/// Binds `request` to blobs carrying `payload`: rebuilds its sidecar and its statement hash.
+pub(crate) fn rebind(request: &mut ProofRequest, payload: &[u8]) {
+    request.batch.blobs = blob::build(payload, &limits(), SidecarMode::Eip4844).unwrap();
+    let reference = RawL1Header::from_raw(request.batch.reference_headers[0].clone()).unwrap();
     request.batch.statement_hash = statement::hash(
         &request.batch.snapshot,
         &request.batch.input,
         reference.hash(),
         &request.batch.blobs.versioned_hashes,
     );
-    request
 }
 
 pub(crate) async fn signed(request: &ProofRequest, proof: &Bytes, nonce: u64) -> SignedTransaction {

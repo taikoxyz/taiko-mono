@@ -71,8 +71,9 @@ impl LanderSubCommand {
             sender: transactions.sender(),
         };
         let store = Store::open(&config.data_dir, identity)?;
-        // CometBFT's JSON carries base64 transaction bytes and structural overhead. Its body
-        // budget is derived with checked arithmetic, independently of bounded protobuf decoding.
+        // The message bound is CometBFT's block size; its JSON carries base64 transaction bytes
+        // and structural overhead. The body budget is derived with checked arithmetic,
+        // independently of bounded protobuf decoding.
         let max_response_bytes = config
             .limits
             .max_message_bytes

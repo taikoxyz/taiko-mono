@@ -12,6 +12,10 @@ use url::Url;
 
 use crate::flags::common::http_url;
 
+/// CometBFT `block.max_bytes` in every Etna genesis, bounding one block's protobuf and so each
+/// published header and envelope.
+const COMET_BLOCK_MAX_BYTES: usize = 22_020_096;
+
 /// Public RPC, transaction budget and journal arguments for `taiko-client lander`.
 #[derive(Parser, Clone, Debug)]
 pub struct LanderArgs {
@@ -43,7 +47,8 @@ pub struct LanderArgs {
     /// Maximum wait for a below-threshold batch, in seconds; positive and at most one hour.
     #[clap(long = "max-batch-wait", env = "LANDER_MAX_BATCH_WAIT", default_value_t = 30, value_parser = clap::value_parser!(u64).range(1..=MAX_TIMEOUT_SECS))]
     pub max_batch_wait_secs: u64,
-    /// Maximum blobs per transaction; must respect the configured L1 fork limit.
+    /// Maximum blobs per transaction; must respect the configured L1 fork limit and be at least
+    /// 6, the blobs one decided block may need.
     #[clap(long = "max-blobs", env = "LANDER_MAX_BLOBS", required = true, value_parser = positive_usize)]
     pub max_blobs: usize,
     /// Maximum execution fee per gas in wei, without an inferred budget.
@@ -80,10 +85,19 @@ pub struct LanderArgs {
 
 impl LanderArgs {
     /// Build and validate the shared runtime configuration before accessing any endpoint.
+    ///
+    /// The compressed payload fills at most `--max-blobs` blobs; each message is bounded by the
+    /// CometBFT block size, and the decompressed list by that size times `--max-blocks`.
     pub fn config(&self) -> lander::Result<LanderConfig> {
         let max_payload_bytes =
             self.max_blobs.checked_mul(PAYLOAD_BYTES_PER_BLOB).ok_or_else(|| {
                 lander::LanderError::Configuration("blob payload capacity overflows usize".into())
+            })?;
+        let max_decompressed_bytes =
+            COMET_BLOCK_MAX_BYTES.checked_mul(self.max_blocks).ok_or_else(|| {
+                lander::LanderError::Configuration(
+                    "decompressed batch capacity overflows usize".into(),
+                )
             })?;
         let config = LanderConfig {
             l1_http: self.l1_http_endpoint.clone(),
@@ -96,7 +110,8 @@ impl LanderArgs {
                 max_blocks: self.max_blocks,
                 max_blobs: self.max_blobs,
                 max_payload_bytes,
-                max_message_bytes: max_payload_bytes,
+                max_message_bytes: COMET_BLOCK_MAX_BYTES,
+                max_decompressed_bytes,
             },
             batch_policy: BatchPolicy {
                 min_blocks: self.min_blocks,
@@ -243,6 +258,37 @@ mod tests {
             parse(args).unwrap().lander_flags.config().unwrap().sidecar_mode,
             SidecarMode::Eip7594
         );
+    }
+
+    #[test]
+    fn derives_codec_limits_from_blobs_and_the_comet_block_size() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let _clear = clear_env();
+        let c = parse(argv()).unwrap().lander_flags.config().unwrap();
+        assert_eq!(c.limits.max_payload_bytes, 6 * 130_044);
+        assert_eq!(c.limits.max_message_bytes, 22_020_096);
+        assert_eq!(c.limits.max_decompressed_bytes, 16 * 22_020_096);
+    }
+
+    #[test]
+    fn rejects_fewer_blobs_than_one_landing_needs() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let _clear = clear_env();
+        let mut args = argv();
+        let i = args.iter().position(|v| *v == "--max-blobs").unwrap();
+        args[i + 1] = "5";
+        assert!(parse(args).unwrap().lander_flags.config().is_err());
+    }
+
+    #[test]
+    fn rejects_decompressed_capacity_overflow() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let _clear = clear_env();
+        let mut args = argv();
+        let i = args.iter().position(|v| *v == "--max-blocks").unwrap();
+        let max = usize::MAX.to_string();
+        args[i + 1] = &max;
+        assert!(parse(args).unwrap().lander_flags.config().is_err());
     }
 
     #[test]

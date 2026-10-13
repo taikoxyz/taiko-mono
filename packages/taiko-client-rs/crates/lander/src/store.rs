@@ -1,6 +1,7 @@
 //! Atomic, exclusively owned transaction journal; chain state remains the source of progress.
 
 use crate::{
+    codec::{self, PublishedBlock},
     error::{LanderError, Result},
     proof::ProofRequest,
     tx::{LandingReceipt, SignedTransaction},
@@ -15,8 +16,9 @@ use std::{
 
 /// Journal schema version; incompatible formats stop rather than discard outstanding nonces.
 ///
-/// Schema 4 jobs bind V2 published-header blob payloads; schema 3 bound complete V1 blocks.
-const JOURNAL_VERSION: u8 = 4;
+/// Schema 5 jobs bind compressed V3 blob payloads and snapshots carrying the forced inclusion
+/// queue; schema 4 bound uncompressed V2 payloads and schema 3 complete V1 blocks.
+const JOURNAL_VERSION: u8 = 5;
 /// Hard allocation bound before reading or decoding an untrusted journal.
 pub(crate) const MAX_JOURNAL_BYTES: u64 = 256 * 1024 * 1024;
 
@@ -278,13 +280,19 @@ impl Store {
             max_blobs: 128,
             max_payload_bytes: MAX_JOURNAL_BYTES as usize,
             max_message_bytes: MAX_JOURNAL_BYTES as usize,
+            max_decompressed_bytes: MAX_JOURNAL_BYTES as usize,
         };
         let payload = crate::blob::decode(batch.blobs.sidecar.blobs(), &limits)
             .map_err(|e| LanderError::Journal(format!("job blobs: {e}")))?;
+        for pair in &batch.blocks {
+            codec::validate_pair(pair)
+                .map_err(|e| LanderError::Journal(format!("job block pair: {e}")))?;
+        }
+        // Compressed bytes are not canonical, so compare the blocks the payload carries.
+        let published = codec::decode(&payload, &limits)
+            .map_err(|e| LanderError::Journal(format!("job block codec: {e}")))?;
         if payload.len() != batch.blobs.payload_bytes ||
-            crate::codec::encode(&batch.blocks, &limits)
-                .map_err(|e| LanderError::Journal(format!("job block codec: {e}")))? !=
-                payload
+            !published.into_iter().eq(batch.blocks.iter().map(PublishedBlock::from))
         {
             return Err(LanderError::Journal("job blocks differ from bound blob payload".into()));
         }
@@ -391,10 +399,11 @@ mod tests {
         assert_eq!(store.load_with_wait().unwrap(), (JournalState::Idle, None));
     }
 
-    /// Schema 2 holds V4 statements and schema 3 holds complete-block V1 blob payloads.
+    /// Schema 2 holds V4 statements, schema 3 complete-block V1 blob payloads and schema 4
+    /// uncompressed V2 payloads.
     #[test]
     fn legacy_journals_are_rejected_without_modifying_their_files() {
-        for version in [2, 3] {
+        for version in [2, 3, 4] {
             let directory = tempfile::tempdir().unwrap();
             let journal = serde_json::json!({
                 "version": version,
@@ -429,7 +438,7 @@ mod tests {
         };
         let state =
             JournalState::Pending { job: Box::new(ProvedJob { request, proof }), transaction };
-        for version in [2, 3] {
+        for version in [2, 3, 4] {
             let directory = tempfile::tempdir().unwrap();
             let bytes = serde_json::to_vec(
                 &serde_json::json!({ "version": version, "identity": id, "state": state }),
@@ -444,6 +453,47 @@ mod tests {
             assert!(error.to_string().contains("incompatible journal schema"), "{error}");
             assert_eq!(std::fs::read(path).unwrap(), bytes);
         }
+    }
+
+    /// The blobs must carry exactly the job's published blocks; their compressed bytes need not
+    /// be this lander's own encoding.
+    #[test]
+    fn journal_job_validates_by_decoded_blocks() {
+        use crate::test_utils::runtime::{limits, rebind, request};
+        use flate2::{Compression, write::ZlibEncoder};
+        let mut request = request();
+        let payload = crate::codec::encode(&request.batch.blocks, &limits()).unwrap();
+        let list = abci::compression::zlib_inflate_exact(&payload[1..], usize::MAX).unwrap();
+        let mut encoder = ZlibEncoder::new(vec![payload[0]], Compression::none());
+        encoder.write_all(&list).unwrap();
+        let stored = encoder.finish().unwrap();
+        assert_ne!(stored, payload);
+        rebind(&mut request, &stored);
+        let snapshot = &request.batch.snapshot;
+        let identity = JournalIdentity {
+            l1_chain_id: snapshot.l1_chain_id,
+            l2_chain_id: snapshot.l2_chain_id,
+            inbox: snapshot.inbox,
+            registry: snapshot.registry,
+            sender: Address::repeat_byte(5),
+        };
+        let directory = tempfile::tempdir().unwrap();
+        let store = Store::open(directory.path(), identity).unwrap();
+        let proof = Bytes::from_static(&[0]);
+        let job = JournalState::Prepared {
+            job: Box::new(ProvedJob { request: request.clone(), proof: proof.clone() }),
+        };
+        store.save(&job).unwrap();
+        assert_eq!(store.load().unwrap(), job);
+
+        // A canonical payload of only the first block binds different blocks.
+        let first = crate::codec::encode(&request.batch.blocks[..1], &limits()).unwrap();
+        rebind(&mut request, &first);
+        let error = store
+            .save(&JournalState::Prepared { job: Box::new(ProvedJob { request, proof }) })
+            .unwrap_err();
+        assert!(error.to_string().contains("job blocks differ"), "{error}");
+        assert_eq!(store.load().unwrap(), job);
     }
 
     #[test]

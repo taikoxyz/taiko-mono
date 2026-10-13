@@ -31,11 +31,14 @@ pub struct Limits {
     pub max_blocks: usize,
     /// Maximum blobs in one transaction, bounded by the target L1 fork.
     pub max_blobs: usize,
-    /// Maximum total encoded V2 payload bytes.
+    /// Maximum encoded V3 payload bytes (the version byte and the compressed list), the bytes
+    /// blob coding carries.
     pub max_payload_bytes: usize,
     /// Maximum bytes of one protobuf block or commit witness, and of one published header or
     /// envelope.
     pub max_message_bytes: usize,
+    /// Maximum bytes of the V3 payload's RLP list after decompression.
+    pub max_decompressed_bytes: usize,
 }
 
 impl Limits {
@@ -44,7 +47,8 @@ impl Limits {
         if self.max_blocks == 0 ||
             self.max_blobs == 0 ||
             self.max_payload_bytes == 0 ||
-            self.max_message_bytes == 0
+            self.max_message_bytes == 0 ||
+            self.max_decompressed_bytes == 0
         {
             return Err(LanderError::Configuration(
                 "all batch and codec limits must be nonzero".into(),
@@ -145,7 +149,7 @@ pub struct PreparedBatch {
     /// Exact four contract public output fields.
     #[serde(with = "crate::contracts::land_input_serde")]
     pub input: LandInput,
-    /// Sidecar and ordered versioned blob hashes binding the V2 payload.
+    /// Sidecar and ordered versioned blob hashes binding the V3 payload.
     pub blobs: PreparedBlobs,
     /// Identity of this job: the exact V5 public statement hash.
     pub statement_hash: B256,

@@ -8,7 +8,7 @@ use std::io::Write;
 
 use flate2::{Compression, Decompress, FlushDecompress, Status, write::ZlibEncoder};
 
-/// The most blobs one landing carries (the lander's default `max_blobs`).
+/// The blobs one block may need to land on its own: the minimum `max_blobs` the lander accepts.
 pub const MAX_LANDING_BLOBS: usize = 6;
 
 /// The payload bytes one blob carries under the lander's blob coding (127 usable bytes per four
