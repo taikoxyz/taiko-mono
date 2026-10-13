@@ -290,20 +290,16 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                     blocks.push(pair);
                     payload = Some(encoded);
                 }
-                Ok(encoded) => {
-                    if blocks.is_empty() {
-                        return Err(LanderError::Capacity(format!(
-                            "block {height} needs {} blobs, configured {}",
-                            blob::required_blobs(encoded.len()),
-                            limits.max_blobs
-                        )));
-                    }
+                Ok(_) | Err(LanderError::Capacity(_)) if !blocks.is_empty() => {
                     list.pop();
                     break;
                 }
-                Err(LanderError::Capacity(_)) if !blocks.is_empty() => {
-                    list.pop();
-                    break;
+                Ok(encoded) => {
+                    return Err(LanderError::Capacity(format!(
+                        "block {height} needs {} blobs, configured {}",
+                        blob::required_blobs(encoded.len()),
+                        limits.max_blobs
+                    )));
                 }
                 Err(LanderError::Capacity(reason)) => {
                     return Err(LanderError::Capacity(format!("block {height}: {reason}")))
@@ -548,18 +544,15 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             },
         )
         .map_err(|e| LanderError::Safety(e.to_string()))?;
-        // Forced inclusion blocks consume consecutive entries from the snapshot's Inbox head.
-        let forced_cursor = match facts.forced {
-            None => state.forced_cursor,
-            Some(index) if index == state.forced_cursor => index
+        // Forced inclusion blocks consume consecutive entries from the snapshot's Inbox head:
+        // `verify_envelope` only lets a block consume the entry at `state.forced_cursor`.
+        let forced_cursor = if facts.forced.is_some() {
+            state
+                .forced_cursor
                 .checked_add(1)
-                .ok_or_else(|| LanderError::Safety("forced inclusion cursor overflow".into()))?,
-            Some(index) => {
-                return Err(LanderError::Safety(format!(
-                    "block {height} consumes forced inclusion entry {index}, expected {}",
-                    state.forced_cursor
-                )))
-            }
+                .ok_or_else(|| LanderError::Safety("forced inclusion cursor overflow".into()))?
+        } else {
+            state.forced_cursor
         };
         if let Some(derived) = facts.derived {
             let epoch = derived.record.target_epoch;

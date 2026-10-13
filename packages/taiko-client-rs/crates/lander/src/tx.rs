@@ -4,7 +4,7 @@ use std::{io::Read, path::Path};
 
 use alloy::{
     signers::{Signer, local::PrivateKeySigner},
-    sol_types::SolCall,
+    sol_types::{SolCall, SolError},
 };
 use alloy_consensus::{
     SignableTransaction, Transaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar,
@@ -21,7 +21,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    contracts::IEtnaInbox::landCall,
+    contracts::{IEtnaInbox::landCall, ZeroFeeRecipient},
     error::{LanderError, Result},
     proof::ProofRequest,
 };
@@ -346,10 +346,10 @@ fn is_known_response(message: &str) -> bool {
 /// built the input with a zero recipient, which no retry or refresh changes.
 fn estimate_error(error: alloy::transports::TransportError) -> LanderError {
     if let Some(payload) = error.as_error_resp() {
-        if payload.as_revert_data().is_some_and(|data| {
-            use alloy::sol_types::SolError;
-            data.starts_with(&crate::contracts::ZeroFeeRecipient::SELECTOR)
-        }) {
+        if payload
+            .as_revert_data()
+            .is_some_and(|data| data.starts_with(&ZeroFeeRecipient::SELECTOR))
+        {
             return LanderError::Configuration(format!(
                 "the Inbox rejected the landing's zero fee recipient (ZeroFeeRecipient): {}",
                 payload.message
@@ -591,9 +591,8 @@ mod tests {
     /// configuration error, never a retry; another revert stays [`LanderError::Reverted`].
     #[tokio::test]
     async fn gas_estimation_zero_fee_recipient_revert_is_a_configuration_error() {
-        use alloy::sol_types::SolError;
         use serde_json::json;
-        let selector = crate::contracts::ZeroFeeRecipient::SELECTOR;
+        let selector = ZeroFeeRecipient::SELECTOR;
         assert_eq!(selector, [0xcf, 0xf9, 0xf1, 0x94]);
         let data = alloy_primitives::hex::encode_prefixed(selector);
         let provider =

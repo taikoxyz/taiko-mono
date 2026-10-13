@@ -120,21 +120,15 @@ mod tests {
     use super::*;
     use crate::test_utils::{forced_blob, manifest_payload, sample_transactions};
 
-    /// A beacon node stub (genesis at 0, 12-second slots) on an ephemeral port; see
-    /// [`beacon_on`].
+    /// [`beacon_under`] with no path prefix on an ephemeral port.
     async fn beacon(blobs: Vec<Bytes>) -> (Url, Arc<Mutex<Vec<String>>>) {
-        beacon_on(TcpListener::bind("127.0.0.1:0").await.expect("binds"), blobs)
+        beacon_under(TcpListener::bind("127.0.0.1:0").await.expect("binds"), "", blobs)
     }
 
     /// A beacon node stub (genesis at 0, 12-second slots) on `listener` whose blobs endpoint
     /// answers `blobs` whatever is asked; returns its URL and the request targets it receives.
-    fn beacon_on(listener: TcpListener, blobs: Vec<Bytes>) -> (Url, Arc<Mutex<Vec<String>>>) {
-        beacon_under(listener, "", blobs)
-    }
-
-    /// [`beacon_on`] serving its routes only below the path `prefix` (e.g. a provider's
-    /// `/<key>`), as a hosted beacon does; any other path answers 404. The URL carries the
-    /// prefix.
+    /// It serves its routes only below the path `prefix` (e.g. a provider's `/<key>`), as a
+    /// hosted beacon does; any other path answers 404. The URL carries the prefix.
     fn beacon_under(
         listener: TcpListener,
         prefix: &'static str,
@@ -264,7 +258,7 @@ mod tests {
         }
 
         let (_, targets) =
-            beacon_on(TcpListener::bind(addr).await.expect("rebinds"), vec![blob.clone()]);
+            beacon_under(TcpListener::bind(addr).await.expect("rebinds"), "", vec![blob.clone()]);
         assert_eq!(source.blob(84, hash).await, Ok(blob.clone()));
         assert_eq!(source.blob(84, hash).await, Ok(blob));
         let targets = targets.lock().unwrap().clone();

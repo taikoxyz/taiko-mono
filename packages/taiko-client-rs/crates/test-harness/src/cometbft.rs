@@ -229,9 +229,14 @@ impl CmtClient {
         Ok(signers)
     }
 
+    /// The `/block` result at `height`.
+    async fn block(&self, height: u64) -> Result<Value> {
+        self.call("block", &[("height", height.to_string())]).await
+    }
+
     /// The `app_hash` in the header of the block at `height`.
     pub async fn header_app_hash(&self, height: u64) -> Result<B256> {
-        let block = self.call("block", &[("height", height.to_string())]).await?;
+        let block = self.block(height).await?;
         let hash = block["block"]["header"]["app_hash"].as_str().context("app_hash")?;
         hash.parse().with_context(|| format!("app_hash {hash:?}"))
     }
@@ -239,7 +244,7 @@ impl CmtClient {
     /// The address (upper-case hex, as [`ValidatorKey::address`]) of the validator that
     /// proposed the block at `height`.
     pub async fn proposer_address(&self, height: u64) -> Result<String> {
-        let block = self.call("block", &[("height", height.to_string())]).await?;
+        let block = self.block(height).await?;
         let address =
             block["block"]["header"]["proposer_address"].as_str().context("proposer_address")?;
         Ok(address.to_uppercase())
@@ -247,7 +252,7 @@ impl CmtClient {
 
     /// The Etna envelope the block at `height` carries as its single transaction.
     pub async fn envelope(&self, height: u64) -> Result<EtnaEnvelope> {
-        let block = self.call("block", &[("height", height.to_string())]).await?;
+        let block = self.block(height).await?;
         let txs = block["block"]["data"]["txs"]
             .as_array()
             .with_context(|| format!("block {height}: no txs array"))?

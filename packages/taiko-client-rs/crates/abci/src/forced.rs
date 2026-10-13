@@ -182,11 +182,11 @@ pub fn is_expired(entry: &ForcedEntry, anchor_timestamp: u64) -> bool {
 /// RLP list of its transactions (its other fields are ignored); anything else, including a blob
 /// the coder cannot decode, gives [`EMPTY_TX_LIST`].
 pub fn derive_tx_list(entry: &ForcedEntry, blob: &[u8]) -> Result<Bytes, ForcedError> {
+    let blob = <&Blob>::try_from(blob).map_err(|_| ForcedError::BadBlob)?;
     let got = versioned_hash(blob)?;
     if got != entry.blob_hash {
         return Err(ForcedError::BlobHashMismatch { expected: entry.blob_hash, got });
     }
-    let blob = <&Blob>::try_from(blob).map_err(|_| ForcedError::BadBlob)?;
     let Some(bytes) = BlobCoder::decode_blob(blob) else {
         return Ok(EMPTY_TX_LIST);
     };
@@ -262,11 +262,10 @@ fn kzg_settings() -> &'static c_kzg::KzgSettings {
     c_kzg::ethereum_kzg_settings(0)
 }
 
-/// The KZG versioned hash of the raw blob `blob` under the Ethereum trusted setup.
+/// The KZG versioned hash of `blob` under the Ethereum trusted setup.
 ///
 /// The 128 KiB `c_kzg::Blob` lives on the heap: handlers run on async worker stacks.
-fn versioned_hash(blob: &[u8]) -> Result<B256, ForcedError> {
-    let blob = <&Blob>::try_from(blob).map_err(|_| ForcedError::BadBlob)?;
+fn versioned_hash(blob: &Blob) -> Result<B256, ForcedError> {
     let mut kzg_blob = Box::<c_kzg::Blob>::default();
     kzg_blob.copy_from_slice(blob.as_slice());
     let commitment =
