@@ -38,6 +38,18 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         new EtnaInbox(cfg);
     }
 
+    function test_constructor_RevertWhen_ForcedInclusionFeeOrThresholdIsZero() external {
+        IEtnaInbox.Config memory cfg = etnaConfig;
+        cfg.forcedInclusionFeeInGwei = 0;
+        vm.expectRevert(EtnaInbox.ForcedInclusionFeeZero.selector);
+        new EtnaInbox(cfg);
+
+        cfg = etnaConfig;
+        cfg.forcedInclusionFeeDoubleThreshold = 0;
+        vm.expectRevert(EtnaInbox.ForcedInclusionFeeDoubleThresholdZero.selector);
+        new EtnaInbox(cfg);
+    }
+
     function test_init_InitializesAFreshProxyAtomicallyAtBlockZero() external view {
         assertEq(etnaInbox.owner(), address(this), "owner");
         assertFalse(etnaInbox.paused(), "unpaused");

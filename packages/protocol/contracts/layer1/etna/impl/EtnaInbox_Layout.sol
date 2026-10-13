@@ -28,4 +28,5 @@ pragma solidity ^0.8.26;
 //   __reservedPublications         | uint256[3]                                         | Slot: 275  | Offset: 0    | Bytes: 96
 //   _genesisCommitteeRecordHash    | bytes32                                            | Slot: 278  | Offset: 0    | Bytes: 32
 //   _genesisCutoff                 | uint64                                             | Slot: 279  | Offset: 0    | Bytes: 8
-//   __gap                          | uint256[21]                                        | Slot: 280  | Offset: 0    | Bytes: 672
+//   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 280  | Offset: 0    | Bytes: 64
+//   __gap                          | uint256[19]                                        | Slot: 282  | Offset: 0    | Bytes: 608

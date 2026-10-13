@@ -25,6 +25,10 @@ interface IEtnaInbox {
         uint64 l2ChainId;
         /// @notice The maximum number of L2 blocks one `land` call may cover.
         uint64 maxBatchBlocks;
+        /// @notice The forced inclusion fee in Gwei with an empty queue.
+        uint64 forcedInclusionFeeInGwei;
+        /// @notice The number of pending forced inclusions at which the fee doubles.
+        uint64 forcedInclusionFeeDoubleThreshold;
     }
 
     /// @notice The genesis parameters of a new Etna chain.

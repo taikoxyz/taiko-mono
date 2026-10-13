@@ -35,6 +35,8 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         _deployInbox_RevertWhen_GenesisStateRootIsZero();
         _deployInbox_RevertWhen_ProofVerifierHasNoCode();
         _deployInbox_RevertWhen_CommitteeConfigHashIsZero();
+        _deployInbox_RevertWhen_ForcedInclusionFeeIsZero();
+        _deployInbox_RevertWhen_ForcedInclusionFeeDoubleThresholdIsZero();
     }
 
     modifier withEnvironment() {
@@ -56,6 +58,11 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         vm.setEnv("REMOTE_SIGNAL_SERVICE", vm.toString(REMOTE_SIGNAL_SERVICE));
         vm.setEnv("L2_CHAIN_ID", vm.toString(L2_CHAIN_ID));
         vm.setEnv("MAX_BATCH_BLOCKS", vm.toString(MAX_BATCH_BLOCKS));
+        vm.setEnv("FORCED_INCLUSION_FEE_GWEI", vm.toString(FORCED_INCLUSION_FEE_GWEI));
+        vm.setEnv(
+            "FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD",
+            vm.toString(FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD)
+        );
         vm.setEnv("GENESIS_BLOCK_HASH", vm.toString(genesisBlockHash));
         vm.setEnv("GENESIS_STATE_ROOT", vm.toString(genesisStateRoot));
         vm.setEnv("EPOCH_LEN_L2", vm.toString(EPOCH_LEN_L2));
@@ -108,6 +115,11 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(deployed.lastCheckpoint().blockHash, genesisBlockHash, "genesis parent");
         assertEq(deployed.genesisCommitteeRecordHash(), COMMITTEE_RECORD_0, "committee zero");
         assertEq(deployed.committeeConfigHash(), COMMITTEE_CONFIG_HASH, "committee config");
+        assertEq(
+            deployed.getCurrentForcedInclusionFee(),
+            FORCED_INCLUSION_FEE_GWEI,
+            "forced inclusion fee"
+        );
         ICheckpointStore.Checkpoint memory checkpoint = deployedSignals.getCheckpoint(0);
         assertEq(checkpoint.blockHash, genesisBlockHash, "checkpoint zero hash");
         assertEq(checkpoint.stateRoot, genesisStateRoot, "checkpoint zero root");
@@ -168,6 +180,19 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     function _deployInbox_RevertWhen_CommitteeConfigHashIsZero() private withEnvironment {
         vm.setEnv("COMMITTEE_CONFIG_HASH", vm.toString(bytes32(0)));
         _expectRejectedDeployment(EtnaInbox.ZeroCommitteeConfigHash.selector);
+    }
+
+    function _deployInbox_RevertWhen_ForcedInclusionFeeIsZero() private withEnvironment {
+        vm.setEnv("FORCED_INCLUSION_FEE_GWEI", "0");
+        _expectRejectedDeployment(EtnaInbox.ForcedInclusionFeeZero.selector);
+    }
+
+    function _deployInbox_RevertWhen_ForcedInclusionFeeDoubleThresholdIsZero()
+        private
+        withEnvironment
+    {
+        vm.setEnv("FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD", "0");
+        _expectRejectedDeployment(EtnaInbox.ForcedInclusionFeeDoubleThresholdZero.selector);
     }
 
     function _expectRejectedDeployment(bytes4 _error) private {
