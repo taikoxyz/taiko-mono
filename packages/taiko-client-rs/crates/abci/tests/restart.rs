@@ -5,30 +5,12 @@
 //! state) is not driven here: stopping the app between genesis and the first commit is racy
 //! against a 1 s cadence, and the unit test `init_chain_is_idempotent_at_genesis` covers it.
 
-use std::{
-    fs,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
-use abci::{AppState, store::STATE_FILE};
 use alloy_eips::BlockNumberOrTag;
-use alloy_primitives::B256;
-use alloy_provider::{Provider, RootProvider};
+use alloy_provider::Provider;
 use anyhow::Context;
 use test_harness::{Devnet, DevnetSpec, wait_until};
-
-/// The EL hashes of blocks `1..=head` of `l2`.
-async fn block_hashes(l2: &RootProvider, head: u64) -> anyhow::Result<Vec<B256>> {
-    let mut hashes = Vec::new();
-    for h in 1..=head {
-        let block = l2
-            .get_block_by_number(BlockNumberOrTag::Number(h))
-            .await?
-            .with_context(|| format!("L2 block {h} missing"))?;
-        hashes.push(block.header.hash);
-    }
-    Ok(hashes)
-}
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
@@ -42,7 +24,7 @@ async fn restart_recovers_through_the_handshake() -> anyhow::Result<()> {
     assert!(!devnet.app_running(0));
     let l2 = devnet.l2_provider(0);
     let old_head = l2.get_block_number().await?;
-    let old_hashes = block_hashes(&l2, old_head).await?;
+    let old_hashes = devnet.l2_block_hashes(0, old_head).await?;
     eprintln!("app stopped at L2 head {old_head} after {:?}", started.elapsed());
     // CometBFT loses its ABCI connection and exits; nothing commits while the app is down.
     let devnet_ref = &devnet;
@@ -69,7 +51,7 @@ async fn restart_recovers_through_the_handshake() -> anyhow::Result<()> {
     )
     .await?;
     assert_eq!(
-        block_hashes(&l2, old_head).await?,
+        devnet.l2_block_hashes(0, old_head).await?,
         old_hashes,
         "L2 chain changed below the old head"
     );
@@ -94,37 +76,18 @@ async fn replay_recovers_after_app_state_is_lost() -> anyhow::Result<()> {
     let mut devnet = Devnet::start(DevnetSpec::default()).await?;
     // Cross an epoch so recovery must reconstruct more than the genesis committee.
     devnet.wait_for_height(0, 26, Duration::from_secs(90)).await?;
-    devnet.lander_pause().await;
-    devnet.app_stop(0).await;
-    let d = &devnet;
-    wait_until("CometBFT exit", Duration::from_secs(30), Duration::from_millis(100), || async {
-        Ok((!d.cmt_running(0).await?).then_some(()))
-    })
-    .await?;
-
-    let file = devnet.app_data_dir(0).join(STATE_FILE);
-    let before: AppState = serde_json::from_slice(&fs::read(&file)?)?;
-    let l2 = devnet.l2_provider(0);
-    let old_hashes = block_hashes(&l2, before.last_height).await?;
-    let finalized = l2
+    let finalized = devnet
+        .l2_provider(0)
         .get_block_by_number(BlockNumberOrTag::Finalized)
         .await?
         .context("missing EL finalized block")?;
     assert!(finalized.header.number > 0, "the EL checkpoint must have advanced");
-    fs::rename(&file, devnet.app_data_dir(0).join("abci-state.saved.json"))?;
-    assert!(!file.exists(), "the app starts without its state file");
 
-    devnet.app_start(0).await?;
-    devnet.cmt_restart(0).await?;
-    devnet.wait_for_height(0, before.last_height, Duration::from_secs(60)).await?;
-    let restored: AppState = serde_json::from_slice(&fs::read(&file)?)?;
+    let (before, restored) = devnet.replay_after_state_loss(0).await?;
     assert!(restored.last_height >= before.last_height);
     assert_eq!(restored.genesis, before.genesis);
     assert_eq!(restored.committees, before.committees);
     assert_eq!(restored.generation, before.generation);
-    assert_eq!(block_hashes(&l2, before.last_height).await?, old_hashes);
-    devnet.lander_resume();
-    devnet.wait_for_height(0, before.last_height + 3, Duration::from_secs(60)).await?;
     assert_eq!(devnet.app_halt(0), None);
     devnet.stop().await?;
     Ok(())

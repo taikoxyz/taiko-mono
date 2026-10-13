@@ -1,37 +1,40 @@
 //! Docker scenarios: forced inclusion and anchor freshness on the ABCI devnet.
 //!
-//! [`Planter::plant_forced_inclusion`](test_harness::Planter::plant_forced_inclusion) writes a
-//! forced inclusion entry into the setter-planted Inbox in the same L1 block as a type-3
-//! transaction carrying the entry's blob; a proposer fetches the blob through the harness's fake
-//! beacon, which serves anvil's blobs. With a 10 s delay an entry is due once the anchor (anvil's
+//! [`Planter::plant_forced_inclusions`](test_harness::Planter::plant_forced_inclusions) writes
+//! forced inclusion entries into the setter-planted Inbox in the same L1 block as a type-3
+//! transaction carrying their blobs; a proposer fetches a blob through the harness's fake beacon,
+//! which serves anvil's blobs. With a 10 s delay an entry is due once the anchor (anvil's
 //! `finalized`, two blocks behind its tip) is an L1 block at least 10 s younger than the entry.
 
 use std::{
     collections::BTreeSet,
-    fs,
     time::{Duration, Instant},
 };
 
-use abci::{AppState, store::STATE_FILE};
 use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_primitives::{Address, B256, U256, address};
-use alloy_provider::{Provider, RootProvider};
+use alloy_provider::Provider;
 use anyhow::{Context, anyhow, ensure};
 use test_harness::{
     Devnet, DevnetSpec, Fatal, anchor_of, dev_signer, finalized_number, sign_transfer, wait_until,
 };
+use tokio::sync::oneshot;
 
 /// The genesis forced inclusion delay of the forced inclusion scenarios, in seconds.
 const DELAY: u64 = 10;
 
-/// The recipient of the forced transfer (a fresh account).
+/// The recipient of the forced transfers (a fresh account).
 const RECIPIENT: Address = address!("00000000000000000000000000000000000f0ced");
 
-/// The value of the forced transfer, in wei.
+/// The value of each forced transfer, in wei.
 const VALUE: u64 = 4_242;
 
 /// The `/status` halt reason of the anchor freshness rule (`RuleViolation::AnchorTooOld`).
 const ANCHOR_TOO_OLD: &str = "anchor_too_old";
+
+/// The `/status` halt reason of a proposer that cannot fetch a due entry's blob
+/// (`Rejection::BlobUnavailable`).
+const BLOB_UNAVAILABLE: &str = "blob_unavailable";
 
 /// Waits until L2 node 0 holds a successful receipt of `tx`; returns its block number. Fails
 /// after `timeout`, or at once when an app halts.
@@ -57,19 +60,6 @@ async fn wait_for_inclusion(devnet: &Devnet, tx: B256, timeout: Duration) -> any
     receipt.block_number.context("receipt without a block number")
 }
 
-/// The EL hashes of blocks `1..=head` of `l2`.
-async fn block_hashes(l2: &RootProvider, head: u64) -> anyhow::Result<Vec<B256>> {
-    let mut hashes = Vec::new();
-    for h in 1..=head {
-        let block = l2
-            .get_block_by_number(BlockNumberOrTag::Number(h))
-            .await?
-            .with_context(|| format!("L2 block {h} missing"))?;
-        hashes.push(block.header.hash);
-    }
-    Ok(hashes)
-}
-
 /// The timestamp of anvil's block `n`.
 async fn l1_timestamp(devnet: &Devnet, n: u64) -> anyhow::Result<u64> {
     let block = devnet
@@ -80,61 +70,92 @@ async fn l1_timestamp(devnet: &Devnet, n: u64) -> anyhow::Result<u64> {
     Ok(block.header.timestamp)
 }
 
-/// Plants a forced transfer of [`VALUE`] to [`RECIPIENT`] from the funded dev account and
-/// waits for its inclusion within `timeout`; checks that block `F` holding it holds exactly that
-/// transaction, moved exactly the value plus the gas from the sender to the recipient, anchors
-/// at an L1 block at least [`DELAY`] seconds younger than the entry, and is decided with the
-/// entry's witness and blob, while every block before it carried at most a peek (no blob) at
-/// entry 0. Returns `F`.
-async fn force_a_transfer(devnet: &Devnet, timeout: Duration) -> anyhow::Result<u64> {
+/// The round in which the block at `height` was committed, from CometBFT node 0.
+async fn commit_round(devnet: &Devnet, height: u64) -> anyhow::Result<u64> {
+    let commit = devnet.cmt(0).call("commit", &[("height", height.to_string())]).await?;
+    commit["signed_header"]["commit"]["round"].as_u64().context("commit round")
+}
+
+/// Plants `count` forced transfers of [`VALUE`] to [`RECIPIENT`] from the funded dev account,
+/// one per entry, as entries `0..count` in one L1 block, and waits up to `timeout` for the last
+/// to execute. Entries due at one anchor fill consecutive blocks, so entry `i` must execute in
+/// block `F + i`.
+///
+/// For each entry checks that its block holds exactly its transaction, moved exactly the value
+/// plus the gas from the sender to the recipient, anchors at an L1 block at least [`DELAY`]
+/// seconds younger than the entries and is decided with the entry's witness and blob; every
+/// block before `F` carried at most a peek (no blob) at entry 0. Returns `F..F + count`.
+async fn force_transfers(
+    devnet: &Devnet,
+    count: u64,
+    timeout: Duration,
+) -> anyhow::Result<Vec<u64>> {
     let l2 = devnet.l2_provider(0);
     let signer = dev_signer();
     let nonce = l2.get_transaction_count(signer.address()).await?;
-    let tx = sign_transfer(&l2, &signer, RECIPIENT, U256::from(VALUE), nonce).await?;
-    let hash = *tx.tx_hash();
-    let entry = devnet.planter().plant_forced_inclusion(vec![tx]).await?;
+    let mut sources = Vec::new();
+    for i in 0..count {
+        sources.push(vec![
+            sign_transfer(&l2, &signer, RECIPIENT, U256::from(VALUE), nonce + i).await?,
+        ]);
+    }
+    let hashes: Vec<B256> = sources.iter().map(|txs| *txs[0].tx_hash()).collect();
+    let entries = devnet.planter().plant_forced_inclusions(sources).await?;
     let planted = Instant::now();
-    eprintln!("planted forced inclusion entry {entry:?} for {hash}");
-    assert_eq!(entry.index, 0, "the queue was empty");
+    eprintln!("planted forced inclusion entries {entries:?} for {hashes:?}");
+    let indices: Vec<u64> = entries.iter().map(|e| e.index).collect();
+    assert_eq!(indices, (0..count).collect::<Vec<_>>(), "the queue was empty");
+    let timestamp = entries[0].timestamp;
 
-    let forced = wait_for_inclusion(devnet, hash, timeout).await?;
-    eprintln!("forced transaction in L2 block {forced} {:?} after planting", planted.elapsed());
-    let block = l2
-        .get_block_by_number(BlockNumberOrTag::Number(forced))
-        .await?
-        .with_context(|| format!("L2 block {forced} missing"))?;
-    assert_eq!(block.transactions.hashes().collect::<Vec<_>>(), vec![hash], "block {forced}");
-
-    let receipt = l2.get_transaction_receipt(hash).await?.context("receipt vanished")?;
-    let gas = U256::from(receipt.gas_used) * U256::from(receipt.effective_gas_price);
-    let at = |n: u64| BlockId::number(n);
-    let sender = signer.address();
-    let spent = l2.get_balance(sender).block_id(at(forced - 1)).await? -
-        l2.get_balance(sender).block_id(at(forced)).await?;
-    assert_eq!(spent, U256::from(VALUE) + gas, "the sender paid the value plus the gas");
-    assert_eq!(l2.get_balance(RECIPIENT).block_id(at(forced - 1)).await?, U256::ZERO);
-    assert_eq!(l2.get_balance(RECIPIENT).block_id(at(forced)).await?, U256::from(VALUE));
-
-    let anchor = anchor_of(&l2, forced).await?;
-    let anchor_time = l1_timestamp(devnet, anchor).await?;
-    assert!(
-        anchor_time >= entry.timestamp + DELAY,
-        "block {forced} anchors at L1 block {anchor} (time {anchor_time}), before the entry \
-         (time {}) was due",
-        entry.timestamp
+    let last = hashes.last().context("no transfer")?;
+    let last_height = wait_for_inclusion(devnet, *last, timeout).await?;
+    eprintln!(
+        "last forced transaction in L2 block {last_height} {:?} after planting",
+        planted.elapsed()
     );
+    let first = (last_height + 1).checked_sub(count).context("last block below the count")?;
+    let mut heights = Vec::new();
+    for (entry, hash) in entries.iter().zip(&hashes) {
+        let receipt = l2.get_transaction_receipt(*hash).await?.context("missing receipt")?;
+        assert!(receipt.status(), "forced transaction {hash} reverted");
+        let forced = receipt.block_number.context("receipt without a block number")?;
+        assert_eq!(forced, first + entry.index, "entry {} is not in its block", entry.index);
+        heights.push(forced);
+        let block = l2
+            .get_block_by_number(BlockNumberOrTag::Number(forced))
+            .await?
+            .with_context(|| format!("L2 block {forced} missing"))?;
+        assert_eq!(block.transactions.hashes().collect::<Vec<_>>(), vec![*hash], "block {forced}");
 
-    let envelope = devnet.cmt(0).envelope(forced).await?;
-    let witness = envelope.forced.context("the forced block carries no forced witness")?;
-    assert_eq!(witness.index, entry.index);
-    assert!(!witness.blob.is_empty(), "the forced block carries no blob");
-    for h in 1..forced {
+        let gas = U256::from(receipt.gas_used) * U256::from(receipt.effective_gas_price);
+        let at = |n: u64| BlockId::number(n);
+        let sender = signer.address();
+        let spent = l2.get_balance(sender).block_id(at(forced - 1)).await? -
+            l2.get_balance(sender).block_id(at(forced)).await?;
+        assert_eq!(spent, U256::from(VALUE) + gas, "block {forced}: the sender paid value + gas");
+        let received = l2.get_balance(RECIPIENT).block_id(at(forced)).await? -
+            l2.get_balance(RECIPIENT).block_id(at(forced - 1)).await?;
+        assert_eq!(received, U256::from(VALUE), "block {forced}: the recipient got the value");
+
+        let anchor = anchor_of(&l2, forced).await?;
+        let anchor_time = l1_timestamp(devnet, anchor).await?;
+        assert!(
+            anchor_time >= timestamp + DELAY,
+            "block {forced} anchors at L1 block {anchor} (time {anchor_time}), before the \
+             entries (time {timestamp}) were due"
+        );
+        let envelope = devnet.cmt(0).envelope(forced).await?;
+        let witness = envelope.forced.context("a forced block carries no forced witness")?;
+        assert_eq!(witness.index, entry.index, "block {forced}");
+        assert!(!witness.blob.is_empty(), "forced block {forced} carries no blob");
+    }
+    for h in 1..first {
         if let Some(peek) = devnet.cmt(0).envelope(h).await?.forced {
-            assert_eq!(peek.index, entry.index, "block {h} names another entry");
+            assert_eq!(peek.index, 0, "block {h} names another entry");
             assert!(peek.blob.is_empty(), "block {h} carries a blob before the forced block");
         }
     }
-    Ok(forced)
+    Ok(heights)
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -145,7 +166,7 @@ async fn forced_inclusion_executes_after_the_delay() -> anyhow::Result<()> {
     let mut devnet = Devnet::start(spec).await?;
     devnet.wait_for_height(0, 3, Duration::from_secs(60)).await?;
 
-    let forced = force_a_transfer(&devnet, Duration::from_secs(DELAY + 30)).await?;
+    let forced = force_transfers(&devnet, 1, Duration::from_secs(DELAY + 30)).await?[0];
 
     // The entry is consumed: later blocks carry no forced witness.
     devnet.wait_for_height(0, forced + 3, Duration::from_secs(30)).await?;
@@ -157,29 +178,10 @@ async fn forced_inclusion_executes_after_the_delay() -> anyhow::Result<()> {
     // Crash replay: the app loses its state and replays every block, the forced one included,
     // through a cold FinalizeBlock that rebuilds the forced block on its parent while the EL's
     // head is far above it.
-    devnet.lander_pause().await;
-    devnet.app_stop(0).await;
-    let d = &devnet;
-    wait_until("CometBFT exit", Duration::from_secs(30), Duration::from_millis(100), || async {
-        Ok((!d.cmt_running(0).await?).then_some(()))
-    })
-    .await?;
-    let file = devnet.app_data_dir(0).join(STATE_FILE);
-    let before: AppState = serde_json::from_slice(&fs::read(&file)?)?;
+    let (before, restored) = devnet.replay_after_state_loss(0).await?;
+    assert!(before.last_height > forced, "the crash is past the forced block");
     assert_eq!(before.forced_cursor, 1, "the persisted forced inclusion cursor");
-    let l2 = devnet.l2_provider(0);
-    let old_hashes = block_hashes(&l2, before.last_height).await?;
-    fs::rename(&file, devnet.app_data_dir(0).join("abci-state.saved.json"))?;
-
-    devnet.app_start(0).await?;
-    devnet.cmt_restart(0).await?;
-    devnet.wait_for_height(0, before.last_height, Duration::from_secs(60)).await?;
-    let restored: AppState = serde_json::from_slice(&fs::read(&file)?)?;
-    assert!(restored.last_height >= before.last_height);
     assert_eq!(restored.forced_cursor, 1, "the replayed forced inclusion cursor");
-    assert_eq!(block_hashes(&l2, before.last_height).await?, old_hashes);
-    devnet.lander_resume();
-    devnet.wait_for_height(0, before.last_height + 3, Duration::from_secs(60)).await?;
     assert_eq!(devnet.app_halt(0), None);
     eprintln!("replayed past the forced block {forced} after {:?}", started.elapsed());
 
@@ -188,11 +190,22 @@ async fn forced_inclusion_executes_after_the_delay() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// A validator without beacon access cannot build a block consuming a due entry: its rounds at
+/// those heights produce nothing, and the other validators include the entries.
+///
+/// Three entries are planted in one L1 block, so they are due at the same anchor and fill three
+/// consecutive blocks. With three equal validators CometBFT's round-0 proposer rotates through
+/// all three over any three consecutive heights (round changes within a height do not carry
+/// over), so the blind validator is the round-0 proposer of one of the forced heights: it
+/// refuses (`blob_unavailable` in its `/status` until its next commit) and the height commits in
+/// a later round, proposed by another validator.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
 async fn validator_without_beacon_cannot_censor() -> anyhow::Result<()> {
     /// The validator whose app has no beacon.
     const BLIND: usize = 1;
+    /// The entries planted together.
+    const ENTRIES: u64 = 3;
     let started = Instant::now();
     let spec = DevnetSpec {
         validators: 3,
@@ -204,27 +217,52 @@ async fn validator_without_beacon_cannot_censor() -> anyhow::Result<()> {
     let devnet = Devnet::start(spec).await?;
     devnet.wait_for_height(0, 3, Duration::from_secs(90)).await?;
 
-    // A round the blind validator proposes at the due height (whether it gets one depends on
-    // the rotation) produces nothing; another proposer's round includes the entry, and the blind
-    // validator votes for it: with three equal validators every commit needs all three.
-    let forced = force_a_transfer(&devnet, Duration::from_secs(DELAY + 60)).await?;
-    let blind = devnet.keys()[BLIND].address();
-    let proposer = devnet.cmt(0).proposer_address(forced).await?;
-    assert_ne!(proposer, blind, "the blind validator built block {forced}");
-    assert!(devnet.cmt(0).commit_signers(forced).await?.contains(&blind), "blind precommit");
-    let round = devnet.cmt(0).call("commit", &[("height", forced.to_string())]).await?
-        ["signed_header"]["commit"]["round"]
-        .clone();
-    eprintln!("forced block {forced} proposed by {proposer} in round {round}");
+    // Watch the blind app's halt reasons while the entries are pending.
+    let (stop, mut stopped) = oneshot::channel::<()>();
+    let blind_cmt = devnet.cmt(BLIND).clone();
+    let watcher = tokio::spawn(async move {
+        let mut reasons = BTreeSet::new();
+        loop {
+            if let Ok(status) = blind_cmt.abci_status().await {
+                reasons.extend(status.halt_reason);
+            }
+            tokio::select! {
+                _ = &mut stopped => break reasons,
+                _ = tokio::time::sleep(Duration::from_millis(200)) => {}
+            }
+        }
+    });
+    let forced = force_transfers(&devnet, ENTRIES, Duration::from_secs(DELAY + 60)).await;
+    drop(stop);
+    let reasons = watcher.await?;
+    let forced = forced?;
+    eprintln!("blind validator halt reasons while the entries were pending: {reasons:?}");
+    assert!(reasons.contains(BLOB_UNAVAILABLE), "the blind validator never refused a due block");
 
-    // Every node, the blind one included, executed the forced block.
-    devnet.wait_for_height(BLIND, forced + 2, Duration::from_secs(30)).await?;
-    let hash = devnet.l2_provider(0).get_block_by_number(BlockNumberOrTag::Number(forced)).await?;
-    let hash = hash.context("forced block missing on node 0")?.header.hash;
+    let blind = devnet.keys()[BLIND].address();
+    let mut rounds = Vec::new();
+    for &h in &forced {
+        let proposer = devnet.cmt(0).proposer_address(h).await?;
+        assert_ne!(proposer, blind, "the blind validator built forced block {h}");
+        rounds.push(commit_round(&devnet, h).await?);
+    }
+    eprintln!("forced blocks {forced:?} committed in rounds {rounds:?}");
+    assert!(rounds.iter().any(|&r| r >= 1), "no forced height lost its round-0 proposal");
+
+    // Every node, the blind one included, executed the forced blocks.
+    let last = *forced.last().context("no forced block")?;
+    devnet.wait_for_height(BLIND, last + 2, Duration::from_secs(30)).await?;
+    for &h in &forced {
+        let block = devnet.l2_provider(0).get_block_by_number(BlockNumberOrTag::Number(h)).await?;
+        let hash =
+            block.with_context(|| format!("forced block {h} missing on node 0"))?.header.hash;
+        for i in 1..3 {
+            let block =
+                devnet.l2_provider(i).get_block_by_number(BlockNumberOrTag::Number(h)).await?;
+            assert_eq!(block.map(|b| b.header.hash), Some(hash), "EL {i} at block {h}");
+        }
+    }
     for i in 0..3 {
-        let block =
-            devnet.l2_provider(i).get_block_by_number(BlockNumberOrTag::Number(forced)).await?;
-        assert_eq!(block.map(|b| b.header.hash), Some(hash), "EL {i} at block {forced}");
         assert_eq!(devnet.app_halt(i), None);
     }
 

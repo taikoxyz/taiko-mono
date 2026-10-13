@@ -2,15 +2,19 @@
 //! `abci` apps.
 
 use std::{
+    fs,
     path::PathBuf,
     sync::atomic::{AtomicU64, Ordering},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use abci::{ChainParams, GenesisRecord, RegistryEntry, Schedule, Status};
-use alloy_primitives::U256;
-use alloy_provider::RootProvider;
-use anyhow::{Result, anyhow, ensure};
+use abci::{
+    AppState, ChainParams, GenesisRecord, RegistryEntry, Schedule, Status, store::STATE_FILE,
+};
+use alloy_eips::BlockNumberOrTag;
+use alloy_primitives::{B256, U256};
+use alloy_provider::{Provider, RootProvider};
+use anyhow::{Context, Result, anyhow, ensure};
 use rpc::client::{DEFAULT_HTTP_TIMEOUT, connect_http_with_timeout};
 use tempfile::TempDir;
 use tracing_subscriber::EnvFilter;
@@ -231,6 +235,20 @@ impl Devnet {
         connect_http_with_timeout(self.l2_http(i), DEFAULT_HTTP_TIMEOUT)
     }
 
+    /// The hashes of blocks `1..=head` of alethia-reth `i`.
+    pub async fn l2_block_hashes(&self, i: usize, head: u64) -> Result<Vec<B256>> {
+        let l2 = self.l2_provider(i);
+        let mut hashes = Vec::new();
+        for h in 1..=head {
+            let block = l2
+                .get_block_by_number(BlockNumberOrTag::Number(h))
+                .await?
+                .with_context(|| format!("L2 block {h} missing on alethia-reth {i}"))?;
+            hashes.push(block.header.hash);
+        }
+        Ok(hashes)
+    }
+
     /// The docker container name of CometBFT node `i`.
     pub fn cmt_container(&self, i: usize) -> String {
         format!("abci-{}-cmt-{i}", self.id)
@@ -302,6 +320,52 @@ impl Devnet {
     /// listens.
     pub async fn app_start(&mut self, i: usize) -> Result<()> {
         self.apps[i].launch().await
+    }
+
+    /// Crash-replays validator `i` after its app state is lost; returns the state it had
+    /// persisted and the state the replay rebuilt.
+    ///
+    /// Pauses the fake lander (freezing `lastCheckpoint`), stops app `i`, waits for CometBFT node
+    /// `i` to exit, reads the app's state file and moves it aside (`abci-state.saved.json`), then
+    /// starts the app and CometBFT again: the app starts without state, so the handshake replays
+    /// every block from `InitChain` on through a `FinalizeBlock` without a `ProcessProposal`
+    /// verdict. Once node `i` is back at the old head, the rebuilt state is read and the EL's
+    /// blocks `1..=` the old head must be unchanged; the lander then resumes and node `i` must
+    /// commit three blocks past the old head.
+    pub async fn replay_after_state_loss(&mut self, i: usize) -> Result<(AppState, AppState)> {
+        self.lander_pause().await;
+        self.app_stop(i).await;
+        let this = &*self;
+        wait_until(
+            &format!("CometBFT node {i} exit"),
+            Duration::from_secs(30),
+            Duration::from_millis(100),
+            || async move { Ok((!this.cmt_running(i).await?).then_some(())) },
+        )
+        .await?;
+        let file = self.app_data_dir(i).join(STATE_FILE);
+        let before: AppState = serde_json::from_slice(&fs::read(&file)?)?;
+        let old_head = before.last_height;
+        let old_hashes = self.l2_block_hashes(i, old_head).await?;
+        fs::rename(&file, self.app_data_dir(i).join("abci-state.saved.json"))?;
+        ensure!(!file.exists(), "app {i} would start with a state file");
+
+        self.app_start(i).await?;
+        self.cmt_restart(i).await?;
+        self.wait_for_height(i, old_head, Duration::from_secs(60)).await?;
+        let restored: AppState = serde_json::from_slice(&fs::read(&file)?)?;
+        ensure!(
+            restored.last_height >= old_head,
+            "app {i} replayed to {}, below its old head {old_head}",
+            restored.last_height
+        );
+        ensure!(
+            self.l2_block_hashes(i, old_head).await? == old_hashes,
+            "alethia-reth {i} changed below the old head {old_head}"
+        );
+        self.lander_resume();
+        self.wait_for_height(i, old_head + 3, Duration::from_secs(60)).await?;
+        Ok((before, restored))
     }
 
     /// Pauses anvil's interval mining: no L1 block (hence no new `finalized`) until
