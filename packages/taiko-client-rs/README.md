@@ -146,9 +146,10 @@ and the lander re-publishes the blob in its landing blobs.
 
 Validators apply this rule in consensus, so only a committee with more than 2/3 of the voting
 power can decide a block that skips a due entry, and a batch holding such a block cannot be
-proven, so it never lands. Censoring a due entry therefore stops settlement and, through
-back-pressure, the chain. `land` pays the consumed entries' fees to the lander's sending
-address.
+proven, so it never lands. Skipping a due entry therefore stops settlement and, through
+back-pressure, the chain. Delaying the moment an entry becomes due takes only more than 1/3
+of the voting power (see Anchor freshness). `land` pays the consumed entries' fees to the
+lander's sending address.
 
 Only proposing touches the beacon. A proposer that cannot fetch a due entry's blob from
 `--l1.beacon`, or fetches a blob that does not match the entry, proposes nothing and records
@@ -159,17 +160,26 @@ app loads the KZG trusted setup at startup, so no ABCI request pays for it.
 
 Every block must satisfy `block.timestamp - anchor.timestamp <= maxAnchorAge`, checked in
 `PrepareProposal`, `ProcessProposal` and `FinalizeBlock` replay. `maxAnchorAge` is a genesis
-parameter the genesis record reads from Inbox slot 282, next to the delay. Without it, a
-coalition with more than 1/3 of the voting power could keep anchors stale, so that a queued
-entry never became due at any anchor. A proposer whose newest usable anchor (L1 `finalized`
+parameter the genesis record reads from Inbox slot 282, next to the delay. The block timestamp
+is the derived `max(parent + 1, floor(BFT time), anchor.timestamp)`.
+
+What freshness guarantees: a block's anchor never trails that derived timestamp by more than
+`maxAnchorAge`, so the pending entry is due at any block whose timestamp has reached
+`entry.timestamp + D + maxAnchorAge`. A proposer whose newest usable anchor (L1 `finalized`
 less `l1_finality_extra_depth`) is too old proposes nothing and records the halt reason
 `anchor_too_old`, so an L1 finality stall longer than `maxAnchorAge` pauses L2 until finality
 resumes; nothing is lost.
 
-A coalition with more than 2/3 of the voting power controls BFT time, which sets block
-timestamps, and can still delay forced inclusions. Closing that would need an L1-clock check at
-landing, which would make batches delayed by a long lander outage unlandable, so it remains a
-known limitation.
+What it does not guarantee: that block timestamps keep up with real time. Etna enables no
+proposer-based timestamps (PBTS), so BFT time is the voting-power-weighted median of the
+precommit timestamps a proposer includes in its block's last commit. A coalition with more
+than 1/2 of the voting power sets that median outright. A coalition with more than 1/3 can too:
+it withholds its votes from honest proposals, so only its own proposals are decided, and
+includes in them only enough honest precommits to clear 2/3, which gives its own timestamps the
+majority of the median weight. Either coalition can hold block timestamps back and, while
+satisfying the freshness rule, keep anchors stale and delay forced inclusions; each block still
+advances the timestamp by at least one second. Raising this bound would need a validator-local
+clock check (PBTS-style timeliness); that is an open design decision and is not implemented.
 
 ## Prerequisites
 
