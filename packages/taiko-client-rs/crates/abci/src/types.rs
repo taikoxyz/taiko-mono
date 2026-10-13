@@ -48,7 +48,8 @@ pub struct AccountWitness {
 /// One staking-registry entry as captured by a registry checkpoint (layout in
 /// [`l1::layout::registry`](crate::l1::layout::registry)).
 ///
-/// Entries are append-only by index (`bondId`); exited entries stay with `exit_effective_l1` set.
+/// Entries are indexed by slot (`bondId`). An exited entry stays with `exit_effective_l1` set until
+/// its stake is withdrawn; a later registration may then reuse its slot.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RlpEncodable, RlpDecodable)]
 pub struct RegistryEntry {
     /// The validator's Ed25519 consensus public key (32 raw bytes).

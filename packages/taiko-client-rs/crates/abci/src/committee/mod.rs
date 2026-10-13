@@ -3,7 +3,7 @@
 //! Runtime epochs select the last registry checkpoint at or before the committed derivation
 //! parent anchor. Genesis and host proof jobs may name an explicit historical snapshot.
 //! [`verify_snapshot`] authenticates the checkpoint, its successor and the complete entry root.
-//! [`derive`] retains the existing eligibility, heartbeat, earliest-bond deduplication, stake cap,
+//! [`derive`] retains the existing eligibility, heartbeat, lowest-bond-id deduplication, stake cap,
 //! MEM-08 ordering and voting-power rules. [`committee_config_hash`] binds their configuration.
 //!
 //! Runtime witnesses appear only at `H(t)-2`, proven under the committed parent's anchor, whose
@@ -387,9 +387,10 @@ pub fn heartbeat_floor(
 /// An entry is eligible iff `active_from_l1 <= cutoff < exit_effective_l1`,
 /// `eff_stake >= max(s_min, vp_unit)` and, when [`heartbeat_floor`] filters the epoch,
 /// `last_heartbeat_seq > 0` and `last_heartbeat_at >=` the floor. Among eligible entries that
-/// share a pubkey only the one with the lowest `bondId` (index in the snapshot, i.e. the earliest
-/// registration) is kept: a later entry copying a sitting validator's key changes nothing
-/// (defence in depth; the registry must refuse such a registration, see the module docs). If
+/// share a pubkey only the one with the lowest `bondId` (index in the snapshot) is kept: a
+/// deterministic tie-break, not registration order, since the registry reuses withdrawn slots.
+/// This is defence in depth: the registry keeps at most one entry per pubkey whose exit is not
+/// yet effective (see the module docs), so no two eligible entries share a key. If
 /// more than `n_max` remain, the first `n_max` by (`eff_stake` descending, MEM-08 key ascending)
 /// are kept. Each member's power is `eff_stake / vp_unit`; the total must not exceed
 /// [`MAX_TOTAL_POWER`]. No eligible entry is [`CommitteeError::Empty`].

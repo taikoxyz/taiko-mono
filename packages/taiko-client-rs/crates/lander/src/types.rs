@@ -5,7 +5,7 @@ use abci::{
     RawL1Header,
 };
 use alloy_consensus::Header;
-use alloy_primitives::{Address, B256, Bytes, U256};
+use alloy_primitives::{Address, B256, Bytes, U256, aliases::U48};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -97,6 +97,19 @@ pub struct LandingSnapshot {
     pub inbox_witness: AccountWitness,
 }
 
+impl LandingSnapshot {
+    /// The stored forced inclusion head as the Inbox's `uint48`; storage decoding cannot produce
+    /// a wider value, so one is an inconsistent snapshot.
+    pub fn forced_inclusion_head_u48(&self) -> Result<U48> {
+        U48::try_from(self.forced_inclusion_head).map_err(|_| {
+            LanderError::Safety(format!(
+                "forced inclusion head {} exceeds uint48",
+                self.forced_inclusion_head
+            ))
+        })
+    }
+}
+
 /// One independently derived committee's authenticated registry witness provenance.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CommitteeContext {
@@ -151,7 +164,7 @@ pub struct PreparedBatch {
     pub input: LandInput,
     /// Sidecar and ordered versioned blob hashes binding the V3 payload.
     pub blobs: PreparedBlobs,
-    /// Identity of this job: the exact V5 public statement hash.
+    /// Identity of this job: the exact V6 public statement hash.
     pub statement_hash: B256,
 }
 
@@ -180,5 +193,20 @@ mod rlp_serde {
             return Err(serde::de::Error::custom("noncanonical witness RLP"));
         }
         Ok(value)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::protocol::request;
+
+    #[test]
+    fn forced_inclusion_head_converts_exactly_up_to_uint48() {
+        let mut snapshot = request().batch.snapshot;
+        snapshot.forced_inclusion_head = (1 << 48) - 1;
+        assert_eq!(snapshot.forced_inclusion_head_u48().unwrap(), U48::MAX);
+        snapshot.forced_inclusion_head = 1 << 48;
+        assert!(matches!(snapshot.forced_inclusion_head_u48(), Err(LanderError::Safety(_))));
     }
 }

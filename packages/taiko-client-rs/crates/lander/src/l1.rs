@@ -363,6 +363,7 @@ impl LandingSource for RpcLandingSource {
             _generation: snapshot.generation,
             _parentHeight: snapshot.checkpoint_height,
             _parentHash: snapshot.checkpoint_hash,
+            _forcedInclusionHeadBefore: snapshot.forced_inclusion_head_u48()?,
             _input: input.clone(),
             _l1ReferenceBlockHash: reference_hash,
             _blobHashes: blob_hashes.to_vec(),

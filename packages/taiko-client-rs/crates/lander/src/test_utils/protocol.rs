@@ -7,7 +7,7 @@ use crate::{
 use abci::{AnchorState, GenesisRecord, InboxFacts};
 use alloy_consensus::Header;
 use alloy_eips::{eip4844::BlobTransactionSidecar, eip7594::BlobTransactionSidecarVariant};
-use alloy_primitives::{Address, B256, U256};
+use alloy_primitives::{Address, B256, U256, aliases::U48};
 
 pub(crate) fn request() -> ProofRequest {
     let genesis = GenesisRecord {
@@ -90,6 +90,7 @@ pub(crate) fn request() -> ProofRequest {
                 lastBlockHash: B256::repeat_byte(7),
                 lastStateRoot: B256::repeat_byte(8),
                 l1ReferenceBlockNumber: 15,
+                forcedInclusionHead: U48::ZERO,
             },
             blobs: PreparedBlobs {
                 payload_bytes: 0,

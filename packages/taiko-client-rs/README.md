@@ -209,9 +209,10 @@ backlog resets it. Waiting never requests a proof or signs a transaction.
 
 The batch's L1 reference is separate from each L2 block's anchor. The reference
 authenticates an ancestor header chain covering those anchors; it never changes
-the anchor number or state root committed in an L2 header. V5 binds the Inbox
+the anchor number or state root committed in an L2 header. V6 binds the Inbox
 proxy, registry, both chain ids, generation, current checkpoint, authenticated committee config
-hash, terminal block/root and blob hashes. Each committee is independently derived from its
+hash, terminal block/root, blob hashes, and the forced inclusion queue head before (stored) and
+after the batch. Each committee is independently derived from its
 committed derivation parent's L1 snapshot; no per-epoch committee output or starting-set hint is authoritative.
 
 Proof requests retain the Inbox schedule/config/checkpoint proof under the batch parent's anchor,
