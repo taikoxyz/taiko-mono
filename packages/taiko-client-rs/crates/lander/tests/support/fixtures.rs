@@ -12,7 +12,7 @@ use abci::{
     envelope::AnchorWitness,
     l1::{
         fetch::build_committee_witness,
-        layout::inbox,
+        layout::{inbox, word_u48},
         source::{L1Source, RpcL1Source},
         witness::verify_anchor_witness,
     },
@@ -226,6 +226,12 @@ impl FixtureChain {
         let inbox_witness = source
             .account_witness(fixture.inbox, &lander::l1::snapshot_slots(), state.number())
             .await?;
+        let head_tail = inbox_witness
+            .storage
+            .iter()
+            .find(|proof| proof.slot == inbox::slot(inbox::FORCED_INCLUSION_HEAD_TAIL))
+            .expect("the snapshot proof covers the forced inclusion head/tail")
+            .value;
         let snapshot = LandingSnapshot {
             l1_block_hash: state.hash(),
             l1_block_number: state.number(),
@@ -236,6 +242,8 @@ impl FixtureChain {
             generation: 0,
             checkpoint_height: checkpoint.height,
             checkpoint_hash: checkpoint.blockHash,
+            forced_inclusion_head: word_u48(head_tail, 0),
+            forced_inclusion_tail: word_u48(head_tail, 48),
             genesis: fixture.genesis.clone(),
             committee_config_hash: config,
             genesis_committee_record_hash: bootstrap,

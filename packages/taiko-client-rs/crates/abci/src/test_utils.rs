@@ -198,8 +198,13 @@ pub(crate) struct InboxStorage {
     pub(crate) last_checkpoint_height: u64,
     /// Slot 271, `bytes32`.
     pub(crate) last_checkpoint_hash: B256,
-    /// Slots 272–274 and `genesis_cutoff` in slot 279 (`uint64` at bits 0–63); `None` leaves
-    /// them empty (not yet initialized).
+    /// Slot 281, `uint48` at bits 0–47.
+    pub(crate) forced_inclusion_head: u64,
+    /// Slot 281, `uint48` at bits 48–95.
+    pub(crate) forced_inclusion_tail: u64,
+    /// Slots 272–274, `genesis_cutoff` in slot 279 (`uint64` at bits 0–63) and the forced
+    /// inclusion delay and maximum anchor age in slot 282 (`uint64`s at bits 0–63 and 64–127);
+    /// `None` leaves them empty (not yet initialized).
     pub(crate) genesis: Option<GenesisRecord>,
     /// The bootstrap committee hash at plain slot 278.
     pub(crate) genesis_committee_hash: Option<B256>,
@@ -207,13 +212,16 @@ pub(crate) struct InboxStorage {
 
 impl InboxStorage {
     /// An Inbox right after genesis: `ETNA_ACTIVE`, generation 0, last checkpoint = the
-    /// genesis anchor `(B*, H*)`, and `committee[e_0] = committee_e0`.
+    /// genesis anchor `(B*, H*)`, an empty forced inclusion queue and
+    /// `committee[e_0] = committee_e0`.
     pub(crate) fn genesis(genesis: GenesisRecord, committee_e0: B256) -> Self {
         Self {
             status: inbox::ETNA_ACTIVE,
             recovery_generation: 0,
             last_checkpoint_height: genesis.genesis_height,
             last_checkpoint_hash: genesis.genesis_hash,
+            forced_inclusion_head: 0,
+            forced_inclusion_tail: 0,
             genesis: Some(genesis),
             genesis_committee_hash: Some(committee_e0),
         }
@@ -227,6 +235,11 @@ impl InboxStorage {
             (inbox::slot(inbox::RECOVERY_GENERATION), U256::from(self.recovery_generation)),
             (inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(self.last_checkpoint_height)),
             (inbox::slot(inbox::LAST_CHECKPOINT_HASH), self.last_checkpoint_hash.into()),
+            (
+                inbox::slot(inbox::FORCED_INCLUSION_HEAD_TAIL),
+                U256::from(self.forced_inclusion_head) |
+                    (U256::from(self.forced_inclusion_tail) << 48),
+            ),
         ];
         if let Some(a) = &self.genesis {
             let packed = U256::from(a.genesis_height) |
@@ -239,6 +252,10 @@ impl InboxStorage {
                 (inbox::slot(inbox::GENESIS_STATE_ROOT), a.genesis_state_root.into()),
                 (inbox::slot(inbox::GENESIS_CUTOFF), U256::from(a.genesis_cutoff)),
                 (inbox::slot(inbox::COMMITTEE_CONFIG_HASH), a.committee_config_hash.into()),
+                (
+                    inbox::slot(inbox::FORCED_INCLUSION_CONFIG),
+                    U256::from(a.forced_inclusion_delay) | (U256::from(a.max_anchor_age) << 64),
+                ),
             ]);
         }
         if let Some(hash) = self.genesis_committee_hash {
@@ -249,7 +266,7 @@ impl InboxStorage {
 }
 
 /// A sample genesis record with every field distinct and non-zero (the genesis cutoff is the
-/// block before `L1_0`).
+/// block before `L1_0`; forced inclusion delay 1 h, maximum anchor age 2 h).
 pub(crate) fn sample_genesis_record() -> GenesisRecord {
     GenesisRecord {
         committee_config_hash: crate::committee::committee_config_hash(
@@ -265,6 +282,8 @@ pub(crate) fn sample_genesis_record() -> GenesisRecord {
         genesis_hash: B256::repeat_byte(0x48),
         genesis_state_root: B256::repeat_byte(0x53),
         genesis_cutoff: 63,
+        forced_inclusion_delay: 3_600,
+        max_anchor_age: 7_200,
     }
 }
 
@@ -296,6 +315,8 @@ pub(crate) fn anchor_at(number: u64, state_root: B256) -> AnchorState {
             recovery_generation: 0,
             last_checkpoint_height: 0,
             last_checkpoint_hash: B256::ZERO,
+            forced_inclusion_head: 0,
+            forced_inclusion_tail: 0,
         },
     }
 }
@@ -563,7 +584,7 @@ pub(crate) fn in_own_process(module: &str, test: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::l1::layout::{word_u8, word_u32, word_u64};
+    use crate::l1::layout::{word_u8, word_u32, word_u48, word_u64};
     use alloy_primitives::{U256, b256};
 
     fn word(slots: &[(B256, U256)], slot: B256) -> U256 {
@@ -587,12 +608,16 @@ mod tests {
             genesis_hash: B256::repeat_byte(0xa1),
             genesis_state_root: B256::repeat_byte(0xa2),
             genesis_cutoff: u64::MAX - 2,
+            forced_inclusion_delay: u64::MAX - 3,
+            max_anchor_age: u64::MAX - 4,
         };
         let storage = InboxStorage {
             status: u8::MAX,
             recovery_generation: u64::MAX,
             last_checkpoint_height: u64::MAX - 7,
             last_checkpoint_hash: B256::repeat_byte(0xa3),
+            forced_inclusion_head: (1 << 48) - 2,
+            forced_inclusion_tail: (1 << 48) - 1,
             genesis: Some(genesis.clone()),
             genesis_committee_hash: Some(B256::repeat_byte(0xa4)),
         };
@@ -604,6 +629,10 @@ mod tests {
         assert_eq!(word_u64(at(inbox::RECOVERY_GENERATION), 0), u64::MAX);
         assert_eq!(word_u64(at(inbox::LAST_CHECKPOINT_HEIGHT), 0), u64::MAX - 7);
         assert_eq!(B256::from(at(inbox::LAST_CHECKPOINT_HASH)), B256::repeat_byte(0xa3));
+        let head_tail = at(inbox::FORCED_INCLUSION_HEAD_TAIL);
+        assert_eq!(word_u48(head_tail, 0), (1 << 48) - 2);
+        assert_eq!(word_u48(head_tail, 48), (1 << 48) - 1);
+        assert_eq!(head_tail >> 96, U256::ZERO);
 
         let packed = at(inbox::GENESIS_PACKED);
         assert_eq!(word_u64(packed, 0), genesis.genesis_height);
@@ -614,12 +643,16 @@ mod tests {
         assert_eq!(B256::from(at(inbox::GENESIS_STATE_ROOT)), genesis.genesis_state_root);
         assert_eq!(word_u64(at(inbox::GENESIS_CUTOFF), 0), genesis.genesis_cutoff);
         assert_eq!(at(inbox::GENESIS_CUTOFF) >> 64, U256::ZERO);
+        let forced_config = at(inbox::FORCED_INCLUSION_CONFIG);
+        assert_eq!(word_u64(forced_config, 0), genesis.forced_inclusion_delay);
+        assert_eq!(word_u64(forced_config, 64), genesis.max_anchor_age);
+        assert_eq!(forced_config >> 128, U256::ZERO);
 
         assert_eq!(
             B256::from(word(&slots, inbox::slot(inbox::GENESIS_COMMITTEE_HASH))),
             B256::repeat_byte(0xa4)
         );
-        assert_eq!(slots.len(), 4 + 4 + 2);
+        assert_eq!(slots.len(), 5 + 5 + 2);
     }
 
     /// Hand-written storage words (as a Solidity contract would write them) equal the packing.
@@ -639,12 +672,16 @@ mod tests {
             genesis_hash: B256::repeat_byte(0x55),
             genesis_state_root: B256::repeat_byte(0x66),
             genesis_cutoff: 0x2221,
+            forced_inclusion_delay: 0x0e10,
+            max_anchor_age: 0x1c20,
         };
         let storage = InboxStorage {
             status: 3,
             recovery_generation: 0x0102,
             last_checkpoint_height: 0x0a0b_0c0d,
             last_checkpoint_hash: B256::repeat_byte(0x77),
+            forced_inclusion_head: 0x03,
+            forced_inclusion_tail: 0x09,
             genesis: Some(genesis),
             genesis_committee_hash: None,
         };
@@ -671,7 +708,15 @@ mod tests {
             at(inbox::GENESIS_CUTOFF),
             b256!("0000000000000000000000000000000000000000000000000000000000002221")
         );
-        assert_eq!(slots.len(), 4 + 5);
+        assert_eq!(
+            at(inbox::FORCED_INCLUSION_HEAD_TAIL),
+            b256!("0000000000000000000000000000000000000000000000000009000000000003")
+        );
+        assert_eq!(
+            at(inbox::FORCED_INCLUSION_CONFIG),
+            b256!("000000000000000000000000000000000000000000001c200000000000000e10")
+        );
+        assert_eq!(slots.len(), 5 + 6);
     }
 
     #[test]
@@ -682,7 +727,7 @@ mod tests {
             ..InboxStorage::genesis(sample_genesis_record(), B256::ZERO)
         };
         let slots: Vec<B256> = storage.slots().into_iter().map(|(s, _)| s).collect();
-        assert_eq!(slots, [258u64, 268, 270, 271].map(inbox::slot));
+        assert_eq!(slots, [258u64, 268, 270, 271, 281].map(inbox::slot));
     }
 
     #[test]
@@ -693,6 +738,7 @@ mod tests {
         assert_eq!(storage.recovery_generation, 0);
         assert_eq!(storage.last_checkpoint_height, genesis.genesis_height);
         assert_eq!(storage.last_checkpoint_hash, genesis.genesis_hash);
+        assert_eq!((storage.forced_inclusion_head, storage.forced_inclusion_tail), (0, 0));
         assert_eq!(storage.genesis_committee_hash, Some(B256::repeat_byte(0x99)));
     }
 

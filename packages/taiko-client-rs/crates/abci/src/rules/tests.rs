@@ -26,6 +26,8 @@ fn anchor(number: u64, timestamp: u64) -> AnchorState {
             recovery_generation: GENERATION,
             last_checkpoint_height: 0,
             last_checkpoint_hash: B256::ZERO,
+            forced_inclusion_head: 0,
+            forced_inclusion_tail: 0,
         },
     }
 }

@@ -66,6 +66,10 @@ pub(crate) struct GenesisSpec {
     pub(crate) epoch_len: u64,
     /// `EPOCH_LEN_L1`.
     pub(crate) epoch_len_l1: u64,
+    /// `forcedInclusionDelay`, in seconds.
+    pub(crate) forced_inclusion_delay: u64,
+    /// `maxAnchorAge`, in seconds.
+    pub(crate) max_anchor_age: u64,
     /// The Inbox's `recoveryGeneration`; the `chain_id` uses the same generation.
     pub(crate) recovery_generation: u64,
     /// Overrides `genesisCommitteeRecordHash` on L1 (default: the derived record's hash).
@@ -76,7 +80,8 @@ pub(crate) struct GenesisSpec {
 
 impl GenesisSpec {
     /// A valid genesis with `n_validators` validators: `B* = 0`, `L1_0 = 64`, genesis cutoff
-    /// 63, `L = 20`, `EPOCH_LEN_L1 = 4`, generation 0, devnet parameters.
+    /// 63, `L = 20`, `EPOCH_LEN_L1 = 4`, forced inclusion delay 1 h, maximum anchor age 2 h,
+    /// generation 0, devnet parameters.
     pub(crate) fn new(n_validators: usize) -> Self {
         Self {
             n_validators,
@@ -87,6 +92,8 @@ impl GenesisSpec {
             checkpoint_l1_block: None,
             epoch_len: 20,
             epoch_len_l1: 4,
+            forced_inclusion_delay: 3_600,
+            max_anchor_age: 7_200,
             recovery_generation: 0,
             committee_e0: None,
             params: ChainParams::builtin(protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID)
@@ -155,6 +162,8 @@ impl Fixture {
             genesis_hash: b_star.hash_slow(),
             genesis_state_root: b_star.state_root,
             genesis_cutoff: spec.genesis_cutoff,
+            forced_inclusion_delay: spec.forced_inclusion_delay,
+            max_anchor_age: spec.max_anchor_age,
         };
 
         let entries = spec.entries.clone().unwrap_or_else(|| sample_entries(spec.n_validators));
@@ -365,6 +374,8 @@ impl Fixture {
                     recovery_generation: self.inbox.recovery_generation,
                     last_checkpoint_height: self.genesis.genesis_height,
                     last_checkpoint_hash: self.genesis.genesis_hash,
+                    forced_inclusion_head: 0,
+                    forced_inclusion_tail: 0,
                 },
             },
             committees: BTreeMap::from([(

@@ -261,9 +261,10 @@ async fn genesis_block(l2: &RootProvider) -> Result<(B256, B256)> {
 
 /// Plants registry checkpoint 0 with `entries` into an L1 block `c`, then the initialized Inbox
 /// (genesis record over the L2 genesis `(hash, state root)`, `lastCheckpoint = (0, genesis
-/// hash)`, generation 0, `genesisCutoff = c` and `genesisCommitteeRecordHash` derived at `c`) into
-/// a later block `L1_0`, as the initializing DAO proposal names a cutoff before the block it lands
-/// in. Returns the genesis record.
+/// hash)`, generation 0, `genesisCutoff = c`, `genesisCommitteeRecordHash` derived at `c`, and
+/// the spec's forced inclusion delay and maximum anchor age; the forced inclusion queue stays
+/// empty) into a later block `L1_0`, as the initializing DAO proposal names a cutoff before the
+/// block it lands in. Returns the genesis record.
 async fn plant_genesis(
     planter: &Planter,
     params: &ChainParams,
@@ -293,6 +294,8 @@ async fn plant_genesis(
         genesis_hash,
         genesis_state_root,
         genesis_cutoff,
+        forced_inclusion_delay: spec.forced_inclusion_delay,
+        max_anchor_age: spec.max_anchor_age,
     };
     let snapshot =
         Snapshot { checkpoint_index: 0, l1_block: genesis_cutoff, entries: entries.to_vec() };

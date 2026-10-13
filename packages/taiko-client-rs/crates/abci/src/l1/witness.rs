@@ -9,9 +9,10 @@ use alloy_primitives::{Address, B256, U256};
 
 use crate::{
     envelope::AnchorWitness,
+    forced::FORCED_INCLUSION_EXPIRY_SECS,
     l1::{
         header::RawL1Header,
-        layout::{inbox, word_u8, word_u64},
+        layout::{inbox, word_u8, word_u48, word_u64},
         mpt::{MptError, VerifiedStorage, verify_account_witness},
     },
     types::{AccountWitness, AnchorState, GenesisRecord, InboxFacts},
@@ -55,9 +56,22 @@ pub enum WitnessError {
         /// The genesis record's `L1_0`.
         l1_0: u64,
     },
+    /// Genesis only: the forced inclusion delay is zero or not below the expiry
+    /// ([`FORCED_INCLUSION_EXPIRY_SECS`]), or the maximum anchor age is zero.
+    #[error(
+        "forced inclusion delay {delay} s must be in 1..{expiry} and maximum anchor age \
+         {max_anchor_age} s nonzero",
+        expiry = FORCED_INCLUSION_EXPIRY_SECS
+    )]
+    InvalidForcedInclusionConfig {
+        /// The proven `forcedInclusionDelay` (slot 282, bits 0–63).
+        delay: u64,
+        /// The proven `maxAnchorAge` (slot 282, bits 64–127).
+        max_anchor_age: u64,
+    },
 }
 
-/// Authenticates the four fixed Inbox slots under the anchor's L1 header and decodes its facts.
+/// Authenticates the fixed Inbox anchor slots under the anchor's L1 header and decodes its facts.
 ///
 /// Checks the configured Inbox account and exact slot order. Header number, hash, timestamp
 /// and state root come from the embedded raw header; canonicality/finality is checked separately.
@@ -68,11 +82,14 @@ pub fn verify_anchor_witness(
     check_contract(&w.inbox, inbox)?;
     let header = &w.l1_header;
     let storage = verify_account_witness(header.state_root(), &w.inbox, &inbox::anchor_slots())?;
+    let head_tail = inbox_word(&storage, inbox::FORCED_INCLUSION_HEAD_TAIL);
     let facts = InboxFacts {
         status: word_u8(inbox_word(&storage, inbox::STATUS), 0),
         recovery_generation: word_u64(inbox_word(&storage, inbox::RECOVERY_GENERATION), 0),
         last_checkpoint_height: word_u64(inbox_word(&storage, inbox::LAST_CHECKPOINT_HEIGHT), 0),
         last_checkpoint_hash: inbox_word(&storage, inbox::LAST_CHECKPOINT_HASH).into(),
+        forced_inclusion_head: word_u48(head_tail, 0),
+        forced_inclusion_tail: word_u48(head_tail, 48),
     };
     Ok(anchor_state(header, facts))
 }
@@ -95,10 +112,13 @@ pub(crate) fn anchor_state(header: &RawL1Header, inbox: InboxFacts) -> AnchorSta
 ///
 /// The witness must prove the account at `inbox` and `layout::inbox::genesis_slots()`. The
 /// returned facts take the last checkpoint from the genesis record (`(B*, H*)`, the genesis
-/// record of #22262's MIG rules). Rejects, in this order: `status != ETNA_ACTIVE`, a zero
-/// genesis hash, a zero bootstrap committee hash, a zero
-/// epoch length, `genesisCutoff >= L1_0`. The remaining schedule bounds are checked by
-/// [`crate::Schedule::validate`].
+/// record of #22262's MIG rules) and an empty forced inclusion queue (head = tail = 0: Etna
+/// starts with an empty queue, slot 281 is not part of the genesis witness, and the first block
+/// always carries its own anchor witness). Rejects, in this order: `status != ETNA_ACTIVE`, a
+/// zero genesis hash, a zero bootstrap committee hash, a zero
+/// epoch length, `genesisCutoff >= L1_0`, a forced inclusion delay outside
+/// `1..FORCED_INCLUSION_EXPIRY_SECS` or a zero maximum anchor age. The remaining schedule bounds
+/// are checked by [`crate::Schedule::validate`].
 pub fn verify_genesis_inbox(
     state_root: B256,
     w: &AccountWitness,
@@ -112,6 +132,7 @@ pub fn verify_genesis_inbox(
         return Err(WitnessError::NotInitialized(status));
     }
     let packed = inbox_word(&storage, inbox::GENESIS_PACKED);
+    let forced_config = inbox_word(&storage, inbox::FORCED_INCLUSION_CONFIG);
     let genesis = GenesisRecord {
         genesis_height: word_u64(packed, 0),
         l1_0: word_u64(packed, 64),
@@ -121,6 +142,8 @@ pub fn verify_genesis_inbox(
         genesis_state_root: inbox_word(&storage, inbox::GENESIS_STATE_ROOT).into(),
         genesis_cutoff: word_u64(inbox_word(&storage, inbox::GENESIS_CUTOFF), 0),
         committee_config_hash: inbox_word(&storage, inbox::COMMITTEE_CONFIG_HASH).into(),
+        forced_inclusion_delay: word_u64(forced_config, 0),
+        max_anchor_age: word_u64(forced_config, 64),
     };
     if genesis.genesis_height != 0 {
         return Err(WitnessError::NonzeroGenesisHeight(genesis.genesis_height));
@@ -141,12 +164,18 @@ pub fn verify_genesis_inbox(
             l1_0: genesis.l1_0,
         });
     }
+    let (delay, max_anchor_age) = (genesis.forced_inclusion_delay, genesis.max_anchor_age);
+    if delay == 0 || delay >= FORCED_INCLUSION_EXPIRY_SECS || max_anchor_age == 0 {
+        return Err(WitnessError::InvalidForcedInclusionConfig { delay, max_anchor_age });
+    }
 
     let facts = InboxFacts {
         status,
         recovery_generation: word_u64(inbox_word(&storage, inbox::RECOVERY_GENERATION), 0),
         last_checkpoint_height: genesis.genesis_height,
         last_checkpoint_hash: genesis.genesis_hash,
+        forced_inclusion_head: 0,
+        forced_inclusion_tail: 0,
     };
     Ok((genesis, facts, committee_record))
 }
@@ -191,6 +220,8 @@ mod tests {
             recovery_generation: u64::MAX - 1,
             last_checkpoint_height: 0x0123_4567_89ab_cdef,
             last_checkpoint_hash: B256::repeat_byte(0xc4),
+            forced_inclusion_head: 0x0000_8765_4321_0fed,
+            forced_inclusion_tail: 0x0000_ffff_ffff_fffe,
             genesis: Some(sample_genesis_record()),
             genesis_committee_hash: Some(B256::repeat_byte(0xe0)),
         }
@@ -216,8 +247,28 @@ mod tests {
                 recovery_generation: u64::MAX - 1,
                 last_checkpoint_height: 0x0123_4567_89ab_cdef,
                 last_checkpoint_hash: B256::repeat_byte(0xc4),
+                forced_inclusion_head: 0x0000_8765_4321_0fed,
+                forced_inclusion_tail: 0x0000_ffff_ffff_fffe,
             }
         );
+    }
+
+    #[test]
+    fn anchor_witness_decodes_forced_inclusion_head_and_tail() {
+        let storage =
+            InboxStorage { forced_inclusion_head: 3, forced_inclusion_tail: 9, ..live_storage() };
+        let (w, _) = anchor_witness(INBOX, &storage, l1_header(9, 99));
+        let head_tail = w
+            .inbox
+            .storage
+            .iter()
+            .find(|proof| proof.slot == inbox::slot(inbox::FORCED_INCLUSION_HEAD_TAIL))
+            .expect("slot 281 is proven")
+            .value;
+        assert_eq!(head_tail, U256::from(3u64) | (U256::from(9u64) << 48));
+
+        let facts = verify_anchor_witness(&w, INBOX).unwrap().inbox;
+        assert_eq!((facts.forced_inclusion_head, facts.forced_inclusion_tail), (3, 9));
     }
 
     #[test]
@@ -229,7 +280,7 @@ mod tests {
     }
 
     #[test]
-    fn anchor_proves_only_the_four_fixed_slots() {
+    fn anchor_proves_only_the_fixed_slots() {
         let (w, _) = anchor_witness(INBOX, &live_storage(), l1_header(9, 99));
         assert_eq!(
             w.inbox.storage.iter().map(|proof| proof.slot).collect::<Vec<_>>(),
@@ -254,6 +305,11 @@ mod tests {
                 dirty(inbox::STATUS, U256::from(3u64), 8),
                 dirty(inbox::RECOVERY_GENERATION, U256::from(5u64), 64),
                 dirty(inbox::LAST_CHECKPOINT_HEIGHT, U256::from(77u64), 64),
+                dirty(
+                    inbox::FORCED_INCLUSION_HEAD_TAIL,
+                    U256::from(4u64) | (U256::from(6u64) << 48),
+                    96,
+                ),
             ],
         ));
         let state = TestState::new(accounts);
@@ -263,6 +319,7 @@ mod tests {
         assert_eq!(facts.recovery_generation, 5);
         assert_eq!(facts.last_checkpoint_height, 77);
         assert_eq!(facts.last_checkpoint_hash, B256::ZERO);
+        assert_eq!((facts.forced_inclusion_head, facts.forced_inclusion_tail), (4, 6));
     }
 
     #[test]
@@ -299,18 +356,23 @@ mod tests {
             genesis_hash: B256::repeat_byte(0xa1),
             genesis_state_root: B256::repeat_byte(0xa2),
             genesis_cutoff: 0x0102_0304_0506_0707,
+            forced_inclusion_delay: 1_209_599,
+            max_anchor_age: u64::MAX,
         };
         let storage = InboxStorage {
             recovery_generation: 6,
-            // The genesis witness does not prove slots 270/271; the facts must ignore them.
+            // The genesis witness does not prove slots 270/271/281; the facts must ignore them.
             last_checkpoint_height: 1,
             last_checkpoint_hash: B256::repeat_byte(0x01),
+            forced_inclusion_head: 2,
+            forced_inclusion_tail: 5,
             ..InboxStorage::genesis(genesis.clone(), committee_e0())
         };
         let (w, state) = genesis_inbox_witness(INBOX, &storage);
         let (decoded, facts, record) = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap();
 
         assert_eq!(decoded, genesis);
+        assert_eq!((decoded.forced_inclusion_delay, decoded.max_anchor_age), (1_209_599, u64::MAX));
         assert_eq!(
             facts,
             InboxFacts {
@@ -318,6 +380,8 @@ mod tests {
                 recovery_generation: 6,
                 last_checkpoint_height: genesis.genesis_height,
                 last_checkpoint_hash: genesis.genesis_hash,
+                forced_inclusion_head: 0,
+                forced_inclusion_tail: 0,
             }
         );
         assert_eq!(record, committee_e0());
@@ -428,6 +492,67 @@ mod tests {
             let (decoded, _, _) = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap();
             assert_eq!(decoded.genesis_cutoff, genesis_cutoff);
         }
+    }
+
+    /// The delay must lie in `1..FORCED_INCLUSION_EXPIRY_SECS` and the maximum anchor age must be
+    /// non-zero; the check comes after the genesis cutoff's.
+    #[test]
+    fn genesis_rejects_invalid_forced_inclusion_config() {
+        for (delay, max_anchor_age) in
+            [(0, 7_200), (1_209_600, 7_200), (u64::MAX, 7_200), (3_600, 0)]
+        {
+            let genesis = GenesisRecord {
+                forced_inclusion_delay: delay,
+                max_anchor_age,
+                ..sample_genesis_record()
+            };
+            let storage = InboxStorage::genesis(genesis.clone(), committee_e0());
+            let (w, state) = genesis_inbox_witness(INBOX, &storage);
+            let err = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap_err();
+            assert_eq!(err, WitnessError::InvalidForcedInclusionConfig { delay, max_anchor_age });
+
+            let genesis = GenesisRecord { genesis_cutoff: genesis.l1_0, ..genesis };
+            let storage = InboxStorage::genesis(genesis.clone(), committee_e0());
+            let (w, state) = genesis_inbox_witness(INBOX, &storage);
+            let err = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap_err();
+            assert!(
+                matches!(err, WitnessError::GenesisCutoffNotBeforeInitialization { .. }),
+                "{err:?}"
+            );
+        }
+
+        // The extremes of the accepted ranges.
+        for (delay, max_anchor_age) in [(1, 1), (1_209_599, u64::MAX)] {
+            let genesis = GenesisRecord {
+                forced_inclusion_delay: delay,
+                max_anchor_age,
+                ..sample_genesis_record()
+            };
+            let storage = InboxStorage::genesis(genesis.clone(), committee_e0());
+            let (w, state) = genesis_inbox_witness(INBOX, &storage);
+            let (decoded, _, _) = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap();
+            assert_eq!(decoded, genesis);
+        }
+    }
+
+    /// Variables packed above `maxAnchorAge` in slot 282 do not leak into it.
+    #[test]
+    fn genesis_ignores_bits_above_the_max_anchor_age() {
+        let storage = InboxStorage::genesis(sample_genesis_record(), committee_e0());
+        let config_slot = inbox::slot(inbox::FORCED_INCLUSION_CONFIG);
+        let slots = storage
+            .slots()
+            .into_iter()
+            .map(|(slot, word)| {
+                (slot, if slot == config_slot { word | ((U256::MAX >> 128) << 128) } else { word })
+            })
+            .collect();
+        let mut accounts: Vec<AccountSpec> = filler_accounts();
+        accounts.push((INBOX, 1, U256::ZERO, keccak256(b"code"), slots));
+        let state = TestState::new(accounts);
+        let w = state.witness(INBOX, &inbox::genesis_slots());
+        let (decoded, _, _) = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap();
+        assert_eq!(decoded, sample_genesis_record());
     }
 
     /// Variables packed above `genesisCutoff` in slot 279 do not leak into it.

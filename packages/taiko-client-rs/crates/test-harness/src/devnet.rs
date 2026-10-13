@@ -45,11 +45,15 @@ pub struct DevnetSpec {
     pub margin_v: u64,
     /// CometBFT `timeout_commit`, in milliseconds.
     pub timeout_commit_ms: u64,
+    /// `forcedInclusionDelay`, in seconds, planted at Inbox slot 282.
+    pub forced_inclusion_delay: u64,
+    /// `maxAnchorAge`, in seconds, planted at Inbox slot 282.
+    pub max_anchor_age: u64,
 }
 
 impl Default for DevnetSpec {
     /// One validator, `L = 20`, `EPOCH_LEN_L1 = 10`, `D_MAX = 12`, `MARGIN_V = 2`, 1 s commits,
-    /// fake lander advancing checkpoints.
+    /// forced inclusion delay 1 h, maximum anchor age 2 h, fake lander advancing checkpoints.
     fn default() -> Self {
         Self {
             validators: 1,
@@ -59,6 +63,8 @@ impl Default for DevnetSpec {
             d_max: 12,
             margin_v: 2,
             timeout_commit_ms: 1000,
+            forced_inclusion_delay: 3_600,
+            max_anchor_age: 7_200,
         }
     }
 }

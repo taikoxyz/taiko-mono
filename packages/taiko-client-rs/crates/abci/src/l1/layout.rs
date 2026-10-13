@@ -1,8 +1,9 @@
 //! Normative L1 Inbox and staking-registry storage slots. No I/O.
 //!
 //! Inbox activation authenticates status, generation, schedule, genesis cutoff, configuration
-//! hash and the single genesis committee hash. Runtime anchors prove only status, generation
-//! and checkpoint height/hash; no future committee mapping exists.
+//! hash, the single genesis committee hash and the forced inclusion delay and maximum anchor
+//! age. Runtime anchors prove only status, generation, checkpoint height/hash and the forced
+//! inclusion queue's head/tail; no future committee mapping exists.
 //!
 //! Registry checkpoints must be strictly increasing and complete, with a checkpoint in every
 //! changing L1 block. Discovery reads historical entries before the next checkpoint and then
@@ -14,7 +15,7 @@ use alloy_primitives::U256;
 
 /// Inbox storage slots (contract address = chain constant `ETNA_INBOX`).
 pub mod inbox {
-    use alloy_primitives::{B256, U256};
+    use alloy_primitives::{B256, U256, keccak256};
 
     /// Inbox initialization status: `uint8`, bits 0–7. Slot 258 remains compatible with
     /// the contract's `migrationState()` getter.
@@ -39,6 +40,15 @@ pub mod inbox {
     /// `genesisCutoff`: `uint64`, bits 0–63. The snapshot cutoff (an L1 block before `L1_0`) of
     /// the genesis committee, set once by the genesis.
     pub const GENESIS_CUTOFF: u64 = 279;
+    /// The forced inclusion `queue` mapping (`LibForcedInclusion.Storage.queue`), keyed by entry
+    /// index; see [`forced_inclusion_entry_slots`].
+    pub const FORCED_INCLUSION_QUEUE: u64 = 280;
+    /// The forced inclusion queue's `head` (`uint48`, bits 0–47: the next entry not yet settled
+    /// on L1) and `tail` (`uint48`, bits 48–95: the next free index).
+    pub const FORCED_INCLUSION_HEAD_TAIL: u64 = 281;
+    /// Genesis forced inclusion configuration: `forcedInclusionDelay` (`uint64` seconds, bits
+    /// 0–63) and `maxAnchorAge` (`uint64` seconds, bits 64–127).
+    pub const FORCED_INCLUSION_CONFIG: u64 = 282;
     /// Inbox status after genesis initialization.
     pub const ETNA_ACTIVE: u8 = 3;
 
@@ -47,14 +57,22 @@ pub mod inbox {
         B256::from(U256::from(n))
     }
 
-    /// The four fixed slots authenticated by every per-block anchor witness.
+    /// The fixed slots authenticated by every per-block anchor witness: status, generation,
+    /// last checkpoint height and hash, and the forced inclusion queue's head/tail.
     pub fn anchor_slots() -> Vec<B256> {
-        [STATUS, RECOVERY_GENERATION, LAST_CHECKPOINT_HEIGHT, LAST_CHECKPOINT_HASH]
-            .map(slot)
-            .to_vec()
+        [
+            STATUS,
+            RECOVERY_GENERATION,
+            LAST_CHECKPOINT_HEIGHT,
+            LAST_CHECKPOINT_HASH,
+            FORCED_INCLUSION_HEAD_TAIL,
+        ]
+        .map(slot)
+        .to_vec()
     }
 
-    /// Genesis status, generation, schedule, cutoff, bootstrap committee and configuration.
+    /// Genesis status, generation, schedule, cutoff, bootstrap committee, configuration, and
+    /// forced inclusion configuration.
     pub fn genesis_slots() -> Vec<B256> {
         [
             STATUS,
@@ -65,9 +83,30 @@ pub mod inbox {
             GENESIS_CUTOFF,
             GENESIS_COMMITTEE_HASH,
             COMMITTEE_CONFIG_HASH,
+            FORCED_INCLUSION_CONFIG,
         ]
         .map(slot)
         .to_vec()
+    }
+
+    /// The four slots of forced inclusion entry `index`, as Solidity lays out
+    /// `queue[index]` (a `ForcedInclusion { uint64 feeInGwei; BlobSlice blobSlice; }` with
+    /// `BlobSlice { bytes32[] blobHashes; uint24 offset; uint48 timestamp; }`) at
+    /// `base = keccak256(abi.encode(index, 280))`:
+    ///
+    /// 1. `base`: `feeInGwei` (bits 0–63);
+    /// 2. `base + 1`: `blobHashes.length`;
+    /// 3. `base + 2`: `offset` (bits 0–23) and `timestamp` (bits 24–71);
+    /// 4. `keccak256(base + 1)`: `blobHashes[0]`.
+    ///
+    /// Additions wrap in U256.
+    pub fn forced_inclusion_entry_slots(index: u64) -> [B256; 4] {
+        let mut preimage = [0u8; 64];
+        preimage[..32].copy_from_slice(&U256::from(index).to_be_bytes::<32>());
+        preimage[32..].copy_from_slice(&U256::from(FORCED_INCLUSION_QUEUE).to_be_bytes::<32>());
+        let base = U256::from_be_bytes(keccak256(preimage).0);
+        let length = B256::from(base.wrapping_add(U256::from(1)));
+        [B256::from(base), length, B256::from(base.wrapping_add(U256::from(2))), keccak256(length)]
     }
 }
 
@@ -146,6 +185,13 @@ pub fn word_u64(word: U256, bit_offset: usize) -> u64 {
     (word >> bit_offset).wrapping_to::<u64>()
 }
 
+/// The `uint48` packed at `bit_offset` (low-order-first) in a storage word, widened to `u64`.
+///
+/// Bits beyond the word's end read as zero.
+pub fn word_u48(word: U256, bit_offset: usize) -> u64 {
+    word_u64(word, bit_offset) & ((1 << 48) - 1)
+}
+
 /// The `uint32` packed at `bit_offset` (low-order-first) in a storage word.
 ///
 /// Bits beyond the word's end read as zero.
@@ -185,14 +231,56 @@ mod tests {
 
     #[test]
     fn anchor_slots_are_fixed() {
-        assert_eq!(inbox::anchor_slots(), [258u64, 268, 270, 271].map(inbox::slot).to_vec());
+        assert_eq!(inbox::anchor_slots(), [258u64, 268, 270, 271, 281].map(inbox::slot).to_vec());
     }
     #[test]
     fn genesis_slots_are_ordered() {
         assert_eq!(
             inbox::genesis_slots(),
-            [258u64, 268, 272, 273, 274, 279, 278, 269].map(inbox::slot).to_vec()
+            [258u64, 268, 272, 273, 274, 279, 278, 269, 282].map(inbox::slot).to_vec()
         );
+    }
+
+    /// Entry `i` of the `queue` mapping at slot 280 is a `ForcedInclusion` struct at
+    /// `keccak256(abi.encode(i, 280))`: `feeInGwei`, then the `BlobSlice` (its `blobHashes`
+    /// length, then `offset | timestamp`), and `blobHashes[0]` at `keccak256` of the length slot.
+    #[test]
+    fn forced_inclusion_entry_slots_follow_solidity_layout() {
+        let slots = inbox::forced_inclusion_entry_slots(7);
+
+        let mut preimage = [0u8; 64];
+        preimage[..32].copy_from_slice(&U256::from(7u64).to_be_bytes::<32>());
+        preimage[32..].copy_from_slice(&U256::from(280u64).to_be_bytes::<32>());
+        let base = U256::from_be_bytes(keccak256(preimage).0);
+        assert_eq!(slots[0], B256::from(base));
+        assert_eq!(slots[1], B256::from(base + U256::from(1)));
+        assert_eq!(slots[2], B256::from(base + U256::from(2)));
+        assert_eq!(slots[3], keccak256(slots[1]));
+
+        // Pinned with `cast index uint256 7 280` and `cast keccak`.
+        assert_eq!(
+            slots,
+            [
+                b256!("fe59ba1b996c9452f7b7815b262d72cb08473c9b1ad66a36420423a2c51d1f32"),
+                b256!("fe59ba1b996c9452f7b7815b262d72cb08473c9b1ad66a36420423a2c51d1f33"),
+                b256!("fe59ba1b996c9452f7b7815b262d72cb08473c9b1ad66a36420423a2c51d1f34"),
+                b256!("61e848bf49344b279049a8d9175c784c35bb8aea653f992d2fdbba7fc2fb23d4"),
+            ]
+        );
+        assert_ne!(inbox::forced_inclusion_entry_slots(8)[0], slots[0]);
+    }
+
+    /// Slot 281 packs `head` (`uint48`, bits 0–47) and `tail` (`uint48`, bits 48–95).
+    #[test]
+    fn uint48_fields_are_read_low_order_first() {
+        let max = (1u64 << 48) - 1;
+        let word = U256::from(3u64) | (U256::from(9u64) << 48) | (U256::MAX << 96);
+        assert_eq!(word_u48(word, 0), 3);
+        assert_eq!(word_u48(word, 48), 9);
+        assert_eq!(word_u48(U256::MAX, 0), max);
+        assert_eq!(word_u48(U256::MAX, 48), max);
+        assert_eq!(word_u48(U256::MAX, 232), 0x00ff_ffff);
+        assert_eq!(word_u48(U256::MAX, 256), 0);
     }
 
     #[test]

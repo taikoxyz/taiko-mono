@@ -248,6 +248,8 @@ mod tests {
             genesis_hash: B256::repeat_byte(0x66),
             genesis_state_root: B256::repeat_byte(0x77),
             genesis_cutoff: 990,
+            forced_inclusion_delay: 3_600,
+            max_anchor_age: 7_200,
         };
         AppState {
             chain_id: "taiko-etna-167001-g0".to_string(),
@@ -274,6 +276,8 @@ mod tests {
                     recovery_generation: 0,
                     last_checkpoint_height: 101,
                     last_checkpoint_hash: B256::repeat_byte(0x33),
+                    forced_inclusion_head: 2,
+                    forced_inclusion_tail: 5,
                 },
             },
             committees: (0..4).map(|e| (e, committee(e))).collect(),
@@ -347,6 +351,30 @@ mod tests {
         json["schedule"]["epoch_len"] = serde_json::json!(21);
         fs::write(dir.path().join(STATE_FILE), serde_json::to_vec(&json).unwrap()).unwrap();
         assert!(store.load().is_err());
+    }
+
+    /// A state written before forced inclusion lacks its genesis-record and anchor fields and is
+    /// refused rather than defaulted (prelaunch: no migration).
+    #[test]
+    fn load_rejects_a_state_without_forced_inclusion_fields() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().into());
+        let current = serde_json::to_value(state()).unwrap();
+        for (object, field) in [
+            ("/genesis", "forced_inclusion_delay"),
+            ("/genesis", "max_anchor_age"),
+            ("/anchor/inbox", "forced_inclusion_head"),
+            ("/anchor/inbox", "forced_inclusion_tail"),
+        ] {
+            let mut json = current.clone();
+            json.pointer_mut(object)
+                .and_then(|value| value.as_object_mut())
+                .and_then(|value| value.remove(field))
+                .unwrap_or_else(|| panic!("{object}/{field} is saved"));
+            fs::write(dir.path().join(STATE_FILE), serde_json::to_vec(&json).unwrap()).unwrap();
+            let err = store.load().expect_err("a state without the field must not load");
+            assert!(matches!(err, StoreError::Corrupt { .. }), "{field}: {err:?}");
+        }
     }
 
     #[test]

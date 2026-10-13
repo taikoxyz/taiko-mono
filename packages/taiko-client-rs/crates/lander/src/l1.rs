@@ -6,7 +6,7 @@ use abci::{
     l1::{
         fetch::build_committee_witness_at_cutoff,
         header::RawL1Header,
-        layout::{inbox, word_u64},
+        layout::{inbox, word_u48, word_u64},
         mpt::verify_account_witness,
         source::{L1Source as AnchorSource, RpcL1Source},
         witness::verify_anchor_witness,
@@ -420,7 +420,8 @@ impl LandingSource for RpcLandingSource {
     }
 }
 
-/// Complete fixed Inbox slots authenticating schedule, configuration, bootstrap and checkpoint.
+/// Complete fixed Inbox slots authenticating schedule, configuration, bootstrap, checkpoint and
+/// the forced inclusion queue's head/tail and configuration.
 pub fn snapshot_slots() -> Vec<B256> {
     let mut slots = inbox::genesis_slots();
     slots.extend(inbox::anchor_slots());
@@ -451,6 +452,7 @@ fn decode_snapshot(
         return Err(LanderError::Configuration("Inbox committee config opening mismatch".into()));
     }
     let packed = word(inbox::GENESIS_PACKED);
+    let forced_config = word(inbox::FORCED_INCLUSION_CONFIG);
     let genesis = GenesisRecord {
         committee_config_hash: config,
         genesis_height: word_u64(packed, 0),
@@ -460,12 +462,17 @@ fn decode_snapshot(
         genesis_hash: word(inbox::GENESIS_BLOCK_HASH).into(),
         genesis_state_root: word(inbox::GENESIS_STATE_ROOT).into(),
         genesis_cutoff: word_u64(word(inbox::GENESIS_CUTOFF), 0),
+        forced_inclusion_delay: word_u64(forced_config, 0),
+        max_anchor_age: word_u64(forced_config, 64),
     };
     let bootstrap: B256 = word(inbox::GENESIS_COMMITTEE_HASH).into();
     if genesis.genesis_height != 0 ||
         genesis.genesis_hash.is_zero() ||
         genesis.genesis_state_root.is_zero() ||
         genesis.genesis_cutoff >= genesis.l1_0 ||
+        genesis.forced_inclusion_delay == 0 ||
+        genesis.forced_inclusion_delay >= abci::forced::FORCED_INCLUSION_EXPIRY_SECS ||
+        genesis.max_anchor_age == 0 ||
         bootstrap.is_zero()
     {
         return Err(LanderError::Configuration("Inbox genesis record is invalid".into()));
@@ -473,6 +480,7 @@ fn decode_snapshot(
     Schedule::from_genesis(&genesis)
         .validate(params.unsettled_cap())
         .map_err(|e| LanderError::Configuration(format!("Inbox epoch parameters: {e}")))?;
+    let head_tail = word(inbox::FORCED_INCLUSION_HEAD_TAIL);
     Ok(LandingSnapshot {
         l1_block_hash: raw.hash(),
         l1_block_number: raw.number(),
@@ -483,6 +491,8 @@ fn decode_snapshot(
         generation: word_u64(word(inbox::RECOVERY_GENERATION), 0),
         checkpoint_height: word_u64(word(inbox::LAST_CHECKPOINT_HEIGHT), 0),
         checkpoint_hash: word(inbox::LAST_CHECKPOINT_HASH).into(),
+        forced_inclusion_head: word_u48(head_tail, 0),
+        forced_inclusion_tail: word_u48(head_tail, 48),
         genesis,
         committee_config_hash: config,
         genesis_committee_record_hash: bootstrap,
