@@ -17,6 +17,7 @@ contract EtnaStakingRegistryTest is CommonTest {
     uint64 internal constant HEARTBEAT_WINDOW = 50;
     uint64 internal constant START_BLOCK = 1001;
     uint64 internal constant NO_EXIT = type(uint64).max;
+    uint64 internal constant CHURN_WINDOW = 100;
 
     /// @dev The ERC-7201 base slot pinned by taiko-client-rs `l1::layout::registry::base()`.
     bytes32 internal constant REGISTRY_BASE =
@@ -84,6 +85,23 @@ contract EtnaStakingRegistryTest is CommonTest {
     function test_constructor_RevertWhen_HeartbeatWindowIsZero() external {
         vm.expectRevert(EtnaStakingRegistry.InvalidHeartbeatWindow.selector);
         _newRegistry(address(token), MIN_STAKE, 0);
+    }
+
+    function test_constructor_RevertWhen_ChurnBpsAboveOneHundredPercent() external {
+        vm.expectRevert(EtnaStakingRegistry.InvalidChurn.selector);
+        _newChurnRegistryImpl(100, 10_001, MIN_STAKE);
+    }
+
+    function test_constructor_RevertWhen_ChurnFloorIsBelowTheMinimumStake() external {
+        vm.expectRevert(EtnaStakingRegistry.InvalidChurn.selector);
+        _newChurnRegistryImpl(100, 500, MIN_STAKE - 1);
+    }
+
+    function test_constructor_IgnoresChurnParametersWhenTheWindowIsZero() external {
+        EtnaStakingRegistry impl = _newChurnRegistryImpl(0, 10_001, 0);
+        assertEq(impl.churnWindow(), 0);
+        assertEq(impl.churnBps(), 10_001);
+        assertEq(impl.minChurnPerWindow(), 0);
     }
 
     // ---------------------------------------------------------------
@@ -690,9 +708,302 @@ contract EtnaStakingRegistryTest is CommonTest {
         assertEq(_load(_mappingSlot(bytes32(0), 3)), 1);
     }
 
+    function test_storage_FreeSlotsAtR6AndBondedStakeAtR7() external {
+        _register(Alice, KEY_A);
+        _register(Bob, KEY_B);
+        assertEq(_load(bytes32(uint256(REGISTRY_BASE) + 7)), 2 * MIN_STAKE);
+
+        _exitAndWithdraw(Bob, 1);
+        assertEq(_load(bytes32(uint256(REGISTRY_BASE) + 6)), 1);
+        assertEq(_load(keccak256(abi.encode(uint256(REGISTRY_BASE) + 6))), 1);
+        assertEq(_load(bytes32(uint256(REGISTRY_BASE) + 7)), MIN_STAKE);
+    }
+
+    // ---------------------------------------------------------------
+    // slot reuse
+    // ---------------------------------------------------------------
+
+    function test_withdraw_FreesTheSlot() external {
+        _register(Alice, KEY_A);
+        assertEq(registry.freeSlotCount(), 0);
+        _exitAndWithdraw(Alice, 0);
+        assertEq(registry.freeSlotCount(), 1);
+    }
+
+    function test_register_ReusesAFreedSlotBeforeAppending() external {
+        _register(Alice, KEY_A);
+        _register(Bob, KEY_B);
+        _exitAndWithdraw(Alice, 0);
+        uint256 checkpoints = registry.checkpointCount();
+        uint64 activeFromL1 = uint64(block.number) + ACTIVATION_DELAY;
+
+        vm.expectEmit();
+        emit IEtnaStakingRegistry.Registered(0, Carol, KEY_C, MIN_STAKE, activeFromL1);
+        assertEq(_register(Carol, KEY_C), 0);
+
+        _assertEntry(0, KEY_C, MIN_STAKE, activeFromL1, NO_EXIT, 0, 0);
+        assertEq(registry.entryCount(), 2, "no slot appended");
+        assertEq(registry.freeSlotCount(), 0);
+        assertEq(registry.bondOwnerOf(0), Carol);
+        assertFalse(registry.isWithdrawn(0));
+        assertEq(registry.entriesRoot(), _naiveEntriesRoot());
+        assertEq(registry.checkpointCount(), checkpoints + 1);
+        _assertCheckpoint(checkpoints, uint64(block.number), 2, _naiveEntriesRoot());
+
+        // With no free slot left, the next registration appends.
+        assertEq(_register(Alice, KEY_A), 2);
+        assertEq(registry.entryCount(), 3);
+    }
+
+    function test_register_ReusesTheMostRecentlyFreedSlotFirst() external {
+        _register(Alice, KEY_A);
+        _register(Bob, KEY_B);
+        _exitAndWithdraw(Alice, 0);
+        _exitAndWithdraw(Bob, 1);
+
+        assertEq(_register(Carol, KEY_C), 1);
+        assertEq(_register(Carol, bytes32(uint256(0xd4))), 0);
+        assertEq(registry.entryCount(), 2);
+    }
+
+    function test_register_ReusesAFreedSlotWhenEverySlotIsUsed() external {
+        uint256 maxEntries = registry.MAX_ENTRIES();
+        token.approve(address(registry), type(uint256).max);
+
+        vm.pauseGasMetering();
+        for (uint256 i; i < maxEntries; ++i) {
+            registry.register(bytes32(i + 1), MIN_STAKE);
+        }
+        vm.resumeGasMetering();
+        vm.expectRevert(EtnaStakingRegistry.RegistryFull.selector);
+        registry.register(bytes32(maxEntries + 1), MIN_STAKE);
+
+        registry.requestExit(7);
+        vm.roll(registry.entryAt(7).exitEffectiveL1 + WITHDRAWAL_DELAY);
+        registry.withdraw(7, address(this));
+
+        // The loop's keys cover 1..4096, so fresh keys start above them.
+        assertEq(_register(Alice, bytes32(maxEntries + 1)), 7);
+        assertEq(registry.entryCount(), maxEntries);
+        vm.expectRevert(EtnaStakingRegistry.RegistryFull.selector);
+        _register(Bob, bytes32(maxEntries + 2));
+    }
+
+    function test_register_ReusesASlotFreedInTheSameBlock() external {
+        _register(Alice, KEY_A);
+        _register(Bob, KEY_B);
+        vm.prank(Alice);
+        registry.requestExit(0);
+        vm.roll(registry.entryAt(0).exitEffectiveL1 + WITHDRAWAL_DELAY);
+        uint256 checkpoints = registry.checkpointCount();
+
+        vm.prank(Bob);
+        registry.heartbeat(1);
+        vm.prank(Alice);
+        registry.withdraw(0, Alice);
+        assertEq(_register(Carol, KEY_C), 0);
+
+        // One checkpoint for the block covers the heartbeat and the reuse.
+        assertEq(registry.checkpointCount(), checkpoints + 1);
+        _assertCheckpoint(checkpoints, uint64(block.number), 2, _naiveEntriesRoot());
+        assertEq(registry.entryAt(0).pubkey, KEY_C);
+    }
+
+    function test_register_ReregistersAPubkeyIntoItsOwnFreedSlot() external {
+        _register(Alice, KEY_A);
+        _exitAndWithdraw(Alice, 0);
+
+        assertEq(_register(Bob, KEY_A), 0);
+        assertEq(registry.bondOwnerOf(0), Bob);
+        vm.expectRevert(EtnaStakingRegistry.PubkeyInUse.selector);
+        _register(Carol, KEY_A);
+    }
+
+    function test_withdraw_FreesAReusedSlotAgain() external {
+        _register(Alice, KEY_A);
+        _exitAndWithdraw(Alice, 0);
+        _register(Carol, KEY_C);
+        _exitAndWithdraw(Carol, 0);
+
+        assertEq(registry.freeSlotCount(), 1);
+        assertTrue(registry.isWithdrawn(0));
+        assertEq(_register(Bob, KEY_B), 0);
+        assertEq(registry.entryCount(), 1);
+    }
+
+    function test_register_LeavesTheFormerHolderNoRightsOnAReusedSlot() external {
+        _register(Alice, KEY_A);
+        _exitAndWithdraw(Alice, 0);
+        _register(Carol, KEY_C);
+
+        vm.startPrank(Alice);
+        vm.expectRevert(EtnaStakingRegistry.NotBondOwner.selector);
+        registry.heartbeat(0);
+        vm.expectRevert(EtnaStakingRegistry.NotBondOwner.selector);
+        registry.requestExit(0);
+        vm.expectRevert(EtnaStakingRegistry.NotBondOwner.selector);
+        registry.withdraw(0, Alice);
+        vm.stopPrank();
+    }
+
+    function test_register_AcceptsAPubkeyWhoseHolderSlotWasReused() external {
+        _register(Alice, KEY_A);
+        _exitAndWithdraw(Alice, 0);
+        // Slot 0 now holds KEY_B with no exit; KEY_A's holder record still names slot 0.
+        _register(Bob, KEY_B);
+
+        assertEq(_register(Carol, KEY_A), 1);
+        vm.expectRevert(EtnaStakingRegistry.PubkeyInUse.selector);
+        _register(Carol, KEY_B);
+    }
+
+    // ---------------------------------------------------------------
+    // churn
+    // ---------------------------------------------------------------
+
+    function test_register_ActivatesWithoutDeferralWhenChurnIsDisabled() external {
+        _register(Alice, KEY_A);
+        _register(Bob, KEY_B);
+        _register(Carol, KEY_C);
+        for (uint256 i; i < 3; ++i) {
+            assertEq(registry.entryAt(i).activeFromL1, START_BLOCK + ACTIVATION_DELAY);
+        }
+    }
+
+    function test_register_DefersActivationsBeyondTheChurnLimit() external {
+        registry = _newChurnRegistry(CHURN_WINDOW, 0, MIN_STAKE);
+        // The earliest activation, block 1011, lies in window 10, which absorbs one entry.
+        _register(Alice, KEY_A);
+        _register(Bob, KEY_B);
+        _register(Carol, KEY_C);
+
+        assertEq(registry.entryAt(0).activeFromL1, START_BLOCK + ACTIVATION_DELAY);
+        assertEq(registry.entryAt(1).activeFromL1, 11 * CHURN_WINDOW);
+        assertEq(registry.entryAt(2).activeFromL1, 12 * CHURN_WINDOW);
+    }
+
+    function test_register_DefersALargeStakeByWholeWindows() external {
+        registry = _newChurnRegistry(CHURN_WINDOW, 0, MIN_STAKE);
+        vm.prank(Alice);
+        registry.register(KEY_A, 3 * MIN_STAKE);
+        // Windows 10, 11 and 12 absorb the stake; it activates at the start of window 12.
+        assertEq(registry.entryAt(0).activeFromL1, 12 * CHURN_WINDOW);
+
+        _register(Bob, KEY_B);
+        assertEq(registry.entryAt(1).activeFromL1, 13 * CHURN_WINDOW);
+    }
+
+    function test_register_ScalesTheChurnWithTheBondedStake() external {
+        registry = _newChurnRegistry(CHURN_WINDOW, 10_000, MIN_STAKE);
+        vm.prank(Alice);
+        registry.register(KEY_A, 4 * MIN_STAKE);
+        // Nothing is bonded yet, so the floor of one minimum stake per window applies.
+        assertEq(registry.entryAt(0).activeFromL1, 13 * CHURN_WINDOW);
+
+        vm.roll(2001);
+        vm.prank(Bob);
+        registry.register(KEY_B, 4 * MIN_STAKE);
+        // 100% of the 4 bonded stakes fits in window 20 at once.
+        assertEq(registry.entryAt(1).activeFromL1, 2001 + ACTIVATION_DELAY);
+        assertEq(registry.bondedStake(), 8 * MIN_STAKE);
+    }
+
+    function test_requestExit_DefersExitsBeyondTheChurnLimit() external {
+        registry = _newChurnRegistry(CHURN_WINDOW, 0, MIN_STAKE);
+        _register(Alice, KEY_A);
+        vm.roll(START_BLOCK + CHURN_WINDOW);
+        _register(Bob, KEY_B);
+        assertEq(registry.bondedStake(), 2 * MIN_STAKE);
+
+        vm.roll(2001);
+        vm.prank(Alice);
+        registry.requestExit(0);
+        vm.prank(Bob);
+        registry.requestExit(1);
+
+        assertEq(registry.entryAt(0).exitEffectiveL1, 2001 + EXIT_DELAY);
+        assertEq(registry.entryAt(1).exitEffectiveL1, 21 * CHURN_WINDOW);
+        assertEq(registry.bondedStake(), 0);
+    }
+
+    function test_requestExit_BeforeActivationDoesNotStrandTheExitQueue() external {
+        registry = _newChurnRegistry(CHURN_WINDOW, 0, MIN_STAKE);
+        _register(Alice, KEY_A);
+        vm.prank(Bob);
+        registry.register(KEY_B, 50 * MIN_STAKE);
+        _register(Carol, KEY_C);
+        // Bob's stake fills the activation windows up to 60; Carol activates in window 61.
+        assertEq(registry.entryAt(2).activeFromL1, 61 * CHURN_WINDOW);
+
+        vm.prank(Carol);
+        registry.requestExit(2);
+        // Carol queues her exit now but leaves no earlier than `exitDelay` after activating.
+        assertEq(registry.entryAt(2).exitEffectiveL1, 61 * CHURN_WINDOW + EXIT_DELAY);
+
+        vm.roll(START_BLOCK + CHURN_WINDOW);
+        vm.prank(Alice);
+        registry.requestExit(0);
+        assertEq(registry.entryAt(0).exitEffectiveL1, START_BLOCK + CHURN_WINDOW + EXIT_DELAY);
+    }
+
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
+
+    function _newChurnRegistryImpl(
+        uint64 _churnWindow,
+        uint16 _churnBps,
+        uint256 _minChurnPerWindow
+    )
+        private
+        returns (EtnaStakingRegistry)
+    {
+        return new EtnaStakingRegistry(
+            address(token),
+            MIN_STAKE,
+            ACTIVATION_DELAY,
+            EXIT_DELAY,
+            WITHDRAWAL_DELAY,
+            HEARTBEAT_WINDOW,
+            _churnWindow,
+            _churnBps,
+            _minChurnPerWindow
+        );
+    }
+
+    /// @dev A churn-limited registry proxy the stakers have approved.
+    function _newChurnRegistry(
+        uint64 _churnWindow,
+        uint16 _churnBps,
+        uint256 _minChurnPerWindow
+    )
+        private
+        returns (EtnaStakingRegistry registry_)
+    {
+        registry_ = EtnaStakingRegistry(
+            address(
+                new ERC1967Proxy(
+                    address(_newChurnRegistryImpl(_churnWindow, _churnBps, _minChurnPerWindow)),
+                    abi.encodeCall(EtnaStakingRegistry.init, (address(0)))
+                )
+            )
+        );
+        address[3] memory stakers = [Alice, Bob, Carol];
+        for (uint256 i; i < stakers.length; ++i) {
+            vm.prank(stakers[i]);
+            token.approve(address(registry_), type(uint256).max);
+        }
+    }
+
+    /// @dev Exits `_bondId` for `_owner` and withdraws its stake back to the owner.
+    function _exitAndWithdraw(address _owner, uint256 _bondId) private {
+        vm.prank(_owner);
+        registry.requestExit(_bondId);
+        uint64 withdrawable = registry.entryAt(_bondId).exitEffectiveL1 + WITHDRAWAL_DELAY;
+        if (block.number < withdrawable) vm.roll(withdrawable);
+        vm.prank(_owner);
+        registry.withdraw(_bondId, _owner);
+    }
 
     function _newRegistry(
         address _token,
@@ -703,7 +1014,15 @@ contract EtnaStakingRegistryTest is CommonTest {
         returns (EtnaStakingRegistry)
     {
         return new EtnaStakingRegistry(
-            _token, _minStake, ACTIVATION_DELAY, EXIT_DELAY, WITHDRAWAL_DELAY, _heartbeatWindow
+            _token,
+            _minStake,
+            ACTIVATION_DELAY,
+            EXIT_DELAY,
+            WITHDRAWAL_DELAY,
+            _heartbeatWindow,
+            0,
+            0,
+            0
         );
     }
 

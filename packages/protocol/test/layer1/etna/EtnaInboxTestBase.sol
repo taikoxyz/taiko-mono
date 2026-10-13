@@ -141,7 +141,7 @@ abstract contract EtnaInboxTestBase is CommonTest {
 
     function _deployRegistry() internal returns (EtnaStakingRegistry) {
         EtnaStakingRegistry impl =
-            new EtnaStakingRegistry(address(taikoToken), MIN_STAKE, 10, 20, 30, 50);
+            new EtnaStakingRegistry(address(taikoToken), MIN_STAKE, 10, 20, 30, 50, 0, 0, 0);
         return EtnaStakingRegistry(
             address(
                 new ERC1967Proxy(
