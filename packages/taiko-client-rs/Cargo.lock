@@ -3603,6 +3603,7 @@ dependencies = [
  "async-trait",
  "base64",
  "ed25519-dalek",
+ "flate2",
  "futures",
  "prometheus",
  "prost 0.13.5",

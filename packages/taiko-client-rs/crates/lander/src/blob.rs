@@ -2,10 +2,11 @@
 use alloy_eips::eip7594::BlobTransactionSidecarVariant;
 use alloy_primitives::B256;
 use serde::{Deserialize, Serialize};
-/// Sidecar and immutable ordered commitments generated for one complete V2 payload.
+/// Sidecar and immutable ordered commitments generated for one complete V3 payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PreparedBlobs {
-    /// Number of V2 payload bytes before field-element encoding.
+    /// Number of V3 payload bytes (version byte and compressed list) before field-element
+    /// encoding.
     pub payload_bytes: usize,
     /// Explicit target-fork sidecar representation.
     pub sidecar: BlobTransactionSidecarVariant,
@@ -22,12 +23,15 @@ use alloy_eips::eip4844::{BYTES_PER_BLOB, Blob};
 /// Kona-compatible capacity: 127 usable bytes per four field elements, minus four header bytes.
 pub const PAYLOAD_BYTES_PER_BLOB: usize = BYTES_PER_BLOB * 127 / 128 - 4;
 
+// The ABCI landing capacity guard sizes blocks by this same per-blob capacity.
+const _: () = assert!(abci::compression::LANDING_PAYLOAD_BYTES_PER_BLOB == PAYLOAD_BYTES_PER_BLOB);
+
 /// Number of blobs needed for a payload; does not allocate or compute KZG proofs.
 pub const fn required_blobs(payload_bytes: usize) -> usize {
     if payload_bytes == 0 { 0 } else { (payload_bytes - 1) / PAYLOAD_BYTES_PER_BLOB + 1 }
 }
 
-/// Build exactly one sidecar for an already selected complete V2 payload.
+/// Build exactly one sidecar for an already selected complete V3 payload.
 pub fn build(payload: &[u8], limits: &Limits, mode: SidecarMode) -> Result<PreparedBlobs> {
     use alloy_eips::eip4844::builder::SidecarBuilder;
     use protocol::shasta::BlobCoder;
@@ -102,6 +106,7 @@ mod tests {
             max_blobs: blobs,
             max_payload_bytes: PAYLOAD_BYTES_PER_BLOB * blobs,
             max_message_bytes: PAYLOAD_BYTES_PER_BLOB * blobs,
+            max_decompressed_bytes: PAYLOAD_BYTES_PER_BLOB * blobs,
         }
     }
 
@@ -167,8 +172,8 @@ mod tests {
         let mut wrong = short.sidecar.blobs().to_vec();
         wrong.push(wrong[0]);
         assert!(decode(&wrong, &limits(2)).is_err());
-        // A truncated full prefix is rejected by the V2 outer list's length, rather than guessed by
-        // the blob codec.
+        // A truncated full prefix is rejected by the V3 zlib stream's end and checksum, rather than
+        // guessed by the blob codec.
         let prefix = decode(&sidecar.sidecar.blobs()[..1], &limits(2)).unwrap();
         assert_eq!(prefix.len(), PAYLOAD_BYTES_PER_BLOB);
     }

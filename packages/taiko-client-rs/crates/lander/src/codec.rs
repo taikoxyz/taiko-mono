@@ -1,10 +1,13 @@
-//! V2 published block payload codec, bounded before parsing or allocating messages.
+//! V3 published block payload codec, bounded before parsing or allocating messages.
 //!
 //! A batch publishes each block's canonical CometBFT header and its single Etna envelope. The
 //! header hashes to the block id the committee signed, its `data_hash` commits to the envelope and
 //! its `last_block_id` to the preceding header. Commits and signatures are not published: proofs
 //! take them as witnesses from the prepared batch. The pinned Tendermint domain adapter maps
-//! CometBFT's empty height-1 last block id to `None`; V2 publishes that canonical domain form.
+//! CometBFT's empty height-1 last block id to `None`; V3 publishes that canonical domain form.
+//!
+//! V3 is V2's RLP list compressed as one zlib stream with the codec the ABCI landing capacity
+//! guard uses, so batch sizing and the guard count the same compressed bytes.
 
 use crate::{
     error::{LanderError, Result},
@@ -12,9 +15,10 @@ use crate::{
     validate::data_hash,
 };
 
-/// Version prefix of `0x02 || rlp([[header_proto, envelope], ...])`.
-pub const VERSION: u8 = 2;
+/// Version prefix of `0x03 || zlib(rlp([[header_proto, envelope], ...]))`.
+pub const VERSION: u8 = 3;
 
+use abci::compression::{InflateError, zlib_compress, zlib_inflate_exact};
 use alloy_rlp::{Encodable, Header};
 use prost::Message;
 use tendermint_proto::v0_38::types::{Block as RawBlock, Commit as RawCommit, Header as RawHeader};
@@ -40,6 +44,9 @@ impl From<&CertifiedBlock> for PublishedBlock {
 }
 
 /// Encode complete, consecutive certified blocks as their published headers and envelopes.
+///
+/// The RLP list is bounded by `max_decompressed_bytes` before it is allocated; the compressed
+/// payload, version byte included, by `max_payload_bytes`.
 pub fn encode(blocks: &[CertifiedBlock], limits: &Limits) -> Result<Vec<u8>> {
     limits.validate()?;
     if blocks.is_empty() || blocks.len() > limits.max_blocks {
@@ -64,28 +71,35 @@ pub fn encode(blocks: &[CertifiedBlock], limits: &Limits) -> Result<Vec<u8>> {
             .and_then(|n| n.checked_add(length))
             .ok_or_else(|| LanderError::Capacity("RLP payload length overflow".into()))?;
         // Bound retained message bytes incrementally; no whole-batch allocation precedes this.
-        if payload_length > limits.max_payload_bytes {
-            return Err(LanderError::Capacity("batch exceeds payload limit".into()));
+        if payload_length > limits.max_decompressed_bytes {
+            return Err(LanderError::Capacity("batch exceeds decompressed limit".into()));
         }
         messages.push((header, length));
         previous = Some(published);
     }
     let outer = Header { list: true, payload_length };
-    let total = 1usize
-        .checked_add(outer.length())
-        .and_then(|n| n.checked_add(payload_length))
+    let total = outer
+        .length()
+        .checked_add(payload_length)
         .ok_or_else(|| LanderError::Capacity("payload length overflow".into()))?;
-    if total > limits.max_payload_bytes {
+    if total > limits.max_decompressed_bytes {
+        return Err(LanderError::Capacity("batch exceeds decompressed limit".into()));
+    }
+    let mut list = Vec::with_capacity(total);
+    outer.encode(&mut list);
+    for (pair, (header, length)) in blocks.iter().zip(messages) {
+        Header { list: true, payload_length: length }.encode(&mut list);
+        header.as_slice().encode(&mut list);
+        pair.block.data[0].as_slice().encode(&mut list);
+    }
+    let compressed = zlib_compress(&list);
+    // The version byte precedes the compressed list.
+    if compressed.len() + 1 > limits.max_payload_bytes {
         return Err(LanderError::Capacity("batch exceeds payload limit".into()));
     }
-    let mut out = Vec::with_capacity(total);
+    let mut out = Vec::with_capacity(compressed.len() + 1);
     out.push(VERSION);
-    outer.encode(&mut out);
-    for (pair, (header, length)) in blocks.iter().zip(messages) {
-        Header { list: true, payload_length: length }.encode(&mut out);
-        header.as_slice().encode(&mut out);
-        pair.block.data[0].as_slice().encode(&mut out);
-    }
+    out.extend_from_slice(&compressed);
     Ok(out)
 }
 
@@ -107,17 +121,28 @@ pub(crate) fn check_message_limits(pair: &CertifiedBlock, limits: &Limits) -> Re
     Ok(())
 }
 
-/// Decode bounded, canonical RLP and canonical v0_38 protobuf headers with their envelopes.
+/// Decode one complete zlib stream of at most `max_decompressed_bytes`, then bounded, canonical RLP
+/// and canonical v0_38 protobuf headers with their envelopes.
 pub fn decode(payload: &[u8], limits: &Limits) -> Result<Vec<PublishedBlock>> {
     limits.validate()?;
     if payload.len() > limits.max_payload_bytes {
         return Err(LanderError::Capacity("batch exceeds payload limit".into()));
     }
-    let (&version, mut outer) =
+    let (&version, compressed) =
         payload.split_first().ok_or_else(|| LanderError::Encoding("empty batch payload".into()))?;
     if version != VERSION {
         return Err(LanderError::Encoding(format!("unsupported batch version {version}")));
     }
+    let inflated =
+        zlib_inflate_exact(compressed, limits.max_decompressed_bytes).map_err(|e| match e {
+            InflateError::TooLarge { .. } => {
+                LanderError::Capacity("batch exceeds decompressed limit".into())
+            }
+            InflateError::Malformed | InflateError::TrailingBytes => {
+                LanderError::Encoding(format!("invalid batch compression: {e}"))
+            }
+        })?;
+    let mut outer = inflated.as_slice();
     let mut list = Header::decode_bytes(&mut outer, true).map_err(rlp_error)?;
     if !outer.is_empty() {
         return Err(LanderError::Encoding("trailing bytes after batch list".into()));
@@ -166,7 +191,7 @@ fn rlp_error(error: alloy_rlp::Error) -> LanderError {
 }
 
 /// Require one envelope and a commit naming the same block; signatures are verified by consensus.
-fn validate_pair(pair: &CertifiedBlock) -> Result<()> {
+pub(crate) fn validate_pair(pair: &CertifiedBlock) -> Result<()> {
     let height = pair.block.header.height.value();
     if pair.commit.height != pair.block.header.height ||
         pair.commit.block_id.hash != pair.block.header.hash()
@@ -219,6 +244,7 @@ fn validate_published(block: &PublishedBlock, previous: Option<&PublishedBlock>)
 mod tests {
     use super::*;
     use crate::test_utils::consensus;
+    use abci::compression::zlib_compress;
     use alloy_primitives::B256;
     use alloy_rlp::{Encodable, Header};
     use prost::Message;
@@ -233,6 +259,7 @@ mod tests {
             max_blobs: 2,
             max_payload_bytes: 250_000,
             max_message_bytes: 200_000,
+            max_decompressed_bytes: 1_000_000,
         }
     }
 
@@ -243,6 +270,29 @@ mod tests {
         for height in 1..=len {
             let parent = B256::repeat_byte(u8::try_from(height).unwrap());
             let pair = consensus::pair(height, parent, &committee, &keys, blocks.last());
+            blocks.push(pair);
+        }
+        blocks
+    }
+
+    /// Consecutive blocks whose envelopes each carry one all-zero `size`-byte transaction.
+    fn zero_heavy_chain(len: u64, size: usize) -> Vec<CertifiedBlock> {
+        let (_, committee, keys) = consensus::committee(&[1, 1, 1, 1], 0);
+        let mut blocks: Vec<CertifiedBlock> = Vec::new();
+        for height in 1..=len {
+            let envelope = abci::EtnaEnvelope {
+                block: abci::ExecutionBlock {
+                    header: alloy_consensus::Header {
+                        number: height,
+                        parent_hash: B256::repeat_byte(u8::try_from(height).unwrap()),
+                        ..Default::default()
+                    },
+                    transactions: vec![vec![0; size].into()],
+                },
+                anchor: None,
+                committee: None,
+            };
+            let pair = consensus::pair_with_envelope(envelope, &committee, &keys, blocks.last());
             blocks.push(pair);
         }
         blocks
@@ -263,19 +313,31 @@ mod tests {
         blocks.iter().map(PublishedBlock::from).collect()
     }
 
-    /// `0x02 || rlp([[header, envelope], ...])`, assembled independently of `encode`.
-    fn wire(items: &[(Vec<u8>, Vec<u8>)]) -> Vec<u8> {
-        let mut list = Vec::new();
+    /// `rlp([[header, envelope], ...])`, assembled independently of `encode`.
+    fn list(items: &[(Vec<u8>, Vec<u8>)]) -> Vec<u8> {
+        let mut body = Vec::new();
         for (header, envelope) in items {
             let length = header.as_slice().length() + envelope.as_slice().length();
-            Header { list: true, payload_length: length }.encode(&mut list);
-            header.as_slice().encode(&mut list);
-            envelope.as_slice().encode(&mut list);
+            Header { list: true, payload_length: length }.encode(&mut body);
+            header.as_slice().encode(&mut body);
+            envelope.as_slice().encode(&mut body);
         }
-        let mut bytes = vec![VERSION];
-        Header { list: true, payload_length: list.len() }.encode(&mut bytes);
-        bytes.extend_from_slice(&list);
+        let mut bytes = Vec::new();
+        Header { list: true, payload_length: body.len() }.encode(&mut bytes);
+        bytes.extend_from_slice(&body);
         bytes
+    }
+
+    /// `version || zlib(list)`.
+    fn frame(version: u8, list: &[u8]) -> Vec<u8> {
+        let mut bytes = vec![version];
+        bytes.extend_from_slice(&zlib_compress(list));
+        bytes
+    }
+
+    /// `0x03 || zlib(rlp([[header, envelope], ...]))`, assembled independently of `encode`.
+    fn wire(items: &[(Vec<u8>, Vec<u8>)]) -> Vec<u8> {
+        frame(VERSION, &list(items))
     }
 
     fn encoding_error(result: Result<Vec<PublishedBlock>>) -> String {
@@ -289,7 +351,7 @@ mod tests {
     fn canonical_wire_is_v038_header_protobuf_and_envelope_in_two_rlp_strings() {
         let blocks = chain(1);
         let expected = wire(&items(&blocks));
-        assert_eq!(expected[0], 2);
+        assert_eq!(expected[0], 3);
         assert_eq!(encode(&blocks, &limits()).unwrap(), expected);
         assert_eq!(decode(&expected, &limits()).unwrap(), published(&blocks));
     }
@@ -352,7 +414,7 @@ mod tests {
         let valid = encode(&blocks, &limits()).unwrap();
         assert!(decode(&[], &limits()).is_err());
         assert!(encode(&[], &limits()).is_err());
-        assert!(decode(&[VERSION, 0xc0], &limits()).is_err());
+        assert!(encoding_error(decode(&wire(&[]), &limits())).contains("empty batch list"));
         let mut changed = valid.clone();
         changed[0] = 1; // the former complete-block payload version
         assert!(decode(&changed, &limits()).is_err());
@@ -374,7 +436,73 @@ mod tests {
         assert!(
             decode(&wire(&[(header_bytes(&blocks[0].block.header), padded)]), &limits()).is_err()
         );
-        assert!(decode(&[VERSION, 0xf8, 0x00], &limits()).is_err()); // noncanonical empty RLP list.
+        assert!(decode(&frame(VERSION, &[0xf8, 0x00]), &limits()).is_err()); // noncanonical empty RLP list.
+    }
+
+    #[test]
+    fn v2_payload_is_rejected() {
+        let blocks = chain(2);
+        let list = list(&items(&blocks));
+        let mut v2 = vec![2];
+        v2.extend_from_slice(&list);
+        assert!(encoding_error(decode(&v2, &limits())).contains("unsupported batch version 2"));
+        // Neither the V2 version byte over a compressed list nor V3's over an uncompressed one.
+        assert!(
+            encoding_error(decode(&frame(2, &list), &limits()))
+                .contains("unsupported batch version 2")
+        );
+        let mut uncompressed = vec![VERSION];
+        uncompressed.extend_from_slice(&list);
+        assert!(encoding_error(decode(&uncompressed, &limits())).contains("zlib"));
+    }
+
+    #[test]
+    fn trailing_bytes_after_the_zlib_stream_are_rejected() {
+        let blocks = chain(2);
+        let valid = encode(&blocks, &limits()).unwrap();
+        assert_eq!(decode(&valid, &limits()).unwrap(), published(&blocks));
+        let mut padded = valid.clone();
+        padded.push(0);
+        assert!(
+            encoding_error(decode(&padded, &limits()))
+                .contains("trailing bytes after the zlib stream")
+        );
+        let mut doubled = valid.clone();
+        doubled.extend_from_slice(&valid[1..]);
+        assert!(
+            encoding_error(decode(&doubled, &limits()))
+                .contains("trailing bytes after the zlib stream")
+        );
+    }
+
+    #[test]
+    fn decompressed_size_above_cap_is_rejected() {
+        let blocks = chain(3);
+        let list = list(&items(&blocks));
+        let payload = encode(&blocks, &limits()).unwrap();
+        assert_eq!(payload, frame(VERSION, &list));
+        let mut cap = limits();
+        cap.max_decompressed_bytes = list.len();
+        assert_eq!(decode(&payload, &cap).unwrap(), published(&blocks));
+        assert_eq!(encode(&blocks, &cap).unwrap(), payload);
+        cap.max_decompressed_bytes -= 1;
+        assert!(matches!(decode(&payload, &cap), Err(LanderError::Capacity(_))));
+        assert!(matches!(encode(&blocks, &cap), Err(LanderError::Capacity(_))));
+        cap.max_decompressed_bytes = 0;
+        assert!(matches!(decode(&payload, &cap), Err(LanderError::Configuration(_))));
+    }
+
+    #[test]
+    fn compressed_limit_counts_compressed_bytes() {
+        let blocks = zero_heavy_chain(3, 100_000);
+        assert!(list(&items(&blocks)).len() > 300_000);
+        let cap = Limits { max_payload_bytes: 4_096, ..limits() };
+        let payload = encode(&blocks, &cap).unwrap();
+        assert!(payload.len() <= cap.max_payload_bytes);
+        assert_eq!(decode(&payload, &cap).unwrap(), published(&blocks));
+        let tight = Limits { max_payload_bytes: payload.len() - 1, ..cap };
+        assert!(matches!(encode(&blocks, &tight), Err(LanderError::Capacity(_))));
+        assert!(matches!(decode(&payload, &tight), Err(LanderError::Capacity(_))));
     }
 
     #[test]

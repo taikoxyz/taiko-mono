@@ -42,7 +42,8 @@ pub struct BatchObservation {
 struct PublishablePrefix {
     /// Exact complete pairs selected without computing signatures, witnesses or KZG proofs.
     blocks: Vec<CertifiedBlock>,
-    /// Canonical V2 bytes used to count blobs and later build exactly one sidecar.
+    /// Canonical V3 bytes, whose compressed size counts blobs, later building exactly one
+    /// sidecar.
     payload: Vec<u8>,
 }
 
@@ -687,6 +688,7 @@ mod tests {
             max_blobs: 2,
             max_payload_bytes: 240_000,
             max_message_bytes: 200_000,
+            max_decompressed_bytes: 2_000_000,
         }
     }
     fn builder(fixture: Arc<Fixture>, limits: Limits) -> BatchBuilder<Fixture, Fixture> {

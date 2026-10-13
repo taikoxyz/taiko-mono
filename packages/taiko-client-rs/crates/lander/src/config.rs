@@ -2,6 +2,7 @@
 
 use std::{path::PathBuf, time::Duration};
 
+use abci::compression::MAX_LANDING_BLOBS;
 use url::Url;
 
 use crate::{
@@ -154,10 +155,13 @@ impl LanderConfig {
         {
             return Err(LanderError::Configuration("poll interval must be positive and at most one hour; confirmations must be nonzero".into()));
         }
-        if self.limits.max_message_bytes > self.limits.max_payload_bytes {
-            return Err(LanderError::Configuration(
-                "single-message bound cannot exceed total batch payload bound".into(),
-            ));
+        // The ABCI landing capacity guard admits any block that fits this many blobs on its own;
+        // fewer could leave a decided block unlandable.
+        if self.limits.max_blobs < MAX_LANDING_BLOBS {
+            return Err(LanderError::Configuration(format!(
+                "maximum blobs must be at least {MAX_LANDING_BLOBS}, the capacity one decided block \
+                 may need"
+            )));
         }
         Ok(())
     }
@@ -179,7 +183,8 @@ mod tests {
                 max_blocks: 16,
                 max_blobs: 6,
                 max_payload_bytes: 700_000,
-                max_message_bytes: 700_000,
+                max_message_bytes: 22_020_096,
+                max_decompressed_bytes: 16 * 22_020_096,
             },
             batch_policy: BatchPolicy::default(),
             fee_caps: FeeCaps {
@@ -250,6 +255,9 @@ mod tests {
         c.limits.max_message_bytes = 0;
         configs.push(c);
         let mut c = valid();
+        c.limits.max_decompressed_bytes = 0;
+        configs.push(c);
+        let mut c = valid();
         c.fee_caps.max_fee_per_gas = 0;
         configs.push(c);
         let mut c = valid();
@@ -261,6 +269,24 @@ mod tests {
         for c in configs {
             assert!(c.validate().is_err(), "configuration accepted: {c:?}");
         }
+    }
+
+    /// A block the landing capacity guard admits may need every one of `MAX_LANDING_BLOBS` blobs.
+    #[test]
+    fn rejects_fewer_blobs_than_one_landing_needs() {
+        let mut c = valid();
+        c.limits.max_blobs = MAX_LANDING_BLOBS;
+        c.validate().unwrap();
+        c.limits.max_blobs = MAX_LANDING_BLOBS - 1;
+        assert!(matches!(c.validate(), Err(LanderError::Configuration(_))));
+    }
+
+    /// Payload V3 compresses, so one envelope may exceed the compressed payload bound.
+    #[test]
+    fn accepts_messages_larger_than_the_compressed_payload() {
+        let c = valid();
+        assert!(c.limits.max_message_bytes > c.limits.max_payload_bytes);
+        c.validate().unwrap();
     }
 
     #[test]

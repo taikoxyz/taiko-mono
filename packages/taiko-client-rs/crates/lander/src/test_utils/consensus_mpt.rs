@@ -49,6 +49,19 @@ fn trie(leaves: BTreeMap<B256, Vec<u8>>, targets: Vec<Nibbles>) -> (B256, ProofN
     let root = builder.root();
     (root, builder.take_proof_nodes())
 }
+/// `len` pseudorandom nonzero calldata bytes seeded by `height`, which payload V3's zlib cannot
+/// shrink, so block sizes keep counting blobs.
+fn incompressible(height: u64, len: usize) -> Bytes {
+    let mut state = 0x9e37_79b9_7f4a_7c15 ^ height;
+    (0..len)
+        .map(|_| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state >> 56) as u8 | u8::from(state >> 56 == 0)
+        })
+        .collect()
+}
 fn nodes(proofs: &ProofNodes, key: B256) -> Vec<Bytes> {
     proofs.matching_nodes_sorted(&Nibbles::unpack(key)).into_iter().map(|(_, node)| node).collect()
 }
@@ -445,7 +458,7 @@ impl Fixture {
                     max_fee_per_gas: 1_000_001,
                     max_priority_fee_per_gas: 1,
                     to: alloy_primitives::TxKind::Call(params.fee_vault),
-                    input: Bytes::from(vec![0x2a; bytes]),
+                    input: incompressible(height, bytes),
                     ..Default::default()
                 };
                 let signature =
@@ -728,6 +741,7 @@ mod readiness {
             max_blobs: 2,
             max_payload_bytes: 240_000,
             max_message_bytes: 200_000,
+            max_decompressed_bytes: 2_000_000,
         }
     }
 
