@@ -21,7 +21,7 @@ import "./EtnaInbox_Layout.sol"; // DO NOT DELETE
 /// @dev Uses the existing ABCI storage interface without any Shasta proposal state or migration
 /// logic. Slots 251–257, 259–267 and 275–277 are reserved to keep the node-facing slots unchanged.
 /// The forced inclusion store reuses Shasta's queue, fee rule, events and errors; its queue lives
-/// at slots 280–281.
+/// at slots 280–281 and its genesis delay and maximum anchor age at slot 282.
 /// @custom:security-contact security@taiko.xyz
 contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
     using LibAddress for address;
@@ -52,6 +52,12 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
         bytes32 blobHashesHash;
     }
 
+    /// @dev The genesis forced inclusion parameters, packed into one storage word.
+    struct ForcedInclusionConfig {
+        uint64 delay;
+        uint64 maxAnchorAge;
+    }
+
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -61,6 +67,9 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev The smallest epoch length in L2 blocks.
     uint64 private constant _MIN_EPOCH_LEN_L2 = 3;
+
+    /// @dev The age at which a forced inclusion entry expires; the delay must stay below it.
+    uint64 private constant _FORCED_INCLUSION_EXPIRY = 14 days;
 
     /// @dev The domain tag of the landing statement.
     bytes32 private constant _LAND_STATEMENT_TAG = bytes32("TAIKO_ETNA_LAND_V5");
@@ -137,7 +146,11 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
     /// packs `head` (bits 0–47) and `tail` (bits 48–95).
     LibForcedInclusion.Storage private _forcedInclusionStorage;
 
-    uint256[19] private __gap;
+    /// @dev Slot 282: the forced inclusion delay (bits 0–63) and the maximum anchor age
+    /// (bits 64–127), in seconds.
+    ForcedInclusionConfig private _forcedInclusionConfig;
+
+    uint256[18] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -179,6 +192,12 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
         require(_isValidGenesisCutoff(_params.genesisCutoff), InvalidGenesisCutoff());
         require(_params.committeeRecordHash != 0, ZeroCommitteeRecord());
         require(_params.committeeConfigHash != 0, ZeroCommitteeConfigHash());
+        require(
+            _params.forcedInclusionDelay != 0
+                && _params.forcedInclusionDelay < _FORCED_INCLUSION_EXPIRY,
+            InvalidForcedInclusionDelay()
+        );
+        require(_params.maxAnchorAge != 0, InvalidMaxAnchorAge());
 
         __Essential_init(_owner);
         uint64 l1Block = uint64(block.number);
@@ -194,6 +213,9 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
         _genesisCutoff = _params.genesisCutoff;
         _genesisCommitteeRecordHash = _params.committeeRecordHash;
         _committeeConfigHash = _params.committeeConfigHash;
+        _forcedInclusionConfig = ForcedInclusionConfig({
+            delay: _params.forcedInclusionDelay, maxAnchorAge: _params.maxAnchorAge
+        });
         _lastCheckpoint = LandedCheckpoint({ height: 0, blockHash: _params.genesisBlockHash });
         _signalService.saveCheckpoint(
             ICheckpointStore.Checkpoint({
@@ -311,6 +333,16 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
     /// @inheritdoc IEtnaInbox
     function genesisCutoff() external view returns (uint64) {
         return _genesisCutoff;
+    }
+
+    /// @inheritdoc IEtnaInbox
+    function forcedInclusionDelay() external view returns (uint64) {
+        return _forcedInclusionConfig.delay;
+    }
+
+    /// @inheritdoc IEtnaInbox
+    function maxAnchorAge() external view returns (uint64) {
+        return _forcedInclusionConfig.maxAnchorAge;
     }
 
     /// @inheritdoc IEtnaInbox
@@ -459,7 +491,9 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
     error InvalidGenesis();
     error HeightOverflow();
     error InvalidEpochLength();
+    error InvalidForcedInclusionDelay();
     error InvalidGenesisCutoff();
+    error InvalidMaxAnchorAge();
     error NoProgress();
     error ZeroCommitteeRecord();
     error ZeroCommitteeConfigHash();

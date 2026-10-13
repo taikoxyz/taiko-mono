@@ -37,6 +37,9 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         _deployInbox_RevertWhen_CommitteeConfigHashIsZero();
         _deployInbox_RevertWhen_ForcedInclusionFeeIsZero();
         _deployInbox_RevertWhen_ForcedInclusionFeeDoubleThresholdIsZero();
+        _deployInbox_RevertWhen_ForcedInclusionDelayIsZero();
+        _deployInbox_RevertWhen_ForcedInclusionDelayIsAtExpiry();
+        _deployInbox_RevertWhen_MaxAnchorAgeIsZero();
     }
 
     modifier withEnvironment() {
@@ -70,6 +73,8 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         vm.setEnv("GENESIS_CUTOFF", vm.toString(registryCheckpointBlock));
         vm.setEnv("COMMITTEE_RECORD_HASH", vm.toString(COMMITTEE_RECORD_0));
         vm.setEnv("COMMITTEE_CONFIG_HASH", vm.toString(COMMITTEE_CONFIG_HASH));
+        vm.setEnv("FORCED_INCLUSION_DELAY", vm.toString(FORCED_INCLUSION_DELAY));
+        vm.setEnv("MAX_ANCHOR_AGE", vm.toString(MAX_ANCHOR_AGE));
     }
 
     function _run_DeploysAnInitializedRegistryWithTheConfiguredOwner() private withEnvironment {
@@ -120,6 +125,8 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
             FORCED_INCLUSION_FEE_GWEI,
             "forced inclusion fee"
         );
+        assertEq(deployed.forcedInclusionDelay(), FORCED_INCLUSION_DELAY, "forced inclusion delay");
+        assertEq(deployed.maxAnchorAge(), MAX_ANCHOR_AGE, "maximum anchor age");
         ICheckpointStore.Checkpoint memory checkpoint = deployedSignals.getCheckpoint(0);
         assertEq(checkpoint.blockHash, genesisBlockHash, "checkpoint zero hash");
         assertEq(checkpoint.stateRoot, genesisStateRoot, "checkpoint zero root");
@@ -193,6 +200,21 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     {
         vm.setEnv("FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD", "0");
         _expectRejectedDeployment(EtnaInbox.ForcedInclusionFeeDoubleThresholdZero.selector);
+    }
+
+    function _deployInbox_RevertWhen_ForcedInclusionDelayIsZero() private withEnvironment {
+        vm.setEnv("FORCED_INCLUSION_DELAY", "0");
+        _expectRejectedDeployment(EtnaInbox.InvalidForcedInclusionDelay.selector);
+    }
+
+    function _deployInbox_RevertWhen_ForcedInclusionDelayIsAtExpiry() private withEnvironment {
+        vm.setEnv("FORCED_INCLUSION_DELAY", vm.toString(FORCED_INCLUSION_EXPIRY));
+        _expectRejectedDeployment(EtnaInbox.InvalidForcedInclusionDelay.selector);
+    }
+
+    function _deployInbox_RevertWhen_MaxAnchorAgeIsZero() private withEnvironment {
+        vm.setEnv("MAX_ANCHOR_AGE", "0");
+        _expectRejectedDeployment(EtnaInbox.InvalidMaxAnchorAge.selector);
     }
 
     function _expectRejectedDeployment(bytes4 _error) private {
