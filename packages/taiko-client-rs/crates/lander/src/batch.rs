@@ -7,6 +7,7 @@ use abci::{
     committee::{record_hash, verify_committee_witness_at_cutoff},
     rules,
 };
+use alloy_primitives::aliases::U48;
 use async_trait::async_trait;
 
 use crate::{
@@ -94,16 +95,22 @@ struct ForwardState {
     anchor: AnchorState,
     /// Previous certified block used to check last_commit and BFT parent links.
     previous: Option<CertifiedBlock>,
+    /// Forced inclusion cursor after `parent`: the queue entries the chain has consumed.
+    forced_cursor: u64,
 }
 
 impl ForwardState {
     /// Initialize from a contract-bound checkpoint after its history and certificate verify.
-    fn new(start: &BatchStart) -> Result<Self> {
+    ///
+    /// The cursor starts at the snapshot's Inbox head: every landing leaves the head at the
+    /// cursor of the checkpoint it lands.
+    fn new(start: &BatchStart, snapshot: &LandingSnapshot) -> Result<Self> {
         Ok(Self {
             parent: parent_info(&start.parent)?,
             header: start.parent.header.clone(),
             anchor: start.anchor.clone(),
             previous: start.previous.clone(),
+            forced_cursor: snapshot.forced_inclusion_head,
         })
     }
 }
@@ -523,9 +530,24 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 schedule,
                 params: &self.params,
                 max_anchor_age: snapshot.genesis.max_anchor_age,
+                forced_cursor: state.forced_cursor,
+                forced_inclusion_delay: snapshot.genesis.forced_inclusion_delay,
             },
         )
         .map_err(|e| LanderError::Safety(e.to_string()))?;
+        // Forced inclusion blocks consume consecutive entries from the snapshot's Inbox head.
+        let forced_cursor = match facts.forced {
+            None => state.forced_cursor,
+            Some(index) if index == state.forced_cursor => index
+                .checked_add(1)
+                .ok_or_else(|| LanderError::Safety("forced inclusion cursor overflow".into()))?,
+            Some(index) => {
+                return Err(LanderError::Safety(format!(
+                    "block {height} consumes forced inclusion entry {index}, expected {}",
+                    state.forced_cursor
+                )))
+            }
+        };
         if let Some(derived) = facts.derived {
             let epoch = derived.record.target_epoch;
             let hash = record_hash(snapshot.l2_chain_id, &derived.record);
@@ -562,10 +584,12 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         state.parent = facts.parent;
         state.anchor = facts.anchor;
         state.previous = Some(pair.clone());
+        state.forced_cursor = forced_cursor;
         Ok(())
     }
 
-    /// Retain only the selected proof prefix's per-block anchors after shared verification.
+    /// Retain only the selected proof prefix's per-block anchors after shared verification, and
+    /// the forced inclusion cursor after its last block.
     fn authenticate_blocks(
         &self,
         snapshot: &LandingSnapshot,
@@ -573,14 +597,14 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         start: &BatchStart,
         committees: &mut BTreeMap<u64, AuthenticatedCommittee>,
         blocks: &[CertifiedBlock],
-    ) -> Result<Vec<AnchorState>> {
-        let mut state = ForwardState::new(start)?;
+    ) -> Result<(Vec<AnchorState>, u64)> {
+        let mut state = ForwardState::new(start, snapshot)?;
         let mut anchors = Vec::new();
         for pair in blocks {
             self.authenticate_block(snapshot, schedule, &mut state, committees, pair)?;
             anchors.push(state.anchor.clone());
         }
-        Ok(anchors)
+        Ok((anchors, state.forced_cursor))
     }
 }
 
@@ -609,7 +633,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
         let prefix = self.publishable_prefix(snapshot, status.height).await?;
         let mut committees = BTreeMap::new();
         let start = self.checkpoint(snapshot, &schedule, &mut committees).await?;
-        let mut state = ForwardState::new(&start)?;
+        let mut state = ForwardState::new(&start, snapshot)?;
         for pair in &prefix.blocks {
             self.authenticate_block(snapshot, &schedule, &mut state, &mut committees, pair)?;
         }
@@ -646,7 +670,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
         let mut committees = BTreeMap::new();
         let start = self.checkpoint(&snapshot, &schedule, &mut committees).await?;
         let prefix = self.publishable_prefix(&snapshot, status.height).await?;
-        let anchors = self.authenticate_blocks(
+        let (anchors, forced_cursor) = self.authenticate_blocks(
             &snapshot,
             &schedule,
             &start,
@@ -677,7 +701,11 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             lastBlockHash: last.hash_slow(),
             lastStateRoot: last.state_root,
             l1ReferenceBlockNumber: reference.number(),
-            forcedInclusionHead: snapshot.forced_inclusion_head_u48()?,
+            forcedInclusionHead: U48::try_from(forced_cursor).map_err(|_| {
+                LanderError::Safety(format!(
+                    "forced inclusion cursor {forced_cursor} exceeds uint48"
+                ))
+            })?,
         };
         let blobs = blob::build(&payload, &self.limits, self.mode)?;
         let hash = statement::hash(&snapshot, &input, reference.hash(), &blobs.versioned_hashes);
@@ -1315,6 +1343,200 @@ mod tests {
                 builder(fixture.clone(), limits(3)).prepare(snapshot).await.is_err(),
                 "Inbox binding mutation {mutation}"
             );
+        }
+    }
+
+    /// Forced inclusion: the batch's blocks consume queue entries from the snapshot's Inbox head
+    /// on, and the landing moves the head past the last one.
+    mod forced {
+        use super::*;
+        use crate::test_utils::consensus_mpt::ForcedPlan;
+        use abci::forced::ForcedError;
+
+        /// The envelope of the batch's block at `position`.
+        fn envelope(request: &ProofRequest, position: usize) -> abci::EtnaEnvelope {
+            abci::EtnaEnvelope::decode(&request.batch.blocks[position].block.data[0]).unwrap()
+        }
+
+        /// The batch prepared over `fixture`'s snapshot with at most `blocks` blocks.
+        async fn prepare(fixture: &Arc<Fixture>, blocks: usize) -> ProofRequest {
+            builder(fixture.clone(), limits(blocks))
+                .prepare(fixture.snapshot.clone())
+                .await
+                .unwrap()
+                .unwrap()
+        }
+
+        /// The forced inclusion heads before and after `request`'s batch, read from its statement
+        /// preimage (its last two words), which must hash to the statement and carry the input's.
+        fn heads(request: &ProofRequest) -> (u64, u64) {
+            let batch = &request.batch;
+            let reference = alloy_primitives::keccak256(&batch.reference_headers[0]);
+            let preimage = statement::preimage(
+                &batch.snapshot,
+                &batch.input,
+                reference,
+                &batch.blobs.versioned_hashes,
+            );
+            assert_eq!(batch.statement_hash, alloy_primitives::keccak256(preimage));
+            let word = |index: usize| {
+                alloy_primitives::U256::from_be_slice(&preimage[index * 32..(index + 1) * 32])
+                    .to::<u64>()
+            };
+            assert_eq!(U48::from(word(16)), batch.input.forcedInclusionHead);
+            (word(15), word(16))
+        }
+
+        /// The batch errors with a safety error naming `violation`, in preparation and observation.
+        async fn assert_safety(fixture: Fixture, violation: &str) {
+            let fixture = Arc::new(fixture);
+            for observation in [false, true] {
+                let b = builder(fixture.clone(), limits(6));
+                let error = if observation {
+                    b.observe(&fixture.snapshot).await.unwrap_err()
+                } else {
+                    b.prepare(fixture.snapshot.clone()).await.unwrap_err()
+                };
+                assert!(matches!(error, LanderError::Safety(_)), "{error}");
+                assert!(error.to_string().contains(violation), "{error}");
+            }
+        }
+
+        #[tokio::test]
+        async fn batch_with_a_forced_block_sets_the_head_after_it() {
+            // Entry 0 sits in the genesis anchor's queue: block 1 peeks at it, block 2 consumes it.
+            let plan =
+                ForcedPlan { entries: vec![(10, 5)], consume_at: vec![2], ..Default::default() };
+            let fixture = Arc::new(Fixture::with_forced(0, 3, plan));
+            let snapshot = &fixture.snapshot;
+            assert_eq!((snapshot.forced_inclusion_head, snapshot.forced_inclusion_tail), (0, 1));
+            for (blocks, head) in [(1, 0), (2, 1), (3, 1)] {
+                let request = prepare(&fixture, blocks).await;
+                assert_eq!(request.batch.blocks.len(), blocks);
+                assert_eq!(heads(&request), (0, head), "{blocks} blocks");
+            }
+            let request = prepare(&fixture, 3).await;
+            let peek = envelope(&request, 0).forced.unwrap();
+            let consumed = envelope(&request, 1).forced.unwrap();
+            assert_eq!((peek.index, peek.blob.is_empty()), (0, true));
+            assert_eq!((consumed.index, consumed.blob.is_empty()), (0, false));
+            assert_eq!(envelope(&request, 2).forced, None);
+
+            // A stored head past the entry block 2 consumes contradicts the decided chain.
+            let snapshot = fixture.snapshot_with_forced_queue(snapshot.genesis.clone(), 1, 1);
+            let error = builder(fixture.clone(), limits(3)).prepare(snapshot).await.unwrap_err();
+            assert!(matches!(error, LanderError::Safety(_)), "{error}");
+            assert!(error.to_string().contains(&ForcedError::UnexpectedWitness.to_string()));
+        }
+
+        /// Review Focus 4: the cut starts while an entry is pending, so its first block peeks.
+        #[tokio::test]
+        async fn batch_starting_mid_pending_queue() {
+            // Entry 0 (L1 10) is consumed at height 5, below the checkpoint 20; entry 1 (L1 11) is
+            // still pending there, so blocks 21 to 23 peek at it and block 24 consumes it.
+            let plan = ForcedPlan {
+                entries: vec![(10, 1), (11, 2)],
+                consume_at: vec![5, 24],
+                ..Default::default()
+            };
+            let fixture = Arc::new(Fixture::with_forced(20, 26, plan));
+            let snapshot = &fixture.snapshot;
+            assert_eq!((snapshot.forced_inclusion_head, snapshot.forced_inclusion_tail), (1, 2));
+            let request = prepare(&fixture, 6).await;
+            assert_eq!(request.batch.input.lastHeight, 26);
+            let first = envelope(&request, 0).forced.unwrap();
+            assert_eq!((first.index, first.blob.is_empty()), (1, true));
+            let consumed = envelope(&request, 3).forced.unwrap();
+            assert_eq!((consumed.index, consumed.blob.is_empty()), (1, false));
+            assert_eq!(heads(&request), (1, 2));
+            // A cut that ends before block 24 keeps the stored head.
+            let request = prepare(&fixture, 3).await;
+            assert_eq!(request.batch.input.lastHeight, 23);
+            assert_eq!(heads(&request), (1, 1));
+        }
+
+        /// Review Focus 4: the cut's first block consumes the entry at the stored head.
+        #[tokio::test]
+        async fn batch_starting_with_forced_block() {
+            // Entries 0 and 1 (L1 11) are pending at the checkpoint 20: block 21, the cut's first,
+            // consumes entry 0, block 22 peeks at entry 1 and block 23 consumes it.
+            let plan = ForcedPlan {
+                entries: vec![(11, 1), (11, 2)],
+                consume_at: vec![21, 23],
+                ..Default::default()
+            };
+            let fixture = Arc::new(Fixture::with_forced(20, 26, plan));
+            let snapshot = &fixture.snapshot;
+            assert_eq!((snapshot.forced_inclusion_head, snapshot.forced_inclusion_tail), (0, 2));
+            for (blocks, head) in [(1, 1), (2, 1), (3, 2), (6, 2)] {
+                let request = prepare(&fixture, blocks).await;
+                assert_eq!(heads(&request), (0, head), "{blocks} blocks");
+            }
+            let request = prepare(&fixture, 6).await;
+            let first = envelope(&request, 0).forced.unwrap();
+            assert_eq!((first.index, first.blob.is_empty()), (0, false));
+            let peek = envelope(&request, 1).forced.unwrap();
+            assert_eq!((peek.index, peek.blob.is_empty()), (1, true));
+
+            // A stored head of 1 says entry 0 is settled, so block 21 consuming it is out of order.
+            let snapshot = fixture.snapshot_with_forced_queue(snapshot.genesis.clone(), 1, 2);
+            let error = builder(fixture.clone(), limits(6)).prepare(snapshot).await.unwrap_err();
+            assert!(matches!(error, LanderError::Safety(_)), "{error}");
+            let violation = ForcedError::WrongIndex { expected: 1, got: 0 };
+            assert!(error.to_string().contains(&violation.to_string()), "{error}");
+        }
+
+        /// Review Focus 1: a forced inclusion block at the switch height `H(1) - 2` carries the
+        /// committee and the forced witness, and both must verify.
+        #[tokio::test]
+        async fn switch_height_forced_block_lands() {
+            // Entry 0 first appears in L1 12, the anchor the switch-height block 22 moves to.
+            let plan =
+                ForcedPlan { entries: vec![(12, 3)], consume_at: vec![22], ..Default::default() };
+            let forced = || Fixture::with_forced(20, 26, plan.clone());
+            let fixture = Arc::new(forced());
+            let request = prepare(&fixture, 6).await;
+            let switch = envelope(&request, 1);
+            assert_eq!(switch.block.header.number, 22);
+            assert!(switch.anchor.is_some() && switch.committee.is_some());
+            let witness = switch.forced.unwrap();
+            assert_eq!((witness.index, witness.blob.is_empty()), (0, false));
+            assert_eq!(envelope(&request, 0).forced, None);
+            assert_eq!(heads(&request), (0, 1));
+            assert_eq!(
+                request.batch.committees.iter().map(|c| c.record.target_epoch).collect::<Vec<_>>(),
+                vec![0, 1]
+            );
+
+            let mut fixture = forced();
+            alter_envelope(&mut fixture, 22, |envelope| envelope.committee = None);
+            assert_safety(fixture, "committee witness presence").await;
+            let mut fixture = forced();
+            alter_envelope(&mut fixture, 22, |envelope| {
+                let witness = envelope.forced.as_mut().unwrap();
+                let mut blob = witness.blob.to_vec();
+                blob[1_000] ^= 1;
+                witness.blob = blob.into();
+            });
+            assert_safety(fixture, "blob versioned hash").await;
+        }
+
+        #[tokio::test]
+        async fn batch_skipping_a_due_entry_is_a_safety_error() {
+            // Delay 5 s: entry 0, submitted at 5 s, is due at the genesis anchor (L1 10, at 10 s).
+            let due =
+                |consume_at: Vec<u64>| ForcedPlan { delay: 5, entries: vec![(10, 5)], consume_at };
+            let fixture = Arc::new(Fixture::with_forced(0, 3, due(vec![1])));
+            assert_eq!(heads(&prepare(&fixture, 3).await), (0, 1));
+
+            // Block 1 peeks at the due entry; block 2 consumes it too late.
+            let violation = ForcedError::Due { index: 0 }.to_string();
+            assert_safety(Fixture::with_forced(0, 3, due(vec![2])), &violation).await;
+            // Block 1 carries no forced witness at all.
+            let mut fixture = Fixture::with_forced(0, 3, due(vec![1]));
+            alter_envelope(&mut fixture, 1, |envelope| envelope.forced = None);
+            let violation = ForcedError::MissingWitness { index: 0 }.to_string();
+            assert_safety(fixture, &violation).await;
         }
     }
 

@@ -13,16 +13,20 @@ use crate::{
 };
 use abci::{
     AccountWitness, AnchorState, AnchorWitness, ChainParams, CommitteeState, CommitteeWitness,
-    EtnaEnvelope, ExecutionBlock, GenesisRecord, InboxFacts, ParentInfo, RawL1Header,
-    RegistryEntry, Schedule, StorageProof,
+    EtnaEnvelope, ExecutionBlock, ForcedWitness, GenesisRecord, InboxFacts, ParentInfo,
+    RawL1Header, RegistryEntry, Schedule, StorageProof,
     committee::{
         Snapshot, committee_config_hash, derive, entries_root, record_hash, snapshot_slots,
     },
+    forced::ForcedEntry,
     l1::layout::{inbox, registry},
     rules::{self, HeaderInputs},
 };
 use alloy_consensus::{EMPTY_OMMER_ROOT_HASH, EMPTY_ROOT_HASH, Header};
-use alloy_eips::eip7685::EMPTY_REQUESTS_HASH;
+use alloy_eips::{
+    eip4844::{builder::SidecarBuilder, c_kzg},
+    eip7685::EMPTY_REQUESTS_HASH,
+};
 use alloy_primitives::{Address, B256, Bytes, U256, keccak256};
 use alloy_trie::{
     HashBuilder, Nibbles, TrieAccount,
@@ -165,17 +169,20 @@ fn l1_header(number: u64, state: &State, parent: B256) -> RawL1Header {
     )
     .unwrap()
 }
-fn state(
-    params: &ChainParams,
-    entries: &[RegistryEntry],
-    height: u64,
-    hash: B256,
-    committees: &BTreeMap<u64, AuthenticatedCommittee>,
-    genesis: &GenesisRecord,
-) -> State {
-    state_with_queue(params, entries, height, hash, committees, genesis, (0, 0))
+/// The Inbox forced inclusion queue of one fixture L1 state.
+#[derive(Clone, Debug)]
+struct Queue {
+    /// `head` at slot 281: the entries settled by the state's landed checkpoint.
+    head: u64,
+    /// `tail` at slot 281: the next free index.
+    tail: u64,
+    /// Entries planted in the `queue` mapping (slot 280), each at its own index.
+    entries: Vec<ForcedEntry>,
 }
-/// As [`state`], with the forced inclusion queue's `(head, tail)` planted at slot 281.
+
+/// The fixture's L1 state: the Inbox with last checkpoint `(height, hash)`, the genesis record
+/// `genesis` and the forced inclusion queue `queue` (slots 280–281), and the registry holding
+/// `entries`.
 fn state_with_queue(
     params: &ChainParams,
     entries: &[RegistryEntry],
@@ -183,7 +190,7 @@ fn state_with_queue(
     hash: B256,
     committees: &BTreeMap<u64, AuthenticatedCommittee>,
     genesis: &GenesisRecord,
-    (head, tail): (u64, u64),
+    queue: &Queue,
 ) -> State {
     let mut slots = vec![
         (inbox::slot(inbox::STATUS), U256::from(3)),
@@ -209,8 +216,20 @@ fn state_with_queue(
             inbox::slot(inbox::FORCED_INCLUSION_CONFIG),
             U256::from(genesis.forced_inclusion_delay) | U256::from(genesis.max_anchor_age) << 64,
         ),
-        (inbox::slot(inbox::FORCED_INCLUSION_HEAD_TAIL), U256::from(head) | U256::from(tail) << 48),
+        (
+            inbox::slot(inbox::FORCED_INCLUSION_HEAD_TAIL),
+            U256::from(queue.head) | U256::from(queue.tail) << 48,
+        ),
     ]);
+    for entry in &queue.entries {
+        let [fee, length, slice, hash] = inbox::forced_inclusion_entry_slots(entry.index);
+        slots.extend([
+            (fee, U256::from(entry.fee_in_gwei)),
+            (length, U256::from(1)),
+            (slice, U256::from(entry.offset) | U256::from(entry.timestamp) << 24),
+            (hash, entry.blob_hash.into()),
+        ]);
+    }
     let checkpoint = registry::checkpoint_slots(0);
     State::new(vec![
         (params.inbox, slots),
@@ -224,7 +243,88 @@ fn state_with_queue(
         ),
     ])
 }
-fn anchor(raw: &RawL1Header, height: u64, hash: B256) -> AnchorState {
+
+/// Forced inclusion entries planted into a fixture's L1 states, and the L2 heights whose blocks
+/// consume them.
+#[derive(Clone, Debug)]
+pub struct ForcedPlan {
+    /// The genesis forced inclusion delay `D`, in seconds.
+    pub delay: u64,
+    /// The queue in index (and so L1) order: `(l1, timestamp)` puts an entry submitted at
+    /// `timestamp` into the state of L1 block `l1` and every later one. Its blob is
+    /// [`forced_blob`]`(index)`.
+    pub entries: Vec<(u64, u64)>,
+    /// Heights of the forced inclusion blocks, each consuming its parent's cursor entry. Every
+    /// other block whose anchor holds an entry at the cursor peeks at it (an empty blob).
+    pub consume_at: Vec<u64>,
+}
+
+impl Default for ForcedPlan {
+    /// No forced inclusion entries, under the fixtures' 1 h delay.
+    fn default() -> Self {
+        Self { delay: 3_600, entries: Vec::new(), consume_at: Vec::new() }
+    }
+}
+
+impl ForcedPlan {
+    /// The planted queue entries with their first L1 block and their blobs.
+    fn planted(&self) -> Vec<(u64, ForcedEntry, Bytes)> {
+        assert!(self.entries.is_sorted_by_key(|(l1, _)| *l1), "entries are stored in L1 order");
+        self.entries
+            .iter()
+            .zip(0..)
+            .map(|(&(l1, timestamp), index)| {
+                let (blob, blob_hash) = forced_blob(index);
+                let entry = ForcedEntry {
+                    index,
+                    fee_in_gwei: 1_000 + index,
+                    blob_hash,
+                    offset: 0,
+                    timestamp,
+                };
+                (l1, entry, blob)
+            })
+            .collect()
+    }
+
+    /// The queue in the state of L1 block `l1` whose landed checkpoint is `checkpoint`: the
+    /// entries of `planted` (this plan's [`ForcedPlan::planted`]) planted by then, and the head
+    /// the checkpoint's consumed entries moved.
+    fn queue(&self, planted: &[(u64, ForcedEntry, Bytes)], l1: u64, checkpoint: u64) -> Queue {
+        let entries = planted
+            .iter()
+            .filter(|(at, ..)| *at <= l1)
+            .map(|(_, entry, _)| *entry)
+            .collect::<Vec<_>>();
+        let head = self.consume_at.iter().filter(|height| **height <= checkpoint).count() as u64;
+        assert!(head <= entries.len() as u64, "plan consumes an entry before L1 {l1} holds it");
+        Queue { head, tail: entries.len() as u64, entries }
+    }
+}
+
+/// The blob of planted forced inclusion entry `index` and its KZG versioned hash: a Shasta source
+/// of one empty block whose timestamp is `index`, so every entry's blob differs.
+fn forced_blob(index: u64) -> (Bytes, B256) {
+    use protocol::shasta::{
+        BlobCoder,
+        manifest::{BlockManifest, DerivationSourceManifest},
+    };
+    let payload = DerivationSourceManifest {
+        blocks: vec![BlockManifest { timestamp: index, ..Default::default() }],
+    }
+    .encode_and_compress()
+    .unwrap();
+    let sidecar = SidecarBuilder::<BlobCoder>::from_slice(&payload)
+        .build_4844_with_settings(c_kzg::ethereum_kzg_settings(0))
+        .unwrap();
+    assert_eq!(sidecar.blobs.len(), 1);
+    (
+        Bytes::copy_from_slice(sidecar.blobs[0].as_slice()),
+        sidecar.versioned_hash_for_blob(0).unwrap(),
+    )
+}
+
+fn anchor(raw: &RawL1Header, height: u64, hash: B256, queue: &Queue) -> AnchorState {
     AnchorState {
         number: raw.number(),
         hash: raw.hash(),
@@ -235,8 +335,8 @@ fn anchor(raw: &RawL1Header, height: u64, hash: B256) -> AnchorState {
             recovery_generation: 0,
             last_checkpoint_height: height,
             last_checkpoint_hash: hash,
-            forced_inclusion_head: 0,
-            forced_inclusion_tail: 0,
+            forced_inclusion_head: queue.head,
+            forced_inclusion_tail: queue.tail,
         },
     }
 }
@@ -258,7 +358,7 @@ impl Fixture {
             self.snapshot.checkpoint_hash,
             &self.committees,
             &genesis,
-            (head, tail),
+            &Queue { head, tail, entries: Vec::new() },
         );
         let number = self.snapshot.l1_block_number;
         let header = l1_header(number, &state, self.l1_headers[&(number - 1)].hash());
@@ -298,22 +398,30 @@ impl Fixture {
     /// As [`Fixture::with_calldata`], with all-zero calldata that payload V3 compresses to almost
     /// nothing.
     fn with_zero_calldata(checkpoint: u64, tip: u64, bytes: usize) -> Self {
-        Self::build(checkpoint, tip, bytes, true, 23, 7_200)
+        Self::build(checkpoint, tip, bytes, true, 23, 7_200, &ForcedPlan::default())
     }
 
     pub fn with_epoch(checkpoint: u64, tip: u64, bytes: usize, epoch_len: u64) -> Self {
-        Self::build(checkpoint, tip, bytes, false, epoch_len, 7_200)
+        Self::build(checkpoint, tip, bytes, false, epoch_len, 7_200, &ForcedPlan::default())
+    }
+
+    /// As [`Fixture::new`], with the forced inclusion entries and blocks of `plan`. Anchor `n` is
+    /// at `n` s: L1 10 anchors every block of a genesis checkpoint; otherwise block 1 uses 10,
+    /// blocks 2 to 21 use 11 and blocks 22 (the switch height of epoch 1) onwards use 12.
+    pub fn with_forced(checkpoint: u64, tip: u64, plan: ForcedPlan) -> Self {
+        Self::build(checkpoint, tip, 0, false, 23, 7_200, &plan)
     }
 
     /// As [`Fixture::new`], with the genesis `maxAnchorAge` set to `max_anchor_age` seconds.
     /// Block `h` is at `100 + h` s and anchor `n` at `n` s, so the blocks of a genesis
     /// checkpoint (all anchored at 10) are `90 + h` s younger than their anchor.
     pub fn with_max_anchor_age(checkpoint: u64, tip: u64, max_anchor_age: u64) -> Self {
-        Self::build(checkpoint, tip, 0, false, 23, max_anchor_age)
+        Self::build(checkpoint, tip, 0, false, 23, max_anchor_age, &ForcedPlan::default())
     }
 
-    /// Builds the decided chain up to `tip` over the genesis `maxAnchorAge` `max_anchor_age`; each
-    /// block carries one transaction with `bytes` of calldata (zeros if `zeros`) unless zero.
+    /// Builds the decided chain up to `tip` over the genesis `maxAnchorAge` `max_anchor_age` and
+    /// the forced inclusion entries and blocks of `plan`; each block carries one transaction
+    /// with `bytes` of calldata (zeros if `zeros`) unless zero.
     fn build(
         checkpoint: u64,
         tip: u64,
@@ -321,6 +429,7 @@ impl Fixture {
         zeros: bool,
         epoch_len: u64,
         max_anchor_age: u64,
+        plan: &ForcedPlan,
     ) -> Self {
         assert!(checkpoint == 0 || checkpoint >= epoch_len - 3);
         let mut params = parameters();
@@ -342,7 +451,7 @@ impl Fixture {
             genesis_cutoff: 1,
             genesis_hash: genesis_header.hash_slow(),
             genesis_state_root: genesis_header.state_root,
-            forced_inclusion_delay: 3_600,
+            forced_inclusion_delay: plan.delay,
             max_anchor_age,
         };
         let schedule = Schedule::from_genesis(&genesis);
@@ -376,10 +485,19 @@ impl Fixture {
                 authenticate(CommitteeState { record, members }, epoch, hash, &params).unwrap(),
             );
         }
-        let genesis_state =
-            state(&params, &entries, 0, genesis.genesis_hash, &committees, &genesis);
+        let planted = plan.planted();
+        let genesis_state = state_with_queue(
+            &params,
+            &entries,
+            0,
+            genesis.genesis_hash,
+            &committees,
+            &genesis,
+            &plan.queue(&planted, 10, 0),
+        );
         let raw10 = l1_header(10, &genesis_state, B256::repeat_byte(9));
-        let anchor10 = anchor(&raw10, 0, genesis.genesis_hash);
+        let anchor10 = anchor(&raw10, 0, genesis.genesis_hash, &plan.queue(&planted, 10, 0));
+        let mut cursor = 0;
         let mut states = BTreeMap::from([(10, genesis_state)]);
         let mut l1_headers = BTreeMap::from([(10, raw10)]);
         let mut anchors = BTreeMap::from([(0, anchor10.clone())]);
@@ -397,19 +515,28 @@ impl Fixture {
         };
         for height in 1..=tip {
             if checkpoint > 0 && height == 2 {
-                let s = state(&params, &entries, 1, parent.hash, &committees, &genesis);
+                let s = state_with_queue(
+                    &params,
+                    &entries,
+                    1,
+                    parent.hash,
+                    &committees,
+                    &genesis,
+                    &plan.queue(&planted, 11, 1),
+                );
                 let raw = l1_header(11, &s, l1_headers[&10].hash());
                 states.insert(11, s);
                 l1_headers.insert(11, raw);
             }
             if checkpoint > 0 && height == epoch_len - 1 {
-                let s = state(
+                let s = state_with_queue(
                     &params,
                     &entries,
                     epoch_len - 3,
                     headers[&(epoch_len - 3)].hash_slow(),
                     &committees,
                     &genesis,
+                    &plan.queue(&planted, 12, epoch_len - 3),
                 );
                 let raw = l1_header(12, &s, l1_headers[&11].hash());
                 states.insert(12, s);
@@ -433,7 +560,7 @@ impl Fixture {
             let forced = height == 1;
             let changing = anchors[&(height - 1)].number != number;
             let raw = &l1_headers[&number];
-            let a = anchor(raw, cp, cp_hash);
+            let a = anchor(raw, cp, cp_hash, &plan.queue(&planted, number, cp));
             let witness = (forced || changing).then(|| AnchorWitness {
                 l1_header: raw.clone(),
                 inbox: states[&number].witness(params.inbox, &inbox::anchor_slots()),
@@ -447,6 +574,25 @@ impl Fixture {
                     entries: entries.clone(),
                 }
             });
+            // The entry at the cursor, while the anchor's queue holds one: consumed with its blob
+            // at a planned height, otherwise peeked at.
+            let witness_forced = (cursor < a.inbox.forced_inclusion_tail).then(|| {
+                let consume = plan.consume_at.contains(&height);
+                let blob = if consume { planted[cursor as usize].2.clone() } else { Bytes::new() };
+                let w = ForcedWitness {
+                    index: cursor,
+                    entry: states[&number]
+                        .witness(params.inbox, &inbox::forced_inclusion_entry_slots(cursor)),
+                    blob,
+                };
+                cursor += u64::from(consume);
+                w
+            });
+            assert!(
+                witness_forced.as_ref().is_some_and(|w| !w.blob.is_empty()) ||
+                    !plan.consume_at.contains(&height),
+                "plan consumes at height {height} without a pending entry"
+            );
             let expected = rules::expected_header(&HeaderInputs {
                 height,
                 parent: &parent,
@@ -507,7 +653,7 @@ impl Fixture {
                     block: ExecutionBlock { header: el.clone(), transactions },
                     anchor: witness,
                     committee,
-                    forced: None,
+                    forced: witness_forced,
                 },
                 &committees[&schedule.epoch_of(height)],
                 &keys,
@@ -537,13 +683,15 @@ impl Fixture {
             let raw = l1_header(number, &root_state, l1_headers[&(number - 1)].hash());
             l1_headers.insert(number, raw);
         }
-        let snapshot_state = state(
+        let snapshot_queue = plan.queue(&planted, 15, checkpoint);
+        let snapshot_state = state_with_queue(
             &params,
             &entries,
             checkpoint,
             headers[&checkpoint].hash_slow(),
             &committees,
             &genesis,
+            &snapshot_queue,
         );
         let snapshot_header = l1_header(15, &snapshot_state, l1_headers[&14].hash());
         l1_headers.insert(15, snapshot_header.clone());
@@ -557,8 +705,8 @@ impl Fixture {
             generation: 0,
             checkpoint_height: checkpoint,
             checkpoint_hash: headers[&checkpoint].hash_slow(),
-            forced_inclusion_head: 0,
-            forced_inclusion_tail: 0,
+            forced_inclusion_head: snapshot_queue.head,
+            forced_inclusion_tail: snapshot_queue.tail,
             committee_config_hash: genesis.committee_config_hash,
             genesis_committee_record_hash: record_hash(
                 params.l2_chain_id,

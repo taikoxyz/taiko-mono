@@ -79,7 +79,7 @@ height 8 anchored 1020 may select a different committee; all nodes replaying one
 
 The config hash binds nine ABI words: `ETNA_PARENT_ANCHOR_V1`, L2 chain id, registry,
 `vp_unit`, `s_min`, `n_max`, `heartbeat_window`, heartbeat lookahead 2 and membership algorithm 1.
-The envelope is version 3 and the lander journal schema is 5. State files must contain
+The envelope is version 4 and the lander journal schema is 5. State files must contain
 `genesis.committee_config_hash`, and local parameters must open it correctly. Old version-2
 history, fixed-cutoff configuration/state openings, V4 journals/statements and schema-3 and
 schema-4 journals (V1 and V2 blob payloads) are rejected; never discard an outstanding signed
@@ -215,6 +215,16 @@ proxy, registry, both chain ids, generation, current checkpoint, authenticated c
 hash, terminal block/root, blob hashes, and the forced inclusion queue head before (stored) and
 after the batch. Each committee is independently derived from its
 committed derivation parent's L1 snapshot; no per-epoch committee output or starting-set hint is authoritative.
+
+Every block is held to the ABCI forced inclusion rule (`abci::forced::check`): its witness proves
+the queue entry at the cursor under the block's anchor, a due entry must be consumed, and a
+consuming block's blob must match the entry's versioned hash. The lander does not execute the
+entry's transactions; the guest does. The cursor starts at the snapshot's Inbox head (each
+landing leaves the head at its checkpoint's cursor), consumed entries must follow it one by one,
+and `forcedInclusionHead` in `LandInput` is the cursor after the batch's last block. `land` pays
+the consumed entries' fees to the sending address and emits `ForcedInclusionsConsumed`; there is
+nothing to configure. A forced inclusion block's envelope carries its 128 KiB blob, which can
+take up to one more landing blob.
 
 Proof requests retain the Inbox schedule/config/checkpoint proof under the batch parent's anchor,
 along with each committee's registry witness and proving header in the reference ancestry.
@@ -457,7 +467,8 @@ just clippy     # doc lints on library code, then every target with -D warnings
 - `just test` runs the serial Docker integration scenarios in `crates/abci/tests`,
   `crates/lander/tests` and `bin/client/tests`. ABCI scenarios cover single validator,
   anchor finality, restart and lost-state replay, epoch switch with and without landing, back-pressure, generation
-  bump and smoke. Lander scenarios cover actual Inbox blob transactions, permissionless races,
+  bump and smoke. Lander scenarios cover actual Inbox blob transactions, a forced inclusion
+  landing that pays its fee, permissionless races,
   verifier rejection, receipt reorgs, durable nonce recovery, stock CometBFT collection,
   and actual-CLI SIGTERM/SIGKILL restarts, minimum/timeout batching, and pressure/epoch flushes. Each scenario boots its own devnet through the docker CLI (anvil as L1,
   alethia-reth, CometBFT), so they run one at a time; the suite takes a few minutes. Extra

@@ -49,6 +49,9 @@ pub struct BlockFacts {
     pub derived: Option<CommitteeState>,
     /// Parent facts to consume when validating the next execution header.
     pub parent: ParentInfo,
+    /// For a forced inclusion block, the queue index it consumes (the parent's cursor); `None`
+    /// for an ordinary block. The guest, not the lander, executes the entry's transactions.
+    pub forced: Option<u64>,
 }
 
 /// Authenticates canonical precommits with distinct signers and strict `> 2/3` power.
@@ -296,9 +299,17 @@ pub struct EnvelopeContext<'a> {
     pub params: &'a ChainParams,
     /// Genesis `maxAnchorAge`, in seconds: how much older than a block its anchor may be.
     pub max_anchor_age: u64,
+    /// The forced inclusion cursor after the parent: the queue entries the chain has consumed.
+    pub forced_cursor: u64,
+    /// Genesis forced inclusion delay `D`, in seconds.
+    pub forced_inclusion_delay: u64,
 }
 
 /// Validates all existing ABCI pure rules using authenticated parent and chain context.
+///
+/// The forced inclusion rule ([`abci::forced::check`]) runs last, on the parent's cursor and the
+/// block's anchor: it verifies the entry proof and, for a forced inclusion block, the carried
+/// blob's versioned hash and manifest, but executes nothing.
 pub fn verify_envelope(
     envelope: EtnaEnvelope,
     context: EnvelopeContext<'_>,
@@ -311,6 +322,8 @@ pub fn verify_envelope(
         schedule,
         params,
         max_anchor_age,
+        forced_cursor,
+        forced_inclusion_delay,
     } = context;
     let height = envelope.block.header.number;
     let (_, extra_generation, extra_anchor) =
@@ -363,6 +376,15 @@ pub fn verify_envelope(
         .map_err(|e| ValidationError::Etna(e.to_string()))?;
     rules::check_header(&envelope.block.header, &expected)
         .map_err(|e| ValidationError::Etna(e.to_string()))?;
+    let forced = abci::forced::check(
+        forced_cursor,
+        &anchor,
+        forced_inclusion_delay,
+        params.inbox,
+        envelope.forced.as_ref(),
+    )
+    .map_err(|e| ValidationError::Etna(e.to_string()))?
+    .map(|consumption| consumption.index);
     let header = &envelope.block.header;
     let next_parent = ParentInfo {
         number: height,
@@ -376,7 +398,7 @@ pub fn verify_envelope(
         difficulty: header.difficulty,
         grandparent_timestamp: parent.timestamp,
     };
-    Ok(BlockFacts { envelope, anchor, derived, parent: next_parent })
+    Ok(BlockFacts { envelope, anchor, derived, parent: next_parent, forced })
 }
 
 #[cfg(test)]
@@ -506,6 +528,8 @@ mod tests {
             schedule: &schedule,
             params: &fixture.params,
             max_anchor_age,
+            forced_cursor: 0,
+            forced_inclusion_delay: fixture.snapshot.genesis.forced_inclusion_delay,
         };
 
         let facts = verify_envelope(envelope.clone(), context(91)).unwrap();
