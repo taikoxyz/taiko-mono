@@ -308,10 +308,17 @@ impl FixtureChain {
             rpc: RpcLandingSource::new(p.clone(), p.clone(), fixture.params.clone()),
         });
         use lander::batch::BatchSource;
-        lander::batch::BatchBuilder::new(chain, adapter, fixture.params.clone(), limits(), mode)?
-            .prepare(snapshot)
-            .await?
-            .ok_or_else(|| anyhow::anyhow!("empty fixture batch"))
+        lander::batch::BatchBuilder::new(
+            chain,
+            adapter,
+            fixture.params.clone(),
+            limits(),
+            mode,
+            test_harness::dev_signer().address(),
+        )?
+        .prepare(snapshot)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("empty fixture batch"))
     }
 }
 

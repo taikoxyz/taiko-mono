@@ -7,7 +7,7 @@ use abci::{
     committee::{record_hash, verify_committee_witness_at_cutoff},
     rules,
 };
-use alloy_primitives::aliases::U48;
+use alloy_primitives::{Address, aliases::U48};
 use async_trait::async_trait;
 
 use crate::{
@@ -142,19 +142,31 @@ pub struct BatchBuilder<C: ?Sized, L: ?Sized> {
     list_budget: usize,
     /// Bytes one prefix selection may deflate ([`MAX_SELECTION_DEFLATE_BYTES`]).
     deflate_budget: usize,
+    /// `LandInput.feeRecipient` of every batch: the address `land` pays the consumed forced
+    /// inclusions' fees to. Non-zero; the lander names its own sending address. The statement
+    /// binds it, so a copy of the landing transaction cannot redirect the fees.
+    fee_recipient: Address,
 }
 
 impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
-    /// Create a builder after validating operator and consensus limits.
+    /// Create a builder after validating operator and consensus limits. Every batch names
+    /// `fee_recipient` as its `LandInput.feeRecipient`; a zero address is a configuration error,
+    /// since the Inbox rejects it (`ZeroFeeRecipient`).
     pub fn new(
         comet: Arc<C>,
         l1: Arc<L>,
         params: ChainParams,
         limits: Limits,
         mode: SidecarMode,
+        fee_recipient: Address,
     ) -> Result<Self> {
         params.validate().map_err(|e| LanderError::Configuration(e.to_string()))?;
         limits.validate()?;
+        if fee_recipient.is_zero() {
+            return Err(LanderError::Configuration(
+                "the fee recipient must be non-zero: the Inbox rejects ZeroFeeRecipient".into(),
+            ));
+        }
         Ok(Self {
             comet,
             l1,
@@ -163,6 +175,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             mode,
             list_budget: MAX_BATCH_LIST_BYTES,
             deflate_budget: MAX_SELECTION_DEFLATE_BYTES,
+            fee_recipient,
         })
     }
 
@@ -706,6 +719,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
                     "forced inclusion cursor {forced_cursor} exceeds uint48"
                 ))
             })?,
+            feeRecipient: self.fee_recipient,
         };
         let blobs = blob::build(&payload, &self.limits, self.mode)?;
         let hash = statement::hash(&snapshot, &input, reference.hash(), &blobs.versioned_hashes);
@@ -817,7 +831,7 @@ pub fn verify_reference_chain(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::consensus_mpt::Fixture;
+    use crate::test_utils::consensus_mpt::{FEE_RECIPIENT, Fixture};
     use std::sync::atomic::Ordering;
 
     fn limits(blocks: usize) -> Limits {
@@ -836,8 +850,27 @@ mod tests {
             fixture.params.clone(),
             limits,
             SidecarMode::Eip4844,
+            FEE_RECIPIENT,
         )
         .unwrap()
+    }
+
+    /// The Inbox rejects a zero fee recipient (`ZeroFeeRecipient`) for every landing, so the
+    /// builder refuses one up front, as a configuration error.
+    #[test]
+    fn new_rejects_a_zero_fee_recipient() {
+        let fixture = Arc::new(Fixture::new(0, 3));
+        let error = BatchBuilder::new(
+            fixture.clone(),
+            fixture.clone(),
+            fixture.params.clone(),
+            limits(3),
+            SidecarMode::Eip4844,
+            alloy_primitives::Address::ZERO,
+        )
+        .err()
+        .expect("a zero fee recipient is refused");
+        assert!(matches!(&error, LanderError::Configuration(m) if m.contains("fee recipient")));
     }
 
     #[tokio::test]
@@ -1042,17 +1075,22 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn batch_input_and_statement_carry_the_stored_forced_inclusion_head() {
+    async fn batch_input_and_statement_carry_the_stored_head_and_the_fee_recipient() {
         let fixture = Arc::new(Fixture::new(0, 3));
         let snapshot = fixture.snapshot_with_forced_queue(fixture.snapshot.genesis.clone(), 3, 9);
         let request = builder(fixture, limits(3)).prepare(snapshot.clone()).await.unwrap().unwrap();
         let batch = &request.batch;
         assert_eq!(batch.input.forcedInclusionHead, alloy_primitives::aliases::U48::from(3));
+        assert_eq!(batch.input.feeRecipient, FEE_RECIPIENT, "the configured recipient");
         let reference = alloy_primitives::keccak256(&batch.reference_headers[0]);
         let preimage =
             statement::preimage(&snapshot, &batch.input, reference, &batch.blobs.versioned_hashes);
         let three = alloy_primitives::U256::from(3).to_be_bytes::<32>();
-        assert_eq!((&preimage[15 * 32..16 * 32], &preimage[16 * 32..]), (&three[..], &three[..]));
+        assert_eq!(
+            (&preimage[15 * 32..16 * 32], &preimage[16 * 32..17 * 32]),
+            (&three[..], &three[..])
+        );
+        assert_eq!(&preimage[17 * 32 + 12..], FEE_RECIPIENT.as_slice(), "the last word");
         assert_eq!(batch.statement_hash, alloy_primitives::keccak256(preimage));
     }
 
@@ -1368,7 +1406,8 @@ mod tests {
         }
 
         /// The forced inclusion heads before and after `request`'s batch, read from its statement
-        /// preimage (its last two words), which must hash to the statement and carry the input's.
+        /// preimage (words 16 and 17, before the fee recipient), which must hash to the statement
+        /// and carry the input's.
         fn heads(request: &ProofRequest) -> (u64, u64) {
             let batch = &request.batch;
             let reference = alloy_primitives::keccak256(&batch.reference_headers[0]);
@@ -1384,6 +1423,7 @@ mod tests {
                     .to::<u64>()
             };
             assert_eq!(U48::from(word(16)), batch.input.forcedInclusionHead);
+            assert_eq!(&preimage[17 * 32 + 12..], FEE_RECIPIENT.as_slice(), "the last word");
             (word(15), word(16))
         }
 

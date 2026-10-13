@@ -341,8 +341,20 @@ fn is_known_response(message: &str) -> bool {
 }
 
 /// Distinguish an executed land revert from transient RPC failure before any signature exists.
+///
+/// The Inbox's `ZeroFeeRecipient` revert is a [`LanderError::Configuration`] error: the lander
+/// built the input with a zero recipient, which no retry or refresh changes.
 fn estimate_error(error: alloy::transports::TransportError) -> LanderError {
     if let Some(payload) = error.as_error_resp() {
+        if payload.as_revert_data().is_some_and(|data| {
+            use alloy::sol_types::SolError;
+            data.starts_with(&crate::contracts::ZeroFeeRecipient::SELECTOR)
+        }) {
+            return LanderError::Configuration(format!(
+                "the Inbox rejected the landing's zero fee recipient (ZeroFeeRecipient): {}",
+                payload.message
+            ));
+        }
         let lower = payload.message.to_ascii_lowercase();
         if payload.code == 3 ||
             lower.starts_with("execution reverted") ||
@@ -573,6 +585,38 @@ mod tests {
                 assert!(matches!(result, Err(LanderError::Temporary(_))));
             }
         }
+    }
+
+    /// The Inbox's `ZeroFeeRecipient` revert names an input the lander built wrongly, so it is a
+    /// configuration error, never a retry; another revert stays [`LanderError::Reverted`].
+    #[tokio::test]
+    async fn gas_estimation_zero_fee_recipient_revert_is_a_configuration_error() {
+        use alloy::sol_types::SolError;
+        use serde_json::json;
+        let selector = crate::contracts::ZeroFeeRecipient::SELECTOR;
+        assert_eq!(selector, [0xcf, 0xf9, 0xf1, 0x94]);
+        let data = alloy_primitives::hex::encode_prefixed(selector);
+        let provider =
+            crate::l1::tests::rpc(move |request| match request["method"].as_str().unwrap() {
+                "eth_chainId" => json!("0x1"),
+                "eth_getTransactionCount" => json!("0x0"),
+                "eth_estimateGas" => json!({"__rpc_error": {
+                    "code": 3, "message": "execution reverted", "data": data
+                }}),
+                method => panic!("unexpected estimate method {method}"),
+            })
+            .await;
+        let transport = RpcTransactionTransport::new(
+            provider.provider.clone(),
+            crate::test_utils::runtime::signer(),
+            FeeCaps { max_fee_per_gas: 5, max_priority_fee_per_gas: 2, max_fee_per_blob_gas: 10 },
+        )
+        .unwrap();
+        let result = transport.sign(&request(), &Bytes::from_static(&[0])).await;
+        assert!(
+            matches!(&result, Err(LanderError::Configuration(m)) if m.contains("ZeroFeeRecipient")),
+            "{result:?}"
+        );
     }
 
     #[test]

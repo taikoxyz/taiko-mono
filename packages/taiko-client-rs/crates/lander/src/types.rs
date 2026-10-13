@@ -159,7 +159,9 @@ pub struct PreparedBatch {
     pub committees: Vec<CommitteeState>,
     /// Registry witnesses deduplicated by epoch, with their authenticated proving roots.
     pub committee_witnesses: Vec<CommitteeContext>,
-    /// Exact four contract public output fields.
+    /// The exact six `LandInput` fields the contract receives: the terminal height, block hash
+    /// and state root, the L1 reference block number, the forced inclusion head after the batch
+    /// and the fee recipient.
     #[serde(with = "crate::contracts::land_input_serde")]
     pub input: LandInput,
     /// Sidecar and ordered versioned blob hashes binding the V3 payload.

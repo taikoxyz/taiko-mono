@@ -140,6 +140,9 @@ impl State {
     }
 }
 
+/// The fee recipient the test builders name in every batch's `LandInput`.
+pub const FEE_RECIPIENT: Address = Address::repeat_byte(0xfe);
+
 pub struct Fixture {
     pub params: ChainParams,
     pub snapshot: LandingSnapshot,
@@ -919,6 +922,7 @@ mod readiness {
             fixture.params.clone(),
             limits,
             SidecarMode::Eip4844,
+            FEE_RECIPIENT,
         )
         .unwrap()
     }

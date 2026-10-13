@@ -145,7 +145,8 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
 
 /// A user stores a forced inclusion on the real Inbox; the decided chain's next block after its
 /// L1 block is final consumes it with a real entry proof and its blob, and landing that batch moves
-/// the queue head and pays the entry's fee to the lander.
+/// the queue head and pays the entry's fee to the batch's `feeRecipient`, the lander's sending
+/// address.
 #[tokio::test]
 #[ignore = "requires Docker: actual Etna contracts on Osaka anvil"]
 async fn lander_actual_contract_forced_inclusion_lands_and_pays_fee() -> Result<()> {
@@ -177,6 +178,9 @@ async fn lander_actual_contract_forced_inclusion_lands_and_pays_fee() -> Result<
     let request = chain.prepare(&fixture, 4, SidecarMode::Eip7594).await?;
     assert_eq!(request.batch.snapshot.forced_inclusion_head, 0);
     assert_eq!(request.batch.input.forcedInclusionHead, U48::from(1));
+    let lander = dev_signer().address();
+    let recipient = request.batch.input.feeRecipient;
+    assert_eq!(recipient, lander, "the lander names its sending address");
     fixture.expect_statement(request.batch.statement_hash).await?;
     let signed = sign(&fixture, &request).await?;
     assert_landed(&fixture, &request, &signed).await?;
@@ -185,16 +189,15 @@ async fn lander_actual_contract_forced_inclusion_lands_and_pays_fee() -> Result<
     let event = landed
         .decoded_log::<EtnaInbox::ForcedInclusionsConsumed>()
         .context("ForcedInclusionsConsumed event")?;
-    let lander = dev_signer().address();
     assert_eq!(
         (event.data.headBefore, event.data.headAfter, event.data.feesWei, event.data.recipient),
-        (U48::from(0), U48::from(1), fee, lander)
+        (U48::from(0), U48::from(1), fee, recipient)
     );
     assert_eq!(fixture.forced_inclusion_state().await?, (1, 1));
-    // The lander's balance moves by the fee less what the landing transaction cost it.
+    // The recipient (here the sender) moves by the fee less what the landing transaction cost.
     let block = landed.block_number.context("landing block")?;
     let balance = |number| async move {
-        anyhow::Ok(p.get_balance(lander).block_id(BlockId::number(number)).await?)
+        anyhow::Ok(p.get_balance(recipient).block_id(BlockId::number(number)).await?)
     };
     let cost = U256::from(landed.gas_used) * U256::from(landed.effective_gas_price) +
         U256::from(landed.blob_gas_used.context("blob gas")?) *

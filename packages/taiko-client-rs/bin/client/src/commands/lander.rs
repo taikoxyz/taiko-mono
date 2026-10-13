@@ -93,6 +93,7 @@ impl LanderSubCommand {
             params,
             config.limits,
             config.sidecar_mode,
+            sender,
         )?);
         let mut runner = Runner::new(
             batches,

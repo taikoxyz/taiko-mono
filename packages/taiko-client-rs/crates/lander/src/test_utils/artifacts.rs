@@ -28,3 +28,22 @@ fn lander_artifacts_match_pinned_compiler_and_recorded_hashes() -> Result<()> {
     );
     Ok(())
 }
+
+/// The pinned `EtnaInbox` declares the `ZeroFeeRecipient()` error the lander recognizes in a
+/// rejected gas estimation, with the same selector.
+#[test]
+fn pinned_inbox_declares_the_zero_fee_recipient_error() -> Result<()> {
+    use alloy::sol_types::SolError;
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/contracts");
+    let artifact: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.join("EtnaInbox.json"))?)?;
+    let abi = artifact["abi"].as_array().context("EtnaInbox ABI")?;
+    assert!(abi.iter().any(|item| item["type"] == "error" &&
+        item["name"] == "ZeroFeeRecipient" &&
+        item["inputs"].as_array().is_some_and(Vec::is_empty)));
+    assert_eq!(
+        crate::contracts::ZeroFeeRecipient::SELECTOR,
+        alloy_primitives::keccak256("ZeroFeeRecipient()")[..4]
+    );
+    Ok(())
+}

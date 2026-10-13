@@ -149,7 +149,7 @@ power can decide a block that skips a due entry, and a batch holding such a bloc
 proven, so it never lands. Skipping a due entry therefore stops settlement and, through
 back-pressure, the chain. Delaying the moment an entry becomes due takes only more than 1/3
 of the voting power (see Anchor freshness). `land` pays the consumed entries' fees to the
-lander's sending address.
+`feeRecipient` the landing statement binds, the lander's sending address.
 
 Only proposing touches the beacon. A proposer that cannot fetch a due entry's blob from
 `--l1.beacon`, or fetches a blob that does not match the entry, proposes nothing and records
@@ -302,8 +302,8 @@ The batch's L1 reference is separate from each L2 block's anchor. The reference
 authenticates an ancestor header chain covering those anchors; it never changes
 the anchor number or state root committed in an L2 header. V6 binds the Inbox
 proxy, registry, both chain ids, generation, current checkpoint, authenticated committee config
-hash, terminal block/root, blob hashes, and the forced inclusion queue head before (stored) and
-after the batch. Each committee is independently derived from its
+hash, terminal block/root, blob hashes, the forced inclusion queue head before (stored) and
+after the batch, and the fee recipient. Each committee is independently derived from its
 committed derivation parent's L1 snapshot; no per-epoch committee output or starting-set hint is authoritative.
 
 Every block is held to the ABCI forced inclusion rule (`abci::forced::check`): its witness proves
@@ -311,9 +311,12 @@ the queue entry at the cursor under the block's anchor, a due entry must be cons
 consuming block's blob must match the entry's versioned hash. The lander does not execute the
 entry's transactions; the guest does. The cursor starts at the snapshot's Inbox head (each
 landing leaves the head at its checkpoint's cursor), consumed entries must follow it one by one,
-and `forcedInclusionHead` in `LandInput` is the cursor after the batch's last block. `land` pays
-the consumed entries' fees to the sending address and emits `ForcedInclusionsConsumed`; there is
-nothing to configure. A forced inclusion block's envelope carries its 128 KiB blob, which can
+and `forcedInclusionHead` in `LandInput` is the cursor after the batch's last block.
+`LandInput.feeRecipient` is the lander's sending address: `land` pays the consumed entries' fees
+to it and emits `ForcedInclusionsConsumed`, and the statement binds it, so whoever copies a
+public landing transaction cannot redirect the fees. There is nothing to configure. The Inbox
+rejects a zero recipient (`ZeroFeeRecipient`); the lander treats that revert as a configuration
+error. A forced inclusion block's envelope carries its 128 KiB blob, which can
 take up to one more landing blob.
 
 Proof requests retain the Inbox schedule/config/checkpoint proof under the batch parent's anchor,
@@ -575,7 +578,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 Regenerate lander ABI/deployment fixtures with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `abdc6288d476c371ed0b60e32dd9ccce7cded1b8`,
+The script requires protocol HEAD `07615285c93d6475d1863dd840bd94fe64866514`,
 installs pnpm dependencies before Foundry, verifies compiler source hashes,
 formats generated JSON, and records ABI/bytecode/compiler provenance. It leaves
 the existing Anchor bindings unchanged.
