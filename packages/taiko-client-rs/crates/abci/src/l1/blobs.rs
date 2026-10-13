@@ -65,13 +65,22 @@ impl BlobSource for BeaconBlobs {
 /// forced inclusion entry needs.
 ///
 /// A fetch while the client cannot be built fails like any other unavailable blob, and the next
-/// fetch tries to build it again; once built, the client is kept.
-#[derive(Debug)]
+/// fetch tries to build it again; once built, the client is kept. Neither its errors nor its
+/// `Debug` output render the endpoint, whose path or query may carry a provider key.
 pub struct LazyBeaconBlobs {
     /// The beacon node's REST endpoint.
     endpoint: Url,
     /// The client, once built.
     beacon: OnceCell<BeaconBlobs>,
+}
+
+impl fmt::Debug for LazyBeaconBlobs {
+    /// Reports whether the client is built, without the credential-bearing endpoint.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("LazyBeaconBlobs")
+            .field("connected", &self.beacon.initialized())
+            .finish_non_exhaustive()
+    }
 }
 
 impl LazyBeaconBlobs {
@@ -92,7 +101,7 @@ impl BlobSource for LazyBeaconBlobs {
                 BlobDataSource::new(Some(self.endpoint.clone()), None, false).await.map(BeaconBlobs)
             })
             .await
-            .map_err(|e| format!("beacon client unavailable at {}: {e}", self.endpoint))?;
+            .map_err(|e| format!("beacon client unavailable: {e}"))?;
         beacon.blob(timestamp, versioned_hash).await
     }
 }
@@ -120,7 +129,19 @@ mod tests {
     /// A beacon node stub (genesis at 0, 12-second slots) on `listener` whose blobs endpoint
     /// answers `blobs` whatever is asked; returns its URL and the request targets it receives.
     fn beacon_on(listener: TcpListener, blobs: Vec<Bytes>) -> (Url, Arc<Mutex<Vec<String>>>) {
-        let url = Url::parse(&format!("http://{}", listener.local_addr().unwrap())).unwrap();
+        beacon_under(listener, "", blobs)
+    }
+
+    /// [`beacon_on`] serving its routes only below the path `prefix` (e.g. a provider's
+    /// `/<key>`), as a hosted beacon does; any other path answers 404. The URL carries the
+    /// prefix.
+    fn beacon_under(
+        listener: TcpListener,
+        prefix: &'static str,
+        blobs: Vec<Bytes>,
+    ) -> (Url, Arc<Mutex<Vec<String>>>) {
+        let url =
+            Url::parse(&format!("http://{}{prefix}", listener.local_addr().unwrap())).unwrap();
         let targets = Arc::new(Mutex::new(Vec::new()));
         let seen = targets.clone();
         let data: Vec<String> = blobs.iter().map(hex::encode_prefixed).collect();
@@ -137,16 +158,21 @@ mod tests {
                 }
                 let head = String::from_utf8_lossy(&head);
                 let target = head.split_whitespace().nth(1).unwrap_or_default().to_string();
-                let body = match target.split('?').next().unwrap_or_default() {
-                    "/eth/v1/beacon/genesis" => r#"{"data":{"genesis_time":"0"}}"#.to_string(),
-                    "/eth/v1/config/spec" => {
-                        r#"{"data":{"SECONDS_PER_SLOT":"12","SLOTS_PER_EPOCH":"32"}}"#.to_string()
+                let path = target.split('?').next().unwrap_or_default();
+                let (status, body) = match path.strip_prefix(prefix) {
+                    Some("/eth/v1/beacon/genesis") => {
+                        ("200 OK", r#"{"data":{"genesis_time":"0"}}"#.to_string())
                     }
-                    _ => blobs_body.clone(),
+                    Some("/eth/v1/config/spec") => (
+                        "200 OK",
+                        r#"{"data":{"SECONDS_PER_SLOT":"12","SLOTS_PER_EPOCH":"32"}}"#.to_string(),
+                    ),
+                    Some(_) => ("200 OK", blobs_body.clone()),
+                    None => ("404 Not Found", String::new()),
                 };
                 seen.lock().unwrap().push(target);
                 let response = format!(
-                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\
+                    "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\
                      Connection: close\r\n\r\n{body}",
                     body.len()
                 );
@@ -177,6 +203,49 @@ mod tests {
         let source = BeaconBlobs(BlobDataSource::new(Some(url), None, false).await.unwrap());
         let err = source.blob(84, hash).await.expect_err("the node lacks the blob");
         assert!(err.contains("no beacon or blob server available"), "{err}");
+    }
+
+    /// A beacon hosted below a path prefix (a provider's `https://host/<key>/`) is asked below
+    /// that prefix, with or without the trailing slash: every request keeps it.
+    #[tokio::test]
+    async fn beacon_blobs_keep_the_endpoint_path_prefix() {
+        let (blob, hash) = forced_blob(&manifest_payload(sample_transactions()));
+        for trailing_slash in [false, true] {
+            let listener = TcpListener::bind("127.0.0.1:0").await.expect("binds");
+            let (mut url, targets) = beacon_under(listener, "/v2/key-123", vec![blob.clone()]);
+            if trailing_slash {
+                url.set_path("/v2/key-123/");
+            }
+            let source = LazyBeaconBlobs::new(url);
+            assert_eq!(source.blob(84, hash).await, Ok(blob.clone()), "slash {trailing_slash}");
+            let targets = targets.lock().unwrap().clone();
+            assert_eq!(
+                targets,
+                [
+                    "/v2/key-123/eth/v1/beacon/genesis".to_string(),
+                    "/v2/key-123/eth/v1/config/spec".to_string(),
+                    format!("/v2/key-123/eth/v1/beacon/blobs/7?versioned_hashes={hash}"),
+                ],
+                "slash {trailing_slash}"
+            );
+        }
+    }
+
+    /// A provider key in the endpoint's path or query never reaches the lazy source's errors
+    /// or its `Debug` output.
+    #[tokio::test]
+    async fn lazy_beacon_errors_and_debug_omit_the_endpoint() {
+        let (_, hash) = forced_blob(&manifest_payload(sample_transactions()));
+        // A free port nothing listens on.
+        let addr = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap();
+        let url = Url::parse(&format!("http://{addr}/v2/path-key/?key=query-key")).unwrap();
+        let source = LazyBeaconBlobs::new(url);
+        let err = source.blob(84, hash).await.expect_err("the beacon is unreachable");
+        let debug = format!("{source:?}");
+        for secret in ["path-key", "query-key", "http://"] {
+            assert!(!err.contains(secret), "error exposes {secret}: {err}");
+            assert!(!debug.contains(secret), "Debug exposes {secret}: {debug}");
+        }
     }
 
     /// The lazy beacon source contacts no beacon when built. While the beacon is unreachable a
