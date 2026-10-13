@@ -230,9 +230,9 @@ Both identities, config hash, generation and parent come from the contract. The 
 and ordered blob hashes come from the actual L1 execution context. `hashLandStatement` derives
 identities and config internally but accepts raw generation, parent and terminal inputs for
 encoding; it does not authenticate them. Call it through the proxy to bind that proxy's address.
-V4 digests, fixed-cutoff configuration openings, envelope-2 histories and journal-schema-2 jobs
-are incompatible with this prelaunch version. Envelope and journal schema versions are now 3;
-record encoding stays 1. No deployed-chain migration is provided. Reject old signed jobs without
+V4 digests, fixed-cutoff configuration openings, envelope-2 histories, V1 blob payloads and
+journal-schema-2/3 jobs are incompatible with this prelaunch version. The envelope version is 3,
+the blob payload version 2 and the journal schema 4; record encoding stays 1. No deployed-chain migration is provided. Reject old signed jobs without
 discarding their nonce, cancelling or automatically replacing their transaction.
 
 ### Guest and consensus obligations
@@ -279,7 +279,10 @@ the actual embedded committed parent's exact root and snapshot number.
 Verify the parent certificate and every current/pending certificate, current validator hash and
 `nextValidatorHash` across `S/S+1/H` and arbitrary cuts. Require strictly more than two-thirds voting
 power from distinct signers under `taiko-etna-<l2ChainId>-g<generation>`. Prove execution ancestry
-from the stored parent to terminal hash/state root and blob data. Every anchor and actual proving
+from the stored parent to terminal hash/state root and blob data. The bound blobs carry payload
+V2, each block's canonical CometBFT header and Etna envelope: header hashes are the certified block
+ids, `data_hash` commits to the envelope and `last_block_id` links the batch. Commits and signatures
+are proof witnesses, not blob data. Every anchor and actual proving
 L1 root belongs to the header chain ending at the reference hash. Reference headers may be recent
 even for old batches. Arbitrary batch cuts never depend on an earlier batch's committee output.
 
@@ -295,7 +298,7 @@ of this change, and host/contract integration checks do not establish production
 
 ## Open items
 
-- The Etna guest, blob encoding and lander are follow-ups. No prover rewards, slashing or stall
+- The Etna guest is a follow-up; the blob encoding and lander are in #22280. No prover rewards, slashing or stall
   recovery exist here; `recoveryGeneration` stays 0. The staking withdrawal delay must cover the
   evidence and landing windows once slashing is introduced.
 - Registry capacity griefing: entries are never reclaimed, so exited/withdrawn bonds consume
