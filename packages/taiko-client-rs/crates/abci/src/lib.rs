@@ -68,9 +68,9 @@ pub use genesis::{
     encode_app_state,
 };
 pub use l1::{
-    BeaconBlobs, BlobSource, FetchError, L1Error, L1HeaderError, L1Source, RawL1Header,
-    RpcL1Source, build_committee_witness, build_committee_witness_at_cutoff, header_at,
-    is_final_canonical,
+    BeaconBlobs, BlobSource, FetchError, L1Error, L1HeaderError, L1Source, LazyBeaconBlobs,
+    RawL1Header, RpcL1Source, build_committee_witness, build_committee_witness_at_cutoff,
+    header_at, is_final_canonical,
 };
 pub use metrics::AbciMetrics;
 pub use rules::{ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation};

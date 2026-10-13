@@ -424,7 +424,8 @@ or config opening differs.
 - **Validators** fetch the blob of a due forced inclusion entry from `--l1.beacon`
   (`/eth/v1/beacon/blobs/{slot}`, which since Fulu needs a supernode or semi-supernode). Blobs
   are kept for about 18 days, longer than the 14 days after which an entry expires and needs no
-  blob. The app reads the beacon's genesis and spec at startup and does not start without them.
+  blob. The app contacts the beacon only when it first needs a blob: without a reachable beacon
+  it still starts, replays and votes, but proposes nothing in place of a due entry's block.
 - `abci-genesis` reads the initialization block and the registry entries back to the Inbox's
   `genesisCutoff`. That block is fixed when the initializing DAO proposal is written, well before
   the initialization block, so in practice `abci-genesis` needs an archive node.
