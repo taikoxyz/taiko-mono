@@ -3,11 +3,54 @@ pragma solidity ^0.8.26;
 
 import { EtnaInboxTestBase, MockLandProofVerifier } from "./EtnaInboxTestBase.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { Vm } from "forge-std/src/Vm.sol";
+import { IForcedInclusionStore } from "src/layer1/core/iface/IForcedInclusionStore.sol";
+import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
+
+/// @notice Lands a batch as the fee recipient and, from `receive()`, re-enters the Inbox with a
+/// prepared call: `land` or `saveForcedInclusion`.
+contract ReentrantLander {
+    EtnaInbox private immutable _inbox;
+    bytes private _reentryCall;
+    uint256 private _reentryValue;
+    bool private _catchReentry;
+    bool public reentrySucceeded;
+    bytes public reentryError;
+
+    constructor(EtnaInbox _target) {
+        _inbox = _target;
+    }
+
+    function land(
+        IEtnaInbox.LandInput calldata _input,
+        bytes calldata _reentry,
+        uint256 _value,
+        bool _catch
+    )
+        external
+    {
+        (_reentryCall, _reentryValue, _catchReentry) = (_reentry, _value, _catch);
+        _inbox.land(_input, "etna proof");
+    }
+
+    receive() external payable {
+        (bool success, bytes memory reason) =
+            address(_inbox).call{ value: _reentryValue }(_reentryCall);
+        if (!_catchReentry && !success) {
+            assembly {
+                revert(add(reason, 32), mload(reason))
+            }
+        }
+        (reentrySucceeded, reentryError) = (success, reason);
+    }
+}
 
 contract EtnaInboxLandTest is EtnaInboxTestBase {
     /// @dev The EIP-2935 history storage contract and its runtime code.
@@ -32,8 +75,12 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         vm.setBlockhash(l1ReferenceBlockNumber, L1_REFERENCE_BLOCK_HASH);
     }
 
-    function test_land_RevertWhen_ProofUsesTheFormerV4Domain() external {
+    /// @dev The fifteen-word V5 digest of the same batch, and the V6 words under the V5 or V4
+    /// domain, all differ from the V6 statement.
+    function test_land_RevertWhen_ProofUsesAFormerStatement() external {
+        _saveForcedInclusions(2);
         IEtnaInbox.LandInput memory input = _batch(11);
+        input.forcedInclusionHead = 2;
         bytes memory preimage = _manualPreimage(
             address(etnaInbox),
             address(registry),
@@ -43,11 +90,45 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
             input,
             L1_REFERENCE_BLOCK_HASH
         );
-        bytes32 formerDomain = bytes32("TAIKO_ETNA_LAND_V4");
+        bytes32 v5Domain = bytes32("TAIKO_ETNA_LAND_V5");
+        bytes32 v4Domain = bytes32("TAIKO_ETNA_LAND_V4");
+
+        bytes memory v5 = bytes.concat(preimage);
         assembly {
-            mstore(add(preimage, 32), formerDomain)
+            mstore(add(v5, 32), v5Domain)
+            mstore(v5, 480)
         }
-        _rejectStatementAndAssertRollback(input, keccak256(preimage));
+        assertEq(
+            v5,
+            bytes.concat(
+                abi.encode(
+                    v5Domain, block.chainid, L2_CHAIN_ID, address(etnaInbox), address(registry)
+                ),
+                abi.encode(uint64(0), uint64(0), genesisBlockHash, COMMITTEE_CONFIG_HASH),
+                abi.encode(
+                    input.lastHeight,
+                    input.lastBlockHash,
+                    input.lastStateRoot,
+                    input.l1ReferenceBlockNumber,
+                    L1_REFERENCE_BLOCK_HASH,
+                    keccak256(abi.encodePacked(_getBlobHashes(blobCount)))
+                )
+            ),
+            "former fifteen-word V5 preimage"
+        );
+        _rejectStatementAndAssertRollback(input, keccak256(v5));
+
+        bytes32[2] memory formerDomains = [v5Domain, v4Domain];
+        for (uint256 i; i < formerDomains.length; ++i) {
+            bytes memory words = bytes.concat(preimage);
+            bytes32 formerDomain = formerDomains[i];
+            assembly {
+                mstore(add(words, 32), formerDomain)
+            }
+            _rejectStatementAndAssertRollback(input, keccak256(words));
+        }
+        _landExpectingConfig(input, COMMITTEE_CONFIG_HASH);
+        _assertForcedInclusionState(2, 2);
     }
 
     /// @dev Requiring any future committee publication would block this valid checkpoint advance.
@@ -176,26 +257,35 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         _landExpectingConfig(input, COMMITTEE_CONFIG_HASH);
     }
 
-    /// @dev Independently mutate each of the fifteen public words accepted by the verifier.
-    function test_land_RejectsEveryMutatedV5FieldAndRollsBack() external {
+    /// @dev Independently mutate each of the seventeen public words accepted by the verifier,
+    /// with a non-zero forced inclusion head before and after the batch.
+    function test_land_RejectsEveryMutatedV6FieldAndRollsBack() external {
+        _saveForcedInclusions(3);
+        _landConsuming(_batch(2), 1);
         IEtnaInbox.LandInput memory input = _batch(11);
+        input.forcedInclusionHead = 3;
         bytes memory words = _manualPreimage(
             address(etnaInbox),
             address(registry),
-            0,
-            genesisBlockHash,
+            2,
+            _batch(2).lastBlockHash,
             COMMITTEE_CONFIG_HASH,
             input,
             L1_REFERENCE_BLOCK_HASH
         );
-        assertEq(words.length, 480, "fifteen static words");
-        for (uint256 i; i < 15; ++i) {
+        assertEq(words.length, 544, "seventeen static words");
+        assertEq(uint256(_word(words, 15)), 1, "word 16: head before");
+        assertEq(uint256(_word(words, 16)), 3, "word 17: head after");
+        bytes32 expected = keccak256(words);
+        for (uint256 i; i < 17; ++i) {
             uint256 lastByte = 32 * i + 31;
             words[lastByte] = bytes1(uint8(words[lastByte]) ^ 1);
+            assertNotEq(keccak256(words), expected, "every word changes the hash");
             _rejectStatementAndAssertRollback(input, keccak256(words));
             words[lastByte] = bytes1(uint8(words[lastByte]) ^ 1);
         }
         _landExpectingConfig(input, COMMITTEE_CONFIG_HASH);
+        _assertForcedInclusionState(3, 3);
     }
 
     function test_land_BindsTheProxyAndConfiguredRegistryIndependentlyOfTheCaller() external {
@@ -294,7 +384,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
 
         IEtnaInbox.LandInput memory input = _batch(genesisHeight + 5);
         bytes32 statementHash = etnaInbox.hashLandStatement(
-            5, genesisHeight, genesisBlockHash, input, L1_REFERENCE_BLOCK_HASH, _getBlobHashes(2)
+            5, genesisHeight, genesisBlockHash, 0, input, L1_REFERENCE_BLOCK_HASH, _getBlobHashes(2)
         );
         assertNotEq(statementHash, _statement(genesisHeight, genesisBlockHash, input), "bound");
 
@@ -309,10 +399,10 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         blobCount = 3;
         IEtnaInbox.LandInput memory input = _batch(genesisHeight + 5);
         bytes32 statementHash = etnaInbox.hashLandStatement(
-            0, genesisHeight, genesisBlockHash, input, L1_REFERENCE_BLOCK_HASH, _getBlobHashes(3)
+            0, genesisHeight, genesisBlockHash, 0, input, L1_REFERENCE_BLOCK_HASH, _getBlobHashes(3)
         );
         bytes32 twoBlobStatementHash = etnaInbox.hashLandStatement(
-            0, genesisHeight, genesisBlockHash, input, L1_REFERENCE_BLOCK_HASH, _getBlobHashes(2)
+            0, genesisHeight, genesisBlockHash, 0, input, L1_REFERENCE_BLOCK_HASH, _getBlobHashes(2)
         );
         assertNotEq(statementHash, twoBlobStatementHash, "third blob bound");
 
@@ -436,16 +526,182 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         signalService.getCheckpoint(uint48(input.lastHeight));
     }
 
+    function test_land_AdvancesForcedInclusionHeadAndPaysLander() external {
+        uint64[] memory fees = _saveForcedInclusions(2);
+        assertGt(fees[1], fees[0], "the fee grows with the queue");
+        uint256 feesWei = (uint256(fees[0]) + uint256(fees[1])) * 1 gwei;
+        uint256 inboxBefore = address(etnaInbox).balance;
+        uint256 landerBefore = Bob.balance;
+        assertEq(inboxBefore, feesWei, "the Inbox holds both fees");
+
+        IEtnaInbox.LandInput memory input = _batch(3);
+        input.forcedInclusionHead = 2;
+        bytes32 statement = _statement(0, genesisBlockHash, input);
+        landVerifier.setExpectedStatementHash(statement);
+        vm.expectCall(
+            address(landVerifier), abi.encodeCall(IProofVerifier.verifyProof, (0, statement, PROOF))
+        );
+        vm.expectEmit(address(etnaInbox));
+        emit IEtnaInbox.BatchLanded(
+            1, 3, input.lastBlockHash, input.lastStateRoot, l1ReferenceBlockNumber, statement, Bob
+        );
+        vm.expectEmit(address(etnaInbox));
+        emit IEtnaInbox.ForcedInclusionsConsumed(0, 2, feesWei, Bob);
+        _land(input);
+
+        _assertForcedInclusionState(2, 2);
+        assertEq(Bob.balance - landerBefore, feesWei, "lander paid both fees");
+        assertEq(inboxBefore - address(etnaInbox).balance, feesWei, "Inbox paid out both fees");
+        assertEq(_loadSlot(_entrySlot(0)), fees[0], "consumed entry 0 kept");
+        assertEq(_loadSlot(_entrySlot(1)), fees[1], "consumed entry 1 kept");
+        _assertLastCheckpoint(3, input.lastBlockHash);
+        _assertSignalCheckpoint(input);
+    }
+
+    function test_land_KeepsHeadWithoutForcedInclusions() external {
+        _saveForcedInclusions(1);
+        uint256 inboxBefore = address(etnaInbox).balance;
+        uint256 landerBefore = Bob.balance;
+
+        IEtnaInbox.LandInput memory input = _batch(3);
+        assertEq(input.forcedInclusionHead, 0, "the stored head");
+        vm.recordLogs();
+        _landExpectingConfig(input, COMMITTEE_CONFIG_HASH);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        for (uint256 i; i < logs.length; ++i) {
+            assertNotEq(logs[i].topics[0], IEtnaInbox.ForcedInclusionsConsumed.selector, "no event");
+        }
+
+        _assertForcedInclusionState(0, 1);
+        assertEq(Bob.balance, landerBefore, "no transfer");
+        assertEq(address(etnaInbox).balance, inboxBefore, "fee retained");
+        _assertLastCheckpoint(3, input.lastBlockHash);
+    }
+
+    function test_land_RevertWhen_ForcedInclusionHeadBeyondTail() external {
+        IEtnaInbox.LandInput memory input = _batch(3);
+        input.forcedInclusionHead = 1;
+        _expectLandRevert(input, EtnaInbox.InvalidForcedInclusionHead.selector);
+
+        _saveForcedInclusions(1);
+        input.forcedInclusionHead = 2;
+        _expectLandRevert(input, EtnaInbox.InvalidForcedInclusionHead.selector);
+        input.forcedInclusionHead = type(uint48).max;
+        _expectLandRevert(input, EtnaInbox.InvalidForcedInclusionHead.selector);
+        _assertForcedInclusionState(0, 1);
+        _assertLastCheckpoint(0, genesisBlockHash);
+
+        input.forcedInclusionHead = 1;
+        _landExpectingConfig(input, COMMITTEE_CONFIG_HASH);
+        _assertForcedInclusionState(1, 1);
+    }
+
+    function test_land_RevertWhen_ForcedInclusionHeadGoesBack() external {
+        _saveForcedInclusions(3);
+        _landConsuming(_batch(3), 2);
+
+        IEtnaInbox.LandInput memory input = _batch(6);
+        input.forcedInclusionHead = 1;
+        _expectLandRevert(input, EtnaInbox.InvalidForcedInclusionHead.selector);
+        input.forcedInclusionHead = 0;
+        _expectLandRevert(input, EtnaInbox.InvalidForcedInclusionHead.selector);
+        _assertForcedInclusionState(2, 3);
+        _assertLastCheckpoint(3, _batch(3).lastBlockHash);
+
+        input.forcedInclusionHead = 2;
+        _landExpectingConfig(input, COMMITTEE_CONFIG_HASH);
+        _assertForcedInclusionState(2, 3);
+    }
+
+    /// @dev Each forced inclusion is its own L2 block, so a batch consumes at most one entry per
+    /// block.
+    function test_land_RevertWhen_MoreForcedInclusionsThanBlocks() external {
+        _saveForcedInclusions(4);
+        IEtnaInbox.LandInput memory input = _batch(2);
+        input.forcedInclusionHead = 3;
+        _expectLandRevert(input, EtnaInbox.InvalidForcedInclusionHead.selector);
+        _assertForcedInclusionState(0, 4);
+
+        input.forcedInclusionHead = 2;
+        _landExpectingConfig(input, COMMITTEE_CONFIG_HASH);
+        _assertForcedInclusionState(2, 4);
+
+        input = _batch(3);
+        input.forcedInclusionHead = 4;
+        _expectLandRevert(input, EtnaInbox.InvalidForcedInclusionHead.selector);
+        input.forcedInclusionHead = 3;
+        _landExpectingConfig(input, COMMITTEE_CONFIG_HASH);
+        _assertForcedInclusionState(3, 4);
+    }
+
+    function test_land_VerifierRejectionRollsBackHeadAndFees() external {
+        _saveForcedInclusions(2);
+        uint256 inboxBefore = address(etnaInbox).balance;
+        uint256 landerBefore = Bob.balance;
+        landVerifier.setRejects(true);
+
+        IEtnaInbox.LandInput memory input = _batch(3);
+        input.forcedInclusionHead = 2;
+        _expectLandRevert(input, MockLandProofVerifier.ProofRejected.selector);
+
+        _assertForcedInclusionState(0, 2);
+        assertEq(address(etnaInbox).balance, inboxBefore, "fees retained");
+        assertEq(Bob.balance, landerBefore, "nothing paid");
+        _assertLastCheckpoint(0, genesisBlockHash);
+    }
+
+    /// @dev The fee transfer is the only external call after verification; the shared lock makes
+    /// a re-entering recipient fail the whole landing, or fail alone if it catches the error.
+    function test_land_IsNonReentrantFromFeeRecipient() external {
+        ReentrantLander lander = new ReentrantLander(etnaInbox);
+        vm.deal(address(lander), 10 ether);
+        uint64[] memory fees = _saveForcedInclusions(2);
+        uint256 feesWei = (uint256(fees[0]) + uint256(fees[1])) * 1 gwei;
+        IEtnaInbox.LandInput memory input = _batch(3);
+        input.forcedInclusionHead = 2;
+        bytes[2] memory reentries = [
+            abi.encodeCall(IEtnaInbox.land, (_batch(5), PROOF)),
+            abi.encodeCall(
+                IForcedInclusionStore.saveForcedInclusion,
+                (LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 }))
+            )
+        ];
+        uint256[2] memory values =
+            [uint256(0), uint256(etnaInbox.getCurrentForcedInclusionFee()) * 1 gwei];
+        vm.blobhashes(_getBlobHashes(blobCount));
+
+        for (uint256 i; i < reentries.length; ++i) {
+            vm.expectRevert(LibAddress.ETH_TRANSFER_FAILED.selector);
+            lander.land(input, reentries[i], values[i], false);
+            _assertForcedInclusionState(0, 2);
+            _assertLastCheckpoint(0, genesisBlockHash);
+
+            uint256 snapshot = vm.snapshotState();
+            uint256 landerBefore = address(lander).balance;
+            lander.land(input, reentries[i], values[i], true);
+            assertFalse(lander.reentrySucceeded(), "re-entry failed");
+            assertEq(
+                lander.reentryError(),
+                abi.encodeWithSelector(EssentialContract.REENTRANT_CALL.selector),
+                "re-entry rejected"
+            );
+            _assertForcedInclusionState(2, 2);
+            _assertLastCheckpoint(3, input.lastBlockHash);
+            assertEq(address(lander).balance - landerBefore, feesWei, "only the outer fees");
+            assertTrue(vm.revertToStateAndDelete(snapshot), "restored");
+        }
+    }
+
     function test_hashLandStatement_BindsEachProxySharingTheSameImplementation() external {
         EtnaInbox otherInbox = EtnaInbox(address(new ERC1967Proxy(address(etnaImplementation), "")));
         vm.store(address(otherInbox), bytes32(COMMITTEE_CONFIG_SLOT), COMMITTEE_CONFIG_HASH);
         IEtnaInbox.LandInput memory input = _batch(5);
         bytes32[] memory blobs = _getBlobHashes(blobCount);
         bytes32 firstStatement = etnaInbox.hashLandStatement(
-            0, 0, genesisBlockHash, input, L1_REFERENCE_BLOCK_HASH, blobs
+            0, 0, genesisBlockHash, 0, input, L1_REFERENCE_BLOCK_HASH, blobs
         );
         bytes32 secondStatement = otherInbox.hashLandStatement(
-            0, 0, genesisBlockHash, input, L1_REFERENCE_BLOCK_HASH, blobs
+            0, 0, genesisBlockHash, 0, input, L1_REFERENCE_BLOCK_HASH, blobs
         );
         assertNotEq(firstStatement, secondStatement, "each Inbox proxy is bound");
     }
@@ -454,13 +710,13 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         IEtnaInbox.LandInput memory input = _batch(5);
         bytes32[] memory blobs = _getBlobHashes(blobCount);
         bytes32 original = etnaInbox.hashLandStatement(
-            0, 0, genesisBlockHash, input, L1_REFERENCE_BLOCK_HASH, blobs
+            0, 0, genesisBlockHash, 0, input, L1_REFERENCE_BLOCK_HASH, blobs
         );
         IEtnaInbox.Config memory config = etnaConfig;
         config.stakingRegistry = address(_deployRegistry());
         etnaInbox.upgradeTo(address(new EtnaInbox(config)));
         bytes32 upgraded = etnaInbox.hashLandStatement(
-            0, 0, genesisBlockHash, input, L1_REFERENCE_BLOCK_HASH, blobs
+            0, 0, genesisBlockHash, 0, input, L1_REFERENCE_BLOCK_HASH, blobs
         );
         assertNotEq(original, upgraded, "configured Registry is bound");
         assertEq(
@@ -482,13 +738,13 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         IEtnaInbox.LandInput memory input = _batch(11);
         bytes32[] memory blobs = _getBlobHashes(2);
         bytes32 original = etnaInbox.hashLandStatement(
-            0, 0, genesisBlockHash, input, L1_REFERENCE_BLOCK_HASH, blobs
+            0, 0, genesisBlockHash, 0, input, L1_REFERENCE_BLOCK_HASH, blobs
         );
         (blobs[0], blobs[1]) = (blobs[1], blobs[0]);
         assertNotEq(
             original,
             etnaInbox.hashLandStatement(
-                0, 0, genesisBlockHash, input, L1_REFERENCE_BLOCK_HASH, blobs
+                0, 0, genesisBlockHash, 0, input, L1_REFERENCE_BLOCK_HASH, blobs
             ),
             "blob order bound"
         );
@@ -498,40 +754,42 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         IEtnaInbox.LandInput memory input = _batch(11);
         bytes32[] memory blobs = _getBlobHashes(2);
         bytes32 expected = etnaInbox.hashLandStatement(
-            0, 0, genesisBlockHash, input, L1_REFERENCE_BLOCK_HASH, blobs
+            0, 0, genesisBlockHash, 0, input, L1_REFERENCE_BLOCK_HASH, blobs
         );
         assertEq(expected, _statement(0, genesisBlockHash, input), "independent encoding");
         assertNotEq(
             expected,
             etnaInbox.hashLandStatement(
-                1, 0, genesisBlockHash, input, L1_REFERENCE_BLOCK_HASH, blobs
+                1, 0, genesisBlockHash, 0, input, L1_REFERENCE_BLOCK_HASH, blobs
             ),
             "generation"
         );
         assertNotEq(
             expected,
             etnaInbox.hashLandStatement(
-                0, 1, genesisBlockHash, input, L1_REFERENCE_BLOCK_HASH, blobs
+                0, 1, genesisBlockHash, 0, input, L1_REFERENCE_BLOCK_HASH, blobs
             ),
             "parent height"
         );
         assertNotEq(
             expected,
             etnaInbox.hashLandStatement(
-                0, 0, bytes32(uint256(1)), input, L1_REFERENCE_BLOCK_HASH, blobs
+                0, 0, bytes32(uint256(1)), 0, input, L1_REFERENCE_BLOCK_HASH, blobs
             ),
             "parent hash"
         );
         assertNotEq(
             expected,
-            etnaInbox.hashLandStatement(0, 0, genesisBlockHash, input, bytes32(uint256(1)), blobs),
+            etnaInbox.hashLandStatement(
+                0, 0, genesisBlockHash, 0, input, bytes32(uint256(1)), blobs
+            ),
             "reference hash"
         );
         input.lastHeight += 1;
         assertNotEq(
             expected,
             etnaInbox.hashLandStatement(
-                0, 0, genesisBlockHash, input, L1_REFERENCE_BLOCK_HASH, blobs
+                0, 0, genesisBlockHash, 0, input, L1_REFERENCE_BLOCK_HASH, blobs
             ),
             "last height"
         );
@@ -541,7 +799,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         assertNotEq(
             expected,
             etnaInbox.hashLandStatement(
-                0, 0, genesisBlockHash, input, L1_REFERENCE_BLOCK_HASH, blobs
+                0, 0, genesisBlockHash, 0, input, L1_REFERENCE_BLOCK_HASH, blobs
             ),
             "last hash"
         );
@@ -551,7 +809,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         assertNotEq(
             expected,
             etnaInbox.hashLandStatement(
-                0, 0, genesisBlockHash, input, L1_REFERENCE_BLOCK_HASH, blobs
+                0, 0, genesisBlockHash, 0, input, L1_REFERENCE_BLOCK_HASH, blobs
             ),
             "last state root"
         );
@@ -560,16 +818,32 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         assertNotEq(
             expected,
             etnaInbox.hashLandStatement(
-                0, 0, genesisBlockHash, input, L1_REFERENCE_BLOCK_HASH, blobs
+                0, 0, genesisBlockHash, 0, input, L1_REFERENCE_BLOCK_HASH, blobs
             ),
             "reference number"
         );
         input.l1ReferenceBlockNumber -= 1;
+        assertNotEq(
+            expected,
+            etnaInbox.hashLandStatement(
+                0, 0, genesisBlockHash, 1, input, L1_REFERENCE_BLOCK_HASH, blobs
+            ),
+            "forced inclusion head before"
+        );
+        input.forcedInclusionHead += 1;
+        assertNotEq(
+            expected,
+            etnaInbox.hashLandStatement(
+                0, 0, genesisBlockHash, 0, input, L1_REFERENCE_BLOCK_HASH, blobs
+            ),
+            "forced inclusion head after"
+        );
+        input.forcedInclusionHead -= 1;
         blobs[0] = bytes32(uint256(1));
         assertNotEq(
             expected,
             etnaInbox.hashLandStatement(
-                0, 0, genesisBlockHash, input, L1_REFERENCE_BLOCK_HASH, blobs
+                0, 0, genesisBlockHash, 0, input, L1_REFERENCE_BLOCK_HASH, blobs
             ),
             "blob hash"
         );
@@ -578,7 +852,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         assertNotEq(
             expected,
             etnaInbox.hashLandStatement(
-                0, 0, genesisBlockHash, input, L1_REFERENCE_BLOCK_HASH, blobs
+                0, 0, genesisBlockHash, 0, input, L1_REFERENCE_BLOCK_HASH, blobs
             ),
             "L1 chain id"
         );
@@ -593,14 +867,17 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         assertNotEq(
             original,
             etnaInbox.hashLandStatement(
-                0, 0, genesisBlockHash, input, L1_REFERENCE_BLOCK_HASH, _getBlobHashes(2)
+                0, 0, genesisBlockHash, 0, input, L1_REFERENCE_BLOCK_HASH, _getBlobHashes(2)
             ),
             "L2 chain id bound"
         );
     }
 
-    /// @dev Independent ethers/5.7.2 vector shared with the client; config 288 bytes, V5 480 bytes.
-    function test_hashLandStatement_MatchesTheFixedVector() external {
+    /// @dev Independent vector shared with the client; config 288 bytes, V6 544 bytes. The V5
+    /// vector's inputs plus forced inclusion heads 3 (before) and 5 (after), hashed by
+    /// `cast keccak $(cast abi-encode "f(bytes32,uint256,uint64,address,address,uint64,uint64,
+    /// bytes32,bytes32,uint64,bytes32,bytes32,uint64,bytes32,bytes32,uint48,uint48)" ...)`.
+    function test_hashLandStatement_MatchesTheV6Vector() external {
         vm.chainId(1);
         address vectorInbox = 0x1111111111111111111111111111111111111111;
         IEtnaInbox.Config memory config = etnaConfig;
@@ -616,9 +893,10 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
             lastHeight: 164,
             lastBlockHash: bytes32(uint256(0x22)),
             lastStateRoot: bytes32(uint256(0x33)),
-            l1ReferenceBlockNumber: 19_000_000
+            l1ReferenceBlockNumber: 19_000_000,
+            forcedInclusionHead: 5
         });
-        assertEq(abi.encode(input).length, 128, "four static LandInput words");
+        assertEq(abi.encode(input).length, 160, "five static LandInput words");
         bytes32[] memory blobs = new bytes32[](2);
         blobs[0] = bytes32(uint256(0x01aa));
         blobs[1] = bytes32(uint256(0x01bb));
@@ -630,10 +908,10 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         assertEq(
             EtnaInbox(vectorInbox)
                 .hashLandStatement(
-                    3, 100, bytes32(uint256(0x11)), input, bytes32(uint256(0x44)), blobs
+                    3, 100, bytes32(uint256(0x11)), 3, input, bytes32(uint256(0x44)), blobs
                 ),
-            0x4d02d06b547ccf426c7797489fa6bf8e68ed66b1dbdfcab3ba38cfcf0845d870,
-            "V5 statement"
+            0x4815a3e1647da69f7c7cb55035aa8dd6fcf0e4690fe18e570d322a6d12a3699d,
+            "V6 statement"
         );
     }
 
@@ -700,13 +978,59 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         );
     }
 
+    /// @dev A batch that consumes no forced inclusion: its head is the stored head.
     function _batch(uint64 _lastHeight) internal view returns (IEtnaInbox.LandInput memory) {
         return IEtnaInbox.LandInput({
             lastHeight: _lastHeight,
             lastBlockHash: keccak256(abi.encode("l2 block", _lastHeight)),
             lastStateRoot: keccak256(abi.encode("l2 state", _lastHeight)),
-            l1ReferenceBlockNumber: l1ReferenceBlockNumber
+            l1ReferenceBlockNumber: l1ReferenceBlockNumber,
+            forcedInclusionHead: _forcedInclusionHead()
         });
+    }
+
+    /// @dev The stored forced inclusion head, read from slot 281 bits 0-47.
+    function _forcedInclusionHead() internal view returns (uint48) {
+        return uint48(_loadSlot(FORCED_INCLUSION_HEAD_TAIL_SLOT));
+    }
+
+    /// @dev The first word of forced inclusion entry `_index`, holding its fee in Gwei.
+    function _entrySlot(uint256 _index) internal pure returns (uint256) {
+        return uint256(keccak256(abi.encode(_index, FORCED_INCLUSION_QUEUE_SLOT)));
+    }
+
+    /// @dev Word `_index` of an ABI encoding.
+    function _word(bytes memory _words, uint256 _index) internal pure returns (bytes32 word_) {
+        assembly {
+            word_ := mload(add(add(_words, 32), mul(_index, 32)))
+        }
+    }
+
+    /// @dev Alice saves `_count` single-blob forced inclusions at the current fee each.
+    function _saveForcedInclusions(uint256 _count) internal returns (uint64[] memory fees_) {
+        vm.deal(Alice, 1000 ether);
+        vm.blobhashes(_getBlobHashes(1));
+        fees_ = new uint64[](_count);
+        for (uint256 i; i < _count; ++i) {
+            fees_[i] = etnaInbox.getCurrentForcedInclusionFee();
+            vm.prank(Alice);
+            etnaInbox.saveForcedInclusion{ value: uint256(fees_[i]) * 1 gwei }(
+                LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 })
+            );
+        }
+    }
+
+    /// @dev Lands `_input` with the forced inclusion head moved to `_newHead`.
+    function _landConsuming(IEtnaInbox.LandInput memory _input, uint48 _newHead) internal {
+        _input.forcedInclusionHead = _newHead;
+        _landExpectingConfig(_input, COMMITTEE_CONFIG_HASH);
+    }
+
+    function _assertForcedInclusionState(uint48 _head, uint48 _tail) internal view {
+        (uint48 head, uint48 tail) = etnaInbox.getForcedInclusionState();
+        assertEq(head, _head, "forced inclusion head");
+        assertEq(tail, _tail, "forced inclusion tail");
+        assertEq(_forcedInclusionHead(), _head, "slot 281 head");
     }
 
     function _statement(
@@ -769,7 +1093,8 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         );
     }
 
-    /// @dev Independent flat V5 encoding, deliberately not the implementation's struct helper.
+    /// @dev Independent flat V6 encoding, deliberately not the implementation's struct helper.
+    /// The head before is the stored head, read from slot 281.
     function _manualPreimage(
         address _inbox,
         address _registry,
@@ -784,7 +1109,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         returns (bytes memory)
     {
         bytes memory context = abi.encode(
-            bytes32("TAIKO_ETNA_LAND_V5"), block.chainid, L2_CHAIN_ID, _inbox, _registry
+            bytes32("TAIKO_ETNA_LAND_V6"), block.chainid, L2_CHAIN_ID, _inbox, _registry
         );
         return bytes.concat(
             context,
@@ -796,7 +1121,8 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
                 _input.l1ReferenceBlockNumber,
                 _referenceHash,
                 keccak256(abi.encodePacked(_getBlobHashes(blobCount)))
-            )
+            ),
+            abi.encode(_forcedInclusionHead(), _input.forcedInclusionHead)
         );
     }
 
@@ -807,9 +1133,16 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         internal
     {
         bytes32 configBefore = etnaInbox.committeeConfigHash();
+        IEtnaInbox.LandedCheckpoint memory parent = etnaInbox.lastCheckpoint();
+        (uint48 head, uint48 tail) = etnaInbox.getForcedInclusionState();
+        uint256 inboxBalance = address(etnaInbox).balance;
+        uint256 landerBalance = Bob.balance;
         landVerifier.setExpectedStatementHash(_wrongStatement);
         _expectLandRevert(_input, MockLandProofVerifier.ProofRejected.selector);
-        _assertLastCheckpoint(0, genesisBlockHash);
+        _assertLastCheckpoint(parent.height, parent.blockHash);
+        _assertForcedInclusionState(head, tail);
+        assertEq(address(etnaInbox).balance, inboxBalance, "fees retained");
+        assertEq(Bob.balance, landerBalance, "nothing paid");
         assertEq(etnaInbox.genesisCommitteeRecordHash(), COMMITTEE_RECORD_0, "bootstrap retained");
         assertEq(etnaInbox.committeeConfigHash(), configBefore, "config retained");
         vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
@@ -850,6 +1183,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
             0,
             parent.height,
             parent.blockHash,
+            _forcedInclusionHead(),
             _input,
             _l1ReferenceBlockHash,
             _getBlobHashes(blobCount)
@@ -901,7 +1235,8 @@ contract EtnaInboxLandBeforeInitializationTest is EtnaInboxTestBase {
             lastHeight: genesisHeight + 1,
             lastBlockHash: keccak256("block"),
             lastStateRoot: keccak256("state"),
-            l1ReferenceBlockNumber: uint64(block.number - 1)
+            l1ReferenceBlockNumber: uint64(block.number - 1),
+            forcedInclusionHead: 0
         });
 
         vm.expectRevert(EtnaInbox.EtnaNotActive.selector);

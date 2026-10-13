@@ -135,14 +135,15 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
             lastHeight: 1,
             lastBlockHash: keccak256("first Etna block"),
             lastStateRoot: keccak256("first Etna state"),
-            l1ReferenceBlockNumber: uint64(block.number - 1)
+            l1ReferenceBlockNumber: uint64(block.number - 1),
+            forcedInclusionHead: 0
         });
         bytes32 l1ReferenceBlockHash = keccak256("genesis anchor");
         vm.setBlockhash(input.l1ReferenceBlockNumber, l1ReferenceBlockHash);
         bytes32[] memory blobHashes = _getBlobHashes(1);
         vm.blobhashes(blobHashes);
         bytes32 statement = deployed.hashLandStatement(
-            0, 0, genesisBlockHash, input, l1ReferenceBlockHash, blobHashes
+            0, 0, genesisBlockHash, 0, input, l1ReferenceBlockHash, blobHashes
         );
         vm.expectCall(
             address(landVerifier),

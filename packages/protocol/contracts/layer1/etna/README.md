@@ -54,7 +54,8 @@ of the Inbox deployment; the script predicts the final proxy using its current n
 
 No Etna guest exists yet, so a devnet's `EtnaInbox` uses a stand-in proof verifier such as the
 accept-all `contracts/layer1/devnet/OpVerifier.sol`. As `land` is permissionless, anyone can then
-land any batch and write arbitrary SignalService checkpoints (forged L2 to L1 messages).
+land any batch and write arbitrary SignalService checkpoints (forged L2 to L1 messages), and move
+the forced inclusion head to the tail to collect every pending fee without including the entries.
 Such a verifier is for ephemeral devnets only; selecting it must be explicit. Fixtures provide
 the config hash and use the dummy proof provider, which does not enforce guest constraints.
 
@@ -72,7 +73,8 @@ the config hash and use the dummy proof provider, which does not enforce guest c
 - `forcedInclusionFeeInGwei` and `forcedInclusionFeeDoubleThreshold` are non-zero implementation
   immutables. As in Shasta, a new entry costs
   `forcedInclusionFeeInGwei * (threshold + pending) / threshold` Gwei (rounded down), so the fee
-  doubles once `threshold` entries are pending.
+  doubles once `threshold` entries are pending. The landing that consumes an entry pays its fee to
+  the lander.
 - `forcedInclusionDelay` (seconds) is fixed at genesis in slot 282; the node and guest read it
   from storage. An entry is due at an L2 block whose anchor timestamp is at least the entry's
   timestamp plus the delay; before that, validators may include it early. The delay must be
@@ -158,6 +160,9 @@ one entry gives leaf 0 and no entry gives `bytes32(0)`. At most 4096 entries exi
 - Initialization writes the genesis record, status 3, `genesisCutoff`, `genesisCommitteeRecordHash`,
   `committeeConfigHash`, `forcedInclusionDelay`, `maxAnchorAge` and
   `lastCheckpoint = (0, H*)`, and saves `(0, H*, S*)` in SignalService.
+- The forced inclusion head only moves in a verified landing, to the cursor the proof binds.
+  After every landing `head` equals the L2 cursor at `lastCheckpoint.height`; both start at 0.
+  Consumed entries stay in storage.
 - `genesisCommitteeRecordHash` must be the record hash derived by the node at `genesisCutoff`: active entries
   with at least `max(s_min, vp_unit)`, lowest bond id per pubkey, top `n_max` by stake, and no
   heartbeat filter. The contract accepts the deployer's supplied record; the node verifies it.
@@ -231,35 +236,47 @@ Outgoing-quorum, old-key/stake-retention/withdrawal and recovery-bootstrap limit
 
 ## Landing
 
-`LandInput` has exactly `lastHeight`, `lastBlockHash`, `lastStateRoot` and
-`l1ReferenceBlockNumber`. With `p` and `parentHash` the stored checkpoint, `land` requires active
-status, `p < lastHeight <= p + maxBatchBlocks`, and `lastHeight <= type(uint48).max`. The reference
-must be a past L1 block with a nonzero hash available from `blockhash` (256 blocks) or the
-EIP-2935 history contract (8191 blocks). At least one transaction blob is required.
+`LandInput` has exactly `lastHeight`, `lastBlockHash`, `lastStateRoot`, `l1ReferenceBlockNumber`
+and `forcedInclusionHead`, the forced inclusion cursor after the batch. With `p` and `parentHash`
+the stored checkpoint and `head`, `tail` the stored queue, `land` requires active status,
+`p < lastHeight <= p + maxBatchBlocks`, and `lastHeight <= type(uint48).max`. It also requires
+`head <= forcedInclusionHead <= tail` and `forcedInclusionHead - head <= lastHeight - p`, since
+each forced inclusion is its own block; otherwise it reverts `InvalidForcedInclusionHead`. The
+reference must be a past L1 block with a nonzero hash available from `blockhash` (256 blocks) or
+the EIP-2935 history contract (8191 blocks). At least one transaction blob is required.
 
-Landing saves the terminal checkpoint in the Inbox and SignalService, emits `BatchLanded`, and
-calls `proofVerifier.verifyProof(0, statementHash, proof)`. Failure rolls back all writes. The
-fifteen-word V5 preimage (480 bytes) is:
+Landing saves the terminal checkpoint in the Inbox and SignalService, moves `head` to
+`forcedInclusionHead`, emits `BatchLanded`, and calls
+`proofVerifier.verifyProof(0, statementHash, proof)`. Failure rolls back all writes. Only after
+verification, and only if the head moved, does it pay the consumed entries' fees,
+`sum(queue[i].feeInGwei) * 1 gwei` for `i` in `[head, forcedInclusionHead)`, to `msg.sender` and
+emit `ForcedInclusionsConsumed(headBefore, headAfter, feesWei, recipient)`. A recipient that
+rejects the payment fails the landing. `land` and `saveForcedInclusion` share one reentrancy lock,
+so the recipient cannot re-enter either. The seventeen-word V6 preimage (544 bytes) is:
 
 ```solidity
 statementHash = keccak256(abi.encode(
-    bytes32("TAIKO_ETNA_LAND_V5"),
+    bytes32("TAIKO_ETNA_LAND_V6"),
     block.chainid, l2ChainId, address(this), address(stakingRegistry),
     recoveryGeneration, p, parentHash, committeeConfigHash,
     lastHeight, lastBlockHash, lastStateRoot,
     l1ReferenceBlockNumber, l1ReferenceBlockHash,
-    keccak256(abi.encodePacked(blobHashes))
+    keccak256(abi.encodePacked(blobHashes)),
+    forcedInclusionHeadBefore, forcedInclusionHeadAfter
 ));
 ```
 
-Both identities, config hash, generation and parent come from the contract. The reference hash
-and ordered blob hashes come from the actual L1 execution context. `hashLandStatement` derives
-identities and config internally but accepts raw generation, parent and terminal inputs for
-encoding; it does not authenticate them. Call it through the proxy to bind that proxy's address.
-V4 digests, fixed-cutoff configuration openings, envelope-2 histories, V1 blob payloads and
-journal-schema-2/3 jobs are incompatible with this prelaunch version. The envelope version is 3,
-the blob payload version 2 and the journal schema 4; record encoding stays 1. No deployed-chain migration is provided. Reject old signed jobs without
-discarding their nonce, cancelling or automatically replacing their transaction.
+The two heads are `uint48`: `forcedInclusionHeadBefore` is the stored `head` and
+`forcedInclusionHeadAfter` is `LandInput.forcedInclusionHead`. Both identities, config hash,
+generation, parent and head before come from the contract. The reference hash and ordered blob
+hashes come from the actual L1 execution context. `hashLandStatement` derives identities and config
+internally but accepts raw generation, parent, head before and terminal inputs for encoding; it does
+not authenticate them. Call it through the proxy to bind that proxy's address.
+V5 digests, four-field `LandInput`s, fixed-cutoff configuration openings, envelope-3 histories, V2
+blob payloads and journal-schema-4 jobs are incompatible with this prelaunch version. The envelope
+version is 4, the blob payload version 3 and the journal schema 5; record encoding stays 1. No
+deployed-chain migration is provided. Reject old signed jobs without discarding their nonce,
+cancelling or automatically replacing their transaction.
 
 ### Guest and consensus obligations
 
@@ -306,21 +323,61 @@ Verify the parent certificate and every current/pending certificate, current val
 `nextValidatorHash` across `S/S+1/H` and arbitrary cuts. Require strictly more than two-thirds voting
 power from distinct signers under `taiko-etna-<l2ChainId>-g<generation>`. Prove execution ancestry
 from the stored parent to terminal hash/state root and blob data. The bound blobs carry payload
-V2, each block's canonical CometBFT header and Etna envelope: header hashes are the certified block
-ids, `data_hash` commits to the envelope and `last_block_id` links the batch. Commits and signatures
-are proof witnesses, not blob data. Every anchor and actual proving
-L1 root belongs to the header chain ending at the reference hash. Reference headers may be recent
-even for old batches. Arbitrary batch cuts never depend on an earlier batch's committee output.
+V3, `0x03 || zlib(rlp([[header_proto, envelope], ...]))` in the existing blob coding, with each
+block's canonical CometBFT header and Etna envelope: header hashes are the certified block ids,
+`data_hash` commits to the envelope and `last_block_id` links the batch. A forced inclusion block's
+envelope carries its entry's whole blob. Commits and signatures are proof witnesses, not blob data.
+Every anchor and actual proving L1 root belongs to the header chain ending at the reference hash.
+Reference headers may be recent even for old batches. Arbitrary batch cuts never depend on an
+earlier batch's committee output.
+
+### Forced inclusion obligations
+
+The L2 chain tracks a cursor `c(h)`, the number of entries consumed after block `h`; `c(0) = 0`. A
+forced inclusion block consumes exactly entry `c(h-1)` and sets `c(h) = c(h-1) + 1`; every other
+block keeps the cursor. For block `h` with parent cursor `c` and anchor `A` (its own anchor or the
+inherited one), with `tail(A)` the queue tail in `A`'s state, `D = forcedInclusionDelay`,
+`E = 14 days` and `M = maxAnchorAge`:
+
+- Entry `c` is due iff `c < tail(A)` and `A.timestamp >= entry.timestamp + D`, and expired iff
+  `c < tail(A)` and `A.timestamp >= entry.timestamp + E`.
+- If entry `c` is due, block `h` must be a forced inclusion block for entry `c`. If it is pending
+  but not due, block `h` may include it early or be ordinary. If `c >= tail(A)`, block `h` must be
+  ordinary. Skipping or reordering entries is invalid.
+- Every block, forced or ordinary, requires `block.timestamp - A.timestamp <= M`, with the
+  timestamp the existing rules derive. A proposer whose newest finalized anchor is older than `M`
+  proposes nothing, so an L1 finality stall longer than `M` pauses L2.
+- A forced inclusion block keeps the ordinary header, anchor, generation, back-pressure and
+  committee rules and carries the entry's witness. Its transactions are exactly what the EL
+  produces with `execute_provided_transactions` from the entry's list: it skips undecodable or
+  unrecoverable transactions, unsupported types, invalid transactions and those whose gas limit
+  exceeds the remaining block gas, and stops at zk gas exhaustion.
+
+The list of a non-expired entry comes from its blob `B`: require
+`kzg_to_versioned_hash(blob_to_kzg_commitment(B)) == entry.blobHashes[0]`, decode the blob as Shasta
+derivation does, and decode Shasta's forced inclusion `DerivationSourceManifest` at `entry.offset`
+with at most one block, stopping decompression at 1 MiB. A manifest with exactly one block gives
+that block's `transactions` and ignores its other fields; any other manifest (default, zero or
+several blocks, over the cap) gives an empty list. An expired entry gives an empty list and needs
+no blob. The EL `txList` is the RLP list of those transactions.
+
+The guest checks, per block, these rules, the witness presence rules, the KZG binding, the list
+derivation and the EL semantics, and that the batch consumes exactly entries
+`[forcedInclusionHeadBefore, forcedInclusionHeadAfter)` in order. Entry facts and `tail` are
+authenticated by storage proofs (slots 280–281) under anchors already authenticated by the
+reference header chain; `D` and `M` (slot 282) under the genesis proof.
 
 The existing status, generation, anchor progress and back-pressure checks remain. In particular,
 `height - checkpoint <= d_max - margin_v` can still stop block production during a settlement
 outage, and `epochLenL2 >= unsettledCap + 3` remains the schedule bound. Committee authorization
 is autonomous, while settlement progress still matters for overall liveness.
 
-The fixed Solidity vector pins the four-field ABI, nine-word config and V5 statement against
-independent ethers encoding. Tests use an explicitly dummy verifier for batching, statement
-binding and rollback; they do not prove the authoritative guest rules. Dummy proof `0x00` remains explicit; no real ZK guest is part
-of this change, and host/contract integration checks do not establish production ZK soundness. Empty-roster liveness and old-key/withdrawal assumptions remain unchanged.
+The fixed Solidity vector pins the five-field ABI, nine-word config and V6 statement against an
+independent `cast abi-encode` encoding. Tests use an explicitly dummy verifier for batching,
+statement binding and rollback; they do not prove the authoritative guest rules. Dummy proof
+`0x00` remains explicit; no real ZK guest is part of this change, and host/contract integration
+checks do not establish production ZK soundness. Empty-roster liveness and old-key/withdrawal
+assumptions remain unchanged.
 
 ## Open items
 
@@ -334,4 +391,9 @@ of this change, and host/contract integration checks do not establish production
 - No Ed25519 proof of possession is required for registration.
 - The spec's separate heartbeat key, signed payload and relayed heartbeats are not implemented;
   the bond owner heartbeats directly. Epochs 0, 1 and 2 have no heartbeat eligibility filter.
-- Forced inclusions, fee accounting and an L2-to-L1 fee sweep remain separate work.
+- Forced inclusion is enforced only by the guest and by honest validators; no guest exists yet,
+  so a stand-in verifier lets any lander skip entries and collect their fees. A committee with more
+  than two-thirds of the voting power controls BFT time and can still delay forced inclusions;
+  closing that would need an L1-clock check at landing, which would make batches delayed by a long
+  lander outage unlandable.
+- An L2-to-L1 fee sweep remains separate work.
