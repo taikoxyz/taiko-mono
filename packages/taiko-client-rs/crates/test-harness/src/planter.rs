@@ -85,6 +85,10 @@ const FORCED_INCLUSION_FEE_GWEI: u64 = 1_000_000;
 /// The mask of a `uint48` field of the forced inclusion queue's head/tail word.
 const U48_MASK: u64 = (1 << 48) - 1;
 
+/// The most entries [`Planter::plant_forced_inclusions`] plants at once: their blobs travel in one
+/// transaction, which Osaka caps at six blobs.
+const MAX_BLOBS_PER_PLANT: usize = 6;
+
 /// A forced inclusion entry planted by [`Planter::plant_forced_inclusion`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PlantedEntry {
@@ -238,28 +242,53 @@ impl Planter {
     }
 
     /// Plants a forced inclusion entry carrying `transactions` at the queue's tail and returns
-    /// it.
-    ///
-    /// The entry's source is a one-block Shasta manifest of `transactions` (its other fields
-    /// default), coded by [`BlobCoder`] into one blob read at offset 0. One L1 block, mined as a
-    /// [`NextBlock`] section with its timestamp set ahead (`evm_setNextBlockTimestamp`), holds a
-    /// type-3 transaction to the Inbox carrying that blob and the setter writes of the entry
-    /// (fee, one blob hash, offset 0 and that block's timestamp) and of the tail (the head
-    /// kept).
+    /// it: [`Planter::plant_forced_inclusions`] with one source.
     pub async fn plant_forced_inclusion(
         &self,
         transactions: Vec<TxEnvelope>,
     ) -> Result<PlantedEntry> {
-        let manifest = DerivationSourceManifest {
-            blocks: vec![BlockManifest { transactions, ..Default::default() }],
+        let entries = self.plant_forced_inclusions(vec![transactions]).await?;
+        let [entry] = entries.as_slice() else {
+            bail!("planted {} entries for one source", entries.len());
         };
-        let payload = manifest.encode_and_compress().context("encoding the manifest")?;
-        // The trusted setup the in-process apps load: alloy's default would add another.
-        let sidecar = SidecarBuilder::<BlobCoder>::from_slice(&payload)
-            .build_4844_with_settings(c_kzg::ethereum_kzg_settings(0))
-            .context("coding the manifest into a blob")?;
-        ensure!(sidecar.blobs.len() == 1, "the manifest takes {} blobs", sidecar.blobs.len());
-        let versioned_hash = sidecar.versioned_hash_for_blob(0).context("no blob")?;
+        Ok(*entry)
+    }
+
+    /// Plants one forced inclusion entry per element of `sources` (at most
+    /// [`MAX_BLOBS_PER_PLANT`]), as consecutive entries from the queue's tail in one L1 block,
+    /// hence with one timestamp, and returns them in order.
+    ///
+    /// Each entry's source is a one-block Shasta manifest of its transactions (the other fields
+    /// default), coded by [`BlobCoder`] into one blob read at offset 0. The L1 block, mined as a
+    /// [`NextBlock`] section with its timestamp set ahead (`evm_setNextBlockTimestamp`), holds a
+    /// type-3 transaction to the Inbox carrying the blobs in entry order and the setter writes of
+    /// the entries (fee, one blob hash, offset 0 and that block's timestamp) and of the tail (the
+    /// head kept).
+    pub async fn plant_forced_inclusions(
+        &self,
+        sources: Vec<Vec<TxEnvelope>>,
+    ) -> Result<Vec<PlantedEntry>> {
+        ensure!(
+            (1..=MAX_BLOBS_PER_PLANT).contains(&sources.len()),
+            "{} forced inclusion sources: plant 1..={MAX_BLOBS_PER_PLANT} at once",
+            sources.len()
+        );
+        let mut sidecar = BlobTransactionSidecar::default();
+        for transactions in sources {
+            let manifest = DerivationSourceManifest {
+                blocks: vec![BlockManifest { transactions, ..Default::default() }],
+            };
+            let payload = manifest.encode_and_compress().context("encoding the manifest")?;
+            // The trusted setup the in-process apps load: alloy's default would add another.
+            let one = SidecarBuilder::<BlobCoder>::from_slice(&payload)
+                .build_4844_with_settings(c_kzg::ethereum_kzg_settings(0))
+                .context("coding the manifest into a blob")?;
+            ensure!(one.blobs.len() == 1, "a manifest takes {} blobs", one.blobs.len());
+            sidecar.blobs.extend(one.blobs);
+            sidecar.commitments.extend(one.commitments);
+            sidecar.proofs.extend(one.proofs);
+        }
+        let hashes: Vec<B256> = sidecar.versioned_hashes().collect();
 
         let mut next = self.next_block().await?;
         let latest = self
@@ -272,7 +301,7 @@ impl Planter {
         anvil_request::<Value>(&self.l1, "evm_setNextBlockTimestamp", json!([timestamp])).await?;
 
         let head_tail = self.inbox_word(inbox::slot(inbox::FORCED_INCLUSION_HEAD_TAIL)).await?;
-        let (index, writes) = forced_inclusion_writes(head_tail, versioned_hash, timestamp)?;
+        let (first, writes) = forced_inclusion_writes(head_tail, &hashes, timestamp)?;
         next.sent.push(self.send_blob(sidecar).await?);
         next.sent.extend(self.submit(self.inbox, &writes).await?);
         let number = next.commit().await?;
@@ -287,11 +316,14 @@ impl Planter {
             "L1 block {number} has timestamp {}, not {timestamp}",
             block.header.timestamp
         );
-        Ok(PlantedEntry { index, versioned_hash, timestamp })
+        Ok((first..)
+            .zip(hashes)
+            .map(|(index, versioned_hash)| PlantedEntry { index, versioned_hash, timestamp })
+            .collect())
     }
 
-    /// Signs and sends a type-3 transaction to the Inbox carrying `sidecar`, from anvil's second
-    /// dev account; returns its hash.
+    /// Signs and sends a type-3 transaction to the Inbox carrying the blobs of `sidecar`, from
+    /// anvil's second dev account; returns its hash.
     async fn send_blob(&self, sidecar: BlobTransactionSidecar) -> Result<B256> {
         let signer = PrivateKeySigner::from_bytes(&BLOB_SENDER_KEY)?;
         let tx = TxEip4844 {
@@ -413,29 +445,33 @@ impl Planter {
     }
 }
 
-/// The Inbox writes appending a forced inclusion entry with blob `versioned_hash` (offset 0) and
-/// `timestamp` to the queue whose head/tail word is `head_tail`: the entry's slots at the tail
-/// index ([`inbox::forced_inclusion_entry_slots`]; fee [`FORCED_INCLUSION_FEE_GWEI`], one blob
-/// hash) and the tail plus one, every other bit of the word (the head) kept. Returns the index
-/// with the writes.
+/// The Inbox writes appending one forced inclusion entry per blob of `versioned_hashes` (offset
+/// 0, `timestamp`) to the queue whose head/tail word is `head_tail`: each entry's slots at
+/// consecutive indices from the tail ([`inbox::forced_inclusion_entry_slots`]; fee
+/// [`FORCED_INCLUSION_FEE_GWEI`], one blob hash) and the tail advanced past them, every other bit
+/// of the word (the head) kept. Returns the first index with the writes.
 fn forced_inclusion_writes(
     head_tail: U256,
-    versioned_hash: B256,
+    versioned_hashes: &[B256],
     timestamp: u64,
 ) -> Result<(u64, Vec<(B256, U256)>)> {
     let tail_bits: U256 = U256::from(U48_MASK) << 48;
-    let index = u64::try_from((head_tail & tail_bits) >> 48)?;
-    ensure!(index < U48_MASK, "the forced inclusion queue is full");
-    let [fee, length, slice, hash] = inbox::forced_inclusion_entry_slots(index);
-    let tail = (head_tail & !tail_bits) | (U256::from(index + 1) << 48);
-    let writes = vec![
-        (fee, U256::from(FORCED_INCLUSION_FEE_GWEI)),
-        (length, U256::from(1)),
-        (slice, U256::from(timestamp) << 24),
-        (hash, versioned_hash.into()),
-        (inbox::slot(inbox::FORCED_INCLUSION_HEAD_TAIL), tail),
-    ];
-    Ok((index, writes))
+    let first = u64::try_from((head_tail & tail_bits) >> 48)?;
+    let end = first + versioned_hashes.len() as u64;
+    ensure!(end <= U48_MASK, "the forced inclusion queue is full");
+    let mut writes = Vec::with_capacity(4 * versioned_hashes.len() + 1);
+    for (index, hash) in (first..).zip(versioned_hashes) {
+        let [fee, length, slice, blob_hash] = inbox::forced_inclusion_entry_slots(index);
+        writes.extend([
+            (fee, U256::from(FORCED_INCLUSION_FEE_GWEI)),
+            (length, U256::from(1)),
+            (slice, U256::from(timestamp) << 24),
+            (blob_hash, (*hash).into()),
+        ]);
+    }
+    let tail = (head_tail & !tail_bits) | (U256::from(end) << 48);
+    writes.push((inbox::slot(inbox::FORCED_INCLUSION_HEAD_TAIL), tail));
+    Ok((first, writes))
 }
 
 /// A section with interval mining paused: writes made through it land in block
@@ -519,28 +555,30 @@ mod tests {
 
     #[test]
     fn forced_inclusion_writes_append_at_the_tail_and_keep_the_head() {
-        let hash = B256::repeat_byte(7);
+        let (a, b) = (B256::repeat_byte(7), B256::repeat_byte(8));
         // head 2, tail 5, and a stray high bit that must survive.
         let head_tail = U256::from(2u64) | U256::from(5u64) << 48 | U256::from(1u64) << 200;
-        let (index, writes) = forced_inclusion_writes(head_tail, hash, 1_700_000_000).unwrap();
-        assert_eq!(index, 5);
-        let [fee, length, slice, blob_hash] = inbox::forced_inclusion_entry_slots(5);
-        assert_eq!(
-            writes,
-            vec![
+        let (first, writes) = forced_inclusion_writes(head_tail, &[a, b], 1_700_000_000).unwrap();
+        assert_eq!(first, 5);
+        let entry = |index: u64, hash: B256| {
+            let [fee, length, slice, blob_hash] = inbox::forced_inclusion_entry_slots(index);
+            [
                 (fee, U256::from(FORCED_INCLUSION_FEE_GWEI)),
                 (length, U256::from(1u64)),
                 (slice, U256::from(1_700_000_000u64) << 24),
-                (blob_hash, U256::from_be_bytes([7; 32])),
-                (
-                    inbox::slot(281),
-                    U256::from(2u64) | U256::from(6u64) << 48 | U256::from(1u64) << 200
-                ),
+                (blob_hash, U256::from_be_bytes(hash.0)),
             ]
-        );
+        };
+        let mut expected = entry(5, a).to_vec();
+        expected.extend(entry(6, b));
+        expected.push((
+            inbox::slot(281),
+            U256::from(2u64) | U256::from(7u64) << 48 | U256::from(1u64) << 200,
+        ));
+        assert_eq!(writes, expected);
 
-        let (index, writes) = forced_inclusion_writes(U256::ZERO, hash, 1).unwrap();
-        assert_eq!(index, 0);
+        let (first, writes) = forced_inclusion_writes(U256::ZERO, &[a], 1).unwrap();
+        assert_eq!(first, 0);
         assert_eq!(writes[4], (inbox::slot(281), U256::from(1u64) << 48));
     }
 
