@@ -193,9 +193,13 @@ interface IEtnaInbox {
     ///
     /// Prove contiguous execution from the parent hash to the terminal hash/state root, every
     /// anchor and actual proving L1 root on the header chain ending at the reference hash, and
-    /// block data in the bound blobs. A batch may start/end at any valid height without a previous
-    /// batch's committee output. Envelope version 3 and journal schema 3 reject former V2/V4
-    /// histories/jobs; never discard or replace a signed nonce. The verifier must pin a guest
+    /// block data in the bound blobs. The blobs carry payload V2: each block's canonical CometBFT
+    /// header and Etna envelope, where every header hashes to a certified block id, its data hash
+    /// commits to the envelope and its last block id links the batch. Commits and signatures are
+    /// proof witnesses, not blob data. A batch may start/end at any valid height without a
+    /// previous batch's committee output. Envelope version 3, payload V2 and journal schema 4
+    /// reject former V2/V4 histories, V1 payloads and older jobs; never discard or replace a
+    /// signed nonce. The verifier must pin a guest
     /// enforcing these V5 rules. Dummy proof 0x00 is for development only; no real guest exists
     /// here and the dummy verifier does not establish consensus validity or ZK soundness.
     /// @param _input The four-field batch terminal checkpoint and reference block.
