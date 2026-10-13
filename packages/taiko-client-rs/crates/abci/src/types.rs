@@ -117,10 +117,17 @@ pub struct InboxFacts {
     pub last_checkpoint_height: u64,
     /// `lastCheckpoint.blockHash` (slot 271): L2 block hash of that checkpoint.
     pub last_checkpoint_hash: B256,
+    /// The forced inclusion queue's `head` (slot 281, `uint48` at bits 0–47): the next entry
+    /// not yet settled on L1. Zero at genesis.
+    pub forced_inclusion_head: u64,
+    /// The forced inclusion queue's `tail` (slot 281, `uint48` at bits 48–95): the next free
+    /// index, so entries `head..tail` are stored. Zero at genesis.
+    pub forced_inclusion_tail: u64,
 }
 
 /// The Etna genesis record read from the Inbox (the compatibility `activation` slots 272–274), with
-/// the genesis committee's snapshot cutoff (slot 279).
+/// the genesis committee's snapshot cutoff (slot 279) and the forced inclusion configuration
+/// (slot 282).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GenesisRecord {
     /// Authenticated slot-269 derivation configuration hash; required for persisted state.
@@ -142,6 +149,13 @@ pub struct GenesisRecord {
     /// number; validated `< l1_0`. Genesis names it explicitly before `L1_0` is known.
     /// Runtime epochs select the committed derivation parent anchor instead.
     pub genesis_cutoff: u64,
+    /// `forcedInclusionDelay` (`D`, slot 282 bits 0–63), in seconds: an entry is due once an
+    /// anchor's timestamp reaches its own plus `D`. Validated `0 < D <`
+    /// [`FORCED_INCLUSION_EXPIRY_SECS`](crate::forced::FORCED_INCLUSION_EXPIRY_SECS).
+    pub forced_inclusion_delay: u64,
+    /// `maxAnchorAge` (`M`, slot 282 bits 64–127), in seconds: a block's timestamp may exceed
+    /// its anchor's by at most `M`. Validated `> 0`.
+    pub max_anchor_age: u64,
 }
 
 /// The L1 anchor a block uses: the L1 header facts plus the Inbox facts proven at it.
@@ -228,6 +242,8 @@ mod tests {
             recovery_generation: 2,
             last_checkpoint_height: 1_000,
             last_checkpoint_hash: B256::repeat_byte(0x33),
+            forced_inclusion_head: 4,
+            forced_inclusion_tail: 7,
         }
     }
 
@@ -297,6 +313,8 @@ mod tests {
             genesis_hash: B256::repeat_byte(0x66),
             genesis_state_root: B256::repeat_byte(0x77),
             genesis_cutoff: 99,
+            forced_inclusion_delay: 3_600,
+            max_anchor_age: 7_200,
         });
     }
 

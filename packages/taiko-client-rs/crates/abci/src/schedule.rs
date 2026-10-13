@@ -221,6 +221,8 @@ mod tests {
             genesis_hash: B256::repeat_byte(1),
             genesis_state_root: B256::repeat_byte(2),
             genesis_cutoff: 8,
+            forced_inclusion_delay: 3_600,
+            max_anchor_age: 7_200,
         };
         assert_eq!(
             Schedule::from_genesis(&a),

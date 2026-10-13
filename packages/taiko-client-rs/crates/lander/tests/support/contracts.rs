@@ -216,6 +216,8 @@ impl ContractFixture {
             genesis_hash,
             genesis_state_root: parent_header.state_root,
             genesis_cutoff: cutoff,
+            forced_inclusion_delay: 3_600,
+            max_anchor_age: 7_200,
         };
         mine_l1_blocks(p, 3).await?;
         ensure!(

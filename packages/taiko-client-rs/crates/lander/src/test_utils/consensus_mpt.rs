@@ -160,6 +160,18 @@ fn state(
     committees: &BTreeMap<u64, AuthenticatedCommittee>,
     genesis: &GenesisRecord,
 ) -> State {
+    state_with_queue(params, entries, height, hash, committees, genesis, (0, 0))
+}
+/// As [`state`], with the forced inclusion queue's `(head, tail)` planted at slot 281.
+fn state_with_queue(
+    params: &ChainParams,
+    entries: &[RegistryEntry],
+    height: u64,
+    hash: B256,
+    committees: &BTreeMap<u64, AuthenticatedCommittee>,
+    genesis: &GenesisRecord,
+    (head, tail): (u64, u64),
+) -> State {
     let mut slots = vec![
         (inbox::slot(inbox::STATUS), U256::from(3)),
         (inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(height)),
@@ -180,6 +192,11 @@ fn state(
         (inbox::slot(inbox::GENESIS_BLOCK_HASH), genesis.genesis_hash.into()),
         (inbox::slot(inbox::GENESIS_STATE_ROOT), genesis.genesis_state_root.into()),
         (inbox::slot(inbox::GENESIS_CUTOFF), U256::from(genesis.genesis_cutoff)),
+        (
+            inbox::slot(inbox::FORCED_INCLUSION_CONFIG),
+            U256::from(genesis.forced_inclusion_delay) | U256::from(genesis.max_anchor_age) << 64,
+        ),
+        (inbox::slot(inbox::FORCED_INCLUSION_HEAD_TAIL), U256::from(head) | U256::from(tail) << 48),
     ]);
     let checkpoint = registry::checkpoint_slots(0);
     State::new(vec![
@@ -205,11 +222,44 @@ fn anchor(raw: &RawL1Header, height: u64, hash: B256) -> AnchorState {
             recovery_generation: 0,
             last_checkpoint_height: height,
             last_checkpoint_hash: hash,
+            forced_inclusion_head: 0,
+            forced_inclusion_tail: 0,
         },
     }
 }
 
 impl Fixture {
+    /// The landing snapshot re-planted with the genesis record `genesis` and the forced
+    /// inclusion queue's `(head, tail)` at slot 281: the same checkpoint in a fresh snapshot block
+    /// over the same parent, with its proof.
+    pub fn snapshot_with_forced_queue(
+        &self,
+        genesis: GenesisRecord,
+        head: u64,
+        tail: u64,
+    ) -> LandingSnapshot {
+        let state = state_with_queue(
+            &self.params,
+            &self.registry_entries(),
+            self.snapshot.checkpoint_height,
+            self.snapshot.checkpoint_hash,
+            &self.committees,
+            &genesis,
+            (head, tail),
+        );
+        let number = self.snapshot.l1_block_number;
+        let header = l1_header(number, &state, self.l1_headers[&(number - 1)].hash());
+        LandingSnapshot {
+            l1_block_hash: header.hash(),
+            forced_inclusion_head: head,
+            forced_inclusion_tail: tail,
+            inbox_witness: state.witness(self.params.inbox, &crate::l1::snapshot_slots()),
+            l1_header: header,
+            genesis,
+            ..self.snapshot.clone()
+        }
+    }
+
     fn registry_entries(&self) -> Vec<RegistryEntry> {
         [1u8, 2]
             .into_iter()
@@ -253,6 +303,8 @@ impl Fixture {
             genesis_cutoff: 1,
             genesis_hash: genesis_header.hash_slow(),
             genesis_state_root: genesis_header.state_root,
+            forced_inclusion_delay: 3_600,
+            max_anchor_age: 7_200,
         };
         let schedule = Schedule::from_genesis(&genesis);
         let keys = vec![SigningKey::from_bytes(&[1; 32]), SigningKey::from_bytes(&[2; 32])];
@@ -461,6 +513,8 @@ impl Fixture {
             generation: 0,
             checkpoint_height: checkpoint,
             checkpoint_hash: headers[&checkpoint].hash_slow(),
+            forced_inclusion_head: 0,
+            forced_inclusion_tail: 0,
             committee_config_hash: genesis.committee_config_hash,
             genesis_committee_record_hash: record_hash(
                 params.l2_chain_id,

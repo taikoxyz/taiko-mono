@@ -54,7 +54,8 @@ pub struct InboxValues {
     pub recovery_generation: Option<u64>,
     /// `lastCheckpoint` `(height, blockHash)` (slots 270, 271).
     pub last_checkpoint: Option<(u64, B256)>,
-    /// The genesis record (slots 272–274) with its `genesisCutoff` (slot 279).
+    /// The genesis record (slots 272–274) with its `genesisCutoff` (slot 279) and forced
+    /// inclusion configuration (slot 282).
     pub genesis: Option<GenesisRecord>,
     /// The bootstrap committee record hash at plain slot 278.
     pub genesis_committee_hash: Option<B256>,
@@ -85,6 +86,10 @@ impl InboxValues {
             w.push((slot(inbox::GENESIS_STATE_ROOT), a.genesis_state_root.into()));
             w.push((slot(inbox::GENESIS_CUTOFF), U256::from(a.genesis_cutoff)));
             w.push((slot(inbox::COMMITTEE_CONFIG_HASH), a.committee_config_hash.into()));
+            w.push((
+                slot(inbox::FORCED_INCLUSION_CONFIG),
+                U256::from(a.forced_inclusion_delay) | (U256::from(a.max_anchor_age) << 64),
+            ));
         }
         if let Some(hash) = self.genesis_committee_hash {
             w.push((slot(inbox::GENESIS_COMMITTEE_HASH), hash.into()));
@@ -365,7 +370,7 @@ mod tests {
     }
 
     #[test]
-    fn inbox_values_write_the_genesis_with_its_cutoff() {
+    fn inbox_values_write_the_genesis_with_its_cutoff_and_forced_inclusion_config() {
         let genesis = GenesisRecord {
             committee_config_hash: B256::repeat_byte(9),
             genesis_height: 1,
@@ -375,6 +380,8 @@ mod tests {
             genesis_hash: B256::repeat_byte(5),
             genesis_state_root: B256::repeat_byte(6),
             genesis_cutoff: 7,
+            forced_inclusion_delay: 10,
+            max_anchor_age: 11,
         };
         let v = InboxValues {
             genesis: Some(genesis),
@@ -393,6 +400,7 @@ mod tests {
                 (inbox::slot(274), U256::from_be_bytes([6; 32])),
                 (inbox::slot(279), U256::from(7u64)),
                 (inbox::slot(269), U256::from_be_bytes([9; 32])),
+                (inbox::slot(282), U256::from(10u64) | U256::from(11u64) << 64),
                 (inbox::slot(inbox::GENESIS_COMMITTEE_HASH), U256::from_be_bytes([8; 32])),
             ]
         );

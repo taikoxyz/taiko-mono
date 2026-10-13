@@ -7,10 +7,11 @@
 //! inside the block as a raw L1 header plus EIP-1186 proofs, so replay never calls L1.
 //!
 //! The `types`, `config`, `schedule`, `envelope`, `l1::header`, `l1::layout`, `l1::mpt`,
-//! `l1::witness`, `committee`, `rules` and `engine::convert` modules and the genesis `app_state`
-//! codec perform no I/O; `l1::source`, `engine` and `elsync` hold the L1 and execution-engine
-//! adapters, `l1::fetch` and the genesis builder read L1 through them, `app` answers CometBFT's
-//! ABCI requests on top of them, and `server` serves the app on CometBFT's ABCI socket.
+//! `l1::witness`, `committee`, `forced`, `rules` and `engine::convert` modules and the genesis
+//! `app_state` codec perform no I/O; `l1::source`, `engine` and `elsync` hold the L1 and
+//! execution-engine adapters, `l1::fetch` and the genesis builder read L1 through them, `app`
+//! answers CometBFT's ABCI requests on top of them, and `server` serves the app on CometBFT's ABCI
+//! socket.
 
 /// The ABCI++ application: request dispatch and the per-method handlers.
 pub mod app;
@@ -24,6 +25,8 @@ pub mod elsync;
 pub mod engine;
 /// The CometBFT block envelope codec (`0x03 || rlp([block, anchor, committee])`).
 pub mod envelope;
+/// Etna forced inclusion: the queue expiry.
+pub mod forced;
 /// The CometBFT genesis: the `app_state` genesis witness, its codec, and the builder of the
 /// whole `genesis.json` from L1.
 pub mod genesis;

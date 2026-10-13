@@ -121,6 +121,8 @@ fn anchor(header: &RawL1Header) -> AnchorState {
             recovery_generation: 0,
             last_checkpoint_height: 0,
             last_checkpoint_hash: B256::repeat_byte(1),
+            forced_inclusion_head: 0,
+            forced_inclusion_tail: 0,
         },
     }
 }
@@ -136,6 +138,8 @@ fn snapshot(headers: &BTreeMap<u64, RawL1Header>) -> LandingSnapshot {
         generation: 0,
         checkpoint_height: 0,
         checkpoint_hash: B256::repeat_byte(1),
+        forced_inclusion_head: 0,
+        forced_inclusion_tail: 0,
         genesis: GenesisRecord {
             committee_config_hash: B256::repeat_byte(3),
             genesis_height: 0,
@@ -145,6 +149,8 @@ fn snapshot(headers: &BTreeMap<u64, RawL1Header>) -> LandingSnapshot {
             genesis_hash: B256::repeat_byte(1),
             genesis_state_root: B256::repeat_byte(2),
             genesis_cutoff: 9,
+            forced_inclusion_delay: 3_600,
+            max_anchor_age: 7_200,
         },
         committee_config_hash: B256::repeat_byte(3),
         genesis_committee_record_hash: B256::repeat_byte(6),
@@ -343,7 +349,7 @@ async fn snapshot_reorg_retries_with_coherent_hash_pinned_header_and_proof() {
                 call["params"][2],
                 json!({"blockHash": snapshot.l1_block_hash, "requireCanonical": true})
             );
-            assert_eq!(call["params"][1].as_array().unwrap().len(), 10);
+            assert_eq!(call["params"][1].as_array().unwrap().len(), 12);
         }
         let raw =
             calls.iter().filter(|call| call["method"] == "debug_getRawHeader").collect::<Vec<_>>();
@@ -386,6 +392,65 @@ async fn snapshot_head_proof_that_never_verifies_is_safety_after_the_grace() {
     assert!(started.elapsed() >= TEST_HEAD_PROOF_GRACE);
     let calls = rpc.l1.requests.lock().unwrap();
     assert!(calls.iter().filter(|call| call["method"] == "eth_getProof").count() > 1);
+}
+
+#[test]
+fn snapshot_decoding_returns_the_planted_forced_inclusion_head_and_tail() {
+    let fixture = crate::test_utils::consensus_mpt::Fixture::new(0, 2);
+    assert_eq!(
+        (fixture.snapshot.forced_inclusion_head, fixture.snapshot.forced_inclusion_tail),
+        (0, 0)
+    );
+    let planted = fixture.snapshot_with_forced_queue(fixture.snapshot.genesis.clone(), 3, 9);
+    let decoded = super::decode_snapshot(
+        planted.l1_header.clone(),
+        planted.inbox_witness.clone(),
+        planted.l1_chain_id,
+        planted.l2_chain_id,
+        &fixture.params,
+    )
+    .unwrap();
+    assert_eq!((decoded.forced_inclusion_head, decoded.forced_inclusion_tail), (3, 9));
+    assert_eq!(decoded.genesis, fixture.snapshot.genesis);
+    assert_eq!(
+        (decoded.genesis.forced_inclusion_delay, decoded.genesis.max_anchor_age),
+        (3_600, 7_200)
+    );
+    assert_eq!(decoded, planted);
+    super::authenticate_snapshot(&planted, &fixture.params).unwrap();
+
+    // A head or tail claimed beside the proof is a contradiction, not a hint.
+    for (head, tail) in [(4, 9), (3, 8)] {
+        let claimed = LandingSnapshot {
+            forced_inclusion_head: head,
+            forced_inclusion_tail: tail,
+            ..planted.clone()
+        };
+        let error = super::authenticate_snapshot(&claimed, &fixture.params).unwrap_err();
+        assert!(matches!(error, LanderError::Safety(_)), "{error}");
+    }
+}
+
+#[test]
+fn snapshot_with_an_invalid_forced_inclusion_config_is_a_configuration_error() {
+    let fixture = crate::test_utils::consensus_mpt::Fixture::new(0, 2);
+    for (forced_inclusion_delay, max_anchor_age) in [(0, 7_200), (1_209_600, 7_200), (3_600, 0)] {
+        let genesis = GenesisRecord {
+            forced_inclusion_delay,
+            max_anchor_age,
+            ..fixture.snapshot.genesis.clone()
+        };
+        let planted = fixture.snapshot_with_forced_queue(genesis, 0, 0);
+        let error = super::decode_snapshot(
+            planted.l1_header,
+            planted.inbox_witness,
+            planted.l1_chain_id,
+            planted.l2_chain_id,
+            &fixture.params,
+        )
+        .unwrap_err();
+        assert!(matches!(error, LanderError::Configuration(_)), "{error}");
+    }
 }
 
 #[tokio::test]

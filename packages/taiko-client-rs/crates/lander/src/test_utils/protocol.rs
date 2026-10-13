@@ -19,6 +19,8 @@ pub(crate) fn request() -> ProofRequest {
         genesis_hash: B256::repeat_byte(1),
         genesis_state_root: B256::repeat_byte(2),
         genesis_cutoff: 9,
+        forced_inclusion_delay: 3_600,
+        max_anchor_age: 7_200,
     };
     let anchor = AnchorState {
         number: 10,
@@ -30,6 +32,8 @@ pub(crate) fn request() -> ProofRequest {
             recovery_generation: 0,
             last_checkpoint_height: 0,
             last_checkpoint_hash: genesis.genesis_hash,
+            forced_inclusion_head: 0,
+            forced_inclusion_tail: 0,
         },
     };
     ProofRequest {
@@ -44,6 +48,8 @@ pub(crate) fn request() -> ProofRequest {
                 generation: 0,
                 checkpoint_height: 0,
                 checkpoint_hash: genesis.genesis_hash,
+                forced_inclusion_head: 0,
+                forced_inclusion_tail: 0,
                 genesis,
                 committee_config_hash: B256::repeat_byte(3),
                 genesis_committee_record_hash: B256::repeat_byte(6),

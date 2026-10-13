@@ -75,7 +75,12 @@ pub struct LandingSnapshot {
     pub checkpoint_height: u64,
     /// Latest landed L2 hash.
     pub checkpoint_hash: B256,
-    /// Authenticated genesis and epoch parameters, including the genesis cutoff.
+    /// Forced inclusion queue `head` (slot 281, bits 0–47): the next entry not yet settled on L1.
+    pub forced_inclusion_head: u64,
+    /// Forced inclusion queue `tail` (slot 281, bits 48–95): the next free entry index.
+    pub forced_inclusion_tail: u64,
+    /// Authenticated genesis and epoch parameters, including the genesis cutoff and the forced
+    /// inclusion configuration.
     pub genesis: GenesisRecord,
     /// Authenticated deployment configuration commitment.
     pub committee_config_hash: B256,
