@@ -21,7 +21,8 @@ import "./EtnaInbox_Layout.sol"; // DO NOT DELETE
 /// @dev Uses the existing ABCI storage interface without any Shasta proposal state or migration
 /// logic. Slots 251–257, 259–267 and 275–277 are reserved to keep the node-facing slots unchanged.
 /// The forced inclusion store reuses Shasta's queue, fee rule, events and errors; its queue lives
-/// at slots 280–281 and its genesis delay and maximum anchor age at slot 282.
+/// at slots 280–281 and its genesis delay and maximum anchor age at slot 282. Landing advances the
+/// queue head and pays the consumed entries' fees to the lander.
 /// @custom:security-contact security@taiko.xyz
 contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
     using LibAddress for address;
@@ -31,8 +32,8 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
     // Structs
     // ---------------------------------------------------------------
 
-    /// @dev The V5 statement in wire order. All fields are static, so abi.encode of this
-    /// memory-only struct is the same fifteen-word encoding as the flat field list. Building
+    /// @dev The V6 statement in wire order. All fields are static, so abi.encode of this
+    /// memory-only struct is the same seventeen-word encoding as the flat field list. Building
     /// it one field at a time keeps the non-IR compiler within its stack limit.
     struct LandStatement {
         bytes32 domain;
@@ -50,6 +51,8 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
         uint64 l1ReferenceBlockNumber;
         bytes32 l1ReferenceBlockHash;
         bytes32 blobHashesHash;
+        uint48 forcedInclusionHeadBefore;
+        uint48 forcedInclusionHeadAfter;
     }
 
     /// @dev The genesis forced inclusion parameters, packed into one storage word.
@@ -72,7 +75,7 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
     uint64 private constant _FORCED_INCLUSION_EXPIRY = 14 days;
 
     /// @dev The domain tag of the landing statement.
-    bytes32 private constant _LAND_STATEMENT_TAG = bytes32("TAIKO_ETNA_LAND_V5");
+    bytes32 private constant _LAND_STATEMENT_TAG = bytes32("TAIKO_ETNA_LAND_V6");
 
     /// @dev The number of most recent L1 blocks whose hash `blockhash` returns.
     uint256 private constant _BLOCKHASH_WINDOW = 256;
@@ -246,14 +249,29 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
         require(lastHeight - parent.height <= _maxBatchBlocks, BatchTooLarge());
         require(lastHeight <= type(uint48).max, HeightOverflow());
 
+        uint48 headBefore = _forcedInclusionStorage.head;
+        uint48 headAfter = _input.forcedInclusionHead;
+        // Each forced inclusion is its own block; short-circuiting keeps the subtraction safe.
+        require(
+            headBefore <= headAfter && headAfter <= _forcedInclusionStorage.tail
+                && headAfter - headBefore <= lastHeight - parent.height,
+            InvalidForcedInclusionHead()
+        );
+
         bytes32 statementHash = _hashLandStatement(
             _recoveryGeneration,
             parent.height,
             parent.blockHash,
+            headBefore,
             _input,
             _readL1ReferenceBlockHash(_input.l1ReferenceBlockNumber),
             _readBlobHashes()
         );
+
+        uint256 feesWei;
+        if (headAfter != headBefore) {
+            feesWei = _forcedInclusionStorage.consume(headAfter) * 1 gwei;
+        }
 
         _lastCheckpoint = LandedCheckpoint({ height: lastHeight, blockHash: _input.lastBlockHash });
         _signalService.saveCheckpoint(
@@ -274,6 +292,11 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
         );
 
         _proofVerifier.verifyProof(0, statementHash, _proof);
+
+        if (headAfter != headBefore) {
+            msg.sender.sendEtherAndVerify(feesWei);
+            emit ForcedInclusionsConsumed(headBefore, headAfter, feesWei, msg.sender);
+        }
     }
 
     /// @inheritdoc IEtnaInbox
@@ -281,6 +304,7 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
         uint64 _generation,
         uint64 _parentHeight,
         bytes32 _parentHash,
+        uint48 _forcedInclusionHeadBefore,
         LandInput calldata _input,
         bytes32 _l1ReferenceBlockHash,
         bytes32[] calldata _blobHashes
@@ -290,7 +314,13 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
         returns (bytes32 statementHash_)
     {
         return _hashLandStatement(
-            _generation, _parentHeight, _parentHash, _input, _l1ReferenceBlockHash, _blobHashes
+            _generation,
+            _parentHeight,
+            _parentHash,
+            _forcedInclusionHeadBefore,
+            _input,
+            _l1ReferenceBlockHash,
+            _blobHashes
         );
     }
 
@@ -390,6 +420,7 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
     /// @param _generation The recovery generation.
     /// @param _parentHeight The height of the block the batch builds on.
     /// @param _parentHash The hash of the block the batch builds on.
+    /// @param _forcedInclusionHeadBefore The forced inclusion queue head before the batch.
     /// @param _input The batch.
     /// @param _l1ReferenceBlockHash The L1 block hash of `_input.l1ReferenceBlockNumber`.
     /// @param _blobHashes The versioned hashes of the batch's blobs.
@@ -398,6 +429,7 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
         uint64 _generation,
         uint64 _parentHeight,
         bytes32 _parentHash,
+        uint48 _forcedInclusionHeadBefore,
         LandInput calldata _input,
         bytes32 _l1ReferenceBlockHash,
         bytes32[] memory _blobHashes
@@ -422,6 +454,8 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
         statement.l1ReferenceBlockNumber = _input.l1ReferenceBlockNumber;
         statement.l1ReferenceBlockHash = _l1ReferenceBlockHash;
         statement.blobHashesHash = keccak256(abi.encodePacked(_blobHashes));
+        statement.forcedInclusionHeadBefore = _forcedInclusionHeadBefore;
+        statement.forcedInclusionHeadAfter = _input.forcedInclusionHead;
         return keccak256(abi.encode(statement));
     }
 
@@ -492,6 +526,7 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
     error HeightOverflow();
     error InvalidEpochLength();
     error InvalidForcedInclusionDelay();
+    error InvalidForcedInclusionHead();
     error InvalidGenesisCutoff();
     error InvalidMaxAnchorAge();
     error NoProgress();

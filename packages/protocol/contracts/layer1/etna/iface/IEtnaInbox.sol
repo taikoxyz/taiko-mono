@@ -83,7 +83,8 @@ interface IEtnaInbox {
         bytes32 blockHash;
     }
 
-    /// @notice The batch of `land`: the L2 blocks after the last checkpoint up to `lastHeight`.
+    /// @notice The batch of `land`: the L2 blocks after the last checkpoint up to `lastHeight`,
+    /// and the forced inclusions they consume.
     struct LandInput {
         /// @notice The height of the batch's last block.
         uint64 lastHeight;
@@ -97,6 +98,11 @@ interface IEtnaInbox {
         /// A lander picks a recent L1 block, so a landing outage longer than the EIP-2935
         /// window does not strand the batch.
         uint64 l1ReferenceBlockNumber;
+        /// @notice The forced inclusion queue head after the batch: the number of entries the
+        /// L2 chain has consumed up to `lastHeight`.
+        /// @dev At least the stored head, at most the queue tail, and ahead of the stored head by
+        /// at most the batch's block count, since each forced inclusion is its own block.
+        uint48 forcedInclusionHead;
     }
 
     // ---------------------------------------------------------------
@@ -139,6 +145,16 @@ interface IEtnaInbox {
         address indexed lander
     );
 
+    /// @notice Emitted when a landing consumes forced inclusions and pays their fees.
+    /// @param headBefore The forced inclusion queue head before the batch.
+    /// @param headAfter The queue head after the batch; entries [headBefore, headAfter) are
+    /// consumed.
+    /// @param feesWei The consumed entries' total fee in wei, paid to `recipient`.
+    /// @param recipient The lander, the caller of `land`.
+    event ForcedInclusionsConsumed(
+        uint48 headBefore, uint48 headAfter, uint256 feesWei, address indexed recipient
+    );
+
     // ---------------------------------------------------------------
     // External Functions
     // ---------------------------------------------------------------
@@ -161,9 +177,13 @@ interface IEtnaInbox {
     /// and a last height at or below `type(uint48).max`. The reference is a past L1 block with
     /// a non-zero hash available through blockhash (256 blocks) or EIP-2935 (8191 blocks).
     /// At least one blob is required, and every actual transaction blob hash is bound in order.
-    /// Saves the terminal checkpoint in the Inbox and SignalService, emits BatchLanded, then
-    /// verifies the V5 statement with proposal age 0; verifier failure rolls back every write.
-    /// No future committee record is an input or output of landing.
+    /// The forced inclusion head must satisfy head <= forcedInclusionHead <= tail and advance by
+    /// at most the batch's block count. Saves the terminal checkpoint in the Inbox and
+    /// SignalService, moves the queue head, emits BatchLanded, then verifies the V6 statement
+    /// with proposal age 0; verifier failure rolls back every write. Only then, if the head
+    /// moved, are the consumed entries' fees paid to the caller and ForcedInclusionsConsumed
+    /// emitted. Consumed entries are not deleted. No future committee record is an input or
+    /// output of landing.
     ///
     /// A valid Etna proof must authenticate every Inbox/registry account and storage proof under
     /// the respective bound address and authenticated L1 state root. It must open the stored
@@ -202,41 +222,63 @@ interface IEtnaInbox {
     /// generation and back-pressure rules still apply; deterministic Finalize/replay makes no
     /// new L1 calls. Epoch-first blocks need no publication witness.
     ///
+    /// Forced inclusions: the L2 cursor c starts at 0; a forced inclusion block consumes exactly
+    /// entry c and increments it, every other block keeps it, and after every landing the stored
+    /// head equals the cursor at the checkpoint. For a block with anchor A, entry c is due iff
+    /// c < tail(A) and A.timestamp >= entry.timestamp + forcedInclusionDelay, and expired iff
+    /// c < tail(A) and A.timestamp >= entry.timestamp + 14 days. A due entry requires a forced
+    /// inclusion block for entry c; a pending entry that is not due may be included early; with
+    /// c >= tail(A) the block is ordinary; skipping or reordering is invalid. Every block also
+    /// requires block.timestamp - A.timestamp <= maxAnchorAge. A forced inclusion block keeps the
+    /// ordinary header rules and holds exactly what the EL produces in provided-list mode from
+    /// the entry's transaction list: its blob must match the entry's versioned hash, and Shasta's
+    /// forced inclusion manifest decoded at the entry's offset (at most 1 MiB decompressed)
+    /// gives the list when it has exactly one block; otherwise the list is empty. An expired
+    /// entry is consumed with an empty list and no blob. The batch consumes entries
+    /// [forcedInclusionHeadBefore, forcedInclusionHeadAfter) in order. Authenticate entries and
+    /// tail by storage proofs under the authenticated anchors, and slot 282 under genesis state.
+    ///
     /// Prove contiguous execution from the parent hash to the terminal hash/state root, every
     /// anchor and actual proving L1 root on the header chain ending at the reference hash, and
-    /// block data in the bound blobs. The blobs carry payload V2: each block's canonical CometBFT
-    /// header and Etna envelope, where every header hashes to a certified block id, its data hash
-    /// commits to the envelope and its last block id links the batch. Commits and signatures are
-    /// proof witnesses, not blob data. A batch may start/end at any valid height without a
-    /// previous batch's committee output. Envelope version 3, payload V2 and journal schema 4
-    /// reject former V2/V4 histories, V1 payloads and older jobs; never discard or replace a
-    /// signed nonce. The verifier must pin a guest
-    /// enforcing these V5 rules. Dummy proof 0x00 is for development only; no real guest exists
-    /// here and the dummy verifier does not establish consensus validity or ZK soundness.
-    /// @param _input The four-field batch terminal checkpoint and reference block.
-    /// @param _proof The proof of the V5 landing statement.
+    /// block data in the bound blobs. The blobs carry payload V3: 0x03 and the zlib-compressed
+    /// RLP list of each block's canonical CometBFT header and Etna envelope, where every header
+    /// hashes to a certified block id, its data hash commits to the envelope and its last block
+    /// id links the batch. A forced inclusion block's envelope carries its entry's blob. Commits
+    /// and signatures are proof witnesses, not blob data. A batch may start/end at any valid
+    /// height without a previous batch's committee output. Envelope version 4, payload V3 and
+    /// journal schema 5 reject former envelope-3 histories, V2 payloads and older jobs; never
+    /// discard or replace a signed nonce. The verifier must pin a guest enforcing these V6
+    /// rules. Dummy proof 0x00 is for development only; no real guest exists here and the dummy
+    /// verifier does not establish consensus validity or ZK soundness.
+    /// @param _input The five-field batch: terminal checkpoint, reference block and forced
+    /// inclusion head.
+    /// @param _proof The proof of the V6 landing statement.
     function land(LandInput calldata _input, bytes calldata _proof) external;
 
-    /// @notice Encodes the V5 landing statement for supplied batch public inputs.
-    /// @dev Fifteen static ABI words (480 bytes): bytes32("TAIKO_ETNA_LAND_V5"), block.chainid,
+    /// @notice Encodes the V6 landing statement for supplied batch public inputs.
+    /// @dev Seventeen static ABI words (544 bytes): bytes32("TAIKO_ETNA_LAND_V6"), block.chainid,
     /// l2ChainId, address(this), address(stakingRegistry), _generation, _parentHeight, _parentHash,
     /// committeeConfigHash, lastHeight, lastBlockHash, lastStateRoot, l1ReferenceBlockNumber,
-    /// _l1ReferenceBlockHash, keccak256(abi.encodePacked(_blobHashes)). Chain id is uint256;
-    /// generation/heights are uint64, identities address and hashes bytes32. Identities and the
-    /// config hash are read internally; call through the Inbox proxy to bind its address.
-    /// This helper does not authenticate supplied batch values. land reads the stored parent
-    /// and generation, resolves the reference hash and reads the actual transaction blob hashes.
+    /// _l1ReferenceBlockHash, keccak256(abi.encodePacked(_blobHashes)),
+    /// _forcedInclusionHeadBefore, forcedInclusionHead. Chain id is uint256; generation/heights
+    /// are uint64, forced inclusion heads uint48, identities address and hashes bytes32.
+    /// Identities and the config hash are read internally; call through the Inbox proxy to bind
+    /// its address. This helper does not authenticate supplied batch values. land reads the
+    /// stored parent, generation and forced inclusion head, resolves the reference hash and reads
+    /// the actual transaction blob hashes.
     /// @param _generation The recovery generation.
     /// @param _parentHeight The parent checkpoint height.
     /// @param _parentHash The parent checkpoint block hash.
-    /// @param _input The four-field batch.
+    /// @param _forcedInclusionHeadBefore The forced inclusion queue head before the batch.
+    /// @param _input The five-field batch.
     /// @param _l1ReferenceBlockHash The hash of `_input.l1ReferenceBlockNumber`.
     /// @param _blobHashes The versioned blob hashes in transaction order.
-    /// @return statementHash_ The V5 statement hash.
+    /// @return statementHash_ The V6 statement hash.
     function hashLandStatement(
         uint64 _generation,
         uint64 _parentHeight,
         bytes32 _parentHash,
+        uint48 _forcedInclusionHeadBefore,
         LandInput calldata _input,
         bytes32 _l1ReferenceBlockHash,
         bytes32[] calldata _blobHashes
