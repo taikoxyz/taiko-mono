@@ -7,8 +7,8 @@ use alloy_primitives::{Address, B256, Bytes, U256};
 
 use super::{
     proposal::{
-        bft_time, hand_envelope, jump, mid_epoch, next_height, prepare, prepare_req, process,
-        process_req, propose, rejected, validate,
+        bft_time, hand_envelope, judge, jump, mid_epoch, next_height, prepare, prepare_req,
+        process, process_req, propose, rejected, set_anchor_age, validate,
     },
     *,
 };
@@ -292,6 +292,31 @@ async fn back_pressure_boundary() {
         Err(Rejection::Rule(RuleViolation::BackPressure { depth: cap + 1, cap }))
     );
     assert_eq!(rejected(&mut app, &env).await, "back_pressure");
+}
+
+/// Anchor freshness, inclusive: the derived timestamp is at most `maxAnchorAge` after the
+/// anchor's.
+#[tokio::test]
+async fn stale_anchor_proposal_is_rejected() {
+    let fx = Fixture::genesis(1);
+    let max = fx.genesis.max_anchor_age;
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+
+    // Exactly the maximum age.
+    set_anchor_age(&mut app, max);
+    let env = hand_envelope(&app, None, None);
+    let (resp, _) = judge(&mut app, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
+
+    // One second older: every header field is derived, but the anchor is stale.
+    set_anchor_age(&mut app, max + 1);
+    let env = hand_envelope(&app, None, None);
+    assert_eq!(
+        validate(&app, &env).map(|_| ()),
+        Err(Rejection::Rule(RuleViolation::AnchorTooOld { age: max + 1, max }))
+    );
+    assert_eq!(rejected(&mut app, &env).await, "anchor_too_old");
 }
 
 #[tokio::test]

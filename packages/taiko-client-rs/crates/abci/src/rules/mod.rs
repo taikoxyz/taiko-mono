@@ -4,8 +4,8 @@
 //! the committed parent, the block's L1 anchor, the BFT time, the recovery generation and the
 //! chain constants. `PrepareProposal` builds with [`payload_attributes`] of that header;
 //! `ProcessProposal` and `FinalizeBlock` recompute it and compare with [`check_header`]. The
-//! remaining predicates cover anchor progress, back-pressure (HALT-03), the generation triple
-//! and the CometBFT `chain_id`.
+//! remaining predicates cover anchor progress, anchor freshness, back-pressure (HALT-03), the
+//! generation triple and the CometBFT `chain_id`.
 //!
 //! Execution results (state root, receipts root, transactions root, gas used and the zk gas in
 //! `difficulty`) are not checked here: `engine_newPayload` validates them.
@@ -187,6 +187,14 @@ pub enum RuleViolation {
         /// `L1_first(epoch)`, the minimum anchor L1 block number of that epoch.
         l1_first: u64,
     },
+    /// The block is more than the genesis `maxAnchorAge` younger than its anchor L1 block.
+    #[error("anchor is {age} s older than the block, above the maximum anchor age of {max} s")]
+    AnchorTooOld {
+        /// `block.timestamp - anchor.timestamp` (0 when the anchor is not older), in seconds.
+        age: u64,
+        /// The genesis `maxAnchorAge`, in seconds.
+        max: u64,
+    },
     /// The unsettled depth `H - lastCheckpoint.height` exceeds `D_MAX - MARGIN_V` (HALT-03).
     #[error("unsettled depth {depth} exceeds the cap {cap}")]
     BackPressure {
@@ -241,6 +249,7 @@ impl RuleViolation {
             Self::AnchorRegressed { .. } => "anchor_regressed",
             Self::AnchorBeforeActivation { .. } => "anchor_before_activation",
             Self::EpochNotOpenOnL1 { .. } => "epoch_not_open_on_l1",
+            Self::AnchorTooOld { .. } => "anchor_too_old",
             Self::BackPressure { .. } => "back_pressure",
             Self::GenerationMismatch { .. } => "generation_mismatch",
             Self::GenerationAhead { .. } => "generation_ahead",
@@ -464,6 +473,25 @@ pub fn check_anchor_progress(
     let l1_first = schedule.l1_first(epoch);
     if anchor < l1_first {
         return Err(RuleViolation::EpochNotOpenOnL1 { epoch, l1_first });
+    }
+    Ok(())
+}
+
+/// Anchor freshness: `block_timestamp - anchor_timestamp <= max_anchor_age`, all in seconds,
+/// with the age saturating at 0 when the anchor is not older than the block.
+///
+/// `block_timestamp` is the derived [`block_timestamp`] of the block and `max_anchor_age` the
+/// genesis `maxAnchorAge`. Anchor progress alone does not bound how old an anchor gets, as
+/// `L1_first` follows L2 height, not time; this rule does, so the L1 state a block reads (such
+/// as the forced inclusion queue) lags its timestamp by at most `maxAnchorAge`.
+pub fn check_anchor_freshness(
+    block_timestamp: u64,
+    anchor_timestamp: u64,
+    max_anchor_age: u64,
+) -> Result<(), RuleViolation> {
+    let age = block_timestamp.saturating_sub(anchor_timestamp);
+    if age > max_anchor_age {
+        return Err(RuleViolation::AnchorTooOld { age, max: max_anchor_age });
     }
     Ok(())
 }

@@ -490,6 +490,25 @@ fn back_pressure_boundary() {
 }
 
 #[test]
+fn anchor_freshness_accepts_age_equal_to_max() {
+    check_anchor_freshness(1_760_007_300, 1_760_000_100, 7_200).expect("age == max is allowed");
+    check_anchor_freshness(1_760_000_100, 1_760_000_100, 7_200).expect("age 0");
+    check_anchor_freshness(100, 200, 0).expect("an anchor newer than the block saturates to 0");
+}
+
+#[test]
+fn anchor_freshness_rejects_age_one_past_max() {
+    assert_eq!(
+        check_anchor_freshness(1_760_007_301, 1_760_000_100, 7_200),
+        Err(RuleViolation::AnchorTooOld { age: 7_201, max: 7_200 })
+    );
+    assert_eq!(
+        check_anchor_freshness(u64::MAX, 0, u64::MAX - 1),
+        Err(RuleViolation::AnchorTooOld { age: u64::MAX, max: u64::MAX - 1 })
+    );
+}
+
+#[test]
 fn generation_matrix() {
     // (chain, extra, inbox, expected)
     let cases = [
@@ -577,6 +596,7 @@ fn every_violation() -> Vec<RuleViolation> {
         RuleViolation::AnchorRegressed { parent: 2, anchor: 1 },
         RuleViolation::AnchorBeforeActivation { anchor: 1, l1_0: 2 },
         RuleViolation::EpochNotOpenOnL1 { epoch: 1, l1_first: 2 },
+        RuleViolation::AnchorTooOld { age: 7_201, max: 7_200 },
         RuleViolation::BackPressure { depth: 11, cap: 10 },
         RuleViolation::GenerationMismatch { chain: 1, extra: 2 },
         RuleViolation::GenerationAhead { chain: 2, inbox: 1 },
@@ -593,6 +613,7 @@ fn every_violation() -> Vec<RuleViolation> {
             RuleViolation::AnchorRegressed { .. } |
             RuleViolation::AnchorBeforeActivation { .. } |
             RuleViolation::EpochNotOpenOnL1 { .. } |
+            RuleViolation::AnchorTooOld { .. } |
             RuleViolation::BackPressure { .. } |
             RuleViolation::GenerationMismatch { .. } |
             RuleViolation::GenerationAhead { .. } |

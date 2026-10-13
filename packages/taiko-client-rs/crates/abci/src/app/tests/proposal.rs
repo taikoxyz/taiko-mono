@@ -197,6 +197,13 @@ pub(super) fn jump(
     state.committees.extend(committees.iter().cloned());
 }
 
+/// Moves the committed parent's timestamp so that the next height's derived timestamp, at
+/// [`bft_time`] (two seconds after the parent), is `age` seconds after the committed anchor's.
+pub(super) fn set_anchor_age(app: &mut App<MockL1, MockEngine>, age: u64) {
+    let state = app.state.as_mut().expect("initialized");
+    state.parent.timestamp = state.anchor.timestamp + age - 2;
+}
+
 /// An initialized app whose committed head sits `offset` heights after `B*`, anchored at the
 /// genesis L1 block (last checkpoint `B*`). With `offset` in 1..=9 the next height is a plain
 /// height: no witness required, back-pressure satisfied.

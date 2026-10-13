@@ -193,6 +193,7 @@ impl FixtureChain {
                     generation: 0,
                     schedule: &schedule,
                     params: &fixture.params,
+                    max_anchor_age: fixture.genesis.max_anchor_age,
                 },
             )?;
             if let Some(derived) = facts.derived {
