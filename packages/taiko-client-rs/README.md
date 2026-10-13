@@ -530,7 +530,9 @@ or config opening differs.
   (`/eth/v1/beacon/blobs/{slot}`, which since Fulu needs a supernode or semi-supernode). Blobs
   are kept for about 18 days, longer than the 14 days after which an entry expires and needs no
   blob. The app contacts the beacon only when it first needs a blob: without a reachable beacon
-  it still starts, replays and votes, but proposes nothing in place of a due entry's block.
+  it still starts, replays and votes, but proposes nothing in place of a due entry's block. A
+  hosted beacon's path prefix (e.g. `https://host/<key>/`, with or without the trailing slash)
+  is kept on every request, and the app's errors and logs never print the endpoint.
 - `abci-genesis` reads the initialization block and the registry entries back to the Inbox's
   `genesisCutoff`. That block is fixed when the initializing DAO proposal is written, well before
   the initialization block, so in practice `abci-genesis` needs an archive node.
