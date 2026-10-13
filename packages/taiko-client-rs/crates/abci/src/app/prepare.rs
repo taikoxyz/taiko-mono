@@ -223,7 +223,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// The blob of the due forced inclusion `entry`, by the entry's timestamp and versioned hash,
     /// from the blob source within the L1 deadline; a failed fetch is
-    /// [`Rejection::BlobUnavailable`].
+    /// [`Rejection::BlobUnavailable`], and one that does not answer in time is
+    /// [`Rejection::Timeout`] (as is a proposal whose own deadline expires first).
     async fn forced_blob(&self, entry: &ForcedEntry) -> Result<Bytes, Rejection> {
         let fetch = async {
             self.blobs

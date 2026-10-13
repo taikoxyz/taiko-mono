@@ -24,13 +24,13 @@ Every validator and every full node runs three processes:
   transactions travel over the execution layer's devp2p, and the proposer's alethia-reth picks
   them from its own txpool.
 - **`taiko-client abci`** wraps each execution block, together with the L1 facts it consumes (an
-  L1 header plus EIP-1186 storage proofs of the Inbox and the staking registry; while the forced
-  inclusion queue is not empty, the pending entry's proof and, when the block consumes it, its
-  blob), into the CometBFT block. Validators only check with their own L1 node that the anchored
-  L1 header is canonical and final; `FinalizeBlock`, replay and block sync never call L1 or the
-  beacon. At each switch
-  height the app derives the target committee from the committed parent anchor and hands CometBFT the
-  validator updates, effective two heights later. Its state is persisted atomically at every
+  L1 header plus EIP-1186 storage proofs of the Inbox and the staking registry; while an entry
+  the chain has not consumed is queued at the anchor, that entry's proof and, when the block
+  consumes it before it expires, its blob), into the CometBFT block. Validators only check with
+  their own L1 node that the anchored L1 header is canonical and final; `FinalizeBlock`, replay
+  and block sync never call L1 or the beacon. At each switch height the app derives the target
+  committee from the committed parent anchor and hands CometBFT the validator updates, effective
+  two heights later. Its state is persisted atomically at every
   `Commit`. The genesis record includes the authenticated committee config hash, and the epoch
   schedule is derived from it. Old `activation` and `migration_state` field names remain aliases
   within the new model; a state file lacking the required config hash is rejected.
@@ -44,10 +44,10 @@ Every validator and every full node runs three processes:
 | `bin/client/`          | The `taiko-client` binary (`abci`, `abci-genesis`, `abci-committee-record`, `lander`) |
 | `crates/lander/`       | Permissionless batch/blob construction, proof trait and durable L1 submission         |
 | `crates/abci/`         | The ABCI++ application of the Etna PoS chain                                          |
-| `crates/protocol/`     | Shared protocol helpers; its `shasta` modules are kept for raiko2                     |
-| `crates/rpc/`          | Engine API wrappers, capability check and JWT provider helpers                        |
+| `crates/protocol/`     | Shared helpers; `shasta` serves raiko2 and forced inclusion decoding                  |
+| `crates/rpc/`          | Engine API and JWT helpers; beacon and blob clients for forced inclusion              |
 | `crates/bindings/`     | Generated Anchor contract bindings, kept for protocol's anchor builder (raiko2)       |
-| `crates/test-harness/` | Docker devnet (anvil, alethia-reth, CometBFT) for the abci integration scenarios      |
+| `crates/test-harness/` | Docker devnet (anvil, alethia-reth, CometBFT) and a fake beacon for the scenarios     |
 | `script/`              | Maintenance scripts (binding generation)                                              |
 | `tests/`               | The integration test entrypoint and the test JWT secret                               |
 
@@ -124,11 +124,12 @@ the `forcedInclusionDelay` the genesis record reads from the Inbox, and expired 
 - Entry `c` is waiting (`c < tail(A)`, not yet due): every block carries a peek, the entry's
   storage proof without a blob, which shows the entry is not yet due. The rule also accepts an
   early inclusion, but this client never proposes one.
-- Entry `c` is due: the block must be the forced inclusion block of entry `c`. A block that
-  skips it or consumes another entry is invalid; entries are consumed one by one, in queue
-  order.
+- Entry `c` is due and not expired: the block must be the forced inclusion block of entry `c`.
+  A block that skips it or consumes another entry is invalid; entries are consumed one by one,
+  in queue order.
 - Entry `c` is expired: an empty forced inclusion block without a blob consumes it, since the
-  beacon may no longer hold the blob.
+  beacon may no longer hold the blob. Every expired entry is also due (`E > D`); expiry takes
+  precedence.
 
 A forced inclusion block holds only the entry's transactions. Its envelope's `forced` field
 carries the entry index, the entry's EIP-1186 proof under the anchor's state root and the raw
@@ -148,13 +149,15 @@ Validators apply this rule in consensus, so only a committee with more than 2/3 
 power can decide a block that skips a due entry, and a batch holding such a block cannot be
 proven, so it never lands. Skipping a due entry therefore stops settlement and, through
 back-pressure, the chain. Delaying the moment an entry becomes due takes only more than 1/3
-of the voting power (see Anchor freshness). `land` pays the consumed entries' fees to the
-`feeRecipient` the landing statement binds, the lander's sending address.
+of the voting power (the exact threshold lies between 1/3 and 1/2, depending on how finely stake
+is divided; see Anchor freshness). `land` pays the consumed entries' fees to the `feeRecipient`
+the landing statement binds, the lander's sending address.
 
 Only proposing touches the beacon. A proposer that cannot fetch a due entry's blob from
 `--l1.beacon`, or fetches a blob that does not match the entry, proposes nothing and records
-the halt reason `blob_unavailable`; another proposer's round can still include the entry. The
-app loads the KZG trusted setup at startup, so no ABCI request pays for it.
+the halt reason `blob_unavailable` (a beacon that does not answer before the proposal's deadline
+records `timeout` instead); another proposer's round can still include the entry. The app loads
+the KZG trusted setup at startup, so no ABCI request pays for it.
 
 ### Anchor freshness
 
@@ -176,10 +179,13 @@ precommit timestamps a proposer includes in its block's last commit. A coalition
 than 1/2 of the voting power sets that median outright. A coalition with more than 1/3 can too:
 it withholds its votes from honest proposals, so only its own proposals are decided, and
 includes in them only enough honest precommits to clear 2/3, which gives its own timestamps the
-majority of the median weight. Either coalition can hold block timestamps back and, while
-satisfying the freshness rule, keep anchors stale and delay forced inclusions; each block still
-advances the timestamp by at least one second. Raising this bound would need a validator-local
-clock check (PBTS-style timeliness); that is an open design decision and is not implemented.
+majority of the median weight (the exact threshold lies between 1/3 and 1/2, depending on how
+finely stake is divided). Either coalition can hold block timestamps back and, while satisfying
+the freshness rule, keep anchors stale and delay forced inclusions; each block still advances
+the timestamp by at least one second. A delay that reaches the 14-day expiry becomes a drop: the
+entry is then consumed by an empty block. Raising this bound would need a validator-local clock
+check (PBTS-style timeliness); that is an open, launch-blocking design decision and is not
+implemented.
 
 ## Prerequisites
 
