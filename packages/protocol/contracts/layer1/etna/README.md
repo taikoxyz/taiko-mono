@@ -68,6 +68,14 @@ the config hash and use the dummy proof provider, which does not enforce guest c
   exceed CometBFT's maximum voting power.
 - Choose `epochLenL2 >= D_MAX - MARGIN_V + 3`, the node's back-pressure requirement. The contract
   checks only the minimum of 3 because those node parameters are not on-chain.
+- Set a non-zero registry `churnWindow` outside throwaway devnets, together with `churnBps` and a
+  `minChurnPerWindow` floor of at least `minStake`. Zero disables the churn limit. `bondedStake`
+  starts at 0, so before genesis only the floor activates per window: register the genesis set
+  early enough, or deploy with `churnWindow = 0` and enable the limit by an upgrade later
+  (`bondedStake` is tracked either way). Upgrading a registry deployed before `bondedStake` existed
+  must seed it first, or exits of older entries underflow.
+- Size `minStake` so that holding all 4096 slots (`4096 · minStake` locked for as long as the slots
+  are held) is prohibitive.
 - The genesis snapshot must contain live eligible validators. A cutoff close to the L1
   initialization block reduces the chance of entries exiting or going offline before startup.
 - `forcedInclusionFeeInGwei` and `forcedInclusionFeeDoubleThreshold` are non-zero implementation
@@ -132,14 +140,20 @@ All state lives in the ERC-7201 namespace `taiko.etna.registry`, at base slot
 `R = keccak256(abi.encode(uint256(keccak256("taiko.etna.registry")) - 1)) & ~bytes32(uint256(0xff))`
 `= 0x46e4e2fea4a7d0ac18aca03baa3a1f64e1be04ec23c1ca0c7b901af7b59b8000`.
 
-| Slot    | Content                                                                                 |
-| ------- | --------------------------------------------------------------------------------------- |
-| `R`     | `checkpoints.length`                                                                    |
-| `R + 1` | `entries.length` (the entry index is the bond id)                                       |
-| `R + 2` | `bondOwner`: `mapping(uint256 bondId => address)`                                       |
-| `R + 3` | `withdrawn`: `mapping(uint256 bondId => bool)`                                          |
-| `R + 4` | `keyHolder`: `mapping(bytes32 pubkey => uint256)`, the latest holder's bond id plus one |
-| `R + 5` | `tree`: `mapping(uint256 node => bytes32)`, the Merkle nodes                            |
+| Slot     | Content                                                                                 |
+| -------- | --------------------------------------------------------------------------------------- |
+| `R`      | `checkpoints.length`                                                                    |
+| `R + 1`  | `entries.length` (the entry index is the bond id)                                       |
+| `R + 2`  | `bondOwner`: `mapping(uint256 bondId => address)`                                       |
+| `R + 3`  | `withdrawn`: `mapping(uint256 bondId => bool)`                                          |
+| `R + 4`  | `keyHolder`: `mapping(bytes32 pubkey => uint256)`, the latest holder's bond id plus one |
+| `R + 5`  | `tree`: `mapping(uint256 node => bytes32)`, the Merkle nodes                            |
+| `R + 6`  | `freeSlots`: withdrawn bond ids awaiting reuse (contract-internal)                      |
+| `R + 7`  | `bondedStake`: stake of entries whose exit was not requested (contract-internal)        |
+| `R + 8`  | activation churn: one past the latest scheduled window (contract-internal)              |
+| `R + 9`  | activation churn: the latest scheduled window's remaining capacity (contract-internal)  |
+| `R + 10` | exit churn: one past the latest scheduled window (contract-internal)                    |
+| `R + 11` | exit churn: the latest scheduled window's remaining capacity (contract-internal)        |
 
 | Word                        | Content                                                                  | Packing                                      |
 | --------------------------- | ------------------------------------------------------------------------ | -------------------------------------------- |
@@ -153,7 +167,11 @@ All state lives in the ERC-7201 namespace `taiko.etna.registry`, at base slot
 `keccak256(abi.encode(bytes32("ETNA_REG_ENTRY"), uint256(j), pubkey, effStake, activeFromL1,
 exitEffectiveL1, lastHeartbeatAt, lastHeartbeatSeq))`. `entriesRoot` over `count` entries pads the
 leaves with zero leaves to the next power of two and hashes pairs as `keccak256(left ‖ right)`;
-one entry gives leaf 0 and no entry gives `bytes32(0)`. At most 4096 entries exist.
+one entry gives leaf 0 and no entry gives `bytes32(0)`. At most 4096 slots exist. A bond id
+names a slot: after a bond is withdrawn, the next registration overwrites its entry, takes over
+its id and keeps `count` unchanged. Snapshots read entries at a historical L1 block and verify them
+against that checkpoint's root, so slot reuse is invisible to committee derivation. The node reads
+only `R` through `R + 5`.
 
 ## Contract obligations
 
@@ -167,9 +185,22 @@ one entry gives leaf 0 and no entry gives `bytes32(0)`. At most 4096 entries exi
   with at least `max(s_min, vp_unit)`, lowest bond id per pubkey, top `n_max` by stake, and no
   heartbeat filter. The contract accepts the deployer's supplied record; the node verifies it.
 - Each L1 block changing an entry ends with one checkpoint. Same-block mutations overwrite the
-  latest checkpoint; its `count` and root cover all entries, including exited ones.
-- Registration rejects a key held by any entry whose exit is not yet effective. The node also
-  deduplicates eligible keys defensively.
+  latest checkpoint; its `count` and root cover all used slots, including exited and withdrawn
+  entries not yet reused.
+- Registration rejects a key held by any entry whose exit is not yet effective. A key whose last
+  holder's slot was reused by another key is free. The node also deduplicates eligible keys
+  defensively.
+- Registration reuses the most recently withdrawn slot before appending, so the 4096 capacity
+  bounds entries holding stake at once. A withdrawn entry stays in its slot, exit effective, until
+  it is overwritten.
+- With a non-zero `churnWindow`, each window has an activation capacity and a separate exit
+  capacity of `max(minChurnPerWindow, bondedStake · churnBps / 10000)`, scheduled as in EIP-7251:
+  a request consumes capacity from the latest scheduled window on and takes effect at the start of
+  the window where it is fully absorbed. A request larger than one window takes effect in full at
+  once, so the limit bounds the average rate, not each window. Exits queue from
+  `block.number + exitDelay` and never take effect before `activeFromL1 + exitDelay`. One large
+  request delays everyone queued behind it for as long as its stake stays locked. Committee
+  selection stays top `n_max` by stake.
 - Future committees derive from the committed switch-parent anchor. There is no `committee(epoch)` getter,
   mapping, committee landing output or publication event. Landing is never an activation gate.
 
@@ -384,10 +415,10 @@ assumptions remain unchanged.
 - The Etna guest is a follow-up; the blob encoding and lander are in #22280. No prover rewards, slashing or stall
   recovery exist here; `recoveryGeneration` stays 0. The staking withdrawal delay must cover the
   evidence and landing windows once slashing is introduced.
-- Registry capacity griefing: entries are never reclaimed, so exited/withdrawn bonds consume
-  the 4096-entry capacity forever. Repeated registration and exit can permanently prevent new
-  validators from joining. Pruning/compaction, a registration cost or a launch gate is required
-  before mainnet; changing the capacity also requires changing the node's pinned tree depth.
+- Registry capacity: withdrawn slots are reused, so cycling registration and exit no longer
+  consumes capacity. Holding all 4096 slots still blocks new registrations for as long as
+  `4096 · minStake` stays locked; `minStake` sizing is the bound. A slot whose owner exits but
+  never withdraws stays occupied.
 - No Ed25519 proof of possession is required for registration.
 - The spec's separate heartbeat key, signed payload and relayed heartbeats are not implemented;
   the bond owner heartbeats directly. Epochs 0, 1 and 2 have no heartbeat eligibility filter.

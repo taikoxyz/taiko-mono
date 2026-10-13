@@ -56,6 +56,9 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         vm.setEnv("REGISTRY_EXIT_DELAY", "20");
         vm.setEnv("REGISTRY_WITHDRAWAL_DELAY", "30");
         vm.setEnv("REGISTRY_HEARTBEAT_WINDOW", "50");
+        vm.setEnv("REGISTRY_CHURN_WINDOW", "100");
+        vm.setEnv("REGISTRY_CHURN_BPS", "500");
+        vm.setEnv("REGISTRY_MIN_CHURN_PER_WINDOW", vm.toString(MIN_STAKE));
         vm.setEnv("STAKING_REGISTRY", vm.toString(address(registry)));
         vm.setEnv("ETNA_PROOF_VERIFIER", vm.toString(address(landVerifier)));
         vm.setEnv("REMOTE_SIGNAL_SERVICE", vm.toString(REMOTE_SIGNAL_SERVICE));
@@ -86,6 +89,9 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(deployed.exitDelay(), 20, "exit delay");
         assertEq(deployed.withdrawalDelay(), 30, "withdrawal delay");
         assertEq(deployed.heartbeatWindow(), 50, "heartbeat window");
+        assertEq(deployed.churnWindow(), 100, "churn window");
+        assertEq(deployed.churnBps(), 500, "churn bps");
+        assertEq(deployed.minChurnPerWindow(), MIN_STAKE, "churn floor");
         assertEq(deployed.checkpointCount(), 0, "fresh registry");
         vm.expectRevert("Initializable: contract is already initialized");
         deployed.init(Alice);
