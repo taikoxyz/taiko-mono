@@ -3,8 +3,13 @@ pragma solidity ^0.8.26;
 
 import { IEtnaInbox } from "../iface/IEtnaInbox.sol";
 import { IEtnaStakingRegistry } from "../iface/IEtnaStakingRegistry.sol";
+import { LibEtnaForcedInclusion } from "../libs/LibEtnaForcedInclusion.sol";
+import { IForcedInclusionStore } from "src/layer1/core/iface/IForcedInclusionStore.sol";
+import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
+import { LibForcedInclusion } from "src/layer1/core/libs/LibForcedInclusion.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
@@ -13,10 +18,15 @@ import "./EtnaInbox_Layout.sol"; // DO NOT DELETE
 /// @title EtnaInbox
 /// @notice The L1 anchor of an Etna PoS chain starting at L2 block 0. A fresh proxy records its
 /// genesis checkpoint and initial committee in one initialization, then lands proven batches.
-/// @dev Uses the existing ABCI storage interface without any Shasta state or migration logic.
-/// Slots 251–257, 259–267 and 275–277 are reserved to keep the node-facing slots unchanged.
+/// @dev Uses the existing ABCI storage interface without any Shasta proposal state or migration
+/// logic. Slots 251–257, 259–267 and 275–277 are reserved to keep the node-facing slots unchanged.
+/// The forced inclusion store reuses Shasta's queue, fee rule, events and errors; its queue lives
+/// at slots 280–281.
 /// @custom:security-contact security@taiko.xyz
-contract EtnaInbox is IEtnaInbox, EssentialContract {
+contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
+    using LibAddress for address;
+    using LibEtnaForcedInclusion for LibForcedInclusion.Storage;
+
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
@@ -83,6 +93,12 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev The maximum number of L2 blocks one `land` call may cover.
     uint64 internal immutable _maxBatchBlocks;
 
+    /// @dev The forced inclusion fee in Gwei with an empty queue.
+    uint64 internal immutable _forcedInclusionFeeInGwei;
+
+    /// @dev The number of pending forced inclusions at which the fee doubles.
+    uint64 internal immutable _forcedInclusionFeeDoubleThreshold;
+
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
@@ -117,27 +133,37 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev Slot 279: the L1 block of the epoch-0 committee snapshot.
     uint64 private _genesisCutoff;
 
-    uint256[21] private __gap;
+    /// @dev Slots 280–281: the forced inclusion queue. Slot 280 is the `queue` mapping; slot 281
+    /// packs `head` (bits 0–47) and `tail` (bits 48–95).
+    LibForcedInclusion.Storage private _forcedInclusionStorage;
+
+    uint256[19] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
 
     /// @notice Sets the implementation's immutable parameters.
-    /// @param _config The configuration; addresses, `l2ChainId` and `maxBatchBlocks` must be
-    /// non-zero.
+    /// @param _config The configuration; addresses, `l2ChainId`, `maxBatchBlocks` and both
+    /// forced inclusion fee parameters must be non-zero.
     constructor(Config memory _config) {
         require(_config.proofVerifier != address(0), ZERO_ADDRESS());
         require(_config.signalService != address(0), ZERO_ADDRESS());
         require(_config.stakingRegistry != address(0), ZERO_ADDRESS());
         require(_config.l2ChainId != 0, ZERO_VALUE());
         require(_config.maxBatchBlocks != 0, ZERO_VALUE());
+        require(_config.forcedInclusionFeeInGwei != 0, ForcedInclusionFeeZero());
+        require(
+            _config.forcedInclusionFeeDoubleThreshold != 0, ForcedInclusionFeeDoubleThresholdZero()
+        );
 
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _signalService = ISignalService(_config.signalService);
         _stakingRegistry = IEtnaStakingRegistry(_config.stakingRegistry);
         _l2ChainId = _config.l2ChainId;
         _maxBatchBlocks = _config.maxBatchBlocks;
+        _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
+        _forcedInclusionFeeDoubleThreshold = _config.forcedInclusionFeeDoubleThreshold;
     }
 
     // ---------------------------------------------------------------
@@ -246,6 +272,22 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         );
     }
 
+    /// @inheritdoc IForcedInclusionStore
+    /// @dev Requires the Inbox to be active. Charges and records the fee like Shasta, and refunds
+    /// any excess to the caller.
+    function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference)
+        external
+        payable
+        nonReentrant
+    {
+        require(_status == _ETNA_ACTIVE, EtnaNotActive());
+
+        uint256 refund = _forcedInclusionStorage.save(
+            _forcedInclusionFeeInGwei, _forcedInclusionFeeDoubleThreshold, _blobReference
+        );
+        msg.sender.sendEtherAndVerify(refund);
+    }
+
     /// @inheritdoc IEtnaInbox
     function lastCheckpoint() external view returns (LandedCheckpoint memory) {
         return _lastCheckpoint;
@@ -279,6 +321,30 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @inheritdoc IEtnaInbox
     function recoveryGeneration() external view returns (uint64) {
         return _recoveryGeneration;
+    }
+
+    /// @inheritdoc IForcedInclusionStore
+    function getCurrentForcedInclusionFee() external view returns (uint64 feeInGwei_) {
+        return _forcedInclusionStorage.currentFee(
+            _forcedInclusionFeeInGwei, _forcedInclusionFeeDoubleThreshold
+        );
+    }
+
+    /// @inheritdoc IForcedInclusionStore
+    function getForcedInclusions(
+        uint48 _start,
+        uint48 _maxCount
+    )
+        external
+        view
+        returns (ForcedInclusion[] memory inclusions_)
+    {
+        return LibForcedInclusion.getForcedInclusions(_forcedInclusionStorage, _start, _maxCount);
+    }
+
+    /// @inheritdoc IForcedInclusionStore
+    function getForcedInclusionState() external view returns (uint48 head_, uint48 tail_) {
+        return LibForcedInclusion.getForcedInclusionState(_forcedInclusionStorage);
     }
 
     // ---------------------------------------------------------------
@@ -388,6 +454,8 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     error BatchTooLarge();
     error BlobsRequired();
     error EtnaNotActive();
+    error ForcedInclusionFeeDoubleThresholdZero();
+    error ForcedInclusionFeeZero();
     error InvalidGenesis();
     error HeightOverflow();
     error InvalidEpochLength();

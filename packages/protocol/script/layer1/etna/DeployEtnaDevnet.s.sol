@@ -20,9 +20,10 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// `run()`: TAIKO_TOKEN, REGISTRY_MIN_STAKE (base units), REGISTRY_ACTIVATION_DELAY,
 /// REGISTRY_EXIT_DELAY, REGISTRY_WITHDRAWAL_DELAY, REGISTRY_HEARTBEAT_WINDOW (L1 blocks).
 /// `deployInbox()`: STAKING_REGISTRY, ETNA_PROOF_VERIFIER, REMOTE_SIGNAL_SERVICE (on L2),
-/// L2_CHAIN_ID, MAX_BATCH_BLOCKS, GENESIS_BLOCK_HASH, GENESIS_STATE_ROOT, EPOCH_LEN_L2,
-/// EPOCH_LEN_L1, GENESIS_CUTOFF, COMMITTEE_RECORD_HASH. The genesis values must match the L2
-/// genesis file and the committee derived by taiko-client-rs. The node requires
+/// L2_CHAIN_ID, MAX_BATCH_BLOCKS, FORCED_INCLUSION_FEE_GWEI (non-zero),
+/// FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD (non-zero), GENESIS_BLOCK_HASH, GENESIS_STATE_ROOT,
+/// EPOCH_LEN_L2, EPOCH_LEN_L1, GENESIS_CUTOFF, COMMITTEE_RECORD_HASH. The genesis values must match
+/// the L2 genesis file and the committee derived by taiko-client-rs. The node requires
 /// EPOCH_LEN_L2 >= D_MAX - MARGIN_V + 3; heartbeat and stake parameters must match its constants.
 ///
 /// No Etna guest exists yet. An accept-all ETNA_PROOF_VERIFIER is DEVNET ONLY: permissionless
@@ -71,9 +72,17 @@ contract DeployEtnaDevnet is Script {
     function deployInbox() external returns (address inbox_, address signalService_) {
         uint256 privateKey = _privateKey();
         address owner = _owner(privateKey);
-        address proofVerifier = vm.envAddress("ETNA_PROOF_VERIFIER");
-        require(proofVerifier.code.length != 0, ProofVerifierHasNoCode());
-        address registry = vm.envAddress("STAKING_REGISTRY");
+        // The SignalService proxy is set once deployed; one struct keeps the stack shallow.
+        IEtnaInbox.Config memory config = IEtnaInbox.Config({
+            proofVerifier: vm.envAddress("ETNA_PROOF_VERIFIER"),
+            signalService: address(0),
+            stakingRegistry: vm.envAddress("STAKING_REGISTRY"),
+            l2ChainId: _envUint64("L2_CHAIN_ID"),
+            maxBatchBlocks: _envUint64("MAX_BATCH_BLOCKS"),
+            forcedInclusionFeeInGwei: _envUint64("FORCED_INCLUSION_FEE_GWEI"),
+            forcedInclusionFeeDoubleThreshold: _envUint64("FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD")
+        });
+        require(config.proofVerifier.code.length != 0, ProofVerifierHasNoCode());
         address remoteSignalService = vm.envAddress("REMOTE_SIGNAL_SERVICE");
         IEtnaInbox.GenesisParams memory genesis = IEtnaInbox.GenesisParams({
             genesisBlockHash: vm.envBytes32("GENESIS_BLOCK_HASH"),
@@ -84,8 +93,6 @@ contract DeployEtnaDevnet is Script {
             committeeRecordHash: vm.envBytes32("COMMITTEE_RECORD_HASH"),
             committeeConfigHash: vm.envBytes32("COMMITTEE_CONFIG_HASH")
         });
-        uint64 l2ChainId = _envUint64("L2_CHAIN_ID");
-        uint64 maxBatchBlocks = _envUint64("MAX_BATCH_BLOCKS");
         address deployer = vm.addr(privateKey);
         address predictedInbox = vm.computeCreateAddress(deployer, vm.getNonce(deployer) + 3);
 
@@ -93,17 +100,8 @@ contract DeployEtnaDevnet is Script {
         address signalImpl = address(new SignalService(predictedInbox, remoteSignalService, owner));
         signalService_ =
             address(new ERC1967Proxy(signalImpl, abi.encodeCall(SignalService.init, (owner))));
-        address inboxImpl = address(
-            new EtnaInbox(
-                IEtnaInbox.Config({
-                    proofVerifier: proofVerifier,
-                    signalService: signalService_,
-                    stakingRegistry: registry,
-                    l2ChainId: l2ChainId,
-                    maxBatchBlocks: maxBatchBlocks
-                })
-            )
-        );
+        config.signalService = signalService_;
+        address inboxImpl = address(new EtnaInbox(config));
         inbox_ = address(
             new ERC1967Proxy(inboxImpl, abi.encodeCall(EtnaInbox.init, (owner, genesis)))
         );
@@ -112,7 +110,7 @@ contract DeployEtnaDevnet is Script {
 
         console2.log("EtnaInbox proxy:", inbox_);
         console2.log("SignalService proxy:", signalService_);
-        console2.log("Staking registry:", registry);
+        console2.log("Staking registry:", config.stakingRegistry);
         console2.log("Owner:", owner);
     }
 
