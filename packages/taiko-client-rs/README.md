@@ -13,8 +13,9 @@ Every validator and every full node runs three processes:
                   │  ABCI socket (proxy_app, default tcp://127.0.0.1:26658)
                   ▼
       taiko-client abci  ── Engine API (JWT) + eth RPC ──▶  alethia-reth
-          │        │
-          │        └── own L1 node: headers, eth_getProof, `finalized`
+          │     │     │
+          │     │     └── own L1 node: headers, eth_getProof, `finalized`
+          │     └── L1 beacon node: forced inclusion blobs (proposing only)
           └── --data-dir: abci-state.json
 ```
 
@@ -23,9 +24,11 @@ Every validator and every full node runs three processes:
   transactions travel over the execution layer's devp2p, and the proposer's alethia-reth picks
   them from its own txpool.
 - **`taiko-client abci`** wraps each execution block, together with the L1 facts it consumes (an
-  L1 header plus EIP-1186 storage proofs of the Inbox and the staking registry), into the
-  CometBFT block. Validators only check with their own L1 node that the anchored L1 header is
-  canonical and final; `FinalizeBlock`, replay and block sync never call L1. At each switch
+  L1 header plus EIP-1186 storage proofs of the Inbox and the staking registry; while the forced
+  inclusion queue is not empty, the pending entry's proof and, when the block consumes it, its
+  blob), into the CometBFT block. Validators only check with their own L1 node that the anchored
+  L1 header is canonical and final; `FinalizeBlock`, replay and block sync never call L1 or the
+  beacon. At each switch
   height the app derives the target committee from the committed parent anchor and hands CometBFT the
   validator updates, effective two heights later. Its state is persisted atomically at every
   `Commit`. The genesis record includes the authenticated committee config hash, and the epoch
@@ -79,11 +82,14 @@ height 8 anchored 1020 may select a different committee; all nodes replaying one
 
 The config hash binds nine ABI words: `ETNA_PARENT_ANCHOR_V1`, L2 chain id, registry,
 `vp_unit`, `s_min`, `n_max`, `heartbeat_window`, heartbeat lookahead 2 and membership algorithm 1.
-The envelope is version 4 and the lander journal schema is 5. State files must contain
-`genesis.committee_config_hash`, and local parameters must open it correctly. Old version-2
-history, fixed-cutoff configuration/state openings, V4 journals/statements and schema-3 and
-schema-4 journals (V1 and V2 blob payloads) are rejected; never discard an outstanding signed
-nonce to force startup.
+The envelope is version 4, the landing payload V3, the statement V6 and the lander journal
+schema 5. State files must contain `genesis.committee_config_hash` and the forced inclusion
+fields (`forced_cursor`, `genesis.forced_inclusion_delay`, `genesis.max_anchor_age` and the
+anchor's `forced_inclusion_head` and `forced_inclusion_tail`), and local parameters must open
+the config hash correctly. Histories with envelope version 2 or 3, fixed-cutoff
+configuration/state openings, state files without the forced inclusion fields, and schema-2 to
+schema-4 journals (V4 statements, V1 and V2 blob payloads) are rejected; never discard an
+outstanding signed nonce to force startup.
 No migration is provided. The committee record encoding remains version 1.
 
 Settlement back-pressure remains `height - anchoredCheckpointHeight <= d_max - margin_v`;
@@ -97,6 +103,73 @@ anchor choices can affect membership, so guaranteed advance notice is shorter. O
 parent snapshot is committed, later L1 registry changes cannot repair that switch. Stake
 retention, withdrawal timing and restart trust assumptions remain; this change does not add
 a recovery-generation bootstrap or an implicit replacement set.
+
+## Forced inclusion
+
+A user whose transactions the committee does not include can submit them to the Etna Inbox as a
+forced inclusion, with Shasta's `IForcedInclusionStore` interface and blob format: one blob, an
+offset into it and a fee that grows linearly with the number of unsettled entries (doubling at a
+configured threshold). The Inbox appends the entry to its queue with the L1 timestamp of the
+submission. The chain keeps its own cursor `c`
+(`forced_cursor` in `abci-state.json`), the number of entries its blocks have consumed; every
+landing sets the Inbox queue's `head` to the cursor at its checkpoint.
+
+Each block is judged from its own anchor `A`, with `tail(A)` the queue's tail proven at `A` (every
+anchor witness proves it). Entry `c` is due when `A.timestamp >= entry.timestamp + D`, where `D` is
+the `forcedInclusionDelay` the genesis record reads from the Inbox, and expired when
+`A.timestamp >= entry.timestamp + E`, with `E` fixed at 14 days (1,209,600 seconds):
+
+- `c >= tail(A)`: no entry is pending at `A`; the block is ordinary and carries no forced
+  inclusion witness.
+- Entry `c` is waiting (`c < tail(A)`, not yet due): every block carries a peek, the entry's
+  storage proof without a blob, which shows the entry is not yet due. The rule also accepts an
+  early inclusion, but this client never proposes one.
+- Entry `c` is due: the block must be the forced inclusion block of entry `c`. A block that
+  skips it or consumes another entry is invalid; entries are consumed one by one, in queue
+  order.
+- Entry `c` is expired: an empty forced inclusion block without a blob consumes it, since the
+  beacon may no longer hold the blob.
+
+A forced inclusion block holds only the entry's transactions. Its envelope's `forced` field
+carries the entry index, the entry's EIP-1186 proof under the anchor's state root and the raw
+128 KiB blob, which must match the entry's versioned hash. The transactions are read the way
+Shasta derivation reads a forced inclusion source: `BlobCoder` decoding, then a
+`DerivationSourceManifest` at the entry's offset holding exactly one block. A manifest that is
+invalid, decompresses beyond 1 MiB, or holds zero or several blocks still consumes the entry,
+as an empty block. The proposer builds the block through the EL from that explicit `txList`
+(alethia-reth skips transactions that do not decode, recover or validate, or that exceed the
+remaining block gas, and stops when zk gas runs out). Every validator rebuilds it on the
+committed parent from the same inputs and requires the same block hash: in `ProcessProposal`,
+and in `FinalizeBlock` whenever it has no `ProcessProposal` verdict (replay, block sync).
+Because the blob travels in the envelope, replay and block sync never need L1 or the beacon,
+and the lander re-publishes the blob in its landing blobs.
+
+Validators apply this rule in consensus, so only a committee with more than 2/3 of the voting
+power can decide a block that skips a due entry, and a batch holding such a block cannot be
+proven, so it never lands. Censoring a due entry therefore stops settlement and, through
+back-pressure, the chain. `land` pays the consumed entries' fees to the lander's sending
+address.
+
+Only proposing touches the beacon. A proposer that cannot fetch a due entry's blob from
+`--l1.beacon`, or fetches a blob that does not match the entry, proposes nothing and records
+the halt reason `blob_unavailable`; another proposer's round can still include the entry. The
+app loads the KZG trusted setup at startup, so no ABCI request pays for it.
+
+### Anchor freshness
+
+Every block must satisfy `block.timestamp - anchor.timestamp <= maxAnchorAge`, checked in
+`PrepareProposal`, `ProcessProposal` and `FinalizeBlock` replay. `maxAnchorAge` is a genesis
+parameter the genesis record reads from Inbox slot 282, next to the delay. Without it, a
+coalition with more than 1/3 of the voting power could keep anchors stale, so that a queued
+entry never became due at any anchor. A proposer whose newest usable anchor (L1 `finalized`
+less `l1_finality_extra_depth`) is too old proposes nothing and records the halt reason
+`anchor_too_old`, so an L1 finality stall longer than `maxAnchorAge` pauses L2 until finality
+resumes; nothing is lost.
+
+A coalition with more than 2/3 of the voting power controls BFT time, which sets block
+timestamps, and can still delay forced inclusions. Closing that would need an L1-clock check at
+landing, which would make batches delayed by a long lander outage unlandable, so it remains a
+known limitation.
 
 ## Prerequisites
 
@@ -141,9 +214,16 @@ snake_case names of `abci::ChainParams` (for example `d_max = 12`); absent keys 
 built-in values.
 
 A safety halt (a committed block or the execution engine contradicting the app state) exits the
-process with status 2; investigate before restarting. Liveness halts (anchor not final,
-back-pressure, committee discovery unavailable, superseded generation) keep the process running and
-CometBFT rounding; the ABCI query `/status` reports the head, epoch, generation and halt reason.
+process with status 2; investigate before restarting. Liveness halts (anchor not final, anchor
+older than `maxAnchorAge`, back-pressure, committee discovery unavailable, a due forced
+inclusion blob unavailable, superseded generation) keep the process running and CometBFT
+rounding; the ABCI query `/status` reports the head, epoch, generation and halt reason.
+
+`PrepareProposal` and `ProcessProposal` also refuse a block that could not land on its own: one
+whose envelope, zlib-compressed as payload V3 compresses it, plus a 1,024-byte header allowance
+exceeds 776,168 bytes (six landing blobs less 4 KiB of payload framing). This landing capacity
+guard keeps every decided block landable; it is a liveness guard, not a validity rule, so
+`FinalizeBlock` does not re-check it.
 
 ### `lander`
 
@@ -292,7 +372,9 @@ committee is the staking registry's snapshot at the Inbox's explicit `genesisCut
 that past L1 block explicitly, as it is written before the initialization block is known. Every
 later epoch uses the committed switch-parent anchor; the new block's proposed anchor and a
 lander's reference cannot replace it. Genesis verification also checks the stored committee config hash against
-the local parameters.
+the local parameters. The genesis record carries the forced inclusion delay and `maxAnchorAge`
+proven from Inbox slot 282; a delay of zero or of 14 days or more, or a zero `maxAnchorAge`, is
+refused.
 
 | Flag             | Description                                                                           |
 | ---------------- | ------------------------------------------------------------------------------------- |
@@ -467,11 +549,13 @@ just clippy     # doc lints on library code, then every target with -D warnings
 - `just test` runs the serial Docker integration scenarios in `crates/abci/tests`,
   `crates/lander/tests` and `bin/client/tests`. ABCI scenarios cover single validator,
   anchor finality, restart and lost-state replay, epoch switch with and without landing, back-pressure, generation
-  bump and smoke. Lander scenarios cover actual Inbox blob transactions, a forced inclusion
-  landing that pays its fee, permissionless races,
+  bump, smoke, a forced inclusion executed after its delay, a validator without beacon access
+  that cannot censor a due entry, and an L1 finality stall that pauses and resumes L2 (a fake
+  beacon in the harness serves anvil's blobs). Lander scenarios cover actual Inbox blob
+  transactions, a forced inclusion landing that pays its fee, permissionless races,
   verifier rejection, receipt reorgs, durable nonce recovery, stock CometBFT collection,
   and actual-CLI SIGTERM/SIGKILL restarts, minimum/timeout batching, and pressure/epoch flushes. Each scenario boots its own devnet through the docker CLI (anvil as L1,
-  alethia-reth, CometBFT), so they run one at a time; the suite takes a few minutes. Extra
+  alethia-reth, CometBFT), so they run one at a time; the suite takes about ten minutes. Extra
   arguments go to `cargo nextest run`, e.g. `just test restart` runs one scenario.
   `tests/entrypoint.sh` pulls the images first; override them with `ANVIL_IMAGE`,
   `ALETHIA_RETH_IMAGE`, `COMETBFT_IMAGE` and `LANDER_ANVIL_IMAGE`, or set
@@ -481,7 +565,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 Regenerate lander ABI/deployment fixtures with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `639bae72ba2e69fc44387306d56f9fef7cb6703d`,
+The script requires protocol HEAD `abdc6288d476c371ed0b60e32dd9ccce7cded1b8`,
 installs pnpm dependencies before Foundry, verifies compiler source hashes,
 formats generated JSON, and records ABI/bytecode/compiler provenance. It leaves
 the existing Anchor bindings unchanged.
