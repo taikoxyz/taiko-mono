@@ -3,11 +3,12 @@
 //! Every CometBFT block's `Data.Txs` holds exactly one item, the envelope:
 //!
 //! ```text
-//! envelope     = 0x03 || rlp(EtnaEnvelope)
-//! EtnaEnvelope = [ block, anchor, committee ]
+//! envelope     = 0x04 || rlp(EtnaEnvelope)
+//! EtnaEnvelope = [ block, anchor, committee, forced ]
 //! block        = [ header, transactions ]   // EL header RLP, EIP-2718 tx bytes as opaque strings
 //! anchor       = [] | [ AnchorWitness ]     // empty list = absent
 //! committee    = [] | [ CommitteeWitness ]
+//! forced       = [] | [ ForcedWitness ]     // [ index, entry, blob ]
 //! ```
 //!
 //! The inner structs are RLP lists of their fields in declaration order. The anchor's L1 header
@@ -24,12 +25,14 @@ use crate::{
 };
 
 /// Leading version byte of every envelope.
-pub const ENVELOPE_VERSION: u8 = 3;
+pub const ENVELOPE_VERSION: u8 = 4;
 
 /// Name of the optional `anchor` field, as carried by [`EnvelopeError::OptionalArity`].
 const ANCHOR_FIELD: &str = "anchor";
 /// Name of the optional `committee` field, as carried by [`EnvelopeError::OptionalArity`].
 const COMMITTEE_FIELD: &str = "committee";
+/// Name of the optional `forced` field, as carried by [`EnvelopeError::OptionalArity`].
+const FORCED_FIELD: &str = "forced";
 
 /// The L2 execution block a CometBFT block carries.
 ///
@@ -70,10 +73,26 @@ pub struct CommitteeWitness {
     pub entries: Vec<RegistryEntry>,
 }
 
+/// The forced inclusion witness: the proof of the queue entry at the parent's cursor and, for a
+/// forced inclusion block, the entry's blob.
+///
+/// RLP: `[index, entry, blob]`. The entry proof verifies against the block anchor's `stateRoot`
+/// ([`crate::forced::check`] judges it).
+#[derive(Clone, Debug, PartialEq, Eq, RlpEncodable, RlpDecodable)]
+pub struct ForcedWitness {
+    /// The queue index of the entry; must equal the parent's cursor.
+    pub index: u64,
+    /// EIP-1186 proof of the Inbox account and the entry's four slots, in slot order.
+    pub entry: AccountWitness,
+    /// The raw 131,072-byte blob of a forced inclusion block that is not expired; empty for an
+    /// expired entry's block and for a peek (an ordinary block proving the entry is not due).
+    pub blob: Bytes,
+}
+
 /// The decoded block envelope: the execution block plus the optional L1 witnesses.
 ///
-/// Wire format: `0x03 || rlp([block, anchor, committee])`, where each optional witness is an empty
-/// RLP list when absent and a one-element RLP list holding the witness when present.
+/// Wire format: `0x04 || rlp([block, anchor, committee, forced])`, where each optional witness is
+/// an empty RLP list when absent and a one-element RLP list holding the witness when present.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EtnaEnvelope {
     /// The L2 execution block.
@@ -82,6 +101,9 @@ pub struct EtnaEnvelope {
     pub anchor: Option<AnchorWitness>,
     /// Present iff the block is the target epoch's switch height H-2.
     pub committee: Option<CommitteeWitness>,
+    /// Present iff the forced inclusion queue holds an entry at the parent's cursor in the block
+    /// anchor's state (see [`crate::forced::check`]).
+    pub forced: Option<ForcedWitness>,
 }
 
 /// Why an envelope (or a CometBFT block's transaction list) failed to decode.
@@ -99,8 +121,8 @@ pub enum EnvelopeError {
     /// Bytes remain after the outer envelope list; the value is how many.
     #[error("{0} trailing bytes after the envelope")]
     TrailingBytes(usize),
-    /// An optional witness list (`anchor` or `committee`, named by the value) holds more than one
-    /// element.
+    /// An optional witness list (`anchor`, `committee` or `forced`, named by the value) holds
+    /// more than one element.
     #[error("optional envelope field `{0}` holds more than one element")]
     OptionalArity(&'static str),
     /// The CometBFT block does not carry exactly one transaction; the value is how many it has.
@@ -109,7 +131,7 @@ pub enum EnvelopeError {
 }
 
 impl EtnaEnvelope {
-    /// Encodes the envelope as `0x03 || rlp([block, anchor, committee])`.
+    /// Encodes the envelope as `0x04 || rlp([block, anchor, committee, forced])`.
     pub fn encode(&self) -> Bytes {
         let mut out = Vec::with_capacity(1 + Encodable::length(self));
         out.push(ENVELOPE_VERSION);
@@ -132,14 +154,16 @@ impl EtnaEnvelope {
         Ok(envelope)
     }
 
-    /// Length in bytes of the outer list's payload (the three encoded fields).
+    /// Length in bytes of the outer list's payload (the four encoded fields).
     fn payload_length(&self) -> usize {
         self.block.length() +
             optional_length(self.anchor.as_ref()) +
-            optional_length(self.committee.as_ref())
+            optional_length(self.committee.as_ref()) +
+            optional_length(self.forced.as_ref())
     }
 
-    /// Decodes the RLP body `[block, anchor, committee]`, advancing `buf` past the outer list.
+    /// Decodes the RLP body `[block, anchor, committee, forced]`, advancing `buf` past the outer
+    /// list.
     fn decode_body(buf: &mut &[u8]) -> Result<Self, EnvelopeError> {
         let mut payload = alloy_rlp::Header::decode_bytes(buf, true)?;
         let payload_length = payload.len();
@@ -147,6 +171,7 @@ impl EtnaEnvelope {
             block: ExecutionBlock::decode(&mut payload)?,
             anchor: decode_optional(&mut payload, ANCHOR_FIELD)?,
             committee: decode_optional(&mut payload, COMMITTEE_FIELD)?,
+            forced: decode_optional(&mut payload, FORCED_FIELD)?,
         };
         if !payload.is_empty() {
             return Err(alloy_rlp::Error::ListLengthMismatch {
@@ -160,12 +185,13 @@ impl EtnaEnvelope {
 }
 
 impl Encodable for EtnaEnvelope {
-    /// Writes the RLP body `[block, anchor, committee]` (without the version byte).
+    /// Writes the RLP body `[block, anchor, committee, forced]` (without the version byte).
     fn encode(&self, out: &mut dyn BufMut) {
         alloy_rlp::Header { list: true, payload_length: self.payload_length() }.encode(out);
         self.block.encode(out);
         encode_optional(self.anchor.as_ref(), out);
         encode_optional(self.committee.as_ref(), out);
+        encode_optional(self.forced.as_ref(), out);
     }
 
     /// Length in bytes of the RLP body (without the version byte).
@@ -176,8 +202,8 @@ impl Encodable for EtnaEnvelope {
 }
 
 impl Decodable for EtnaEnvelope {
-    /// Reads the RLP body `[block, anchor, committee]` (without the version byte), advancing `buf`
-    /// past it. An optional witness list with more than one element is reported as
+    /// Reads the RLP body `[block, anchor, committee, forced]` (without the version byte),
+    /// advancing `buf` past it. An optional witness list with more than one element is reported as
     /// [`alloy_rlp::Error::Custom`] naming the field.
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
         Self::decode_body(buf).map_err(|err| match err {
@@ -211,6 +237,7 @@ fn optional_arity_message(field: &'static str) -> &'static str {
     match field {
         ANCHOR_FIELD => "optional envelope field `anchor` holds more than one element",
         COMMITTEE_FIELD => "optional envelope field `committee` holds more than one element",
+        FORCED_FIELD => "optional envelope field `forced` holds more than one element",
         _ => "optional envelope field holds more than one element",
     }
 }
@@ -290,6 +317,14 @@ mod tests {
         vec![bytes!("02f86c82028d8084b2d05e00"), bytes!("f86b808504a817c800825208")]
     }
 
+    /// A full-size raw blob (the envelope does not interpret it).
+    fn blob() -> Bytes {
+        Bytes::from(vec![0x5b; BLOB_BYTES])
+    }
+
+    /// The size of an EIP-4844 blob.
+    const BLOB_BYTES: usize = 131_072;
+
     fn account_witness(seed: u8) -> AccountWitness {
         AccountWitness {
             address: Address::repeat_byte(seed),
@@ -343,14 +378,20 @@ mod tests {
         }
     }
 
+    fn forced(blob: Bytes) -> ForcedWitness {
+        ForcedWitness { index: 6, entry: account_witness(0xc3), blob }
+    }
+
     fn envelope(
         anchor: Option<AnchorWitness>,
         committee: Option<CommitteeWitness>,
+        forced: Option<ForcedWitness>,
     ) -> EtnaEnvelope {
         EtnaEnvelope {
             block: ExecutionBlock { header: header(1_000), transactions: txs() },
             anchor,
             committee,
+            forced,
         }
     }
 
@@ -369,33 +410,61 @@ mod tests {
 
     #[test]
     fn round_trips_every_witness_combination() {
-        for env in [
-            envelope(None, None),
-            envelope(Some(anchor()), None),
-            envelope(None, Some(committee())),
-            envelope(Some(anchor()), Some(committee())),
-        ] {
-            let encoded = env.encode();
-            assert_eq!(EtnaEnvelope::decode(&encoded), Ok(env));
+        for anchor in [None, Some(anchor())] {
+            for committee in [None, Some(committee())] {
+                // A forced witness with the blob, an empty-blob peek, or none.
+                for forced in [None, Some(forced(Bytes::new())), Some(forced(blob()))] {
+                    let env = envelope(anchor.clone(), committee.clone(), forced);
+                    let encoded = env.encode();
+                    assert_eq!(EtnaEnvelope::decode(&encoded), Ok(env));
+                }
+            }
         }
     }
 
     #[test]
     fn encode_starts_with_version_byte() {
-        let encoded = envelope(Some(anchor()), None).encode();
-        assert_eq!(encoded[0], 0x03);
-        assert_eq!(encoded.len(), 1 + alloy_rlp::encode(envelope(Some(anchor()), None)).len());
+        let env = envelope(Some(anchor()), None, Some(forced(blob())));
+        let encoded = env.encode();
+        assert_eq!(encoded[0], 0x04);
+        assert_eq!(encoded.len(), 1 + alloy_rlp::encode(env).len());
     }
 
     #[test]
     fn absent_witness_is_empty_list_and_present_is_one_element_list() {
-        let env = envelope(Some(anchor()), None);
+        let env = envelope(Some(anchor()), None, None);
         let expected = versioned(rlp_list(&[
             alloy_rlp::encode(&env.block),
             rlp_list(&[alloy_rlp::encode(anchor())]),
             rlp_list(&[]),
+            rlp_list(&[]),
         ]));
         assert_eq!(env.encode().to_vec(), expected);
+
+        let env = envelope(None, None, Some(forced(Bytes::new())));
+        let expected = versioned(rlp_list(&[
+            alloy_rlp::encode(&env.block),
+            rlp_list(&[]),
+            rlp_list(&[]),
+            rlp_list(&[alloy_rlp::encode(forced(Bytes::new()))]),
+        ]));
+        assert_eq!(env.encode().to_vec(), expected);
+    }
+
+    /// The forced inclusion witness is the RLP list `[index, entry, blob]`, an empty blob being
+    /// the empty byte string.
+    #[test]
+    fn forced_witness_is_a_list_of_index_entry_and_blob() {
+        for blob in [Bytes::new(), blob()] {
+            let w = forced(blob.clone());
+            let expected = rlp_list(&[
+                alloy_rlp::encode(6u64),
+                alloy_rlp::encode(account_witness(0xc3)),
+                alloy_rlp::encode(&blob),
+            ]);
+            assert_eq!(alloy_rlp::encode(&w), expected);
+        }
+        assert_eq!(alloy_rlp::encode(Bytes::new()), [0x80]);
     }
 
     #[test]
@@ -405,8 +474,8 @@ mod tests {
 
     #[test]
     fn decode_rejects_wrong_version() {
-        let mut encoded = envelope(None, None).encode().to_vec();
-        for version in [0x00, 0x01, 0x02, 0xff] {
+        let mut encoded = envelope(None, None, None).encode().to_vec();
+        for version in [0x00, 0x01, 0x02, 0x03, 0x05, 0xff] {
             encoded[0] = version;
             assert_eq!(EtnaEnvelope::decode(&encoded), Err(EnvelopeError::Version(version)));
         }
@@ -414,7 +483,7 @@ mod tests {
 
     #[test]
     fn decode_rejects_malformed_rlp() {
-        let encoded = envelope(Some(anchor()), Some(committee())).encode();
+        let encoded = envelope(Some(anchor()), Some(committee()), Some(forced(blob()))).encode();
         // Version byte only.
         assert!(matches!(EtnaEnvelope::decode(&[ENVELOPE_VERSION]), Err(EnvelopeError::Rlp(_))));
         // Truncated body.
@@ -428,56 +497,115 @@ mod tests {
             Err(EnvelopeError::Rlp(alloy_rlp::Error::UnexpectedString))
         );
         // A string where an optional witness list belongs.
-        let env = envelope(None, None);
-        let body = rlp_list(&[alloy_rlp::encode(&env.block), vec![0x80], rlp_list(&[])]);
-        assert_eq!(
-            EtnaEnvelope::decode(&versioned(body)),
-            Err(EnvelopeError::Rlp(alloy_rlp::Error::UnexpectedString))
-        );
-        // A fourth element in the outer list.
+        let env = envelope(None, None, None);
+        let block = alloy_rlp::encode(&env.block);
+        let empty = rlp_list(&[]);
+        for position in 1..=3 {
+            let mut items = vec![block.clone(), empty.clone(), empty.clone(), empty.clone()];
+            items[position] = vec![0x80];
+            assert_eq!(
+                EtnaEnvelope::decode(&versioned(rlp_list(&items))),
+                Err(EnvelopeError::Rlp(alloy_rlp::Error::UnexpectedString)),
+                "optional field {position}"
+            );
+        }
+        // A fifth element in the outer list.
         let body =
-            rlp_list(&[alloy_rlp::encode(&env.block), rlp_list(&[]), rlp_list(&[]), vec![0x01]]);
+            rlp_list(&[block.clone(), empty.clone(), empty.clone(), empty.clone(), vec![0x01]]);
         assert!(matches!(EtnaEnvelope::decode(&versioned(body)), Err(EnvelopeError::Rlp(_))));
-        // Only two elements in the outer list.
-        let body = rlp_list(&[alloy_rlp::encode(&env.block), rlp_list(&[])]);
+        // Only three elements in the outer list: a version-3 body under the version-4 byte.
+        let body = rlp_list(&[block, empty.clone(), empty]);
         assert!(matches!(EtnaEnvelope::decode(&versioned(body)), Err(EnvelopeError::Rlp(_))));
+        // A forced witness missing its blob.
+        let short = rlp_list(&[alloy_rlp::encode(6u64), alloy_rlp::encode(account_witness(0xc3))]);
+        let body = rlp_list(&[
+            alloy_rlp::encode(&env.block),
+            rlp_list(&[]),
+            rlp_list(&[]),
+            rlp_list(&[short]),
+        ]);
+        assert!(matches!(EtnaEnvelope::decode(&versioned(body)), Err(EnvelopeError::Rlp(_))));
+    }
+
+    /// A version-3 envelope (three fields, before forced inclusion) is refused by its version byte.
+    #[test]
+    fn decode_rejects_a_version_3_envelope() {
+        let env = envelope(Some(anchor()), None, None);
+        let v3 = [
+            vec![0x03],
+            rlp_list(&[
+                alloy_rlp::encode(&env.block),
+                rlp_list(&[alloy_rlp::encode(anchor())]),
+                rlp_list(&[]),
+            ]),
+        ]
+        .concat();
+        assert_eq!(EtnaEnvelope::decode(&v3), Err(EnvelopeError::Version(3)));
+        assert_eq!(single_envelope(&[v3.into()]), Err(EnvelopeError::Version(3)));
     }
 
     #[test]
     fn decode_rejects_trailing_bytes() {
-        let mut encoded = envelope(None, Some(committee())).encode().to_vec();
+        let mut encoded = envelope(None, Some(committee()), None).encode().to_vec();
         encoded.extend_from_slice(&[0xc0, 0x00]);
         assert_eq!(EtnaEnvelope::decode(&encoded), Err(EnvelopeError::TrailingBytes(2)));
     }
 
+    /// Bodies whose one optional field holds two elements, with the field's name.
+    fn bodies_with_two_element_optionals() -> [(Vec<u8>, &'static str); 3] {
+        let block = alloy_rlp::encode(envelope(None, None, None).block);
+        let twice = |item: Vec<u8>| rlp_list(&[item.clone(), item]);
+        let empty = rlp_list(&[]);
+        [
+            (
+                rlp_list(&[
+                    block.clone(),
+                    twice(alloy_rlp::encode(anchor())),
+                    empty.clone(),
+                    empty.clone(),
+                ]),
+                "anchor",
+            ),
+            (
+                rlp_list(&[
+                    block.clone(),
+                    empty.clone(),
+                    twice(alloy_rlp::encode(committee())),
+                    empty.clone(),
+                ]),
+                "committee",
+            ),
+            (
+                rlp_list(&[block, empty.clone(), empty, twice(alloy_rlp::encode(forced(blob())))]),
+                "forced",
+            ),
+        ]
+    }
+
     #[test]
     fn decode_rejects_optional_list_with_more_than_one_element() {
-        let block = alloy_rlp::encode(envelope(None, None).block);
-        let two_anchors = rlp_list(&[alloy_rlp::encode(anchor()), alloy_rlp::encode(anchor())]);
-        let body = rlp_list(&[block.clone(), two_anchors, rlp_list(&[])]);
-        assert_eq!(
-            EtnaEnvelope::decode(&versioned(body)),
-            Err(EnvelopeError::OptionalArity("anchor"))
-        );
-
-        let two_committees =
-            rlp_list(&[alloy_rlp::encode(committee()), alloy_rlp::encode(committee())]);
-        let body = rlp_list(&[block, rlp_list(&[]), two_committees]);
-        assert_eq!(
-            EtnaEnvelope::decode(&versioned(body)),
-            Err(EnvelopeError::OptionalArity("committee"))
-        );
+        for (body, field) in bodies_with_two_element_optionals() {
+            assert_eq!(
+                EtnaEnvelope::decode(&versioned(body)),
+                Err(EnvelopeError::OptionalArity(field))
+            );
+        }
     }
 
     /// An anchor witness whose L1 header bytes are not a header is a malformed envelope.
     #[test]
     fn decode_rejects_a_malformed_raw_l1_header() {
-        let env = envelope(None, None);
+        let env = envelope(None, None, None);
         let inbox = alloy_rlp::encode(account_witness(0xa1));
         // A 14-field list: one field short of a pre-London header.
         let short = rlp_list(&vec![vec![0x80]; 14]);
         let anchor = rlp_list(&[alloy_rlp::encode(Bytes::from(short)), inbox]);
-        let body = rlp_list(&[alloy_rlp::encode(&env.block), rlp_list(&[anchor]), rlp_list(&[])]);
+        let body = rlp_list(&[
+            alloy_rlp::encode(&env.block),
+            rlp_list(&[anchor]),
+            rlp_list(&[]),
+            rlp_list(&[]),
+        ]);
         assert_eq!(
             EtnaEnvelope::decode(&versioned(body)),
             Err(EnvelopeError::Rlp(alloy_rlp::Error::Custom("raw L1 header has too few fields")))
@@ -486,7 +614,7 @@ mod tests {
 
     #[test]
     fn rlp_decodable_matches_versioned_decode() {
-        let env = envelope(Some(anchor()), Some(committee()));
+        let env = envelope(Some(anchor()), Some(committee()), Some(forced(blob())));
         let body = alloy_rlp::encode(&env);
         let mut buf = body.as_slice();
         assert_eq!(<EtnaEnvelope as Decodable>::decode(&mut buf), Ok(env));
@@ -495,7 +623,7 @@ mod tests {
 
     #[test]
     fn single_envelope_requires_exactly_one_tx() {
-        let env = envelope(Some(anchor()), None);
+        let env = envelope(Some(anchor()), None, None);
         let tx = env.encode();
         assert_eq!(single_envelope(&[]), Err(EnvelopeError::TxCount(0)));
         assert_eq!(single_envelope(std::slice::from_ref(&tx)), Ok(env));
@@ -511,10 +639,11 @@ mod tests {
             block: ExecutionBlock { header: Header::default(), transactions: vec![] },
             anchor: None,
             committee: None,
+            forced: None,
         };
         let expected = hex!(
-            "03"       // ENVELOPE_VERSION
-            "f901f6"   // envelope list
+            "04"       // ENVELOPE_VERSION
+            "f901f7"   // envelope list
             "f901f1"   // block list
             "f901ed"   // header list (Header::default(): 15 pre-London fields)
             "a00000000000000000000000000000000000000000000000000000000000000000" // parentHash
@@ -538,6 +667,7 @@ mod tests {
             "c0" // transactions: empty list
             "c0" // anchor: absent
             "c0" // committee: absent
+            "c0" // forced: absent
         );
         assert_eq!(env.encode().to_vec(), expected.to_vec());
         assert_eq!(EtnaEnvelope::decode(&expected), Ok(env));
@@ -545,25 +675,21 @@ mod tests {
 
     #[test]
     fn rlp_decodable_names_the_optional_field_with_more_than_one_element() {
-        let block = alloy_rlp::encode(envelope(None, None).block);
-        let two_anchors = rlp_list(&[alloy_rlp::encode(anchor()), alloy_rlp::encode(anchor())]);
-        let body = rlp_list(&[block.clone(), two_anchors, rlp_list(&[])]);
-        assert_eq!(
-            <EtnaEnvelope as Decodable>::decode(&mut body.as_slice()),
-            Err(alloy_rlp::Error::Custom(
-                "optional envelope field `anchor` holds more than one element"
-            ))
-        );
-
-        let two_committees =
-            rlp_list(&[alloy_rlp::encode(committee()), alloy_rlp::encode(committee())]);
-        let body = rlp_list(&[block, rlp_list(&[]), two_committees]);
-        assert_eq!(
-            <EtnaEnvelope as Decodable>::decode(&mut body.as_slice()),
-            Err(alloy_rlp::Error::Custom(
-                "optional envelope field `committee` holds more than one element"
-            ))
-        );
+        let messages = [
+            "optional envelope field `anchor` holds more than one element",
+            "optional envelope field `committee` holds more than one element",
+            "optional envelope field `forced` holds more than one element",
+        ];
+        for ((body, field), message) in
+            bodies_with_two_element_optionals().into_iter().zip(messages)
+        {
+            assert_eq!(
+                <EtnaEnvelope as Decodable>::decode(&mut body.as_slice()),
+                Err(alloy_rlp::Error::Custom(message)),
+                "{field}"
+            );
+            assert_eq!(optional_arity_message(field), message);
+        }
     }
 
     /// Non-canonical RLP must be rejected: otherwise one envelope would have several encodings,
@@ -576,6 +702,7 @@ mod tests {
                 rlp_list(&[header.clone(), txs.to_vec()]),
                 rlp_list(&[]),
                 rlp_list(&[]),
+                rlp_list(&[]),
             ]))
         };
         let expected = |txs: Vec<Bytes>| {
@@ -583,6 +710,7 @@ mod tests {
                 block: ExecutionBlock { header: Header::default(), transactions: txs },
                 anchor: None,
                 committee: None,
+                forced: None,
             })
         };
 
@@ -604,13 +732,13 @@ mod tests {
         );
     }
 
-    /// This vector pins the consensus wire format of an envelope carrying both witnesses: the
-    /// field order of `ExecutionBlock`, `AnchorWitness`, `CommitteeWitness`, `AccountWitness`,
-    /// `StorageProof`, `CommitteeRecord` and `RegistryEntry`, the post-Prague header fields, the
-    /// anchor's L1 header as one byte string of its raw RLP (here with two fields alloy's header
-    /// does not know), and the one-element list wrapping a present witness. If it changes, the
-    /// encoding changed, which is a consensus-breaking change for every node replaying
-    /// committed blocks.
+    /// This vector pins the consensus wire format of an envelope carrying every witness: the
+    /// field order of `ExecutionBlock`, `AnchorWitness`, `CommitteeWitness`, `ForcedWitness`,
+    /// `AccountWitness`, `StorageProof`, `CommitteeRecord` and `RegistryEntry`, the post-Prague
+    /// header fields, the anchor's L1 header as one byte string of its raw RLP (here with two
+    /// fields alloy's header does not know), the forced witness's full-size blob as one byte
+    /// string, and the one-element list wrapping a present witness. If it changes, the encoding
+    /// changed, which is a consensus-breaking change for every node replaying committed blocks.
     ///
     /// The expected bytes are assembled from per-field RLP written out by hand (only list headers
     /// are computed), so they do not depend on the encoder under test. Same-typed sibling fields
@@ -631,6 +759,8 @@ mod tests {
             assert!(len > 255, "the long-string form with a 2-byte length");
             [vec![0xb9], len.to_be_bytes().to_vec(), bytes.to_vec()].concat()
         }
+        // The raw blob the forced witness carries.
+        let blob = vec![0x5c; BLOB_BYTES];
 
         let header = |number: u64| Header {
             parent_hash: B256::repeat_byte(0x01),
@@ -742,6 +872,23 @@ mod tests {
                     last_heartbeat_seq: 0x0102,
                 }],
             }),
+            forced: Some(ForcedWitness {
+                index: 0x0203,
+                entry: AccountWitness {
+                    address: address!("00000000000000000000000000000000e7a10001"),
+                    nonce: 3,
+                    balance: U256::from(0x0a),
+                    storage_root: B256::repeat_byte(0x31),
+                    code_hash: B256::repeat_byte(0x32),
+                    account_proof: vec![bytes!("e2a03344")],
+                    storage: vec![crate::types::StorageProof {
+                        slot: B256::repeat_byte(0x34),
+                        value: U256::from(0x0e10),
+                        proof: vec![bytes!("e3a12055")],
+                    }],
+                },
+                blob: blob.clone().into(),
+            }),
         };
 
         let block = list(&[
@@ -802,10 +949,31 @@ mod tests {
             &registry,        // registry
             &list(&[&entry]), // entries: one RegistryEntry
         ]);
+        let entry = list(&[
+            &hex!("9400000000000000000000000000000000e7a10001"), // address
+            &hex!("03"),                                         // nonce
+            &hex!("0a"),                                         // balance
+            &word(0x31),                                         // storage_root
+            &word(0x32),                                         // code_hash
+            &list(&[&hex!("84e2a03344")]),                       // account_proof: one node
+            &list(&[&list(&[
+                // storage: one StorageProof
+                &word(0x34),                   // slot
+                &hex!("820e10"),               // value
+                &list(&[&hex!("84e3a12055")]), // proof: one node
+            ])]),
+        ]);
+        let forced = list(&[
+            &hex!("820203"), // index
+            &entry,          // entry
+            // blob: one byte string with a 3-byte length (131,072 = 0x020000)
+            &[hex!("ba020000").as_slice(), &blob].concat(),
+        ]);
         let expected = versioned(list(&[
             &block,
             &list(&[&anchor]),    // anchor: present, a one-element list
             &list(&[&committee]), // committee: present, a one-element list
+            &list(&[&forced]),    // forced: present, a one-element list
         ]));
 
         assert_eq!(hex::encode(env.encode()), hex::encode(&expected));

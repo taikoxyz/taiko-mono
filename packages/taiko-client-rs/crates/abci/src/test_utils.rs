@@ -4,9 +4,10 @@
 //! with `alloy_trie::HashBuilder`, so the [`AccountWitness`]es it hands out carry genuine
 //! EIP-1186 proofs (inclusion proofs for non-zero slots, exclusion proofs for zero/absent ones).
 //!
-//! [`InboxStorage`] packs Inbox facts into storage words exactly as [`crate::l1::layout`] lays
-//! them out, and [`anchor_witness`] / [`genesis_inbox_witness`] turn it into witnesses with real
-//! proofs.
+//! [`InboxStorage`] packs Inbox facts and forced inclusion queue entries into storage words
+//! exactly as [`crate::l1::layout`] lays them out, and [`anchor_witness`] /
+//! [`genesis_inbox_witness`] turn it into witnesses with real proofs. [`forced_blob`] codes a
+//! forced inclusion payload ([`manifest_payload`]) into one blob and its versioned hash.
 //! [`RegistryStorage`] does the same for the staking registry's checkpoints (and the last
 //! checkpoint's entries), and [`committee_witness`] proves one checkpoint of it.
 //!
@@ -19,16 +20,25 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use alloy_consensus::Header;
-use alloy_primitives::{Address, B256, Bytes, U256, keccak256};
+use alloy_consensus::{Header, SignableTransaction, TxEip1559, TxEnvelope, TxLegacy};
+use alloy_eips::eip4844::{
+    BlobTransactionSidecar, builder::SidecarBuilder, env_settings::EnvKzgSettings,
+};
+use alloy_primitives::{Address, B256, Bytes, Signature, TxKind, U256, keccak256};
 use alloy_trie::{
     HashBuilder, Nibbles, TrieAccount,
     proof::{ProofNodes, ProofRetainer},
 };
 
+use protocol::shasta::{
+    BlobCoder,
+    manifest::{BlockManifest, DerivationSourceManifest},
+};
+
 use crate::{
     committee::{entries_root, snapshot_slots},
     envelope::{AnchorWitness, CommitteeWitness},
+    forced::ForcedEntry,
     l1::{
         header::RawL1Header,
         layout::{inbox, registry},
@@ -202,6 +212,9 @@ pub(crate) struct InboxStorage {
     pub(crate) forced_inclusion_head: u64,
     /// Slot 281, `uint48` at bits 48–95.
     pub(crate) forced_inclusion_tail: u64,
+    /// Entries of the forced inclusion `queue` mapping (slot 280), each written at its own
+    /// `index` with a one-element blob-hash array; independent of the tail.
+    pub(crate) forced_inclusion_queue: Vec<ForcedEntry>,
     /// Slots 272–274, `genesis_cutoff` in slot 279 (`uint64` at bits 0–63) and the forced
     /// inclusion delay and maximum anchor age in slot 282 (`uint64`s at bits 0–63 and 64–127);
     /// `None` leaves them empty (not yet initialized).
@@ -222,6 +235,7 @@ impl InboxStorage {
             last_checkpoint_hash: genesis.genesis_hash,
             forced_inclusion_head: 0,
             forced_inclusion_tail: 0,
+            forced_inclusion_queue: vec![],
             genesis: Some(genesis),
             genesis_committee_hash: Some(committee_e0),
         }
@@ -261,8 +275,83 @@ impl InboxStorage {
         if let Some(hash) = self.genesis_committee_hash {
             slots.push((inbox::slot(inbox::GENESIS_COMMITTEE_HASH), hash.into()));
         }
+        for entry in &self.forced_inclusion_queue {
+            let [fee, length, slice, hash] = inbox::forced_inclusion_entry_slots(entry.index);
+            slots.extend([
+                (fee, U256::from(entry.fee_in_gwei)),
+                (length, U256::from(1)),
+                (slice, U256::from(entry.offset) | (U256::from(entry.timestamp) << 24)),
+                (hash, entry.blob_hash.into()),
+            ]);
+        }
         slots
     }
+}
+
+/// `payload` coded into one blob by [`BlobCoder`] (as a forced inclusion submitter codes its
+/// source), and the blob's KZG versioned hash.
+pub(crate) fn forced_blob(payload: &[u8]) -> (Bytes, B256) {
+    let sidecar = SidecarBuilder::<BlobCoder>::from_slice(payload)
+        .build_4844()
+        .expect("the payload codes into a valid blob");
+    assert_eq!(sidecar.blobs.len(), 1, "a forced inclusion source is one blob");
+    let hash = sidecar.versioned_hash_for_blob(0).expect("one blob");
+    (Bytes::copy_from_slice(sidecar.blobs[0].as_slice()), hash)
+}
+
+/// The KZG versioned hash of the raw blob `blob`, computed through alloy's sidecar (independent of
+/// the code under test).
+pub(crate) fn blob_versioned_hash(blob: &[u8]) -> B256 {
+    let blobs = vec![blob.try_into().expect("a 131,072-byte blob")];
+    BlobTransactionSidecar::try_from_blobs_with_settings(blobs, EnvKzgSettings::Default.get())
+        .expect("a valid blob")
+        .versioned_hash_for_blob(0)
+        .expect("one blob")
+}
+
+/// The Shasta forced inclusion source bytes of a one-block manifest holding `transactions`:
+/// version word, size word and zlib of the manifest RLP.
+pub(crate) fn manifest_payload(transactions: Vec<TxEnvelope>) -> Vec<u8> {
+    let manifest = DerivationSourceManifest {
+        blocks: vec![BlockManifest {
+            timestamp: 1_760_000_000,
+            coinbase: Address::repeat_byte(0xc0),
+            anchor_block_number: 9,
+            gas_limit: 15_000_000,
+            transactions,
+        }],
+    };
+    manifest.encode_and_compress().expect("the manifest encodes")
+}
+
+/// Two distinct signed transactions (a legacy and an EIP-1559 one) with a fixed, non-recoverable
+/// test signature: the manifest decoder does not recover senders.
+pub(crate) fn sample_transactions() -> Vec<TxEnvelope> {
+    let signature = Signature::new(U256::from(1), U256::from(1), false);
+    let legacy = TxLegacy {
+        chain_id: Some(167_001),
+        nonce: 3,
+        gas_price: 1_000_000_000,
+        gas_limit: 21_000,
+        to: TxKind::Call(Address::repeat_byte(0x11)),
+        value: U256::from(5),
+        input: Bytes::new(),
+    };
+    let dynamic = TxEip1559 {
+        chain_id: 167_001,
+        nonce: 4,
+        gas_limit: 50_000,
+        max_fee_per_gas: 2_000_000_000,
+        max_priority_fee_per_gas: 1_000_000,
+        to: TxKind::Call(Address::repeat_byte(0x22)),
+        value: U256::ZERO,
+        access_list: Default::default(),
+        input: Bytes::from_static(&[0xde, 0xad, 0xbe, 0xef]),
+    };
+    vec![
+        TxEnvelope::Legacy(legacy.into_signed(signature)),
+        TxEnvelope::Eip1559(dynamic.into_signed(signature)),
+    ]
 }
 
 /// A sample genesis record with every field distinct and non-zero (the genesis cutoff is the
@@ -618,6 +707,7 @@ mod tests {
             last_checkpoint_hash: B256::repeat_byte(0xa3),
             forced_inclusion_head: (1 << 48) - 2,
             forced_inclusion_tail: (1 << 48) - 1,
+            forced_inclusion_queue: vec![],
             genesis: Some(genesis.clone()),
             genesis_committee_hash: Some(B256::repeat_byte(0xa4)),
         };
@@ -682,6 +772,7 @@ mod tests {
             last_checkpoint_hash: B256::repeat_byte(0x77),
             forced_inclusion_head: 0x03,
             forced_inclusion_tail: 0x09,
+            forced_inclusion_queue: vec![],
             genesis: Some(genesis),
             genesis_committee_hash: None,
         };
@@ -717,6 +808,35 @@ mod tests {
             b256!("000000000000000000000000000000000000000000001c200000000000000e10")
         );
         assert_eq!(slots.len(), 5 + 6);
+    }
+
+    /// A queue entry packs into its four slots like Solidity writes `queue[i]`.
+    #[test]
+    fn inbox_storage_packs_forced_inclusion_entries() {
+        let entry = ForcedEntry {
+            index: 7,
+            fee_in_gwei: 0x0102,
+            blob_hash: B256::repeat_byte(0x0b),
+            offset: 0x0a_0b0c,
+            timestamp: 0x0102_0304_0506,
+        };
+        let storage = InboxStorage {
+            forced_inclusion_queue: vec![entry],
+            ..InboxStorage::genesis(sample_genesis_record(), B256::ZERO)
+        };
+        let slots = storage.slots();
+        let [fee, length, slice, hash] = inbox::forced_inclusion_entry_slots(7);
+        assert_eq!(
+            B256::from(word(&slots, fee)),
+            b256!("0000000000000000000000000000000000000000000000000000000000000102")
+        );
+        assert_eq!(word(&slots, length), U256::from(1));
+        assert_eq!(
+            B256::from(word(&slots, slice)),
+            b256!("00000000000000000000000000000000000000000000000102030405060a0b0c")
+        );
+        assert_eq!(B256::from(word(&slots, hash)), B256::repeat_byte(0x0b));
+        assert_eq!(slots.len(), 5 + 6 + 1 + 4);
     }
 
     #[test]

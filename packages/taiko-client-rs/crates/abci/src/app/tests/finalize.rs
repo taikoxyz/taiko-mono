@@ -10,14 +10,20 @@ use tendermint::{AppHash, Hash, abci::Code};
 use super::{
     proposal::{
         bft_time, commit, decide, finalize, finalize_req, hand_envelope, judge, jump, mid_epoch,
-        next_height, process, process_req, propose, set_anchor_age, step,
+        next_height, plant_due_entry, process, process_req, propose, set_anchor_age, step,
+        validate,
     },
     *,
 };
 use crate::{
-    app::{FINALIZE_RETRY_ESCALATE, MAX_VERDICTS},
+    app::{
+        FINALIZE_RETRY_ESCALATE, MAX_VERDICTS,
+        validate::{Rejection, Validated},
+    },
     committee::{self, Snapshot},
     engine::{EngineError, PayloadVerdict},
+    envelope::EtnaEnvelope,
+    forced::ForcedError,
     store::{AppState, CommitteeState},
     test_utils::{GenesisSpec, LogCapture, RegistryStorage, sample_entries},
     types::{ParentInfo, RegistryEntry},
@@ -761,6 +767,74 @@ async fn finalize_replays_after_a_crash_before_commit() {
     );
     commit(&mut app).await.expect("commits");
     assert_eq!(app.state().unwrap().parent.hash, hash);
+}
+
+/// A mid-epoch app whose own L1 finalized block 66 holding one due entry, and the forced block
+/// consuming it, anchored at 66.
+async fn forced_block(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, EtnaEnvelope) {
+    let app = mid_epoch(fx, dir, 5).await;
+    let blob = plant_due_entry(fx, app.l1(), 66, fx.inbox.clone());
+    let mut env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)), None);
+    env.forced = Some(fx.forced_witness(app.l1(), 66, 0, blob));
+    (app, env)
+}
+
+#[tokio::test]
+async fn forced_cursor_advances_after_a_forced_block_commits() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let (mut app, env) = forced_block(&fx, dir.path()).await;
+    let (resp, req) = judge(&mut app, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
+    assert_eq!(app.state().unwrap().forced_cursor, 0, "judging commits nothing");
+
+    // A node that never judged the block derives the same cursor from the envelope alone.
+    let cold_dir = tempfile::tempdir().unwrap();
+    let mut cold = mid_epoch(&fx, cold_dir.path(), 5).await;
+    finalize(&mut cold, finalize_req(&req)).await.expect("the cold node finalizes");
+    assert_eq!(cold.pending.as_ref().map(|s| s.forced_cursor), Some(1));
+
+    decide(&mut app, &req).await;
+    assert_eq!(app.state().unwrap().forced_cursor, 1);
+    let stored = Store::new(dir.path().to_path_buf()).load().unwrap().expect("persisted");
+    assert_eq!(stored.forced_cursor, 1);
+
+    // The next block (cursor 1 == tail 1) is ordinary, carries no witness and keeps the cursor.
+    let next = hand_envelope(&app, None, None);
+    let (resp, req) = judge(&mut app, &next).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
+    decide(&mut app, &req).await;
+    assert_eq!(app.state().unwrap().forced_cursor, 1);
+}
+
+/// The cursor is persisted state: a restarted node (no `InitChain`) judges the next height from
+/// it, so the consumed entry cannot be consumed again.
+#[tokio::test]
+async fn forced_cursor_survives_restart() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let (mut app, env) = forced_block(&fx, dir.path()).await;
+    let (_, req) = judge(&mut app, &env).await;
+    decide(&mut app, &req).await;
+    let committed = app.state().unwrap().clone();
+    assert_eq!(committed.forced_cursor, 1);
+    let again = env.forced.clone().expect("the consumed entry's witness");
+
+    let engine = app.engine().reopen();
+    drop(app);
+    let mut app = app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+    assert_eq!(app.state(), Some(&committed), "loaded from the store");
+    info(&mut app).await.expect("Info answers from the stored state");
+    assert_eq!(app.state().unwrap().forced_cursor, 1);
+
+    let ordinary = hand_envelope(&app, None, None);
+    assert!(matches!(validate(&app, &ordinary), Ok(Validated { forced: None, .. })));
+    let mut replayed = ordinary;
+    replayed.forced = Some(again);
+    assert_eq!(
+        validate(&app, &replayed).map(|_| ()),
+        Err(Rejection::Forced(ForcedError::UnexpectedWitness))
+    );
 }
 
 #[tokio::test]

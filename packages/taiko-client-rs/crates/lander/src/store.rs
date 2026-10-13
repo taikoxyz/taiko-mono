@@ -544,6 +544,7 @@ mod tests {
                 },
                 anchor: None,
                 committee: None,
+                forced: None,
             };
             blocks.push(consensus::pair_with_envelope(envelope, &committee, &keys, blocks.last()));
         }

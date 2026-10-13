@@ -8,8 +8,8 @@ use alloy_primitives::{Address, B256, Bytes, U256};
 use super::{
     proposal::{
         MAX_TX_BYTES, bft_time, decide, hand_envelope, incompressible, judge, jump, mid_epoch,
-        next_height, prepare, prepare_req, process, process_req, propose, rejected, set_anchor_age,
-        validate,
+        next_height, plant_due_entry, prepare, prepare_req, process, process_req, propose,
+        rejected, set_anchor_age, validate,
     },
     *,
 };
@@ -18,9 +18,10 @@ use crate::{
     compression::{HEADER_ALLOWANCE, MAX_BLOCK_LANDING_BYTES, zlib_compress},
     engine::{EngineError, PayloadVerdict},
     envelope::{EnvelopeError, EtnaEnvelope},
+    forced::{ForcedConsumption, ForcedError},
     l1::L1Error,
     rules::{RuleViolation, encode_extra_data},
-    test_utils::edit_l1_header,
+    test_utils::{edit_l1_header, sample_transactions},
 };
 
 /// One in-place header mutation.
@@ -319,6 +320,68 @@ async fn stale_anchor_proposal_is_rejected() {
         Err(Rejection::Rule(RuleViolation::AnchorTooOld { age: max + 1, max }))
     );
     assert_eq!(rejected(&mut app, &env).await, "anchor_too_old");
+}
+
+/// An entry due at the block's anchor must be consumed: an ordinary block, with no forced
+/// witness or with a peek, is rejected as `forced_inclusion`; the block consuming it is accepted.
+#[tokio::test]
+async fn ordinary_block_skipping_a_due_entry_is_rejected() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let blob = plant_due_entry(&fx, app.l1(), 66, fx.inbox.clone());
+    let ordinary = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)), None);
+
+    assert_eq!(
+        validate(&app, &ordinary).map(|_| ()),
+        Err(Rejection::Forced(ForcedError::MissingWitness { index: 0 }))
+    );
+    assert_eq!(rejected(&mut app, &ordinary).await, "forced_inclusion");
+
+    let mut peek = ordinary.clone();
+    peek.forced = Some(fx.forced_witness(app.l1(), 66, 0, Bytes::new()));
+    assert_eq!(
+        validate(&app, &peek).map(|_| ()),
+        Err(Rejection::Forced(ForcedError::Due { index: 0 }))
+    );
+    assert_eq!(rejected(&mut app, &peek).await, "forced_inclusion");
+
+    let mut forced = ordinary;
+    forced.forced = Some(fx.forced_witness(app.l1(), 66, 0, blob));
+    let consumed = ForcedConsumption {
+        index: 0,
+        tx_list: protocol::shasta::encode_transactions(&sample_transactions()),
+    };
+    assert_eq!(validate(&app, &forced).map(|v| v.forced), Ok(Some(consumed)));
+    let (resp, _) = judge(&mut app, &forced).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
+}
+
+/// While the queue's next entry is pending but not due, ordinary blocks peek it (its proof with an
+/// empty blob) and are accepted; one without the peek is rejected.
+#[tokio::test]
+async fn pending_entry_is_peeked_by_ordinary_blocks() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let mut inbox = fx.inbox.clone();
+    inbox.forced_inclusion_tail = 1;
+    inbox.forced_inclusion_queue = vec![crate::forced::ForcedEntry {
+        index: 0,
+        fee_in_gwei: 7,
+        blob_hash: B256::repeat_byte(0x01),
+        offset: 0,
+        // One second short of due at block 66.
+        timestamp: Fixture::l1_timestamp(66) - fx.genesis.forced_inclusion_delay + 1,
+    }];
+    fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
+    let mut env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)), None);
+    assert_eq!(rejected(&mut app, &env).await, "forced_inclusion");
+
+    env.forced = Some(fx.forced_witness(app.l1(), 66, 0, Bytes::new()));
+    assert_eq!(validate(&app, &env).map(|v| v.forced), Ok(None), "a peek consumes nothing");
+    let (resp, _) = judge(&mut app, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
 }
 
 /// A block whose compressed envelope cannot fit one landing is refused before L1 and the EL are

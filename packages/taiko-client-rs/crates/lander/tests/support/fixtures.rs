@@ -180,6 +180,7 @@ impl FixtureChain {
                 block: ExecutionBlock { header: header.clone(), transactions: vec![] },
                 anchor: witness,
                 committee,
+                forced: None,
             };
             let current = &self.committees[&schedule.epoch_of(height)];
             let pair = signed_pair(

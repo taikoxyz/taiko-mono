@@ -13,10 +13,14 @@ use super::*;
 use crate::{
     app::validate::{self, Rejection, Validated},
     envelope::{AnchorWitness, CommitteeWitness, EtnaEnvelope},
+    forced::{ForcedEntry, ForcedError},
     l1::{layout::registry, verify_anchor_witness},
     rules,
     store::CommitteeState,
-    test_utils::{GenesisSpec, L1Call, RegistryStorage, sample_entries, simple_block},
+    test_utils::{
+        GenesisSpec, InboxStorage, L1Call, RegistryStorage, forced_blob, manifest_payload,
+        sample_entries, sample_transactions, simple_block,
+    },
     types::{AnchorState, ParentInfo},
 };
 
@@ -244,7 +248,30 @@ pub(super) fn hand_envelope(
         validate::expected_header(state, &app.params, height, &anchor_state, bft_time(app))
             .expect("derivable header");
     let attrs = rules::payload_attributes(&expected, anchor_state.hash);
-    EtnaEnvelope { block: simple_block(state.parent.hash, &attrs), anchor, committee }
+    EtnaEnvelope { block: simple_block(state.parent.hash, &attrs), anchor, committee, forced: None }
+}
+
+/// Plants `inbox` as the finalized L1 block `number` of `l1`, its forced inclusion queue holding
+/// one entry (index 0, tail 1) submitted `forcedInclusionDelay` before that block, so the entry
+/// is due at an anchor there. The entry's blob codes a one-block manifest of
+/// [`sample_transactions`]; returns the blob.
+pub(super) fn plant_due_entry(
+    fx: &Fixture,
+    l1: &MockL1,
+    number: u64,
+    mut inbox: InboxStorage,
+) -> Bytes {
+    let (blob, blob_hash) = forced_blob(&manifest_payload(sample_transactions()));
+    inbox.forced_inclusion_tail = 1;
+    inbox.forced_inclusion_queue = vec![ForcedEntry {
+        index: 0,
+        fee_in_gwei: 7,
+        blob_hash,
+        offset: 0,
+        timestamp: Fixture::l1_timestamp(number) - fx.genesis.forced_inclusion_delay,
+    }];
+    fx.advance_l1(l1, number, &inbox, &fx.registry);
+    blob
 }
 
 #[tokio::test]
@@ -432,6 +459,54 @@ async fn round_trip_at_a_switch_derives_the_parent_snapshot_committee() {
     assert_eq!(target, 4);
     assert_eq!(derived.record, committee.record);
     assert_eq!(derived.members.len(), 5);
+}
+
+/// Review Focus 1: a forced inclusion block at the switch height `H(t)-2` carries both the
+/// committee and the forced witness; both are required and both must verify.
+#[tokio::test]
+async fn switch_height_forced_block_carries_both_witnesses() {
+    let fx = Fixture::genesis(2);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    let switch = fx.schedule().h_first(1) - 2;
+    let blob = plant_due_entry(&fx, app.l1(), 66, fx.inbox_with(switch - 7));
+    let parent = fx.anchor_state(app.l1(), 66);
+    jump(&mut app, switch - 1, parent, &[]);
+
+    // The proposer carries the committee witness (it does not build forced blocks yet).
+    let mut env = propose(&mut app).await;
+    assert!(env.anchor.is_none(), "the anchor stays at 66");
+    assert_eq!(env.committee.as_ref().unwrap().record.target_epoch, 1);
+    assert_eq!(
+        validate(&app, &env).map(|_| ()),
+        Err(Rejection::Forced(ForcedError::MissingWitness { index: 0 }))
+    );
+    env.forced = Some(fx.forced_witness(app.l1(), 66, 0, blob));
+
+    let v = validate(&app, &env).expect("both witnesses verify");
+    assert_eq!(v.forced.as_ref().map(|f| f.index), Some(0));
+    assert_eq!(v.derived.as_ref().map(|(target, _)| *target), Some(1));
+
+    let mut missing = env.clone();
+    missing.committee = None;
+    assert_eq!(
+        validate(&app, &missing).map(|_| ()),
+        Err(Rejection::MissingWitness(validate::WitnessKind::Committee))
+    );
+    let mut bad_committee = env.clone();
+    bad_committee.committee.as_mut().unwrap().record.total_power += 1;
+    assert!(matches!(validate(&app, &bad_committee), Err(Rejection::Committee(_))));
+    let mut bad_forced = env.clone();
+    bad_forced.forced.as_mut().unwrap().entry.storage[0].value += alloy_primitives::U256::from(1);
+    assert!(matches!(validate(&app, &bad_forced), Err(Rejection::Forced(ForcedError::Entry(_)))));
+
+    let (resp, req) = judge(&mut app, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
+    decide(&mut app, &req).await;
+    let state = app.state().expect("committed");
+    assert_eq!(state.last_height, switch);
+    assert_eq!(state.forced_cursor, 1);
+    assert_eq!(state.committees[&1], v.derived.unwrap().1);
 }
 
 #[tokio::test]

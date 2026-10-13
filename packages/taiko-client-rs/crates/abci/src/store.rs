@@ -1,10 +1,10 @@
 //! The persisted app state and its atomic file store.
 //!
 //! [`AppState`] is everything `FinalizeBlock` needs besides the envelope and the EL: the chain
-//! identity, the genesis record and schedule, the committed parent, its anchor facts and the
-//! known committees. `Commit` persists it with [`Store::save`]: the JSON is written to
-//! `abci-state.json.tmp`, fsynced, renamed over `abci-state.json` and the directory fsynced, so a
-//! crash leaves either the old or the new state, never a torn file.
+//! identity, the genesis record and schedule, the committed parent, its anchor facts, the forced
+//! inclusion cursor and the known committees. `Commit` persists it with [`Store::save`]: the JSON
+//! is written to `abci-state.json.tmp`, fsynced, renamed over `abci-state.json` and the directory
+//! fsynced, so a crash leaves either the old or the new state, never a torn file.
 
 use std::{
     collections::BTreeMap,
@@ -53,6 +53,10 @@ pub struct AppState {
     pub parent: ParentInfo,
     /// The L1 anchor of the last committed block and the Inbox facts proven at it.
     pub anchor: AnchorState,
+    /// The forced inclusion cursor `c(last_height)`: how many queue entries the chain's blocks
+    /// have consumed (0 at `InitChain`). The next block may consume only entry
+    /// `forced_cursor`. A required field: a state file without it is refused (no migration).
+    pub forced_cursor: u64,
     /// Known committees by epoch: the running epoch's and, once derived, the next one's.
     pub committees: BTreeMap<u64, CommitteeState>,
 }
@@ -280,6 +284,7 @@ mod tests {
                     forced_inclusion_tail: 5,
                 },
             },
+            forced_cursor: 3,
             committees: (0..4).map(|e| (e, committee(e))).collect(),
         }
     }
@@ -353,14 +358,15 @@ mod tests {
         assert!(store.load().is_err());
     }
 
-    /// A state written before forced inclusion lacks its genesis-record and anchor fields and is
-    /// refused rather than defaulted (prelaunch: no migration).
+    /// A state written before forced inclusion lacks its genesis-record, anchor and cursor fields
+    /// and is refused rather than defaulted (prelaunch: no migration).
     #[test]
     fn load_rejects_a_state_without_forced_inclusion_fields() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::new(dir.path().into());
         let current = serde_json::to_value(state()).unwrap();
         for (object, field) in [
+            ("", "forced_cursor"),
             ("/genesis", "forced_inclusion_delay"),
             ("/genesis", "max_anchor_age"),
             ("/anchor/inbox", "forced_inclusion_head"),

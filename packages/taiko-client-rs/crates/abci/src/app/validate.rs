@@ -3,7 +3,7 @@
 //! view, EL execution), which affect liveness only.
 //!
 //! [`validate_block`] judges a decoded envelope against the committed [`AppState`] alone: no L1,
-//! no EL, in its steps (a)–(i). [`check_candidate`] holds the witness steps (b)–(h);
+//! no EL, in its steps (a)–(j). [`check_candidate`] holds the witness steps (b)–(h);
 //! `PrepareProposal` runs its two halves ([`check_candidate_anchor`], [`finish_candidate`]) on
 //! its own witnesses before it asks the EL to build.
 //! [`check_landing_capacity`] is the landing capacity guard `ProcessProposal` and
@@ -23,6 +23,7 @@ use crate::{
     config::ChainParams,
     engine::EngineError,
     envelope::{AnchorWitness, CommitteeWitness, EnvelopeError, EtnaEnvelope, ExecutionBlock},
+    forced::{self, ForcedConsumption, ForcedError},
     l1::{FetchError, L1Error, WitnessError, layout::inbox, verify_anchor_witness},
     rules::{self, ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation},
     store::{AppState, CommitteeState},
@@ -38,6 +39,9 @@ pub struct Validated {
     pub anchor: AnchorState,
     /// At switch height `H(t)-2`: the freshly derived incoming committee, keyed by target epoch.
     pub derived: Option<(u64, CommitteeState)>,
+    /// For a forced inclusion block: the consumed entry (the committed cursor) and the EL
+    /// transaction list its block is built from; `None` for an ordinary block.
+    pub forced: Option<ForcedConsumption>,
     /// Whether the EL already executed the block and answered `VALID`.
     pub executed: bool,
 }
@@ -146,6 +150,9 @@ pub enum Rejection {
     /// `PrepareProposal`: the EL built a header that breaks the derived fields.
     #[error("built block breaks the derived header: {0}")]
     BuiltHeader(RuleViolation),
+    /// The block breaks the forced inclusion rule ([`forced::check`]).
+    #[error("forced inclusion rule violated: {0}")]
+    Forced(#[from] ForcedError),
     /// The block cannot land on its own: its envelope compressed as landing payload V3 would
     /// publish it, plus [`HEADER_ALLOWANCE`], exceeds [`MAX_BLOCK_LANDING_BYTES`].
     #[error("block needs {bytes} compressed landing bytes, above the {max} one landing carries")]
@@ -183,6 +190,7 @@ impl Rejection {
             Self::Registry(_) => "registry_discovery",
             Self::Oversize { .. } => "envelope_too_large",
             Self::BuiltHeader(_) => "built_header_mismatch",
+            Self::Forced(_) => "forced_inclusion",
             Self::LandingCapacity { .. } => "landing_capacity",
         }
     }
@@ -251,7 +259,9 @@ pub(crate) struct CandidateFacts {
 /// (b)–(h) [`check_candidate`] with the generation and anchor number decoded from the header's
 /// `extraData`; (i) the derived header ([`rules::expected_header`]), whose timestamp must keep
 /// the anchor within the genesis `maxAnchorAge` ([`rules::check_anchor_freshness`]) and whose
-/// every field the header must carry ([`rules::check_header`]). Reports the first failure.
+/// every field the header must carry ([`rules::check_header`]); (j) the forced inclusion rule
+/// ([`forced::check`]) on the committed cursor, the block's anchor (its own witness's or the
+/// parent's), the genesis delay and the envelope's forced witness. Reports the first failure.
 pub(crate) fn validate_block(
     state: &AppState,
     params: &ChainParams,
@@ -285,10 +295,18 @@ pub(crate) fn validate_block(
         state.genesis.max_anchor_age,
     )?;
     rules::check_header(header, &expected)?;
+    let forced = forced::check(
+        state.forced_cursor,
+        &facts.anchor,
+        state.genesis.forced_inclusion_delay,
+        params.inbox,
+        env.forced.as_ref(),
+    )?;
     Ok(Validated {
         block: env.block.clone(),
         anchor: facts.anchor,
         derived: facts.derived,
+        forced,
         executed: false,
     })
 }

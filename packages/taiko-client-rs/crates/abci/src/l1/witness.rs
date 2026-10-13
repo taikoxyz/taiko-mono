@@ -222,6 +222,7 @@ mod tests {
             last_checkpoint_hash: B256::repeat_byte(0xc4),
             forced_inclusion_head: 0x0000_8765_4321_0fed,
             forced_inclusion_tail: 0x0000_ffff_ffff_fffe,
+            forced_inclusion_queue: vec![],
             genesis: Some(sample_genesis_record()),
             genesis_committee_hash: Some(B256::repeat_byte(0xe0)),
         }

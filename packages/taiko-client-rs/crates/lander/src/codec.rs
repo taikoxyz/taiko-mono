@@ -28,7 +28,7 @@ use tendermint_proto::v0_38::types::{Block as RawBlock, Commit as RawCommit, Hea
 pub struct PublishedBlock {
     /// Canonical CometBFT header whose hash is the signed block id hash.
     pub header: tendermint::block::Header,
-    /// Exact envelope bytes, `0x03 || rlp([block, anchor, committee])`.
+    /// Exact envelope bytes, `0x04 || rlp([block, anchor, committee, forced])`.
     pub envelope: Vec<u8>,
 }
 
@@ -349,6 +349,7 @@ mod tests {
                 },
                 anchor: None,
                 committee: None,
+                forced: None,
             };
             let pair = consensus::pair_with_envelope(envelope, &committee, &keys, blocks.last());
             blocks.push(pair);

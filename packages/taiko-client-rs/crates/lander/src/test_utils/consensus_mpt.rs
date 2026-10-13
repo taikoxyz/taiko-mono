@@ -507,6 +507,7 @@ impl Fixture {
                     block: ExecutionBlock { header: el.clone(), transactions },
                     anchor: witness,
                     committee,
+                    forced: None,
                 },
                 &committees[&schedule.epoch_of(height)],
                 &keys,

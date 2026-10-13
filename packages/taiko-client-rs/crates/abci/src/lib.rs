@@ -25,9 +25,10 @@ pub mod config;
 pub mod elsync;
 /// The execution-engine adapter (Engine API) and payload conversion for alethia-reth #248.
 pub mod engine;
-/// The CometBFT block envelope codec (`0x03 || rlp([block, anchor, committee])`).
+/// The CometBFT block envelope codec (`0x04 || rlp([block, anchor, committee, forced])`).
 pub mod envelope;
-/// Etna forced inclusion: the queue expiry.
+/// Etna forced inclusion: the per-block rule, entry proofs and the blob → transaction list
+/// derivation.
 pub mod forced;
 /// The CometBFT genesis: the `app_state` genesis witness, its codec, and the builder of the
 /// whole `genesis.json` from L1.
@@ -59,7 +60,7 @@ pub use engine::{
 };
 pub use envelope::{
     AnchorWitness, CommitteeWitness, ENVELOPE_VERSION, EnvelopeError, EtnaEnvelope, ExecutionBlock,
-    single_envelope,
+    ForcedWitness, single_envelope,
 };
 pub use genesis::{
     AppStateJson, CommitteeRecordError, GenesisCommitteeRecord, GenesisDoc, GenesisError,
