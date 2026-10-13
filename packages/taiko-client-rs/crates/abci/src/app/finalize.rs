@@ -210,12 +210,19 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// [`check_forced_rebuild`]); an ordinary block needs nothing. The rebuild reads the envelope
     /// alone, never L1 or a beacon.
     ///
+    /// The rebuild needs the parent's state in the EL. A node replaying after losing its ABCI
+    /// state rebuilds on a parent that may be far behind the EL's head, so an EL that prunes state
+    /// history, or was restored from a snapshot taken past that parent, may be unable to build.
+    ///
     /// A build failing for a node-local reason is retried on its own [`Backoff`], as
-    /// [`App::settle`] retries: a retryable engine error ([`EngineError::is_retryable`]), an
-    /// elapsed engine deadline, or a build the EL did not start ([`EngineError::BuildNotStarted`],
-    /// e.g. while it lacks the parent, which the build's forkchoice update points it at). Every
-    /// other engine error, and a rebuilt block whose hash differs from the decided block's
-    /// ([`Rejection::ForcedRebuildMismatch`]), is an [`AbciError::SafetyHalt`].
+    /// [`App::settle`] retries, logged under the label [`REBUILD`]: a retryable engine error
+    /// ([`EngineError::is_retryable`]), an elapsed engine deadline, or a build the EL did not
+    /// start ([`EngineError::BuildNotStarted`], e.g. while it lacks the parent, which the build's
+    /// forkchoice update points it at, or the parent's state), whose retry reason names the parent
+    /// and that likely cause. Every other engine error is an [`AbciError::SafetyHalt`] labeled
+    /// `forced_rebuild_unavailable`, whose message names the parent and how to give the EL its
+    /// state; a rebuilt block whose hash differs from the decided block's
+    /// ([`Rejection::ForcedRebuildMismatch`]) is a safety halt too.
     async fn rebuild_forced(
         &self,
         state: &AppState,
@@ -237,15 +244,27 @@ impl<L: L1Source, E: Engine> App<L, E> {
                     return check_forced_rebuild(&v.block, &rebuilt)
                         .map_err(|rejection| invalid_block(height, &rejection));
                 }
-                Ok(Err(e)) if e.is_retryable() || matches!(e, EngineError::BuildNotStarted(_)) => {
-                    e.to_string()
+                Ok(Err(e @ EngineError::BuildNotStarted(_))) => {
+                    format!("{}: {e}", cannot_build_on(&state.parent))
                 }
+                Ok(Err(e)) if e.is_retryable() => e.to_string(),
                 Ok(Err(e)) => {
-                    return Err(safety_halt(height, "engine_error", format!("{BUILD} failed: {e}")));
+                    return Err(safety_halt(
+                        height,
+                        "forced_rebuild_unavailable",
+                        format!(
+                            "{REBUILD} failed: {}: {e}. Replaying a forced inclusion block needs \
+                             its parent's state; an EL that prunes state history or was restored \
+                             from a snapshot taken past the parent lacks it. Keep EL state history \
+                             over the replay distance (or run an archive node), or resync the EL \
+                             to a node that has it, then restart",
+                            cannot_build_on(&state.parent)
+                        ),
+                    ));
                 }
                 Err(_) => format!("timed out after {limit:?}"),
             };
-            backoff.wait(BUILD, &reason).await;
+            backoff.wait(REBUILD, &reason).await;
         }
     }
 
@@ -276,9 +295,19 @@ impl<L: L1Source, E: Engine> App<L, E> {
 /// The Engine API method name of a forkchoice update, for logs and safety-halt messages.
 const FCU: &str = "engine_forkchoiceUpdated";
 
-/// The name of an EL block build (a forkchoice update with attributes, then `getPayload`), for
-/// logs and safety-halt messages.
-const BUILD: &str = "engine block build";
+/// The label of a cold forced inclusion rebuild (an EL block build: a forkchoice update with
+/// attributes, then `getPayload`), for logs and safety-halt messages.
+const REBUILD: &str = "forced inclusion rebuild";
+
+/// Why the EL may not build a forced inclusion block on `parent`: it lacks the parent block, or
+/// the parent's state (pruned, or skipped by a snapshot restore).
+fn cannot_build_on(parent: &ParentInfo) -> String {
+    format!(
+        "the EL cannot build on parent {} ({}); it may lack that block, or its historical state if \
+         it prunes state history or was restored from a later snapshot",
+        parent.number, parent.hash
+    )
+}
 
 /// What one EL call of `FinalizeBlock` came to, short of a safety halt.
 #[derive(Debug)]
