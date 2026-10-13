@@ -835,7 +835,8 @@ async fn cold_finalize_halts_on_a_forced_rebuild_mismatch() {
 /// The EL failing to rebuild a decided forced inclusion block for a node-local reason (a
 /// transport failure, a deadline, a build it did not start, e.g. while it lacks the parent) is
 /// retried with backoff until the block finalizes; an EL refusing the build call itself is a
-/// safety halt.
+/// safety halt. Retries and the halt are logged under the forced rebuild's own label, and a build
+/// the EL did not start, like the halt, names the parent and the likely missing state.
 #[tokio::test(start_paused = true)]
 async fn cold_forced_rebuild_failures_retry_or_halt() {
     let fx = Fixture::genesis(1);
@@ -851,9 +852,25 @@ async fn cold_forced_rebuild_failures_retry_or_halt() {
         ]);
         engine.delay_script.extend([Duration::ZERO, Duration::ZERO, slow]);
     }
+    let parent = app.state().unwrap().parent.clone();
+    let on_parent = format!("parent {} ({})", parent.number, parent.hash);
     let before = app.engine().calls().len();
     let start = tokio::time::Instant::now();
+    let logs = LogCapture::start();
     finalize(&mut app, req.clone()).await.expect("finalizes once the EL rebuilds the block");
+    let retries = logs.at("WARN");
+    assert_eq!(retries.len(), 3, "{}", logs.text());
+    for line in &retries {
+        assert!(line.contains("method=\"forced inclusion rebuild\""), "{line}");
+    }
+    assert!(retries[0].contains("connection refused"), "{}", retries[0]);
+    assert!(
+        retries[1].contains(&format!("cannot build on {on_parent}")) &&
+            retries[1].contains("historical state") &&
+            retries[1].contains("SYNCING"),
+        "{}",
+        retries[1]
+    );
     // Pauses of 100, 200 and 400 ms after the two failures and the timed-out third build.
     assert_eq!(start.elapsed(), app.opts.engine_timeout + Duration::from_millis(700));
     let builds = engine_calls_since(&app, before)
@@ -871,6 +888,15 @@ async fn cold_forced_rebuild_failures_retry_or_halt() {
     app.engine().state().build_script.push_back(Err(refusal));
     let msg = safety_halt(finalize(&mut app, req).await);
     assert!(msg.contains("-38003"), "{msg}");
+    // The halt names the parent the EL could not build on and what to do about it.
+    assert!(msg.contains(&on_parent), "{msg}");
+    assert!(msg.contains("historical state") && msg.contains("archive"), "{msg}");
+    let halts = logs.at("ERROR");
+    assert!(
+        halts.iter().any(|line| line.contains("reason=\"forced_rebuild_unavailable\"")),
+        "{}",
+        logs.text()
+    );
 }
 
 /// CometBFT replays a decided forced inclusion block after a crash before `Commit`, with no L1

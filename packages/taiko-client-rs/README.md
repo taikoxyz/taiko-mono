@@ -549,6 +549,21 @@ or config opening differs.
   `FinalizeBlock` keeps retrying a block alethia-reth cannot execute, logging at ERROR after a
   minute.
 
+### Execution layer state history
+
+- A node that lost `abci-state.json` (or starts with an empty `--data-dir` next to an existing
+  alethia-reth) is replayed by CometBFT from its last saved state, and `FinalizeBlock` judges
+  each replayed block cold. A cold forced inclusion block is rebuilt in alethia-reth on its
+  parent, which needs the parent's state, possibly far behind alethia-reth's head.
+- So keep alethia-reth's state history over the distance a node may replay (do not prune state
+  history below it), or run it as an archive node. An alethia-reth restored from a snapshot
+  taken after the replayed blocks lacks their state as well.
+- Without that state, the replay of a forced inclusion block either keeps retrying, logged at
+  WARN (ERROR after a minute) under `method="forced inclusion rebuild"` with a reason naming the
+  parent alethia-reth cannot build on, or stops with a safety halt labeled
+  `forced_rebuild_unavailable`. Give alethia-reth that history (resync it from a node that has
+  it, or restore an older snapshot), then restart the app and CometBFT.
+
 ## Development
 
 ```sh
