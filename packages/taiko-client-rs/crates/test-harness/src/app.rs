@@ -5,8 +5,10 @@
 //! it again builds a fresh app over the same store directory and port, as an operator restarting
 //! the process would.
 //!
-//! The apps have no beacon yet: their [`BlobSource`] serves no blob, which no scenario needs as
-//! long as none fills the forced inclusion queue.
+//! An app fetches forced inclusion blobs from the devnet's [`FakeBeacon`](crate::FakeBeacon)
+//! through [`LazyBeaconBlobs`], as `taiko-client abci` does from `--l1.beacon`; an app without
+//! beacon ([`DevnetSpec::validators_without_beacon`](crate::DevnetSpec)) gets a [`BlobSource`]
+//! that always fails.
 
 use std::{
     fs,
@@ -17,7 +19,8 @@ use std::{
 };
 
 use abci::{
-    App, AppOptions, BlobSource, ChainParams, Engine, RpcEngine, RpcL1Source, Store, serve_with,
+    App, AppOptions, BlobSource, ChainParams, Engine, LazyBeaconBlobs, RpcEngine, RpcL1Source,
+    Store, serve_with,
 };
 use alloy_primitives::{B256, Bytes};
 use anyhow::{Context, Result, anyhow, ensure};
@@ -58,6 +61,8 @@ pub(crate) struct AppConfig {
     pub reth: RethNode,
     /// anvil's JSON-RPC URL on the host (its own L1 view).
     pub l1_http: Url,
+    /// The beacon REST URL it fetches forced inclusion blobs from; `None`: it has no beacon.
+    pub beacon: Option<Url>,
     /// The chain parameters.
     pub params: ChainParams,
     /// The Engine API JWT secret file.
@@ -251,7 +256,7 @@ fn run(
 }
 
 /// Waits for the EL's Engine API, loads the KZG trusted setup (as `taiko-client abci` does
-/// before serving) and builds the app over its store.
+/// before serving) and builds the app over its store and its blob source.
 async fn build_app(c: &AppConfig) -> Result<App<RpcL1Source, RpcEngine>> {
     tokio::task::spawn_blocking(abci::forced::warm_kzg_settings).await?;
     let opts = AppOptions::default();
@@ -274,7 +279,11 @@ async fn build_app(c: &AppConfig) -> Result<App<RpcL1Source, RpcEngine>> {
         http_timeout_for(opts.l1_timeout),
     ));
     let store = Store::new(c.store_dir.clone());
-    Ok(App::new(l1, engine, Arc::new(NoBeacon), c.params.clone(), store, opts)?)
+    let blobs: Arc<dyn BlobSource> = match &c.beacon {
+        Some(url) => Arc::new(LazyBeaconBlobs::new(url.clone())),
+        None => Arc::new(NoBeacon),
+    };
+    Ok(App::new(l1, engine, blobs, c.params.clone(), store, opts)?)
 }
 
 /// A free host port (bound on all interfaces, then released).

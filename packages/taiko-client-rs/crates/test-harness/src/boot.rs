@@ -22,6 +22,7 @@ use url::Url;
 use crate::{
     DevnetSpec,
     app::{AppConfig, AppNode, free_port},
+    beacon::FakeBeacon,
     cometbft::{CmtClient, HomeConfig, write_home},
     docker::{DockerEnv, host_port},
     keys::{ValidatorKey, node_keys, validator_keys},
@@ -82,16 +83,20 @@ pub(crate) struct Booted {
     pub genesis: GenesisRecord,
     /// Writes L1 state.
     pub planter: Planter,
+    /// The fake beacon serving anvil's blobs.
+    pub beacon: FakeBeacon,
 }
 
 /// Boots the devnet `id` into `docker`, keeping files under `tmp`:
 ///
-/// 1. anvil and one alethia-reth per validator, waiting for their RPCs;
+/// 1. anvil and one alethia-reth per validator, waiting for their RPCs, and the fake beacon over
+///    anvil;
 /// 2. the chain parameters for alethia-reth's chain id with `spec`'s `d_max` / `margin_v`;
 /// 3. the setter contracts, then registry checkpoint 0 (the first `initial_validators` keys) in an
 ///    L1 block `c` and the initialized Inbox, with `genesisCutoff = c`, in a later block `L1_0`;
 /// 4. once `L1_0` is final, the CometBFT genesis via `abci::build_genesis`;
-/// 5. one app per validator, listening before CometBFT starts;
+/// 5. one app per validator, listening before CometBFT starts, fetching forced inclusion blobs from
+///    the fake beacon unless `spec` lists it without beacon;
 /// 6. one CometBFT node per validator, waiting for their RPCs;
 /// 7. the fake lander (advancing checkpoints only).
 pub(crate) async fn boot(
@@ -122,6 +127,7 @@ pub(crate) async fn boot(
     let l1 = connect_http_with_timeout(l1_http.clone(), DEFAULT_HTTP_TIMEOUT);
     wait_until("anvil RPC", RPC_TIMEOUT, POLL, || async { Ok(Some(l1.get_block_number().await?)) })
         .await?;
+    let beacon = FakeBeacon::start(l1_http.clone()).await?;
     let mut reth = Vec::with_capacity(n);
     for name in &reth_names {
         let node = RethNode {
@@ -184,6 +190,7 @@ pub(crate) async fn boot(
             index: i,
             reth: node.clone(),
             l1_http: l1_http.clone(),
+            beacon: (!spec.validators_without_beacon.contains(&i)).then(|| beacon.url.clone()),
             params: params.clone(),
             jwt: jwt.clone(),
             store_dir: tmp.join(format!("app-{i}")),
@@ -247,7 +254,7 @@ pub(crate) async fn boot(
     // 7. The fake lander.
     let lander = Lander::spawn(LanderCtx { planter: planter.clone(), l2 });
 
-    Ok(Booted { lander, apps, cmt, reth, l1, keys, params, genesis, planter })
+    Ok(Booted { lander, apps, cmt, reth, l1, keys, params, genesis, planter, beacon })
 }
 
 /// The hash and state root of block 0 of the EL behind `l2`.
