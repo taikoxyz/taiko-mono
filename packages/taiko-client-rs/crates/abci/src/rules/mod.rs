@@ -415,30 +415,37 @@ impl fmt::Write for Bounded {
 
 /// Builds the `engine_forkchoiceUpdated` payload attributes for `e`.
 ///
-/// `txList` is `None`, so the EL builds from its own txpool (user transactions travel over EL
-/// devp2p); withdrawals are present but empty; the L1 origin records the anchor number (from
-/// `e.extra_data`) and `anchor_hash`, is not forced and carries a zero signature. The payload id
-/// is stamped from `e.parent_hash`.
+/// `tx_list` is the explicit transaction list of a forced inclusion block (an RLP list of
+/// transactions, which the EL builds the block from alone, skipping the ones it cannot include)
+/// or `None` for an ordinary block, which the EL builds from its own txpool (user transactions
+/// travel over EL devp2p). Withdrawals are present but empty; the L1 origin records the anchor
+/// number (from `e.extra_data`) and `anchor_hash`, is forced exactly when `tx_list` is given and
+/// carries a zero signature. The payload id is stamped from `e.parent_hash` (and `tx_list`).
 ///
 /// # Panics
 ///
 /// If `e.extra_data` is not the 13-byte Etna layout, which [`expected_header`] guarantees.
-pub fn payload_attributes(e: &ExpectedHeader, anchor_hash: B256) -> TaikoPayloadAttributes {
+pub fn payload_attributes(
+    e: &ExpectedHeader,
+    anchor_hash: B256,
+    tx_list: Option<Bytes>,
+) -> TaikoPayloadAttributes {
     let (_, _, anchor_number) = decode_extra_data(&e.extra_data)
         .expect("ExpectedHeader::extra_data is the 13-byte Etna layout");
+    let is_forced_inclusion = tx_list.is_some();
     build_payload_attributes_with_id(
         PayloadAttributesInput {
             beneficiary: e.beneficiary,
             timestamp: e.timestamp,
             mix_hash: e.mix_hash,
             gas_limit: e.gas_limit,
-            tx_list: None,
+            tx_list,
             extra_data: e.extra_data.clone(),
             base_fee_per_gas: U256::from(e.base_fee),
             block_number: e.number,
             l1_block_height: Some(U256::from(anchor_number)),
             l1_block_hash: Some(anchor_hash),
-            is_forced_inclusion: false,
+            is_forced_inclusion,
             signature: [0; 65],
             parent_beacon_block_root: Some(e.parent_beacon_block_root),
             anchor_transaction: None,

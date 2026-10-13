@@ -9,9 +9,9 @@ use tendermint::{AppHash, Hash, abci::Code};
 
 use super::{
     proposal::{
-        bft_time, commit, decide, finalize, finalize_req, hand_envelope, judge, jump, mid_epoch,
-        next_height, plant_due_entry, process, process_req, propose, set_anchor_age, step,
-        validate,
+        bft_time, commit, decide, finalize, finalize_req, hand_envelope, hand_forced_envelope,
+        judge, jump, mid_epoch, next_height, plant_due_entry, process, process_req, propose,
+        sample_tx_list, set_anchor_age, step, validate, with_extra_transaction,
     },
     *,
 };
@@ -24,6 +24,7 @@ use crate::{
     engine::{EngineError, PayloadVerdict},
     envelope::EtnaEnvelope,
     forced::ForcedError,
+    l1::L1Error,
     store::{AppState, CommitteeState},
     test_utils::{GenesisSpec, LogCapture, RegistryStorage, sample_entries},
     types::{ParentInfo, RegistryEntry},
@@ -769,14 +770,159 @@ async fn finalize_replays_after_a_crash_before_commit() {
     assert_eq!(app.state().unwrap().parent.hash, hash);
 }
 
+/// The forced block an honest proposer builds for the next height of `app` consuming entry 0,
+/// which [`plant_due_entry`] plants as due in its own L1's finalized block 66; anchored at 66.
+fn forced_block_on(fx: &Fixture, app: &App<MockL1, MockEngine>) -> EtnaEnvelope {
+    let blob = plant_due_entry(fx, app.l1(), 66, fx.inbox.clone());
+    let anchor = Some(fx.anchor_witness(app.l1(), 66));
+    let witness = fx.forced_witness(app.l1(), 66, 0, blob);
+    hand_forced_envelope(app, anchor, None, witness, sample_tx_list())
+}
+
 /// A mid-epoch app whose own L1 finalized block 66 holding one due entry, and the forced block
 /// consuming it, anchored at 66.
 async fn forced_block(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, EtnaEnvelope) {
     let app = mid_epoch(fx, dir, 5).await;
-    let blob = plant_due_entry(fx, app.l1(), 66, fx.inbox.clone());
-    let mut env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)), None);
-    env.forced = Some(fx.forced_witness(app.l1(), 66, 0, blob));
+    let env = forced_block_on(fx, &app);
     (app, env)
+}
+
+/// The `FinalizeBlock` request of `env` decided as the next height of `app`, which never judged
+/// it.
+fn cold_req(app: &App<MockL1, MockEngine>, env: &EtnaEnvelope) -> request::FinalizeBlock {
+    finalize_req(&process_req(next_height(app), bft_time(app), vec![env.encode()]))
+}
+
+/// A decided forced inclusion block with one more transaction than its entry's list, finalized
+/// by a node that never judged it: the EL's rebuild differs, a safety halt before the EL executes
+/// the block.
+#[tokio::test]
+async fn cold_finalize_halts_on_a_forced_rebuild_mismatch() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let (mut app, honest) = forced_block(&fx, dir.path()).await;
+    let env = with_extra_transaction(honest.clone());
+    let before = app.engine().calls().len();
+    let req = cold_req(&app, &env);
+    let msg = safety_halt(finalize(&mut app, req).await);
+    let mismatch = Rejection::ForcedRebuildMismatch {
+        expected: honest.block.header.hash_slow(),
+        got: env.block.header.hash_slow(),
+    };
+    assert!(msg.contains(&mismatch.to_string()), "{msg}");
+    let calls = engine_calls_since(&app, before);
+    assert!(matches!(calls.as_slice(), [EngineCall::BuildBlock { .. }]), "not executed: {calls:?}");
+    assert_eq!(app.pending, None);
+
+    // The honest block finalizes cold: rebuilt from the entry's list, then executed.
+    let before = app.engine().calls().len();
+    let req = cold_req(&app, &honest);
+    finalize(&mut app, req).await.expect("the honest block finalizes");
+    let calls = engine_calls_since(&app, before);
+    let [
+        EngineCall::BuildBlock { parent, attrs },
+        EngineCall::NewPayload(_),
+        EngineCall::Forkchoice { .. },
+    ] = calls.as_slice()
+    else {
+        panic!("a rebuild, then the execution: {calls:?}");
+    };
+    assert_eq!(*parent, app.state().unwrap().parent.hash);
+    assert_eq!(attrs.block_metadata.tx_list, Some(sample_tx_list()));
+}
+
+/// The EL failing to rebuild a decided forced inclusion block for a node-local reason (a
+/// transport failure, a deadline, a build it did not start, e.g. while it lacks the parent) is
+/// retried with backoff until the block finalizes; an EL refusing the build call itself is a
+/// safety halt.
+#[tokio::test(start_paused = true)]
+async fn cold_forced_rebuild_failures_retry_or_halt() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let (mut app, env) = forced_block(&fx, dir.path()).await;
+    let req = cold_req(&app, &env);
+    let slow = app.opts.engine_timeout + Duration::from_secs(1);
+    {
+        let mut engine = app.engine().state();
+        engine.build_script.extend([
+            Err(EngineError::Transport("connection refused".into())),
+            Err(EngineError::BuildNotStarted("SYNCING".into())),
+        ]);
+        engine.delay_script.extend([Duration::ZERO, Duration::ZERO, slow]);
+    }
+    let before = app.engine().calls().len();
+    let start = tokio::time::Instant::now();
+    finalize(&mut app, req.clone()).await.expect("finalizes once the EL rebuilds the block");
+    // Pauses of 100, 200 and 400 ms after the two failures and the timed-out third build.
+    assert_eq!(start.elapsed(), app.opts.engine_timeout + Duration::from_millis(700));
+    let builds = engine_calls_since(&app, before)
+        .iter()
+        .filter(|c| matches!(c, EngineCall::BuildBlock { .. }))
+        .count();
+    assert_eq!(builds, 3, "the timed-out build is never recorded");
+    assert_eq!(app.pending.as_ref().map(|s| s.parent.hash), Some(env.block.header.hash_slow()));
+
+    let refusal = EngineError::ErrorReply {
+        call: "engine_forkchoiceUpdatedV3 at http://el.test/".into(),
+        code: -38003,
+        message: "Invalid payload attributes".into(),
+    };
+    app.engine().state().build_script.push_back(Err(refusal));
+    let msg = safety_halt(finalize(&mut app, req).await);
+    assert!(msg.contains("-38003"), "{msg}");
+}
+
+/// CometBFT replays a decided forced inclusion block after a crash before `Commit`, with no L1
+/// reachable (and no beacon: FinalizeBlock has none): the cold node rebuilds the block from the
+/// blob its envelope carries alone and answers as before.
+#[tokio::test]
+async fn replay_rebuilds_forced_block_without_l1_or_beacon() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    step(&mut app).await; // H_0
+    let committed = app.state().unwrap().clone();
+    let env = forced_block_on(&fx, &app);
+    let hash = env.block.header.hash_slow();
+    let (resp, req) = judge(&mut app, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
+    let req = finalize_req(&req);
+    let before = app.engine().calls().len();
+    let first = finalize(&mut app, req.clone()).await.expect("finalizes");
+    let calls = engine_calls_since(&app, before);
+    assert!(
+        matches!(calls.as_slice(), [EngineCall::Forkchoice { head, .. }] if *head == hash),
+        "the cached verdict was rebuilt and executed already: {calls:?}"
+    );
+
+    // Crash before Commit: the EL keeps the block, the store the previous height; L1 is down.
+    let engine = app.engine().reopen();
+    drop(app);
+    let l1 = fx.l1();
+    l1.state().fail = Some(L1Error::Rpc("unreachable".into()));
+    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    assert_eq!(app.state(), Some(&committed));
+    info(&mut app).await.expect("Info reconciles with an EL ahead");
+
+    let before = app.engine().calls().len();
+    let replayed = finalize(&mut app, req).await.expect("the replay finalizes");
+    assert_eq!(replayed, first);
+    assert!(app.l1().calls().is_empty(), "FinalizeBlock never calls L1");
+    let calls = engine_calls_since(&app, before);
+    let [
+        EngineCall::BuildBlock { parent, attrs },
+        EngineCall::NewPayload(executed),
+        EngineCall::Forkchoice { head, .. },
+    ] = calls.as_slice()
+    else {
+        panic!("a rebuild, then the execution: {calls:?}");
+    };
+    assert_eq!(*parent, committed.parent.hash);
+    assert_eq!(attrs.block_metadata.tx_list, Some(sample_tx_list()));
+    assert_eq!((*executed, *head), (hash, hash));
+    commit(&mut app).await.expect("commits");
+    let state = app.state().unwrap();
+    assert_eq!((state.parent.hash, state.forced_cursor), (hash, 1));
 }
 
 #[tokio::test]

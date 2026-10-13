@@ -11,9 +11,11 @@ use std::{
 };
 
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
-use alloy_consensus::{EMPTY_OMMER_ROOT_HASH, EMPTY_ROOT_HASH, Header};
-use alloy_eips::{BlockNumberOrTag, eip7685::EMPTY_REQUESTS_HASH};
-use alloy_primitives::{Address, B64, B256, U256, keccak256};
+use alloy_consensus::{
+    EMPTY_OMMER_ROOT_HASH, EMPTY_ROOT_HASH, Header, TxEnvelope, proofs::ordered_trie_root_encoded,
+};
+use alloy_eips::{BlockNumberOrTag, eip2718::Encodable2718, eip7685::EMPTY_REQUESTS_HASH};
+use alloy_primitives::{Address, B64, B256, Bytes, U256, keccak256};
 use async_trait::async_trait;
 
 use super::TestState;
@@ -246,11 +248,14 @@ pub(crate) struct MockEngineState {
 }
 
 /// The block a simple EL builds on `parent_hash` from `attrs`: every attribute-derived field as
-/// alethia-reth #248 assembles it (Etna body commitments included), no transactions, and
-/// deterministic execution results.
+/// alethia-reth #248 assembles it (Etna body commitments included), the transactions of an
+/// explicit `tx_list` ([`provided_transactions`]) or else none, and deterministic execution
+/// results.
 pub(crate) fn simple_block(parent_hash: B256, attrs: &TaikoPayloadAttributes) -> ExecutionBlock {
     let eth = &attrs.payload_attributes;
     let number = attrs.l1_origin.block_id.to::<u64>();
+    let transactions =
+        attrs.block_metadata.tx_list.as_ref().map(provided_transactions).unwrap_or_default();
     let header = Header {
         parent_hash,
         number,
@@ -268,13 +273,21 @@ pub(crate) fn simple_block(parent_hash: B256, attrs: &TaikoPayloadAttributes) ->
         ommers_hash: EMPTY_OMMER_ROOT_HASH,
         nonce: B64::ZERO,
         state_root: keccak256(parent_hash),
-        transactions_root: EMPTY_ROOT_HASH,
+        transactions_root: ordered_trie_root_encoded(&transactions),
         receipts_root: EMPTY_ROOT_HASH,
         gas_used: 0,
         difficulty: U256::from(1_000 + number % 1_000),
         ..Header::default()
     };
-    ExecutionBlock { header, transactions: vec![] }
+    ExecutionBlock { header, transactions }
+}
+
+/// The EIP-2718 bytes of the transactions in `tx_list`, an RLP list of network-encoded
+/// transactions; a list that does not decode exactly builds none.
+fn provided_transactions(tx_list: &Bytes) -> Vec<Bytes> {
+    alloy_rlp::decode_exact::<Vec<TxEnvelope>>(tx_list)
+        .map(|txs| txs.iter().map(|tx| tx.encoded_2718().into()).collect())
+        .unwrap_or_default()
 }
 
 impl MockEngineState {
@@ -435,7 +448,45 @@ impl Engine for MockEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{l1::mpt::verify_account_witness, test_utils::l1_header};
+    use crate::{
+        l1::mpt::verify_account_witness,
+        rules::{ExpectedHeader, encode_extra_data, payload_attributes},
+        test_utils::{l1_header, sample_transactions},
+    };
+
+    /// An explicit `tx_list` becomes the block's transactions (as EIP-2718 bytes) and their
+    /// transactions root; nothing else of the block changes. A list that does not decode builds
+    /// an empty block.
+    #[test]
+    fn simple_block_builds_an_explicit_tx_list() {
+        let e = ExpectedHeader {
+            number: 7,
+            parent_hash: B256::repeat_byte(0x01),
+            timestamp: 1_760_000_000,
+            beneficiary: Address::repeat_byte(0x02),
+            extra_data: encode_extra_data(0, 9).unwrap(),
+            parent_beacon_block_root: B256::repeat_byte(0x03),
+            gas_limit: 45_000_000,
+            base_fee: 10_000_000,
+            mix_hash: B256::repeat_byte(0x04),
+        };
+        let build =
+            |tx_list| simple_block(e.parent_hash, &payload_attributes(&e, B256::ZERO, tx_list));
+        let txs = sample_transactions();
+        let ordinary = build(None);
+        let forced = build(Some(protocol::shasta::encode_transactions(&txs)));
+
+        let expected: Vec<Bytes> = txs.iter().map(|tx| tx.encoded_2718().into()).collect();
+        assert_eq!(forced.transactions, expected);
+        assert_eq!(forced.header.transactions_root, ordered_trie_root_encoded(&expected));
+        assert!(ordinary.transactions.is_empty());
+        assert_eq!(
+            Header { transactions_root: EMPTY_ROOT_HASH, ..forced.header },
+            ordinary.header,
+            "only the body differs"
+        );
+        assert_eq!(build(Some(Bytes::from_static(&[0x01]))), ordinary, "an undecodable list");
+    }
 
     #[tokio::test]
     async fn mock_l1_serves_real_proofs_and_records_calls() {

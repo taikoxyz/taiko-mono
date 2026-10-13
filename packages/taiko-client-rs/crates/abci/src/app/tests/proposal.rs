@@ -1,7 +1,11 @@
 //! `PrepareProposal` → `ProcessProposal` round trips, and the helpers the
 //! proposal tests share: requests, crafted committed states and hand-built envelopes.
 
-use alloy_primitives::{B256, Bytes, keccak256};
+use alloy_consensus::{
+    SignableTransaction, TxEnvelope, TxLegacy, proofs::ordered_trie_root_encoded,
+};
+use alloy_eips::eip2718::Encodable2718;
+use alloy_primitives::{Address, B256, Bytes, Signature, TxKind, U256, keccak256};
 use tendermint::{
     Hash, Time,
     abci::types::CommitInfo,
@@ -12,7 +16,7 @@ use tendermint::{
 use super::*;
 use crate::{
     app::validate::{self, Rejection, Validated},
-    envelope::{AnchorWitness, CommitteeWitness, EtnaEnvelope},
+    envelope::{AnchorWitness, CommitteeWitness, EtnaEnvelope, ForcedWitness},
     forced::{ForcedEntry, ForcedError},
     l1::{layout::registry, verify_anchor_witness},
     rules,
@@ -237,6 +241,30 @@ pub(super) fn hand_envelope(
     anchor: Option<AnchorWitness>,
     committee: Option<CommitteeWitness>,
 ) -> EtnaEnvelope {
+    hand_built(app, anchor, committee, None)
+}
+
+/// The forced inclusion block an honest proposer would build for the next height: as
+/// [`hand_envelope`], carrying `forced`, with the EL building from `tx_list` (the consumed
+/// entry's transaction list).
+pub(super) fn hand_forced_envelope(
+    app: &App<MockL1, MockEngine>,
+    anchor: Option<AnchorWitness>,
+    committee: Option<CommitteeWitness>,
+    forced: ForcedWitness,
+    tx_list: Bytes,
+) -> EtnaEnvelope {
+    EtnaEnvelope { forced: Some(forced), ..hand_built(app, anchor, committee, Some(tx_list)) }
+}
+
+/// The envelope of [`hand_envelope`] without a forced witness, its block built by
+/// [`simple_block`] from `tx_list` when given.
+fn hand_built(
+    app: &App<MockL1, MockEngine>,
+    anchor: Option<AnchorWitness>,
+    committee: Option<CommitteeWitness>,
+    tx_list: Option<Bytes>,
+) -> EtnaEnvelope {
     let state = app.state().expect("initialized");
     let height = next_height(app);
     let anchor_state = match &anchor {
@@ -247,8 +275,33 @@ pub(super) fn hand_envelope(
     let expected =
         validate::expected_header(state, &app.params, height, &anchor_state, bft_time(app))
             .expect("derivable header");
-    let attrs = rules::payload_attributes(&expected, anchor_state.hash);
+    let attrs = rules::payload_attributes(&expected, anchor_state.hash, tx_list);
     EtnaEnvelope { block: simple_block(state.parent.hash, &attrs), anchor, committee, forced: None }
+}
+
+/// The EL transaction list of the entry [`plant_due_entry`] plants: [`sample_transactions`].
+pub(super) fn sample_tx_list() -> Bytes {
+    protocol::shasta::encode_transactions(&sample_transactions())
+}
+
+/// `env` with one more signed transaction appended to its block and the header's transactions
+/// root recomputed, so the block stays well-formed: a proposer slipping its own transaction into
+/// a forced inclusion block.
+pub(super) fn with_extra_transaction(mut env: EtnaEnvelope) -> EtnaEnvelope {
+    let extra = TxLegacy {
+        chain_id: Some(167_001),
+        nonce: 9,
+        gas_price: 1_000_000_000,
+        gas_limit: 21_000,
+        to: TxKind::Call(Address::repeat_byte(0x33)),
+        value: U256::from(1),
+        input: Bytes::new(),
+    }
+    .into_signed(Signature::new(U256::from(1), U256::from(1), false));
+    let block = &mut env.block;
+    block.transactions.push(TxEnvelope::Legacy(extra).encoded_2718().into());
+    block.header.transactions_root = ordered_trie_root_encoded(&block.transactions);
+    env
 }
 
 /// Plants `inbox` as the finalized L1 block `number` of `l1`, its forced inclusion queue holding
@@ -474,14 +527,15 @@ async fn switch_height_forced_block_carries_both_witnesses() {
     jump(&mut app, switch - 1, parent, &[]);
 
     // The proposer carries the committee witness (it does not build forced blocks yet).
-    let mut env = propose(&mut app).await;
-    assert!(env.anchor.is_none(), "the anchor stays at 66");
-    assert_eq!(env.committee.as_ref().unwrap().record.target_epoch, 1);
+    let proposed = propose(&mut app).await;
+    assert!(proposed.anchor.is_none(), "the anchor stays at 66");
+    assert_eq!(proposed.committee.as_ref().unwrap().record.target_epoch, 1);
     assert_eq!(
-        validate(&app, &env).map(|_| ()),
+        validate(&app, &proposed).map(|_| ()),
         Err(Rejection::Forced(ForcedError::MissingWitness { index: 0 }))
     );
-    env.forced = Some(fx.forced_witness(app.l1(), 66, 0, blob));
+    let forced = fx.forced_witness(app.l1(), 66, 0, blob);
+    let env = hand_forced_envelope(&app, None, proposed.committee, forced, sample_tx_list());
 
     let v = validate(&app, &env).expect("both witnesses verify");
     assert_eq!(v.forced.as_ref().map(|f| f.index), Some(0));
@@ -497,7 +551,7 @@ async fn switch_height_forced_block_carries_both_witnesses() {
     bad_committee.committee.as_mut().unwrap().record.total_power += 1;
     assert!(matches!(validate(&app, &bad_committee), Err(Rejection::Committee(_))));
     let mut bad_forced = env.clone();
-    bad_forced.forced.as_mut().unwrap().entry.storage[0].value += alloy_primitives::U256::from(1);
+    bad_forced.forced.as_mut().unwrap().entry.storage[0].value += U256::from(1);
     assert!(matches!(validate(&app, &bad_forced), Err(Rejection::Forced(ForcedError::Entry(_)))));
 
     let (resp, req) = judge(&mut app, &env).await;
