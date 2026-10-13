@@ -20,7 +20,7 @@ pub mod source;
 /// Anchor and genesis Inbox witness verification into facts.
 pub mod witness;
 
-pub use blobs::{BeaconBlobs, BlobSource};
+pub use blobs::{BeaconBlobs, BlobSource, LazyBeaconBlobs};
 pub(crate) use fetch::{DiscoveryProgress, build_committee_witness_within};
 pub use fetch::{FetchError, build_committee_witness, build_committee_witness_at_cutoff};
 pub use header::{L1HeaderError, RawL1Header};

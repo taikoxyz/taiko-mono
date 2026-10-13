@@ -69,11 +69,6 @@ pub enum CliError {
         source: std::io::Error,
     },
 
-    /// The `--l1.beacon` client could not be built: the beacon node did not answer its genesis
-    /// or spec request, or answered malformed values.
-    #[error("L1 beacon (l1.beacon): {0}")]
-    Beacon(#[from] rpc::blob::BlobDataError),
-
     /// The execution-engine client could not be built or lacks a required Engine API method.
     #[error("execution engine: {0}")]
     Engine(#[from] abci::EngineError),

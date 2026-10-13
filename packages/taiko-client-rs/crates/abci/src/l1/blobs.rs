@@ -1,9 +1,9 @@
-//! Forced inclusion blobs for `PrepareProposal`: [`BlobSource`], and [`BeaconBlobs`] over the
-//! operator's L1 beacon node.
+//! Forced inclusion blobs for `PrepareProposal`: [`BlobSource`], [`BeaconBlobs`] over the
+//! operator's L1 beacon node, and [`LazyBeaconBlobs`], which connects to it on the first fetch.
 //!
 //! Only a proposer building the block that consumes a due forced inclusion entry fetches a blob.
 //! The block then carries the blob, so `ProcessProposal`, `FinalizeBlock` and replay never fetch
-//! one.
+//! one, and a node starts, replays and votes without a reachable beacon.
 
 use std::fmt;
 
@@ -11,6 +11,8 @@ use alloy_eips::eip4844::kzg_to_versioned_hash;
 use alloy_primitives::{B256, Bytes};
 use async_trait::async_trait;
 use rpc::blob::BlobDataSource;
+use tokio::sync::OnceCell;
+use url::Url;
 
 /// Where a proposer fetches forced inclusion blobs from.
 #[async_trait]
@@ -58,6 +60,43 @@ impl BlobSource for BeaconBlobs {
     }
 }
 
+/// [`BeaconBlobs`] over the beacon node at an endpoint, built on the first fetch rather than at
+/// startup: building reads the beacon's genesis and spec, which only a proposer consuming a due
+/// forced inclusion entry needs.
+///
+/// A fetch while the client cannot be built fails like any other unavailable blob, and the next
+/// fetch tries to build it again; once built, the client is kept.
+#[derive(Debug)]
+pub struct LazyBeaconBlobs {
+    /// The beacon node's REST endpoint.
+    endpoint: Url,
+    /// The client, once built.
+    beacon: OnceCell<BeaconBlobs>,
+}
+
+impl LazyBeaconBlobs {
+    /// A source over the beacon node at `endpoint`; contacts nothing until the first fetch.
+    pub fn new(endpoint: Url) -> Self {
+        Self { endpoint, beacon: OnceCell::new() }
+    }
+}
+
+#[async_trait]
+impl BlobSource for LazyBeaconBlobs {
+    /// Builds the beacon client if it is not built yet (an error names the failure), then
+    /// fetches through [`BeaconBlobs`].
+    async fn blob(&self, timestamp: u64, versioned_hash: B256) -> Result<Bytes, String> {
+        let beacon = self
+            .beacon
+            .get_or_try_init(|| async {
+                BlobDataSource::new(Some(self.endpoint.clone()), None, false).await.map(BeaconBlobs)
+            })
+            .await
+            .map_err(|e| format!("beacon client unavailable at {}: {e}", self.endpoint))?;
+        beacon.blob(timestamp, versioned_hash).await
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::{Arc, Mutex};
@@ -72,10 +111,15 @@ mod tests {
     use super::*;
     use crate::test_utils::{forced_blob, manifest_payload, sample_transactions};
 
-    /// A beacon node stub (genesis at 0, 12-second slots) whose blobs endpoint answers `blobs`
-    /// whatever is asked; returns its URL and the request targets it receives.
+    /// A beacon node stub (genesis at 0, 12-second slots) on an ephemeral port; see
+    /// [`beacon_on`].
     async fn beacon(blobs: Vec<Bytes>) -> (Url, Arc<Mutex<Vec<String>>>) {
-        let listener = TcpListener::bind("127.0.0.1:0").await.expect("binds");
+        beacon_on(TcpListener::bind("127.0.0.1:0").await.expect("binds"), blobs)
+    }
+
+    /// A beacon node stub (genesis at 0, 12-second slots) on `listener` whose blobs endpoint
+    /// answers `blobs` whatever is asked; returns its URL and the request targets it receives.
+    fn beacon_on(listener: TcpListener, blobs: Vec<Bytes>) -> (Url, Arc<Mutex<Vec<String>>>) {
         let url = Url::parse(&format!("http://{}", listener.local_addr().unwrap())).unwrap();
         let targets = Arc::new(Mutex::new(Vec::new()));
         let seen = targets.clone();
@@ -133,5 +177,29 @@ mod tests {
         let source = BeaconBlobs(BlobDataSource::new(Some(url), None, false).await.unwrap());
         let err = source.blob(84, hash).await.expect_err("the node lacks the blob");
         assert!(err.contains("no beacon or blob server available"), "{err}");
+    }
+
+    /// The lazy beacon source contacts no beacon when built. While the beacon is unreachable a
+    /// fetch fails (a fetch error, not a startup failure) and the next fetch tries again; once
+    /// the beacon answers, the client is built once and reused.
+    #[tokio::test]
+    async fn lazy_beacon_blobs_connect_on_the_first_fetch_and_retry() {
+        let (blob, hash) = forced_blob(&manifest_payload(sample_transactions()));
+        // A free port nothing listens on yet.
+        let addr = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap();
+        let source = LazyBeaconBlobs::new(Url::parse(&format!("http://{addr}")).unwrap());
+
+        for _ in 0..2 {
+            let err = source.blob(84, hash).await.expect_err("the beacon is unreachable");
+            assert!(err.contains("beacon client unavailable"), "{err}");
+        }
+
+        let (_, targets) =
+            beacon_on(TcpListener::bind(addr).await.expect("rebinds"), vec![blob.clone()]);
+        assert_eq!(source.blob(84, hash).await, Ok(blob.clone()));
+        assert_eq!(source.blob(84, hash).await, Ok(blob));
+        let targets = targets.lock().unwrap().clone();
+        let genesis = targets.iter().filter(|t| *t == "/eth/v1/beacon/genesis").count();
+        assert_eq!(genesis, 1, "the client is built once: {targets:?}");
     }
 }
