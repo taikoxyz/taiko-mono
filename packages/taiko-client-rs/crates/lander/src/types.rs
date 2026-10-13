@@ -31,9 +31,10 @@ pub struct Limits {
     pub max_blocks: usize,
     /// Maximum blobs in one transaction, bounded by the target L1 fork.
     pub max_blobs: usize,
-    /// Maximum total encoded V1 payload bytes.
+    /// Maximum total encoded V2 payload bytes.
     pub max_payload_bytes: usize,
-    /// Maximum bytes of one protobuf block or commit message.
+    /// Maximum bytes of one protobuf block or commit witness, and of one published header or
+    /// envelope.
     pub max_message_bytes: usize,
 }
 
@@ -125,7 +126,8 @@ pub struct PreparedBatch {
     /// ancestry.
     #[serde(with = "rlp_serde")]
     pub starting_inbox_witness: AnchorWitness,
-    /// Exact complete block/commit pairs in increasing height order.
+    /// Exact complete block/commit pairs in increasing height order. Only their headers and
+    /// envelopes are published; commits and signatures reach the proof only as witnesses.
     pub blocks: Vec<CertifiedBlock>,
     /// Each block's own authenticated L1 anchor, in matching block order.
     pub anchors: Vec<AnchorState>,
@@ -138,7 +140,7 @@ pub struct PreparedBatch {
     /// Exact four contract public output fields.
     #[serde(with = "crate::contracts::land_input_serde")]
     pub input: LandInput,
-    /// Sidecar and ordered versioned blob hashes binding the V1 payload.
+    /// Sidecar and ordered versioned blob hashes binding the V2 payload.
     pub blobs: PreparedBlobs,
     /// Identity of this job: the exact V5 public statement hash.
     pub statement_hash: B256,

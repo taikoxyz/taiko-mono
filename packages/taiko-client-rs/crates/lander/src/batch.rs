@@ -42,7 +42,7 @@ pub struct BatchObservation {
 struct PublishablePrefix {
     /// Exact complete pairs selected without computing signatures, witnesses or KZG proofs.
     blocks: Vec<CertifiedBlock>,
-    /// Canonical V1 bytes used to count blobs and later build exactly one sidecar.
+    /// Canonical V2 bytes used to count blobs and later build exactly one sidecar.
     payload: Vec<u8>,
 }
 
@@ -871,7 +871,7 @@ mod tests {
                 &limits(3)
             )
             .unwrap(),
-            request.batch.blocks
+            request.batch.blocks.iter().map(codec::PublishedBlock::from).collect::<Vec<_>>()
         );
     }
 
@@ -966,6 +966,8 @@ mod tests {
         wrong.swap(0, 1);
         assert!(verify_reference_chain(&wrong, &anchors).is_err());
     }
+    /// Rewrites one block's envelope, then reseals it and relinks every later block so the
+    /// tampered history stays a consistently linked, genuinely signed chain.
     fn alter_envelope(
         fixture: &mut Fixture,
         height: u64,
@@ -975,17 +977,26 @@ mod tests {
         let mut envelope = abci::EtnaEnvelope::decode(&pair.block.data[0]).unwrap();
         change(&mut envelope);
         pair.block.data[0] = envelope.encode().to_vec();
-        use sha2::Digest;
-        pair.block.header.data_hash = Some(crate::test_utils::consensus::merkle(
-            &pair.block.data.iter().map(|tx| sha2::Sha256::digest(tx).to_vec()).collect::<Vec<_>>(),
-        ));
-        pair.commit.block_id.part_set_header = crate::validate::block_parts(&pair.block);
+        pair.block.header.data_hash = Some(crate::validate::data_hash(&pair.block.data));
         let keys = vec![
             ed25519_dalek::SigningKey::from_bytes(&[1; 32]),
             ed25519_dalek::SigningKey::from_bytes(&[2; 32]),
         ];
-        let epoch = abci::Schedule::from_genesis(&fixture.snapshot.genesis).epoch_of(height);
-        crate::test_utils::consensus::resign(pair, &fixture.committees[&epoch], &keys);
+        let schedule = abci::Schedule::from_genesis(&fixture.snapshot.genesis);
+        let last = *fixture.blocks.keys().next_back().unwrap();
+        for h in height..=last {
+            if h > height {
+                let previous = fixture.blocks[&(h - 1)].commit.clone();
+                let pair = fixture.blocks.get_mut(&h).unwrap();
+                pair.block.header.last_block_id = Some(previous.block_id);
+                pair.block.header.last_commit_hash = Some(crate::validate::commit_hash(&previous));
+                pair.block.last_commit = Some(previous);
+            }
+            let pair = fixture.blocks.get_mut(&h).unwrap();
+            pair.commit.block_id.part_set_header = crate::validate::block_parts(&pair.block);
+            let committee = &fixture.committees[&schedule.epoch_of(h)];
+            crate::test_utils::consensus::resign(pair, committee, &keys);
+        }
     }
 
     #[tokio::test]
