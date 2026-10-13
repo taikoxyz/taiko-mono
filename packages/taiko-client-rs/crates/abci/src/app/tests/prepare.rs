@@ -3,7 +3,9 @@
 use std::{path::Path, time::Duration};
 
 use super::{
-    proposal::{bft_time, jump, mid_epoch, next_height, prepare, prepare_req, propose},
+    proposal::{
+        bft_time, jump, mid_epoch, next_height, prepare, prepare_req, propose, set_anchor_age,
+    },
     *,
 };
 use crate::{
@@ -175,6 +177,24 @@ async fn failing_pre_checks_propose_nothing() {
     let anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0);
     jump(&mut app, h_first - 1, anchor, &[(1, fx.committee(1))]);
     assert_eq!(refused(&mut app).await, "epoch_not_open_on_l1");
+}
+
+/// A proposer whose newest finalized anchor is more than `maxAnchorAge` older than the block
+/// proposes nothing; once L1 finalizes a fresh enough block, it anchors there and proposes.
+#[tokio::test]
+async fn prepare_halts_when_finalized_anchor_is_too_old() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    set_anchor_age(&mut app, fx.genesis.max_anchor_age + 1);
+    assert_eq!(refused(&mut app).await, "anchor_too_old");
+    assert!(app.engine().calls().iter().all(|c| !matches!(c, EngineCall::BuildBlock { .. })));
+
+    // L1 finality resumes: block 66 is 24 s newer than the stale anchor 64.
+    let header = fx.advance_l1(app.l1(), 66, &fx.inbox, &fx.registry);
+    let env = propose(&mut app).await;
+    assert_eq!(env.anchor.as_ref().map(|w| &w.l1_header), Some(&header));
+    assert_eq!(app.halt, None);
 }
 
 /// An own L1 node answering the header request for the anchor block with another block's header
@@ -384,8 +404,8 @@ async fn a_cached_committee_witness_of_another_parent_anchor_is_not_reused() {
 }
 
 /// At `H(t)-2` the cheap candidate checks run before the committee discovery: a block that
-/// cannot be proposed anyway (back-pressure, anchor progress, a superseded generation) costs no
-/// registry read.
+/// cannot be proposed anyway (back-pressure, anchor progress, a superseded generation, a stale
+/// anchor) costs no registry read.
 #[tokio::test]
 async fn failing_pre_checks_skip_the_committee_discovery() {
     let fx = Fixture::genesis(3);
@@ -421,4 +441,12 @@ async fn failing_pre_checks_skip_the_committee_discovery() {
     app.l1().state().calls.clear();
     assert_eq!(refused(&mut app).await, "superseded");
     assert_eq!(registry_reads(&app), 0, "generation: {:?}", app.l1().calls());
+
+    // Freshness: the finalized anchor 70 is more than maxAnchorAge older than the block.
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = before_switch(&fx, dir.path()).await;
+    set_anchor_age(&mut app, fx.genesis.max_anchor_age + 1);
+    app.l1().state().calls.clear();
+    assert_eq!(refused(&mut app).await, "anchor_too_old");
+    assert_eq!(registry_reads(&app), 0, "freshness: {:?}", app.l1().calls());
 }

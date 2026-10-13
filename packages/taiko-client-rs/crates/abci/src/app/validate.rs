@@ -221,8 +221,9 @@ pub(crate) struct CandidateFacts {
 ///
 /// In order: (a) `height == state.last_height + 1`, the header's number and parent hash;
 /// (b)–(h) [`check_candidate`] with the generation and anchor number decoded from the header's
-/// `extraData`; (i) every derived header field ([`rules::expected_header`],
-/// [`rules::check_header`]). Reports the first failure.
+/// `extraData`; (i) the derived header ([`rules::expected_header`]), whose timestamp must keep
+/// the anchor within the genesis `maxAnchorAge` ([`rules::check_anchor_freshness`]) and whose
+/// every field the header must carry ([`rules::check_header`]). Reports the first failure.
 pub(crate) fn validate_block(
     state: &AppState,
     params: &ChainParams,
@@ -250,6 +251,11 @@ pub(crate) fn validate_block(
     )?;
 
     let expected = expected_header(state, params, height, &facts.anchor, bft_secs)?;
+    rules::check_anchor_freshness(
+        expected.timestamp,
+        facts.anchor.timestamp,
+        state.genesis.max_anchor_age,
+    )?;
     rules::check_header(header, &expected)?;
     Ok(Validated {
         block: env.block.clone(),

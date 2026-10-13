@@ -61,10 +61,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Builds the encoded envelope of the block at `req.height` on top of `state`.
     ///
     /// Chooses `max(parent anchor, own finalized - extra depth)`, authenticates a changed anchor
-    /// or the forced H0 anchor, and checks progress, generation, status and back-pressure.
-    /// At `H(t)-2`, discovers or reuses committee `t` under the committed parent's state root
-    /// and anchor number. Then verifies the candidate, builds through the EL, checks every
-    /// derived header field and ensures the envelope fits CometBFT's transaction limit.
+    /// or the forced H0 anchor, checks progress, generation, status and back-pressure, derives
+    /// the header and checks that its timestamp keeps the anchor fresh (an anchor older than
+    /// `maxAnchorAge` proposes nothing until L1 finalizes a newer block). At `H(t)-2`, discovers
+    /// or reuses committee `t` under the committed parent's state root and anchor number. Then
+    /// verifies the candidate, builds through the EL, checks every derived header field and
+    /// ensures the envelope fits CometBFT's transaction limit.
     async fn propose(
         &self,
         state: &AppState,
@@ -94,6 +96,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
             extra_anchor: n,
         };
         let anchor_state = check_candidate_anchor(state, params, height, &candidate)?;
+        let expected = expected_header(state, params, height, &anchor_state, unix_secs(req.time))?;
+        rules::check_anchor_freshness(
+            expected.timestamp,
+            anchor_state.timestamp,
+            state.genesis.max_anchor_age,
+        )?;
         let committee = match switch {
             Some(target) => {
                 let witness = self.committee_witness(schedule, state.anchor.number, target).await?;
@@ -106,7 +114,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if let Some((target_epoch, witness)) = &committee {
             self.cache_committee_witness(state.anchor.number, *target_epoch, witness);
         }
-        let expected = expected_header(state, params, height, &facts.anchor, unix_secs(req.time))?;
         let attrs = rules::payload_attributes(&expected, facts.anchor.hash);
         let block = deadline(
             "engine block build",

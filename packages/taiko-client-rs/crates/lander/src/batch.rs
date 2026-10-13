@@ -432,6 +432,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 generation: snapshot.generation,
                 schedule,
                 params: &self.params,
+                max_anchor_age: snapshot.genesis.max_anchor_age,
             },
         )
         .map_err(|e| LanderError::Safety(e.to_string()))?;
@@ -822,6 +823,31 @@ mod tests {
             .err()
             .expect("operational history cap");
         assert!(matches!(error, LanderError::Capacity(_)));
+    }
+
+    /// The builder holds every block to the snapshot genesis's `maxAnchorAge`: block 1 of the
+    /// fixture (101 s) uses anchor 10 (10 s), an anchor age of 91 s.
+    #[tokio::test]
+    async fn a_block_with_an_anchor_older_than_the_genesis_maximum_age_is_rejected() {
+        let fixture = Arc::new(Fixture::with_max_anchor_age(0, 1, 91));
+        builder(fixture.clone(), limits(1))
+            .prepare(fixture.snapshot.clone())
+            .await
+            .unwrap()
+            .unwrap();
+
+        let fixture = Arc::new(Fixture::with_max_anchor_age(0, 1, 90));
+        let violation = abci::rules::RuleViolation::AnchorTooOld { age: 91, max: 90 };
+        for observation in [false, true] {
+            let b = builder(fixture.clone(), limits(1));
+            let error = if observation {
+                b.observe(&fixture.snapshot).await.unwrap_err()
+            } else {
+                b.prepare(fixture.snapshot.clone()).await.unwrap_err()
+            };
+            assert!(matches!(error, LanderError::Safety(_)), "{error}");
+            assert!(error.to_string().contains(&violation.to_string()), "{error}");
+        }
     }
 
     #[tokio::test]

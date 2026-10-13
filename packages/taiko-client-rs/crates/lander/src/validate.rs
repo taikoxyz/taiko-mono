@@ -294,6 +294,8 @@ pub struct EnvelopeContext<'a> {
     pub schedule: &'a Schedule,
     /// Shared chain constants.
     pub params: &'a ChainParams,
+    /// Genesis `maxAnchorAge`, in seconds: how much older than a block its anchor may be.
+    pub max_anchor_age: u64,
 }
 
 /// Validates all existing ABCI pure rules using authenticated parent and chain context.
@@ -301,8 +303,15 @@ pub fn verify_envelope(
     envelope: EtnaEnvelope,
     context: EnvelopeContext<'_>,
 ) -> Result<BlockFacts, ValidationError> {
-    let EnvelopeContext { bft_time_secs, parent, parent_anchor, generation, schedule, params } =
-        context;
+    let EnvelopeContext {
+        bft_time_secs,
+        parent,
+        parent_anchor,
+        generation,
+        schedule,
+        params,
+        max_anchor_age,
+    } = context;
     let height = envelope.block.header.number;
     let (_, extra_generation, extra_anchor) =
         rules::decode_extra_data(&envelope.block.header.extra_data)
@@ -350,6 +359,8 @@ pub fn verify_envelope(
         min_base_fee: protocol::shasta::constants::min_base_fee_for_chain(params.l2_chain_id),
     })
     .map_err(|e| ValidationError::Etna(e.to_string()))?;
+    rules::check_anchor_freshness(expected.timestamp, anchor.timestamp, max_anchor_age)
+        .map_err(|e| ValidationError::Etna(e.to_string()))?;
     rules::check_header(&envelope.block.header, &expected)
         .map_err(|e| ValidationError::Etna(e.to_string()))?;
     let header = &envelope.block.header;
@@ -466,6 +477,44 @@ mod tests {
         assert!(
             verify_commit(&block.commit, &block.block.header, &committee, "taiko-etna-167001-g0")
                 .is_err()
+        );
+    }
+
+    /// Anchor freshness, inclusive: block 1 of the fixture is at 101 s and its anchor (L1 block
+    /// 10) at 10 s, an anchor age of 91 s.
+    #[test]
+    fn stale_anchor_block_is_rejected() {
+        let fixture = crate::test_utils::consensus_mpt::Fixture::new(0, 1);
+        let genesis = &fixture.headers[&0];
+        let parent = ParentInfo {
+            number: 0,
+            hash: genesis.hash_slow(),
+            timestamp: genesis.timestamp,
+            gas_limit: genesis.gas_limit,
+            gas_used: genesis.gas_used,
+            base_fee: genesis.base_fee_per_gas.unwrap(),
+            difficulty: genesis.difficulty,
+            grandparent_timestamp: 0,
+        };
+        let schedule = Schedule::from_genesis(&fixture.snapshot.genesis);
+        let envelope = EtnaEnvelope::decode(&fixture.blocks[&1].block.data[0]).unwrap();
+        let context = |max_anchor_age| EnvelopeContext {
+            bft_time_secs: 101,
+            parent: &parent,
+            parent_anchor: &fixture.anchors[&0],
+            generation: 0,
+            schedule: &schedule,
+            params: &fixture.params,
+            max_anchor_age,
+        };
+
+        let facts = verify_envelope(envelope.clone(), context(91)).unwrap();
+        assert_eq!(facts.envelope.block.header.timestamp - facts.anchor.timestamp, 91);
+        let error = verify_envelope(envelope, context(90)).unwrap_err();
+        let violation = rules::RuleViolation::AnchorTooOld { age: 91, max: 90 };
+        assert!(
+            matches!(&error, ValidationError::Etna(m) if *m == violation.to_string()),
+            "{error}"
         );
     }
 

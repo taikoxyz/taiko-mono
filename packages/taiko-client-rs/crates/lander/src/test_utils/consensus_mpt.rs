@@ -283,6 +283,18 @@ impl Fixture {
     }
 
     pub fn with_epoch(checkpoint: u64, tip: u64, bytes: usize, epoch_len: u64) -> Self {
+        Self::build(checkpoint, tip, bytes, epoch_len, 7_200)
+    }
+
+    /// As [`Fixture::new`], with the genesis `maxAnchorAge` set to `max_anchor_age` seconds.
+    /// Block `h` is at `100 + h` s and anchor `n` at `n` s, so the blocks of a genesis
+    /// checkpoint (all anchored at 10) are `90 + h` s younger than their anchor.
+    pub fn with_max_anchor_age(checkpoint: u64, tip: u64, max_anchor_age: u64) -> Self {
+        Self::build(checkpoint, tip, 0, 23, max_anchor_age)
+    }
+
+    /// Builds the decided chain up to `tip` over the genesis `maxAnchorAge` `max_anchor_age`.
+    fn build(checkpoint: u64, tip: u64, bytes: usize, epoch_len: u64, max_anchor_age: u64) -> Self {
         assert!(checkpoint == 0 || checkpoint >= epoch_len - 3);
         let mut params = parameters();
         params.d_max = epoch_len - 3;
@@ -304,7 +316,7 @@ impl Fixture {
             genesis_hash: genesis_header.hash_slow(),
             genesis_state_root: genesis_header.state_root,
             forced_inclusion_delay: 3_600,
-            max_anchor_age: 7_200,
+            max_anchor_age,
         };
         let schedule = Schedule::from_genesis(&genesis);
         let keys = vec![SigningKey::from_bytes(&[1; 32]), SigningKey::from_bytes(&[2; 32])];

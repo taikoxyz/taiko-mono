@@ -9,8 +9,8 @@ use tendermint::{AppHash, Hash, abci::Code};
 
 use super::{
     proposal::{
-        bft_time, commit, decide, finalize, finalize_req, judge, jump, mid_epoch, next_height,
-        process, process_req, propose, step,
+        bft_time, commit, decide, finalize, finalize_req, hand_envelope, judge, jump, mid_epoch,
+        next_height, process, process_req, propose, set_anchor_age, step,
     },
     *,
 };
@@ -526,6 +526,25 @@ async fn a_decided_block_failing_validation_is_a_safety_halt() {
 
     let garbage = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![]));
     safety_halt(finalize(&mut app, garbage).await);
+    assert_eq!(app.pending, None);
+}
+
+/// A decided block whose anchor is more than `maxAnchorAge` older than it, finalized by a node
+/// that never judged it (crash replay, block sync): a safety halt before the EL moves.
+#[tokio::test]
+async fn cold_finalize_of_stale_anchor_block_halts() {
+    let fx = Fixture::genesis(1);
+    let max = fx.genesis.max_anchor_age;
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    set_anchor_age(&mut app, max + 1);
+    let env = hand_envelope(&app, None, None);
+    let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+    let before = app.engine().calls().len();
+    let msg = safety_halt(finalize(&mut app, req).await);
+    let violation = crate::rules::RuleViolation::AnchorTooOld { age: max + 1, max };
+    assert!(msg.contains(&violation.to_string()), "{msg}");
+    assert_eq!(engine_calls_since(&app, before), [], "the EL is not touched");
     assert_eq!(app.pending, None);
 }
 
