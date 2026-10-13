@@ -18,6 +18,7 @@ use url::Url;
 
 use crate::{
     app::AppNode,
+    beacon::FakeBeacon,
     boot::{POLL, RPC_TIMEOUT, RethNode, VALIDATOR_STAKE, boot, local_url},
     cometbft::{CmtClient, CmtStatus},
     docker::{DockerEnv, docker, host_port},
@@ -49,11 +50,16 @@ pub struct DevnetSpec {
     pub forced_inclusion_delay: u64,
     /// `maxAnchorAge`, in seconds, planted at Inbox slot 282.
     pub max_anchor_age: u64,
+    /// Validator indices whose apps have no beacon: their forced inclusion
+    /// [`BlobSource`](abci::BlobSource) always fails, so they cannot propose a block consuming a
+    /// due entry. The other apps fetch blobs from the devnet's fake beacon.
+    pub validators_without_beacon: Vec<usize>,
 }
 
 impl Default for DevnetSpec {
     /// One validator, `L = 20`, `EPOCH_LEN_L1 = 10`, `D_MAX = 12`, `MARGIN_V = 2`, 1 s commits,
-    /// forced inclusion delay 1 h, maximum anchor age 2 h, fake lander advancing checkpoints.
+    /// forced inclusion delay 1 h, maximum anchor age 2 h, every app with the fake beacon, fake
+    /// lander advancing checkpoints.
     fn default() -> Self {
         Self {
             validators: 1,
@@ -65,6 +71,7 @@ impl Default for DevnetSpec {
             timeout_commit_ms: 1000,
             forced_inclusion_delay: 3_600,
             max_anchor_age: 7_200,
+            validators_without_beacon: Vec::new(),
         }
     }
 }
@@ -76,12 +83,17 @@ impl DevnetSpec {
         Duration::from_millis(3 * self.timeout_commit_ms) + Duration::from_secs(2)
     }
 
-    /// Checks the validator counts.
+    /// Checks the validator counts and indices.
     fn validate(&self) -> Result<()> {
         ensure!(self.validators >= 1, "a devnet needs at least one validator");
         ensure!(
             (1..=self.validators).contains(&self.initial_validators),
             "initial_validators must be in 1..={}",
+            self.validators
+        );
+        ensure!(
+            self.validators_without_beacon.iter().all(|&i| i < self.validators),
+            "validators_without_beacon must be in 0..{}",
             self.validators
         );
         Ok(())
@@ -117,6 +129,8 @@ pub struct Devnet {
     genesis: GenesisRecord,
     /// Writes L1 state.
     planter: Planter,
+    /// The fake beacon the apps fetch forced inclusion blobs from (stops when dropped).
+    _beacon: FakeBeacon,
     /// The containers and the network.
     docker: DockerEnv,
     /// CometBFT homes and app stores, held only so that they are deleted last, when the
@@ -149,6 +163,7 @@ impl Devnet {
                     params: b.params,
                     genesis: b.genesis,
                     planter: b.planter,
+                    _beacon: b.beacon,
                     docker,
                     _tmp: tmp,
                     stopped: false,

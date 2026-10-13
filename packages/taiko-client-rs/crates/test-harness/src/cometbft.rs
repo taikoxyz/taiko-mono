@@ -7,8 +7,8 @@ use std::{
     time::Duration,
 };
 
-use abci::{CommitteeState, Status};
-use alloy_primitives::B256;
+use abci::{CommitteeState, EtnaEnvelope, Status, single_envelope};
+use alloy_primitives::{B256, Bytes};
 use anyhow::{Context, Result, bail};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use serde_json::Value;
@@ -234,6 +234,27 @@ impl CmtClient {
         let block = self.call("block", &[("height", height.to_string())]).await?;
         let hash = block["block"]["header"]["app_hash"].as_str().context("app_hash")?;
         hash.parse().with_context(|| format!("app_hash {hash:?}"))
+    }
+
+    /// The address (upper-case hex, as [`ValidatorKey::address`]) of the validator that
+    /// proposed the block at `height`.
+    pub async fn proposer_address(&self, height: u64) -> Result<String> {
+        let block = self.call("block", &[("height", height.to_string())]).await?;
+        let address =
+            block["block"]["header"]["proposer_address"].as_str().context("proposer_address")?;
+        Ok(address.to_uppercase())
+    }
+
+    /// The Etna envelope the block at `height` carries as its single transaction.
+    pub async fn envelope(&self, height: u64) -> Result<EtnaEnvelope> {
+        let block = self.call("block", &[("height", height.to_string())]).await?;
+        let txs = block["block"]["data"]["txs"]
+            .as_array()
+            .with_context(|| format!("block {height}: no txs array"))?
+            .iter()
+            .map(|tx| Ok(Bytes::from(STANDARD.decode(tx.as_str().context("tx")?)?)))
+            .collect::<Result<Vec<_>>>()?;
+        single_envelope(&txs).with_context(|| format!("block {height} envelope"))
     }
 }
 

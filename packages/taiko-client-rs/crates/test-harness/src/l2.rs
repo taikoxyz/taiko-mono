@@ -32,6 +32,21 @@ pub async fn send_transfer(
     value: U256,
     nonce: u64,
 ) -> Result<B256> {
+    let envelope = sign_transfer(l2, signer, to, value, nonce).await?;
+    let pending = l2.send_raw_transaction(&envelope.encoded_2718()).await?;
+    Ok(*pending.tx_hash())
+}
+
+/// Signs an EIP-1559 transfer of `value` wei to `to` from `signer` with `nonce` for `l2`'s chain
+/// (21 000 gas, a max fee of twice the latest base fee plus [`PRIORITY_FEE`]) without sending
+/// it.
+pub async fn sign_transfer(
+    l2: &RootProvider,
+    signer: &PrivateKeySigner,
+    to: Address,
+    value: U256,
+    nonce: u64,
+) -> Result<TxEnvelope> {
     let chain_id = l2.get_chain_id().await?;
     let latest = l2
         .get_block_by_number(BlockNumberOrTag::Latest)
@@ -49,9 +64,7 @@ pub async fn send_transfer(
         ..Default::default()
     };
     let signature = signer.sign_hash_sync(&tx.signature_hash())?;
-    let envelope = TxEnvelope::Eip1559(tx.into_signed(signature));
-    let pending = l2.send_raw_transaction(&envelope.encoded_2718()).await?;
-    Ok(*pending.tx_hash())
+    Ok(TxEnvelope::Eip1559(tx.into_signed(signature)))
 }
 
 /// `(basefee sharing pctg, generation, anchor L1 block number)` from the `extraData` of L2

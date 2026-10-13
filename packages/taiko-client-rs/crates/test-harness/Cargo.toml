@@ -11,12 +11,13 @@ tokio = { workspace = true }
 
 # ethereum
 alloy = { workspace = true, features = ["consensus", "signer-local", "std"] }
-alloy-eips = { workspace = true }
+alloy-eips = { workspace = true, features = ["kzg"] }
 alloy-primitives = { workspace = true, features = ["std", "serde"] }
 alloy-provider = { workspace = true }
 
 # taiko
 abci = { path = "../abci" }
+protocol = { path = "../protocol", default-features = false }
 rpc = { path = "../rpc" }
 
 # observability
@@ -24,6 +25,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 # web
+axum = { workspace = true }
 reqwest = { workspace = true }
 
 # types
