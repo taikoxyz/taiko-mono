@@ -246,7 +246,21 @@ fn proof_json(witness: &abci::AccountWitness) -> Value {
         "storageProof": witness.storage.iter().map(|s| json!({"key": s.slot, "value": s.value, "proof": s.proof})).collect::<Vec<_>>()})
 }
 
+/// Grace given to the test sources' head-proof re-reads.
+const TEST_HEAD_PROOF_GRACE: Duration = Duration::from_millis(500);
+
 pub(crate) async fn snapshot_rpc(reorg: bool, before_raw: bool, malformed: bool) -> SnapshotRpc {
+    snapshot_rpc_with(reorg, before_raw, malformed, 0).await
+}
+
+/// As [`snapshot_rpc`], but the first `stale_proofs` head proofs come from the other trie, as an
+/// endpoint answers while the next block is still extending the head's state.
+pub(crate) async fn snapshot_rpc_with(
+    reorg: bool,
+    before_raw: bool,
+    malformed: bool,
+    stale_proofs: usize,
+) -> SnapshotRpc {
     let fixture_a = crate::test_utils::consensus_mpt::Fixture::new(0, 2);
     let fixture_b = crate::test_utils::consensus_mpt::Fixture::new(20, 26);
     let pin = |mut snapshot: LandingSnapshot| {
@@ -262,6 +276,7 @@ pub(crate) async fn snapshot_rpc(reorg: bool, before_raw: bool, malformed: bool)
     assert_ne!(a.l1_header.state_root(), b.l1_header.state_root());
     let (answer_a, answer_b) = (a.clone(), b.clone());
     let switched = Mutex::new(false);
+    let stale = Mutex::new(stale_proofs);
     let l1 = rpc(move |request| {
         let mut switched = switched.lock().unwrap();
         match request["method"].as_str().unwrap() {
@@ -288,7 +303,10 @@ pub(crate) async fn snapshot_rpc(reorg: bool, before_raw: bool, malformed: bool)
                 if *switched && selector == &json!({"blockHash": answer_a.l1_block_hash, "requireCanonical": true}) {
                     return json!({"__rpc_error": {"code": -32000, "message": "block is not canonical"}});
                 }
-                let mut witness = if *switched { answer_b.inbox_witness.clone() } else { answer_a.inbox_witness.clone() };
+                let mut stale = stale.lock().unwrap();
+                let from_b = *switched || *stale > 0;
+                *stale = stale.saturating_sub(1);
+                let mut witness = if from_b { answer_b.inbox_witness.clone() } else { answer_a.inbox_witness.clone() };
                 if malformed { witness.account_proof.clear(); }
                 proof_json(&witness)
             }
@@ -301,8 +319,10 @@ pub(crate) async fn snapshot_rpc(reorg: bool, before_raw: bool, malformed: bool)
         json!(format!("0x{chain_id:x}"))
     })
     .await;
-    let source =
-        Arc::new(RpcLandingSource::new(l1.provider.clone(), l2.provider.clone(), fixture_a.params));
+    let source = Arc::new(
+        RpcLandingSource::new(l1.provider.clone(), l2.provider.clone(), fixture_a.params)
+            .with_head_proof_grace(TEST_HEAD_PROOF_GRACE),
+    );
     SnapshotRpc { source, l1, a, b, _l2: l2 }
 }
 
@@ -345,6 +365,27 @@ async fn snapshot_malformed_proof_at_canonical_pinned_hash_is_safety() {
         proof["params"][2],
         json!({"blockHash": rpc.a.l1_block_hash, "requireCanonical": true})
     );
+}
+
+#[tokio::test]
+async fn snapshot_rereads_a_head_proof_served_from_state_still_being_extended() {
+    let rpc = snapshot_rpc_with(false, false, false, 2).await;
+    assert_eq!(rpc.source.snapshot().await.unwrap(), rpc.a);
+    let calls = rpc.l1.requests.lock().unwrap();
+    assert_eq!(calls.iter().filter(|call| call["method"] == "eth_getProof").count(), 3);
+    assert_eq!(calls.iter().filter(|call| call["method"] == "debug_getRawHeader").count(), 3);
+}
+
+#[tokio::test]
+async fn snapshot_head_proof_that_never_verifies_is_safety_after_the_grace() {
+    let rpc = snapshot_rpc_with(false, false, false, usize::MAX).await;
+    let started = std::time::Instant::now();
+    let error = rpc.source.snapshot().await.unwrap_err();
+    assert!(matches!(error, LanderError::Safety(_)), "{error}");
+    assert!(error.to_string().contains("Inbox snapshot proof"), "{error}");
+    assert!(started.elapsed() >= TEST_HEAD_PROOF_GRACE);
+    let calls = rpc.l1.requests.lock().unwrap();
+    assert!(calls.iter().filter(|call| call["method"] == "eth_getProof").count() > 1);
 }
 
 #[tokio::test]
