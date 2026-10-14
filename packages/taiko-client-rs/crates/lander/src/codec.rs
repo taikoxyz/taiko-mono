@@ -18,10 +18,10 @@ use crate::{
 /// Version prefix of `0x03 || zlib(rlp([[header_proto, envelope], ...]))`.
 pub const VERSION: u8 = 3;
 
-use abci::compression::{InflateError, zlib_compress, zlib_inflate_exact};
+use abci::compression::{InflateError, zlib_compress, zlib_compress_best, zlib_inflate_exact};
 use alloy_rlp::{Encodable, Header};
 use prost::Message;
-use tendermint_proto::v0_38::types::{Block as RawBlock, Commit as RawCommit, Header as RawHeader};
+use tendermint_proto::v0_38::types::{Commit as RawCommit, Header as RawHeader};
 
 /// One published block: its CometBFT header and the Etna envelope its single transaction holds.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -56,12 +56,29 @@ pub fn encode(blocks: &[CertifiedBlock], limits: &Limits) -> Result<Vec<u8>> {
     for pair in blocks {
         list.push(pair)?;
     }
-    compress(&list.to_list(), limits)
+    if blocks.len() == 1 {
+        compress_single(&list.to_list(), limits)
+    } else {
+        compress(&list.to_list(), limits)
+    }
+}
+
+/// Compress one published block, retrying once at the best level only when default output
+/// exceeds the payload cap. Larger prefixes keep the default codec and its deflate-work budget.
+pub(crate) fn compress_single(list: &[u8], limits: &Limits) -> Result<Vec<u8>> {
+    match compress(list, limits) {
+        Err(LanderError::Capacity(_)) => compressed_payload(zlib_compress_best(list), limits),
+        result => result,
+    }
 }
 
 /// `0x03 || zlib(list)`, bounded by `max_payload_bytes`.
 pub(crate) fn compress(list: &[u8], limits: &Limits) -> Result<Vec<u8>> {
-    let compressed = zlib_compress(list);
+    compressed_payload(zlib_compress(list), limits)
+}
+
+/// Prefix a complete zlib stream after verifying its byte capacity.
+fn compressed_payload(compressed: Vec<u8>, limits: &Limits) -> Result<Vec<u8>> {
     // The version byte precedes the compressed list.
     if compressed.len() + 1 > limits.max_payload_bytes {
         return Err(LanderError::Capacity("batch exceeds payload limit".into()));
@@ -163,9 +180,8 @@ impl PayloadList {
 /// The prepared batch keeps both protobufs as proof witnesses, so they stay bounded even though
 /// only the header and envelope are published.
 pub(crate) fn check_message_limits(pair: &CertifiedBlock, limits: &Limits) -> Result<()> {
-    let block = RawBlock::from(pair.block.clone());
     let commit = RawCommit::from(pair.commit.clone());
-    if block.encoded_len() > limits.max_message_bytes ||
+    if pair.raw_block.len() > limits.max_message_bytes ||
         commit.encoded_len() > limits.max_message_bytes
     {
         return Err(LanderError::Capacity(format!(
@@ -310,6 +326,25 @@ mod tests {
     use tendermint_proto::v0_38::types::{
         BlockId as RawBlockId, Header as RawHeader, PartSetHeader as RawPartSetHeader,
     };
+
+    #[test]
+    fn retries_best_compression_for_a_single_block_that_exceeds_default_output() {
+        use flate2::{Compression, write::ZlibEncoder};
+        use std::io::Write;
+
+        let list: Vec<u8> =
+            (0..100_000u32).flat_map(|i| (i % 1021).to_le_bytes().repeat(4)).collect();
+        let default = zlib_compress(&list);
+        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::best());
+        encoder.write_all(&list).unwrap();
+        let best = encoder.finish().unwrap();
+        assert!(best.len() < default.len());
+        let limits = Limits { max_payload_bytes: best.len() + 1, ..limits() };
+        assert!(matches!(compress(&list, &limits), Err(LanderError::Capacity(_))));
+        let payload = compress_single(&list, &limits).expect("best level fits the payload cap");
+        assert_eq!(payload[0], VERSION);
+        assert_eq!(zlib_inflate_exact(&payload[1..], list.len()).unwrap(), list);
+    }
 
     fn limits() -> Limits {
         Limits {
@@ -664,8 +699,10 @@ mod tests {
         assert!(encode(one, &cap).is_ok());
         assert!(decode(&encoded, &cap).is_ok());
         cap.max_payload_bytes -= 1;
-        assert!(encode(one, &cap).is_err());
         assert!(decode(&encoded, &cap).is_err());
+        let list = zlib_inflate_exact(&encoded[1..], usize::MAX).unwrap();
+        cap.max_payload_bytes = encoded.len().min(zlib_compress_best(&list).len() + 1) - 1;
+        assert!(encode(one, &cap).is_err());
         cap = limits();
         cap.max_blocks = 1;
         assert!(encode(&blocks, &cap).is_err());

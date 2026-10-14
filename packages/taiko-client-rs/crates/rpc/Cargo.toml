@@ -20,7 +20,7 @@ tower = { workspace = true }
 url = { workspace = true }
 
 # ethereum
-alloy = { workspace = true, features = ["rpc-client"] }
+alloy = { workspace = true, features = ["json-rpc", "rpc-client"] }
 alloy-eips = { workspace = true, features = ["kzg"] }
 alloy-primitives = { workspace = true, default-features = false }
 alloy-provider = { workspace = true, features = ["reqwest"] }
@@ -45,3 +45,4 @@ sha2 = { workspace = true }
 
 [dev-dependencies]
 hyper = { workspace = true, features = ["server"] }
+tracing-subscriber = { workspace = true }

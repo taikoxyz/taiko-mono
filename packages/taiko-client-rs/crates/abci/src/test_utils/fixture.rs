@@ -382,6 +382,7 @@ impl Fixture {
         AppState {
             chain_id: self.request.chain_id.clone(),
             generation: self.inbox.recovery_generation,
+            inbox: self.params.inbox,
             genesis: self.genesis.clone(),
             last_height: self.genesis.genesis_height,
             parent: ParentInfo {

@@ -81,6 +81,12 @@ impl AbciMetrics {
         &METRICS.l1_finality_lag
     }
 
+    /// `abci_beacon_blob_endpoint_up`: 1 when the last startup smoke test or blob fetch
+    /// succeeded, 0 before any check or after failure. It does not assert historical custody.
+    pub fn beacon_blob_endpoint_up() -> &'static IntGauge {
+        &METRICS.beacon_blob_endpoint_up
+    }
+
     /// `abci_halted`: 1 while the app refuses to make progress (the last proposal was refused,
     /// reason in `/status`, or a safety halt stopped it), 0 otherwise.
     pub fn halted() -> &'static IntGauge {
@@ -117,6 +123,8 @@ struct Metrics {
     unsettled_depth: IntGauge,
     /// See [`AbciMetrics::l1_finality_lag`].
     l1_finality_lag: IntGauge,
+    /// See [`AbciMetrics::beacon_blob_endpoint_up`].
+    beacon_blob_endpoint_up: IntGauge,
     /// See [`AbciMetrics::halted`].
     halted: IntGauge,
 }
@@ -151,6 +159,10 @@ static METRICS: Lazy<Metrics> = Lazy::new(|| Metrics {
     l1_finality_lag: gauge(
         "abci_l1_finality_lag",
         "Own L1 finalized block minus the committed anchor block, in L1 blocks",
+    ),
+    beacon_blob_endpoint_up: gauge(
+        "abci_beacon_blob_endpoint_up",
+        "1 when the last blobs endpoint probe or fetch succeeded; 0 if unchecked or failed",
     ),
     halted: gauge("abci_halted", "1 while the app refuses to make progress, 0 otherwise"),
 });

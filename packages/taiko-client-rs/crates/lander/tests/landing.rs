@@ -98,10 +98,13 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     fixture.expect_statement(first.batch.statement_hash).await?;
     let signed = sign(&fixture, &first).await?;
     assert_landed(&fixture, &first, &signed).await?;
-    // Land exactly D=6, then mutate the registry after the immutable derivation snapshot.
+    // Land exactly D, then mutate the registry after the immutable derivation snapshot.
+    let schedule = abci::Schedule::from_genesis(&fixture.genesis);
+    let derivation_height = schedule.derivation_parent_height(1).context("D height")?;
+    let switch_height = schedule.h_first(1) - 2;
     mine_l1_blocks(&fixture.anvil.provider, 3).await?;
-    chain.extend(&fixture, 6).await?;
-    let derivation = chain.prepare(&fixture, 6, SidecarMode::Eip7594).await?;
+    chain.extend(&fixture, derivation_height).await?;
+    let derivation = chain.prepare(&fixture, derivation_height, SidecarMode::Eip7594).await?;
     fixture.expect_statement(derivation.batch.statement_hash).await?;
     assert_landed(&fixture, &derivation, &sign(&fixture, &derivation).await?).await?;
     transact(
@@ -111,9 +114,9 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
         EtnaStakingRegistry::requestExitCall { _bondId: U256::ZERO }.abi_encode(),
     )
     .await?;
-    let immutable_snapshot = chain.anchors[6].number;
-    // One-block cuts before/on/after S=7, S+1=8, H=9 and within epoch 1.
-    for last in 7..=11 {
+    let immutable_snapshot = chain.anchors[usize::try_from(derivation_height)?].number;
+    // One-block cuts on S, S+1, H and within epoch 1.
+    for last in switch_height..=schedule.h_first(1) + 2 {
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;
         chain.extend(&fixture, last).await?;
         let next = chain.prepare(&fixture, last, SidecarMode::Eip7594).await?;
@@ -125,8 +128,11 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
             .find(|c| c.witness.record.target_epoch == 1)
             .context("incoming epoch")?;
         assert_eq!(incoming.witness.record.cutoff_l1_block, immutable_snapshot);
-        assert_eq!(incoming.derivation_parent.as_ref().context("D header")?.number, 6);
-        if last > 7 {
+        assert_eq!(
+            incoming.derivation_parent.as_ref().context("D header")?.number,
+            derivation_height
+        );
+        if last > switch_height {
             assert!(
                 incoming.anchor.number > immutable_snapshot,
                 "later root must reconstruct D snapshot"

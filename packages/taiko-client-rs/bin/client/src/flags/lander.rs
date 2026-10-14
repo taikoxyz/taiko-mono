@@ -45,8 +45,8 @@ pub struct LanderArgs {
     /// Maximum wait for a below-threshold batch, in seconds; positive and at most one hour.
     #[clap(long = "max-batch-wait", env = "LANDER_MAX_BATCH_WAIT", default_value_t = 30, value_parser = clap::value_parser!(u64).range(1..=MAX_TIMEOUT_SECS))]
     pub max_batch_wait_secs: u64,
-    /// Maximum blobs per transaction; must respect the configured L1 fork limit and be at least
-    /// 6, the blobs one decided block may need.
+    /// Blobs per transaction: exactly 6, the capacity one decided block may need and the
+    /// Fusaka per-transaction maximum.
     #[clap(long = "max-blobs", env = "LANDER_MAX_BLOBS", required = true, value_parser = positive_usize)]
     pub max_blobs: usize,
     /// Maximum execution fee per gas in wei, without an inferred budget.

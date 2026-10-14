@@ -60,6 +60,8 @@ pub(crate) struct MockL1State {
     pub(crate) fail: Option<L1Error>,
     /// When set, every call first sleeps this long (tokio time), to exercise timeouts.
     pub(crate) delay: Option<Duration>,
+    /// Extra delay of proof reads only, for proposal cancellation between RPC stages.
+    pub(crate) proof_delay: Option<Duration>,
     /// Every call, in order.
     pub(crate) calls: Vec<L1Call>,
     /// Calls currently in progress (started, not yet answered or dropped).
@@ -209,6 +211,10 @@ impl L1Source for MockL1 {
     ) -> Result<AccountWitness, L1Error> {
         let _call = InFlight::new(self);
         self.pause().await;
+        let delay = self.state().proof_delay;
+        if let Some(delay) = delay {
+            tokio::time::sleep(delay).await;
+        }
         let state =
             self.record(L1Call::AccountWitness { address, slots: slots.to_vec(), block })?;
         Ok(Self::state_at(&state, address, block)?.witness(address, slots))

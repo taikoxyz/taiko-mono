@@ -91,7 +91,7 @@ pub(crate) struct Booted {
 ///
 /// 1. anvil and one alethia-reth per validator, waiting for their RPCs, and the fake beacon over
 ///    anvil;
-/// 2. the chain parameters for alethia-reth's chain id with `spec`'s `d_max` / `margin_v`;
+/// 2. the chain parameters for alethia-reth's chain id with test-only `d_max` / `margin_v`;
 /// 3. the setter contracts, then registry checkpoint 0 (the first `initial_validators` keys) in an
 ///    L1 block `c` and the initialized Inbox, with `genesisCutoff = c`, in a later block `L1_0`;
 /// 4. once `L1_0` is final, the CometBFT genesis via `abci::build_genesis`;
@@ -111,14 +111,15 @@ pub(crate) async fn boot(
     // 1. L1 and ELs.
     let anvil = format!("abci-{id}-anvil");
     let anvil_image = image("ANVIL_IMAGE", ANVIL_IMAGE);
-    let mut args = vec!["-p", "8545", "--entrypoint", "anvil", &anvil_image];
+    let mut args = vec!["-p", "127.0.0.1::8545", "--entrypoint", "anvil", &anvil_image];
     args.extend(ANVIL_CMD.split_whitespace());
     docker.run(&anvil, &args).await?;
     let reth_image = image("ALETHIA_RETH_IMAGE", RETH_IMAGE);
     let jwt_mount = format!("{}:/jwt.hex:ro", jwt.display());
     let reth_names: Vec<String> = (0..n).map(|i| format!("abci-{id}-reth-{i}")).collect();
     for name in &reth_names {
-        let mut args = vec!["-p", "8545", "-p", "8551", "-v", &jwt_mount, &reth_image];
+        let mut args =
+            vec!["-p", "127.0.0.1::8545", "-p", "127.0.0.1::8551", "-v", &jwt_mount, &reth_image];
         args.extend(RETH_CMD.split_whitespace());
         docker.run(name, &args).await?;
     }
@@ -152,8 +153,11 @@ pub(crate) async fn boot(
                 .await?;
         ensure!(other == genesis_hash, "alethia-reth genesis hashes differ");
     }
-    let params = ChainParams::builtin(chain_id)?
-        .with_overrides(&format!("d_max = {}\nmargin_v = {}\n", spec.d_max, spec.margin_v))?;
+    let params = ChainParams {
+        d_max: spec.d_max,
+        margin_v: spec.margin_v,
+        ..ChainParams::builtin(chain_id)?
+    };
     params.validate()?;
 
     // 3. L1 state: registry checkpoint 0 in block c, then the initialized Inbox in block L1_0 > c.
@@ -231,7 +235,7 @@ pub(crate) async fn boot(
             "--user",
             &user,
             "-p",
-            "26657",
+            "127.0.0.1::26657",
             "-v",
             &mount,
             "--entrypoint",

@@ -39,8 +39,8 @@ pub const CONSENSUS_SEED: [u8; 32] = [0x19; 32];
 pub const STAKE: u128 = 1_000_000_000_000_000_000;
 /// The devnet chain id accepted by builtin client configuration.
 pub const L2_CHAIN_ID: u64 = 167001;
-/// Epoch length is small enough for a cross-epoch actual-contract scenario.
-pub const EPOCH_LEN: u64 = 8;
+/// Smallest epoch length satisfying the builtin devnet cap `U = 12 - 2 = 10` plus three.
+pub const EPOCH_LEN: u64 = 13;
 /// Forced inclusion delay installed at genesis, in seconds.
 pub const FORCED_INCLUSION_DELAY: u64 = 3_600;
 /// Maximum anchor age installed at genesis, in seconds.
@@ -190,7 +190,7 @@ impl ContractFixture {
         )
         .await?;
         let params = ChainParams::builtin(L2_CHAIN_ID)?.with_overrides(&format!(
-            "inbox = \"{predicted_inbox}\"\nregistry = \"{registry}\"\nd_max = 5\nmargin_v = 0\n"
+            "inbox = \"{predicted_inbox}\"\nregistry = \"{registry}\"\nd_max = 12\nmargin_v = 2\n"
         ))?;
         let schedule =
             Schedule { l1_0: 0, epoch_len: EPOCH_LEN, epoch_len_l1: 1, genesis_cutoff: cutoff };

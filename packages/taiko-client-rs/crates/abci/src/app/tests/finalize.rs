@@ -652,6 +652,53 @@ async fn a_single_off_chain_answer_is_re_read_before_a_halt() {
     );
 }
 
+/// Sticky routing can return the same stale backend more than once within 100 ms. Recovery
+/// inside the suspicion window must still finalize, without treating those reads as a fork.
+#[tokio::test(start_paused = true)]
+async fn repeated_off_chain_answers_can_recover_within_the_suspicion_window() {
+    let fx = Fixture::genesis(1);
+    let (proposer_dir, node_dir) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let mut proposer = anchor_moving(&fx, proposer_dir.path()).await;
+    let env = propose(&mut proposer).await;
+    let (_, req) = judge(&mut proposer, &env).await;
+    let mut node = anchor_moving(&fx, node_dir.path()).await;
+    node.l1().state().canonical_script.extend(std::iter::repeat_n(Ok(B256::repeat_byte(0xee)), 4));
+    let started = tokio::time::Instant::now();
+    finalize(&mut node, finalize_req(&req)).await.expect("a briefly stale backend can recover");
+    assert_eq!(started.elapsed(), Duration::from_millis(1500));
+}
+
+/// Persistent disagreement must span a time window before a safety halt, rather than two
+/// immediate observations of one backend.
+#[tokio::test(start_paused = true)]
+async fn persistent_off_chain_answers_halt_after_the_suspicion_window() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let node = anchor_moving(&fx, dir.path()).await;
+    let forged = RawL1Header::from(&l1_header(66, Fixture::l1_timestamp(66) + 1));
+    let started = tokio::time::Instant::now();
+    let result = node.confirm_anchor(7, &forged).await;
+    assert!(matches!(result, Err(AbciError::SafetyHalt(_))));
+    assert!(started.elapsed() >= Duration::from_secs(5));
+}
+
+/// A payload id can disappear after an EL restart between FCU and getPayload. Cold replay
+/// retries the whole build to acquire a fresh id.
+#[tokio::test(start_paused = true)]
+async fn cold_forced_rebuild_retries_an_unknown_payload_id() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let (mut app, env) = forced_block(&fx, dir.path()).await;
+    app.engine().state().build_script.push_back(Err(EngineError::ErrorReply {
+        call: "engine_getPayloadV5".into(),
+        code: -38001,
+        message: "Unknown payload".into(),
+    }));
+    let req = cold_req(&app, &env);
+    finalize(&mut app, req).await.expect("rebuilds with a fresh payload id");
+    assert_eq!(app.pending.as_ref().map(|s| s.parent.hash), Some(env.block.header.hash_slow()));
+}
+
 /// With an extra finality depth, the own L1 must have finalized the anchor's number plus that
 /// depth: a node whose L1 finalized only one block past the anchor waits for the second.
 #[tokio::test(start_paused = true)]

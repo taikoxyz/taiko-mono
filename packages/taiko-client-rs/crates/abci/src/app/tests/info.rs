@@ -276,6 +276,25 @@ async fn app_new_rejects_a_stored_state_of_another_chain() {
 }
 
 #[tokio::test]
+async fn app_new_rejects_a_changed_inbox_after_initialization() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    drop(initialized(&fx, dir.path()).await);
+    let mut params = fx.params.clone();
+    params.inbox = alloy_primitives::Address::repeat_byte(0x11);
+    let err = App::new(
+        fx.l1(),
+        fx.engine(),
+        fx.blob_source(),
+        params,
+        Store::new(dir.path().into()),
+        AppOptions::default(),
+    )
+    .expect_err("Inbox differs from authenticated bootstrap");
+    assert!(matches!(err, AbciError::StoredState(_)), "{err:?}");
+}
+
+#[tokio::test]
 async fn app_new_rejects_a_stored_schedule_violating_the_cap() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();

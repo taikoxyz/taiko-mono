@@ -236,14 +236,30 @@ impl BeaconClient {
         slot: u64,
         blob_hashes: &[B256],
     ) -> Result<Vec<Blob>, BlobDataError> {
+        self.blobs_by_block(&slot.to_string(), blob_hashes).await
+    }
+
+    /// Smoke-tests the full-blob endpoint at the current beacon head. Success confirms the
+    /// route and response shape only: an empty head does not prove historical blob retention or
+    /// that a non-supernode can reconstruct every requested blob after Fulu.
+    pub async fn probe_blobs(&self) -> Result<(), BlobDataError> {
+        self.blobs_by_block("head", &[]).await.map(|_| ())
+    }
+
+    /// Requests raw blobs by a beacon block identifier, preserving provider path prefixes.
+    async fn blobs_by_block(
+        &self,
+        block_id: &str,
+        blob_hashes: &[B256],
+    ) -> Result<Vec<Blob>, BlobDataError> {
         let mut blobs_url = self
             .endpoint
-            .join(&format!("eth/v1/beacon/blobs/{slot}"))
+            .join(&format!("eth/v1/beacon/blobs/{block_id}"))
             .map_err(|err| BlobDataError::Other(err.into()))?;
         for hash in blob_hashes {
             blobs_url.query_pairs_mut().append_pair("versioned_hashes", &hash.to_string());
         }
-        debug!(slot, "requesting beacon blobs");
+        debug!(block_id, "requesting beacon blobs");
 
         let response = self
             .http
@@ -253,7 +269,7 @@ impl BeaconClient {
             .await
             .map_err(|err| BlobDataError::Other(err.without_url().into()))?;
         if !response.status().is_success() {
-            debug!(status = response.status().as_u16(), slot, "beacon blobs request failed");
+            debug!(status = response.status().as_u16(), block_id, "beacon blobs request failed");
             return Err(BlobDataError::HttpStatus { status: response.status().as_u16() });
         }
 

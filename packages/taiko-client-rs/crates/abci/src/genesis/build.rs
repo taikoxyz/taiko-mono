@@ -93,11 +93,13 @@ mod tests {
 
     /// The `InitChain` request CometBFT sends for `doc`: the document is parsed as a CometBFT
     /// genesis file (with tendermint-rs's own parser), the validators carry their Ed25519 keys
-    /// and powers, and `app_state` is passed on as its raw JSON bytes.
+    /// and powers, and `app_state` is passed on as its raw JSON bytes. The request passes through
+    /// the ABCI protobuf conversion, as the server's wire decoder does: JSON's explicit vote
+    /// extension height zero becomes the typed request's disabled `None` value.
     fn init_chain_from(doc: &GenesisDoc) -> InitChain {
         let genesis: Genesis<serde_json::Value> =
             serde_json::from_str(&doc.to_json_pretty()).expect("a CometBFT genesis file");
-        InitChain {
+        let req = InitChain {
             time: genesis.genesis_time,
             chain_id: genesis.chain_id.to_string(),
             consensus_params: genesis.consensus_params,
@@ -108,7 +110,9 @@ mod tests {
                 .collect(),
             app_state_bytes: serde_json::to_vec(&genesis.app_state).expect("JSON").into(),
             initial_height: Height::try_from(genesis.initial_height).expect("a CometBFT height"),
-        }
+        };
+        let raw: tendermint_proto::v0_38::abci::RequestInitChain = req.into();
+        InitChain::try_from(raw).expect("valid CometBFT ABCI request")
     }
 
     /// The built genesis is the fixture's: same witness, validators, chain id and heights, and
@@ -118,10 +122,7 @@ mod tests {
         let fx = Fixture::genesis(3);
         let doc = build_genesis(&fx.l1(), &fx.params).await.expect("the fixture L1 is initialized");
         let req = init_chain_from(&doc);
-        assert_eq!(
-            InitChain { consensus_params: fx.request.consensus_params.clone(), ..req.clone() },
-            fx.request
-        );
+        assert_eq!(req, fx.request);
         let params = &req.consensus_params;
         assert_eq!(params.block.max_bytes, 22_020_096);
         assert_eq!(params.block.max_gas, -1);

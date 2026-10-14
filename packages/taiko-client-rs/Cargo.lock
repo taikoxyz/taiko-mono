@@ -19,6 +19,7 @@ dependencies = [
  "async-trait",
  "flate2",
  "futures",
+ "libz-sys",
  "once_cell",
  "prometheus",
  "prost 0.13.5",
@@ -143,6 +144,7 @@ dependencies = [
  "alloy-core",
  "alloy-eips 1.8.3",
  "alloy-genesis 1.8.3",
+ "alloy-json-rpc",
  "alloy-network",
  "alloy-provider",
  "alloy-rpc-client",
@@ -2373,7 +2375,9 @@ dependencies = [
  "curve25519-dalek-ng",
  "hex",
  "rand_core 0.6.4",
+ "serde",
  "sha2 0.9.9",
+ "thiserror 1.0.69",
  "zeroize",
 ]
 
@@ -3602,6 +3606,8 @@ dependencies = [
  "anyhow",
  "async-trait",
  "base64",
+ "curve25519-dalek",
+ "ed25519-consensus",
  "ed25519-dalek",
  "flate2",
  "futures",
@@ -6269,6 +6275,7 @@ dependencies = [
  "tokio",
  "tower",
  "tracing",
+ "tracing-subscriber 0.3.23",
  "url",
 ]
 

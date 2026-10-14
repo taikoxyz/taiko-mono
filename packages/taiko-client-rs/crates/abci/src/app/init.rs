@@ -13,7 +13,9 @@ use tendermint::{
 use super::{AbciError, App, app_hash, at_genesis, within};
 use crate::{
     engine::Engine,
-    genesis::{decode_app_state, verify_committee, verify_context},
+    genesis::{
+        GenesisConsensusParams, decode_app_state, genesis_time, verify_committee, verify_context,
+    },
     l1::{L1Source, is_final_canonical},
     rules::generation_from_chain_id,
     schedule::Schedule,
@@ -75,7 +77,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// Verifies an `InitChain` request and returns the state it starts.
     ///
-    /// In order: decodes the `app_state` witness; requires its L1 header to be final and
+    /// In order: decodes the `app_state` witness; requires the request's time to equal the
+    /// initialization timestamp and its representable consensus parameters to be canonical;
+    /// requires its L1 header to be final and
     /// canonical in the own L1 view; verifies the Inbox witness (initialized Inbox, genesis
     /// record, `genesisCutoff < L1_0`) and that the header is block `L1_0`; validates the
     /// schedule; requires the `chain_id` generation to equal the Inbox's `recoveryGeneration` and
@@ -83,17 +87,25 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// `L1_0`'s state root, snapshot cutoff `genesisCutoff` as is, without the cutoff lag and
     /// grid that apply from `e_0 + 1` on) and requires its record hash to equal
     /// `genesisCommitteeRecordHash` and its members to be exactly the genesis validators; makes
-    /// sure the EL serves `B*` with hash `H*` (EL sync if needed). The state has `last = (B*,
+    /// sure the EL serves `B*` with hash `H*` and state root `S*` (EL sync if needed).
+    /// Persists the authenticated Inbox address. The state has `last = (B*,
     /// H*)` and forced inclusion cursor 0.
     async fn verify_genesis(&self, req: &request::InitChain) -> Result<AppState, AbciError> {
         let w = decode_app_state(&req.app_state_bytes)?;
         let params = &self.params;
         let l1_header = &w.l1_header;
+        let expected = genesis_time(l1_header.timestamp())?;
+        if req.time != expected {
+            return Err(AbciError::GenesisTimeMismatch { got: req.time, expected });
+        }
+        if req.consensus_params != GenesisConsensusParams::abci() {
+            return Err(AbciError::GenesisConsensusParamsMismatch);
+        }
 
         let is_final = within(
             "L1 finality check of the genesis header",
             self.opts.l1_timeout,
-            is_final_canonical(&self.l1, l1_header, params.l1_finality_extra_depth),
+            is_final_canonical(self.l1(), l1_header, params.l1_finality_extra_depth),
         )
         .await?;
         if !is_final {
@@ -123,6 +135,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         Ok(AppState {
             chain_id: req.chain_id.clone(),
             generation,
+            inbox: w.inbox.address,
             genesis: context.genesis,
             last_height: 0,
             parent,
@@ -135,7 +148,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Makes sure the EL serves the genesis anchor `B*` with hash `H*` (syncing it over devp2p
     /// if needed) and summarizes it as the parent of `H_0`.
     ///
-    /// An EL that rejects the genesis hash or serves another block at height 0 contradicts
+    /// An EL that rejects the genesis hash, serves another block at height 0 or returns a
+    /// state root differing from the authenticated `S*` contradicts
     /// the verified genesis: [`AbciError::SafetyHalt`].
     async fn genesis_parent(&self, genesis: &GenesisRecord) -> Result<ParentInfo, AbciError> {
         let (number, hash) = (0, genesis.genesis_hash);
@@ -146,6 +160,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if found != hash {
             return Err(AbciError::SafetyHalt(format!(
                 "execution engine serves {found} at the genesis anchor {number}, expected H* {hash}"
+            )));
+        }
+        if header.state_root != genesis.genesis_state_root {
+            return Err(AbciError::SafetyHalt(format!(
+                "execution engine's genesis state root {} differs from S* {}",
+                header.state_root, genesis.genesis_state_root
             )));
         }
 

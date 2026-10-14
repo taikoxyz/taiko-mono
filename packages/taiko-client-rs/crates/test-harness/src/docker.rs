@@ -7,6 +7,8 @@ use std::{
 
 use anyhow::{Context, Result, anyhow, bail};
 
+use crate::cleanup;
+
 /// Runs `docker <args>` and returns its trimmed stdout; a non-zero exit is an error carrying
 /// stderr.
 pub(crate) async fn docker(args: &[&str]) -> Result<String> {
@@ -68,13 +70,16 @@ pub(crate) struct DockerEnv {
 impl DockerEnv {
     /// Creates the network `name`.
     pub(crate) async fn create(name: String) -> Result<Self> {
+        cleanup::install()?;
         let mut env = Self {
             network: name,
             containers: Vec::new(),
             network_created: false,
             logs_dumped: AtomicBool::new(false),
         };
-        docker(&["network", "create", &env.network]).await?;
+        let mut owned = cleanup::resources().lock().unwrap();
+        docker_blocking(&["network", "create", "--label", &cleanup::run_label(), &env.network])?;
+        owned.insert(env.network.clone(), Vec::new());
         env.network_created = true;
         Ok(env)
     }
@@ -87,10 +92,14 @@ impl DockerEnv {
     /// `docker run -d --name <name> --network <network> <args…>`; the container is removed with
     /// the environment even when `run` fails.
     pub(crate) async fn run(&mut self, name: &str, args: &[&str]) -> Result<()> {
+        let mut owned = cleanup::resources().lock().unwrap();
         self.containers.push(name.to_string());
-        let mut full = vec!["run", "-d", "--name", name, "--network", &self.network];
+        owned.entry(self.network.clone()).or_default().push(name.to_string());
+        let label = cleanup::run_label();
+        let mut full =
+            vec!["run", "-d", "--label", &label, "--name", name, "--network", &self.network];
         full.extend_from_slice(args);
-        docker(&full).await.map(drop)
+        docker_blocking(&full).map(drop)
     }
 
     /// Whether [`DockerEnv::dump_logs`] already ran.
@@ -122,39 +131,39 @@ impl DockerEnv {
     /// the containers failed. Only what was removed is forgotten, so a later call (or the drop)
     /// retries the rest; fails with every removal error.
     pub(crate) async fn cleanup(&mut self) -> Result<()> {
+        self.cleanup_owned()
+    }
+
+    /// Serialize removal with signal cleanup and in-flight Docker resource creation.
+    fn cleanup_owned(&mut self) -> Result<()> {
+        let mut owned = cleanup::resources().lock().unwrap();
         let mut errors = Vec::new();
         if !self.containers.is_empty() {
             let mut args = vec!["rm", "-f", "-v"];
             args.extend(self.containers.iter().map(String::as_str));
-            match docker(&args).await {
+            match docker_blocking(&args) {
                 Ok(_) => self.containers.clear(),
                 Err(e) => errors.push(format!("{e:#}")),
             }
         }
         if self.network_created {
-            match docker(&["network", "rm", &self.network]).await {
+            match docker_blocking(&["network", "rm", &self.network]) {
                 Ok(_) => self.network_created = false,
                 Err(e) => errors.push(format!("{e:#}")),
             }
+        }
+        if self.cleaned() {
+            owned.remove(&self.network);
+        } else {
+            owned.insert(self.network.clone(), self.containers.clone());
         }
         if errors.is_empty() { Ok(()) } else { Err(anyhow!(errors.join("; "))) }
     }
 
     /// Blocking [`DockerEnv::cleanup`]; failures are printed.
     fn cleanup_blocking(&mut self) {
-        if !self.containers.is_empty() {
-            let mut args = vec!["rm", "-f", "-v"];
-            args.extend(self.containers.iter().map(String::as_str));
-            match docker_blocking(&args) {
-                Ok(_) => self.containers.clear(),
-                Err(e) => eprintln!("devnet cleanup: {e:#}"),
-            }
-        }
-        if self.network_created {
-            match docker_blocking(&["network", "rm", &self.network]) {
-                Ok(_) => self.network_created = false,
-                Err(e) => eprintln!("devnet cleanup: {e:#}"),
-            }
+        if let Err(error) = self.cleanup_owned() {
+            eprintln!("devnet cleanup: {error:#}");
         }
     }
 }

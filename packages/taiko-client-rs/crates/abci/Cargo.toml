@@ -43,6 +43,7 @@ url = { workspace = true }
 
 # serialization
 flate2 = { workspace = true }
+libz-sys = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 toml = { workspace = true }

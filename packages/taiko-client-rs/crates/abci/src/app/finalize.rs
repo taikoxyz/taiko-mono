@@ -144,6 +144,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         self.verdicts.clear();
         *self.committee_cache() = None;
         self.discovery.clear();
+        *self.preparation_cache() = Default::default();
         self.clear_halt();
         self.publish_state_metrics();
         Ok(response::Commit { data: Default::default(), retain_height: Height::from(0u32) })
@@ -219,12 +220,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// While the own L1 is unreachable or has not finalized that far, the block waits with the
     /// [`Backoff`] schedule and is neither finalized nor halted on. [`Rejection::AnchorOffChain`],
-    /// a safety halt, needs two consecutive reads (a backoff pause apart, so one lagging backend
-    /// of a load-balanced endpoint cannot halt the node) showing that the header cannot be on the
-    /// own L1 chain: a different own-L1 block at its number, or a number beyond the own finalized
-    /// block with a timestamp no block there can have ([`App::read_anchor`]). A number beyond any
-    /// finality bound halts at once. The node is then being fed a history whose L1 facts its own
-    /// L1 does not have.
+    /// a safety halt, needs consecutive off-chain reads spanning at least five seconds (so a
+    /// briefly stale or sticky backend is given time to recover) showing the header cannot be on
+    /// the own L1 chain: a different own-L1 block at its number, or a number beyond the own
+    /// finalized block with a timestamp no block there can have ([`App::read_anchor`]). A
+    /// number beyond any finality bound halts at once. The node is then being fed a history
+    /// whose L1 facts its own L1 does not have.
     pub(super) async fn confirm_anchor(
         &self,
         height: u64,
@@ -238,17 +239,19 @@ impl<L: L1Source, E: Engine> App<L, E> {
             return Err(off_chain("its number is beyond any finality bound".into()));
         };
         let mut backoff = Backoff::new(height);
-        let mut suspect = false;
+        let mut suspect_since = None;
         loop {
             let reason = match self.read_anchor(header, bound).await {
                 AnchorRead::Confirmed => return Ok(()),
-                AnchorRead::OffChain(detail) if suspect => return Err(off_chain(detail)),
                 AnchorRead::OffChain(detail) => {
-                    suspect = true;
+                    let since = suspect_since.get_or_insert_with(Instant::now);
+                    if since.elapsed() >= ANCHOR_OFF_CHAIN_WINDOW {
+                        return Err(off_chain(detail));
+                    }
                     format!("re-reading before a safety halt: {detail}")
                 }
                 AnchorRead::Pending(reason) => {
-                    suspect = false;
+                    suspect_since = None;
                     reason
                 }
             };
@@ -303,13 +306,16 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// A build failing for a node-local reason is retried on its own [`Backoff`], as
     /// [`App::settle`] retries, logged under the label [`REBUILD`]: a retryable engine error
-    /// ([`EngineError::is_retryable`]), an elapsed engine deadline, or a build the EL did not
+    /// ([`EngineError::is_retryable`]), an elapsed engine deadline, an unknown payload id
+    /// (`-38001`, e.g. an EL restart between FCU and getPayload), or a build the EL did not
     /// start ([`EngineError::BuildNotStarted`], e.g. while it lacks the parent, which the build's
     /// forkchoice update points it at, or the parent's state), whose retry reason names the parent
-    /// and that likely cause. Every other engine error is an [`AbciError::SafetyHalt`] labeled
-    /// `forced_rebuild_unavailable`, whose message names the parent and how to give the EL its
-    /// state; a rebuilt block whose hash differs from the decided block's
-    /// ([`Rejection::ForcedRebuildMismatch`]) is a safety halt too.
+    /// and that likely cause. Rebuilding a canonical ancestor also requires alethia-reth's
+    /// `TaikoChainSpec::is_optimism() == true` engine path, which starts the build instead of
+    /// ignoring an ancestor FCU as a stale update. Every other engine error is an
+    /// [`AbciError::SafetyHalt`] labeled `forced_rebuild_unavailable`, whose message names the
+    /// parent and how to give the EL its state; a rebuilt block whose hash differs from the
+    /// decided block's ([`Rejection::ForcedRebuildMismatch`]) is a safety halt too.
     async fn rebuild_forced(
         &self,
         state: &AppState,
@@ -333,6 +339,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 }
                 Ok(Err(e @ EngineError::BuildNotStarted(_))) => {
                     format!("{}: {e}", cannot_build_on(&state.parent))
+                }
+                Ok(Err(e @ EngineError::ErrorReply { code: -38001, .. })) => {
+                    format!("payload id was lost; restarting the build: {e}")
                 }
                 Ok(Err(e)) if e.is_retryable() => e.to_string(),
                 Ok(Err(e)) => {
@@ -381,6 +390,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
 /// The Engine API method name of a forkchoice update, for logs and safety-halt messages.
 const FCU: &str = "engine_forkchoiceUpdated";
+
+/// Minimum continuous suspicion interval before repeated L1 disagreements justify a halt.
+const ANCHOR_OFF_CHAIN_WINDOW: Duration = Duration::from_secs(5);
 
 /// The label of a cold forced inclusion rebuild (an EL block build: a forkchoice update with
 /// attributes, then `getPayload`), for logs and safety-halt messages.

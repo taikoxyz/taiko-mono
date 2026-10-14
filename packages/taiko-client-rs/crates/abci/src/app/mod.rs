@@ -30,7 +30,6 @@ use crate::{
     config::{ChainParams, ConfigError},
     elsync::{ElSyncError, ensure_block},
     engine::{Engine, EngineError},
-    envelope::CommitteeWitness,
     genesis::GenesisError,
     l1::{BlobSource, DiscoveryProgress, L1Error, L1Source},
     metrics::{AbciMetrics, set_u64},
@@ -39,12 +38,16 @@ use crate::{
     store::{AppState, Store, StoreError},
 };
 
+/// Durable independently verified switch witness retention.
+mod committee_cache;
 /// The `FinalizeBlock` and `Commit` handlers.
 mod finalize;
 /// `Info`, `Query` and `CheckTx` handlers.
 mod info;
 /// The `InitChain` handler.
 mod init;
+/// Completed proposal reads retained across timed-out rounds at the same height.
+mod preparation_cache;
 /// The `PrepareProposal` handler.
 mod prepare;
 /// The `ProcessProposal` handler.
@@ -54,6 +57,8 @@ mod validate;
 
 #[cfg(test)]
 mod tests;
+
+use committee_cache::{CachedCommittee, load_cached_committee};
 
 pub use info::{CHECK_TX_LOG, CODE_REJECTED};
 pub use validate::{Rejection, Validated, WitnessKind};
@@ -191,6 +196,17 @@ pub enum AbciError {
         /// The first consensus height, always 1.
         expected: u64,
     },
+    /// The request time differs from the authenticated L1 initialization timestamp.
+    #[error("genesis time {got} differs from the authenticated initialization time {expected}")]
+    GenesisTimeMismatch {
+        /// Genesis time supplied by CometBFT.
+        got: Time,
+        /// Whole-second timestamp of the authenticated initialization header.
+        expected: Time,
+    },
+    /// The request's representable consensus parameters differ from the canonical Etna values.
+    #[error("genesis consensus parameters differ from the canonical Etna parameters")]
+    GenesisConsensusParamsMismatch,
     /// The genesis validators are not exactly the derived `e_0` committee; the value says how.
     #[error("genesis validators differ from the derived committee: {0}")]
     GenesisValidatorsMismatch(String),
@@ -246,7 +262,7 @@ pub struct App<L: L1Source, E: Engine> {
     /// The node's own L1 view. `FinalizeBlock` and replay read no L1 state through it (blocks
     /// carry their L1 facts); they only confirm a block's anchor header when the block was never
     /// judged here ([`App::confirm_anchor`]).
-    l1: L,
+    l1: Arc<L>,
     /// The execution engine.
     engine: E,
     /// Where `PrepareProposal` fetches the blob of a due forced inclusion entry (never used by
@@ -268,13 +284,17 @@ pub struct App<L: L1Source, E: Engine> {
     verdicts: Verdicts,
     /// The last committee witness verified at switch height `H(t)-2`, by `PrepareProposal` (its
     /// own) or `ProcessProposal` (another proposer's), kept so that this node's proposals in
-    /// later rounds at the same height reuse it instead of reading the registry again. Every
-    /// verified witness overwrites it; cleared at `Commit`. Behind a mutex as the handlers run
-    /// on `&self`.
+    /// later rounds at the same height reuse it instead of reading the registry again. Its
+    /// durable sidecar is reverified after restart against the full committed context. Memory
+    /// is cleared at `Commit`; the one bounded sidecar then becomes stale and is ignored.
+    /// Behind a mutex as the handlers run on `&self`.
     committee_cache: Mutex<Option<CachedCommittee>>,
     /// The registry reads of a committee discovery `PrepareProposal`'s deadline cut short, from
     /// which the next attempt resumes; cleared at `Commit`.
     discovery: DiscoveryProgress,
+    /// Bounded completed anchor, forced proof and verified blob reads. Each successful stage
+    /// survives an overall proposal timeout; root/hash keys prevent reuse for different facts.
+    preparation_cache: Mutex<preparation_cache::PreparationCache>,
     /// The label of the last proposal rejection or failed build (a liveness halt), reported by
     /// `/status`; an empty proposal does not replace a recorded label. Cleared by the next
     /// accepted or built proposal and by `Commit`.
@@ -295,7 +315,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// A loaded state must be consistent with `params` and with itself: its schedule must pass
     /// [`Schedule::validate`] for `params`' unsettled cap and equal the one derived from its
-    /// genesis record, its `chain_id` must name `params.l2_chain_id` and its generation, and
+    /// genesis record, its Inbox must match the account authenticated at genesis,
+    /// its `chain_id` must name `params.l2_chain_id` and its generation, and
     /// its last height must equal its parent's number and fit a CometBFT height.
     ///
     /// The KZG trusted setup forced inclusion blocks need is not loaded here: a server calls
@@ -313,8 +334,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if let Some(state) = &state {
             check_stored_state(state, &params)?;
         }
+        let committee_cache = load_cached_committee(&store, state.as_ref(), &params);
         let app = Self {
-            l1,
+            l1: Arc::new(l1),
             engine,
             blobs,
             params,
@@ -323,8 +345,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
             state,
             pending: None,
             verdicts: Verdicts::default(),
-            committee_cache: Mutex::new(None),
+            committee_cache: Mutex::new(committee_cache),
             discovery: DiscoveryProgress::default(),
+            preparation_cache: Mutex::new(preparation_cache::PreparationCache::default()),
             halt: None,
             superseded: false,
             el_reconciled: false,
@@ -431,18 +454,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
         self.committee_cache.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    /// Caches `witness`, verified as the committee witness of `target_epoch` against the
-    /// committed parent's anchor `parent_anchor`, for this node's proposals at the height.
-    fn cache_committee_witness(
-        &self,
-        parent_anchor: u64,
-        target_epoch: u64,
-        witness: &CommitteeWitness,
-    ) {
-        *self.committee_cache() =
-            Some(CachedCommittee { parent_anchor, target_epoch, witness: witness.clone() });
-    }
-
     /// Makes the EL serve block `hash` at `number` ([`ensure_block`] within
     /// [`AppOptions::elsync_timeout`]).
     ///
@@ -530,17 +541,6 @@ impl Verdicts {
     }
 }
 
-/// A verified committee witness, with the key it was verified for.
-#[derive(Clone, Debug)]
-struct CachedCommittee {
-    /// The parent's anchor L1 block number `n_p` the witness is proven against.
-    parent_anchor: u64,
-    /// The epoch whose committee the witness proves.
-    target_epoch: u64,
-    /// The witness.
-    witness: CommitteeWitness,
-}
-
 /// Whether `state` is still at genesis block 0: no PoS block has been committed yet.
 ///
 /// CometBFT re-sends `InitChain` whenever the app reports height 0, so `Info` reports 0 and
@@ -551,6 +551,12 @@ fn at_genesis(state: &AppState) -> bool {
 
 /// Rejects a persisted state that `params` or the state itself contradicts (see [`App::new`]).
 fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), AbciError> {
+    if state.inbox != params.inbox {
+        return Err(AbciError::StoredState(format!(
+            "Inbox {} differs from the authenticated genesis account {}",
+            params.inbox, state.inbox
+        )));
+    }
     state.schedule().validate(params.unsettled_cap())?;
     if state.genesis.genesis_height != 0 {
         return Err(AbciError::StoredState("genesis height must be zero".into()));

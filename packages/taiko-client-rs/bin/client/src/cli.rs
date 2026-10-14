@@ -50,8 +50,8 @@ impl Cli {
         match self.subcommand {
             Commands::Abci(cmd) => Self::run_until_shutdown(cmd.run()),
             Commands::Lander(cmd) => Self::run_until_shutdown(cmd.run()),
-            Commands::AbciGenesis(cmd) => Self::run_until_shutdown(cmd.run()),
-            Commands::AbciCommitteeRecord(cmd) => Self::run_until_shutdown(cmd.run()),
+            Commands::AbciGenesis(cmd) => Self::run_one_shot(cmd.run()),
+            Commands::AbciCommitteeRecord(cmd) => Self::run_one_shot(cmd.run()),
         }
     }
 
@@ -71,6 +71,25 @@ impl Cli {
     {
         let runtime = Self::tokio_runtime()?;
         let result = runtime.block_on(run_until_signal(fut, shutdown_signal()));
+        runtime.shutdown_timeout(RUNTIME_SHUTDOWN_TIMEOUT);
+        result
+    }
+
+    /// Run an output-producing command, reporting interruption as failure rather than
+    /// successful completion with a missing genesis file or committee report.
+    fn run_one_shot<F>(fut: F) -> Result<()>
+    where
+        F: Future<Output = Result<()>>,
+    {
+        let runtime = Self::tokio_runtime()?;
+        let shutdown = async {
+            let signal = shutdown_signal().await?;
+            Err(CliError::Runtime(std::io::Error::new(
+                std::io::ErrorKind::Interrupted,
+                format!("one-shot command interrupted by {signal}"),
+            )))
+        };
+        let result = runtime.block_on(run_until_signal(fut, shutdown));
         runtime.shutdown_timeout(RUNTIME_SHUTDOWN_TIMEOUT);
         result
     }

@@ -77,7 +77,8 @@ impl fmt::Display for WitnessKind {
 /// [`validate_block`] yields only the deterministic variants on a decoded envelope; the ¹
 /// node-local ones (anchor finality, L1, engine, EL sync state, timeouts) and the handler-level
 /// ones ([`Rejection::Envelope`], [`Rejection::EmptyProposal`], [`Rejection::ChainSuperseded`],
-/// [`Rejection::PayloadInvalid`], [`Rejection::Registry`], [`Rejection::Oversize`],
+/// [`Rejection::PayloadInvalid`], [`Rejection::Registry`], [`Rejection::CommitteeCache`],
+/// [`Rejection::Oversize`],
 /// [`Rejection::BuiltHeader`], [`Rejection::LandingCapacity`], [`Rejection::BlobUnavailable`],
 /// [`Rejection::ForcedRebuildMismatch`]) come from the handlers.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
@@ -157,6 +158,9 @@ pub enum Rejection {
     /// The registry storage read while discovering a snapshot is unusable.
     #[error("registry discovery failed: {0}")]
     Registry(String),
+    /// The complete verified switch witness could not be durably retained for restart.
+    #[error("committee witness cache failed: {0}")]
+    CommitteeCache(String),
     /// `PrepareProposal`: the envelope exceeds CometBFT's `max_tx_bytes`.
     #[error("envelope of {len} bytes exceeds max_tx_bytes {max}")]
     Oversize {
@@ -221,6 +225,7 @@ impl Rejection {
             Self::PayloadSyncing => "payload_syncing",
             Self::Timeout(_) => "timeout",
             Self::Registry(_) => "registry_discovery",
+            Self::CommitteeCache(_) => "committee_cache_error",
             Self::Oversize { .. } => "envelope_too_large",
             Self::BuiltHeader(_) => "built_header_mismatch",
             Self::Forced(_) => "forced_inclusion",
@@ -233,7 +238,7 @@ impl Rejection {
     /// Whether the refusal reports a local build fault at ERROR; expected liveness waits and
     /// malformed proposals log at WARN.
     pub fn logs_at_error(&self) -> bool {
-        matches!(self, Self::Oversize { .. } | Self::BuiltHeader(_))
+        matches!(self, Self::Oversize { .. } | Self::BuiltHeader(_) | Self::CommitteeCache(_))
     }
 }
 

@@ -103,6 +103,16 @@ impl BlobDataSource {
         })
     }
 
+    /// Smoke-tests the configured beacon's blobs endpoint at `head`, without using the blob
+    /// server fallback. Success checks availability and response shape, not historical custody.
+    pub async fn probe_beacon_blobs(&self) -> Result<(), BlobDataError> {
+        let beacon = self
+            .beacon
+            .as_ref()
+            .ok_or_else(|| BlobDataError::Beacon("beacon endpoint not configured".into()))?;
+        beacon.probe_blobs().await
+    }
+
     /// Fetch the blobs identified by the provided versioned hashes, in the same order.
     ///
     /// The beacon node is asked first; the blob server is the fallback when the beacon request

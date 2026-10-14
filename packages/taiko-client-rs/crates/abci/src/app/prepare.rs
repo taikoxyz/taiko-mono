@@ -8,7 +8,9 @@ use alloy_primitives::Bytes;
 use tendermint::abci::{request, response};
 
 use super::{
-    AbciError, App, deadline, unix_secs,
+    AbciError, App, deadline,
+    preparation_cache::CachedBlob,
+    unix_secs,
     validate::{
         Candidate, Rejection, check_candidate_anchor, check_landing_capacity, expected_header,
         finish_candidate,
@@ -18,10 +20,12 @@ use crate::{
     engine::Engine,
     envelope::{AnchorWitness, CommitteeWitness, EtnaEnvelope, ForcedWitness},
     forced::{self, ForcedEntry, ForcedError},
-    l1::{L1Error, L1Source, build_committee_witness_within, header_at, layout::inbox},
+    l1::{
+        L1Error, L1Source, build_committee_witness_within, header_at, layout::inbox,
+        verify_anchor_witness,
+    },
     metrics::{AbciMetrics, set_u64},
     rules,
-    schedule::Schedule,
     store::AppState,
     types::AnchorState,
 };
@@ -93,7 +97,29 @@ impl<L: L1Source, E: Engine> App<L, E> {
         set_u64(AbciMetrics::l1_finality_lag(), finalized.saturating_sub(state.anchor.number));
         let n = state.anchor.number.max(finalized.saturating_sub(params.l1_finality_extra_depth));
         let anchor = if n != state.anchor.number || height == schedule.h0() {
-            Some(self.anchor_witness(n).await?)
+            let known = if n == state.anchor.number {
+                Some(state.anchor.clone())
+            } else {
+                self.preparation_cache()
+                    .anchor
+                    .as_ref()
+                    .filter(|witness| witness.l1_header.number() == n)
+                    .and_then(|witness| verify_anchor_witness(witness, params.inbox).ok())
+            };
+            let witness = if let Some(known) =
+                known.filter(|anchor| state.forced_cursor < anchor.inbox.forced_inclusion_tail)
+            {
+                // A known non-empty queue permits an independent entry proof while the
+                // header/anchor are refreshed. The eventual chosen root still keys reuse.
+                let (witness, _) = tokio::join!(
+                    self.anchor_witness(n),
+                    self.forced_entry(&known, state.forced_cursor),
+                );
+                witness?
+            } else {
+                self.anchor_witness(n).await?
+            };
+            Some(witness)
         } else {
             None
         };
@@ -113,7 +139,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         )?;
         let committee = match switch {
             Some(target) => {
-                let witness = self.committee_witness(schedule, state.anchor.number, target).await?;
+                let witness = self.committee_witness(state, target).await?;
                 Some((target, witness))
             }
             None => None,
@@ -121,7 +147,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let witness = committee.as_ref().map(|(_, w)| w);
         let facts = finish_candidate(state, params, height, witness, anchor_state)?;
         if let Some((target_epoch, witness)) = &committee {
-            self.cache_committee_witness(state.anchor.number, *target_epoch, witness);
+            self.cache_committee_witness(state, *target_epoch, witness)?;
         }
         let (forced, tx_list) = self.forced_inclusion(state, &facts.anchor).await?;
         let attrs = rules::payload_attributes(&expected, facts.anchor.hash, tx_list);
@@ -142,30 +168,25 @@ impl<L: L1Source, E: Engine> App<L, E> {
         Ok(envelope)
     }
 
-    /// The committee witness of `target_epoch` under `schedule` against the parent's anchor
-    /// `parent_anchor`: the one verified earlier at this height (discovered by this node, or
-    /// carried by another proposer's block), if its key matches, else a discovery
-    /// ([`build_committee_witness_within`], each read within the L1 deadline, reading no state
-    /// older than the committee cutoff) that resumes from the reads of an attempt the prepare
-    /// deadline cut short. The caller caches the witness once it verifies.
+    /// The committee witness of `target_epoch` against `state`'s fixed parent anchor: a
+    /// previously verified witness whose complete identity matches, or a bounded discovery
+    /// ([`build_committee_witness_within`]) resuming the completed reads of an earlier attempt.
+    /// Historical entries may require state older than the cutoff; the complete witness still
+    /// verifies under the committed parent's state root before the caller durably retains it.
     async fn committee_witness(
         &self,
-        schedule: &Schedule,
-        parent_anchor: u64,
+        state: &AppState,
         target_epoch: u64,
     ) -> Result<CommitteeWitness, Rejection> {
-        let cached = self.committee_cache().as_ref().and_then(|c| {
-            (c.parent_anchor == parent_anchor && c.target_epoch == target_epoch)
-                .then(|| c.witness.clone())
-        });
-        if let Some(witness) = cached {
+        let parent_anchor = state.anchor.number;
+        if let Some(witness) = self.cached_committee_witness(state, target_epoch) {
             tracing::debug!(parent_anchor, target_epoch, "reusing the cached committee witness");
             return Ok(witness);
         }
         Ok(build_committee_witness_within(
-            &self.l1,
+            self.l1(),
             &self.params,
-            schedule,
+            &state.schedule(),
             parent_anchor,
             target_epoch,
             self.opts.l1_timeout,
@@ -194,15 +215,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
             return Ok((None, None));
         }
         let inbox = self.params.inbox;
-        let slots = inbox::forced_inclusion_entry_slots(index);
-        let entry = self
-            .l1_read(
-                "forced inclusion entry read",
-                self.l1.account_witness(inbox, &slots, anchor.number),
-            )
-            .await?;
+        let cached = self.forced_entry(anchor, index).await?;
+        let (entry, proven) = (cached.witness, cached.proven);
         let delay = state.genesis.forced_inclusion_delay;
-        let proven = forced::verify_entry(anchor.state_root, &entry, inbox, index)?;
         let blob = if forced::is_due(&proven, anchor.timestamp, delay) &&
             !forced::is_expired(&proven, anchor.timestamp)
         {
@@ -218,32 +233,48 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 }
                 e => Rejection::Forced(e),
             })?;
+        if !witness.blob.is_empty() {
+            self.preparation_cache().blob =
+                Some(CachedBlob { hash: proven.blob_hash, bytes: witness.blob.clone() });
+        }
         Ok((Some(witness), consumed.map(|c| c.tx_list)))
     }
 
     /// The blob of the due forced inclusion `entry`, by the entry's timestamp and versioned hash,
-    /// from the blob source within the L1 deadline; a failed fetch is
+    /// from the blob source within the L1 deadline; one bounded fetch survives cancellation of
+    /// the round that awaits it, so a later round reuses its verified result. A failed fetch is
     /// [`Rejection::BlobUnavailable`], and one that does not answer in time is
     /// [`Rejection::Timeout`] (as is a proposal whose own deadline expires first).
     async fn forced_blob(&self, entry: &ForcedEntry) -> Result<Bytes, Rejection> {
-        let fetch = async {
-            self.blobs
-                .blob(entry.timestamp, entry.blob_hash)
-                .await
-                .map_err(Rejection::BlobUnavailable)
-        };
-        deadline("forced inclusion blob read", self.opts.l1_timeout, fetch).await
+        self.fetch_forced_blob(entry).await
     }
 
     /// The anchor witness at L1 block `n`: its canonical header (which must be block `n`) and the
     /// Inbox proofs of `anchor_slots()`.
     async fn anchor_witness(&self, n: u64) -> Result<AnchorWitness, Rejection> {
-        let l1_header = self.l1_read("L1 header read", header_at(&self.l1, n)).await?;
+        let cached = self
+            .preparation_cache()
+            .anchor
+            .as_ref()
+            .filter(|witness| witness.l1_header.number() == n)
+            .cloned();
         let slots = inbox::anchor_slots();
-        let inbox = self
-            .l1_read("inbox proof read", self.l1.account_witness(self.params.inbox, &slots, n))
-            .await?;
-        Ok(AnchorWitness { l1_header, inbox })
+        let header = self.l1_read("L1 header read", header_at(self.l1(), n));
+        let proof =
+            self.l1_read("inbox proof read", self.l1.account_witness(self.params.inbox, &slots, n));
+        let witness = if let Some(cached) = cached {
+            let l1_header = header.await?;
+            if l1_header.hash() == cached.l1_header.hash() {
+                return Ok(cached);
+            }
+            AnchorWitness { l1_header, inbox: proof.await? }
+        } else {
+            let (l1_header, inbox) = tokio::try_join!(header, proof)?;
+            AnchorWitness { l1_header, inbox }
+        };
+        verify_anchor_witness(&witness, self.params.inbox)?;
+        self.preparation_cache().anchor = Some(witness.clone());
+        Ok(witness)
     }
 
     /// Runs one own-L1 read within the L1 deadline.
