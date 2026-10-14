@@ -25,13 +25,15 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// L2_CHAIN_ID, MAX_BATCH_BLOCKS, FORCED_INCLUSION_FEE_GWEI (non-zero),
 /// FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD (non-zero), GENESIS_BLOCK_HASH, GENESIS_STATE_ROOT,
 /// EPOCH_LEN_L2, EPOCH_LEN_L1, GENESIS_CUTOFF, COMMITTEE_RECORD_HASH, COMMITTEE_CONFIG_HASH,
-/// FORCED_INCLUSION_DELAY (seconds, non-zero, below 14 days) and MAX_ANCHOR_AGE (seconds,
-/// non-zero). The genesis values must match the L2 genesis file and the committee derived by
+/// FORCED_INCLUSION_DELAY (seconds, non-zero) and MAX_ANCHOR_AGE (seconds, at least 1152, above
+/// the expected L1 finality lag), with FORCED_INCLUSION_DELAY + MAX_ANCHOR_AGE + 384 at most
+/// 14 days. The genesis values must match the L2 genesis file and the committee derived by
 /// taiko-client-rs. The node requires EPOCH_LEN_L2 >= D_MAX - MARGIN_V + 3; heartbeat and stake
 /// parameters must match its constants.
 ///
 /// No Etna guest exists yet. An accept-all ETNA_PROOF_VERIFIER is DEVNET ONLY: permissionless
-/// landing would otherwise allow anyone to forge checkpoints and committee records.
+/// landing would otherwise allow anyone to forge checkpoints and to consume pending forced
+/// inclusions without including them, collecting their fees.
 /// @custom:security-contact security@taiko.xyz
 contract DeployEtnaDevnet is Script {
     // ---------------------------------------------------------------
@@ -58,7 +60,7 @@ contract DeployEtnaDevnet is Script {
     /// @notice Deploys fresh SignalService and EtnaInbox proxies initialized from L2 genesis.
     /// @dev Four consecutive CREATEs are broadcast from one deployer. Predicts the final proxy
     /// address so the SignalService authorizes it before the Inbox initializes its checkpoint.
-    /// COMMITTEE_CONFIG_HASH must be the canonical ETNA_FIXED_CUTOFF_V1 opening for this chain
+    /// COMMITTEE_CONFIG_HASH must be the canonical ETNA_PARENT_ANCHOR_V1 opening for this chain
     /// and registry, matching node parameters. Fixture inputs may use a dummy verifier only on
     /// ephemeral devnets; ETNA_PROOF_VERIFIER must explicitly select that deployed verifier.
     /// @return inbox_ The new EtnaInbox proxy.
