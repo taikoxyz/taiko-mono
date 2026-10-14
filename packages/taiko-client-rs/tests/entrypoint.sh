@@ -19,6 +19,27 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # regardless of the caller's working directory.
 cd "$DIR/.."
 
+# Every harness child inherits this label. Cleanup stays scoped to this invocation, including
+# lander fixtures, even when cancellation bypasses the harness's normal Drop cleanup.
+export TAIKO_CLIENT_RS_TEST_RUN=${TAIKO_CLIENT_RS_TEST_RUN:-local-$$-$RANDOM}
+cleanup_devnets() {
+    local status=$?
+    trap - EXIT INT TERM
+    local failed=0
+    local containers networks
+    containers=$(docker ps -aq --filter "label=taiko-client-rs.test-run=$TAIKO_CLIENT_RS_TEST_RUN") || failed=1
+    networks=$(docker network ls -q --filter "label=taiko-client-rs.test-run=$TAIKO_CLIENT_RS_TEST_RUN") || failed=1
+    if [[ -n "$containers" ]]; then
+        # Docker IDs contain no shell whitespace; xargs handles both Linux and macOS empty input.
+        printf '%s\n' "$containers" | xargs docker rm -f -v || failed=1
+    fi
+    if [[ -n "$networks" ]]; then
+        printf '%s\n' "$networks" | xargs docker network rm || failed=1
+    fi
+    if [[ "$status" == 0 && "$failed" != 0 ]]; then status=1; fi
+    exit "$status"
+}
+
 if ! command -v docker > /dev/null 2>&1; then
     echo "ERROR: required command 'docker' not found in PATH"
     exit 1
@@ -27,6 +48,9 @@ if ! docker info > /dev/null 2>&1; then
     echo "ERROR: the docker daemon is not reachable"
     exit 1
 fi
+trap cleanup_devnets EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # Pinned to the anvil release the scenarios are verified with: a moving tag could change its
 # JSON-RPC behaviour under them (e.g. whether it serves debug_getRawHeader).
@@ -49,4 +73,22 @@ for image in "$ANVIL_IMAGE" "$LANDER_ANVIL_IMAGE" "$ALETHIA_RETH_IMAGE" "$COMETB
 done
 
 echo "Running the ABCI, lander, and CLI docker scenarios"
-cargo nextest run -p abci -p lander -p taiko-client --all-features --profile integration --run-ignored only -E 'kind(test)' "$@"
+terminate_tree() {
+    local process=$1 child
+    for child in $(pgrep -P "$process" || true); do
+        terminate_tree "$child"
+    done
+    kill -TERM "$process" 2>/dev/null || true
+}
+stop_scenarios() {
+    local status=$1
+    trap - INT TERM
+    terminate_tree "$scenario_pid"
+    wait "$scenario_pid" || true
+    exit "$status"
+}
+cargo nextest run -p abci -p lander -p taiko-client -p test-harness --all-features --profile integration --run-ignored only -E 'kind(test)' "$@" &
+scenario_pid=$!
+trap 'stop_scenarios 130' INT
+trap 'stop_scenarios 143' TERM
+wait "$scenario_pid"

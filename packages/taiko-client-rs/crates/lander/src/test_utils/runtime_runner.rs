@@ -25,6 +25,7 @@ struct Control {
     reference_current: bool,
     receipt: Option<LandingReceipt>,
     canonical_receipt: B256,
+    canonical_snapshot: Option<B256>,
     nonce: NonceState,
     known: bool,
     ambiguous_send: bool,
@@ -58,6 +59,7 @@ impl Fixture {
             reference_current: true,
             receipt: None,
             canonical_receipt: B256::repeat_byte(30),
+            canonical_snapshot: None,
             nonce: NonceState { confirmed: 0, pending: 0 },
             known: false,
             ambiguous_send: false,
@@ -151,6 +153,7 @@ impl Fixture {
         control.nonce =
             NonceState { confirmed: transaction.nonce + 1, pending: transaction.nonce + 1 };
         control.snapshot.l1_block_number = 30;
+        control.snapshot.l1_block_hash = control.canonical_receipt;
         if success {
             control.snapshot.checkpoint_height = self.request.batch.input.lastHeight;
             control.snapshot.checkpoint_hash = self.request.batch.input.lastBlockHash;
@@ -246,8 +249,13 @@ impl LandingSource for MockL1 {
             self.request.batch.statement_hash
         })
     }
-    async fn canonical_hash(&self, _: u64) -> Result<B256> {
-        Ok(self.control.lock().unwrap().canonical_receipt)
+    async fn canonical_hash(&self, number: u64) -> Result<B256> {
+        let control = self.control.lock().unwrap();
+        Ok(if number == 30 {
+            control.canonical_receipt
+        } else {
+            control.canonical_snapshot.unwrap_or(control.snapshot.l1_block_hash)
+        })
     }
     async fn validate_reference(&self, _: &LandingSnapshot, _: u64, _: B256) -> Result<()> {
         if self.control.lock().unwrap().reference_current {
@@ -884,7 +892,7 @@ async fn restart_confirming_reconciles_the_receipt_before_using_cached_success()
 }
 
 #[tokio::test]
-async fn estimation_revert_rechecks_checkpoint_races_but_stops_for_unchanged_job() {
+async fn estimation_revert_discards_only_unsigned_work_so_restart_can_rebuild() {
     for competition in [false, true] {
         let fixture = Fixture::new();
         let mut runner = fixture.runner();
@@ -900,10 +908,99 @@ async fn estimation_revert_rechecks_checkpoint_races_but_stops_for_unchanged_job
             assert_eq!(runner.state(), &JournalState::Idle);
         } else {
             assert!(matches!(result, Err(LanderError::Reverted(_))));
-            assert!(matches!(runner.state(), JournalState::Prepared { .. }));
+            assert_eq!(runner.state(), &JournalState::Idle);
+            let journal: serde_json::Value = serde_json::from_slice(
+                &std::fs::read(fixture.directory.path().join("lander-state.json")).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(journal["state"]["phase"], "idle");
+            drop(runner);
+            fixture.control.lock().unwrap().estimate_revert = false;
+            let mut resumed = fixture.runner();
+            assert_eq!(resumed.step().await.unwrap(), StepOutcome::Progress);
+            assert_eq!(fixture.control.lock().unwrap().prepares, 2);
+            assert_eq!(resumed.step().await.unwrap(), StepOutcome::Progress);
+            assert!(matches!(resumed.state(), JournalState::Signed { .. }));
         }
         assert_eq!(fixture.control.lock().unwrap().broadcasts.len(), 0);
     }
+}
+
+#[tokio::test]
+async fn receipt_reconciliation_retries_an_orphaned_snapshot_without_discarding_signed_bytes() {
+    let fixture = Fixture::new();
+    let mut runner = fixture.runner();
+    for _ in 0..3 {
+        runner.step().await.unwrap();
+    }
+    let transaction = pending_transaction(&runner);
+    fixture.mine(&transaction, true);
+    runner.step().await.unwrap();
+    let confirming = runner.state().clone();
+    let path = fixture.directory.path().join("lander-state.json");
+    let journal = std::fs::read(&path).unwrap();
+    {
+        let mut control = fixture.control.lock().unwrap();
+        // The snapshot was read from the old block at height 31 before the receipt RPC observes
+        // the replacement branch, where this transaction succeeded in block 30.
+        control.snapshot.l1_block_number = 31;
+        control.snapshot.l1_block_hash = B256::repeat_byte(31);
+        control.snapshot.checkpoint_height = fixture.request.batch.snapshot.checkpoint_height;
+        control.snapshot.checkpoint_hash = fixture.request.batch.snapshot.checkpoint_hash;
+        control.canonical_snapshot = Some(B256::repeat_byte(32));
+    }
+    assert!(matches!(runner.step().await, Err(LanderError::Temporary(_))));
+    assert_eq!(runner.state(), &confirming);
+    assert_eq!(std::fs::read(&path).unwrap(), journal);
+    {
+        let mut control = fixture.control.lock().unwrap();
+        control.snapshot.l1_block_hash = B256::repeat_byte(32);
+        control.snapshot.checkpoint_height = fixture.request.batch.input.lastHeight;
+        control.snapshot.checkpoint_hash = fixture.request.batch.input.lastBlockHash;
+    }
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Settled);
+    let control = fixture.control.lock().unwrap();
+    assert_eq!((control.signs, control.broadcasts.len()), (1, 1));
+}
+
+#[tokio::test]
+async fn successful_receipt_with_a_canonical_unchanged_checkpoint_remains_a_safety_stop() {
+    let fixture = Fixture::new();
+    let mut runner = fixture.runner();
+    for _ in 0..3 {
+        runner.step().await.unwrap();
+    }
+    let transaction = pending_transaction(&runner);
+    fixture.mine(&transaction, true);
+    runner.step().await.unwrap();
+    {
+        let mut control = fixture.control.lock().unwrap();
+        control.snapshot.l1_block_number = 31;
+        control.snapshot.checkpoint_height = fixture.request.batch.snapshot.checkpoint_height;
+        control.snapshot.checkpoint_hash = fixture.request.batch.snapshot.checkpoint_hash;
+    }
+    assert!(matches!(runner.step().await, Err(LanderError::Safety(_))));
+    assert!(matches!(runner.state(), JournalState::Confirming { .. }));
+}
+
+#[tokio::test]
+async fn a_pending_nonce_below_confirmed_retries_without_rebroadcasting() {
+    let fixture = Fixture::new();
+    fixture.control.lock().unwrap().nonce = NonceState { confirmed: 4, pending: 4 };
+    let mut runner = fixture.runner();
+    for _ in 0..3 {
+        runner.step().await.unwrap();
+    }
+    let pending = runner.state().clone();
+    {
+        let mut control = fixture.control.lock().unwrap();
+        control.known = false;
+        control.nonce.pending = 3;
+    }
+    assert!(matches!(runner.step().await, Err(LanderError::Temporary(_))));
+    assert_eq!(runner.state(), &pending);
+    let control = fixture.control.lock().unwrap();
+    assert_eq!((control.signs, control.broadcasts.len()), (1, 1));
 }
 
 #[tokio::test]

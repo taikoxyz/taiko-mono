@@ -45,7 +45,7 @@ impl StandaloneAnvil {
                 &name,
                 &[
                     "-p",
-                    "8545",
+                    "127.0.0.1::8545",
                     "--entrypoint",
                     "anvil",
                     &image,

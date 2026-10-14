@@ -43,7 +43,7 @@ fn inputs(fixture: &ContractFixture, rpc: &FixtureRpc, root: &TempDir) -> Result
     std::fs::write(
         &chain_config,
         format!(
-            "inbox = \"{}\"\nregistry = \"{}\"\nd_max = 5\nmargin_v = 0\n",
+            "inbox = \"{}\"\nregistry = \"{}\"\nd_max = 12\nmargin_v = 2\n",
             fixture.inbox, fixture.registry,
         ),
     )?;
@@ -53,6 +53,11 @@ fn inputs(fixture: &ContractFixture, rpc: &FixtureRpc, root: &TempDir) -> Result
         key,
         data: root.path().join("lander"),
         chain_config,
+        max_blocks: fixture
+            .genesis
+            .epoch_len
+            .checked_add(2)
+            .context("fixture batch cap overflow")?,
     })
 }
 
@@ -115,13 +120,15 @@ async fn lander_cli_lands_blob_batches_and_resumes_after_sigterm() -> Result<()>
         ensure!(first.signal(libc::SIGTERM).await?.success(), "SIGTERM should exit cleanly");
         assert_key_absent(&first);
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;
-        chain.extend(&fixture, 10).await?;
+        let resumed_height = fixture.genesis.epoch_len + 2;
+        chain.extend(&fixture, resumed_height).await?;
         rpc.replace(rpc_data(&chain)).await;
         let mut second =
             CliProcess::spawn(Path::new(CLIENT), &args, directory.path().join("second.log"), &[])?;
-        wait_checkpoint(&fixture, &mut second, 10).await?;
+        wait_checkpoint(&fixture, &mut second, resumed_height).await?;
         ensure!(
-            fixture.checkpoint().await? == (10, chain.headers[10].hash_slow()),
+            fixture.checkpoint().await? ==
+                (resumed_height, chain.headers[usize::try_from(resumed_height)?].hash_slow()),
             "resumed CLI checkpoint differs"
         );
         ensure!(
@@ -199,9 +206,10 @@ async fn lander_cli_sigkill_reconciles_the_same_pending_nonce_before_progress() 
             "restart consumed an extra nonce"
         );
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;
-        chain.extend(&fixture, 10).await?;
+        let resumed_height = fixture.genesis.epoch_len + 2;
+        chain.extend(&fixture, resumed_height).await?;
         rpc.replace(rpc_data(&chain)).await;
-        wait_checkpoint(&fixture, &mut second, 10).await?;
+        wait_checkpoint(&fixture, &mut second, resumed_height).await?;
         ensure!(
             fixture.anvil.provider.get_transaction_count(sender).await? == nonce + 2,
             "continued progress did not retain one nonce per landing"
@@ -426,29 +434,32 @@ async fn lander_cli_flushes_backpressure_and_switch_witnesses_before_batch_deadl
             Path::new(CLIENT),
             &args,
             directory.path().join("batch-pressure.log"),
-            &[("--min-blocks", "5"), ("--max-batch-wait", "3600")],
+            &[("--min-blocks", "10"), ("--max-batch-wait", "3600")],
         )?;
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;
-        chain.extend(&fixture, 5).await?;
+        chain.extend(&fixture, 10).await?;
         rpc.replace(rpc_data(&chain)).await;
-        // Four unlanded blocks leave only one height before the ABCI cap U=5.
-        wait_checkpoint_before(&fixture, &mut process, 5, Duration::from_secs(15)).await?;
+        // Nine unlanded blocks leave only one height before the builtin ABCI cap U=10.
+        wait_checkpoint_before(&fixture, &mut process, 10, Duration::from_secs(15)).await?;
         ensure!(process.signal(libc::SIGTERM).await?.success(), "SIGTERM should exit cleanly");
         assert_key_absent(&process);
-        // The unlanded switch at height 7 triggers useful settlement at depth 2.
+        // The unlanded switch at height 12 triggers useful settlement at depth 2.
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;
-        chain.extend(&fixture, 7).await?;
+        let switch_height = fixture.genesis.epoch_len - 1;
+        chain.extend(&fixture, switch_height).await?;
         rpc.replace(rpc_data(&chain)).await;
         let mut process = CliProcess::spawn(
             Path::new(CLIENT),
             &args,
             directory.path().join("batch-epoch.log"),
-            &[("--min-blocks", "5"), ("--max-batch-wait", "3600")],
+            &[("--min-blocks", "10"), ("--max-batch-wait", "3600")],
         )?;
         // Only two blocks remain, including the fixed-cutoff switch witness.
-        wait_checkpoint_before(&fixture, &mut process, 7, Duration::from_secs(15)).await?;
+        wait_checkpoint_before(&fixture, &mut process, switch_height, Duration::from_secs(15))
+            .await?;
         ensure!(
-            fixture.checkpoint().await? == (7, chain.headers[7].hash_slow()),
+            fixture.checkpoint().await? ==
+                (switch_height, chain.headers[usize::try_from(switch_height)?].hash_slow()),
             "urgent checkpoint differs"
         );
         ensure!(

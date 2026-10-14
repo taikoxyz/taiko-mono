@@ -1,19 +1,5 @@
 # Changelog
 
-## Unreleased
-
-### Features
-
-* **taiko-client-rs:** derive incoming committees from the committed switch-parent anchor and apply CometBFT H+2 updates without per-epoch set or land publication; authenticate historical derivation parents for arbitrary landing cuts and bind the nine-word committee configuration in V5 statements, version-3 envelopes and schema-3 journals while retaining back-pressure and generation rules ([#22280](https://github.com/taikoxyz/taiko-mono/pull/22280)).
-* **taiko-client-rs:** make lander minimum batch size and maximum wait configurable, persist backlog age across restarts, and flush early for back-pressure and committee transitions ([#22280](https://github.com/taikoxyz/taiko-mono/pull/22280)).
-* **taiko-client-rs:** add the permissionless Etna lander crate and CLI, authenticated CometBFT batch/blob construction, an async proof-provider trait with dummy `0x00`, and durable transaction/receipt recovery ([#22280](https://github.com/taikoxyz/taiko-mono/pull/22280)).
-
-### Bug Fixes
-
-* **taiko-client-rs:** let the lander wait up to 30s for a receipt whose nonce is already mined before treating the account as shared, since execution clients index receipts after the block ([#22280](https://github.com/taikoxyz/taiko-mono/pull/22280)).
-* **taiko-client-rs:** reserve checked 20% signing gas headroom when a pending L1 reference crosses the BLOCKHASH-to-EIP-2935 window, with a real-contract regression ([#22280](https://github.com/taikoxyz/taiko-mono/pull/22280)).
-
-
 ## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.2.0...taiko-alethia-client-rs-v2.3.0) (2026-09-28)
 
 

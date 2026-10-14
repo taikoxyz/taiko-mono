@@ -109,7 +109,6 @@ pub struct Member {
 pub struct InboxFacts {
     /// `status` (slot 258, exposed by the compatibility `migrationState` getter); `ETNA_ACTIVE =
     /// 3` once Etna PoS is live.
-    #[serde(alias = "migration_state")]
     pub status: u8,
     /// `recoveryGeneration` (slot 268); also the CometBFT `chain_id` suffix and the `extraData`
     /// generation of every block of that generation.

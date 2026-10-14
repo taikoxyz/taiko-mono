@@ -21,6 +21,7 @@ mod anvil;
 mod app;
 mod beacon;
 mod boot;
+mod cleanup;
 mod cometbft;
 mod devnet;
 mod docker;

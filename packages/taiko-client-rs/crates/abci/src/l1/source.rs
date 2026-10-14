@@ -129,7 +129,9 @@ pub trait L1Source: Send + Sync + 'static {
     async fn storage_at(&self, address: Address, slot: B256, block: u64) -> Result<U256, L1Error>;
 }
 
-/// [`L1Source`] over an alloy JSON-RPC provider.
+/// [`L1Source`] over an alloy JSON-RPC provider. When used as the primary source it must
+/// point at the operator's own L1 node; [`super::archive::CommitteeL1Source`] may instead use
+/// another instance solely for untrusted archive state reads.
 ///
 /// Raw headers come from `debug_getRawHeader`. A node that does not serve it (e.g. anvil) gets
 /// its `eth_getBlockByNumber` header re-encoded instead, but only while that header has no field
@@ -137,12 +139,13 @@ pub trait L1Source: Send + Sync + 'static {
 /// with [`L1Error::UnknownHeaderFields`] rather than hand out a header that drops them.
 #[derive(Clone, Debug)]
 pub struct RpcL1Source {
-    /// Provider for the operator's own L1 execution node.
+    /// Provider for primary own-L1 reads or untrusted archive state acquisition.
     provider: RootProvider,
 }
 
 impl RpcL1Source {
-    /// Wraps `provider`, which must point at the operator's own L1 execution node.
+    /// Wraps `provider`; a source used for finality or canonical headers must point at the
+    /// operator's own L1 execution node. Archive instances supply untrusted state reads only.
     pub const fn new(provider: RootProvider) -> Self {
         Self { provider }
     }

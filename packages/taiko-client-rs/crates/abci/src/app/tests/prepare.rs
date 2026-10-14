@@ -369,6 +369,127 @@ async fn a_second_round_at_a_switch_reuses_the_committee_witness() {
     assert!(app.committee_cache.lock().unwrap().is_none(), "Commit drops the cached witness");
 }
 
+/// The fixed switch snapshot remains available after restart even when the primary L1 has
+/// pruned every historical state: the proposal still carries the independently verified witness.
+#[tokio::test]
+async fn verified_switch_witness_survives_restart_without_historical_l1_state() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = before_switch(&fx, dir.path()).await;
+    app.store.save(app.state().unwrap()).expect("persists the switch parent");
+    let before = propose(&mut app).await;
+    app.l1().state().states.clear();
+    app.l1().state().calls.clear();
+    let App { l1, engine, blobs, params, store, opts, .. } = app;
+    let mut restarted =
+        App::new(Arc::try_unwrap(l1).expect("sole L1 owner"), engine, blobs, params, store, opts)
+            .unwrap();
+    let height = next_height(&restarted);
+    let time = bft_time(&restarted);
+    let txs = prepare(&mut restarted, prepare_req(height, time)).await;
+    assert_eq!(txs.len(), 1, "restart must propose; halt = {:?}", restarted.halt);
+    let after = EtnaEnvelope::decode(&txs[0]).unwrap();
+    assert_eq!(after.committee, before.committee);
+    assert_eq!(registry_reads(&restarted), 0, "durable verified witness needs no state RPC");
+}
+
+/// A peer's independently valid switch witness is persisted even when local execution refuses
+/// its block, so restart can still propose without the fixed anchor's pruned state.
+#[tokio::test]
+async fn peer_switch_witness_survives_restart_after_local_execution_refusal() {
+    let fx = Fixture::genesis(3);
+    let a_dir = tempfile::tempdir().unwrap();
+    let mut proposer = before_switch(&fx, a_dir.path()).await;
+    let env = propose(&mut proposer).await;
+    let b_dir = tempfile::tempdir().unwrap();
+    let mut node = before_switch(&fx, b_dir.path()).await;
+    node.store.save(node.state().unwrap()).unwrap();
+    node.engine().state().new_payload_script.push_back(Ok(PayloadVerdict::Syncing));
+    assert_eq!(judge(&mut node, &env).await.0, response::ProcessProposal::Reject);
+    node.l1().state().states.clear();
+    let App { l1, engine, blobs, params, store, opts, .. } = node;
+    let mut restarted =
+        App::new(Arc::try_unwrap(l1).expect("sole L1 owner"), engine, blobs, params, store, opts)
+            .unwrap();
+    assert_eq!(propose(&mut restarted).await.committee, env.committee);
+}
+
+/// A saved identity cannot grant trust to a forged witness or an RLP value with trailing bytes.
+#[tokio::test]
+async fn corrupt_switch_sidecar_is_reverified_and_reacquired() {
+    use crate::store::COMMITTEE_WITNESS_FILE;
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = before_switch(&fx, dir.path()).await;
+    app.store.save(app.state().unwrap()).unwrap();
+    let original = propose(&mut app).await.committee.unwrap();
+    let path = dir.path().join(COMMITTEE_WITNESS_FILE);
+    let saved: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    for trailing in [false, true] {
+        let mut forged = original.clone();
+        if !trailing {
+            forged.entries[0].eff_stake += alloy_primitives::U256::from(1);
+        }
+        let mut raw = alloy_rlp::encode(&forged);
+        if trailing {
+            raw.push(0);
+        }
+        let mut corrupt = saved.clone();
+        corrupt["witness"] = serde_json::json!(Bytes::from(raw));
+        std::fs::write(&path, serde_json::to_vec(&corrupt).unwrap()).unwrap();
+        let mut restarted = fx.app(dir.path());
+        let parent = restarted.state().unwrap().clone();
+        fx.plant_l1_block(restarted.l1(), 70, &fx.inbox_with(parent.last_height - 5), &fx.registry);
+        assert_eq!(propose(&mut restarted).await.committee, Some(original.clone()));
+        assert!(registry_reads(&restarted) > 0, "invalid cache must reacquire the witness");
+    }
+}
+
+/// A stale sidecar never reuses a witness across another chain, schedule, config, anchor or epoch.
+#[tokio::test]
+async fn switch_sidecar_requires_its_full_authenticated_identity() {
+    use crate::store::COMMITTEE_WITNESS_FILE;
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = before_switch(&fx, dir.path()).await;
+    app.store.save(app.state().unwrap()).unwrap();
+    let original = propose(&mut app).await.committee.unwrap();
+    let path = dir.path().join(COMMITTEE_WITNESS_FILE);
+    let saved: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    let word = serde_json::json!(B256::repeat_byte(0xe1));
+    for (pointer, value) in [
+        ("/key/chain_id", serde_json::json!("taiko-etna-167001-g1")),
+        ("/key/genesis/epoch_len", serde_json::json!(99)),
+        ("/key/inbox", serde_json::json!(alloy_primitives::Address::repeat_byte(0xe1))),
+        ("/key/committee_config_hash", word.clone()),
+        ("/key/parent_anchor", serde_json::json!(71)),
+        ("/key/parent_anchor_hash", word.clone()),
+        ("/key/parent_state_root", word),
+        ("/key/target_epoch", serde_json::json!(3)),
+    ] {
+        let mut stale = saved.clone();
+        *stale.pointer_mut(pointer).unwrap() = value;
+        std::fs::write(&path, serde_json::to_vec(&stale).unwrap()).unwrap();
+        let mut restarted = fx.app(dir.path());
+        let parent = restarted.state().unwrap().clone();
+        fx.plant_l1_block(restarted.l1(), 70, &fx.inbox_with(parent.last_height - 5), &fx.registry);
+        assert_eq!(propose(&mut restarted).await.committee, Some(original.clone()), "{pointer}");
+        assert!(registry_reads(&restarted) > 0, "{pointer}: another context must reacquire");
+    }
+}
+
+/// A node must surface failed durable retention rather than publish a witness it would lose on
+/// restart; the sidecar is kept separate from the committed state file.
+#[tokio::test]
+async fn switch_sidecar_write_failure_refuses_the_proposal() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = before_switch(&fx, dir.path()).await;
+    std::fs::create_dir(dir.path().join(crate::store::COMMITTEE_WITNESS_FILE)).unwrap();
+    assert_eq!(refused(&mut app).await, "committee_cache_error");
+    assert!(app.committee_cache.lock().unwrap().is_none());
+}
+
 /// CometBFT rotates proposers round by round: a node that judged another proposer's block at
 /// `H(t)-2` keeps its verified committee witness, so its own proposal at that height (a later
 /// round) needs no discovery. The witness is proven against the committed parent's anchor alone,
@@ -672,4 +793,247 @@ async fn slow_blob_source_proposes_nothing() {
     fx.blobs.state().delay = Some(app.opts.prepare_timeout + Duration::from_secs(1));
     assert_eq!(refused(&mut app).await, "timeout");
     assert!(!built_any(&app));
+}
+
+/// A round cancelled during the EL build retains the already verified forced proof and blob.
+/// The next round can build even if the beacon has since become unavailable.
+#[tokio::test(start_paused = true)]
+async fn cancelled_prepare_reuses_completed_forced_reads() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    plant_due_entry(&fx, app.l1(), 66, fx.inbox.clone());
+    app.engine().state().delay_script.push_back(app.opts.prepare_timeout + Duration::from_secs(1));
+    assert_eq!(refused(&mut app).await, "timeout");
+    assert_eq!(fx.blobs.calls().len(), 1);
+
+    fx.blobs.state().fail = Some("beacon down after the first read".into());
+    let env = propose(&mut app).await;
+    assert!(env.forced.as_ref().is_some_and(|w| !w.blob.is_empty()));
+    assert_eq!(fx.blobs.calls().len(), 1, "the verified blob survives round cancellation");
+    assert_eq!(
+        app.l1().calls().iter().filter(|c| **c == entry_read(&fx, 0, 66)).count(),
+        1,
+        "the entry proof is reused only under the same anchor root"
+    );
+}
+
+/// Header and Inbox proof acquisition share a latency wave instead of serially consuming the
+/// whole proposal budget.
+#[tokio::test(start_paused = true)]
+async fn prepare_fetches_anchor_header_and_proof_concurrently() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    fx.advance_l1(app.l1(), 66, &fx.inbox, &fx.registry);
+    app.l1().state().delay = Some(Duration::from_millis(750));
+    let started = tokio::time::Instant::now();
+    let env = propose(&mut app).await;
+    assert!(env.anchor.is_some());
+    assert_eq!(started.elapsed(), Duration::from_millis(1500));
+    assert_eq!(app.l1().state().max_in_flight, 2);
+}
+
+/// A blob fetch inside its own three-second deadline can outlive a cancelled two-second
+/// proposal and complete for the next round without starting another fetch.
+#[tokio::test(start_paused = true)]
+async fn forced_blob_fetch_outlives_a_cancelled_round() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let blob = plant_due_entry(&fx, app.l1(), 66, fx.inbox.clone());
+    fx.blobs.state().delay = Some(Duration::from_millis(2500));
+    assert_eq!(refused(&mut app).await, "timeout");
+    tokio::time::sleep(Duration::from_millis(501)).await;
+    let env = propose(&mut app).await;
+    assert_eq!(env.forced.map(|w| w.blob), Some(blob));
+    assert_eq!(fx.blobs.calls().len(), 1, "one bounded fetch spans rounds");
+}
+
+/// The same cancellation rule applies to a forced-entry proof, keyed to the anchor's state
+/// root and queue index. Finality and header reads remain below the preparation budget.
+#[tokio::test(start_paused = true)]
+async fn forced_entry_fetch_outlives_a_cancelled_round() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    plant_due_entry(&fx, app.l1(), 66, fx.inbox.clone());
+    let anchor = fx.anchor_state(app.l1(), 66);
+    app.state.as_mut().unwrap().anchor = anchor;
+    app.l1().state().proof_delay = Some(Duration::from_millis(2500));
+    assert_eq!(refused(&mut app).await, "timeout");
+    tokio::time::sleep(Duration::from_millis(501)).await;
+    let env = propose(&mut app).await;
+    assert!(env.forced.is_some());
+    assert_eq!(
+        app.l1().calls().iter().filter(|c| **c == entry_read(&fx, 0, 66)).count(),
+        1,
+        "one bounded proof read spans rounds"
+    );
+}
+
+/// Replacing the chosen entry's hash aborts its unfinished fetch instead of accumulating
+/// background requests or allowing the old blob to satisfy the new entry.
+#[tokio::test(start_paused = true)]
+async fn a_new_blob_hash_aborts_the_previous_inflight_fetch() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let previous = plant_due_entry(&fx, app.l1(), 66, fx.inbox.clone());
+    fx.blobs.state().delay = Some(Duration::from_millis(2500));
+    assert_eq!(refused(&mut app).await, "timeout");
+
+    fx.blobs.state().delay = None;
+    let timestamp = Fixture::l1_timestamp(67) - fx.genesis.forced_inclusion_delay;
+    let replacement =
+        plant_entries(&fx, app.l1(), 67, fx.inbox.clone(), vec![(timestamp, vec![])]).remove(0);
+    assert_ne!(blob_versioned_hash(&previous), blob_versioned_hash(&replacement));
+    let env = propose(&mut app).await;
+    assert_eq!(env.forced.map(|w| w.blob), Some(replacement));
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    assert!(
+        fx.blobs.calls().iter().all(|call| call.versioned_hash != blob_versioned_hash(&previous))
+    );
+}
+
+/// Another proposer can commit while this node's blob request is in flight. Commit aborts it;
+/// voting and finalizing the carried blob never require that request to finish.
+#[tokio::test(start_paused = true)]
+async fn commit_aborts_an_unfinished_blob_fetch() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let blob = plant_due_entry(&fx, app.l1(), 66, fx.inbox.clone());
+    fx.blobs.state().delay = Some(Duration::from_millis(2500));
+    assert_eq!(refused(&mut app).await, "timeout");
+    let env = hand_forced_envelope(
+        &app,
+        Some(fx.anchor_witness(app.l1(), 66)),
+        None,
+        fx.forced_witness(app.l1(), 66, 0, blob),
+        sample_tx_list(),
+    );
+    accept_and_commit(&mut app, &env).await;
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    assert_eq!(fx.blobs.calls(), [], "the obsolete request was aborted before answering");
+    assert_eq!(app.state().unwrap().forced_cursor, 1);
+}
+
+/// A same-number replacement header changes the authentication root. Neither cached anchor
+/// nor entry proofs can be reused, while the identical commitment-verified blob remains valid.
+#[tokio::test]
+async fn preparation_proofs_are_refetched_when_the_anchor_root_changes() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    plant_due_entry(&fx, app.l1(), 66, fx.inbox.clone());
+    let first = propose(&mut app).await;
+    plant_due_entry(&fx, app.l1(), 66, fx.inbox_with(fx.genesis.genesis_height + 4));
+    let second = propose(&mut app).await;
+    assert_ne!(first.anchor.unwrap().l1_header.hash(), second.anchor.unwrap().l1_header.hash());
+    assert_eq!(
+        app.l1().calls().iter().filter(|c| **c == entry_read(&fx, 0, 66)).count(),
+        2,
+        "a different root needs a different entry proof"
+    );
+    assert_eq!(fx.blobs.calls().len(), 1, "the same immutable blob is safe across roots");
+}
+
+/// A task that fails after its waiting round was cancelled must not consume another healthy
+/// round merely to report its obsolete error.
+#[tokio::test(start_paused = true)]
+async fn a_failed_blob_task_is_retried_by_the_next_healthy_round() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    plant_due_entry(&fx, app.l1(), 66, fx.inbox.clone());
+    {
+        let mut blobs = fx.blobs.state();
+        blobs.delay = Some(Duration::from_millis(2500));
+        blobs.fail = Some("temporarily unavailable".into());
+    }
+    assert_eq!(refused(&mut app).await, "timeout");
+    tokio::time::sleep(Duration::from_millis(501)).await;
+    {
+        let mut blobs = fx.blobs.state();
+        blobs.delay = None;
+        blobs.fail = None;
+    }
+    assert!(propose(&mut app).await.forced.is_some());
+    assert_eq!(fx.blobs.calls().len(), 2, "one failed read and a fresh successful retry");
+}
+
+/// The underlying read's own timeout also discards its completed failure before retrying a
+/// now-healthy beacon, independently of the shorter PrepareProposal timeout.
+#[tokio::test(start_paused = true)]
+async fn a_timed_out_blob_task_is_retried_by_the_next_healthy_round() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    plant_due_entry(&fx, app.l1(), 66, fx.inbox.clone());
+    fx.blobs.state().delay = Some(app.opts.l1_timeout + Duration::from_secs(1));
+    assert_eq!(refused(&mut app).await, "timeout");
+    tokio::time::sleep(Duration::from_millis(1001)).await;
+    fx.blobs.state().delay = None;
+    assert!(propose(&mut app).await.forced.is_some());
+    assert_eq!(fx.blobs.calls().len(), 1, "the timed-out source never completed");
+}
+
+/// A late proof error is likewise evicted before the next healthy proposal retries under the
+/// same root and queue index.
+#[tokio::test(start_paused = true)]
+async fn a_failed_entry_task_is_retried_by_the_next_healthy_round() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    plant_due_entry(&fx, app.l1(), 66, fx.inbox.clone());
+    app.state.as_mut().unwrap().anchor = fx.anchor_state(app.l1(), 66);
+    app.l1().state().proof_delay = Some(Duration::from_millis(2500));
+    assert_eq!(refused(&mut app).await, "timeout");
+    app.l1().state().fail = Some(L1Error::Rpc("temporarily unavailable".into()));
+    tokio::time::sleep(Duration::from_millis(501)).await;
+    {
+        let mut l1 = app.l1().state();
+        l1.fail = None;
+        l1.proof_delay = None;
+    }
+    assert!(propose(&mut app).await.forced.is_some());
+    assert_eq!(
+        app.l1().calls().iter().filter(|c| **c == entry_read(&fx, 0, 66)).count(),
+        2,
+        "one failed proof and a fresh successful retry"
+    );
+}
+
+/// A new authentication root aborts an unfinished proof instead of allowing it to accumulate
+/// in the background or satisfy the replacement root.
+#[tokio::test(start_paused = true)]
+async fn a_new_anchor_root_aborts_the_previous_inflight_entry_read() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    plant_due_entry(&fx, app.l1(), 66, fx.inbox.clone());
+    app.state.as_mut().unwrap().anchor = fx.anchor_state(app.l1(), 66);
+    app.l1().state().proof_delay = Some(Duration::from_millis(2500));
+    assert_eq!(refused(&mut app).await, "timeout");
+    app.l1().state().proof_delay = None;
+    plant_due_entry(&fx, app.l1(), 67, fx.inbox.clone());
+    assert!(propose(&mut app).await.forced.is_some());
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    assert!(app.l1().calls().iter().all(|call| *call != entry_read(&fx, 0, 66)));
+    assert!(app.l1().calls().contains(&entry_read(&fx, 0, 67)));
+}
+
+/// Dropping the app cancels its owned task even when an external blob-source owner remains.
+#[tokio::test(start_paused = true)]
+async fn app_drop_aborts_an_unfinished_blob_fetch() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    plant_due_entry(&fx, app.l1(), 66, fx.inbox.clone());
+    fx.blobs.state().delay = Some(Duration::from_millis(2500));
+    assert_eq!(refused(&mut app).await, "timeout");
+    drop(app);
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    assert_eq!(fx.blobs.calls(), [], "the detached source cannot finish the dropped app's task");
 }

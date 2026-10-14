@@ -24,7 +24,7 @@ use std::time::Duration;
 
 use crate::{
     contracts::IEtnaInbox::{LandInput, hashLandStatementCall},
-    error::{LanderError, Result},
+    error::{LanderError, Result, sanitized_rpc_error},
     types::LandingSnapshot,
 };
 
@@ -167,7 +167,8 @@ impl RpcLandingSource {
     }
 }
 
-/// How long the newest L1 block is re-read while its Inbox proof does not verify under its header.
+/// How long to re-read the head after first observing an Inbox proof that does not verify under
+/// its header. Initial RPC latency cannot consume the grace before inconsistency is observed.
 ///
 /// An endpoint can answer the head's proofs from state the next block is still extending: anvil
 /// stores block `n`'s state only when it starts mining `n + 1`, so a transaction being mined
@@ -180,7 +181,7 @@ const HEAD_PROOF_RETRY: Duration = Duration::from_millis(100);
 #[async_trait]
 impl LandingSource for RpcLandingSource {
     async fn snapshot(&self) -> Result<LandingSnapshot> {
-        let deadline = tokio::time::Instant::now() + self.head_proof_grace;
+        let mut proof_mismatch_deadline = None;
         loop {
             let latest = self.l1.get_block_number().await.map_err(rpc_error)?;
             let raw = self.anchors.header_hash_pinned(latest).await.map_err(anchor_error)?;
@@ -199,13 +200,19 @@ impl LandingSource for RpcLandingSource {
                 .map_err(anchor_error)?;
             let unverifiable = witness.address == self.params.inbox &&
                 verify_account_witness(raw.state_root(), &witness, &snapshot_slots()).is_err();
-            if unverifiable && tokio::time::Instant::now() < deadline {
-                tracing::warn!(
-                    l1_block = latest,
-                    "Inbox proof does not verify under the head's own header; re-reading the head"
-                );
-                tokio::time::sleep(HEAD_PROOF_RETRY).await;
-                continue;
+            if unverifiable {
+                let now = tokio::time::Instant::now();
+                // Preserve the first suspicion's deadline across every head re-read. A nonzero
+                // grace always permits at least one re-read, even if the first response was slow.
+                let deadline = *proof_mismatch_deadline.get_or_insert(now + self.head_proof_grace);
+                if now < deadline {
+                    tracing::warn!(
+                        l1_block = latest,
+                        "Inbox proof does not verify under the head's own header; re-reading the head"
+                    );
+                    tokio::time::sleep(HEAD_PROOF_RETRY).await;
+                    continue;
+                }
             }
             return decode_snapshot(raw, witness, l1_chain_id, l2_chain_id, &self.params);
         }
@@ -296,7 +303,12 @@ impl LandingSource for RpcLandingSource {
             epoch,
         )
         .await
-        .map_err(|e| LanderError::Temporary(format!("committee discovery: {e}")))
+        .map_err(|error| match error {
+            abci::l1::FetchError::L1(abci::l1::source::L1Error::Rpc(_)) => {
+                LanderError::Temporary("committee discovery: L1 RPC failure".into())
+            }
+            error => LanderError::Temporary(format!("committee discovery: {error}")),
+        })
     }
 
     async fn reference(
@@ -568,15 +580,16 @@ pub fn authenticate_snapshot(snapshot: &LandingSnapshot, params: &ChainParams) -
 }
 
 /// An RPC failure has no authenticated contradiction and can safely be retried.
-fn rpc_error(error: impl std::fmt::Display) -> LanderError {
-    LanderError::Temporary(format!("public RPC: {error}"))
+fn rpc_error(error: alloy::transports::TransportError) -> LanderError {
+    sanitized_rpc_error("public RPC", error)
 }
 
 /// Preserve the raw-header adapter's distinction between transport failures and malformed data.
 fn anchor_error(error: abci::l1::source::L1Error) -> LanderError {
     use abci::l1::source::L1Error;
     match error {
-        L1Error::Rpc(_) | L1Error::BlockNotFound(_) => LanderError::Temporary(error.to_string()),
+        L1Error::Rpc(_) => LanderError::Temporary("L1 RPC failure".into()),
+        L1Error::BlockNotFound(_) => LanderError::Temporary(error.to_string()),
         _ => LanderError::Safety(error.to_string()),
     }
 }

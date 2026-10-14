@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use alloy_primitives::{Address, B256};
-use tendermint::{block::Height, vote};
+use tendermint::{Time, block::Height, public_key, vote};
 
 use super::*;
 use crate::{
@@ -15,7 +15,8 @@ use crate::{
     rules::{RuleViolation, chain_id_for},
     schedule::{Schedule, ScheduleError},
     test_utils::{
-        EngineCall, GenesisSpec, L1Call, MockEngine, edit_l1_header, l1_header, sample_entries,
+        EngineCall, GenesisSpec, L1Call, MockEngine, TestState, committee_witness, edit_l1_header,
+        filler_accounts, inbox_account, l1_header, registry_account, sample_entries,
     },
     types::RegistryEntry,
 };
@@ -392,6 +393,98 @@ async fn initial_height_must_be_one() {
             "{err:?}"
         );
     }
+    assert_not_initialized(&app, dir.path());
+}
+
+#[tokio::test]
+async fn genesis_time_must_equal_the_authenticated_initialization_time() {
+    let fx = Fixture::genesis(2);
+    let seconds = i64::try_from(fx.witness.l1_header.timestamp()).unwrap();
+    for time in [
+        Time::from_unix_timestamp(seconds - 1, 0).unwrap(),
+        Time::from_unix_timestamp(seconds + 1, 0).unwrap(),
+        Time::from_unix_timestamp(seconds, 1).unwrap(),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = fx.app(dir.path());
+        let mut req = fx.request.clone();
+        req.time = time;
+        let err = init_chain(&mut app, req).await.expect_err("altered genesis time");
+        assert!(
+            matches!(err, AbciError::GenesisTimeMismatch { got, .. } if got == time),
+            "{err:?}"
+        );
+        assert_not_initialized(&app, dir.path());
+    }
+}
+
+#[tokio::test]
+async fn genesis_rejects_noncanonical_consensus_parameters() {
+    let canonical = Fixture::genesis(2).request.consensus_params;
+    let mut changes = Vec::new();
+    let mut changed = canonical.clone();
+    changed.block.max_bytes -= 1;
+    changes.push(("block byte limit", changed));
+    let mut changed = canonical.clone();
+    changed.block.max_gas = 45_000_000;
+    changes.push(("block gas limit", changed));
+    let mut changed = canonical.clone();
+    changed.evidence.max_age_num_blocks -= 1;
+    changes.push(("evidence block age", changed));
+    let mut changed = canonical.clone();
+    changed.evidence.max_age_duration.0 -= Duration::from_secs(1);
+    changes.push(("evidence duration", changed));
+    let mut changed = canonical.clone();
+    changed.evidence.max_bytes -= 1;
+    changes.push(("evidence byte limit", changed));
+    let mut changed = canonical.clone();
+    changed.validator.pub_key_types.push(public_key::Algorithm::Secp256k1);
+    changes.push(("validator key types", changed));
+    let mut changed = canonical.clone();
+    changed.version.as_mut().unwrap().app = 1;
+    changes.push(("app version", changed));
+    let mut changed = canonical.clone();
+    changed.version = None;
+    changes.push(("missing app version", changed));
+    let mut changed = canonical;
+    changed.abci.vote_extensions_enable_height = Some(Height::from(1u32));
+    changes.push(("vote extensions", changed));
+
+    let fx = Fixture::genesis(2);
+    for (field, params) in changes {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = fx.app(dir.path());
+        let mut req = fx.request.clone();
+        req.consensus_params = params;
+        let err = init_chain(&mut app, req).await.expect_err("altered consensus parameters");
+        assert!(matches!(err, AbciError::GenesisConsensusParamsMismatch), "{field}: {err:?}");
+        assert_not_initialized(&app, dir.path());
+    }
+}
+
+#[tokio::test]
+async fn genesis_state_root_must_match_the_authenticated_el_genesis() {
+    let mut fx = Fixture::genesis(2);
+    fx.genesis.genesis_state_root = B256::repeat_byte(0x88);
+    fx.inbox.genesis.as_mut().unwrap().genesis_state_root = fx.genesis.genesis_state_root;
+    let mut accounts = filler_accounts();
+    accounts.push(inbox_account(fx.params.inbox, &fx.inbox));
+    accounts.push(registry_account(fx.params.registry, &fx.registry));
+    let state = TestState::new(accounts);
+    let mut header = l1_header(fx.genesis.l1_0, Fixture::l1_timestamp(fx.genesis.l1_0));
+    header.state_root = state.state_root();
+    let mut witness = fx.witness.clone();
+    witness.l1_header = RawL1Header::from(&header);
+    witness.inbox = state.witness(fx.params.inbox, &crate::l1::layout::inbox::genesis_slots());
+    witness.committee =
+        committee_witness(&state, fx.params.registry, &fx.registry, 0, fx.record.clone());
+    fx.l1_state = state;
+    fx.set_witness(witness);
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = fx.app(dir.path());
+    let err = init_chain(&mut app, fx.request.clone()).await.expect_err("inconsistent S*");
+    assert!(matches!(err, AbciError::SafetyHalt(_)), "{err:?}");
     assert_not_initialized(&app, dir.path());
 }
 

@@ -8,10 +8,8 @@ use base64::{Engine as _, engine::general_purpose::STANDARD};
 use futures::StreamExt;
 use serde::{Deserialize, de::DeserializeOwned};
 use serde_json::{Value, json};
-use tendermint::{
-    Block,
-    block::{Commit, Header, Id},
-};
+use tendermint::block::{Commit, Header, Id};
+use tendermint_proto::v0_38::types::Block as RawBlock;
 use url::Url;
 
 use crate::{
@@ -64,10 +62,6 @@ struct RpcResponse<T> {
 struct RpcError {
     /// Numeric protocol error code.
     code: i64,
-    /// Human-readable error summary.
-    message: String,
-    /// Optional method-specific failure detail.
-    data: Option<Value>,
 }
 
 /// Fields used from `/status`.
@@ -98,8 +92,43 @@ struct SyncInfo {
 struct BlockResponse {
     /// Header/part-set identity of the returned block.
     block_id: Id,
-    /// Complete block, decoded through Tendermint's validated protobuf adapters.
-    block: Block,
+    /// Original protobuf-shaped JSON, retained before the domain adapter can rewrite evidence.
+    #[serde(deserialize_with = "deserialize_block")]
+    block: RawBlock,
+}
+
+/// Accepts Go's exported light-client evidence field names omitted by the proto JSON adapter.
+fn deserialize_block<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<RawBlock, D::Error> {
+    let mut value = Value::deserialize(deserializer)?;
+    if let Some(evidence) = value.pointer_mut("/evidence/evidence").and_then(Value::as_array_mut) {
+        for item in evidence {
+            if item.get("type").and_then(Value::as_str) !=
+                Some("tendermint/LightClientAttackEvidence")
+            {
+                continue;
+            }
+            if let Some(fields) = item.get_mut("value").and_then(Value::as_object_mut) {
+                for (go, proto) in [
+                    ("ConflictingBlock", "conflicting_block"),
+                    ("CommonHeight", "common_height"),
+                    ("ByzantineValidators", "byzantine_validators"),
+                    ("TotalVotingPower", "total_voting_power"),
+                    ("Timestamp", "timestamp"),
+                ] {
+                    if let Some(field) = fields.remove(go) &&
+                        fields.insert(proto.into(), field).is_some()
+                    {
+                        return Err(serde::de::Error::custom(format!(
+                            "duplicate light-client evidence field {proto}"
+                        )));
+                    }
+                }
+            }
+        }
+    }
+    serde_json::from_value(value).map_err(serde::de::Error::custom)
 }
 
 /// Complete certificate result from `/commit`.
@@ -197,15 +226,23 @@ impl HttpCometSource {
             body.reserve(length - body.len());
             body.extend_from_slice(&chunk);
         }
-        let response: RpcResponse<T> = serde_json::from_slice(&body)
-            .map_err(|e| LanderError::Encoding(format!("Comet {method} JSON response: {e}")))?;
-        if let Some(error) = response.error {
-            let detail = format!(
-                "Comet {method}: {} {} {}",
-                error.code,
-                error.message,
-                error.data.unwrap_or(Value::Null)
+        let response: RpcResponse<T> = serde_json::from_slice(&body).map_err(|e| {
+            // JSON data errors can quote upstream string values, including provider credentials.
+            let message = format!(
+                "Comet {method} JSON response {:?} at line {} column {}",
+                e.classify(),
+                e.line(),
+                e.column()
             );
+            if e.is_syntax() || e.is_eof() {
+                LanderError::Temporary(message)
+            } else {
+                LanderError::Encoding(message)
+            }
+        })?;
+        if let Some(error) = response.error {
+            // Providers may echo the authenticated URL in error messages or data.
+            let detail = format!("Comet {method}: JSON-RPC code {}", error.code);
             return Err(if matches!(method, "block" | "commit" | "abci_query") {
                 LanderError::Unavailable(detail)
             } else {
@@ -244,17 +281,19 @@ impl CometSource for HttpCometSource {
             self.rpc("block", params.clone()).await.map_err(|e| annotate_history(e, height))?;
         let certificate: CommitResponse =
             self.rpc("commit", params).await.map_err(|e| annotate_history(e, height))?;
-        if response.block.header.height.value() != height ||
-            certificate.signed_header.commit.height.value() != height ||
-            certificate.signed_header.header != response.block.header ||
-            response.block_id != certificate.signed_header.commit.block_id ||
-            response.block_id.hash != response.block.header.hash()
+        let pair = CertifiedBlock::from_raw(response.block, certificate.signed_header.commit)
+            .map_err(|e| LanderError::Safety(format!("Comet block at height {height}: {e}")))?;
+        if pair.block.header.height.value() != height ||
+            pair.commit.height.value() != height ||
+            certificate.signed_header.header != pair.block.header ||
+            response.block_id != pair.commit.block_id ||
+            response.block_id.hash != pair.block.header.hash()
         {
             return Err(LanderError::Safety(format!(
                 "Comet block/commit/header identity disagrees at height {height}"
             )));
         }
-        Ok(CertifiedBlock { block: response.block, commit: certificate.signed_header.commit })
+        Ok(pair)
     }
 
     async fn committee(&self, epoch: u64) -> Result<CommitteeState> {
@@ -336,7 +375,10 @@ mod tests {
                     }
                 }
                 tokio::time::sleep(delay).await;
-                let body = serde_json::to_vec(&response).unwrap();
+                let body = response.get("__body").and_then(Value::as_str).map_or_else(
+                    || serde_json::to_vec(&response).unwrap(),
+                    |raw| raw.as_bytes().to_vec(),
+                );
                 let chunked = response.get("__chunked").and_then(Value::as_bool).unwrap_or(false);
                 let header = if chunked {
                     "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n"
@@ -365,6 +407,97 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn rpc_errors_do_not_echo_credentials_from_upstream_messages_or_data() {
+        let endpoint = "https://user-secret:pass-secret@provider/path-secret?key=query-secret";
+        let responses = [
+            json!({"jsonrpc":"2.0","id":1,"error":{"code":-32603,"message":endpoint,"data":endpoint}}),
+            json!({"jsonrpc":"2.0","id":1,"result":endpoint}),
+        ];
+        for response in responses {
+            let rpc = source(vec![(response, Duration::ZERO)], 8192, Duration::from_secs(2)).await;
+            let error = rpc.status().await.unwrap_err();
+            let rendered = format!("{error} {error:?}");
+            for secret in ["user-secret", "pass-secret", "path-secret", "query-secret"] {
+                assert!(!rendered.contains(secret), "upstream error exposed {secret}");
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn retries_gateway_html_empty_and_truncated_json_on_http_success() {
+        for body in ["<html>gateway unavailable</html>", "", "{\"result\":"] {
+            let rpc = source(
+                vec![(json!({"__body":body}), Duration::ZERO)],
+                8192,
+                Duration::from_secs(2),
+            )
+            .await;
+            assert!(matches!(rpc.block(1).await, Err(LanderError::Temporary(_))), "{body}");
+        }
+    }
+
+    #[tokio::test]
+    async fn authenticates_stock_go_duplicate_nil_and_light_client_evidence() {
+        let fixture: Value =
+            serde_json::from_str(include_str!("../testdata/cometbft-v0.40/vectors.json")).unwrap();
+        let (_, committee, _) = committee(&[10, 30], 0);
+        for vector in fixture["vectors"].as_array().unwrap() {
+            let rpc = source(
+                vec![success(vector["block_rpc"].clone()), success(vector["commit_rpc"].clone())],
+                128 * 1024,
+                Duration::from_secs(2),
+            )
+            .await;
+            let pair = rpc.block(1).await.unwrap();
+            crate::validate::verify_commit(
+                &pair.commit,
+                &pair.block.header,
+                &committee,
+                "taiko-etna-167001-g0",
+            )
+            .unwrap();
+            let result = crate::validate::verify_body(&pair, 1, B256::ZERO);
+            assert!(result.is_ok(), "{}: {result:?}", vector["name"]);
+            let expected =
+                alloy_primitives::hex::decode(vector["block_proto"].as_str().unwrap()).unwrap();
+            assert_eq!(pair.raw_block.as_ref(), expected.as_slice(), "{}", vector["name"]);
+            assert_eq!(
+                pair.block.header.evidence_hash.unwrap().as_bytes(),
+                alloy_primitives::hex::decode(vector["evidence_hash"].as_str().unwrap()).unwrap(),
+            );
+            assert_eq!(
+                pair.commit.block_id.part_set_header.total,
+                vector["parts_total"].as_u64().unwrap() as u32
+            );
+            assert_eq!(
+                pair.commit.block_id.part_set_header.hash.as_bytes(),
+                alloy_primitives::hex::decode(vector["parts_hash"].as_str().unwrap()).unwrap(),
+            );
+            let wire = serde_json::to_value(&pair).unwrap();
+            let restored: CertifiedBlock = serde_json::from_value(wire.clone()).unwrap();
+            assert_eq!(restored, pair);
+            crate::validate::verify_body(&restored, 1, B256::ZERO).unwrap();
+            let mut missing = wire;
+            missing.as_object_mut().unwrap().remove("raw_block");
+            assert!(serde_json::from_value::<CertifiedBlock>(missing).is_err());
+            let mut changed = pair.clone();
+            changed.block.header.time = tendermint::Time::from_unix_timestamp(999, 0).unwrap();
+            assert!(crate::validate::verify_body(&changed, 1, B256::ZERO).is_err());
+            let mut noncanonical = pair.clone();
+            let mut bytes = noncanonical.raw_block.to_vec();
+            bytes.extend_from_slice(&[0xf8, 0x07, 0x01]);
+            noncanonical.raw_block = bytes.into();
+            assert!(crate::validate::verify_body(&noncanonical, 1, B256::ZERO).is_err());
+            assert!(
+                serde_json::from_value::<CertifiedBlock>(
+                    serde_json::to_value(&noncanonical).unwrap()
+                )
+                .is_err()
+            );
+        }
+    }
+
+    #[tokio::test]
     async fn decodes_string_height_and_preserves_typed_block_commit() {
         let status=source(vec![success(json!({"node_info":{"network":"taiko-etna-167001-g0"},"sync_info":{"latest_block_height":"27"}}))],8192,Duration::from_secs(2)).await;
         assert_eq!(
@@ -373,7 +506,7 @@ mod tests {
         );
         let (_, committee, keys) = committee(&[1], 0);
         let block = pair(1, B256::ZERO, &committee, &keys, None);
-        let rpc=source(vec![success(json!({"block_id":block.commit.block_id,"block":block.block})),success(json!({"signed_header":{"header":block.block.header,"commit":block.commit},"canonical":true}))],128*1024,Duration::from_secs(2)).await;
+        let rpc=source(vec![success(json!({"block_id":block.commit.block_id,"block":block.block_proto().unwrap()})),success(json!({"signed_header":{"header":block.block.header,"commit":block.commit},"canonical":true}))],128*1024,Duration::from_secs(2)).await;
         assert_eq!(rpc.block(1).await.unwrap(), block);
     }
 
@@ -383,7 +516,9 @@ mod tests {
         let block = pair(1, B256::ZERO, &committee, &keys, None);
         let rpc = source(
             vec![
-                success(json!({"block_id":block.commit.block_id,"block":block.block})),
+                success(
+                    json!({"block_id":block.commit.block_id,"block":block.block_proto().unwrap()}),
+                ),
                 success(
                     json!({"signed_header":{"header":block.block.header,"commit":block.commit}}),
                 ),

@@ -7,13 +7,17 @@ use abci::{
 use alloy_consensus::Header;
 use alloy_primitives::{B256, U256};
 use ed25519_dalek::{Signer, SigningKey};
+use prost::Message;
 use sha2::{Digest, Sha256};
 use tendermint::{
     AppHash, Block, Hash, Time, Vote,
     block::{Commit, CommitSig, Id, header::Version},
     vote::{CanonicalVote, Type},
 };
-use tendermint_proto::{Protobuf, v0_38::types::CanonicalVote as RawVote};
+use tendermint_proto::{
+    Protobuf,
+    v0_38::types::{Block as RawBlock, CanonicalVote as RawVote},
+};
 
 use crate::{
     committee::{AuthenticatedCommittee, authenticate},
@@ -73,6 +77,21 @@ pub fn merkle(items: &[Vec<u8>]) -> Hash {
     >(items))
 }
 
+/// Builds Go's protobuf shape for synthetic, evidence-free fixtures.
+pub fn raw_block(block: &Block) -> RawBlock {
+    assert!(block.evidence.as_ref().is_empty());
+    let mut raw = RawBlock::from(block.clone());
+    if block.header.height.value() == 1 {
+        raw.last_commit = Some(Commit::default().into());
+        raw.header.as_mut().unwrap().last_block_id =
+            Some(tendermint_proto::v0_38::types::BlockId {
+                hash: Vec::new(),
+                part_set_header: Some(Default::default()),
+            });
+    }
+    raw
+}
+
 pub fn pair(
     height: u64,
     parent: B256,
@@ -123,19 +142,23 @@ pub fn pair_with_envelope(
     };
     let block =
         Block::new(header, data, Default::default(), previous.map(|pair| pair.commit.clone()));
-    let parts = block_parts(&block);
+    let raw = raw_block(&block);
+    let parts = block_parts(&raw);
     let commit = Commit {
         height: block.header.height,
         round: 0u16.into(),
         block_id: Id { hash: block.header.hash(), part_set_header: parts },
         signatures: vec![],
     };
-    let mut pair = CertifiedBlock { block, commit };
+    let mut pair = CertifiedBlock::from_raw(raw, commit).unwrap();
     resign(&mut pair, committee, keys);
     pair
 }
 
 pub fn resign(pair: &mut CertifiedBlock, committee: &AuthenticatedCommittee, keys: &[SigningKey]) {
+    let raw = raw_block(&pair.block);
+    pair.raw_block = raw.encode_to_vec().into();
+    pair.commit.block_id.part_set_header = block_parts(&raw);
     pair.commit.block_id.hash = pair.block.header.hash();
     pair.commit.signatures = committee
         .validators

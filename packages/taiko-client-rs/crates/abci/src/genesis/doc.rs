@@ -8,7 +8,7 @@
 
 use alloy_primitives::B256;
 use serde::{Deserialize, Serialize};
-use tendermint::{PublicKey, Time, account};
+use tendermint::{PublicKey, Time, account, block, consensus, evidence, public_key};
 
 use super::{AppStateJson, GenesisError, GenesisWitness};
 use crate::types::Member;
@@ -98,24 +98,54 @@ pub struct AuthorityParams {
 }
 
 impl GenesisConsensusParams {
+    /// Canonical parameters representable by the ABCI request type. CometBFT v0.40's
+    /// authority field is not exposed by tendermint-rs and cannot be compared here.
+    pub(crate) fn abci() -> consensus::Params {
+        consensus::Params {
+            block: block::Size { max_bytes: 22_020_096, max_gas: -1, time_iota_ms: 1_000 },
+            evidence: evidence::Params {
+                max_age_num_blocks: 100_000,
+                max_age_duration: evidence::Duration(std::time::Duration::from_secs(172_800)),
+                max_bytes: 1_048_576,
+            },
+            validator: consensus::params::ValidatorParams {
+                pub_key_types: vec![public_key::Algorithm::Ed25519],
+            },
+            version: Some(consensus::params::VersionParams { app: crate::app::APP_VERSION }),
+            abci: consensus::params::AbciParams::default(),
+        }
+    }
+
     /// The parameters of every Etna genesis: CometBFT's default `block.max_bytes` (22,020,096,
     /// above any envelope) without a gas limit, the default evidence limits (100,000 blocks,
     /// 48 h, 1 MiB), Ed25519 keys only, app version 0, vote extensions disabled, and no update
     /// authority.
     pub fn etna() -> Self {
+        let params = Self::abci();
         Self {
-            block: BlockParams { max_bytes: "22020096".into(), max_gas: "-1".into() },
+            block: BlockParams {
+                max_bytes: params.block.max_bytes.to_string(),
+                max_gas: params.block.max_gas.to_string(),
+            },
             evidence: EvidenceParams {
-                max_age_num_blocks: "100000".into(),
-                max_age_duration: "172800000000000".into(),
-                max_bytes: "1048576".into(),
+                max_age_num_blocks: params.evidence.max_age_num_blocks.to_string(),
+                max_age_duration: params.evidence.max_age_duration.0.as_nanos().to_string(),
+                max_bytes: params.evidence.max_bytes.to_string(),
             },
             validator: ValidatorParams { pub_key_types: vec!["ed25519".into()] },
-            version: VersionParams { app: "0".into() },
+            version: VersionParams { app: crate::app::APP_VERSION.to_string() },
             abci: AbciParams { vote_extensions_enable_height: "0".into() },
             authority: AuthorityParams { authority: String::new() },
         }
     }
+}
+
+/// Converts an authenticated whole-second L1 timestamp to a valid CometBFT genesis time.
+pub(crate) fn genesis_time(timestamp: u64) -> Result<Time, GenesisError> {
+    i64::try_from(timestamp)
+        .ok()
+        .and_then(|secs| Time::from_unix_timestamp(secs, 0).ok())
+        .ok_or(GenesisError::GenesisTime(timestamp))
 }
 
 /// One genesis validator.
@@ -166,11 +196,7 @@ impl GenesisDoc {
         chain_id: String,
         members: &[Member],
     ) -> Result<Self, GenesisError> {
-        let timestamp = w.l1_header.timestamp();
-        let genesis_time = i64::try_from(timestamp)
-            .ok()
-            .and_then(|secs| Time::from_unix_timestamp(secs, 0).ok())
-            .ok_or(GenesisError::GenesisTime(timestamp))?;
+        let genesis_time = genesis_time(w.l1_header.timestamp())?;
         Ok(Self {
             genesis_time: genesis_time.to_rfc3339(),
             chain_id,

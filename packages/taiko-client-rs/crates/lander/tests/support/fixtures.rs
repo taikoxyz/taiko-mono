@@ -37,7 +37,10 @@ use tendermint::{
     block::{Commit, CommitSig, Id, header::Version},
     vote::{CanonicalVote, Type},
 };
-use tendermint_proto::{Protobuf, v0_38::types::CanonicalVote as RawVote};
+use tendermint_proto::{
+    Protobuf,
+    v0_38::types::{Block as RawBlock, CanonicalVote as RawVote},
+};
 
 use super::contracts::{CONSENSUS_SEED, ContractFixture, EtnaInbox, L2_CHAIN_ID, view};
 
@@ -357,7 +360,16 @@ pub fn signed_pair(
         proposer_address: committee.validators.validators()[0].address,
     };
     let block = Block::new(header, data, Default::default(), previous.map(|p| p.commit.clone()));
-    let parts = lander::validate::block_parts(&block);
+    let mut raw = RawBlock::from(block.clone());
+    if height == 1 {
+        raw.last_commit = Some(Commit::default().into());
+        raw.header.as_mut().unwrap().last_block_id =
+            Some(tendermint_proto::v0_38::types::BlockId {
+                hash: Vec::new(),
+                part_set_header: Some(Default::default()),
+            });
+    }
+    let parts = lander::validate::block_parts(&raw);
     let mut commit = Commit {
         height: block.header.height,
         round: 0u16.into(),
@@ -387,7 +399,7 @@ pub fn signed_pair(
         timestamp: block.header.time,
         signature: Some(key.sign(&bytes).to_bytes().to_vec().try_into().unwrap()),
     }];
-    CertifiedBlock { block, commit }
+    CertifiedBlock::from_raw(raw, commit).unwrap()
 }
 
 #[async_trait]

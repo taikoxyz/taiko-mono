@@ -38,6 +38,7 @@ mod record;
 /// Shared pure verification of the genesis context and initial committee.
 mod verify;
 
+pub(crate) use doc::genesis_time;
 pub(crate) use verify::{verify_committee, verify_context};
 
 pub use build::build_genesis;

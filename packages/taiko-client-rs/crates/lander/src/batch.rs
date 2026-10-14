@@ -7,8 +7,9 @@ use abci::{
     committee::{record_hash, verify_committee_witness_at_cutoff},
     rules,
 };
-use alloy_primitives::{Address, aliases::U48};
+use alloy_primitives::{Address, B256, U256, aliases::U48};
 use async_trait::async_trait;
+use tokio::sync::Mutex;
 
 use crate::{
     blob,
@@ -85,6 +86,59 @@ struct BatchStart {
     history: Vec<alloy_consensus::Header>,
 }
 
+/// Immutable checkpoint identity; advancing the operational L1 head does not change it.
+#[derive(Clone, PartialEq, Eq)]
+struct CheckpointIdentity {
+    /// L1 chain whose canonical roots authenticate the stored proofs.
+    l1_chain_id: U256,
+    /// L2 chain whose execution history and certificates are authenticated.
+    l2_chain_id: u64,
+    /// Inbox proxy authenticating the checkpoint and deployment commitments.
+    inbox: Address,
+    /// Registry whose historical proofs derive the starting committees.
+    registry: Address,
+    /// Recovery generation carried by the execution history and BFT chain id.
+    generation: u64,
+    /// Exact settled execution height.
+    height: u64,
+    /// Exact settled execution hash binding every ancestry header.
+    hash: B256,
+    /// Complete genesis configuration, including forced inclusion and anchor age rules.
+    genesis: abci::GenesisRecord,
+    /// Deployment's authenticated committee derivation configuration.
+    committee_config_hash: B256,
+    /// Bootstrap commitment independently checked by the starting Inbox proof.
+    bootstrap_hash: B256,
+}
+
+impl CheckpointIdentity {
+    /// Bind every snapshot input used to authenticate an immutable starting context.
+    fn from_snapshot(snapshot: &LandingSnapshot) -> Self {
+        Self {
+            l1_chain_id: snapshot.l1_chain_id,
+            l2_chain_id: snapshot.l2_chain_id,
+            inbox: snapshot.inbox,
+            registry: snapshot.registry,
+            generation: snapshot.generation,
+            height: snapshot.checkpoint_height,
+            hash: snapshot.checkpoint_hash,
+            genesis: snapshot.genesis.clone(),
+            committee_config_hash: snapshot.committee_config_hash,
+            bootstrap_hash: snapshot.genesis_committee_record_hash,
+        }
+    }
+}
+
+/// One fully verified, epoch-bounded starting context; forward descendants are never retained.
+struct CachedCheckpoint {
+    /// Checkpoint and complete configuration for which the proofs were verified.
+    identity: CheckpointIdentity,
+    /// Shared ancestry and proofs, copied only when retained in a new immutable proof job.
+    start: Arc<BatchStart>,
+    /// Only committees derived from committed checkpoint ancestry, cloned before traversal.
+    committees: BTreeMap<u64, AuthenticatedCommittee>,
+}
+
 /// Constant-space forward authentication state shared by observation and proof preparation.
 struct ForwardState {
     /// Exact authenticated committed parent inputs.
@@ -146,6 +200,8 @@ pub struct BatchBuilder<C: ?Sized, L: ?Sized> {
     /// inclusions' fees to. Non-zero; the lander names its own sending address. The statement
     /// binds it, so a copy of the landing transaction cannot redirect the fees.
     fee_recipient: Address,
+    /// Retain at most one authenticated epoch-sized context and serialize concurrent misses.
+    checkpoint_cache: Mutex<Option<CachedCheckpoint>>,
 }
 
 impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
@@ -176,6 +232,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             list_budget: MAX_BATCH_LIST_BYTES,
             deflate_budget: MAX_SELECTION_DEFLATE_BYTES,
             fee_recipient,
+            checkpoint_cache: Mutex::new(None),
         })
     }
 
@@ -285,7 +342,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 break;
             }
             deflated = deflated.saturating_add(list_len);
-            match compress(list.to_list(), limits).await {
+            match compress(list.to_list(), limits, blocks.is_empty()).await {
                 Ok(encoded) if blob::required_blobs(encoded.len()) <= limits.max_blobs => {
                     blocks.push(pair);
                     payload = Some(encoded);
@@ -322,7 +379,10 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     async fn payload(&self, prefix: PublishablePrefix) -> Result<(Vec<CertifiedBlock>, Vec<u8>)> {
         let payload = match prefix.payload {
             Some(payload) => payload,
-            None => compress(prefix.list.to_list(), self.selection_limits()).await?,
+            None => {
+                compress(prefix.list.to_list(), self.selection_limits(), prefix.blocks.len() == 1)
+                    .await?
+            }
         };
         Ok((prefix.blocks, payload))
     }
@@ -372,16 +432,83 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         Ok(())
     }
 
-    /// Hash-check the EL checkpoint and authenticate its BFT certificate when non-genesis.
+    /// Reuse only a fully authenticated checkpoint whose source parent and proving root remain
+    /// current. A failed refresh removes the entry; each caller gets separate starting committees.
     async fn checkpoint(
         &self,
         snapshot: &LandingSnapshot,
         schedule: &Schedule,
         committees: &mut BTreeMap<u64, AuthenticatedCommittee>,
-    ) -> Result<BatchStart> {
+    ) -> Result<Arc<BatchStart>> {
         let required = history::requirements(snapshot.checkpoint_height, schedule)?;
-        let mut parent = self.l1.parent_header(snapshot).await?;
+        let identity = CheckpointIdentity::from_snapshot(snapshot);
+        let mut retained = self.checkpoint_cache.lock().await;
+        let cached = retained.take();
+        let parent = self.l1.parent_header(snapshot).await?;
         history::check_header_capacity(&parent.header)?;
+        if parent.header.number != snapshot.checkpoint_height ||
+            parent.header.hash_slow() != snapshot.checkpoint_hash
+        {
+            return Err(LanderError::Safety(format!(
+                "EL parent disagrees with checkpoint {}",
+                snapshot.checkpoint_height
+            )));
+        }
+        if let Some(cached) = cached.filter(|cached| cached.identity == identity) {
+            if cached.start.parent != parent {
+                return Err(LanderError::Safety("cached checkpoint parent changed".into()));
+            }
+            if self.l1.canonical_hash(snapshot.l1_block_number).await? != snapshot.l1_block_hash {
+                return Err(LanderError::Stale(
+                    "coherent Inbox snapshot is no longer canonical".into(),
+                ));
+            }
+            self.check_proving_anchor_canonicality(&cached.start.anchor).await?;
+            *committees = cached.committees.clone();
+            let start = cached.start.clone();
+            *retained = Some(cached);
+            return Ok(start);
+        }
+        let mut starting_committees = BTreeMap::new();
+        let start = Arc::new(
+            self.reconstruct_checkpoint(
+                snapshot,
+                schedule,
+                parent,
+                &required,
+                &mut starting_committees,
+            )
+            .await?,
+        );
+        self.check_proving_anchor_canonicality(&start.anchor).await?;
+        *committees = starting_committees.clone();
+        *retained = Some(CachedCheckpoint {
+            identity,
+            start: start.clone(),
+            committees: starting_committees,
+        });
+        Ok(start)
+    }
+
+    /// Reject a moved historical proving root after either acquiring or reusing its proofs.
+    async fn check_proving_anchor_canonicality(&self, anchor: &AnchorState) -> Result<()> {
+        if self.l1.canonical_hash(anchor.number).await? != anchor.hash {
+            return Err(LanderError::Safety(
+                "checkpoint proving anchor is no longer canonical".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Hash-check all required EL ancestors, historical proofs and the checkpoint BFT certificate.
+    async fn reconstruct_checkpoint(
+        &self,
+        snapshot: &LandingSnapshot,
+        schedule: &Schedule,
+        mut parent: ParentContext,
+        required: &history::HistoryRequirements,
+        committees: &mut BTreeMap<u64, AuthenticatedCommittee>,
+    ) -> Result<BatchStart> {
         let mut headers = vec![parent.header.clone()];
         for height in (required.oldest..snapshot.checkpoint_height).rev() {
             let header = self.l1.execution_header(height).await?;
@@ -694,7 +821,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             .map_err(|e| LanderError::Safety(e.to_string()))?
             .block
             .header;
-        let parent_anchor = start.anchor;
+        let parent_anchor = start.anchor.clone();
         let consumed = std::iter::once(parent_anchor.clone())
             .chain(anchors.iter().cloned())
             .collect::<Vec<_>>();
@@ -728,11 +855,11 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
         Ok(Some(ProofRequest {
             batch: PreparedBatch {
                 snapshot,
-                parent_header: start.parent.header,
-                execution_history: start.history,
+                parent_header: start.parent.header.clone(),
+                execution_history: start.history.clone(),
                 grandparent_timestamp: start.parent.grandparent_timestamp,
                 parent_anchor,
-                starting_inbox_witness: start.inbox_witness,
+                starting_inbox_witness: start.inbox_witness.clone(),
                 blocks,
                 anchors,
                 reference_headers: headers.iter().map(|header| header.raw().clone()).collect(),
@@ -751,8 +878,16 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
 
 /// Compresses `list` into a V3 payload on the blocking pool, keeping deflate off the async
 /// workers.
-async fn compress(list: Vec<u8>, limits: Limits) -> Result<Vec<u8>> {
-    match tokio::task::spawn_blocking(move || codec::compress(&list, &limits)).await {
+async fn compress(list: Vec<u8>, limits: Limits, single_block: bool) -> Result<Vec<u8>> {
+    match tokio::task::spawn_blocking(move || {
+        if single_block {
+            codec::compress_single(&list, &limits)
+        } else {
+            codec::compress(&list, &limits)
+        }
+    })
+    .await
+    {
         Ok(payload) => payload,
         Err(error) if error.is_panic() => std::panic::resume_unwind(error.into_panic()),
         Err(error) => {
@@ -825,7 +960,280 @@ pub fn verify_reference_chain(
 mod tests {
     use super::*;
     use crate::test_utils::consensus_mpt::{FEE_RECIPIENT, Fixture};
-    use std::sync::atomic::Ordering;
+    use std::sync::{
+        RwLock,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    };
+
+    struct TrackingSource {
+        fixture: RwLock<Arc<Fixture>>,
+        history_reads: AtomicUsize,
+        inbox_reads: AtomicUsize,
+        committee_reads: AtomicUsize,
+        parent_reads: AtomicUsize,
+        status_reads: AtomicUsize,
+        anchor_reorg: AtomicBool,
+        snapshot_reorg: AtomicBool,
+        parent_changed: AtomicBool,
+    }
+
+    impl TrackingSource {
+        fn new(fixture: Fixture) -> Arc<Self> {
+            Arc::new(Self {
+                fixture: RwLock::new(Arc::new(fixture)),
+                history_reads: AtomicUsize::new(0),
+                inbox_reads: AtomicUsize::new(0),
+                committee_reads: AtomicUsize::new(0),
+                parent_reads: AtomicUsize::new(0),
+                status_reads: AtomicUsize::new(0),
+                anchor_reorg: AtomicBool::new(false),
+                snapshot_reorg: AtomicBool::new(false),
+                parent_changed: AtomicBool::new(false),
+            })
+        }
+
+        fn fixture(&self) -> Arc<Fixture> {
+            self.fixture.read().unwrap().clone()
+        }
+
+        fn builder(self: &Arc<Self>, max_blocks: usize) -> BatchBuilder<Self, Self> {
+            BatchBuilder::new(
+                self.clone(),
+                self.clone(),
+                self.fixture().params.clone(),
+                limits(max_blocks),
+                SidecarMode::Eip4844,
+                FEE_RECIPIENT,
+            )
+            .unwrap()
+        }
+    }
+
+    #[async_trait]
+    impl CometSource for TrackingSource {
+        async fn status(&self) -> Result<CometStatus> {
+            self.status_reads.fetch_add(1, Ordering::Relaxed);
+            self.fixture().status().await
+        }
+
+        async fn block(&self, height: u64) -> Result<CertifiedBlock> {
+            self.fixture().block(height).await
+        }
+
+        async fn committee(&self, epoch: u64) -> Result<abci::CommitteeState> {
+            self.fixture().committee(epoch).await
+        }
+    }
+
+    #[async_trait]
+    impl LandingSource for TrackingSource {
+        async fn snapshot(&self) -> Result<LandingSnapshot> {
+            self.fixture().snapshot().await
+        }
+
+        async fn parent_header(&self, snapshot: &LandingSnapshot) -> Result<ParentContext> {
+            self.parent_reads.fetch_add(1, Ordering::Relaxed);
+            let mut parent = self.fixture().parent_header(snapshot).await?;
+            if self.parent_changed.load(Ordering::Relaxed) {
+                parent.header.timestamp += 1;
+            }
+            Ok(parent)
+        }
+
+        async fn execution_header(&self, number: u64) -> Result<alloy_consensus::Header> {
+            self.history_reads.fetch_add(1, Ordering::Relaxed);
+            self.fixture().execution_header(number).await
+        }
+
+        async fn parent_anchor(
+            &self,
+            snapshot: &LandingSnapshot,
+            parent: &ParentContext,
+        ) -> Result<AnchorState> {
+            self.fixture().parent_anchor(snapshot, parent).await
+        }
+
+        async fn starting_inbox_witness(
+            &self,
+            anchor: &AnchorState,
+        ) -> Result<abci::AnchorWitness> {
+            self.inbox_reads.fetch_add(1, Ordering::Relaxed);
+            self.fixture().starting_inbox_witness(anchor).await
+        }
+
+        async fn committee_witness(
+            &self,
+            snapshot: &LandingSnapshot,
+            anchor: &AnchorState,
+            snapshot_number: u64,
+            epoch: u64,
+        ) -> Result<abci::CommitteeWitness> {
+            self.committee_reads.fetch_add(1, Ordering::Relaxed);
+            self.fixture().committee_witness(snapshot, anchor, snapshot_number, epoch).await
+        }
+
+        async fn reference(
+            &self,
+            snapshot: &LandingSnapshot,
+            anchors: &[AnchorState],
+        ) -> Result<Vec<abci::RawL1Header>> {
+            self.fixture().reference(snapshot, anchors).await
+        }
+
+        async fn statement_hash(
+            &self,
+            snapshot: &LandingSnapshot,
+            input: &LandInput,
+            reference_hash: alloy_primitives::B256,
+            blob_hashes: &[alloy_primitives::B256],
+        ) -> Result<alloy_primitives::B256> {
+            self.fixture().statement_hash(snapshot, input, reference_hash, blob_hashes).await
+        }
+
+        async fn canonical_hash(&self, number: u64) -> Result<alloy_primitives::B256> {
+            let fixture = self.fixture();
+            if self.snapshot_reorg.load(Ordering::Relaxed) &&
+                number == fixture.snapshot.l1_block_number
+            {
+                return Ok(alloy_primitives::B256::repeat_byte(0xff));
+            }
+            if self.anchor_reorg.load(Ordering::Relaxed) &&
+                number < fixture.snapshot.l1_block_number
+            {
+                return Ok(alloy_primitives::B256::repeat_byte(0xff));
+            }
+            fixture.canonical_hash(number).await
+        }
+
+        async fn validate_reference(
+            &self,
+            snapshot: &LandingSnapshot,
+            number: u64,
+            hash: alloy_primitives::B256,
+        ) -> Result<()> {
+            self.fixture().validate_reference(snapshot, number, hash).await
+        }
+    }
+
+    #[tokio::test]
+    async fn unchanged_checkpoint_reuses_history_across_validation_observation_and_preparation() {
+        let source = TrackingSource::new(Fixture::new(24, 26));
+        let b = source.builder(2);
+        let snapshot = source.fixture().snapshot.clone();
+        b.validate_checkpoint(&snapshot).await.unwrap();
+        b.observe(&snapshot).await.unwrap();
+        let request = b.prepare(snapshot.clone()).await.unwrap().unwrap();
+        assert_eq!(request.batch.execution_history.len(), 4);
+        assert_eq!(source.history_reads.load(Ordering::Relaxed), 3);
+        assert_eq!(source.inbox_reads.load(Ordering::Relaxed), 1);
+        assert_eq!(source.committee_reads.load(Ordering::Relaxed), 1);
+        assert_eq!(source.parent_reads.load(Ordering::Relaxed), 3);
+        assert_eq!(source.status_reads.load(Ordering::Relaxed), 3);
+
+        // A new operational L1 head cannot make immutable checkpoint ancestry expensive again.
+        let mut advanced = Fixture::new(24, 26);
+        let mut header: alloy_consensus::Header =
+            alloy_rlp::decode_exact(advanced.snapshot.l1_header.raw()).unwrap();
+        header.parent_hash = advanced.snapshot.l1_block_hash;
+        header.number += 1;
+        header.timestamp += 1;
+        advanced.snapshot.l1_header = abci::RawL1Header::from(&header);
+        advanced.snapshot.l1_block_number = header.number;
+        advanced.snapshot.l1_block_hash = header.hash_slow();
+        advanced.l1_headers.insert(header.number, advanced.snapshot.l1_header.clone());
+        *source.fixture.write().unwrap() = Arc::new(advanced);
+        b.validate_checkpoint(&source.fixture().snapshot).await.unwrap();
+        assert_eq!(source.history_reads.load(Ordering::Relaxed), 3);
+        assert_eq!(source.inbox_reads.load(Ordering::Relaxed), 1);
+        assert_eq!(source.committee_reads.load(Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test]
+    async fn cached_checkpoint_rechecks_parent_and_l1_anchor_canonicality() {
+        let source = TrackingSource::new(Fixture::new(24, 26));
+        let b = source.builder(2);
+        let snapshot = source.fixture().snapshot.clone();
+        b.validate_checkpoint(&snapshot).await.unwrap();
+        source.parent_changed.store(true, Ordering::Relaxed);
+        assert!(matches!(b.observe(&snapshot).await, Err(LanderError::Safety(_))));
+        source.parent_changed.store(false, Ordering::Relaxed);
+        b.validate_checkpoint(&snapshot).await.unwrap();
+        source.anchor_reorg.store(true, Ordering::Relaxed);
+        assert!(b.observe(&snapshot).await.is_err(), "a reorged proving anchor cannot be reused");
+        source.anchor_reorg.store(false, Ordering::Relaxed);
+        let reads = source.history_reads.load(Ordering::Relaxed);
+        b.validate_checkpoint(&snapshot).await.unwrap();
+        assert_eq!(source.history_reads.load(Ordering::Relaxed), reads + 3);
+    }
+
+    #[tokio::test]
+    async fn checkpoint_progress_replaces_the_retained_context() {
+        let source = TrackingSource::new(Fixture::new(24, 26));
+        let b = source.builder(2);
+        b.validate_checkpoint(&source.fixture().snapshot).await.unwrap();
+        *source.fixture.write().unwrap() = Arc::new(Fixture::new(25, 26));
+        b.validate_checkpoint(&source.fixture().snapshot).await.unwrap();
+        assert_eq!(source.history_reads.load(Ordering::Relaxed), 7);
+        assert_eq!(source.inbox_reads.load(Ordering::Relaxed), 2);
+        assert_eq!(source.committee_reads.load(Ordering::Relaxed), 2);
+        b.validate_checkpoint(&source.fixture().snapshot).await.unwrap();
+        assert_eq!(source.history_reads.load(Ordering::Relaxed), 7);
+    }
+
+    #[tokio::test]
+    async fn cached_checkpoint_rejects_a_reorganized_operational_snapshot_and_rebuilds() {
+        let source = TrackingSource::new(Fixture::new(24, 26));
+        let b = source.builder(2);
+        let snapshot = source.fixture().snapshot.clone();
+        b.validate_checkpoint(&snapshot).await.unwrap();
+        source.snapshot_reorg.store(true, Ordering::Relaxed);
+        assert!(matches!(b.validate_checkpoint(&snapshot).await, Err(LanderError::Stale(_))));
+        assert_eq!(source.history_reads.load(Ordering::Relaxed), 3);
+        source.snapshot_reorg.store(false, Ordering::Relaxed);
+        b.validate_checkpoint(&snapshot).await.unwrap();
+        assert_eq!(source.history_reads.load(Ordering::Relaxed), 6);
+    }
+
+    #[tokio::test]
+    async fn observation_does_not_cache_a_descendants_committee_as_a_starting_authority() {
+        let source = TrackingSource::new(Fixture::new(20, 26));
+        let b = source.builder(1);
+        let snapshot = source.fixture().snapshot.clone();
+        b.validate_checkpoint(&snapshot).await.unwrap();
+        b.observe(&snapshot).await.unwrap();
+        let mut starting = BTreeMap::new();
+        b.checkpoint(&snapshot, &Schedule::from_genesis(&snapshot.genesis), &mut starting)
+            .await
+            .unwrap();
+        assert_eq!(starting.keys().copied().collect::<Vec<_>>(), vec![0]);
+        assert_eq!(source.committee_reads.load(Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test]
+    async fn cached_context_cannot_outlive_generation_genesis_or_bootstrap_identity() {
+        for mutation in 0..3 {
+            let source = TrackingSource::new(Fixture::new(24, 26));
+            let b = source.builder(2);
+            let snapshot = source.fixture().snapshot.clone();
+            b.validate_checkpoint(&snapshot).await.unwrap();
+            let mut changed = snapshot.clone();
+            match mutation {
+                0 => changed.generation += 1,
+                1 => changed.genesis.max_anchor_age += 1,
+                2 => changed.genesis_committee_record_hash = alloy_primitives::B256::ZERO,
+                _ => unreachable!(),
+            }
+            assert!(matches!(
+                b.checkpoint(
+                    &changed,
+                    &Schedule::from_genesis(&changed.genesis),
+                    &mut BTreeMap::new(),
+                )
+                .await,
+                Err(LanderError::Safety(_))
+            ));
+        }
+    }
 
     fn limits(blocks: usize) -> Limits {
         Limits {
@@ -1137,7 +1545,9 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(request.batch.blocks.len(), 1);
-        bound.max_payload_bytes -= 1;
+        let list = abci::compression::zlib_inflate_exact(&first[1..], usize::MAX).unwrap();
+        let best_size = abci::compression::zlib_compress_best(&list).len() + 1;
+        bound.max_payload_bytes = first.len().min(best_size) - 1;
         let error =
             builder(fixture.clone(), bound).prepare(fixture.snapshot.clone()).await.unwrap_err();
         assert!(matches!(error, LanderError::Capacity(_)));
@@ -1205,7 +1615,6 @@ mod tests {
                 pair.block.last_commit = Some(previous);
             }
             let pair = fixture.blocks.get_mut(&h).unwrap();
-            pair.commit.block_id.part_set_header = crate::validate::block_parts(&pair.block);
             let committee = &fixture.committees[&schedule.epoch_of(h)];
             crate::test_utils::consensus::resign(pair, committee, &keys);
         }
@@ -1263,7 +1672,6 @@ mod tests {
         let mut fixture = Fixture::new(23, 26);
         let pair = fixture.blocks.get_mut(&23).unwrap();
         pair.block.header.next_validators_hash = fixture.committees[&0].validators.hash();
-        pair.commit.block_id.part_set_header = crate::validate::block_parts(&pair.block);
         let keys = vec![
             ed25519_dalek::SigningKey::from_bytes(&[1; 32]),
             ed25519_dalek::SigningKey::from_bytes(&[2; 32]),

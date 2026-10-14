@@ -205,6 +205,8 @@ jobs:
         run: just unit
 
   test:
+    env:
+      TAIKO_CLIENT_RS_TEST_RUN: ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     name: Tests
     runs-on: ubuntu-latest
@@ -299,7 +301,7 @@ jobs:
         run: just test
 
       # Each scenario removes its devnet when it ends, but a job cancellation or
-      # timeout can skip that; remove leftover `abci-*` containers and networks so
+      # timeout can skip that; remove this run's labeled ABCI and lander resources so
       # they can't poison the next run on this runner. A real removal failure must
       # fail the job loudly instead of leaving that poison behind.
       - name: Remove leftover devnet containers
@@ -307,5 +309,5 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker ps -aq --filter name=^abci- | xargs -r docker rm -f -v
-          docker network ls -q --filter name=^abci- | xargs -r docker network rm
+          docker ps -aq --filter "label=taiko-client-rs.test-run=$TAIKO_CLIENT_RS_TEST_RUN" | xargs -r docker rm -f -v
+          docker network ls -q --filter "label=taiko-client-rs.test-run=$TAIKO_CLIENT_RS_TEST_RUN" | xargs -r docker network rm

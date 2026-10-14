@@ -2,7 +2,8 @@
 //! guard, and the capacity of one landing.
 //!
 //! The lander depends on this crate, so both sides compress with the same codec: `flate2` over
-//! C zlib at [`Compression::default`].
+//! the locked, statically linked stock C zlib at [`Compression::default`]. A single landing
+//! may retry [`Compression::best`] if the default output exceeds its payload bound.
 
 use std::io::Write;
 
@@ -47,7 +48,17 @@ pub enum InflateError {
 
 /// `data` as one zlib stream at the default compression level.
 pub fn zlib_compress(data: &[u8]) -> Vec<u8> {
-    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+    zlib_compress_with(data, Compression::default())
+}
+
+/// `data` as one zlib stream at the best compression level, for a bounded single-block retry.
+pub fn zlib_compress_best(data: &[u8]) -> Vec<u8> {
+    zlib_compress_with(data, Compression::best())
+}
+
+/// Compress into an infallible in-memory writer at `level`.
+fn zlib_compress_with(data: &[u8], level: Compression) -> Vec<u8> {
+    let mut encoder = ZlibEncoder::new(Vec::new(), level);
     encoder.write_all(data).expect("compressing into a Vec cannot fail");
     encoder.finish().expect("compressing into a Vec cannot fail")
 }
@@ -91,6 +102,13 @@ mod tests {
     use alloy_eips::eip4844::BYTES_PER_BLOB;
 
     use super::*;
+
+    #[test]
+    fn compression_uses_the_pinned_bundled_zlib_version() {
+        // zlibVersion returns a process-lifetime NUL-terminated version string.
+        let version = unsafe { std::ffi::CStr::from_ptr(libz_sys::zlibVersion()) };
+        assert_eq!(version.to_str().unwrap(), "1.3.2");
+    }
 
     #[test]
     fn landing_capacity_constants_match_the_blob_coding() {

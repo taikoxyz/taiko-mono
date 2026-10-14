@@ -93,7 +93,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             other => other?,
         };
         if let (Some((target_epoch, _)), Some(witness)) = (&validated.derived, &env.committee) {
-            self.cache_committee_witness(state.anchor.number, *target_epoch, witness);
+            self.cache_committee_witness(state, *target_epoch, witness)?;
         }
         check_landing_capacity(&txs[0])?;
         if let Some(w) = &env.anchor {
@@ -129,7 +129,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let is_final = deadline(
             "L1 finality check",
             self.opts.l1_timeout,
-            is_final_canonical(&self.l1, &w.l1_header, self.params.l1_finality_extra_depth),
+            is_final_canonical(self.l1(), &w.l1_header, self.params.l1_finality_extra_depth),
         )
         .await?;
         if is_final {

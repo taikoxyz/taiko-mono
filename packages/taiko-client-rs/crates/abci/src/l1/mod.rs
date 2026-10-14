@@ -5,6 +5,8 @@
 //!
 //! `header`, `layout`, `mpt` and `witness` perform no I/O.
 
+/// Committee-only archive state fallback with own-L1 finality authority.
+pub mod archive;
 /// The source a proposer fetches forced inclusion blobs from (the L1 beacon node).
 pub mod blobs;
 /// Committee-witness discovery from the node's own L1 (proposers and the genesis builder).
@@ -20,6 +22,7 @@ pub mod source;
 /// Anchor and genesis Inbox witness verification into facts.
 pub mod witness;
 
+pub use archive::CommitteeL1Source;
 pub use blobs::{BeaconBlobs, BlobSource, LazyBeaconBlobs};
 pub(crate) use fetch::{DiscoveryProgress, build_committee_witness_within};
 pub use fetch::{FetchError, build_committee_witness, build_committee_witness_at_cutoff};

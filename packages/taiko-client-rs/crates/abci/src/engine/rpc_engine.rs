@@ -29,11 +29,11 @@ use crate::envelope::ExecutionBlock;
 pub struct RpcEngine {
     /// Public L2 JSON-RPC provider (`eth_getBlockByNumber`).
     l2: RootProvider,
-    /// The public endpoint, named in error messages.
+    /// The public endpoint's flag label, safe to include in errors and Debug output.
     l2_endpoint: String,
     /// Engine API client over the JWT-authenticated endpoint.
     auth: EngineClient,
-    /// The authenticated endpoint, named in error messages.
+    /// The authenticated endpoint's flag label, safe to include in errors and Debug output.
     auth_endpoint: String,
 }
 
@@ -57,7 +57,7 @@ impl RpcEngine {
     ) -> Result<Self, EngineError> {
         let scheme_error = |flag: &str, url: &Url, want: &str| {
             EngineError::Setup(format!(
-                "{flag} {url}: unsupported URL scheme `{}` (want {want})",
+                "{flag}: unsupported URL scheme `{}` (want {want})",
                 url.scheme()
             ))
         };
@@ -78,7 +78,7 @@ impl RpcEngine {
             ))
         })?;
         let timeout = http_timeout_for(call_timeout);
-        let (l2_endpoint, auth_endpoint) = (l2_http.to_string(), l2_auth.to_string());
+        let (l2_endpoint, auth_endpoint) = ("l2.http".to_owned(), "l2.auth".to_owned());
         Ok(Self::from_parts(
             connect_http_with_timeout(l2_http, timeout),
             l2_endpoint,
@@ -795,5 +795,30 @@ mod tests {
             matches!(&err, EngineError::Setup(msg) if msg.contains("/nonexistent/jwt.hex")),
             "{err:?}"
         );
+    }
+
+    #[test]
+    fn engine_setup_and_debug_hide_endpoint_credentials() {
+        let jwt = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/docker/jwt.hex"));
+        let endpoint = |scheme| {
+            Url::parse(&format!(
+                "{scheme}://user-secret:pass-secret@localhost/path-secret?key=query-secret"
+            ))
+            .unwrap()
+        };
+        let error =
+            RpcEngine::new(endpoint("http"), endpoint("https"), jwt, Duration::from_secs(1))
+                .unwrap_err();
+        let engine =
+            RpcEngine::new(endpoint("http"), endpoint("http"), jwt, Duration::from_secs(1))
+                .unwrap();
+        let call_error = engine
+            .auth_error("engine_getPayloadV5", RpcClientError::RpcMessage("unreachable".into()));
+        let rendered = format!("{error}\n{error:?}\n{engine:?}\n{call_error}\n{call_error:?}");
+        for credential in ["user-secret", "pass-secret", "path-secret", "query-secret"] {
+            assert!(!rendered.contains(credential), "Engine errors or debug exposed {credential}");
+        }
+        assert!(error.to_string().contains("l2.auth"));
+        assert!(call_error.to_string().contains("engine_getPayloadV5"));
     }
 }

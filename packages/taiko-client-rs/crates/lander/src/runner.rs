@@ -307,6 +307,9 @@ impl Runner {
                         if !self.unbroadcast_current(&fresh, &job).await? {
                             return self.rebuild();
                         }
+                        // No signature or broadcast exists in Prepared. Persist the reset before
+                        // stopping so corrected proof/batch settings can take effect on restart.
+                        self.transition(JournalState::Idle)?;
                         return Err(error);
                     }
                     Err(error) => return Err(error),
@@ -505,6 +508,7 @@ impl Runner {
             timeout(self.config.receipt_timeout, self.transactions.nonce_state()).await.map_err(
                 |_| LanderError::Temporary("nonce reconciliation deadline exceeded".into()),
             )??;
+        nonce.validate()?;
         if nonce.confirmed > transaction.nonce {
             let first_seen = match self.unindexed_receipt {
                 Some((hash, at)) if hash == transaction.hash => at,
@@ -617,6 +621,12 @@ impl Runner {
         );
         if snapshot.l1_block_number < required {
             return Ok(StepOutcome::Waiting);
+        }
+        if self.l1.canonical_hash(snapshot.l1_block_number).await? != snapshot.l1_block_hash {
+            return Err(LanderError::Temporary(
+                "receipt reconciliation snapshot was reorganized; retry a coherent checkpoint"
+                    .into(),
+            ));
         }
         if receipt.success {
             if snapshot.checkpoint_height < job.request.batch.input.lastHeight {

@@ -17,6 +17,47 @@ use tokio::{
     net::TcpListener,
 };
 
+#[test]
+fn public_rpc_and_wrapped_anchor_errors_never_render_endpoint_credentials() {
+    use alloy::transports::{RpcError, TransportErrorKind};
+    let sensitive = "https://alice:password@example.invalid/private-key-path?api_key=secret";
+    let decoding = serde_json::from_str::<serde_json::Value>("<html>").unwrap_err();
+    let mut errors = [
+        TransportErrorKind::custom_str(sensitive),
+        TransportErrorKind::http_error(503, sensitive.into()),
+        RpcError::deser_err(decoding, sensitive),
+    ]
+    .into_iter()
+    .map(crate::l1::rpc_error)
+    .collect::<Vec<_>>();
+    errors.push(crate::l1::anchor_error(abci::l1::source::L1Error::Rpc(sensitive.into())));
+    for error in errors {
+        assert!(error.is_retryable());
+        for secret in ["alice", "password", "private-key-path", "api_key", "secret"] {
+            assert!(!error.to_string().contains(secret), "L1 error exposed {secret}");
+        }
+    }
+}
+
+#[tokio::test]
+async fn committee_discovery_errors_never_render_wrapped_rpc_credentials() {
+    let sensitive = "https://alice:password@example.invalid/private-key-path?api_key=secret";
+    let provider = rpc(move |_| json!({"__rpc_error":{"code":-32603,"message":sensitive}})).await;
+    let fixture = crate::test_utils::consensus_mpt::Fixture::new(20, 26);
+    let source =
+        RpcLandingSource::new(provider.provider.clone(), provider.provider.clone(), fixture.params);
+    let proving_anchor = anchor(&fixture.snapshot.l1_header);
+    let error = source
+        .committee_witness(&fixture.snapshot, &proving_anchor, proving_anchor.number, 1)
+        .await
+        .unwrap_err();
+    assert!(error.is_retryable());
+    assert!(!provider.requests.lock().unwrap().is_empty());
+    for secret in ["alice", "password", "private-key-path", "api_key", "secret"] {
+        assert!(!error.to_string().contains(secret), "committee error exposed {secret}");
+    }
+}
+
 pub(crate) struct RpcFixture {
     pub(crate) provider: alloy_provider::RootProvider,
     pub(crate) requests: Arc<Mutex<Vec<Value>>>,
@@ -267,6 +308,17 @@ pub(crate) async fn snapshot_rpc_with(
     malformed: bool,
     stale_proofs: usize,
 ) -> SnapshotRpc {
+    snapshot_rpc_with_delay(reorg, before_raw, malformed, stale_proofs, Duration::ZERO).await
+}
+
+/// A source whose first proof response arrives after a controlled latency.
+async fn snapshot_rpc_with_delay(
+    reorg: bool,
+    before_raw: bool,
+    malformed: bool,
+    stale_proofs: usize,
+    first_proof_delay: Duration,
+) -> SnapshotRpc {
     let fixture_a = crate::test_utils::consensus_mpt::Fixture::new(0, 2);
     let fixture_b = crate::test_utils::consensus_mpt::Fixture::new(20, 26);
     let pin = |mut snapshot: LandingSnapshot| {
@@ -283,6 +335,7 @@ pub(crate) async fn snapshot_rpc_with(
     let (answer_a, answer_b) = (a.clone(), b.clone());
     let switched = Mutex::new(false);
     let stale = Mutex::new(stale_proofs);
+    let first_proof_delay = Mutex::new(Some(first_proof_delay));
     let l1 = rpc(move |request| {
         let mut switched = switched.lock().unwrap();
         match request["method"].as_str().unwrap() {
@@ -305,6 +358,9 @@ pub(crate) async fn snapshot_rpc_with(
                 result
             }
             "eth_getProof" => {
+                if let Some(delay) = first_proof_delay.lock().unwrap().take() {
+                    std::thread::sleep(delay);
+                }
                 let selector = &request["params"][2];
                 if *switched && selector == &json!({"blockHash": answer_a.l1_block_hash, "requireCanonical": true}) {
                     return json!({"__rpc_error": {"code": -32000, "message": "block is not canonical"}});
@@ -375,11 +431,29 @@ async fn snapshot_malformed_proof_at_canonical_pinned_hash_is_safety() {
 
 #[tokio::test]
 async fn snapshot_rereads_a_head_proof_served_from_state_still_being_extended() {
-    let rpc = snapshot_rpc_with(false, false, false, 2).await;
+    let rpc = snapshot_rpc_with(false, false, false, 1).await;
     assert_eq!(rpc.source.snapshot().await.unwrap(), rpc.a);
     let calls = rpc.l1.requests.lock().unwrap();
-    assert_eq!(calls.iter().filter(|call| call["method"] == "eth_getProof").count(), 3);
-    assert_eq!(calls.iter().filter(|call| call["method"] == "debug_getRawHeader").count(), 3);
+    assert_eq!(calls.iter().filter(|call| call["method"] == "eth_getProof").count(), 2);
+    assert_eq!(calls.iter().filter(|call| call["method"] == "debug_getRawHeader").count(), 2);
+}
+
+#[tokio::test]
+async fn snapshot_grace_starts_when_a_slow_first_proof_is_observed_inconsistent() {
+    let rpc = snapshot_rpc_with_delay(false, false, false, 1, Duration::from_millis(50)).await;
+    let source = rpc.source.as_ref().clone().with_head_proof_grace(Duration::from_millis(20));
+    assert_eq!(source.snapshot().await.unwrap(), rpc.a);
+    let calls = rpc.l1.requests.lock().unwrap();
+    assert_eq!(calls.iter().filter(|call| call["method"] == "eth_getProof").count(), 2);
+}
+
+#[tokio::test]
+async fn zero_head_proof_grace_reports_the_first_invalid_proof_without_rereading() {
+    let rpc = snapshot_rpc_with(false, false, false, 1).await;
+    let source = rpc.source.as_ref().clone().with_head_proof_grace(Duration::ZERO);
+    assert!(matches!(source.snapshot().await, Err(LanderError::Safety(_))));
+    let calls = rpc.l1.requests.lock().unwrap();
+    assert_eq!(calls.iter().filter(|call| call["method"] == "eth_getProof").count(), 1);
 }
 
 #[tokio::test]

@@ -90,7 +90,7 @@ async fn rpc(State(data): State<Arc<RwLock<RpcData>>>, Json(request): Json<Value
                 .and_then(|height| height.checked_sub(1));
             index.and_then(|index| data.blocks.get(index)).map(|pair| {
                 if method == "block" {
-                    json!({"block_id":pair.commit.block_id,"block":pair.block})
+                    json!({"block_id":pair.commit.block_id,"block":pair.block_proto().expect("fixture canonical original block")})
                 } else {
                     json!({"signed_header":{"header":pair.block.header,"commit":pair.commit},"canonical":true})
                 }
@@ -124,6 +124,7 @@ pub struct CliInputs {
     pub key: PathBuf,
     pub data: PathBuf,
     pub chain_config: PathBuf,
+    pub max_blocks: u64,
 }
 
 impl CliInputs {
@@ -143,7 +144,7 @@ impl CliInputs {
             "--chain-config".into(),
             self.chain_config.display().to_string(),
             "--max-blocks".into(),
-            "5".into(),
+            self.max_blocks.to_string(),
             "--max-blobs".into(),
             "6".into(),
             "--max-fee-per-gas".into(),

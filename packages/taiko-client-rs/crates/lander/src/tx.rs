@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     contracts::{IEtnaInbox::landCall, ZeroFeeRecipient},
-    error::{LanderError, Result},
+    error::{LanderError, Result, sanitized_rpc_error},
     proof::ProofRequest,
 };
 
@@ -139,6 +139,19 @@ pub struct NonceState {
     pub pending: u64,
 }
 
+impl NonceState {
+    /// Reject a lagging pending view before it can authorize signing or identical rebroadcast.
+    pub(crate) fn validate(&self) -> Result<()> {
+        if self.pending < self.confirmed {
+            return Err(LanderError::Temporary(format!(
+                "pending account nonce {} is below confirmed nonce {}; retry coherent nonce reads",
+                self.pending, self.confirmed
+            )));
+        }
+        Ok(())
+    }
+}
+
 /// Stateful transaction boundary whose sign method never broadcasts.
 #[async_trait]
 pub trait TransactionTransport: Send + Sync {
@@ -207,12 +220,9 @@ impl TransactionTransport for RpcTransactionTransport {
                 "signing RPC chain id differs from prepared job".into(),
             ));
         }
-        let nonce = self
-            .provider
-            .get_transaction_count(self.sender())
-            .pending()
-            .await
-            .map_err(rpc_error)?;
+        let nonce = self.nonce_state().await?;
+        nonce.validate()?;
+        let nonce = nonce.pending;
         let input: Bytes =
             landCall { _input: batch.input.clone(), _proof: proof.clone() }.abi_encode().into();
         let mut tx = TxEip4844 {
@@ -351,8 +361,8 @@ fn estimate_error(error: alloy::transports::TransportError) -> LanderError {
             .is_some_and(|data| data.starts_with(&ZeroFeeRecipient::SELECTOR))
         {
             return LanderError::Configuration(format!(
-                "the Inbox rejected the landing's zero fee recipient (ZeroFeeRecipient): {}",
-                payload.message
+                "the Inbox rejected the landing's zero fee recipient (ZeroFeeRecipient; RPC code {})",
+                payload.code
             ));
         }
         let lower = payload.message.to_ascii_lowercase();
@@ -361,14 +371,14 @@ fn estimate_error(error: alloy::transports::TransportError) -> LanderError {
             payload.as_revert_data().is_some()
         {
             return LanderError::Reverted(format!(
-                "gas estimation rejected land: {}",
-                payload.message
+                "gas estimation rejected land (RPC code {}); verify the proof and batch settings before restarting",
+                payload.code
             ));
         }
         if matches!(payload.code, -32601 | -32602) {
             return LanderError::Configuration(format!(
-                "gas estimation RPC is unsupported or rejected its parameters: {}",
-                payload.message
+                "gas estimation RPC is unsupported or rejected its parameters (RPC code {})",
+                payload.code
             ));
         }
     }
@@ -376,8 +386,8 @@ fn estimate_error(error: alloy::transports::TransportError) -> LanderError {
 }
 
 /// An uncertain transport outcome is retryable only after receipt/nonce reconciliation.
-fn rpc_error(error: impl std::fmt::Display) -> LanderError {
-    LanderError::Temporary(format!("transaction RPC: {error}"))
+fn rpc_error(error: alloy::transports::TransportError) -> LanderError {
+    sanitized_rpc_error("transaction RPC", error)
 }
 
 #[cfg(test)]
@@ -456,7 +466,10 @@ mod tests {
                 crate::l1::tests::rpc(move |request| match request["method"].as_str().unwrap() {
                     "eth_chainId" => json!("0x1"),
                     "eth_getTransactionCount" => {
-                        assert_eq!(request["params"][1], "pending");
+                        assert!(matches!(
+                            request["params"][1].as_str(),
+                            Some("latest" | "pending")
+                        ));
                         json!("0x7")
                     }
                     "eth_estimateGas" => {
@@ -503,6 +516,77 @@ mod tests {
             assert_eq!(inner.max_priority_fee_per_gas, 2);
             assert_eq!(inner.max_fee_per_blob_gas, 10);
             assert_eq!(inner.value, U256::ZERO);
+        }
+    }
+
+    #[tokio::test]
+    async fn signing_retries_a_pending_nonce_below_the_confirmed_nonce_without_estimating() {
+        use serde_json::json;
+        let provider =
+            crate::l1::tests::rpc(move |request| match request["method"].as_str().unwrap() {
+                "eth_chainId" => json!("0x1"),
+                "eth_getTransactionCount" => match request["params"][1].as_str().unwrap() {
+                    "latest" => json!("0x4"),
+                    "pending" => json!("0x3"),
+                    tag => panic!("unexpected nonce tag {tag}"),
+                },
+                "eth_estimateGas" => json!("0x7a120"),
+                method => panic!("unexpected signing method {method}"),
+            })
+            .await;
+        let transport = RpcTransactionTransport::new(
+            provider.provider.clone(),
+            crate::test_utils::runtime::signer(),
+            FeeCaps { max_fee_per_gas: 5, max_priority_fee_per_gas: 2, max_fee_per_blob_gas: 10 },
+        )
+        .unwrap();
+        assert!(matches!(
+            transport.sign(&request(), &Bytes::from_static(&[0])).await,
+            Err(LanderError::Temporary(_))
+        ));
+        assert!(
+            provider
+                .requests
+                .lock()
+                .unwrap()
+                .iter()
+                .all(|request| { request["method"] != "eth_estimateGas" })
+        );
+    }
+
+    #[test]
+    fn transaction_rpc_errors_never_render_endpoint_credentials_or_response_bodies() {
+        use alloy::transports::{RpcError, TransportErrorKind};
+        let sensitive = "https://alice:password@example.invalid/private-key-path?api_key=secret";
+        let decoding = serde_json::from_str::<serde_json::Value>("<html>").unwrap_err();
+        for error in [
+            TransportErrorKind::custom_str(sensitive),
+            TransportErrorKind::http_error(503, sensitive.into()),
+            RpcError::deser_err(decoding, sensitive),
+        ] {
+            let result = rpc_error(error);
+            assert!(result.is_retryable());
+            let message = result.to_string();
+            for secret in ["alice", "password", "private-key-path", "api_key", "secret"] {
+                assert!(!message.contains(secret), "RPC error exposed {secret}");
+            }
+        }
+    }
+
+    #[test]
+    fn gas_estimation_rejections_never_render_untrusted_rpc_messages() {
+        use alloy::transports::RpcError;
+        let sensitive = "https://alice:password@example.invalid/private-key-path?api_key=secret";
+        for code in [3, -32602] {
+            let error = RpcError::ErrorResp(
+                serde_json::from_value(serde_json::json!({"code":code,"message":sensitive}))
+                    .unwrap(),
+            );
+            let result = estimate_error(error);
+            assert!(!result.is_retryable());
+            for secret in ["alice", "password", "private-key-path", "api_key", "secret"] {
+                assert!(!result.to_string().contains(secret), "estimate error exposed {secret}");
+            }
         }
     }
 

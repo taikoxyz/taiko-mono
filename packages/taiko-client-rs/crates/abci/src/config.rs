@@ -57,6 +57,12 @@ pub enum ConfigError {
         /// The chain id found in the TOML.
         got: u64,
     },
+    /// A TOML override changed a consensus constant absent from the authenticated commitment.
+    #[error("{parameter} is fixed by the built-in chain parameters and cannot be overridden")]
+    FixedConsensusParameter {
+        /// The consensus constant whose override differed from its built-in value.
+        parameter: &'static str,
+    },
     /// `d_max < margin_v`, so the unsettled cap would be negative.
     #[error("d_max ({d_max}) must be >= margin_v ({margin_v})")]
     DMaxBelowMargin {
@@ -116,7 +122,9 @@ impl ChainParams {
     /// Applies a TOML override on top of `self` and returns the result.
     ///
     /// The TOML is a table whose keys are this struct's snake_case field names; every key is
-    /// optional and absent keys keep their current value. Integers are TOML integers, addresses
+    /// optional and absent keys keep their current value. `fee_vault`, `block_gas_limit`,
+    /// `d_max` and `margin_v` must equal their built-in values: the authenticated committee
+    /// commitment does not bind these consensus constants. Integers are TOML integers, addresses
     /// are hex strings and `U256` values (`vp_unit`, `s_min`) are decimal or `0x`-hex strings.
     /// Unknown keys and malformed values are rejected with [`ConfigError::Toml`]; an
     /// `l2_chain_id` different from `self.l2_chain_id` is rejected with
@@ -130,6 +138,16 @@ impl ChainParams {
             got != self.l2_chain_id
         {
             return Err(ConfigError::ChainIdMismatch { expected: self.l2_chain_id, got });
+        }
+        let builtin = Self::builtin(self.l2_chain_id)?;
+        let fixed = [
+            ("fee_vault", o.fee_vault.is_some_and(|v| v != builtin.fee_vault)),
+            ("block_gas_limit", o.block_gas_limit.is_some_and(|v| v != builtin.block_gas_limit)),
+            ("d_max", o.d_max.is_some_and(|v| v != builtin.d_max)),
+            ("margin_v", o.margin_v.is_some_and(|v| v != builtin.margin_v)),
+        ];
+        if let Some((parameter, _)) = fixed.into_iter().find(|(_, changed)| *changed) {
+            return Err(ConfigError::FixedConsensusParameter { parameter });
         }
         self.inbox = o.inbox.unwrap_or(self.inbox);
         self.registry = o.registry.unwrap_or(self.registry);
@@ -292,26 +310,50 @@ mod tests {
     }
 
     #[test]
+    fn overrides_reject_changes_to_uncommitted_consensus_parameters() {
+        for (parameter, document) in [
+            ("fee_vault", "fee_vault = \"0x3333333333333333333333333333333333333333\""),
+            ("block_gas_limit", "block_gas_limit = 60000000"),
+            ("d_max", "d_max = 30"),
+            ("margin_v", "margin_v = 5"),
+        ] {
+            let err = devnet().with_overrides(document).expect_err("consensus override");
+            assert!(
+                matches!(err, ConfigError::FixedConsensusParameter { parameter: p } if p == parameter),
+                "{document}: {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn overrides_allow_explicit_builtin_consensus_parameters() {
+        let document = r#"
+            fee_vault = "0x00000000000000000000000000000000E7A10003"
+            block_gas_limit = 45000000
+            d_max = 12
+            margin_v = 2
+        "#;
+        assert_eq!(devnet().with_overrides(document).unwrap(), devnet());
+    }
+
+    #[test]
     fn overrides_u64_and_usize_fields() {
         let p = devnet()
             .with_overrides(
                 r#"
-                d_max = 30
-                margin_v = 5
                 n_max = 4
                 heartbeat_window = 9223372036854775807
                 l1_finality_extra_depth = 3
-                block_gas_limit = 60000000
                 "#,
             )
             .unwrap();
-        assert_eq!(p.d_max, 30);
-        assert_eq!(p.margin_v, 5);
-        assert_eq!(p.unsettled_cap(), 25);
+        assert_eq!(p.d_max, 12);
+        assert_eq!(p.margin_v, 2);
+        assert_eq!(p.unsettled_cap(), 10);
         assert_eq!(p.n_max, 4);
         assert_eq!(p.heartbeat_window, i64::MAX as u64);
         assert_eq!(p.l1_finality_extra_depth, 3);
-        assert_eq!(p.block_gas_limit, 60_000_000);
+        assert_eq!(p.block_gas_limit, 45_000_000);
         // Untouched fields keep their built-in values.
         assert_eq!(p.inbox, devnet().inbox);
         assert_eq!(p.vp_unit, devnet().vp_unit);
@@ -324,13 +366,12 @@ mod tests {
                 r#"
                 inbox = "0x1111111111111111111111111111111111111111"
                 registry = "0x2222222222222222222222222222222222222222"
-                fee_vault = "0x3333333333333333333333333333333333333333"
                 "#,
             )
             .unwrap();
         assert_eq!(p.inbox, Address::repeat_byte(0x11));
         assert_eq!(p.registry, Address::repeat_byte(0x22));
-        assert_eq!(p.fee_vault, Address::repeat_byte(0x33));
+        assert_eq!(p.fee_vault, devnet().fee_vault);
         assert_eq!(p.d_max, devnet().d_max);
     }
 

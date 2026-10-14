@@ -13,6 +13,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use alloy_primitives::Address;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -27,6 +28,12 @@ pub const STATE_FILE: &str = "abci-state.json";
 /// interrupted save and is discarded by [`Store::load`].
 pub const TMP_FILE: &str = "abci-state.json.tmp";
 
+/// Bounded sidecar of the last fully verified runtime committee witness.
+pub const COMMITTEE_WITNESS_FILE: &str = "abci-committee-witness.json";
+
+/// Interrupted atomic save of the committee sidecar; removed before loading.
+pub const COMMITTEE_WITNESS_TMP_FILE: &str = "abci-committee-witness.json.tmp";
+
 /// One epoch's committee: its record (as deterministically derived from a fixed L1 snapshot) and
 /// members.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -39,13 +46,16 @@ pub struct CommitteeState {
 
 /// The app's committed state, persisted at every `Commit`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AppState {
     /// CometBFT `chain_id` (`taiko-etna-<l2ChainId>-g<generation>`).
     pub chain_id: String,
     /// Recovery generation of the running chain (the `chain_id` suffix).
     pub generation: u64,
+    /// Inbox account authenticated at genesis. Required so a restart cannot switch contracts;
+    /// state files written without this binding are refused rather than migrated implicitly.
+    pub inbox: Address,
     /// The Etna genesis record verified at `InitChain`.
-    #[serde(alias = "activation")]
     pub genesis: GenesisRecord,
     /// Last committed CometBFT height (== `parent.number`); `B*` right after `InitChain`.
     pub last_height: u64,
@@ -59,23 +69,6 @@ pub struct AppState {
     pub forced_cursor: u64,
     /// Known committees by epoch: the running epoch's and, once derived, the next one's.
     pub committees: BTreeMap<u64, CommitteeState>,
-}
-
-/// The prior state-file shape may carry a redundant schedule beside the canonical record.
-#[derive(Deserialize)]
-struct LegacyState {
-    /// Present only in files written before schedules were derived on demand.
-    schedule: Option<LegacySchedule>,
-}
-
-/// The legacy schedule also stored a configurable L2 genesis height.
-#[derive(Deserialize)]
-struct LegacySchedule {
-    /// Must agree with the canonical record's supported height, zero.
-    genesis_height: u64,
-    /// The remaining schedule fields are unchanged.
-    #[serde(flatten)]
-    schedule: Schedule,
 }
 
 impl AppState {
@@ -135,8 +128,9 @@ impl Store {
     /// data directory).
     ///
     /// A leftover [`TMP_FILE`] from an interrupted save is ignored and removed first. Fails with
-    /// [`StoreError::Corrupt`] when the state file does not decode and with [`StoreError::Io`]
-    /// on any other filesystem error.
+    /// [`StoreError::Corrupt`] when the state file does not decode as the current canonical
+    /// schema and with [`StoreError::Io`] on any other filesystem error. No legacy aliases or
+    /// redundant schedules are migrated.
     pub fn load(&self) -> Result<Option<AppState>, StoreError> {
         let tmp = self.dir.join(TMP_FILE);
         match fs::remove_file(&tmp) {
@@ -152,23 +146,30 @@ impl Store {
             Err(source) => return Err(StoreError::Io { op: "read", path, source }),
         };
         let state: AppState = serde_json::from_slice(&bytes)
-            .map_err(|source| StoreError::Corrupt { path: path.clone(), source })?;
-        // Keep AppState on serde_json's direct deserializer: flatten buffering does not
-        // preserve its integer-keyed committee map's JSON key decoding.
-        let legacy: LegacyState = serde_json::from_slice(&bytes)
-            .map_err(|source| StoreError::Corrupt { path: path.clone(), source })?;
-        if let Some(legacy) = legacy.schedule &&
-            (legacy.genesis_height != state.genesis.genesis_height ||
-                legacy.schedule != state.schedule())
-        {
-            return Err(StoreError::Corrupt {
-                path,
-                source: <serde_json::Error as serde::de::Error>::custom(
-                    "legacy schedule differs from the canonical genesis record",
-                ),
-            });
-        }
+            .map_err(|source| StoreError::Corrupt { path, source })?;
         Ok(Some(state))
+    }
+
+    /// Loads the untrusted committee sidecar bytes and discards an interrupted temporary save.
+    /// The app independently authenticates its identity and proof before reuse.
+    pub(crate) fn load_committee_witness(&self) -> Result<Option<Vec<u8>>, StoreError> {
+        let tmp = self.dir.join(COMMITTEE_WITNESS_TMP_FILE);
+        match fs::remove_file(&tmp) {
+            Ok(()) => {}
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(source) => return Err(StoreError::Io { op: "remove", path: tmp, source }),
+        }
+        let path = self.dir.join(COMMITTEE_WITNESS_FILE);
+        match fs::read(&path) {
+            Ok(bytes) => Ok(Some(bytes)),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+            Err(source) => Err(StoreError::Io { op: "read", path, source }),
+        }
+    }
+
+    /// Atomically saves the complete verified committee sidecar before proposal signing.
+    pub(crate) fn save_committee_witness(&self, bytes: &[u8]) -> Result<(), StoreError> {
+        self.save_bytes(bytes, COMMITTEE_WITNESS_FILE, COMMITTEE_WITNESS_TMP_FILE)
     }
 
     /// Persists `s` atomically, replacing any previous state.
@@ -177,15 +178,20 @@ impl Store {
     /// [`STATE_FILE`] and (on unix) fsyncs the directory so the rename is durable.
     pub fn save(&self, s: &AppState) -> Result<(), StoreError> {
         let json = serde_json::to_vec_pretty(s).map_err(StoreError::Encode)?;
+        self.save_bytes(&json, STATE_FILE, TMP_FILE)
+    }
+
+    /// Fsyncs and atomically replaces one bounded file in the data directory.
+    fn save_bytes(&self, bytes: &[u8], name: &str, temporary_name: &str) -> Result<(), StoreError> {
         fs::create_dir_all(&self.dir).map_err(|source| io_err("create", &self.dir, source))?;
 
-        let tmp = self.dir.join(TMP_FILE);
+        let tmp = self.dir.join(temporary_name);
         let mut file = File::create(&tmp).map_err(|source| io_err("create", &tmp, source))?;
-        file.write_all(&json).map_err(|source| io_err("write", &tmp, source))?;
+        file.write_all(bytes).map_err(|source| io_err("write", &tmp, source))?;
         file.sync_all().map_err(|source| io_err("fsync", &tmp, source))?;
         drop(file);
 
-        let path = self.dir.join(STATE_FILE);
+        let path = self.dir.join(name);
         fs::rename(&tmp, &path).map_err(|source| io_err("rename", &tmp, source))?;
         sync_dir(&self.dir)
     }
@@ -258,6 +264,7 @@ mod tests {
         AppState {
             chain_id: "taiko-etna-167001-g0".to_string(),
             generation: 0,
+            inbox: alloy_primitives::address!("00000000000000000000000000000000E7A10001"),
             genesis,
             last_height: 105,
             parent: ParentInfo {
@@ -300,6 +307,19 @@ mod tests {
         assert_eq!(store.load().expect("loads"), Some(s));
     }
 
+    #[test]
+    fn load_rejects_state_without_authenticated_inbox() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().into());
+        store.save(&state()).unwrap();
+        let path = dir.path().join(STATE_FILE);
+        let mut json: serde_json::Value =
+            serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        json.as_object_mut().unwrap().remove("inbox");
+        fs::write(path, serde_json::to_vec(&json).unwrap()).unwrap();
+        assert!(matches!(store.load(), Err(StoreError::Corrupt { .. })));
+    }
+
     /// Newly written state has one canonical source for the epoch schedule.
     #[test]
     fn save_omits_the_redundant_schedule() {
@@ -327,9 +347,31 @@ mod tests {
         assert_eq!(store.load().unwrap(), Some(state()));
     }
 
-    /// Prior JSON remains readable, but inconsistent legacy schedule data is refused.
     #[test]
-    fn load_checks_a_legacy_schedule() {
+    fn load_rejects_the_legacy_genesis_alias() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().into());
+        let mut json = serde_json::to_value(state()).unwrap();
+        let genesis = json.as_object_mut().unwrap().remove("genesis").unwrap();
+        json["activation"] = genesis;
+        fs::write(dir.path().join(STATE_FILE), serde_json::to_vec(&json).unwrap()).unwrap();
+        assert!(matches!(store.load(), Err(StoreError::Corrupt { .. })));
+    }
+
+    #[test]
+    fn load_rejects_the_legacy_inbox_status_alias() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().into());
+        let mut json = serde_json::to_value(state()).unwrap();
+        let facts = json["anchor"]["inbox"].as_object_mut().unwrap();
+        let status = facts.remove("status").unwrap();
+        facts.insert("migration_state".into(), status);
+        fs::write(dir.path().join(STATE_FILE), serde_json::to_vec(&json).unwrap()).unwrap();
+        assert!(matches!(store.load(), Err(StoreError::Corrupt { .. })));
+    }
+
+    #[test]
+    fn load_rejects_a_redundant_legacy_schedule() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::new(dir.path().into());
         let s = state();
@@ -341,21 +383,8 @@ mod tests {
             "epoch_len_l1": s.genesis.epoch_len_l1,
             "genesis_cutoff": s.genesis.genesis_cutoff,
         });
-        let record = json.as_object_mut().unwrap().remove("genesis").unwrap();
-        json["activation"] = record;
-        let facts = json["anchor"]["inbox"].as_object_mut().unwrap();
-        let status = facts.remove("status").unwrap();
-        facts.insert("migration_state".into(), status);
         fs::write(dir.path().join(STATE_FILE), serde_json::to_vec(&json).unwrap()).unwrap();
-        assert_eq!(store.load().unwrap(), Some(s.clone()));
-        // The first simplification wrote the old record/status names without a schedule.
-        let schedule = json.as_object_mut().unwrap().remove("schedule").unwrap();
-        fs::write(dir.path().join(STATE_FILE), serde_json::to_vec(&json).unwrap()).unwrap();
-        assert_eq!(store.load().unwrap(), Some(s));
-        json["schedule"] = schedule;
-        json["schedule"]["epoch_len"] = serde_json::json!(21);
-        fs::write(dir.path().join(STATE_FILE), serde_json::to_vec(&json).unwrap()).unwrap();
-        assert!(store.load().is_err());
+        assert!(matches!(store.load(), Err(StoreError::Corrupt { .. })));
     }
 
     /// A state written before forced inclusion lacks its genesis-record, anchor and cursor fields
@@ -425,6 +454,19 @@ mod tests {
         fs::write(&tmp, b"garbage").expect("writes tmp");
         assert_eq!(store.load().expect("loads"), Some(state()));
         assert!(!tmp.exists(), "load removes the leftover temp file");
+    }
+
+    #[test]
+    fn interrupted_committee_sidecar_save_preserves_the_previous_complete_witness() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().to_path_buf());
+        store.save_committee_witness(b"complete verified witness").unwrap();
+        fs::write(dir.path().join(COMMITTEE_WITNESS_TMP_FILE), b"partial").unwrap();
+        assert_eq!(
+            store.load_committee_witness().unwrap(),
+            Some(b"complete verified witness".to_vec())
+        );
+        assert!(!dir.path().join(COMMITTEE_WITNESS_TMP_FILE).exists());
     }
 
     #[test]

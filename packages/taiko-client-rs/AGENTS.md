@@ -58,6 +58,6 @@
 ## Security & Environment Notes
 
 - Use only the ephemeral test keys bundled in the test harness and `tests/docker`; never commit real credentials or `.env` files.
-- The docker scenarios publish ephemeral host ports and name every container and network `abci-<id>-…`; after an interrupted run remove leftovers with `docker ps -aq --filter 'name=^abci-' | xargs -r docker rm -f -v` and `docker network ls -q --filter 'name=^abci-' | xargs -r docker network rm` (as CI does; the quotes keep shells with extended globbing, such as zsh with `EXTENDED_GLOB`, from expanding the `^`).
+- Docker scenarios publish ephemeral RPC ports on loopback and name resources `abci-<id>-…` or `lander-<id>-…`. The harness cleans process-owned resources on SIGINT/SIGTERM; the entrypoint and CI also clean only the `taiko-client-rs.test-run` label for their run. For manual cleanup, filter that exact run label so other devnets are preserved.
 
 - Lander real-contract fixtures pin protocol commit `f370455143e81fa12ad3b627d4c2b8d62c770631`. Regenerate with `script/gen_lander_artifacts.sh`; generated artifact hashes and compiler provenance are unit-tested. Real-contract tests use `LANDER_ANVIL_IMAGE` (Foundry v1.8.5); existing ABCI tests retain their independent Anvil pin.

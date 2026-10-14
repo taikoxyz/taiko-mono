@@ -41,3 +41,25 @@ impl LanderError {
         matches!(self, Self::Temporary(_) | Self::Unavailable(_) | Self::Stale(_))
     }
 }
+
+/// Render only stable RPC failure categories and numeric codes; transport errors and response
+/// bodies can contain the configured endpoint's credentials, path tokens, or echoed request data.
+pub(crate) fn sanitized_rpc_error(
+    operation: &'static str,
+    error: alloy::transports::TransportError,
+) -> LanderError {
+    use alloy::transports::{RpcError, TransportErrorKind};
+    let reason = match error {
+        RpcError::ErrorResp(payload) => format!("RPC error code {}", payload.code),
+        RpcError::NullResp => "unexpected null response".into(),
+        RpcError::UnsupportedFeature(_) => "unsupported RPC feature".into(),
+        RpcError::LocalUsageError(_) => "local RPC usage failure".into(),
+        RpcError::SerError(_) => "RPC request encoding failure".into(),
+        RpcError::DeserError { .. } => "RPC response decoding failure".into(),
+        RpcError::Transport(TransportErrorKind::HttpError(error)) => {
+            format!("HTTP status {}", error.status)
+        }
+        RpcError::Transport(_) => "RPC transport failure".into(),
+    };
+    LanderError::Temporary(format!("{operation}: {reason}"))
+}
