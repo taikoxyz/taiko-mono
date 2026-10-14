@@ -93,7 +93,7 @@ height 8 anchored 1020 may select a different committee; all nodes replaying one
 The config hash binds nine ABI words: `ETNA_PARENT_ANCHOR_V1`, L2 chain id, registry,
 `vp_unit`, `s_min`, `n_max`, `heartbeat_window`, heartbeat lookahead 2 and membership algorithm 1.
 The envelope is version 4, the landing payload V3, the statement V6 and the lander journal
-schema 6 (original Comet protobuf block witnesses). State files must contain `genesis.committee_config_hash` and the forced inclusion
+schema 7 (original Comet protobuf block witnesses and protobuf commits). State files must contain `genesis.committee_config_hash` and the forced inclusion
 fields (`forced_cursor`, `genesis.forced_inclusion_delay`, `genesis.max_anchor_age` and the
 anchor's `forced_inclusion_head` and `forced_inclusion_tail`), and local parameters must open
 the config hash correctly. Histories with envelope version 2 or 3, fixed-cutoff
@@ -408,13 +408,21 @@ commitments. Choose the mode supported by the L1 fork.
 Go's present empty height-1 commit and block id, nil evidence vote ids and evidence voting powers,
 and duplicate-vote evidence whose precommit carries a vote extension (vote signatures do not
 cover extensions, so anyone can attach one to a double-signed vote; Go's JSON carries the bytes
-as base64, which the lander decodes so the evidence hash covers them exactly).
-The journal/proof wire encodes these unchanged bytes as canonical base64 and reconstructs the
-checked domain projection on restore. Body verification and every future guest must use that raw
+as base64, which the lander decodes so the evidence hash covers them exactly), and any vote,
+commit signature or header time at the Unix epoch: Go always encodes these times, while
+tendermint-proto's JSON adapter reads the epoch as absent, so the lander restores them (one
+validator signing its precommit at the epoch is valid to CometBFT and would otherwise make the
+block and its certificate unreadable). A seeded differential test reads stock-Go-encoded random
+blocks and certificates back into exactly Go's protobufs.
+The journal/proof wire encodes these unchanged bytes, and the commit's protobuf, as canonical
+base64 and reconstructs the checked domain projection on restore. Body verification and every future guest must use that raw
 protobuf for the signed 64 KiB part-set root and the concrete evidence subtype protobufs (without
 the `Evidence` oneof wrapper) for `evidence_hash`; the raw witness is never rebuilt from the
-domain projection, which drops duplicate-vote extensions (nothing hashes the projection's
-evidence) and must not otherwise rewrite evidence or nested light-client validator sets. The
+domain projection, which omits evidence altogether: nothing reads it, and the domain conversion
+rejects evidence CometBFT commits (extension signatures that are not 64 bytes, nil signatures of
+other lengths or secp256k1 validators inside a light-client attack). A light-client attack whose
+lunatic validator set uses a key type v0_38 protobufs cannot represent (secp256k1eth, BLS12-381,
+ML-DSA-65) still cannot be read; it needs at least a third of the voting power. The
 published header keeps the canonical Rust domain form,
 which normalizes the height-1 empty last block id to `None`.
 

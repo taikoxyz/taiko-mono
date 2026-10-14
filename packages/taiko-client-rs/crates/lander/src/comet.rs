@@ -9,7 +9,10 @@ use futures::StreamExt;
 use serde::{Deserialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 use tendermint::block::{Commit, Header, Id};
-use tendermint_proto::v0_38::types::Block as RawBlock;
+use tendermint_proto::v0_38::types::{
+    Block as RawBlock, Commit as RawCommit, Header as RawHeader, Vote as RawVote,
+    evidence::Sum as RawEvidence,
+};
 use url::Url;
 
 use crate::{
@@ -97,9 +100,9 @@ struct BlockResponse {
     block: RawBlock,
 }
 
-/// Accepts Go's exported light-client evidence field names omitted by the proto JSON adapter, and
-/// the base64 vote extensions of duplicate-vote evidence, which the adapter only reads as byte
-/// arrays.
+/// Accepts Go's exported light-client evidence field names omitted by the proto JSON adapter, the
+/// base64 vote extensions of duplicate-vote evidence, which the adapter only reads as byte arrays,
+/// and Unix-epoch times, which it reads as absent ([`restore_block_times`]).
 ///
 /// CometBFT accepts a duplicate vote whose precommit carries an extension (its signature check
 /// does not cover extensions), and Go's JSON encodes those bytes as base64 strings. Converting
@@ -143,7 +146,84 @@ fn deserialize_block<'de, D: serde::Deserializer<'de>>(
             }
         }
     }
-    serde_json::from_value(value).map_err(serde::de::Error::custom)
+    let mut block: RawBlock = serde_json::from_value(value).map_err(serde::de::Error::custom)?;
+    restore_block_times(&mut block);
+    Ok(block)
+}
+
+/// Restores the Unix-epoch times of `block`'s header, last commit and evidence votes and
+/// light-client headers and commits ([`restore_header_time`]).
+fn restore_block_times(block: &mut RawBlock) {
+    if let Some(header) = &mut block.header {
+        restore_header_time(header);
+    }
+    if let Some(commit) = &mut block.last_commit {
+        restore_commit_times(commit);
+    }
+    for evidence in block.evidence.iter_mut().flat_map(|list| list.evidence.iter_mut()) {
+        match evidence.sum.as_mut() {
+            Some(RawEvidence::DuplicateVoteEvidence(duplicate)) => {
+                for vote in [&mut duplicate.vote_a, &mut duplicate.vote_b].into_iter().flatten() {
+                    restore_vote_time(vote);
+                }
+            }
+            Some(RawEvidence::LightClientAttackEvidence(attack)) => {
+                let signed = attack
+                    .conflicting_block
+                    .as_mut()
+                    .and_then(|light| light.signed_header.as_mut());
+                if let Some(signed) = signed {
+                    if let Some(header) = &mut signed.header {
+                        restore_header_time(header);
+                    }
+                    if let Some(commit) = &mut signed.commit {
+                        restore_commit_times(commit);
+                    }
+                }
+            }
+            None => {}
+        }
+    }
+}
+
+/// Go encodes a header's time, a vote's timestamp and a commit signature's timestamp as
+/// non-nullable timestamps, so the JSON always carries them; tendermint-proto's JSON adapter
+/// (`serializers::optional`) reads one equal to the Unix epoch as absent. An absent value can
+/// therefore only be the epoch: restoring it keeps a validator that signs its precommit at the
+/// epoch (valid to CometBFT, and covered by the signature) from making a committed block and
+/// its certificate unreadable. The hashes and signatures over these fields still bind them.
+fn restore_header_time(header: &mut RawHeader) {
+    header.time.get_or_insert_with(Default::default);
+}
+
+/// [`restore_header_time`] for every signature of `commit`.
+fn restore_commit_times(commit: &mut RawCommit) {
+    for signature in &mut commit.signatures {
+        signature.timestamp.get_or_insert_with(Default::default);
+    }
+}
+
+/// [`restore_header_time`] for a vote.
+fn restore_vote_time(vote: &mut RawVote) {
+    vote.timestamp.get_or_insert_with(Default::default);
+}
+
+/// Reads `/commit`'s header through its protobuf form, restoring a Unix-epoch time.
+fn deserialize_header<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Header, D::Error> {
+    let mut header = RawHeader::deserialize(deserializer)?;
+    restore_header_time(&mut header);
+    header.try_into().map_err(serde::de::Error::custom)
+}
+
+/// Reads `/commit`'s certificate through its protobuf form, restoring Unix-epoch vote times.
+fn deserialize_commit<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Commit, D::Error> {
+    let mut commit = RawCommit::deserialize(deserializer)?;
+    restore_commit_times(&mut commit);
+    commit.try_into().map_err(serde::de::Error::custom)
 }
 
 /// Replaces a vote's base64 `extension` and `extension_signature` strings with the byte arrays the
@@ -171,8 +251,10 @@ struct CommitResponse {
 #[derive(Deserialize)]
 struct SignedHeader {
     /// Header the certificate signs.
+    #[serde(deserialize_with = "deserialize_header")]
     header: Header,
     /// Decision certificate for that header.
+    #[serde(deserialize_with = "deserialize_commit")]
     commit: Commit,
 }
 
@@ -523,6 +605,81 @@ mod tests {
                 )
                 .is_err()
             );
+        }
+    }
+
+    /// Stock blocks and certificates as CometBFT's RPC serves them, named edge cases (Unix-epoch
+    /// times, int32-extreme rounds and indices, 120 validators, an app version, light-client
+    /// attacks with a 65-byte nil signature or a secp256k1 validator) then seeded random ones
+    /// (validator sets, heights, commit flags, times including the Unix epoch and Go's zero time,
+    /// duplicate-vote and light-client-attack evidence with extensions): each reads back into
+    /// exactly Go's block and commit protobufs, its certificate verifies, its commitments match,
+    /// and the journal wire restores it unchanged.
+    #[tokio::test]
+    async fn reads_stock_go_blocks_and_commits_byte_for_byte() {
+        use crate::validate::{ValidationError, verify_body, verify_commit};
+        use prost::Message;
+        use tendermint_proto::v0_38::types::Commit as RawCommit;
+
+        let fixture: Value =
+            serde_json::from_str(include_str!("../testdata/cometbft-v0.40/differential.json"))
+                .unwrap();
+        let hex = |value: &Value| alloy_primitives::hex::decode(value.as_str().unwrap()).unwrap();
+        for vector in fixture["vectors"].as_array().unwrap() {
+            let name = vector["name"].as_str().unwrap();
+            let height = vector["height"].as_u64().unwrap();
+            let powers: Vec<u64> = vector["powers"]
+                .as_str()
+                .unwrap()
+                .split(',')
+                .map(|power| power.parse().unwrap())
+                .collect();
+            let rpc = source(
+                vec![success(vector["block_rpc"].clone()), success(vector["commit_rpc"].clone())],
+                1 << 20,
+                Duration::from_secs(2),
+            )
+            .await;
+            let pair = rpc.block(height).await.unwrap_or_else(|e| panic!("{name}: {e}"));
+            assert_eq!(pair.raw_block.as_ref(), hex(&vector["block_proto"]), "{name}: block");
+            assert_eq!(
+                RawCommit::from(pair.commit.clone()).encode_to_vec(),
+                hex(&vector["commit_proto"]),
+                "{name}: commit"
+            );
+            let (_, committee, _) = committee(&powers, 0);
+            verify_commit(&pair.commit, &pair.block.header, &committee, "taiko-etna-167001-g0")
+                .unwrap_or_else(|e| panic!("{name}: {e}"));
+            assert_eq!(
+                pair.block.header.evidence_hash.unwrap().as_bytes(),
+                hex(&vector["evidence_hash"]),
+                "{name}"
+            );
+            assert_eq!(
+                pair.commit.block_id.part_set_header.hash.as_bytes(),
+                hex(&vector["parts_hash"]),
+                "{name}"
+            );
+            assert_eq!(
+                u64::from(pair.commit.block_id.part_set_header.total),
+                vector["parts_total"].as_u64().unwrap(),
+                "{name}"
+            );
+            // Every consensus commitment precedes the envelope's execution height, which the
+            // shared height-1 fixture envelope only matches at height 1.
+            let body = |pair: &CertifiedBlock| match verify_body(pair, height, B256::ZERO) {
+                Ok(_) => assert_eq!(height, 1, "{name}"),
+                Err(ValidationError::Etna(reason)) if height > 1 => {
+                    assert_eq!(reason, "execution height / parent hash mismatch", "{name}")
+                }
+                Err(e) => panic!("{name}: {e}"),
+            };
+            body(&pair);
+            let restored: CertifiedBlock =
+                serde_json::from_value(serde_json::to_value(&pair).unwrap())
+                    .unwrap_or_else(|e| panic!("{name}: journal: {e}"));
+            assert_eq!(restored, pair, "{name}: journal");
+            body(&restored);
         }
     }
 

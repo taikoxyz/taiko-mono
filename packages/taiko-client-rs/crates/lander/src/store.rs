@@ -16,12 +16,14 @@ use std::{
 
 /// Journal schema version; incompatible formats stop rather than discard outstanding nonces.
 ///
+/// Schema 7 journals the paired commit as a protobuf too: schema 6 kept it in the domain JSON
+/// form, which reads a Unix-epoch vote time as absent and cannot restore such a certificate.
 /// Schema 6 additionally preserves authoritative original Comet protobuf block bytes. Schema 5
 /// jobs used lossy Tendermint domain block serialization and bound the eighteen-word V6 statement
 /// over a six-field `LandInput` (forced inclusion head after the batch and fee recipient included),
 /// compressed V3 blob payloads and snapshots carrying the forced inclusion queue; schema 4 bound V5
 /// statements over uncompressed V2 payloads and schema 3 complete V1 blocks.
-const JOURNAL_VERSION: u8 = 6;
+const JOURNAL_VERSION: u8 = 7;
 /// Hard allocation bound before reading or decoding an untrusted journal.
 pub(crate) const MAX_JOURNAL_BYTES: u64 = 256 * 1024 * 1024;
 
@@ -403,10 +405,11 @@ mod tests {
     }
 
     /// Schema 2 holds V4 statements, schema 3 complete-block V1 blob payloads and schema 4
-    /// uncompressed V2 payloads; schema 5 used lossy domain block serialization.
+    /// uncompressed V2 payloads; schema 5 used lossy domain block serialization and schema 6
+    /// domain JSON commits.
     #[test]
     fn legacy_journals_are_rejected_without_modifying_their_files() {
-        for version in [2, 3, 4, 5] {
+        for version in [2, 3, 4, 5, 6] {
             let directory = tempfile::tempdir().unwrap();
             let journal = serde_json::json!({
                 "version": version,
@@ -441,7 +444,7 @@ mod tests {
         };
         let state =
             JournalState::Pending { job: Box::new(ProvedJob { request, proof }), transaction };
-        for version in [2, 3, 4, 5] {
+        for version in [2, 3, 4, 5, 6] {
             let directory = tempfile::tempdir().unwrap();
             let bytes = serde_json::to_vec(
                 &serde_json::json!({ "version": version, "identity": id, "state": state }),

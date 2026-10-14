@@ -8,7 +8,7 @@ use alloy_consensus::Header;
 use alloy_primitives::{Address, B256, Bytes, U256, aliases::U48};
 use prost::Message;
 use serde::{Deserialize, Serialize};
-use tendermint_proto::v0_38::types::{Block as RawBlock, evidence::Sum as RawEvidence};
+use tendermint_proto::v0_38::types::{Block as RawBlock, Commit as RawCommit};
 
 use crate::{
     blob::PreparedBlobs,
@@ -138,18 +138,20 @@ pub struct CertifiedBlock {
     pub commit: tendermint::block::Commit,
 }
 
-/// Journal/proof wire representation; a domain serialization can rewrite consensus evidence.
+/// Journal/proof wire representation, in protobufs only: a domain JSON serialization can rewrite
+/// consensus evidence, and its JSON adapter reads a Unix-epoch vote time as absent.
 #[derive(Clone, Serialize, Deserialize)]
 struct CertifiedBlockWire {
     /// Canonical original block protobuf, required on every restored witness.
-    #[serde(with = "raw_block_serde")]
+    #[serde(with = "protobuf_serde")]
     raw_block: Bytes,
-    /// Decision certificate paired with that original block.
-    commit: tendermint::block::Commit,
+    /// Canonical protobuf of the decision certificate paired with that original block.
+    #[serde(with = "protobuf_serde")]
+    raw_commit: Bytes,
 }
 
 /// Canonical base64 keeps journaled protobuf growth within the existing four-thirds bound.
-mod raw_block_serde {
+mod protobuf_serde {
     use alloy_primitives::Bytes;
     use base64::{Engine as _, engine::general_purpose::STANDARD};
     use serde::{Deserialize, Deserializer, Serializer};
@@ -169,7 +171,7 @@ mod raw_block_serde {
         let encoded = String::deserialize(deserializer)?;
         let bytes = STANDARD.decode(&encoded).map_err(serde::de::Error::custom)?;
         if STANDARD.encode(&bytes) != encoded {
-            return Err(serde::de::Error::custom("noncanonical original block base64"));
+            return Err(serde::de::Error::custom("noncanonical protobuf base64"));
         }
         Ok(bytes.into())
     }
@@ -201,23 +203,16 @@ impl CertifiedBlock {
     }
 }
 
-/// The domain projection of `raw`, after dropping the vote extensions of its duplicate-vote
-/// evidence.
+/// The domain projection of `raw`, without its evidence.
 ///
-/// CometBFT commits duplicate-vote evidence whose precommits carry an extension and an extension
-/// signature of any length up to its largest key type's signature (vote signatures do not cover
-/// extensions, and evidence verification never reads them), while the domain conversion requires
-/// a 64-byte extension signature. Nothing reads extensions from the projection; the original
-/// bytes, extensions included, remain the witness the evidence hash and part set are built from.
+/// Nothing reads the projection's evidence: body verification hashes the original evidence
+/// bytes. The domain conversion would reject evidence CometBFT commits: duplicate-vote extension
+/// signatures that are not 64 bytes (vote signatures do not cover extensions, and evidence
+/// verification never reads them), and inside a light-client attack, nil-vote signatures of other
+/// lengths (never verified) or validator key types this build does not convert. The original
+/// bytes, evidence included, remain the witness the evidence hash and part set are built from.
 fn domain_block(mut raw: RawBlock) -> std::result::Result<tendermint::Block, tendermint::Error> {
-    for evidence in raw.evidence.iter_mut().flat_map(|list| list.evidence.iter_mut()) {
-        if let Some(RawEvidence::DuplicateVoteEvidence(duplicate)) = evidence.sum.as_mut() {
-            for vote in [&mut duplicate.vote_a, &mut duplicate.vote_b].into_iter().flatten() {
-                vote.extension.clear();
-                vote.extension_signature.clear();
-            }
-        }
-    }
+    raw.evidence = None;
     raw.try_into()
 }
 
@@ -229,7 +224,16 @@ impl TryFrom<CertifiedBlockWire> for CertifiedBlock {
         let raw = RawBlock::decode(wire.raw_block.as_ref()).map_err(|e| {
             LanderError::Encoding(format!("invalid restored CometBFT block protobuf: {e}"))
         })?;
-        let pair = Self::from_raw(raw, wire.commit)?;
+        let raw_commit = RawCommit::decode(wire.raw_commit.as_ref()).map_err(|e| {
+            LanderError::Encoding(format!("invalid restored CometBFT commit protobuf: {e}"))
+        })?;
+        if raw_commit.encode_to_vec().as_slice() != wire.raw_commit.as_ref() {
+            return Err(LanderError::Encoding("noncanonical restored commit protobuf".into()));
+        }
+        let commit = raw_commit
+            .try_into()
+            .map_err(|e| LanderError::Encoding(format!("invalid restored CometBFT commit: {e}")))?;
+        let pair = Self::from_raw(raw, commit)?;
         if pair.raw_block != wire.raw_block {
             return Err(LanderError::Encoding("noncanonical restored block protobuf".into()));
         }
@@ -240,7 +244,10 @@ impl TryFrom<CertifiedBlockWire> for CertifiedBlock {
 impl From<CertifiedBlock> for CertifiedBlockWire {
     /// Persists the original witness and certificate; the domain projection is reconstructed.
     fn from(pair: CertifiedBlock) -> Self {
-        Self { raw_block: pair.raw_block, commit: pair.commit }
+        Self {
+            raw_block: pair.raw_block,
+            raw_commit: RawCommit::from(pair.commit).encode_to_vec().into(),
+        }
     }
 }
 
