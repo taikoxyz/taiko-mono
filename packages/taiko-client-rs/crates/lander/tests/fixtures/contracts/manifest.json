@@ -127,7 +127,7 @@
           ":urc/=node_modules/urc/"
         ]
       },
-      "sha256": "1f35c1ea731cf2ab603eb3085d2569da9bb0466e4983fc19678b7be891eb0ea5",
+      "sha256": "89d2a96f9ffe905e1b97159ce5bd0c970602b95f15f04623b5ca81793300bcd9",
       "sourceArtifact": "packages/protocol/out/layer1/EtnaInbox.sol/EtnaInbox.json",
       "sources": {
         "contracts/layer1/core/iface/IForcedInclusionStore.sol": {
@@ -143,16 +143,16 @@
           "sha256": "e9a89b12352760c369916db88005bfb01916beba84370457134c1d4b66d8d3f1"
         },
         "contracts/layer1/etna/iface/IEtnaInbox.sol": {
-          "keccak256": "0x7d0f6b84eabe645f924173582ac9ac2f9f3836f7ee2b660fd70b85f9f2530de0",
-          "sha256": "8947f3949e1fdba4b785d222a19b193f9877ffc552842744cff354891bf0aebe"
+          "keccak256": "0xd15f0d1ec6460669703278d015586d017f0ceaeac84c682a5fcd3836296a620d",
+          "sha256": "74a7728a1d4b74a20ba7012fb898834aa393cb88b97a029a4c1a5d07c238de47"
         },
         "contracts/layer1/etna/iface/IEtnaStakingRegistry.sol": {
           "keccak256": "0x9ad63217eb335a7bd0ae374055e27643cac879f9709905be22e1d1fcdbc89ce3",
           "sha256": "5cd2aaa88ea55fe9f3e1aca894e046111839a96deef86c2ac5b576fe4162ca2d"
         },
         "contracts/layer1/etna/impl/EtnaInbox.sol": {
-          "keccak256": "0xbf91f028a918df0bf8e423394841fdd4d641f8174a67dacc1832424263faad8c",
-          "sha256": "35f41517530a3949cd671488fbeb581d23cd6824e9d01d247413b513cc38c74c"
+          "keccak256": "0x8fc7b3270a53257f1f54eef64e8964ed5f0db0c709d6ec844cd17bed43b60c9f",
+          "sha256": "895ed681d7e7bd68fe7351cf7cb058040c029d2de666727b53d6043258652d20"
         },
         "contracts/layer1/etna/impl/EtnaInbox_Layout.sol": {
           "keccak256": "0xd480e8be0dae8080c98f044607d40f4b90edfbdfcf592860c744449c939e8788",
@@ -427,7 +427,7 @@
           ":urc/=node_modules/urc/"
         ]
       },
-      "sha256": "eca71636c56d2f57f1cf8030b095e9d6eb558427e81e63e340a7fb55d687e4af",
+      "sha256": "9211fa1c12f9a38bca44f4312096564bfce1b8ceb361d5270198fa9159015453",
       "sourceArtifact": "packages/protocol/out/layer1/EtnaInboxTestBase.sol/MockLandProofVerifier.json",
       "sources": {
         "contracts/layer1/core/iface/IForcedInclusionStore.sol": {
@@ -443,16 +443,16 @@
           "sha256": "e9a89b12352760c369916db88005bfb01916beba84370457134c1d4b66d8d3f1"
         },
         "contracts/layer1/etna/iface/IEtnaInbox.sol": {
-          "keccak256": "0x7d0f6b84eabe645f924173582ac9ac2f9f3836f7ee2b660fd70b85f9f2530de0",
-          "sha256": "8947f3949e1fdba4b785d222a19b193f9877ffc552842744cff354891bf0aebe"
+          "keccak256": "0xd15f0d1ec6460669703278d015586d017f0ceaeac84c682a5fcd3836296a620d",
+          "sha256": "74a7728a1d4b74a20ba7012fb898834aa393cb88b97a029a4c1a5d07c238de47"
         },
         "contracts/layer1/etna/iface/IEtnaStakingRegistry.sol": {
           "keccak256": "0x9ad63217eb335a7bd0ae374055e27643cac879f9709905be22e1d1fcdbc89ce3",
           "sha256": "5cd2aaa88ea55fe9f3e1aca894e046111839a96deef86c2ac5b576fe4162ca2d"
         },
         "contracts/layer1/etna/impl/EtnaInbox.sol": {
-          "keccak256": "0xbf91f028a918df0bf8e423394841fdd4d641f8174a67dacc1832424263faad8c",
-          "sha256": "35f41517530a3949cd671488fbeb581d23cd6824e9d01d247413b513cc38c74c"
+          "keccak256": "0x8fc7b3270a53257f1f54eef64e8964ed5f0db0c709d6ec844cd17bed43b60c9f",
+          "sha256": "895ed681d7e7bd68fe7351cf7cb058040c029d2de666727b53d6043258652d20"
         },
         "contracts/layer1/etna/impl/EtnaInbox_Layout.sol": {
           "keccak256": "0xd480e8be0dae8080c98f044607d40f4b90edfbdfcf592860c744449c939e8788",
@@ -1265,8 +1265,8 @@
   ],
   "generator": "script/gen_lander_artifacts.sh",
   "interface": {
-    "sha256": "8947f3949e1fdba4b785d222a19b193f9877ffc552842744cff354891bf0aebe",
+    "sha256": "74a7728a1d4b74a20ba7012fb898834aa393cb88b97a029a4c1a5d07c238de47",
     "source": "packages/protocol/contracts/layer1/etna/iface/IEtnaInbox.sol"
   },
-  "protocolRevision": "07615285c93d6475d1863dd840bd94fe64866514"
+  "protocolRevision": "f370455143e81fa12ad3b627d4c2b8d62c770631"
 }

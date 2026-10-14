@@ -614,7 +614,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 Regenerate lander ABI/deployment fixtures with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `07615285c93d6475d1863dd840bd94fe64866514`,
+The script requires protocol HEAD `f370455143e81fa12ad3b627d4c2b8d62c770631`,
 installs pnpm dependencies before Foundry, verifies compiler source hashes,
 formats generated JSON, and records ABI/bytecode/compiler provenance. It leaves
 the existing Anchor bindings unchanged.
