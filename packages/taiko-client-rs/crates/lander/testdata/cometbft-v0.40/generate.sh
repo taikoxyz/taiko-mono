@@ -11,4 +11,4 @@ go 1.25.0
 
 require github.com/cometbft/cometbft v0.40.0
 EOF
-go -C "$fixture_tmp" run -mod=mod . "$fixture_dir/envelope.base64" "$fixture_dir/vectors.json"
+go -C "$fixture_tmp" run -mod=mod . "$fixture_dir/envelope.base64" "$fixture_dir/vectors.json" "$fixture_dir/differential.json"
