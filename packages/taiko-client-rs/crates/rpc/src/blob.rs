@@ -1,6 +1,6 @@
 //! Utilities for fetching blob sidecars from beacon or blob servers.
 
-use std::{fmt, sync::Arc};
+use std::{fmt, sync::Arc, time::Duration};
 
 use alloy::primitives::{B256, hex};
 use alloy_eips::eip4844::{
@@ -60,6 +60,8 @@ pub struct BlobDataSource {
     blob_server_endpoint: Option<Url>,
     /// Lazily constructed HTTP client for blob-server requests.
     client: OnceCell<HttpClient>,
+    /// Timeout of each HTTP request, to the beacon and to the blob server.
+    timeout: Duration,
 }
 
 impl fmt::Debug for BlobDataSource {
@@ -76,8 +78,25 @@ impl BlobDataSource {
     /// Create a new [`BlobDataSource`] targeting the given endpoint.
     pub async fn new(
         beacon_endpoint: Option<Url>,
+        blob_server_endpoint: Option<Url>,
+        disable_beacon: bool,
+    ) -> Result<Self, BlobDataError> {
+        Self::with_timeout(
+            beacon_endpoint,
+            blob_server_endpoint,
+            disable_beacon,
+            DEFAULT_HTTP_TIMEOUT,
+        )
+        .await
+    }
+
+    /// [`BlobDataSource::new`] whose HTTP requests time out after `timeout` rather than
+    /// [`DEFAULT_HTTP_TIMEOUT`], for callers whose blob reads carry a longer deadline of their own.
+    pub async fn with_timeout(
+        beacon_endpoint: Option<Url>,
         mut blob_server_endpoint: Option<Url>,
         disable_beacon: bool,
+        timeout: Duration,
     ) -> Result<Self, BlobDataError> {
         if let Some(endpoint) = blob_server_endpoint.as_mut() {
             // Resolve blob routes below the configured provider prefix, not the host root.
@@ -86,18 +105,18 @@ impl BlobDataSource {
             }
         }
         let beacon = if let (Some(endpoint), false) = (beacon_endpoint, disable_beacon) {
-            Some(Arc::new(BeaconClient::new(endpoint).await?))
+            Some(Arc::new(BeaconClient::with_timeout(endpoint, timeout).await?))
         } else {
             None
         };
-        Ok(Self { beacon, blob_server_endpoint, client: OnceCell::new() })
+        Ok(Self { beacon, blob_server_endpoint, client: OnceCell::new(), timeout })
     }
 
     /// Access the HTTP client used for blob fetches.
     fn http_client(&self) -> Result<&HttpClient, BlobDataError> {
         self.client.get_or_try_init(|| {
             HttpClient::builder()
-                .timeout(DEFAULT_HTTP_TIMEOUT)
+                .timeout(self.timeout)
                 .build()
                 .map_err(|err| BlobDataError::Other(err.into()))
         })

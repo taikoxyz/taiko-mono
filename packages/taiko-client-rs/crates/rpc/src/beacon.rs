@@ -8,7 +8,7 @@
 use std::{
     collections::HashMap,
     fmt,
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use alloy::primitives::B256;
@@ -131,7 +131,13 @@ impl BeaconClient {
     /// The Go client follows the same pattern: it reads `/eth/v1/beacon/genesis` to determine
     /// the genesis timestamp and `/eth/v1/config/spec` to fetch `SECONDS_PER_SLOT`. Those values
     /// allow proposal timestamps to be converted into the correct beacon slot.
-    pub async fn new(mut endpoint: Url) -> Result<Self, BlobDataError> {
+    pub async fn new(endpoint: Url) -> Result<Self, BlobDataError> {
+        Self::with_timeout(endpoint, DEFAULT_HTTP_TIMEOUT).await
+    }
+
+    /// [`BeaconClient::new`] whose requests time out after `timeout` rather than
+    /// [`DEFAULT_HTTP_TIMEOUT`], for callers whose blob reads carry a longer deadline of their own.
+    pub async fn with_timeout(mut endpoint: Url, timeout: Duration) -> Result<Self, BlobDataError> {
         // Treat the configured path as a directory so provider prefixes (including API keys)
         // survive relative URL joins, whether or not the endpoint ends with a slash.
         if !endpoint.path().ends_with('/') {
@@ -139,7 +145,7 @@ impl BeaconClient {
         }
         let http = HttpClient::builder()
             .no_proxy()
-            .timeout(DEFAULT_HTTP_TIMEOUT)
+            .timeout(timeout)
             .build()
             .map_err(|err| BlobDataError::Other(err.into()))?;
 

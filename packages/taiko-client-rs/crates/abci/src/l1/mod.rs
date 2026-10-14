@@ -7,7 +7,8 @@
 
 /// Committee-only archive state fallback with own-L1 finality authority.
 pub mod archive;
-/// The source a proposer fetches forced inclusion blobs from (the L1 beacon node).
+/// The source forced inclusion blobs are fetched from (the L1 beacon node), by a proposer and
+/// by a validator prefetching a pending entry's blob.
 pub mod blobs;
 /// Committee-witness discovery from the node's own L1 (proposers and the genesis builder).
 pub mod fetch;

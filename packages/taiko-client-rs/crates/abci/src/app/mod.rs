@@ -100,9 +100,12 @@ pub const MAX_VERDICTS: usize = 4;
 /// Deadlines of the app's external calls.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AppOptions {
-    /// Deadline of one L1 operation (a finality check, a header or proof read, a forced
-    /// inclusion blob read from the beacon node).
+    /// Deadline of one L1 operation (a finality check, a header or proof read).
     pub l1_timeout: Duration,
+    /// Deadline of one forced inclusion blob read from the beacon node, which may reconstruct
+    /// the blob first. The read runs in the background: a proposal's own deadline only stops
+    /// waiting for it, and its verified result serves later rounds and heights.
+    pub blob_timeout: Duration,
     /// Deadline of one Engine API or EL RPC call.
     pub engine_timeout: Duration,
     /// Deadline of an EL sync to a trusted head (devp2p download included).
@@ -114,11 +117,12 @@ pub struct AppOptions {
 }
 
 impl Default for AppOptions {
-    /// `l1_timeout` 3 s, `engine_timeout` 5 s, `elsync_timeout` 600 s, `prepare_timeout` 2 s
-    /// (below CometBFT's default `timeout_propose` of 3 s).
+    /// `l1_timeout` 3 s, `blob_timeout` 30 s, `engine_timeout` 5 s, `elsync_timeout` 600 s,
+    /// `prepare_timeout` 2 s (below CometBFT's default `timeout_propose` of 3 s).
     fn default() -> Self {
         Self {
             l1_timeout: Duration::from_secs(3),
+            blob_timeout: Duration::from_secs(30),
             engine_timeout: Duration::from_secs(5),
             elsync_timeout: Duration::from_secs(600),
             prepare_timeout: Duration::from_secs(2),

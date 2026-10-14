@@ -251,6 +251,117 @@ mod tests {
         assert_eq!(blobs.versioned_hashes.len(), MAX_LANDING_BLOBS, "{} bytes", payload.len());
     }
 
+    /// Bytes alternating, every 16,383 bytes (one deflate symbol buffer), between two 128-value
+    /// alphabets with no 3-byte string repeated within deflate's window, so deflate emits only
+    /// literals: a block costs about 7 bits a byte when it covers one run and 8 when it straddles
+    /// two. Shifting the run boundaries against deflate's block boundaries, as a published
+    /// header prefix does, therefore changes the output by kilobytes.
+    fn deflate_boundary_noise(first: usize, runs: usize) -> Vec<u8> {
+        let mut state = 0x9e37_79b9_7f4a_7c15u64;
+        let mut next = || {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            state
+        };
+        let mut out = Vec::new();
+        let mut seen = std::collections::HashMap::<[u8; 3], usize>::new();
+        for run in 0..runs {
+            for _ in 0..if run == 0 { first } else { 16_383 } {
+                loop {
+                    let byte = ((next() % 128) as u8) * 2 + (run % 2) as u8;
+                    if let [.., a, b] = out[..] {
+                        let at = out.len();
+                        if seen.get(&[a, b, byte]).is_some_and(|p| at - p < 40_000) {
+                            continue;
+                        }
+                        seen.insert([a, b, byte], at);
+                    }
+                    out.push(byte);
+                    break;
+                }
+            }
+        }
+        out
+    }
+
+    /// A crafted block the ABCI guard admits, whose header prefix makes joint compression exceed
+    /// six blobs at every level, still lands on its own: the single-block fallback deflates its
+    /// envelope after a full flush, exactly as the guard measured it.
+    #[test]
+    fn a_crafted_block_the_guard_admits_still_fits_max_landing_blobs() {
+        use abci::compression::{
+            HEADER_ALLOWANCE, MAX_BLOCK_LANDING_BYTES, MAX_LANDING_BLOBS, zlib_compress,
+            zlib_compress_best,
+        };
+        const RUN: usize = 16_383;
+        let base = deflate_boundary_noise(RUN, 57);
+        let envelope = |start: usize, end: usize| {
+            let mut envelope = noisy_envelope(0);
+            envelope.block.transactions = vec![base[start..end].to_vec().into()];
+            envelope.encode()
+        };
+        let guarded = |start: usize, end: usize| {
+            zlib_compress(&envelope(start, end)).len() + HEADER_ALLOWANCE
+        };
+        // Align the runs with deflate's blocks for the bare envelope, then take the longest
+        // transaction the guard still admits.
+        let start = (0..128).min_by_key(|start| guarded(*start, 53 * RUN)).unwrap();
+        let (mut low, mut high) = (53 * RUN, 57 * RUN);
+        while low < high {
+            let mid = (low + high).div_ceil(2);
+            if guarded(start, mid) <= MAX_BLOCK_LANDING_BYTES { low = mid } else { high = mid - 1 }
+        }
+        assert!(guarded(start, low) <= MAX_BLOCK_LANDING_BYTES);
+
+        let limits = landing_limits();
+        let (_, committee, keys) = crate::test_utils::consensus::committee(&[1, 1, 1, 1], 0);
+        let mut crafted = noisy_envelope(0);
+        crafted.block.transactions = vec![base[start..low].to_vec().into()];
+        let block =
+            crate::test_utils::consensus::pair_with_envelope(crafted, &committee, &keys, None);
+        let mut list = crate::codec::PayloadList::new(&limits).unwrap();
+        list.push(&block).unwrap();
+        let list = list.to_list();
+        for joint in [zlib_compress(&list), zlib_compress_best(&list)] {
+            assert!(joint.len() + 1 > limits.max_payload_bytes, "joint compression must not fit");
+        }
+
+        let payload = crate::codec::encode(&[block], &limits).unwrap();
+        assert!(payload.len() <= limits.max_payload_bytes);
+        assert_eq!(crate::codec::decode(&payload, &limits).unwrap().len(), 1);
+        let blobs = build(&payload, &limits, SidecarMode::Eip4844).unwrap();
+        assert_eq!(blobs.versioned_hashes.len(), MAX_LANDING_BLOBS);
+    }
+
+    /// The published prefix of a header whose every variable field is maximal (a 50-byte chain
+    /// id, the largest height and versions, a negative time, a last block id) stays within the
+    /// bound `HEADER_ALLOWANCE` reserves for it.
+    #[test]
+    fn the_published_prefix_of_a_maximal_header_fits_its_allowance() {
+        use abci::compression::MAX_PUBLISHED_PREFIX_BYTES;
+        use tendermint::{Hash, block};
+        let mut header = noisy_block(0).block.header;
+        let hash = Hash::Sha256([0xff; 32]);
+        header.version = block::header::Version { block: u64::MAX, app: u64::MAX };
+        header.chain_id = "c".repeat(50).as_str().try_into().unwrap();
+        header.height = block::Height::try_from(i64::MAX).unwrap();
+        // A negative timestamp's seconds take a ten-byte varint.
+        header.time = tendermint::Time::from_unix_timestamp(-62_135_596_800, 999_999_999).unwrap();
+        header.last_block_id = Some(block::Id {
+            hash,
+            part_set_header: block::parts::Header::new(u32::MAX, hash).unwrap(),
+        });
+        header.app_hash = vec![0xff; 32].try_into().unwrap();
+        let proto = <tendermint_proto::v0_38::types::Header as prost::Message>::encode_to_vec(
+            &header.into(),
+        );
+        // The outer list, item list, header string and envelope string headers: each at most
+        // 5 bytes for lists and strings below 4 GiB (CometBFT blocks stay below 22 MiB).
+        let prefix = 5 + 5 + 5 + proto.len() + 5;
+        assert!(prefix <= MAX_PUBLISHED_PREFIX_BYTES, "{prefix}");
+    }
+
     /// A real V3 payload spanning two blobs, cut to its first blob: the blob codec serves the
     /// prefix, and the V3 codec rejects it at the zlib stream's end and checksum.
     #[test]

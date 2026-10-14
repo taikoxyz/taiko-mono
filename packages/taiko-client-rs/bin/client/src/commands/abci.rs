@@ -104,10 +104,13 @@ impl Subcommand for AbciSubCommand {
             .await
             .map_err(std::io::Error::other)?;
         info!(elapsed = ?started.elapsed(), "loaded the KZG trusted setup");
-        let blobs = Arc::new(LazyBeaconBlobs::new(flags.l1_beacon_endpoint.clone()));
+        let blobs = Arc::new(LazyBeaconBlobs::new(
+            flags.l1_beacon_endpoint.clone(),
+            http_timeout_for(opts.blob_timeout),
+        ));
         let probe = Arc::clone(&blobs);
         tokio::spawn(async move {
-            match tokio::time::timeout(opts.l1_timeout, probe.probe()).await {
+            match tokio::time::timeout(opts.blob_timeout, probe.probe()).await {
                 Ok(Ok(())) => info!("forced inclusion blob endpoint preflight succeeded"),
                 Ok(Err(error)) => warn!(
                     %error,

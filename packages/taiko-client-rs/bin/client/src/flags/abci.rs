@@ -33,15 +33,16 @@ pub struct AbciArgs {
         help = "Directory of the persisted app state (abci-state.json); created when missing"
     )]
     pub data_dir: PathBuf,
-    /// HTTP(S) REST endpoint of the operator's L1 beacon node, which serves the blob of a due
-    /// forced inclusion entry when this node proposes the block consuming it.
+    /// HTTP(S) REST endpoint of the operator's L1 beacon node, which serves the blob of a forced
+    /// inclusion entry: prefetched once a decided block proves it pending, and fetched when this
+    /// node proposes the block consuming it.
     #[clap(
         long = "l1.beacon",
         env = "L1_BEACON",
         required = true,
         value_parser = http_url,
-        help = "HTTP(S) endpoint of the L1 beacon node the proposer fetches forced inclusion \
-                blobs from (since Fulu this needs a supernode or semi-supernode)"
+        help = "HTTP(S) endpoint of the L1 beacon node forced inclusion blobs are fetched from \
+                (since Fulu this needs a supernode or semi-supernode)"
     )]
     pub l1_beacon_endpoint: Url,
     /// Optional HTTP(S) archive endpoint for historical committee registry state only.
@@ -68,10 +69,20 @@ pub struct AbciArgs {
         value_name = "SECONDS",
         default_value_t = AppOptions::default().l1_timeout.as_secs(),
         value_parser = clap::value_parser!(u64).range(1..=MAX_TIMEOUT_SECS),
-        help = "Deadline of one L1 read (finality check, header, proof or beacon blob), in \
-                seconds (1-3600)"
+        help = "Deadline of one L1 read (finality check, header or proof), in seconds (1-3600)"
     )]
     pub l1_timeout_secs: u64,
+    /// Deadline of one forced inclusion blob read from the beacon node, in seconds.
+    #[clap(
+        long = "l1.blob-timeout",
+        env = "ABCI_L1_BLOB_TIMEOUT",
+        value_name = "SECONDS",
+        default_value_t = AppOptions::default().blob_timeout.as_secs(),
+        value_parser = clap::value_parser!(u64).range(1..=MAX_TIMEOUT_SECS),
+        help = "Deadline of one forced inclusion blob read from the beacon node, which runs in \
+                the background across rounds and heights, in seconds (1-3600)"
+    )]
+    pub blob_timeout_secs: u64,
     /// Deadline of one Engine API or EL RPC call, in seconds.
     #[clap(
         long = "engine.timeout",
@@ -112,6 +123,7 @@ impl AbciArgs {
     pub fn app_options(&self) -> AppOptions {
         AppOptions {
             l1_timeout: Duration::from_secs(self.l1_timeout_secs),
+            blob_timeout: Duration::from_secs(self.blob_timeout_secs),
             engine_timeout: Duration::from_secs(self.engine_timeout_secs),
             elsync_timeout: Duration::from_secs(self.elsync_timeout_secs),
             prepare_timeout: Duration::from_secs(self.prepare_timeout_secs),
@@ -143,6 +155,7 @@ mod tests {
             "ABCI_CHAIN_CONFIG",
             "ABCI_L1_ARCHIVE",
             "ABCI_L1_TIMEOUT",
+            "ABCI_L1_BLOB_TIMEOUT",
             "ABCI_ENGINE_TIMEOUT",
             "ABCI_ELSYNC_TIMEOUT",
             "ABCI_PREPARE_TIMEOUT",
@@ -221,6 +234,8 @@ mod tests {
             "https://archive.example/rpc",
             "--l1.timeout",
             "4",
+            "--l1.blob-timeout",
+            "40",
             "--engine.timeout",
             "6",
             "--elsync.timeout",
@@ -241,6 +256,7 @@ mod tests {
             flags.app_options(),
             AppOptions {
                 l1_timeout: Duration::from_secs(4),
+                blob_timeout: Duration::from_secs(40),
                 engine_timeout: Duration::from_secs(6),
                 elsync_timeout: Duration::from_secs(60),
                 prepare_timeout: Duration::from_secs(1),
@@ -258,6 +274,7 @@ mod tests {
             EnvGuard::set("ABCI_CHAIN_CONFIG", "/env/chain.toml"),
             EnvGuard::set("ABCI_L1_ARCHIVE", "https://archive.example/rpc"),
             EnvGuard::set("ABCI_L1_TIMEOUT", "7"),
+            EnvGuard::set("ABCI_L1_BLOB_TIMEOUT", "70"),
             EnvGuard::set("ABCI_ENGINE_TIMEOUT", "8"),
             EnvGuard::set("ABCI_ELSYNC_TIMEOUT", "9"),
             EnvGuard::set("ABCI_PREPARE_TIMEOUT", "1"),
@@ -282,6 +299,7 @@ mod tests {
             flags.app_options(),
             AppOptions {
                 l1_timeout: Duration::from_secs(7),
+                blob_timeout: Duration::from_secs(70),
                 engine_timeout: Duration::from_secs(8),
                 elsync_timeout: Duration::from_secs(9),
                 prepare_timeout: Duration::from_secs(1),
@@ -336,10 +354,12 @@ mod tests {
             ["--abci.addr", "127.0.0.1:26658"],
             ["--abci.addr", "http://127.0.0.1:26658"],
             ["--l1.timeout", "0"],
+            ["--l1.blob-timeout", "0"],
             ["--engine.timeout", "0"],
             ["--elsync.timeout", "0"],
             ["--prepare.timeout", "0"],
             ["--l1.timeout", "3601"],
+            ["--l1.blob-timeout", "3601"],
             ["--engine.timeout", "3601"],
             ["--elsync.timeout", "3601"],
             ["--prepare.timeout", "18446744073709551615"],
@@ -353,7 +373,13 @@ mod tests {
         let max = "3600";
         assert_eq!(max.parse::<u64>().unwrap(), MAX_TIMEOUT_SECS);
         let mut args = vec!["--data-dir", "/data"];
-        for flag in ["--l1.timeout", "--engine.timeout", "--elsync.timeout", "--prepare.timeout"] {
+        for flag in [
+            "--l1.timeout",
+            "--l1.blob-timeout",
+            "--engine.timeout",
+            "--elsync.timeout",
+            "--prepare.timeout",
+        ] {
             args.extend([flag, max]);
         }
         let flags = parse(argv(&args)).expect("the upper bound itself is accepted").abci_flags;
@@ -362,6 +388,7 @@ mod tests {
             flags.app_options(),
             AppOptions {
                 l1_timeout: hour,
+                blob_timeout: hour,
                 engine_timeout: hour,
                 elsync_timeout: hour,
                 prepare_timeout: hour

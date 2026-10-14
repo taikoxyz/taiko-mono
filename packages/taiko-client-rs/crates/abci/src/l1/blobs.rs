@@ -1,12 +1,13 @@
 //! Forced inclusion blobs for `PrepareProposal`: [`BlobSource`], [`BeaconBlobs`] over the
 //! operator's L1 beacon node, and [`LazyBeaconBlobs`], which connects to it on the first fetch.
 //!
-//! A background startup probe warms metadata and checks the endpoint; only a proposer building
-//! the block that consumes a due forced inclusion entry fetches that entry's blob.
-//! The block then carries the blob, so `ProcessProposal`, `FinalizeBlock` and replay never fetch
-//! one, and a node starts, replays and votes without a reachable beacon.
+//! A background startup probe warms metadata and checks the endpoint. A proposer building the
+//! block that consumes a due forced inclusion entry fetches that entry's blob, and every node
+//! that finalizes a live block proving a pending entry prefetches it in the background. The
+//! consuming block carries the blob, so no validity check (`ProcessProposal`, `FinalizeBlock`,
+//! replay) waits for a fetch, and a node starts, replays and votes without a reachable beacon.
 
-use std::fmt;
+use std::{fmt, time::Duration};
 
 use alloy_eips::eip4844::kzg_to_versioned_hash;
 use alloy_primitives::{B256, Bytes};
@@ -17,7 +18,7 @@ use url::Url;
 
 use crate::metrics::AbciMetrics;
 
-/// Where a proposer fetches forced inclusion blobs from.
+/// Where a node fetches forced inclusion blobs from, to propose a block consuming one.
 #[async_trait]
 pub trait BlobSource: Send + Sync {
     /// The raw 131,072-byte blob with KZG versioned hash `versioned_hash`, carried by the L1
@@ -68,11 +69,14 @@ impl BlobSource for BeaconBlobs {
 /// can warm those reads outside the proposal deadline; fetches initialize it when needed too.
 ///
 /// A fetch while the client cannot be built fails like any other unavailable blob, and the next
-/// fetch tries to build it again; once built, the client is kept. Neither its errors nor its
-/// `Debug` output render the endpoint, whose path or query may carry a provider key.
+/// fetch tries to build it again; once built, the client is kept. Each HTTP request times out
+/// after the source's own timeout (the blob deadline, not the shorter default). Neither its errors
+/// nor its `Debug` output render the endpoint, whose path or query may carry a provider key.
 pub struct LazyBeaconBlobs {
     /// The beacon node's REST endpoint.
     endpoint: Url,
+    /// Timeout of each HTTP request to it.
+    timeout: Duration,
     /// The client, once built.
     beacon: OnceCell<BeaconBlobs>,
 }
@@ -87,9 +91,10 @@ impl fmt::Debug for LazyBeaconBlobs {
 }
 
 impl LazyBeaconBlobs {
-    /// A source over the beacon node at `endpoint`; contacts nothing until the first fetch.
-    pub fn new(endpoint: Url) -> Self {
-        Self { endpoint, beacon: OnceCell::new() }
+    /// A source over the beacon node at `endpoint` whose HTTP requests time out after
+    /// `timeout`; contacts nothing until the first fetch.
+    pub fn new(endpoint: Url, timeout: Duration) -> Self {
+        Self { endpoint, timeout, beacon: OnceCell::new() }
     }
 
     /// Builds the client and smoke-tests `/eth/v1/beacon/blobs/head`, allowing startup to warm
@@ -108,7 +113,9 @@ impl LazyBeaconBlobs {
     async fn client(&self) -> Result<&BeaconBlobs, String> {
         self.beacon
             .get_or_try_init(|| async {
-                BlobDataSource::new(Some(self.endpoint.clone()), None, false).await.map(BeaconBlobs)
+                BlobDataSource::with_timeout(Some(self.endpoint.clone()), None, false, self.timeout)
+                    .await
+                    .map(BeaconBlobs)
             })
             .await
             .map_err(|e| format!("beacon client unavailable: {e}"))
@@ -140,19 +147,43 @@ mod tests {
     use super::*;
     use crate::test_utils::{forced_blob, manifest_payload, sample_transactions};
 
+    /// A lazy source with the default HTTP timeout.
+    fn lazy(url: Url) -> LazyBeaconBlobs {
+        LazyBeaconBlobs::new(url, rpc::client::DEFAULT_HTTP_TIMEOUT)
+    }
+
     /// [`beacon_under`] with no path prefix on an ephemeral port.
     async fn beacon(blobs: Vec<Bytes>) -> (Url, Arc<Mutex<Vec<String>>>) {
         beacon_under(TcpListener::bind("127.0.0.1:0").await.expect("binds"), "", blobs)
     }
 
-    /// A beacon node stub (genesis at 0, 12-second slots) on `listener` whose blobs endpoint
-    /// answers `blobs` whatever is asked; returns its URL and the request targets it receives.
-    /// It serves its routes only below the path `prefix` (e.g. a provider's `/<key>`), as a
-    /// hosted beacon does; any other path answers 404. The URL carries the prefix.
+    /// [`beacon_under`] whose blobs route answers only after `delay`.
+    fn slow_beacon_under(
+        listener: TcpListener,
+        blobs: Vec<Bytes>,
+        delay: Duration,
+    ) -> (Url, Arc<Mutex<Vec<String>>>) {
+        beacon_with(listener, "", blobs, delay)
+    }
+
+    /// [`beacon_with`] answering at once.
     fn beacon_under(
         listener: TcpListener,
         prefix: &'static str,
         blobs: Vec<Bytes>,
+    ) -> (Url, Arc<Mutex<Vec<String>>>) {
+        beacon_with(listener, prefix, blobs, Duration::ZERO)
+    }
+
+    /// A beacon node stub (genesis at 0, 12-second slots) on `listener` whose blobs endpoint
+    /// answers `blobs` whatever is asked, after `delay`; returns its URL and the request targets
+    /// it receives. It serves its routes only below the path `prefix` (e.g. a provider's
+    /// `/<key>`), as a hosted beacon does; any other path answers 404. The URL carries the prefix.
+    fn beacon_with(
+        listener: TcpListener,
+        prefix: &'static str,
+        blobs: Vec<Bytes>,
+        delay: Duration,
     ) -> (Url, Arc<Mutex<Vec<String>>>) {
         let url =
             Url::parse(&format!("http://{}{prefix}", listener.local_addr().unwrap())).unwrap();
@@ -181,7 +212,10 @@ mod tests {
                         "200 OK",
                         r#"{"data":{"SECONDS_PER_SLOT":"12","SLOTS_PER_EPOCH":"32"}}"#.to_string(),
                     ),
-                    Some(_) => ("200 OK", blobs_body.clone()),
+                    Some(_) => {
+                        tokio::time::sleep(delay).await;
+                        ("200 OK", blobs_body.clone())
+                    }
                     None => ("404 Not Found", String::new()),
                 };
                 seen.lock().unwrap().push(target);
@@ -230,7 +264,7 @@ mod tests {
             if trailing_slash {
                 url.set_path("/v2/key-123/");
             }
-            let source = LazyBeaconBlobs::new(url);
+            let source = lazy(url);
             assert_eq!(source.blob(84, hash).await, Ok(blob.clone()), "slash {trailing_slash}");
             let targets = targets.lock().unwrap().clone();
             assert_eq!(
@@ -253,7 +287,7 @@ mod tests {
         // A free port nothing listens on.
         let addr = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap();
         let url = Url::parse(&format!("http://{addr}/v2/path-key/?key=query-key")).unwrap();
-        let source = LazyBeaconBlobs::new(url);
+        let source = lazy(url);
         let err = source.blob(84, hash).await.expect_err("the beacon is unreachable");
         let debug = format!("{source:?}");
         for secret in ["path-key", "query-key", "http://"] {
@@ -270,7 +304,7 @@ mod tests {
         let (blob, hash) = forced_blob(&manifest_payload(sample_transactions()));
         // A free port nothing listens on yet.
         let addr = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap();
-        let source = LazyBeaconBlobs::new(Url::parse(&format!("http://{addr}")).unwrap());
+        let source = lazy(Url::parse(&format!("http://{addr}")).unwrap());
 
         for _ in 0..2 {
             let err = source.blob(84, hash).await.expect_err("the beacon is unreachable");
@@ -292,7 +326,7 @@ mod tests {
     async fn beacon_probe_initializes_metadata_and_checks_the_blob_route() {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let (url, targets) = beacon_under(listener, "/provider-key", vec![]);
-        let source = LazyBeaconBlobs::new(url);
+        let source = lazy(url);
         assert_eq!(source.probe().await, Ok(()));
         assert_eq!(source.probe().await, Ok(()));
         let requests = targets.lock().unwrap().clone();
@@ -304,13 +338,28 @@ mod tests {
         );
     }
 
+    /// Each request to the beacon runs under the source's own timeout, not the 12-second
+    /// default: a beacon slower than the timeout fails the fetch, and a longer timeout (the blob
+    /// deadline) waits for it.
+    #[tokio::test]
+    async fn lazy_beacon_requests_use_the_source_timeout() {
+        let (blob, hash) = forced_blob(&manifest_payload(sample_transactions()));
+        let delay = Duration::from_millis(600);
+        for (timeout, served) in
+            [(Duration::from_millis(300), false), (Duration::from_secs(5), true)]
+        {
+            let listener = TcpListener::bind("127.0.0.1:0").await.expect("binds");
+            let (url, _) = slow_beacon_under(listener, vec![blob.clone()], delay);
+            let result = LazyBeaconBlobs::new(url, timeout).blob(84, hash).await;
+            assert_eq!(result.is_ok(), served, "timeout {timeout:?}: {result:?}");
+        }
+    }
+
     /// Failed preflight is an ordinary error and can be retried without exposing provider keys.
     #[tokio::test]
     async fn failed_beacon_probe_can_recover_without_exposing_credentials() {
         let addr = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap();
-        let source = LazyBeaconBlobs::new(
-            Url::parse(&format!("http://{addr}/path-key?key=query-key")).unwrap(),
-        );
+        let source = lazy(Url::parse(&format!("http://{addr}/path-key?key=query-key")).unwrap());
         let error = source.probe().await.unwrap_err();
         for secret in ["path-key", "query-key", "http://"] {
             assert!(!error.contains(secret), "{error}");

@@ -241,10 +241,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
     }
 
     /// The blob of the due forced inclusion `entry`, by the entry's timestamp and versioned hash,
-    /// from the blob source within the L1 deadline; one bounded fetch survives cancellation of
-    /// the round that awaits it, so a later round reuses its verified result. A failed fetch is
-    /// [`Rejection::BlobUnavailable`], and one that does not answer in time is
-    /// [`Rejection::Timeout`] (as is a proposal whose own deadline expires first).
+    /// from the blob source within the blob deadline; one bounded fetch survives cancellation of
+    /// the round that awaits it (and `Commit`, when a decided block prefetched it), so a later
+    /// round reuses its verified result. A failed fetch is [`Rejection::BlobUnavailable`], and one
+    /// that does not answer in time is [`Rejection::Timeout`] (as is a proposal whose own
+    /// deadline expires first).
     async fn forced_blob(&self, entry: &ForcedEntry) -> Result<Bytes, Rejection> {
         self.fetch_forced_blob(entry).await
     }

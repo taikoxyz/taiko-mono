@@ -97,13 +97,28 @@ struct BlockResponse {
     block: RawBlock,
 }
 
-/// Accepts Go's exported light-client evidence field names omitted by the proto JSON adapter.
+/// Accepts Go's exported light-client evidence field names omitted by the proto JSON adapter, and
+/// the base64 vote extensions of duplicate-vote evidence, which the adapter only reads as byte
+/// arrays.
+///
+/// CometBFT accepts a duplicate vote whose precommit carries an extension (its signature check
+/// does not cover extensions), and Go's JSON encodes those bytes as base64 strings. Converting
+/// them keeps such a committed block readable; the evidence hash then covers the exact bytes.
 fn deserialize_block<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> std::result::Result<RawBlock, D::Error> {
     let mut value = Value::deserialize(deserializer)?;
     if let Some(evidence) = value.pointer_mut("/evidence/evidence").and_then(Value::as_array_mut) {
         for item in evidence {
+            if item.get("type").and_then(Value::as_str) == Some("tendermint/DuplicateVoteEvidence")
+            {
+                for vote in ["vote_a", "vote_b"] {
+                    if let Some(vote) = item.pointer_mut(&format!("/value/{vote}")) {
+                        decode_vote_extensions(vote).map_err(serde::de::Error::custom)?;
+                    }
+                }
+                continue;
+            }
             if item.get("type").and_then(Value::as_str) !=
                 Some("tendermint/LightClientAttackEvidence")
             {
@@ -129,6 +144,20 @@ fn deserialize_block<'de, D: serde::Deserializer<'de>>(
         }
     }
     serde_json::from_value(value).map_err(serde::de::Error::custom)
+}
+
+/// Replaces a vote's base64 `extension` and `extension_signature` strings with the byte arrays the
+/// proto JSON adapter reads; `null` (no extension) and absent fields stay as they are.
+fn decode_vote_extensions(vote: &mut Value) -> std::result::Result<(), String> {
+    for field in ["extension", "extension_signature"] {
+        let Some(slot) = vote.get_mut(field) else { continue };
+        let Some(encoded) = slot.as_str() else { continue };
+        let bytes = STANDARD
+            .decode(encoded)
+            .map_err(|e| format!("duplicate vote evidence {field} base64: {e}"))?;
+        *slot = Value::from(bytes);
+    }
+    Ok(())
 }
 
 /// Complete certificate result from `/commit`.
@@ -437,7 +466,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn authenticates_stock_go_duplicate_nil_and_light_client_evidence() {
+    async fn authenticates_stock_go_duplicate_extended_nil_and_light_client_evidence() {
         let fixture: Value =
             serde_json::from_str(include_str!("../testdata/cometbft-v0.40/vectors.json")).unwrap();
         let (_, committee, _) = committee(&[10, 30], 0);

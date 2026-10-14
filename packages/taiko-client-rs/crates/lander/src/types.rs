@@ -8,7 +8,7 @@ use alloy_consensus::Header;
 use alloy_primitives::{Address, B256, Bytes, U256, aliases::U48};
 use prost::Message;
 use serde::{Deserialize, Serialize};
-use tendermint_proto::v0_38::types::Block as RawBlock;
+use tendermint_proto::v0_38::types::{Block as RawBlock, evidence::Sum as RawEvidence};
 
 use crate::{
     blob::PreparedBlobs,
@@ -179,8 +179,7 @@ impl CertifiedBlock {
     /// Retains the original protobuf before creating a validated domain projection.
     pub fn from_raw(raw: RawBlock, commit: tendermint::block::Commit) -> Result<Self> {
         let raw_block = Bytes::from(raw.encode_to_vec());
-        let block = raw
-            .try_into()
+        let block = domain_block(raw)
             .map_err(|e| LanderError::Encoding(format!("invalid CometBFT block protobuf: {e}")))?;
         Ok(Self { block, raw_block, commit })
     }
@@ -193,15 +192,33 @@ impl CertifiedBlock {
         if raw.encode_to_vec().as_slice() != self.raw_block.as_ref() {
             return Err(LanderError::Encoding("noncanonical original block protobuf".into()));
         }
-        let projection: tendermint::Block = raw
-            .clone()
-            .try_into()
+        let projection = domain_block(raw.clone())
             .map_err(|e| LanderError::Encoding(format!("invalid original CometBFT block: {e}")))?;
         if projection != self.block {
             return Err(LanderError::Safety("original block differs from domain projection".into()));
         }
         Ok(raw)
     }
+}
+
+/// The domain projection of `raw`, after dropping the vote extensions of its duplicate-vote
+/// evidence.
+///
+/// CometBFT commits duplicate-vote evidence whose precommits carry an extension and an extension
+/// signature of any length up to its largest key type's signature (vote signatures do not cover
+/// extensions, and evidence verification never reads them), while the domain conversion requires
+/// a 64-byte extension signature. Nothing reads extensions from the projection; the original
+/// bytes, extensions included, remain the witness the evidence hash and part set are built from.
+fn domain_block(mut raw: RawBlock) -> std::result::Result<tendermint::Block, tendermint::Error> {
+    for evidence in raw.evidence.iter_mut().flat_map(|list| list.evidence.iter_mut()) {
+        if let Some(RawEvidence::DuplicateVoteEvidence(duplicate)) = evidence.sum.as_mut() {
+            for vote in [&mut duplicate.vote_a, &mut duplicate.vote_b].into_iter().flatten() {
+                vote.extension.clear();
+                vote.extension_signature.clear();
+            }
+        }
+    }
+    raw.try_into()
 }
 
 impl TryFrom<CertifiedBlockWire> for CertifiedBlock {

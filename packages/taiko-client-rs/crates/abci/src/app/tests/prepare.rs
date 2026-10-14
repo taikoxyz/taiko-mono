@@ -834,8 +834,8 @@ async fn prepare_fetches_anchor_header_and_proof_concurrently() {
     assert_eq!(app.l1().state().max_in_flight, 2);
 }
 
-/// A blob fetch inside its own three-second deadline can outlive a cancelled two-second
-/// proposal and complete for the next round without starting another fetch.
+/// A blob fetch inside its own deadline can outlive a cancelled two-second proposal and complete
+/// for the next round without starting another fetch.
 #[tokio::test(start_paused = true)]
 async fn forced_blob_fetch_outlives_a_cancelled_round() {
     let fx = Fixture::genesis(1);
@@ -848,6 +848,54 @@ async fn forced_blob_fetch_outlives_a_cancelled_round() {
     let env = propose(&mut app).await;
     assert_eq!(env.forced.map(|w| w.blob), Some(blob));
     assert_eq!(fx.blobs.calls().len(), 1, "one bounded fetch spans rounds");
+}
+
+/// A blob read slower than the L1 deadline is bounded by the blob deadline instead: the round
+/// cannot wait for it, but the read completes in the background and the next round consumes the
+/// entry. Under the L1 deadline every round would restart the read and the entry never land.
+#[tokio::test(start_paused = true)]
+async fn a_blob_slower_than_the_l1_timeout_lands_in_a_later_round() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let blob = plant_due_entry(&fx, app.l1(), 66, fx.inbox.clone());
+    let slow = app.opts.l1_timeout + Duration::from_millis(500);
+    assert!(slow < app.opts.blob_timeout);
+    fx.blobs.state().delay = Some(slow);
+    assert_eq!(refused(&mut app).await, "timeout");
+    tokio::time::sleep(slow).await;
+    let env = propose(&mut app).await;
+    assert_eq!(env.forced.map(|w| w.blob), Some(blob));
+    assert_eq!(fx.blobs.calls().len(), 1, "one background read spans the rounds");
+}
+
+/// A decided block proving a pending entry starts this validator's blob read, whether or not it
+/// proposes (proposing a peek fetches nothing). The read outlives `Commit` and the following
+/// heights, so once the entry falls due the proposal holds the blob without asking again.
+#[tokio::test(start_paused = true)]
+async fn a_decided_peek_prefetches_the_entry_blob_across_heights() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    // Due from an anchor at L1 block 67 on, so still pending at 66.
+    let entries = || {
+        vec![(Fixture::l1_timestamp(67) - fx.genesis.forced_inclusion_delay, sample_transactions())]
+    };
+    let blob = plant_entries(&fx, app.l1(), 66, fx.inbox.clone(), entries()).remove(0);
+    fx.blobs.state().delay = Some(Duration::from_millis(2500));
+    for _ in 0..2 {
+        let env = propose(&mut app).await;
+        assert_eq!(env.forced, Some(fx.forced_witness(app.l1(), 66, 0, Bytes::new())), "a peek");
+        accept_and_commit(&mut app, &env).await;
+    }
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    assert_eq!(fx.blobs.calls().len(), 1, "one read started at the first decision spans both");
+
+    fx.blobs.state().fail = Some("beacon down once the entry is due".into());
+    plant_entries(&fx, app.l1(), 67, fx.inbox.clone(), entries());
+    let env = propose(&mut app).await;
+    assert_eq!(env.forced.map(|w| w.blob), Some(blob));
+    assert_eq!(fx.blobs.calls().len(), 1, "the due proposal reuses the prefetched blob");
 }
 
 /// The same cancellation rule applies to a forced-entry proof, keyed to the anchor's state
