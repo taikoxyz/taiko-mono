@@ -407,11 +407,65 @@ async fn peer_switch_witness_survives_restart_after_local_execution_refusal() {
     node.engine().state().new_payload_script.push_back(Ok(PayloadVerdict::Syncing));
     assert_eq!(judge(&mut node, &env).await.0, response::ProcessProposal::Reject);
     node.l1().state().states.clear();
+    // The judge started a background switch-witness discovery; stop it to take the sole L1.
+    *node.committee_prefetch() = None;
+    tokio::task::yield_now().await;
     let App { l1, engine, blobs, params, store, opts, .. } = node;
     let mut restarted =
         App::new(Arc::try_unwrap(l1).expect("sole L1 owner"), engine, blobs, params, store, opts)
             .unwrap();
     assert_eq!(propose(&mut restarted).await.committee, env.committee);
+}
+
+/// A validator at `D(t)` discovers, verifies and persists the switch witness in the background
+/// as soon as it handles any round, an empty proposal included, before a proposal needs it.
+/// Once its L1 has pruned the parent anchor's state (after a stall longer than its proof
+/// window), it still proposes `S(t)` from that witness, without an archive.
+#[tokio::test]
+async fn the_switch_witness_is_prefetched_before_the_parent_anchor_state_is_pruned() {
+    use crate::store::COMMITTEE_WITNESS_FILE;
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = before_switch(&fx, dir.path()).await;
+    let req = super::proposal::process_req(next_height(&app), bft_time(&app), vec![]);
+    assert_eq!(super::proposal::process(&mut app, req).await, response::ProcessProposal::Reject);
+    let state = app.state().unwrap().clone();
+    let target = state.schedule().switch_target(state.last_height + 1).unwrap();
+    let witness = app.prefetched_committee_witness(&state, target).await;
+    assert!(witness.is_some(), "the background discovery verified the witness");
+    app.adopt_committee_prefetch(&state);
+    assert!(dir.path().join(COMMITTEE_WITNESS_FILE).exists(), "and persisted it");
+
+    app.l1().state().states.clear();
+    app.l1().state().calls.clear();
+    let env = propose(&mut app).await;
+    assert_eq!(env.committee, witness);
+    assert_eq!(registry_reads(&app), 0, "{:?}", app.l1().calls());
+}
+
+/// A live `Commit` of `D(t)` starts the switch-witness discovery on its own, before any round at
+/// `S(t)` (which an anchor freshness stall could keep from ever reaching it).
+#[tokio::test]
+async fn committing_the_derivation_parent_prefetches_the_switch_witness() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    let h_e = app.state().unwrap().schedule().h_first(2) - 2;
+    fx.advance_l1(app.l1(), 70, &fx.inbox_with(h_e - 6), &fx.registry);
+    let anchor = fx.anchor_state(app.l1(), 70);
+    jump(&mut app, h_e - 2, anchor, &[(1, fx.committee(1))]);
+    step(&mut app).await;
+    let state = app.state().unwrap().clone();
+    assert_eq!(state.last_height, h_e - 1, "D(t) is committed");
+    let target = state.schedule().switch_target(state.last_height + 1).unwrap();
+    let witness = app.prefetched_committee_witness(&state, target).await;
+    assert!(witness.is_some(), "Commit started the discovery");
+
+    app.l1().state().states.clear();
+    app.l1().state().calls.clear();
+    let env = propose(&mut app).await;
+    assert_eq!(env.committee, witness);
+    assert_eq!(registry_reads(&app), 0, "{:?}", app.l1().calls());
 }
 
 /// A saved identity cannot grant trust to a forged witness or an RLP value with trailing bytes.
@@ -730,6 +784,73 @@ async fn prepare_builds_consecutive_forced_blocks() {
     let env = step(&mut app).await;
     assert_eq!(env.forced, None, "the cursor reached the tail");
     assert_eq!(app.state().unwrap().forced_cursor, 2);
+    let hashes: Vec<B256> = fx.blobs.calls().iter().map(|c| c.versioned_hash).collect();
+    assert_eq!(hashes, [blob_versioned_hash(&blobs[0]), blob_versioned_hash(&blobs[1])]);
+}
+
+/// An entry queued behind another, already due when its predecessor's block commits, is never
+/// peeked; `Commit` still reads it under the committed anchor and prefetches its blob, so the
+/// next proposal holds it although the beacon answers slower than a proposal may wait.
+#[tokio::test(start_paused = true)]
+async fn a_queued_entry_blob_is_prefetched_when_its_predecessor_commits() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let due = Fixture::l1_timestamp(66) - fx.genesis.forced_inclusion_delay;
+    let blobs = plant_entries(
+        &fx,
+        app.l1(),
+        66,
+        fx.inbox.clone(),
+        vec![(due, sample_transactions()), (due, sample_transactions()[..1].to_vec())],
+    );
+    let first = propose(&mut app).await;
+    assert_eq!(first.forced.as_ref().map(|w| w.index), Some(0));
+    let slow = app.opts.prepare_timeout + Duration::from_millis(500);
+    fx.blobs.state().delay = Some(slow);
+    accept_and_commit(&mut app, &first).await;
+    tokio::time::sleep(slow + Duration::from_millis(100)).await;
+    assert!(app.l1().calls().contains(&entry_read(&fx, 1, 66)), "{:?}", app.l1().calls());
+
+    let env = propose(&mut app).await;
+    assert_eq!(env.forced, Some(fx.forced_witness(app.l1(), 66, 1, blobs[1].clone())));
+    let hashes: Vec<B256> = fx.blobs.calls().iter().map(|c| c.versioned_hash).collect();
+    assert_eq!(hashes, [blob_versioned_hash(&blobs[0]), blob_versioned_hash(&blobs[1])]);
+}
+
+/// A read lost to a transient L1 failure right after `Commit` is restarted by the next round's
+/// `ProcessProposal`, an empty proposal included, so a stalled height still prefetches the
+/// queued entry's blob.
+#[tokio::test(start_paused = true)]
+async fn a_failed_entry_prefetch_is_restarted_by_the_next_round() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let due = Fixture::l1_timestamp(66) - fx.genesis.forced_inclusion_delay;
+    let blobs = plant_entries(
+        &fx,
+        app.l1(),
+        66,
+        fx.inbox.clone(),
+        vec![(due, sample_transactions()), (due, sample_transactions()[..1].to_vec())],
+    );
+    let first = propose(&mut app).await;
+    let slow = app.opts.prepare_timeout + Duration::from_millis(500);
+    fx.blobs.state().delay = Some(slow);
+    let (resp, req) = judge(&mut app, &first).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
+    app.l1().state().fail = Some(L1Error::Rpc("flaky".into()));
+    decide(&mut app, &req).await;
+    tokio::task::yield_now().await;
+    app.l1().state().fail = None;
+    tokio::time::sleep(slow + Duration::from_millis(100)).await;
+    assert_eq!(fx.blobs.calls().len(), 1, "the failed read started no blob fetch");
+
+    let req = super::proposal::process_req(next_height(&app), bft_time(&app), vec![]);
+    assert_eq!(super::proposal::process(&mut app, req).await, response::ProcessProposal::Reject);
+    tokio::time::sleep(slow + Duration::from_millis(100)).await;
+    let env = propose(&mut app).await;
+    assert_eq!(env.forced, Some(fx.forced_witness(app.l1(), 66, 1, blobs[1].clone())));
     let hashes: Vec<B256> = fx.blobs.calls().iter().map(|c| c.versioned_hash).collect();
     assert_eq!(hashes, [blob_versioned_hash(&blobs[0]), blob_versioned_hash(&blobs[1])]);
 }

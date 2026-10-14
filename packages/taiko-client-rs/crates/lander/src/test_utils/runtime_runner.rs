@@ -467,8 +467,11 @@ async fn receipt_reorg_returns_to_pending_and_never_authorizes_false_progress() 
     assert_eq!(fixture.control.lock().unwrap().signs, 1);
 }
 
+/// A confirmed revert with the checkpoint unchanged stops the runner once, with the journal
+/// already Idle, so the next run builds a fresh job instead of re-reading the receipt; a revert
+/// a competing landing caused settles.
 #[tokio::test]
-async fn unchanged_checkpoint_revert_stops_but_competing_revert_can_settle() {
+async fn unchanged_checkpoint_revert_stops_once_but_competing_revert_can_settle() {
     for competition in [false, true] {
         let fixture = Fixture::new();
         let mut runner = fixture.runner();
@@ -487,7 +490,9 @@ async fn unchanged_checkpoint_revert_stops_but_competing_revert_can_settle() {
             assert_eq!(outcome.unwrap(), StepOutcome::Settled);
         } else {
             assert!(matches!(outcome, Err(LanderError::Reverted(_))));
-            assert!(matches!(runner.state(), JournalState::Confirming { .. }));
+            assert!(matches!(runner.state(), JournalState::Idle));
+            drop(runner);
+            assert!(matches!(fixture.runner().state(), JournalState::Idle), "persisted");
         }
         assert_eq!(fixture.control.lock().unwrap().signs, 1);
     }
