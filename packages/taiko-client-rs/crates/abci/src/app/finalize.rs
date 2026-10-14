@@ -1,12 +1,15 @@
 //! `FinalizeBlock` and `Commit`.
 //!
 //! `FinalizeBlock` is deterministic: it judges a decided block on its envelope, the committed
-//! [`AppState`] and the EL alone, never L1 or a beacon (every L1 fact a block consumes travels in
-//! the block, a forced inclusion block's blob included), so a node replaying after a crash or
-//! block-syncing derives the same response and state as one that voted. A decided block that fails
-//! a deterministic check, that the EL rejects, or that contradicts a known committee is a safety
-//! halt: the process exits and an operator must investigate. The derived state stays pending until
-//! `Commit` persists it.
+//! [`AppState`] and the EL, never a beacon (every L1 fact a block consumes travels in the block, a
+//! forced inclusion block's blob included), so a node replaying after a crash or block-syncing
+//! derives the same response and state as one that voted. The one L1 read is for a block this
+//! node never judged whose envelope moves the anchor: its own L1 must have finalized that very
+//! header ([`App::confirm_anchor`]), so a block-synced history cannot carry a forged L1 header and
+//! with it a forged registry or Inbox checkpoint. A decided block that fails a deterministic check,
+//! whose anchor is off the own L1 chain, that the EL rejects, or that contradicts a known committee
+//! is a safety halt: the process exits and an operator must investigate. The derived state stays
+//! pending until `Commit` persists it.
 
 use std::{fmt, future::Future, time::Duration};
 
@@ -23,7 +26,7 @@ use tokio::time::Instant;
 
 use super::{
     AbciError, App, FINALIZE_RETRY_ESCALATE, FINALIZE_RETRY_INITIAL, FINALIZE_RETRY_MAX, app_hash,
-    unix_secs,
+    deadline, unix_secs,
     validate::{
         Rejection, Validated, check_forced_rebuild, forced_rebuild_attributes, validate_block,
     },
@@ -32,7 +35,7 @@ use crate::{
     committee,
     engine::{Engine, EngineError, PayloadVerdict},
     envelope::single_envelope,
-    l1::L1Source,
+    l1::{L1Source, RawL1Header},
     metrics::AbciMetrics,
     store::AppState,
     types::ParentInfo,
@@ -44,8 +47,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// In order: the block's [`Validated`] verdict is taken from the `ProcessProposal` cache
     /// (by CometBFT block hash) or, when absent (crash replay, block sync), recomputed by
-    /// [`validate_block`] from the block's single envelope and BFT time; the next state and the
-    /// validator updates are derived ([`next_state`]); with a recomputed verdict, a forced
+    /// [`validate_block`] from the block's single envelope and BFT time, a moved anchor then being
+    /// confirmed final and canonical in the own L1 ([`App::confirm_anchor`]); the next state and
+    /// the validator updates are derived ([`next_state`]); with a recomputed verdict, a forced
     /// inclusion block must be the block the EL rebuilds from its entry's transaction list
     /// ([`App::rebuild_forced`]; `ProcessProposal` did so for a cached one); the EL executes the
     /// block unless the cached verdict already did, then moves its forkchoice to `head = safe =`
@@ -62,7 +66,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// answers the same: the EL accepts a known payload and forkchoice again, and rebuilds a
     /// forced inclusion block on its parent although its head is that block (alethia-reth builds
     /// on a canonical ancestor without moving its head). EL calls block until the EL settles the
-    /// block ([`App::settle`]). Errors: [`AbciError::Uninitialized`] before `InitChain`;
+    /// block ([`App::settle`]), and an anchor confirmation blocks until the own L1 answers.
+    /// Errors: [`AbciError::Uninitialized`] before `InitChain`;
     /// [`AbciError::SafetyHalt`] for any failure of the decided block.
     pub(super) async fn finalize_block(
         &mut self,
@@ -78,10 +83,13 @@ impl<L: L1Source, E: Engine> App<L, E> {
             Some(cached) => (cached, false),
             None => {
                 let txs: Vec<Bytes> = req.txs.iter().cloned().map(Bytes::from).collect();
-                let validated = single_envelope(&txs)
-                    .map_err(Rejection::from)
-                    .and_then(|env| validate_block(state, &self.params, &env, height, bft_secs))
+                let env = single_envelope(&txs)
+                    .map_err(|e| invalid_block(height, &Rejection::from(e)))?;
+                let validated = validate_block(state, &self.params, &env, height, bft_secs)
                     .map_err(|rejection| invalid_block(height, &rejection))?;
+                if let Some(witness) = &env.anchor {
+                    self.confirm_anchor(height, &witness.l1_header).await?;
+                }
                 (validated, true)
             }
         };
@@ -204,6 +212,85 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
     }
 
+    /// Confirms, for the decided block at `height` this node never judged, that its anchor
+    /// `header` is final and canonical in the own L1 view, the check `ProcessProposal` makes: the
+    /// own L1 must have finalized the header's number plus the chain's extra finality depth, and
+    /// hold this very header there.
+    ///
+    /// While the own L1 is unreachable or has not finalized that far, the block waits with the
+    /// [`Backoff`] schedule and is neither finalized nor halted on. [`Rejection::AnchorOffChain`],
+    /// a safety halt, needs two consecutive reads (a backoff pause apart, so one lagging backend
+    /// of a load-balanced endpoint cannot halt the node) showing that the header cannot be on the
+    /// own L1 chain: a different own-L1 block at its number, or a number beyond the own finalized
+    /// block with a timestamp no block there can have ([`App::read_anchor`]). A number beyond any
+    /// finality bound halts at once. The node is then being fed a history whose L1 facts its own
+    /// L1 does not have.
+    pub(super) async fn confirm_anchor(
+        &self,
+        height: u64,
+        header: &RawL1Header,
+    ) -> Result<(), AbciError> {
+        let (number, hash) = (header.number(), header.hash());
+        let off_chain = |detail: String| {
+            invalid_block(height, &Rejection::AnchorOffChain { number, hash, detail })
+        };
+        let Some(bound) = number.checked_add(self.params.l1_finality_extra_depth) else {
+            return Err(off_chain("its number is beyond any finality bound".into()));
+        };
+        let mut backoff = Backoff::new(height);
+        let mut suspect = false;
+        loop {
+            let reason = match self.read_anchor(header, bound).await {
+                AnchorRead::Confirmed => return Ok(()),
+                AnchorRead::OffChain(detail) if suspect => return Err(off_chain(detail)),
+                AnchorRead::OffChain(detail) => {
+                    suspect = true;
+                    format!("re-reading before a safety halt: {detail}")
+                }
+                AnchorRead::Pending(reason) => {
+                    suspect = false;
+                    reason
+                }
+            };
+            backoff.wait("L1 anchor confirmation", &reason).await;
+        }
+    }
+
+    /// One read of the own L1 about the anchor `header`, which must be final at `bound` (its
+    /// number plus the extra finality depth). Above the own finalized block, L1 timestamps rising
+    /// by at least a second per block bound how early a real block at the header's number can be:
+    /// a header older than that is off the chain, a later one is waited for.
+    async fn read_anchor(&self, header: &RawL1Header, bound: u64) -> AnchorRead {
+        let (number, limit) = (header.number(), self.opts.l1_timeout);
+        let finalized = match deadline("L1 finalized", limit, self.l1.finalized_number()).await {
+            Ok(finalized) => finalized,
+            Err(rejection) => return AnchorRead::Pending(rejection.to_string()),
+        };
+        if finalized >= bound {
+            return match deadline("L1 canonical hash", limit, self.l1.canonical_hash(number)).await
+            {
+                Ok(own) if own == header.hash() => AnchorRead::Confirmed,
+                Ok(own) => AnchorRead::OffChain(format!("the own L1 holds {own} at that number")),
+                Err(rejection) => AnchorRead::Pending(rejection.to_string()),
+            };
+        }
+        if number > finalized {
+            let own = match deadline("L1 header", limit, self.l1.header(finalized)).await {
+                Ok(own) => own,
+                Err(rejection) => return AnchorRead::Pending(rejection.to_string()),
+            };
+            let earliest = own.timestamp().saturating_add(number - finalized);
+            if header.timestamp() < earliest {
+                return AnchorRead::OffChain(format!(
+                    "its timestamp {} is below {earliest}, the earliest a block {number} can have \
+                     after the own finalized block {finalized}",
+                    header.timestamp()
+                ));
+            }
+        }
+        AnchorRead::Pending(format!("own L1 finalized {finalized}, anchor {number} needs {bound}"))
+    }
+
     /// Rebuilds the forced inclusion block of `v`, decided at `height` with BFT time `bft_secs` on
     /// top of `state` and judged without a `ProcessProposal` verdict, and requires the decided
     /// block to be it, as `ProcessProposal` does ([`forced_rebuild_attributes`],
@@ -321,9 +408,21 @@ enum Settled {
     Retry(String),
 }
 
-/// The pause schedule of one decided block's EL retries in `FinalizeBlock`: the first pause is
-/// [`FINALIZE_RETRY_INITIAL`], doubling up to [`FINALIZE_RETRY_MAX`]. Retries are logged at WARN,
-/// and at ERROR once the block has been retried for [`FINALIZE_RETRY_ESCALATE`].
+/// What one read of the own L1 says about a decided block's anchor header
+/// ([`App::read_anchor`]).
+#[derive(Debug)]
+enum AnchorRead {
+    /// The own L1 finalized this very header.
+    Confirmed,
+    /// The header cannot be on the own L1 chain, for the given reason.
+    OffChain(String),
+    /// The own L1 is unreachable or has not finalized the header yet, for the given reason.
+    Pending(String),
+}
+
+/// The pause schedule of one decided block's EL (or own-L1) retries in `FinalizeBlock`: the first
+/// pause is [`FINALIZE_RETRY_INITIAL`], doubling up to [`FINALIZE_RETRY_MAX`]. Retries are logged
+/// at WARN, and at ERROR once the block has been retried for [`FINALIZE_RETRY_ESCALATE`].
 #[derive(Debug)]
 pub(super) struct Backoff {
     /// The decided block's height, for the logs.
@@ -345,7 +444,7 @@ impl Backoff {
         self.since.elapsed() >= FINALIZE_RETRY_ESCALATE
     }
 
-    /// Logs that the EL call `method` is retried because of `reason` (WARN, or ERROR once
+    /// Logs that the EL or L1 call `method` is retried because of `reason` (WARN, or ERROR once
     /// [`Backoff::escalated`]) and sleeps the current pause, doubling the next one up to the cap.
     pub(super) async fn wait(&mut self, method: &'static str, reason: &str) {
         let (height, retry_in, retrying_for) = (self.height, self.pause, self.since.elapsed());
@@ -356,10 +455,10 @@ impl Backoff {
                 %reason,
                 ?retrying_for,
                 ?retry_in,
-                "the EL still does not settle the decided block; retrying"
+                "the decided block still does not settle; retrying"
             );
         } else {
-            tracing::warn!(height, method, %reason, ?retry_in, "retrying the EL");
+            tracing::warn!(height, method, %reason, ?retry_in, "retrying the decided block");
         }
         tokio::time::sleep(self.pause).await;
         self.pause = (self.pause * 2).min(FINALIZE_RETRY_MAX);

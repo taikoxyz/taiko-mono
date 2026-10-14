@@ -4,7 +4,8 @@
 //!
 //! Stock CometBFT orders and finalizes blocks; this crate builds and validates them and drives
 //! the alethia-reth execution layer through the Engine API. Every L1 fact a block consumes travels
-//! inside the block as a raw L1 header plus EIP-1186 proofs, so replay never calls L1.
+//! inside the block as a raw L1 header plus EIP-1186 proofs, so replay reads no L1 state; it only
+//! confirms that a moved anchor header is final and canonical in the node's own L1.
 //!
 //! The `types`, `config`, `schedule`, `envelope`, `l1::header`, `l1::layout`, `l1::mpt`,
 //! `l1::witness`, `committee`, `compression`, `forced`, `rules` and `engine::convert` modules and

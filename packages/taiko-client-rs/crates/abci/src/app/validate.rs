@@ -72,14 +72,14 @@ impl fmt::Display for WitnessKind {
 
 /// Why a proposal is rejected (`ProcessProposal`) or not built (`PrepareProposal`).
 ///
-/// Every variant is a liveness matter for the node that observes it: the block is refused, the
-/// chain keeps rounding. [`validate_block`] yields only the deterministic variants on a decoded
-/// envelope; the ¹ node-local ones (anchor finality, L1, engine, EL sync state, timeouts) and the
-/// handler-level ones ([`Rejection::Envelope`], [`Rejection::EmptyProposal`],
-/// [`Rejection::ChainSuperseded`], [`Rejection::PayloadInvalid`], [`Rejection::Registry`],
-/// [`Rejection::Oversize`], [`Rejection::BuiltHeader`], [`Rejection::LandingCapacity`],
-/// [`Rejection::BlobUnavailable`], [`Rejection::ForcedRebuildMismatch`]) come from the
-/// handlers.
+/// Every variant but [`Rejection::AnchorOffChain`] (a `FinalizeBlock` safety halt) is a liveness
+/// matter for the node that observes it: the block is refused, the chain keeps rounding.
+/// [`validate_block`] yields only the deterministic variants on a decoded envelope; the ¹
+/// node-local ones (anchor finality, L1, engine, EL sync state, timeouts) and the handler-level
+/// ones ([`Rejection::Envelope`], [`Rejection::EmptyProposal`], [`Rejection::ChainSuperseded`],
+/// [`Rejection::PayloadInvalid`], [`Rejection::Registry`], [`Rejection::Oversize`],
+/// [`Rejection::BuiltHeader`], [`Rejection::LandingCapacity`], [`Rejection::BlobUnavailable`],
+/// [`Rejection::ForcedRebuildMismatch`]) come from the handlers.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum Rejection {
     /// The block's transactions are not exactly one well-formed envelope.
@@ -126,6 +126,18 @@ pub enum Rejection {
     AnchorNotFinal {
         /// The anchor's L1 block number.
         number: u64,
+    },
+    /// `FinalizeBlock` of a block this node never judged: the anchor L1 header cannot be on the
+    /// own L1 chain (a forged history, or an own L1 on another network). Unlike the ¹ variants,
+    /// a safety halt.
+    #[error("anchor L1 block {number} ({hash}) is not on the own L1 chain: {detail}")]
+    AnchorOffChain {
+        /// The anchor's L1 block number.
+        number: u64,
+        /// The anchor header's hash.
+        hash: B256,
+        /// Why: the own L1's block at that number, or the impossible number or timestamp.
+        detail: String,
     },
     /// ¹ An own-L1 read failed.
     #[error(transparent)]
@@ -202,6 +214,7 @@ impl Rejection {
             Self::NotActive(_) => "inbox_not_active",
             Self::CommitteeUnknown(_) => "committee_unknown",
             Self::AnchorNotFinal { .. } => "anchor_not_final",
+            Self::AnchorOffChain { .. } => "anchor_off_chain",
             Self::L1(_) => "l1_error",
             Self::Engine(_) => "engine_error",
             Self::PayloadInvalid(_) => "payload_invalid",

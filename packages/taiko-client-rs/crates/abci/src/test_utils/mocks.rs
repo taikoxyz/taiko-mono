@@ -1,7 +1,7 @@
 //! In-memory [`L1Source`], [`Engine`] and [`BlobSource`] implementations for tests.
 //!
 //! All record every call ([`L1Call`], [`EngineCall`], [`BlobCall`]) so tests can assert which I/O
-//! a handler performed (e.g. that `FinalizeBlock` never touches L1), and expose their state
+//! a handler performed (e.g. that `FinalizeBlock` reads no L1 state), and expose their state
 //! behind a mutex ([`MockL1::state`], [`MockEngine::state`], [`MockBlobs::state`]) for
 //! scripting.
 
@@ -44,11 +44,16 @@ pub(crate) enum L1Call {
 /// The scriptable state of a [`MockL1`].
 #[derive(Debug, Default)]
 pub(crate) struct MockL1State {
-    /// What `finalized_number` returns.
+    /// What `finalized_number` returns once `finalized_script` is empty.
     pub(crate) finalized: u64,
+    /// Scripted `finalized_number` answers, popped one per call before falling back to
+    /// `finalized`.
+    pub(crate) finalized_script: VecDeque<Result<u64, L1Error>>,
     /// Canonical raw headers by number (`header` and `canonical_hash` fail with
     /// `BlockNotFound` for others).
     pub(crate) headers: BTreeMap<u64, RawL1Header>,
+    /// Scripted `canonical_hash` answers, popped one per call before falling back to `headers`.
+    pub(crate) canonical_script: VecDeque<Result<B256, L1Error>>,
     /// L1 state per block number, serving `account_witness` and `storage_at`.
     pub(crate) states: BTreeMap<u64, TestState>,
     /// When set, every call fails with this error.
@@ -164,13 +169,20 @@ impl L1Source for MockL1 {
     async fn finalized_number(&self) -> Result<u64, L1Error> {
         let _call = InFlight::new(self);
         self.pause().await;
-        Ok(self.record(L1Call::Finalized)?.finalized)
+        let mut state = self.record(L1Call::Finalized)?;
+        match state.finalized_script.pop_front() {
+            Some(scripted) => scripted,
+            None => Ok(state.finalized),
+        }
     }
 
     async fn canonical_hash(&self, number: u64) -> Result<B256, L1Error> {
         let _call = InFlight::new(self);
         self.pause().await;
-        let state = self.record(L1Call::CanonicalHash(number))?;
+        let mut state = self.record(L1Call::CanonicalHash(number))?;
+        if let Some(scripted) = state.canonical_script.pop_front() {
+            return scripted;
+        }
         state
             .headers
             .get(&number)
