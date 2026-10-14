@@ -4,7 +4,7 @@ use std::{sync::Arc, time::Duration};
 
 use alloy_primitives::{Address, B256, Bytes};
 use serde::{Deserialize, Serialize};
-use tokio::{sync::watch, task::JoinHandle};
+use tokio::{sync::watch, task::JoinHandle, time::Instant};
 
 use super::{App, Rejection};
 use crate::{
@@ -19,8 +19,25 @@ use crate::{
 };
 
 /// The bound of one background switch-witness discovery; a failed or timed-out discovery is
-/// restarted by the next round or `Commit`.
+/// restarted by a later round or `Commit` once its backoff ([`prefetch_backoff`]) has passed.
 const COMMITTEE_PREFETCH_TIMEOUT: Duration = Duration::from_secs(300);
+
+/// The pause before the first restart of a failed background switch-witness discovery.
+const COMMITTEE_PREFETCH_BACKOFF: Duration = Duration::from_secs(2);
+
+/// The longest pause between restarts of a failing background switch-witness discovery.
+const COMMITTEE_PREFETCH_MAX_BACKOFF: Duration = Duration::from_secs(60);
+
+/// The pause before restarting a discovery that failed after `failures` earlier failed attempts
+/// for the same context: [`COMMITTEE_PREFETCH_BACKOFF`], doubling per failure up to
+/// [`COMMITTEE_PREFETCH_MAX_BACKOFF`]. Every node runs the discovery, full nodes included, so an
+/// L1 that cannot serve the anchor's state, or rate-limits it, sees one attempt per pause rather
+/// than two per height.
+fn prefetch_backoff(failures: u32) -> Duration {
+    COMMITTEE_PREFETCH_BACKOFF
+        .saturating_mul(2u32.saturating_pow(failures))
+        .min(COMMITTEE_PREFETCH_MAX_BACKOFF)
+}
 
 /// The complete context in which a runtime committee witness is valid.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -65,10 +82,13 @@ impl CacheKey {
 pub(super) struct CommitteePrefetch {
     /// The context the witness is discovered for.
     key: CacheKey,
-    /// The verified witness, or why discovery failed; `None` while it runs.
-    result: watch::Receiver<Option<Result<CommitteeWitness, String>>>,
-    /// The reads finished so far, kept when a timed-out discovery for the same context restarts.
+    /// The verified witness, or when discovery failed (logged with why); `None` while it runs.
+    result: watch::Receiver<Option<Result<CommitteeWitness, Instant>>>,
+    /// The reads finished so far, kept when a discovery for the same context restarts after a
+    /// failed read.
     progress: Arc<DiscoveryProgress>,
+    /// The failed attempts for the same context before this one.
+    failures: u32,
     /// The owned discovery.
     task: JoinHandle<()>,
 }
@@ -171,8 +191,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Makes sure the committee witness of the upcoming switch `S(t)` gets discovered under the
     /// committed anchor while that L1 state is recent, whenever that anchor may still be the
     /// parent anchor of `S(t)` ([`prefetch_target`]): unless the witness is cached, starts a
-    /// background discovery (restarting a failed one), and adopts a finished one by verifying,
-    /// persisting and caching it ([`App::cache_committee_witness`]). The witness is kept across
+    /// background discovery (restarting a failed one after its backoff, [`prefetch_backoff`]),
+    /// and adopts a finished one by verifying, persisting and caching it
+    /// ([`App::cache_committee_witness`]). The witness is kept across
     /// commits while the committed anchor stays.
     ///
     /// Runs at a live `Commit` and at every `ProcessProposal`, which every node (full nodes
@@ -195,8 +216,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
         self.refresh_committee_prefetch(state, false);
     }
 
-    /// Adopts, drops or (when `start`) starts the switch-witness prefetch for `state`; a timed-out
-    /// discovery for the same context restarts from the reads it finished.
+    /// Adopts, drops or (when `start`) starts the switch-witness prefetch for `state`; a failed
+    /// discovery for the same context restarts once its backoff has passed since it failed, and
+    /// resumes from the reads it finished.
     fn refresh_committee_prefetch(&self, state: &AppState, start: bool) {
         let Some(target) = prefetch_target(state, &self.params) else {
             *self.committee_cache() = None;
@@ -219,29 +241,37 @@ impl<L: L1Source, E: Engine> App<L, E> {
             if slot.as_ref().is_some_and(|prefetch| prefetch.key != key) {
                 *slot = None;
             }
-            match slot.as_ref() {
-                Some(prefetch) => prefetch.result.borrow().clone(),
-                None => Some(Err("not started".into())),
-            }
+            slot.as_ref().map(|prefetch| (prefetch.result.borrow().clone(), prefetch.failures))
         };
         match finished {
             // Still running.
-            None => {}
-            Some(Ok(witness)) => match self.cache_committee_witness(state, target, &witness) {
-                Ok(()) => *self.committee_prefetch() = None,
-                Err(error) => tracing::warn!(%error, "prefetched committee witness not retained"),
-            },
-            Some(Err(_)) if start => {
+            Some((None, _)) => {}
+            Some((Some(Ok(witness)), _)) => {
+                match self.cache_committee_witness(state, target, &witness) {
+                    Ok(()) => *self.committee_prefetch() = None,
+                    Err(error) => {
+                        tracing::warn!(%error, "prefetched committee witness not retained");
+                    }
+                }
+            }
+            Some((Some(Err(failed_at)), failures))
+                if start && failed_at.elapsed() >= prefetch_backoff(failures) =>
+            {
                 let mut slot = self.committee_prefetch();
-                let progress = slot.take().map(|prefetch| Arc::clone(&prefetch.progress));
+                let progress = slot.take().map(|failed| Arc::clone(&failed.progress));
                 *slot = Some(self.spawn_committee_prefetch(
                     key,
                     state,
                     target,
                     progress.unwrap_or_default(),
+                    failures.saturating_add(1),
                 ));
             }
-            Some(Err(_)) => {}
+            None if start => {
+                *self.committee_prefetch() =
+                    Some(self.spawn_committee_prefetch(key, state, target, Arc::default(), 0));
+            }
+            Some((Some(Err(_)), _)) | None => {}
         }
     }
 
@@ -269,13 +299,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// Discovers and verifies the committee witness of `target` under `state`'s parent anchor in
     /// the background, each read within the L1 deadline and all of it within
-    /// [`COMMITTEE_PREFETCH_TIMEOUT`].
+    /// [`COMMITTEE_PREFETCH_TIMEOUT`], after `failures` failed attempts for the same context.
     fn spawn_committee_prefetch(
         &self,
         key: CacheKey,
         state: &AppState,
         target: u64,
         progress: Arc<DiscoveryProgress>,
+        failures: u32,
     ) -> CommitteePrefetch {
         let (l1, params, schedule, anchor) =
             (Arc::clone(&self.l1), self.params.clone(), state.schedule(), state.anchor.clone());
@@ -301,17 +332,20 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 Ok(Err(error)) => Err(error.to_string()),
                 Err(_) => Err("timed out".into()),
             };
-            if let Err(error) = &outcome {
+            let outcome = outcome.map_err(|error| {
                 tracing::warn!(
                     parent_anchor = anchor.number,
                     target_epoch = target,
+                    failures = failures.saturating_add(1),
+                    retry_in = ?prefetch_backoff(failures),
                     %error,
                     "committee witness prefetch failed"
                 );
-            }
+                Instant::now()
+            });
             let _ = sender.send(Some(outcome));
         });
-        CommitteePrefetch { key, result, progress, task }
+        CommitteePrefetch { key, result, progress, failures, task }
     }
 
     /// Returns a previously verified witness only for the same complete authenticated context.

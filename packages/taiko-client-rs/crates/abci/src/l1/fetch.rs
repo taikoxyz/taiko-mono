@@ -74,9 +74,11 @@ pub enum FetchError {
 /// `PrepareProposal`'s deadline does not grow with the round, so without this a discovery that
 /// needs longer than it from scratch would never finish. The reads are kept by parent anchor
 /// alone, as none depends on the target epoch; another parent anchor starts afresh. They stay
-/// unproven like every discovery read (verifying the built witness still decides), and a discovery
-/// that ends in any other way (a witness, an L1 or registry error) forgets them, so a bad answer
-/// is not replayed.
+/// unproven like every discovery read (verifying the built witness still decides). A failed read
+/// (a transport or JSON-RPC error, as a rate limit or pruned state answers, an unknown block, or
+/// a read past its deadline) keeps them too, as every kept read is of the same fixed, finalized
+/// block; a discovery that ends in any other way (a witness, a malformed or mismatched answer, a
+/// registry or derivation error) forgets them, so a bad answer is not replayed.
 #[derive(Debug, Default)]
 pub(crate) struct DiscoveryProgress(Mutex<Reads>);
 
@@ -167,7 +169,8 @@ pub async fn build_committee_witness_at_cutoff<L: L1Source + ?Sized>(
 /// ([`FetchError::Timeout`] otherwise) and resuming from, and adding to, the reads `progress`
 /// kept for `parent_anchor`.
 ///
-/// A read past its deadline keeps `progress`; any other end clears it ([`DiscoveryProgress`]).
+/// A failed read (an RPC error, an unknown block or a read past its deadline) keeps `progress`;
+/// any other end clears it ([`DiscoveryProgress`]).
 pub(crate) async fn build_committee_witness_within<L: L1Source + ?Sized>(
     l1: &L,
     params: &ChainParams,
@@ -201,7 +204,7 @@ struct Discovery<'a, L: ?Sized> {
 impl<L: L1Source + ?Sized> Discovery<'_, L> {
     /// The committee witness for `target` against the parent anchor `n_p` (see
     /// [`build_committee_witness`]): resumes from the kept reads of `n_p` (forgetting those of
-    /// another parent anchor), and forgets them again unless a read timed out.
+    /// another parent anchor), and forgets them again unless a read failed.
     async fn witness(&self, n_p: u64, target: u64) -> Result<CommitteeWitness, FetchError> {
         {
             let mut reads = self.progress.lock();
@@ -210,7 +213,12 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
             }
         }
         let result = self.discover(n_p, target).await;
-        if !matches!(result, Err(FetchError::Timeout(_))) {
+        let failed_read = matches!(
+            result,
+            Err(FetchError::Timeout(_) |
+                FetchError::L1(L1Error::Rpc(_) | L1Error::BlockNotFound(_)))
+        );
+        if !failed_read {
             self.progress.clear();
         }
         result
@@ -759,9 +767,11 @@ mod tests {
         assert_eq!(l1.calls().len(), 3, "{:?}", l1.calls());
     }
 
-    /// An L1 error forgets the kept reads, and so does a discovery against another parent anchor.
+    /// A failed L1 read keeps the finished reads like one past its deadline, so a rate-limited L1
+    /// is not asked for them again; a mismatched answer or a registry error forgets them, and so
+    /// does a discovery against another parent anchor.
     #[tokio::test(start_paused = true)]
-    async fn other_failures_and_another_parent_anchor_start_afresh() {
+    async fn l1_errors_keep_the_finished_reads_other_failures_start_afresh() {
         let fx = Fixture::genesis(3);
         let l1 = fx.l1();
         let n_p = fx.genesis.l1_0;
@@ -769,10 +779,29 @@ mod tests {
         let limit = Duration::from_secs(5);
 
         drop_after_the_length_read(&fx, &l1, n_p, &progress).await;
-        l1.state().fail = Some(L1Error::Rpc("down".into()));
-        let err = resume(&fx, &l1, n_p, limit, &progress).await;
-        assert_eq!(err, Err(FetchError::L1(L1Error::Rpc("down".into()))));
+        let limited = L1Error::Rpc("429 Too Many Requests".into());
+        l1.state().fail = Some(limited.clone());
+        assert_eq!(resume(&fx, &l1, n_p, limit, &progress).await, Err(FetchError::L1(limited)));
         l1.state().fail = None;
+        l1.state().calls.clear();
+        resume(&fx, &l1, n_p, limit, &progress).await.expect("the witness builds");
+        assert_eq!(l1.calls().len(), 3, "the length is not read again: {:?}", l1.calls());
+
+        drop_after_the_length_read(&fx, &l1, n_p, &progress).await;
+        let mismatch = L1Error::ProofSlotMismatch { requested: vec![], got: vec![B256::ZERO] };
+        l1.state().fail = Some(mismatch.clone());
+        assert_eq!(resume(&fx, &l1, n_p, limit, &progress).await, Err(FetchError::L1(mismatch)));
+        l1.state().fail = None;
+        l1.state().calls.clear();
+        resume(&fx, &l1, n_p, limit, &progress).await.expect("the witness builds");
+        assert_eq!(l1.calls().len(), 4, "the length is read again: {:?}", l1.calls());
+
+        drop_after_the_length_read(&fx, &l1, n_p, &progress).await;
+        let claiming = registry_claiming(&fx, MAX_REGISTRY_ENTRIES + 1);
+        let served = l1.state().states.insert(n_p, claiming).expect("the anchor state is served");
+        let err = resume(&fx, &l1, n_p, limit, &progress).await;
+        assert!(matches!(err, Err(FetchError::Registry(_))), "{err:?}");
+        l1.state().states.insert(n_p, served);
         l1.state().calls.clear();
         resume(&fx, &l1, n_p, limit, &progress).await.expect("the witness builds");
         assert_eq!(l1.calls().len(), 4, "the length is read again: {:?}", l1.calls());
