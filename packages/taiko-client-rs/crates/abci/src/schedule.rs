@@ -144,6 +144,16 @@ impl Schedule {
         (e > Self::E0).then_some(e)
     }
 
+    /// The epoch `e >= 1` of the first switch height at or after `h`, i.e. the smallest `e` with
+    /// `h_first(e) - 2 >= h`: `epoch_of(h + 1) + 1`. `None` on `u64` overflow.
+    ///
+    /// # Panics
+    ///
+    /// If `epoch_len == 0`.
+    pub fn next_switch_target(&self, h: u64) -> Option<u64> {
+        self.epoch_of(h.checked_add(1)?).checked_add(1)
+    }
+
     /// `Some(e)` iff `h == h_first(e)` for some epoch `e >= e_0` (so `Some(e_0)` at `H_0`).
     ///
     /// # Panics
@@ -289,6 +299,8 @@ mod tests {
                 assert_eq!(s.epoch_starting_at(h), starts, "L={l} h={h}");
                 let switches = (1..8).find(|&e| s.h_first(e) - 2 == h);
                 assert_eq!(s.switch_target(h), switches, "L={l} h={h}");
+                let upcoming = (h..).find_map(|x| s.switch_target(x));
+                assert_eq!(s.next_switch_target(h), upcoming, "L={l} h={h}");
             }
         }
     }

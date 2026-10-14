@@ -286,18 +286,19 @@ pub struct App<L: L1Source, E: Engine> {
     /// The latest `ProcessProposal` ACCEPT verdicts (at most [`MAX_VERDICTS`]), for
     /// `FinalizeBlock`; cleared at `Commit`.
     verdicts: Verdicts,
-    /// The last committee witness verified at switch height `H(t)-2`, by `PrepareProposal` (its
-    /// own) or `ProcessProposal` (another proposer's), kept so that this node's proposals in
-    /// later rounds at the same height reuse it instead of reading the registry again. Its
-    /// durable sidecar is reverified after restart against the full committed context. Memory
-    /// is cleared at `Commit`; the one bounded sidecar then becomes stale and is ignored.
-    /// Behind a mutex as the handlers run on `&self`.
+    /// The last committee witness verified for switch height `H(t)-2`, by `PrepareProposal` (its
+    /// own), `ProcessProposal` (another proposer's) or the background discovery under the
+    /// committed anchor ([`App::prefetch_committee_witness`]), kept so that this node's proposals
+    /// at that height reuse it instead of reading the registry again. Its durable sidecar is
+    /// reverified after restart against the full committed context. It is dropped once the
+    /// committed state leaves that context (another anchor or switch); the one bounded sidecar
+    /// then becomes stale and is ignored. Behind a mutex as the handlers run on `&self`.
     committee_cache: Mutex<Option<CachedCommittee>>,
     /// The registry reads of a committee discovery `PrepareProposal`'s deadline cut short, from
     /// which the next attempt resumes; cleared at `Commit`.
     discovery: DiscoveryProgress,
-    /// The background discovery of the next switch height's committee witness
-    /// ([`App::prefetch_committee_witness`]).
+    /// The background discovery of the upcoming switch height's committee witness under the
+    /// committed anchor ([`App::prefetch_committee_witness`]).
     committee_prefetch: Mutex<Option<CommitteePrefetch>>,
     /// Bounded completed anchor, forced proof and verified blob reads. Each successful stage
     /// survives an overall proposal timeout; root/hash keys prevent reuse for different facts.

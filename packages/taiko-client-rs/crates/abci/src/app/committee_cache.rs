@@ -13,6 +13,7 @@ use crate::{
     engine::Engine,
     envelope::CommitteeWitness,
     l1::{DiscoveryProgress, L1Source, build_committee_witness_within},
+    rules,
     store::{AppState, Store},
     types::GenesisRecord,
 };
@@ -97,8 +98,34 @@ struct PersistedCommittee {
     witness: Bytes,
 }
 
-/// Loads a sidecar only for the next switch height, verifies it without L1 I/O, and ignores a
-/// corrupt, stale or mismatched sidecar so ordinary acquisition or archive fallback can recover.
+/// The epoch `t` whose switch witness `state`'s committed anchor may have to prove: that of the
+/// first switch `S(t)` after the committed height, while its derivation parent `D(t)` can still
+/// carry this anchor, i.e. pass back-pressure against the anchor's last checkpoint height and
+/// anchor freshness (`maxAnchorAge`), every height adding at least a second to the block
+/// timestamp ([`block_timestamp`](crate::rules::block_timestamp)). Otherwise the chain adopts a
+/// newer anchor before `D(t)`, whose own commit then qualifies. `None` past that, or on
+/// overflow; at `D(t)` itself, always `t`.
+fn prefetch_target(state: &AppState, params: &ChainParams) -> Option<u64> {
+    let schedule = state.schedule();
+    let target = schedule.next_switch_target(state.last_height.checked_add(1)?)?;
+    let parent = schedule.derivation_parent_height(target)?;
+    let heights_left = parent.checked_sub(state.last_height)?;
+    let anchor = &state.anchor;
+    let earliest = state.parent.timestamp.saturating_add(heights_left);
+    let reachable = rules::check_back_pressure(
+        parent,
+        anchor.inbox.last_checkpoint_height,
+        params.unsettled_cap(),
+    )
+    .is_ok() &&
+        rules::check_anchor_freshness(earliest, anchor.timestamp, state.genesis.max_anchor_age)
+            .is_ok();
+    (heights_left == 0 || reachable).then_some(target)
+}
+
+/// Loads a sidecar only for the upcoming switch's context ([`prefetch_target`]), verifies it
+/// without L1 I/O, and ignores a corrupt, stale or mismatched sidecar so ordinary acquisition or
+/// archive fallback can recover.
 pub(super) fn load_cached_committee(
     store: &Store,
     state: Option<&AppState>,
@@ -112,7 +139,7 @@ pub(super) fn load_cached_committee(
         }
     };
     let state = state?;
-    let target = state.schedule().switch_target(state.last_height + 1)?;
+    let target = prefetch_target(state, params)?;
     let persisted: PersistedCommittee = match serde_json::from_slice(&bytes) {
         Ok(persisted) => persisted,
         Err(error) => {
@@ -141,26 +168,29 @@ pub(super) fn load_cached_committee(
 }
 
 impl<L: L1Source, E: Engine> App<L, E> {
-    /// When the next height is a switch height `S(t)`, makes sure its committee witness gets
-    /// discovered under the committed parent anchor while that L1 state is recent: unless the
-    /// witness is cached, starts a background discovery (restarting a failed one), and adopts a
-    /// finished one by verifying, persisting and caching it ([`App::cache_committee_witness`]).
+    /// Makes sure the committee witness of the upcoming switch `S(t)` gets discovered under the
+    /// committed anchor while that L1 state is recent, whenever that anchor may still be the
+    /// parent anchor of `S(t)` ([`prefetch_target`]): unless the witness is cached, starts a
+    /// background discovery (restarting a failed one), and adopts a finished one by verifying,
+    /// persisting and caching it ([`App::cache_committee_witness`]). The witness is kept across
+    /// commits while the committed anchor stays.
     ///
     /// Runs at a live `Commit` and at every `ProcessProposal`, which every node (full nodes
     /// included) handles in each round that delivers a proposal while it is not locked on a block,
-    /// empty proposals included. A
-    /// chain that stalls at `D(t)` (an L1 finality stall that fails anchor freshness before any
-    /// round needs the witness, an outage, a restart) therefore resumes from the durable witness
-    /// even once its L1 node pruned the parent anchor's state, without an archive, provided that
-    /// state was still served when the discovery ran. The sidecar is written on the handler only,
-    /// so it has a single writer. `PrepareProposal` and a replayed `Commit` only adopt a finished
-    /// discovery ([`App::adopt_committee_prefetch`]); a proposal waits for a running one.
+    /// empty proposals included. The live `Commit` of the block adopting an anchor discovers its
+    /// witness right away, so an L1 finality stall that keeps that anchor until `D(t)` (and on
+    /// until freshness stops proposals), an outage or a restart at `D(t)` resumes from the
+    /// durable witness even once the L1 node pruned the anchor's state, without an archive,
+    /// provided that state was still served when the discovery ran. The sidecar is written on
+    /// the handler only, so it has a single writer. `PrepareProposal` and a replayed `Commit` only
+    /// adopt a finished discovery ([`App::adopt_committee_prefetch`]); a proposal waits for a
+    /// running one.
     pub(super) fn prefetch_committee_witness(&self, state: &AppState) {
         self.refresh_committee_prefetch(state, true);
     }
 
     /// [`App::prefetch_committee_witness`] without starting a discovery: adopts a finished one,
-    /// and drops one the cache or the committed state made obsolete.
+    /// and drops a witness or discovery the cache or the committed state made obsolete.
     pub(super) fn adopt_committee_prefetch(&self, state: &AppState) {
         self.refresh_committee_prefetch(state, false);
     }
@@ -168,14 +198,21 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Adopts, drops or (when `start`) starts the switch-witness prefetch for `state`; a timed-out
     /// discovery for the same context restarts from the reads it finished.
     fn refresh_committee_prefetch(&self, state: &AppState, start: bool) {
-        let Some(target) = state.schedule().switch_target(state.last_height + 1) else {
+        let Some(target) = prefetch_target(state, &self.params) else {
+            *self.committee_cache() = None;
             *self.committee_prefetch() = None;
             return;
         };
         let key = CacheKey::new(state, &self.params, target);
-        if self.committee_cache().as_ref().is_some_and(|cached| cached.key == key) {
-            *self.committee_prefetch() = None;
-            return;
+        {
+            let mut cache = self.committee_cache();
+            if cache.as_ref().is_some_and(|cached| cached.key == key) {
+                drop(cache);
+                *self.committee_prefetch() = None;
+                return;
+            }
+            // Committed anchors and switches only move forward: no later state uses it.
+            *cache = None;
         }
         let finished = {
             let mut slot = self.committee_prefetch();
@@ -265,7 +302,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 Err(_) => Err("timed out".into()),
             };
             if let Err(error) = &outcome {
-                tracing::warn!(target_epoch = target, %error, "committee witness prefetch failed");
+                tracing::warn!(
+                    parent_anchor = anchor.number,
+                    target_epoch = target,
+                    %error,
+                    "committee witness prefetch failed"
+                );
             }
             let _ = sender.send(Some(outcome));
         });
