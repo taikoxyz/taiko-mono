@@ -35,7 +35,8 @@ implements no Shasta-to-Etna migration. The protocol specification is #22262.
 
 `init(owner, params)` requires non-zero genesis hash, state root, committee record hash and committee config hash;
 `epochLenL2 >= 3`; `epochLenL1 > 0`; a past `genesisCutoff` at or after the registry's first
-checkpoint; `0 < forcedInclusionDelay < 14 days`; and `maxAnchorAge > 0`. It runs once;
+checkpoint; `forcedInclusionDelay > 0`; `maxAnchorAge >= 1152 seconds`; and
+`forcedInclusionDelay + maxAnchorAge + 384 seconds <= 14 days`. It runs once;
 implementation contracts have initializers disabled. SignalService must
 authorize this proxy, or initialization reverts without retaining ownership or genesis state.
 
@@ -89,16 +90,29 @@ the config hash and use the dummy proof provider, which does not enforce guest c
   travels in the landing blobs, and the doubling threshold should be small.
 - `forcedInclusionDelay` (seconds) is fixed at genesis in slot 282; the node and guest read it
   from storage. An entry is due at an L2 block whose anchor timestamp is at least the entry's
-  timestamp plus the delay; before that, validators may include it early. The delay must be
-  below the 14-day expiry, after which an entry is consumed by an empty block.
+  timestamp plus the delay; before that, validators may include it early. Initialization requires
+  `D > 0`, `M >= 1152 seconds` and `D + M + 384 seconds <= 14 days`, where `D` is the delay and
+  `M` is the maximum anchor age. Thus `M <= 14 days - D - 384 seconds`. The 384-second margin is
+  one Ethereum epoch (32 slots of 12 seconds), leaving room for a normal finalized-anchor update
+  before expiry. Merely requiring `D < 14 days` admits a due window shorter than an L1 slot or
+  an anchor update, so the first due anchor can already expire the entry and discard its list.
+  The coupled bound also prevents a stale anchor from staying not due until the block timestamp
+  reaches `entry.timestamp + 14 days` while satisfying the freshness rule.
 - `maxAnchorAge` (seconds) is fixed at genesis in slot 282. Every L2 block requires
-  `block.timestamp - anchor.timestamp <= maxAnchorAge`, so it must exceed the usual L1 finality
-  lag; an L1 finality stall longer than it pauses L2 until finality resumes. The rule bounds how
+  `block.timestamp - anchor.timestamp <= maxAnchorAge`. Its 1152-second minimum budgets three
+  Ethereum epochs for normal finality lag; this is a deployment safeguard, not an upper bound
+  on actual finality lag. Choose it above the expected lag, including `l1_finality_extra_depth`,
+  RPC latency and the desired stall tolerance, while respecting the coupled expiry bound.
+  An L1 finality stall longer than it pauses L2 until finality resumes. The rule bounds how
   far a block's anchor trails the block's derived timestamp, not real time: a pending entry is due
   at any block whose timestamp has reached `entry.timestamp + forcedInclusionDelay + maxAnchorAge`,
   so a longer value delays forced transactions more. Block timestamps follow BFT time, which a
   large enough coalition can hold back (see Open items). The proposed default is 2 hours; Ethereum
   finality stalls have lasted about an hour.
+- These parameter checks reserve a usable window under normal anchor and block progress. They
+  do not guarantee inclusion during a long L1/L2 outage, when earlier queued entries cannot be
+  drained before expiry, or when a voting coalition holds BFT time back. The 384-second margin
+  is a normal anchor update budget, not a bound on finality stalls or missed checkpoint slots.
 - The registry and Inbox owners can upgrade the contracts; use the intended chain governance.
 
 ## Node-facing storage
@@ -380,9 +394,13 @@ earlier batch's committee output.
 
 The L2 chain tracks a cursor `c(h)`, the number of entries consumed after block `h`; `c(0) = 0`. A
 forced inclusion block consumes exactly entry `c(h-1)` and sets `c(h) = c(h-1) + 1`; every other
-block keeps the cursor. For block `h` with parent cursor `c` and anchor `A` (its own anchor or the
-inherited one), with `tail(A)` the queue tail in `A`'s state, `D = forcedInclusionDelay`,
-`E = 14 days` and `M = maxAnchorAge`:
+block keeps the cursor. Genesis initialization enforces `D > 0`, `M >= 1152 seconds` and
+`D + M + 384 seconds <= E`, with `D = forcedInclusionDelay`, `E = 14 days` and `M = maxAnchorAge`.
+The 384-second margin reserves one normal Ethereum finalized-anchor update before expiry.
+Deployment must additionally budget extra finality depth, RPC delay and expected queue throughput.
+
+For block `h` with parent cursor `c` and anchor `A` (its own anchor or the inherited one), with
+`tail(A)` the queue tail in `A`'s state:
 
 - Entry `c` is due iff `c < tail(A)` and `A.timestamp >= entry.timestamp + D`, and expired iff
   `c < tail(A)` and `A.timestamp >= entry.timestamp + E`.

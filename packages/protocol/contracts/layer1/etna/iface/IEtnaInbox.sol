@@ -47,11 +47,13 @@ interface IEtnaInbox {
         bytes32 committeeRecordHash;
         /// @notice The non-zero commitment to the parent-anchor committee derivation configuration.
         bytes32 committeeConfigHash;
-        /// @notice The forced inclusion delay in seconds, non-zero and below the 14-day expiry: an
-        /// entry is due at an L2 block whose anchor timestamp is at least its timestamp plus it.
+        /// @notice The non-zero forced inclusion delay in seconds. An entry is due at an L2 block
+        /// whose anchor timestamp is at least its timestamp plus it. The delay plus maxAnchorAge
+        /// plus a 384-second anchor update margin must not exceed the 14-day expiry.
         uint64 forcedInclusionDelay;
-        /// @notice The maximum anchor age in seconds, non-zero: every L2 block requires
-        /// `block.timestamp - anchor.timestamp <= maxAnchorAge`.
+        /// @notice The maximum anchor age in seconds, at least 1152 (three Ethereum epochs): every
+        /// L2 block requires `block.timestamp - anchor.timestamp <= maxAnchorAge`. Its upper bound
+        /// is 14 days minus forcedInclusionDelay minus the 384-second anchor update margin.
         uint64 maxAnchorAge;
     }
 
@@ -167,7 +169,9 @@ interface IEtnaInbox {
     /// @dev Call atomically in the proxy constructor. Requires non-zero genesis hash, state root,
     /// committee record and derivation configuration hash, epochLenL2 >= 3, epochLenL1 > 0,
     /// a past genesis cutoff at or after the registry's first checkpoint, a forced inclusion
-    /// delay in (0, 14 days) and a non-zero maximum anchor age. The SignalService must
+    /// delay greater than zero, maxAnchorAge >= 1152 seconds, and
+    /// forcedInclusionDelay + maxAnchorAge + 384 seconds <= 14 days. Choose maxAnchorAge above
+    /// the expected L1 finality lag, including extra depth and RPC latency. The SignalService must
     /// authorize this proxy as its
     /// syncer: initialization saves its block-0 checkpoint too, and any failure rolls back all
     /// state. The owner supplies the trusted genesis values and the committee record computed
