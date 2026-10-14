@@ -24,13 +24,14 @@ Every validator and every full node runs three processes:
   transactions travel over the execution layer's devp2p, and the proposer's alethia-reth picks
   them from its own txpool.
 - **`taiko-client abci`** wraps each execution block, together with the L1 facts it consumes (an
-  L1 header plus EIP-1186 storage proofs of the Inbox and the staking registry; while an entry
-  the chain has not consumed is queued at the anchor, that entry's proof and, when the block
-  consumes it before it expires, its blob), into the CometBFT block. Validators only check with
-  their own L1 node that the anchored L1 header is canonical and final; `FinalizeBlock`, replay
-  and block sync never call L1 or the beacon. At each switch height the app derives the target
-  committee from the committed parent anchor and hands CometBFT the validator updates, effective
-  two heights later. Its state is persisted atomically at every
+  L1 header plus EIP-1186 storage proofs of the Inbox and the staking registry; while an entry the
+  chain has not consumed is queued at the anchor, that entry's proof and, when the block consumes
+  it before it expires, its blob), into the CometBFT block. Validators only check with their own
+  L1 node that the anchored L1 header is canonical and final. `FinalizeBlock`, replay and block
+  sync never call the beacon or read L1 state; for a block the node never judged, they make the
+  same canonical-and-final check of its anchor header (see Restarts). At each switch height the
+  app derives the target committee from the committed parent anchor and hands CometBFT the
+  validator updates, effective two heights later. Its state is persisted atomically at every
   `Commit`. The genesis record includes the authenticated committee config hash, and the epoch
   schedule is derived from it. Old `activation` and `migration_state` field names remain aliases
   within the new model; a state file lacking the required config hash is rejected.
@@ -142,7 +143,7 @@ as an empty block. The proposer builds the block through the EL from that explic
 remaining block gas, and stops when zk gas runs out). Every validator rebuilds it on the
 committed parent from the same inputs and requires the same block hash: in `ProcessProposal`,
 and in `FinalizeBlock` whenever it has no `ProcessProposal` verdict (replay, block sync).
-Because the blob travels in the envelope, replay and block sync never need L1 or the beacon,
+Because the blob travels in the envelope, replay and block sync never need the beacon or L1 state,
 and the lander re-publishes the blob in its landing blobs.
 
 Validators apply this rule in consensus, so only a committee with more than 2/3 of the voting
@@ -554,6 +555,18 @@ or config opening differs.
   last blocks: restart the app and CometBFT so the next handshake re-checks it. Until then
   `FinalizeBlock` keeps retrying a block alethia-reth cannot execute, logging at ERROR after a
   minute.
+- Replay and block sync need the own L1 node. For each block the node never judged whose
+  envelope carries an anchor witness, `FinalizeBlock` requires the own L1 to have finalized that
+  very header (plus the extra finality depth), as `ProcessProposal` does. So the L1 node must
+  serve headers by number back to the activation block `L1_0` (no history expiry below it).
+- While the own L1 is unreachable or has not finalized the anchor, `FinalizeBlock` waits, logged
+  under `method="L1 anchor confirmation"` at WARN (ERROR after a minute); every other request,
+  CometBFT's handshake included, queues behind it, so liveness probes on CometBFT's RPC can fire.
+- Two consecutive reads showing that the anchor cannot be on the own L1 chain (a different block
+  at its number, or a number beyond the own finalized block with a timestamp no block there can
+  have) are a safety halt labeled `anchor_off_chain`: the node is being fed a forged history, or
+  its L1 node is on another network. Point it at a correct L1 node and peers, or restore a
+  trusted state.
 
 ### Execution layer state history
 

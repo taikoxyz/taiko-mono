@@ -2,9 +2,10 @@
 //! block number, canonical block hashes and raw headers, EIP-1186 account proofs and raw storage
 //! reads, behind [`L1Source`] so the app can run against an in-memory L1 in tests.
 //!
-//! Only `PrepareProposal`, `ProcessProposal` (its node-local checks), `InitChain` and the
-//! `abci-genesis` builder use it; `FinalizeBlock` and replay never call L1, as every L1 fact a
-//! block consumes travels in it.
+//! `PrepareProposal`, `ProcessProposal` (its node-local checks), `InitChain` and the
+//! `abci-genesis` builder use it. `FinalizeBlock` and replay read no L1 state, as every L1 fact a
+//! block consumes travels in it; for a block the node never judged they only confirm that a moved
+//! anchor header is final and canonical in the own L1 ([`is_final_canonical`]'s check).
 
 use std::collections::BTreeSet;
 

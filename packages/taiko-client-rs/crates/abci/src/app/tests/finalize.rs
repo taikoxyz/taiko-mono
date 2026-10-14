@@ -24,9 +24,9 @@ use crate::{
     engine::{EngineError, PayloadVerdict},
     envelope::EtnaEnvelope,
     forced::ForcedError,
-    l1::L1Error,
+    l1::{L1Error, RawL1Header},
     store::{AppState, CommitteeState},
-    test_utils::{GenesisSpec, LogCapture, RegistryStorage, sample_entries},
+    test_utils::{GenesisSpec, L1Call, LogCapture, RegistryStorage, l1_header, sample_entries},
     types::{ParentInfo, RegistryEntry},
 };
 
@@ -80,7 +80,7 @@ async fn finalize_after_process_uses_the_cached_verdict() {
         [EngineCall::Forkchoice { head: hash, safe: hash, finalized: checkpoint }],
         "the cached verdict was executed already: no second newPayload"
     );
-    assert!(app.l1().calls().is_empty(), "FinalizeBlock never calls L1");
+    assert!(app.l1().calls().is_empty(), "a cached verdict needs no L1 call");
 
     assert_eq!(out.tx_results.len(), 1, "one result for the one envelope transaction");
     assert_eq!(out.tx_results[0].code, Code::Ok);
@@ -141,8 +141,9 @@ async fn finalize_without_process_revalidates_and_executes() {
     let (_, req) = judge(&mut proposer, &env).await;
     let req = finalize_req(&req);
 
-    // A node that never saw the proposal (crash replay, block sync).
-    let mut validator = mid_epoch(&fx, validator_dir.path(), 5).await;
+    // A node that never saw the proposal (crash replay, block sync), whose own L1 finalized the
+    // same block 66.
+    let mut validator = anchor_moving(&fx, validator_dir.path()).await;
     validator.l1().state().calls.clear();
     let before = validator.engine().calls().len();
     let out = finalize(&mut validator, req.clone()).await.expect("finalizes");
@@ -155,7 +156,11 @@ async fn finalize_without_process_revalidates_and_executes() {
             EngineCall::Forkchoice { head: hash, safe: hash, finalized: checkpoint },
         ]
     );
-    assert!(validator.l1().calls().is_empty(), "the anchor witness is checked without L1");
+    assert_eq!(
+        validator.l1().calls(),
+        [L1Call::Finalized, L1Call::CanonicalHash(66)],
+        "the moved anchor is confirmed in the own L1 view"
+    );
     let pending = validator.pending.as_ref().expect("pending state");
     assert_eq!(pending.anchor, fx.anchor_state(proposer.l1(), 66));
 
@@ -556,6 +561,188 @@ async fn cold_finalize_of_stale_anchor_block_halts() {
     assert_eq!(app.pending, None);
 }
 
+/// A decided block whose anchor witness proves an L1 block the finalizing node's own L1 does not
+/// have at that number (block sync of a forged history, its proofs consistent with the forged
+/// header alone): a safety halt before the EL moves.
+#[tokio::test]
+async fn cold_finalize_halts_on_an_anchor_off_its_own_l1_chain() {
+    let fx = Fixture::genesis(1);
+    let (proposer_dir, node_dir) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let mut proposer = anchor_moving(&fx, proposer_dir.path()).await;
+    let env = propose(&mut proposer).await;
+    let (_, req) = judge(&mut proposer, &env).await;
+
+    // The node's own L1 finalized a different block 66.
+    let mut node = mid_epoch(&fx, node_dir.path(), 5).await;
+    let other = fx.inbox_with(fx.genesis.genesis_height + 4);
+    let canonical = fx.advance_l1(node.l1(), 66, &other, &fx.registry);
+    assert_ne!(canonical.hash(), env.anchor.as_ref().unwrap().l1_header.hash());
+
+    let before = node.engine().calls().len();
+    let msg = safety_halt(finalize(&mut node, finalize_req(&req)).await);
+    assert!(msg.contains("anchor L1 block 66"), "{msg}");
+    assert!(msg.contains("not on the own L1 chain"), "{msg}");
+    assert_eq!(engine_calls_since(&node, before), [], "the EL is not touched");
+    assert_eq!(node.pending, None);
+}
+
+/// A node finalizing a decided block it never judged waits, with the FinalizeBlock backoff, while
+/// its own L1 is down or has not finalized the block's anchor yet: it neither halts nor
+/// finalizes before its L1 confirms the anchor.
+#[tokio::test(start_paused = true)]
+async fn cold_finalize_waits_until_its_own_l1_confirms_the_anchor() {
+    let fx = Fixture::genesis(1);
+    let (proposer_dir, node_dir) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let mut proposer = anchor_moving(&fx, proposer_dir.path()).await;
+    let env = propose(&mut proposer).await;
+    let (_, req) = judge(&mut proposer, &env).await;
+
+    let mut node = anchor_moving(&fx, node_dir.path()).await;
+    {
+        let mut l1 = node.l1().state();
+        l1.finalized_script.push_back(Err(L1Error::Rpc("down".into())));
+        l1.finalized_script.push_back(Ok(65));
+        l1.calls.clear();
+    }
+    let start = tokio::time::Instant::now();
+    finalize(&mut node, finalize_req(&req)).await.expect("finalizes once its L1 confirms");
+    assert_eq!(start.elapsed(), Duration::from_millis(100 + 200), "two backoff pauses");
+    assert_eq!(
+        node.l1().calls(),
+        [
+            L1Call::Finalized,
+            L1Call::Finalized,
+            // Behind the anchor, the own finalized header bounds how early block 66 can be.
+            L1Call::Header(65),
+            L1Call::Finalized,
+            L1Call::CanonicalHash(66)
+        ]
+    );
+    assert_eq!(node.pending.as_ref().unwrap().parent.hash, env.block.header.hash_slow());
+}
+
+/// One own-L1 answer naming a different block at the anchor's number (e.g. a lagging backend of a
+/// load-balanced endpoint) is re-read after a backoff pause before it halts anything: the second
+/// read confirms the anchor and the block finalizes.
+#[tokio::test(start_paused = true)]
+async fn a_single_off_chain_answer_is_re_read_before_a_halt() {
+    let fx = Fixture::genesis(1);
+    let (proposer_dir, node_dir) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let mut proposer = anchor_moving(&fx, proposer_dir.path()).await;
+    let env = propose(&mut proposer).await;
+    let (_, req) = judge(&mut proposer, &env).await;
+
+    let mut node = anchor_moving(&fx, node_dir.path()).await;
+    {
+        let mut l1 = node.l1().state();
+        l1.canonical_script.push_back(Ok(B256::repeat_byte(0xee)));
+        l1.calls.clear();
+    }
+    let start = tokio::time::Instant::now();
+    finalize(&mut node, finalize_req(&req)).await.expect("the re-read confirms the anchor");
+    assert_eq!(start.elapsed(), Duration::from_millis(100), "one backoff pause");
+    assert_eq!(
+        node.l1().calls(),
+        [
+            L1Call::Finalized,
+            L1Call::CanonicalHash(66),
+            L1Call::Finalized,
+            L1Call::CanonicalHash(66)
+        ]
+    );
+}
+
+/// With an extra finality depth, the own L1 must have finalized the anchor's number plus that
+/// depth: a node whose L1 finalized only one block past the anchor waits for the second.
+#[tokio::test(start_paused = true)]
+async fn cold_finalize_waits_for_the_extra_finality_depth() {
+    let mut fx = Fixture::genesis(1);
+    fx.params.l1_finality_extra_depth = 2;
+    let (proposer_dir, node_dir) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let mut proposer = anchor_moving(&fx, proposer_dir.path()).await;
+    let env = propose(&mut proposer).await;
+    let (_, req) = judge(&mut proposer, &env).await;
+
+    let mut node = anchor_moving(&fx, node_dir.path()).await;
+    {
+        let mut l1 = node.l1().state();
+        l1.finalized_script.push_back(Ok(67));
+        l1.calls.clear();
+    }
+    let start = tokio::time::Instant::now();
+    finalize(&mut node, finalize_req(&req)).await.expect("finalizes at depth 2");
+    assert_eq!(start.elapsed(), Duration::from_millis(100), "one backoff pause");
+    assert_eq!(
+        node.l1().calls(),
+        [L1Call::Finalized, L1Call::Finalized, L1Call::CanonicalHash(66)]
+    );
+}
+
+/// An anchor numbered beyond the own L1's finalized block whose timestamp no real block there can
+/// have (L1 timestamps rise by at least a second per block): a safety halt instead of an endless
+/// wait for a block that cannot exist.
+#[tokio::test(start_paused = true)]
+async fn an_anchor_beyond_the_own_l1_head_with_an_impossible_timestamp_halts() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let node = anchor_moving(&fx, dir.path()).await;
+    // The own L1 finalized block 66; a real block 1066 is at least 1000 s younger.
+    let forged = RawL1Header::from(&l1_header(1066, Fixture::l1_timestamp(66) + 999));
+    let halted = tokio::time::timeout(Duration::from_secs(600), node.confirm_anchor(7, &forged));
+    match halted.await.expect("halts instead of waiting") {
+        Err(AbciError::SafetyHalt(msg)) => {
+            assert!(msg.contains("anchor L1 block 1066"), "{msg}");
+            assert!(msg.contains("timestamp"), "{msg}");
+        }
+        other => panic!("expected a safety halt, got {other:?}"),
+    }
+    // A plausible future block is waited for, not halted on.
+    let plausible = RawL1Header::from(&l1_header(1066, Fixture::l1_timestamp(66) + 1000));
+    let wait = node.confirm_anchor(7, &plausible);
+    assert!(
+        tokio::time::timeout(Duration::from_secs(600), wait).await.is_err(),
+        "still waiting for the own L1 to reach block 1066"
+    );
+}
+
+/// An anchor number so large that no finality bound exists for it: a safety halt without any L1
+/// read.
+#[tokio::test]
+async fn an_anchor_number_beyond_any_finality_bound_halts() {
+    let mut fx = Fixture::genesis(1);
+    fx.params.l1_finality_extra_depth = 2;
+    let dir = tempfile::tempdir().unwrap();
+    let node = mid_epoch(&fx, dir.path(), 5).await;
+    node.l1().state().calls.clear();
+    let forged = RawL1Header::from(&l1_header(u64::MAX, 0));
+    match tokio::time::timeout(Duration::from_secs(60), node.confirm_anchor(7, &forged))
+        .await
+        .expect("halts at once")
+    {
+        Err(AbciError::SafetyHalt(msg)) => assert!(msg.contains("finality bound"), "{msg}"),
+        other => panic!("expected a safety halt, got {other:?}"),
+    }
+    assert!(node.l1().calls().is_empty());
+}
+
+/// A decided block carrying no anchor witness introduces no L1 fact: a node that never judged it
+/// finalizes it without any L1 call, even with its own L1 down.
+#[tokio::test]
+async fn a_cold_block_without_an_anchor_witness_needs_no_l1() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let env = hand_envelope(&app, None, None);
+    let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+    {
+        let mut l1 = app.l1().state();
+        l1.fail = Some(L1Error::Rpc("down".into()));
+        l1.calls.clear();
+    }
+    finalize(&mut app, req).await.expect("finalizes without L1");
+    assert!(app.l1().calls().is_empty());
+}
+
 /// Two different records for one epoch: a safety halt.
 #[tokio::test]
 async fn a_conflicting_committee_record_is_a_safety_halt() {
@@ -899,11 +1086,11 @@ async fn cold_forced_rebuild_failures_retry_or_halt() {
     );
 }
 
-/// CometBFT replays a decided forced inclusion block after a crash before `Commit`, with no L1
-/// reachable (and no beacon: FinalizeBlock has none): the cold node rebuilds the block from the
-/// blob its envelope carries alone and answers as before.
+/// CometBFT replays a decided forced inclusion block after a crash before `Commit`, with no
+/// beacon reachable (FinalizeBlock has none): the cold node confirms the moved anchor in its own
+/// L1, rebuilds the block from the blob its envelope carries alone and answers as before.
 #[tokio::test]
-async fn replay_rebuilds_forced_block_without_l1_or_beacon() {
+async fn replay_rebuilds_forced_block_without_a_beacon() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
@@ -922,12 +1109,13 @@ async fn replay_rebuilds_forced_block_without_l1_or_beacon() {
         "the cached verdict was rebuilt and executed already: {calls:?}"
     );
 
-    // Crash before Commit: the EL keeps the block, the store the previous height; L1 and the
-    // beacon are down.
+    // Crash before Commit: the EL keeps the block, the store the previous height; the beacon is
+    // down, the own L1 still has block 66.
     let engine = app.engine().reopen();
     drop(app);
     let l1 = fx.l1();
-    l1.state().fail = Some(L1Error::Rpc("unreachable".into()));
+    plant_due_entry(&fx, &l1, 66, fx.inbox.clone());
+    l1.state().calls.clear();
     fx.blobs.state().fail = Some("unreachable".into());
     let store = Store::new(dir.path().to_path_buf());
     let mut app =
@@ -939,8 +1127,12 @@ async fn replay_rebuilds_forced_block_without_l1_or_beacon() {
     let before = app.engine().calls().len();
     let replayed = finalize(&mut app, req).await.expect("the replay finalizes");
     assert_eq!(replayed, first);
-    assert!(app.l1().calls().is_empty(), "FinalizeBlock never calls L1");
-    assert!(fx.blobs.calls().is_empty(), "nor fetches a blob, before or after the crash");
+    assert_eq!(
+        app.l1().calls(),
+        [L1Call::Finalized, L1Call::CanonicalHash(66)],
+        "only the moved anchor is confirmed in the own L1"
+    );
+    assert!(fx.blobs.calls().is_empty(), "no blob is fetched, before or after the crash");
     let calls = engine_calls_since(&app, before);
     let [
         EngineCall::BuildBlock { parent, attrs },
@@ -970,6 +1162,7 @@ async fn forced_cursor_advances_after_a_forced_block_commits() {
     // A node that never judged the block derives the same cursor from the envelope alone.
     let cold_dir = tempfile::tempdir().unwrap();
     let mut cold = mid_epoch(&fx, cold_dir.path(), 5).await;
+    share_l1_chain(app.l1(), cold.l1());
     finalize(&mut cold, finalize_req(&req)).await.expect("the cold node finalizes");
     assert_eq!(cold.pending.as_ref().map(|s| s.forced_cursor), Some(1));
 
@@ -1079,6 +1272,24 @@ async fn multi_epoch_run(
     (app, decided)
 }
 
+/// Gives `to` the L1 chain `from` holds (its headers and finalized number), as the own L1 of a
+/// node replaying blocks anchored on that chain sees it; `to` keeps its own block states.
+fn share_l1_chain(from: &MockL1, to: &MockL1) {
+    let (headers, finalized) = {
+        let from = from.state();
+        (from.headers.clone(), from.finalized)
+    };
+    let mut to = to.state();
+    to.headers.extend(headers);
+    to.finalized = finalized;
+}
+
+/// Whether `calls` only confirm anchors (finalized number and canonical hashes), never reading
+/// L1 state.
+fn only_anchor_confirmations(calls: &[L1Call]) -> bool {
+    calls.iter().all(|c| matches!(c, L1Call::Finalized | L1Call::CanonicalHash(_)))
+}
+
 #[tokio::test]
 async fn multi_epoch_run_switches_the_validator_set_once() {
     let fx = short_epochs();
@@ -1144,10 +1355,11 @@ async fn multi_epoch_run_switches_the_validator_set_once() {
 async fn every_switch_height_finds_both_committees() {
     let fx = short_epochs();
     let dir = tempfile::tempdir().unwrap();
-    let (_, decided) = multi_epoch_run(&fx, dir.path()).await;
+    let (source, decided) = multi_epoch_run(&fx, dir.path()).await;
 
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
+    share_l1_chain(source.l1(), app.l1());
     let schedule = app.state().unwrap().schedule();
     let mut switches = vec![];
     for (req, _) in &decided {
@@ -1182,6 +1394,7 @@ async fn finalize_is_deterministic_across_fresh_apps() {
     for _ in 0..2 {
         let dir = tempfile::tempdir().unwrap();
         let mut app = initialized(&fx, dir.path()).await;
+        share_l1_chain(proposer.l1(), app.l1());
         for (req, resp) in &decided {
             let replayed = finalize(&mut app, req.clone()).await.expect("finalizes");
             assert_eq!(&replayed, resp, "height {}", req.height);
@@ -1199,9 +1412,16 @@ async fn finalize_is_deterministic_across_fresh_apps() {
 async fn switch_replay_survives_crashes_before_and_after_commit() {
     let fx = short_epochs();
     let source_dir = tempfile::tempdir().unwrap();
-    let (_, decided) = multi_epoch_run(&fx, source_dir.path()).await;
+    let (source, decided) = multi_epoch_run(&fx, source_dir.path()).await;
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
+    share_l1_chain(source.l1(), app.l1());
+    // The own L1 of the restarted node: the same chain.
+    let restarted_l1 = || {
+        let l1 = fx.l1();
+        share_l1_chain(source.l1(), &l1);
+        l1
+    };
     let mut switches = Vec::new();
     for (req, expected) in &decided {
         let target = fx.schedule().switch_target(req.height.value());
@@ -1209,7 +1429,7 @@ async fn switch_replay_survives_crashes_before_and_after_commit() {
         app.l1().state().calls.clear();
         let response = finalize(&mut app, req.clone()).await.unwrap();
         assert_eq!(&response, expected);
-        assert!(app.l1().calls().is_empty());
+        assert!(only_anchor_confirmations(&app.l1().calls()), "{:?}", app.l1().calls());
         let pending = app.pending.as_ref().unwrap().clone();
         let hash = pending.parent.hash;
         assert_eq!(app.engine().state().chain[&pending.last_height].hash_slow(), hash);
@@ -1225,13 +1445,23 @@ async fn switch_replay_survives_crashes_before_and_after_commit() {
             // The EL has executed the switch while the durable store still holds its parent.
             let engine = app.engine().reopen();
             drop(app);
-            app = app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+            app = app_with(
+                restarted_l1(),
+                engine,
+                fx.params.clone(),
+                dir.path(),
+                AppOptions::default(),
+            );
             assert_eq!(app.state(), Some(&committed));
             info(&mut app).await.unwrap();
             app.l1().state().calls.clear();
             assert_eq!(finalize(&mut app, req.clone()).await.unwrap(), response);
             assert_eq!(app.pending.as_ref(), Some(&pending));
-            assert!(app.l1().calls().is_empty(), "switch replay requires no L1 reads");
+            let calls = app.l1().calls();
+            assert!(
+                only_anchor_confirmations(&calls),
+                "switch replay reads no L1 state: {calls:?}"
+            );
         }
         commit(&mut app).await.unwrap();
         assert_eq!(app.state(), Some(&pending));
@@ -1239,7 +1469,13 @@ async fn switch_replay_survives_crashes_before_and_after_commit() {
             // A crash after Commit reloads the incoming committee before the following height.
             let engine = app.engine().reopen();
             drop(app);
-            app = app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+            app = app_with(
+                restarted_l1(),
+                engine,
+                fx.params.clone(),
+                dir.path(),
+                AppOptions::default(),
+            );
             assert_eq!(app.state(), Some(&pending));
             info(&mut app).await.unwrap();
             assert_eq!(app.engine().state().chain[&pending.last_height].hash_slow(), hash);

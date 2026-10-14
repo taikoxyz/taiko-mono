@@ -243,8 +243,9 @@ impl From<ElSyncError> for AbciError {
 /// The ABCI++ application over an L1 source `L` and an execution engine `E`.
 #[derive(Debug)]
 pub struct App<L: L1Source, E: Engine> {
-    /// The node's own L1 view (never used by `FinalizeBlock` or replay: blocks carry their L1
-    /// facts).
+    /// The node's own L1 view. `FinalizeBlock` and replay read no L1 state through it (blocks
+    /// carry their L1 facts); they only confirm a block's anchor header when the block was never
+    /// judged here ([`App::confirm_anchor`]).
     l1: L,
     /// The execution engine.
     engine: E,
