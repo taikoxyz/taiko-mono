@@ -72,8 +72,14 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
     /// @dev The smallest epoch length in L2 blocks.
     uint64 private constant _MIN_EPOCH_LEN_L2 = 3;
 
-    /// @dev The age at which a forced inclusion entry expires; the delay must stay below it.
+    /// @dev The age at which a forced inclusion entry expires.
     uint64 private constant _FORCED_INCLUSION_EXPIRY = 14 days;
+
+    /// @dev One Ethereum epoch: the normal finalized-anchor update interval and expiry margin.
+    uint64 private constant _L1_EPOCH_DURATION = 32 * 12 seconds;
+
+    /// @dev Three Ethereum epochs budget the normal finality lag before an anchor is usable.
+    uint64 private constant _MIN_MAX_ANCHOR_AGE = 3 * _L1_EPOCH_DURATION;
 
     /// @dev The domain tag of the landing statement.
     bytes32 private constant _LAND_STATEMENT_TAG = bytes32("TAIKO_ETNA_LAND_V6");
@@ -201,7 +207,12 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
                 && _params.forcedInclusionDelay < _FORCED_INCLUSION_EXPIRY,
             InvalidForcedInclusionDelay()
         );
-        require(_params.maxAnchorAge != 0, InvalidMaxAnchorAge());
+        require(_params.maxAnchorAge >= _MIN_MAX_ANCHOR_AGE, InvalidMaxAnchorAge());
+        require(
+            uint256(_params.forcedInclusionDelay) + uint256(_params.maxAnchorAge)
+                    + uint256(_L1_EPOCH_DURATION) <= _FORCED_INCLUSION_EXPIRY,
+            InvalidForcedInclusionWindow()
+        );
 
         __Essential_init(_owner);
         uint64 l1Block = uint64(block.number);
@@ -530,6 +541,7 @@ contract EtnaInbox is IEtnaInbox, IForcedInclusionStore, EssentialContract {
     error InvalidEpochLength();
     error InvalidForcedInclusionDelay();
     error InvalidForcedInclusionHead();
+    error InvalidForcedInclusionWindow();
     error InvalidGenesisCutoff();
     error InvalidMaxAnchorAge();
     error NoProgress();

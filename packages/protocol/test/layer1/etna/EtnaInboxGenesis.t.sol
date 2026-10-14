@@ -163,6 +163,10 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
 
 /// @notice Uses an empty proxy only to exercise initialization failures and atomic rollback.
 contract EtnaInboxGenesisValidationTest is EtnaInboxTestBase {
+    // Ethereum epochs are 32 slots of 12 seconds. Keep these bounds independent of the contract.
+    uint64 private constant _MIN_SUPPORTED_ANCHOR_AGE = 1152;
+    uint64 private constant _ANCHOR_ADVANCE_MARGIN = 384;
+
     function _initializeOnDeploy() internal pure override returns (bool) {
         return false;
     }
@@ -200,14 +204,15 @@ contract EtnaInboxGenesisValidationTest is EtnaInboxTestBase {
         params.epochLenL2 = 3;
         params.epochLenL1 = 1;
         params.genesisCutoff = uint64(block.number - 1);
-        params.forcedInclusionDelay = FORCED_INCLUSION_EXPIRY - 1;
-        params.maxAnchorAge = 1;
+        params.forcedInclusionDelay =
+            FORCED_INCLUSION_EXPIRY - _MIN_SUPPORTED_ANCHOR_AGE - _ANCHOR_ADVANCE_MARGIN;
+        params.maxAnchorAge = _MIN_SUPPORTED_ANCHOR_AGE;
         etnaInbox.init(address(this), params);
         assertEq(etnaInbox.activation().epochLenL2, 3, "epoch length L2");
         assertEq(etnaInbox.activation().epochLenL1, 1, "epoch length L1");
         assertEq(etnaInbox.genesisCutoff(), block.number - 1, "genesis cutoff");
-        assertEq(etnaInbox.forcedInclusionDelay(), FORCED_INCLUSION_EXPIRY - 1, "delay");
-        assertEq(etnaInbox.maxAnchorAge(), 1, "maximum anchor age");
+        assertEq(etnaInbox.forcedInclusionDelay(), params.forcedInclusionDelay, "delay");
+        assertEq(etnaInbox.maxAnchorAge(), _MIN_SUPPORTED_ANCHOR_AGE, "maximum anchor age");
     }
 
     function test_init_AcceptsTheSmallestForcedInclusionDelay() external {
@@ -215,6 +220,37 @@ contract EtnaInboxGenesisValidationTest is EtnaInboxTestBase {
         params.forcedInclusionDelay = 1;
         etnaInbox.init(address(this), params);
         assertEq(etnaInbox.forcedInclusionDelay(), 1, "delay");
+    }
+
+    function test_init_AcceptsTheLargestMaxAnchorAge() external {
+        IEtnaInbox.GenesisParams memory params = _defaultGenesisParams();
+        params.forcedInclusionDelay = 1;
+        params.maxAnchorAge = FORCED_INCLUSION_EXPIRY - _ANCHOR_ADVANCE_MARGIN - 1;
+        etnaInbox.init(address(this), params);
+        assertEq(etnaInbox.forcedInclusionDelay(), 1, "delay");
+        assertEq(etnaInbox.maxAnchorAge(), params.maxAnchorAge, "maximum anchor age");
+    }
+
+    function testFuzz_init_EnforcesForcedInclusionWindow(
+        uint64 _delay,
+        uint64 _maxAnchorAge
+    )
+        external
+    {
+        IEtnaInbox.GenesisParams memory params = _defaultGenesisParams();
+        params.forcedInclusionDelay = uint64(bound(_delay, 1, FORCED_INCLUSION_EXPIRY - 1));
+        params.maxAnchorAge =
+            uint64(bound(_maxAnchorAge, _MIN_SUPPORTED_ANCHOR_AGE, FORCED_INCLUSION_EXPIRY));
+        if (
+            uint256(params.forcedInclusionDelay) + uint256(params.maxAnchorAge)
+                    + uint256(_ANCHOR_ADVANCE_MARGIN) > FORCED_INCLUSION_EXPIRY
+        ) {
+            _expectInvalidGenesis(params, EtnaInbox.InvalidForcedInclusionWindow.selector);
+        } else {
+            etnaInbox.init(address(this), params);
+            assertEq(etnaInbox.forcedInclusionDelay(), params.forcedInclusionDelay, "delay");
+            assertEq(etnaInbox.maxAnchorAge(), params.maxAnchorAge, "maximum anchor age");
+        }
     }
 
     function test_init_RevertWhen_GenesisBlockHashIsZero() external {
@@ -291,6 +327,59 @@ contract EtnaInboxGenesisValidationTest is EtnaInboxTestBase {
         IEtnaInbox.GenesisParams memory params = _defaultGenesisParams();
         params.maxAnchorAge = 0;
         _expectInvalidGenesis(params, EtnaInbox.InvalidMaxAnchorAge.selector);
+    }
+
+    function test_init_RevertWhen_PreviouslyAcceptedExpiryBoundary() external {
+        IEtnaInbox.GenesisParams memory params = _defaultGenesisParams();
+        params.forcedInclusionDelay = FORCED_INCLUSION_EXPIRY - 1;
+        params.maxAnchorAge = 1;
+        _expectInvalidGenesis(params, EtnaInbox.InvalidMaxAnchorAge.selector);
+    }
+
+    function test_init_RevertWhen_MaxAnchorAgeBelowSupportedFinalityLag() external {
+        IEtnaInbox.GenesisParams memory params = _defaultGenesisParams();
+        params.maxAnchorAge = _MIN_SUPPORTED_ANCHOR_AGE - 1;
+        _expectInvalidGenesis(params, EtnaInbox.InvalidMaxAnchorAge.selector);
+    }
+
+    function test_init_RevertWhen_MaxAnchorAgeIsUint64Max() external {
+        IEtnaInbox.GenesisParams memory params = _defaultGenesisParams();
+        params.maxAnchorAge = type(uint64).max;
+        _expectInvalidGenesis(params, EtnaInbox.InvalidForcedInclusionWindow.selector);
+    }
+
+    function test_init_RevertWhen_DelayLeavesNoAnchorAdvanceWindow() external {
+        IEtnaInbox.GenesisParams memory params = _defaultGenesisParams();
+        params.forcedInclusionDelay = FORCED_INCLUSION_EXPIRY - 1;
+        params.maxAnchorAge = _MIN_SUPPORTED_ANCHOR_AGE;
+        _expectInvalidGenesis(params, EtnaInbox.InvalidForcedInclusionWindow.selector);
+    }
+
+    function test_init_RevertWhen_DelayExceedsCoupledLimitByOneSecond() external {
+        IEtnaInbox.GenesisParams memory params = _defaultGenesisParams();
+        params.forcedInclusionDelay =
+            FORCED_INCLUSION_EXPIRY - _MIN_SUPPORTED_ANCHOR_AGE - _ANCHOR_ADVANCE_MARGIN + 1;
+        params.maxAnchorAge = _MIN_SUPPORTED_ANCHOR_AGE;
+        _expectInvalidGenesis(params, EtnaInbox.InvalidForcedInclusionWindow.selector);
+    }
+
+    function test_init_RevertWhen_MaxAnchorAgeExceedsCoupledLimitByOneSecond() external {
+        IEtnaInbox.GenesisParams memory params = _defaultGenesisParams();
+        params.forcedInclusionDelay = 1;
+        params.maxAnchorAge = FORCED_INCLUSION_EXPIRY - _ANCHOR_ADVANCE_MARGIN;
+        _expectInvalidGenesis(params, EtnaInbox.InvalidForcedInclusionWindow.selector);
+    }
+
+    function test_init_CanRetryAfterRejectedForcedInclusionWindow() external {
+        IEtnaInbox.GenesisParams memory params = _defaultGenesisParams();
+        params.forcedInclusionDelay = FORCED_INCLUSION_EXPIRY - _MIN_SUPPORTED_ANCHOR_AGE;
+        params.maxAnchorAge = _MIN_SUPPORTED_ANCHOR_AGE;
+        _expectInvalidGenesis(params, EtnaInbox.InvalidForcedInclusionWindow.selector);
+        etnaInbox.init(address(this), _defaultGenesisParams());
+        assertEq(etnaInbox.owner(), address(this), "owner");
+        assertEq(etnaInbox.forcedInclusionDelay(), FORCED_INCLUSION_DELAY, "delay");
+        assertEq(etnaInbox.maxAnchorAge(), MAX_ANCHOR_AGE, "maximum anchor age");
+        assertEq(signalService.getCheckpoint(0).blockHash, genesisBlockHash, "checkpoint zero");
     }
 
     function test_init_CanRetryAfterRejectedParameters() external {
