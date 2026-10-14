@@ -596,32 +596,40 @@ or config opening differs.
   those historical entry reads as well as the parent-anchor proofs. Landers starting mid-epoch
   also need the earlier derivation snapshot's entries and the bounded EL ancestor headers.
 - At switch height `S(t)`, registry proofs must authenticate under the committed `D(t)`
-  anchor's fixed state root. Extra finality depth, an L1 finality stall, a stalled L2 height or
-  a restart can make that state older than a full node's retention window. A shallow state
-  window alone therefore does not guarantee switch liveness. Configure historical proof/state
-  retention to cover the required history, or supply `--l1.archive` (`ABCI_L1_ARCHIVE`) as an
-  HTTP(S) archive fallback for committee registry reads. Archive state reads use the exact
-  requested block; their complete witness still verifies under the fixed committed parent root.
-  Finality, canonical hashes, headers and Inbox proofs continue to use only `--l1.http`.
-  With an archive configured, the primary gets a head start of at most 100 milliseconds before
-  the archive state read also starts; the first successful response supplies discovery data.
-  If one source fails, the other stays in flight under the unchanged read/prepare deadlines.
+  anchor's fixed state root. An L1 finality stall keeps that anchor for up to `maxAnchorAge`
+  (planned 2 h, about 600 L1 blocks), far beyond a geth full node's 128-block state window, so
+  nodes discover the witness as soon as they commit the anchor (see the sidecar below). That
+  needs the L1 proof window to cover the finality lag plus `l1_finality_extra_depth` plus one
+  discovery; a deeper extra depth, or a node that was not live when the anchor was adopted,
+  still needs historical state. Configure historical proof/state retention to cover the
+  required history, or supply `--l1.archive` (`ABCI_L1_ARCHIVE`) as an HTTP(S) archive
+  fallback for committee registry reads. Archive state reads use the exact requested block;
+  their complete witness still verifies under the fixed committed parent root. Finality,
+  canonical hashes, headers and Inbox proofs continue to use only `--l1.http`. With an archive
+  configured, the primary gets a head start of at most 100 milliseconds before the archive
+  state read also starts; the first successful response supplies discovery data. If one source
+  fails, the other stays in flight under the unchanged read/prepare deadlines.
 - Fully verified switch witnesses acquired locally or received in valid proposals are saved
-  atomically as `abci-committee-witness.json` in the app data directory before reuse. Once the
-  committed height is `D(t)`, every node discovers the switch witness in the background (started
-  by a live `Commit` and by every `ProcessProposal`, empty proposals included; a timed-out
-  discovery restarts from its finished reads) and saves it, so an anchor freshness stall, an
-  outage or a restart at `D(t)` does not leave `S(t)` waiting on pruned state, provided the
-  parent anchor's state was still served when the discovery ran; a proposal shares a running
-  discovery rather than repeating it. On restart,
-  the app checks the complete chain/config/epoch/anchor identity and re-verifies the proof.
-  Invalid or stale sidecars are ignored and reacquired; a sidecar write failure is a
-  `committee_cache_error` liveness halt. Preserve this sidecar alongside `abci-state.json`.
-  The cache protects already acquired witnesses; a validator that was down for the whole time
-  the snapshot stayed within its L1's proof window still needs archive state, or a peer's valid
-  `S(t)` proposal carrying the witness. reth's `--rpc.eth-proof-window` also limits historical proof
-  access independently of retained state; configure it for the history needed by validators
-  and landers.
+  atomically as `abci-committee-witness.json` in the app data directory before reuse. Every
+  node discovers the upcoming switch witness in the background under each committed anchor
+  that can still be `D(t)`'s, starting with the live `Commit` of the block adopting it, saves
+  it and keeps it while the anchor stays. Every `ProcessProposal`, empty proposals included,
+  and every live `Commit` start a discovery that is missing or failed; a timed-out one resumes
+  from its finished reads. An anchor can be `D(t)`'s only while `D(t)` passes back-pressure
+  against the anchor's last checkpoint height and stays within `maxAnchorAge` of the anchor at
+  one second per height at least, so this costs about one discovery per adopted anchor (one
+  per L1 epoch) in the last `d_max - margin_v` heights before each `D(t)`. An L1 finality
+  stall that holds the anchor through `D(t)`, an anchor freshness stall, an outage or a restart
+  therefore does not leave `S(t)` waiting on pruned state, provided the anchor's state was
+  still served when it was adopted; a proposal shares a running discovery rather than
+  repeating it. On restart, the app checks the complete chain/config/epoch/anchor identity and
+  re-verifies the proof. Invalid or stale sidecars are ignored and reacquired; a sidecar write
+  failure is a `committee_cache_error` liveness halt. Preserve this sidecar alongside
+  `abci-state.json`. The cache protects already acquired witnesses; a validator that was down
+  for the whole time the snapshot stayed within its L1's proof window still needs archive
+  state, or a peer's valid `S(t)` proposal carrying the witness. reth's
+  `--rpc.eth-proof-window` also limits historical proof access independently of retained
+  state; configure it for the history needed by validators and landers.
 - **Validators** (and `abci-genesis`) also read raw L1 headers with `debug_getRawHeader`, so
   enable the `debug` namespace on their L1 node (e.g. `--http.api eth,debug`). Without it the
   app re-encodes the header from `eth_getBlockByNumber`, which works only while it knows every

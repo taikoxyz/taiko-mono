@@ -132,13 +132,13 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Handles `Commit`: persists the state the last `FinalizeBlock` derived and makes it the
     /// committed state.
     ///
-    /// Clears the `ProcessProposal` cache, the cached committee witness, the kept reads of an
-    /// unfinished committee discovery, the proposal reads (but for the entry at the committed
-    /// cursor, whose blob a live decision prefetches) and the halt reason, starts a live
-    /// decision's switch-witness prefetch, publishes the new head's gauges, and
-    /// answers `retain_height = 0` (no block pruning). Errors: [`AbciError::NothingToCommit`]
-    /// without a pending state; [`AbciError::Store`] when it cannot be persisted (it then stays
-    /// pending).
+    /// Clears the `ProcessProposal` cache, the kept reads of an unfinished committee discovery,
+    /// the proposal reads (but for the entry at the committed cursor, whose blob a live decision
+    /// prefetches) and the halt reason, drops a cached committee witness the new committed state
+    /// no longer needs, starts a live decision's switch-witness prefetch, publishes the new
+    /// head's gauges, and answers `retain_height = 0` (no block pruning). Errors:
+    /// [`AbciError::NothingToCommit`] without a pending state; [`AbciError::Store`] when it
+    /// cannot be persisted (it then stays pending).
     pub(super) fn commit(&mut self) -> Result<response::Commit, AbciError> {
         let pending = self.pending.as_ref().ok_or(AbciError::NothingToCommit)?;
         self.store.save(pending)?;
@@ -149,7 +149,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
         );
         self.state = self.pending.take();
         self.verdicts.clear();
-        *self.committee_cache() = None;
         self.discovery.clear();
         let state = self.state.as_ref().expect("just committed");
         self.prepare_next_height(state, self.decided_live);

@@ -468,6 +468,111 @@ async fn committing_the_derivation_parent_prefetches_the_switch_witness() {
     assert_eq!(registry_reads(&app), 0, "{:?}", app.l1().calls());
 }
 
+/// A committed state at `D(t)-3` (`t = 2`) anchored at L1 block 68 while L1 has finalized 70,
+/// both with their last checkpoint at `last_checkpoint`: the next block adopts anchor 70.
+async fn before_anchor_adoption(
+    fx: &Fixture,
+    dir: &Path,
+    last_checkpoint: u64,
+) -> App<MockL1, MockEngine> {
+    let mut app = initialized(fx, dir).await;
+    let d_t = fx.schedule().derivation_parent_height(2).unwrap();
+    fx.advance_l1(app.l1(), 68, &fx.inbox_with(last_checkpoint), &fx.registry);
+    let anchor = fx.anchor_state(app.l1(), 68);
+    jump(&mut app, d_t - 3, anchor, &[(1, fx.committee(1))]);
+    fx.advance_l1(app.l1(), 70, &fx.inbox_with(last_checkpoint), &fx.registry);
+    app
+}
+
+/// `D(t)` of the fixtures' switch `t = 2`.
+fn d_2(fx: &Fixture) -> u64 {
+    fx.schedule().derivation_parent_height(2).unwrap()
+}
+
+/// The live `Commit` of the block adopting an anchor discovers the switch witness under it right
+/// away, while its L1 state is recent: when L1 finality then stalls, that anchor stays until
+/// `D(t)` and the L1 node prunes its state, yet `S(t)` is still proposed without an archive.
+#[tokio::test]
+async fn committing_a_new_anchor_prefetches_the_switch_witness_it_may_have_to_prove() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = before_anchor_adoption(&fx, dir.path(), d_2(&fx) - 5).await;
+    step(&mut app).await;
+    let state = app.state().unwrap().clone();
+    assert_eq!((state.last_height, state.anchor.number), (d_2(&fx) - 2, 70));
+    let witness = app.prefetched_committee_witness(&state, 2).await;
+    assert!(witness.is_some(), "Commit started the discovery two heights before D(t)");
+
+    // L1 finality stalls at 70 and the L1 node prunes block 70's state.
+    app.l1().state().states.clear();
+    step(&mut app).await;
+    step(&mut app).await;
+    let state = app.state().unwrap();
+    assert_eq!(
+        (state.schedule().switch_target(state.last_height + 1), state.anchor.number),
+        (Some(2), 70)
+    );
+    app.l1().state().calls.clear();
+    let env = propose(&mut app).await;
+    assert_eq!(env.committee, witness);
+    assert_eq!(registry_reads(&app), 0, "{:?}", app.l1().calls());
+}
+
+/// The witness discovered under a newly adopted anchor is saved, and a restart before `D(t)`
+/// loads it: the restarted node proposes `S(t)` once its L1 has pruned that anchor's state.
+#[tokio::test]
+async fn a_switch_witness_prefetched_before_the_derivation_parent_survives_restart() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = before_anchor_adoption(&fx, dir.path(), d_2(&fx) - 5).await;
+    step(&mut app).await;
+    let state = app.state().unwrap().clone();
+    let witness = app.prefetched_committee_witness(&state, 2).await;
+    assert!(witness.is_some());
+    app.adopt_committee_prefetch(&state);
+
+    app.l1().state().states.clear();
+    let App { l1, engine, blobs, params, store, opts, .. } = app;
+    let mut restarted =
+        App::new(Arc::try_unwrap(l1).expect("sole L1 owner"), engine, blobs, params, store, opts)
+            .unwrap();
+    step(&mut restarted).await;
+    step(&mut restarted).await;
+    restarted.l1().state().calls.clear();
+    assert_eq!(propose(&mut restarted).await.committee, witness);
+    assert_eq!(registry_reads(&restarted), 0, "{:?}", restarted.l1().calls());
+}
+
+/// Commits the block adopting anchor 70 at `D(t)-2` (see [`before_anchor_adoption`]), that block
+/// `age` seconds after anchor 70 when given, and answers whether its `Commit` started the
+/// switch-witness discovery.
+async fn adopting_anchor_70_prefetches(last_checkpoint: u64, age: Option<u64>) -> bool {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = before_anchor_adoption(&fx, dir.path(), last_checkpoint).await;
+    if let Some(age) = age {
+        // The block is proposed at `bft_time`, two seconds after its parent.
+        app.state.as_mut().unwrap().parent.timestamp = Fixture::l1_timestamp(70) + age - 2;
+    }
+    step(&mut app).await;
+    assert_eq!(app.state().unwrap().anchor.number, 70);
+    app.committee_prefetch().is_some()
+}
+
+/// Adopting an anchor discovers the switch witness exactly while `D(t)` can still carry that
+/// anchor: within back-pressure of its last checkpoint and within its freshness, every height
+/// adding at least a second. Otherwise a newer anchor comes first, and nothing is read.
+#[tokio::test]
+async fn adopting_an_anchor_prefetches_only_while_the_derivation_parent_can_carry_it() {
+    let fx = Fixture::genesis(3);
+    let (d_t, cap, max_age) = (d_2(&fx), fx.params.unsettled_cap(), fx.genesis.max_anchor_age);
+    assert!(adopting_anchor_70_prefetches(d_t - cap, None).await, "D(t) at the cap");
+    assert!(!adopting_anchor_70_prefetches(d_t - cap - 1, None).await, "D(t) past the cap");
+    // `D(t)` is two heights, so at least two seconds, after the adopting block.
+    assert!(adopting_anchor_70_prefetches(d_t - 5, Some(max_age - 2)).await, "D(t) at maxAge");
+    assert!(!adopting_anchor_70_prefetches(d_t - 5, Some(max_age - 1)).await, "D(t) past maxAge");
+}
+
 /// A saved identity cannot grant trust to a forged witness or an RLP value with trailing bytes.
 #[tokio::test]
 async fn corrupt_switch_sidecar_is_reverified_and_reacquired() {
