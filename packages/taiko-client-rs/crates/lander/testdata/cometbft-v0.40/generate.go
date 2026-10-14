@@ -169,6 +169,19 @@ func main() {
 	must(err)
 	nilDve, err := types.NewDuplicateVoteEvidence(signVote(key(1), types.BlockID{}), signVote(key(1), id(5)), time.Unix(100, 0).UTC(), vals)
 	must(err)
+	// Vote signatures do not cover extensions, so anyone can attach one to a double-signed
+	// precommit; CometBFT verifies and commits such evidence, and its JSON carries base64 bytes.
+	// Evidence never checks the extension signature, whose length may be anything up to
+	// MaxSignatureSize, with or without an extension.
+	extendedDve := func(extension []byte, signature int) *types.DuplicateVoteEvidence {
+		extended := signVote(key(1), id(3))
+		extended.Extension = extension
+		extended.ExtensionSignature = bytes.Repeat([]byte{9}, signature)
+		evidence, err := types.NewDuplicateVoteEvidence(extended, signVote(key(1), id(5)), time.Unix(100, 0).UTC(), vals)
+		must(err)
+		must(evidence.ValidateBasic())
+		return evidence
+	}
 	conflicting := types.Header{
 		ChainID: "taiko-etna-167001-g0", Height: 2, Time: time.Unix(102, 0).UTC(),
 		ValidatorsHash: vals.Hash(), NextValidatorsHash: vals.Hash(),
@@ -190,7 +203,10 @@ func main() {
 	for _, item := range []struct {
 		name     string
 		evidence types.Evidence
-	}{{"duplicate_vote", dve}, {"duplicate_vote_nil", nilDve}, {"light_client_attack", lca}} {
+	}{{"duplicate_vote", dve}, {"duplicate_vote_nil", nilDve}, {"duplicate_vote_extension", extendedDve([]byte{1, 2, 3}, 64)},
+		{"duplicate_vote_extension_signature_65", extendedDve([]byte{1, 2, 3}, 65)},
+		{"duplicate_vote_extension_signature_only_96", extendedDve(nil, 96)},
+		{"light_client_attack", lca}} {
 		v := block(item.evidence, envelope, vals)
 		v.Name = item.name
 		result = append(result, v)

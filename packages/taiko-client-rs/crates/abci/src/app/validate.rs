@@ -28,7 +28,7 @@ use crate::{
     config::ChainParams,
     engine::EngineError,
     envelope::{AnchorWitness, CommitteeWitness, EnvelopeError, EtnaEnvelope, ExecutionBlock},
-    forced::{self, ForcedConsumption, ForcedError},
+    forced::{self, ForcedConsumption, ForcedEntry, ForcedError},
     l1::{FetchError, L1Error, WitnessError, layout::inbox, verify_anchor_witness},
     rules::{self, ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation},
     store::{AppState, CommitteeState},
@@ -47,6 +47,9 @@ pub struct Validated {
     /// For a forced inclusion block: the consumed entry (the committed cursor) and the EL
     /// transaction list its block is built from; `None` for an ordinary block.
     pub forced: Option<ForcedConsumption>,
+    /// For an ordinary block that proves the pending entry at the cursor (a peek): that entry,
+    /// a node-local hint to fetch its blob before it falls due; no consensus rule reads it.
+    pub pending_forced: Option<ForcedEntry>,
     /// Whether the EL already executed the block and answered `VALID`.
     pub executed: bool,
 }
@@ -259,6 +262,10 @@ impl From<FetchError> for Rejection {
 /// own, i.e. the envelope compressed as landing payload V3 would publish it, plus
 /// [`HEADER_ALLOWANCE`] for the published header, is at most [`MAX_BLOCK_LANDING_BYTES`].
 ///
+/// The bound holds for any envelope content: the lander's single-block fallback deflates the
+/// envelope after a full flush ([`zlib_compress_split`](crate::compression::zlib_compress_split)),
+/// exactly as measured here, and the allowance covers the published prefix and that framing.
+///
 /// A liveness guard, not a validity rule: `ProcessProposal` and `PrepareProposal` run it,
 /// `FinalizeBlock` and the guest never do, so a decided block always commits.
 pub(crate) fn check_landing_capacity(envelope: &[u8]) -> Result<(), Rejection> {
@@ -342,11 +349,23 @@ pub(crate) fn validate_block(
         params.inbox,
         env.forced.as_ref(),
     )?;
+    // `check` already verified a peek's entry proof; this only recovers the proven entry.
+    let pending_forced = match (&forced, &env.forced) {
+        (None, Some(witness)) => forced::verify_entry(
+            facts.anchor.state_root,
+            &witness.entry,
+            params.inbox,
+            witness.index,
+        )
+        .ok(),
+        _ => None,
+    };
     Ok(Validated {
         block: env.block.clone(),
         anchor: facts.anchor,
         derived: facts.derived,
         forced,
+        pending_forced,
         executed: false,
     })
 }

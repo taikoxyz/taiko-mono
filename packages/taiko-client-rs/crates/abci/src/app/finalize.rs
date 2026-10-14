@@ -105,6 +105,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let hash = next.parent.hash;
         let finalized = next.anchor.inbox.last_checkpoint_hash;
         self.settle(height, &validated, finalized).await?;
+        // A live decision (not a replay or block sync, whose entries are long settled) proving a
+        // pending entry starts every validator's fetch of its blob before it falls due.
+        if let Some(entry) = validated.pending_forced.as_ref().filter(|_| !cold) {
+            self.prefetch_forced_blob(entry);
+        }
 
         tracing::debug!(
             height,
@@ -128,7 +133,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// committed state.
     ///
     /// Clears the `ProcessProposal` cache, the cached committee witness, the kept reads of an
-    /// unfinished committee discovery and the halt reason, publishes the new head's gauges, and
+    /// unfinished committee discovery, the proposal reads (but for a prefetched pending forced
+    /// inclusion blob) and the halt reason, publishes the new head's gauges, and
     /// answers `retain_height = 0` (no block pruning). Errors: [`AbciError::NothingToCommit`]
     /// without a pending state; [`AbciError::Store`] when it cannot be persisted (it then stays
     /// pending).
@@ -144,7 +150,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         self.verdicts.clear();
         *self.committee_cache() = None;
         self.discovery.clear();
-        *self.preparation_cache() = Default::default();
+        self.preparation_cache().reset_for_commit();
         self.clear_halt();
         self.publish_state_metrics();
         Ok(response::Commit { data: Default::default(), retain_height: Height::from(0u32) })

@@ -280,7 +280,9 @@ async fn build_app(c: &AppConfig) -> Result<App<RpcL1Source, RpcEngine>> {
     ));
     let store = Store::new(c.store_dir.clone());
     let blobs: Arc<dyn BlobSource> = match &c.beacon {
-        Some(url) => Arc::new(LazyBeaconBlobs::new(url.clone())),
+        Some(url) => {
+            Arc::new(LazyBeaconBlobs::new(url.clone(), http_timeout_for(opts.blob_timeout)))
+        }
         None => Arc::new(NoBeacon),
     };
     Ok(App::new(l1, engine, blobs, c.params.clone(), store, opts)?)

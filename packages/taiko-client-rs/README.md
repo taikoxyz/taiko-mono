@@ -24,7 +24,7 @@ Every validator and every full node runs three processes:
       taiko-client abci  ── Engine API (JWT) + eth RPC ──▶  alethia-reth
           │     │     │
           │     │     └── own L1 node: headers, eth_getProof, `finalized`
-          │     └── L1 beacon node: forced inclusion blobs (proposing only)
+          │     └── L1 beacon node: forced inclusion blobs (proposing, prefetching)
           └── --data-dir: abci-state.json
 ```
 
@@ -163,19 +163,27 @@ of the voting power (the exact threshold lies between 1/3 and 1/2, depending on 
 is divided; see Anchor freshness). `land` pays the consumed entries' fees to the `feeRecipient`
 the landing statement binds, the lander's sending address.
 
-A startup background smoke test warms beacon metadata and checks the blobs endpoint; proposing
-fetches the actual entry blob. A proposer that cannot fetch a due entry's blob from
+A startup background smoke test warms beacon metadata and checks the blobs endpoint; prefetching
+and proposing fetch the actual entry blob. A proposer that cannot fetch a due entry's blob from
 `--l1.beacon`, or fetches a blob that does not match the entry, proposes nothing and records
 the halt reason `blob_unavailable` (a beacon that does not answer before the proposal's deadline
 records `timeout` instead); another proposer's round can still include the entry. The app loads
 the KZG trusted setup at startup, so no ABCI request pays for it. Completed anchor and forced
 entry proofs and verified blobs are kept for later rounds at the same height, with proof reuse
-bound to the header hash or state root and queue index. A single owned forced-entry proof or
-blob fetch can finish after a round's overall timeout, within its existing L1 deadline; changing
-its key or committing aborts unfinished work. Initial anchor header and proof reads run together.
-This avoids repeatedly restarting slow work inside the two-second default preparation budget.
-Permanently unavailable blobs still prevent due inclusion; configure the L1 and prepare
-timeouts for backend latency, keeping preparation below CometBFT's proposal timeout.
+bound to the header hash or state root and queue index. A single owned forced-entry proof can
+finish after a round's overall timeout, within its L1 deadline; a single owned blob fetch runs
+within its own `--l1.blob-timeout` (default 30 s), so a beacon slower than the L1 deadline still
+delivers the blob to a later round. Changing a read's key or committing aborts unfinished work,
+except the blob of a pending entry: every validator that finalizes a live block proving a
+pending entry starts fetching that entry's blob in the background and keeps it across heights,
+so whichever validator proposes once the entry falls due already holds it. An entry already due
+when a block first proves it (a forced inclusion delay shorter than the anchor's step, or an
+anchor catching up after L1 lag or a halt), and one whose prefetch a restart or a block-synced
+height skipped, is fetched by proposers on their turns, each read surviving the stalled
+height's rounds. Initial anchor header and proof reads run together. This avoids repeatedly
+restarting slow work inside the two-second default preparation budget. Permanently unavailable blobs still prevent due
+inclusion; configure the L1, blob and prepare timeouts for backend latency, keeping preparation
+below CometBFT's proposal timeout.
 
 ### Anchor freshness
 
@@ -238,13 +246,14 @@ Serves the ABCI++ application to a CometBFT node.
 | `--l2.auth`                             | `L2_AUTH`              | alethia-reth's Engine API endpoint, plain `http` only, required               |
 | `--jwt.secret`                          | `JWT_SECRET`           | Engine API JWT secret file, required                                          |
 | `--l1.timeout`                          | `ABCI_L1_TIMEOUT`      | Deadline of one L1 read, in seconds (default 3)                               |
+| `--l1.blob-timeout`                     | `ABCI_L1_BLOB_TIMEOUT` | Deadline of one forced inclusion blob read, in seconds (default 30)           |
 | `--engine.timeout`                      | `ABCI_ENGINE_TIMEOUT`  | Deadline of one Engine API or EL RPC call, in seconds (default 5)             |
 | `--elsync.timeout`                      | `ABCI_ELSYNC_TIMEOUT`  | Deadline of an EL sync to a trusted head, in seconds (default 600)            |
 | `--prepare.timeout`                     | `ABCI_PREPARE_TIMEOUT` | `PrepareProposal` deadline in seconds (default 2), below `timeout_propose`    |
 | `--metrics.enabled` / `.addr` / `.port` | `METRICS_*`            | Prometheus metrics server (default off, `0.0.0.0:9090`)                       |
 | `-v`, `--verbosity`                     | `VERBOSITY`            | Log level, 0 = error … 4 = trace (default 2); `RUST_LOG` overrides it         |
 
-The four timeouts accept 1 to 3600 seconds. The L2 chain id is read from `--l2.http` and
+The five timeouts accept 1 to 3600 seconds. The L2 chain id is read from `--l2.http` and
 selects the built-in chain parameters. Only the internal devnet (chain id `167001`) has Etna PoS
 parameters so far; on other chains `abci` refuses to start. The `--chain-config` TOML uses the
 snake_case names of `abci::ChainParams` (for example `d_max = 12`); absent keys keep their
@@ -265,7 +274,9 @@ rounding; the ABCI query `/status` reports the head, epoch, generation and halt 
 whose envelope, zlib-compressed as payload V3 compresses it, plus a 1,024-byte header allowance
 exceeds 776,168 bytes (six landing blobs less 4 KiB of payload framing). This landing capacity
 guard keeps every decided block landable; it is a liveness guard, not a validity rule, so
-`FinalizeBlock` does not re-check it.
+`FinalizeBlock` does not re-check it. The allowance covers the published header prefix (at most
+768 bytes) and the framing of the lander's single-block fallback, which compresses the envelope
+exactly as the guard does (see payload V3 below).
 
 ### `lander`
 
@@ -376,7 +387,13 @@ counts compressed bytes, so `--max-blobs` must equal 6: the guard admits a block
 and Fusaka permits at most six blobs in one transaction. Compression statically links the
 locked stock zlib (libz-sys 1.1.28, zlib 1.3.2), so host library versions cannot change sizing.
 If a single-block payload exceeds the byte bound at the default level, the lander retries it
-once at the best level. Larger prefixes keep the default level and bounded sizing work. Prefix selection also caps a batch at 64 MiB of
+at the best level, then with a zlib full flush between the published prefix and the envelope:
+the flush closes the deflate block and resets the match state, so the envelope deflates exactly
+as the guard measured it and the payload is at most the guard's figure plus the prefix and 16
+bytes. Joint compression has no such bound, since the prefix shifts the envelope's deflate block
+boundaries; crafted calldata can turn that into kilobytes and a block the guard admitted could
+otherwise never land. The flushed stream is an ordinary zlib stream to every decoder. Larger
+prefixes keep the default level and bounded sizing work. Prefix selection also caps a batch at 64 MiB of
 uncompressed list, so its journal stays within 256 MiB, and deflates at most 32 MiB per selection
 to size candidate prefixes (a prefix whose worst-case compressed size fits is not deflated; the
 first block is always sized). A prefix past either budget waits for a later batch. Commits, last
@@ -388,12 +405,17 @@ payload.
 `eip4844` and `eip7594` select different sidecar wrappers/proofs for the same payload and
 commitments. Choose the mode supported by the L1 fork.
 `CertifiedBlock.raw_block` retains the original canonical block protobuf from `/block`, including
-Go's present empty height-1 commit and block id, nil evidence vote ids and evidence voting powers.
+Go's present empty height-1 commit and block id, nil evidence vote ids and evidence voting powers,
+and duplicate-vote evidence whose precommit carries a vote extension (vote signatures do not
+cover extensions, so anyone can attach one to a double-signed vote; Go's JSON carries the bytes
+as base64, which the lander decodes so the evidence hash covers them exactly).
 The journal/proof wire encodes these unchanged bytes as canonical base64 and reconstructs the
 checked domain projection on restore. Body verification and every future guest must use that raw
 protobuf for the signed 64 KiB part-set root and the concrete evidence subtype protobufs (without
-the `Evidence` oneof wrapper) for `evidence_hash`. Domain conversion must not rewrite evidence or
-nested light-client validator sets. The published header keeps the canonical Rust domain form,
+the `Evidence` oneof wrapper) for `evidence_hash`; the raw witness is never rebuilt from the
+domain projection, which drops duplicate-vote extensions (nothing hashes the projection's
+evidence) and must not otherwise rewrite evidence or nested light-client validator sets. The
+published header keeps the canonical Rust domain form,
 which normalizes the height-1 empty last block id to `None`.
 
 The journal is `lander-state.json`, separate from `abci-state.json`, and the

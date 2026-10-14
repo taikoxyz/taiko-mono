@@ -3,11 +3,14 @@
 //!
 //! The lander depends on this crate, so both sides compress with the same codec: `flate2` over
 //! the locked, statically linked stock C zlib at [`Compression::default`]. A single landing
-//! may retry [`Compression::best`] if the default output exceeds its payload bound.
+//! may retry [`Compression::best`] if the default output exceeds its payload bound, and finally
+//! [`zlib_compress_split`], whose size the guard bounds whatever the envelope holds.
 
 use std::io::Write;
 
-use flate2::{Compression, Decompress, FlushDecompress, Status, write::ZlibEncoder};
+use flate2::{
+    Compress, Compression, Decompress, FlushCompress, FlushDecompress, Status, write::ZlibEncoder,
+};
 
 /// The blobs one block may need to land on its own: the minimum `max_blobs` the lander accepts.
 pub const MAX_LANDING_BLOBS: usize = 6;
@@ -17,8 +20,25 @@ pub const MAX_LANDING_BLOBS: usize = 6;
 /// (`BYTES_PER_BLOB * 127 / 128 - 4`).
 pub const LANDING_PAYLOAD_BYTES_PER_BLOB: usize = 130_044;
 
-/// The room reserved for a published block's header next to its compressed envelope.
+/// The room reserved for a published block's header next to its compressed envelope: the
+/// published header with its RLP framing (at most [`MAX_PUBLISHED_PREFIX_BYTES`]) plus
+/// [`SPLIT_OVERHEAD`] and the payload version byte, which [`zlib_compress_split`] adds to the
+/// envelope's own [`zlib_compress`] size.
 pub const HEADER_ALLOWANCE: usize = 1_024;
+
+/// An upper bound on the bytes that precede a single block's envelope in its V3 list: the outer
+/// and item RLP list headers, the CometBFT header protobuf (whose variable fields are bounded:
+/// a chain id of at most 50 bytes, 32-byte hashes, a 20-byte proposer address) with its RLP
+/// string header, and the envelope's RLP string header.
+pub const MAX_PUBLISHED_PREFIX_BYTES: usize = 768;
+
+/// The bytes [`zlib_compress_split`] may add to `prefix.len()` and to [`zlib_compress`]`(tail)`:
+/// the prefix's deflate block header and stored-block framing, and the full flush's empty stored
+/// block, each byte aligned.
+pub const SPLIT_OVERHEAD: usize = 16;
+
+// The payload version byte takes at least the one byte the strict inequality leaves.
+const _: () = assert!(MAX_PUBLISHED_PREFIX_BYTES + SPLIT_OVERHEAD < HEADER_ALLOWANCE);
 
 /// The compressed bytes one block may need to land on its own: the payload of
 /// [`MAX_LANDING_BLOBS`] blobs, less 4 KiB for the payload framing.
@@ -61,6 +81,45 @@ fn zlib_compress_with(data: &[u8], level: Compression) -> Vec<u8> {
     let mut encoder = ZlibEncoder::new(Vec::new(), level);
     encoder.write_all(data).expect("compressing into a Vec cannot fail");
     encoder.finish().expect("compressing into a Vec cannot fail")
+}
+
+/// `prefix || tail` as one zlib stream at the default level, with a full flush after `prefix`.
+///
+/// The full flush closes the deflate block at the boundary, byte aligns the output and resets the
+/// match state, so `tail` deflates exactly as it does from the start of [`zlib_compress`]: the
+/// stream is at most `zlib_compress(tail).len() + prefix.len() + SPLIT_OVERHEAD` bytes, whatever
+/// either part holds. Joint compression has no such bound: a short prefix shifts every deflate
+/// block boundary of the tail, which crafted data turns into kilobytes of extra output. Any zlib
+/// decoder reads the result as an ordinary stream.
+pub fn zlib_compress_split(prefix: &[u8], tail: &[u8]) -> Vec<u8> {
+    let mut compress = Compress::new(Compression::default(), true);
+    let mut out = Vec::with_capacity(prefix.len() + tail.len() / 2 + 64);
+    deflate_into(&mut compress, prefix, &mut out, FlushCompress::Full);
+    deflate_into(&mut compress, tail, &mut out, FlushCompress::Finish);
+    out
+}
+
+/// Feeds all of `input` to `compress` with `flush`, growing `out` until the flush completes: a
+/// full flush once the output has room to spare, a finish at the end of the stream.
+fn deflate_into(compress: &mut Compress, input: &[u8], out: &mut Vec<u8>, flush: FlushCompress) {
+    let start = compress.total_in();
+    loop {
+        if out.capacity() - out.len() < 64 {
+            out.reserve(out.capacity().max(1024));
+        }
+        let consumed = usize::try_from(compress.total_in() - start).expect("bounded by input");
+        let status = compress
+            .compress_vec(&input[consumed..], out, flush)
+            .expect("compressing into a Vec cannot fail");
+        let drained = compress.total_in() - start == input.len() as u64;
+        match flush {
+            FlushCompress::Finish if status == Status::StreamEnd => return,
+            FlushCompress::Finish => {}
+            // A flush is complete once deflate stops short of filling the output.
+            _ if drained && out.len() < out.capacity() => return,
+            _ => {}
+        }
+    }
 }
 
 /// Inflates `data`, which must be exactly one complete zlib stream (no trailing input) whose
@@ -125,6 +184,43 @@ mod tests {
             assert_eq!(zlib_inflate_exact(&compressed, data.len()), Ok(data));
         }
         assert!(zlib_compress(&[0; 1 << 20]).len() < 2_048, "zeros compress well");
+    }
+
+    /// A deterministic stream of bytes that mostly defeats deflate's matcher.
+    fn noise(len: usize, seed: u64) -> Vec<u8> {
+        let mut state = seed | 1;
+        (0..len)
+            .map(|_| {
+                state ^= state << 13;
+                state ^= state >> 7;
+                state ^= state << 17;
+                state as u8
+            })
+            .collect()
+    }
+
+    #[test]
+    fn split_compression_round_trips_and_tail_deflates_as_on_its_own() {
+        let mut structured = b"etna landing payload ".repeat(5_000);
+        structured.extend(noise(70_000, 7));
+        for (prefix, tail) in [
+            (vec![], vec![]),
+            (noise(300, 1), vec![]),
+            (vec![], noise(1_000, 2)),
+            (noise(1, 3), b"abc".repeat(40_000)),
+            (noise(307, 4), structured.clone()),
+            (vec![0xf8; MAX_PUBLISHED_PREFIX_BYTES], noise(200_000, 5)),
+        ] {
+            let split = zlib_compress_split(&prefix, &tail);
+            let whole: Vec<u8> = prefix.iter().chain(&tail).copied().collect();
+            assert_eq!(zlib_inflate_exact(&split, whole.len()), Ok(whole));
+            let own = zlib_compress(&tail);
+            assert!(split.len() <= own.len() + prefix.len() + SPLIT_OVERHEAD);
+            // The tail's deflate blocks (between the 2-byte zlib header and the 4-byte Adler-32
+            // trailer, which covers both parts) are byte for byte those of `zlib_compress(tail)`.
+            let body = &own[2..own.len() - 4];
+            assert!(split[..split.len() - 4].ends_with(body), "prefix {}", prefix.len());
+        }
     }
 
     #[test]

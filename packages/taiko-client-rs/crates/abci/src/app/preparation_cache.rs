@@ -20,6 +20,8 @@ use crate::{
 
 /// At most one authenticated anchor, forced entry and blob for the pending height. These are
 /// local preparation hints only: every candidate still passes the ordinary consensus checks.
+/// `Commit` clears all of it except the blob of a pending entry a decided block proved
+/// ([`PreparationCache::reset_for_commit`]).
 #[derive(Debug, Default)]
 pub(super) struct PreparationCache {
     /// Anchor proof paired with its raw header; reuse requires a fresh matching header hash.
@@ -32,6 +34,30 @@ pub(super) struct PreparationCache {
     entry_flight: Option<FetchTask<(B256, u64), CachedForcedEntry>>,
     /// One blob fetch and commitment verification, bound to its immutable versioned hash.
     blob_flight: Option<FetchTask<B256, CachedBlob>>,
+    /// The versioned hash whose blob (retained or in flight) the next `Commit` keeps: that of
+    /// the pending entry the block being finalized proved ([`App::prefetch_forced_blob`]).
+    retain_blob: Option<B256>,
+}
+
+impl PreparationCache {
+    /// Clears the per-height reads at `Commit`, keeping only the blob, retained or in flight,
+    /// [`App::prefetch_forced_blob`] marked: a versioned hash names immutable bytes, so they stay
+    /// valid at every later height, and the fetch keeps running toward the height the entry
+    /// falls due at. Any other unfinished read is aborted.
+    pub(super) fn reset_for_commit(&mut self) {
+        let keep = self.retain_blob.take();
+        let blob = self.blob.take().filter(|blob| Some(blob.hash) == keep);
+        let blob_flight = self.blob_flight.take().filter(|flight| Some(flight.key) == keep);
+        *self = Self { blob, blob_flight, ..Self::default() };
+    }
+}
+
+/// A forced inclusion blob available now, or the result of its owned fetch.
+enum BlobRead {
+    /// Commitment-verified bytes retained by an earlier read.
+    Retained(Bytes),
+    /// The pending or completed result of the one fetch for the requested hash.
+    InFlight(watch::Receiver<Option<Result<CachedBlob, FetchFailure>>>),
 }
 
 /// One completed, verified forced queue read.
@@ -193,34 +219,13 @@ impl<L: L1Source, E: Engine> App<L, E> {
         Ok(entry)
     }
 
-    /// Reuses one verified blob or one bounded fetch spanning rounds. A hash change aborts the
-    /// old fetch, and only commitment-checked bytes are published or retained.
+    /// Reuses one verified blob or one bounded fetch spanning rounds and, once prefetched,
+    /// heights. A hash change aborts the old fetch, and only commitment-checked bytes are
+    /// published or retained.
     pub(super) async fn fetch_forced_blob(&self, entry: &ForcedEntry) -> Result<Bytes, Rejection> {
-        let key = entry.blob_hash;
-        let result = {
-            let mut cache = self.preparation_cache();
-            if let Some(blob) = cache.blob.as_ref().filter(|blob| blob.hash == key) {
-                return Ok(blob.bytes.clone());
-            }
-            if cache.blob_flight.as_ref().is_none_or(|flight| flight.key != key || flight.failed())
-            {
-                let source = Arc::clone(&self.blobs);
-                let entry = *entry;
-                let fetch = async move {
-                    let bytes =
-                        source.blob(entry.timestamp, key).await.map_err(FetchFailure::Blob)?;
-                    forced::derive_tx_list(&entry, &bytes)
-                        .map_err(|error| FetchFailure::Blob(error.to_string()))?;
-                    Ok(CachedBlob { hash: key, bytes })
-                };
-                cache.blob_flight = Some(FetchTask::spawn(
-                    key,
-                    self.opts.l1_timeout,
-                    "forced inclusion blob read",
-                    fetch,
-                ));
-            }
-            cache.blob_flight.as_ref().expect("task just initialized").result.clone()
+        let result = match self.start_forced_blob(&mut self.preparation_cache(), entry) {
+            BlobRead::Retained(bytes) => return Ok(bytes),
+            BlobRead::InFlight(result) => result,
         };
         let completed = wait_for_fetch(result).await;
         let mut cache = self.preparation_cache();
@@ -228,5 +233,49 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let blob = completed?;
         cache.blob = Some(blob.clone());
         Ok(blob.bytes)
+    }
+
+    /// Starts fetching the blob of `entry`, a pending forced inclusion entry the block being
+    /// finalized proved, without waiting for it, and marks it to survive the next `Commit`.
+    ///
+    /// Every validator thereby fetches the blob while the entry is still pending, within the
+    /// blob deadline rather than a proposal's: whichever validator proposes once the entry falls
+    /// due holds it already, instead of each proposer starting its own fetch on its turn while
+    /// the chain stalls. An entry already due when first proven (a short delay, or an anchor
+    /// catching up after lag), or whose decision this node replayed, is fetched by proposers
+    /// alone.
+    pub(super) fn prefetch_forced_blob(&self, entry: &ForcedEntry) {
+        let mut cache = self.preparation_cache();
+        self.start_forced_blob(&mut cache, entry);
+        cache.retain_blob = Some(entry.blob_hash);
+    }
+
+    /// The retained blob of `entry`, or the result of its one fetch, which this starts (within
+    /// [`AppOptions::blob_timeout`](super::AppOptions)) unless one for the same hash is running
+    /// or has succeeded; a failed fetch is replaced.
+    fn start_forced_blob(&self, cache: &mut PreparationCache, entry: &ForcedEntry) -> BlobRead {
+        let key = entry.blob_hash;
+        if let Some(blob) = cache.blob.as_ref().filter(|blob| blob.hash == key) {
+            return BlobRead::Retained(blob.bytes.clone());
+        }
+        if cache.blob_flight.as_ref().is_none_or(|flight| flight.key != key || flight.failed()) {
+            let source = Arc::clone(&self.blobs);
+            let entry = *entry;
+            let fetch = async move {
+                let bytes = source.blob(entry.timestamp, key).await.map_err(FetchFailure::Blob)?;
+                forced::derive_tx_list(&entry, &bytes)
+                    .map_err(|error| FetchFailure::Blob(error.to_string()))?;
+                Ok(CachedBlob { hash: key, bytes })
+            };
+            cache.blob_flight = Some(FetchTask::spawn(
+                key,
+                self.opts.blob_timeout,
+                "forced inclusion blob read",
+                fetch,
+            ));
+        }
+        BlobRead::InFlight(
+            cache.blob_flight.as_ref().expect("task just initialized").result.clone(),
+        )
     }
 }

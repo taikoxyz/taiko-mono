@@ -7,7 +7,9 @@
 //! CometBFT's empty height-1 last block id to `None`; V3 publishes that canonical domain form.
 //!
 //! V3 is V2's RLP list compressed as one zlib stream with the codec the ABCI landing capacity
-//! guard uses, so batch sizing and the guard count the same compressed bytes.
+//! guard uses. A single block that does not fit otherwise is compressed with a full flush before
+//! its envelope ([`zlib_compress_split`]), so the envelope deflates exactly as the guard measured
+//! it and every block the guard admits lands on its own; decoders read any flush transparently.
 
 use crate::{
     error::{LanderError, Result},
@@ -18,7 +20,9 @@ use crate::{
 /// Version prefix of `0x03 || zlib(rlp([[header_proto, envelope], ...]))`.
 pub const VERSION: u8 = 3;
 
-use abci::compression::{InflateError, zlib_compress, zlib_compress_best, zlib_inflate_exact};
+use abci::compression::{
+    InflateError, zlib_compress, zlib_compress_best, zlib_compress_split, zlib_inflate_exact,
+};
 use alloy_rlp::{Encodable, Header};
 use prost::Message;
 use tendermint_proto::v0_38::types::{Commit as RawCommit, Header as RawHeader};
@@ -63,13 +67,43 @@ pub fn encode(blocks: &[CertifiedBlock], limits: &Limits) -> Result<Vec<u8>> {
     }
 }
 
-/// Compress one published block, retrying once at the best level only when default output
-/// exceeds the payload cap. Larger prefixes keep the default codec and its deflate-work budget.
+/// Compress one published block: at the default level, then at the best level, and when neither
+/// fits, with a full flush before the envelope ([`zlib_compress_split`]). That last stream is at
+/// most the envelope's own `zlib_compress` size plus the published prefix and
+/// `SPLIT_OVERHEAD`, which the ABCI landing capacity guard reserves in `HEADER_ALLOWANCE`, so a
+/// block the guard admitted always fits. Joint compression has no such bound: the header prefix
+/// shifts the envelope's deflate block boundaries, which crafted calldata turns into kilobytes.
+/// Larger prefixes keep the default codec and its deflate-work budget.
 pub(crate) fn compress_single(list: &[u8], limits: &Limits) -> Result<Vec<u8>> {
     match compress(list, limits) {
-        Err(LanderError::Capacity(_)) => compressed_payload(zlib_compress_best(list), limits),
-        result => result,
+        Err(LanderError::Capacity(_)) => {}
+        result => return result,
     }
+    match compressed_payload(zlib_compress_best(list), limits) {
+        Err(LanderError::Capacity(_)) => {}
+        result => return result,
+    }
+    let offset = single_envelope_offset(list)
+        .ok_or_else(|| LanderError::Encoding("single-block list without one envelope".into()))?;
+    let (prefix, envelope) = list.split_at(offset);
+    compressed_payload(zlib_compress_split(prefix, envelope), limits)
+}
+
+/// The offset of the envelope bytes in a single block's list `rlp([[header_proto, envelope]])`:
+/// everything before it is the published prefix (list headers, header, envelope string header).
+fn single_envelope_offset(list: &[u8]) -> Option<usize> {
+    let mut rest = list;
+    let mut items = Header::decode_bytes(&mut rest, true).ok()?;
+    if !rest.is_empty() {
+        return None;
+    }
+    let mut fields = Header::decode_bytes(&mut items, true).ok()?;
+    if !items.is_empty() {
+        return None;
+    }
+    Header::decode_bytes(&mut fields, false).ok()?;
+    let envelope = Header::decode_bytes(&mut fields, false).ok()?;
+    fields.is_empty().then(|| list.len() - envelope.len())
 }
 
 /// `0x03 || zlib(list)`, bounded by `max_payload_bytes`.
