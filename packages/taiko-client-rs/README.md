@@ -174,16 +174,21 @@ bound to the header hash or state root and queue index. A single owned forced-en
 finish after a round's overall timeout, within its L1 deadline; a single owned blob fetch runs
 within its own `--l1.blob-timeout` (default 30 s), so a beacon slower than the L1 deadline still
 delivers the blob to a later round. Changing a read's key or committing aborts unfinished work,
-except the blob of a pending entry: every validator that finalizes a live block proving a
-pending entry starts fetching that entry's blob in the background and keeps it across heights,
-so whichever validator proposes once the entry falls due already holds it. An entry already due
-when a block first proves it (a forced inclusion delay shorter than the anchor's step, or an
-anchor catching up after L1 lag or a halt), and one whose prefetch a restart or a block-synced
-height skipped, is fetched by proposers on their turns, each read surviving the stalled
-height's rounds. Initial anchor header and proof reads run together. This avoids repeatedly
-restarting slow work inside the two-second default preparation budget. Permanently unavailable blobs still prevent due
-inclusion; configure the L1, blob and prepare timeouts for backend latency, keeping preparation
-below CometBFT's proposal timeout.
+except for the entry at the committed cursor: whenever the committed anchor's queue holds one,
+every node fetches that entry's blob in the background, within the blob deadline, and keeps it
+across heights, from the facts a decided block proved or, for an entry queued behind a consumed
+one, after reading the entry under the committed anchor. A live `Commit` starts this, and every
+`ProcessProposal` (each round that delivers a proposal while the node is not locked on a block,
+empty ones included) restarts a failed
+read or fetch, which also covers a restarted node. Whichever node proposes once the entry falls
+due therefore holds its blob, or has been fetching it since the entry reached the cursor. An
+entry first visible at a newer anchor than the committed one and already due there (a forced
+inclusion delay shorter than the anchor's step of about 384 seconds, or an anchor catching up
+after L1 lag or a halt) is fetched by proposers on their turns, each read surviving the stalled
+height's rounds; keep the delay at least two anchor steps. Initial anchor header and proof reads run together. This avoids
+repeatedly restarting slow work inside the two-second default preparation budget. Permanently
+unavailable blobs still prevent due inclusion; configure the L1, blob and prepare timeouts for
+backend latency, keeping preparation below CometBFT's proposal timeout.
 
 ### Anchor freshness
 
@@ -434,8 +439,11 @@ Another lander advancing the checkpoint causes unbroadcast work to be rebuilt.
 An already attempted transaction retains its nonce until reconciled, even if
 its job becomes stale. This version does not replace fees or cancel nonces:
 an underpriced transaction or a dropped stale job can require operator
-reconciliation. Use one active lander per signing account and separate accounts
-for independent competitors.
+reconciliation. A transaction that reverts canonically at the confirmation depth with the
+checkpoint unchanged stops the lander once, with the journal already reset to idle: its nonce
+is spent, so the next run builds a fresh job (a deterministic revert then stops at gas
+estimation, before signing) rather than re-reading the receipt. Use one active lander per
+signing account and separate accounts for independent competitors.
 
 The service needs unpruned CometBFT blocks/commits, the checkpoint parent and required EL ancestor headers, and
 L1 headers/proofs and registry snapshot entries for every consumed historical snapshot. Starting EL ancestry is
@@ -577,7 +585,9 @@ or config opening differs.
   supported: alloy's WebSocket client stops reconnecting after a few attempts, so a longer L1
   outage would leave every later L1 read failing until a restart.
 - **Every node** reads L1 headers and the `finalized` block from its own L1 node to check that
-  anchored L1 headers are canonical and final. Full nodes need nothing more.
+  anchored L1 headers are canonical and final. Full nodes also run the background prefetches
+  validators use (the switch witness before a switch height, a queued forced inclusion entry's
+  proof and blob), so give them the same L1 proof access and `--l1.beacon` as validators.
 - **Validators** also build proposals, so their L1 node must serve `eth_getProof` (EIP-1186) for
   historical blocks. A proposal proves Inbox storage at its anchor, which is at least
   `l1_finality_extra_depth` blocks behind L1 `finalized`. At a switch height the proposer also
@@ -597,12 +607,19 @@ or config opening differs.
   the archive state read also starts; the first successful response supplies discovery data.
   If one source fails, the other stays in flight under the unchanged read/prepare deadlines.
 - Fully verified switch witnesses acquired locally or received in valid proposals are saved
-  atomically as `abci-committee-witness.json` in the app data directory before reuse. On restart,
+  atomically as `abci-committee-witness.json` in the app data directory before reuse. Once the
+  committed height is `D(t)`, every node discovers the switch witness in the background (started
+  by a live `Commit` and by every `ProcessProposal`, empty proposals included; a timed-out
+  discovery restarts from its finished reads) and saves it, so an anchor freshness stall, an
+  outage or a restart at `D(t)` does not leave `S(t)` waiting on pruned state, provided the
+  parent anchor's state was still served when the discovery ran; a proposal shares a running
+  discovery rather than repeating it. On restart,
   the app checks the complete chain/config/epoch/anchor identity and re-verifies the proof.
   Invalid or stale sidecars are ignored and reacquired; a sidecar write failure is a
   `committee_cache_error` liveness halt. Preserve this sidecar alongside `abci-state.json`.
-  The cache protects already acquired witnesses; first acquisition of a pruned fixed snapshot
-  still needs archive state. reth's `--rpc.eth-proof-window` also limits historical proof
+  The cache protects already acquired witnesses; a validator that was down for the whole time
+  the snapshot stayed within its L1's proof window still needs archive state, or a peer's valid
+  `S(t)` proposal carrying the witness. reth's `--rpc.eth-proof-window` also limits historical proof
   access independently of retained state; configure it for the history needed by validators
   and landers.
 - **Validators** (and `abci-genesis`) also read raw L1 headers with `debug_getRawHeader`, so

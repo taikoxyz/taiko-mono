@@ -48,6 +48,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let built = match &self.state {
             None => return Err(AbciError::Uninitialized("PrepareProposal")),
             Some(state) => {
+                self.adopt_committee_prefetch(state);
                 deadline("PrepareProposal", self.opts.prepare_timeout, self.propose(state, &req))
                     .await
             }
@@ -181,6 +182,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let parent_anchor = state.anchor.number;
         if let Some(witness) = self.cached_committee_witness(state, target_epoch) {
             tracing::debug!(parent_anchor, target_epoch, "reusing the cached committee witness");
+            return Ok(witness);
+        }
+        if let Some(witness) = self.prefetched_committee_witness(state, target_epoch).await {
+            tracing::debug!(parent_anchor, target_epoch, "using the prefetched committee witness");
             return Ok(witness);
         }
         Ok(build_committee_witness_within(

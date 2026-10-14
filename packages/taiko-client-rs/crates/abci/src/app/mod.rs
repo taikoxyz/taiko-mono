@@ -58,7 +58,7 @@ mod validate;
 #[cfg(test)]
 mod tests;
 
-use committee_cache::{CachedCommittee, load_cached_committee};
+use committee_cache::{CachedCommittee, CommitteePrefetch, load_cached_committee};
 
 pub use info::{CHECK_TX_LOG, CODE_REJECTED};
 pub use validate::{Rejection, Validated, WitnessKind};
@@ -296,9 +296,15 @@ pub struct App<L: L1Source, E: Engine> {
     /// The registry reads of a committee discovery `PrepareProposal`'s deadline cut short, from
     /// which the next attempt resumes; cleared at `Commit`.
     discovery: DiscoveryProgress,
+    /// The background discovery of the next switch height's committee witness
+    /// ([`App::prefetch_committee_witness`]).
+    committee_prefetch: Mutex<Option<CommitteePrefetch>>,
     /// Bounded completed anchor, forced proof and verified blob reads. Each successful stage
     /// survives an overall proposal timeout; root/hash keys prevent reuse for different facts.
-    preparation_cache: Mutex<preparation_cache::PreparationCache>,
+    preparation_cache: Arc<Mutex<preparation_cache::PreparationCache>>,
+    /// Whether the block `FinalizeBlock` last decided was judged here (its `ProcessProposal`
+    /// verdict was cached), rather than replayed or block-synced; gates `Commit`'s prefetches.
+    decided_live: bool,
     /// The label of the last proposal rejection or failed build (a liveness halt), reported by
     /// `/status`; an empty proposal does not replace a recorded label. Cleared by the next
     /// accepted or built proposal and by `Commit`.
@@ -351,7 +357,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
             verdicts: Verdicts::default(),
             committee_cache: Mutex::new(committee_cache),
             discovery: DiscoveryProgress::default(),
-            preparation_cache: Mutex::new(preparation_cache::PreparationCache::default()),
+            committee_prefetch: Mutex::default(),
+            preparation_cache: Arc::default(),
+            decided_live: false,
             halt: None,
             superseded: false,
             el_reconciled: false,
@@ -456,6 +464,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// The committee-witness cache, which holds no invariant a panicking holder could break.
     fn committee_cache(&self) -> MutexGuard<'_, Option<CachedCommittee>> {
         self.committee_cache.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// The switch-witness prefetch slot, which holds no invariant a panicking holder could break.
+    fn committee_prefetch(&self) -> MutexGuard<'_, Option<CommitteePrefetch>> {
+        self.committee_prefetch.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     /// Makes the EL serve block `hash` at `number` ([`ensure_block`] within

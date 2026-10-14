@@ -35,7 +35,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let height = req.height.value();
         let verdict = match &self.state {
             None => return Err(AbciError::Uninitialized("ProcessProposal")),
-            Some(state) => self.judge(state, &req).await,
+            Some(state) => {
+                self.prefetch_committee_witness(state);
+                self.prefetch_forced_blob(state);
+                self.judge(state, &req).await
+            }
         };
         match verdict {
             Ok(validated) => {

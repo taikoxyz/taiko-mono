@@ -635,6 +635,11 @@ impl Runner {
                 ));
             }
         } else if same_parent(&snapshot, &job.request.batch.snapshot) {
+            // The revert is canonical at the confirmation depth, so its nonce is spent and
+            // nothing of this job can land any more. Persist Idle before stopping: a restart
+            // then rebuilds from the current checkpoint (a deterministic revert stops again at
+            // gas estimation, before signing) instead of re-reading this receipt forever.
+            self.transition(JournalState::Idle)?;
             return Err(LanderError::Reverted(format!(
                 "{} at nonce {} with unchanged checkpoint {}",
                 transaction.hash, transaction.nonce, snapshot.checkpoint_height
