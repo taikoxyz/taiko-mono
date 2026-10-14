@@ -543,6 +543,71 @@ async fn a_switch_witness_prefetched_before_the_derivation_parent_survives_resta
     assert_eq!(registry_reads(&restarted), 0, "{:?}", restarted.l1().calls());
 }
 
+/// The registry storage-word and proof reads at L1 block `block` that `app` made so far.
+fn registry_reads_at(app: &App<MockL1, MockEngine>, block: u64) -> (usize, usize) {
+    let registry = app.params.registry;
+    let calls = app.l1().calls();
+    let count = |proof: bool| {
+        calls
+            .iter()
+            .filter(|c| match c {
+                L1Call::StorageAt { address, block: at, .. } => {
+                    !proof && (*address, *at) == (registry, block)
+                }
+                L1Call::AccountWitness { address, block: at, .. } => {
+                    proof && (*address, *at) == (registry, block)
+                }
+                _ => false,
+            })
+            .count()
+    };
+    (count(false), count(true))
+}
+
+/// A switch-witness discovery its L1 keeps failing (a rate limit, a proof window too short) is
+/// restarted only once its backoff has passed since it failed: 2 s, doubling per failure up to
+/// 60 s, however many rounds and commits come in between. Each restart resumes from the reads
+/// already finished, and once the L1 serves proofs again the next attempt succeeds.
+#[tokio::test(start_paused = true)]
+async fn a_failing_switch_witness_prefetch_is_restarted_after_a_growing_backoff() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = before_anchor_adoption(&fx, dir.path(), d_2(&fx) - 5).await;
+    let env = propose(&mut app).await;
+    let (resp, req) = judge(&mut app, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
+    // The L1 node refuses proofs from the commit of the block adopting anchor 70 on.
+    app.l1().state().proof_fail = Some(L1Error::Rpc("429 Too Many Requests".into()));
+    decide(&mut app, &req).await;
+    let state = app.state().unwrap().clone();
+
+    // `checkpoints.length` and the checkpoint head are read once; every attempt then fails on
+    // the entries read.
+    for (attempt, pause) in [2, 4, 8, 16, 32, 60, 60].into_iter().enumerate() {
+        assert!(app.prefetched_committee_witness(&state, 2).await.is_none());
+        assert_eq!(registry_reads_at(&app, 70), (2, attempt + 1));
+        tokio::time::advance(Duration::from_secs(pause) - Duration::from_millis(1)).await;
+        app.prefetch_committee_witness(&state);
+        tokio::task::yield_now().await;
+        assert_eq!(registry_reads_at(&app, 70), (2, attempt + 1), "within the {pause} s pause");
+        tokio::time::advance(Duration::from_millis(1)).await;
+        app.adopt_committee_prefetch(&state);
+        tokio::task::yield_now().await;
+        assert_eq!(
+            registry_reads_at(&app, 70),
+            (2, attempt + 1),
+            "only a round or commit restarts"
+        );
+        app.prefetch_committee_witness(&state);
+    }
+    assert!(app.prefetched_committee_witness(&state, 2).await.is_none());
+    app.l1().state().proof_fail = None;
+    tokio::time::advance(Duration::from_secs(60)).await;
+    app.prefetch_committee_witness(&state);
+    assert!(app.prefetched_committee_witness(&state, 2).await.is_some());
+    assert_eq!(registry_reads_at(&app, 70), (2, 10), "the entries and the snapshot proof");
+}
+
 /// Commits the block adopting anchor 70 at `D(t)-2` (see [`before_anchor_adoption`]), that block
 /// `age` seconds after anchor 70 when given, and answers whether its `Commit` started the
 /// switch-witness discovery.

@@ -294,8 +294,8 @@ pub struct App<L: L1Source, E: Engine> {
     /// committed state leaves that context (another anchor or switch); the one bounded sidecar
     /// then becomes stale and is ignored. Behind a mutex as the handlers run on `&self`.
     committee_cache: Mutex<Option<CachedCommittee>>,
-    /// The registry reads of a committee discovery `PrepareProposal`'s deadline cut short, from
-    /// which the next attempt resumes; cleared at `Commit`.
+    /// The registry reads of a committee discovery `PrepareProposal`'s deadline or a failed L1
+    /// read cut short, from which the next attempt resumes; cleared at `Commit`.
     discovery: DiscoveryProgress,
     /// The background discovery of the upcoming switch height's committee witness under the
     /// committed anchor ([`App::prefetch_committee_witness`]).

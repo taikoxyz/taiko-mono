@@ -62,6 +62,9 @@ pub(crate) struct MockL1State {
     pub(crate) delay: Option<Duration>,
     /// Extra delay of proof reads only, for proposal cancellation between RPC stages.
     pub(crate) proof_delay: Option<Duration>,
+    /// When set, every proof read (`account_witness`) fails with this error, as an L1 node
+    /// refusing or rate-limiting `eth_getProof` answers.
+    pub(crate) proof_fail: Option<L1Error>,
     /// Every call, in order.
     pub(crate) calls: Vec<L1Call>,
     /// Calls currently in progress (started, not yet answered or dropped).
@@ -217,6 +220,9 @@ impl L1Source for MockL1 {
         }
         let state =
             self.record(L1Call::AccountWitness { address, slots: slots.to_vec(), block })?;
+        if let Some(err) = &state.proof_fail {
+            return Err(err.clone());
+        }
         Ok(Self::state_at(&state, address, block)?.witness(address, slots))
     }
 
