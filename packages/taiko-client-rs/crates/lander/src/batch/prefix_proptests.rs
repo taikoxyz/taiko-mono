@@ -17,7 +17,7 @@ use crate::{
     codec::{self, PublishedBlock},
     comet::{CometSource, CometStatus},
     config::COMET_BLOCK_MAX_BYTES,
-    contracts::IEtnaInbox::LandInput,
+    contracts::IEtnaInbox::{EpochParticipation, LandInput},
     error::{LanderError, Result},
     l1::{LandingSource, ParentContext},
     proptests::{
@@ -96,6 +96,7 @@ impl LandingSource for Decided {
         &self,
         _: &LandingSnapshot,
         _: &LandInput,
+        _: &[EpochParticipation],
         _: B256,
         _: &[B256],
     ) -> Result<B256> {

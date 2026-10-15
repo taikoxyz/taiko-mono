@@ -16,27 +16,34 @@ sol!(
 );
 
 /// Protocol revision from which the interface and contract fixtures are generated.
-pub const PROTOCOL_REVISION: &str = "27777e9d7147e7b1d3543711f4d7370a0377fa53";
+pub const PROTOCOL_REVISION: &str = "8956721bc22ceb0b2271924c683325fe99cccfcb";
 
-/// Journal representation of generated ABI values as canonical ABI bytes.
-pub(crate) mod land_input_serde {
-    use super::IEtnaInbox::LandInput;
-    use alloy::sol_types::SolValue;
+/// Journal representation of generated ABI values (the `LandInput`, the participation parts and
+/// the settlement committees) as their canonical Solidity `abi.encode` bytes.
+pub(crate) mod abi_serde {
+    use alloy::sol_types::{SolType, SolValue};
     use alloy_primitives::Bytes;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     /// Serialize without hand-writing or duplicating the generated ABI fields.
-    pub fn serialize<S: Serializer>(input: &LandInput, serializer: S) -> Result<S::Ok, S::Error> {
-        Bytes::from(input.abi_encode()).serialize(serializer)
+    pub fn serialize<T: SolValue, S: Serializer>(
+        value: &T,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        Bytes::from(value.abi_encode()).serialize(serializer)
     }
 
     /// Reject noncanonical ABI bytes while restoring the generated type.
-    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<LandInput, D::Error> {
+    pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+    where
+        T: SolValue + From<<T::SolType as SolType>::RustType>,
+        D: Deserializer<'de>,
+    {
         let bytes = Bytes::deserialize(deserializer)?;
-        let input = LandInput::abi_decode(&bytes).map_err(serde::de::Error::custom)?;
-        if input.abi_encode().as_slice() != bytes.as_ref() {
-            return Err(serde::de::Error::custom("noncanonical LandInput ABI"));
+        let value = T::abi_decode(&bytes).map_err(serde::de::Error::custom)?;
+        if value.abi_encode().as_slice() != bytes.as_ref() {
+            return Err(serde::de::Error::custom("noncanonical ABI journal value"));
         }
-        Ok(input)
+        Ok(value)
     }
 }

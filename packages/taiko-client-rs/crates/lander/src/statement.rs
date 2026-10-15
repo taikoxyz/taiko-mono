@@ -1,29 +1,41 @@
-//! Exact V6 ABI encoding, including proxy/registry identities, parent-anchor configuration,
-//! ordered blobs, the forced inclusion queue heads before and after the batch, and the fee
-//! recipient.
+//! Exact V7 ABI encoding: proxy/registry identities, parent-anchor configuration, ordered blobs,
+//! the forced inclusion queue heads before and after the batch, the fee recipient and, last, the
+//! hash of the batch's validator participation.
 
-use crate::{contracts::IEtnaInbox::LandInput, types::LandingSnapshot};
+use crate::{
+    contracts::IEtnaInbox::{EpochParticipation, LandInput},
+    types::LandingSnapshot,
+};
+use alloy::sol_types::SolValue;
 use alloy_primitives::{B256, U256, keccak256};
 
-/// Byte length of the static eighteen-word public statement preimage.
-pub const PREIMAGE_BYTES: usize = 18 * 32;
+/// Byte length of the static nineteen-word public statement preimage.
+pub const PREIMAGE_BYTES: usize = 19 * 32;
 
 /// Hash Solidity's packed ordered bytes32 blob list, with no array offset or length words.
 pub fn blob_hashes_hash(hashes: &[B256]) -> B256 {
     keccak256(hashes.iter().flat_map(|h| h.as_slice()).copied().collect::<Vec<_>>())
 }
 
-/// The exact eighteen static ABI words authenticated by `hashLandStatement`: the fifteen V5
-/// words under the V6 domain, then the stored forced inclusion head, the batch's head after and
-/// its fee recipient (`LandInput.feeRecipient`, an address word).
+/// `keccak256(abi.encode(parts))`: Solidity's encoding of one dynamic `EpochParticipation[]`
+/// argument, leading offset word included, so an empty list hashes the two words `32, 0`.
+pub fn participation_hash(parts: &[EpochParticipation]) -> B256 {
+    keccak256(parts.abi_encode())
+}
+
+/// The exact nineteen static ABI words authenticated by `hashLandStatement`: the eighteen V6
+/// words (the fifteen V5 words, then the stored forced inclusion head, the batch's head after and
+/// its fee recipient, `LandInput.feeRecipient` as an address word) under the V7 domain, then the
+/// [`participation_hash`] of `parts`.
 pub fn preimage(
     snapshot: &LandingSnapshot,
     input: &LandInput,
+    parts: &[EpochParticipation],
     reference_hash: B256,
     blob_hashes: &[B256],
 ) -> [u8; PREIMAGE_BYTES] {
     let mut tag = [0u8; 32];
-    tag[..b"TAIKO_ETNA_LAND_V6".len()].copy_from_slice(b"TAIKO_ETNA_LAND_V6");
+    tag[..b"TAIKO_ETNA_LAND_V7".len()].copy_from_slice(b"TAIKO_ETNA_LAND_V7");
     let mut inbox = [0u8; 32];
     inbox[12..].copy_from_slice(snapshot.inbox.as_slice());
     let mut registry = [0u8; 32];
@@ -49,6 +61,7 @@ pub fn preimage(
         U256::from(snapshot.forced_inclusion_head).to_be_bytes::<32>(),
         U256::from(input.forcedInclusionHead).to_be_bytes::<32>(),
         fee_recipient,
+        participation_hash(parts).0,
     ];
     let mut out = [0; PREIMAGE_BYTES];
     for (word, target) in words.iter().zip(out.chunks_exact_mut(32)) {
@@ -57,28 +70,33 @@ pub fn preimage(
     out
 }
 
-/// Compute the V6 job identity from coherent state, immutable outputs and ordered blobs.
+/// Compute the V7 job identity from coherent state, immutable outputs, the batch's participation
+/// and ordered blobs.
 pub fn hash(
     snapshot: &LandingSnapshot,
     input: &LandInput,
+    parts: &[EpochParticipation],
     reference_hash: B256,
     blob_hashes: &[B256],
 ) -> B256 {
-    keccak256(preimage(snapshot, input, reference_hash, blob_hashes))
+    keccak256(preimage(snapshot, input, parts, reference_hash, blob_hashes))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::{protocol::request, vectors};
+    use crate::{
+        contracts::IEtnaInbox::CommitteeMember,
+        test_utils::{protocol::request, vectors},
+    };
     use alloy_primitives::{address, aliases::U48, b256};
 
-    /// The shared `land_statement` vector (`testdata/etna_vectors`; the V5 inputs plus forced
+    /// The shared `land_statement` inputs (`testdata/etna_vectors`; the V5 inputs plus forced
     /// inclusion heads 3 (stored) and 5 (input) and fee recipient `0x…aa`), whose configuration
-    /// hash is the shared `committee_config` vector.
-    fn vector() -> (LandingSnapshot, LandInput, B256, Vec<B256>) {
+    /// hash is the shared `committee_config` vector, and one participation part: epoch 16,
+    /// committee hash `0x…55`, counts `[3, 0, 7]`.
+    fn vector() -> (LandingSnapshot, LandInput, Vec<EpochParticipation>, B256, Vec<B256>) {
         let input = |name: &str| format!("/land_statement/inputs/{name}");
-        assert_eq!(vectors::str_at(&input("tag")), "TAIKO_ETNA_LAND_V6");
         let mut snapshot = request().batch.snapshot;
         snapshot.l1_chain_id = vectors::u256_at(&input("l1_chain_id"));
         snapshot.l2_chain_id = vectors::u64_at(&input("l2_chain_id"));
@@ -98,40 +116,57 @@ mod tests {
             forcedInclusionHead: U48::from(vectors::u64_at(&input("forced_inclusion_head_after"))),
             feeRecipient: vectors::address_at(&input("fee_recipient")),
         };
+        let parts = vec![EpochParticipation {
+            epoch: 16,
+            committeeHash: B256::from(U256::from(0x55)),
+            signedCounts: vec![3, 0, 7],
+        }];
         (
             snapshot,
             land,
+            parts,
             vectors::b256_at(&input("l1_reference_block_hash")),
             vectors::b256s_at(&input("blob_hashes")),
         )
     }
 
-    /// The shared V6 vector, which the contracts check with `EtnaInboxLand.t.sol` (both read
-    /// `testdata/etna_vectors`; `cast` computed it): the exact eighteen-word preimage and hash.
+    /// The vector the contracts pin (`test_hashLandStatement_MatchesTheV7Vector` in
+    /// `EtnaInboxLand.t.sol`), computed independently there with `cast abi-encode` and
+    /// `cast keccak` over the nineteen words and the participation array. Under the V6 domain
+    /// its first eighteen words are the shared V6 vector.
     #[test]
-    fn matches_independent_v6_vector_and_exact_eighteen_words() {
-        let (snapshot, input, reference, hashes) = vector();
+    fn v7_vector_matches_solidity() {
+        let (snapshot, input, parts, reference, hashes) = vector();
         assert_eq!(blob_hashes_hash(&hashes), vectors::b256_at("/land_statement/blob_hashes_hash"));
-        let preimage = preimage(&snapshot, &input, reference, &hashes);
-        assert_eq!(preimage.len(), 576);
-        assert_eq!(preimage.as_slice(), vectors::bytes_at("/land_statement/preimage").as_ref());
         assert_eq!(
-            hash(&snapshot, &input, reference, &hashes),
-            vectors::b256_at("/land_statement/hash")
+            participation_hash(&parts),
+            b256!("c62a675c336fef9bf36145cc651d75a91dfd94fdd252f5ae7fe36c66e0db4d21")
         );
+        assert_eq!(
+            participation_hash(&[]),
+            b256!("569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd"),
+            "keccak256(abi.encode(uint256(32), uint256(0)))"
+        );
+        let preimage = preimage(&snapshot, &input, &parts, reference, &hashes);
+        assert_eq!(preimage.len(), 608);
+        assert_eq!(
+            hash(&snapshot, &input, &parts, reference, &hashes),
+            b256!("5daa726c9fd7ef3d3e70eb787228cd9ebbf53ce00ba261714f7b0efd10c370ab")
+        );
+        assert_eq!(&preimage[..18], b"TAIKO_ETNA_LAND_V7");
         assert_eq!(preimage[15 * 32..16 * 32], U256::from(3).to_be_bytes::<32>());
         assert_eq!(preimage[16 * 32..17 * 32], U256::from(5).to_be_bytes::<32>());
         assert_eq!(preimage[17 * 32..17 * 32 + 12], [0; 12]);
-        assert_eq!(preimage[17 * 32 + 12..], input.feeRecipient.0);
-        // The recipient is appended: the first seventeen words are the former seventeen-word V6
-        // encoding of the same inputs (independently `cast abi-encode`d).
-        assert_eq!(
-            keccak256(&preimage[..17 * 32]),
-            b256!("1ddacd671b06fb32f3daa57d1abf0fae06ccdec5190c33ecf7a4e649d7b8762a")
-        );
+        assert_eq!(preimage[17 * 32 + 12..18 * 32], input.feeRecipient.0);
+        assert_eq!(preimage[18 * 32..], participation_hash(&parts).0, "the appended last word");
+        // Under the V6 domain, the first eighteen words are the shared V6 vector.
+        let mut v6 = preimage;
+        v6[b"TAIKO_ETNA_LAND_V7".len() - 1] = b'6';
+        assert_eq!(&v6[..18 * 32], vectors::bytes_at("/land_statement/preimage").as_ref());
+        assert_eq!(keccak256(&v6[..18 * 32]), vectors::b256_at("/land_statement/hash"));
         // Under the V5 domain, the first fifteen words are the V5 encoding of the same inputs.
         let mut v5 = preimage;
-        v5[b"TAIKO_ETNA_LAND_V6".len() - 1] = b'5';
+        v5[b"TAIKO_ETNA_LAND_V7".len() - 1] = b'5';
         assert_eq!(
             keccak256(&v5[..15 * 32]),
             b256!("43533fd98016f831c0f94ce56cf0b8e1480a275e07a0fbf22ce0f23a5fb9c4d7")
@@ -139,24 +174,25 @@ mod tests {
     }
 
     #[test]
-    fn every_eighteen_word_and_v5_domain_mutation_changes_the_vector() {
-        let (snapshot, input, reference, hashes) = vector();
-        let preimage = preimage(&snapshot, &input, reference, &hashes);
+    fn every_v7_word_mutation_changes_the_hash() {
+        let (snapshot, input, parts, reference, hashes) = vector();
+        let preimage = preimage(&snapshot, &input, &parts, reference, &hashes);
+        assert_eq!(PREIMAGE_BYTES, 19 * 32);
         let expected = keccak256(preimage);
-        for word in 0..18 {
+        for word in 0..19 {
             let mut changed = preimage;
             changed[word * 32 + 31] ^= 1;
             assert_ne!(keccak256(changed), expected, "word {word}");
         }
-        let mut v5 = preimage;
-        v5[b"TAIKO_ETNA_LAND_V6".len() - 1] = b'5';
-        assert_ne!(keccak256(v5), expected, "old domain cannot share job identity");
+        let mut v6 = preimage;
+        v6[b"TAIKO_ETNA_LAND_V7".len() - 1] = b'6';
+        assert_ne!(keccak256(v6), expected, "old domain cannot share job identity");
     }
 
     #[test]
     fn every_statement_input_is_bound_and_blob_order_matters() {
-        let (snapshot, input, reference, hashes) = vector();
-        let expected = hash(&snapshot, &input, reference, &hashes);
+        let (snapshot, input, parts, reference, hashes) = vector();
+        let expected = hash(&snapshot, &input, &parts, reference, &hashes);
         for field in 0..11 {
             let mut changed = snapshot.clone();
             match field {
@@ -174,7 +210,7 @@ mod tests {
                 _ => unreachable!(),
             }
             assert_ne!(
-                hash(&changed, &input, reference, &hashes),
+                hash(&changed, &input, &parts, reference, &hashes),
                 expected,
                 "snapshot field {field}"
             );
@@ -193,44 +229,88 @@ mod tests {
                 _ => unreachable!(),
             }
             assert_ne!(
-                hash(&snapshot, &changed, reference, &hashes),
+                hash(&snapshot, &changed, &parts, reference, &hashes),
                 expected,
                 "output field {field}"
             );
         }
-        assert_ne!(hash(&snapshot, &input, B256::ZERO, &hashes), expected);
+        for field in 0..7 {
+            let mut changed = parts.clone();
+            match field {
+                0 => changed[0].epoch += 1,
+                1 => changed[0].committeeHash = B256::ZERO,
+                2 => changed[0].signedCounts[1] = 1,
+                3 => changed[0].signedCounts.push(0),
+                4 => changed[0].signedCounts.reverse(),
+                5 => changed.push(changed[0].clone()),
+                6 => changed.clear(),
+                _ => unreachable!(),
+            }
+            assert_ne!(
+                hash(&snapshot, &input, &changed, reference, &hashes),
+                expected,
+                "participation field {field}"
+            );
+        }
+        assert_ne!(hash(&snapshot, &input, &parts, B256::ZERO, &hashes), expected);
         let reversed = hashes.iter().rev().copied().collect::<Vec<_>>();
-        assert_ne!(hash(&snapshot, &input, reference, &reversed), expected);
+        assert_ne!(hash(&snapshot, &input, &parts, reference, &reversed), expected);
         let mut swapped = (snapshot.clone(), input.clone());
         swapped.0.forced_inclusion_head = input.forcedInclusionHead.to();
         swapped.1.forcedInclusionHead = U48::from(snapshot.forced_inclusion_head);
         assert_ne!(
-            hash(&swapped.0, &swapped.1, reference, &hashes),
+            hash(&swapped.0, &swapped.1, &parts, reference, &hashes),
             expected,
             "head before and after are ordered"
         );
     }
 
+    /// The selectors and one complete call are pinned with `cast sig` and
+    /// `cast keccak $(cast calldata 'land(…)' …)` over the same values.
     #[test]
-    fn land_selector_and_field_order_match_exact_solidity_signature() {
+    fn land_selector_matches_the_v7_abi() {
+        use crate::contracts::IEtnaInbox::{hashLandStatementCall, landCall};
         use alloy::sol_types::SolCall;
         assert_eq!(
-            crate::contracts::IEtnaInbox::landCall::SIGNATURE,
-            "land((uint64,bytes32,bytes32,uint64,uint48,address),bytes)"
+            landCall::SIGNATURE,
+            "land((uint64,bytes32,bytes32,uint64,uint48,address),(uint64,bytes32,uint32[])[],\
+             (uint32,uint64,uint256)[][],bytes)"
         );
+        assert_eq!(landCall::SELECTOR, keccak256(landCall::SIGNATURE)[..4]);
+        assert_eq!(landCall::SELECTOR, [0xb0, 0x05, 0x70, 0x1e]);
         assert_eq!(
-            crate::contracts::IEtnaInbox::landCall::SELECTOR,
-            keccak256(crate::contracts::IEtnaInbox::landCall::SIGNATURE)[..4]
+            hashLandStatementCall::SIGNATURE,
+            "hashLandStatement(uint64,uint64,bytes32,uint48,\
+             (uint64,bytes32,bytes32,uint64,uint48,address),(uint64,bytes32,uint32[])[],bytes32,\
+             bytes32[])"
         );
-        assert_eq!(crate::contracts::IEtnaInbox::landCall::SELECTOR, [0x25, 0xc4, 0x13, 0x48]);
-        let (_, input, _, _) = vector();
-        let call = crate::contracts::IEtnaInbox::landCall {
+        assert_eq!(hashLandStatementCall::SELECTOR, [0x8a, 0xde, 0xe3, 0x39]);
+
+        let (_, input, parts, _, _) = vector();
+        let settlements = vec![vec![
+            CommitteeMember {
+                bondId: 3,
+                activeFromL1: 11,
+                effStake: U256::from(5_000_000_000_000_000_000u64),
+            },
+            CommitteeMember { bondId: 0, activeFromL1: 1, effStake: U256::from(1) },
+        ]];
+        let call = landCall {
             _input: input.clone(),
+            _participation: parts.clone(),
+            _settlements: settlements.clone(),
             _proof: alloy_primitives::Bytes::from_static(&[0]),
         };
-        let decoded =
-            crate::contracts::IEtnaInbox::landCall::abi_decode(&call.abi_encode()).unwrap();
+        let calldata = call.abi_encode();
+        assert_eq!(calldata.len(), 4 + 29 * 32);
+        assert_eq!(
+            keccak256(&calldata),
+            b256!("384c25b3c13291b0a12a7a0c103bca37c5aee54f6ec9fdad12ba352d16e64bff")
+        );
+        let decoded = landCall::abi_decode(&calldata).unwrap();
         assert_eq!(decoded._input, input);
+        assert_eq!(decoded._participation, parts);
+        assert_eq!(decoded._settlements, settlements);
         assert_eq!(decoded._proof.as_ref(), &[0]);
     }
 }

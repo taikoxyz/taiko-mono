@@ -446,7 +446,13 @@ impl Runner {
         let batch = &job.request.batch;
         let contract_hash = self
             .l1
-            .statement_hash(snapshot, &batch.input, reference_hash, &batch.blobs.versioned_hashes)
+            .statement_hash(
+                snapshot,
+                &batch.input,
+                &batch.participation,
+                reference_hash,
+                &batch.blobs.versioned_hashes,
+            )
             .await?;
         if contract_hash != batch.statement_hash {
             return Err(LanderError::Configuration(
