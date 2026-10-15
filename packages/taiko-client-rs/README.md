@@ -750,10 +750,14 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 Regenerate lander ABI/deployment fixtures with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `41241d5e6440c2ab244ccfdf572d1af8016f70c6`,
+The script requires protocol HEAD `27777e9d7147e7b1d3543711f4d7370a0377fa53`,
 installs pnpm dependencies before Foundry, verifies compiler source hashes,
-formats generated JSON, and records ABI/bytecode/compiler provenance. It leaves
+formats generated JSON, and records ABI/bytecode/compiler provenance. It also copies the Etna
+vectors shared with the contracts (`testdata/etna_vectors`, which the `abci` and `lander` unit
+tests read) from that revision and records their hashes. It leaves
 the existing Anchor bindings unchanged. Run it twice and require identical generated output.
+`just check-lander-artifacts` (the CI job "Lander artifacts") runs it on the pinned revision in a
+temporary git worktree and fails unless every generated file equals the committed one.
 Regenerate test-only `InboxSetter` and `ZkGasFixture` artifacts with
 `script/gen_test_harness_artifacts.sh`; it verifies compiler settings and source hashes and records
 bytecode provenance. Run that generator twice with identical output as well.

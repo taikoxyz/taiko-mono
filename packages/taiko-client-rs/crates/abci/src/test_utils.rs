@@ -46,6 +46,8 @@ use crate::{
 mod fixture;
 /// In-memory L1 and execution-engine mocks.
 mod mocks;
+/// The Etna vectors shared with the contracts (`testdata/etna_vectors`).
+pub(crate) mod vectors;
 
 pub(crate) use fixture::{Fixture, GenesisSpec, validator_updates};
 pub(crate) use mocks::{EngineCall, L1Call, MockEngine, MockL1, simple_block};
@@ -869,6 +871,81 @@ mod tests {
         assert_eq!(
             B256::from(word(&slots, registry::entry_slots(1)[2])),
             b256!("0000000000000506ffffffffffffffff00000000000003040000000000000102")
+        );
+    }
+
+    /// The planters write the registry checkpoint and entry words and the forced inclusion
+    /// queue words at the slots, offsets and widths of the shared layout vectors
+    /// (`testdata/etna_vectors`), which the contracts check against their own storage. The
+    /// node's entry and queue readers are tested against these planters, so they decode the
+    /// contracts' layout.
+    #[test]
+    fn planters_write_the_shared_layout() {
+        let entry = RegistryEntry {
+            pubkey: B256::repeat_byte(0x5a),
+            eff_stake: U256::MAX - U256::from(1),
+            active_from_l1: u64::MAX - 1,
+            exit_effective_l1: 0x0102_0304_0506_0708,
+            last_heartbeat_at: u64::MAX,
+            last_heartbeat_seq: 0x0506,
+        };
+        let storage = RegistryStorage { checkpoints: vec![(u64::MAX - 7, vec![entry.clone()])] };
+        let slots = storage.slots();
+        let head = vectors::b256_at("/layout/registry/checkpoint_slots/0/slots/0");
+        assert_eq!(vectors::u64_at("/layout/registry/checkpoint_slots/0/index"), 0);
+        assert_eq!(
+            word(&slots, head),
+            vectors::pack(
+                "/layout/registry/packing/checkpoint_head",
+                &[("l1_block", U256::from(u64::MAX - 7)), ("count", U256::from(1))]
+            )
+        );
+        assert_eq!(vectors::u64_at("/layout/registry/entry_slots/0/index"), 0);
+        let [pubkey, stake, packed] = [0, 1, 2]
+            .map(|w| vectors::b256_at(&format!("/layout/registry/entry_slots/0/slots/{w}")));
+        assert_eq!(B256::from(word(&slots, pubkey)), entry.pubkey);
+        assert_eq!(word(&slots, stake), entry.eff_stake);
+        assert_eq!(
+            word(&slots, packed),
+            vectors::pack(
+                "/layout/registry/packing/entry_packed",
+                &[
+                    ("active_from_l1", U256::from(entry.active_from_l1)),
+                    ("exit_effective_l1", U256::from(entry.exit_effective_l1)),
+                    ("last_heartbeat_at", U256::from(entry.last_heartbeat_at)),
+                    ("last_heartbeat_seq", U256::from(entry.last_heartbeat_seq)),
+                ]
+            )
+        );
+
+        let queued = ForcedEntry {
+            index: 7,
+            tx_hash: B256::repeat_byte(0x77),
+            timestamp: (1 << 48) - 2,
+            l1_block: u64::MAX - 9,
+        };
+        let inbox = InboxStorage {
+            forced_inclusion_queue: vec![queued],
+            ..InboxStorage::genesis(sample_genesis_record(), B256::ZERO)
+        };
+        let slots = inbox.slots();
+        let case = (0..vectors::len_at("/layout/inbox/forced_inclusion_entry_slots"))
+            .map(|k| format!("/layout/inbox/forced_inclusion_entry_slots/{k}"))
+            .find(|p| vectors::u64_at(&format!("{p}/index")) == queued.index)
+            .expect("a queue slot vector of entry 7");
+        let [hash, metadata] = [0, 1].map(|w| vectors::b256_at(&format!("{case}/slots/{w}")));
+        assert_eq!(B256::from(word(&slots, hash)), queued.tx_hash);
+        assert_eq!(
+            word(&slots, metadata),
+            vectors::pack(
+                "/layout/inbox/packing/forced_inclusion_entry_metadata",
+                &[
+                    ("timestamp", U256::from(queued.timestamp)),
+                    ("l1_block", U256::from(queued.l1_block)),
+                    // The planter's fixed L1-only fee, seven gwei.
+                    ("fee_in_gwei", U256::from(7)),
+                ]
+            )
         );
     }
 

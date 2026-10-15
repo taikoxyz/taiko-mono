@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# Reproduce the Etna landing ABI and actual-contract integration artifacts.
+# Reproduce the Etna landing ABI and actual-contract integration artifacts, and copy the Etna
+# vectors shared with the contracts (testdata/etna_vectors) from the same protocol revision.
+# `script/check_lander_artifacts.sh` (`just check-lander-artifacts`) checks that this reproduces
+# the committed files.
 set -euo pipefail
 
-PINNED_REVISION=41241d5e6440c2ab244ccfdf572d1af8016f70c6
+PINNED_REVISION=27777e9d7147e7b1d3543711f4d7370a0377fa53
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLIENT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROTOCOL_CHECKOUT="$(cd "${1:?usage: gen_lander_artifacts.sh <taiko-mono-checkout>}" && pwd)"
@@ -11,7 +14,7 @@ if [[ "$ACTUAL_REVISION" != "$PINNED_REVISION" ]]; then
     echo "protocol checkout must be $PINNED_REVISION (found $ACTUAL_REVISION)" >&2
     exit 1
 fi
-git -C "$PROTOCOL_CHECKOUT" diff --quiet HEAD -- packages/protocol/contracts packages/protocol/test packages/protocol/foundry.toml pnpm-lock.yaml
+git -C "$PROTOCOL_CHECKOUT" diff --quiet HEAD -- packages/protocol/contracts packages/protocol/test packages/protocol/foundry.toml pnpm-lock.yaml testdata/etna_vectors
 # Dependencies must be installed before invoking Foundry. Offline regeneration is supported
 # with PNPM_OFFLINE=1 after the pinned lockfile's dependencies have been cached.
 INSTALL_FLAGS=(--frozen-lockfile --ignore-scripts)
@@ -45,7 +48,12 @@ artifacts = {
 manifest = {
     "protocolRevision": revision,
     "generator": "script/gen_lander_artifacts.sh",
-    "foundryVersion": subprocess.check_output(["forge", "--version"], text=True).splitlines(),
+    # The release and commit only: build timestamps differ between platforms' release binaries.
+    "foundryVersion": [
+        line
+        for line in subprocess.check_output(["forge", "--version"], text=True).splitlines()
+        if line.startswith(("forge Version:", "Commit SHA:"))
+    ],
     "artifacts": {},
 }
 for name, relative in artifacts.items():
@@ -89,7 +97,20 @@ interface_path = "contracts/layer1/etna/iface/IEtnaInbox.sol"
 interface = (protocol / interface_path).read_bytes()
 (client / "crates/lander/contracts/IEtnaInbox.sol").write_bytes(interface)
 manifest["interface"] = {"source": f"packages/protocol/{interface_path}", "sha256": hashlib.sha256(interface).hexdigest()}
+# The shared vectors: a byte-identical copy at the same repository path, stale files removed.
+vectors_dir = "testdata/etna_vectors"
+source_vectors, client_vectors = checkout / vectors_dir, client.parents[1] / vectors_dir
+client_vectors.mkdir(parents=True, exist_ok=True)
+for stale in client_vectors.iterdir():
+    if stale.is_file() and not (source_vectors / stale.name).is_file():
+        stale.unlink()
+vector_files = {}
+for source in sorted(path for path in source_vectors.iterdir() if path.is_file()):
+    contents = source.read_bytes()
+    (client_vectors / source.name).write_bytes(contents)
+    vector_files[source.name] = hashlib.sha256(contents).hexdigest()
+manifest["vectors"] = {"source": vectors_dir, "files": vector_files}
 (output / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 subprocess.run(["pnpm", "exec", "prettier", "--write", str(output / "manifest.json")], cwd=checkout, check=True)
-print(f"exported {len(artifacts)} artifacts and IEtnaInbox from {revision}")
+print(f"exported {len(artifacts)} artifacts, IEtnaInbox and {len(vector_files)} vector files from {revision}")
 PYTHON
