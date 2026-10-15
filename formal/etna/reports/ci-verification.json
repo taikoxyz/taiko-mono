@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "task": 7,
-  "scope": "local acceptance of CI implementation; hosted Linux source-tool build and full workflow pending",
+  "scope": "Initial Task7 local acceptance snapshot plus fix_round_1 scoped acceptance; hosted Linux source-tool build and full workflow pending",
   "verification_overlay": {
     "parent_revision": "62f1080e56293068ac7de97be78b2072d809e7f4",
     "identity": "parent plus exact checked working-tree files; final commit is in task-7-report.md"
@@ -356,5 +356,64 @@
     "formal/etna/scripts/run_conformance.py": "4ba03228b190188e718fea970ce7b9531ba2ec4290a9b1488b9f6fe6c92babe4",
     "formal/etna/scripts/solidity_inventory.py": "19eed0fa8f1a963b13a5f8908ff27cfbfdfa369373a36f7579d8db83548863bb",
     "formal/etna/scripts/toolchain_smoke.sh": "f61c2e2038260614b3657ce7739bccfeec83604602ba2d4db9cf3f45f67601ff"
+  },
+  "fix_round_1": {
+    "base_revision": "64258d02a9100ab1c514dc961666d3e268b742b4",
+    "changes": [
+      "Flat extraction for four individually selected artifact receipts",
+      "Build Etna imports after Mathlib cache on each fresh Lean runner",
+      "Disable rename detection for relevance and proof-review path checks",
+      "Premerge unchanged-client-P guard; adopted event-P exact bytes/path/mode comparison including root compiler/dependency inputs and squash-equivalent trees"
+    ],
+    "red": {
+      "command": "python3 -m unittest discover -s formal/etna/tests -p test_ci_pairing.py",
+      "tests": 7,
+      "failing_subcases": 23,
+      "log_sha256": "fcfa2df77926b4db5ffc98bf80d298a8ae9511b76183ad5e66f6e4fa771cd551"
+    },
+    "green": {
+      "ci_tests": 21,
+      "coverage_policy_tests": 13,
+      "cold_lean_probe": "fresh minimal Etna package rejects unknown module prefix before lake build and executes42 after build",
+      "git_cases": [
+        "real rename outside watched paths",
+        "premerge unchanged and changed contract/compiler/root lock/new resolution/patch files",
+        "adopted main/push/schedule/release/dispatch/other PR bases",
+        "squash/re-root equivalent tree without upstream ancestry",
+        "changed bytes/modes/path sets/root lock",
+        "unknown or invalid local CI modes"
+      ],
+      "static": ["actionlint", "bash -n", "py_compile", "git diff --check"]
+    },
+    "kernel_audit": {
+      "theorems": 204,
+      "exact_rust_functions": 17,
+      "pending": [
+        "GUEST-SOUNDNESS",
+        "SOLIDITY-BYTECODE-REFINEMENT",
+        "TIME-RULE-REFINEMENT"
+      ],
+      "schema_version": 1,
+      "kernel_audit": true,
+      "upstream_client": "2af0f30485b9990eae87074037bede11c59e8883",
+      "paired_protocol": "27777e9d7147e7b1d3543711f4d7370a0377fa53",
+      "verification_overlay": "64258d02a9100ab1c514dc961666d3e268b742b4",
+      "ledger_sha256": "b04c4b7487a450ac60ac7043f4768028a07d5c0b9f5b1e08bfdf10fa06d78d8f",
+      "contract_sources_abi_layout_bytecode": "verified against actual paired artifacts",
+      "solidity_bridge": "specification plus finite conformance; bytecode refinement remains pending"
+    },
+    "runtime_and_proof_changes": "none; all204 contracts and17 extracted refinements unchanged; no Foundry or native rerun",
+    "actual_premerge_projection_sha256": "46cee4e38afaf8d7fdb8956b077a3f4dae5769141964615eadae6cd7ead5fd30",
+    "actual_tested_protocol_projection_sha256": "37d36d2df173b2cc45c00d027046df52d193ed3cee1a4f8c23bc504ee3c176d7",
+    "adopted_check_on_current_premerge_branch": "correctly rejects event contract/other protocol input differences",
+    "checked_bytes": {
+      ".github/workflows/etna--formal.yml": "c89157ce5bec53e66ad455b522cdaa5cb9624963c08fddfa05e2b78430321eed",
+      "formal/etna/scripts/bootstrap_ci.sh": "e2d31eefabd059209e27957d5b25d8fc459a5200b104e31123f09a85a35b9575",
+      "formal/etna/scripts/ci_gate.py": "875f94246a808deb6069e9ed3cc086736875061be1525bacf3f84e4f48eb3f00",
+      "formal/etna/scripts/prepare_pair.py": "0f90e8fd744a747cc71b68635108f3fbc171001440cda21dd45af391edbf08f4",
+      "formal/etna/tests/test_ci_pairing.py": "fff383cef881fa367de73afd753269fc64aa1e17e3e5832c45874f0a00df8f0e",
+      "formal/etna/tests/test_ci.py": "8327b6f8767ce3fbb7ec0f1fcbc7cc2e3d12346c9d725cee51ea5ad8bbafb68a"
+    },
+    "limits": "No new hosted Linux run. Original checked_script_sha256 and execution evidence above describe initial candidate bytes; this object records the review fixes. Final commit is in task-7-report.md."
   }
 }

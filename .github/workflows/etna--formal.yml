@@ -272,16 +272,19 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         if: steps.receipts.outcome == 'success'
         with:
+          merge-multiple: true
           artifact-ids: ${{ steps.receipts.outputs.coverage }}
           path: ${{ runner.temp }}/coverage
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         if: steps.receipts.outcome == 'success'
         with:
+          merge-multiple: true
           artifact-ids: ${{ steps.receipts.outputs.rust-refinement }}
           path: ${{ runner.temp }}/rust-refinement
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         if: steps.receipts.outcome == 'success'
         with:
+          merge-multiple: true
           artifact-ids: ${{ steps.receipts.outputs.conformance }}
           path: ${{ runner.temp }}/conformance
       - name: Strict aggregation and exact-head proof review
@@ -325,6 +328,7 @@ jobs:
         run: python3 formal/etna/scripts/ci_gate.py artifacts --job run
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
+          merge-multiple: true
           artifact-ids: ${{ steps.receipt.outputs.run }}
           path: ${{ runner.temp }}
       - name: Exact release SHA and artifact obligations

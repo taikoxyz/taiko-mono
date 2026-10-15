@@ -11,7 +11,7 @@ REQUIRED=['lean-proofs','rust-refinement','conformance','coverage']
 RELEVANT=('formal/etna/','packages/protocol/','packages/taiko-client-rs/',
           'testdata/','.github/workflows/etna--formal.yml','.github/actions/',
           'package.json','pnpm-lock.yaml','pnpm-workspace.yaml','foundry.toml','remappings.txt',
-          '.npmrc','.pnpmfile.cjs','.tool-versions','.gitmodules','patches/')
+          '.npmrc','.pnpmfile.cjs','.tool-versions','.gitmodules','.gitattributes','patches/')
 PROOF=('formal/etna/Etna/','formal/etna/manifests/','formal/etna/schemas/',
        'formal/etna/coverage.json','formal/etna/scripts/','formal/etna/tools',
        'formal/etna/lean-toolchain','formal/etna/lake','formal/etna/adapters/',
@@ -48,6 +48,8 @@ def release_allowed(report,release_sha,artifacts):
         raise ValueError('release report is not a successful run of this exact SHA')
     if not artifacts or report.get('artifacts') != artifacts:
         raise ValueError('release artifact digests do not match verified artifacts')
+    if report.get('protocol_ownership',{}).get('mode') != 'adopted':
+        raise ValueError('release requires authenticated event protocol ownership')
     levels=report.get('release_obligations',{})
     required={'GUEST-SOUNDNESS','TIME-RULE-REFINEMENT','SOLIDITY-BYTECODE-REFINEMENT'}
     if set(levels) != required or any(levels[k] != 'implementation-proved' for k in required):
@@ -59,7 +61,7 @@ def changed(event):
     elif os.environ.get('GITHUB_EVENT_NAME')=='push' and event.get('before','').strip('0'):
         base=event['before']; head=event['after']
     else: return ['formal/etna/']
-    return run(['git','diff','--name-only',base,head]).splitlines()
+    return run(['git','diff','--no-renames','--name-only',base,head]).splitlines()
 
 def select_artifact(artifacts,job,run_id,attempt):
     prefix=f'etna-{job}-{run_id}-'
@@ -120,6 +122,7 @@ def main():
         if paired['landing']['failures'] or paired['landing']['cases'] != 56:
             raise ValueError('paired execution receipt is incomplete')
         report.update(extraction=extraction,conformance=paired,pair_identity=pair['assembled_sha256'],
+            protocol_ownership=pair['protocol_ownership'],
             input_digests={str(path.relative_to(ROOT)):sha(path) for path in
                 [ROOT/'tools.lock.json',ROOT/'lake-manifest.json',ROOT/'tools/opam-environment.export',
                  *sorted((ROOT/'manifests').glob('*.json'))]})

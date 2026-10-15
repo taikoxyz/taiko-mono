@@ -75,9 +75,18 @@ class TriggerAndGateTests(unittest.TestCase):
 
     def test_release_pending_wrong_sha_and_artifacts_fail(self):
         report={'verification_sha':'a'*40,'status':'passed','artifacts':{'runtime':'digest'},
-                'release_obligations':{x:'pending' for x in ['GUEST-SOUNDNESS','TIME-RULE-REFINEMENT','SOLIDITY-BYTECODE-REFINEMENT']}}
+                'protocol_ownership':{'mode':'adopted'},'release_obligations':{x:'pending' for x in ['GUEST-SOUNDNESS','TIME-RULE-REFINEMENT','SOLIDITY-BYTECODE-REFINEMENT']}}
         for revision,artifacts in [('a'*40,report['artifacts']),('b'*40,report['artifacts']),('a'*40,{})]:
             with self.assertRaises(ValueError): ci_gate.release_allowed(report,revision,artifacts)
+        with self.assertRaisesRegex(ValueError,'remain pending'):
+            ci_gate.release_allowed(report,'a'*40,report['artifacts'])
+        completed=copy.deepcopy(report)
+        completed['release_obligations']={key:'implementation-proved' for key in report['release_obligations']}
+        completed['protocol_ownership']['mode']='premerge'
+        with self.assertRaisesRegex(ValueError,'event protocol ownership'):
+            ci_gate.release_allowed(completed,'a'*40,report['artifacts'])
+        completed['protocol_ownership']['mode']='adopted'
+        ci_gate.release_allowed(completed,'a'*40,report['artifacts'])
 
     def test_ownership_collision_is_never_overwritten(self):
         self.assertEqual(prepare_pair.merge_ownership({'shared':'x'},{'shared':'x','protocol':'y'}),{'shared':'x','protocol':'y'})

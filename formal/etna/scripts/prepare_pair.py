@@ -2,6 +2,7 @@
 """Bind current verification sources and immutable client/protocol dependencies."""
 import argparse
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
@@ -13,6 +14,12 @@ REPO=ROOT.parents[1]
 CLIENT='2af0f30485b9990eae87074037bede11c59e8883'
 PROTOCOL='27777e9d7147e7b1d3543711f4d7370a0377fa53'
 PROJECT='taikoxyz/taiko-mono'
+# Deliberate premerge exception, tied to the immutable declared client base.
+# Updating either branch/pin or this scope requires explicit pairing/proof review.
+PREMERGE_BASE_REF='feat/taiko-client-rs-abci'
+PROTOCOL_SCOPE=['packages/protocol','package.json','pnpm-lock.yaml','pnpm-workspace.yaml',
+                'testdata/etna_vectors','foundry.toml','remappings.txt','.npmrc',
+                '.pnpmfile.cjs','.tool-versions','.gitmodules','.gitattributes','patches']
 
 def run(args,cwd=REPO):
     return subprocess.check_output(args,cwd=cwd,text=True).strip()
@@ -76,19 +83,81 @@ def merge_ownership(verification,protocol):
         combined[name]=digest
     return combined
 
+def projection_digest(projection):
+    return hashlib.sha256(json.dumps(projection,sort_keys=True).encode()).hexdigest()
+
+
+def revision_protocol_tree(repo,revision):
+    """Hash exact Git blob bytes and modes; compare trees, never commit ancestry."""
+    entries=run(['git','ls-tree','-r','-z',revision,'--',*PROTOCOL_SCOPE],repo).split('\0')
+    metadata={}
+    for entry in entries:
+        if not entry:continue
+        header,name=entry.split('\t',1)
+        mode,kind,oid=header.split()
+        if kind!='blob' or mode not in {'100644','100755','120000'}:
+            raise ValueError('unsupported protocol ownership object: '+name)
+        metadata[name]=(mode,oid)
+    if not metadata:raise ValueError('empty protocol ownership projection')
+    # One batch avoids spawning a process per compiler input. No checkout or mutation.
+    ids=sorted({oid for _,oid in metadata.values()})
+    raw=subprocess.check_output(['git','cat-file','--batch'],cwd=repo,
+                                input=('\n'.join(ids)+'\n').encode())
+    stream=io.BytesIO(raw); hashes={}
+    for expected in ids:
+        oid,kind,size=stream.readline().decode().split()
+        if oid!=expected or kind!='blob':raise ValueError('invalid protocol Git object')
+        content=stream.read(int(size))
+        if len(content)!=int(size) or stream.read(1)!=b'\n':raise ValueError('truncated protocol Git blob')
+        hashes[oid]=hashlib.sha256(content).hexdigest()
+    if stream.read():raise ValueError('unexpected protocol Git batch output')
+    return {name:{'mode':mode,'sha256':hashes[oid]} for name,(mode,oid) in metadata.items()}
+
+
+def pairing_mode(event,event_name):
+    """Only the declared stacked PR may test a separate, not-yet-adopted P tree."""
+    if event_name=='local' and os.environ.get('GITHUB_ACTIONS')!='true':return 'premerge'
+    if event_name in {'pull_request','pull_request_review'}:
+        base=event['pull_request']['base']
+        if base['ref']==PREMERGE_BASE_REF and base['sha']==CLIENT:return 'premerge'
+        return 'adopted'
+    if event_name in {'push','schedule','release','workflow_dispatch'}:return 'adopted'
+    raise ValueError('unsupported protocol ownership event mode: '+event_name)
+
+
+def protocol_ownership(protocol,verification_sha):
+    event=json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text()) if os.environ.get('GITHUB_EVENT_PATH') else {}
+    mode=pairing_mode(event,os.environ.get('GITHUB_EVENT_NAME','local'))
+    actual=revision_protocol_tree(REPO,verification_sha)
+    tested=revision_protocol_tree(protocol,PROTOCOL)
+    expected=revision_protocol_tree(REPO,CLIENT) if mode=='premerge' else tested
+    if actual!=expected:
+        changed=sorted(name for name in actual.keys()|expected.keys() if actual.get(name)!=expected.get(name))
+        raise ValueError('event protocol ownership diverges in '+mode+' mode: '+', '.join(changed[:12]))
+    return {'mode':mode,'scope':PROTOCOL_SCOPE,
+            'event_projection_sha256':projection_digest(actual),
+            'compared_revision':CLIENT if mode=='premerge' else PROTOCOL,
+            'compared_projection_sha256':projection_digest(expected),
+            'tested_revision':PROTOCOL,'tested_projection_sha256':projection_digest(tested),
+            'meaning':('unchanged client-base P; separate immutable P is intentionally tested'
+                       if mode=='premerge' else 'event P inputs exactly equal tested P bytes/modes/paths')}
+
 def snapshot(protocol,verification_sha):
-    subprocess.run(['git','merge-base','--is-ancestor',CLIENT,verification_sha],cwd=REPO,check=True)
     if run(['git','rev-parse','HEAD'],protocol) != PROTOCOL:
         raise ValueError('protocol checkout does not match pin')
+    ownership=protocol_ownership(protocol,verification_sha)
+    if ownership['mode']=='premerge':
+        subprocess.run(['git','merge-base','--is-ancestor',CLIENT,verification_sha],cwd=REPO,check=True)
+    subprocess.run(['git','diff','--quiet','HEAD','--',*PROTOCOL_SCOPE],cwd=REPO,check=True)
     subprocess.run(['git','diff','--quiet','HEAD','--','formal/etna','packages/taiko-client-rs','testdata/etna_vectors','.github/workflows/etna--formal.yml'],cwd=REPO,check=True)
-    subprocess.run(['git','diff','--quiet','HEAD','--','packages/protocol','package.json','pnpm-lock.yaml','pnpm-workspace.yaml','testdata/etna_vectors'],cwd=protocol,check=True)
+    subprocess.run(['git','diff','--quiet','HEAD','--',*PROTOCOL_SCOPE],cwd=protocol,check=True)
     # Keep its Git HEAD intact for strict source/fixture/compiler authentication.
     # F/C/I come from the event; P and its complete build context come from PIN.
     verification=tree(REPO,['formal/etna','packages/taiko-client-rs','testdata/etna_vectors','.github/workflows/etna--formal.yml'])
-    dependency=tree(protocol,['packages/protocol','package.json','pnpm-lock.yaml','pnpm-workspace.yaml','testdata/etna_vectors'])
+    dependency=tree(protocol,PROTOCOL_SCOPE)
     combined=merge_ownership(verification,dependency)
     return {'schema_version':1,'verification_sha':verification_sha,'upstream_client':CLIENT,
-            'paired_protocol':PROTOCOL,'verification_files':verification,'protocol_files':dependency,
+            'paired_protocol':PROTOCOL,'protocol_ownership':ownership,'verification_files':verification,'protocol_files':dependency,
             'assembled_sha256':hashlib.sha256(json.dumps(combined,sort_keys=True).encode()).hexdigest()}
 
 def main():

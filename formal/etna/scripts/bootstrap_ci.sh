@@ -25,7 +25,7 @@ case "$mode" in
     elan toolchain install leanprover/lean4:v4.35.0-rc4
     echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
     # Materialize the exact lock and retrieve matching Mathlib artifacts; never float pins.
-    (cd "$etna_repo/formal/etna"; lake exe cache get)
+    (cd "$etna_repo/formal/etna"; lake exe cache get; lake build)
     ;;
   native|protocol) ;;
   *) echo "unknown bootstrap scope: $mode" >&2; exit 1;;
