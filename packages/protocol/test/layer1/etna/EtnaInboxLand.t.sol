@@ -961,7 +961,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         );
     }
 
-    /// @dev Independent vector shared with the client; config 288 bytes, V6 576 bytes. The V5
+    /// @dev Independent vector shared with the client; config 352 bytes, V6 576 bytes. The V5
     /// vector's inputs plus forced inclusion heads 3 (before) and 5 (after) and fee recipient
     /// 0x...aa, hashed by `cast keccak $(cast abi-encode "f(bytes32,uint256,uint64,address,
     /// address,uint64,uint64,bytes32,bytes32,uint64,bytes32,bytes32,uint64,bytes32,bytes32,
@@ -974,8 +974,8 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         EtnaInbox impl = new EtnaInbox(config);
         vm.etch(vectorInbox, address(impl).code);
         bytes memory configWords = _parentAnchorConfigWords(config.stakingRegistry);
-        bytes32 configHash = 0xa39d945e8d229bca83870430088db2065f92f8b01303480447d03d5dd11ee377;
-        assertEq(configWords.length, 288, "nine config words");
+        bytes32 configHash = 0x483221e100b91b58a058b89723effa13d9a8b8527f8915ca8ad74cc44d5b7c0e;
+        assertEq(configWords.length, 352, "eleven config words");
         assertEq(keccak256(configWords), configHash, "config opening");
         vm.store(vectorInbox, bytes32(COMMITTEE_CONFIG_SLOT), configHash);
         IEtnaInbox.LandInput memory input = IEtnaInbox.LandInput({
@@ -1000,7 +1000,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
                 .hashLandStatement(
                     3, 100, bytes32(uint256(0x11)), 3, input, bytes32(uint256(0x44)), blobs
                 ),
-            0x05d7780cd6d28e0ddb88f9d1c6c60e04be965f69e40ac3c57c617a4fd3458928,
+            0xe4f69a2c2e4a504cafcb7a737cd9eb64b1f6523fafa82e606c568f410ba24ca6,
             "V6 statement"
         );
     }
@@ -1010,7 +1010,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         bytes32 configHash = keccak256(configWords);
         vm.store(address(etnaInbox), bytes32(COMMITTEE_CONFIG_SLOT), configHash);
         IEtnaInbox.LandInput memory input = _batch(11);
-        for (uint256 i; i < 9; ++i) {
+        for (uint256 i; i < 11; ++i) {
             bytes memory mutated = bytes.concat(configWords);
             assembly {
                 let word := add(add(mutated, 32), mul(i, 32))
@@ -1053,10 +1053,10 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         );
     }
 
-    /// @dev Nine independent static words; the contract stores this commitment opaquely.
+    /// @dev Eleven independent static words; the contract stores this commitment opaquely.
     function _parentAnchorConfigWords(address _registry) internal pure returns (bytes memory) {
         return abi.encode(
-            bytes32("ETNA_PARENT_ANCHOR_V1"),
+            bytes32("ETNA_PARENT_ANCHOR_V2"),
             uint256(167_001),
             _registry,
             uint256(1e9),
@@ -1064,7 +1064,9 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
             uint64(128),
             uint64(32),
             uint64(2),
-            uint8(1)
+            uint8(1),
+            uint64(12),
+            uint64(2)
         );
     }
 
