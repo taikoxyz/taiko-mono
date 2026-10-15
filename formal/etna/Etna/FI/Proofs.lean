@@ -170,24 +170,6 @@ theorem fi07_trace_count {before after : Nat} {steps : List (Option Nat)}
     rw [ih, valid_step_count step]
     cases consumed <;> simp [consumptionCount, Nat.add_assoc, Nat.add_comm]
 
-theorem fi07_trace_bound {before after : Nat} {steps : List (Option Nat)}
-    (initial : before < 2^64) (trace : ValidTrace before steps after) : after < 2^64 := by
-  induction trace with
-  | nil => exact initial
-  | @cons before middle after consumed rest step trace ih =>
-    apply ih
-    have hc := valid_step_count step
-    cases consumed with
-    | none => simpa using hc ▸ initial
-    | some index =>
-      have hp := step.pendingBound (by simp)
-      have ht := step.context.tail.isLt
-      simp only [Option.isSome_some, ↓reduceIte] at hc
-      omega
-
-theorem fi07_count_le_blocks (steps : List (Option Nat)) : consumptionCount steps ≤ steps.length := by
-  exact List.length_filter_le _ _
-
 /-- A successful scalar chain can consume only its parent cursor, never another index. -/
 theorem fi07_consumed_index (f : ForcedFacts) (d : Decision) (o : SingletonOutcome) (index : Nat)
     (classified : classify f = .ok d) (resolved : resolve d o = .ok (some index)) : index = f.cursor := by
@@ -206,6 +188,65 @@ theorem fi07_consumed_index (f : ForcedFacts) (d : Decision) (o : SingletonOutco
           · cases classified; simpa [resolve] using resolved.symm
         · contradiction
       · cases classified; simp [resolve] at resolved
+
+/-- Successful staged evaluation and resolution derive both the consumed index and queue bound. -/
+theorem fi07_evaluated_consumption (a : Authentication) (codec : Codec) (c : Context)
+    (w : Option Witness) (txs : List Bytes) (d : Decision) (o : SingletonOutcome) (index : Nat)
+    (classified : evaluate a codec c w txs = .ok d)
+    (resolved : resolve d o = .ok (some index)) : index = c.cursor.val ∧ index < c.tail.val := by
+  cases hp : pending c.cursor.val c.tail.val (w.map Witness.index) with
+  | error e => simp [evaluate, hp, Bind.bind, Except.bind] at classified
+  | ok hasPending =>
+    cases hasPending with
+    | false =>
+      have hd : d = .ordinary := by
+        simpa [evaluate, hp, Bind.bind, Except.bind, Pure.pure, Except.pure] using classified.symm
+      subst d
+      simp [resolve] at resolved
+    | true =>
+      have pendingFacts := (fi02_pending c.cursor.val c.tail.val (w.map Witness.index)).mp hp
+      cases w with
+      | none => simp at pendingFacts
+      | some witness =>
+        simp only [Option.map_some] at hp
+        by_cases verified : a.verify c.stateRoot c.inbox (entrySlots a.slot c.cursor.val)
+          witness.entry witness.proof = true
+        · have scalar : classify (scalarFacts codec c witness txs) = .ok d := by
+            simpa [evaluate, hp, verified, Bind.bind, Except.bind] using classified
+          have indexEq : index = c.cursor.val := by
+            simpa [scalarFacts] using fi07_consumed_index _ d o index scalar resolved
+          exact ⟨indexEq, by simpa [indexEq] using pendingFacts.1⟩
+        · simp [evaluate, hp, verified, Bind.bind, Except.bind] at classified
+
+/-- The authenticated-tail premise is recovered from actual checked steps, never supplied. -/
+theorem valid_step_consumption {before after index : Nat}
+    (step : ValidStep before after (some index)) :
+    index = before ∧ before < step.context.tail.val ∧
+      before < step.authentication.queueTail step.context.stateRoot step.context.inbox := by
+  obtain ⟨indexEq, bound⟩ := fi07_evaluated_consumption step.authentication step.codec step.context
+    step.witness step.transactions step.decision
+    (outcomeFor step.execution step.context step.witness) index step.classified step.resolved
+  have parentEq : index = before := indexEq.trans step.parentCursor
+  have boundBefore : before < step.context.tail.val := by simpa [parentEq] using bound
+  exact ⟨parentEq, boundBefore, by simpa [step.authenticated.tail] using boundBefore⟩
+
+theorem fi07_trace_bound {before after : Nat} {steps : List (Option Nat)}
+    (initial : before < 2^64) (trace : ValidTrace before steps after) : after < 2^64 := by
+  induction trace with
+  | nil => exact initial
+  | @cons before middle after consumed rest step trace ih =>
+    apply ih
+    have hc := valid_step_count step
+    cases consumed with
+    | none => simpa using hc ▸ initial
+    | some index =>
+      have hp := (valid_step_consumption step).2.1
+      have ht := step.context.tail.isLt
+      simp only [Option.isSome_some, ↓reduceIte] at hc
+      omega
+
+theorem fi07_count_le_blocks (steps : List (Option Nat)) : consumptionCount steps ≤ steps.length := by
+  exact List.length_filter_le _ _
 
 /-- FI-08 compares separate hot and cold reducers from checked cache evidence.
     Authentication, deterministic execution, payload validity/settlement and durable success

@@ -1,4 +1,6 @@
 """Run real Lean, including poisoned declarations, to exercise the proof trust gate."""
+import copy
+import importlib.util
 import json
 import pathlib
 import subprocess
@@ -124,6 +126,57 @@ class ProofAuditTests(unittest.TestCase):
 
     def test_rejects_changed_full_type(self):
         self.assertNotEqual(self.audit('namespace Fixture\ntheorem sound (n : Nat) (h : n = n) : n = n := h\nend Fixture\n').returncode, 0)
+
+
+class ProvenanceCompletenessTests(unittest.TestCase):
+    def setUp(self):
+        spec = importlib.util.spec_from_file_location('fi_audit', AUDIT)
+        self.audit = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.audit)
+        self.provenance = json.loads((ROOT / 'Etna/Refinement/Rust/provenance.json').read_text())
+
+    def validate(self, data):
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp:
+            path = pathlib.Path(tmp) / 'provenance.json'
+            path.write_text(json.dumps(data))
+            ref = ProofAuditTests().refinement(provenance=str(path.relative_to(ROOT)))
+            self.audit.validate_refinement({'refinement': ref})
+
+    def test_accepts_complete_pinned_producer(self):
+        self.validate(self.provenance)
+
+    def test_rejects_empty_and_truncated_provenance_sections(self):
+        for section in ['tools', 'source_sha256', 'cargo_sha256', 'generated_sha256']:
+            for removed in [None, *self.provenance[section]]:
+                with self.subTest(section=section, removed=removed):
+                    data = copy.deepcopy(self.provenance)
+                    if removed is None:
+                        data[section] = {}
+                    else:
+                        del data[section][removed]
+                    with self.assertRaisesRegex(ValueError, 'mandatory.*keys'):
+                        self.validate(data)
+
+    def test_rejects_extra_or_missing_sections(self):
+        for section in ['tools', 'source_sha256', 'cargo_sha256', 'generated_sha256']:
+            with self.subTest(section=section):
+                data = copy.deepcopy(self.provenance)
+                del data[section]
+                with self.assertRaisesRegex(ValueError, 'producer schema'):
+                    self.validate(data)
+                data = copy.deepcopy(self.provenance)
+                data[section]['forged'] = '0' * 64
+                with self.assertRaisesRegex(ValueError, 'mandatory.*keys'):
+                    self.validate(data)
+
+    def test_rejects_wrong_producer_schema(self):
+        for field, value in [('schema_version', 0), ('schema_version', True),
+                             ('crate', 'unrelated/crate'), ('charon_llbc_version', 'unknown')]:
+            with self.subTest(field=field, value=value):
+                data = copy.deepcopy(self.provenance)
+                data[field] = value
+                with self.assertRaisesRegex(ValueError, 'producer schema'):
+                    self.validate(data)
 
 
 if __name__ == '__main__':

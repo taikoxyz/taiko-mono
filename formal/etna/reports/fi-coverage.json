@@ -1,0 +1,485 @@
+{
+  "schema_version": 1,
+  "bridge_level": "conformance-tested",
+  "scope_ruling": "Reuse adequate existing tests; add focused tests only for uncovered behavior, not to touch every named test file.",
+  "verified_against_revision": "a6686ad5e9753c2a2e04efca763f63c67197fec2",
+  "execution_evidence": {
+    "unit": "/private/tmp/etna-fi-final-unit.log",
+    "docker": "/private/tmp/etna-fi-final-test.log",
+    "docker_run": "d860a505-0362-4c40-bf50-536253777ab3",
+    "docker_passed": 36
+  },
+  "coverage": [
+    {
+      "behavior": "Witness/index/root/account/ordered slots and preimage cap/hash",
+      "tests": [
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/forced/tests.rs",
+          "test": "rule_rejects_missing_witness_for_pending_entry",
+          "line": 123,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/forced/tests.rs",
+          "test": "rule_rejects_wrong_index",
+          "line": 142,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/forced/tests.rs",
+          "test": "rule_rejects_wrong_account_and_state_root",
+          "line": 152,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/forced/tests.rs",
+          "test": "rule_rejects_wrong_slot_set_or_tampered_proofs",
+          "line": 163,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/forced/tests.rs",
+          "test": "rule_rejects_8193_bytes_before_classification",
+          "line": 202,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/forced/tests.rs",
+          "test": "rule_rejects_bytes_not_matching_authenticated_hash_even_before_due",
+          "line": 190,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/app/tests/process.rs",
+          "test": "missing_required_witnesses_are_rejected",
+          "line": 224,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/app/tests/process.rs",
+          "test": "unexpected_witnesses_are_rejected",
+          "line": 256,
+          "kind": "unit",
+          "added_in_task3": false
+        }
+      ],
+      "evidence": "Actual authenticated fixtures reject malformed prefixes before consumption."
+    },
+    {
+      "behavior": "Inclusive due, widened arithmetic, predue and no expiry",
+      "tests": [
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/forced/tests.rs",
+          "test": "calldata_due_arithmetic_does_not_saturate_into_due",
+          "line": 54,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/forced/tests.rs",
+          "test": "rule_does_not_saturate_large_delay_into_due",
+          "line": 298,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/forced/tests.rs",
+          "test": "rule_includes_canonical_first_transaction_early_due_and_without_expiry",
+          "line": 237,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/forced/tests.rs",
+          "test": "rule_does_not_skip_invalid_input_early_even_if_first_tx_matches",
+          "line": 217,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/tests/forced_calldata.rs",
+          "test": "forced_transaction_mixed_before_due",
+          "line": 129,
+          "kind": "docker",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/tests/forced_calldata.rs",
+          "test": "forced_transaction_mixed_after_due",
+          "line": 134,
+          "kind": "docker",
+          "added_in_task3": false
+        }
+      ],
+      "evidence": "Boundary and overflow fixtures plus actual Engine/Comet scenarios."
+    },
+    {
+      "behavior": "Omitted witness preimage versus genuine empty admission",
+      "tests": [
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/forced/tests.rs",
+          "test": "pending_entries_need_no_transaction_preimage_before_due",
+          "line": 359,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/forced/tests.rs",
+          "test": "inclusion_uses_the_canonical_first_transaction_without_a_duplicate_preimage",
+          "line": 369,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/forced/tests.rs",
+          "test": "omitted_preimages_cannot_authorize_due_nonempty_skips",
+          "line": 385,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/forced/tests.rs",
+          "test": "rule_skips_empty_and_undecodable_input_at_inclusive_due_boundary",
+          "line": 226,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/app/tests/process.rs",
+          "test": "missing_due_preimage_rejects_before_any_engine_call",
+          "line": 627,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/app/tests/process.rs",
+          "test": "pending_entry_is_peeked_by_ordinary_blocks",
+          "line": 413,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/app/tests/finalize.rs",
+          "test": "replay_validates_inclusion_without_admission_log_reads",
+          "line": 1126,
+          "kind": "unit",
+          "added_in_task3": false
+        }
+      ],
+      "evidence": "Nonempty admission with omitted bytes cannot skip; actual hash(empty) admission is authenticated and invalid-skip eligible."
+    },
+    {
+      "behavior": "Canonical singleton must complete empty and retain exact attributes",
+      "tests": [
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/engine/forced.rs",
+          "test": "empty_singleton_consumes_the_index_and_preserves_all_attributes",
+          "line": 178,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/engine/forced.rs",
+          "test": "retained_forced_transaction_cannot_authorize_consumption",
+          "line": 161,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/engine/forced.rs",
+          "test": "any_retained_transaction_cannot_authorize_consumption",
+          "line": 280,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "test": "canonical_skip_requires_completed_empty_matching_singleton",
+          "line": 2101,
+          "kind": "unit",
+          "added_in_task3": false
+        }
+      ],
+      "evidence": "Production verify_forced and lander reject retained transactions and require completed exact-context empty output."
+    },
+    {
+      "behavior": "RPC errors, incomplete/malformed result, timeout and unknown payload",
+      "tests": [
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/engine/forced.rs",
+          "test": "engine_failures_and_incomplete_results_do_not_authorize_consumption",
+          "line": 194,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/engine/forced.rs",
+          "test": "invalid_skip_bytes_are_rejected_before_building",
+          "line": 234,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/app/tests/finalize.rs",
+          "test": "cold_forced_skip_failures_retry_or_halt",
+          "line": 1063,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/app/tests/finalize.rs",
+          "test": "cold_forced_skip_retries_an_unknown_payload_id",
+          "line": 687,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "test": "canonical_skip_requires_completed_empty_matching_singleton",
+          "line": 2101,
+          "kind": "unit",
+          "added_in_task3": false
+        }
+      ],
+      "evidence": "Transport, BadReply, BuildNotStarted, RPC error, deadline and unknown-payload retry cannot be reinterpreted as Empty."
+    },
+    {
+      "behavior": "Incorrect parent and candidate header",
+      "tests": [
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/engine/forced.rs",
+          "test": "empty_build_with_wrong_candidate_header_cannot_authorize_consumption",
+          "line": 249,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/app/tests/process.rs",
+          "test": "every_derived_header_field_is_checked",
+          "line": 127,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "test": "canonical_skip_requires_completed_empty_matching_singleton",
+          "line": 2101,
+          "kind": "unit",
+          "added_in_task3": false
+        }
+      ],
+      "evidence": "Each checked header field, including parent context, is mutated against actual production validation."
+    },
+    {
+      "behavior": "Historical parent unavailable, no premature commit, recovery",
+      "tests": [
+        {
+          "file": "packages/taiko-client-rs/crates/abci/tests/forced_calldata.rs",
+          "test": "forced_invalid_skip_keeps_mempool",
+          "line": 219,
+          "kind": "docker",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/app/tests/finalize.rs",
+          "test": "cold_forced_skip_failures_retry_or_halt",
+          "line": 1063,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "test": "batch_skipping_a_due_entry_is_a_safety_error",
+          "line": 2179,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "test": "pruned_history_and_contract_statement_disagreement_never_yield_jobs",
+          "line": 1667,
+          "kind": "unit",
+          "added_in_task3": false
+        }
+      ],
+      "evidence": "Docker test emulates the pinned getPayload historical-state error, observes a pending retry with unchanged in-memory and durable state, then releases the same real engine and compares committed cold/hot state. It qualifies missing history rather than inferring pruning from generic RPC error."
+    },
+    {
+      "behavior": "Cancelled canonical singleton probe",
+      "tests": [
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/app/tests/finalize.rs",
+          "test": "cancelled_canonical_skip_preserves_pending_and_durable_cursor",
+          "line": 1633,
+          "kind": "unit",
+          "added_in_task3": true
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/tests/forced_calldata.rs",
+          "test": "forced_invalid_skip_keeps_mempool",
+          "line": 219,
+          "kind": "docker",
+          "added_in_task3": false
+        }
+      ],
+      "evidence": "New focused test cancels the actual Finalize future before singleton completion and checks no pending/durable cursor change; Docker also drops an unavailable replay future before recovery."
+    },
+    {
+      "behavior": "Changed checked context and proposal cache miss",
+      "tests": [
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/app/tests/finalize.rs",
+          "test": "canonical_skip_cache_misses_when_checked_context_fields_change",
+          "line": 1660,
+          "kind": "unit",
+          "added_in_task3": true
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/app/tests/finalize.rs",
+          "test": "cached_verdict_is_bound_to_exact_proposal_bytes",
+          "line": 1513,
+          "kind": "unit",
+          "added_in_task3": false
+        }
+      ],
+      "evidence": "New test changes cached parent cursor/header/anchor/decision; existing test changes proposal bytes. Both exercise fresh validation. No claim that arbitrary context changes invalidate production cache."
+    },
+    {
+      "behavior": "Process/Finalize/Commit/reopen hot and cold equality",
+      "tests": [
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/app/tests/finalize.rs",
+          "test": "hot_canonical_skip_matches_cold_replay_and_persists_after_commit",
+          "line": 1574,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/app/tests/finalize.rs",
+          "test": "cold_canonical_skip_advances_cursor_on_replay_and_persists_after_commit",
+          "line": 1527,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/app/tests/finalize.rs",
+          "test": "forced_cursor_survives_restart",
+          "line": 1210,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/app/tests/finalize.rs",
+          "test": "forced_cursor_advances_after_a_forced_block_commits",
+          "line": 1179,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/app/tests/process.rs",
+          "test": "process_accepts_a_forced_block_equal_to_the_rebuild",
+          "line": 375,
+          "kind": "unit",
+          "added_in_task3": false
+        }
+      ],
+      "evidence": "Same proposal/context flows through actual Process, hot/cold Finalize, pending state, durable Commit and reopened application; full successor states are compared."
+    },
+    {
+      "behavior": "Lander consumption order, omitted preimages, completed skip and fees",
+      "tests": [
+        {
+          "file": "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "test": "batch_with_a_forced_block_sets_the_head_after_it",
+          "line": 1956,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "test": "batch_starting_mid_pending_queue",
+          "line": 1984,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "test": "batch_starting_with_forced_block",
+          "line": 2010,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "test": "omitted_preimages_preserve_pending_and_included_batch_cursors",
+          "line": 2040,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "test": "switch_height_forced_block_lands",
+          "line": 2068,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "test": "canonical_skip_requires_completed_empty_matching_singleton",
+          "line": 2101,
+          "kind": "unit",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/lander/tests/landing.rs",
+          "test": "lander_actual_contract_forced_inclusion_lands_and_pays_fee",
+          "line": 158,
+          "kind": "docker",
+          "added_in_task3": false
+        }
+      ],
+      "evidence": "Existing lander batch tests establish cursor counts across cuts and fail-closed skip; Docker uses actual contract landing and fee transfer."
+    },
+    {
+      "behavior": "Exact admission provenance and actual mixed/invalid execution",
+      "tests": [
+        {
+          "file": "packages/taiko-client-rs/crates/abci/tests/forced_calldata.rs",
+          "test": "forced_transaction_event_provenance",
+          "line": 22,
+          "kind": "docker",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/tests/forced_calldata.rs",
+          "test": "forced_same_nonce_replacement_rejected",
+          "line": 140,
+          "kind": "docker",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/tests/forced_calldata.rs",
+          "test": "forced_invalid_skip_keeps_mempool",
+          "line": 219,
+          "kind": "docker",
+          "added_in_task3": false
+        },
+        {
+          "file": "packages/taiko-client-rs/crates/abci/src/app/tests/process.rs",
+          "test": "same_sender_nonce_replacement_and_later_position_cannot_skip_retained_forced_tx",
+          "line": 576,
+          "kind": "unit",
+          "added_in_task3": false
+        }
+      ],
+      "evidence": "Exact-block calldata provenance, position zero and no replacement consumption; actual empty singleton failures preserve ordinary mempool execution."
+    }
+  ]
+}

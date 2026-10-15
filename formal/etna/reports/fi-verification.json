@@ -3,8 +3,8 @@
   "base_revision": "7f8053847b529966148d16168662c8534850470d",
   "scope": "FI-01..09 model proofs and six total actual-generated Rust refinements; async conformance distinct",
   "audit": {
-    "theorems": 43,
-    "fi": 41,
+    "theorems": 45,
+    "fi": 43,
     "core": 2,
     "allowed_axioms": ["propext", "Classical.choice", "Quot.sound"],
     "forbidden_axioms": []
@@ -16,8 +16,11 @@
     "production_rust": "passed"
   },
   "negative_tests": {
-    "tests": 22,
-    "status": "passed"
+    "tests": 19,
+    "status": "passed",
+    "scope": "fix round1 complete proof-audit module; four new matrix methods plus15 existing trust methods",
+    "seconds": 119.331,
+    "prior_full_suite": "22/22 passed before fix; seven unchanged toolchain tests not rerun"
   },
   "rust": {
     "fmt": "passed",
@@ -90,5 +93,34 @@
     "Successful durable writes/reopen and async scheduling are external laws/conformance only",
     "COM/Landing/CI and advanced upstream pairing refresh remain controller-owned pending work"
   ],
-  "committed_manifest_audit": "43/43 passed after pre-commit formatting"
+  "committed_manifest_audit": "Fix round1 covering audit45/45 passed; final commit identity recorded in task report",
+  "coverage_index": "reports/fi-coverage.json",
+  "fix_round_1": {
+    "base_revision": "a6686ad5e9753c2a2e04efca763f63c67197fec2",
+    "findings": [
+      "Require fixed complete provenance schema/key sets before pins and digests",
+      "Derive consumed cursor and authenticated-tail bound from successful evaluate/resolve"
+    ],
+    "provenance_red": {
+      "methods": 4,
+      "failed_subcases": 22,
+      "missing_section_errors": 4
+    },
+    "provenance_green": {
+      "methods": 4,
+      "validator_calls": 31
+    },
+    "new_audited_theorems": [
+      "Etna.FI.fi07_evaluated_consumption",
+      "Etna.FI.valid_step_consumption"
+    ],
+    "runtime_changed": false,
+    "production_cargo_generated_digests": "unchanged",
+    "covering_checks": [
+      "45 theorem type/axiom obligations",
+      "94 Lean/production corpus cases",
+      "19 proof trust-test methods"
+    ],
+    "logs": "/private/tmp/etna-fi-fix1-{provenance-red,provenance-green,audit,conformance,trust-tests}.log"
+  }
 }

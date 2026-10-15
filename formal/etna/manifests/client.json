@@ -263,7 +263,7 @@
       "declaration": "Etna.FI.valid_step_count",
       "type": "\u2200 {before after : Nat} {consumed : Option Nat}\n    (step : Etna.FI.ValidStep before after consumed), after = before + (if consumed.isSome then 1 else 0)",
       "assumptions": [
-        "Each trace step carries successful classify/resolve/advance evidence and authenticated 48-bit tail bound"
+        "Each trace step carries concrete authenticated context and successful evaluate/resolve/advance evidence; the tail bound is derived"
       ],
       "bridge_level": "spec-proved",
       "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
@@ -279,7 +279,53 @@
       "declaration": "Etna.FI.fi07_trace_count",
       "type": "\u2200 {before after : Nat} {steps : List (Option Nat)}\n    (trace : Etna.FI.ValidTrace before steps after), after = before + Etna.FI.consumptionCount steps",
       "assumptions": [
-        "Each trace step carries successful classify/resolve/advance evidence and authenticated 48-bit tail bound"
+        "Each trace step carries concrete authenticated context and successful evaluate/resolve/advance evidence; the tail bound is derived"
+      ],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-fi07-consumed-index",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi07_consumed_index",
+      "type": "\u2200 (f : Etna.FI.ForcedFacts) (d : Etna.FI.Decision) (o : Etna.FI.SingletonOutcome) (index : Nat)\n    (classified : Etna.FI.classify f = .ok d) (resolved : Etna.FI.resolve d o = .ok (some index)), index = f.cursor",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-fi07-evaluated-consumption",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi07_evaluated_consumption",
+      "type": "\u2200 (a : Etna.FI.Authentication) (codec : Etna.FI.Codec) (c : Etna.FI.Context)\n    (w : Option Etna.FI.Witness) (txs : List Etna.FI.Bytes) (d : Etna.FI.Decision) (o : Etna.FI.SingletonOutcome) (index : Nat)\n    (classified : Etna.FI.evaluate a codec c w txs = .ok d)\n    (resolved : Etna.FI.resolve d o = .ok (some index)), index = c.cursor.val \u2227 index < c.tail.val",
+      "assumptions": [
+        "Authentication.sound: verified root/inbox/exact ordered slots bind stored entry; ContextEvidence binds anchor root/time/tail where required"
+      ],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-valid-step-consumption",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.valid_step_consumption",
+      "type": "\u2200 {before after index : Nat}\n    (step : Etna.FI.ValidStep before after (some index)), index = before \u2227 before < step.context.tail.val \u2227\n      before < step.authentication.queueTail step.context.stateRoot step.context.inbox",
+      "assumptions": [
+        "Each trace step carries concrete authenticated context and successful evaluate/resolve/advance evidence; the tail bound is derived"
       ],
       "bridge_level": "spec-proved",
       "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
@@ -295,7 +341,7 @@
       "declaration": "Etna.FI.fi07_trace_bound",
       "type": "\u2200 {before after : Nat} {steps : List (Option Nat)}\n    (initial : before < 2^64) (trace : Etna.FI.ValidTrace before steps after), after < 2^64",
       "assumptions": [
-        "Each trace step carries successful classify/resolve/advance evidence and authenticated 48-bit tail bound"
+        "Each trace step carries concrete authenticated context and successful evaluate/resolve/advance evidence; the tail bound is derived"
       ],
       "bridge_level": "spec-proved",
       "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
@@ -310,20 +356,6 @@
       "module": "Etna.FI.Proofs",
       "declaration": "Etna.FI.fi07_count_le_blocks",
       "type": "\u2200 (steps : List (Option Nat)), Etna.FI.consumptionCount steps \u2264 steps.length",
-      "assumptions": [],
-      "bridge_level": "spec-proved",
-      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
-      "tests": ["scripts/fi_conformance.py"],
-      "boundaries": [
-        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
-        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
-      ]
-    },
-    {
-      "id": "FI-fi07-consumed-index",
-      "module": "Etna.FI.Proofs",
-      "declaration": "Etna.FI.fi07_consumed_index",
-      "type": "\u2200 (f : Etna.FI.ForcedFacts) (d : Etna.FI.Decision) (o : Etna.FI.SingletonOutcome) (index : Nat)\n    (classified : Etna.FI.classify f = .ok d) (resolved : Etna.FI.resolve d o = .ok (some index)), index = f.cursor",
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],

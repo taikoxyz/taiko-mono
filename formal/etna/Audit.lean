@@ -235,7 +235,7 @@ run_elab do
   unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.FI.fi07_advance: full type mismatch"
   Lean.logInfo m!"Full declared type: {info.type}"
 #print axioms Etna.FI.fi07_advance
--- FI-valid-step-count; explicit assumptions: ["Each trace step carries successful classify/resolve/advance evidence and authenticated 48-bit tail bound"]
+-- FI-valid-step-count; explicit assumptions: ["Each trace step carries concrete authenticated context and successful evaluate/resolve/advance evidence; the tail bound is derived"]
 run_elab do
   let info ← Lean.getConstInfo `Etna.FI.valid_step_count
   unless info.isTheorem do throwError "Etna.FI.valid_step_count is not a theorem"
@@ -247,7 +247,7 @@ run_elab do
   unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.FI.valid_step_count: full type mismatch"
   Lean.logInfo m!"Full declared type: {info.type}"
 #print axioms Etna.FI.valid_step_count
--- FI-07; explicit assumptions: ["Each trace step carries successful classify/resolve/advance evidence and authenticated 48-bit tail bound"]
+-- FI-07; explicit assumptions: ["Each trace step carries concrete authenticated context and successful evaluate/resolve/advance evidence; the tail bound is derived"]
 run_elab do
   let info ← Lean.getConstInfo `Etna.FI.fi07_trace_count
   unless info.isTheorem do throwError "Etna.FI.fi07_trace_count is not a theorem"
@@ -259,7 +259,46 @@ run_elab do
   unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.FI.fi07_trace_count: full type mismatch"
   Lean.logInfo m!"Full declared type: {info.type}"
 #print axioms Etna.FI.fi07_trace_count
--- FI-fi07-trace-bound; explicit assumptions: ["Each trace step carries successful classify/resolve/advance evidence and authenticated 48-bit tail bound"]
+-- FI-fi07-consumed-index; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.FI.fi07_consumed_index
+  unless info.isTheorem do throwError "Etna.FI.fi07_consumed_index is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (f : Etna.FI.ForcedFacts) (d : Etna.FI.Decision) (o : Etna.FI.SingletonOutcome) (index : Nat)
+    (classified : Etna.FI.classify f = .ok d) (resolved : Etna.FI.resolve d o = .ok (some index)), index = f.cursor))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.FI.fi07_consumed_index: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.FI.fi07_consumed_index
+-- FI-fi07-evaluated-consumption; explicit assumptions: ["Authentication.sound: verified root/inbox/exact ordered slots bind stored entry; ContextEvidence binds anchor root/time/tail where required"]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.FI.fi07_evaluated_consumption
+  unless info.isTheorem do throwError "Etna.FI.fi07_evaluated_consumption is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (a : Etna.FI.Authentication) (codec : Etna.FI.Codec) (c : Etna.FI.Context)
+    (w : Option Etna.FI.Witness) (txs : List Etna.FI.Bytes) (d : Etna.FI.Decision) (o : Etna.FI.SingletonOutcome) (index : Nat)
+    (classified : Etna.FI.evaluate a codec c w txs = .ok d)
+    (resolved : Etna.FI.resolve d o = .ok (some index)), index = c.cursor.val ∧ index < c.tail.val))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.FI.fi07_evaluated_consumption: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.FI.fi07_evaluated_consumption
+-- FI-valid-step-consumption; explicit assumptions: ["Each trace step carries concrete authenticated context and successful evaluate/resolve/advance evidence; the tail bound is derived"]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.FI.valid_step_consumption
+  unless info.isTheorem do throwError "Etna.FI.valid_step_consumption is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {before after index : Nat}
+    (step : Etna.FI.ValidStep before after (some index)), index = before ∧ before < step.context.tail.val ∧
+      before < step.authentication.queueTail step.context.stateRoot step.context.inbox))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.FI.valid_step_consumption: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.FI.valid_step_consumption
+-- FI-fi07-trace-bound; explicit assumptions: ["Each trace step carries concrete authenticated context and successful evaluate/resolve/advance evidence; the tail bound is derived"]
 run_elab do
   let info ← Lean.getConstInfo `Etna.FI.fi07_trace_bound
   unless info.isTheorem do throwError "Etna.FI.fi07_trace_bound is not a theorem"
@@ -282,18 +321,6 @@ run_elab do
   unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.FI.fi07_count_le_blocks: full type mismatch"
   Lean.logInfo m!"Full declared type: {info.type}"
 #print axioms Etna.FI.fi07_count_le_blocks
--- FI-fi07-consumed-index; explicit assumptions: []
-run_elab do
-  let info ← Lean.getConstInfo `Etna.FI.fi07_consumed_index
-  unless info.isTheorem do throwError "Etna.FI.fi07_consumed_index is not a theorem"
-  let expected ← Lean.Elab.Term.elabType (← `(∀ (f : Etna.FI.ForcedFacts) (d : Etna.FI.Decision) (o : Etna.FI.SingletonOutcome) (index : Nat)
-    (classified : Etna.FI.classify f = .ok d) (resolved : Etna.FI.resolve d o = .ok (some index)), index = f.cursor))
-  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
-  let expected ← Lean.instantiateMVars expected
-  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
-  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.FI.fi07_consumed_index: full type mismatch"
-  Lean.logInfo m!"Full declared type: {info.type}"
-#print axioms Etna.FI.fi07_consumed_index
 -- FI-08; explicit assumptions: ["Authentication.sound: verified root/inbox/exact ordered slots bind stored entry; ContextEvidence binds anchor root/time/tail where required", "Execution.sound: completed response binds actual request to validExecution; deterministic run for equal inputs", "Cached intermediate classification and singleton outcome agree with fresh deterministic facts; canonical envelope/context checked"]
 run_elab do
   let info ← Lean.getConstInfo `Etna.FI.fi08_success_equivalence

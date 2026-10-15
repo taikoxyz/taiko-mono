@@ -217,7 +217,6 @@ structure ValidStep (before after : Nat) (consumed : Option Nat) where
   decision : Decision
   classified : evaluate authentication codec context witness transactions = .ok decision
   resolved : resolve decision (outcomeFor execution context witness) = .ok consumed
-  pendingBound : consumed.isSome → before < context.tail.val
   advancement : advance before consumed = .ok after
 
 inductive ValidTrace : Nat → List (Option Nat) → Nat → Prop where
