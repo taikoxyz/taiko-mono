@@ -165,14 +165,40 @@ def check_contract_artifacts(protocol, expected):
             if raw_metadata[key] != provenance[key]:
                 raise ValueError('actual compiler provenance differs: '+name)
     actual = json.loads((protocol/'out/layer1/EtnaInbox.sol/EtnaInbox.json').read_text())
-    if canonical(actual['storageLayout']) != expected['inbox_layout_sha256']:
-        raise ValueError('actual Inbox storage layout differs')
+    inventory=json.loads((ROOT/'reports/solidity-inventory.json').read_text())['storage_layout']
+    if canonical(inventory) != expected['inbox_layout_sha256']:
+        raise ValueError('reviewed inventory storage layout digest differs')
+    if semantic_layout(actual['storageLayout']) != semantic_layout(inventory):
+        raise ValueError('actual Inbox semantic storage layout differs')
     if sha(protocol/'contracts/layer1/etna/iface/IEtnaInbox.sol') != manifest['interface']['sha256']:
         raise ValueError('generated interface source stale')
     for path, digest in manifest['vectors']['files'].items():
         if sha(REPO/manifest['vectors']['source']/path) != digest:
             raise ValueError('generated vector stale')
 
+
+def semantic_layout(layout):
+    """Discard compiler-local AST node IDs only; preserve all storage semantics.
+
+    Struct/enum/contract type identifiers embed AST IDs. Array lengths, integers,
+    labels, contract identity, encoding, offsets, slots and byte widths remain exact.
+    """
+    def name(value):
+        return re.sub(r'(t_(?:struct|enum|contract)\([^)]*\))\d+', r'\1', value)
+    def normalize(value, field=None):
+        if isinstance(value, dict):
+            result={}
+            for key,item in value.items():
+                if key == 'astId': continue
+                normalized=name(key)
+                if normalized in result: raise ValueError('ambiguous normalized storage type')
+                result[normalized]=normalize(item,key)
+            return result
+        if isinstance(value,list): return [normalize(item,field) for item in value]
+        if isinstance(value,str) and field in {"type","base","key","value"}: return name(value)
+        return value
+    if set(layout) != {'storage','types'}: raise ValueError('invalid storage layout')
+    return normalize(layout)
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)

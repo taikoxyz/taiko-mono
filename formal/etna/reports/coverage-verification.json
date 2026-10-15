@@ -10,7 +10,7 @@
   "kernel_audit": true,
   "upstream_client": "2af0f30485b9990eae87074037bede11c59e8883",
   "paired_protocol": "27777e9d7147e7b1d3543711f4d7370a0377fa53",
-  "verification_overlay": "bd5e931166a23e5297dfc111154ff740df48ada3",
+  "verification_overlay": "62f1080e56293068ac7de97be78b2072d809e7f4",
   "ledger_sha256": "b04c4b7487a450ac60ac7043f4768028a07d5c0b9f5b1e08bfdf10fa06d78d8f",
   "contract_sources_abi_layout_bytecode": "verified against actual paired artifacts",
   "solidity_bridge": "specification plus finite conformance; bytecode refinement remains pending"

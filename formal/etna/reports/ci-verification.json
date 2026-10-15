@@ -1,0 +1,360 @@
+{
+  "schema_version": 1,
+  "task": 7,
+  "scope": "local acceptance of CI implementation; hosted Linux source-tool build and full workflow pending",
+  "verification_overlay": {
+    "parent_revision": "62f1080e56293068ac7de97be78b2072d809e7f4",
+    "identity": "parent plus exact checked working-tree files; final commit is in task-7-report.md"
+  },
+  "upstream_client": "2af0f30485b9990eae87074037bede11c59e8883",
+  "paired_protocol": "27777e9d7147e7b1d3543711f4d7370a0377fa53",
+  "kernel_audit": {
+    "theorems": 204,
+    "exact_rust_functions": 17,
+    "pending": [
+      "GUEST-SOUNDNESS",
+      "SOLIDITY-BYTECODE-REFINEMENT",
+      "TIME-RULE-REFINEMENT"
+    ],
+    "schema_version": 1,
+    "kernel_audit": true,
+    "upstream_client": "2af0f30485b9990eae87074037bede11c59e8883",
+    "paired_protocol": "27777e9d7147e7b1d3543711f4d7370a0377fa53",
+    "verification_overlay": "62f1080e56293068ac7de97be78b2072d809e7f4",
+    "ledger_sha256": "b04c4b7487a450ac60ac7043f4768028a07d5c0b9f5b1e08bfdf10fa06d78d8f",
+    "contract_sources_abi_layout_bytecode": "verified against actual paired artifacts",
+    "solidity_bridge": "specification plus finite conformance; bytecode refinement remains pending"
+  },
+  "fresh_extraction": {
+    "aeneas": {
+      "revision": "673f9e30e1e2a81b355df9a9550168e672a10d4e",
+      "binary_sha256": "332d9a6213558a788dc0731db56dde711d68b020487aa7fa44470dccfb12eb48"
+    },
+    "charon": {
+      "revision": "a5276d59516b6e7dc519441e244399ab8d429107",
+      "binary_sha256": "6d1814f199db53c5b3211483b17dc43f13520589c3566fee12e49ec2c1eaf0d9"
+    },
+    "submodules": "c0b555e5b15accc6c1366b1d911a1bfd49c3d9d0 crates/minirust (remotes/origin/bump-toolchain)",
+    "verification_sha": "62f1080e56293068ac7de97be78b2072d809e7f4",
+    "host": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+    "compiler": "rustc 1.100.0-nightly (923c95cdf 2026-09-16)\nbinary: rustc\ncommit-hash: 923c95cdf5ba65cea505aa2ea829f578e1506ed8\ncommit-date: 2026-09-16\nhost: aarch64-apple-darwin\nrelease: 1.100.0-nightly\nLLVM version: 23.1.1",
+    "production_compiler": "rustc 1.95.0 (59807616e 2026-04-14)\nbinary: rustc\ncommit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860\ncommit-date: 2026-04-14\nhost: aarch64-apple-darwin\nrelease: 1.95.0\nLLVM version: 22.1.2",
+    "generated": {
+      "EtnaConsensusCore.lean": "de74fbf200f60c99a050a40f9fa76f7ab6285bdbac55591e59a3aafd3e187096",
+      "provenance.json": "1167caaf30f7b2d31bbc5c48c1d5d510b4cacaeb65c5909f07a6032397159eb0"
+    },
+    "normalization": "none; exact complete file-set and byte comparison"
+  },
+  "unified_cli": {
+    "seed": 20261015,
+    "fresh_execution": true,
+    "landing": {
+      "schema_version": 1,
+      "cases": 56,
+      "actual_preimages": 30,
+      "failures": [],
+      "specification": "Lean executable staged model",
+      "bridge": "actual production Inbox/proxy conformance; bytecode refinement pending",
+      "crypto": "cast Keccak oracle; local hash separation required for binding proofs",
+      "observations": "committed business state plus separately recorded tentative effects",
+      "rust_statement_rows": 56,
+      "cuts": {
+        "plans": 4,
+        "intervals": 12,
+        "failures": [],
+        "boundary": "finite actual contract samples; arbitrary-cut theorem is separate; accepting verifier is not guest soundness"
+      },
+      "corpus_sha256": "b92877e89a4c5fc69a177499e5d97f5ddf0c83fbb80e2bd9b657df959247b72c",
+      "observations_sha256": "965b811c016d240140f176c526d0eb0030485debf5714088c1cb2209715200e8"
+    },
+    "seeded_cases_per_domain": 256,
+    "logs": {
+      "fi-seeded.log": "1311c4d871a6b581d77c4470be621a09d94d381dde1efc6e89bb346036af53c3",
+      "landing.log": "70b91ff2497ee709f1b989cd257040baaf9ac1e2e979d0309e295228ed30b793",
+      "committee-seeded.log": "4bc257f3ef741041f4c713b39cbd1de2baab6d4a257787b5d20f5a548d40d0a9",
+      "committee-fixed.log": "d1642ac6049562e2b5bc1fc2931bbab56a3b172c6fa6afe8619981753417de69",
+      "observations.log": "339a96efeec70b98119096f1a4699af8f5f5ab3d7ee9187158fece9b9997eca3",
+      "fi-fixed.log": "b37e9501943e4dc97eeb315869fce80044b52473b5f1b3e08072d42a84c4720a"
+    }
+  },
+  "solidity_mutations": {
+    "protocol": "27777e9d7147e7b1d3543711f4d7370a0377fa53",
+    "mutations": [
+      {
+        "mutation": "recipient-omission",
+        "obligation": "LAND-03",
+        "expected_failure": "[FAIL: normal: real statement bytes:",
+        "command": [
+          "forge",
+          "test",
+          "--no-cache",
+          "--extra-output",
+          "storageLayout",
+          "--match-path",
+          "test/layer1/etna/EtnaInboxLeanConformance.t.sol",
+          "--match-test",
+          "test_land_LeanCorpus",
+          "-vvv"
+        ],
+        "exit": 1,
+        "source_sha256": "a95150b4a46d568019ec60f54685458a97befb65db3d0341e44a77d4b578236f",
+        "log_sha256": "6fa96cc768819c83be3a97ff4989ff63c888e28918a1a50e85139c61244bb8df",
+        "outcome": "semantic-kill",
+        "source_restored": true,
+        "observed_failure_lines": [
+          "[FAIL: normal: real statement bytes: 0x5441494b4f5f45544e415f4c414e445f563600000000000000000000000000000000000000000000000000000000000000000000000000000000000000007a690000000000000000000000000000000000000000000000000000000000028c59000000000000000000000000a4ad4f68d0b91cfd19687c881e50f3a00242828c000000000000000000000000f62849f9a0b5bf2913b396098f7c7019b51a820a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a228e5fad9f24170176575f7de453cce93397913c9f4ee900066877b396721c880299a8393ad39db9a1177e512a55cf79805999963c712ff6a92158dbb29de0a5000000000000000000000000000000000000000000000000000000000000000d000000000000000000000000000000000000000000000000000000000000012300000000000000000000000000000000000000000000000000000000000004560000000000000000000000000000000000000000000000000000000000004e1f0000000000000000000000000000000000000000000000000000000000000abce90b7bceb6e7df5418fb78d8ee546e97c83a08bbccc01a0644d599ccd2a7c2e0000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000 != 0x5441494b4f5f45544e415f4c414e445f563600000000000000000000000000000000000000000000000000000000000000000000000000000000000000007a690000000000000000000000000000000000000000000000000000000000028c59000000000000000000000000a4ad4f68d0b91cfd19687c881e50f3a00242828c000000000000000000000000f62849f9a0b5bf2913b396098f7c7019b51a820a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a228e5fad9f24170176575f7de453cce93397913c9f4ee900066877b396721c880299a8393ad39db9a1177e512a55cf79805999963c712ff6a92158dbb29de0a5000000000000000000000000000000000000000000000000000000000000000d000000000000000000000000000000000000000000000000000000000000012300000000000000000000000000000000000000000000000000000000000004560000000000000000000000000000000000000000000000000000000000004e1f0000000000000000000000000000000000000000000000000000000000000abce90b7bceb6e7df5418fb78d8ee546e97c83a08bbccc01a0644d599ccd2a7c2e000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000beef] test_land_LeanCorpus() (gas: 104015)",
+          "[FAIL: normal: real statement bytes: 0x5441494b4f5f45544e415f4c414e445f563600000000000000000000000000000000000000000000000000000000000000000000000000000000000000007a690000000000000000000000000000000000000000000000000000000000028c59000000000000000000000000a4ad4f68d0b91cfd19687c881e50f3a00242828c000000000000000000000000f62849f9a0b5bf2913b396098f7c7019b51a820a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a228e5fad9f24170176575f7de453cce93397913c9f4ee900066877b396721c880299a8393ad39db9a1177e512a55cf79805999963c712ff6a92158dbb29de0a5000000000000000000000000000000000000000000000000000000000000000d000000000000000000000000000000000000000000000000000000000000012300000000000000000000000000000000000000000000000000000000000004560000000000000000000000000000000000000000000000000000000000004e1f0000000000000000000000000000000000000000000000000000000000000abce90b7bceb6e7df5418fb78d8ee546e97c83a08bbccc01a0644d599ccd2a7c2e0000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000 != 0x5441494b4f5f45544e415f4c414e445f563600000000000000000000000000000000000000000000000000000000000000000000000000000000000000007a690000000000000000000000000000000000000000000000000000000000028c59000000000000000000000000a4ad4f68d0b91cfd19687c881e50f3a00242828c000000000000000000000000f62849f9a0b5bf2913b396098f7c7019b51a820a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a228e5fad9f24170176575f7de453cce93397913c9f4ee900066877b396721c880299a8393ad39db9a1177e512a55cf79805999963c712ff6a92158dbb29de0a5000000000000000000000000000000000000000000000000000000000000000d000000000000000000000000000000000000000000000000000000000000012300000000000000000000000000000000000000000000000000000000000004560000000000000000000000000000000000000000000000000000000000004e1f0000000000000000000000000000000000000000000000000000000000000abce90b7bceb6e7df5418fb78d8ee546e97c83a08bbccc01a0644d599ccd2a7c2e000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000beef] test_land_LeanCorpus() (gas: 104015)"
+        ]
+      },
+      {
+        "mutation": "head-tail-bound",
+        "obligation": "LAND-01",
+        "expected_failure": "[FAIL: successful head tail bound: 6 > 5]",
+        "command": [
+          "forge",
+          "test",
+          "--no-cache",
+          "--extra-output",
+          "storageLayout",
+          "--match-path",
+          "test/layer1/etna/EtnaInboxLeanConformance.t.sol",
+          "--match-test",
+          "test_land_LeanCorpus",
+          "-vvv"
+        ],
+        "exit": 1,
+        "source_sha256": "8daa12892c246aa24446a07ef179f260d27818742d0ce68ea95a9170bd2e2c0d",
+        "log_sha256": "9e536802697baab2d6ee3074c40dc7009dbcf6bd85130da6a9e7856582f21692",
+        "outcome": "semantic-kill",
+        "source_restored": true,
+        "observed_failure_lines": [
+          "[FAIL: successful head tail bound: 6 > 5] test_land_LeanCorpus() (gas: 679933)",
+          "[FAIL: successful head tail bound: 6 > 5] test_land_LeanCorpus() (gas: 679933)"
+        ]
+      },
+      {
+        "mutation": "fee-interval",
+        "obligation": "LAND-02",
+        "expected_failure": "[FAIL: actual consumed interval/fee:",
+        "command": [
+          "forge",
+          "test",
+          "--no-cache",
+          "--extra-output",
+          "storageLayout",
+          "--match-path",
+          "test/layer1/etna/EtnaInboxLeanConformance.t.sol",
+          "--match-test",
+          "test_land_LeanCorpus",
+          "-vvv"
+        ],
+        "exit": 1,
+        "source_sha256": "9c7e858ef73fc4481c6d723a06a30dd59b500b82cc954b0fd2ea9c6003a82f40",
+        "log_sha256": "213dfc481010f5e7f52d8f9b9a4e786be68fee03e05c005ba193b4eb319f5c86",
+        "outcome": "semantic-kill",
+        "source_restored": true,
+        "observed_failure_lines": [
+          "[FAIL: actual consumed interval/fee: 0x00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000028fa6ae00 != 0x000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000430e23400] test_land_LeanCorpus() (gas: 103938)",
+          "[FAIL: actual consumed interval/fee: 0x00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000028fa6ae00 != 0x000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000430e23400] test_land_LeanCorpus() (gas: 103938)"
+        ]
+      },
+      {
+        "mutation": "verifier-bypass",
+        "obligation": "LAND-04",
+        "expected_failure": "[FAIL: successful land requires normal verifier return]",
+        "command": [
+          "forge",
+          "test",
+          "--no-cache",
+          "--extra-output",
+          "storageLayout",
+          "--match-path",
+          "test/layer1/etna/EtnaInboxLeanConformance.t.sol",
+          "--match-test",
+          "test_land_LeanCorpus",
+          "-vvv"
+        ],
+        "exit": 1,
+        "source_sha256": "8b50cf56b0cc4b246d66af360c1813be6201366a9c108a957c89cd16cf6bd420",
+        "log_sha256": "151f43db267b589d181fc5ee96580eabd11d5cc46b8d77f0480e44950c4eb6c1",
+        "outcome": "semantic-kill",
+        "source_restored": true,
+        "observed_failure_lines": [
+          "[FAIL: successful land requires normal verifier return] test_land_LeanCorpus() (gas: 1856367)",
+          "[FAIL: successful land requires normal verifier return] test_land_LeanCorpus() (gas: 1856367)"
+        ]
+      }
+    ]
+  },
+  "native": {
+    "finalize_module": {
+      "passed": 46,
+      "failed": 0
+    },
+    "extended_traces": [
+      {
+        "epochs": 12,
+        "heights": 50,
+        "switches": 12,
+        "crashes": 24,
+        "passed": true
+      },
+      {
+        "epochs": 24,
+        "heights": 98,
+        "switches": 24,
+        "crashes": 48,
+        "passed": true
+      },
+      {
+        "epochs": 48,
+        "heights": 194,
+        "switches": 48,
+        "crashes": 96,
+        "passed": true
+      }
+    ],
+    "zero_epoch_scope": "actually rejected by bounded native helper",
+    "clippy": "abci all targets/all features passed"
+  },
+  "python": {
+    "full_suite": {
+      "passed": 84,
+      "failed": 0,
+      "seconds": 127.689
+    },
+    "final_focused_ci_suite": {
+      "passed": 14,
+      "failed": 0
+    },
+    "note": "two additional CI tests added after full suite; final focused suite covers them"
+  },
+  "trigger_simulations": [
+    "proof",
+    "production-wrapper-only",
+    "fixture-toolchain-workflow-only",
+    "unrelated",
+    "draft",
+    "both-upstream-head-races"
+  ],
+  "seeds": [
+    {
+      "bridge": "conformance-tested",
+      "cases": 256,
+      "lean": "pass",
+      "production_rust": "pass",
+      "rust_compiler": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "rust_toolchain": "1.95",
+      "sha256": "bae385aa4e50b1d8502c075a20f9cee1f8b08bc9f9622ee7460f4bc9d790adfc"
+    },
+    {
+      "bridge": "conformance-tested",
+      "cases": 256,
+      "lean": "pass",
+      "production_rust": "pass",
+      "rust_compiler": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "rust_toolchain": "1.95",
+      "sha256": "351532ad0c54b5a6cf6e4743bbbdf51ea9554d3613285c52f8bf5e2c06606487"
+    },
+    {
+      "bridge": "conformance-tested",
+      "cases": 256,
+      "lean": "pass",
+      "production_rust": "pass",
+      "rust_compiler": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "rust_toolchain": "1.95",
+      "sha256": "1bda21e8da9b797cdb1d1a7dacd25aec6576195c40a4f181b17c9dd48fa95f03"
+    },
+    {
+      "bridge": "conformance-tested",
+      "cases": 256,
+      "lean": "pass",
+      "production_rust": "pass",
+      "rust_compiler": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "rust_toolchain": "1.95",
+      "sha256": "3f5b0ea5756239394d3714fc88af6a84bb2fe046ad0be98543dd55bf8b99c2b6"
+    },
+    {
+      "bridge": "conformance-tested",
+      "cases": 256,
+      "lean": "pass",
+      "production_rust": "pass",
+      "rust_compiler": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "rust_toolchain": "1.95",
+      "sha256": "c36f8adae6c9854fc77cebe10f68e79227ed9773ad0c4873b16d3bf5586c9370"
+    },
+    {
+      "bridge": "conformance-tested",
+      "cases": 256,
+      "lean": "pass",
+      "production_rust": "pass",
+      "rust_compiler": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "rust_toolchain": "1.95",
+      "sha256": "ef91d56e5ed36ded85b4db3ebc12e1aa189ef0ed19d3ae194d4709a557379a24"
+    },
+    {
+      "bridge": "conformance-tested",
+      "cases": 256,
+      "lean": "pass",
+      "production_rust": "pass",
+      "rust_compiler": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "rust_toolchain": "1.95",
+      "sha256": "77737a975ddcaa7fc0cad5242864af8ec983d8c69b5069cc444c1080cabe6f09"
+    },
+    {
+      "bridge": "conformance-tested",
+      "cases": 256,
+      "lean": "pass",
+      "production_rust": "pass",
+      "rust_compiler": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "rust_toolchain": "1.95",
+      "sha256": "b1b0ddf164ab71be3b2f31a658f2933ee6339b4b1a5e5e3ae0ffa16d24ddf6b5"
+    }
+  ],
+  "linux_asset_smoke": {
+    "platform": "linux/amd64 in Docker on macOS; not a hosted Actions run",
+    "image": "ubuntu@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55",
+    "opam": "2.6.1",
+    "elan_init": "4.1.2",
+    "available_memory": "7.7GiB",
+    "full_opam_import_charon_aeneas_compilation": "not attempted; pending hosted acceptance"
+  },
+  "resources": {
+    "fresh_macos_tool_smoke_and_production_extraction": "7.5GiB scratch",
+    "native_shared_target_prior_observation": "about54GB; not a Linux prediction"
+  },
+  "static_checks": [
+    "actionlint passed",
+    "bash -n bootstrap passed",
+    "Python py_compile passed",
+    "git diff --check passed"
+  ],
+  "qualifications": [
+    "First mutator baseline failed at missing optional storageLayout before any mutants; fixed explicit output and semantic layout projection, then four actual kills and canonical restoration passed.",
+    "Initial unified CLI tester invocation had an incorrect local cache path and was interrupted; no final verdict assigned. Corrected fresh output is the accepted run. Controller removed only the accidental new cache hierarchy; shared cache preserved.",
+    "Local source-pinned extraction initially rejected the local Charon bin symlink; acceptance now resolves only the prescribed executable inside its pinned source root. CI builds regular executables at that prescribed path.",
+    "Inherited diagnostics and LEAK qualifications remain in ci-acceptance.md.",
+    "Guest, time rules and exact Solidity runtime/proxy refinement remain pending; funds release gate rejects them."
+  ],
+  "checked_script_sha256": {
+    "formal/etna/scripts/audit_proofs.py": "58824ac5b98a3dcc0ea8f7894a3535d3e45faacddc2a301718824b8f9c86308b",
+    "formal/etna/scripts/bootstrap_ci.sh": "f865686806582645a69e33dac5329487da9f2d002a61e265b5a2d4216e917ba6",
+    "formal/etna/scripts/check_coverage.py": "b76442030954733980181881adc3ba2c734e0c6e2ae5dd2097cb8a3a7c290a3d",
+    "formal/etna/scripts/check_provenance.py": "8ea5d859e4359aca64130fed6650980083843837fa463e3e9342e7fa6f083504",
+    "formal/etna/scripts/check_toolchain.py": "adf673d7b2bb1ec7187acf22f85809276470364e28f0d8b13715a9ae889523a9",
+    "formal/etna/scripts/ci_gate.py": "f57a8ea12c4ab40552bf3672d7ea015418878afe4fa40c5b9b5595c65840491b",
+    "formal/etna/scripts/committee_conformance.py": "5b08202896934b67c03a1e6e67fe494863fab5d930ed7add2543e8d863de5a01",
+    "formal/etna/scripts/committee_mutations.py": "058a242f8e289c7b51afee7a8b2e5343d55ad0c6f0b14b4e6ea74970456eeef8",
+    "formal/etna/scripts/extract_rust_core.py": "0f9a881e0ef67f846b3c4460e7b0938182fe663d62322ab396a183a50f75858b",
+    "formal/etna/scripts/fi_conformance.py": "dc6db26badd928e84d1faa8bd93233a52c49e61a8dd22e5476e7215fed335846",
+    "formal/etna/scripts/fi_mutations.py": "8ac2af7c9c956948b4db60ad49ba487409bdeeb989ef99cbb966d6302275d368",
+    "formal/etna/scripts/landing_conformance.py": "820dc14bead0e05dc60e7cc82cc172cc3770877fc0b02406198a570018f1a06a",
+    "formal/etna/scripts/landing_mutant_specs.py": "e3228df5aec240987dcd6a0522581ae9f741820d2e50e8bc60696c85685e285b",
+    "formal/etna/scripts/landing_mutations.py": "d4e91055c72d38b896d3b64018652cd1e38571cfe982e1b01fbe5acb1c33da75",
+    "formal/etna/scripts/nightly.py": "f88139341bbb97f8bd8195d27c6fe9bb7c0399fe2092a82945f7fa09659a4043",
+    "formal/etna/scripts/prepare_pair.py": "ef33648dcf491dba5988478b0cbfc000c7fcaf32d0d3b934722e9978d0d03aee",
+    "formal/etna/scripts/run_conformance.py": "4ba03228b190188e718fea970ce7b9531ba2ec4290a9b1488b9f6fe6c92babe4",
+    "formal/etna/scripts/solidity_inventory.py": "19eed0fa8f1a963b13a5f8908ff27cfbfdfa369373a36f7579d8db83548863bb",
+    "formal/etna/scripts/toolchain_smoke.sh": "f61c2e2038260614b3657ce7739bccfeec83604602ba2d4db9cf3f45f67601ff"
+  }
+}

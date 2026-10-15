@@ -1,6 +1,6 @@
 # Etna Lean 4 Verification Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox syntax for tracking. This document is a plan for review, not authorization to commit, push, or deploy.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox syntax for tracking. This records the approved implementation plan. Tasks 1–6 are implemented and accepted; Task 7 now supplies CI and local/static acceptance, with a fresh hosted Linux run pending publication. Task 8 and real guest/time-rule obligations remain pending. The user separately authorized this follow-up branch and commit/PR workflow; deployment is not part of this task.
 
 **Goal:** 为 FI、委员会切换和 land() 交付 Lean 4 定理、与真实实现的对应检查及配对 CI，并精确报告实现证明的覆盖边界。
 
@@ -164,3 +164,7 @@ F 必须先提供给两条分支，避免复制公共规格；C/P 各自可评�
 ## 本次交付的检查
 
 只新增本设计与计划两份文档。已核对两 PR revision、生产关键调用点、编译配置和官方工具的版本/限制；本机 elan 未配置默认 toolchain。本轮未安装工具、未执行 Lean 证明、未运行协议/客户端测试、未修改工作流或运行时代码，也未提交或推送。
+
+## Current delivery status (Task 7)
+
+The paired CI implementation is in `formal/etna/scripts` and `.github/workflows/etna--formal.yml`; exact acceptance and pending hosted-Linux evidence are in `formal/etna/reports/ci-acceptance.md`. Current upstream pins supersede the original historical baselines above. The current verification event SHA supplies the formal and runtime overlay and is emitted at run time, rather than self-pinned in tracked source. Tasks 1–6 retain 204 audited declarations/17 actual extracted Rust refinements and the 56/30/56 + 4-cut/12-interval real conformance interface. Task 7's stable gate, additional nightly execution and fail-closed release boundary are implemented; no globally unavailable ruleset was imposed. Adoption is explicitly post-default-branch merge. Task 8 and guest/clock semantics are not complete.

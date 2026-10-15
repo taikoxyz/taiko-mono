@@ -1253,7 +1253,7 @@ fn short_epochs() -> Fixture {
     Fixture::build(spec)
 }
 
-/// Drives `PrepareProposal → ProcessProposal → FinalizeBlock → Commit` for `2 L + 2` heights
+/// Drives `PrepareProposal → ProcessProposal → FinalizeBlock → Commit` for `3 L + 2` heights
 /// from `H_0` on a [`short_epochs`] fixture; returns the app and every decided height's
 /// `FinalizeBlock` request and response.
 ///
@@ -1266,6 +1266,16 @@ async fn multi_epoch_run(
     fx: &Fixture,
     dir: &Path,
 ) -> (App<MockL1, MockEngine>, Vec<(request::FinalizeBlock, response::FinalizeBlock)>) {
+    multi_epoch_run_for(fx, dir, 3).await
+}
+
+/// Execute a bounded number of full production switch epochs for nightly crash replay.
+async fn multi_epoch_run_for(
+    fx: &Fixture,
+    dir: &Path,
+    epochs: u64,
+) -> (App<MockL1, MockEngine>, Vec<(request::FinalizeBlock, response::FinalizeBlock)>) {
+    assert!((3..=128).contains(&epochs), "trace epochs must be in 3..=128");
     let mut app = initialized(fx, dir).await;
     let (h0, l1_0) = (app.state().unwrap().schedule().h0(), fx.genesis.l1_0);
     let joined = RegistryStorage {
@@ -1275,7 +1285,7 @@ async fn multi_epoch_run(
         ],
     };
     let mut decided = vec![];
-    for k in 0..3 * fx.genesis.epoch_len + 2 {
+    for k in 0..epochs * fx.genesis.epoch_len + 2 {
         if k > 0 {
             let state = app.state().unwrap();
             let mut inbox = fx.inbox_with(state.last_height);
@@ -1437,7 +1447,10 @@ async fn finalize_is_deterministic_across_fresh_apps() {
 async fn switch_replay_survives_crashes_before_and_after_commit() {
     let fx = short_epochs();
     let source_dir = tempfile::tempdir().unwrap();
-    let (source, decided) = multi_epoch_run(&fx, source_dir.path()).await;
+    let epochs = std::env::var("ETNA_TRACE_EPOCHS")
+        .map(|value| value.parse::<u64>().expect("ETNA_TRACE_EPOCHS must be an integer"))
+        .unwrap_or(3);
+    let (source, decided) = multi_epoch_run_for(&fx, source_dir.path(), epochs).await;
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     share_l1_chain(source.l1(), app.l1());
@@ -1506,7 +1519,13 @@ async fn switch_replay_survives_crashes_before_and_after_commit() {
             assert_eq!(app.engine().state().chain[&pending.last_height].hash_slow(), hash);
         }
     }
-    assert_eq!(switches, [1, 2, 3]);
+    assert_eq!(switches, (1..=epochs).collect::<Vec<_>>());
+    println!(
+        "ETNA_TRACE epochs={epochs} heights={} switches={} crashes={}",
+        decided.len(),
+        switches.len(),
+        switches.len() * 2
+    );
 }
 
 #[tokio::test]

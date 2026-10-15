@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Exact-revision Etna formal run report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "verification_sha",
+    "status",
+    "jobs",
+    "release_obligations"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "verification_sha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "status": { "enum": ["passed", "not-applicable"] },
+    "jobs": { "type": "object" },
+    "proof_levels": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": ["spec-proved", "rust-refinement-proved"]
+      }
+    },
+    "release_obligations": {
+      "type": "object",
+      "required": [
+        "GUEST-SOUNDNESS",
+        "TIME-RULE-REFINEMENT",
+        "SOLIDITY-BYTECODE-REFINEMENT"
+      ],
+      "additionalProperties": { "enum": ["pending", "implementation-proved"] }
+    }
+  }
+}

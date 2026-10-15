@@ -127,7 +127,7 @@ the facts hold; protocol theorems must accept and use the precise required facts
 
 `Etna/Refinement/Rust/Forced.lean` proves exact total output equalities for all six **actual generated production functions**: pending-entry, preimage, due, classify, resolve and cursor advance. Each result is outer `Aeneas.Std.Result.ok`, preserving Rust's inner `Ok`/`Err` and payloads, including maximum-u64 overflow. These are total proofs, with no partial-WP divergence escape. The pinned compiler/Charon/Aeneas translation and Aeneas standard models remain the extraction trust boundary. No byte parser, MPT, Keccak, async Engine, ABCI handler, storage or Solidity implementation proof is claimed.
 
-`manifests/client.json` records full theorem types, explicit assumptions and source boundaries. `scripts/audit_proofs.py` verifies the actual theorem type, transitive axioms, generated-function equality shape, source symbol and source/generated/toolchain provenance. The pinned producer schema and exact mandatory tool/source/Cargo/generated key sets are required before checking values, so empty or truncated maps cannot bypass checks. Only `propext`, `Classical.choice` and `Quot.sound` are permitted. The file is additive: committee obligations remain pending.
+`manifests/client.json` records full theorem types, explicit assumptions and source boundaries. `scripts/audit_proofs.py` verifies the actual theorem type, transitive axioms, generated-function equality shape, source symbol and source/generated/toolchain provenance. The pinned producer schema and exact mandatory tool/source/Cargo/generated key sets are required before checking values, so empty or truncated maps cannot bypass checks. Only `propext`, `Classical.choice` and `Quot.sound` are permitted. The manifest includes the accepted FI and committee obligations; whole-application and external bridge obligations remain distinct.
 
 Run `python3 scripts/fi_conformance.py` to compare the fixed 94-case JSONL corpus with the independent Lean model and actual Rust reducer source. The corpus preserves the original 60 authenticated-classifier goldens and adds witness, boundary, resolution and overflow cases. Actual Process/Finalize/Commit/reopen, cancellation, missing history, wrong headers and stale checked-cache fields are covered separately by Rust adapter tests; this is conformance evidence, not formal refinement.
 
@@ -271,3 +271,18 @@ hand-edit generated output. Task6 changed neither production runtime nor generat
 artifacts, so their original provenance remains valid and the generators were not rerun.
 The upstream client pin, paired protocol pin and tested verification overlay/digests
 are retained separately. CI wiring is deferred to Task7.
+
+## Paired PR, nightly and release checks
+
+The first-phase implementation now includes `.github/workflows/etna--formal.yml` and self-contained bootstrap, pair ownership/provenance, seeded conformance, nightly mutation and release-boundary scripts. The stable `Etna formal gate` also appears for Draft and unrelated PRs. See [CI acceptance and rollout](reports/ci-acceptance.md) for exact trigger simulations, proof-review requirements, runner budgets, current Linux limitations and post-default-branch ruleset adoption.
+
+With the pinned toolchain/dependencies installed and an immutable protocol checkout:
+
+```sh
+python3 formal/etna/scripts/run_conformance.py --scope paired --seed 20261015 \
+  --protocol /path/to/protocol-checkout/packages/protocol --output /fresh/run-directory
+```
+
+This invokes real Lean, Rust 1.95 and Foundry adapters. Local protocol test execution uses the required repository Solidity tester; CI is ordinary deterministic automation. Fresh extraction uses `check_provenance.py --output /fresh/extraction-directory` with the source-built pinned tools; output must match committed Lean and provenance exactly. No historical report counts as a new run. The hosted Linux tool-build/extraction acceptance is still pending; local/static checks do not claim that run passed.
+
+Task 8 remains pending. [Concrete EVM feasibility](reports/solidity-refinement-feasibility.md) preserves immutable source/line evidence and explicit no-build/no-proof-attempt qualification. [Configuration design findings](reports/configuration-boundaries.md) preserve exact helper/kernel evidence without claiming a synthetic-genesis integration test. Funds release remains blocked by genuine guest, clock/header rules and exact bytecode/proxy refinement obligations.

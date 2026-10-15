@@ -49,7 +49,7 @@ OWNED_STAGE_PATHS = {
 IGNORED_ROOTS = {'out', 'cache', 'node_modules', '.git'}
 
 
-def pinned_inputs(protocol):
+def pinned_inputs(protocol, expected_mutant=None):
     """Authenticate source/config/helper/fixture bytes and index against the pinned tree.
 
     Client-package overlays are outside this immutable protocol dependency. Installed
@@ -60,6 +60,12 @@ def pinned_inputs(protocol):
                  {'FOUNDRY_PROFILE', 'FOUNDRY_DISABLE_NIGHTLY_WARNING'}]
     if overrides:
         raise ValueError('unexpected compilation environment override: '+', '.join(sorted(overrides)))
+    mutation = None
+    if expected_mutant is not None:
+        from landing_mutant_specs import MUTANTS, expected_bytes
+        if expected_mutant not in MUTANTS:
+            raise ValueError('unknown expected mutant')
+        mutation = MUTANTS[expected_mutant]
     protocol = protocol.resolve()
     repo = Path(run(['git','rev-parse','--show-toplevel'], protocol).strip())
     relative = protocol.relative_to(repo).as_posix()
@@ -104,6 +110,13 @@ def pinned_inputs(protocol):
             if bool(path.stat().st_mode & 0o111) != (mode == '100755'):
                 raise ValueError('pinned input mode changed: '+name)
             actual = run(['git','hash-object','--no-filters','--',str(path)], repo).strip()
+        if mutation is not None and name == relative+'/'+mutation[0]:
+            original = subprocess.check_output(['git','show',PIN+':'+name],cwd=repo)
+            mutated = expected_bytes(expected_mutant, original)
+            if path.read_bytes() != mutated:
+                raise ValueError('worktree differs from exact expected mutant: '+name)
+            oid = subprocess.check_output(['git','hash-object','--stdin'], input=mutated,
+                                          cwd=repo).decode().strip()
         if actual != oid:
             raise ValueError('worktree differs from pinned compilation input: '+name)
     # Include ignored sources/config: git status alone misses these. Walk only the
@@ -134,7 +147,7 @@ def pinned_inputs(protocol):
 
 
 @contextlib.contextmanager
-def staged(protocol, corpus):
+def staged(protocol, corpus, expected_mutant=None):
     """Restore exactly the previous owned adapter files, even on failure/interruption."""
     protocol = protocol.resolve()
     targets = {
@@ -144,7 +157,7 @@ def staged(protocol, corpus):
             (ROOT/'adapters/solidity/EtnaInboxLeanConformance.t.sol').read_bytes(),
         protocol/'test/layer1/etna/landing-corpus.json': json.dumps(corpus).encode(),
     }
-    pinned_inputs(protocol)  # Authenticate before writing any owned staging file.
+    pinned_inputs(protocol, expected_mutant)  # Authenticate before writing any owned staging file.
     for target in targets:
         # Reject special files before read_bytes: a FIFO would otherwise hang and a
         # directory is not an adapter. Parent links must not redirect staging writes.
@@ -173,7 +186,7 @@ def staged(protocol, corpus):
             raise RuntimeError('production Solidity/config changed during adapter run')
         if run(['git','rev-parse','HEAD'], protocol).strip() != head:
             raise RuntimeError('protocol dependency HEAD changed')
-        pinned_inputs(protocol)
+        pinned_inputs(protocol, expected_mutant)
 
 
 def solidity(protocol, corpus, output):
@@ -181,7 +194,7 @@ def solidity(protocol, corpus, output):
         env = os.environ | {'FOUNDRY_PROFILE':'layer1','ETNA_LANDING_CORPUS':str(path)}
         # Scoped lint can leave an ABI-only artifact that Forge otherwise treats as cached.
         # Bypass the compiler cache; never delete shared user artifacts.
-        cmd = ['forge','test','--no-cache','--match-path','test/layer1/etna/*Conformance.t.sol',
+        cmd = ['forge','test','--no-cache','--extra-output','storageLayout','--match-path','test/layer1/etna/*Conformance.t.sol',
                '--match-test','test_land_(LeanCorpus|ContiguousCuts)','-vvv']
         p = subprocess.run(cmd,cwd=protocol,env=env,text=True,capture_output=True)
         output.with_suffix('.log').write_text(p.stdout+p.stderr)

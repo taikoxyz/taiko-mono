@@ -1,6 +1,6 @@
 # Etna Lean 4 Verification Design
 
-本设计针对 FI、委员会切换和 `EtnaInbox.land()` 建立 Lean 4 证明与持续检查。第一阶段交付协议模型的机器检查证明、生产实现的对应关系检查和配对 CI；Rust 提取后的实现证明单独验收，Solidity 字节码证明也单独验收。三种结果不得统一标记成“生产代码已形式化验证”。本设计供评审，本轮不实施运行时代码或工作流。
+本设计针对 FI、委员会切换和 `EtnaInbox.land()` 建立 Lean 4 证明与持续检查。第一阶段交付协议模型的机器检查证明、生产实现的对应关系检查和配对 CI；Rust 提取后的实现证明单独验收，Solidity 字节码证明也单独验收。三种结果不得统一标记成“生产代码已形式化验证”。当前实现已完成 Tasks 1–7 的第一阶段代码与本地验证：204 个声明、17 个实际 Rust 函数 refinement、真实三方 conformance 与配对 CI。Linux hosted 验收等待发布后运行；Task 8、真实 guest 和 clock/header refinement 仍 pending。下文保留原设计基线，当前依赖为 client `2af0f30485b9990eae87074037bede11c59e8883` / protocol `27777e9d7147e7b1d3543711f4d7370a0377fa53`，verification revision 是当前 follow-up event head。
 
 ## 1. 源码基线与范围
 
