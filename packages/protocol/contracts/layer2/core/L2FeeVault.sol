@@ -21,6 +21,15 @@ import "./L2FeeVault_Layout.sol"; // DO NOT DELETE
 /// @custom:security-contact security@taiko.xyz
 contract L2FeeVault is EssentialContract {
     // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+
+    /// @notice The largest message gas limit a sweep accepts. A relayer on L1 must be able to
+    /// forward the requested gas, or the L1 Bridge rejects every relayed `processMessage` and the
+    /// message never leaves `NEW`.
+    uint32 public constant MAX_SWEEP_GAS_LIMIT = 3_000_000;
+
+    // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
 
@@ -91,8 +100,11 @@ contract L2FeeVault is EssentialContract {
     /// `abi.encode(nonce)` and makes the pool its `destOwner`, so only the pool can fail or
     /// finally retry it on L1, and unused fees are refunded to the pool. An empty vault sends no
     /// message, changes no state and returns zero; a relay fee is then rejected.
-    /// @param _gasLimit The gas limit of the message on L1; must be non-zero so that a relayer
-    /// can process it. The Bridge rejects a limit below its minimum for the message.
+    /// @param _gasLimit The gas limit of the message on L1, in `(0, MAX_SWEEP_GAS_LIMIT]`. A zero
+    /// limit lets only the pool process the message; a limit no relayer can forward under the
+    /// L1 transaction gas cap makes the Bridge reject every relayed attempt. Either way the
+    /// message would never leave `NEW`. The Bridge also rejects a limit below its minimum for the
+    /// message.
     /// @return msgHash_ The hash of the Bridge message, or zero for an empty vault.
     function sweep(uint32 _gasLimit) external payable nonReentrant returns (bytes32 msgHash_) {
         uint256 amount = address(this).balance - msg.value;
@@ -101,6 +113,7 @@ contract L2FeeVault is EssentialContract {
             return 0;
         }
         require(_gasLimit != 0, ZeroGasLimit());
+        require(_gasLimit <= MAX_SWEEP_GAS_LIMIT, GasLimitTooLarge());
         require(msg.value <= type(uint64).max, RelayFeeTooLarge());
 
         uint64 nonce = sweepNonce;
@@ -126,6 +139,7 @@ contract L2FeeVault is EssentialContract {
     // ---------------------------------------------------------------
 
     error EmptyVaultWithFee();
+    error GasLimitTooLarge();
     error RelayFeeTooLarge();
     error ZeroGasLimit();
 }

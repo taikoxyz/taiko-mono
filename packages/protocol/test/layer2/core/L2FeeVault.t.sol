@@ -207,6 +207,24 @@ contract L2FeeVaultTest is Layer2Test {
         vault.sweep(0);
     }
 
+    function test_sweep_RevertWhen_GasLimitExceedsTheCap() external onTaiko {
+        vm.deal(address(vault), 1 ether);
+        uint32 cap = vault.MAX_SWEEP_GAS_LIMIT();
+
+        vm.expectRevert(L2FeeVault.GasLimitTooLarge.selector);
+        vm.prank(Carol);
+        vault.sweep(cap + 1);
+
+        // The cap itself is accepted.
+        vm.recordLogs();
+        vm.prank(Carol);
+        vault.sweep(cap);
+        (, IBridge.Message memory message) = _messageSent(vm.getRecordedLogs());
+        assertEq(message.gasLimit, cap);
+        assertTrue(tBridge.isMessageSent(message));
+        assertEq(address(vault).balance, 0);
+    }
+
     function test_sweep_RevertWhen_GasLimitIsBelowTheBridgeMinimum() external onTaiko {
         vm.deal(address(vault), 1 ether);
         bytes memory data =
