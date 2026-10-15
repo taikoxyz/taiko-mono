@@ -7,6 +7,9 @@
 /packages/protocol/contracts/**/*Verifier*.sol @dantaik @davidtaikocha @smtmfft
 /packages/protocol/contracts/layer1/preconf/** @dantaik @davidtaikocha @smtmfft
 
+# Formal specification
+/packages/formal-spec/**        @dantaik @davidtaikocha @smtmfft
+
 # Client services
 /packages/taiko-client/**       @davidtaikocha @smtmfft
 /packages/taiko-client-rs/**    @davidtaikocha @smtmfft
