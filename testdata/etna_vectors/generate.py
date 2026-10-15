@@ -21,6 +21,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 OUTPUT = HERE / "vectors.json"
 
+U32_MAX = 2**32 - 1
 U64_MAX = 2**64 - 1
 WORD_MOD = 2**256
 
@@ -59,6 +60,15 @@ def dec(value):
     return str(value)
 
 
+def decimals(value):
+    """`value` with every integer, at any depth, as a decimal string."""
+    if isinstance(value, dict):
+        return {k: decimals(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [decimals(v) for v in value]
+    return value if isinstance(value, str) else dec(value)
+
+
 def committee_config():
     """The `ETNA_PARENT_ANCHOR_V2` configuration opening: eleven static words (352 bytes)."""
     inputs = {
@@ -95,10 +105,22 @@ def committee_config():
     }
 
 
+def participation_arg(parts):
+    """`cast abi-encode` argument text for an `EpochParticipation[]`."""
+    return "[" + ",".join(
+        f"({p['epoch']},{p['committee_hash']},[{','.join(map(str, p['signed_counts']))}])"
+        for p in parts
+    ) + "]"
+
+
 def land_statement(config_hash):
-    """The `TAIKO_ETNA_LAND_V6` landing statement: eighteen static words (576 bytes)."""
+    """The `TAIKO_ETNA_LAND_V7` landing statement: nineteen static words (608 bytes).
+
+    The last word is the participation hash, `keccak256(abi.encode(participation))` of the
+    `EpochParticipation[]` argument (leading offset word included).
+    """
     inputs = {
-        "tag": "TAIKO_ETNA_LAND_V6",
+        "tag": "TAIKO_ETNA_LAND_V7",
         "l1_chain_id": 1,
         "l2_chain_id": 167001,
         "inbox": "0x1111111111111111111111111111111111111111",
@@ -116,11 +138,17 @@ def land_statement(config_hash):
         "forced_inclusion_head_before": 3,
         "forced_inclusion_head_after": 5,
         "fee_recipient": "0x00000000000000000000000000000000000000aa",
+        "participation": [{"epoch": 16, "committee_hash": word(0x55), "signed_counts": [3, 0, 7]}],
     }
     blob_hashes_hash = keccak(concat(*inputs["blob_hashes"]))
+    participation_signature = "f((uint64,bytes32,uint32[])[])"
+    participation_encoding = abi_encode(
+        participation_signature, participation_arg(inputs["participation"])
+    )
+    participation_hash = keccak(participation_encoding)
     preimage = abi_encode(
         "f(bytes32,uint256,uint64,address,address,uint64,uint64,bytes32,bytes32,uint64,bytes32,"
-        "bytes32,uint64,bytes32,bytes32,uint48,uint48,address)",
+        "bytes32,uint64,bytes32,bytes32,uint48,uint48,address,bytes32)",
         tag(inputs["tag"]),
         inputs["l1_chain_id"],
         inputs["l2_chain_id"],
@@ -139,15 +167,47 @@ def land_statement(config_hash):
         inputs["forced_inclusion_head_before"],
         inputs["forced_inclusion_head_after"],
         inputs["fee_recipient"],
+        participation_hash,
     )
     return {
-        "inputs": {
-            k: v if isinstance(v, (str, list)) else dec(v) for k, v in inputs.items()
-        },
+        "inputs": decimals(inputs),
         "blob_hashes_hash": blob_hashes_hash,
+        "participation_encoding": participation_encoding,
+        "participation_hash": participation_hash,
+        "empty_participation_hash": keccak(abi_encode(participation_signature, "[]")),
         "preimage": preimage,
         "hash": keccak(preimage),
     }
+
+
+def committee_hashes():
+    """Three committees and their hashes, `keccak256(abi.encode(members))` of the
+    `CommitteeMember[]` argument (leading offset word included): the hash a participation part
+    binds and the reward pool checks a settlement list against. Two members in that order, one
+    member with every field at its maximum, and none.
+    """
+    committees = [
+        [(3, 11, 5 * 10**18), (0, 1, 1)],
+        [(U32_MAX, U64_MAX, WORD_MOD - 1)],
+        [],
+    ]
+    cases = []
+    for members in committees:
+        encoding = abi_encode(
+            "f((uint32,uint64,uint256)[])",
+            "[" + ",".join(f"({b},{a},{s})" for b, a, s in members) + "]",
+        )
+        cases.append(
+            {
+                "members": [
+                    {"bond_id": dec(b), "active_from_l1": dec(a), "eff_stake": dec(s)}
+                    for b, a, s in members
+                ],
+                "encoding": encoding,
+                "hash": keccak(encoding),
+            }
+        )
+    return cases
 
 
 def registry_entries():
@@ -311,6 +371,7 @@ def main():
         "schema_version": 1,
         "committee_config": config,
         "land_statement": land_statement(config["hash"]),
+        "committee_hashes": committee_hashes(),
         "registry_entries": registry_entries(),
         "layout": layout(),
     }

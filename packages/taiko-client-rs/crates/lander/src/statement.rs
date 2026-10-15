@@ -91,12 +91,13 @@ mod tests {
     };
     use alloy_primitives::{address, aliases::U48, b256};
 
-    /// The shared `land_statement` inputs (`testdata/etna_vectors`; the V5 inputs plus forced
-    /// inclusion heads 3 (stored) and 5 (input) and fee recipient `0x…aa`), whose configuration
-    /// hash is the shared `committee_config` vector, and one participation part: epoch 16,
-    /// committee hash `0x…55`, counts `[3, 0, 7]`.
+    /// The shared V7 `land_statement` vector (`testdata/etna_vectors`; the V5 inputs plus forced
+    /// inclusion heads 3 (stored) and 5 (input), fee recipient `0x…aa` and one participation
+    /// part: epoch 16, committee hash `0x…55`, counts `[3, 0, 7]`), whose configuration hash is
+    /// the shared `committee_config` vector.
     fn vector() -> (LandingSnapshot, LandInput, Vec<EpochParticipation>, B256, Vec<B256>) {
         let input = |name: &str| format!("/land_statement/inputs/{name}");
+        assert_eq!(vectors::str_at(&input("tag")), "TAIKO_ETNA_LAND_V7");
         let mut snapshot = request().batch.snapshot;
         snapshot.l1_chain_id = vectors::u256_at(&input("l1_chain_id"));
         snapshot.l2_chain_id = vectors::u64_at(&input("l2_chain_id"));
@@ -116,11 +117,7 @@ mod tests {
             forcedInclusionHead: U48::from(vectors::u64_at(&input("forced_inclusion_head_after"))),
             feeRecipient: vectors::address_at(&input("fee_recipient")),
         };
-        let parts = vec![EpochParticipation {
-            epoch: 16,
-            committeeHash: B256::from(U256::from(0x55)),
-            signedCounts: vec![3, 0, 7],
-        }];
+        let parts = vectors::participation_at(&input("participation"));
         (
             snapshot,
             land,
@@ -130,28 +127,32 @@ mod tests {
         )
     }
 
-    /// The vector the contracts pin (`test_hashLandStatement_MatchesTheV7Vector` in
-    /// `EtnaInboxLand.t.sol`), computed independently there with `cast abi-encode` and
-    /// `cast keccak` over the nineteen words and the participation array. Under the V6 domain
-    /// its first eighteen words are the shared V6 vector.
+    /// The shared V7 vector, which the contracts check with `EtnaInboxLand.t.sol` (both read
+    /// `testdata/etna_vectors`; `cast` computed it): the participation's encoding and hash, the
+    /// empty participation hash, the exact nineteen-word preimage and the hash.
     #[test]
     fn v7_vector_matches_solidity() {
         let (snapshot, input, parts, reference, hashes) = vector();
         assert_eq!(blob_hashes_hash(&hashes), vectors::b256_at("/land_statement/blob_hashes_hash"));
         assert_eq!(
+            parts.abi_encode(),
+            vectors::bytes_at("/land_statement/participation_encoding").to_vec()
+        );
+        assert_eq!(
             participation_hash(&parts),
-            b256!("c62a675c336fef9bf36145cc651d75a91dfd94fdd252f5ae7fe36c66e0db4d21")
+            vectors::b256_at("/land_statement/participation_hash")
         );
         assert_eq!(
             participation_hash(&[]),
-            b256!("569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd"),
+            vectors::b256_at("/land_statement/empty_participation_hash"),
             "keccak256(abi.encode(uint256(32), uint256(0)))"
         );
         let preimage = preimage(&snapshot, &input, &parts, reference, &hashes);
         assert_eq!(preimage.len(), 608);
+        assert_eq!(preimage.as_slice(), vectors::bytes_at("/land_statement/preimage").as_ref());
         assert_eq!(
             hash(&snapshot, &input, &parts, reference, &hashes),
-            b256!("5daa726c9fd7ef3d3e70eb787228cd9ebbf53ce00ba261714f7b0efd10c370ab")
+            vectors::b256_at("/land_statement/hash")
         );
         assert_eq!(&preimage[..18], b"TAIKO_ETNA_LAND_V7");
         assert_eq!(preimage[15 * 32..16 * 32], U256::from(3).to_be_bytes::<32>());
@@ -159,11 +160,13 @@ mod tests {
         assert_eq!(preimage[17 * 32..17 * 32 + 12], [0; 12]);
         assert_eq!(preimage[17 * 32 + 12..18 * 32], input.feeRecipient.0);
         assert_eq!(preimage[18 * 32..], participation_hash(&parts).0, "the appended last word");
-        // Under the V6 domain, the first eighteen words are the shared V6 vector.
+        // Under the V6 domain, the first eighteen words are the V6 vector of the same inputs.
         let mut v6 = preimage;
         v6[b"TAIKO_ETNA_LAND_V7".len() - 1] = b'6';
-        assert_eq!(&v6[..18 * 32], vectors::bytes_at("/land_statement/preimage").as_ref());
-        assert_eq!(keccak256(&v6[..18 * 32]), vectors::b256_at("/land_statement/hash"));
+        assert_eq!(
+            keccak256(&v6[..18 * 32]),
+            b256!("e4f69a2c2e4a504cafcb7a737cd9eb64b1f6523fafa82e606c568f410ba24ca6")
+        );
         // Under the V5 domain, the first fifteen words are the V5 encoding of the same inputs.
         let mut v5 = preimage;
         v5[b"TAIKO_ETNA_LAND_V7".len() - 1] = b'5';

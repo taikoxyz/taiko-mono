@@ -253,10 +253,13 @@ mod tests {
     use super::*;
     use crate::{
         error::LanderError,
-        test_utils::consensus::{committee, nil_vote, pair},
+        test_utils::{
+            consensus::{committee, nil_vote, pair},
+            vectors,
+        },
         validate::verify_commit,
     };
-    use alloy_primitives::{U256, b256};
+    use alloy_primitives::U256;
     use std::ops::RangeInclusive;
     use tendermint::block::CommitSig;
 
@@ -471,29 +474,31 @@ mod tests {
         assert!(build(&schedule, &params, 5, 5, &[], &committees).is_err(), "no progress");
     }
 
-    /// Pinned with `cast keccak $(cast abi-encode 'f((uint32,uint64,uint256)[])' '[…]')`: the
-    /// encoding of one dynamic array argument, leading offset word included.
+    /// The shared `committee_hashes` vectors (`testdata/etna_vectors`), which the reward pool
+    /// settles in `EtnaRewardPool.t.sol`: `cast abi-encode 'f((uint32,uint64,uint256)[])'`, the
+    /// encoding of one dynamic array argument, leading offset word included, and its hash. Two
+    /// members, one member with every field at its maximum, and none.
     #[test]
     fn committee_hash_matches_the_solidity_encoding() {
-        let member = |bond_id, active_from_l1, eff_stake| CommitteeMember {
-            bondId: bond_id,
-            activeFromL1: active_from_l1,
-            effStake: eff_stake,
-        };
-        let committee =
-            [member(3, 11, U256::from(5_000_000_000_000_000_000u64)), member(0, 1, U256::from(1))];
-        assert_eq!(
-            committee_hash(&committee),
-            b256!("c5d98d1cfa968f2527daf15aaad61595e64a2e1592a8c4e986d67580e1dc8dc4")
-        );
-        assert_eq!(
-            committee_hash(&[member(u32::MAX, u64::MAX, U256::MAX)]),
-            b256!("a4a34338a6b83143412cb16880595ab12ae5b35b7f703f869abdb88c4c4b23e0")
-        );
-        assert_eq!(
-            committee_hash(&[]),
-            b256!("569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd")
-        );
+        assert_eq!(vectors::len_at("/committee_hashes"), 3);
+        for k in 0..3 {
+            let case = format!("/committee_hashes/{k}");
+            let committee = vectors::committee_at(&format!("{case}/members"));
+            assert_eq!(
+                committee.abi_encode(),
+                vectors::bytes_at(&format!("{case}/encoding")).to_vec(),
+                "{case}"
+            );
+            assert_eq!(
+                committee_hash(&committee),
+                vectors::b256_at(&format!("{case}/hash")),
+                "{case}"
+            );
+        }
+        let committee = vectors::committee_at("/committee_hashes/0/members");
+        assert_eq!(committee.len(), 2);
+        assert_eq!(vectors::committee_at("/committee_hashes/1/members")[0].effStake, U256::MAX);
+        assert!(vectors::committee_at("/committee_hashes/2/members").is_empty());
         let reversed = [committee[1].clone(), committee[0].clone()];
         assert_ne!(committee_hash(&reversed), committee_hash(&committee), "order is bound");
     }
