@@ -43,6 +43,40 @@ and failed generation/compilation are errors. A successful smoke establishes too
 health only; production refinement stays pending until real production extraction
 and its refinement theorems pass. No handwritten function substitutes generated code.
 
+## Actual production Rust extraction
+
+`packages/taiko-client-rs/crates/etna-consensus-core` is the dependency-free, no_std,
+allocation-free authority used by both ABCI and lander. Its scalar rules cover
+forced inclusion presence/classification/resolution/cursor advancement, checked
+schedule arithmetic, committee mutation plans, and overflow-safe strict quorum.
+ABCI retains serialized schedule fields, rich skip bytes/cache equality, MPT and
+canonical decoding; engine completion and header checks stay in the adapter.
+Committee equality, validator update unions and signature checks remain there too.
+
+Regenerate directly from that actual production crate (no copied extraction helper):
+
+```sh
+AENEAS_ROOT=/path/to/pinned/aeneas CHARON_ROOT=/path/to/pinned/charon \
+AENEAS_EXE=/path/to/built/aeneas \
+  python3 scripts/extract_rust_core.py --compile
+lake build
+python3 scripts/audit_proofs.py
+```
+
+`Etna/Refinement/Rust/EtnaConsensusCore.lean` is generated without hand edits or
+source normalization and imported by the root package. `provenance.json` records
+all 17 Rust function roots and generated names, source digests, tool pins and the
+adapter fact boundary. Aeneas translates 18 transparent bodies (17 functions plus the byte-cap constant
+initializer) and eight opaque
+LLBC standard-library declarations resolved by its pinned backend models; there
+are zero unresolved generated axioms or opaque stubs. The extractor rejects such
+placeholders, missing roots and tool failures. Original fixture and captured
+behavior corpus provenance is in `reports/rust-behavior-baseline.json`.
+
+Generation and compilation establish a usable extracted implementation model.
+**Rust refinement theorems remain pending**; no FI or committee implementation
+correctness claim follows from extraction or tests alone.
+
 ## Solidity feasibility
 
 `reports/solidity-inventory.json` inventories the actual Osaka, solc 0.8.30,

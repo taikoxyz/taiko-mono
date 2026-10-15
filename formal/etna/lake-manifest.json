@@ -3,6 +3,18 @@
   "packagesDir": ".lake/packages",
   "packages": [
     {
+      "url": "https://github.com/AeneasVerif/aeneas.git",
+      "type": "git",
+      "subDir": "backends/lean",
+      "scope": "",
+      "rev": "673f9e30e1e2a81b355df9a9550168e672a10d4e",
+      "name": "aeneas",
+      "manifestFile": "lake-manifest.json",
+      "inputRev": "673f9e30e1e2a81b355df9a9550168e672a10d4e",
+      "inherited": false,
+      "configFile": "lakefile.lean"
+    },
+    {
       "url": "https://github.com/leanprover-community/mathlib4.git",
       "type": "git",
       "subDir": null,

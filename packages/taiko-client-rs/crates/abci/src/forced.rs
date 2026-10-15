@@ -19,7 +19,7 @@ use crate::{
 };
 
 /// Maximum byte length of a forced transaction committed by the Inbox.
-pub const MAX_FORCED_TX_BYTES: usize = 8192;
+pub const MAX_FORCED_TX_BYTES: usize = etna_consensus_core::forced::MAX_FORCED_TX_BYTES as usize;
 
 /// One authenticated calldata queue entry decoded from two Inbox storage words.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -90,6 +90,19 @@ pub enum ForcedDecision {
     },
 }
 
+impl ForcedDecision {
+    /// Scalar rule decision; rich skip bytes remain part of adapter/cache equality.
+    pub(crate) fn scalar(&self) -> etna_consensus_core::forced::ForcedDecision {
+        use etna_consensus_core::forced::ForcedDecision as Core;
+        match self {
+            Self::Ordinary => Core::Ordinary,
+            Self::Included(index) => Core::Included(*index),
+            Self::SkippedInvalid(index) => Core::SkippedInvalid(*index),
+            Self::NeedsSkip { index, .. } => Core::NeedsSkip(*index),
+        }
+    }
+}
+
 /// Authenticated block facts and genesis configuration needed to classify forced inclusion.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ForcedContext<'a> {
@@ -158,7 +171,7 @@ pub fn verify_entry(
 /// Whether an anchor timestamp reaches the submission timestamp plus delay, in seconds.
 /// Wide arithmetic prevents overflow from making an entry due prematurely.
 pub(crate) fn is_due(timestamp: u64, delay: u64, anchor_timestamp: u64) -> bool {
-    u128::from(anchor_timestamp) >= u128::from(timestamp) + u128::from(delay)
+    etna_consensus_core::forced::is_due(timestamp, delay, anchor_timestamp)
 }
 
 /// Classifies one block's forced entry using its authenticated index, proof and available bytes.
@@ -174,43 +187,61 @@ pub fn check(
     witness: Option<&ForcedWitness>,
     first_tx: Option<&[u8]>,
 ) -> Result<ForcedDecision, ForcedError> {
-    if context.cursor >= context.anchor.inbox.forced_inclusion_tail {
-        return match witness {
-            None => Ok(ForcedDecision::Ordinary),
-            Some(_) => Err(ForcedError::UnexpectedWitness),
-        };
-    }
-    let w = witness.ok_or(ForcedError::MissingWitness { index: context.cursor })?;
-    if w.index != context.cursor {
-        return Err(ForcedError::WrongIndex { expected: context.cursor, got: w.index });
-    }
-    let entry = verify_entry(context.anchor.state_root, &w.entry, context.inbox, context.cursor)?;
-    if w.tx.len() > MAX_FORCED_TX_BYTES {
-        return Err(ForcedError::TxTooLarge { size: w.tx.len(), max: MAX_FORCED_TX_BYTES });
-    }
-    let got = keccak256(&w.tx);
-    if !w.tx.is_empty() && got != entry.tx_hash {
-        return Err(ForcedError::TxHashMismatch { expected: entry.tx_hash, got });
-    }
-    if first_tx.is_some_and(|tx| {
-        tx.len() <= MAX_FORCED_TX_BYTES &&
-            keccak256(tx) == entry.tx_hash &&
-            decode_canonical(tx).is_some()
-    }) {
-        return Ok(ForcedDecision::Included(context.cursor));
-    }
-    if !is_due(entry.timestamp, context.delay, context.anchor.timestamp) {
+    use etna_consensus_core::forced as core;
+    let pending = core::pending_entry(
+        context.cursor,
+        context.anchor.inbox.forced_inclusion_tail,
+        witness.map(|w| w.index),
+    )
+    .map_err(|error| match error {
+        core::ForcedError::MissingWitness(index) => ForcedError::MissingWitness { index },
+        core::ForcedError::UnexpectedWitness => ForcedError::UnexpectedWitness,
+        core::ForcedError::WrongIndex { expected, got } => {
+            ForcedError::WrongIndex { expected, got }
+        }
+        _ => unreachable!("pending_entry only returns presence/index errors"),
+    })?;
+    if !pending {
         return Ok(ForcedDecision::Ordinary);
     }
-    // Omission never proves an invalid admission: only an actual empty admission hashes to
-    // empty bytes. Every nonempty due entry still needs its authenticated preimage to skip.
-    if got != entry.tx_hash {
-        return Err(ForcedError::TxHashMismatch { expected: entry.tx_hash, got });
-    }
-    Ok(if decode_canonical(&w.tx).is_some() {
-        ForcedDecision::NeedsSkip { index: context.cursor, tx: w.tx.clone() }
-    } else {
-        ForcedDecision::SkippedInvalid(context.cursor)
+    let w = witness.expect("pending_entry authenticated witness presence");
+    let entry = verify_entry(context.anchor.state_root, &w.entry, context.inbox, context.cursor)?;
+    // Keep length rejection before hashing/decoding, then nonempty hash rejection before first-tx
+    // decoding.
+    let map_error = |error| match error {
+        core::ForcedError::TooLarge(size) => {
+            ForcedError::TxTooLarge { size: size as usize, max: MAX_FORCED_TX_BYTES }
+        }
+        core::ForcedError::HashMismatch => {
+            ForcedError::TxHashMismatch { expected: entry.tx_hash, got: keccak256(&w.tx) }
+        }
+        _ => unreachable!("classifier only returns preimage errors"),
+    };
+    core::check_preimage(w.tx.len() as u64, true).map_err(map_error)?;
+    let hash_matches = keccak256(&w.tx) == entry.tx_hash;
+    core::check_preimage(w.tx.len() as u64, hash_matches).map_err(map_error)?;
+    let decision = core::classify_forced(core::ForcedFacts {
+        cursor: context.cursor,
+        timestamp: entry.timestamp,
+        delay: context.delay,
+        anchor_timestamp: context.anchor.timestamp,
+        preimage_len: w.tx.len() as u64,
+        preimage_hash_matches: hash_matches,
+        preimage_canonical: decode_canonical(&w.tx).is_some(),
+        first_matches: first_tx.is_some_and(|tx| {
+            tx.len() <= MAX_FORCED_TX_BYTES &&
+                keccak256(tx) == entry.tx_hash &&
+                decode_canonical(tx).is_some()
+        }),
+    })
+    .map_err(map_error)?;
+    Ok(match decision {
+        core::ForcedDecision::Ordinary => ForcedDecision::Ordinary,
+        core::ForcedDecision::Included(index) => ForcedDecision::Included(index),
+        core::ForcedDecision::SkippedInvalid(index) => ForcedDecision::SkippedInvalid(index),
+        core::ForcedDecision::NeedsSkip(index) => {
+            ForcedDecision::NeedsSkip { index, tx: w.tx.clone() }
+        }
     })
 }
 

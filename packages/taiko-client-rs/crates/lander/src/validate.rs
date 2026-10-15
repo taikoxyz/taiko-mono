@@ -148,7 +148,7 @@ pub fn verify_commit(
         }
     }
     let total = u128::from(committee.state.record.total_power);
-    if signed_power * 3 <= total * 2 {
+    if !etna_consensus_core::has_strict_quorum(signed_power, total) {
         return Err(ValidationError::Certificate(format!(
             "insufficient commit power {signed_power}/{total}; require strictly more than 2/3"
         )));

@@ -766,14 +766,19 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 probe_context()
             )),
         })?;
-        let forced_cursor = if consumed.is_some() {
-            state
-                .forced_cursor
-                .checked_add(1)
-                .ok_or_else(|| LanderError::Safety("forced inclusion cursor overflow".into()))?
-        } else {
-            state.forced_cursor
-        };
+        let forced_cursor =
+            etna_consensus_core::forced::advance_cursor(state.forced_cursor, consumed).map_err(
+                |error| {
+                    LanderError::Safety(match error {
+                        etna_consensus_core::forced::ForcedError::CursorOverflow => {
+                            "forced inclusion cursor overflow".into()
+                        }
+                        other => format!(
+                            "forced inclusion consumed index disagrees with cursor: {other:?}"
+                        ),
+                    })
+                },
+            )?;
         if let Some(derived) = facts.derived {
             let epoch = derived.record.target_epoch;
             let hash = record_hash(snapshot.l2_chain_id, &derived.record);

@@ -20,6 +20,7 @@ alloy-signer-local = { workspace = true }
 async-trait = { workspace = true }
 base64 = { workspace = true }
 ed25519-consensus = { workspace = true }
+etna-consensus-core = { path = "../etna-consensus-core" }
 futures = { workspace = true }
 prometheus = { workspace = true }
 prost = { workspace = true }

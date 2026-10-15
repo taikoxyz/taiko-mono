@@ -27,6 +27,9 @@ def check(aeneas, charon):
     require_equal('package lean', (ROOT / 'lean-toolchain').read_text().strip(), lock['lean'])
     packages = json.loads((ROOT / 'lake-manifest.json').read_text())['packages']
     require_equal('mathlib', next(p['rev'] for p in packages if p['name'] == 'mathlib'), lock['mathlib'])
+    backend = next(p for p in packages if p['name'] == 'aeneas')
+    require_equal('Lake aeneas', backend['rev'], lock['aeneas'])
+    require_equal('Lake aeneas subdirectory', backend['subDir'], 'backends/lean')
     for package in packages:
         if not re.fullmatch('[0-9a-f]{40}', package['rev']):
             raise ValueError(f'unpinned Lake package: {package["name"]}')

@@ -480,36 +480,65 @@ fn next_state(
         grandparent_timestamp: state.parent.timestamp,
     };
     next.anchor = v.anchor.clone();
-    if v.forced.is_some() {
-        // `forced::check` consumed exactly entry `state.forced_cursor`, which is below the
-        // anchor's `uint48` tail, so this cannot overflow.
-        next.forced_cursor = state.forced_cursor + 1;
-    }
-    if let Some((epoch, derived)) = &v.derived {
-        if let Some(known) = next.committees.get(epoch).filter(|known| *known != derived) {
-            return Err(safety_halt(
+    // Consumption names the authenticated parent cursor below its uint48 queue tail.
+    next.forced_cursor = etna_consensus_core::forced::advance_cursor(state.forced_cursor, v.forced)
+        .expect("validated forced consumption names the cursor and cannot overflow");
+    use etna_consensus_core::transition::{
+        CommitteeError, CommitteeFacts, DerivedRelation, transition_committee,
+    };
+    let derived = match &v.derived {
+        None => DerivedRelation::None,
+        Some((epoch, derived)) => match state.committees.get(epoch) {
+            None => DerivedRelation::Absent(*epoch),
+            Some(known) if known == derived => DerivedRelation::Equal(*epoch),
+            Some(_) => DerivedRelation::Conflicting(*epoch),
+        },
+    };
+    // A conflicting full record is rejected before consulting the switch schedule.
+    let target = if matches!(derived, DerivedRelation::Conflicting(_)) {
+        None
+    } else {
+        state.schedule().switch_target(height)
+    };
+    let plan = transition_committee(
+        &state.schedule().core(),
+        height,
+        CommitteeFacts {
+            derived,
+            outgoing_known: target.is_some_and(|t| state.committees.contains_key(&(t - 1))),
+            incoming_known: target.is_some_and(|t| state.committees.contains_key(&t)),
+        },
+    )
+    .map_err(|error| match error {
+        CommitteeError::Conflict(epoch) => {
+            let derived = &v.derived.as_ref().expect("conflict requires a derived record").1;
+            let known = state.committees.get(&epoch).expect("conflict requires a known record");
+            safety_halt(
                 height,
                 "committee_conflict",
                 format!(
                     "derived committee record {:?} for epoch {epoch} differs from the known {:?}",
                     derived.record, known.record
                 ),
-            ));
+            )
         }
-        next.committees.insert(*epoch, derived.clone());
+        CommitteeError::Unknown(epoch) => {
+            safety_halt(height, "committee_unknown", format!("no committee for epoch {epoch}"))
+        }
+    })?;
+    if let Some(epoch) = plan.insert_epoch {
+        next.committees
+            .insert(epoch, v.derived.as_ref().expect("insert requires a derived record").1.clone());
     }
-
-    let Some(t) = state.schedule().switch_target(height) else {
+    let Some(switch) = plan.switch else {
         return Ok((next, vec![]));
     };
-    let set = |epoch: u64| {
-        next.committees.get(&epoch).ok_or_else(|| {
-            safety_halt(height, "committee_unknown", format!("no committee for epoch {epoch}"))
-        })
-    };
-    // `switch_target` only yields epochs >= 1.
-    let updates = committee::validator_updates(&set(t - 1)?.members, &set(t)?.members);
-    next.prune_committees(t - 1);
+    let outgoing =
+        next.committees.get(&switch.outgoing_epoch).expect("plan checked outgoing committee");
+    let incoming =
+        next.committees.get(&switch.incoming_epoch).expect("plan checked incoming committee");
+    let updates = committee::validator_updates(&outgoing.members, &incoming.members);
+    next.prune_committees(switch.prune_before);
     Ok((next, updates))
 }
 

@@ -81,7 +81,7 @@ impl Schedule {
     pub fn epoch_of(&self, h: u64) -> u64 {
         let h0 = self.h0();
         debug_assert!(h >= h0, "epoch_of: height {h} is below H_0 = {h0}");
-        h.saturating_sub(h0) / self.len("epoch_of") + Self::E0
+        self.core().epoch_of(h).expect("epoch_of: epoch_len is zero")
     }
 
     /// `h_first(e) = H_0 + (e - e_0)·L`, the first height of epoch `e`.
@@ -90,9 +90,7 @@ impl Schedule {
     ///
     /// If the height overflows `u64`.
     pub fn h_first(&self, e: u64) -> u64 {
-        Self::offset(e, self.epoch_len)
-            .and_then(|o| o.checked_add(self.h0()))
-            .expect("h_first: height overflows u64")
+        self.core().h_first(e).expect("h_first: height overflows u64")
     }
 
     /// The committed L2 parent selecting `target_epoch` at its switch: `H(target_epoch) - 3`.
@@ -100,10 +98,7 @@ impl Schedule {
     /// Epoch zero uses its explicit genesis snapshot and returns `None`. Also returns `None`
     /// if any multiplication, addition or subtraction exceeds the `u64` height domain.
     pub fn derivation_parent_height(&self, target_epoch: u64) -> Option<u64> {
-        if target_epoch == Self::E0 {
-            return None;
-        }
-        Self::offset(target_epoch, self.epoch_len)?.checked_add(self.h0())?.checked_sub(3)
+        self.core().derivation_parent_height(target_epoch)
     }
 
     /// `h_last(e) = h_first(e + 1) - 1`, the last height of epoch `e`.
@@ -112,9 +107,9 @@ impl Schedule {
     ///
     /// If `h_first(e + 1)` overflows `u64`.
     pub fn h_last(&self, e: u64) -> u64 {
-        let next = e.checked_add(1).expect("h_last: epoch + 1 overflows u64");
-        // h_first(next) >= H_0 >= 1, so the subtraction cannot underflow.
-        self.h_first(next) - 1
+        e.checked_add(1).expect("h_last: epoch + 1 overflows u64");
+        // Preserve the original epoch-addition and h_first overflow diagnostics.
+        self.core().h_last(e).expect("h_first: height overflows u64")
     }
 
     /// `L1_first(e) = L1_0 + (e - e_0)·EPOCH_LEN_L1`, the minimum L1 anchor number of epoch `e`.
@@ -128,7 +123,7 @@ impl Schedule {
 
     /// [`Schedule::l1_first`], or `None` if the L1 block number overflows `u64`.
     pub fn checked_l1_first(&self, e: u64) -> Option<u64> {
-        Self::offset(e, self.epoch_len_l1)?.checked_add(self.l1_0)
+        self.core().checked_l1_first(e)
     }
 
     /// `Some(e)` iff `h` is the switch height of epoch `e >= 1`, i.e. `h == h_first(e) - 2`:
@@ -139,9 +134,10 @@ impl Schedule {
     ///
     /// If `epoch_len == 0`.
     pub fn switch_target(&self, h: u64) -> Option<u64> {
-        let e = self.epoch_starting_at(h.checked_add(2)?)?;
-        // Epoch e_0's set comes from genesis, so only e >= e_0 + 1 = 1 has a switch height.
-        (e > Self::E0).then_some(e)
+        // Preserve short-circuit overflow before the zero-length diagnostic.
+        h.checked_add(2)?;
+        self.len("epoch_starting_at");
+        self.core().switch_target(h)
     }
 
     /// The epoch `e >= 1` of the first switch height at or after `h`, i.e. the smallest `e` with
@@ -151,7 +147,9 @@ impl Schedule {
     ///
     /// If `epoch_len == 0`.
     pub fn next_switch_target(&self, h: u64) -> Option<u64> {
-        self.epoch_of(h.checked_add(1)?).checked_add(1)
+        h.checked_add(1)?;
+        self.len("epoch_of");
+        self.core().next_switch_target(h)
     }
 
     /// `Some(e)` iff `h == h_first(e)` for some epoch `e >= e_0` (so `Some(e_0)` at `H_0`).
@@ -160,28 +158,22 @@ impl Schedule {
     ///
     /// If `epoch_len == 0`.
     pub fn epoch_starting_at(&self, h: u64) -> Option<u64> {
-        let len = self.len("epoch_starting_at");
-        let offset = h.checked_sub(self.h0())?;
-        (offset % len == 0).then(|| offset / len + Self::E0)
+        self.len("epoch_starting_at");
+        self.core().epoch_starting_at(h)
     }
 
     /// Checks `epoch_len >= 3`, `epoch_len >= unsettled_cap + 3` and `epoch_len_l1 >= 1`;
     /// returns the first violation. `InitChain` and every load
     /// of `AppState` must call this before using the schedule.
     pub fn validate(&self, unsettled_cap: u64) -> Result<(), ScheduleError> {
-        if self.epoch_len < 3 {
-            return Err(ScheduleError::EpochTooShort { epoch_len: self.epoch_len });
-        }
-        if unsettled_cap.checked_add(3).is_none_or(|min| self.epoch_len < min) {
-            return Err(ScheduleError::EpochShorterThanCap {
-                epoch_len: self.epoch_len,
-                unsettled_cap,
-            });
-        }
-        if self.epoch_len_l1 == 0 {
-            return Err(ScheduleError::ZeroEpochLenL1);
-        }
-        Ok(())
+        use etna_consensus_core::schedule::ScheduleError as CoreError;
+        self.core().validate(unsettled_cap).map_err(|error| match error {
+            CoreError::EpochTooShort => ScheduleError::EpochTooShort { epoch_len: self.epoch_len },
+            CoreError::EpochShorterThanCap => {
+                ScheduleError::EpochShorterThanCap { epoch_len: self.epoch_len, unsettled_cap }
+            }
+            CoreError::ZeroEpochLenL1 => ScheduleError::ZeroEpochLenL1,
+        })
     }
 
     /// `L`, asserted non-zero; `caller` names the public method in the panic message.
@@ -194,9 +186,14 @@ impl Schedule {
         self.epoch_len
     }
 
-    /// `(e - e_0)·step`, or `None` if it underflows or overflows `u64`.
-    fn offset(e: u64, step: u64) -> Option<u64> {
-        e.checked_sub(Self::E0)?.checked_mul(step)
+    /// Primitive arithmetic authority; serialization retains the original four wrapper fields.
+    pub(crate) fn core(&self) -> etna_consensus_core::schedule::Schedule {
+        etna_consensus_core::schedule::Schedule {
+            l1_0: self.l1_0,
+            epoch_len: self.epoch_len,
+            epoch_len_l1: self.epoch_len_l1,
+            genesis_cutoff: self.genesis_cutoff,
+        }
     }
 }
 
@@ -384,5 +381,39 @@ mod parent_height_tests {
         assert_eq!(Schedule { epoch_len: u64::MAX, ..schedule }.derivation_parent_height(1), None);
         assert_eq!(Schedule { epoch_len: 1, ..schedule }.derivation_parent_height(1), None);
         assert_eq!(Schedule { epoch_len: 3, ..schedule }.derivation_parent_height(1), Some(1));
+    }
+}
+
+#[cfg(test)]
+mod golden_tests {
+    use super::Schedule;
+
+    #[test]
+    fn original_checked_schedule_corpus_preserves_adapter_panics() {
+        fn show<T: std::fmt::Debug>(f: impl FnOnce() -> T + std::panic::UnwindSafe) -> String {
+            match std::panic::catch_unwind(f) {
+                Ok(value) => format!("{value:?}"),
+                Err(_) => "panic".into(),
+            }
+        }
+        for row in include_str!("../../etna-consensus-core/src/schedule-corpus.csv").lines().skip(1)
+        {
+            let f: Vec<_> = row.split(',').collect();
+            let length = f[0].parse().unwrap();
+            let height = f[1].parse().unwrap();
+            let epoch = f[2].parse().unwrap();
+            let s = Schedule { l1_0: 50, epoch_len: length, epoch_len_l1: 4, genesis_cutoff: 49 };
+            let actual = [
+                show(|| s.epoch_of(height)),
+                show(|| s.h_first(epoch)),
+                show(|| s.h_last(epoch)),
+                show(|| s.checked_l1_first(epoch)),
+                show(|| s.derivation_parent_height(epoch)),
+                show(|| s.switch_target(height)),
+                show(|| s.next_switch_target(height)),
+                show(|| s.epoch_starting_at(height)),
+            ];
+            assert_eq!(actual, f[3..], "{row}");
+        }
     }
 }
