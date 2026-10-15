@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Extend #22177's executable Lean specification with fork-aware gas handling and the Etna header commitments in #22189/#22263, then open a new draft PR.
+**Goal:** Extend #22177's executable Lean specification with fork-aware gas handling and the Etna header commitments in #22189/#22263, then update the original PR #22177.
 
 **Architecture:** Preserve manifest derivation as the first layer. Add a pure, checked header-plan layer over its output, with an immutable L1 state-root lookup and sequential parent commitments. Prove core and header properties in the Lean kernel and retain the existing shared vectors and trust gates.
 
@@ -20,7 +20,7 @@
 - No new dependencies, axioms, proof escape hatches, or changes to the manifest corpus.
 - Read `docs/superpowers/specs/2026-10-15-formal-spec-etna-alignment-design.md` for the approved design and exact source revisions. Production code changes stay in `packages/formal-spec`.
 - Existing worktree: `/Users/davidcai/.codex/worktrees/formal-spec-etna-alignment/taiko-mono`, branch `codex/formal-spec-etna-alignment`.
-- New draft PR targets `main`, includes the original #22177 feature plus this extension, and references #22177/#22189/#22263. Preserve existing PRs.
+- Publish to the original PR #22177 by normally pushing `HEAD:feat/formal-spec-derivation`; refresh its head first and preserve remote updates. Keep its draft status and base `main`; update its description and reference #22189/#22263. Do not create a new PR.
 - For commits, retain required hooks and reuse installed tools with `PATH=/Users/davidcai/taiko/taiko-mono/node_modules/.bin:$PATH`.
 
 ## File ownership
@@ -189,4 +189,4 @@ Check each exit status and record the vector count, declaration count and kernel
 
 - [ ] **Step 3: Commit the documentation integration** with `docs(formal-spec): document Etna coverage and trust boundary`. Supply task report and exact validation output for task review.
 
-- [ ] **Step 4: After task reviews and whole-branch review pass, publish.** Refresh `main` and verify the new branch can merge cleanly. Resolve any concrete conflicts without changing unrelated behavior, then rerun affected verification. Push the current `codex/` branch normally and use `gh pr create --draft --base main --head codex/formal-spec-etna-alignment --title 'feat(formal-spec): specify Shasta, Unzen and Etna derivation' --body-file <prepared-file>`. Attach the created PR with the app artifact tool. The body explains this is the #22177 model extended to #22189/#22263, includes the trust boundary and verified commands, and makes no unverified claim that clients ran new shared header vectors. Preserve the managed worktree for review iterations.
+- [ ] **Step 4: After task reviews and whole-branch review pass, update #22177.** Refresh `main` and the current #22177 head; verify the remote head is still an ancestor before publishing, and integrate any concrete remote updates without force-pushing. Verify mergeability and rerun affected verification for any integration changes. Push normally with `git push origin HEAD:feat/formal-spec-derivation`, then update #22177 using `gh pr edit 22177 --repo taikoxyz/taiko-mono --title 'feat(repo): specify Shasta, Unzen and Etna derivation in Lean' --body-file <prepared-file>`. Preserve its existing draft status and base. The body describes the final model, references #22189/#22263, includes the trust boundary and verified commands, and makes no unverified claim that clients ran new shared header vectors. Preserve the managed worktree for review iterations. Do not create a new PR.
