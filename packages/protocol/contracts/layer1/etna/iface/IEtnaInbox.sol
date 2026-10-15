@@ -123,6 +123,30 @@ interface IEtnaInbox {
         address feeRecipient;
     }
 
+    /// @notice One member of an epoch committee, as the reward pool settles it.
+    /// @dev A committee is listed in MEM-08 order; its hash is
+    /// `keccak256(abi.encode(CommitteeMember[]))`.
+    struct CommitteeMember {
+        /// @notice The member's registry bond id (its entry slot).
+        uint32 bondId;
+        /// @notice The `activeFromL1` of the registration that holds the slot; with `bondId` it
+        /// names the registration whose owner is rewarded.
+        uint64 activeFromL1;
+        /// @notice The member's effective stake in TAIKO base units.
+        uint256 effStake;
+    }
+
+    /// @notice The validator participation one landing reports for one epoch.
+    struct EpochParticipation {
+        /// @notice The epoch.
+        uint64 epoch;
+        /// @notice The hash of the epoch's committee, `keccak256(abi.encode(CommitteeMember[]))`.
+        bytes32 committeeHash;
+        /// @notice Per MEM-08 member index, the number of the batch's commit heights in this
+        /// epoch whose canonical commit carries the member's signature.
+        uint32[] signedCounts;
+    }
+
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
