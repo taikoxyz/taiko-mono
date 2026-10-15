@@ -13,49 +13,54 @@ open TaikoSpec TaikoSpec.Derivation
 
 variable {c : ChainParams} {ctx : ProposalCtx}
 
+/-- Advancing a block and recovering manifest gas uses the same child timestamp on both sides
+of Etna activation. -/
+theorem effectiveGasLimit_advance (c : ChainParams) (p : Parent) (b : BlockManifest) :
+    effectiveGasLimit c (advance c p b) = b.gasLimit := by
+  simp [effectiveGasLimit, advance]
+
 /-! ## Numbering and the parent after a source -/
 
 theorem toDerived_timestamps : ∀ (f : Bool) (p : Parent) (bs : List BlockManifest),
-    (toDerived f p bs).map (·.timestamp) = bs.map (·.timestamp)
+    (toDerived c f p bs).map (·.timestamp) = bs.map (·.timestamp)
   | _, _, [] => rfl
-  | f, p, b :: bs => by simp [toDerived, toDerived_timestamps f (advance p b) bs]
+  | f, p, b :: bs => by simp [toDerived, toDerived_timestamps f (advance c p b) bs]
 
 theorem toDerived_anchors : ∀ (f : Bool) (p : Parent) (bs : List BlockManifest),
-    (toDerived f p bs).map (·.anchorBlockNumber) = bs.map (·.anchorBlockNumber)
+    (toDerived c f p bs).map (·.anchorBlockNumber) = bs.map (·.anchorBlockNumber)
   | _, _, [] => rfl
-  | f, p, b :: bs => by simp [toDerived, toDerived_anchors f (advance p b) bs]
+  | f, p, b :: bs => by simp [toDerived, toDerived_anchors f (advance c p b) bs]
 
 theorem toDerived_gasLimits : ∀ (f : Bool) (p : Parent) (bs : List BlockManifest),
-    (toDerived f p bs).map (·.gasLimit) = bs.map (·.gasLimit)
+    (toDerived c f p bs).map (·.gasLimit) = bs.map (·.gasLimit)
   | _, _, [] => rfl
-  | f, p, b :: bs => by simp [toDerived, toDerived_gasLimits f (advance p b) bs]
+  | f, p, b :: bs => by simp [toDerived, toDerived_gasLimits f (advance c p b) bs]
 
 theorem toDerived_numbers : ∀ (f : Bool) (p : Parent) (bs : List BlockManifest),
-    Chain (fun a b => b = a + 1) p.number ((toDerived f p bs).map (·.number)) ∧
-      lastOr p.number ((toDerived f p bs).map (·.number)) = (bs.foldl advance p).number
+    Chain (fun a b => b = a + 1) p.number ((toDerived c f p bs).map (·.number)) ∧
+      lastOr p.number ((toDerived c f p bs).map (·.number)) = (bs.foldl (advance c) p).number
   | _, _, [] => ⟨trivial, rfl⟩
   | f, p, b :: bs => by
-    obtain ⟨h₁, h₂⟩ := toDerived_numbers f (advance p b) bs
+    obtain ⟨h₁, h₂⟩ := toDerived_numbers f (advance c p b) bs
     exact ⟨⟨rfl, h₁⟩, h₂⟩
 
 theorem foldl_advance_timestamp : ∀ (p : Parent) (bs : List BlockManifest),
-    (bs.foldl advance p).timestamp = lastOr p.timestamp (bs.map (·.timestamp))
+    (bs.foldl (advance c) p).timestamp = lastOr p.timestamp (bs.map (·.timestamp))
   | _, [] => rfl
-  | p, b :: bs => foldl_advance_timestamp (advance p b) bs
+  | p, b :: bs => foldl_advance_timestamp (advance c p b) bs
 
 theorem foldl_advance_anchor : ∀ (p : Parent) (bs : List BlockManifest),
-    (bs.foldl advance p).anchorBlockNumber =
+    (bs.foldl (advance c) p).anchorBlockNumber =
       lastOr p.anchorBlockNumber (bs.map (·.anchorBlockNumber))
   | _, [] => rfl
-  | p, b :: bs => foldl_advance_anchor (advance p b) bs
+  | p, b :: bs => foldl_advance_anchor (advance c p b) bs
 
 theorem foldl_advance_effectiveGasLimit : ∀ (p : Parent) (bs : List BlockManifest),
-    effectiveGasLimit (bs.foldl advance p) = lastOr (effectiveGasLimit p) (bs.map (·.gasLimit))
+    effectiveGasLimit c (bs.foldl (advance c) p) = lastOr (effectiveGasLimit c p) (bs.map (·.gasLimit))
   | _, [] => rfl
   | p, b :: bs => by
-    have h : effectiveGasLimit (advance p b) = b.gasLimit := by
-      simp [effectiveGasLimit, advance, ANCHOR_GAS_LIMIT]
-    rw [List.foldl_cons, foldl_advance_effectiveGasLimit (advance p b) bs, h]
+    rw [List.foldl_cons, foldl_advance_effectiveGasLimit (advance c p b) bs,
+      effectiveGasLimit_advance]
     rfl
 
 /-! ## Whole proposals -/
@@ -124,7 +129,7 @@ theorem deriveSources_anchor_le : ∀ (p : Parent) (srcs : List (Source × Optio
     intro b hb
     simp only [deriveSources, List.mem_append] at hb
     rcases hb with hb | hb
-    · have : b.anchorBlockNumber ∈ (toDerived src.isForcedInclusion p
+    · have : b.anchorBlockNumber ∈ (toDerived c src.isForcedInclusion p
           (sourceBlocks c ctx p src payload)).map (·.anchorBlockNumber) := List.mem_map_of_mem hb
       rw [toDerived_anchors] at this
       exact hmap _ this
@@ -133,7 +138,7 @@ theorem deriveSources_anchor_le : ∀ (p : Parent) (srcs : List (Source × Optio
       exact lastOr_mem_of_forall (P := fun a => a ≤ ctx.originBlockNumber) hp hmap
 
 theorem deriveSources_gas : ∀ (p : Parent) (srcs : List (Source × Option ByteArray)),
-    MIN_BLOCK_GAS_LIMIT ≤ effectiveGasLimit p → effectiveGasLimit p ≤ MAX_BLOCK_GAS_LIMIT →
+    MIN_BLOCK_GAS_LIMIT ≤ effectiveGasLimit c p → effectiveGasLimit c p ≤ MAX_BLOCK_GAS_LIMIT →
       ∀ b ∈ deriveSources c ctx p srcs,
         MIN_BLOCK_GAS_LIMIT ≤ b.gasLimit ∧ b.gasLimit ≤ MAX_BLOCK_GAS_LIMIT
   | _, [], _, _ => by simp [deriveSources]
@@ -146,7 +151,7 @@ theorem deriveSources_gas : ∀ (p : Parent) (srcs : List (Source × Option Byte
     intro b hb
     simp only [deriveSources, List.mem_append] at hb
     rcases hb with hb | hb
-    · have : b.gasLimit ∈ (toDerived src.isForcedInclusion p
+    · have : b.gasLimit ∈ (toDerived c src.isForcedInclusion p
           (sourceBlocks c ctx p src payload)).map (·.gasLimit) := List.mem_map_of_mem hb
       rw [toDerived_gasLimits] at this
       exact hmap _ this

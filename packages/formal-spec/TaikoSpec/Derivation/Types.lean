@@ -28,7 +28,7 @@ structure ProposalCtx where
 structure Parent where
   number : Nat
   timestamp : Nat
-  /-- Header gas limit. Every non-genesis header includes `ANCHOR_GAS_LIMIT`. -/
+  /-- Header gas limit. Pre-Etna non-genesis headers include the anchor gas reserve. -/
   gasLimit : Nat
   /-- The anchor block number recorded by this block (the parent anchor). -/
   anchorBlockNumber : Nat
@@ -39,7 +39,7 @@ structure BlockManifest where
   /-- A 20-byte address. -/
   coinbase : ByteArray
   anchorBlockNumber : Nat
-  /-- Gas limit without the anchor gas; the header gas limit adds `ANCHOR_GAS_LIMIT`. -/
+  /-- Manifest gas limit; the header adds the timestamp-dependent anchor gas reserve. -/
   gasLimit : Nat
   /-- Transaction items that passed `Tx.wellFormed`, kept as decoded. -/
   transactions : List Rlp.Item
@@ -71,7 +71,7 @@ def isAccepted : SourceOutcome → Bool
 
 end SourceOutcome
 
-/-- A derived L2 block. The header gas limit is `gasLimit + ANCHOR_GAS_LIMIT`. -/
+/-- A derived L2 block. `gasLimit` is manifest gas; the header adds the anchor gas reserve. -/
 structure DerivedBlock where
   number : Nat
   timestamp : Nat

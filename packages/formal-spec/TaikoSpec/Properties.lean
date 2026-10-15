@@ -94,8 +94,8 @@ theorem anchors_not_after_origin (srcs : List (Source × Option ByteArray))
 /-- If the parent's effective gas limit is within `[MIN_BLOCK_GAS_LIMIT, MAX_BLOCK_GAS_LIMIT]`,
 every derived block's gas limit is too. -/
 theorem gas_limits_in_range (srcs : List (Source × Option ByteArray))
-    (h₁ : MIN_BLOCK_GAS_LIMIT ≤ effectiveGasLimit p)
-    (h₂ : effectiveGasLimit p ≤ MAX_BLOCK_GAS_LIMIT) :
+    (h₁ : MIN_BLOCK_GAS_LIMIT ≤ effectiveGasLimit c p)
+    (h₂ : effectiveGasLimit c p ≤ MAX_BLOCK_GAS_LIMIT) :
     ∀ b ∈ deriveSources c ctx p srcs,
       MIN_BLOCK_GAS_LIMIT ≤ b.gasLimit ∧ b.gasLimit ≤ MAX_BLOCK_GAS_LIMIT :=
   deriveSources_gas p srcs h₁ h₂
@@ -123,8 +123,8 @@ theorem forced_inclusion_accepted_iff (src : Source) (b : BlockManifest)
       lowerBound c ctx p.timestamp ≤ ctx.timestamp ∧
       ctx.originBlockNumber - c.maxAnchorOffset ≤ p.anchorBlockNumber ∧
       p.anchorBlockNumber ≤ ctx.originBlockNumber ∧
-      (gasBounds (effectiveGasLimit p)).1 ≤ effectiveGasLimit p ∧
-      effectiveGasLimit p ≤ (gasBounds (effectiveGasLimit p)).2 :=
+      (gasBounds (effectiveGasLimit c p)).1 ≤ effectiveGasLimit c p ∧
+      effectiveGasLimit c p ≤ (gasBounds (effectiveGasLimit c p)).2 :=
   forced_accepted_iff b hf
 
 /-- When the parent's gas limit is in range (see theorem 7), condition (c) always holds: a
@@ -132,8 +132,8 @@ one-block forced inclusion is dropped only when the timestamp window is used up 
 anchor is too far behind (or past) the origin block. -/
 theorem forced_inclusion_accepted_iff_of_gas (src : Source) (b : BlockManifest)
     (hf : src.isForcedInclusion = true)
-    (h₁ : MIN_BLOCK_GAS_LIMIT ≤ effectiveGasLimit p)
-    (h₂ : effectiveGasLimit p ≤ MAX_BLOCK_GAS_LIMIT) :
+    (h₁ : MIN_BLOCK_GAS_LIMIT ≤ effectiveGasLimit c p)
+    (h₂ : effectiveGasLimit c p ≤ MAX_BLOCK_GAS_LIMIT) :
     (finalizeSource c ctx p src (some [b])).isAccepted = true ↔
       lowerBound c ctx p.timestamp ≤ ctx.timestamp ∧
       ctx.originBlockNumber - c.maxAnchorOffset ≤ p.anchorBlockNumber ∧
@@ -174,8 +174,8 @@ def block (timestamp anchor gasLimit : Nat) : BlockManifest :=
 
 /-- Theorems 6 and 7: the parent's anchor and gas limit satisfy the preconditions. -/
 example : parent.anchorBlockNumber ≤ proposal.originBlockNumber ∧
-    MIN_BLOCK_GAS_LIMIT ≤ effectiveGasLimit parent ∧
-    effectiveGasLimit parent ≤ MAX_BLOCK_GAS_LIMIT := by decide
+    MIN_BLOCK_GAS_LIMIT ≤ effectiveGasLimit devnet parent ∧
+    effectiveGasLimit devnet parent ≤ MAX_BLOCK_GAS_LIMIT := by decide
 
 /-- Theorems 5 and 8: a proposer's source can keep its own blocks. -/
 example : (finalizeSource devnet proposal parent (source false)
@@ -191,6 +191,23 @@ example : (finalizeSource devnet { proposal with originBlockNumber := 529 } pare
 /-- Theorem 5: a default block can be later than the proposal timestamp. -/
 example : (defaultBlock devnet { proposal with timestamp := 1900 } parent).timestamp > 1900 := by
   decide
+
+/-- A scheduled Etna fork supplies witnesses on both sides of activation. -/
+def etnaChain : ChainParams := { devnet with etnaForkTime := some 2000 }
+
+def etnaParent : Parent :=
+  { parent with number := 11, timestamp := 2000, gasLimit := 30_000_000 }
+
+example : MIN_BLOCK_GAS_LIMIT ≤ effectiveGasLimit etnaChain parent ∧
+    effectiveGasLimit etnaChain parent ≤ MAX_BLOCK_GAS_LIMIT ∧
+    MIN_BLOCK_GAS_LIMIT ≤ effectiveGasLimit etnaChain etnaParent ∧
+    effectiveGasLimit etnaChain etnaParent ≤ MAX_BLOCK_GAS_LIMIT := by decide
+
+example : (advance etnaChain parent (block 1999 450 30_000_000)).gasLimit = 31_000_000 ∧
+    (advance etnaChain parent (block 2000 450 30_000_000)).gasLimit = 30_000_000 := by decide
+
+example : (finalizeSource etnaChain { proposal with timestamp := 2001 } etnaParent
+    (source true) (some [block 0 0 0])).isAccepted = true := by decide
 
 end Witness
 

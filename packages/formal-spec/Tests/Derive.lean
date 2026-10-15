@@ -56,3 +56,37 @@ def forcedTransfer : Source × Option ByteArray :=
   [forcedTransfer]).map (·.transactions.length) == [1]
 #guard (deriveSources devnet { proposal with originBlockNumber := 529 } parent
   [forcedTransfer]).map (·.transactions.length) == [0]
+
+namespace EtnaDerive
+
+/-- Explicit activation used to exercise rolling parent gas across Etna. -/
+def etnaChain : ChainParams := { devnet with etnaForkTime := some 2000 }
+
+def unzenParent : Parent :=
+  { parent with timestamp := 1999 }
+
+def firstEtnaManifest : BlockManifest := blk 2000 400 30_000_000
+
+-- Header reserve changes at the child's timestamp; manifest gas remains 30M.
+#guard (advance etnaChain unzenParent firstEtnaManifest).gasLimit == 30_000_000
+#guard summary (deriveSources etnaChain { proposal with timestamp := 2001 } unzenParent
+  [forcedSource, forcedSource]) ==
+  [(11, 2000, 400, 30_000_000, true), (12, 2001, 400, 30_000_000, true)]
+#guard (parentAfter etnaChain { proposal with timestamp := 2001 } unzenParent
+  [forcedSource, forcedSource]).gasLimit == 30_000_000
+-- Two blocks within one source cross activation before a later source inherits its gas.
+def crossingSource : Source × Option ByteArray :=
+  (src, some (payloadOf [blk 1999 450 30_000_000, blk 2000 460 30_000_000]))
+
+#guard summary (deriveSources etnaChain { proposal with timestamp := 2001 }
+  { parent with timestamp := 1998 } [crossingSource, forcedSource]) ==
+  [(11, 1999, 450, 30_000_000, false), (12, 2000, 460, 30_000_000, false),
+    (13, 2001, 460, 30_000_000, true)]
+-- Defaults can cross activation even when the proposal itself is pre-Etna.
+#guard summary (deriveSources etnaChain { proposal with timestamp := 1999 } unzenParent
+  [(src, none), (src, none)]) ==
+  [(11, 2000, 400, 30_000_000, false), (12, 2001, 400, 30_000_000, false)]
+#guard (parentAfter etnaChain { proposal with timestamp := 1999 } unzenParent
+  [(src, none), (src, none)]).gasLimit == 30_000_000
+
+end EtnaDerive

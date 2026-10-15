@@ -33,10 +33,10 @@ def gasBounds (parent : Nat) : Nat × Nat :=
     upper
   (lower, upper)
 
-/-- The parent's gas limit without the anchor gas that every non-genesis header includes.
-Subtraction truncates at zero; a non-genesis header always has at least `ANCHOR_GAS_LIMIT`. -/
+/-- The parent's manifest gas limit, recovered using the parent's fork rules. Genesis has no
+anchor reserve; subtraction on other headers truncates at zero. -/
 def effectiveGasLimit (p : Parent) : Nat :=
-  if p.number = 0 then p.gasLimit else p.gasLimit - ANCHOR_GAS_LIMIT
+  if p.number = 0 then p.gasLimit else p.gasLimit - anchorGasReserve c p.timestamp
 
 /-- Each timestamp is in `[lowerBound prev, proposal.timestamp]`, where `prev` is the previous
 block's timestamp (the parent's for the first block). -/
@@ -70,7 +70,7 @@ def validate (p : Parent) (forced : Bool) (bs : List BlockManifest) : Bool :=
   !bs.isEmpty && timestampsValid c ctx p.timestamp bs &&
     anchorsValid c ctx p.anchorBlockNumber bs &&
     (forced || bs.any fun b => p.anchorBlockNumber < b.anchorBlockNumber) &&
-    gasLimitsValid (effectiveGasLimit p) bs
+    gasLimitsValid (effectiveGasLimit c p) bs
 
 /-- Overwrites each block's metadata with inherited values: the smallest allowed timestamp, the
 proposer as coinbase, the parent's anchor and the parent's effective gas limit. Transactions
@@ -83,14 +83,14 @@ def inherit (p : Parent) : Nat → List BlockManifest → List BlockManifest
       timestamp
       coinbase := ctx.proposer
       anchorBlockNumber := p.anchorBlockNumber
-      gasLimit := effectiveGasLimit p } :: inherit p timestamp bs
+      gasLimit := effectiveGasLimit c p } :: inherit p timestamp bs
 
 /-- The default source's single block: inherited metadata and no transactions. -/
 def defaultBlock (p : Parent) : BlockManifest where
   timestamp := lowerBound c ctx p.timestamp
   coinbase := ctx.proposer
   anchorBlockNumber := p.anchorBlockNumber
-  gasLimit := effectiveGasLimit p
+  gasLimit := effectiveGasLimit c p
   transactions := []
 
 /-- Finalizes a source given its extracted manifest (`none` = default manifest). A forced

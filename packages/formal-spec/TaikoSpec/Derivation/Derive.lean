@@ -16,11 +16,11 @@ variable (c : ChainParams) (ctx : ProposalCtx)
 def advance (p : Parent) (b : BlockManifest) : Parent where
   number := p.number + 1
   timestamp := b.timestamp
-  gasLimit := b.gasLimit + ANCHOR_GAS_LIMIT
+  gasLimit := b.gasLimit + anchorGasReserve c b.timestamp
   anchorBlockNumber := b.anchorBlockNumber
 
 /-- Numbers a source's blocks, starting after `p`. -/
-def toDerived (forced : Bool) : Parent → List BlockManifest → List DerivedBlock
+def toDerived (c : ChainParams) (forced : Bool) : Parent → List BlockManifest → List DerivedBlock
   | _, [] => []
   | p, b :: bs =>
     { number := p.number + 1
@@ -29,7 +29,7 @@ def toDerived (forced : Bool) : Parent → List BlockManifest → List DerivedBl
       anchorBlockNumber := b.anchorBlockNumber
       gasLimit := b.gasLimit
       transactions := b.transactions
-      isForcedInclusion := forced } :: toDerived forced (advance p b) bs
+      isForcedInclusion := forced } :: toDerived c forced (advance c p b) bs
 
 /-- The blocks one source contributes when it builds on `p`. -/
 def sourceBlocks (p : Parent) (src : Source) (payload : Option ByteArray) : List BlockManifest :=
@@ -39,7 +39,7 @@ def sourceBlocks (p : Parent) (src : Source) (payload : Option ByteArray) : List
 def parentAfter : Parent → List (Source × Option ByteArray) → Parent
   | p, [] => p
   | p, (src, payload) :: rest =>
-    parentAfter ((sourceBlocks c ctx p src payload).foldl advance p) rest
+    parentAfter ((sourceBlocks c ctx p src payload).foldl (advance c) p) rest
 
 /-- All blocks derived from `sources`, in order, on top of `p`. Each source comes with its blob
 payload (`none` if a blob's encoding is invalid). -/
@@ -47,6 +47,6 @@ def deriveSources : Parent → List (Source × Option ByteArray) → List Derive
   | _, [] => []
   | p, (src, payload) :: rest =>
     let bs := sourceBlocks c ctx p src payload
-    toDerived src.isForcedInclusion p bs ++ deriveSources (bs.foldl advance p) rest
+    toDerived c src.isForcedInclusion p bs ++ deriveSources (bs.foldl (advance c) p) rest
 
 end TaikoSpec.Derivation

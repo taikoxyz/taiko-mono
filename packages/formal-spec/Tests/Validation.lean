@@ -44,9 +44,9 @@ def parentWithAnchor (anchor : Nat) : Parent :=
 def parentAtHeight (number : Nat) : Parent :=
   { number, timestamp := 0, gasLimit := 30_000_000, anchorBlockNumber := 0 }
 
--- Gas limits: the parent's effective limit drops the anchor gas unless it is genesis.
-#guard effectiveGasLimit (parentAtHeight 1) == 29_000_000
-#guard effectiveGasLimit (parentAtHeight 0) == 30_000_000
+-- Before Etna, the parent's effective limit drops anchor gas unless it is genesis.
+#guard effectiveGasLimit devnet (parentAtHeight 1) == 29_000_000
+#guard effectiveGasLimit devnet (parentAtHeight 0) == 30_000_000
 #guard gasBounds 29_000_000 == (28_994_200, 29_005_800)
 #guard gasBounds 45_000_000 == (44_991_000, 45_000_000)
 #guard gasBounds 10_000_000 == (10_000_000, 10_002_000)
@@ -70,3 +70,37 @@ def parentAtHeight (number : Nat) : Parent :=
     { number := 0, timestamp := 100, gasLimit := 10_000_000, anchorBlockNumber := 4 }
   (b.timestamp, b.anchorBlockNumber, b.gasLimit, b.transactions.length, b.coinbase == addr 0x99)
     == (101, 4, 10_000_000, 0, true)
+
+namespace EtnaValidation
+
+/-- Etna activates at timestamp 2000; Unzen remains active from genesis. -/
+def etnaChain : ChainParams := { devnet with etnaForkTime := some 2000 }
+
+/-- The final pre-Etna parent includes the 1M anchor reserve. -/
+def unzenParent : Parent :=
+  { number := 10, timestamp := 1999, gasLimit := 31_000_000, anchorBlockNumber := 400 }
+
+/-- An Etna parent has a 30M header and manifest gas limit. -/
+def etnaParent : Parent :=
+  { unzenParent with number := 11, timestamp := 2000, gasLimit := 30_000_000 }
+
+-- Etna removes the unconditional 1M subtraction from non-genesis parents.
+#guard effectiveGasLimit etnaChain { parentAtHeight 1 with timestamp := 2000 } == 30_000_000
+-- Parent timestamp, rather than proposal time, selects the gas basis.
+#guard effectiveGasLimit etnaChain unzenParent == 30_000_000
+#guard effectiveGasLimit etnaChain etnaParent == 30_000_000
+#guard effectiveGasLimit etnaChain { etnaParent with number := 0 } == 30_000_000
+#guard validate etnaChain (ctx 2001 500) etnaParent false [blk 2001 450 30_000_000]
+#guard !validate etnaChain (ctx 2001 500) etnaParent false [blk 2001 450 29_000_000]
+-- Inclusive fork boundaries and an unscheduled fork preserve pre-Etna behavior.
+#guard !isEtna etnaChain 1999
+#guard isEtna etnaChain 2000
+#guard anchorGasReserve etnaChain 1999 == 1_000_000
+#guard anchorGasReserve etnaChain 2000 == 0
+#guard !isEtna devnet 2000
+#guard maxBlocks etnaChain 1999 == UNZEN_DERIVATION_SOURCE_MAX_BLOCKS
+#guard maxBlocks { devnet with unzenForkTime := some 2000 } 1999 == DERIVATION_SOURCE_MAX_BLOCKS
+#guard maxBlocks { devnet with unzenForkTime := some 2000 } 2000 == UNZEN_DERIVATION_SOURCE_MAX_BLOCKS
+#guard maxBlocks { devnet with unzenForkTime := none } 2000 == DERIVATION_SOURCE_MAX_BLOCKS
+
+end EtnaValidation

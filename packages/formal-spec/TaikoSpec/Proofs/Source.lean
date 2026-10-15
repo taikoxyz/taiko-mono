@@ -21,7 +21,7 @@ theorem validate_eq_true {forced : Bool} {bs : List BlockManifest} :
       bs ≠ [] ∧ timestampsValid c ctx p.timestamp bs = true ∧
         anchorsValid c ctx p.anchorBlockNumber bs = true ∧
         (forced = true ∨ ∃ b ∈ bs, p.anchorBlockNumber < b.anchorBlockNumber) ∧
-        gasLimitsValid (effectiveGasLimit p) bs = true := by
+        gasLimitsValid (effectiveGasLimit c p) bs = true := by
   simp [validate, List.any_eq_true, and_assoc]
 
 theorem timestampsValid_chain :
@@ -168,8 +168,8 @@ theorem finalizeSource_anchor_le (m : Option (List BlockManifest))
   · simpa [SourceOutcome.blocks, defaultBlock] using hp
 
 theorem finalizeSource_gas (m : Option (List BlockManifest))
-    (h₁ : MIN_BLOCK_GAS_LIMIT ≤ effectiveGasLimit p)
-    (h₂ : effectiveGasLimit p ≤ MAX_BLOCK_GAS_LIMIT) :
+    (h₁ : MIN_BLOCK_GAS_LIMIT ≤ effectiveGasLimit c p)
+    (h₂ : effectiveGasLimit c p ≤ MAX_BLOCK_GAS_LIMIT) :
     ∀ b ∈ (finalizeSource c ctx p src m).blocks,
       MIN_BLOCK_GAS_LIMIT ≤ b.gasLimit ∧ b.gasLimit ≤ MAX_BLOCK_GAS_LIMIT := by
   rcases finalizeSource_cases (c := c) (ctx := ctx) (p := p) (src := src) m with
@@ -190,9 +190,7 @@ theorem finalizeSource_progress {m : Option (List BlockManifest)} {bs : List Blo
 
 theorem maxBlocks_pos (c : ChainParams) (t : Nat) : 1 ≤ maxBlocks c t := by
   unfold maxBlocks
-  split
-  · split <;> decide
-  · decide
+  split <;> decide
 
 theorem extractManifest_limits {payload : Option ByteArray} {bs : List BlockManifest}
     (h : extractManifest c ctx src payload = some bs) :
@@ -239,8 +237,8 @@ theorem forced_accepted_iff (b : BlockManifest) (hf : src.isForcedInclusion = tr
       lowerBound c ctx p.timestamp ≤ ctx.timestamp ∧
       ctx.originBlockNumber - c.maxAnchorOffset ≤ p.anchorBlockNumber ∧
       p.anchorBlockNumber ≤ ctx.originBlockNumber ∧
-      (gasBounds (effectiveGasLimit p)).1 ≤ effectiveGasLimit p ∧
-      effectiveGasLimit p ≤ (gasBounds (effectiveGasLimit p)).2 := by
+      (gasBounds (effectiveGasLimit c p)).1 ≤ effectiveGasLimit c p ∧
+      effectiveGasLimit c p ≤ (gasBounds (effectiveGasLimit c p)).2 := by
   have : (finalizeSource c ctx p src (some [b])).isAccepted =
       validate c ctx p true (inherit c ctx p p.timestamp [b]) := by
     cases hv : validate c ctx p true (inherit c ctx p p.timestamp [b]) <;>

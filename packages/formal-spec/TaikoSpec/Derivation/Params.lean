@@ -20,7 +20,7 @@ def DERIVATION_SOURCE_MAX_BLOCKS : Nat := 192
 /-- Per-source block limit for proposals landed at or after Unzen. -/
 def UNZEN_DERIVATION_SOURCE_MAX_BLOCKS : Nat := 768
 
-/-- Gas reserved in every non-genesis block header for the anchor transaction. -/
+/-- Gas reserved in pre-Etna non-genesis block headers for the anchor transaction. -/
 def ANCHOR_GAS_LIMIT : Nat := 1_000_000
 
 /-- Lowest allowed block gas limit. -/
@@ -47,6 +47,8 @@ structure ChainParams where
   shastaForkTime : Nat
   /-- Unzen activation timestamp; `none` if it is never scheduled. -/
   unzenForkTime : Option Nat
+  /-- Etna activation timestamp; `none` if it is never scheduled. -/
+  etnaForkTime : Option Nat := none
 
 /-- Taiko mainnet. -/
 def mainnet : ChainParams where
@@ -72,12 +74,25 @@ def devnet : ChainParams where
   shastaForkTime := 0
   unzenForkTime := some 0
 
+/-- Whether Unzen is active at this timestamp (inclusive). -/
+def isUnzen (c : ChainParams) (timestamp : Nat) : Bool :=
+  match c.unzenForkTime with
+  | some t => decide (t ≤ timestamp)
+  | none => false
+
+/-- Whether Etna is active at this timestamp (inclusive). -/
+def isEtna (c : ChainParams) (timestamp : Nat) : Bool :=
+  match c.etnaForkTime with
+  | some t => decide (t ≤ timestamp)
+  | none => false
+
+/-- Header gas reserved for the anchor transaction before Etna. -/
+def anchorGasReserve (c : ChainParams) (timestamp : Nat) : Nat :=
+  if isEtna c timestamp then 0 else ANCHOR_GAS_LIMIT
+
 /-- The per-source block limit for a proposal that landed on L1 at `proposalTimestamp`. -/
 def maxBlocks (c : ChainParams) (proposalTimestamp : Nat) : Nat :=
-  match c.unzenForkTime with
-  | some t =>
-    if t ≤ proposalTimestamp then UNZEN_DERIVATION_SOURCE_MAX_BLOCKS
-    else DERIVATION_SOURCE_MAX_BLOCKS
-  | none => DERIVATION_SOURCE_MAX_BLOCKS
+  if isUnzen c proposalTimestamp then UNZEN_DERIVATION_SOURCE_MAX_BLOCKS
+  else DERIVATION_SOURCE_MAX_BLOCKS
 
 end TaikoSpec.Derivation
