@@ -318,10 +318,10 @@ pub(super) fn plant_due_entry(
     plant_entries(fx, l1, number, inbox, vec![(due, sample_transactions())]).remove(0)
 }
 
-/// Plants `inbox` as the finalized L1 block `number` of `l1`, its forced inclusion queue holding
-/// one entry per `(timestamp, transactions)` (indices from 0, tail = their count). Each entry's
-/// blob codes a one-block manifest of its transactions, and the fixture's blob source
-/// ([`Fixture::blobs`]) serves it; returns the blobs, in entry order.
+/// Plants `inbox` as the finalized L1 block `number` of `l1`, with one queue entry per
+/// `(timestamp, transactions)` (indices from 0, tail = their count). Each entry commits the first
+/// transaction's exact canonical bytes, or empty bytes for an empty list. The mock L1 serves those
+/// admission bytes; returns them in entry order.
 pub(super) fn plant_entries(
     fx: &Fixture,
     l1: &MockL1,

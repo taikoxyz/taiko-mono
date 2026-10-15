@@ -322,8 +322,9 @@ async fn stale_anchor_proposal_is_rejected() {
     assert_eq!(rejected(&mut app, &env).await, "anchor_too_old");
 }
 
-/// An entry due at the block's anchor must be consumed: an ordinary block, with no forced
-/// witness or with a peek, is rejected as `forced_inclusion`; the block consuming it is accepted.
+/// A due canonical entry requires a witness. If absent from position zero, its authenticated
+/// bytes require a singleton skip check; this fixture's Engine retains the transaction, so that
+/// skip is rejected as `forced_skip_invalid`. Including the exact transaction is accepted.
 #[tokio::test]
 async fn ordinary_block_skipping_a_due_entry_is_rejected() {
     let fx = Fixture::genesis(1);
@@ -404,8 +405,10 @@ async fn process_accepts_a_forced_block_with_an_extra_transaction() {
     assert!(matches!(&app.engine().calls()[before..], [EngineCall::NewPayload(_)]));
 }
 
-/// While the queue's next entry is pending but not due, ordinary blocks peek it (its proof with an
-/// empty blob) and are accepted; one without the peek is rejected.
+/// A pending entry requires its authenticated proof and exact admission bytes even before it is
+/// due. This fixture queues empty invalid input, so carrying its witness leaves the cursor
+/// unchanged and omitting it is rejected. A canonical transaction at position zero may instead
+/// consume its entry early.
 #[tokio::test]
 async fn pending_entry_is_peeked_by_ordinary_blocks() {
     let fx = Fixture::genesis(1);

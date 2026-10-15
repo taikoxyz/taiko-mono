@@ -1,10 +1,10 @@
 //! Docker scenarios: forced inclusion and anchor freshness on the ABCI devnet.
 //!
-//! [`Planter::plant_forced_inclusions`](test_harness::Planter::plant_forced_inclusions) writes
-//! forced inclusion entries and admission events into the setter-planted Inbox. Proposers
-//! fetch exact calldata bytes from L1 logs. With a 10 s delay an entry is due once the anchor
-//! (anvil's `finalized`, two blocks behind its tip) is an L1 block at least 10 s younger than the
-//! entry.
+//! [`Planter::plant_forced_transaction`](test_harness::Planter::plant_forced_transaction) writes
+//! one calldata entry and its admission event into the setter-planted Inbox. Proposers retrieve
+//! the exact bytes from L1 logs and carry them with the authenticated entry proof. A canonical
+//! transaction included at position zero may consume its entry before the 10 s delay; the delay
+//! determines when an absent transaction requires a skip decision.
 
 use std::{
     collections::BTreeSet,
@@ -67,14 +67,13 @@ async fn l1_timestamp(devnet: &Devnet, n: u64) -> anyhow::Result<u64> {
 }
 
 /// Plants `count` forced transfers of [`VALUE`] to [`RECIPIENT`] from the funded dev account,
-/// one per entry, as entries `0..count` in one L1 block, and waits up to `timeout` for the last
-/// to execute. Entries due at one anchor fill consecutive blocks, so entry `i` must execute in
-/// block `F + i`.
+/// one per L1 admission transaction, and waits up to `timeout` for the last to execute.
 ///
-/// For each entry checks that its block holds exactly its transaction, moved exactly the value
-/// plus the gas from the sender to the recipient, anchors at an L1 block at least [`DELAY`]
-/// seconds younger than the entries and is decided with the entry's proof and transaction bytes;
-/// every block before `F` leaves entry 0 unconsumed. Returns `F..F + count`.
+/// Checks strictly increasing inclusion heights in queue order, each block's exact transaction,
+/// sender/recipient balance changes including gas, an anchor no older than the entry's submission,
+/// and the entry index and transaction-bearing witness. Earlier pending witnesses carry entry 0's
+/// bytes. Returns the actual receipt heights, which need not be consecutive; early inclusion is
+/// allowed.
 async fn force_transfers(
     devnet: &Devnet,
     count: u64,

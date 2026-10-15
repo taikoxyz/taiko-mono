@@ -26,7 +26,7 @@ pub mod config;
 pub mod elsync;
 /// The execution-engine adapter (Engine API) and payload conversion for alethia-reth #248.
 pub mod engine;
-/// The CometBFT block envelope codec (`0x04 || rlp([block, anchor, committee, forced])`).
+/// The CometBFT block envelope codec (`0x05 || rlp([block, anchor, committee, forced])`).
 pub mod envelope;
 /// Etna calldata forced inclusion: authenticated entry proofs and per-block classification.
 pub mod forced;
