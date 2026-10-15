@@ -12,7 +12,9 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// @notice Drives an initialized `EtnaInbox` through `saveForcedInclusion`, `land` and L1
 /// block advances for the invariant campaign, and keeps ghost copies of the forced inclusion
 /// queue, the landed checkpoints and every wei moved.
-/// @dev Each call's outcome is predicted before it runs in try/catch: a save or landing is
+/// @dev Every landing carries the participation of its commit range, one part per epoch, and
+/// the committee of each epoch it completes, shaped as `land` requires.
+/// Each call's outcome is predicted before it runs in try/catch: a save or landing is
 /// either valid or broken in exactly one way, whose custom error is then expected. A landing
 /// mode picks the break: no progress, too many blocks, a zero fee recipient, a queue head
 /// behind the stored head, past the tail or past one entry per block, an unavailable or zero
@@ -49,6 +51,8 @@ contract EtnaInboxHandler is CommonBase {
     /// @dev One landing attempt and the state it starts from.
     struct Landing {
         IEtnaInbox.LandInput input;
+        IEtnaInbox.EpochParticipation[] participation;
+        IEtnaInbox.CommitteeMember[][] settlements;
         bytes32[] blobHashes;
         bytes32 referenceHash;
         address lander;
@@ -105,6 +109,10 @@ contract EtnaInboxHandler is CommonBase {
     uint64 public immutable maxBatchBlocks;
     uint64 public immutable baseFeeInGwei;
     uint64 public immutable feeDoubleThreshold;
+    uint64 public immutable epochLenL2;
+
+    /// @dev The committee of every epoch.
+    IEtnaInbox.CommitteeMember[] internal _committee;
 
     address[] internal _senders;
     address[] internal _landers;
@@ -149,7 +157,8 @@ contract EtnaInboxHandler is CommonBase {
         SignalService _signalService,
         MockLandProofVerifier _verifier,
         IEtnaInbox.Config memory _config,
-        bytes32 _genesisStateRoot
+        bytes32 _genesisStateRoot,
+        IEtnaInbox.CommitteeMember[] memory _committeeMembers
     ) {
         inbox = _inbox;
         signalService = _signalService;
@@ -157,6 +166,10 @@ contract EtnaInboxHandler is CommonBase {
         maxBatchBlocks = _config.maxBatchBlocks;
         baseFeeInGwei = _config.forcedInclusionFeeInGwei;
         feeDoubleThreshold = _config.forcedInclusionFeeDoubleThreshold;
+        epochLenL2 = _inbox.activation().epochLenL2;
+        for (uint256 i; i < _committeeMembers.length; ++i) {
+            _committee.push(_committeeMembers[i]);
+        }
 
         for (uint256 i; i < 3; ++i) {
             _senders.push(vm.addr(0xe7a5e0 + i));
@@ -265,6 +278,7 @@ contract EtnaInboxHandler is CommonBase {
         landing.blobHashes = _blobHashes(1 + (_actorSeed >> 16) % 3, _actorSeed);
 
         _breakLanding(landing, _modeSeed >> 8);
+        _shapeParticipation(landing);
         _expectStatement(landing);
         _land(landing);
     }
@@ -436,6 +450,43 @@ contract EtnaInboxHandler is CommonBase {
         }
     }
 
+    /// @dev Full participation for the batch `(parent, lastHeight]`: one part per epoch of its
+    /// commit range `[max(parent, 1), lastHeight - 1]`, each counting the range's heights in its
+    /// epoch for every member; and the committee once per epoch whose last height the range
+    /// reaches. Both stay empty when the range is empty.
+    function _shapeParticipation(Landing memory _landing) internal view {
+        uint256 first = _max(_landing.parent.height, 1);
+        uint256 lastHeight = _landing.input.lastHeight;
+        if (lastHeight == 0 || first > lastHeight - 1) return;
+        uint256 last = lastHeight - 1;
+        uint256 epochLen = epochLenL2;
+        uint256 firstEpoch = (first - 1) / epochLen;
+        uint256 parts = (last - 1) / epochLen - firstEpoch + 1;
+        IEtnaInbox.CommitteeMember[] memory committee = _committee;
+        bytes32 committeeHash = keccak256(abi.encode(committee));
+
+        _landing.participation = new IEtnaInbox.EpochParticipation[](parts);
+        for (uint256 k; k < parts; ++k) {
+            uint256 epoch = firstEpoch + k;
+            uint256 heights =
+                _min(last, (epoch + 1) * epochLen) - _max(first, epoch * epochLen + 1) + 1;
+            uint32[] memory counts = new uint32[](committee.length);
+            for (uint256 i; i < counts.length; ++i) {
+                counts[i] = uint32(heights);
+            }
+            _landing.participation[k] = IEtnaInbox.EpochParticipation({
+                epoch: uint64(epoch), committeeHash: committeeHash, signedCounts: counts
+            });
+        }
+
+        uint256 complete = last / epochLen; // epochs [0, complete) end at or before `last`
+        uint256 settlements = complete > firstEpoch ? complete - firstEpoch : 0;
+        _landing.settlements = new IEtnaInbox.CommitteeMember[][](settlements);
+        for (uint256 k; k < settlements; ++k) {
+            _landing.settlements[k] = committee;
+        }
+    }
+
     /// @dev Makes the verifier accept exactly the statement the handler derives from the stored
     /// parent, generation and queue head, so a valid landing that verifies anything else fails;
     /// or makes it reject, for the two proof modes.
@@ -446,6 +497,7 @@ contract EtnaInboxHandler is CommonBase {
             _landing.parent.blockHash,
             _landing.head,
             _landing.input,
+            _landing.participation,
             _landing.referenceHash,
             _landing.blobHashes
         );
@@ -458,7 +510,7 @@ contract EtnaInboxHandler is CommonBase {
         Balances memory before = _balances(_landing);
         vm.blobhashes(_landing.blobHashes);
         vm.prank(_landing.lander);
-        try inbox.land(_landing.input, PROOF) {
+        try inbox.land(_landing.input, _landing.participation, _landing.settlements, PROOF) {
             if (_landing.expectedError != 0) {
                 _violate(Property.Checkpoint, "a landing the model rejects was accepted");
             } else {
@@ -620,5 +672,9 @@ contract EtnaInboxHandler is CommonBase {
 
     function _min(uint256 _a, uint256 _b) internal pure returns (uint256) {
         return _a < _b ? _a : _b;
+    }
+
+    function _max(uint256 _a, uint256 _b) internal pure returns (uint256) {
+        return _a > _b ? _a : _b;
     }
 }

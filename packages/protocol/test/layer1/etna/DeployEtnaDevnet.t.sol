@@ -6,6 +6,7 @@ import { VmSafe } from "forge-std/src/Vm.sol";
 import { DeployEtnaDevnet } from "script/layer1/etna/DeployEtnaDevnet.s.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
+import { EtnaRewardPool } from "src/layer1/etna/impl/EtnaRewardPool.sol";
 import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
@@ -29,7 +30,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         _run_DeploysAnInitializedRegistryWithTheConfiguredOwner();
         _run_DefaultsTheRegistryOwnerToTheDeployer();
         _deployInbox_InitializesThePredictedFreshProxyAndLandsFromBlockZero();
-        _deployInbox_DefaultsBothOwnersToTheDeployer();
+        _deployInbox_DefaultsEveryOwnerToTheDeployer();
         _deployInbox_RevertWhen_GenesisCutoffIsNotPast();
         _deployInbox_RevertWhen_GenesisBlockHashIsZero();
         _deployInbox_RevertWhen_GenesisStateRootIsZero();
@@ -77,6 +78,11 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         vm.setEnv("COMMITTEE_CONFIG_HASH", vm.toString(COMMITTEE_CONFIG_HASH));
         vm.setEnv("FORCED_INCLUSION_DELAY", vm.toString(FORCED_INCLUSION_DELAY));
         vm.setEnv("MAX_ANCHOR_AGE", vm.toString(MAX_ANCHOR_AGE));
+        vm.setEnv("L1_BRIDGE", vm.toString(L1_BRIDGE));
+        vm.setEnv("L2_FEE_VAULT", vm.toString(L2_FEE_VAULT));
+        vm.setEnv("ALLOC_VALIDATOR_PPM", "700000");
+        vm.setEnv("ALLOC_PROVER_PPM", "250000");
+        vm.setEnv("LANDING_REWARD_PER_BLOCK", "2000000000000000");
     }
 
     function _run_DeploysAnInitializedRegistryWithTheConfiguredOwner() private withEnvironment {
@@ -109,14 +115,18 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         uint64 nonce = vm.getNonce(_scriptDeployer);
         address predictedInbox = vm.computeCreateAddress(_scriptDeployer, nonce + 3);
         address predictedSignalService = vm.computeCreateAddress(_scriptDeployer, nonce + 1);
-        (address deployedInbox, address deployedSignalService) = _deployment.deployInbox();
+        address predictedPool = vm.computeCreateAddress(_scriptDeployer, nonce + 5);
+        (address deployedInbox, address deployedSignalService, address deployedPool) =
+            _deployment.deployInbox();
         assertEq(deployedInbox, predictedInbox, "fourth CREATE");
         assertEq(deployedSignalService, predictedSignalService, "second CREATE");
-        assertEq(vm.getNonce(_scriptDeployer), nonce + 4, "four CREATEs");
+        assertEq(deployedPool, predictedPool, "sixth CREATE");
+        assertEq(vm.getNonce(_scriptDeployer), nonce + 6, "six CREATEs");
         assertNotEq(deployedInbox, address(etnaInbox), "fresh Inbox");
         assertNotEq(deployedSignalService, address(signalService), "fresh signal service");
+        assertNotEq(deployedPool, address(rewardPool), "fresh reward pool");
 
-        EtnaInbox deployed = EtnaInbox(deployedInbox);
+        EtnaInbox deployed = EtnaInbox(payable(deployedInbox));
         SignalService deployedSignals = SignalService(deployedSignalService);
         assertEq(deployed.owner(), Bob, "Inbox owner");
         assertEq(deployedSignals.owner(), Bob, "signal service owner");
@@ -132,6 +142,22 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         );
         assertEq(deployed.forcedInclusionDelay(), FORCED_INCLUSION_DELAY, "forced inclusion delay");
         assertEq(deployed.maxAnchorAge(), MAX_ANCHOR_AGE, "maximum anchor age");
+        assertEq(deployed.rewardPool(), deployedPool, "the Inbox names the pool proxy");
+        assertEq(deployed.landingRewardPerBlock(), 0.002 ether, "landing reward per block");
+        assertEq(deployed.proverRewardLedger(), 0, "empty prover ledger");
+
+        EtnaRewardPool pool = EtnaRewardPool(payable(deployedPool));
+        assertEq(pool.owner(), Bob, "reward pool owner");
+        assertEq(pool.inbox(), deployedInbox, "the pool reports to the Inbox proxy");
+        assertEq(pool.stakingRegistry(), address(registry), "pool registry");
+        assertEq(pool.l1Bridge(), L1_BRIDGE, "pool L1 bridge");
+        assertEq(pool.l2FeeVault(), L2_FEE_VAULT, "pool L2 fee vault");
+        assertEq(pool.l2ChainId(), L2_CHAIN_ID, "pool L2 chain id");
+        assertEq(pool.allocValidatorPpm(), 700_000, "validator share");
+        assertEq(pool.allocProverPpm(), 250_000, "proving share");
+        vm.expectRevert("Initializable: contract is already initialized");
+        pool.init(Alice);
+
         ICheckpointStore.Checkpoint memory checkpoint = deployedSignals.getCheckpoint(0);
         assertEq(checkpoint.blockHash, genesisBlockHash, "checkpoint zero hash");
         assertEq(checkpoint.stateRoot, genesisStateRoot, "checkpoint zero root");
@@ -153,15 +179,18 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         vm.setBlockhash(input.l1ReferenceBlockNumber, l1ReferenceBlockHash);
         bytes32[] memory blobHashes = _getBlobHashes(1);
         vm.blobhashes(blobHashes);
+        // Block 1 carries no commit, so the first landing reports no participation.
+        IEtnaInbox.EpochParticipation[] memory parts = new IEtnaInbox.EpochParticipation[](0);
+        IEtnaInbox.CommitteeMember[][] memory settlements = new IEtnaInbox.CommitteeMember[][](0);
         bytes32 statement = deployed.hashLandStatement(
-            0, 0, genesisBlockHash, 0, input, l1ReferenceBlockHash, blobHashes
+            0, 0, genesisBlockHash, 0, input, parts, l1ReferenceBlockHash, blobHashes
         );
         vm.expectCall(
             address(landVerifier),
             abi.encodeCall(IProofVerifier.verifyProof, (0, statement, bytes("proof")))
         );
         uint256 recipientBefore = Carol.balance;
-        deployed.land(input, "proof");
+        deployed.land(input, parts, settlements, "proof");
         assertEq(deployed.lastCheckpoint().height, 1, "first landed block");
         assertEq(
             deployedSignals.getCheckpoint(1).blockHash, input.lastBlockHash, "new syncer authorized"
@@ -175,12 +204,16 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         );
     }
 
-    function _deployInbox_DefaultsBothOwnersToTheDeployer() private withEnvironment {
+    function _deployInbox_DefaultsEveryOwnerToTheDeployer() private withEnvironment {
         vm.setEnv("CONTRACT_OWNER", vm.toString(address(0)));
-        (address deployedInbox, address deployedSignalService) = _deployment.deployInbox();
-        assertEq(EtnaInbox(deployedInbox).owner(), _scriptDeployer, "default Inbox owner");
+        (address deployedInbox, address deployedSignalService, address deployedPool) =
+            _deployment.deployInbox();
+        assertEq(EtnaInbox(payable(deployedInbox)).owner(), _scriptDeployer, "default Inbox owner");
         assertEq(
             SignalService(deployedSignalService).owner(), _scriptDeployer, "default signal owner"
+        );
+        assertEq(
+            EtnaRewardPool(payable(deployedPool)).owner(), _scriptDeployer, "default pool owner"
         );
     }
 

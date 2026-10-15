@@ -24,6 +24,24 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         cfg.stakingRegistry = address(0);
         vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
         new EtnaInbox(cfg);
+
+        cfg = etnaConfig;
+        cfg.rewardPool = address(0);
+        vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
+        new EtnaInbox(cfg);
+    }
+
+    function test_constructor_AcceptsAZeroLandingReward() external {
+        IEtnaInbox.Config memory cfg = etnaConfig;
+        cfg.landingRewardPerBlock = 0;
+        assertEq(new EtnaInbox(cfg).landingRewardPerBlock(), 0, "zero landing reward");
+    }
+
+    function test_constructor_SetsTheRewardConfiguration() external view {
+        assertEq(etnaInbox.rewardPool(), address(rewardPool), "reward pool");
+        assertEq(etnaInbox.landingRewardPerBlock(), LANDING_REWARD_PER_BLOCK, "reward per block");
+        assertEq(rewardPool.inbox(), address(etnaInbox), "the pool reports to the Inbox");
+        assertEq(etnaInbox.proverRewardLedger(), 0, "empty ledger");
     }
 
     function test_constructor_RevertWhen_ChainIdOrBatchLimitIsZero() external {
