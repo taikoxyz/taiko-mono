@@ -22,7 +22,7 @@ theorem checked_add (a b : U64) : U64.checked_add a b = (Etna.Committee.add a.va
     have bound : a.val+b.val ≤ Etna.Committee.max64 := spec.1
     simp [Etna.Committee.add, Etna.Committee.checked, bound]
     apply UScalar.eq_of_val_eq
-    simp [word_val, ← spec.2.1]
+    simp [← spec.2.1]
 
 theorem checked_mul (a b : U64) : U64.checked_mul a b = (Etna.Committee.mul a.val b.val).map word := by
   have spec := U64.checked_mul_bv_spec a b
@@ -36,7 +36,7 @@ theorem checked_mul (a b : U64) : U64.checked_mul a b = (Etna.Committee.mul a.va
     have bound : a.val*b.val ≤ Etna.Committee.max64 := spec.1
     simp [Etna.Committee.mul, Etna.Committee.checked, bound]
     apply UScalar.eq_of_val_eq
-    simp [word_val, ← spec.2.1]
+    simp [← spec.2.1]
 
 theorem checked_sub (a b : U64) : U64.checked_sub a b = (Etna.Committee.sub a.val b.val).map word := by
   have spec := U64.checked_sub_bv_spec a b
@@ -46,7 +46,7 @@ theorem checked_sub (a b : U64) : U64.checked_sub a b = (Etna.Committee.sub a.va
     simp [h] at spec
     simp [Etna.Committee.sub, spec.1]
     apply UScalar.eq_of_val_eq
-    simp [word_val, ← spec.2.1]
+    simp [← spec.2.1]
 
 theorem checked_div (a b : U64) : U64.checked_div a b = (Etna.Committee.div a.val b.val).map word := by
   have spec := U64.checked_div_bv_spec a b
@@ -56,7 +56,7 @@ theorem checked_div (a b : U64) : U64.checked_div a b = (Etna.Committee.div a.va
     simp [h] at spec
     simp [Etna.Committee.div, spec.1]
     apply UScalar.eq_of_val_eq
-    simp [word_val, ← spec.2.1]
+    simp [← spec.2.1]
 
 theorem checked_bound {n v : Nat} (h : Etna.Committee.checked n = some v) : v < 2^64 := by
   have := Etna.Committee.checked_some.mp h
@@ -128,8 +128,8 @@ theorem rust_parent_refines (s : etna_consensus_core.schedule.Schedule) (t : U64
   · simp [UScalar.eq_equiv, hz]
   simp only [UScalar.eq_equiv, hz, ↓reduceIte, rust_first_refines]
   cases hf : Etna.Committee.first (schedule s) t.val with
-  | none => simp [hf, hz]
-  | some v => simp [hf, hz, checked_sub, word_small (first_bound hf)]
+  | none => simp [hz]
+  | some v => simp [hz, checked_sub, word_small (first_bound hf)]
 
 theorem saturating_val (h : U64) : (core.num.U64.saturating_sub h 1#u64).val = h.val-1 := by
   change (max 0 (h.val - 1)) % 2^64 = h.val - 1
@@ -143,7 +143,7 @@ theorem rust_epoch_refines (s : etna_consensus_core.schedule.Schedule) (h : U64)
 
 theorem sub_bound {a b v : Nat} (h : Etna.Committee.sub a b = some v) (ha : a < 2^64) : v < 2^64 := by
   unfold Etna.Committee.sub at h
-  split_ifs at h <;> simp_all; omega
+  split_ifs at h; simp_all; omega
 
 theorem rust_starting_refines (s : etna_consensus_core.schedule.Schedule) (h : U64) :
     etna_consensus_core.schedule.Schedule.epoch_starting_at s h = .ok ((Etna.Committee.startingAt (schedule s) h.val).map word) := by
@@ -164,7 +164,7 @@ theorem rust_starting_refines (s : etna_consensus_core.schedule.Schedule) (h : U
       simp [← qv]
     simp only [show (1#u64).val = 1 from rfl, hs, Option.map_some, lift, bind_ok, hr, hq, Option.bind_some]
     by_cases hm : n % s.epoch_len.val = 0 <;>
-      simp [UScalar.eq_equiv, rv, word_small hn, hm, wr, hz]
+      simp [rv, word_small hn, hm, wr, hz]
 
 
 
@@ -179,7 +179,7 @@ theorem starting_bound {s : Etna.Committee.Schedule} {h t : Nat}
   | some n =>
     have hn := sub_bound he hh
     simp only [he, Option.bind_some] at hs
-    split_ifs at hs <;> simp_all
+    split_ifs at hs; simp_all
     have := Nat.div_le_self n s.length
     omega
 
@@ -189,14 +189,14 @@ theorem rust_switch_refines (s : etna_consensus_core.schedule.Schedule) (h : U64
   rw [checked_add]
   simp only [show (2#u64).val = 2 from rfl]
   cases ha : Etna.Committee.add h.val 2 with
-  | none => simp [ha, lift]
+  | none => simp [lift]
   | some n =>
-    simp only [ha, Option.map_some, lift, bind_ok, rust_starting_refines, word_small (checked_bound ha), Option.bind_some]
+    simp only [Option.map_some, lift, bind_ok, rust_starting_refines, word_small (checked_bound ha), Option.bind_some]
     cases ht : Etna.Committee.startingAt (schedule s) n with
-    | none => simp [ht]
+    | none => simp
     | some t =>
       have ht' := word_small (starting_bound ht (checked_bound ha))
-      simp only [ht, Option.map_some, bind_ok, Option.bind_some]
+      simp only [Option.map_some, Option.bind_some]
       split <;> rename_i he
       · have hv : t = 0 := by
           have hv := congrArg UScalar.val he
@@ -214,7 +214,7 @@ theorem rust_switch_refines (s : etna_consensus_core.schedule.Schedule) (h : U64
 theorem epoch_bound {s : Etna.Committee.Schedule} {h t : Nat}
     (hs : Etna.Committee.epochOf s h = some t) (hh : h < 2^64) : t < 2^64 := by
   unfold Etna.Committee.epochOf Etna.Committee.div at hs
-  split_ifs at hs <;> simp_all
+  split_ifs at hs; simp_all
   have := Nat.div_le_self (h-1) s.length
   omega
 
@@ -224,12 +224,12 @@ theorem rust_next_refines (s : etna_consensus_core.schedule.Schedule) (h : U64) 
   rw [checked_add]
   simp only [show (1#u64).val = 1 from rfl]
   cases ha : Etna.Committee.add h.val 1 with
-  | none => simp [ha, lift]
+  | none => simp [lift]
   | some n =>
-    simp only [ha, Option.map_some, lift, bind_ok, rust_epoch_refines, word_small (checked_bound ha), Option.bind_some]
+    simp only [Option.map_some, lift, bind_ok, rust_epoch_refines, word_small (checked_bound ha), Option.bind_some]
     cases ht : Etna.Committee.epochOf (schedule s) n with
-    | none => simp [ht]
-    | some t => simp [ht, checked_add, word_small (epoch_bound ht (checked_bound ha))]
+    | none => simp
+    | some t => simp [checked_add, word_small (epoch_bound ht (checked_bound ha))]
 
 /-- Exact total output for the overflow-safe source formula, with the full u128 input domain. -/
 theorem rust_quorum_refines (signed total : U128) :
@@ -285,7 +285,7 @@ theorem switch_bound {s : Etna.Committee.Schedule} {h t : Nat}
     | some e =>
       have hb := starting_bound ht (checked_bound ha)
       simp only [ht, Option.bind_some] at hs
-      split_ifs at hs <;> simp_all
+      split_ifs at hs; simp_all
 
 theorem rust_transition_refines (s : etna_consensus_core.schedule.Schedule) (h : U64)
     (f : etna_consensus_core.transition.CommitteeFacts) :
@@ -296,8 +296,7 @@ theorem rust_transition_refines (s : etna_consensus_core.schedule.Schedule) (h :
     cases f with | mk derived outgoing incoming =>
       cases derived <;>
         simp [etna_consensus_core.transition.transition_committee, rust_switch_refines, hs,
-          Etna.Committee.plan, modelRelation, planResult, encodePlan, planError,
-          Bind.bind, Except.bind, Pure.pure, Except.pure]
+          Etna.Committee.plan, modelRelation, planResult, encodePlan, planError]
   | some t =>
     have positive := Etna.Committee.switch_positive hs
     have different : t-1 ≠ t := by omega
@@ -311,15 +310,14 @@ theorem rust_transition_refines (s : etna_consensus_core.schedule.Schedule) (h :
       | None =>
         cases outgoing <;> cases incoming <;>
           simp [etna_consensus_core.transition.transition_committee, rust_switch_refines, hs, hold,
-            Etna.Committee.plan, modelRelation, planResult, encodePlan, planError, wo,
-            Bind.bind, Except.bind, Pure.pure, Except.pure]
+            Etna.Committee.plan, modelRelation, planResult, encodePlan, planError, wo]
       | Conflicting epoch =>
         simp [etna_consensus_core.transition.transition_committee, Etna.Committee.plan,
-          modelRelation, planResult, planError, Bind.bind, Except.bind]
+          modelRelation, planResult, planError]
       | Absent epoch | Equal epoch =>
         cases outgoing <;> cases incoming <;>
           by_cases he : epoch.val = t <;> by_cases ho : epoch.val = t-1 <;>
           simp [etna_consensus_core.transition.transition_committee, rust_switch_refines, hs, hold,
             Etna.Committee.plan, modelRelation, planResult, encodePlan, planError, wo,
-            UScalar.eq_equiv, wt, ov', he, ho, different, Ne.symm different, Bind.bind, Except.bind, Pure.pure, Except.pure] <;> simp_all [word_roundtrip]
+            UScalar.eq_equiv, wt, ov', he, ho, different, Ne.symm different]
 end Etna.Refinement.Rust.Committee

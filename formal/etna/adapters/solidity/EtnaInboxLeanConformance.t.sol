@@ -19,6 +19,9 @@ contract LeanHistoryFixture {
     bool private immutable _success;
 
     /// @dev Pins the exact response bytes and call outcome for one isolated environment row.
+    /// @param _value The raw history hash word.
+    /// @param _size The exact returned byte length.
+    /// @param _accepts Whether the raw history call returns normally.
     constructor(bytes32 _value, uint256 _size, bool _accepts) {
         _hash = _value;
         _length = _size;
@@ -45,6 +48,9 @@ contract LeanVerifierFixture is IProofVerifier {
     uint8 private immutable _mode;
 
     /// @dev Mode 1 attempts land, mode 2 save; both catch and assert the real guard rejection.
+    /// @param _target The actual Inbox proxy to call statically.
+    /// @param _allowed Whether proof verification returns normally.
+    /// @param _callbackMode The selected same-proxy nested operation.
     constructor(EtnaInbox _target, bool _allowed, uint8 _callbackMode) {
         _inbox = _target;
         _accepts = _allowed;
@@ -80,6 +86,9 @@ contract LeanRecipientFixture {
     bytes4 public nestedError;
 
     /// @dev Modes 1/2 catch land/save; modes 3/4 propagate their rejection.
+    /// @param _target The actual Inbox proxy to call from receipt.
+    /// @param _allowed Whether the recipient accepts payment.
+    /// @param _callbackMode The selected nested operation and propagation behavior.
     constructor(EtnaInbox _target, bool _allowed, uint8 _callbackMode) {
         _inbox = _target;
         _accepts = _allowed;
@@ -204,6 +213,8 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
     /// @notice Isolates instrumentation memory per row; only this harness may enter it.
     /// @dev Metering is resumed exclusively around the actual production call below. Large debug
     /// arrays are test instrumentation and must not consume the production transaction gas budget.
+    /// @param _json The complete staged JSON array.
+    /// @param _key The JSON path identifying this isolated row.
     function executeLeanRow(string calldata _json, string calldata _key) external {
         require(msg.sender == address(this), "self-only fixture");
         Row memory row = _readRow(_json, _key);
@@ -211,36 +222,50 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
     }
 
     /// @dev Reads all frozen-schema fields explicitly; uint ranges are the adapter boundary.
-    function _readRow(string memory _json, string memory _key) private pure returns (Row memory r) {
+    /// @param _json The complete staged JSON array.
+    /// @param _key The path to the mandatory row fields.
+    /// @return row_ The typed fixture row.
+    function _readRow(
+        string memory _json,
+        string memory _key
+    )
+        private
+        pure
+        returns (Row memory row_)
+    {
         require(vm.parseJsonUint(_json, string.concat(_key, ".schemaVersion")) == 1, "schema");
-        r.id = vm.parseJsonString(_json, string.concat(_key, ".id"));
-        r.parentHeight = uint64(_uint(_json, _key, "parentHeight"));
-        r.lastHeight = uint64(_uint(_json, _key, "lastHeight"));
-        r.beforeHead = uint48(_uint(_json, _key, "headBefore"));
-        r.afterHead = uint48(_uint(_json, _key, "headAfter"));
-        r.tail = uint48(_uint(_json, _key, "tail"));
-        r.maxBatch = uint64(_uint(_json, _key, "maxBatchBlocks"));
-        r.active = _bool(_json, _key, "active");
-        r.locked = _bool(_json, _key, "guardLocked");
-        r.recipient = vm.parseJsonAddress(_json, string.concat(_key, ".recipient"));
-        r.caller = vm.parseJsonAddress(_json, string.concat(_key, ".caller"));
-        r.referenceBlock = uint64(_uint(_json, _key, "reference"));
-        r.currentBlock = _uint(_json, _key, "currentBlock");
-        r.referenceHash = vm.parseJsonBytes32(_json, string.concat(_key, ".referenceHash"));
-        r.historySuccess = _bool(_json, _key, "historySuccess");
-        r.historyLength = _uint(_json, _key, "historyLength");
-        r.blobs = vm.parseJsonBytes32Array(_json, string.concat(_key, ".blobs"));
-        r.lastHash = vm.parseJsonBytes32(_json, string.concat(_key, ".lastBlockHash"));
-        r.lastRoot = vm.parseJsonBytes32(_json, string.concat(_key, ".lastStateRoot"));
-        r.signalAuthorized = _bool(_json, _key, "signalAuthorized");
-        r.verifierAccepts = _bool(_json, _key, "verifierAccepts");
-        r.paymentAccepts = _bool(_json, _key, "paymentAccepts");
-        r.reentry = vm.parseJsonString(_json, string.concat(_key, ".reentryMode"));
-        r.balance = _uint(_json, _key, "inboxBalanceWei");
-        r.fees = vm.parseJsonUintArray(_json, string.concat(_key, ".feesGwei"));
+        row_.id = vm.parseJsonString(_json, string.concat(_key, ".id"));
+        row_.parentHeight = uint64(_uint(_json, _key, "parentHeight"));
+        row_.lastHeight = uint64(_uint(_json, _key, "lastHeight"));
+        row_.beforeHead = uint48(_uint(_json, _key, "headBefore"));
+        row_.afterHead = uint48(_uint(_json, _key, "headAfter"));
+        row_.tail = uint48(_uint(_json, _key, "tail"));
+        row_.maxBatch = uint64(_uint(_json, _key, "maxBatchBlocks"));
+        row_.active = _bool(_json, _key, "active");
+        row_.locked = _bool(_json, _key, "guardLocked");
+        row_.recipient = vm.parseJsonAddress(_json, string.concat(_key, ".recipient"));
+        row_.caller = vm.parseJsonAddress(_json, string.concat(_key, ".caller"));
+        row_.referenceBlock = uint64(_uint(_json, _key, "reference"));
+        row_.currentBlock = _uint(_json, _key, "currentBlock");
+        row_.referenceHash = vm.parseJsonBytes32(_json, string.concat(_key, ".referenceHash"));
+        row_.historySuccess = _bool(_json, _key, "historySuccess");
+        row_.historyLength = _uint(_json, _key, "historyLength");
+        row_.blobs = vm.parseJsonBytes32Array(_json, string.concat(_key, ".blobs"));
+        row_.lastHash = vm.parseJsonBytes32(_json, string.concat(_key, ".lastBlockHash"));
+        row_.lastRoot = vm.parseJsonBytes32(_json, string.concat(_key, ".lastStateRoot"));
+        row_.signalAuthorized = _bool(_json, _key, "signalAuthorized");
+        row_.verifierAccepts = _bool(_json, _key, "verifierAccepts");
+        row_.paymentAccepts = _bool(_json, _key, "paymentAccepts");
+        row_.reentry = vm.parseJsonString(_json, string.concat(_key, ".reentryMode"));
+        row_.balance = _uint(_json, _key, "inboxBalanceWei");
+        row_.fees = vm.parseJsonUintArray(_json, string.concat(_key, ".feesGwei"));
     }
 
     /// @dev Numeric decimal strings are parsed losslessly by Foundry, with no JavaScript hop.
+    /// @param _json The staged JSON document.
+    /// @param _key The containing row path.
+    /// @param _field The mandatory numeric field name.
+    /// @return value_ The exactly parsed unsigned value.
     function _uint(
         string memory _json,
         string memory _key,
@@ -248,12 +273,16 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
     )
         private
         pure
-        returns (uint256)
+        returns (uint256 value_)
     {
         return vm.parseJsonUint(_json, string.concat(_key, ".", _field));
     }
 
     /// @dev Reads one mandatory boolean field.
+    /// @param _json The staged JSON document.
+    /// @param _key The containing row path.
+    /// @param _field The mandatory boolean field name.
+    /// @return value_ The parsed boolean value.
     function _bool(
         string memory _json,
         string memory _key,
@@ -261,39 +290,40 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
     )
         private
         pure
-        returns (bool)
+        returns (bool value_)
     {
         return vm.parseJsonBool(_json, string.concat(_key, ".", _field));
     }
 
     /// @dev Sets typed test state while preserving the production proxy and implementation code.
-    function _configure(Row memory r) private {
-        vm.roll(r.currentBlock);
-        etnaConfig.maxBatchBlocks = r.maxBatch;
+    /// @param _row The typed initial state and controlled external outcomes.
+    function _configure(Row memory _row) private {
+        vm.roll(_row.currentBlock);
+        etnaConfig.maxBatchBlocks = _row.maxBatch;
         EtnaInbox implementation = new EtnaInbox(etnaConfig);
         vm.store(
             address(etnaInbox),
             _IMPLEMENTATION_SLOT,
             bytes32(uint256(uint160(address(implementation))))
         );
-        vm.store(address(etnaInbox), bytes32(STATUS_SLOT), bytes32(uint256(r.active ? 3 : 0)));
+        vm.store(address(etnaInbox), bytes32(STATUS_SLOT), bytes32(uint256(_row.active ? 3 : 0)));
         vm.store(
-            address(etnaInbox), bytes32(LAST_CHECKPOINT_SLOT), bytes32(uint256(r.parentHeight))
+            address(etnaInbox), bytes32(LAST_CHECKPOINT_SLOT), bytes32(uint256(_row.parentHeight))
         );
         vm.store(address(etnaInbox), bytes32(LAST_CHECKPOINT_SLOT + 1), genesisBlockHash);
         vm.store(
             address(etnaInbox),
             bytes32(FORCED_INCLUSION_HEAD_TAIL_SLOT),
-            bytes32(uint256(r.beforeHead) | (uint256(r.tail) << 48))
+            bytes32(uint256(_row.beforeHead) | (uint256(_row.tail) << 48))
         );
-        for (uint256 i; i < r.fees.length; ++i) {
-            require(r.fees[i] <= type(uint64).max, "typed fee");
-            uint256 index = uint256(r.beforeHead) + i;
+        for (uint256 i; i < _row.fees.length; ++i) {
+            require(_row.fees[i] <= type(uint64).max, "typed fee");
+            uint256 index = uint256(_row.beforeHead) + i;
             bytes32 slot = keccak256(abi.encode(index, FORCED_INCLUSION_QUEUE_SLOT));
-            vm.store(address(etnaInbox), bytes32(uint256(slot) + 1), bytes32(r.fees[i] << 112));
+            vm.store(address(etnaInbox), bytes32(uint256(slot) + 1), bytes32(_row.fees[i] << 112));
         }
-        vm.deal(address(etnaInbox), r.balance);
-        if (!r.signalAuthorized) {
+        vm.deal(address(etnaInbox), _row.balance);
+        if (!_row.signalAuthorized) {
             SignalService unauthorized =
                 new SignalService(address(0xbad), REMOTE_SIGNAL_SERVICE, address(0));
             address serviceImplementation =
@@ -301,24 +331,28 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
             vm.etch(serviceImplementation, address(unauthorized).code);
         }
         LeanHistoryFixture history =
-            new LeanHistoryFixture(r.referenceHash, r.historyLength, r.historySuccess);
+            new LeanHistoryFixture(_row.referenceHash, _row.historyLength, _row.historySuccess);
         vm.etch(_HISTORY, address(history).code);
-        if (r.referenceBlock < r.currentBlock && r.currentBlock - r.referenceBlock <= 256) {
-            vm.setBlockhash(r.referenceBlock, r.referenceHash);
+        if (
+            _row.referenceBlock < _row.currentBlock
+                && _row.currentBlock - _row.referenceBlock <= 256
+        ) {
+            vm.setBlockhash(_row.referenceBlock, _row.referenceHash);
         }
-        vm.blobhashes(r.blobs);
-        uint8 verifierMode =
-            _same(r.reentry, "verifier-land") ? 1 : (_same(r.reentry, "verifier-save") ? 2 : 0);
+        vm.blobhashes(_row.blobs);
+        uint8 verifierMode = _same(_row.reentry, "verifier-land")
+            ? 1
+            : (_same(_row.reentry, "verifier-save") ? 2 : 0);
         LeanVerifierFixture verifier =
-            new LeanVerifierFixture(etnaInbox, r.verifierAccepts, verifierMode);
+            new LeanVerifierFixture(etnaInbox, _row.verifierAccepts, verifierMode);
         vm.etch(address(landVerifier), address(verifier).code);
-        uint8 recipientMode = _recipientMode(r.reentry);
-        if (r.recipient != address(0) && (recipientMode != 0 || !r.paymentAccepts)) {
+        uint8 recipientMode = _recipientMode(_row.reentry);
+        if (_row.recipient != address(0) && (recipientMode != 0 || !_row.paymentAccepts)) {
             LeanRecipientFixture recipient =
-                new LeanRecipientFixture(etnaInbox, r.paymentAccepts, recipientMode);
-            vm.etch(r.recipient, address(recipient).code);
+                new LeanRecipientFixture(etnaInbox, _row.paymentAccepts, recipientMode);
+            vm.etch(_row.recipient, address(recipient).code);
         }
-        if (r.locked) {
+        if (_row.locked) {
             // Seed the actual execution account's transient slot, then restore byte-identical proxy
             // runtime before calling land. No production runtime instruction is replaced in trace.
             bytes memory original = address(etnaInbox).code;
@@ -330,21 +364,22 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
     }
 
     /// @dev Records actual instructions, call/storage journals and executed logs around land only.
-    function _execute(Row memory r) private {
-        _configure(r);
+    /// @param _row The isolated case to execute and observe.
+    function _execute(Row memory _row) private {
+        _configure(_row);
         IEtnaInbox.LandInput memory input = IEtnaInbox.LandInput({
-            lastHeight: r.lastHeight,
-            lastBlockHash: r.lastHash,
-            lastStateRoot: r.lastRoot,
-            l1ReferenceBlockNumber: r.referenceBlock,
-            forcedInclusionHead: r.afterHead,
-            feeRecipient: r.recipient
+            lastHeight: _row.lastHeight,
+            lastBlockHash: _row.lastHash,
+            lastStateRoot: _row.lastRoot,
+            l1ReferenceBlockNumber: _row.referenceBlock,
+            forcedInclusionHead: _row.afterHead,
+            feeRecipient: _row.recipient
         });
         vm.recordLogs();
         vm.startStateDiffRecording();
         vm.startDebugTraceRecording();
         vm.resumeGasMetering();
-        vm.prank(r.caller);
+        vm.prank(_row.caller);
         (bool ok, bytes memory reason) = address(etnaInbox)
             .call(abi.encodeCall(EtnaInbox.land, (input, bytes("lean conformance boundary proof"))));
         vm.pauseGasMetering();
@@ -360,53 +395,60 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
         (o.head, o.tail) = etnaInbox.getForcedInclusionState();
         o.height = uint64(uint256(vm.load(address(etnaInbox), bytes32(LAST_CHECKPOINT_SLOT))));
         o.checkpointHash = vm.load(address(etnaInbox), bytes32(LAST_CHECKPOINT_SLOT + 1));
-        (o.signalPresent, o.signal) = _signal(r.lastHeight);
-        _trace(r, o, steps, accesses, logs);
-        _assertBusiness(r, o);
-        _print(r, o);
+        (o.signalPresent, o.signal) = _signal(_row.lastHeight);
+        _trace(_row, o, steps, accesses, logs);
+        _assertBusiness(_row, o);
+        _print(_row, o);
     }
 
     /// @dev Captures real production SHA3 input and tentative writes even when the outer call reverts.
+    /// @param _row The original typed fixture inputs.
+    /// @param _observation The observation populated in memory.
+    /// @param _steps The actual recorded EVM instruction steps.
+    /// @param _accesses The actual call and storage journal.
+    /// @param _logs The raw executed logs, including reverted-frame logs.
     function _trace(
-        Row memory r,
-        Observation memory o,
-        Vm.DebugStep[] memory steps,
-        Vm.AccountAccess[] memory accesses,
-        Vm.Log[] memory logs
+        Row memory _row,
+        Observation memory _observation,
+        Vm.DebugStep[] memory _steps,
+        Vm.AccountAccess[] memory _accesses,
+        Vm.Log[] memory _logs
     )
         private
         view
     {
         uint256 statementCount;
-        for (uint256 i; i < steps.length; ++i) {
-            Vm.DebugStep memory step = steps[i];
+        for (uint256 i; i < _steps.length; ++i) {
+            Vm.DebugStep memory step = _steps[i];
             if (
                 step.contractAddr == address(etnaInbox) && step.opcode == 0x20
                     && step.memoryInput.length == 576
             ) {
                 ++statementCount;
-                o.preimage = step.memoryInput;
-                o.statementDepth = step.depth;
+                _observation.preimage = step.memoryInput;
+                _observation.statementDepth = step.depth;
             }
             if (
                 step.contractAddr == address(etnaInbox) && step.opcode == 0xfd
                     && step.memoryInput.length >= 4
                     && bytes4(step.memoryInput) == EssentialContract.REENTRANT_CALL.selector
             ) {
-                o.nestedError = bytes4(step.memoryInput);
+                _observation.nestedError = bytes4(step.memoryInput);
             }
         }
         require(statementCount <= 1, "unique real Inbox 576-byte SHA3");
         if (statementCount == 1) {
-            bytes32[] memory words = _statementWords(r);
+            bytes32[] memory words = _statementWords(_row);
             assertEq(
-                o.preimage, abi.encodePacked(words), string.concat(r.id, ": real statement bytes")
+                _observation.preimage,
+                abi.encodePacked(words),
+                string.concat(_row.id, ": real statement bytes")
             );
         }
-        o.tentativeHead = r.beforeHead;
-        o.tentativeHeight = r.parentHeight;
-        for (uint256 i; i < accesses.length; ++i) {
-            Vm.AccountAccess memory access = accesses[i];
+        _observation.tentativeHead = _row.beforeHead;
+        _observation.tentativeHeight = _row.parentHeight;
+        for (uint256 i; i < _accesses.length; ++i) {
+            Vm.AccountAccess memory access = _accesses[i];
             if (
                 access.account == address(landVerifier) && access.accessor == address(etnaInbox)
                     && uint256(access.kind) <= uint256(VmSafe.AccountAccessKind.StaticCall)
@@ -416,135 +458,156 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
                     uint256(VmSafe.AccountAccessKind.StaticCall),
                     "actual void verifier STATICCALL"
                 );
-                ++o.verifierCalls;
+                ++_observation.verifierCalls;
             }
             if (
                 access.kind == VmSafe.AccountAccessKind.Call
-                    && access.accessor == address(etnaInbox) && access.account == r.recipient
+                    && access.accessor == address(etnaInbox) && access.account == _row.recipient
                     && access.value > 0 && !access.reverted
             ) {
-                o.paidTo = access.account;
-                o.paidWei += access.value;
+                _observation.paidTo = access.account;
+                _observation.paidWei += access.value;
             }
             for (uint256 j; j < access.storageAccesses.length; ++j) {
                 Vm.StorageAccess memory write = access.storageAccesses[j];
                 if (!write.isWrite || write.account != address(etnaInbox)) continue;
                 if (write.slot == bytes32(FORCED_INCLUSION_HEAD_TAIL_SLOT)) {
-                    o.headWrite = true;
-                    o.tentativeHead = uint48(uint256(write.newValue));
+                    _observation.headWrite = true;
+                    _observation.tentativeHead = uint48(uint256(write.newValue));
                 }
                 if (write.slot == bytes32(LAST_CHECKPOINT_SLOT)) {
-                    o.checkpointWrite = true;
-                    o.tentativeHeight = uint64(uint256(write.newValue));
+                    _observation.checkpointWrite = true;
+                    _observation.tentativeHeight = uint64(uint256(write.newValue));
                 }
             }
         }
-        o.rawLogCount = logs.length;
-        for (uint256 i; i < logs.length; ++i) {
-            if (logs[i].topics.length == 0) continue;
-            if (logs[i].emitter == address(etnaInbox) && logs[i].topics[0] == _BATCH_EVENT) {
-                o.tentativeBatch = true;
-                if (o.ok) {
+        _observation.rawLogCount = _logs.length;
+        for (uint256 i; i < _logs.length; ++i) {
+            if (_logs[i].topics.length == 0) continue;
+            if (_logs[i].emitter == address(etnaInbox) && _logs[i].topics[0] == _BATCH_EVENT) {
+                _observation.tentativeBatch = true;
+                if (_observation.ok) {
                     assertEq(
-                        logs[i].topics[1],
-                        bytes32(uint256(uint160(r.caller))),
+                        _logs[i].topics[1],
+                        bytes32(uint256(uint160(_row.caller))),
                         "actual indexed lander"
                     );
                     assertEq(
-                        logs[i].data,
+                        _logs[i].data,
                         abi.encode(
-                            uint64(r.parentHeight + 1),
-                            r.lastHeight,
-                            r.lastHash,
-                            r.lastRoot,
-                            r.referenceBlock,
-                            keccak256(o.preimage)
+                            uint64(_row.parentHeight + 1),
+                            _row.lastHeight,
+                            _row.lastHash,
+                            _row.lastRoot,
+                            _row.referenceBlock,
+                            keccak256(_observation.preimage)
                         ),
                         "actual batch event data"
                     );
-                    o.batch = true;
+                    _observation.batch = true;
                 }
             }
-            if (logs[i].emitter == address(signalService) && logs[i].topics[0] == _CHECKPOINT_EVENT)
-            {
-                o.tentativeSignal = true;
+            if (
+                _logs[i].emitter == address(signalService)
+                    && _logs[i].topics[0] == _CHECKPOINT_EVENT
+            ) {
+                _observation.tentativeSignal = true;
             }
             if (
-                logs[i].emitter == address(etnaInbox) && logs[i].topics[0] == _CONSUMED_EVENT
-                    && o.ok
+                _logs[i].emitter == address(etnaInbox) && _logs[i].topics[0] == _CONSUMED_EVENT
+                    && _observation.ok
             ) {
                 assertEq(
-                    logs[i].topics[1],
-                    bytes32(uint256(uint160(r.recipient))),
+                    _logs[i].topics[1],
+                    bytes32(uint256(uint160(_row.recipient))),
                     "actual consumed recipient"
                 );
                 assertEq(
-                    logs[i].data,
-                    abi.encode(r.beforeHead, r.afterHead, _expectedFee(r)),
+                    _logs[i].data,
+                    abi.encode(_row.beforeHead, _row.afterHead, _expectedFee(_row)),
                     "actual consumed interval/fee"
                 );
-                o.consumed = true;
+                _observation.consumed = true;
             }
         }
-        if (o.tentativeBatch) assertEq(o.verifierCalls, 1, "verifier call after tentative batch");
-        if (!o.ok) {
-            assertEq(o.paidWei, 0, "no committed transfer after outer revert");
-            o.paidTo = address(0);
+        if (_observation.tentativeBatch) {
+            assertEq(_observation.verifierCalls, 1, "verifier call after tentative batch");
+        }
+        if (!_observation.ok) {
+            assertEq(_observation.paidWei, 0, "no committed transfer after outer revert");
+            _observation.paidTo = address(0);
         }
     }
 
     /// @dev Verifies actual rollback state and emitted/transfer observations against row data.
-    function _assertBusiness(Row memory r, Observation memory o) private view {
-        assertEq(o.tail, r.tail, string.concat(r.id, ": retained tail"));
-        if (!o.ok) {
-            assertEq(o.head, r.beforeHead, string.concat(r.id, ": rollback head"));
-            assertEq(o.height, r.parentHeight, string.concat(r.id, ": rollback checkpoint"));
+    /// @param _row The original typed fixture inputs.
+    /// @param _observation The actual business state and recorded effects.
+    function _assertBusiness(Row memory _row, Observation memory _observation) private pure {
+        assertEq(_observation.tail, _row.tail, string.concat(_row.id, ": retained tail"));
+        if (!_observation.ok) {
+            assertEq(_observation.head, _row.beforeHead, string.concat(_row.id, ": rollback head"));
             assertEq(
-                o.checkpointHash,
+                _observation.height,
+                _row.parentHeight,
+                string.concat(_row.id, ": rollback checkpoint")
+            );
+            assertEq(
+                _observation.checkpointHash,
                 genesisBlockHash,
-                string.concat(r.id, ": rollback checkpoint hash")
+                string.concat(_row.id, ": rollback checkpoint hash")
             );
             // Fixtures never prepopulate the requested target (genesis-height rows are excluded
             // from this particular absence assertion because the real base has block zero).
-            if (r.lastHeight != 0) {
-                assertFalse(o.signalPresent, string.concat(r.id, ": rollback signal"));
+            if (_row.lastHeight != 0) {
+                assertFalse(_observation.signalPresent, string.concat(_row.id, ": rollback signal"));
             }
             return;
         }
-        assertTrue(r.verifierAccepts, "successful land requires normal verifier return");
-        assertGt(r.lastHeight, r.parentHeight, "successful strict progress");
-        assertLe(uint256(r.lastHeight) - r.parentHeight, r.maxBatch, "successful batch bound");
-        assertLe(r.lastHeight, type(uint48).max, "successful height width");
-        assertLe(r.beforeHead, r.afterHead, "successful head monotonicity");
-        assertLe(r.afterHead, r.tail, "successful head tail bound");
+        assertTrue(_row.verifierAccepts, "successful land requires normal verifier return");
+        assertGt(_row.lastHeight, _row.parentHeight, "successful strict progress");
         assertLe(
-            uint256(r.afterHead) - r.beforeHead,
-            uint256(r.lastHeight) - r.parentHeight,
+            uint256(_row.lastHeight) - _row.parentHeight, _row.maxBatch, "successful batch bound"
+        );
+        assertLe(_row.lastHeight, type(uint48).max, "successful height width");
+        assertLe(_row.beforeHead, _row.afterHead, "successful head monotonicity");
+        assertLe(_row.afterHead, _row.tail, "successful head tail bound");
+        assertLe(
+            uint256(_row.afterHead) - _row.beforeHead,
+            uint256(_row.lastHeight) - _row.parentHeight,
             "successful consumption block bound"
         );
-        assertEq(o.head, r.afterHead, string.concat(r.id, ": landed head"));
-        assertEq(o.height, r.lastHeight, string.concat(r.id, ": landed height"));
-        assertEq(o.checkpointHash, r.lastHash, string.concat(r.id, ": landed hash"));
-        assertTrue(o.signalPresent, "real service checkpoint");
-        assertEq(o.signal.blockHash, r.lastHash, "real service hash");
-        assertEq(o.signal.stateRoot, r.lastRoot, "real service root");
-        assertTrue(o.batch, "committed batch event under journal rule");
-        assertEq(o.consumed, r.afterHead != r.beforeHead, "consumption event condition");
-        assertEq(o.paidWei, _expectedFee(r), "actual committed CALL amount");
+        assertEq(_observation.head, _row.afterHead, string.concat(_row.id, ": landed head"));
+        assertEq(_observation.height, _row.lastHeight, string.concat(_row.id, ": landed height"));
         assertEq(
-            o.paidTo, o.paidWei == 0 ? address(0) : r.recipient, "actual committed CALL target"
+            _observation.checkpointHash, _row.lastHash, string.concat(_row.id, ": landed hash")
         );
-        assertEq(o.preimage.length, 576, "actual successful statement captured");
+        assertTrue(_observation.signalPresent, "real service checkpoint");
+        assertEq(_observation.signal.blockHash, _row.lastHash, "real service hash");
+        assertEq(_observation.signal.stateRoot, _row.lastRoot, "real service root");
+        assertTrue(_observation.batch, "committed batch event under journal rule");
+        assertEq(
+            _observation.consumed, _row.afterHead != _row.beforeHead, "consumption event condition"
+        );
+        assertEq(_observation.paidWei, _expectedFee(_row), "actual committed CALL amount");
+        assertEq(
+            _observation.paidTo,
+            _observation.paidWei == 0 ? address(0) : _row.recipient,
+            "actual committed CALL target"
+        );
+        assertEq(_observation.preimage.length, 576, "actual successful statement captured");
     }
 
     /// @dev Reads the concrete service rather than inferring its storage from Inbox success.
+    /// @param _height The requested target height.
+    /// @return present_ Whether the concrete service has this checkpoint.
+    /// @return checkpoint_ The stored checkpoint, or the zero-initialized value when absent.
     function _signal(uint64 _height)
         private
         view
-        returns (bool present, ICheckpointStore.Checkpoint memory checkpoint)
+        returns (bool present_, ICheckpointStore.Checkpoint memory checkpoint_)
     {
         if (_height > type(uint48).max) {
-            return (false, checkpoint);
+            return (false, checkpoint_);
         }
         // The preceding uint48 bound makes this narrowing lossless.
         // forge-lint: disable-next-line(unsafe-typecast)
@@ -553,105 +616,116 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
         ) {
             return (true, found);
         } catch {
-            return (false, checkpoint);
+            return (false, checkpoint_);
         }
     }
 
     /// @dev Independently forms eighteen field words; actual byte observation comes only from trace.
-    function _statementWords(Row memory r) private view returns (bytes32[] memory w) {
-        w = new bytes32[](18);
+    /// @param _row The original inputs supplying the statement fields.
+    /// @return words_ The eighteen canonical words in production wire order.
+    function _statementWords(Row memory _row) private view returns (bytes32[] memory words_) {
+        words_ = new bytes32[](18);
         // The 18-byte ASCII domain fits in 32 bytes; zero right-padding is the wire format.
         // forge-lint: disable-next-line(unsafe-typecast)
-        w[0] = bytes32("TAIKO_ETNA_LAND_V6");
-        w[1] = bytes32(block.chainid);
-        w[2] = bytes32(uint256(L2_CHAIN_ID));
-        w[3] = bytes32(uint256(uint160(address(etnaInbox))));
-        w[4] = bytes32(uint256(uint160(address(registry))));
-        w[5] = vm.load(address(etnaInbox), bytes32(RECOVERY_GENERATION_SLOT));
-        w[6] = bytes32(uint256(r.parentHeight));
-        w[7] = genesisBlockHash;
-        w[8] = COMMITTEE_CONFIG_HASH;
-        w[9] = bytes32(uint256(r.lastHeight));
-        w[10] = r.lastHash;
-        w[11] = r.lastRoot;
-        w[12] = bytes32(uint256(r.referenceBlock));
-        w[13] = r.referenceHash;
+        words_[0] = bytes32("TAIKO_ETNA_LAND_V6");
+        words_[1] = bytes32(block.chainid);
+        words_[2] = bytes32(uint256(L2_CHAIN_ID));
+        words_[3] = bytes32(uint256(uint160(address(etnaInbox))));
+        words_[4] = bytes32(uint256(uint160(address(registry))));
+        words_[5] = vm.load(address(etnaInbox), bytes32(RECOVERY_GENERATION_SLOT));
+        words_[6] = bytes32(uint256(_row.parentHeight));
+        words_[7] = genesisBlockHash;
+        words_[8] = COMMITTEE_CONFIG_HASH;
+        words_[9] = bytes32(uint256(_row.lastHeight));
+        words_[10] = _row.lastHash;
+        words_[11] = _row.lastRoot;
+        words_[12] = bytes32(uint256(_row.referenceBlock));
+        words_[13] = _row.referenceHash;
         uint256 count;
-        while (count < r.blobs.length && r.blobs[count] != bytes32(0)) ++count;
+        while (count < _row.blobs.length && _row.blobs[count] != bytes32(0)) ++count;
         bytes32[] memory prefix = new bytes32[](count);
         for (uint256 i; i < count; ++i) {
-            prefix[i] = r.blobs[i];
+            prefix[i] = _row.blobs[i];
         }
-        w[14] = keccak256(abi.encodePacked(prefix));
-        w[15] = bytes32(uint256(r.beforeHead));
-        w[16] = bytes32(uint256(r.afterHead));
-        w[17] = bytes32(uint256(uint160(r.recipient)));
+        words_[14] = keccak256(abi.encodePacked(prefix));
+        words_[15] = bytes32(uint256(_row.beforeHead));
+        words_[16] = bytes32(uint256(_row.afterHead));
+        words_[17] = bytes32(uint256(uint160(_row.recipient)));
     }
 
     /// @dev Fees are relative to the seeded pre-head; missing queue entries have zero fee.
-    function _expectedFee(Row memory r) private pure returns (uint256 fee) {
-        for (uint256 i; i < uint256(r.afterHead) - r.beforeHead && i < r.fees.length; ++i) {
-            fee += r.fees[i];
+    /// @param _row The original queue interval and stored fee values.
+    /// @return fee_ The interval fee converted from gwei to wei.
+    function _expectedFee(Row memory _row) private pure returns (uint256 fee_) {
+        for (uint256 i; i < uint256(_row.afterHead) - _row.beforeHead && i < _row.fees.length; ++i) {
+            fee_ += _row.fees[i];
         }
-        return fee * 1 gwei;
+        return fee_ * 1 gwei;
     }
 
     /// @dev Maps the exact observed top-level selector without hiding unknown failures.
-    function _classify(bytes4 selector, bool ok) private pure returns (string memory) {
-        if (ok) return "none";
-        if (selector == EssentialContract.REENTRANT_CALL.selector) return "reentrant";
-        if (selector == EtnaInbox.EtnaNotActive.selector) return "inactive";
-        if (selector == EtnaInbox.NoProgress.selector) return "no-progress";
-        if (selector == EtnaInbox.BatchTooLarge.selector) return "batch-too-large";
-        if (selector == EtnaInbox.HeightOverflow.selector) return "height-overflow";
-        if (selector == EtnaInbox.ZeroFeeRecipient.selector) return "zero-recipient";
-        if (selector == EtnaInbox.InvalidForcedInclusionHead.selector) return "invalid-head";
-        if (selector == EtnaInbox.AnchorUnavailable.selector) return "anchor-unavailable";
-        if (selector == EtnaInbox.BlobsRequired.selector) return "blobs-required";
-        if (selector == SignalService.SS_UNAUTHORIZED.selector) return "signal-unauthorized";
-        if (selector == SignalService.SS_INVALID_CHECKPOINT.selector) return "signal-invalid";
-        if (selector == LeanVerifierFixture.ProofRejected.selector) return "verifier";
-        if (selector == LibAddress.ETH_TRANSFER_FAILED.selector) return "payment";
+    /// @param _selector The actual top-level error selector.
+    /// @param _ok Whether the actual call returned successfully.
+    /// @return error_ The frozen schema error classification.
+    function _classify(bytes4 _selector, bool _ok) private pure returns (string memory error_) {
+        if (_ok) return "none";
+        if (_selector == EssentialContract.REENTRANT_CALL.selector) return "reentrant";
+        if (_selector == EtnaInbox.EtnaNotActive.selector) return "inactive";
+        if (_selector == EtnaInbox.NoProgress.selector) return "no-progress";
+        if (_selector == EtnaInbox.BatchTooLarge.selector) return "batch-too-large";
+        if (_selector == EtnaInbox.HeightOverflow.selector) return "height-overflow";
+        if (_selector == EtnaInbox.ZeroFeeRecipient.selector) return "zero-recipient";
+        if (_selector == EtnaInbox.InvalidForcedInclusionHead.selector) return "invalid-head";
+        if (_selector == EtnaInbox.AnchorUnavailable.selector) return "anchor-unavailable";
+        if (_selector == EtnaInbox.BlobsRequired.selector) return "blobs-required";
+        if (_selector == SignalService.SS_UNAUTHORIZED.selector) return "signal-unauthorized";
+        if (_selector == SignalService.SS_INVALID_CHECKPOINT.selector) return "signal-invalid";
+        if (_selector == LeanVerifierFixture.ProofRejected.selector) return "verifier";
+        if (_selector == LibAddress.ETH_TRANSFER_FAILED.selector) return "payment";
         revert("unclassified actual LAND selector");
     }
 
     /// @dev Emits canonical scalar observations plus actual encoding context for independent Lean.
-    function _print(Row memory r, Observation memory o) private {
-        string memory k = string.concat("land-", r.id);
+    /// @param _row The original fixture inputs and identifier.
+    /// @param _observation The actual observations to serialize.
+    function _print(Row memory _row, Observation memory _observation) private {
+        string memory k = string.concat("land-", _row.id);
         vm.serializeUint(k, "schemaVersion", 1);
-        vm.serializeString(k, "id", r.id);
-        vm.serializeString(k, "status", o.ok ? "ok" : "revert");
-        vm.serializeString(k, "error", o.errorName);
-        vm.serializeUint(k, "head", o.head);
-        vm.serializeUint(k, "tail", o.tail);
-        vm.serializeUint(k, "checkpointHeight", o.height);
-        vm.serializeBytes32(k, "checkpointHash", o.checkpointHash);
-        vm.serializeBool(k, "signalPresent", o.signalPresent);
-        vm.serializeUint(k, "signalHeight", o.signalPresent ? o.signal.blockNumber : 0);
-        vm.serializeBytes32(k, "signalHash", o.signal.blockHash);
-        vm.serializeBytes32(k, "signalRoot", o.signal.stateRoot);
-        vm.serializeAddress(k, "paidTo", o.paidTo);
-        vm.serializeString(k, "paidWei", vm.toString(o.paidWei));
-        vm.serializeBool(k, "batchEvent", o.batch);
-        vm.serializeBool(k, "consumedEvent", o.consumed);
-        vm.serializeUint(k, "tentativeHead", o.tentativeHead);
-        vm.serializeUint(k, "tentativeCheckpointHeight", o.tentativeHeight);
-        vm.serializeBool(k, "headWriteObserved", o.headWrite);
-        vm.serializeBool(k, "checkpointWriteObserved", o.checkpointWrite);
-        vm.serializeBool(k, "tentativeSignalPresent", o.tentativeSignal);
-        vm.serializeBool(k, "tentativeBatchEvent", o.tentativeBatch);
-        vm.serializeString(k, "failureStage", o.errorName);
-        vm.serializeBytes(k, "rawSelector", abi.encodePacked(o.selector));
-        vm.serializeBytes(k, "nestedError", abi.encodePacked(o.nestedError));
-        vm.serializeUint(k, "rawLogCount", o.rawLogCount);
-        vm.serializeUint(k, "statementDepth", o.statementDepth);
-        vm.serializeUint(k, "verifierStaticCalls", o.verifierCalls);
+        vm.serializeString(k, "id", _row.id);
+        vm.serializeString(k, "status", _observation.ok ? "ok" : "revert");
+        vm.serializeString(k, "error", _observation.errorName);
+        vm.serializeUint(k, "head", _observation.head);
+        vm.serializeUint(k, "tail", _observation.tail);
+        vm.serializeUint(k, "checkpointHeight", _observation.height);
+        vm.serializeBytes32(k, "checkpointHash", _observation.checkpointHash);
+        vm.serializeBool(k, "signalPresent", _observation.signalPresent);
+        vm.serializeUint(
+            k, "signalHeight", _observation.signalPresent ? _observation.signal.blockNumber : 0
+        );
+        vm.serializeBytes32(k, "signalHash", _observation.signal.blockHash);
+        vm.serializeBytes32(k, "signalRoot", _observation.signal.stateRoot);
+        vm.serializeAddress(k, "paidTo", _observation.paidTo);
+        vm.serializeString(k, "paidWei", vm.toString(_observation.paidWei));
+        vm.serializeBool(k, "batchEvent", _observation.batch);
+        vm.serializeBool(k, "consumedEvent", _observation.consumed);
+        vm.serializeUint(k, "tentativeHead", _observation.tentativeHead);
+        vm.serializeUint(k, "tentativeCheckpointHeight", _observation.tentativeHeight);
+        vm.serializeBool(k, "headWriteObserved", _observation.headWrite);
+        vm.serializeBool(k, "checkpointWriteObserved", _observation.checkpointWrite);
+        vm.serializeBool(k, "tentativeSignalPresent", _observation.tentativeSignal);
+        vm.serializeBool(k, "tentativeBatchEvent", _observation.tentativeBatch);
+        vm.serializeString(k, "failureStage", _observation.errorName);
+        vm.serializeBytes(k, "rawSelector", abi.encodePacked(_observation.selector));
+        vm.serializeBytes(k, "nestedError", abi.encodePacked(_observation.nestedError));
+        vm.serializeUint(k, "rawLogCount", _observation.rawLogCount);
+        vm.serializeUint(k, "statementDepth", _observation.statementDepth);
+        vm.serializeUint(k, "verifierStaticCalls", _observation.verifierCalls);
         vm.serializeString(k, "committedLogEvidence", "call-result-plus-EVM-journal-law");
         string memory contextJson;
-        if (o.preimage.length != 0) {
-            vm.serializeBytes32(k, "statementWords", _statementWords(r));
-            vm.serializeBytes(k, "actualPreimage", o.preimage);
-            vm.serializeBytes32(k, "actualDigest", keccak256(o.preimage));
+        if (_observation.preimage.length != 0) {
+            vm.serializeBytes32(k, "statementWords", _statementWords(_row));
+            vm.serializeBytes(k, "actualPreimage", _observation.preimage);
+            vm.serializeBytes32(k, "actualDigest", keccak256(_observation.preimage));
         }
         {
             string memory contextKey = string.concat(k, "-context");
@@ -666,7 +740,7 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
             );
             vm.serializeBytes32(contextKey, "parentHash", genesisBlockHash);
             vm.serializeBytes32(contextKey, "config", COMMITTEE_CONFIG_HASH);
-            contextJson = vm.serializeAddress(contextKey, "recipient", r.recipient);
+            contextJson = vm.serializeAddress(contextKey, "recipient", _row.recipient);
         }
         string memory output = vm.serializeString(
             k,
@@ -682,16 +756,21 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
     }
 
     /// @dev Returns the callback behavior encoded by the frozen schema enum.
-    function _recipientMode(string memory mode) private pure returns (uint8) {
-        if (_same(mode, "land-caught")) return 1;
-        if (_same(mode, "save-caught")) return 2;
-        if (_same(mode, "land-uncaught")) return 3;
-        if (_same(mode, "save-uncaught")) return 4;
+    /// @param _mode The frozen recipient callback enum string.
+    /// @return mode_ The numeric recipient fixture behavior.
+    function _recipientMode(string memory _mode) private pure returns (uint8 mode_) {
+        if (_same(_mode, "land-caught")) return 1;
+        if (_same(_mode, "save-caught")) return 2;
+        if (_same(_mode, "land-uncaught")) return 3;
+        if (_same(_mode, "save-uncaught")) return 4;
         return 0;
     }
 
     /// @dev Compares a schema enum string.
-    function _same(string memory a, string memory b) private pure returns (bool) {
-        return keccak256(bytes(a)) == keccak256(bytes(b));
+    /// @param _a The first enum string.
+    /// @param _b The second enum string.
+    /// @return equal_ Whether the strings have matching hashes.
+    function _same(string memory _a, string memory _b) private pure returns (bool equal_) {
+        return keccak256(bytes(_a)) == keccak256(bytes(_b));
     }
 }

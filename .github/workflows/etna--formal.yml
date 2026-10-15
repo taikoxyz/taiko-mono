@@ -59,6 +59,15 @@ jobs:
         run: python3 formal/etna/scripts/prepare_pair.py --protocol "$ETNA_PROTOCOL" --report "$RUNNER_TEMP/etna-reports/pair.json"
       - name: Bootstrap lean
         run: bash formal/etna/scripts/bootstrap_ci.sh lean
+      - name: Bootstrap cast for provenance regressions
+        run: bash formal/etna/scripts/bootstrap_ci.sh cast
+      - name: Python verifier regressions
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/etna-reports"
+          cd formal/etna
+          python3 -m unittest discover -s tests -v 2>&1 | tee "$RUNNER_TEMP/etna-reports/python-regressions.log"
       - name: Verify
         run: |
           cd formal/etna

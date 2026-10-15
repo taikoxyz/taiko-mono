@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Reviewed immutable compilers; dependencies belong to this runner, never a developer machine.
 set -euo pipefail
-mode="${1:?lean|extract|native|protocol}"
+mode="${1:?lean|extract|native|protocol|cast}"
 etna_repo="$(git rev-parse --show-toplevel)"
 etna_tools="${RUNNER_TEMP:?}/etna-tools"
 mkdir -p "$etna_tools/bin"
@@ -27,7 +27,7 @@ case "$mode" in
     # Materialize the exact lock and retrieve matching Mathlib artifacts; never float pins.
     (cd "$etna_repo/formal/etna"; lake exe cache get; lake build)
     ;;
-  native|protocol) ;;
+  native|protocol|cast) ;;
   *) echo "unknown bootstrap scope: $mode" >&2; exit 1;;
 esac
 if [[ "$mode" == native || "$mode" == extract ]]; then
@@ -46,11 +46,15 @@ if [[ "$mode" == protocol ]]; then
   (cd "$etna_repo"; pnpm install --frozen-lockfile --filter . --filter @taiko/protocol)
   (cd "$ETNA_PROTOCOL"; pnpm install --frozen-lockfile --filter . --filter @taiko/protocol)
   echo "$etna_repo/node_modules/.bin" >> "$GITHUB_PATH"
+fi
+if [[ "$mode" == protocol || "$mode" == cast ]]; then
+  # Provenance regression fixtures need only the pinned Cast Keccak oracle.
   gh release download v1.5.1 --repo foundry-rs/foundry --pattern foundry_v1.5.1_linux_amd64.tar.gz --dir "$etna_tools"
   checksum 73640b01bd9ed29fdb4965085099371f8cf0dbbec3e2086cf54564efc4dcfe88 "$etna_tools/foundry_v1.5.1_linux_amd64.tar.gz"
   tar -xzf "$etna_tools/foundry_v1.5.1_linux_amd64.tar.gz" -C "$etna_tools/bin"
   echo "$etna_tools/bin" >> "$GITHUB_PATH"
-  "$etna_tools/bin/forge" --version
+  "$etna_tools/bin/cast" --version
+  if [[ "$mode" == protocol ]]; then "$etna_tools/bin/forge" --version; fi
 fi
 if [[ "$mode" == extract ]]; then
   sudo apt-get update

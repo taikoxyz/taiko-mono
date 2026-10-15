@@ -81,16 +81,19 @@ contract EtnaInboxCutsConformanceTest is EtnaInboxTestBase {
 
     /// @notice Isolates journal decoding memory per plan while retaining state across its cuts.
     /// @dev Only the test itself can invoke this helper; actual land calls are metered.
+    /// @param _cuts The strictly increasing terminal heights covering the shared trace.
+    /// @param _fees The actual admitted entry fees in gwei.
+    /// @return result_ The actual terminal state, transfers and per-cut intervals.
     function executeCutPlan(
         uint256[] calldata _cuts,
         uint256[] calldata _fees
     )
         external
-        returns (PlanResult memory result)
+        returns (PlanResult memory result_)
     {
         require(msg.sender == address(this), "self-only plan");
         uint256[] memory steps = _steps();
-        result.intervals = new Interval[](_cuts.length);
+        result_.intervals = new Interval[](_cuts.length);
         uint48 expectedHead;
         uint64 priorHeight;
         uint256 covered;
@@ -108,28 +111,33 @@ contract EtnaInboxCutsConformanceTest is EtnaInboxTestBase {
                 ++covered;
             }
             Interval memory interval = this.executeCut(expectedHead, afterHead, height, expectedFee);
-            result.intervals[i] = interval;
-            result.paidWei += interval.paidWei;
+            result_.intervals[i] = interval;
+            result_.paidWei += interval.paidWei;
             expectedHead = afterHead;
             priorHeight = height;
         }
         assertEq(priorHeight, 6, "complete frozen trace");
         assertEq(covered, 4, "each consumed entry covered once");
-        (result.finalHead,) = etnaInbox.getForcedInclusionState();
+        (result_.finalHead,) = etnaInbox.getForcedInclusionState();
         IEtnaInbox.LandedCheckpoint memory checkpoint = etnaInbox.lastCheckpoint();
         // The preceding terminal-height assertion fixes priorHeight to 6, within uint48.
         // forge-lint: disable-next-line(unsafe-typecast)
         ICheckpointStore.Checkpoint memory signal = signalService.getCheckpoint(uint48(priorHeight));
-        result.finalHeight = checkpoint.height;
-        result.finalHash = checkpoint.blockHash;
-        result.finalRoot = signal.stateRoot;
-        assertEq(result.finalHead, 4, "all four admissions consumed exactly once");
-        assertEq(result.finalHeight, 6, "actual terminal checkpoint");
+        result_.finalHeight = checkpoint.height;
+        result_.finalHash = checkpoint.blockHash;
+        result_.finalRoot = signal.stateRoot;
+        assertEq(result_.finalHead, 4, "all four admissions consumed exactly once");
+        assertEq(result_.finalHeight, 6, "actual terminal checkpoint");
         assertEq(address(etnaInbox).balance, 0, "all admitted fees transferred once");
     }
 
     /// @notice Lands one batch through the real Inbox/proxy and records actual effects.
     /// @dev Empty intervals must skip value transfer and consumption events.
+    /// @param _before The expected actual queue head before this cut.
+    /// @param _after The shared trace queue head after this cut.
+    /// @param _height The terminal block height for this landing.
+    /// @param _expectedFee The fee of this stored queue interval in wei.
+    /// @return interval_ The observed interval and actual transferred amount.
     function executeCut(
         uint48 _before,
         uint48 _after,
@@ -137,13 +145,13 @@ contract EtnaInboxCutsConformanceTest is EtnaInboxTestBase {
         uint256 _expectedFee
     )
         external
-        returns (Interval memory interval)
+        returns (Interval memory interval_)
     {
         require(msg.sender == address(this), "self-only cut");
         (uint48 observedBefore, uint48 tail) = etnaInbox.getForcedInclusionState();
         assertEq(observedBefore, _before, "consecutive actual head before");
         uint64 parentHeight = etnaInbox.lastCheckpoint().height;
-        interval = Interval(_before, _after, _expectedFee, _height);
+        interval_ = Interval(_before, _after, _expectedFee, _height);
         bytes32[] memory blobs = new bytes32[](2);
         blobs[0] = bytes32(uint256(1));
         blobs[1] = bytes32(uint256(2));
@@ -162,20 +170,23 @@ contract EtnaInboxCutsConformanceTest is EtnaInboxTestBase {
         vm.prank(_LANDER);
         etnaInbox.land(input, "sampled cut boundary proof");
         vm.pauseGasMetering();
-        uint256 actualPaid = _assertPayment(vm.stopAndReturnStateDiff(), interval);
-        _assertCutEvents(vm.getRecordedLogs(), interval, parentHeight);
-        _assertCutState(interval, tail);
-        interval.paidWei = actualPaid;
+        uint256 actualPaid = _assertPayment(vm.stopAndReturnStateDiff(), interval_);
+        _assertCutEvents(vm.getRecordedLogs(), interval_, parentHeight);
+        _assertCutState(interval_, tail);
+        interval_.paidWei = actualPaid;
     }
 
     /// @dev Measures only actual committed value CALL instructions from this Inbox.
+    /// @param _accesses The actual call and storage journal.
+    /// @param _interval The expected interval and stored fee sum.
+    /// @return paid_ The actual committed value CALL amount.
     function _assertPayment(
         Vm.AccountAccess[] memory _accesses,
         Interval memory _interval
     )
         private
         view
-        returns (uint256 paid)
+        returns (uint256 paid_)
     {
         uint256 paymentCalls;
         for (uint256 i; i < _accesses.length; ++i) {
@@ -186,10 +197,10 @@ contract EtnaInboxCutsConformanceTest is EtnaInboxTestBase {
             ) continue;
             assertFalse(access.reverted, "actual committed cut payment");
             assertEq(access.account, _RECIPIENT, "actual bound cut payment target");
-            paid += access.value;
+            paid_ += access.value;
             ++paymentCalls;
         }
-        assertEq(paid, _interval.paidWei, "actual journal payment matches stored fee interval");
+        assertEq(paid_, _interval.paidWei, "actual journal payment matches stored fee interval");
         assertEq(
             paymentCalls,
             _interval.beforeHead == _interval.afterHead ? 0 : 1,
@@ -198,6 +209,9 @@ contract EtnaInboxCutsConformanceTest is EtnaInboxTestBase {
     }
 
     /// @dev Validates actual consumption and batch logs for each contiguous landing.
+    /// @param _logs The executed logs from the successful actual landing.
+    /// @param _interval The expected interval, terminal height and fee.
+    /// @param _parent The actual preceding checkpoint height.
     function _assertCutEvents(
         Vm.Log[] memory _logs,
         Interval memory _interval,
@@ -243,6 +257,8 @@ contract EtnaInboxCutsConformanceTest is EtnaInboxTestBase {
     }
 
     /// @dev Reads the actual Inbox and concrete service after every cut.
+    /// @param _interval The expected actual queue head and terminal height.
+    /// @param _tail The retained queue tail before the cut.
     function _assertCutState(Interval memory _interval, uint48 _tail) private view {
         (uint48 observedAfter, uint48 observedTail) = etnaInbox.getForcedInclusionState();
         assertEq(observedAfter, _interval.afterHead, "consecutive actual head after");
@@ -265,6 +281,10 @@ contract EtnaInboxCutsConformanceTest is EtnaInboxTestBase {
     }
 
     /// @dev Emits one distinct sampled-plan record without touching existing LAND IDs.
+    /// @param _id The unique frozen cut-plan identifier.
+    /// @param _cuts The selected sampled terminal heights.
+    /// @param _fees The actual admission fees in gwei.
+    /// @param _result The observed plan result to serialize.
     function _print(
         string memory _id,
         uint256[] memory _cuts,
@@ -315,36 +335,44 @@ contract EtnaInboxCutsConformanceTest is EtnaInboxTestBase {
     }
 
     /// @dev The shared sampled trace contains a mixture of consuming and non-consuming blocks.
-    function _steps() private pure returns (uint256[] memory steps) {
-        steps = new uint256[](6);
-        steps[0] = 1;
-        steps[2] = 1;
-        steps[3] = 1;
-        steps[5] = 1;
+    /// @return steps_ The six shared per-block inclusion counts.
+    function _steps() private pure returns (uint256[] memory steps_) {
+        steps_ = new uint256[](6);
+        steps_[0] = 1;
+        steps_[2] = 1;
+        steps_[3] = 1;
+        steps_[5] = 1;
     }
 
     /// @dev Returns each frozen finite plan; the last endpoint always covers the full trace.
-    function _plan(uint256 _index) private pure returns (string memory id, uint256[] memory cuts) {
+    /// @param _index The frozen sampled plan index.
+    /// @return id_ The distinct machine-readable plan identifier.
+    /// @return cuts_ The strictly increasing terminal heights.
+    function _plan(uint256 _index)
+        private
+        pure
+        returns (string memory id_, uint256[] memory cuts_)
+    {
         if (_index == 0) {
-            id = "cut-6";
-            cuts = new uint256[](1);
-            cuts[0] = 6;
+            id_ = "cut-6";
+            cuts_ = new uint256[](1);
+            cuts_[0] = 6;
         } else if (_index == 1) {
-            id = "cut-1-6";
-            cuts = new uint256[](2);
-            cuts[0] = 1;
-            cuts[1] = 6;
+            id_ = "cut-1-6";
+            cuts_ = new uint256[](2);
+            cuts_[0] = 1;
+            cuts_[1] = 6;
         } else if (_index == 2) {
-            id = "cut-2-4-6";
-            cuts = new uint256[](3);
-            cuts[0] = 2;
-            cuts[1] = 4;
-            cuts[2] = 6;
+            id_ = "cut-2-4-6";
+            cuts_ = new uint256[](3);
+            cuts_[0] = 2;
+            cuts_[1] = 4;
+            cuts_[2] = 6;
         } else {
-            id = "cut-every";
-            cuts = new uint256[](6);
+            id_ = "cut-every";
+            cuts_ = new uint256[](6);
             for (uint256 i; i < 6; ++i) {
-                cuts[i] = i + 1;
+                cuts_[i] = i + 1;
             }
         }
     }

@@ -84,12 +84,12 @@ def incomingRecord : Record := auth.derive 1 snap
 def finalState : CommitteeState := ⟨8,108,⟨800,10010,50,7⟩,[incomingRecord,outgoingRecord]⟩
 
 theorem nonempty_switch_replay : replay ctx history initial =
-    .ok (finalState,[(outgoingRecord,incomingRecord)]) := by repeat' constructor <;> rfl
+    .ok (finalState,[(outgoingRecord,incomingRecord)]) := by rfl
 
-theorem missing_pending_scalar : plan schedule 5 .none true false = .error (.unknown 1) := by repeat' constructor <;> rfl
+theorem missing_pending_scalar : plan schedule 5 .none true false = .error (.unknown 1) := by rfl
 
 def emptyAuth : Authentication := { auth with derive := fun t snapshot => ⟨t,snapshot.root,snapshot.cutoff,[]⟩ }
-theorem empty_incoming_rejected : incoming emptyAuth schedule initial.anchor 5 (some ⟨snap,[42]⟩) = .error .empty := by repeat' constructor <;> rfl
+theorem empty_incoming_rejected : incoming emptyAuth schedule initial.anchor 5 (some ⟨snap,[42]⟩) = .error .empty := by rfl
 
 def stopped : Context := { ctx with cap := 0 }
 def firstStopped : AuthenticatedBlockFacts stopped := ⟨(block 1 (by decide)).facts,
@@ -98,7 +98,7 @@ def firstStopped : AuthenticatedBlockFacts stopped := ⟨(block 1 (by decide)).f
 theorem zero_cap_bootstrap : validate schedule 0 = .ok () ∧ unsettledCap 2 2 = some 0 ∧
     step stopped initial firstStopped = .error .backPressure := ⟨rfl,rfl,rfl⟩
 /-- Saturated ahead-checkpoint depth is zero; do not claim all possible zero-cap anchors fail. -/
-theorem zero_cap_ahead_checkpoint : (1 : Nat)-2 ≤ 0 := by repeat' constructor <;> rfl
+theorem zero_cap_ahead_checkpoint : (1 : Nat)-2 ≤ 0 := by rfl
 
 
 def concreteComet : CometAdapter := ⟨cometView, by intros; rfl⟩

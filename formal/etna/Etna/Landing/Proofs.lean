@@ -13,14 +13,14 @@ def Bounds (w : World) (i : LandInput) : Prop :=
 
 theorem validate_bounds (w : World) (i : LandInput) (h : validate w i = none) : Bounds w i := by
   unfold validate at h
-  split_ifs at h <;> simp_all [Bounds]
+  split_ifs at h; simp_all [Bounds]
 
 theorem successful_checks (w : World) (i : LandInput) (x : ExternalOutcomes)
     (h : (execLandSteps w i x).error = none) :
     validate w i = none ∧ environmentCheck x.environment i = none := by
   unfold execLandSteps at h
   split at h <;> simp_all [finish]
-  split at h <;> simp_all [finish]
+  split at h <;> simp_all
 
 theorem bounds_preserved (w : World) (i : LandInput) (x : ExternalOutcomes)
     (h : (execLandSteps w i x).error = none) : Bounds w i :=
@@ -57,7 +57,7 @@ theorem journal_rollback_write (j : Journal α) (next : α) :
 
 theorem checked_journal_root (w : World) (i : LandInput) (x : ExternalOutcomes) :
     (execChecked w i x).journal.rollback = w := by
-  simp [execChecked, finish, Journal.update, Journal.rollback]
+  simp [execChecked, finish, Journal.update]
   split_ifs <;> rfl
 
 theorem execution_journal_root (w : World) (i : LandInput) (x : ExternalOutcomes) :

@@ -54,5 +54,5 @@ theorem switch_positive {s : Schedule} {h t : Nat} (hs : switchTarget s h = some
     | none => simp [ht] at hs
     | some t' =>
       simp only [ht, Option.bind_some] at hs
-      split_ifs at hs <;> simp_all <;> omega
+      split_ifs at hs; simp_all; omega
 end Etna.Committee

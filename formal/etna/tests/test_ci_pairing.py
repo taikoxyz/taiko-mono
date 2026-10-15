@@ -25,6 +25,48 @@ class WorkflowReceiptTests(unittest.TestCase):
                 self.assertIn('artifact-ids:',step)
                 self.assertIn('merge-multiple: true',step)
 
+    def test_python_regressions_are_required_after_lean_bootstrap(self):
+        workflow=(ROOT.parents[1]/'.github/workflows/etna--formal.yml').read_text()
+        jobs=dict(re.findall(r'(?ms)^  ([a-z][a-z-]*):\n(.*?)(?=^  [a-z][a-z-]*:|\Z)',workflow))
+        job=jobs['lean-proofs']
+        self.assertIn('lean-proofs',ci_gate.REQUIRED)
+        self.assertNotIn('continue-on-error:',job)
+        steps=re.split(r'(?m)^      - ',job)
+        suite=[step for step in steps if 'python3 -m unittest discover -s tests -v' in step]
+        self.assertEqual(len(suite),1,'full Python suite must remain in the required Lean job')
+        step=suite[0]
+        self.assertLess(job.index('bootstrap_ci.sh lean'),job.index(step))
+        self.assertLess(job.index('bootstrap_ci.sh cast'),job.index(step))
+        bootstrap=(ROOT/'scripts/bootstrap_ci.sh').read_text()
+        self.assertIn('if [[ "$mode" == protocol || "$mode" == cast ]]; then',bootstrap)
+        self.assertIn('echo "$etna_tools/bin" >> "$GITHUB_PATH"',bootstrap)
+        self.assertNotIn('if:',step)
+        self.assertIn('shell: bash',step)
+        self.assertIn('cd formal/etna',step)
+        self.assertIn('set -o pipefail',step)
+        self.assertIn('2>&1 | tee "$RUNNER_TEMP/etna-reports/python-regressions.log"',step)
+        self.assertNotRegex(step,r'continue-on-error|\|\|\s*true|set \+e|pipefail.*true')
+        self.assertIn('${{ runner.temp }}/etna-reports',job)
+        self.assertIn('if: always()',job)
+
+    def test_python_regression_failure_retains_log_and_fails_step(self):
+        workflow=(ROOT.parents[1]/'.github/workflows/etna--formal.yml').read_text()
+        job=workflow.split('  lean-proofs:\n',1)[1].split('  rust-refinement:\n',1)[0]
+        step=next(step for step in re.split(r'(?m)^      - ',job)
+                  if 'python3 -m unittest discover -s tests -v' in step)
+        script=step.split('run: |\n',1)[1]
+        script='\n'.join(line.removeprefix('          ') for line in script.splitlines())
+        with tempfile.TemporaryDirectory(prefix='etna-regression-step-') as temporary:
+            root=Path(temporary); binary=root/'bin'; binary.mkdir()
+            fake=binary/'python3'
+            fake.write_text('#!/bin/sh\necho regression-failure >&2\nexit 17\n')
+            fake.chmod(0o755)
+            env=os.environ|{'PATH':str(binary)+os.pathsep+os.environ['PATH'],'RUNNER_TEMP':str(root)}
+            result=subprocess.run(['bash','--noprofile','--norc','-e','-o','pipefail','-c',script],
+                                  cwd=ROOT.parents[1],env=env,text=True,capture_output=True)
+            self.assertEqual(result.returncode,17,result.stdout+result.stderr)
+            self.assertEqual((root/'etna-reports/python-regressions.log').read_text(),'regression-failure\n')
+
     def test_cold_consumers_build_etna_before_direct_lean_run(self):
         script=(ROOT/'scripts/bootstrap_ci.sh').read_text()
         lean_case=script.split('  lean|extract)',1)[1].split('    ;;',1)[0]

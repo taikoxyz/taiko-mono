@@ -20,7 +20,7 @@ theorem starting_iff (s : Schedule) (h t : Nat) (length : 0 < s.length) :
         omega
     · intro he
       have hx : h-1=t*s.length := by omega
-      simp [hx, Nat.mul_div_cancel, nz, Nat.mul_mod_right]
+      simp [hx, nz]
   · simp only [hh, ↓reduceIte, Option.bind_none, reduceCtorEq, false_iff]
     omega
 
@@ -39,7 +39,7 @@ theorem switch_iff (s : Schedule) (h t : Nat) (length : 0 < s.length) :
       have hv := (starting_iff s (h+2) v length).mp hs
       simp only [Option.bind_some]
       split_ifs with hz
-      · simp only [reduceCtorEq, false_iff]
+      · simp only [false_iff]
         intro ⟨positive, ht, _⟩
         unfold H at hv ht
         subst v
@@ -98,7 +98,7 @@ theorem parent_anchor_unique (a : Authentication) (s : Schedule) (p : Anchor)
     w.snapshot.cutoff = p.number ∧ r.members ≠ [] := by
   unfold incoming at accepted
   simp only [switch] at accepted
-  split_ifs at accepted with verified fields empty <;> simp_all
+  split_ifs at accepted with verified fields empty; simp_all
   exact a.sound _ _ _ _ verified
 
 theorem nonswitch_witness_rejected (a : Authentication) (s : Schedule) (p : Anchor)
@@ -145,14 +145,14 @@ theorem batch_cut_equivalent (ctx : Context) (xs ys : List (AuthenticatedBlockFa
       let (last,v) ← replay ctx ys middle
       pure (last,u++v)) := by
   induction xs generalizing st with
-  | nil => cases hy : replay ctx ys st <;> simp [replay, hy, Bind.bind, Except.bind, Functor.map, Except.map, Pure.pure, Except.pure]
+  | nil => cases hy : replay ctx ys st <;> simp [replay, hy, Bind.bind, Except.bind, Pure.pure, Except.pure]
   | cons b bs ih =>
     simp only [List.cons_append, replay]
     cases hs : step ctx st b with
-    | error e => simp [hs, Bind.bind, Except.bind]
+    | error e => simp [Bind.bind, Except.bind]
     | ok pair =>
       rcases pair with ⟨next,u⟩
-      simp only [hs, Except.bind, ih]
+      simp only [ih]
       cases hr : replay ctx bs next with
       | error e => simp [hr, Bind.bind, Except.bind]
       | ok pair =>
