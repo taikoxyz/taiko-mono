@@ -42,6 +42,8 @@ TOML
 (
   cd "$work"
   lake update
+  # Build imports and generated modules; lake update alone does not produce oleans.
+  lake build EtnaToolchainSmoke
   # Compile generated files explicitly; generated namespace/path is chosen by Aeneas.
   while IFS= read -r file; do lake env lean "$file"; done < <(find generated -name '*.lean' -type f | sort)
 )

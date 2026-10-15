@@ -52,8 +52,15 @@ def audit(manifests, output):
     for entry in entries:
         decl = entry['declaration']
         lines += [f'-- {entry["id"]}; explicit assumptions: {json.dumps(entry["assumptions"])}',
-                  f'#check ({decl} : {entry["type"]})',
-                  f'run_elab do\n  let info ← Lean.getConstInfo `{decl}\n  unless info.isTheorem do throwError \"{decl} is not a theorem\"',
+                  'run_elab do',
+                  f'  let info ← Lean.getConstInfo `{decl}',
+                  f'  unless info.isTheorem do throwError "{decl} is not a theorem"',
+                  f'  let expected ← Lean.Elab.Term.elabType (← `({entry["type"]}))',
+                  '  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing',
+                  '  let expected ← Lean.instantiateMVars expected',
+                  '  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"',
+                  f'  unless ← Lean.Meta.isDefEq info.type expected do throwError "{decl}: full type mismatch"',
+                  '  Lean.logInfo m!"Full declared type: {info.type}"',
                   f'#print axioms {decl}']
     output.write_text('\n'.join(lines) + '\n')
     result = run(['lake', 'env', 'lean', str(output)])

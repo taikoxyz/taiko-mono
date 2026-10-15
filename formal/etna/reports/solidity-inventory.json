@@ -1,5 +1,237 @@
 {
   "schema_version": 1,
+  "source_revision": "41241d5e6440c2ab244ccfdf572d1af8016f70c6",
+  "source_hashes": {
+    "contracts/layer1/etna/iface/IEtnaInbox.sol": {
+      "keccak256": "0x96869232e1e052fe35be96256f32ec73601d2d2dce074c4c3ddec1c996e51837",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://b785321d9b3c7bdaf39cc2ba44147f198de14cda027da01c0c31e04acda1e92c",
+        "dweb:/ipfs/QmT9k59L2kRL3utC8Ta5iX9oBYC7hdJrMBsrkejHhXCkwu"
+      ]
+    },
+    "contracts/layer1/etna/iface/IEtnaStakingRegistry.sol": {
+      "keccak256": "0x9ad63217eb335a7bd0ae374055e27643cac879f9709905be22e1d1fcdbc89ce3",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://4900fda1d05fec44a1c6ce7114a790ea7c0b173933d1a24d000b140dc9244e83",
+        "dweb:/ipfs/QmQPrHamB7oAGcFn6hscWK7uF9qExNnb5emkyk2PtP2tF3"
+      ]
+    },
+    "contracts/layer1/etna/impl/EtnaInbox.sol": {
+      "keccak256": "0x283bff1888c8828681f88f3e983796256038fd55f31e55019b6932577ec7d3ea",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://41a20195eb592d12accb657dc819a831a44a924cee218958982af78ee6f02a53",
+        "dweb:/ipfs/QmQ7KcaLSZy4X7gNCJAQgvc6mFKDYddCgyka2sHX7tMJFx"
+      ]
+    },
+    "contracts/layer1/etna/impl/EtnaInbox_Layout.sol": {
+      "keccak256": "0x161a04534b86424524b8b7492193ecf2ad017abd4812d3dc64e1d58c18a3afb1",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://af3f0ffd829db18e88cb04aaa98c95e845919b25cf741fdeb01f8131a1afd73d",
+        "dweb:/ipfs/QmXW8k4og4zGUHQcRE7dp2Jxx52K96G8CA9YLjVfNkgtuf"
+      ]
+    },
+    "contracts/layer1/etna/libs/LibEtnaForcedInclusion.sol": {
+      "keccak256": "0xa1d9848f03077a44909c69c9536bb5cb9b10d1dec4488bb5062af0c867f78f89",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://a34b06b3d2770ca651d1e32796d96b11dcbb396c5a8b9ad3d1671d241b8d51f5",
+        "dweb:/ipfs/QmT4WHrLejpoE7S3MqoaLd79MSoEvLPVNNrGqqTAGuLj3D"
+      ]
+    },
+    "contracts/layer1/verifiers/IProofVerifier.sol": {
+      "keccak256": "0x3201aafffd995372a8baf89c4fd8c21c51d70c75dd41558e5a05549e7535ecb7",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://694eebbc9e18ab015ad6b44ca28e1bc94cde4fadf705a61ff1afea8ec2693675",
+        "dweb:/ipfs/QmccuKVKjHfhmWFBB5e5mfWC2ind4dmmvcUXaAJgupcKwL"
+      ]
+    },
+    "contracts/shared/common/EssentialContract.sol": {
+      "keccak256": "0x5e1a130be6a89b167b9d7bc2df23edc752a6cc804c721f23eac90fd08e166e45",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://871e8ba3105d8eb4b353d208252a10ef61a8a73f44694dd6e9a7bef7be6f89e5",
+        "dweb:/ipfs/QmNjebs878n42mZ2dgFhEoYLTQi9q2BZmiHdWKAxT144v1"
+      ]
+    },
+    "contracts/shared/common/IResolver.sol": {
+      "keccak256": "0x01273635aa0be2ad8d6218ad520f824f2003eab82be1d14c46da58f2516a48dd",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://122dd3456077cf0be42bb974954c9918dca296415b076faeba0336ecee33de8e",
+        "dweb:/ipfs/QmSr4WQEFDJwqyqpextmY8Fp3b7Z96SBHgAEKsvXe6dEZV"
+      ]
+    },
+    "contracts/shared/libs/LibAddress.sol": {
+      "keccak256": "0x20aed73a8cb7993ebf3e3f7b92bc623743b901479295a408b6bdefded4016f04",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://0a65f4d2ee117b1a8e25916d99473be56f1bcb6e2ad19e895f2f023b90205868",
+        "dweb:/ipfs/QmNZcXRy7R32DvpxPDpdyTC5mpqNGAsA2u13BkUw7Vcw1V"
+      ]
+    },
+    "contracts/shared/libs/LibMath.sol": {
+      "keccak256": "0x3e2ce1ccb5a4d94c6f97e09ebdb1e731c0bae466981be52147f15063b3742d69",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://3530b4db00c1f357562d2dbab8978613c09b30ce1a6312de864399c7af82f9c7",
+        "dweb:/ipfs/Qmbp9HeWwPAx5Krcjuu8UCJB3so6rZu4TUTPD6vRKDDBjg"
+      ]
+    },
+    "contracts/shared/signal/ICheckpointStore.sol": {
+      "keccak256": "0xc2b266d09797c0aa58421ff048d89406cc5c15a7b7d4f1589dd2a3a9bf42097c",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://7c9c83c4189925170ce65bbda9d5203e0fc49aa843b3c774eb0b1fbfef5d04a9",
+        "dweb:/ipfs/QmX8J6nPK3jtHmez6DzXqUnduKTm6hya4fib2kk1dYve1V"
+      ]
+    },
+    "contracts/shared/signal/ISignalService.sol": {
+      "keccak256": "0x9f185e01e3a6ed0ce5bbbd076e9ed9bdd4b858e92a27334da4ebfb5f6a3c92e7",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://2130a8554a8494492b16f376f39cb0028dea688f3a83ce78227757943cd57baf",
+        "dweb:/ipfs/QmaDpsh5ArGBRS1StpgNVAeJrNYvw9CNHWcyhT2Zr5zA46"
+      ]
+    },
+    "node_modules/@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol": {
+      "keccak256": "0x9140dabc466abab21b48b72dbda26736b1183a310d0e677d3719d201df026510",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://75267b14b60dc216d01d596a4008189a6c44d3314e53eded0edb1e757d95be16",
+        "dweb:/ipfs/QmQoMaxTRT6V7uQj9USfdQH9jh1crywB9auVjThzUSAbG2"
+      ]
+    },
+    "node_modules/@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol": {
+      "keccak256": "0x359a1ab89b46b9aba7bcad3fb651924baf4893d15153049b9976b0fc9be1358e",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://e89863421b4014b96a4b62be76eb3b9f0a8afe9684664a6f389124c0964bfe5c",
+        "dweb:/ipfs/Qmbk7xr1irpDuU1WdxXgxELBXxs61rHhCgod7heVcvFx16"
+      ]
+    },
+    "node_modules/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol": {
+      "keccak256": "0x89be10e757d242e9b18d5a32c9fbe2019f6d63052bbe46397a430a1d60d7f794",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://f103ee2e4aecd37aac6ceefe670709cdd7613dee25fa2d4d9feaf7fc0aaa155e",
+        "dweb:/ipfs/QmRiNZLoJk5k3HPMYGPGjZFd2ke1ZxjhJZkM45Ec9GH9hv"
+      ]
+    },
+    "node_modules/@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol": {
+      "keccak256": "0x9c80f545915582e63fe206c6ce27cbe85a86fc10b9cd2a0e8c9488fb7c2ee422",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://310136ad60820af4177a11a61d77a3686faf5fca4942b600e08fc940db38396b",
+        "dweb:/ipfs/QmbCzMNSTL7Zi7M4UCSqBrkHtp4jjxUnGbkneCZKdR1qeq"
+      ]
+    },
+    "node_modules/@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol": {
+      "keccak256": "0x75097e35253e7fb282ee4d7f27a80eaacfa759923185bf17302a89cbc059c5ef",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://8b06267c5f80bad727af3e48b1382333d591dad51376399ef2f6b0ee6d58bf95",
+        "dweb:/ipfs/QmdU5La1agcQvghnfMpWZGDPz2TUDTCxUwTLKmuMRXBpAx"
+      ]
+    },
+    "node_modules/@openzeppelin/contracts/interfaces/IERC1967.sol": {
+      "keccak256": "0x3cbef5ebc24b415252e2f8c0c9254555d30d9f085603b4b80d9b5ed20ab87e90",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://e8fa670c3bdce78e642cc6ae11c4cb38b133499cdce5e1990a9979d424703263",
+        "dweb:/ipfs/QmVxeCUk4jL2pXQyhsoNJwyU874wRufS2WvGe8TgPKPqhE"
+      ]
+    },
+    "node_modules/@openzeppelin/contracts/interfaces/draft-IERC1822.sol": {
+      "keccak256": "0x1d4afe6cb24200cc4545eed814ecf5847277dfe5d613a1707aad5fceecebcfff",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://383fb7b8181016ac5ccf07bc9cdb7c1b5045ea36e2cc4df52bcbf20396fc7688",
+        "dweb:/ipfs/QmYJ7Cg4WmE3rR8KGQxjUCXFfTH6TcwZ2Z1f6tPrq7jHFr"
+      ]
+    },
+    "node_modules/@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol": {
+      "keccak256": "0x3b21ae06bf5957f73fa16754b0669c77b7abd8ba6c072d35c3281d446fdb86c2",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://2db8e18505e86e02526847005d7287a33e397ed7fb9eaba3fd4a4a197add16e2",
+        "dweb:/ipfs/QmW9BSuKTzHWHBNSHF4L8XfVuU1uJrP2vLg84YtBd8mL82"
+      ]
+    },
+    "node_modules/@openzeppelin/contracts/proxy/beacon/IBeacon.sol": {
+      "keccak256": "0xd50a3421ac379ccb1be435fa646d66a65c986b4924f0849839f08692f39dde61",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://ada1e030c0231db8d143b44ce92b4d1158eedb087880cad6d8cc7bd7ebe7b354",
+        "dweb:/ipfs/QmWZ2NHZweRpz1U9GF6R1h65ri76dnX7fNxLBeM2t5N5Ce"
+      ]
+    },
+    "node_modules/@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol": {
+      "keccak256": "0xc6619957bcc6641fe8984bfaf9ff11a9e4b97d8149c0495f608f9a2416d7c5cf",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://543be67f7fa43b1b932637c1c7f12035f0f4b0f7ee2bd3c33841186f79c165c1",
+        "dweb:/ipfs/QmSBPM2UVKbmJqWfD9i6hSiqbaE8TV4TSqfuiivziRRLKM"
+      ]
+    },
+    "node_modules/@openzeppelin/contracts/utils/Address.sol": {
+      "keccak256": "0x006dd67219697fe68d7fbfdea512e7c4cb64a43565ed86171d67e844982da6fa",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://2455248c8ddd9cc6a7af76a13973cddf222072427e7b0e2a7d1aff345145e931",
+        "dweb:/ipfs/QmfYjnjRbWqYpuxurqveE6HtzsY1Xx323J428AKQgtBJZm"
+      ]
+    },
+    "node_modules/@openzeppelin/contracts/utils/StorageSlot.sol": {
+      "keccak256": "0xf09e68aa0dc6722a25bc46490e8d48ed864466d17313b8a0b254c36b54e49899",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://e26daf81e2252dc1fe1ce0e4b55c2eb7c6d1ee84ae6558d1a9554432ea1d32da",
+        "dweb:/ipfs/Qmb1UANWiWq5pCKbmHSu772hd4nt374dVaghGmwSVNuk8Q"
+      ]
+    },
+    "node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol": {
+      "keccak256": "0x447a5f3ddc18419d41ff92b3773fb86471b1db25773e07f877f548918a185bf1",
+      "license": "MIT",
+      "urls": [
+        "bzz-raw://be161e54f24e5c6fae81a12db1a8ae87bc5ae1b0ddc805d82a1440a68455088f",
+        "dweb:/ipfs/QmP7C3CHdY9urF4dEMb9wmsp1wMxHF6nhA2yQE5SKiPAdy"
+      ]
+    }
+  },
+  "tracked_sources_at_revision": [
+    "contracts/layer1/etna/iface/IEtnaInbox.sol",
+    "contracts/layer1/etna/iface/IEtnaStakingRegistry.sol",
+    "contracts/layer1/etna/impl/EtnaInbox.sol",
+    "contracts/layer1/etna/impl/EtnaInbox_Layout.sol",
+    "contracts/layer1/etna/libs/LibEtnaForcedInclusion.sol",
+    "contracts/layer1/verifiers/IProofVerifier.sol",
+    "contracts/shared/common/EssentialContract.sol",
+    "contracts/shared/common/IResolver.sol",
+    "contracts/shared/libs/LibAddress.sol",
+    "contracts/shared/libs/LibMath.sol",
+    "contracts/shared/signal/ICheckpointStore.sol",
+    "contracts/shared/signal/ISignalService.sol"
+  ],
+  "dependency_sources_hash_verified": [
+    "node_modules/@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol",
+    "node_modules/@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol",
+    "node_modules/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
+    "node_modules/@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol",
+    "node_modules/@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol",
+    "node_modules/@openzeppelin/contracts/interfaces/IERC1967.sol",
+    "node_modules/@openzeppelin/contracts/interfaces/draft-IERC1822.sol",
+    "node_modules/@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol",
+    "node_modules/@openzeppelin/contracts/proxy/beacon/IBeacon.sol",
+    "node_modules/@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol",
+    "node_modules/@openzeppelin/contracts/utils/Address.sol",
+    "node_modules/@openzeppelin/contracts/utils/StorageSlot.sol",
+    "node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol"
+  ],
   "scope": "whole EtnaInbox runtime template containing land; static instruction inventory, not land-only reachability",
   "compiler": {
     "version": "0.8.30+commit.73712a01"
@@ -45,6 +277,7 @@
     "evmVersion": "osaka",
     "libraries": {}
   },
+  "raw_metadata_sha256": "6efa8c528ad32f40e4bd0294fc878c0079c369c0d2764480875145ab623a8bc9",
   "runtime_bytes": 12630,
   "executable_prefix_bytes": 12577,
   "runtime_sha256": "1aea2ee9f5541502b1a5253a40aea8e16267cc58c1d94fa1283512cbb99480b3",
@@ -31940,10 +32173,23 @@
     "No certified land-only CFG or bytecode-to-spec relation",
     "Proxy DELEGATECALL, external calls, EIP-2935 state and verifier frame require proofs",
     "EVMYulLean 4.22/Clear 4.9.1 oleans cannot be mixed into Lean 4.35 rc4",
-    "EVMYulLean Yul semantics documents gas and EXTCODESIZE/code operation gaps",
-    "Clear lacks BLOBHASH/TLOAD/TSTORE/MCOPY primitive names at pinned revision",
     "Opcode presence in EVMYulLean is not an Osaka semantic coverage proof",
-    "Clear PrimOps.lean:92-102 explicitly marks CALL/STATICCALL/DELEGATECALL/log handling as dummy implementations"
+    "EVMYulLean Yul semantics documents gas and EXTCODESIZE/code operation gaps",
+    "Clear lacks BLOBHASH/TLOAD/TSTORE/MCOPY primitives at pinned revision",
+    "Clear PrimOps explicitly marks CALL/STATICCALL/DELEGATECALL/log handling as dummy implementations"
   ],
-  "source_revision": "41241d5e6440c2ab244ccfdf572d1af8016f70c6"
+  "capability_sources": [
+    {
+      "tool": "evmyullean",
+      "revision": "047f63070309f436b66c61e276ab3b6d1169265a",
+      "file": "README.md",
+      "sha256": "1db791ea5c353d55d5d62c1943be9027fb4e01ffaada4ccb26a9e879d52338b8"
+    },
+    {
+      "tool": "clear",
+      "revision": "6ef2e7eda01080e5d5fd7474354c1a71adab5071",
+      "file": "Clear/PrimOps.lean",
+      "sha256": "46e7863cce3fd0ab10923cf26b9b74928281c957897d63175c4bb158db45144e"
+    }
+  ]
 }

@@ -31,7 +31,7 @@ class ProofAuditTests(unittest.TestCase):
     def test_rejects_deleted_theorem(self):
         result = self.audit('namespace Fixture\nend Fixture\n')
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn('Unknown identifier', result.stderr)
+        self.assertIn('Unknown constant `Fixture.sound`', result.stderr)
 
     def test_rejects_sorry(self):
         result = self.audit('namespace Fixture\ntheorem sound (n : Nat) : n = n := by sorry\nend Fixture\n')
@@ -45,6 +45,15 @@ class ProofAuditTests(unittest.TestCase):
 
     def test_rejects_missing_import(self):
         self.assertNotEqual(self.audit('namespace Fixture\ntheorem sound (n : Nat) : n = n := rfl\nend Fixture\n', imports=False).returncode, 0)
+
+    def test_rejects_hidden_default_premise(self):
+        result = self.audit('namespace Fixture\ntheorem sound (h : True := by trivial) : True := h\nend Fixture\n', type_='True')
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('full type mismatch', result.stderr)
+
+    def test_rejects_hidden_implicit_premise(self):
+        result = self.audit('namespace Fixture\ntheorem sound {h : True} : True := h\nend Fixture\n', type_='True')
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_rejects_changed_full_type(self):
         self.assertNotEqual(self.audit('namespace Fixture\ntheorem sound (n : Nat) (h : n = n) : n = n := h\nend Fixture\n').returncode, 0)

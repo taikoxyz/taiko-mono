@@ -17,7 +17,7 @@ lake env lean Audit.lean
 ```
 
 Commit `lake-manifest.json` changes only as reviewed toolchain updates. The auditor
-rebuilds and checks each named theorem at its complete manifest type, requires theorem
+rebuilds and compares each theorem’s raw declared type with its independently elaborated manifest type (without applying or specializing the theorem), requires theorem
 rather than axiom declarations, and rejects transitive axioms other than `propext`,
 `Classical.choice` and `Quot.sound`. Its real-Lean tests poison imports, declaration
 existence, the complete type, `sorry`, and an extra custom axiom. Axiom checks cannot
@@ -51,10 +51,13 @@ It includes the runtime SHA256, every instruction PC, CALL/DELEGATECALL/STATICCA
 sites, compiler storage layout, settings and deployment immutable references.
 PUSH data and CBOR metadata are excluded from instruction counts. This is the
 **whole runtime containing land**, without claiming land-only CFG reachability.
-Regenerate from an actual Foundry artifact:
+Regenerate from an actual Foundry artifact. The generator validates raw solc compiler/settings metadata, all source Keccak hashes (including dependencies), and tracked source blobs at the immutable revision. It derives capability gaps from the pinned tool sources, rather than adding them to the report by hand:
 
 ```sh
 python3 scripts/solidity_inventory.py /path/to/EtnaInbox.json \
+  --source-checkout /path/to/exact/taiko-mono/packages/protocol \
+  --source-revision 41241d5e6440c2ab244ccfdf572d1af8016f70c6 \
+  --evmyul-root /path/to/pinned/EVMYulLean --clear-root /path/to/pinned/Clear \
   --output reports/solidity-inventory.json
 ```
 
