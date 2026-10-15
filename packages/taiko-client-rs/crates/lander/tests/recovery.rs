@@ -1,14 +1,12 @@
 //! Actual blob transaction and durable journal recovery using fully host-validated signed fixtures.
 mod support;
 
-use alloy::sol_types::SolCall;
 use alloy_consensus::Transaction;
 use alloy_primitives::{B256, Bytes, U256, address, keccak256};
 use alloy_provider::Provider;
 use anyhow::{Context, Result};
 use lander::{
     SidecarMode,
-    contracts::IEtnaInbox::landCall,
     store::{JournalIdentity, JournalState, ProvedJob, Store},
     tx::{FeeCaps, RpcTransactionTransport, TransactionTransport},
 };
@@ -165,10 +163,7 @@ async fn lander_pending_reference_crosses_blockhash_window() -> Result<()> {
     let included =
         p.get_transaction_by_hash(original_hash).await?.context("included transaction")?;
     assert_eq!(included.inner.nonce(), original_nonce);
-    assert_eq!(
-        included.inner.input().as_ref(),
-        landCall { _input: request.batch.input.clone(), _proof: proof }.abi_encode()
-    );
+    assert_eq!(included.inner.input().as_ref(), lander::tx::land_calldata(&request.batch, &proof));
     assert_eq!(
         included.inner.blob_versioned_hashes(),
         Some(request.batch.blobs.versioned_hashes.as_slice())
