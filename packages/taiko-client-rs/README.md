@@ -95,15 +95,16 @@ The config hash binds eleven ABI words: `ETNA_PARENT_ANCHOR_V2`, L2 chain id, re
 `d_max` and `margin_v`. The opening is exactly 352 bytes. V1 config commitments require an
 explicit coordinated consensus upgrade; the client provides no automatic opening fallback or
 state/journal rewriting.
-The envelope is version 5, the landing payload V4, the statement V6 and the lander journal
-schema 8 (original Comet protobuf witnesses and commits). ABCI advertises `APP_VERSION = 2`;
+The envelope is version 5, the landing payload V4, the statement V7 and the lander journal
+schema 9 (original Comet protobuf witnesses and commits, plus each job's validator participation
+and settlement committees). ABCI advertises `APP_VERSION = 2`;
 persisted `app_version` is mandatory and must equal 2. Version 1 state is incompatible with the
 optional-preimage FI rule. An app-v1 chain requires an explicit consensus upgrade; editing the
 state-file version or automatically rewriting it is unsupported. State files also require
 `genesis.committee_config_hash`, `forced_cursor`, `genesis.forced_inclusion_delay`,
 `genesis.max_anchor_age`, the anchor's queue head/tail and the authenticated Inbox binding.
 Local parameters must open the config hash correctly. Earlier envelope/payload prefixes,
-schema-7 and older journals, and missing or incompatible app versions are rejected. No migration
+schema-8 and older journals, and missing or incompatible app versions are rejected. No migration
 is provided. Never edit signed journal bytes, delete an outstanding signed nonce, or discard
 CometBFT history to force startup. The committee record encoding remains version 1.
 
@@ -162,8 +163,8 @@ singleton build. `ProcessProposal`, cold `FinalizeBlock` and the lander share th
 skip checker. Prepare reclassifies its final candidate after an ordinary fallback, reusing a
 successful singleton confirmation only when the decision and its build context are unchanged.
 Host Engine checks establish current dummy-proof behavior; an independent validity proof guest
-remains future work. `land` pays consumed fees to the statement-bound `feeRecipient`,
-the lander's sending address.
+remains future work. `land` pays consumed fees, with the landing reward, to the statement-bound
+`feeRecipient`, the lander's sending address.
 
 Proposers retrieve admission bytes with `eth_getLogs` for the exact proven submission block,
 Inbox address and event identity, then recheck the transaction hash. Before due, this lookup is
@@ -282,7 +283,7 @@ The first version implements `ProofProvider` with `DummyProofProvider`, which
 always returns the single byte `0x00`. The deployed verifier must accept this
 value for landing to succeed. A real Etna validity-proof guest/provider remains
 separate work; the current contract tests establish the submission and binding
-path rather than EVM validity-proof soundness.
+path, and the reward pool's settlement, rather than EVM validity-proof soundness.
 
 Required inputs are `--l1.http`, `--l2.http`, `--l2.auth`, `--jwt.secret`, `--comet.http`, a
 `--signing-key` file containing a hex key, an exclusive `--data-dir`,
@@ -342,11 +343,13 @@ backlog resets it. Waiting never requests a proof or signs a transaction.
 
 The batch's L1 reference is separate from each L2 block's anchor. The reference
 authenticates an ancestor header chain covering those anchors; it never changes
-the anchor number or state root committed in an L2 header. V6 binds the Inbox
+the anchor number or state root committed in an L2 header. V7 binds the Inbox
 proxy, registry, both chain ids, generation, current checkpoint, authenticated committee config
 hash, terminal block/root, blob hashes, the forced inclusion queue head before (stored) and
-after the batch, and the fee recipient. Each committee is independently derived from its
-committed derivation parent's L1 snapshot; no per-epoch committee output or starting-set hint is authoritative.
+after the batch, the fee recipient and, as its nineteenth word, the batch's validator
+participation (`keccak256(abi.encode(EpochParticipation[]))`). Each committee is independently
+derived from its committed derivation parent's L1 snapshot; no per-epoch committee output or
+starting-set hint is authoritative.
 
 Every block is held to the shared ABCI calldata classifier and asynchronous skip checker. Its
 witness authenticates the cursor's entry under that block's anchor. Inclusion must match the exact
@@ -359,6 +362,31 @@ in `LandInput` is the cursor after the batch's last block.
 redirecting fees. The Inbox rejects a zero recipient (`ZeroFeeRecipient`); the lander treats that
 revert as a configuration error. Envelope v5 carries at most 8192 FI transaction bytes, which the
 lander republishes in payload V4 alongside the exact signed consensus data.
+
+Each landing also reports validator participation to the Inbox's `EtnaRewardPool`. Height `h`'s
+canonical commit is block `h + 1`'s `last_commit`: that block's header binds it, so no lander can
+choose its signatures. A batch `(p, L]` therefore carries the commits of heights `max(p, 1)` to
+`L - 1`, and height `L`'s commit rides in the next batch, so every height counts once. A height's
+`/commit` (CometBFT's seen commit, which may hold other signatures) is verified but never counted.
+For each epoch those heights touch, in ascending order, an `EpochParticipation` names the epoch,
+the hash of its committee as `CommitteeMember { bondId, activeFromL1, effStake }` in MEM-08 order
+(read from the committee's authenticated registry witness), and per member the number of those
+heights whose commit holds the member's verified `BlockIdFlagCommit` precommit; nil and absent
+votes do not count. The landing whose commits reach an epoch's last height
+(`L - 1 >= (e + 1) * epochLenL2`) freezes that epoch: it passes the epoch's committee list in
+`settlements`, which the pool checks against the committee hash the epoch's reports stored, so
+the lists stay out of the statement. The pool credits the validator share of its free balance to
+the members' registration owners by stake times signed heights, and sends the proving share to the
+Inbox's prover reward ledger. Every landing then pays
+`min(landingRewardPerBlock * (L - p), ledger)` to `feeRecipient` with the consumed FI fees and
+emits `LandingRewardPaid`; an empty ledger pays nothing and the landing still succeeds. The
+journal keeps each job's participation and settlement lists, and refuses a job whose settlement
+lists do not hash to its completed epochs' committees.
+
+A freezing landing pays for the settlement. For a 128-member committee the pool needs about 1.6M
+extra gas when every owner already holds credits and up to about 4.5M when all are credited for the
+first time, plus about 12 KB of committee calldata. The gas estimate and its 20% margin cover it,
+but choose the fee caps and fund the sending account so that such a landing stays affordable.
 
 Proof requests retain the Inbox schedule/config/checkpoint proof under the batch parent's anchor,
 along with each committee's registry witness and proving header in the reference ancestry.
@@ -398,6 +426,7 @@ first block is always sized). A prefix past either budget waits for a later batc
 commits, evidence and signatures are not published: the proof provider receives the complete
 blocks and commits in `PreparedBatch.blocks`, and a guest must verify their signatures against the
 published header hashes using CometBFT's ZIP215 Ed25519 rules, including valid torsion components.
+The same last commits are the witnesses of the batch's validator participation.
 Existing `BlobCoder` handles multi-blob field encoding of the compressed
 payload.
 `eip4844` and `eip7594` select different sidecar wrappers/proofs for the same payload and
@@ -713,6 +742,17 @@ immediate execution prefix and budget, verify state witnesses, independently rec
 rejection or overflow, and bind cursor advancement/output. A candidate beyond an earlier cutoff
 or under another parent context needs a suitable collection path.
 
+A guest must also prove the V7 participation. For each epoch the commit range `[max(p, 1), L - 1]`
+touches, in ascending order, it outputs that epoch committee's `CommitteeMember` list in MEM-08
+order, with every field from the authenticated registry entries of the committee derivation it
+already owes. `signedCounts[i]` is the number of heights `h` in the range and the epoch whose block
+`h + 1` carries a `last_commit` with member `i`'s verified `BlockIdFlagCommit` signature; a seen
+`/commit` never counts. The guest binds
+`participationHash = keccak256(abi.encode(EpochParticipation[]))` as the statement's nineteenth
+word. Until then the dummy verifier proves none of this: anyone can
+land forged counts, or fix a forged committee hash for an epoch, after which every landing that
+reports that epoch reverts with `CommitteeMismatch`. Rewards are only fit for a temporary devnet.
+
 ## Development
 
 ```sh
@@ -732,7 +772,9 @@ just clippy     # doc lints on library code, then every target with -D warnings
   retry/recovery, plus an L1 finality stall that pauses and resumes L2. The history test emulates
   the source-backed unavailable-build RPC shape through a delegating Engine adapter; it does not
   actually prune Reth state. Lander scenarios cover actual Inbox blob
-  transactions, a forced inclusion landing that pays its fee, permissionless races,
+  transactions, a cross-epoch landing that freezes an epoch in the reward pool, credits its
+  validator's registration owner and pays the landing reward, a forced inclusion landing that
+  pays its fee, permissionless races,
   verifier rejection, receipt reorgs, durable nonce recovery, stock CometBFT collection,
   and actual-CLI SIGTERM/SIGKILL restarts, minimum/timeout batching, and pressure/epoch flushes. Each scenario boots its own devnet through the docker CLI (anvil as L1,
   alethia-reth, CometBFT), so they run one at a time; the suite takes about ten minutes. Extra
@@ -750,8 +792,10 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 Regenerate lander ABI/deployment fixtures with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `27777e9d7147e7b1d3543711f4d7370a0377fa53`,
-installs pnpm dependencies before Foundry, verifies compiler source hashes,
+The script requires protocol HEAD `8956721bc22ceb0b2271924c683325fe99cccfcb` (also the
+`PROTOCOL_REVISION` in `crates/lander/src/contracts.rs`),
+installs pnpm dependencies before Foundry, builds the Inbox, registry, `EtnaRewardPool` and
+SignalService with their test fixtures, verifies compiler source hashes,
 formats generated JSON, and records ABI/bytecode/compiler provenance. It also copies the Etna
 vectors shared with the contracts (`testdata/etna_vectors`, which the `abci` and `lander` unit
 tests read) from that revision and records their hashes. It leaves
