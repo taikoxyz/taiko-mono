@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { LibEtnaVectors } from "./LibEtnaVectors.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { stdError } from "forge-std/src/StdError.sol";
 import { Vm } from "forge-std/src/Vm.sol";
@@ -334,6 +335,36 @@ contract EtnaRewardPoolTest is CommonTest {
         assertEq(record.paid, 6 ether);
         assertEq(record.provingShare, 4 ether);
         assertEq(record.frozenAtL1, block.number);
+    }
+
+    /// @dev The `committee_hashes` vectors of `testdata/etna_vectors/vectors.json`, which
+    /// taiko-client-rs reads too: each committee's encoding and hash, and a freeze of an epoch
+    /// whose part binds the vector hash, settled with the vector committee.
+    function test_recordLanding_SettlesTheSharedCommitteeHashVectors() external {
+        string memory json = LibEtnaVectors.load();
+        uint256 count = LibEtnaVectors.lengthAt(json, ".committee_hashes");
+        assertEq(count, 3, "three committees");
+        for (uint256 k; k < count; ++k) {
+            string memory p = string.concat(".committee_hashes[", vm.toString(k), "].");
+            IEtnaInbox.CommitteeMember[] memory committee = LibEtnaVectors.committee(json, k);
+            bytes32 expected = LibEtnaVectors.bytes32At(json, string.concat(p, "hash"));
+            assertEq(
+                abi.encode(committee),
+                LibEtnaVectors.bytesAt(json, string.concat(p, "encoding")),
+                "encoding"
+            );
+            assertEq(_hash(committee), expected, "hash");
+
+            uint64 epoch = uint64(k);
+            _record(
+                (epoch + 1) * EPOCH_LEN + 1,
+                _single(_part(epoch, expected, new uint32[](0))),
+                _settle(committee)
+            );
+            IEtnaRewardPool.EpochRecord memory record = pool.epochRecord(epoch);
+            assertEq(record.committeeHash, expected, "bound hash");
+            assertEq(record.frozenAtL1, block.number, "frozen");
+        }
     }
 
     function test_recordLanding_DoesNotFreezeBeforeTheLastCommitLands() external {
