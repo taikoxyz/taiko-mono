@@ -112,9 +112,9 @@ structure ExternalOutcomes where
   verifierReturnsNormally : Bool
   paymentReturnsNormally : Bool
   reentry : ReentryMode
-  /-- Cryptographic primitive over the actual ordered transaction prefix. Authenticity of this
+  /-- Cryptographic primitive over the canonical byte serialization of the actual ordered transaction prefix. Authenticity of this
   primitive is an explicit EVM crypto boundary, not a proof of collision freedom. -/
-  keccakBlobWords : List Word256 → Word256 := fun _ => 0
+  keccakBlobBytes : List Byte → Word256 := fun _ => 0
 
 
 /-- Exact source statement builder. Proxy identity is `w.inbox`; caller is deliberately absent. -/
@@ -130,7 +130,7 @@ structure ExternalOutcomes where
 @[expose] def computedStatement (w : World) (i : LandInput) (x : ExternalOutcomes) : LandStatement :=
   makeStatement w i
     (match referenceHash x.environment i.reference with | .ok (_, hash) => hash | .error _ => 0)
-    (x.keccakBlobWords (actualBlobs x.environment))
+    (x.keccakBlobBytes (serializeBlobPrefix (actualBlobs x.environment)))
 
 /-- Generic nested EVM business-state journal. `write` retains its parent frame: undoing an
 external call also undoes its nested checkpoint/log/transfer effects, not merely Inbox storage.

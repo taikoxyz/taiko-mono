@@ -290,4 +290,31 @@ theorem locked_land_and_save_reject (w : World) (i : LandInput) (x : ExternalOut
     (execLandSteps w i x).journal.current = w ∧ nestedGuard w.inbox w = some .reentrant := by
   simp [execLandSteps, validate, locked, finish, Journal.current, nestedGuard]
 
+/-- Compose the two local collision assumptions with actual model serialization.
+The byte hash is the same primitive on both calls. Context/height/etc equality is
+recovered only for the eighteen encoded fields, while the inner theorem also
+recovers the complete ordered nonzero prefixes, including their lengths. -/
+theorem composed_statement_blob_binding
+    (outerHash : Vector Byte 576 → Word256)
+    (w₁ w₂ : World) (i₁ i₂ : LandInput) (x₁ x₂ : ExternalOutcomes)
+    (samePrimitive : x₁.keccakBlobBytes = x₂.keccakBlobBytes)
+    (innerSeparation : LocalInnerHashSeparation x₁.keccakBlobBytes
+      (actualBlobs x₁.environment) (actualBlobs x₂.environment))
+    (outerSeparation : LocalHashSeparation outerHash
+      (computedStatement w₁ i₁ x₁) (computedStatement w₂ i₂ x₂))
+    (matched : outerHash (encodeStatement (computedStatement w₁ i₁ x₁)) =
+      outerHash (encodeStatement (computedStatement w₂ i₂ x₂))) :
+    computedStatement w₁ i₁ x₁ = computedStatement w₂ i₂ x₂ ∧
+    actualBlobs x₁.environment = actualBlobs x₂.environment := by
+  have statementEqual := hash_binding outerHash _ _ outerSeparation matched
+  refine ⟨statementEqual, ?_⟩
+  have commitmentEqual := congrArg LandStatement.blobCommitment statementEqual
+  change natWord (x₁.keccakBlobBytes (serializeBlobPrefix (actualBlobs x₁.environment))).val =
+    natWord (x₂.keccakBlobBytes (serializeBlobPrefix (actualBlobs x₂.environment))).val at commitmentEqual
+  have hashEqual := natWord_injective _ _ (Fin.isLt _) (Fin.isLt _) commitmentEqual
+  have hashEqual' : x₁.keccakBlobBytes (serializeBlobPrefix (actualBlobs x₁.environment)) =
+      x₂.keccakBlobBytes (serializeBlobPrefix (actualBlobs x₂.environment)) := Fin.ext hashEqual
+  rw [← samePrimitive] at hashEqual'
+  exact inner_hash_binding _ _ _ innerSeparation hashEqual'
+
 end Etna.Landing

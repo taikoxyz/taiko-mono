@@ -156,4 +156,76 @@ theorem encoding_byte (s : LandStatement) (index : Fin 576) :
       ((words s)[index.val / 32]'(by omega))[index.val % 32]'(by omega) := by
   exact Vector.getElem_flatten index.isLt
 
+/-- Canonical ABI-packed blob preimage, for arbitrary list lengths. Each typed hash is
+exactly one big-endian32-byte word; there is no ABI length or offset prefix. -/
+@[expose] def serializeBlobPrefix (blobs : List Word256) : List Byte :=
+  blobs.flatMap fun hash => (natWord hash.val).toList
+
+theorem serializeBlobPrefix_length (blobs : List Word256) :
+    (serializeBlobPrefix blobs).length = blobs.length * 32 := by
+  induction blobs with
+  | nil => rfl
+  | cons hash tail ih => simp [serializeBlobPrefix] at ih ⊢; omega
+
+theorem serializeBlobPrefix_take (hash : Word256) (tail : List Word256) :
+    (serializeBlobPrefix (hash :: tail)).take 32 = (natWord hash.val).toList := by
+  simp [serializeBlobPrefix, List.flatMap_cons]
+
+theorem serializeBlobPrefix_drop (hash : Word256) (tail : List Word256) :
+    (serializeBlobPrefix (hash :: tail)).drop 32 = serializeBlobPrefix tail := by
+  simp [serializeBlobPrefix, List.flatMap_cons]
+
+/-- Unlike the fixed-length Vector lemma, this recovers both length and every typed word. -/
+theorem serializeBlobPrefix_injective (a b : List Word256) :
+    serializeBlobPrefix a = serializeBlobPrefix b ↔ a = b := by
+  constructor
+  · intro equal
+    induction a generalizing b with
+    | nil =>
+      have lengths := congrArg List.length equal
+      simp only [serializeBlobPrefix_length, List.length_nil] at lengths
+      have : b.length = 0 := by omega
+      exact (List.length_eq_zero_iff.mp this).symm
+    | cons hash tail ih =>
+      cases b with
+      | nil =>
+        have lengths := congrArg List.length equal
+        simp only [serializeBlobPrefix_length, List.length_cons, List.length_nil] at lengths
+        omega
+      | cons hash' tail' =>
+        have first := congrArg (List.take 32) equal
+        simp only [serializeBlobPrefix_take] at first
+        have values := natWord_injective hash.val hash'.val hash.isLt hash'.isLt (Vector.toList_inj.mp first)
+        have heads : hash = hash' := Fin.ext values
+        have rest := congrArg (List.drop 32) equal
+        simp only [serializeBlobPrefix_drop] at rest
+        exact congrArg₂ List.cons heads (ih tail' rest)
+  · exact congrArg serializeBlobPrefix
+
+/-- Collision separation only for the two actual serialized blob prefixes under the
+model's byte-hash primitive. No equal-length premise and no global injectivity. -/
+@[expose] def LocalInnerHashSeparation (hash : List Byte → Word256) (a b : List Word256) : Prop :=
+  serializeBlobPrefix a ≠ serializeBlobPrefix b →
+    hash (serializeBlobPrefix a) ≠ hash (serializeBlobPrefix b)
+
+theorem inner_hash_binding (hash : List Byte → Word256) (a b : List Word256)
+    (separation : LocalInnerHashSeparation hash a b)
+    (matched : hash (serializeBlobPrefix a) = hash (serializeBlobPrefix b)) : a = b := by
+  apply (serializeBlobPrefix_injective a b).mp
+  by_contra different
+  exact separation different matched
+
+theorem inner_separation_nonvacuity (a b : List Word256) :
+    ∃ hash : List Byte → Word256, LocalInnerHashSeparation hash a b := by
+  refine ⟨fun bytes => if bytes = serializeBlobPrefix a then 0 else 1, ?_⟩
+  intro different
+  have reverse : serializeBlobPrefix b ≠ serializeBlobPrefix a := Ne.symm different
+  simp [reverse]
+
+theorem unequal_length_inner_nonvacuity :
+    let hash : List Byte → Word256 := fun bytes => if bytes.length = 32 then 1 else 2
+    LocalInnerHashSeparation hash [1] [1,2] ∧
+    hash (serializeBlobPrefix [1]) ≠ hash (serializeBlobPrefix [1,2]) := by
+  simp [LocalInnerHashSeparation, serializeBlobPrefix_length]
+
 end Etna.Landing

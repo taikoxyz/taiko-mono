@@ -210,3 +210,23 @@ The tail mutant initially survived because a second guard masked the target; the
 corpus was corrected and all mutants rerun. Source/runtime/ABI/semantic storage
 layout identities were restored and verified. This is **spec-proved plus actual
 Solidity conformance-tested**; Solidity bytecode correctness remains pending.
+
+The Landing hash binding now composes both cryptographic boundaries. The model's
+`keccakBlobBytes` receives `serializeBlobPrefix(actualBlobs(environment))` directly.
+Canonical serialization is injective for arbitrary list lengths; the composed
+binding theorem recovers the ordered prefix and all18statement words under separate
+trace-local inner/outer separation assumptions. Unequal-length finite witnesses and
+a matching pair with different data after the zero terminator establish satisfiability.
+A constant inner hash is explicitly proved not to satisfy the unequal-prefix premise.
+
+The conformance gate requires nonempty, unique, identical case-ID sets in the corpus,
+Lean output and Solidity output. Preimage groups must be complete and present exactly
+when the model reaches statement hashing, including when both outputs omit them.
+Before staging, the runner checks pinned protocol/helper/fixture/config and root
+manifest bytes, file modes and Git index, and rejects unexpected source/config inputs
+(including ignored sources), compiler environment overrides and staging symlinks.
+Known `out`, `cache` and installed `node_modules` roots are preserved; installed
+third-party dependencies remain the separately stated package/toolchain trust boundary.
+Unrelated client-package overlays are outside the protocol dependency check.
+Run `python3 -m unittest discover -s tests -p test_landing_conformance.py` for the24
+negative/completeness and temporary-Git preflight regressions.

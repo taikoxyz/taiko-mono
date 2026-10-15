@@ -10,7 +10,7 @@
   "assumption_boundary": {
     "typed_abi": "Well-formed typed calldata/nonpayable dispatcher; source flag active means status==3",
     "environment": "Authentic/stable EVM block/chain/BLOCKHASH/history/BLOBHASH; finite zero-terminated blob prefix",
-    "crypto": "Canonical word encoding unconditional; actual Keccak correctness and trace-local collision separation separate",
+    "crypto": "Canonical arbitrary-length typed blob-prefix serialization is injective; actual model hashes its bytes. composed_statement_blob_binding recovers18fields and the ordered prefix under distinct trace-local inner/outer separation and the same inner primitive; no global injectivity.",
     "external": "Pinned concrete SignalService; void verifier STATICCALL; normal externalcall outcome; protected callback frame/no authorizedmaliciousupgrade",
     "evm": "Proxy address(this)/storage/transientguard and generic EvmJournalLaw; gas/nonce excluded",
     "projection": "Inbox-issued transfers/protocol logs; unrelated recipient storage/logs/transfers outside projected World"
@@ -825,7 +825,7 @@
       "id": "LAND-AUX-54",
       "module": "Etna.Landing.Examples",
       "declaration": "Etna.Landing.zero_fee_skips_callback",
-      "type": "(Etna.Landing.execLandSteps (have __src := Etna.Landing.exampleWorld; { inbox := __src.inbox, l1ChainId := __src.l1ChainId, l2ChainId := __src.l2ChainId, registry := __src.registry, generation := __src.generation, config := __src.config, active := __src.active, maxBatchBlocks := __src.maxBatchBlocks, checkpoint := __src.checkpoint, head := __src.head, tail := __src.tail, fee := fun x => 0, signal := __src.signal, inboxBalance := __src.inboxBalance, transfers := __src.transfers, logs := __src.logs, guard := __src.guard }) Etna.Landing.exampleInput (have __src := Etna.Landing.exampleExternal; { environment := __src.environment, signalAuthorized := __src.signalAuthorized, verifierReturnsNormally := __src.verifierReturnsNormally, paymentReturnsNormally := Bool.false, reentry := Etna.Landing.ReentryMode.landUncaught, keccakBlobWords := __src.keccakBlobWords })).error = Option.none",
+      "type": "(Etna.Landing.execLandSteps (have __src := Etna.Landing.exampleWorld; { inbox := __src.inbox, l1ChainId := __src.l1ChainId, l2ChainId := __src.l2ChainId, registry := __src.registry, generation := __src.generation, config := __src.config, active := __src.active, maxBatchBlocks := __src.maxBatchBlocks, checkpoint := __src.checkpoint, head := __src.head, tail := __src.tail, fee := fun x => 0, signal := __src.signal, inboxBalance := __src.inboxBalance, transfers := __src.transfers, logs := __src.logs, guard := __src.guard }) Etna.Landing.exampleInput (have __src := Etna.Landing.exampleExternal; { environment := __src.environment, signalAuthorized := __src.signalAuthorized, verifierReturnsNormally := __src.verifierReturnsNormally, paymentReturnsNormally := Bool.false, reentry := Etna.Landing.ReentryMode.landUncaught, keccakBlobBytes := __src.keccakBlobBytes })).error = Option.none",
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
@@ -840,7 +840,7 @@
       "id": "LAND-AUX-55",
       "module": "Etna.Landing.Examples",
       "declaration": "Etna.Landing.caught_reentry_nonvacuity",
-      "type": "(Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput (have __src := Etna.Landing.exampleExternal; { environment := __src.environment, signalAuthorized := __src.signalAuthorized, verifierReturnsNormally := __src.verifierReturnsNormally, paymentReturnsNormally := __src.paymentReturnsNormally, reentry := Etna.Landing.ReentryMode.landCaught, keccakBlobWords := __src.keccakBlobWords })).error = Option.none \u2227 Etna.Landing.nestedGuard Etna.Landing.exampleWorld.inbox (have __src := Etna.Landing.exampleWorld; { inbox := __src.inbox, l1ChainId := __src.l1ChainId, l2ChainId := __src.l2ChainId, registry := __src.registry, generation := __src.generation, config := __src.config, active := __src.active, maxBatchBlocks := __src.maxBatchBlocks, checkpoint := __src.checkpoint, head := __src.head, tail := __src.tail, fee := __src.fee, signal := __src.signal, inboxBalance := __src.inboxBalance, transfers := __src.transfers, logs := __src.logs, guard := Bool.true }) = Option.some Etna.Landing.Error.reentrant",
+      "type": "(Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput (have __src := Etna.Landing.exampleExternal; { environment := __src.environment, signalAuthorized := __src.signalAuthorized, verifierReturnsNormally := __src.verifierReturnsNormally, paymentReturnsNormally := __src.paymentReturnsNormally, reentry := Etna.Landing.ReentryMode.landCaught, keccakBlobBytes := __src.keccakBlobBytes })).error = Option.none \u2227 Etna.Landing.nestedGuard Etna.Landing.exampleWorld.inbox (have __src := Etna.Landing.exampleWorld; { inbox := __src.inbox, l1ChainId := __src.l1ChainId, l2ChainId := __src.l2ChainId, registry := __src.registry, generation := __src.generation, config := __src.config, active := __src.active, maxBatchBlocks := __src.maxBatchBlocks, checkpoint := __src.checkpoint, head := __src.head, tail := __src.tail, fee := __src.fee, signal := __src.signal, inboxBalance := __src.inboxBalance, transfers := __src.transfers, logs := __src.logs, guard := Bool.true }) = Option.some Etna.Landing.Error.reentrant",
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
@@ -855,7 +855,7 @@
       "id": "LAND-AUX-56",
       "module": "Etna.Landing.Examples",
       "declaration": "Etna.Landing.static_verifier_guard_nonvacuity",
-      "type": "(Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput (have __src := Etna.Landing.exampleExternal; { environment := __src.environment, signalAuthorized := __src.signalAuthorized, verifierReturnsNormally := __src.verifierReturnsNormally, paymentReturnsNormally := __src.paymentReturnsNormally, reentry := Etna.Landing.ReentryMode.verifierLand, keccakBlobWords := __src.keccakBlobWords })).error = Option.none",
+      "type": "(Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput (have __src := Etna.Landing.exampleExternal; { environment := __src.environment, signalAuthorized := __src.signalAuthorized, verifierReturnsNormally := __src.verifierReturnsNormally, paymentReturnsNormally := __src.paymentReturnsNormally, reentry := Etna.Landing.ReentryMode.verifierLand, keccakBlobBytes := __src.keccakBlobBytes })).error = Option.none",
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
@@ -925,6 +925,144 @@
         "corpus/landing.jsonl",
         "adapters/solidity/EtnaInboxLeanConformance.t.sol"
       ]
+    },
+    {
+      "id": "LAND-BIND-01",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.serializeBlobPrefix_length",
+      "type": "\u2200 (blobs : List Etna.Word256), (Etna.Landing.serializeBlobPrefix blobs).length = blobs.length * 32",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:434-509@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
+    },
+    {
+      "id": "LAND-BIND-02",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.serializeBlobPrefix_take",
+      "type": "\u2200 (hash : Etna.Word256) (tail : List Etna.Word256), List.take 32 (Etna.Landing.serializeBlobPrefix (hash :: tail)) = Vector.toList (Etna.Landing.natWord \u2191hash)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:434-509@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
+    },
+    {
+      "id": "LAND-BIND-03",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.serializeBlobPrefix_drop",
+      "type": "\u2200 (hash : Etna.Word256) (tail : List Etna.Word256), List.drop 32 (Etna.Landing.serializeBlobPrefix (hash :: tail)) = Etna.Landing.serializeBlobPrefix tail",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:434-509@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
+    },
+    {
+      "id": "LAND-BIND-04",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.serializeBlobPrefix_injective",
+      "type": "\u2200 (a b : List Etna.Word256), Etna.Landing.serializeBlobPrefix a = Etna.Landing.serializeBlobPrefix b \u2194 a = b",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:434-509@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
+    },
+    {
+      "id": "LAND-BIND-05",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.inner_hash_binding",
+      "type": "\u2200 (hash : List Etna.Landing.Byte \u2192 Etna.Word256) (a b : List Etna.Word256), Etna.Landing.LocalInnerHashSeparation hash a b \u2192 hash (Etna.Landing.serializeBlobPrefix a) = hash (Etna.Landing.serializeBlobPrefix b) \u2192 a = b",
+      "assumptions": [
+        "Trace-local separation of the two canonical byte serializations under the actual inner byte-hash primitive; matching inner digest"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:434-509@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
+    },
+    {
+      "id": "LAND-BIND-06",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.inner_separation_nonvacuity",
+      "type": "\u2200 (a b : List Etna.Word256), \u2203 hash, Etna.Landing.LocalInnerHashSeparation hash a b",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:434-509@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
+    },
+    {
+      "id": "LAND-BIND-07",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.unequal_length_inner_nonvacuity",
+      "type": "let hash : List Etna.Landing.Byte \u2192 Etna.Word256 := fun bytes => if bytes.length = 32 then 1 else 2; Etna.Landing.LocalInnerHashSeparation hash [1] [1,2] \u2227 hash (Etna.Landing.serializeBlobPrefix [1]) \u2260 hash (Etna.Landing.serializeBlobPrefix [1,2])",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:434-509@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
+    },
+    {
+      "id": "LAND-BIND-08",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.composed_statement_blob_binding",
+      "type": "\u2200 (outerHash : Vector Etna.Landing.Byte 576 \u2192 Etna.Word256) (w\u2081 w\u2082 : Etna.Landing.World) (i\u2081 i\u2082 : Etna.Landing.LandInput) (x\u2081 x\u2082 : Etna.Landing.ExternalOutcomes), x\u2081.keccakBlobBytes = x\u2082.keccakBlobBytes \u2192 Etna.Landing.LocalInnerHashSeparation x\u2081.keccakBlobBytes (Etna.Landing.actualBlobs x\u2081.environment) (Etna.Landing.actualBlobs x\u2082.environment) \u2192 Etna.Landing.LocalHashSeparation outerHash (Etna.Landing.computedStatement w\u2081 i\u2081 x\u2081) (Etna.Landing.computedStatement w\u2082 i\u2082 x\u2082) \u2192 outerHash (Etna.Landing.encodeStatement (Etna.Landing.computedStatement w\u2081 i\u2081 x\u2081)) = outerHash (Etna.Landing.encodeStatement (Etna.Landing.computedStatement w\u2082 i\u2082 x\u2082)) \u2192 Etna.Landing.computedStatement w\u2081 i\u2081 x\u2081 = Etna.Landing.computedStatement w\u2082 i\u2082 x\u2082 \u2227 Etna.Landing.actualBlobs x\u2081.environment = Etna.Landing.actualBlobs x\u2082.environment",
+      "assumptions": [
+        "Same actual inner byte-hash primitive in both executions",
+        "Trace-local inner separation on canonical serialized actual prefixes, with no equal-length restriction",
+        "Trace-local outer separation on the two actual576-byte statements and matching outer digest"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:434-509@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
+    },
+    {
+      "id": "LAND-BIND-09",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.composed_unequal_length_nonvacuity",
+      "type": "\u2200 (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), \u2203 outerHash, Etna.Landing.LocalInnerHashSeparation Etna.Landing.exampleInnerHash (Etna.Landing.actualBlobs (Etna.Landing.withBlobPrefix x [1]).environment) (Etna.Landing.actualBlobs (Etna.Landing.withBlobPrefix x [1, 2]).environment) \u2227 Etna.Landing.LocalHashSeparation outerHash (Etna.Landing.computedStatement w i (Etna.Landing.withBlobPrefix x [1])) (Etna.Landing.computedStatement w i (Etna.Landing.withBlobPrefix x [1, 2])) \u2227 outerHash (Etna.Landing.encodeStatement (Etna.Landing.computedStatement w i (Etna.Landing.withBlobPrefix x [1]))) \u2260 outerHash (Etna.Landing.encodeStatement (Etna.Landing.computedStatement w i (Etna.Landing.withBlobPrefix x [1, 2])))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:434-509@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
+    },
+    {
+      "id": "LAND-BIND-10",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.constant_inner_hash_not_separated",
+      "type": "\u00acEtna.Landing.LocalInnerHashSeparation (fun x => 0) [1] [1, 2]",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:434-509@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
+    },
+    {
+      "id": "LAND-BIND-11",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.composed_binding_success_nonvacuity",
+      "type": "\u2200 (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), Etna.Landing.computedStatement w i (Etna.Landing.withBlobPrefix x [1, 2]) = Etna.Landing.computedStatement w i (Etna.Landing.withBlobPrefix x [1, 2, 0, 3]) \u2227 Etna.Landing.actualBlobs (Etna.Landing.withBlobPrefix x [1, 2]).environment = Etna.Landing.actualBlobs (Etna.Landing.withBlobPrefix x [1, 2, 0, 3]).environment",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:434-509@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
     }
   ]
 }

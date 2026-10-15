@@ -32,7 +32,13 @@
       "address_padding",
       "every_word_independent",
       "hash_binding",
-      "statement_is_constructed"
+      "statement_is_constructed",
+      "serializeBlobPrefix_injective",
+      "inner_hash_binding",
+      "composed_statement_blob_binding",
+      "composed_unequal_length_nonvacuity",
+      "composed_binding_success_nonvacuity",
+      "constant_inner_hash_not_separated"
     ],
     "LAND-06": ["encoding_byte", "encoding_conformance"],
     "LAND-08": [
@@ -125,5 +131,6 @@
     "l2_chainid": "EtnaInboxLand.t.sol:950 test_hashLandStatement_BindsTheConfiguredL2ChainId",
     "independent_word_mutations": "EtnaInboxLand.t.sol:988 test_land_RejectsEveryMutatedParentAnchorConfigWord"
   },
-  "identity_test_boundary": "Existing actual contract tests are included in the205passing requiredglob;56shared JSONL cases use fixedidentity/config context except caller/blob/recipient cases. every_word_independent proves all18wirefields; no shared-corpusvaryinggeneration/proxy claim."
+  "identity_test_boundary": "Existing actual contract tests are included in the205passing requiredglob;56shared JSONL cases use fixedidentity/config context except caller/blob/recipient cases. every_word_independent proves all18wirefields; no shared-corpusvaryinggeneration/proxy claim.",
+  "conformance_gate_tests": "tests/test_landing_conformance.py:24 tests; baseline false-green failures reproduced before fix"
 }

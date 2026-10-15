@@ -128,3 +128,16 @@ these source-level specification proofs to EVM executions. There is no bytecode 
 The required test harness actually observes proxy SHA3 input, STATICCALL kind, state writes,
 raw executed logs and value-call target/amount. Committed logs are inferred from successful
 call completion plus the named EVM journal law, not independently read from receipts.
+
+### Review fix: inner byte-hash linkage and composition
+
+`computedStatement` now calls `keccakBlobBytes(serializeBlobPrefix(actualBlobs(e)))`.
+The canonical packed preimage is concatenated big-endian32-byte typed words with no
+length/offset prefix. `serializeBlobPrefix_injective` recovers lists of arbitrary
+lengths by32-byte take/drop and bounded numeric injectivity. `LocalInnerHashSeparation`
+is tied to precisely this byte primitive and these serialized actual prefixes.
+`composed_statement_blob_binding` first derives18-word equality under local outer
+separation, then recovers inner digests via numeric-word injectivity, and finally
+recovers complete ordered prefixes under local inner separation. Its premises never
+supply the desired blob equality. Finite unequal-length and successful matching-pair
+witnesses, plus explicit exclusion of constant-inner-hash separation, are audited.

@@ -39,6 +39,99 @@ def source_inventory(protocol):
     return {str(p.relative_to(protocol)):digest(p) for p in files}
 
 
+OWNED_STAGE_PATHS = {
+    'test/layer1/etna/EtnaInboxLeanConformance.t.sol',
+    'test/layer1/etna/landing-corpus.json',
+}
+# Installed packages and generated Foundry artifacts are separate, explicit trust/cache
+# boundaries. They are never deleted or confused with Git-authenticated protocol inputs.
+IGNORED_ROOTS = {'out', 'cache', 'node_modules', '.git'}
+
+
+def pinned_inputs(protocol):
+    """Authenticate source/config/helper/fixture bytes and index against the pinned tree.
+
+    Client-package overlays are outside this immutable protocol dependency. Installed
+    node_modules remain governed by pinned manifests/toolchain inventory, not Git blobs.
+    """
+    overrides = [key for key in os.environ
+                 if key.startswith(('FOUNDRY_', 'DAPP_', 'SOLC_')) and key not in
+                 {'FOUNDRY_PROFILE', 'FOUNDRY_DISABLE_NIGHTLY_WARNING'}]
+    if overrides:
+        raise ValueError('unexpected compilation environment override: '+', '.join(sorted(overrides)))
+    protocol = protocol.resolve()
+    repo = Path(run(['git','rev-parse','--show-toplevel'], protocol).strip())
+    relative = protocol.relative_to(repo).as_posix()
+    if run(['git','rev-parse','HEAD'], protocol).strip() != PIN:
+        raise ValueError(f'Protocol dependency HEAD differs from pinned {PIN}')
+    scopes = [relative, 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml',
+              'testdata/etna_vectors', 'foundry.toml', 'remappings.txt']
+    owned = {relative+'/'+p for p in OWNED_STAGE_PATHS}
+    indexed = run(['git','diff','--cached','--name-only','-z',PIN,'--',*scopes], repo)
+    if any(p and p not in owned for p in indexed.split('\0')):
+        raise ValueError('index differs from pinned compilation inputs')
+    tree = run(['git','ls-tree','-r','-z',PIN,'--',*scopes], repo)
+    expected = {}
+    for entry in tree.split('\0'):
+        if not entry:
+            continue
+        metadata, name = entry.split('\t',1)
+        mode, kind, oid = metadata.split()
+        if kind != 'blob':
+            raise ValueError('unsupported pinned compilation input kind: '+name)
+        expected[name] = (mode, oid)
+    for name, (mode, oid) in expected.items():
+        if name in owned:
+            continue
+        path = repo/name
+        if mode == '120000':
+            if not path.is_symlink():
+                raise ValueError('pinned symlink replaced: '+name)
+            link = os.readlink(path)
+            # A pinned alias may target only another directly tracked regular input.
+            # Authenticate the link text itself; the target bytes/mode are checked below
+            # in their own tree entry. Do not follow arbitrary or chained external links.
+            target = Path(os.path.normpath(path.parent/link))
+            if not target.is_relative_to(repo) or expected.get(
+                    target.relative_to(repo).as_posix(), ('', ''))[0] not in {'100644','100755'}:
+                raise ValueError('pinned symlink has unsupported target: '+name)
+            actual = subprocess.check_output(['git','hash-object','--stdin'],input=link.encode(),
+                                             cwd=repo).decode().strip()
+        else:
+            if mode not in {'100644','100755'} or not path.is_file() or path.is_symlink():
+                raise ValueError('pinned input missing, replaced or unsupported: '+name)
+            if bool(path.stat().st_mode & 0o111) != (mode == '100755'):
+                raise ValueError('pinned input mode changed: '+name)
+            actual = run(['git','hash-object','--no-filters','--',str(path)], repo).strip()
+        if actual != oid:
+            raise ValueError('worktree differs from pinned compilation input: '+name)
+    # Include ignored sources/config: git status alone misses these. Walk only the
+    # protocol tree, deliberately pruning known dependency/cache roots, not deleting them.
+    for directory, dirs, files in os.walk(protocol):
+        base = Path(directory)
+        if base == protocol:
+            dirs[:] = [d for d in dirs if d not in IGNORED_ROOTS]
+        for name in files:
+            path = base/name
+            local = path.relative_to(protocol).as_posix()
+            tracked = path.relative_to(repo).as_posix() in expected
+            compilation_input = (local.split('/')[0] in {'contracts','test','script'} or
+                                 path.suffix in {'.sol','.yul'} or
+                                 name in {'foundry.toml','remappings.txt','.env'})
+            if compilation_input and not tracked and local not in OWNED_STAGE_PATHS:
+                raise ValueError('unexpected compilation input: '+local)
+        for name in dirs:
+            path = base/name
+            if path.is_symlink() and path.relative_to(repo).as_posix() not in expected:
+                raise ValueError('unexpected compilation input symlink: '+str(path))
+    for parent in [repo, protocol.parent]:
+        for name in ['foundry.toml','remappings.txt','.env']:
+            path=parent/name
+            if path.exists() and path.relative_to(repo).as_posix() not in expected:
+                raise ValueError('unexpected compilation configuration: '+str(path))
+    return expected
+
+
 @contextlib.contextmanager
 def staged(protocol, corpus):
     """Restore exactly the previous owned adapter files, even on failure/interruption."""
@@ -47,6 +140,9 @@ def staged(protocol, corpus):
             (ROOT/'adapters/solidity/EtnaInboxLeanConformance.t.sol').read_bytes(),
         protocol/'test/layer1/etna/landing-corpus.json': json.dumps(corpus).encode(),
     }
+    pinned_inputs(protocol)  # Authenticate before writing any owned staging file.
+    if any(p.is_symlink() for p in targets):
+        raise ValueError('unexpected owned staging symlink')
     saved = {p:p.read_bytes() if p.exists() else None for p in targets}
     before = source_inventory(protocol)
     head = run(['git','rev-parse','HEAD'], protocol).strip()
@@ -67,6 +163,7 @@ def staged(protocol, corpus):
             raise RuntimeError('production Solidity/config changed during adapter run')
         if run(['git','rev-parse','HEAD'], protocol).strip() != head:
             raise RuntimeError('protocol dependency HEAD changed')
+        pinned_inputs(protocol)
 
 
 def solidity(protocol, corpus, output):
@@ -96,30 +193,38 @@ def keccak(hex_bytes):
     return run(['cast','keccak',hex_bytes]).strip().lower()
 
 
+def exact_ids(rows, label, expected=None):
+    ids = [r.get('id') for r in rows]
+    if not ids or any(not isinstance(i,str) or not i for i in ids) or len(set(ids)) != len(ids):
+        raise ValueError(f'{label} must contain nonempty unique case IDs')
+    if expected is not None and (len(ids) != len(expected) or set(ids) != set(expected)):
+        raise ValueError(f'{label} must contain each corpus ID exactly once')
+    return ids
+
+
 def compare(corpus, observations):
-    expected_ids = [r['id'] for r in corpus]
-    actual_ids = [r['id'] for r in observations]
-    if sorted(actual_ids) != sorted(expected_ids) or len(set(actual_ids)) != len(actual_ids):
-        raise ValueError('actual output must contain each corpus ID exactly once')
+    expected_ids = exact_ids(corpus, 'corpus')
+    exact_ids(observations, 'Solidity output', expected_ids)
     actual = {r['id']:r for r in observations}
     augmented = []
     for row in corpus:
         obs = actual[row['id']]
         context = obs['context']
         # Identities/configuration are actual fixture inputs, not expected outcomes.
-        r = row | {'parentHash':context['parentHash']}
-        if obs.get('actualPreimage') and len(obs['actualPreimage']) == 1154:
-            ordered = []
-            for blob in row['blobs']:
-                if int(blob,16) == 0:
-                    break
-                ordered.append(blob[2:])
-            r |= {'context':context,'blobCommitment':keccak('0x'+''.join(ordered))}
+        ordered = []
+        for blob in row['blobs']:
+            if int(blob,16) == 0:
+                break
+            ordered.append(blob[2:])
+        # Compute all model inputs independently of whether Solidity emitted a preimage.
+        r = row | {'parentHash':context['parentHash'], 'context':context,
+                   'blobCommitment':keccak('0x'+''.join(ordered))}
         augmented.append(r)
     with tempfile.TemporaryDirectory(prefix='etna-landing-') as temporary:
         p = Path(temporary)/'input.jsonl'
         p.write_text(''.join(json.dumps(v)+'\n' for v in augmented))
         lean = [json.loads(s) for s in run(['lake','env','lean','--run','Check/Landing.lean',str(p)]).splitlines()]
+    exact_ids(lean, 'Lean output', expected_ids)
     failures = []
     encoded = 0
     for expected in lean:
@@ -130,7 +235,20 @@ def compare(corpus, observations):
             if field not in obs or normalize(expected[field]) != normalize(obs[field]):
                 failures.append({'id':expected['id'],'field':field,'lean':expected[field],
                                  'solidity':obs.get(field)})
-        if 'expectedPreimage' in expected:
+        expected_encoding = 'expectedPreimage' in expected
+        actual_group = [key in obs for key in ('actualPreimage','actualDigest','statementWords')]
+        reaches_statement = expected['error'] in {'none','signal-unauthorized','signal-invalid','verifier','payment'}
+        if (expected_encoding != reaches_statement or any(actual_group) != reaches_statement or
+                (any(actual_group) and not all(actual_group))):
+            failures.append({'id':expected['id'],'field':'preimage-presence'})
+            continue
+        if expected_encoding:
+            if (not isinstance(expected['expectedPreimage'],str) or len(expected['expectedPreimage']) != 1154 or
+                    not isinstance(obs['actualPreimage'],str) or len(obs['actualPreimage']) != 1154 or
+                    not isinstance(obs['actualDigest'],str) or len(obs['actualDigest']) != 66 or
+                    not isinstance(obs['statementWords'],list) or len(obs['statementWords']) != 18):
+                failures.append({'id':expected['id'],'field':'preimage-shape'})
+                continue
             encoded += 1
             preimage = expected['expectedPreimage']
             if preimage.lower() != obs['actualPreimage'].lower():
