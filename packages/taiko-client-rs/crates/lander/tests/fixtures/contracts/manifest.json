@@ -1242,10 +1242,10 @@
     "sha256": "457c3409bcd7ce85a23c47444bbe355f8dd446df79a8449c8a58b89320eb89b0",
     "source": "packages/protocol/contracts/layer1/etna/iface/IEtnaInbox.sol"
   },
-  "protocolRevision": "9b381ac1aa29af5b28c7d27065c1dc266bcaa0c5",
+  "protocolRevision": "27777e9d7147e7b1d3543711f4d7370a0377fa53",
   "vectors": {
     "files": {
-      "README.md": "69bbafd723d0337b9e894efd0761ce60e2378a2ad6ffeb3c52a2ce78c87f02c5",
+      "README.md": "78d97b6abb00ed9f8152cb94b8b510c941b177f785ad6ca4ccfa40e350be3b50",
       "generate.py": "b85beb7caa484b1c5eb037513c1bba36a6e7f877df565cda1acea83373216dd2",
       "vectors.json": "d6d6212d67fe6e0ece020a2ba538a01f265c85977fb6510940a5d9ae13d614ca"
     },
