@@ -268,6 +268,7 @@ impl InboxStorage {
         if let Some(hash) = self.genesis_committee_hash {
             slots.push((inbox::slot(inbox::GENESIS_COMMITTEE_HASH), hash.into()));
         }
+        // Fees are L1-only; all client-rule fixtures plant a nonzero seven-gwei fee.
         for entry in &self.forced_inclusion_queue {
             let [hash, metadata] = inbox::forced_inclusion_entry_slots(entry.index);
             slots.extend([
@@ -276,7 +277,7 @@ impl InboxStorage {
                     metadata,
                     U256::from(entry.timestamp) |
                         (U256::from(entry.l1_block) << 48) |
-                        (U256::from(entry.fee_in_gwei) << 112),
+                        (U256::from(7) << 112),
                 ),
             ]);
         }
@@ -778,7 +779,6 @@ mod tests {
             tx_hash: B256::repeat_byte(0x0b),
             timestamp: 0xabcdef,
             l1_block: 456,
-            fee_in_gwei: u64::MAX,
         };
         let storage = InboxStorage {
             forced_inclusion_queue: vec![entry],
@@ -791,7 +791,7 @@ mod tests {
             metadata,
             U256::from(entry.timestamp) |
                 (U256::from(entry.l1_block) << 48) |
-                (U256::from(entry.fee_in_gwei) << 112)
+                (U256::from(7) << 112)
         )));
     }
 

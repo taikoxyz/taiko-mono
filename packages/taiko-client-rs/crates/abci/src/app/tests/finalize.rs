@@ -684,7 +684,7 @@ async fn persistent_off_chain_answers_halt_after_the_suspicion_window() {
 /// A payload id can disappear after an EL restart between FCU and getPayload. Cold replay
 /// retries the whole build to acquire a fresh id.
 #[tokio::test(start_paused = true)]
-async fn cold_forced_rebuild_retries_an_unknown_payload_id() {
+async fn cold_forced_skip_retries_an_unknown_payload_id() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let (mut app, env) = skipped_block(&fx, dir.path()).await;
@@ -1030,7 +1030,7 @@ fn cold_req(app: &App<MockL1, MockEngine>, env: &EtnaEnvelope) -> request::Final
 
 /// Cold included replay executes the ordinary mixed payload without probing forced input.
 #[tokio::test]
-async fn cold_inclusion_needs_no_forced_rebuild() {
+async fn cold_inclusion_needs_no_skip_probe() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let (mut app, honest) = forced_block(&fx, dir.path()).await;
@@ -1059,7 +1059,7 @@ async fn skipped_block(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, Et
 /// safety halt. Retries and the halt are logged under the forced rebuild's own label, and a build
 /// the EL did not start, like the halt, names the parent and the likely missing state.
 #[tokio::test(start_paused = true)]
-async fn cold_forced_rebuild_failures_retry_or_halt() {
+async fn cold_forced_skip_failures_retry_or_halt() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let (mut app, env) = skipped_block(&fx, dir.path()).await;

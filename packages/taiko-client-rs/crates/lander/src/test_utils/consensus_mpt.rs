@@ -229,7 +229,7 @@ fn state_with_queue(
                 metadata,
                 U256::from(entry.timestamp) |
                     (U256::from(entry.l1_block) << 48) |
-                    (U256::from(entry.fee_in_gwei) << 112),
+                    (U256::from(1_000 + entry.index) << 112),
             ),
         ]);
     }
@@ -277,15 +277,9 @@ impl ForcedPlan {
             .iter()
             .zip(0..)
             .map(|(&(l1, timestamp), index)| {
-                let (blob, blob_hash) = forced_transaction(index);
-                let entry = ForcedEntry {
-                    index,
-                    fee_in_gwei: 1_000 + index,
-                    tx_hash: blob_hash,
-                    l1_block: l1,
-                    timestamp,
-                };
-                (l1, entry, blob)
+                let (tx, tx_hash) = forced_transaction(index);
+                let entry = ForcedEntry { index, tx_hash, l1_block: l1, timestamp };
+                (l1, entry, tx)
             })
             .collect()
     }
@@ -569,16 +563,16 @@ impl Fixture {
                     entries: entries.clone(),
                 }
             });
-            // The entry at the cursor, while the anchor's queue holds one: consumed with its blob
-            // at a planned height, otherwise peeked at.
+            // The entry at the cursor, while the anchor's queue holds one: consumed with its
+            // transaction at a planned height, otherwise peeked at.
             let witness_forced = (cursor < a.inbox.forced_inclusion_tail).then(|| {
                 let consume = plan.consume_at.contains(&height);
-                let blob = planted[cursor as usize].2.clone();
+                let tx = planted[cursor as usize].2.clone();
                 let w = ForcedWitness {
                     index: cursor,
                     entry: states[&number]
                         .witness(params.inbox, &inbox::forced_inclusion_entry_slots(cursor)),
-                    tx: blob,
+                    tx,
                 };
                 cursor += u64::from(consume);
                 w

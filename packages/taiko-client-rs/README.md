@@ -145,8 +145,10 @@ there is no expiry or expiry-derived upper bound.
 
 At most one queue entry is consumed per block. Included and invalid-byte cases require no
 singleton build. `ProcessProposal`, cold `FinalizeBlock` and the lander share the classifier and
-skip checker. Host Engine checks establish current dummy-proof behavior; an independent validity
-proof guest remains future work. `land` pays consumed fees to the statement-bound `feeRecipient`,
+skip checker. Prepare reclassifies its final candidate after an ordinary fallback, reusing a
+successful singleton confirmation only when the decision and its build context are unchanged.
+Host Engine checks establish current dummy-proof behavior; an independent validity proof guest
+remains future work. `land` pays consumed fees to the statement-bound `feeRecipient`,
 the lander's sending address.
 
 Proposers retrieve admission bytes with `eth_getLogs` for the exact proven submission block,

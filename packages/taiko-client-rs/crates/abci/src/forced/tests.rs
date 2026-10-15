@@ -99,13 +99,7 @@ fn authenticated_entry_decodes_packed_metadata() {
     let (anchor, w) = fixture(canonical_tx());
     assert_eq!(
         verify_entry(anchor.state_root, &w.entry, INBOX, INDEX).unwrap(),
-        ForcedEntry {
-            index: INDEX,
-            tx_hash: keccak256(&w.tx),
-            timestamp: T0,
-            l1_block: 70,
-            fee_in_gwei: 1_000,
-        }
+        ForcedEntry { index: INDEX, tx_hash: keccak256(&w.tx), timestamp: T0, l1_block: 70 }
     );
 }
 
@@ -122,7 +116,7 @@ fn authenticated_entry_masks_field_widths_and_ignores_padding() {
     )]);
     let w = state.witness(INBOX, &slots);
     let e = verify_entry(state.state_root(), &w, INBOX, INDEX).unwrap();
-    assert_eq!((e.timestamp, e.l1_block, e.fee_in_gwei), (timestamp, u64::MAX, u64::MAX));
+    assert_eq!((e.timestamp, e.l1_block), (timestamp, u64::MAX));
 }
 
 #[test]

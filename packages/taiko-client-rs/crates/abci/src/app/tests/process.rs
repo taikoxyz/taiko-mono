@@ -418,7 +418,6 @@ async fn pending_entry_is_peeked_by_ordinary_blocks() {
     inbox.forced_inclusion_tail = 1;
     inbox.forced_inclusion_queue = vec![crate::forced::ForcedEntry {
         index: 0,
-        fee_in_gwei: 7,
         tx_hash: alloy_primitives::keccak256([]),
         l1_block: 66,
         // One second short of due at block 66.
