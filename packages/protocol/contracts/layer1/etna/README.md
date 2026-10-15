@@ -7,12 +7,14 @@ signs L2 blocks with CometBFT, and anyone can land proven batches on L1.
 | ---------------------------------- | ---------------------------------------------------------------------------------------- |
 | `impl/EtnaInbox.sol`               | A fresh UUPS proxy initialized with L2 genesis and committee 0; lands proven batches.    |
 | `impl/EtnaStakingRegistry.sol`     | Validators stake TAIKO, heartbeat, exit and withdraw. Its checkpoints define committees. |
+| `impl/EtnaRewardPool.sol`          | Receives swept L2 fees; each epoch's last landing splits them to validators and provers. |
 | `libs/LibEntriesTree.sol`          | The incremental Merkle tree behind the registry checkpoints.                             |
-| `../../layer2/core/L2FeeVault.sol` | The L2 fee recipient; the owner can withdraw collected fees.                             |
+| `../../layer2/core/L2FeeVault.sol` | The L2 fee recipient; anyone can sweep its whole balance to the reward pool.             |
 
 The ABCI node in taikoxyz/taiko-mono#22280 reads the Inbox and registry with EIP-1186 proofs.
 Its interface is `crates/abci/src/l1/layout.rs`. This PR preserves that storage interface; it
-implements no Shasta-to-Etna migration. The protocol specification is #22262.
+implements no Shasta-to-Etna migration. The protocol specification is #22262; Fees and rewards
+lists where the fee loop departs from it.
 
 ## Genesis initialization
 
@@ -21,15 +23,21 @@ implements no Shasta-to-Etna migration. The protocol specification is #22262.
 2. Choose a finalized registry snapshot at `genesisCutoff` and compute committee 0 with
    `taiko-client abci-committee-record`. At least one validator must be eligible there.
 3. Prepare the L2 genesis file, including the fee vault or its planned deployment, and obtain its
-   block-0 hash and state root. Set the node's fee-vault address consistently. If the genesis
-   contracts embed L1 addresses, predict them before computing that hash: for deployment-wallet
-   nonce `n`, the L1 SignalService proxy is CREATE at `n + 1` and the Inbox proxy at `n + 3`.
-   Keep the wallet's nonce unchanged until `deployInbox()` runs.
+   block-0 hash and state root. Set the node's fee-vault address consistently. The vault's
+   immutable constructor inputs are the L2 Bridge, the L1 chain id and the L1 reward pool proxy,
+   and the pool in turn names the vault's L2 address, so fix both addresses before either is
+   deployed. If the genesis contracts embed L1 addresses, as a genesis vault does, predict them
+   before computing that hash: for deployment-wallet nonce `n`, the L1 SignalService proxy is
+   CREATE at `n + 1`, the Inbox proxy at `n + 3` and the reward pool proxy at `n + 5`. Keep the
+   wallet's nonce unchanged until `deployInbox()` runs.
 4. Call `DeployEtnaDevnet.deployInbox()` with the genesis hash, state root, epoch lengths,
    `genesisCutoff`, committee record hash, `committeeConfigHash`, forced inclusion delay and
-   maximum anchor age. It deploys fresh SignalService and EtnaInbox proxies.
-   The Inbox is initialized atomically in the proxy constructor and saves a block-0 checkpoint to
-   SignalService. SignalService authorizes the predicted Inbox proxy address.
+   maximum anchor age, and the reward inputs: the L1 Bridge, the L2 fee vault, both allocation
+   shares and the landing reward per block. It deploys fresh SignalService, EtnaInbox and
+   EtnaRewardPool proxies. The Inbox is initialized atomically in the proxy constructor and saves
+   a block-0 checkpoint to SignalService. SignalService authorizes the predicted Inbox proxy
+   address, the Inbox implementation names the predicted pool proxy, and the pool, created last,
+   names the Inbox proxy.
 5. Once the L1 initialization block is final, run `abci-genesis` and start CometBFT and the EL.
    The first consensus block is L2 block 1. Configure the EL's Etna fork from genesis.
 
@@ -49,20 +57,29 @@ optional `CONTRACT_OWNER`; `run()` needs `TAIKO_TOKEN` and `REGISTRY_*`. `deploy
 `MAX_BATCH_BLOCKS`, `FORCED_INCLUSION_FEE_GWEI`, `FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD`,
 `GENESIS_BLOCK_HASH`, `GENESIS_STATE_ROOT`, `EPOCH_LEN_L2`, `EPOCH_LEN_L1`, `GENESIS_CUTOFF`,
 `COMMITTEE_RECORD_HASH`, `COMMITTEE_CONFIG_HASH`, `FORCED_INCLUSION_DELAY` and `MAX_ANCHOR_AGE`
-(both in seconds). Use the same deployer for the four consecutive CREATEs
-of the Inbox deployment; the script predicts the final proxy using its current nonce.
+(both in seconds), plus the pool's `L1_BRIDGE`, `L2_FEE_VAULT`, `ALLOC_VALIDATOR_PPM` and
+`ALLOC_PROVER_PPM` (shares of the free balance per frozen epoch, summing to at most 1,000,000) and
+the Inbox's `LANDING_REWARD_PER_BLOCK` (wei, may be 0). Use the same deployer for the six
+consecutive CREATEs of the Inbox deployment; the script predicts the Inbox and pool proxies from
+its current nonce and reverts if either differs. On L2, `DeployL2FeeVault` reads `PRIVATE_KEY`, a
+required `CONTRACT_OWNER`, `L2_BRIDGE`, `L1_CHAIN_ID` and `REWARD_POOL`.
 
 No Etna guest exists yet, so a devnet's `EtnaInbox` uses a stand-in proof verifier such as the
 accept-all `contracts/layer1/devnet/OpVerifier.sol`. As `land` is permissionless, anyone can then
-land any batch and write arbitrary SignalService checkpoints (forged L2 to L1 messages), and move
-the forced inclusion head to the tail to collect every pending fee without including the entries.
-Such a verifier is for ephemeral devnets only; selecting it must be explicit. Fixtures provide
-the config hash and use the dummy proof provider, which does not enforce guest constraints.
+land any batch and write arbitrary SignalService checkpoints (forged L2 to L1 messages), move
+the forced inclusion head to the tail to collect every pending fee without including the entries,
+and report any participation and committee, steering each epoch's validator share to any
+registration owner. Such a verifier is for ephemeral devnets only; selecting it must be explicit.
+Fixtures provide the config hash and use the dummy proof provider, which does not enforce guest
+constraints.
 
 ## Configuration checks
 
 - Keep node `inbox`, `registry` and `fee_vault` addresses equal to the deployed proxies, and
-  `l2ChainId` equal to the node's chain id.
+  `l2ChainId` equal to the node's chain id. The pool's `l2FeeVault` must be the node's
+  `fee_vault`, the vault's `rewardPool` the pool proxy and its `l1ChainId` this L1, and
+  `L1_BRIDGE` an L1 Bridge that verifies L2 messages against this deployment's SignalService (see
+  Fees and rewards).
 - Registry `heartbeatWindow` must equal node `heartbeat_window`, and `minStake` must be at least
   node `max(s_min, vp_unit)`. Choose `vp_unit` large enough that the entire TAIKO supply cannot
   exceed CometBFT's maximum voting power.
@@ -109,7 +126,13 @@ the config hash and use the dummy proof provider, which does not enforce guest c
 - Removing expiry prevents an outage or suppressed BFT time from deleting a pending transaction
   merely because it is old. It does not guarantee a wall-clock inclusion deadline, sufficient
   queue throughput during outages, or settlement against a quorum willing to stop landing.
-- The registry and Inbox owners can upgrade the contracts; use the intended chain governance.
+- `allocValidatorPpm + allocProverPpm` may not exceed 1,000,000; whatever a freeze does not
+  allocate stays in the free balance for later epochs. `landingRewardPerBlock` is paid per landed
+  block and capped by the prover reward ledger, so `maxBatchBlocks` times it bounds one landing's
+  reward. All three are implementation immutables; changing them takes an upgrade.
+- The registry, Inbox, reward pool and fee vault owners can upgrade the contracts; use the
+  intended chain governance. An upgrade is the only privileged way to move the pool's or the
+  vault's Ether.
 
 ## Node-facing storage
 
@@ -140,7 +163,8 @@ interface stable; they do not contain Shasta state.
 | 280     | forced inclusion `queue` mapping                       | entry `i` at `keccak256(abi.encode(i, 280))`       |
 | 281     | forced inclusion `head`, `tail`                        | `uint48` bits 0–47, `uint48` bits 48–95            |
 | 282     | `forcedInclusionDelay`, `maxAnchorAge`                 | `uint64` bits 0–63, `uint64` bits 64–127 (seconds) |
-| 283–300 | `__gap`                                                | —                                                  |
+| 283     | `proverRewardLedger` (contract-internal)               | `uint256`, wei                                     |
+| 284–300 | `__gap`                                                | —                                                  |
 
 Forced inclusion entry `i` starts at `base = keccak256(abi.encode(i, 280))`: `txHash`
 (`bytes32`) occupies `base`; `timestamp` (`uint48`, bits 0–47), `l1Block` (`uint64`, bits 48–111)
@@ -190,6 +214,7 @@ All state lives in the ERC-7201 namespace `taiko.etna.registry`, at base slot
 | `R + 9`  | activation churn: the latest scheduled window's remaining capacity (contract-internal)  |
 | `R + 10` | exit churn: one past the latest scheduled window (contract-internal)                    |
 | `R + 11` | exit churn: the latest scheduled window's remaining capacity (contract-internal)        |
+| `R + 12` | `registrationOwner`: `mapping(bytes32 key => address)` (contract-internal)              |
 
 | Word                        | Content                                                                  | Packing                                      |
 | --------------------------- | ------------------------------------------------------------------------ | -------------------------------------------- |
@@ -208,6 +233,13 @@ names a slot: after a bond is withdrawn, the next registration overwrites its en
 its id and keeps `count` unchanged. Snapshots read entries at a historical L1 block and verify them
 against that checkpoint's root, so slot reuse is invisible to committee derivation. The node reads
 only `R` through `R + 5`.
+
+Registration also records its caller as the owner of the registration, under the key
+`keccak256(abi.encode(bondId, activeFromL1))`. Slot reuse adds a new key and keeps the old one, so
+`registrationOwnerOf(bondId, activeFromL1)` names the owner of the registration a committee member
+came from, while `bondOwnerOf(bondId)` names the slot's current holder. Two registrations of one
+slot share a key only when the activation, exit and withdrawal delays are all 0; the second then
+reverts `RegistrationKeyTaken`.
 
 ## Contract obligations
 
@@ -242,6 +274,9 @@ only `R` through `R + 5`.
   selection stays top `n_max` by stake.
 - Future committees derive from the committed switch-parent anchor. There is no `committee(epoch)` getter,
   mapping, committee landing output or publication event. Landing is never an activation gate.
+- Each epoch is frozen and settled exactly once, in the verified landing whose commit range
+  reaches its last height. The pool's balance always covers `reservedTotal`, and an empty pool or
+  prover reward ledger never fails a landing.
 
 ## Authenticated committee configuration
 
@@ -309,53 +344,98 @@ Outgoing-quorum, old-key/stake-retention/withdrawal and recovery-bootstrap limit
 
 ## Landing
 
-`LandInput` has exactly `lastHeight`, `lastBlockHash`, `lastStateRoot`, `l1ReferenceBlockNumber`,
-`forcedInclusionHead`, the forced inclusion cursor after the batch, and `feeRecipient`, the
-receiver of the consumed entries' fees. With `p` and `parentHash` the stored checkpoint and `head`,
-`tail` the stored queue, `land` requires active status, `p < lastHeight <= p + maxBatchBlocks`,
-`lastHeight <= type(uint48).max` and a non-zero `feeRecipient` (`ZeroFeeRecipient` otherwise,
-whether or not the batch consumes entries). It also requires `head <= forcedInclusionHead <= tail`
-and `forcedInclusionHead - head <= lastHeight - p`, since each block consumes at most one entry;
-otherwise it reverts `InvalidForcedInclusionHead`. The reference must be a past L1 block with a
-nonzero hash available from `blockhash` (256 blocks) or the EIP-2935 history contract (8191
-blocks). At least one transaction blob is required.
+```solidity
+function land(
+    LandInput calldata input,
+    EpochParticipation[] calldata participation,
+    CommitteeMember[][] calldata settlements,
+    bytes calldata proof
+) external payable;
+```
 
-Landing saves the terminal checkpoint in the Inbox and SignalService, moves `head` to
-`forcedInclusionHead`, emits `BatchLanded`, and calls
-`proofVerifier.verifyProof(0, statementHash, proof)`. Failure rolls back all writes. Only after
-verification, and only if the head moved, does it pay the consumed entries' fees,
-`sum(queue[i].feeInGwei) * 1 gwei` for `i` in `[head, forcedInclusionHead)`, to `feeRecipient`,
-not `msg.sender`, and emit `ForcedInclusionsConsumed(headBefore, headAfter, feesWei, recipient)`.
-A recipient that rejects the payment fails the landing. `land` and `saveForcedInclusion` share one
-reentrancy lock, so the recipient cannot re-enter either. The statement binds `feeRecipient`, so
-whoever copies a public landing transaction (calldata and blob sidecar) and lands it first still
-pays the original recipient, and a copy naming another recipient fails verification. The
-eighteen-word V6 preimage (576 bytes) is:
+`land` is permissionless. `LandInput` has exactly `lastHeight`, `lastBlockHash`, `lastStateRoot`,
+`l1ReferenceBlockNumber`, `forcedInclusionHead`, the forced inclusion cursor after the batch, and
+`feeRecipient`, the receiver of the consumed entries' fees and of the landing reward. With `p` and
+`parentHash` the stored checkpoint, `L = lastHeight`, and `head`, `tail` the stored queue, `land`
+requires active status, `p < L <= p + maxBatchBlocks`, `L <= type(uint48).max` and a non-zero
+`feeRecipient` (`ZeroFeeRecipient` otherwise, whether or not the batch consumes entries). It also
+requires `head <= forcedInclusionHead <= tail` and `forcedInclusionHead - head <= L - p`, since
+each block consumes at most one entry; otherwise it reverts `InvalidForcedInclusionHead`. The
+reference must be a past L1 block with a nonzero hash available from `blockhash` (256 blocks) or
+the EIP-2935 history contract (8191 blocks). At least one transaction blob is required.
+
+`EpochParticipation` is `(uint64 epoch, bytes32 committeeHash, uint32[] signedCounts)` and
+`CommitteeMember` is `(uint32 bondId, uint64 activeFromL1, uint256 effStake)`. A committee is
+listed in MEM-08 order and hashed as `keccak256(abi.encode(CommitteeMember[]))`; `signedCounts`
+uses the same member indices. Block `h + 1` carries the canonical commit of height `h` in its
+`last_commit` and height 0 has none, so the batch `(p, L]` carries the commits of
+`[c0, c1] = [max(p, 1), L - 1]`. Epoch `e` holds heights
+`[e * epochLenL2 + 1, (e + 1) * epochLenL2]`. `participation` must be empty when `c0 > c1`, as
+for the first batch `(0, 1]`. Otherwise it holds exactly one part per epoch from
+`(c0 - 1) / epochLenL2` to `(c1 - 1) / epochLenL2`, in ascending order, and no signed count may
+exceed the number of `[c0, c1]` heights in its part's epoch. Anything else reverts
+`InvalidParticipation` before the proof is verified. This shape check only narrows what a dummy
+verifier admits; the guest makes counts and committee hashes authoritative. `settlements` holds
+the committee of each epoch the batch completes, in ascending order (see Fees and rewards). It is
+not part of the statement: the pool checks each list against the committee hash that the
+participation bound.
+
+After those checks, landing runs in this order; any revert rolls back every write:
+
+1. Hash the V7 statement below.
+2. Move `head` to `forcedInclusionHead`, save the terminal checkpoint in the Inbox and
+   SignalService, and emit `BatchLanded`.
+3. Call `proofVerifier.verifyProof(0, statementHash, proof)`.
+4. Call `rewardPool.recordLanding(L, epochLenL2, participation, settlements)`. For each part the
+   pool adds the counts and, if the batch completes that epoch, freezes and settles it; each
+   frozen epoch's proving share arrives through the Inbox's `receive` into the prover reward
+   ledger (slot 283).
+5. Add `msg.value` to the ledger and debit the reward
+   `min(landingRewardPerBlock * (L - p), ledger)`.
+6. Send the consumed entries' fees, `sum(queue[i].feeInGwei) * 1 gwei` for `i` in
+   `[head, forcedInclusionHead)`, plus the reward to `feeRecipient`, not `msg.sender`, in one
+   transfer that is skipped when the sum is 0. Then emit
+   `ForcedInclusionsConsumed(headBefore, headAfter, feesWei, recipient)` if the head moved, and
+   `LandingRewardPaid(recipient, amount, ledgerAfter)` on every landing, even for a zero amount.
+
+A recipient that rejects the payment fails the landing; an empty ledger pays nothing and does not
+block landing. `land` and `saveForcedInclusion` share one reentrancy lock, so the recipient cannot
+re-enter either. The Inbox's `receive` accepts Ether only from the reward pool
+(`UnauthorizedRewardSender` otherwise) and stays outside the lock, because the pool sends proving
+shares while `land` holds it. The statement binds `feeRecipient` and the participation, so whoever
+copies a public landing transaction (calldata and blob sidecar) and lands it first still pays the
+original recipient, and a copy naming another recipient or other counts fails verification. The
+nineteen-word V7 preimage (608 bytes) is:
 
 ```solidity
 statementHash = keccak256(abi.encode(
-    bytes32("TAIKO_ETNA_LAND_V6"),
+    bytes32("TAIKO_ETNA_LAND_V7"),
     block.chainid, l2ChainId, address(this), address(stakingRegistry),
     recoveryGeneration, p, parentHash, committeeConfigHash,
     lastHeight, lastBlockHash, lastStateRoot,
     l1ReferenceBlockNumber, l1ReferenceBlockHash,
     keccak256(abi.encodePacked(blobHashes)),
-    forcedInclusionHeadBefore, forcedInclusionHeadAfter, feeRecipient
+    forcedInclusionHeadBefore, forcedInclusionHeadAfter, feeRecipient,
+    keccak256(abi.encode(participation))
 ));
 ```
 
-The two heads are `uint48`: `forcedInclusionHeadBefore` is the stored `head` and
-`forcedInclusionHeadAfter` is `LandInput.forcedInclusionHead`; `feeRecipient` is the `address`
-from `LandInput`. Both identities, config hash, generation, parent and head before come from the
-contract. The reference hash and ordered blob hashes come from the actual L1 execution context.
-`hashLandStatement` derives identities and config internally but accepts raw generation, parent,
-head before and terminal inputs for encoding; it does not authenticate them. Call it through the
-proxy to bind that proxy's address. V5 digests, seventeen-word V6 digests without `feeRecipient`,
-four- and five-field `LandInput`s, fixed-cutoff configuration openings, envelopes before version 5,
-blob payloads before version 4 and journals before schema 8 are incompatible with this prelaunch
-version. The envelope version is 5, the landing blob payload version 4 and the journal schema 8;
-record encoding stays 1. No deployed-chain migration is provided. Reject old signed jobs without discarding their nonce,
-cancelling or automatically replacing their transaction.
+The first eighteen words are the V6 words under the V7 tag. The two heads are `uint48`:
+`forcedInclusionHeadBefore` is the stored `head` and `forcedInclusionHeadAfter` is
+`LandInput.forcedInclusionHead`; `feeRecipient` is the `address` from `LandInput`. The last word,
+`participationHash`, hashes the `participation` argument as passed; for the empty array it is
+`keccak256(abi.encode(uint256(32), uint256(0)))`. Both identities, config hash, generation,
+parent and head before come from the contract. The reference hash and ordered blob hashes come
+from the actual L1 execution context. `hashLandStatement` takes `participation` after `input`; it
+derives identities and config internally but accepts raw generation, parent, head before,
+terminal inputs and participation for encoding, and it neither authenticates them nor checks the
+participation's shape. Call it through the proxy to bind that proxy's address. V6 and earlier
+digests, V7 words without the participation hash, two-argument `land` calls, four- and
+five-field `LandInput`s, fixed-cutoff configuration openings, envelopes before version 5, blob
+payloads before version 4 and journals before schema 9 are incompatible with this prelaunch
+version. The envelope version is 5, the landing blob payload version 4 and the journal schema 9;
+record encoding stays 1. No deployed-chain migration is provided. Reject old signed jobs without
+discarding their nonce, cancelling or automatically replacing their transaction.
 
 ### Guest and consensus obligations
 
@@ -412,6 +492,17 @@ Commits and signatures are proof witnesses, not blob data.
 Every anchor and actual proving L1 root belongs to the header chain ending at the reference hash.
 Reference headers may be recent even for old batches. Arbitrary batch cuts never depend on an
 earlier batch's committee output.
+
+For validator participation, output each epoch of the commit range `[c0, c1]` as one part. Its
+committee is the set derived above, listed as `CommitteeMember` entries in MEM-08 order with
+`bondId`, `activeFromL1` and `effStake` taken from the authenticated registry entries, and
+`committeeHash = keccak256(abi.encode(members))`. `signedCounts[i]` is the number of heights `h`
+of `[c0, c1]` in that epoch whose canonical commit carries a verified `BlockIDFlagCommit`
+signature of member `i`; nil votes and absent signatures do not count. The canonical commit of
+height `h` is block `h + 1`'s `last_commit`, bound by that block's certified header, never a
+separately fetched commit for the same height, whose signature set can differ. Each height's
+commit rides in exactly one batch, so each signature counts once. Bind
+`participationHash = keccak256(abi.encode(EpochParticipation[]))` as the statement's last word.
 
 ### Forced inclusion obligations
 
@@ -486,16 +577,133 @@ The existing status, generation, anchor progress and back-pressure checks remain
 outage, and `epochLenL2 >= unsettledCap + 3` remains the schedule bound. Committee authorization
 is autonomous, while settlement progress still matters for overall liveness.
 
-The fixed Solidity vector pins the six-field ABI, eleven-word config and V6 statement against an
-independent `cast abi-encode` encoding. Tests use an explicitly dummy verifier for batching,
-statement binding and rollback; they do not prove the authoritative guest rules. Dummy proof
+The fixed Solidity vector pins the six-field ABI, eleven-word config, a one-epoch participation
+hash, the empty participation hash and the V7 statement against an independent `cast abi-encode`
+encoding. Tests use an explicitly dummy verifier for batching, statement binding, participation
+shape, settlement and rollback; they do not prove the authoritative guest rules. Dummy proof
 `0x00` remains explicit; no real ZK guest is part of this change, and host/contract integration
 checks do not establish production ZK soundness. Empty-roster liveness and old-key/withdrawal
 assumptions remain unchanged.
 
+## Fees and rewards
+
+L2 fees reach validators and landers through one loop that needs no keeper or privileged role:
+
+```text
+L2 block fees (whole base fee and priority fees)
+  -> L2FeeVault, the coinbase of every Etna block
+  -> sweep: one L2 Bridge message to EtnaRewardPool on L1
+  -> EtnaRewardPool, in the landing that carries an epoch's last commit:
+       validator share -> credits of the committee's registration owners, who withdraw them
+       proving share   -> the Inbox's prover reward ledger
+  -> every landing: landingRewardPerBlock per landed block, from the ledger, to feeRecipient
+```
+
+### Fee vault
+
+`L2FeeVault` is the node's `fee_vault` constant: the coinbase and suggested fee recipient of every
+Etna block, which the EL credits with the whole base fee and the priority fees without running
+code. Its constructor takes `(l2Bridge, l1ChainId, rewardPool)`, all non-zero immutables, and
+`init(owner)` sets the owner, who can upgrade it. It has no `receive`, so direct transfers revert,
+and no `withdraw`. Ether forced in without a call, such as by `selfdestruct`, is swept as fees.
+
+`sweep(uint32 gasLimit)` is permissionless and payable. It sends the whole balance except
+`msg.value` through the L2 Bridge as one message: `to` and `destOwner` are `rewardPool`,
+`destChainId` is `l1ChainId`, `srcOwner` is the vault, `value` is the amount, `fee` is `msg.value`
+(the caller's relay fee, at most `type(uint64).max`) and `data` calls
+`onMessageInvocation(abi.encode(sweepNonce))`. It adds the amount to `sweptTotal` (slot 251),
+increments `sweepNonce` (slot 252) and emits `FeesSwept(nonce, amount, relayFee, msgHash)`. An
+empty vault sends nothing, changes nothing and returns 0, and then rejects a relay fee
+(`EmptyVaultWithFee`). The caller picks only the timing, the gas limit and the relay fee.
+
+The gas limit must satisfy `0 < gasLimit <= MAX_SWEEP_GAS_LIMIT = 3,000,000`. The Bridge also
+rejects a limit at or below its minimum for this message, about 808,704 gas, so a working sweep
+uses a limit in roughly `[808,705, 3,000,000]`. The pool's invocation gets the excess over that
+minimum and needs only about 27k. The cap exists because a larger limit can never be forwarded by
+a relayer under the L1 transaction gas cap: every relayed `processMessage` would fail and the
+message would stay `NEW`, where only the pool, as `destOwner`, could process it. A zero limit is
+rejected for the same reason.
+
+### Reward pool
+
+`EtnaRewardPool` is a UUPS proxy whose implementation fixes `inbox`, `stakingRegistry`,
+`l1Bridge`, `l2FeeVault`, `l2ChainId`, `allocValidatorPpm` and `allocProverPpm`, the last two
+summing to at most 1,000,000 (`InvalidAllocation` otherwise). `init(owner)` sets the owner, who can
+upgrade it. Nothing in the pool is pausable. Its free balance is `balance - reservedTotal`.
+
+- Arrivals. `onMessageInvocation` requires the L1 Bridge as caller and a Bridge `context()` whose
+  `from` is `l2FeeVault` and whose `srcChainId` is `l2ChainId` (`UnauthorizedSender` otherwise).
+  It adds the value to `arrivedTotal`, a statistic, and emits
+  `FeesArrived(msgHash, sweepNonce, amount)`. Any other Ether, such as the Bridge's refund of an
+  unused relay fee to the pool as `destOwner`, arrives through `receive` as a donation and emits
+  `Donation(from, amount)`. Both raise the free balance.
+- Recording. Only the Inbox calls `recordLanding`, after verification. For each part the committee
+  hash must be non-zero (`ZeroCommitteeHash`) and the epoch not yet frozen (`EpochAlreadyFrozen`);
+  the first report stores the hash and every later one must match it (`CommitteeMismatch`). Counts
+  are added to packed `uint32` totals with checked arithmetic.
+- Freezing. Epoch `e` is complete when the batch carries the commit of its last height
+  `(e + 1) * epochLenL2`, that is, when `L - 1 >= (e + 1) * epochLenL2`, so each epoch freezes in
+  exactly one landing. Each complete part, in order, takes the next `settlements` entry: there must
+  be exactly one entry per complete part (`SettlementCountMismatch`), and each list must hash to the
+  stored committee hash (`CommitteeMismatch`). With `free` the free balance just before that
+  epoch's freeze, `alloc = free * allocValidatorPpm / 1e6` and
+  `provingShare = free * allocProverPpm / 1e6`. An epoch frozen earlier in the same landing
+  lowers a later one's base; when the shares sum to 1,000,000, the later epoch gets only the
+  earlier one's unpaid remainder.
+- Settlement. Member `i` weighs `effStake_i * signedCount_i`; counts at indices past the committee
+  are ignored. Each member with a non-zero weight is credited `mulDiv(alloc, weight, totalWeight)`,
+  rounded down, to `registrationOwnerOf(bondId, activeFromL1)`, emitting `ValidatorRewarded`; a
+  member whose registration has no owner is skipped. The credited sum is the epoch's `paid` and
+  joins `reservedTotal`. `alloc - paid` (rounding remainders and ownerless shares) never leaves the
+  free balance, and a zero total weight credits nothing. The proving share is then sent to the
+  Inbox, and `EpochFrozen(e, alloc, paid, provingShare)` is emitted.
+- Withdrawal. `withdrawRewards(to)` sends all of the caller's credits to a non-zero `to`, releases
+  their reservation and emits `RewardsWithdrawn`; a rejected transfer reverts, and a caller without
+  credits gets 0. Credits belong to the registration owner, not to the slot's current `bondOwner`.
+- `checkInvariants()` returns whether `balance >= reservedTotal`; `freeBalance`, `epochRecord`,
+  `signedCountOf` and `creditsOf` expose the rest.
+
+### Landing reward
+
+The Inbox's prover reward ledger (slot 283) receives frozen epochs' proving shares and each
+landing's `msg.value`. Each landing pays `min(landingRewardPerBlock * (L - p), ledger)` to
+`feeRecipient` together with the consumed forced inclusion fees (Landing, steps 5 and 6). Because
+the price is per block, splitting a range into more landings earns nothing extra, and a proving
+share frozen by a landing already funds that landing's own reward. Anyone holding pool credits can
+also fund the ledger with `withdrawRewards(inbox)`, which the Inbox accepts because the pool sends
+it.
+
+### Settlement gas
+
+Settling an epoch costs one `registrationOwnerOf` call, one credit write and one event per credited
+member. For a 128-member epoch the pool frame measured about 1.6M gas when every owner already
+holds credits and about 4.46M in the worst case, where all 128 owners are credited for the first
+time. The landing also carries about 12 KB of committee calldata (three words per member). The
+lander of the freezing landing pays all of this, so its gas estimate must cover it. The contracts
+do not bound the committee size; the client's `n_max` does.
+
+### Deviations from #22262
+
+- The vault keeps no `feeCredits`/`feeSwept` ledger and sweeps its whole balance, so forced-in
+  Ether counts as fees: Etna has no anchor transaction or system call that could separate them.
+- The pool is a separate contract rather than part of staking, so the registry's node-facing
+  storage stays unchanged.
+- An epoch freezes when its last commit lands, not at `evidenceClose(e)`, and needs no freeze
+  cascade: there is no slashing.
+- Participation counts signed heights per member rather than a head-certificate signature bitmap.
+- Committee hashes reach L1 through the V7 statement; there is no `commitSet` committee root.
+- The freezing landing settles the whole epoch into owner credits; there is no per-member
+  `claimValidatorReward`, so a recipient that rejects Ether cannot block anyone else.
+- The landing reward is priced per block and paid to `feeRecipient`, not per batch to
+  `msg.sender`.
+- Proving shares move into the Inbox ledger at the freeze, without a separate transfer call.
+- There is no withdrawal-root attestation split (`PROVING_ATTEST_PPM`).
+- The vault and pool are upgradeable like the other contracts, so an upgrade can redirect their
+  Ether.
+
 ## Open items
 
-- The Etna guest is a follow-up; the blob encoding and lander are in #22280. No prover rewards, slashing or stall
+- The Etna guest is a follow-up; the blob encoding and lander are in #22280. No slashing or stall
   recovery exist here; `recoveryGeneration` stays 0. The staking withdrawal delay must cover the
   evidence and landing windows once slashing is introduced.
 - Registry capacity: withdrawn slots are reused, so cycling registration and exit no longer
@@ -522,4 +730,25 @@ assumptions remain unchanged.
   A validator-local clock check (PBTS-style timeliness) would raise the bound; it is an open,
   launch-blocking decision and is not implemented. An L1-clock check at landing would instead
   make batches delayed by a long lander outage unlandable.
-- An L2-to-L1 fee sweep remains separate work.
+- These scripts deploy no L1 Bridge, and sweeps need one. `Bridge.signalService` is immutable, so
+  `L1_BRIDGE` must be a Bridge built on this deployment's SignalService proxy, whose resolver names
+  the Etna L2 Bridge, and which holds enough Ether to release each sweep's value. The pool fixes
+  `l1Bridge` at deployment, so a Bridge deployed later needs a predicted address or a pool
+  upgrade. Until a sweep is processed on L1, its value is not released and rewards pause; nothing
+  accrues as debt.
+- The proposer of block `h + 1` chooses which precommits beyond the 2/3 threshold enter its
+  `last_commit`, so it can omit a validator's signature and lower that validator's count for
+  height `h`.
+- Shares are fixed fractions of the free balance at the freeze, so a lander can time the freezing
+  landing before or after a large sweep arrives, moving value between that epoch and later ones;
+  the total is unchanged.
+- Sweeps are permissionless and may carry a zero relay fee, so anyone can create dust sweeps that
+  cost more to relay on L1 than they move. Nobody has to relay them, but their value stays
+  unreleased until someone does.
+- Under a dummy verifier, one landing with a wrong committee hash binds that epoch: every later
+  honest landing that reports the epoch reverts `CommitteeMismatch`, and freezing the epoch needs
+  a committee list matching the bound hash. A dummy verifier also lets any lander report
+  arbitrary participation and committees.
+- `withdrawRewards(inbox)` turns pool credits into a donation to the prover reward ledger. If a fee
+  recipient does this while being paid, that landing's `LandingRewardPaid.ledgerAfter` understates
+  the ledger.
