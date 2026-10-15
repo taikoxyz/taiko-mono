@@ -31,6 +31,24 @@ def otherRoot : HeaderContext := { context with l1StateRoot := fun _ => some roo
   (·.beaconRoot) == .ok (some rootB)
 #guard (buildHeader chain noRoots { HeaderTests.parent with core.number := 0 } { child with number := 1 }).map
   (·.beaconRoot) == .error (.missingL1Root 400)
+-- Normalized Etna genesis fetches L1 block zero before the next source inherits its root.
+def genesisChain : ChainParams := { devnet with etnaForkTime := some 0 }
+def genesisParent : HeaderParent :=
+  { core := { number := 0, timestamp := 0, anchorBlockNumber := 0, gasLimit := 30000000 },
+    beaconRoot := some 0 }
+def genesisProposal : ProposalCtx := { proposal with timestamp := 2, originBlockNumber := 0 }
+def onlyZero : HeaderContext :=
+  { context with l1StateRoot := fun a => if a == 0 then some rootB else none }
+#guard (deriveHeaders genesisChain genesisProposal onlyZero genesisParent
+  [forcedSource, (src, none)]).map headerSummary == .ok
+  [(1, 1, 0, 30000000, 30000000, some rootB, 13, []),
+   (2, 2, 0, 30000000, 30000000, some rootB, 13, [])]
+#guard (deriveHeaders genesisChain genesisProposal onlyZero genesisParent
+  [forcedSource, (src, none)]).map (fun hs => hs.map fun h => toHex ⟨h.extraData.toArray⟩) ==
+  .ok ["32000000000007000000000000", "32000000000007000000000000"]
+#guard (deriveHeaders genesisChain genesisProposal noRoots genesisParent
+  [forcedSource, (src, none)]).map headerSummary == .error (.missingL1Root 0)
+
 -- Changed anchors fetch; an unavailable changed anchor cannot reuse the parent's root.
 #guard (buildHeader chain noRoots HeaderTests.parent { child with anchorBlockNumber := 450 }).map
   (·.beaconRoot) == .error (.missingL1Root 450)
@@ -90,6 +108,18 @@ def only460 : HeaderContext :=
   [(11, 1999, 450, 30000000, 31000000, some 0, 7, [(true, "")]),
    (12, 2000, 460, 30000000, 30000000, some rootB, 13, []),
    (13, 2001, 460, 30000000, 30000000, some rootB, 13, [])]
+-- A source crosses Unzen before a forced source inherits its zero root and pre-Etna gas reserve.
+def unzenChain : ChainParams := { devnet with unzenForkTime := some 2000 }
+def preUnzenParent : HeaderParent := { preBoundaryParent with beaconRoot := none }
+#guard (deriveHeaders unzenChain proposal noRoots preUnzenParent
+  [crossingSource, forcedSource]).map headerSummary == .ok
+  [(11, 1999, 450, 30000000, 31000000, none, 7, [(true, "")]),
+   (12, 2000, 460, 30000000, 31000000, some 0, 7, [(true, "")]),
+   (13, 2001, 460, 30000000, 31000000, some 0, 7, [(true, "")])]
+#guard (deriveHeaders unzenChain proposal noRoots preUnzenParent
+  [crossingSource, forcedSource]).map (fun hs => hs.map fun h => toHex ⟨h.extraData.toArray⟩) ==
+  .ok ["32000000000007", "32000000000007", "32000000000007"]
+
 -- Two Etna blocks within one source thread the newly fetched commitment, not the initial one.
 def repeatedEtnaSource : Source × Option ByteArray :=
   (src, some (payloadOf [blk 2000 450 30000000, blk 2001 450 30000000]))

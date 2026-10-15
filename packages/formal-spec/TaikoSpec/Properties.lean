@@ -338,6 +338,32 @@ example : buildHeader etnaChain headerContext
       extraData := [50, 0, 0, 0, 0, 0, 7]
       transactions := [.systemAnchor] } := rfl
 
+/-- Etna at genesis admits a zero-root parent and a child authenticated by an L1 block-zero lookup. -/
+example :
+    let c : ChainParams := { devnet with etnaForkTime := some 0 }
+    let hp : HeaderParent :=
+      { core := { number := 0, timestamp := 0, anchorBlockNumber := 0, gasLimit := 30_000_000 },
+        beaconRoot := some 0 }
+    let b : DerivedBlock :=
+      { derivedHeaderBlock with number := 1, timestamp := 1, anchorBlockNumber := 0 }
+    let hc : HeaderContext :=
+      { headerContext with l1StateRoot := fun a => if a == 0 then some 17 else none }
+    let h : HeaderPlan :=
+      { headerPlan with block := b, extraData := [50, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0] }
+    isEtna c hp.core.timestamp = true ∧
+    LookupsSound hc canonicalHistory ∧ ParentCommits c canonicalHistory hp ∧
+    hc.l1StateRoot 0 = some (canonicalHistory 0) ∧
+    buildHeader c hc hp b = .ok h ∧ HeaderCommits c canonicalHistory h := by
+  dsimp only
+  refine ⟨by decide, ?_, ?_, rfl, rfl, ?_⟩
+  · intro a r lookup
+    change (if a == 0 then some 17 else none) = some r at lookup
+    split at lookup <;> cases lookup <;> rfl
+  · intro _ nonGenesis
+    exact (nonGenesis rfl).elim
+  · intro _
+    rfl
+
 end Witness
 
 end TaikoSpec.Derivation
