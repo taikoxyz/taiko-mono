@@ -12,7 +12,7 @@ use super::{AbciError, App, AppOptions};
 use crate::{
     config::ChainParams,
     store::Store,
-    test_utils::{EngineCall, Fixture, MockBlobs, MockEngine, MockL1},
+    test_utils::{EngineCall, Fixture, MockEngine, MockL1},
 };
 
 mod admission_cache;
@@ -34,8 +34,7 @@ fn app_with(
     dir: &Path,
     opts: AppOptions,
 ) -> App<MockL1, MockEngine> {
-    let blobs = Arc::new(MockBlobs::default());
-    App::new(l1, engine, blobs, params, Store::new(dir.to_path_buf()), opts).expect("app starts")
+    App::new(l1, engine, params, Store::new(dir.to_path_buf()), opts).expect("app starts")
 }
 
 /// Sends `InitChain` through [`App::handle`].

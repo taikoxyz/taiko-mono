@@ -50,7 +50,7 @@ fn trie(leaves: BTreeMap<B256, Vec<u8>>, targets: Vec<Nibbles>) -> (B256, ProofN
     let root = builder.root();
     (root, builder.take_proof_nodes())
 }
-/// `len` pseudorandom nonzero calldata bytes seeded by `height`, which payload V3's zlib cannot
+/// `len` pseudorandom nonzero calldata bytes seeded by `height`, which payload V4's zlib cannot
 /// shrink, so block sizes keep counting blobs.
 fn incompressible(height: u64, len: usize) -> Bytes {
     let mut state = 0x9e37_79b9_7f4a_7c15 ^ height;
@@ -254,11 +254,11 @@ pub struct ForcedPlan {
     /// The genesis forced inclusion delay `D`, in seconds.
     pub delay: u64,
     /// The queue in index (and so L1) order: `(l1, timestamp)` puts an entry submitted at
-    /// `timestamp` into the state of L1 block `l1` and every later one. Its blob is
-    /// [`forced_blob`]`(index)`.
+    /// `timestamp` into the state of L1 block `l1` and every later one. Its transaction is
+    /// [`forced_transaction`]`(index)`.
     pub entries: Vec<(u64, u64)>,
     /// Heights of the forced inclusion blocks, each consuming its parent's cursor entry. Every
-    /// other block whose anchor holds an entry at the cursor peeks at it (an empty blob).
+    /// other block whose anchor holds an entry carries its proof and exact bytes.
     pub consume_at: Vec<u64>,
 }
 
@@ -270,14 +270,14 @@ impl Default for ForcedPlan {
 }
 
 impl ForcedPlan {
-    /// The planted queue entries with their first L1 block and their blobs.
+    /// The planted queue entries with their first L1 block and transaction bytes.
     fn planted(&self) -> Vec<(u64, ForcedEntry, Bytes)> {
         assert!(self.entries.is_sorted_by_key(|(l1, _)| *l1), "entries are stored in L1 order");
         self.entries
             .iter()
             .zip(0..)
             .map(|(&(l1, timestamp), index)| {
-                let (blob, blob_hash) = forced_blob(index);
+                let (blob, blob_hash) = forced_transaction(index);
                 let entry = ForcedEntry {
                     index,
                     fee_in_gwei: 1_000 + index,
@@ -305,9 +305,8 @@ impl ForcedPlan {
     }
 }
 
-/// The blob of planted forced inclusion entry `index` and its KZG versioned hash: a Shasta source
-/// of one empty block whose timestamp is `index`, so every entry's blob differs.
-fn forced_blob(index: u64) -> (Bytes, B256) {
+/// Canonical transaction bytes and their hash, with the nonce distinguishing each queue entry.
+fn forced_transaction(index: u64) -> (Bytes, B256) {
     use alloy_consensus::{SignableTransaction, TxEnvelope, TxLegacy};
     use alloy_eips::eip2718::Encodable2718;
     let tx: Bytes = TxEnvelope::Legacy(
@@ -391,7 +390,7 @@ impl Fixture {
         Self::with_epoch(checkpoint, tip, bytes, 23)
     }
 
-    /// As [`Fixture::with_calldata`], with all-zero calldata that payload V3 compresses to almost
+    /// As [`Fixture::with_calldata`], with all-zero calldata that payload V4 compresses to almost
     /// nothing.
     fn with_zero_calldata(checkpoint: u64, tip: u64, bytes: usize) -> Self {
         Self::build(checkpoint, tip, bytes, true, 23, 7_200, &ForcedPlan::default())

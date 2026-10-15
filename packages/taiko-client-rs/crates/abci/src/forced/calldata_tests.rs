@@ -316,3 +316,47 @@ fn witness_rlp_round_trips_authenticated_entry_and_exact_bytes() {
     assert_eq!(ForcedWitness::decode(&mut remaining).unwrap(), w);
     assert!(remaining.is_empty());
 }
+
+#[test]
+fn witness_rlp_rejects_tx_above_protocol_byte_cap() {
+    let (_, witness) = fixture(vec![0x42; MAX_FORCED_TX_BYTES + 1].into());
+    let encoded = alloy_rlp::encode(&witness);
+    assert_eq!(
+        ForcedWitness::decode(&mut encoded.as_slice()),
+        Err(alloy_rlp::Error::Custom("forced transaction exceeds byte limit"))
+    );
+}
+
+#[test]
+fn witness_rlp_accepts_empty_invalid_bytes_and_exact_byte_cap() {
+    for size in [0, 1, MAX_FORCED_TX_BYTES] {
+        let (_, witness) = fixture(vec![0x42; size].into());
+        let mut encoded = alloy_rlp::encode(&witness);
+        encoded.push(0x80);
+        let mut remaining = encoded.as_slice();
+        assert_eq!(ForcedWitness::decode(&mut remaining).unwrap(), witness);
+        assert_eq!(remaining, &[0x80], "only the witness is consumed");
+    }
+}
+
+#[test]
+fn witness_rlp_rejects_missing_list_tx_list_truncation_and_extra_fields() {
+    let (_, witness) = fixture(Bytes::new());
+    let mut fields = alloy_rlp::encode(witness.index);
+    fields.extend(alloy_rlp::encode(&witness.entry));
+    let wrap = |payload: &[u8]| {
+        let mut encoded = Vec::new();
+        alloy_rlp::Header { list: true, payload_length: payload.len() }.encode(&mut encoded);
+        encoded.extend(payload);
+        encoded
+    };
+    for suffix in [vec![], vec![0xc0], vec![0xb8, 56], vec![0x80, 0x80]] {
+        let mut payload = fields.clone();
+        payload.extend(suffix);
+        assert!(ForcedWitness::decode(&mut wrap(&payload).as_slice()).is_err());
+    }
+    assert!(ForcedWitness::decode(&mut &[0x80][..]).is_err());
+    let mut encoded = alloy_rlp::encode(&witness);
+    encoded.pop();
+    assert!(ForcedWitness::decode(&mut encoded.as_slice()).is_err());
+}

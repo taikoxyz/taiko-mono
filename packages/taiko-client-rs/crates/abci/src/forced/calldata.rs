@@ -8,7 +8,7 @@
 use alloy_consensus::TxEnvelope;
 use alloy_eips::eip2718::{Decodable2718, Encodable2718};
 use alloy_primitives::{Address, B256, Bytes, U256, keccak256};
-use alloy_rlp::{RlpDecodable, RlpEncodable};
+use alloy_rlp::{Decodable, RlpEncodable};
 
 use super::ForcedError;
 use crate::{
@@ -40,7 +40,7 @@ pub struct ForcedEntry {
 /// Proof and exact transaction bytes for the entry at a block's parent cursor.
 ///
 /// RLP: `[index, entry, tx]`; the mandatory transaction bytes are carried by envelope v5.
-#[derive(Clone, Debug, PartialEq, Eq, RlpEncodable, RlpDecodable)]
+#[derive(Clone, Debug, PartialEq, Eq, RlpEncodable)]
 pub struct ForcedWitness {
     /// Queue index, required to equal the parent cursor.
     pub index: u64,
@@ -48,6 +48,28 @@ pub struct ForcedWitness {
     pub entry: AccountWitness,
     /// Exact submitted bytes, required to match the proven hash and byte limit.
     pub tx: Bytes,
+}
+
+impl Decodable for ForcedWitness {
+    /// Decodes exactly three fields, bounding borrowed transaction bytes before copying them.
+    /// Empty bytes remain valid witness input for the invalid-transaction classification.
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        let mut payload = alloy_rlp::Header::decode_bytes(buf, true)?;
+        let payload_length = payload.len();
+        let index = u64::decode(&mut payload)?;
+        let entry = AccountWitness::decode(&mut payload)?;
+        let tx = alloy_rlp::Header::decode_bytes(&mut payload, false)?;
+        if tx.len() > MAX_FORCED_TX_BYTES {
+            return Err(alloy_rlp::Error::Custom("forced transaction exceeds byte limit"));
+        }
+        if !payload.is_empty() {
+            return Err(alloy_rlp::Error::ListLengthMismatch {
+                expected: payload_length,
+                got: payload_length - payload.len(),
+            });
+        }
+        Ok(Self { index, entry, tx: Bytes::copy_from_slice(tx) })
+    }
 }
 
 /// The pure rule's classification of one block against its authenticated queue entry.

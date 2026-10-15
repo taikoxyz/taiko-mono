@@ -3,8 +3,7 @@
 use std::sync::Arc;
 
 use abci::{
-    AbciMetrics, App, CommitteeL1Source, Engine, L1Source, LazyBeaconBlobs, RpcEngine, RpcL1Source,
-    Store, serve,
+    AbciMetrics, App, CommitteeL1Source, Engine, L1Source, RpcEngine, RpcL1Source, Store, serve,
 };
 use alloy_provider::Provider;
 use async_trait::async_trait;
@@ -13,7 +12,7 @@ use rpc::{
     RpcClientError,
     client::{DEFAULT_HTTP_TIMEOUT, connect_http_with_timeout, http_timeout_for},
 };
-use tracing::{info, warn};
+use tracing::info;
 use url::Url;
 
 use crate::{
@@ -67,11 +66,8 @@ impl Subcommand for AbciSubCommand {
     /// Connects to the EL and L1, loads the app state and serves the app.
     ///
     /// In order: logs and metrics; the L2 chain id from `--l2.http`; the chain parameters for it;
-    /// the Engine API client and its capability check; the L1 provider (`--l1.http`); the KZG
-    /// trusted setup, loaded before serving so that no ABCI request pays the load; the app over
-    /// the state in `--data-dir` and a nonfatal background beacon preflight (`--l1.beacon`, warming
-    /// metadata and checking its blobs route, so the app still starts without it); the ABCI server
-    /// on `--abci.addr`.
+    /// the Engine API client and its capability check; the L1 execution provider (`--l1.http`);
+    /// the app over the state in `--data-dir`; the ABCI server on `--abci.addr`.
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
         self.init_metrics()?;
@@ -99,29 +95,8 @@ impl Subcommand for AbciSubCommand {
             ))) as Arc<dyn L1Source>
         });
         let l1 = CommitteeL1Source::new(l1, archive, params.registry, opts.l1_timeout);
-        let blobs = Arc::new(LazyBeaconBlobs::new(
-            flags.l1_beacon_endpoint.clone(),
-            http_timeout_for(opts.blob_timeout),
-        ));
-        let probe = Arc::clone(&blobs);
-        tokio::spawn(async move {
-            match tokio::time::timeout(opts.blob_timeout, probe.probe()).await {
-                Ok(Ok(())) => info!("forced inclusion blob endpoint preflight succeeded"),
-                Ok(Err(error)) => warn!(
-                    %error,
-                    "forced inclusion blob endpoint preflight failed; proposing a due entry \
-                     needs a full-blob-serving beacon; later fetches retry"
-                ),
-                Err(_) => {
-                    AbciMetrics::beacon_blob_endpoint_up().set(0);
-                    warn!(
-                        "forced inclusion blob endpoint preflight timed out; later fetches retry"
-                    );
-                }
-            }
-        });
         let store = Store::new(flags.data_dir.clone());
-        let app = App::new(l1, engine, blobs, params, store, opts)?;
+        let app = App::new(l1, engine, params, store, opts)?;
         info!(
             chain_id,
             addr = %flags.addr,

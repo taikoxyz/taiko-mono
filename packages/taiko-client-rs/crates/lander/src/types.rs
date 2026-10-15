@@ -33,13 +33,13 @@ pub struct Limits {
     pub max_blocks: usize,
     /// Maximum blobs in one transaction, bounded by the target L1 fork.
     pub max_blobs: usize,
-    /// Maximum encoded V3 payload bytes (the version byte and the compressed list), the bytes
+    /// Maximum encoded V4 payload bytes (the version byte and the compressed list), the bytes
     /// blob coding carries.
     pub max_payload_bytes: usize,
     /// Maximum bytes of one protobuf block or commit witness, and of one published header or
     /// envelope.
     pub max_message_bytes: usize,
-    /// Maximum bytes of the V3 payload's RLP list after decompression.
+    /// Maximum bytes of the V4 payload's RLP list after decompression.
     pub max_decompressed_bytes: usize,
 }
 
@@ -284,7 +284,7 @@ pub struct PreparedBatch {
     /// and the fee recipient.
     #[serde(with = "crate::contracts::land_input_serde")]
     pub input: LandInput,
-    /// Sidecar and ordered versioned blob hashes binding the V3 payload.
+    /// Sidecar and ordered versioned blob hashes binding the V4 payload.
     pub blobs: PreparedBlobs,
     /// Identity of this job: the exact V6 public statement hash.
     pub statement_hash: B256,

@@ -16,6 +16,7 @@ use std::{
 
 /// Journal schema version; incompatible formats stop rather than discard outstanding nonces.
 ///
+/// Schema 8 binds calldata FI envelope v5 and payload v4; older journals are rejected intact.
 /// Schema 7 journals the paired commit as a protobuf too: schema 6 kept it in the domain JSON
 /// form, which reads a Unix-epoch vote time as absent and cannot restore such a certificate.
 /// Schema 6 additionally preserves authoritative original Comet protobuf block bytes. Schema 5

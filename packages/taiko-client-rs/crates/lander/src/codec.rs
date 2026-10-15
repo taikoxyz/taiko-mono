@@ -131,7 +131,7 @@ pub(crate) const fn payload_bound(list_len: usize) -> usize {
     list_len.saturating_add(list_len / 256).saturating_add(64)
 }
 
-/// A V3 payload's RLP list, built one validated block at a time so prefix selection checks and
+/// A V4 payload's RLP list, built one validated block at a time so prefix selection checks and
 /// encodes each block once rather than once per candidate prefix.
 pub(crate) struct PayloadList {
     /// Bounds applied to every appended block and to the whole list.

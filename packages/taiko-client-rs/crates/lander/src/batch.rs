@@ -71,7 +71,7 @@ struct PublishablePrefix {
     blocks: Vec<CertifiedBlock>,
     /// The selected blocks' RLP list.
     list: PayloadList,
-    /// The selected blocks' V3 payload, when sizing already compressed it; otherwise its
+    /// The selected blocks' V4 payload, when sizing already compressed it; otherwise its
     /// worst-case size fits and [`BatchBuilder::payload`] compresses it once.
     payload: Option<Vec<u8>>,
 }
@@ -404,7 +404,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         }
     }
 
-    /// The selected prefix's V3 payload, compressing its list unless sizing already did.
+    /// The selected prefix's V4 payload, compressing its list unless sizing already did.
     async fn payload(&self, prefix: PublishablePrefix) -> Result<(Vec<CertifiedBlock>, Vec<u8>)> {
         let payload = match prefix.payload {
             Some(payload) => payload,
@@ -930,7 +930,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
     }
 }
 
-/// Compresses `list` into a V3 payload on the blocking pool, keeping deflate off the async
+/// Compresses `list` into a V4 payload on the blocking pool, keeping deflate off the async
 /// workers.
 async fn compress(list: Vec<u8>, limits: Limits, single_block: bool) -> Result<Vec<u8>> {
     match tokio::task::spawn_blocking(move || {

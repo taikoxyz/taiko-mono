@@ -283,9 +283,8 @@ impl ContractFixture {
         Ok((state.head_.to(), state.tail_.to()))
     }
 
-    /// Submits `payload` as one forced inclusion from [`USER_KEY`]: an EIP-7594 blob transaction
-    /// calling `saveForcedInclusion` for blob 0 at offset 0 and paying exactly the current fee.
-    /// Returns the receipt, the raw blob and the fee in wei.
+    /// Calls `saveForcedInclusion` from [`USER_KEY`] and pays exactly the current fee.
+    /// Returns the receipt, the exact admitted transaction bytes and the fee in wei.
     pub async fn save_forced_inclusion(
         &self,
         payload: &[u8],

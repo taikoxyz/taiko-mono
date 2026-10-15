@@ -1,15 +1,12 @@
 //! L1 layer: the raw L1 header, the Inbox and staking-registry storage layout, EIP-1186 proof
 //! verification and the decoding of verified Inbox witnesses into facts, plus the node's own L1
-//! view ([`source`]), the committee-witness discovery over it ([`fetch`]) and the source of
-//! forced inclusion blobs ([`blobs`]).
+//! view ([`source`]), committee-witness discovery ([`fetch`]) and calldata event reads
+//! ([`forced_tx`]).
 //!
 //! `header`, `layout`, `mpt` and `witness` perform no I/O.
 
 /// Committee-only archive state fallback with own-L1 finality authority.
 pub mod archive;
-/// The source forced inclusion blobs are fetched from (the L1 beacon node), by a proposer and
-/// by a validator prefetching a pending entry's blob.
-pub mod blobs;
 /// Committee-witness discovery from the node's own L1 (proposers and the genesis builder).
 pub mod fetch;
 /// Exact-block calldata forced inclusion event acquisition.
@@ -26,7 +23,6 @@ pub mod source;
 pub mod witness;
 
 pub use archive::CommitteeL1Source;
-pub use blobs::{BeaconBlobs, BlobSource, LazyBeaconBlobs};
 pub(crate) use fetch::{DiscoveryProgress, build_committee_witness_within};
 pub use fetch::{FetchError, build_committee_witness, build_committee_witness_at_cutoff};
 pub use header::{L1HeaderError, RawL1Header};

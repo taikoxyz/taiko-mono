@@ -1,6 +1,6 @@
 //! The ABCI++ application.
 //!
-//! [`App`] owns the node's own L1 view, the execution engine, the forced inclusion blob source,
+//! [`App`] owns the node's own L1 view and execution engine,
 //! the chain parameters and the persisted [`AppState`], and answers CometBFT's requests through
 //! [`App::handle`]. `InitChain` lives in [`init`]; `Info`, `Query` and `CheckTx` in [`info`];
 //! `PrepareProposal` in [`prepare`] and `ProcessProposal` in [`process`], both on top of the
@@ -31,7 +31,7 @@ use crate::{
     elsync::{ElSyncError, ensure_block},
     engine::{Engine, EngineError},
     genesis::GenesisError,
-    l1::{BlobSource, DiscoveryProgress, L1Error, L1Source},
+    l1::{DiscoveryProgress, L1Error, L1Source},
     metrics::{AbciMetrics, set_u64},
     rules::{RuleViolation, generation_from_chain_id},
     schedule::ScheduleError,
@@ -102,10 +102,6 @@ pub const MAX_VERDICTS: usize = 4;
 pub struct AppOptions {
     /// Deadline of one L1 operation (a finality check, a header or proof read).
     pub l1_timeout: Duration,
-    /// Deadline of one forced inclusion blob read from the beacon node, which may reconstruct
-    /// the blob first. The read runs in the background: a proposal's own deadline only stops
-    /// waiting for it, and its verified result serves later rounds and heights.
-    pub blob_timeout: Duration,
     /// Deadline of one Engine API or EL RPC call.
     pub engine_timeout: Duration,
     /// Deadline of an EL sync to a trusted head (devp2p download included).
@@ -117,12 +113,11 @@ pub struct AppOptions {
 }
 
 impl Default for AppOptions {
-    /// `l1_timeout` 3 s, `blob_timeout` 30 s, `engine_timeout` 5 s, `elsync_timeout` 600 s,
+    /// `l1_timeout` 3 s, `engine_timeout` 5 s, `elsync_timeout` 600 s,
     /// `prepare_timeout` 2 s (below CometBFT's default `timeout_propose` of 3 s).
     fn default() -> Self {
         Self {
             l1_timeout: Duration::from_secs(3),
-            blob_timeout: Duration::from_secs(30),
             engine_timeout: Duration::from_secs(5),
             elsync_timeout: Duration::from_secs(600),
             prepare_timeout: Duration::from_secs(2),
@@ -269,9 +264,6 @@ pub struct App<L: L1Source, E: Engine> {
     l1: Arc<L>,
     /// The execution engine.
     engine: E,
-    /// Where `PrepareProposal` fetches the blob of a due forced inclusion entry (never used by
-    /// `ProcessProposal`, `FinalizeBlock` or replay: a forced inclusion block carries its blob).
-    _blobs: Arc<dyn BlobSource>,
     /// The chain parameters (validated).
     params: ChainParams,
     /// Where [`App::state`] is persisted.
@@ -300,8 +292,9 @@ pub struct App<L: L1Source, E: Engine> {
     /// The background discovery of the upcoming switch height's committee witness under the
     /// committed anchor ([`App::prefetch_committee_witness`]).
     committee_prefetch: Mutex<Option<CommitteePrefetch>>,
-    /// Bounded completed anchor, forced proof and verified blob reads. Each successful stage
-    /// survives an overall proposal timeout; root/hash keys prevent reuse for different facts.
+    /// Bounded completed anchor, forced proof and authenticated transaction reads. Each successful
+    /// stage survives an overall proposal timeout; root/hash keys prevent reuse for different
+    /// facts.
     preparation_cache: Arc<Mutex<preparation_cache::PreparationCache>>,
     /// Whether the block `FinalizeBlock` last decided was judged here (its `ProcessProposal`
     /// verdict was cached), rather than replayed or block-synced; gates `Commit`'s prefetches.
@@ -321,8 +314,7 @@ pub struct App<L: L1Source, E: Engine> {
 }
 
 impl<L: L1Source, E: Engine> App<L, E> {
-    /// Creates the app, validating `params` and loading any persisted state from `store`;
-    /// `blobs` serves the forced inclusion blobs this node's proposals consume.
+    /// Creates the app, validating `params` and loading any persisted state from `store`.
     ///
     /// A loaded state must be consistent with `params` and with itself: its schedule must pass
     /// [`Schedule::validate`] for `params`' unsettled cap and equal the one derived from its
@@ -334,7 +326,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
     pub fn new(
         l1: L,
         engine: E,
-        blobs: Arc<dyn BlobSource>,
         params: ChainParams,
         store: Store,
         opts: AppOptions,
@@ -348,7 +339,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let app = Self {
             l1: Arc::new(l1),
             engine,
-            _blobs: blobs,
             params,
             store,
             opts,
