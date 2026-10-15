@@ -387,6 +387,11 @@ A freezing landing pays for the settlement. For a 128-member committee the pool 
 extra gas when every owner already holds credits and up to about 4.5M when all are credited for the
 first time, plus about 12 KB of committee calldata. The gas estimate and its 20% margin cover it,
 but choose the fee caps and fund the sending account so that such a landing stays affordable.
+The landing must also fit in one L1 transaction, which Osaka caps at 16,777,216 gas (EIP-7825).
+The worst case grows by about 34.9k gas and 128 bytes of calldata per member, so a committee
+configuration whose `n_max` is well above about 400 makes the freezing landing un-includable:
+landing halts, back-pressure then halts L2, and only a pool upgrade recovers. Keep `n_max` at or
+below about 400 (Configuration checks in the protocol package's Etna README).
 
 Proof requests retain the Inbox schedule/config/checkpoint proof under the batch parent's anchor,
 along with each committee's registry witness and proving header in the reference ancestry.
