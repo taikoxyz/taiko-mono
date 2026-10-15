@@ -16,9 +16,10 @@ use bindings::inbox::{IInbox::DerivationSource, Inbox::Proposed};
 use protocol::shasta::{
     constants::{
         MAINNET_ANCHOR_CHECK_SKIP_PROPOSAL_OFFSET, PROPOSAL_MAX_BLOB_BYTES, TAIKO_MAINNET_CHAIN_ID,
-        derivation_source_max_blocks_for_chain_timestamp, min_base_fee_for_chain,
-        shasta_fork_timestamp_for_chain,
+        derivation_source_max_blocks_for_chain_timestamp, etna_fork_timestamp_for_chain,
+        min_base_fee_for_chain, shasta_fork_timestamp_for_chain,
     },
+    decode_etna_anchor_block_number, is_etna_at,
     manifest::DerivationSourceManifest,
 };
 use rpc::{blob::BlobDataSource, client::Client};
@@ -223,6 +224,9 @@ pub struct ShastaDerivationPipeline {
     min_base_fee_to_clamp: u64,
     /// L2 chain ID for chain-aware derivation and validation rules.
     chain_id: u64,
+    /// Etna activation timestamp on this chain, or `None` while Etna is not scheduled; resolved
+    /// once at construction.
+    etna_fork_timestamp: Option<u64>,
     /// Initial proposal id used when bootstrapping event sync.
     initial_proposal_id: U256,
 }
@@ -247,9 +251,14 @@ impl ShastaDerivationPipeline {
             .map_err(|err| DerivationError::Other(err.into()))?;
         // Clamp differs by chain; keep derivation-side base-fee math chain-aware.
         let min_base_fee_to_clamp = min_base_fee_for_chain(chain_id);
+        let etna_fork_timestamp = etna_fork_timestamp_for_chain(chain_id)
+            .map_err(|err| DerivationError::Other(err.into()))?;
         info!(
             chain_id,
-            shasta_fork_timestamp, min_base_fee_to_clamp, "initialised shasta derivation pipeline"
+            shasta_fork_timestamp,
+            min_base_fee_to_clamp,
+            ?etna_fork_timestamp,
+            "initialised shasta derivation pipeline"
         );
         Ok(Self {
             rpc,
@@ -258,6 +267,7 @@ impl ShastaDerivationPipeline {
             shasta_fork_timestamp,
             min_base_fee_to_clamp,
             chain_id,
+            etna_fork_timestamp,
             initial_proposal_id,
         })
     }
@@ -445,8 +455,13 @@ impl ShastaDerivationPipeline {
         proposal_id: u64,
     ) -> Result<ParentState, DerivationError> {
         let parent_header = parent_block.header.inner.clone();
-        let anchor_block_number = if should_decode_parent_anchor_from_tx(self.chain_id, proposal_id)
-        {
+        // An Etna parent has no anchor transaction and `Anchor.getBlockState()` stays frozen at
+        // the last pre-Etna value, so its anchor number comes from its own 13-byte `extraData`.
+        // This takes precedence over the mainnet bootstrap rule below.
+        let anchor_block_number = if is_etna_at(self.etna_fork_timestamp, parent_header.timestamp) {
+            decode_etna_anchor_block_number(parent_header.number, &parent_header.extra_data)
+                .map_err(DerivationError::EtnaExtraData)?
+        } else if should_decode_parent_anchor_from_tx(self.chain_id, proposal_id) {
             decode_parent_anchor_block_number(parent_block, *self.rpc.shasta.anchor.address())?
         } else {
             self.rpc.shasta_anchor_block_number_by_hash(parent_block.hash()).await?
@@ -476,11 +491,13 @@ impl ShastaDerivationPipeline {
             shasta_fork_timestamp: self.shasta_fork_timestamp,
             min_base_fee_to_clamp: self.min_base_fee_to_clamp,
             chain_id: self.chain_id,
+            etna_fork_timestamp: self.etna_fork_timestamp,
         };
         debug!(
             parent_number = state.header.number,
             parent_hash = ?state.header.hash_slow(),
             anchor_block = state.anchor_block_number,
+            parent_is_etna = state.is_etna(),
             "initialised parent state for proposal derivation"
         );
 
@@ -579,6 +596,51 @@ impl ShastaDerivationPipeline {
     }
 }
 
+/// Build a derivation pipeline over a mocked client for unit tests, with an explicit Etna
+/// activation so tests never touch the process-global devnet override.
+///
+/// `AnchorTxConstructor::new` consumes one `eth_chainId` response from the L2 mock.
+#[cfg(test)]
+async fn test_pipeline(
+    client: Client,
+    anchor_address: Address,
+    chain_id: u64,
+    etna_fork_timestamp: Option<u64>,
+) -> ShastaDerivationPipeline {
+    let blob_source = Arc::new(
+        BlobDataSource::new(None, None, true).await.expect("blob data source should initialise"),
+    );
+    let anchor_constructor = AnchorTxConstructor::new(client.l2_provider.clone(), anchor_address)
+        .await
+        .expect("anchor constructor should initialise");
+    ShastaDerivationPipeline {
+        rpc: client,
+        anchor_constructor,
+        derivation_source_manifest_fetcher: ShastaSourceManifestFetcher::new(blob_source),
+        shasta_fork_timestamp: 0,
+        min_base_fee_to_clamp: min_base_fee_for_chain(chain_id),
+        chain_id,
+        etna_fork_timestamp,
+        initial_proposal_id: U256::ZERO,
+    }
+}
+
+/// Proposal 3 emitted in L1 block 60 at timestamp 1_012 with a 75% basefee share, shared by the
+/// payload and parent-state unit tests.
+#[cfg(test)]
+fn sample_meta() -> BundleMeta {
+    BundleMeta {
+        proposal_id: 3,
+        last_finalized_proposal_id: None,
+        proposal_timestamp: 1_012,
+        l1_block_number: 60,
+        l1_block_hash: B256::with_last_byte(0x60),
+        origin_block_number: 59,
+        proposer: Address::repeat_byte(0x22),
+        basefee_sharing_pctg: 75,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -591,18 +653,21 @@ mod tests {
     };
     use alloy_transport::mock::Asserter;
     use bindings::{
-        anchor::ICheckpointStore::Checkpoint,
+        anchor::{
+            Anchor::{BlockState, getBlockStateCall},
+            ICheckpointStore::Checkpoint,
+        },
         inbox::{IInbox, Inbox::getCoreStateCall},
     };
     use protocol::{
         FixedKSigner,
         shasta::{
-            AnchorTxConstructor,
-            constants::{TAIKO_MAINNET_CHAIN_ID, min_base_fee_for_chain},
+            constants::{TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID},
+            encode_etna_extra_data, encode_extra_data,
             manifest::{BlockManifest, DerivationSourceManifest},
         },
     };
-    use rpc::blob::{BlobDataError, BlobDataSource};
+    use rpc::blob::BlobDataError;
 
     use crate::test_support::{
         mock_client_with_asserters, mock_client_with_l1_asserter, sample_derivation_source,
@@ -845,24 +910,7 @@ mod tests {
             Asserter::new(),
             anchor_address,
         );
-        let blob_source = Arc::new(
-            BlobDataSource::new(None, None, true)
-                .await
-                .expect("blob data source should initialise"),
-        );
-        let anchor_constructor =
-            AnchorTxConstructor::new(client.l2_provider.clone(), anchor_address)
-                .await
-                .expect("anchor constructor should initialise");
-        let pipeline = ShastaDerivationPipeline {
-            rpc: client,
-            anchor_constructor,
-            derivation_source_manifest_fetcher: ShastaSourceManifestFetcher::new(blob_source),
-            shasta_fork_timestamp: 0,
-            min_base_fee_to_clamp: min_base_fee_for_chain(TAIKO_MAINNET_CHAIN_ID),
-            chain_id: TAIKO_MAINNET_CHAIN_ID,
-            initial_proposal_id: U256::ZERO,
-        };
+        let pipeline = test_pipeline(client, anchor_address, TAIKO_MAINNET_CHAIN_ID, None).await;
 
         let mut parent_block = RpcBlock::<TxEnvelope>::default();
         parent_block.header.number = 1;
@@ -880,6 +928,113 @@ mod tests {
 
         assert_eq!(state.anchor_block_number, parent_anchor_block_number);
         assert_eq!(state.parent_block_time_delta_secs, 12);
+    }
+
+    /// L2 mock answering the anchor constructor's chain-id probe and the grandparent lookup.
+    fn parent_state_l2_asserter(chain_id: u64) -> Asserter {
+        let l2_asserter = Asserter::new();
+        l2_asserter.push_success(&chain_id);
+        let mut grandparent_block = RpcBlock::<TxEnvelope>::default();
+        grandparent_block.header.number = 5;
+        grandparent_block.header.timestamp = 100;
+        l2_asserter.push_success(&Some(grandparent_block));
+        l2_asserter
+    }
+
+    /// Empty non-genesis parent block 6 at timestamp 112 with the given `extraData`.
+    fn empty_parent_block(extra_data: Bytes) -> RpcBlock<TxEnvelope> {
+        let mut parent_block = RpcBlock::<TxEnvelope>::default();
+        parent_block.header.number = 6;
+        parent_block.header.timestamp = 112;
+        parent_block.header.parent_hash = B256::from([0x11; 32]);
+        parent_block.header.parent_beacon_block_root = Some(B256::with_last_byte(0xaa));
+        parent_block.header.extra_data = extra_data;
+        parent_block.transactions = BlockTransactions::Full(Vec::new());
+        parent_block
+    }
+
+    #[tokio::test]
+    async fn initialize_parent_state_reads_an_etna_parent_anchor_from_extra_data() {
+        // Mainnet proposal 7 would decode the parent's anchor transaction and Hoodi proposal 100
+        // would read `Anchor.getBlockState()`; an Etna parent does neither. The empty auth mock
+        // fails any anchor-contract call, and the parent has no transaction to decode.
+        for (chain_id, proposal_id) in [(TAIKO_MAINNET_CHAIN_ID, 7), (TAIKO_HOODI_CHAIN_ID, 100)] {
+            let anchor_address = Address::repeat_byte(0x44);
+            let l2_asserter = parent_state_l2_asserter(chain_id);
+            let client = mock_client_with_asserters(
+                Asserter::new(),
+                l2_asserter.clone(),
+                Asserter::new(),
+                anchor_address,
+            );
+            let pipeline = test_pipeline(client, anchor_address, chain_id, Some(112)).await;
+            let parent_block = empty_parent_block(
+                encode_etna_extra_data(50, 3, 55).expect("extraData should encode"),
+            );
+
+            let state = pipeline
+                .initialize_parent_state(&parent_block, proposal_id)
+                .await
+                .expect("an Etna parent's anchor comes from its extraData");
+
+            assert_eq!(state.anchor_block_number, 55);
+            assert!(state.is_etna());
+            assert_eq!(state.parent_block_time_delta_secs, 12);
+            assert!(l2_asserter.read_q().is_empty(), "only the scripted L2 calls run");
+        }
+    }
+
+    #[tokio::test]
+    async fn initialize_parent_state_rejects_an_etna_parent_with_pre_etna_extra_data() {
+        let anchor_address = Address::repeat_byte(0x44);
+        let client = mock_client_with_asserters(
+            Asserter::new(),
+            parent_state_l2_asserter(TAIKO_HOODI_CHAIN_ID),
+            Asserter::new(),
+            anchor_address,
+        );
+        let pipeline = test_pipeline(client, anchor_address, TAIKO_HOODI_CHAIN_ID, Some(100)).await;
+        let parent_block = empty_parent_block(encode_extra_data(50, 3));
+
+        let err = pipeline
+            .initialize_parent_state(&parent_block, 100)
+            .await
+            .expect_err("a 7-byte extraData cannot name an Etna anchor");
+
+        assert!(matches!(err, DerivationError::EtnaExtraData(_)), "unexpected error: {err:?}");
+        assert_eq!(
+            format!("{:#}", anyhow::Error::from(err)),
+            "invalid Etna extraData: Etna block 6 has 7-byte extraData, expected 13 bytes",
+            "the decode failure is printed once"
+        );
+    }
+
+    #[tokio::test]
+    async fn initialize_parent_state_reads_a_pre_etna_parent_anchor_from_the_anchor_contract() {
+        let anchor_address = Address::repeat_byte(0x44);
+        let auth_asserter = Asserter::new();
+        let block_state =
+            BlockState { anchorBlockNumber: U48::from(44u64), ancestorsHash: B256::ZERO };
+        auth_asserter
+            .push_success(&Bytes::from(getBlockStateCall::abi_encode_returns(&block_state)));
+        let client = mock_client_with_asserters(
+            Asserter::new(),
+            parent_state_l2_asserter(TAIKO_HOODI_CHAIN_ID),
+            auth_asserter.clone(),
+            anchor_address,
+        );
+        // Etna is scheduled after the parent's timestamp (112).
+        let pipeline = test_pipeline(client, anchor_address, TAIKO_HOODI_CHAIN_ID, Some(113)).await;
+        let parent_block = empty_parent_block(encode_extra_data(50, 3));
+
+        let state = pipeline
+            .initialize_parent_state(&parent_block, 100)
+            .await
+            .expect("a pre-Etna parent's anchor comes from the anchor contract");
+
+        assert_eq!(state.anchor_block_number, 44);
+        assert!(!state.is_etna());
+        assert!(auth_asserter.read_q().is_empty(), "getBlockState was read");
     }
 
     #[tokio::test]

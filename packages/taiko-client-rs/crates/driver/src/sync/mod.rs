@@ -109,12 +109,18 @@ pub struct SyncPipeline {
 
 impl SyncPipeline {
     /// Construct a new pipeline from the runtime configuration.
+    ///
+    /// Refuses to start when the execution engine lacks the Osaka Engine API or its L2 head
+    /// contradicts the client's Etna fork schedule ([`Client::check_execution_engine`]); this
+    /// covers both the driver and the whitelist preconfirmation driver.
     #[instrument(skip(cfg, rpc), name = "sync_pipeline_new")]
     pub async fn new(cfg: DriverConfig, rpc: Client) -> Result<Self, DriverError> {
+        rpc.check_execution_engine().await?;
+
         // Shared cross-stage state: beacon sync writes the checkpoint head it caught up to,
         // event sync consumes that head as its resume anchor when checkpoint mode is enabled.
         let checkpoint_resume_head = Arc::new(CheckpointResumeHead::default());
-        let beacon = BeaconSyncer::new(&cfg, rpc.clone(), checkpoint_resume_head.clone());
+        let beacon = BeaconSyncer::new(&cfg, rpc.clone(), checkpoint_resume_head.clone())?;
         let event = Arc::new(
             EventSyncer::new_with_checkpoint_resume_head(&cfg, rpc, checkpoint_resume_head).await?,
         );
@@ -139,10 +145,81 @@ impl SyncPipeline {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        FINALIZED_BLOCK_NOT_FOUND, GETH_SERVER_ERROR_CODE, is_finalized_block_not_found,
-        is_historical_state_unavailable, retryable_after_first_success,
+    use std::{path::PathBuf, time::Duration};
+
+    use alloy::{
+        rpc::types::{Block as RpcBlock, Transaction as RpcTransaction},
+        transports::http::reqwest::Url,
     };
+    use alloy_primitives::{Address, B256, Bytes};
+    use alloy_transport::mock::Asserter;
+    use protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID;
+    use rpc::{
+        RpcClientError, SubscriptionSource, auth::REQUIRED_ENGINE_METHODS, client::ClientConfig,
+    };
+
+    use super::{
+        FINALIZED_BLOCK_NOT_FOUND, GETH_SERVER_ERROR_CODE, SyncPipeline,
+        is_finalized_block_not_found, is_historical_state_unavailable,
+        retryable_after_first_success,
+    };
+    use crate::{
+        config::DriverConfig, error::DriverError, test_support::mock_client_with_asserters,
+    };
+
+    /// Driver config whose endpoints are never dialled: the startup checks run on the mocked
+    /// client handed to [`SyncPipeline::new`].
+    fn unused_driver_config() -> DriverConfig {
+        let url = Url::parse("http://localhost:8545").expect("valid http url");
+        let client = ClientConfig {
+            l1_provider_source: SubscriptionSource::Http(url.clone()),
+            l2_provider_url: url.clone(),
+            l2_auth_provider_url: url.clone(),
+            jwt_secret: PathBuf::from("/dev/null"),
+            inbox_address: Address::ZERO,
+        };
+        DriverConfig::new(client, Duration::from_secs(1), url, None, None, false)
+    }
+
+    /// Start a devnet sync pipeline (Etna never scheduled) on an engine advertising `methods`
+    /// whose L2 `latest` head is `head`, if the capability check lets it be read.
+    async fn start_pipeline(methods: &[&str], head: Option<RpcBlock>) -> Option<DriverError> {
+        let l2 = Asserter::new();
+        if let Some(head) = head {
+            l2.push_success(&Some(head));
+        }
+        let l2_auth = Asserter::new();
+        l2_auth.push_success(&methods);
+        let mut client = mock_client_with_asserters(Asserter::new(), l2, l2_auth, Address::ZERO);
+        client.chain_id = TAIKO_DEVNET_CHAIN_ID;
+        SyncPipeline::new(unused_driver_config(), client).await.err()
+    }
+
+    #[tokio::test]
+    async fn sync_pipeline_refuses_an_engine_without_the_osaka_methods() {
+        let v2 = ["engine_forkchoiceUpdatedV2", "engine_getPayloadV2", "engine_newPayloadV2"];
+        let err = start_pipeline(&v2, None).await.expect("a V2-only engine is refused");
+        assert!(
+            matches!(err, DriverError::Rpc(RpcClientError::EngineMethodsUnsupported { .. })),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn sync_pipeline_refuses_a_head_that_contradicts_the_etna_schedule() {
+        let mut etna_head = RpcBlock::<RpcTransaction>::default();
+        etna_head.header.inner.number = 5;
+        etna_head.header.inner.parent_beacon_block_root = Some(B256::with_last_byte(1));
+        etna_head.header.inner.extra_data = Bytes::from(vec![0u8; 13]);
+
+        let err = start_pipeline(&REQUIRED_ENGINE_METHODS, Some(etna_head))
+            .await
+            .expect("an Etna head is refused while Etna is unscheduled");
+        assert!(
+            matches!(err, DriverError::Rpc(RpcClientError::EtnaScheduleMismatch { .. })),
+            "unexpected error: {err:?}"
+        );
+    }
 
     #[test]
     fn poll_errors_fail_fast_only_before_first_success() {

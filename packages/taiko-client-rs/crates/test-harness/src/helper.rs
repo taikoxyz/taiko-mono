@@ -25,10 +25,16 @@ pub(crate) async fn increase_l1_time(client: &Client, seconds: u64) -> anyhow::R
     Ok(())
 }
 
+/// Moves L1 time forward by `seconds` and mines one block stamped with the new time.
+pub async fn advance_l1_time(client: &Client, seconds: u64) -> anyhow::Result<()> {
+    increase_l1_time(client, seconds).await?;
+    mine_l1_block(client).await
+}
+
 /// Mines multiple L1 blocks at once using Anvil's batch mining.
 ///
 /// This is more efficient than calling `mine_l1_block` in a loop.
-pub(crate) async fn mine_l1_blocks(client: &Client, count: usize) -> anyhow::Result<()> {
+pub async fn mine_l1_blocks(client: &Client, count: usize) -> anyhow::Result<()> {
     client
         .l1_provider
         .raw_request::<_, ()>(Cow::Borrowed("anvil_mine"), (count,))
