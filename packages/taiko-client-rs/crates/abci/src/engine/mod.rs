@@ -15,6 +15,8 @@ use crate::envelope::ExecutionBlock;
 
 /// Payload ⇄ [`ExecutionBlock`] conversion (pure).
 pub mod convert;
+/// Shared EL confirmation of canonical calldata forced-transaction skips.
+pub mod forced;
 /// [`Engine`] over the `rpc` crate's Engine API wrappers and an L2 JSON-RPC provider.
 pub mod rpc_engine;
 
