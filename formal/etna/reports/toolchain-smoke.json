@@ -1,0 +1,12 @@
+{
+  "tool_health": "pending-aeneas-build",
+  "rust_refinement": "pending",
+  "official_source": "tests/src/bool-cmp.rs",
+  "source_sha256": "a4f6d39e6d0b37aa5870a52c403037a9c1fd1bbda601fe2447c9731b2aca9365",
+  "charon_revision": "a5276d59516b6e7dc519441e244399ab8d429107",
+  "charon_toolchain": "nightly-2026-09-17",
+  "llbc_sha256": "2d2333ae35e10d65b1c45574bffdb9437c3162d816af367b69045b75eb1805a5",
+  "llbc_bytes": 115549,
+  "lean_generated": false,
+  "note": "Actual Charon extraction succeeded; no generated Lean proof has yet been compiled. This report is not a Rust refinement claim."
+}

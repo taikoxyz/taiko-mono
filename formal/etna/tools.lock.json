@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "lean": "leanprover/lean4:v4.35.0-rc4",
+  "mathlib": "1f414401f69059aa7eead47b53ee40bd38455eeb",
+  "aeneas": "673f9e30e1e2a81b355df9a9550168e672a10d4e",
+  "charon": "a5276d59516b6e7dc519441e244399ab8d429107",
+  "extractor_rust": "nightly-2026-09-17",
+  "production_rust": "1.95",
+  "evmyullean": {
+    "revision": "047f63070309f436b66c61e276ab3b6d1169265a",
+    "lean": "leanprover/lean4:v4.22.0"
+  },
+  "clear": {
+    "revision": "6ef2e7eda01080e5d5fd7474354c1a71adab5071",
+    "lean": "leanprover/lean4:v4.9.1"
+  },
+  "smoke_source": "tests/src/bool-cmp.rs"
+}

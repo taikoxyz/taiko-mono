@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "status": {
+    "spec": "foundation-only",
+    "rust_refinement": "pending",
+    "solidity_refinement": "pending",
+    "conformance": "pending"
+  },
+  "theorems": [
+    {
+      "id": "CORE-01",
+      "module": "Etna.Common.Words",
+      "declaration": "Etna.checkedWord_some_iff",
+      "type": "∀ (bits n : Nat), (∃ word, Etna.checkedWord bits n = some word) ↔ n < 2 ^ bits",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [],
+      "tests": ["tests/test_audit_proofs.py"]
+    },
+    {
+      "id": "CORE-02",
+      "module": "Etna.Common.Words",
+      "declaration": "Etna.word64_add_fits128",
+      "type": "∀ (a b : Etna.Word64), a.val + b.val < 2 ^ 128",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [],
+      "tests": ["tests/test_audit_proofs.py"]
+    }
+  ]
+}

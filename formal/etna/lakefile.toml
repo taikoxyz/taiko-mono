@@ -1,0 +1,11 @@
+name = "etna"
+version = "0.1.0"
+defaultTargets = ["Etna"]
+
+[[require]]
+name = "mathlib"
+git = "https://github.com/leanprover-community/mathlib4.git"
+rev = "1f414401f69059aa7eead47b53ee40bd38455eeb"
+
+[[lean_lib]]
+name = "Etna"
