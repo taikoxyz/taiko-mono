@@ -52,6 +52,7 @@ toml = { workspace = true }
 alloy = { workspace = true, features = ["consensus", "signer-local", "std", "json"] }
 alloy-transport = { workspace = true }
 anyhow = { workspace = true }
+proptest = { workspace = true }
 prost = { workspace = true }
 tempfile = { workspace = true }
 tendermint-proto = { workspace = true }
