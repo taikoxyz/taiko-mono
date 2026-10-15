@@ -158,8 +158,9 @@ Inbox address, event signature and indexed queue index. Decode the event and ver
 against the proven `txHash` before caching or using them. No receipt proof is needed because
 the storage proof authenticates the expected hash. Missing, inconsistent, oversized or unavailable
 event data is a preparation failure and never authorizes consumption. Cached bytes must match the
-selected anchor and proven entry identity. Validators and cold replay use the authenticated bytes
-in the envelope rather than fetching submission calldata or logs.
+selected anchor and proven entry identity. Validators and cold replay authenticate an included
+transaction directly from execution-block position zero; only skips need the separate preimage
+in the forced witness. Neither path fetches submission calldata or logs during validation.
 
 `migrationState()` retains its name as a compatibility getter for the ABCI status word.
 It exposes no migration state machine. `activation()` returns the genesis record.
@@ -396,8 +397,9 @@ from the stored parent to terminal hash/state root and blob data. The bound blob
 V4, `0x04 || zlib(rlp([[header_proto, envelope], ...]))` in the existing blob coding, with each
 block's canonical CometBFT header and Etna envelope: header hashes are the certified block ids,
 `data_hash` commits to the envelope and `last_block_id` links the batch. Envelope v5 carries a
-forced witness `[index, entryProof, tx]` when the anchor proves a pending entry. Landing still
-publishes batch blobs; forced transaction submission and its envelope witness use calldata bytes.
+forced witness `[index, entryProof, tx]` when the anchor proves a pending entry. Proposers leave
+`tx` empty for ordinary and included blocks and carry the separate preimage only for skips.
+Landing still publishes batch blobs; forced transaction admission uses calldata bytes.
 Commits and signatures are proof witnesses, not blob data.
 Every anchor and actual proving L1 root belongs to the header chain ending at the reference hash.
 Reference headers may be recent even for old batches. Arbitrary batch cuts never depend on an
@@ -410,9 +412,13 @@ Each block consumes at most one entry, exactly `c(h-1)`, or keeps the cursor. Fo
 committed parent cursor `c` and anchor `A` (its own anchor or the inherited one), read `tail(A)`
 from `A`'s state. If `c >= tail(A)`, forbid a forced witness. Otherwise require exactly entry `c`'s
 witness `[index, entryProof, tx]`, authenticate the Inbox account and both entry slots under
-`A.stateRoot`, enforce `tx.length <= 8192`, and require `keccak256(tx) == entry.txHash`. These
-checks also apply to a pre-due peek. Authenticate entries and `tail` (slots 280–281) under `A`
-and `D` and `M` (slot 282) under the genesis proof. Read `tail(A)` from each anchor, never genesis:
+`A.stateRoot`, and enforce `tx.length <= 8192`. The witness's `tx` byte string may be empty:
+pre-due peeks need no preimage, and inclusion authenticates execution-block transaction zero
+instead. Nonempty witness bytes always require `keccak256(tx) == entry.txHash`, including
+redundant bytes in historical envelopes. Before any due skip, require that hash equality even
+for empty bytes: omission can only prove an actually empty admission, never skip a nonempty
+entry. Authenticate entries and `tail` (slots 280–281) under `A` and `D` and `M` (slot 282) under
+the genesis proof. Read `tail(A)` from each anchor, never genesis:
 `saveForcedInclusion` can follow `init` in the same L1 block, so the queue need not be empty at
 `L1_0`. Block 1 always carries its own anchor witness.
 
@@ -423,12 +429,12 @@ transactions, whose decoding consumes all input and whose re-encoding reproduces
 Use the codec compatible with the pinned EL. Empty, undecodable or failed-round-trip bytes are
 invalid forced input; do not duplicate signature, nonce, balance, gas or fee validation.
 
-| Condition                                                | Action                                                                                                |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Canonical forced bytes exactly equal block transaction 0 | Include; advance cursor by one, before or after due.                                                  |
-| Not included, not due                                    | Peek; keep the cursor.                                                                                |
-| Not included, due, noncanonical/undecodable input        | Skip; advance cursor by one without an EL build.                                                      |
-| Not included, due, canonical input                       | Require a successful singleton EL build with an empty transaction result, then advance cursor by one. |
+| Condition                                                                        | Action                                                                                                |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Canonical block transaction 0 is at most 8192 bytes and hashes to `entry.txHash` | Include; advance cursor by one, before or after due; no duplicate witness preimage needed.            |
+| Not included, not due                                                            | Peek; keep the cursor; no preimage needed.                                                            |
+| Not included, due, authenticated noncanonical/undecodable preimage               | Skip; advance cursor by one without an EL build.                                                      |
+| Not included, due, authenticated canonical preimage                              | Require a successful singleton EL build with an empty transaction result, then advance cursor by one. |
 
 Only position zero counts as inclusion. A different transaction with the same sender and nonce,
 or the forced transaction at a later position, cannot justify skipping a transaction the singleton
