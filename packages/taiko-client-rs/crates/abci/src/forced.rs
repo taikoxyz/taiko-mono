@@ -17,6 +17,9 @@
 //! Shasta derivation reads a forced inclusion source. Its KZG commitment needs the Ethereum
 //! trusted setup, which takes seconds to load: [`warm_kzg_settings`] loads it at startup.
 
+/// Authenticated calldata forced inclusion rules for the next envelope generation.
+pub mod calldata;
+
 use alloy_eips::eip4844::{Blob, c_kzg, kzg_to_versioned_hash};
 use alloy_primitives::{Address, B256, Bytes, U256};
 use protocol::shasta::{BlobCoder, encode_transactions, manifest::DerivationSourceManifest};
@@ -108,6 +111,22 @@ pub enum ForcedError {
         /// The entry's `blobHashes[0]`.
         expected: B256,
         /// The versioned hash of the carried blob.
+        got: B256,
+    },
+    /// The forced transaction exceeds the Inbox's maximum byte length.
+    #[error("forced transaction has {size} bytes, exceeding the {max}-byte limit")]
+    TxTooLarge {
+        /// Actual transaction byte length.
+        size: usize,
+        /// Maximum permitted transaction byte length.
+        max: usize,
+    },
+    /// The exact transaction bytes do not match the authenticated entry hash.
+    #[error("transaction hash {got} differs from the entry's {expected}")]
+    TxHashMismatch {
+        /// Hash stored in the proven queue entry.
+        expected: B256,
+        /// Keccak-256 of the carried transaction bytes.
         got: B256,
     },
     /// The carried blob is not an EIP-4844 blob: not 131,072 bytes, or a field element not below
