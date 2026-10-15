@@ -422,7 +422,7 @@ async fn check_tx_rejects_every_transaction() {
 #[test]
 fn saved_state_rejects_old_and_unknown_protocol_versions() {
     let fx = Fixture::genesis(1);
-    for version in [0, crate::app::APP_VERSION + 1] {
+    for version in [0, 1, crate::app::APP_VERSION + 1] {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::new(dir.path().into());
         let mut state = fx.expected_state();

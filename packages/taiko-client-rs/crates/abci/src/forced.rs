@@ -34,16 +34,19 @@ pub struct ForcedEntry {
     pub l1_block: u64,
 }
 
-/// Proof and exact transaction bytes for the entry at a block's parent cursor.
+/// Proof and optional skip preimage for the entry at a block's parent cursor.
 ///
-/// RLP: `[index, entry, tx]`; the mandatory transaction bytes are carried by envelope v5.
+/// RLP: `[index, entry, tx]`. Empty `tx` omits the preimage for an ordinary or included block;
+/// a skip authenticates `tx`, including an actually empty admission, against the proven hash.
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable)]
 pub struct ForcedWitness {
     /// Queue index, required to equal the parent cursor.
     pub index: u64,
     /// EIP-1186 proof of the Inbox and exactly the entry's two storage slots.
     pub entry: AccountWitness,
-    /// Exact submitted bytes, required to match the proven hash and byte limit.
+    /// Skip preimage, or empty when omitted. Nonempty bytes always match the proven hash and
+    /// byte limit; skips also authenticate empty bytes. Proposers omit this field's contents
+    /// unless skipping, since inclusion authenticates the canonical first block transaction.
     pub tx: Bytes,
 }
 
@@ -158,13 +161,14 @@ fn is_due(timestamp: u64, delay: u64, anchor_timestamp: u64) -> bool {
     u128::from(anchor_timestamp) >= u128::from(timestamp) + u128::from(delay)
 }
 
-/// Classifies one block's forced entry after authenticating its index, proof and exact bytes.
+/// Classifies one block's forced entry using its authenticated index, proof and available bytes.
 ///
-/// An exhausted queue forbids a witness; a pending entry requires one. Proof, size and hash
-/// failures are errors even before the entry is due. Only a canonical transaction matching
-/// `first_tx` byte-for-byte counts as inclusion. Due canonical bytes absent from position zero
-/// return [`ForcedDecision::NeedsSkip`], which requires further caller validation before
-/// consumption. Invalid bytes cannot be skipped early; there is no expiry.
+/// An exhausted queue forbids a witness; a pending entry requires its two-slot proof. A canonical
+/// `first_tx` within the byte cap whose hash matches the entry consumes it without a duplicate
+/// preimage. Before due, an omitted preimage permits an ordinary block. A due skip requires the
+/// exact preimage: canonical bytes return [`ForcedDecision::NeedsSkip`] for further validation,
+/// while invalid bytes consume directly. Nonempty redundant preimages remain hash-checked for
+/// historical envelope compatibility. Invalid bytes cannot be skipped early; there is no expiry.
 pub fn check(
     context: ForcedContext<'_>,
     witness: Option<&ForcedWitness>,
@@ -185,17 +189,25 @@ pub fn check(
         return Err(ForcedError::TxTooLarge { size: w.tx.len(), max: MAX_FORCED_TX_BYTES });
     }
     let got = keccak256(&w.tx);
-    if got != entry.tx_hash {
+    if !w.tx.is_empty() && got != entry.tx_hash {
         return Err(ForcedError::TxHashMismatch { expected: entry.tx_hash, got });
     }
-    let canonical = decode_canonical(&w.tx).is_some();
-    if canonical && first_tx == Some(w.tx.as_ref()) {
+    if first_tx.is_some_and(|tx| {
+        tx.len() <= MAX_FORCED_TX_BYTES &&
+            keccak256(tx) == entry.tx_hash &&
+            decode_canonical(tx).is_some()
+    }) {
         return Ok(ForcedDecision::Included(context.cursor));
     }
     if !is_due(entry.timestamp, context.delay, context.anchor.timestamp) {
         return Ok(ForcedDecision::Ordinary);
     }
-    Ok(if canonical {
+    // Omission never proves an invalid admission: only an actual empty admission hashes to
+    // empty bytes. Every nonempty due entry still needs its authenticated preimage to skip.
+    if got != entry.tx_hash {
+        return Err(ForcedError::TxHashMismatch { expected: entry.tx_hash, got });
+    }
+    Ok(if decode_canonical(&w.tx).is_some() {
         ForcedDecision::NeedsSkip { index: context.cursor, tx: w.tx.clone() }
     } else {
         ForcedDecision::SkippedInvalid(context.cursor)

@@ -354,3 +354,57 @@ fn witness_rlp_rejects_missing_list_tx_list_truncation_and_extra_fields() {
     encoded.pop();
     assert!(ForcedWitness::decode(&mut encoded.as_slice()).is_err());
 }
+
+#[test]
+fn pending_entries_need_no_transaction_preimage_before_due() {
+    for tx in [canonical_tx(), vec![0xa7; MAX_FORCED_TX_BYTES].into(), Bytes::new()] {
+        let (mut anchor, mut witness) = fixture(tx);
+        anchor.timestamp -= 1;
+        witness.tx = Bytes::new();
+        assert_eq!(check(context(&anchor), Some(&witness), None), Ok(ForcedDecision::Ordinary));
+    }
+}
+
+#[test]
+fn inclusion_uses_the_canonical_first_transaction_without_a_duplicate_preimage() {
+    for tx in sample_transactions() {
+        let raw = tx.encoded_2718();
+        let (mut anchor, mut witness) = fixture(raw.clone().into());
+        witness.tx = Bytes::new();
+        for timestamp in [T0, T0 + DELAY, u64::MAX] {
+            anchor.timestamp = timestamp;
+            assert_eq!(
+                check(context(&anchor), Some(&witness), Some(&raw)),
+                Ok(ForcedDecision::Included(INDEX))
+            );
+        }
+    }
+}
+
+#[test]
+fn omitted_preimages_cannot_authorize_due_nonempty_skips() {
+    for raw in [canonical_tx(), Bytes::from_static(&[0xff])] {
+        let (anchor, mut witness) = fixture(raw.clone());
+        witness.tx = Bytes::new();
+        for first in [None, Some(&[0xff][..])] {
+            assert_eq!(
+                check(context(&anchor), Some(&witness), first),
+                Err(ForcedError::TxHashMismatch { expected: keccak256(&raw), got: keccak256([]) })
+            );
+        }
+    }
+}
+
+#[test]
+fn matching_hash_does_not_turn_noncanonical_first_bytes_into_inclusion() {
+    let raw = Bytes::from_static(&[0xff]);
+    let (mut anchor, mut witness) = fixture(raw.clone());
+    witness.tx = Bytes::new();
+    anchor.timestamp -= 1;
+    assert_eq!(check(context(&anchor), Some(&witness), Some(&raw)), Ok(ForcedDecision::Ordinary));
+    anchor.timestamp += 1;
+    assert!(matches!(
+        check(context(&anchor), Some(&witness), Some(&raw)),
+        Err(ForcedError::TxHashMismatch { .. })
+    ));
+}

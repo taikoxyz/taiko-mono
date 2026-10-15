@@ -92,6 +92,7 @@ async fn mixed(due: bool) -> Result<()> {
     )?;
     assert_eq!(anchor.timestamp >= entry.timestamp + delay, due);
     assert_eq!(env.block.transactions.first(), Some(&raw));
+    assert!(env.forced.as_ref().unwrap().tx.is_empty());
     assert_eq!(
         env.block.transactions.iter().map(keccak256).collect::<Vec<_>>(),
         vec![*tx.tx_hash(), tail]
@@ -163,6 +164,17 @@ async fn forced_same_nonce_replacement_rejected() -> Result<()> {
         PayloadVerdict::Valid,
         "replacement payload itself is valid"
     );
+    // The honest included proposal omitted its duplicate preimage. After replacing tx[0],
+    // that omission cannot authorize skipping the original due entry.
+    assert!(env.forced.as_ref().unwrap().tx.is_empty());
+    let result = app.handle(Request::ProcessProposal(process_request(&env, time))).await?;
+    assert!(matches!(result, Response::ProcessProposal(response::ProcessProposal::Reject)));
+    assert_eq!(app.status().unwrap().halt_reason.as_deref(), Some("forced_inclusion"));
+    assert_eq!(app.state(), Some(&parent));
+
+    // Supplying the correct preimage reaches the singleton checker, which still retains the
+    // original transaction on this parent. A same-nonce replacement cannot justify that skip.
+    env.forced.as_mut().unwrap().tx = tx.encoded_2718().into();
     let result = app.handle(Request::ProcessProposal(process_request(&env, time))).await?;
     assert!(matches!(result, Response::ProcessProposal(response::ProcessProposal::Reject)));
     assert_eq!(app.status().unwrap().halt_reason.as_deref(), Some("forced_skip_invalid"));

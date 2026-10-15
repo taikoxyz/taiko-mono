@@ -885,7 +885,7 @@ async fn mixed_forced_inclusion_works_before_and_after_due() {
         plant_input(&fx, &app, tx.clone(), due);
         app.engine().state().pool = vec![txs[1].clone()];
         let env = propose(&mut app).await;
-        assert_eq!(env.forced.as_ref().unwrap().tx, tx);
+        assert!(env.forced.as_ref().unwrap().tx.is_empty());
         assert_eq!(
             env.block.transactions,
             txs.iter().map(|tx| Bytes::from(tx.encoded_2718())).collect::<Vec<_>>()
@@ -1013,9 +1013,51 @@ async fn completed_entry_and_transaction_reads_are_reused_only_for_matching_root
     );
     plant_input(&fx, &app, sample_transactions()[1].encoded_2718().into(), false);
     let env = propose(&mut app).await;
-    assert_eq!(env.forced.unwrap().tx, sample_transactions()[1].encoded_2718());
+    assert!(env.forced.unwrap().tx.is_empty());
+    assert_eq!(env.block.transactions.first().unwrap(), &sample_transactions()[1].encoded_2718());
     assert_eq!(
         app.l1().calls().iter().filter(|c| matches!(c, L1Call::ForcedTransaction { .. })).count(),
         first + 1
     );
+}
+
+/// An L1 admission cannot force its 8 KiB preimage into every ordinary proposal before due.
+#[tokio::test]
+async fn pending_junk_preimage_is_omitted_from_proposal_data() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let noise = incompressible(8191 + 65_536);
+    let raw = Bytes::from([vec![0xff], noise[..8191].to_vec()].concat());
+    plant_input(&fx, &app, raw.clone(), false);
+    let env = propose(&mut app).await;
+    assert!(env.forced.as_ref().unwrap().tx.is_empty());
+    let mut redundant = env.clone();
+    redundant.forced.as_mut().unwrap().tx = raw;
+    assert!(redundant.encode().len() - env.encode().len() >= 8192);
+
+    // Repeat full envelopes separated by a busy execution block, outside deflate's 32 KiB
+    // history. Use the landing guard's pinned compressor and the genuine entry proof above.
+    use alloy_consensus::{SignableTransaction, TxEnvelope, TxLegacy};
+    let transaction = TxEnvelope::Legacy(
+        TxLegacy { gas_limit: 2_000_000, input: noise.slice(8191..), ..Default::default() }
+            .into_signed(alloy_primitives::Signature::new(
+                alloy_primitives::U256::from(1),
+                alloy_primitives::U256::from(1),
+                false,
+            )),
+    );
+    let mut compact = env.clone();
+    compact.block.transactions = vec![transaction.encoded_2718().into()];
+    compact.block.header.transactions_root =
+        alloy_consensus::proofs::ordered_trie_root_encoded(&compact.block.transactions);
+    redundant.block = compact.block.clone();
+    let compressed = |envelope: &EtnaEnvelope| {
+        crate::compression::zlib_compress(&alloy_rlp::encode(vec![envelope.encode(); 4])).len()
+    };
+    let saved = compressed(&redundant) - compressed(&compact);
+    eprintln!("four busy envelopes omit {saved} compressed FI-preimage bytes");
+    assert!(saved > 28_000, "the repeated preimage must not rely on zlib deduplication");
+    accept_and_commit(&mut app, &env).await;
+    assert_eq!(app.state().unwrap().forced_cursor, 0);
 }

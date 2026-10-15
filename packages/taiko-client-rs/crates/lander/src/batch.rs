@@ -1995,6 +1995,32 @@ mod tests {
             assert!(error.to_string().contains(&violation.to_string()), "{error}");
         }
 
+        #[tokio::test]
+        async fn omitted_preimages_preserve_pending_and_included_batch_cursors() {
+            let plan = ForcedPlan {
+                entries: vec![(11, 1), (11, 2)],
+                consume_at: vec![21, 23],
+                ..Default::default()
+            };
+            let mut fixture = Fixture::with_forced(20, 26, plan);
+            for height in 21..=26 {
+                alter_envelope(&mut fixture, height, |env| {
+                    if let Some(witness) = &mut env.forced {
+                        witness.tx = alloy_primitives::Bytes::new();
+                    }
+                });
+            }
+            let fixture = Arc::new(fixture);
+            for (blocks, head) in [(1, 1), (2, 1), (3, 2), (6, 2)] {
+                let request = prepare(&fixture, blocks).await;
+                assert_eq!(heads(&request), (0, head));
+                for pair in &request.batch.blocks {
+                    let env = abci::EtnaEnvelope::decode(&pair.block.data[0]).unwrap();
+                    assert!(env.forced.is_none_or(|witness| witness.tx.is_empty()));
+                }
+            }
+        }
+
         /// Review Focus 1: a forced inclusion block at the switch height `H(1) - 2` carries the
         /// committee and the forced witness, and both must verify.
         #[tokio::test]
@@ -2033,12 +2059,15 @@ mod tests {
         #[tokio::test(start_paused = true)]
         async fn canonical_skip_requires_completed_empty_matching_singleton() {
             use test_harness::unavailable_engine::ProbeEngine;
-            for mode in 0..5 {
+            for mode in 0..6 {
                 let plan = ForcedPlan { delay: 5, entries: vec![(10, 5)], consume_at: vec![1] };
                 let mut fixture = Fixture::with_forced(0, 1, plan);
                 alter_envelope(&mut fixture, 1, |env| {
                     env.block.transactions.clear();
                     env.block.header.transactions_root = alloy_consensus::EMPTY_ROOT_HASH;
+                    if mode == 5 {
+                        env.forced.as_mut().unwrap().tx = alloy_primitives::Bytes::new();
+                    }
                 });
                 let env = abci::EtnaEnvelope::decode(&fixture.blocks[&1].block.data[0]).unwrap();
                 let mut result = env.block.clone();
@@ -2064,7 +2093,7 @@ mod tests {
                 let prepared = b.prepare(fixture.snapshot.clone()).await;
                 match mode {
                     0 => assert_eq!(heads(&prepared.unwrap().unwrap()), (0, 1)),
-                    1 | 2 => assert!(matches!(prepared, Err(LanderError::Safety(_)))),
+                    1 | 2 | 5 => assert!(matches!(prepared, Err(LanderError::Safety(_)))),
                     _ => assert!(matches!(prepared, Err(LanderError::Temporary(_)))),
                 }
             }

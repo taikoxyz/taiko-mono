@@ -59,13 +59,26 @@ pub async fn fund_pool(devnet: &Devnet) -> Result<()> {
         nonce,
     )
     .await?;
-    wait_until("pool funding", Duration::from_secs(30), Duration::from_millis(100), || async {
-        Ok(l2.get_transaction_receipt(tx).await?)
-    })
-    .await?
-    .status()
-    .then_some(())
-    .context("pool funding reverted")
+    let receipt =
+        wait_until("pool funding", Duration::from_secs(30), Duration::from_millis(100), || async {
+            Ok(l2.get_transaction_receipt(tx).await?)
+        })
+        .await?;
+    ensure!(receipt.status(), "pool funding reverted");
+    let height = receipt.block_number.context("funding receipt has no block")?;
+    // EL receipts become visible before ABCI Commit. Freezing in that interval would build
+    // on an unfunded committed parent while signing with the later EL nonce and balance.
+    wait_until(
+        "pool funding committed by ABCI",
+        Duration::from_secs(30),
+        Duration::from_millis(100),
+        || async {
+            // Query publishes the committed state only after its atomic save. Store::load is
+            // startup recovery and removes temporary files, so never poll it on a running app.
+            Ok((devnet.abci_status(0).await?.head >= height).then_some(()))
+        },
+    )
+    .await
 }
 pub async fn anchor_ready(devnet: &Devnet, block: u64, timestamp: u64) -> Result<()> {
     wait_until(

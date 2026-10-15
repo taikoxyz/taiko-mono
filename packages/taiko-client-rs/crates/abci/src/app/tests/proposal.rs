@@ -554,7 +554,9 @@ async fn switch_height_forced_block_carries_both_witnesses() {
     let forced = fx.forced_witness(app.l1(), 66, 0, blob);
     let env =
         hand_forced_envelope(&app, None, proposed.committee.clone(), forced, sample_tx_list());
-    assert_eq!(proposed.forced, env.forced);
+    let mut expected = env.forced.clone();
+    expected.as_mut().unwrap().tx = Bytes::new();
+    assert_eq!(proposed.forced, expected);
 
     let v = validate(&app, &env).expect("both witnesses verify");
     assert_eq!(v.decision, crate::forced::ForcedDecision::Included(0));

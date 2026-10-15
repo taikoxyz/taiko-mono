@@ -1033,7 +1033,8 @@ fn cold_req(app: &App<MockL1, MockEngine>, env: &EtnaEnvelope) -> request::Final
 async fn cold_inclusion_needs_no_skip_probe() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
-    let (mut app, honest) = forced_block(&fx, dir.path()).await;
+    let (mut app, mut honest) = forced_block(&fx, dir.path()).await;
+    honest.forced.as_mut().unwrap().tx = alloy_primitives::Bytes::new();
     let env = with_extra_transaction(honest);
     let req = cold_req(&app, &env);
     let before = app.engine().calls().len();
@@ -1119,7 +1120,8 @@ async fn cold_forced_skip_failures_retry_or_halt() {
 
 /// CometBFT replays a decided forced inclusion block after a crash before `Commit`, with no
 /// admission-log access: the cold node confirms the moved anchor in its own L1 and executes
-/// the included transaction using the proof and exact bytes carried by the envelope.
+/// the included transaction using the entry proof and the first execution-block transaction,
+/// without a second copy in the witness.
 #[tokio::test]
 async fn replay_validates_inclusion_without_admission_log_reads() {
     let fx = Fixture::genesis(1);
@@ -1127,7 +1129,8 @@ async fn replay_validates_inclusion_without_admission_log_reads() {
     let mut app = initialized(&fx, dir.path()).await;
     step(&mut app).await; // H_0
     let committed = app.state().unwrap().clone();
-    let env = forced_block_on(&fx, &app);
+    let mut env = forced_block_on(&fx, &app);
+    env.forced.as_mut().unwrap().tx = alloy_primitives::Bytes::new();
     let hash = env.block.header.hash_slow();
     let (resp, req) = judge(&mut app, &env).await;
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);

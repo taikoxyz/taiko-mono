@@ -152,14 +152,14 @@ async fn force_transfers(
         let envelope = devnet.cmt(0).envelope(forced).await?;
         let witness = envelope.forced.context("a forced block carries no forced witness")?;
         assert_eq!(witness.index, entry.index, "block {forced}");
-        assert!(!witness.tx.is_empty(), "forced block {forced} carries no transaction bytes");
+        assert!(witness.tx.is_empty(), "block {forced} duplicates its included transaction");
     }
     for h in 1..first {
         if let Some(peek) = devnet.cmt(0).envelope(h).await?.forced {
             assert_eq!(peek.index, 0, "block {h} names another entry");
             assert!(
-                !peek.tx.is_empty(),
-                "block {h} must carry admission bytes before the consuming block"
+                peek.tx.is_empty(),
+                "block {h} must omit admission bytes before the consuming block"
             );
         }
     }
