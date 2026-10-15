@@ -1,6 +1,10 @@
+import Etna.Committee.Examples
+import Etna.Committee.Proofs
+import Etna.Committee.Schedule
 import Etna.Common.Words
 import Etna.FI.Examples
 import Etna.FI.Proofs
+import Etna.Refinement.Rust.Committee
 import Etna.Refinement.Rust.EtnaConsensusCore
 import Etna.Refinement.Rust.Forced
 import Lean
@@ -626,6 +630,1412 @@ run_elab do
       throwError "refinement must be an exact total output equality"
     let args := body.getAppArgs
     unless args[1]!.getAppFn.isConstOf `etna_consensus_core.forced.advance_cursor do
+      throwError "refinement left side must call the generated function"
+    unless args[2]!.getAppFn.isConstOf ``Aeneas.Std.Result.ok do
+      throwError "refinement right side must be outer Result.ok"
+-- COM-checked_some; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.checked_some
+  unless info.isTheorem do throwError "Etna.Committee.checked_some is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {n v : Nat},
+  Iff (@Eq (Option Nat) (Etna.Committee.checked n) (@Option.some Nat v))
+    (And (@LE.le Nat instLENat n Etna.Committee.max64) (@Eq Nat v n))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.checked_some: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.checked_some
+-- COM-switch_positive; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.switch_positive
+  unless info.isTheorem do throwError "Etna.Committee.switch_positive is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {s : Etna.Committee.Schedule} {h t : Nat},
+  @Eq (Option Nat) (Etna.Committee.switchTarget s h) (@Option.some Nat t) →
+    @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) t))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.switch_positive: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.switch_positive
+-- COM-starting_iff; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.starting_iff
+  unless info.isTheorem do throwError "Etna.Committee.starting_iff is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : Etna.Committee.Schedule) (h t : Nat),
+  @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) s.length →
+    Iff (@Eq (Option Nat) (Etna.Committee.startingAt s h) (@Option.some Nat t)) (@Eq Nat h (Etna.Committee.H s t))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.starting_iff: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.starting_iff
+-- COM-switch_iff; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.switch_iff
+  unless info.isTheorem do throwError "Etna.Committee.switch_iff is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : Etna.Committee.Schedule) (h t : Nat),
+  @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) s.length →
+    Iff (@Eq (Option Nat) (Etna.Committee.switchTarget s h) (@Option.some Nat t))
+      (And (@LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) t)
+        (And
+          (@Eq Nat
+            (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) h
+              (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2))))
+            (Etna.Committee.H s t))
+          (@LE.le Nat instLENat
+            (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) h
+              (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2))))
+            Etna.Committee.max64)))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.switch_iff: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.switch_iff
+-- COM-01; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.schedule_exact
+  unless info.isTheorem do throwError "Etna.Committee.schedule_exact is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : Etna.Committee.Schedule) (t : Nat),
+  @LE.le Nat instLENat (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3))) s.length →
+    @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) t →
+      @LE.le Nat instLENat (Etna.Committee.H s t) Etna.Committee.max64 →
+        And
+          (@Eq Nat
+            (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) (Etna.Committee.D s t)
+              (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))
+            (Etna.Committee.S s t))
+          (And
+            (@Eq Nat
+              (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) (Etna.Committee.S s t)
+                (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2))))
+              (Etna.Committee.H s t))
+            (∀ (h : Nat),
+              Iff (@Eq (Option Nat) (Etna.Committee.switchTarget s h) (@Option.some Nat t))
+                (@Eq Nat h (Etna.Committee.S s t))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.schedule_exact: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.schedule_exact
+-- COM-epoch_range; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.epoch_range
+  unless info.isTheorem do throwError "Etna.Committee.epoch_range is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : Etna.Committee.Schedule) (t h : Nat),
+  @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) s.length →
+    @LE.le Nat instLENat (Etna.Committee.H s t) h →
+      @LT.lt Nat instLTNat h
+          (Etna.Committee.H s
+            (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) t
+              (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))) →
+        @Eq (Option Nat) (Etna.Committee.epochOf s h) (@Option.some Nat t)))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.epoch_range: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.epoch_range
+-- COM-03; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.activation_exact
+  unless info.isTheorem do throwError "Etna.Committee.activation_exact is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : Etna.Committee.Schedule) (st : Etna.Committee.CommitteeState) (t h : Nat),
+  @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) s.length →
+    @LE.le Nat instLENat (Etna.Committee.H s t) h →
+      @LT.lt Nat instLTNat h
+          (Etna.Committee.H s
+            (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) t
+              (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))) →
+        @Eq (Option Etna.Committee.Record) (Etna.Committee.authority s st h) (Etna.Committee.lookup st.records t)))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.activation_exact: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.activation_exact
+-- COM-missing_pending; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.missing_pending
+  unless info.isTheorem do throwError "Etna.Committee.missing_pending is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : Etna.Committee.Schedule) (st : Etna.Committee.CommitteeState) (t : Nat),
+  @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) s.length →
+    @Eq (Option Etna.Committee.Record) (Etna.Committee.lookup st.records t) (@Option.none Etna.Committee.Record) →
+      @Eq (Option Etna.Committee.Record) (Etna.Committee.authority s st (Etna.Committee.H s t))
+        (@Option.none Etna.Committee.Record)))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.missing_pending: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.missing_pending
+-- COM-02; explicit assumptions: ["Authentication.sound at exact committed-parent root/cutoff; accepted incoming checks exact epoch/root/cutoff and nonempty members."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.parent_anchor_unique
+  unless info.isTheorem do throwError "Etna.Committee.parent_anchor_unique is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (a : Etna.Committee.Authentication) (s : Etna.Committee.Schedule) (p : Etna.Committee.Anchor) (h t : Nat)
+  (w : Etna.Committee.Witness) (r : Etna.Committee.Record),
+  @Eq (Option Nat) (Etna.Committee.switchTarget s h) (@Option.some Nat t) →
+    @Eq (Except Etna.Committee.Failure (Option Etna.Committee.Record))
+        (Etna.Committee.incoming a s p h (@Option.some Etna.Committee.Witness w))
+        (@Except.ok Etna.Committee.Failure (Option Etna.Committee.Record) (@Option.some Etna.Committee.Record r)) →
+      And
+        (@Eq (Option Etna.Committee.Snapshot) (a.stored p.stateRoot p.number)
+          (@Option.some Etna.Committee.Snapshot w.snapshot))
+        (And (@Eq Etna.Committee.Record r (a.derive t w.snapshot))
+          (And (@Eq Nat r.epoch t)
+            (And (@Eq Etna.Committee.Hash r.root w.snapshot.root)
+              (And (@Eq Nat r.cutoff p.number)
+                (And (@Eq Nat w.snapshot.cutoff p.number)
+                  (@Ne (List Etna.Committee.Member) r.members (@List.nil Etna.Committee.Member)))))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.parent_anchor_unique: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.parent_anchor_unique
+-- COM-nonswitch_witness_rejected; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.nonswitch_witness_rejected
+  unless info.isTheorem do throwError "Etna.Committee.nonswitch_witness_rejected is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (a : Etna.Committee.Authentication) (s : Etna.Committee.Schedule) (p : Etna.Committee.Anchor) (h : Nat)
+  (w : Etna.Committee.Witness),
+  @Eq (Option Nat) (Etna.Committee.switchTarget s h) (@Option.none Nat) →
+    @Eq (Except Etna.Committee.Failure (Option Etna.Committee.Record))
+      (Etna.Committee.incoming a s p h (@Option.some Etna.Committee.Witness w))
+      (@Except.error Etna.Committee.Failure (Option Etna.Committee.Record) Etna.Committee.Failure.witness)))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.nonswitch_witness_rejected: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.nonswitch_witness_rejected
+-- COM-different_snapshot_rejected; explicit assumptions: ["Authentication.sound at exact committed-parent root/cutoff; accepted incoming checks exact epoch/root/cutoff and nonempty members."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.different_snapshot_rejected
+  unless info.isTheorem do throwError "Etna.Committee.different_snapshot_rejected is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (a : Etna.Committee.Authentication) (s : Etna.Committee.Schedule) (p : Etna.Committee.Anchor) (h t : Nat)
+  (w : Etna.Committee.Witness) (stored : Etna.Committee.Snapshot) (r : Etna.Committee.Record),
+  @Eq (Option Nat) (Etna.Committee.switchTarget s h) (@Option.some Nat t) →
+    @Eq (Option Etna.Committee.Snapshot) (a.stored p.stateRoot p.number) (@Option.some Etna.Committee.Snapshot stored) →
+      @Ne Etna.Committee.Snapshot stored w.snapshot →
+        @Ne (Except Etna.Committee.Failure (Option Etna.Committee.Record))
+          (Etna.Committee.incoming a s p h (@Option.some Etna.Committee.Witness w))
+          (@Except.ok Etna.Committee.Failure (Option Etna.Committee.Record) (@Option.some Etna.Committee.Record r))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.different_snapshot_rejected: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.different_snapshot_rejected
+-- COM-04; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.certificate_authority
+  unless info.isTheorem do throwError "Etna.Committee.certificate_authority is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (crypto : Etna.Committee.Crypto) (chain h hash : Nat) (r : Etna.Committee.Record) (cert : Etna.Committee.Certificate),
+  @Eq Bool (Etna.Committee.certificateOK crypto chain h hash r cert) Bool.true →
+    And (@Eq Nat cert.chain chain)
+      (And (@Eq Nat cert.height h)
+        (And (@Eq Etna.Committee.Hash cert.blockHash hash)
+          (And (@List.Nodup Nat (@List.map Etna.Committee.Vote Nat Etna.Committee.Vote.signer cert.votes))
+            (And (@List.Nodup Nat (@List.map Etna.Committee.Member Nat Etna.Committee.Member.key r.members))
+              (And
+                (@LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0)))
+                  (Etna.Committee.totalPower r))
+                (@GT.gt Nat instLTNat
+                  (@HMul.hMul Nat Nat Nat (@instHMul Nat instMulNat)
+                    (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3)))
+                    (Etna.Committee.signedPower crypto cert r))
+                  (@HMul.hMul Nat Nat Nat (@instHMul Nat instMulNat)
+                    (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2))) (Etna.Committee.totalPower r))))))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.certificate_authority: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.certificate_authority
+-- COM-nil_absent_zero; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.nil_absent_zero
+  unless info.isTheorem do throwError "Etna.Committee.nil_absent_zero is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (crypto : Etna.Committee.Crypto) (cert : Etna.Committee.Certificate) (members : List Etna.Committee.Member)
+  (v : Etna.Committee.Vote),
+  @Ne Etna.Committee.VoteKind v.kind Etna.Committee.VoteKind.block →
+    @Eq Nat (Etna.Committee.votePower crypto cert members v) (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0)))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.nil_absent_zero: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.nil_absent_zero
+-- COM-counted_signature; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.counted_signature
+  unless info.isTheorem do throwError "Etna.Committee.counted_signature is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (crypto : Etna.Committee.Crypto) (cert : Etna.Committee.Certificate) (members : List Etna.Committee.Member)
+  (v : Etna.Committee.Vote),
+  @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0)))
+      (Etna.Committee.votePower crypto cert members v) →
+    And (@Eq Etna.Committee.VoteKind v.kind Etna.Committee.VoteKind.block)
+      (@Eq Bool (crypto.valid cert.chain cert.height cert.blockHash v.signer v.signature) Bool.true)))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.counted_signature: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.counted_signature
+-- COM-equal_two_thirds_rejected; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.equal_two_thirds_rejected
+  unless info.isTheorem do throwError "Etna.Committee.equal_two_thirds_rejected is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (crypto : Etna.Committee.Crypto) (chain h hash : Nat) (r : Etna.Committee.Record) (cert : Etna.Committee.Certificate),
+  @Eq Nat
+      (@HMul.hMul Nat Nat Nat (@instHMul Nat instMulNat) (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3)))
+        (Etna.Committee.signedPower crypto cert r))
+      (@HMul.hMul Nat Nat Nat (@instHMul Nat instMulNat) (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))
+        (Etna.Committee.totalPower r)) →
+    @Eq Bool (Etna.Committee.certificateOK crypto chain h hash r cert) Bool.false))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.equal_two_thirds_rejected: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.equal_two_thirds_rejected
+-- COM-05; explicit assumptions: ["AuthenticatedBlockFacts carry explicit anchor and payload relation evidence for each concrete block; same Context and checkpoint; successful external operations/durable reconstruction where relating real adapters."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.batch_cut_equivalent
+  unless info.isTheorem do throwError "Etna.Committee.batch_cut_equivalent is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (ctx : Etna.Committee.Context) (xs ys : List (Etna.Committee.AuthenticatedBlockFacts ctx))
+  (st : Etna.Committee.CommitteeState),
+  @Eq (Except Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates))
+    (Etna.Committee.replay ctx
+      (@HAppend.hAppend (List (Etna.Committee.AuthenticatedBlockFacts ctx))
+        (List (Etna.Committee.AuthenticatedBlockFacts ctx)) (List (Etna.Committee.AuthenticatedBlockFacts ctx))
+        (@instHAppendOfAppend (List (Etna.Committee.AuthenticatedBlockFacts ctx))
+          (@List.instAppend (Etna.Committee.AuthenticatedBlockFacts ctx)))
+        xs ys)
+      st)
+    (@Bind.bind (Except Etna.Committee.Failure)
+      (@Monad.toBind (Except Etna.Committee.Failure) (@Except.instMonad Etna.Committee.Failure))
+      (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)
+      (Prod Etna.Committee.CommitteeState Etna.Committee.Updates) (Etna.Committee.replay ctx xs st) fun __x =>
+      Etna.Committee.batch_cut_equivalent.match_1
+        (fun x => Except Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)) __x
+        fun middle u =>
+        @Bind.bind (Except Etna.Committee.Failure)
+          (@Monad.toBind (Except Etna.Committee.Failure) (@Except.instMonad Etna.Committee.Failure))
+          (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)
+          (Prod Etna.Committee.CommitteeState Etna.Committee.Updates) (Etna.Committee.replay ctx ys middle) fun __x =>
+          Etna.Committee.batch_cut_equivalent.match_1
+            (fun x => Except Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)) __x
+            fun last v =>
+            @Pure.pure (Except Etna.Committee.Failure)
+              (@Applicative.toPure (Except Etna.Committee.Failure)
+                (@Monad.toApplicative (Except Etna.Committee.Failure) (@Except.instMonad Etna.Committee.Failure)))
+              (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)
+              (@Prod.mk Etna.Committee.CommitteeState Etna.Committee.Updates last
+                (@HAppend.hAppend Etna.Committee.Updates Etna.Committee.Updates Etna.Committee.Updates
+                  (@instHAppendOfAppend Etna.Committee.Updates
+                    (@List.instAppend (Prod Etna.Committee.Record Etna.Committee.Record)))
+                  u v)))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.batch_cut_equivalent: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.batch_cut_equivalent
+-- COM-06; explicit assumptions: ["AuthenticatedBlockFacts carry explicit anchor and payload relation evidence for each concrete block; same Context and checkpoint; successful external operations/durable reconstruction where relating real adapters."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.replay_deterministic
+  unless info.isTheorem do throwError "Etna.Committee.replay_deterministic is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (ctx : Etna.Committee.Context) (xs ys : List (Etna.Committee.AuthenticatedBlockFacts ctx))
+  (st middle onlineFinal crashFinal : Etna.Committee.CommitteeState) (u v all : Etna.Committee.Updates),
+  @Eq (Except Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates))
+      (Etna.Committee.replay ctx xs st)
+      (@Except.ok Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)
+        (@Prod.mk Etna.Committee.CommitteeState Etna.Committee.Updates middle u)) →
+    @Eq (Except Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates))
+        (Etna.Committee.replay ctx ys middle)
+        (@Except.ok Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)
+          (@Prod.mk Etna.Committee.CommitteeState Etna.Committee.Updates crashFinal v)) →
+      @Eq (Except Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates))
+          (Etna.Committee.replay ctx
+            (@HAppend.hAppend (List (Etna.Committee.AuthenticatedBlockFacts ctx))
+              (List (Etna.Committee.AuthenticatedBlockFacts ctx)) (List (Etna.Committee.AuthenticatedBlockFacts ctx))
+              (@instHAppendOfAppend (List (Etna.Committee.AuthenticatedBlockFacts ctx))
+                (@List.instAppend (Etna.Committee.AuthenticatedBlockFacts ctx)))
+              xs ys)
+            st)
+          (@Except.ok Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)
+            (@Prod.mk Etna.Committee.CommitteeState Etna.Committee.Updates onlineFinal all)) →
+        And (@Eq Etna.Committee.CommitteeState onlineFinal crashFinal)
+          (@Eq Etna.Committee.Updates all
+            (@HAppend.hAppend Etna.Committee.Updates Etna.Committee.Updates Etna.Committee.Updates
+              (@instHAppendOfAppend Etna.Committee.Updates
+                (@List.instAppend (Prod Etna.Committee.Record Etna.Committee.Record)))
+              u v))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.replay_deterministic: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.replay_deterministic
+-- COM-07; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.backpressure_switch_bound
+  unless info.isTheorem do throwError "Etna.Committee.backpressure_switch_bound is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : Etna.Committee.Schedule) (t cap checkpoint : Nat),
+  @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) t →
+    @LE.le Nat instLENat
+        (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) cap
+          (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3))))
+        s.length →
+      @LE.le Nat instLENat (@HSub.hSub Nat Nat Nat (@instHSub Nat instSubNat) (Etna.Committee.S s t) checkpoint) cap →
+        @GT.gt Nat instLTNat checkpoint
+          (Etna.Committee.H s
+            (@HSub.hSub Nat Nat Nat (@instHSub Nat instSubNat) t
+              (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.backpressure_switch_bound: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.backpressure_switch_bound
+-- COM-invalid_difference_rejected; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.invalid_difference_rejected
+  unless info.isTheorem do throwError "Etna.Committee.invalid_difference_rejected is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (dMax margin : Nat),
+  @LT.lt Nat instLTNat dMax margin → @Eq (Option Nat) (Etna.Committee.unsettledCap dMax margin) (@Option.none Nat)))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.invalid_difference_rejected: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.invalid_difference_rejected
+-- COM-cap_overflow_rejected; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.cap_overflow_rejected
+  unless info.isTheorem do throwError "Etna.Committee.cap_overflow_rejected is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : Etna.Committee.Schedule) (cap : Nat),
+  @LE.le Nat instLENat (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3))) s.length →
+    @LT.lt Nat instLTNat Etna.Committee.max64
+        (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) cap
+          (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3)))) →
+      @Eq (Except Etna.Committee.ScheduleError Unit) (Etna.Committee.validate s cap)
+        (@Except.error Etna.Committee.ScheduleError Unit Etna.Committee.ScheduleError.shorterThanCap)))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.cap_overflow_rejected: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.cap_overflow_rejected
+-- COM-counted_signature_genuine; explicit assumptions: ["Crypto.sound for exact chain/height/block/key/signature."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.counted_signature_genuine
+  unless info.isTheorem do throwError "Etna.Committee.counted_signature_genuine is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (crypto : Etna.Committee.Crypto) (cert : Etna.Committee.Certificate) (members : List Etna.Committee.Member)
+  (v : Etna.Committee.Vote),
+  @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0)))
+      (Etna.Committee.votePower crypto cert members v) →
+    crypto.genuine cert.chain cert.height cert.blockHash v.signer v.signature))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.counted_signature_genuine: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.counted_signature_genuine
+-- COM-derivation_parent_is_D; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.derivation_parent_is_D
+  unless info.isTheorem do throwError "Etna.Committee.derivation_parent_is_D is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : Etna.Committee.Schedule) (t parent : Nat),
+  @LE.le Nat instLENat (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3))) s.length →
+    @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) t →
+      @LE.le Nat instLENat (Etna.Committee.H s t) Etna.Committee.max64 →
+        @Eq (Option Nat)
+            (Etna.Committee.switchTarget s
+              (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) parent
+                (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))))
+            (@Option.some Nat t) →
+          @Eq Nat parent (Etna.Committee.D s t)))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.derivation_parent_is_D: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.derivation_parent_is_D
+-- COM-step_backpressure; explicit assumptions: ["AuthenticatedBlockFacts carry explicit anchor and payload relation evidence for each concrete block; same Context and checkpoint; successful external operations/durable reconstruction where relating real adapters."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.step_backpressure
+  unless info.isTheorem do throwError "Etna.Committee.step_backpressure is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (ctx : Etna.Committee.Context) (st next : Etna.Committee.CommitteeState)
+  (b : Etna.Committee.AuthenticatedBlockFacts ctx) (updates : Etna.Committee.Updates),
+  @Eq (Except Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates))
+      (Etna.Committee.step ctx st b)
+      (@Except.ok Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)
+        (@Prod.mk Etna.Committee.CommitteeState Etna.Committee.Updates next updates)) →
+    @LE.le Nat instLENat
+      (@HSub.hSub Nat Nat Nat (@instHSub Nat instSubNat) (@Etna.Committee.AuthenticatedBlockFacts.facts ctx b).height
+        (@Etna.Committee.AuthenticatedBlockFacts.facts ctx b).anchor.checkpoint)
+      ctx.cap))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.step_backpressure: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.step_backpressure
+-- COM-conflict_rejected; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.conflict_rejected
+  unless info.isTheorem do throwError "Etna.Committee.conflict_rejected is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : Etna.Committee.Schedule) (h t : Nat) (outgoing incoming : Bool),
+  @Eq (Except Etna.Committee.Failure Etna.Committee.Plan)
+    (Etna.Committee.plan s h (Etna.Committee.Relation.conflict t) outgoing incoming)
+    (@Except.error Etna.Committee.Failure Etna.Committee.Plan (Etna.Committee.Failure.conflict t))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.conflict_rejected: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.conflict_rejected
+-- COM-no_nonswitch_updates; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.no_nonswitch_updates
+  unless info.isTheorem do throwError "Etna.Committee.no_nonswitch_updates is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : Etna.Committee.Schedule) (h : Nat) (r : Etna.Committee.Relation) (outgoing incoming : Bool)
+  (p : Etna.Committee.Plan),
+  @Eq (Option Nat) (Etna.Committee.switchTarget s h) (@Option.none Nat) →
+    @Eq (Except Etna.Committee.Failure Etna.Committee.Plan) (Etna.Committee.plan s h r outgoing incoming)
+        (@Except.ok Etna.Committee.Failure Etna.Committee.Plan p) →
+      @Eq (Option Etna.Committee.Switch) p.switch (@Option.none Etna.Committee.Switch)))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.no_nonswitch_updates: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.no_nonswitch_updates
+-- COM-checked_schedule_domain; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.checked_schedule_domain
+  unless info.isTheorem do throwError "Etna.Committee.checked_schedule_domain is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : Etna.Committee.Schedule) (t : Nat),
+  @LE.le Nat instLENat (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3))) s.length →
+    @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) t →
+      @LE.le Nat instLENat (Etna.Committee.H s t) Etna.Committee.max64 →
+        And (@Eq (Option Nat) (Etna.Committee.first s t) (@Option.some Nat (Etna.Committee.H s t)))
+          (@Eq (Option Nat) (Etna.Committee.parentHeight s t) (@Option.some Nat (Etna.Committee.D s t)))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.checked_schedule_domain: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.checked_schedule_domain
+-- COM-activation_boundary; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.activation_boundary
+  unless info.isTheorem do throwError "Etna.Committee.activation_boundary is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : Etna.Committee.Schedule) (st : Etna.Committee.CommitteeState) (t : Nat),
+  @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) s.length →
+    @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) t →
+      And
+        (@Eq (Option Etna.Committee.Record)
+          (Etna.Committee.authority s st
+            (@HSub.hSub Nat Nat Nat (@instHSub Nat instSubNat) (Etna.Committee.H s t)
+              (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))))
+          (Etna.Committee.lookup st.records
+            (@HSub.hSub Nat Nat Nat (@instHSub Nat instSubNat) t
+              (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))))
+        (@Eq (Option Etna.Committee.Record) (Etna.Committee.authority s st (Etna.Committee.H s t))
+          (Etna.Committee.lookup st.records t))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.activation_boundary: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.activation_boundary
+-- COM-step_missing_authority; explicit assumptions: ["AuthenticatedBlockFacts carry explicit anchor and payload relation evidence for each concrete block; same Context and checkpoint; successful external operations/durable reconstruction where relating real adapters."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.step_missing_authority
+  unless info.isTheorem do throwError "Etna.Committee.step_missing_authority is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (ctx : Etna.Committee.Context) (st : Etna.Committee.CommitteeState) (b : Etna.Committee.AuthenticatedBlockFacts ctx),
+  @Eq Nat (@Etna.Committee.AuthenticatedBlockFacts.facts ctx b).height
+      (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) st.height
+        (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))) →
+    @Eq Nat (@Etna.Committee.AuthenticatedBlockFacts.facts ctx b).chain ctx.chain →
+      @Eq Etna.Committee.Hash (@Etna.Committee.AuthenticatedBlockFacts.facts ctx b).parentHash st.blockHash →
+        @Eq (Option Etna.Committee.Record)
+            (Etna.Committee.authority ctx.schedule st (@Etna.Committee.AuthenticatedBlockFacts.facts ctx b).height)
+            (@Option.none Etna.Committee.Record) →
+          @Eq (Except Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates))
+            (Etna.Committee.step ctx st b)
+            (@Except.error Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)
+              (Etna.Committee.Failure.unknown
+                (@Option.getD Nat
+                  (Etna.Committee.epochOf ctx.schedule (@Etna.Committee.AuthenticatedBlockFacts.facts ctx b).height)
+                  (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.step_missing_authority: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.step_missing_authority
+-- COM-comet_activation_exact; explicit assumptions: ["CometAdapter.appliesAfterTwo: external observed validator authority follows Comet update-at-h/apply-at-h+2 semantics; schedule spacing itself is kernel-proved."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.comet_activation_exact
+  unless info.isTheorem do throwError "Etna.Committee.comet_activation_exact is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (adapter : Etna.Committee.CometAdapter) (s : Etna.Committee.Schedule) (t h : Nat)
+  (outgoing incoming : Etna.Committee.Record),
+  @LE.le Nat instLENat (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3))) s.length →
+    @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) t →
+      @LE.le Nat instLENat (Etna.Committee.H s t) Etna.Committee.max64 →
+        @Eq Etna.Committee.Record (adapter.observed (Etna.Committee.S s t) outgoing incoming h)
+          (@ite Etna.Committee.Record (@LT.lt Nat instLTNat h (Etna.Committee.H s t)) (h.decLt (Etna.Committee.H s t))
+            outgoing incoming)))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.comet_activation_exact: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.comet_activation_exact
+-- COM-valid_first_transition; explicit assumptions: ["Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.Examples.valid_first_transition
+  unless info.isTheorem do throwError "Etna.Committee.Examples.valid_first_transition is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(And
+  (@Eq (Except Etna.Committee.ScheduleError Unit)
+    (Etna.Committee.validate Etna.Committee.Examples.ordinary
+      (@OfNat.ofNat Nat (nat_lit 10) (instOfNatNat (nat_lit 10))))
+    (@Except.ok Etna.Committee.ScheduleError Unit Unit.unit))
+  (And
+    (@Eq (Option Nat)
+      (Etna.Committee.first Etna.Committee.Examples.ordinary (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))
+      (@Option.some Nat (@OfNat.ofNat Nat (nat_lit 21) (instOfNatNat (nat_lit 21)))))
+    (And
+      (@Eq (Option Nat)
+        (Etna.Committee.parentHeight Etna.Committee.Examples.ordinary
+          (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))
+        (@Option.some Nat (@OfNat.ofNat Nat (nat_lit 18) (instOfNatNat (nat_lit 18)))))
+      (And
+        (@Eq (Option Nat)
+          (Etna.Committee.switchTarget Etna.Committee.Examples.ordinary
+            (@OfNat.ofNat Nat (nat_lit 19) (instOfNatNat (nat_lit 19))))
+          (@Option.some Nat (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))))
+        (@Eq (Option Nat)
+          (Etna.Committee.l1First Etna.Committee.Examples.ordinary
+            (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))
+          (@Option.some Nat (@OfNat.ofNat Nat (nat_lit 65) (instOfNatNat (nat_lit 65))))))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.Examples.valid_first_transition: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.Examples.valid_first_transition
+-- COM-accepted_l1_overflow; explicit assumptions: ["Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.Examples.accepted_l1_overflow
+  unless info.isTheorem do throwError "Etna.Committee.Examples.accepted_l1_overflow is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(And
+  (@Eq (Except Etna.Committee.ScheduleError Unit)
+    (Etna.Committee.validate Etna.Committee.Examples.l1Overflow
+      (@OfNat.ofNat Nat (nat_lit 10) (instOfNatNat (nat_lit 10))))
+    (@Except.ok Etna.Committee.ScheduleError Unit Unit.unit))
+  (@Eq (Option Nat)
+    (Etna.Committee.l1First Etna.Committee.Examples.l1Overflow
+      (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))
+    (@Option.none Nat))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.Examples.accepted_l1_overflow: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.Examples.accepted_l1_overflow
+-- COM-accepted_l2_overflow; explicit assumptions: ["Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.Examples.accepted_l2_overflow
+  unless info.isTheorem do throwError "Etna.Committee.Examples.accepted_l2_overflow is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(And
+  (@Eq (Except Etna.Committee.ScheduleError Unit)
+    (Etna.Committee.validate Etna.Committee.Examples.l2Overflow
+      (@OfNat.ofNat Nat (nat_lit 10) (instOfNatNat (nat_lit 10))))
+    (@Except.ok Etna.Committee.ScheduleError Unit Unit.unit))
+  (@Eq (Option Nat)
+    (Etna.Committee.first Etna.Committee.Examples.l2Overflow (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))
+    (@Option.none Nat))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.Examples.accepted_l2_overflow: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.Examples.accepted_l2_overflow
+-- COM-intermediate_last_overflow; explicit assumptions: ["Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.Examples.intermediate_last_overflow
+  unless info.isTheorem do throwError "Etna.Committee.Examples.intermediate_last_overflow is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(And
+  (@Eq (Option Nat)
+    (Etna.Committee.last Etna.Committee.Examples.minimal
+      (@OfNat.ofNat Nat (nat_lit 6148914691236517204) (instOfNatNat (nat_lit 6148914691236517204))))
+    (@Option.none Nat))
+  (@Eq Nat
+    (@HMul.hMul Nat Nat Nat (@instHMul Nat instMulNat)
+      (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat)
+        (@OfNat.ofNat Nat (nat_lit 6148914691236517204) (instOfNatNat (nat_lit 6148914691236517204)))
+        (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))
+      Etna.Committee.Examples.minimal.length)
+    Etna.Committee.max64)))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.Examples.intermediate_last_overflow: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.Examples.intermediate_last_overflow
+-- COM-next_is_not_representable_switch; explicit assumptions: ["Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.Examples.next_is_not_representable_switch
+  unless info.isTheorem do throwError "Etna.Committee.Examples.next_is_not_representable_switch is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(And
+  (@Eq (Option Nat)
+    (Etna.Committee.nextSwitch Etna.Committee.Examples.minimal
+      (@HSub.hSub Nat Nat Nat (@instHSub Nat instSubNat) Etna.Committee.max64
+        (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))))
+    (@Option.some Nat (@OfNat.ofNat Nat (nat_lit 6148914691236517205) (instOfNatNat (nat_lit 6148914691236517205)))))
+  (@Eq (Option Nat)
+    (Etna.Committee.switchTarget Etna.Committee.Examples.minimal
+      (@HSub.hSub Nat Nat Nat (@instHSub Nat instSubNat) Etna.Committee.max64
+        (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))))
+    (@Option.none Nat))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.Examples.next_is_not_representable_switch: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.Examples.next_is_not_representable_switch
+-- COM-epoch_zero_special; explicit assumptions: ["Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.Examples.epoch_zero_special
+  unless info.isTheorem do throwError "Etna.Committee.Examples.epoch_zero_special is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(And
+  (@Eq (Option Nat)
+    (Etna.Committee.epochOf Etna.Committee.Examples.minimal (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))))
+    (@Option.some Nat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0)))))
+  (And
+    (@Eq (Option Nat)
+      (Etna.Committee.startingAt Etna.Committee.Examples.minimal
+        (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))))
+      (@Option.none Nat))
+    (@Eq (Option Nat)
+      (Etna.Committee.parentHeight Etna.Committee.Examples.minimal
+        (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))))
+      (@Option.none Nat)))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.Examples.epoch_zero_special: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.Examples.epoch_zero_special
+-- COM-rust_accepted_l1_overflow; explicit assumptions: ["Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.Examples.rust_accepted_l1_overflow
+  unless info.isTheorem do throwError "Etna.Committee.Examples.rust_accepted_l1_overflow is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(And
+  (@Eq (Aeneas.Std.Result (Aeneas.Std.core.result.Result Unit etna_consensus_core.schedule.ScheduleError))
+    (Etna.Committee.Examples.rustL1Overflow.validate
+      (Aeneas.Std.U64.ofNat (@OfNat.ofNat Nat (nat_lit 10) (instOfNatNat (nat_lit 10)))
+        Etna.Committee.Examples.rust_accepted_l1_overflow._proof_1))
+    (@Aeneas.Std.Result.ok (Aeneas.Std.core.result.Result Unit etna_consensus_core.schedule.ScheduleError)
+      (@Aeneas.Std.core.result.Result.Ok Unit etna_consensus_core.schedule.ScheduleError Unit.unit)))
+  (@Eq (Aeneas.Std.Result (Option Aeneas.Std.U64))
+    (Etna.Committee.Examples.rustL1Overflow.checked_l1_first
+      (Aeneas.Std.U64.ofNat (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))
+        Etna.Committee.Examples.rustL2Overflow._proof_1))
+    (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64) (@Option.none Aeneas.Std.U64)))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.Examples.rust_accepted_l1_overflow: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.Examples.rust_accepted_l1_overflow
+-- COM-rust_accepted_l2_overflow; explicit assumptions: ["Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.Examples.rust_accepted_l2_overflow
+  unless info.isTheorem do throwError "Etna.Committee.Examples.rust_accepted_l2_overflow is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(And
+  (@Eq (Aeneas.Std.Result (Aeneas.Std.core.result.Result Unit etna_consensus_core.schedule.ScheduleError))
+    (Etna.Committee.Examples.rustL2Overflow.validate
+      (Aeneas.Std.U64.ofNat (@OfNat.ofNat Nat (nat_lit 10) (instOfNatNat (nat_lit 10)))
+        Etna.Committee.Examples.rust_accepted_l1_overflow._proof_1))
+    (@Aeneas.Std.Result.ok (Aeneas.Std.core.result.Result Unit etna_consensus_core.schedule.ScheduleError)
+      (@Aeneas.Std.core.result.Result.Ok Unit etna_consensus_core.schedule.ScheduleError Unit.unit)))
+  (@Eq (Aeneas.Std.Result (Option Aeneas.Std.U64))
+    (Etna.Committee.Examples.rustL2Overflow.h_first
+      (Aeneas.Std.U64.ofNat (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))
+        Etna.Committee.Examples.rustL2Overflow._proof_1))
+    (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64) (@Option.none Aeneas.Std.U64)))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.Examples.rust_accepted_l2_overflow: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.Examples.rust_accepted_l2_overflow
+-- COM-rust_valid_first_transition; explicit assumptions: ["Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.Examples.rust_valid_first_transition
+  unless info.isTheorem do throwError "Etna.Committee.Examples.rust_valid_first_transition is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(And
+  (@Eq (Aeneas.Std.Result (Aeneas.Std.core.result.Result Unit etna_consensus_core.schedule.ScheduleError))
+    (Etna.Committee.Examples.rustOrdinary.validate
+      (Aeneas.Std.U64.ofNat (@OfNat.ofNat Nat (nat_lit 10) (instOfNatNat (nat_lit 10)))
+        Etna.Committee.Examples.rust_accepted_l1_overflow._proof_1))
+    (@Aeneas.Std.Result.ok (Aeneas.Std.core.result.Result Unit etna_consensus_core.schedule.ScheduleError)
+      (@Aeneas.Std.core.result.Result.Ok Unit etna_consensus_core.schedule.ScheduleError Unit.unit)))
+  (And
+    (@Eq (Aeneas.Std.Result (Option Aeneas.Std.U64))
+      (Etna.Committee.Examples.rustOrdinary.h_first
+        (Aeneas.Std.U64.ofNat (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))
+          Etna.Committee.Examples.rustL2Overflow._proof_1))
+      (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64)
+        (@Option.some Aeneas.Std.U64
+          (Aeneas.Std.U64.ofNat (@OfNat.ofNat Nat (nat_lit 21) (instOfNatNat (nat_lit 21)))
+            Etna.Committee.Examples.rust_valid_first_transition._proof_1))))
+    (@Eq (Aeneas.Std.Result (Option Aeneas.Std.U64))
+      (Etna.Committee.Examples.rustOrdinary.checked_l1_first
+        (Aeneas.Std.U64.ofNat (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))
+          Etna.Committee.Examples.rustL2Overflow._proof_1))
+      (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64)
+        (@Option.some Aeneas.Std.U64
+          (Aeneas.Std.U64.ofNat (@OfNat.ofNat Nat (nat_lit 65) (instOfNatNat (nat_lit 65)))
+            Etna.Committee.Examples.rust_valid_first_transition._proof_2)))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.Examples.rust_valid_first_transition: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.Examples.rust_valid_first_transition
+-- COM-nonempty_switch_replay; explicit assumptions: ["Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.Examples.nonempty_switch_replay
+  unless info.isTheorem do throwError "Etna.Committee.Examples.nonempty_switch_replay is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(@Eq (Except Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates))
+  (Etna.Committee.replay Etna.Committee.Examples.ctx Etna.Committee.Examples.history Etna.Committee.Examples.initial)
+  (@Except.ok Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)
+    (@Prod.mk Etna.Committee.CommitteeState Etna.Committee.Updates Etna.Committee.Examples.finalState
+      (@List.cons (Prod Etna.Committee.Record Etna.Committee.Record)
+        (@Prod.mk Etna.Committee.Record Etna.Committee.Record Etna.Committee.Examples.outgoingRecord
+          Etna.Committee.Examples.incomingRecord)
+        (@List.nil (Prod Etna.Committee.Record Etna.Committee.Record)))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.Examples.nonempty_switch_replay: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.Examples.nonempty_switch_replay
+-- COM-missing_pending_scalar; explicit assumptions: ["Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.Examples.missing_pending_scalar
+  unless info.isTheorem do throwError "Etna.Committee.Examples.missing_pending_scalar is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(@Eq (Except Etna.Committee.Failure Etna.Committee.Plan)
+  (Etna.Committee.plan Etna.Committee.Examples.schedule (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5)))
+    Etna.Committee.Relation.none Bool.true Bool.false)
+  (@Except.error Etna.Committee.Failure Etna.Committee.Plan
+    (Etna.Committee.Failure.unknown (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.Examples.missing_pending_scalar: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.Examples.missing_pending_scalar
+-- COM-empty_incoming_rejected; explicit assumptions: ["Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.Examples.empty_incoming_rejected
+  unless info.isTheorem do throwError "Etna.Committee.Examples.empty_incoming_rejected is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(@Eq (Except Etna.Committee.Failure (Option Etna.Committee.Record))
+  (Etna.Committee.incoming Etna.Committee.Examples.emptyAuth Etna.Committee.Examples.schedule
+    Etna.Committee.Examples.initial.anchor (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5)))
+    (@Option.some Etna.Committee.Witness
+      { snapshot := Etna.Committee.Examples.snap,
+        proof := @List.cons Nat (@OfNat.ofNat Nat (nat_lit 42) (instOfNatNat (nat_lit 42))) (@List.nil Nat) }))
+  (@Except.error Etna.Committee.Failure (Option Etna.Committee.Record) Etna.Committee.Failure.empty)))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.Examples.empty_incoming_rejected: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.Examples.empty_incoming_rejected
+-- COM-zero_cap_bootstrap; explicit assumptions: ["Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.Examples.zero_cap_bootstrap
+  unless info.isTheorem do throwError "Etna.Committee.Examples.zero_cap_bootstrap is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(And
+  (@Eq (Except Etna.Committee.ScheduleError Unit)
+    (Etna.Committee.validate Etna.Committee.Examples.schedule (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))))
+    (@Except.ok Etna.Committee.ScheduleError Unit Unit.unit))
+  (And
+    (@Eq (Option Nat)
+      (Etna.Committee.unsettledCap (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))
+        (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2))))
+      (@Option.some Nat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0)))))
+    (@Eq (Except Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates))
+      (Etna.Committee.step Etna.Committee.Examples.stopped Etna.Committee.Examples.initial
+        Etna.Committee.Examples.firstStopped)
+      (@Except.error Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)
+        Etna.Committee.Failure.backPressure)))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.Examples.zero_cap_bootstrap: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.Examples.zero_cap_bootstrap
+-- COM-zero_cap_ahead_checkpoint; explicit assumptions: ["Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.Examples.zero_cap_ahead_checkpoint
+  unless info.isTheorem do throwError "Etna.Committee.Examples.zero_cap_ahead_checkpoint is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(@LE.le Nat instLENat
+  (@HSub.hSub Nat Nat Nat (@instHSub Nat instSubNat) (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))
+    (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2))))
+  (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0)))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.Examples.zero_cap_ahead_checkpoint: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.Examples.zero_cap_ahead_checkpoint
+-- COM-nonempty_activation_pair; explicit assumptions: ["Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Committee.Examples.nonempty_activation_pair
+  unless info.isTheorem do throwError "Etna.Committee.Examples.nonempty_activation_pair is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(And
+  (@Eq Etna.Committee.Record
+    (Etna.Committee.Examples.concreteComet.observed (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5)))
+      Etna.Committee.Examples.outgoingRecord Etna.Committee.Examples.incomingRecord
+      (@OfNat.ofNat Nat (nat_lit 6) (instOfNatNat (nat_lit 6))))
+    Etna.Committee.Examples.outgoingRecord)
+  (@Eq Etna.Committee.Record
+    (Etna.Committee.Examples.concreteComet.observed (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5)))
+      Etna.Committee.Examples.outgoingRecord Etna.Committee.Examples.incomingRecord
+      (@OfNat.ofNat Nat (nat_lit 7) (instOfNatNat (nat_lit 7))))
+    Etna.Committee.Examples.incomingRecord)))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Committee.Examples.nonempty_activation_pair: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Committee.Examples.nonempty_activation_pair
+-- COM-checked_add; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.checked_add
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.checked_add is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (a b : Aeneas.Std.U64),
+  @Eq (Option Aeneas.Std.U64) (a.checked_add b)
+    (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word
+      (Etna.Committee.add (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 a)
+        (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 b)))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.checked_add: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.checked_add
+-- COM-checked_mul; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.checked_mul
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.checked_mul is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (a b : Aeneas.Std.U64),
+  @Eq (Option Aeneas.Std.U64) (a.checked_mul b)
+    (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word
+      (Etna.Committee.mul (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 a)
+        (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 b)))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.checked_mul: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.checked_mul
+-- COM-checked_sub; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.checked_sub
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.checked_sub is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (a b : Aeneas.Std.U64),
+  @Eq (Option Aeneas.Std.U64) (a.checked_sub b)
+    (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word
+      (Etna.Committee.sub (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 a)
+        (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 b)))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.checked_sub: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.checked_sub
+-- COM-checked_div; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.checked_div
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.checked_div is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (a b : Aeneas.Std.U64),
+  @Eq (Option Aeneas.Std.U64) (a.checked_div b)
+    (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word
+      (Etna.Committee.div (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 a)
+        (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 b)))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.checked_div: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.checked_div
+-- COM-checked_bound; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.checked_bound
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.checked_bound is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {n v : Nat},
+  @Eq (Option Nat) (Etna.Committee.checked n) (@Option.some Nat v) →
+    @LT.lt Nat instLTNat v
+      (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))
+        (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))
+        (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.checked_bound: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.checked_bound
+-- COM-rust_validate_refines; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.rust_validate_refines
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.rust_validate_refines is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : etna_consensus_core.schedule.Schedule) (cap : Aeneas.Std.U64),
+  @Eq (Aeneas.Std.Result (Aeneas.Std.core.result.Result Unit etna_consensus_core.schedule.ScheduleError))
+    (s.validate cap)
+    (@Aeneas.Std.Result.ok (Aeneas.Std.core.result.Result Unit etna_consensus_core.schedule.ScheduleError)
+      (Etna.Refinement.Rust.Committee.scheduleResult
+        (Etna.Committee.validate (Etna.Refinement.Rust.Committee.schedule s)
+          (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 cap))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.rust_validate_refines: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.rust_validate_refines
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.rust_validate_refines
+  Lean.Meta.forallTelescopeReducing info.type fun _ body => do
+    let body ← Lean.Meta.whnf body
+    unless body.isAppOfArity ``Eq 3 do
+      throwError "refinement must be an exact total output equality"
+    let args := body.getAppArgs
+    unless args[1]!.getAppFn.isConstOf `etna_consensus_core.schedule.Schedule.validate do
+      throwError "refinement left side must call the generated function"
+    unless args[2]!.getAppFn.isConstOf ``Aeneas.Std.Result.ok do
+      throwError "refinement right side must be outer Result.ok"
+-- COM-word_small; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.word_small
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.word_small is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {n : Nat},
+  @LT.lt Nat instLTNat n
+      (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))
+        (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))
+        (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64)))) →
+    @Eq Nat (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 (Etna.Refinement.Rust.word n)) n))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.word_small: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.word_small
+-- COM-rust_first_refines; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.rust_first_refines
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.rust_first_refines is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : etna_consensus_core.schedule.Schedule) (t : Aeneas.Std.U64),
+  @Eq (Aeneas.Std.Result (Option Aeneas.Std.U64)) (s.h_first t)
+    (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64)
+      (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word
+        (Etna.Committee.first (Etna.Refinement.Rust.Committee.schedule s)
+          (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 t))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.rust_first_refines: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.rust_first_refines
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.rust_first_refines
+  Lean.Meta.forallTelescopeReducing info.type fun _ body => do
+    let body ← Lean.Meta.whnf body
+    unless body.isAppOfArity ``Eq 3 do
+      throwError "refinement must be an exact total output equality"
+    let args := body.getAppArgs
+    unless args[1]!.getAppFn.isConstOf `etna_consensus_core.schedule.Schedule.h_first do
+      throwError "refinement left side must call the generated function"
+    unless args[2]!.getAppFn.isConstOf ``Aeneas.Std.Result.ok do
+      throwError "refinement right side must be outer Result.ok"
+-- COM-first_bound; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.first_bound
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.first_bound is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {s : Etna.Committee.Schedule} {t v : Nat},
+  @Eq (Option Nat) (Etna.Committee.first s t) (@Option.some Nat v) →
+    @LT.lt Nat instLTNat v
+      (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))
+        (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))
+        (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.first_bound: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.first_bound
+-- COM-rust_last_refines; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.rust_last_refines
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.rust_last_refines is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : etna_consensus_core.schedule.Schedule) (t : Aeneas.Std.U64),
+  @Eq (Aeneas.Std.Result (Option Aeneas.Std.U64)) (s.h_last t)
+    (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64)
+      (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word
+        (Etna.Committee.last (Etna.Refinement.Rust.Committee.schedule s)
+          (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 t))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.rust_last_refines: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.rust_last_refines
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.rust_last_refines
+  Lean.Meta.forallTelescopeReducing info.type fun _ body => do
+    let body ← Lean.Meta.whnf body
+    unless body.isAppOfArity ``Eq 3 do
+      throwError "refinement must be an exact total output equality"
+    let args := body.getAppArgs
+    unless args[1]!.getAppFn.isConstOf `etna_consensus_core.schedule.Schedule.h_last do
+      throwError "refinement left side must call the generated function"
+    unless args[2]!.getAppFn.isConstOf ``Aeneas.Std.Result.ok do
+      throwError "refinement right side must be outer Result.ok"
+-- COM-rust_l1First_refines; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.rust_l1First_refines
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.rust_l1First_refines is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : etna_consensus_core.schedule.Schedule) (t : Aeneas.Std.U64),
+  @Eq (Aeneas.Std.Result (Option Aeneas.Std.U64)) (s.checked_l1_first t)
+    (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64)
+      (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word
+        (Etna.Committee.l1First (Etna.Refinement.Rust.Committee.schedule s)
+          (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 t))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.rust_l1First_refines: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.rust_l1First_refines
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.rust_l1First_refines
+  Lean.Meta.forallTelescopeReducing info.type fun _ body => do
+    let body ← Lean.Meta.whnf body
+    unless body.isAppOfArity ``Eq 3 do
+      throwError "refinement must be an exact total output equality"
+    let args := body.getAppArgs
+    unless args[1]!.getAppFn.isConstOf `etna_consensus_core.schedule.Schedule.checked_l1_first do
+      throwError "refinement left side must call the generated function"
+    unless args[2]!.getAppFn.isConstOf ``Aeneas.Std.Result.ok do
+      throwError "refinement right side must be outer Result.ok"
+-- COM-rust_parent_refines; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.rust_parent_refines
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.rust_parent_refines is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : etna_consensus_core.schedule.Schedule) (t : Aeneas.Std.U64),
+  @Eq (Aeneas.Std.Result (Option Aeneas.Std.U64)) (s.derivation_parent_height t)
+    (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64)
+      (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word
+        (Etna.Committee.parentHeight (Etna.Refinement.Rust.Committee.schedule s)
+          (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 t))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.rust_parent_refines: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.rust_parent_refines
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.rust_parent_refines
+  Lean.Meta.forallTelescopeReducing info.type fun _ body => do
+    let body ← Lean.Meta.whnf body
+    unless body.isAppOfArity ``Eq 3 do
+      throwError "refinement must be an exact total output equality"
+    let args := body.getAppArgs
+    unless args[1]!.getAppFn.isConstOf `etna_consensus_core.schedule.Schedule.derivation_parent_height do
+      throwError "refinement left side must call the generated function"
+    unless args[2]!.getAppFn.isConstOf ``Aeneas.Std.Result.ok do
+      throwError "refinement right side must be outer Result.ok"
+-- COM-saturating_val; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.saturating_val
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.saturating_val is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (h : Aeneas.Std.U64),
+  @Eq Nat
+    (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64
+      (Aeneas.Std.core.num.U64.saturating_sub h
+        (Aeneas.Std.U64.ofNat (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))
+          Etna.Refinement.Rust.Committee.saturating_val._proof_1)))
+    (@HSub.hSub Nat Nat Nat (@instHSub Nat instSubNat) (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 h)
+      (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.saturating_val: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.saturating_val
+-- COM-rust_epoch_refines; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.rust_epoch_refines
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.rust_epoch_refines is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : etna_consensus_core.schedule.Schedule) (h : Aeneas.Std.U64),
+  @Eq (Aeneas.Std.Result (Option Aeneas.Std.U64)) (s.epoch_of h)
+    (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64)
+      (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word
+        (Etna.Committee.epochOf (Etna.Refinement.Rust.Committee.schedule s)
+          (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 h))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.rust_epoch_refines: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.rust_epoch_refines
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.rust_epoch_refines
+  Lean.Meta.forallTelescopeReducing info.type fun _ body => do
+    let body ← Lean.Meta.whnf body
+    unless body.isAppOfArity ``Eq 3 do
+      throwError "refinement must be an exact total output equality"
+    let args := body.getAppArgs
+    unless args[1]!.getAppFn.isConstOf `etna_consensus_core.schedule.Schedule.epoch_of do
+      throwError "refinement left side must call the generated function"
+    unless args[2]!.getAppFn.isConstOf ``Aeneas.Std.Result.ok do
+      throwError "refinement right side must be outer Result.ok"
+-- COM-sub_bound; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.sub_bound
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.sub_bound is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {a b v : Nat},
+  @Eq (Option Nat) (Etna.Committee.sub a b) (@Option.some Nat v) →
+    @LT.lt Nat instLTNat a
+        (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))
+          (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))
+          (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64)))) →
+      @LT.lt Nat instLTNat v
+        (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))
+          (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))
+          (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.sub_bound: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.sub_bound
+-- COM-rust_starting_refines; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.rust_starting_refines
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.rust_starting_refines is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : etna_consensus_core.schedule.Schedule) (h : Aeneas.Std.U64),
+  @Eq (Aeneas.Std.Result (Option Aeneas.Std.U64)) (s.epoch_starting_at h)
+    (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64)
+      (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word
+        (Etna.Committee.startingAt (Etna.Refinement.Rust.Committee.schedule s)
+          (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 h))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.rust_starting_refines: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.rust_starting_refines
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.rust_starting_refines
+  Lean.Meta.forallTelescopeReducing info.type fun _ body => do
+    let body ← Lean.Meta.whnf body
+    unless body.isAppOfArity ``Eq 3 do
+      throwError "refinement must be an exact total output equality"
+    let args := body.getAppArgs
+    unless args[1]!.getAppFn.isConstOf `etna_consensus_core.schedule.Schedule.epoch_starting_at do
+      throwError "refinement left side must call the generated function"
+    unless args[2]!.getAppFn.isConstOf ``Aeneas.Std.Result.ok do
+      throwError "refinement right side must be outer Result.ok"
+-- COM-starting_bound; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.starting_bound
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.starting_bound is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {s : Etna.Committee.Schedule} {h t : Nat},
+  @Eq (Option Nat) (Etna.Committee.startingAt s h) (@Option.some Nat t) →
+    @LT.lt Nat instLTNat h
+        (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))
+          (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))
+          (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64)))) →
+      @LT.lt Nat instLTNat t
+        (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))
+          (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))
+          (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.starting_bound: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.starting_bound
+-- COM-rust_switch_refines; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.rust_switch_refines
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.rust_switch_refines is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : etna_consensus_core.schedule.Schedule) (h : Aeneas.Std.U64),
+  @Eq (Aeneas.Std.Result (Option Aeneas.Std.U64)) (s.switch_target h)
+    (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64)
+      (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word
+        (Etna.Committee.switchTarget (Etna.Refinement.Rust.Committee.schedule s)
+          (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 h))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.rust_switch_refines: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.rust_switch_refines
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.rust_switch_refines
+  Lean.Meta.forallTelescopeReducing info.type fun _ body => do
+    let body ← Lean.Meta.whnf body
+    unless body.isAppOfArity ``Eq 3 do
+      throwError "refinement must be an exact total output equality"
+    let args := body.getAppArgs
+    unless args[1]!.getAppFn.isConstOf `etna_consensus_core.schedule.Schedule.switch_target do
+      throwError "refinement left side must call the generated function"
+    unless args[2]!.getAppFn.isConstOf ``Aeneas.Std.Result.ok do
+      throwError "refinement right side must be outer Result.ok"
+-- COM-epoch_bound; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.epoch_bound
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.epoch_bound is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {s : Etna.Committee.Schedule} {h t : Nat},
+  @Eq (Option Nat) (Etna.Committee.epochOf s h) (@Option.some Nat t) →
+    @LT.lt Nat instLTNat h
+        (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))
+          (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))
+          (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64)))) →
+      @LT.lt Nat instLTNat t
+        (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))
+          (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))
+          (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.epoch_bound: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.epoch_bound
+-- COM-rust_next_refines; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.rust_next_refines
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.rust_next_refines is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : etna_consensus_core.schedule.Schedule) (h : Aeneas.Std.U64),
+  @Eq (Aeneas.Std.Result (Option Aeneas.Std.U64)) (s.next_switch_target h)
+    (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64)
+      (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word
+        (Etna.Committee.nextSwitch (Etna.Refinement.Rust.Committee.schedule s)
+          (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 h))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.rust_next_refines: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.rust_next_refines
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.rust_next_refines
+  Lean.Meta.forallTelescopeReducing info.type fun _ body => do
+    let body ← Lean.Meta.whnf body
+    unless body.isAppOfArity ``Eq 3 do
+      throwError "refinement must be an exact total output equality"
+    let args := body.getAppArgs
+    unless args[1]!.getAppFn.isConstOf `etna_consensus_core.schedule.Schedule.next_switch_target do
+      throwError "refinement left side must call the generated function"
+    unless args[2]!.getAppFn.isConstOf ``Aeneas.Std.Result.ok do
+      throwError "refinement right side must be outer Result.ok"
+-- COM-rust_quorum_refines; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.rust_quorum_refines
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.rust_quorum_refines is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (signed total : Aeneas.Std.U128),
+  @Eq (Aeneas.Std.Result Bool) (etna_consensus_core.has_strict_quorum signed total)
+    (@Aeneas.Std.Result.ok Bool
+      (@Decidable.decide
+        (@GT.gt Nat instLTNat
+          (@HMul.hMul Nat Nat Nat (@instHMul Nat instMulNat) (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3)))
+            (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U128 signed))
+          (@HMul.hMul Nat Nat Nat (@instHMul Nat instMulNat) (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))
+            (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U128 total)))
+        ((@HMul.hMul Nat Nat Nat (@instHMul Nat instMulNat) (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))
+              (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U128 total)).decLt
+          (@HMul.hMul Nat Nat Nat (@instHMul Nat instMulNat) (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3)))
+            (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U128 signed)))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.rust_quorum_refines: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.rust_quorum_refines
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.rust_quorum_refines
+  Lean.Meta.forallTelescopeReducing info.type fun _ body => do
+    let body ← Lean.Meta.whnf body
+    unless body.isAppOfArity ``Eq 3 do
+      throwError "refinement must be an exact total output equality"
+    let args := body.getAppArgs
+    unless args[1]!.getAppFn.isConstOf `etna_consensus_core.has_strict_quorum do
+      throwError "refinement left side must call the generated function"
+    unless args[2]!.getAppFn.isConstOf ``Aeneas.Std.Result.ok do
+      throwError "refinement right side must be outer Result.ok"
+-- COM-switch_bound; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.switch_bound
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.switch_bound is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {s : Etna.Committee.Schedule} {h t : Nat},
+  @Eq (Option Nat) (Etna.Committee.switchTarget s h) (@Option.some Nat t) →
+    @LT.lt Nat instLTNat t
+      (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))
+        (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))
+        (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.switch_bound: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.switch_bound
+-- COM-rust_transition_refines; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.rust_transition_refines
+  unless info.isTheorem do throwError "Etna.Refinement.Rust.Committee.rust_transition_refines is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : etna_consensus_core.schedule.Schedule) (h : Aeneas.Std.U64) (f : etna_consensus_core.transition.CommitteeFacts),
+  @Eq
+    (Aeneas.Std.Result
+      (Aeneas.Std.core.result.Result etna_consensus_core.transition.CommitteePlan
+        etna_consensus_core.transition.CommitteeError))
+    (etna_consensus_core.transition.transition_committee s h f)
+    (@Aeneas.Std.Result.ok
+      (Aeneas.Std.core.result.Result etna_consensus_core.transition.CommitteePlan
+        etna_consensus_core.transition.CommitteeError)
+      (Etna.Refinement.Rust.Committee.planResult
+        (Etna.Committee.plan (Etna.Refinement.Rust.Committee.schedule s)
+          (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 h) (Etna.Refinement.Rust.Committee.modelRelation f.derived)
+          f.outgoing_known f.incoming_known)))))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Refinement.Rust.Committee.rust_transition_refines: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Refinement.Rust.Committee.rust_transition_refines
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Refinement.Rust.Committee.rust_transition_refines
+  Lean.Meta.forallTelescopeReducing info.type fun _ body => do
+    let body ← Lean.Meta.whnf body
+    unless body.isAppOfArity ``Eq 3 do
+      throwError "refinement must be an exact total output equality"
+    let args := body.getAppArgs
+    unless args[1]!.getAppFn.isConstOf `etna_consensus_core.transition.transition_committee do
       throwError "refinement left side must call the generated function"
     unless args[2]!.getAppFn.isConstOf ``Aeneas.Std.Result.ok do
       throwError "refinement right side must be outer Result.ok"

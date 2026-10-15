@@ -4,7 +4,7 @@
     "spec": "FI-01..09-proved",
     "rust_refinement": "six-FI-functions-total-refined",
     "async_adapter": "conformance-tested",
-    "committee": "pending"
+    "committee": "COM-01..07-proved; eleven-generated-functions-total-refined; adapters-conformance-tested"
   },
   "theorems": [
     {
@@ -704,6 +704,1737 @@
         "generated_definition": "etna_consensus_core.forced.advance_cursor",
         "rust_symbol": "etna_consensus_core::forced::advance_cursor",
         "source": "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs",
+        "provenance": "Etna/Refinement/Rust/provenance.json"
+      }
+    },
+    {
+      "id": "COM-checked_some",
+      "module": "Etna.Committee.Schedule",
+      "declaration": "Etna.Committee.checked_some",
+      "type": "∀ {n v : Nat},\n  Iff (@Eq (Option Nat) (Etna.Committee.checked n) (@Option.some Nat v))\n    (And (@LE.le Nat instLENat n Etna.Committee.max64) (@Eq Nat v n))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-switch_positive",
+      "module": "Etna.Committee.Schedule",
+      "declaration": "Etna.Committee.switch_positive",
+      "type": "∀ {s : Etna.Committee.Schedule} {h t : Nat},\n  @Eq (Option Nat) (Etna.Committee.switchTarget s h) (@Option.some Nat t) →\n    @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) t",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-starting_iff",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.starting_iff",
+      "type": "∀ (s : Etna.Committee.Schedule) (h t : Nat),\n  @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) s.length →\n    Iff (@Eq (Option Nat) (Etna.Committee.startingAt s h) (@Option.some Nat t)) (@Eq Nat h (Etna.Committee.H s t))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-switch_iff",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.switch_iff",
+      "type": "∀ (s : Etna.Committee.Schedule) (h t : Nat),\n  @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) s.length →\n    Iff (@Eq (Option Nat) (Etna.Committee.switchTarget s h) (@Option.some Nat t))\n      (And (@LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) t)\n        (And\n          (@Eq Nat\n            (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) h\n              (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2))))\n            (Etna.Committee.H s t))\n          (@LE.le Nat instLENat\n            (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) h\n              (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2))))\n            Etna.Committee.max64)))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-01",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.schedule_exact",
+      "type": "∀ (s : Etna.Committee.Schedule) (t : Nat),\n  @LE.le Nat instLENat (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3))) s.length →\n    @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) t →\n      @LE.le Nat instLENat (Etna.Committee.H s t) Etna.Committee.max64 →\n        And\n          (@Eq Nat\n            (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) (Etna.Committee.D s t)\n              (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))\n            (Etna.Committee.S s t))\n          (And\n            (@Eq Nat\n              (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) (Etna.Committee.S s t)\n                (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2))))\n              (Etna.Committee.H s t))\n            (∀ (h : Nat),\n              Iff (@Eq (Option Nat) (Etna.Committee.switchTarget s h) (@Option.some Nat t))\n                (@Eq Nat h (Etna.Committee.S s t))))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-epoch_range",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.epoch_range",
+      "type": "∀ (s : Etna.Committee.Schedule) (t h : Nat),\n  @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) s.length →\n    @LE.le Nat instLENat (Etna.Committee.H s t) h →\n      @LT.lt Nat instLTNat h\n          (Etna.Committee.H s\n            (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) t\n              (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))) →\n        @Eq (Option Nat) (Etna.Committee.epochOf s h) (@Option.some Nat t)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-03",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.activation_exact",
+      "type": "∀ (s : Etna.Committee.Schedule) (st : Etna.Committee.CommitteeState) (t h : Nat),\n  @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) s.length →\n    @LE.le Nat instLENat (Etna.Committee.H s t) h →\n      @LT.lt Nat instLTNat h\n          (Etna.Committee.H s\n            (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) t\n              (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))) →\n        @Eq (Option Etna.Committee.Record) (Etna.Committee.authority s st h) (Etna.Committee.lookup st.records t)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-missing_pending",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.missing_pending",
+      "type": "∀ (s : Etna.Committee.Schedule) (st : Etna.Committee.CommitteeState) (t : Nat),\n  @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) s.length →\n    @Eq (Option Etna.Committee.Record) (Etna.Committee.lookup st.records t) (@Option.none Etna.Committee.Record) →\n      @Eq (Option Etna.Committee.Record) (Etna.Committee.authority s st (Etna.Committee.H s t))\n        (@Option.none Etna.Committee.Record)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-02",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.parent_anchor_unique",
+      "type": "∀ (a : Etna.Committee.Authentication) (s : Etna.Committee.Schedule) (p : Etna.Committee.Anchor) (h t : Nat)\n  (w : Etna.Committee.Witness) (r : Etna.Committee.Record),\n  @Eq (Option Nat) (Etna.Committee.switchTarget s h) (@Option.some Nat t) →\n    @Eq (Except Etna.Committee.Failure (Option Etna.Committee.Record))\n        (Etna.Committee.incoming a s p h (@Option.some Etna.Committee.Witness w))\n        (@Except.ok Etna.Committee.Failure (Option Etna.Committee.Record) (@Option.some Etna.Committee.Record r)) →\n      And\n        (@Eq (Option Etna.Committee.Snapshot) (a.stored p.stateRoot p.number)\n          (@Option.some Etna.Committee.Snapshot w.snapshot))\n        (And (@Eq Etna.Committee.Record r (a.derive t w.snapshot))\n          (And (@Eq Nat r.epoch t)\n            (And (@Eq Etna.Committee.Hash r.root w.snapshot.root)\n              (And (@Eq Nat r.cutoff p.number)\n                (And (@Eq Nat w.snapshot.cutoff p.number)\n                  (@Ne (List Etna.Committee.Member) r.members (@List.nil Etna.Committee.Member)))))))",
+      "assumptions": [
+        "Authentication.sound at exact committed-parent root/cutoff; accepted incoming checks exact epoch/root/cutoff and nonempty members."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-nonswitch_witness_rejected",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.nonswitch_witness_rejected",
+      "type": "∀ (a : Etna.Committee.Authentication) (s : Etna.Committee.Schedule) (p : Etna.Committee.Anchor) (h : Nat)\n  (w : Etna.Committee.Witness),\n  @Eq (Option Nat) (Etna.Committee.switchTarget s h) (@Option.none Nat) →\n    @Eq (Except Etna.Committee.Failure (Option Etna.Committee.Record))\n      (Etna.Committee.incoming a s p h (@Option.some Etna.Committee.Witness w))\n      (@Except.error Etna.Committee.Failure (Option Etna.Committee.Record) Etna.Committee.Failure.witness)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-different_snapshot_rejected",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.different_snapshot_rejected",
+      "type": "∀ (a : Etna.Committee.Authentication) (s : Etna.Committee.Schedule) (p : Etna.Committee.Anchor) (h t : Nat)\n  (w : Etna.Committee.Witness) (stored : Etna.Committee.Snapshot) (r : Etna.Committee.Record),\n  @Eq (Option Nat) (Etna.Committee.switchTarget s h) (@Option.some Nat t) →\n    @Eq (Option Etna.Committee.Snapshot) (a.stored p.stateRoot p.number) (@Option.some Etna.Committee.Snapshot stored) →\n      @Ne Etna.Committee.Snapshot stored w.snapshot →\n        @Ne (Except Etna.Committee.Failure (Option Etna.Committee.Record))\n          (Etna.Committee.incoming a s p h (@Option.some Etna.Committee.Witness w))\n          (@Except.ok Etna.Committee.Failure (Option Etna.Committee.Record) (@Option.some Etna.Committee.Record r))",
+      "assumptions": [
+        "Authentication.sound at exact committed-parent root/cutoff; accepted incoming checks exact epoch/root/cutoff and nonempty members."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-04",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.certificate_authority",
+      "type": "∀ (crypto : Etna.Committee.Crypto) (chain h hash : Nat) (r : Etna.Committee.Record) (cert : Etna.Committee.Certificate),\n  @Eq Bool (Etna.Committee.certificateOK crypto chain h hash r cert) Bool.true →\n    And (@Eq Nat cert.chain chain)\n      (And (@Eq Nat cert.height h)\n        (And (@Eq Etna.Committee.Hash cert.blockHash hash)\n          (And (@List.Nodup Nat (@List.map Etna.Committee.Vote Nat Etna.Committee.Vote.signer cert.votes))\n            (And (@List.Nodup Nat (@List.map Etna.Committee.Member Nat Etna.Committee.Member.key r.members))\n              (And\n                (@LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0)))\n                  (Etna.Committee.totalPower r))\n                (@GT.gt Nat instLTNat\n                  (@HMul.hMul Nat Nat Nat (@instHMul Nat instMulNat)\n                    (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3)))\n                    (Etna.Committee.signedPower crypto cert r))\n                  (@HMul.hMul Nat Nat Nat (@instHMul Nat instMulNat)\n                    (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2))) (Etna.Committee.totalPower r))))))))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-nil_absent_zero",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.nil_absent_zero",
+      "type": "∀ (crypto : Etna.Committee.Crypto) (cert : Etna.Committee.Certificate) (members : List Etna.Committee.Member)\n  (v : Etna.Committee.Vote),\n  @Ne Etna.Committee.VoteKind v.kind Etna.Committee.VoteKind.block →\n    @Eq Nat (Etna.Committee.votePower crypto cert members v) (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0)))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-counted_signature",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.counted_signature",
+      "type": "∀ (crypto : Etna.Committee.Crypto) (cert : Etna.Committee.Certificate) (members : List Etna.Committee.Member)\n  (v : Etna.Committee.Vote),\n  @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0)))\n      (Etna.Committee.votePower crypto cert members v) →\n    And (@Eq Etna.Committee.VoteKind v.kind Etna.Committee.VoteKind.block)\n      (@Eq Bool (crypto.valid cert.chain cert.height cert.blockHash v.signer v.signature) Bool.true)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-equal_two_thirds_rejected",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.equal_two_thirds_rejected",
+      "type": "∀ (crypto : Etna.Committee.Crypto) (chain h hash : Nat) (r : Etna.Committee.Record) (cert : Etna.Committee.Certificate),\n  @Eq Nat\n      (@HMul.hMul Nat Nat Nat (@instHMul Nat instMulNat) (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3)))\n        (Etna.Committee.signedPower crypto cert r))\n      (@HMul.hMul Nat Nat Nat (@instHMul Nat instMulNat) (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n        (Etna.Committee.totalPower r)) →\n    @Eq Bool (Etna.Committee.certificateOK crypto chain h hash r cert) Bool.false",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-05",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.batch_cut_equivalent",
+      "type": "∀ (ctx : Etna.Committee.Context) (xs ys : List (Etna.Committee.AuthenticatedBlockFacts ctx))\n  (st : Etna.Committee.CommitteeState),\n  @Eq (Except Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates))\n    (Etna.Committee.replay ctx\n      (@HAppend.hAppend (List (Etna.Committee.AuthenticatedBlockFacts ctx))\n        (List (Etna.Committee.AuthenticatedBlockFacts ctx)) (List (Etna.Committee.AuthenticatedBlockFacts ctx))\n        (@instHAppendOfAppend (List (Etna.Committee.AuthenticatedBlockFacts ctx))\n          (@List.instAppend (Etna.Committee.AuthenticatedBlockFacts ctx)))\n        xs ys)\n      st)\n    (@Bind.bind (Except Etna.Committee.Failure)\n      (@Monad.toBind (Except Etna.Committee.Failure) (@Except.instMonad Etna.Committee.Failure))\n      (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)\n      (Prod Etna.Committee.CommitteeState Etna.Committee.Updates) (Etna.Committee.replay ctx xs st) fun __x =>\n      Etna.Committee.batch_cut_equivalent.match_1\n        (fun x => Except Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)) __x\n        fun middle u =>\n        @Bind.bind (Except Etna.Committee.Failure)\n          (@Monad.toBind (Except Etna.Committee.Failure) (@Except.instMonad Etna.Committee.Failure))\n          (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)\n          (Prod Etna.Committee.CommitteeState Etna.Committee.Updates) (Etna.Committee.replay ctx ys middle) fun __x =>\n          Etna.Committee.batch_cut_equivalent.match_1\n            (fun x => Except Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)) __x\n            fun last v =>\n            @Pure.pure (Except Etna.Committee.Failure)\n              (@Applicative.toPure (Except Etna.Committee.Failure)\n                (@Monad.toApplicative (Except Etna.Committee.Failure) (@Except.instMonad Etna.Committee.Failure)))\n              (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)\n              (@Prod.mk Etna.Committee.CommitteeState Etna.Committee.Updates last\n                (@HAppend.hAppend Etna.Committee.Updates Etna.Committee.Updates Etna.Committee.Updates\n                  (@instHAppendOfAppend Etna.Committee.Updates\n                    (@List.instAppend (Prod Etna.Committee.Record Etna.Committee.Record)))\n                  u v)))",
+      "assumptions": [
+        "AuthenticatedBlockFacts carry explicit anchor and payload relation evidence for each concrete block; same Context and checkpoint; successful external operations/durable reconstruction where relating real adapters."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-06",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.replay_deterministic",
+      "type": "∀ (ctx : Etna.Committee.Context) (xs ys : List (Etna.Committee.AuthenticatedBlockFacts ctx))\n  (st middle onlineFinal crashFinal : Etna.Committee.CommitteeState) (u v all : Etna.Committee.Updates),\n  @Eq (Except Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates))\n      (Etna.Committee.replay ctx xs st)\n      (@Except.ok Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)\n        (@Prod.mk Etna.Committee.CommitteeState Etna.Committee.Updates middle u)) →\n    @Eq (Except Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates))\n        (Etna.Committee.replay ctx ys middle)\n        (@Except.ok Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)\n          (@Prod.mk Etna.Committee.CommitteeState Etna.Committee.Updates crashFinal v)) →\n      @Eq (Except Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates))\n          (Etna.Committee.replay ctx\n            (@HAppend.hAppend (List (Etna.Committee.AuthenticatedBlockFacts ctx))\n              (List (Etna.Committee.AuthenticatedBlockFacts ctx)) (List (Etna.Committee.AuthenticatedBlockFacts ctx))\n              (@instHAppendOfAppend (List (Etna.Committee.AuthenticatedBlockFacts ctx))\n                (@List.instAppend (Etna.Committee.AuthenticatedBlockFacts ctx)))\n              xs ys)\n            st)\n          (@Except.ok Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)\n            (@Prod.mk Etna.Committee.CommitteeState Etna.Committee.Updates onlineFinal all)) →\n        And (@Eq Etna.Committee.CommitteeState onlineFinal crashFinal)\n          (@Eq Etna.Committee.Updates all\n            (@HAppend.hAppend Etna.Committee.Updates Etna.Committee.Updates Etna.Committee.Updates\n              (@instHAppendOfAppend Etna.Committee.Updates\n                (@List.instAppend (Prod Etna.Committee.Record Etna.Committee.Record)))\n              u v))",
+      "assumptions": [
+        "AuthenticatedBlockFacts carry explicit anchor and payload relation evidence for each concrete block; same Context and checkpoint; successful external operations/durable reconstruction where relating real adapters."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-07",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.backpressure_switch_bound",
+      "type": "∀ (s : Etna.Committee.Schedule) (t cap checkpoint : Nat),\n  @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) t →\n    @LE.le Nat instLENat\n        (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) cap\n          (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3))))\n        s.length →\n      @LE.le Nat instLENat (@HSub.hSub Nat Nat Nat (@instHSub Nat instSubNat) (Etna.Committee.S s t) checkpoint) cap →\n        @GT.gt Nat instLTNat checkpoint\n          (Etna.Committee.H s\n            (@HSub.hSub Nat Nat Nat (@instHSub Nat instSubNat) t\n              (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-invalid_difference_rejected",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.invalid_difference_rejected",
+      "type": "∀ (dMax margin : Nat),\n  @LT.lt Nat instLTNat dMax margin → @Eq (Option Nat) (Etna.Committee.unsettledCap dMax margin) (@Option.none Nat)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-cap_overflow_rejected",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.cap_overflow_rejected",
+      "type": "∀ (s : Etna.Committee.Schedule) (cap : Nat),\n  @LE.le Nat instLENat (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3))) s.length →\n    @LT.lt Nat instLTNat Etna.Committee.max64\n        (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) cap\n          (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3)))) →\n      @Eq (Except Etna.Committee.ScheduleError Unit) (Etna.Committee.validate s cap)\n        (@Except.error Etna.Committee.ScheduleError Unit Etna.Committee.ScheduleError.shorterThanCap)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-counted_signature_genuine",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.counted_signature_genuine",
+      "type": "∀ (crypto : Etna.Committee.Crypto) (cert : Etna.Committee.Certificate) (members : List Etna.Committee.Member)\n  (v : Etna.Committee.Vote),\n  @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0)))\n      (Etna.Committee.votePower crypto cert members v) →\n    crypto.genuine cert.chain cert.height cert.blockHash v.signer v.signature",
+      "assumptions": [
+        "Crypto.sound for exact chain/height/block/key/signature."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-derivation_parent_is_D",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.derivation_parent_is_D",
+      "type": "∀ (s : Etna.Committee.Schedule) (t parent : Nat),\n  @LE.le Nat instLENat (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3))) s.length →\n    @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) t →\n      @LE.le Nat instLENat (Etna.Committee.H s t) Etna.Committee.max64 →\n        @Eq (Option Nat)\n            (Etna.Committee.switchTarget s\n              (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) parent\n                (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))))\n            (@Option.some Nat t) →\n          @Eq Nat parent (Etna.Committee.D s t)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-step_backpressure",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.step_backpressure",
+      "type": "∀ (ctx : Etna.Committee.Context) (st next : Etna.Committee.CommitteeState)\n  (b : Etna.Committee.AuthenticatedBlockFacts ctx) (updates : Etna.Committee.Updates),\n  @Eq (Except Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates))\n      (Etna.Committee.step ctx st b)\n      (@Except.ok Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)\n        (@Prod.mk Etna.Committee.CommitteeState Etna.Committee.Updates next updates)) →\n    @LE.le Nat instLENat\n      (@HSub.hSub Nat Nat Nat (@instHSub Nat instSubNat) (@Etna.Committee.AuthenticatedBlockFacts.facts ctx b).height\n        (@Etna.Committee.AuthenticatedBlockFacts.facts ctx b).anchor.checkpoint)\n      ctx.cap",
+      "assumptions": [
+        "AuthenticatedBlockFacts carry explicit anchor and payload relation evidence for each concrete block; same Context and checkpoint; successful external operations/durable reconstruction where relating real adapters."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-conflict_rejected",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.conflict_rejected",
+      "type": "∀ (s : Etna.Committee.Schedule) (h t : Nat) (outgoing incoming : Bool),\n  @Eq (Except Etna.Committee.Failure Etna.Committee.Plan)\n    (Etna.Committee.plan s h (Etna.Committee.Relation.conflict t) outgoing incoming)\n    (@Except.error Etna.Committee.Failure Etna.Committee.Plan (Etna.Committee.Failure.conflict t))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-no_nonswitch_updates",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.no_nonswitch_updates",
+      "type": "∀ (s : Etna.Committee.Schedule) (h : Nat) (r : Etna.Committee.Relation) (outgoing incoming : Bool)\n  (p : Etna.Committee.Plan),\n  @Eq (Option Nat) (Etna.Committee.switchTarget s h) (@Option.none Nat) →\n    @Eq (Except Etna.Committee.Failure Etna.Committee.Plan) (Etna.Committee.plan s h r outgoing incoming)\n        (@Except.ok Etna.Committee.Failure Etna.Committee.Plan p) →\n      @Eq (Option Etna.Committee.Switch) p.switch (@Option.none Etna.Committee.Switch)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-checked_schedule_domain",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.checked_schedule_domain",
+      "type": "∀ (s : Etna.Committee.Schedule) (t : Nat),\n  @LE.le Nat instLENat (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3))) s.length →\n    @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) t →\n      @LE.le Nat instLENat (Etna.Committee.H s t) Etna.Committee.max64 →\n        And (@Eq (Option Nat) (Etna.Committee.first s t) (@Option.some Nat (Etna.Committee.H s t)))\n          (@Eq (Option Nat) (Etna.Committee.parentHeight s t) (@Option.some Nat (Etna.Committee.D s t)))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-activation_boundary",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.activation_boundary",
+      "type": "∀ (s : Etna.Committee.Schedule) (st : Etna.Committee.CommitteeState) (t : Nat),\n  @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) s.length →\n    @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) t →\n      And\n        (@Eq (Option Etna.Committee.Record)\n          (Etna.Committee.authority s st\n            (@HSub.hSub Nat Nat Nat (@instHSub Nat instSubNat) (Etna.Committee.H s t)\n              (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))))\n          (Etna.Committee.lookup st.records\n            (@HSub.hSub Nat Nat Nat (@instHSub Nat instSubNat) t\n              (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))))\n        (@Eq (Option Etna.Committee.Record) (Etna.Committee.authority s st (Etna.Committee.H s t))\n          (Etna.Committee.lookup st.records t))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-step_missing_authority",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.step_missing_authority",
+      "type": "∀ (ctx : Etna.Committee.Context) (st : Etna.Committee.CommitteeState) (b : Etna.Committee.AuthenticatedBlockFacts ctx),\n  @Eq Nat (@Etna.Committee.AuthenticatedBlockFacts.facts ctx b).height\n      (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) st.height\n        (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))) →\n    @Eq Nat (@Etna.Committee.AuthenticatedBlockFacts.facts ctx b).chain ctx.chain →\n      @Eq Etna.Committee.Hash (@Etna.Committee.AuthenticatedBlockFacts.facts ctx b).parentHash st.blockHash →\n        @Eq (Option Etna.Committee.Record)\n            (Etna.Committee.authority ctx.schedule st (@Etna.Committee.AuthenticatedBlockFacts.facts ctx b).height)\n            (@Option.none Etna.Committee.Record) →\n          @Eq (Except Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates))\n            (Etna.Committee.step ctx st b)\n            (@Except.error Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)\n              (Etna.Committee.Failure.unknown\n                (@Option.getD Nat\n                  (Etna.Committee.epochOf ctx.schedule (@Etna.Committee.AuthenticatedBlockFacts.facts ctx b).height)\n                  (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))))))",
+      "assumptions": [
+        "AuthenticatedBlockFacts carry explicit anchor and payload relation evidence for each concrete block; same Context and checkpoint; successful external operations/durable reconstruction where relating real adapters."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-comet_activation_exact",
+      "module": "Etna.Committee.Proofs",
+      "declaration": "Etna.Committee.comet_activation_exact",
+      "type": "∀ (adapter : Etna.Committee.CometAdapter) (s : Etna.Committee.Schedule) (t h : Nat)\n  (outgoing incoming : Etna.Committee.Record),\n  @LE.le Nat instLENat (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3))) s.length →\n    @LT.lt Nat instLTNat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) t →\n      @LE.le Nat instLENat (Etna.Committee.H s t) Etna.Committee.max64 →\n        @Eq Etna.Committee.Record (adapter.observed (Etna.Committee.S s t) outgoing incoming h)\n          (@ite Etna.Committee.Record (@LT.lt Nat instLTNat h (Etna.Committee.H s t)) (h.decLt (Etna.Committee.H s t))\n            outgoing incoming)",
+      "assumptions": [
+        "CometAdapter.appliesAfterTwo: external observed validator authority follows Comet update-at-h/apply-at-h+2 semantics; schedule spacing itself is kernel-proved."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-valid_first_transition",
+      "module": "Etna.Committee.Examples",
+      "declaration": "Etna.Committee.Examples.valid_first_transition",
+      "type": "And\n  (@Eq (Except Etna.Committee.ScheduleError Unit)\n    (Etna.Committee.validate Etna.Committee.Examples.ordinary\n      (@OfNat.ofNat Nat (nat_lit 10) (instOfNatNat (nat_lit 10))))\n    (@Except.ok Etna.Committee.ScheduleError Unit Unit.unit))\n  (And\n    (@Eq (Option Nat)\n      (Etna.Committee.first Etna.Committee.Examples.ordinary (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))\n      (@Option.some Nat (@OfNat.ofNat Nat (nat_lit 21) (instOfNatNat (nat_lit 21)))))\n    (And\n      (@Eq (Option Nat)\n        (Etna.Committee.parentHeight Etna.Committee.Examples.ordinary\n          (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))\n        (@Option.some Nat (@OfNat.ofNat Nat (nat_lit 18) (instOfNatNat (nat_lit 18)))))\n      (And\n        (@Eq (Option Nat)\n          (Etna.Committee.switchTarget Etna.Committee.Examples.ordinary\n            (@OfNat.ofNat Nat (nat_lit 19) (instOfNatNat (nat_lit 19))))\n          (@Option.some Nat (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))))\n        (@Eq (Option Nat)\n          (Etna.Committee.l1First Etna.Committee.Examples.ordinary\n            (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))\n          (@Option.some Nat (@OfNat.ofNat Nat (nat_lit 65) (instOfNatNat (nat_lit 65))))))))",
+      "assumptions": [
+        "Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-accepted_l1_overflow",
+      "module": "Etna.Committee.Examples",
+      "declaration": "Etna.Committee.Examples.accepted_l1_overflow",
+      "type": "And\n  (@Eq (Except Etna.Committee.ScheduleError Unit)\n    (Etna.Committee.validate Etna.Committee.Examples.l1Overflow\n      (@OfNat.ofNat Nat (nat_lit 10) (instOfNatNat (nat_lit 10))))\n    (@Except.ok Etna.Committee.ScheduleError Unit Unit.unit))\n  (@Eq (Option Nat)\n    (Etna.Committee.l1First Etna.Committee.Examples.l1Overflow\n      (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))\n    (@Option.none Nat))",
+      "assumptions": [
+        "Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-accepted_l2_overflow",
+      "module": "Etna.Committee.Examples",
+      "declaration": "Etna.Committee.Examples.accepted_l2_overflow",
+      "type": "And\n  (@Eq (Except Etna.Committee.ScheduleError Unit)\n    (Etna.Committee.validate Etna.Committee.Examples.l2Overflow\n      (@OfNat.ofNat Nat (nat_lit 10) (instOfNatNat (nat_lit 10))))\n    (@Except.ok Etna.Committee.ScheduleError Unit Unit.unit))\n  (@Eq (Option Nat)\n    (Etna.Committee.first Etna.Committee.Examples.l2Overflow (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))\n    (@Option.none Nat))",
+      "assumptions": [
+        "Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-intermediate_last_overflow",
+      "module": "Etna.Committee.Examples",
+      "declaration": "Etna.Committee.Examples.intermediate_last_overflow",
+      "type": "And\n  (@Eq (Option Nat)\n    (Etna.Committee.last Etna.Committee.Examples.minimal\n      (@OfNat.ofNat Nat (nat_lit 6148914691236517204) (instOfNatNat (nat_lit 6148914691236517204))))\n    (@Option.none Nat))\n  (@Eq Nat\n    (@HMul.hMul Nat Nat Nat (@instHMul Nat instMulNat)\n      (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat)\n        (@OfNat.ofNat Nat (nat_lit 6148914691236517204) (instOfNatNat (nat_lit 6148914691236517204)))\n        (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))\n      Etna.Committee.Examples.minimal.length)\n    Etna.Committee.max64)",
+      "assumptions": [
+        "Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-next_is_not_representable_switch",
+      "module": "Etna.Committee.Examples",
+      "declaration": "Etna.Committee.Examples.next_is_not_representable_switch",
+      "type": "And\n  (@Eq (Option Nat)\n    (Etna.Committee.nextSwitch Etna.Committee.Examples.minimal\n      (@HSub.hSub Nat Nat Nat (@instHSub Nat instSubNat) Etna.Committee.max64\n        (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))))\n    (@Option.some Nat (@OfNat.ofNat Nat (nat_lit 6148914691236517205) (instOfNatNat (nat_lit 6148914691236517205)))))\n  (@Eq (Option Nat)\n    (Etna.Committee.switchTarget Etna.Committee.Examples.minimal\n      (@HSub.hSub Nat Nat Nat (@instHSub Nat instSubNat) Etna.Committee.max64\n        (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))))\n    (@Option.none Nat))",
+      "assumptions": [
+        "Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-epoch_zero_special",
+      "module": "Etna.Committee.Examples",
+      "declaration": "Etna.Committee.Examples.epoch_zero_special",
+      "type": "And\n  (@Eq (Option Nat)\n    (Etna.Committee.epochOf Etna.Committee.Examples.minimal (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))))\n    (@Option.some Nat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0)))))\n  (And\n    (@Eq (Option Nat)\n      (Etna.Committee.startingAt Etna.Committee.Examples.minimal\n        (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))))\n      (@Option.none Nat))\n    (@Eq (Option Nat)\n      (Etna.Committee.parentHeight Etna.Committee.Examples.minimal\n        (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))))\n      (@Option.none Nat)))",
+      "assumptions": [
+        "Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-rust_accepted_l1_overflow",
+      "module": "Etna.Committee.Examples",
+      "declaration": "Etna.Committee.Examples.rust_accepted_l1_overflow",
+      "type": "And\n  (@Eq (Aeneas.Std.Result (Aeneas.Std.core.result.Result Unit etna_consensus_core.schedule.ScheduleError))\n    (Etna.Committee.Examples.rustL1Overflow.validate\n      (Aeneas.Std.U64.ofNat (@OfNat.ofNat Nat (nat_lit 10) (instOfNatNat (nat_lit 10)))\n        Etna.Committee.Examples.rust_accepted_l1_overflow._proof_1))\n    (@Aeneas.Std.Result.ok (Aeneas.Std.core.result.Result Unit etna_consensus_core.schedule.ScheduleError)\n      (@Aeneas.Std.core.result.Result.Ok Unit etna_consensus_core.schedule.ScheduleError Unit.unit)))\n  (@Eq (Aeneas.Std.Result (Option Aeneas.Std.U64))\n    (Etna.Committee.Examples.rustL1Overflow.checked_l1_first\n      (Aeneas.Std.U64.ofNat (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))\n        Etna.Committee.Examples.rustL2Overflow._proof_1))\n    (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64) (@Option.none Aeneas.Std.U64)))",
+      "assumptions": [
+        "Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-rust_accepted_l2_overflow",
+      "module": "Etna.Committee.Examples",
+      "declaration": "Etna.Committee.Examples.rust_accepted_l2_overflow",
+      "type": "And\n  (@Eq (Aeneas.Std.Result (Aeneas.Std.core.result.Result Unit etna_consensus_core.schedule.ScheduleError))\n    (Etna.Committee.Examples.rustL2Overflow.validate\n      (Aeneas.Std.U64.ofNat (@OfNat.ofNat Nat (nat_lit 10) (instOfNatNat (nat_lit 10)))\n        Etna.Committee.Examples.rust_accepted_l1_overflow._proof_1))\n    (@Aeneas.Std.Result.ok (Aeneas.Std.core.result.Result Unit etna_consensus_core.schedule.ScheduleError)\n      (@Aeneas.Std.core.result.Result.Ok Unit etna_consensus_core.schedule.ScheduleError Unit.unit)))\n  (@Eq (Aeneas.Std.Result (Option Aeneas.Std.U64))\n    (Etna.Committee.Examples.rustL2Overflow.h_first\n      (Aeneas.Std.U64.ofNat (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))\n        Etna.Committee.Examples.rustL2Overflow._proof_1))\n    (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64) (@Option.none Aeneas.Std.U64)))",
+      "assumptions": [
+        "Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-rust_valid_first_transition",
+      "module": "Etna.Committee.Examples",
+      "declaration": "Etna.Committee.Examples.rust_valid_first_transition",
+      "type": "And\n  (@Eq (Aeneas.Std.Result (Aeneas.Std.core.result.Result Unit etna_consensus_core.schedule.ScheduleError))\n    (Etna.Committee.Examples.rustOrdinary.validate\n      (Aeneas.Std.U64.ofNat (@OfNat.ofNat Nat (nat_lit 10) (instOfNatNat (nat_lit 10)))\n        Etna.Committee.Examples.rust_accepted_l1_overflow._proof_1))\n    (@Aeneas.Std.Result.ok (Aeneas.Std.core.result.Result Unit etna_consensus_core.schedule.ScheduleError)\n      (@Aeneas.Std.core.result.Result.Ok Unit etna_consensus_core.schedule.ScheduleError Unit.unit)))\n  (And\n    (@Eq (Aeneas.Std.Result (Option Aeneas.Std.U64))\n      (Etna.Committee.Examples.rustOrdinary.h_first\n        (Aeneas.Std.U64.ofNat (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))\n          Etna.Committee.Examples.rustL2Overflow._proof_1))\n      (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64)\n        (@Option.some Aeneas.Std.U64\n          (Aeneas.Std.U64.ofNat (@OfNat.ofNat Nat (nat_lit 21) (instOfNatNat (nat_lit 21)))\n            Etna.Committee.Examples.rust_valid_first_transition._proof_1))))\n    (@Eq (Aeneas.Std.Result (Option Aeneas.Std.U64))\n      (Etna.Committee.Examples.rustOrdinary.checked_l1_first\n        (Aeneas.Std.U64.ofNat (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))\n          Etna.Committee.Examples.rustL2Overflow._proof_1))\n      (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64)\n        (@Option.some Aeneas.Std.U64\n          (Aeneas.Std.U64.ofNat (@OfNat.ofNat Nat (nat_lit 65) (instOfNatNat (nat_lit 65)))\n            Etna.Committee.Examples.rust_valid_first_transition._proof_2)))))",
+      "assumptions": [
+        "Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-nonempty_switch_replay",
+      "module": "Etna.Committee.Examples",
+      "declaration": "Etna.Committee.Examples.nonempty_switch_replay",
+      "type": "@Eq (Except Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates))\n  (Etna.Committee.replay Etna.Committee.Examples.ctx Etna.Committee.Examples.history Etna.Committee.Examples.initial)\n  (@Except.ok Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)\n    (@Prod.mk Etna.Committee.CommitteeState Etna.Committee.Updates Etna.Committee.Examples.finalState\n      (@List.cons (Prod Etna.Committee.Record Etna.Committee.Record)\n        (@Prod.mk Etna.Committee.Record Etna.Committee.Record Etna.Committee.Examples.outgoingRecord\n          Etna.Committee.Examples.incomingRecord)\n        (@List.nil (Prod Etna.Committee.Record Etna.Committee.Record)))))",
+      "assumptions": [
+        "Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-missing_pending_scalar",
+      "module": "Etna.Committee.Examples",
+      "declaration": "Etna.Committee.Examples.missing_pending_scalar",
+      "type": "@Eq (Except Etna.Committee.Failure Etna.Committee.Plan)\n  (Etna.Committee.plan Etna.Committee.Examples.schedule (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5)))\n    Etna.Committee.Relation.none Bool.true Bool.false)\n  (@Except.error Etna.Committee.Failure Etna.Committee.Plan\n    (Etna.Committee.Failure.unknown (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))))",
+      "assumptions": [
+        "Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-empty_incoming_rejected",
+      "module": "Etna.Committee.Examples",
+      "declaration": "Etna.Committee.Examples.empty_incoming_rejected",
+      "type": "@Eq (Except Etna.Committee.Failure (Option Etna.Committee.Record))\n  (Etna.Committee.incoming Etna.Committee.Examples.emptyAuth Etna.Committee.Examples.schedule\n    Etna.Committee.Examples.initial.anchor (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5)))\n    (@Option.some Etna.Committee.Witness\n      { snapshot := Etna.Committee.Examples.snap,\n        proof := @List.cons Nat (@OfNat.ofNat Nat (nat_lit 42) (instOfNatNat (nat_lit 42))) (@List.nil Nat) }))\n  (@Except.error Etna.Committee.Failure (Option Etna.Committee.Record) Etna.Committee.Failure.empty)",
+      "assumptions": [
+        "Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-zero_cap_bootstrap",
+      "module": "Etna.Committee.Examples",
+      "declaration": "Etna.Committee.Examples.zero_cap_bootstrap",
+      "type": "And\n  (@Eq (Except Etna.Committee.ScheduleError Unit)\n    (Etna.Committee.validate Etna.Committee.Examples.schedule (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))))\n    (@Except.ok Etna.Committee.ScheduleError Unit Unit.unit))\n  (And\n    (@Eq (Option Nat)\n      (Etna.Committee.unsettledCap (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n        (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2))))\n      (@Option.some Nat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0)))))\n    (@Eq (Except Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates))\n      (Etna.Committee.step Etna.Committee.Examples.stopped Etna.Committee.Examples.initial\n        Etna.Committee.Examples.firstStopped)\n      (@Except.error Etna.Committee.Failure (Prod Etna.Committee.CommitteeState Etna.Committee.Updates)\n        Etna.Committee.Failure.backPressure)))",
+      "assumptions": [
+        "Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-zero_cap_ahead_checkpoint",
+      "module": "Etna.Committee.Examples",
+      "declaration": "Etna.Committee.Examples.zero_cap_ahead_checkpoint",
+      "type": "@LE.le Nat instLENat\n  (@HSub.hSub Nat Nat Nat (@instHSub Nat instSubNat) (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))\n    (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2))))\n  (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0)))",
+      "assumptions": [
+        "Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-nonempty_activation_pair",
+      "module": "Etna.Committee.Examples",
+      "declaration": "Etna.Committee.Examples.nonempty_activation_pair",
+      "type": "And\n  (@Eq Etna.Committee.Record\n    (Etna.Committee.Examples.concreteComet.observed (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5)))\n      Etna.Committee.Examples.outgoingRecord Etna.Committee.Examples.incomingRecord\n      (@OfNat.ofNat Nat (nat_lit 6) (instOfNatNat (nat_lit 6))))\n    Etna.Committee.Examples.outgoingRecord)\n  (@Eq Etna.Committee.Record\n    (Etna.Committee.Examples.concreteComet.observed (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5)))\n      Etna.Committee.Examples.outgoingRecord Etna.Committee.Examples.incomingRecord\n      (@OfNat.ofNat Nat (nat_lit 7) (instOfNatNat (nat_lit 7))))\n    Etna.Committee.Examples.incomingRecord)",
+      "assumptions": [
+        "Concrete finite authentication interpretation witnesses satisfiability; not a claim of production MPT or ZIP215 implementation correctness."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-checked_add",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.checked_add",
+      "type": "∀ (a b : Aeneas.Std.U64),\n  @Eq (Option Aeneas.Std.U64) (a.checked_add b)\n    (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word\n      (Etna.Committee.add (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 a)\n        (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 b)))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-checked_mul",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.checked_mul",
+      "type": "∀ (a b : Aeneas.Std.U64),\n  @Eq (Option Aeneas.Std.U64) (a.checked_mul b)\n    (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word\n      (Etna.Committee.mul (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 a)\n        (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 b)))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-checked_sub",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.checked_sub",
+      "type": "∀ (a b : Aeneas.Std.U64),\n  @Eq (Option Aeneas.Std.U64) (a.checked_sub b)\n    (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word\n      (Etna.Committee.sub (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 a)\n        (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 b)))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-checked_div",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.checked_div",
+      "type": "∀ (a b : Aeneas.Std.U64),\n  @Eq (Option Aeneas.Std.U64) (a.checked_div b)\n    (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word\n      (Etna.Committee.div (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 a)\n        (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 b)))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-checked_bound",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.checked_bound",
+      "type": "∀ {n v : Nat},\n  @Eq (Option Nat) (Etna.Committee.checked n) (@Option.some Nat v) →\n    @LT.lt Nat instLTNat v\n      (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n        (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n        (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-rust_validate_refines",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.rust_validate_refines",
+      "type": "∀ (s : etna_consensus_core.schedule.Schedule) (cap : Aeneas.Std.U64),\n  @Eq (Aeneas.Std.Result (Aeneas.Std.core.result.Result Unit etna_consensus_core.schedule.ScheduleError))\n    (s.validate cap)\n    (@Aeneas.Std.Result.ok (Aeneas.Std.core.result.Result Unit etna_consensus_core.schedule.ScheduleError)\n      (Etna.Refinement.Rust.Committee.scheduleResult\n        (Etna.Committee.validate (Etna.Refinement.Rust.Committee.schedule s)\n          (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 cap))))",
+      "assumptions": [],
+      "bridge_level": "rust-refinement-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ],
+      "refinement": {
+        "generated_module": "Etna.Refinement.Rust.EtnaConsensusCore",
+        "generated_definition": "etna_consensus_core.schedule.Schedule.validate",
+        "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::validate",
+        "source": "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "provenance": "Etna/Refinement/Rust/provenance.json"
+      }
+    },
+    {
+      "id": "COM-word_small",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.word_small",
+      "type": "∀ {n : Nat},\n  @LT.lt Nat instLTNat n\n      (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n        (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n        (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64)))) →\n    @Eq Nat (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 (Etna.Refinement.Rust.word n)) n",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-rust_first_refines",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.rust_first_refines",
+      "type": "∀ (s : etna_consensus_core.schedule.Schedule) (t : Aeneas.Std.U64),\n  @Eq (Aeneas.Std.Result (Option Aeneas.Std.U64)) (s.h_first t)\n    (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64)\n      (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word\n        (Etna.Committee.first (Etna.Refinement.Rust.Committee.schedule s)\n          (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 t))))",
+      "assumptions": [],
+      "bridge_level": "rust-refinement-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ],
+      "refinement": {
+        "generated_module": "Etna.Refinement.Rust.EtnaConsensusCore",
+        "generated_definition": "etna_consensus_core.schedule.Schedule.h_first",
+        "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::h_first",
+        "source": "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "provenance": "Etna/Refinement/Rust/provenance.json"
+      }
+    },
+    {
+      "id": "COM-first_bound",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.first_bound",
+      "type": "∀ {s : Etna.Committee.Schedule} {t v : Nat},\n  @Eq (Option Nat) (Etna.Committee.first s t) (@Option.some Nat v) →\n    @LT.lt Nat instLTNat v\n      (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n        (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n        (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-rust_last_refines",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.rust_last_refines",
+      "type": "∀ (s : etna_consensus_core.schedule.Schedule) (t : Aeneas.Std.U64),\n  @Eq (Aeneas.Std.Result (Option Aeneas.Std.U64)) (s.h_last t)\n    (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64)\n      (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word\n        (Etna.Committee.last (Etna.Refinement.Rust.Committee.schedule s)\n          (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 t))))",
+      "assumptions": [],
+      "bridge_level": "rust-refinement-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ],
+      "refinement": {
+        "generated_module": "Etna.Refinement.Rust.EtnaConsensusCore",
+        "generated_definition": "etna_consensus_core.schedule.Schedule.h_last",
+        "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::h_last",
+        "source": "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "provenance": "Etna/Refinement/Rust/provenance.json"
+      }
+    },
+    {
+      "id": "COM-rust_l1First_refines",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.rust_l1First_refines",
+      "type": "∀ (s : etna_consensus_core.schedule.Schedule) (t : Aeneas.Std.U64),\n  @Eq (Aeneas.Std.Result (Option Aeneas.Std.U64)) (s.checked_l1_first t)\n    (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64)\n      (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word\n        (Etna.Committee.l1First (Etna.Refinement.Rust.Committee.schedule s)\n          (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 t))))",
+      "assumptions": [],
+      "bridge_level": "rust-refinement-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ],
+      "refinement": {
+        "generated_module": "Etna.Refinement.Rust.EtnaConsensusCore",
+        "generated_definition": "etna_consensus_core.schedule.Schedule.checked_l1_first",
+        "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::checked_l1_first",
+        "source": "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "provenance": "Etna/Refinement/Rust/provenance.json"
+      }
+    },
+    {
+      "id": "COM-rust_parent_refines",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.rust_parent_refines",
+      "type": "∀ (s : etna_consensus_core.schedule.Schedule) (t : Aeneas.Std.U64),\n  @Eq (Aeneas.Std.Result (Option Aeneas.Std.U64)) (s.derivation_parent_height t)\n    (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64)\n      (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word\n        (Etna.Committee.parentHeight (Etna.Refinement.Rust.Committee.schedule s)\n          (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 t))))",
+      "assumptions": [],
+      "bridge_level": "rust-refinement-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ],
+      "refinement": {
+        "generated_module": "Etna.Refinement.Rust.EtnaConsensusCore",
+        "generated_definition": "etna_consensus_core.schedule.Schedule.derivation_parent_height",
+        "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::derivation_parent_height",
+        "source": "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "provenance": "Etna/Refinement/Rust/provenance.json"
+      }
+    },
+    {
+      "id": "COM-saturating_val",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.saturating_val",
+      "type": "∀ (h : Aeneas.Std.U64),\n  @Eq Nat\n    (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64\n      (Aeneas.Std.core.num.U64.saturating_sub h\n        (Aeneas.Std.U64.ofNat (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))\n          Etna.Refinement.Rust.Committee.saturating_val._proof_1)))\n    (@HSub.hSub Nat Nat Nat (@instHSub Nat instSubNat) (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 h)\n      (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-rust_epoch_refines",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.rust_epoch_refines",
+      "type": "∀ (s : etna_consensus_core.schedule.Schedule) (h : Aeneas.Std.U64),\n  @Eq (Aeneas.Std.Result (Option Aeneas.Std.U64)) (s.epoch_of h)\n    (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64)\n      (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word\n        (Etna.Committee.epochOf (Etna.Refinement.Rust.Committee.schedule s)\n          (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 h))))",
+      "assumptions": [],
+      "bridge_level": "rust-refinement-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ],
+      "refinement": {
+        "generated_module": "Etna.Refinement.Rust.EtnaConsensusCore",
+        "generated_definition": "etna_consensus_core.schedule.Schedule.epoch_of",
+        "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::epoch_of",
+        "source": "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "provenance": "Etna/Refinement/Rust/provenance.json"
+      }
+    },
+    {
+      "id": "COM-sub_bound",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.sub_bound",
+      "type": "∀ {a b v : Nat},\n  @Eq (Option Nat) (Etna.Committee.sub a b) (@Option.some Nat v) →\n    @LT.lt Nat instLTNat a\n        (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n          (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n          (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64)))) →\n      @LT.lt Nat instLTNat v\n        (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n          (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n          (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-rust_starting_refines",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.rust_starting_refines",
+      "type": "∀ (s : etna_consensus_core.schedule.Schedule) (h : Aeneas.Std.U64),\n  @Eq (Aeneas.Std.Result (Option Aeneas.Std.U64)) (s.epoch_starting_at h)\n    (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64)\n      (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word\n        (Etna.Committee.startingAt (Etna.Refinement.Rust.Committee.schedule s)\n          (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 h))))",
+      "assumptions": [],
+      "bridge_level": "rust-refinement-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ],
+      "refinement": {
+        "generated_module": "Etna.Refinement.Rust.EtnaConsensusCore",
+        "generated_definition": "etna_consensus_core.schedule.Schedule.epoch_starting_at",
+        "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::epoch_starting_at",
+        "source": "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "provenance": "Etna/Refinement/Rust/provenance.json"
+      }
+    },
+    {
+      "id": "COM-starting_bound",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.starting_bound",
+      "type": "∀ {s : Etna.Committee.Schedule} {h t : Nat},\n  @Eq (Option Nat) (Etna.Committee.startingAt s h) (@Option.some Nat t) →\n    @LT.lt Nat instLTNat h\n        (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n          (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n          (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64)))) →\n      @LT.lt Nat instLTNat t\n        (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n          (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n          (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-rust_switch_refines",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.rust_switch_refines",
+      "type": "∀ (s : etna_consensus_core.schedule.Schedule) (h : Aeneas.Std.U64),\n  @Eq (Aeneas.Std.Result (Option Aeneas.Std.U64)) (s.switch_target h)\n    (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64)\n      (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word\n        (Etna.Committee.switchTarget (Etna.Refinement.Rust.Committee.schedule s)\n          (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 h))))",
+      "assumptions": [],
+      "bridge_level": "rust-refinement-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ],
+      "refinement": {
+        "generated_module": "Etna.Refinement.Rust.EtnaConsensusCore",
+        "generated_definition": "etna_consensus_core.schedule.Schedule.switch_target",
+        "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::switch_target",
+        "source": "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "provenance": "Etna/Refinement/Rust/provenance.json"
+      }
+    },
+    {
+      "id": "COM-epoch_bound",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.epoch_bound",
+      "type": "∀ {s : Etna.Committee.Schedule} {h t : Nat},\n  @Eq (Option Nat) (Etna.Committee.epochOf s h) (@Option.some Nat t) →\n    @LT.lt Nat instLTNat h\n        (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n          (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n          (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64)))) →\n      @LT.lt Nat instLTNat t\n        (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n          (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n          (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-rust_next_refines",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.rust_next_refines",
+      "type": "∀ (s : etna_consensus_core.schedule.Schedule) (h : Aeneas.Std.U64),\n  @Eq (Aeneas.Std.Result (Option Aeneas.Std.U64)) (s.next_switch_target h)\n    (@Aeneas.Std.Result.ok (Option Aeneas.Std.U64)\n      (@Option.map Nat Aeneas.Std.U64 Etna.Refinement.Rust.word\n        (Etna.Committee.nextSwitch (Etna.Refinement.Rust.Committee.schedule s)\n          (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 h))))",
+      "assumptions": [],
+      "bridge_level": "rust-refinement-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ],
+      "refinement": {
+        "generated_module": "Etna.Refinement.Rust.EtnaConsensusCore",
+        "generated_definition": "etna_consensus_core.schedule.Schedule.next_switch_target",
+        "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::next_switch_target",
+        "source": "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "provenance": "Etna/Refinement/Rust/provenance.json"
+      }
+    },
+    {
+      "id": "COM-rust_quorum_refines",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.rust_quorum_refines",
+      "type": "∀ (signed total : Aeneas.Std.U128),\n  @Eq (Aeneas.Std.Result Bool) (etna_consensus_core.has_strict_quorum signed total)\n    (@Aeneas.Std.Result.ok Bool\n      (@Decidable.decide\n        (@GT.gt Nat instLTNat\n          (@HMul.hMul Nat Nat Nat (@instHMul Nat instMulNat) (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3)))\n            (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U128 signed))\n          (@HMul.hMul Nat Nat Nat (@instHMul Nat instMulNat) (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n            (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U128 total)))\n        ((@HMul.hMul Nat Nat Nat (@instHMul Nat instMulNat) (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n              (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U128 total)).decLt\n          (@HMul.hMul Nat Nat Nat (@instHMul Nat instMulNat) (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3)))\n            (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U128 signed)))))",
+      "assumptions": [],
+      "bridge_level": "rust-refinement-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ],
+      "refinement": {
+        "generated_module": "Etna.Refinement.Rust.EtnaConsensusCore",
+        "generated_definition": "etna_consensus_core.has_strict_quorum",
+        "rust_symbol": "etna_consensus_core::has_strict_quorum",
+        "source": "packages/taiko-client-rs/crates/etna-consensus-core/src/lib.rs",
+        "provenance": "Etna/Refinement/Rust/provenance.json"
+      }
+    },
+    {
+      "id": "COM-switch_bound",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.switch_bound",
+      "type": "∀ {s : Etna.Committee.Schedule} {h t : Nat},\n  @Eq (Option Nat) (Etna.Committee.switchTarget s h) (@Option.some Nat t) →\n    @LT.lt Nat instLTNat t\n      (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n        (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n        (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ]
+    },
+    {
+      "id": "COM-rust_transition_refines",
+      "module": "Etna.Refinement.Rust.Committee",
+      "declaration": "Etna.Refinement.Rust.Committee.rust_transition_refines",
+      "type": "∀ (s : etna_consensus_core.schedule.Schedule) (h : Aeneas.Std.U64) (f : etna_consensus_core.transition.CommitteeFacts),\n  @Eq\n    (Aeneas.Std.Result\n      (Aeneas.Std.core.result.Result etna_consensus_core.transition.CommitteePlan\n        etna_consensus_core.transition.CommitteeError))\n    (etna_consensus_core.transition.transition_committee s h f)\n    (@Aeneas.Std.Result.ok\n      (Aeneas.Std.core.result.Result etna_consensus_core.transition.CommitteePlan\n        etna_consensus_core.transition.CommitteeError)\n      (Etna.Refinement.Rust.Committee.planResult\n        (Etna.Committee.plan (Etna.Refinement.Rust.Committee.schedule s)\n          (@Aeneas.Std.UScalar.val Aeneas.Std.UScalarTy.U64 h) (Etna.Refinement.Rust.Committee.modelRelation f.derived)\n          f.outgoing_known f.incoming_known)))",
+      "assumptions": [],
+      "bridge_level": "rust-refinement-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+        "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+        "packages/taiko-client-rs/crates/lander/src/validate.rs"
+      ],
+      "tests": [
+        "scripts/committee_conformance.py",
+        "reports/committee-coverage.json"
+      ],
+      "boundaries": [
+        "Scalar total refinements cover only the 11 named generated functions; the authenticated state/replay model is a spec proof, not a full async ABCI/lander implementation proof.",
+        "Authentication.sound binds snapshot proof to exact committed parent storage root and cutoff; derive is deterministic and complete record/member equality is an adapter premise.",
+        "Crypto.sound binds signatures to exact chain/height/block/key; actual ZIP215, canonical vote encoding, authenticated validator powers and full body/header checks remain native adapter boundaries.",
+        "Comet applies updates at h+2; durable Commit/reopen and availability are explicit adapter boundaries. uint64 helper semantics include intermediate overflow and do not prove all accepted configs runnable; uint48 anchors and Comet int64 heights are narrower."
+      ],
+      "refinement": {
+        "generated_module": "Etna.Refinement.Rust.EtnaConsensusCore",
+        "generated_definition": "etna_consensus_core.transition.transition_committee",
+        "rust_symbol": "etna_consensus_core::transition::transition_committee",
+        "source": "packages/taiko-client-rs/crates/etna-consensus-core/src/transition.rs",
         "provenance": "Etna/Refinement/Rust/provenance.json"
       }
     }

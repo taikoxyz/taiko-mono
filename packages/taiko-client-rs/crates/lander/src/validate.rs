@@ -487,6 +487,26 @@ mod tests {
     }
 
     #[test]
+    fn certificate_for_a_different_block_is_rejected() {
+        let (_, committee, keys) = committee(&[1, 1, 1], 0);
+        let original = pair(1, B256::ZERO, &committee, &keys, None);
+        verify_commit(&original.commit, &original.block.header, &committee, "taiko-etna-167001-g0")
+            .unwrap();
+        let mut wrong_block = original.commit.clone();
+        wrong_block.block_id.hash = Hash::Sha256([0x71; 32]);
+        let error =
+            verify_commit(&wrong_block, &original.block.header, &committee, "taiko-etna-167001-g0")
+                .unwrap_err();
+        assert!(matches!(error, ValidationError::Certificate(_)));
+        let mut wrong_parts = original.commit.clone();
+        wrong_parts.block_id.part_set_header.hash = Hash::Sha256([0x72; 32]);
+        assert!(
+            verify_commit(&wrong_parts, &original.block.header, &committee, "taiko-etna-167001-g0")
+                .is_err()
+        );
+    }
+
+    #[test]
     fn zip215_rejects_noncanonical_scalars_and_noncurve_nonce_points() {
         let (_, committee, keys) = committee(&[1], 0);
         let original = pair(1, B256::ZERO, &committee, &keys, None);

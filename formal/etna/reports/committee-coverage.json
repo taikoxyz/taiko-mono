@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "scope": "Scalar source refinement plus independent authenticated-history model; native adapter conformance is a separate evidence level.",
+  "behaviors": [
+    {
+      "behavior": "D/S/S+1/H cuts and retained incoming authority",
+      "native": [
+        "lander::batch::tests::pending_incoming_committee_survives_switch_checkpoint_and_one_block_cut",
+        "lander::batch::tests::arbitrary_batch_cuts_rederive_starting_and_pending_committees_without_hints"
+      ],
+      "proofs": [
+        "Etna.Committee.schedule_exact",
+        "Etna.Committee.batch_cut_equivalent"
+      ]
+    },
+    {
+      "behavior": "Outgoing before H and incoming at H; actual h+2 header hashes",
+      "native": [
+        "lander::batch::tests::middle_epoch_batch_authenticates_h_plus_two_switch_and_derives_exact_next_record"
+      ],
+      "proofs": [
+        "Etna.Committee.activation_boundary",
+        "Etna.Committee.comet_activation_exact"
+      ],
+      "boundary": "CometAdapter.appliesAfterTwo is an external semantic law; actual Docker epoch switch evidence is reused from the unchanged runtime."
+    },
+    {
+      "behavior": "Committed parent root/cutoff and different candidate snapshot rejection",
+      "native": [
+        "abci::app::tests::committee_witness::committee_witness_proven_at_the_parent_anchor_is_accepted",
+        "abci::app::tests::committee_witness::committee_witness_proven_at_the_new_anchor_is_rejected",
+        "abci::committee::tests::verify_committee_witness_requires_the_cutoff_snapshot"
+      ],
+      "proofs": [
+        "Etna.Committee.parent_anchor_unique",
+        "Etna.Committee.different_snapshot_rejected",
+        "Etna.Committee.derivation_parent_is_D"
+      ]
+    },
+    {
+      "behavior": "Strict two-thirds, distinct signers, nil/absent, wrong chain/height/block/part-set",
+      "native": [
+        "lander::validate::tests::real_canonical_ed25519_commits_require_strictly_more_than_two_thirds",
+        "lander::validate::tests::weighted_quorum_absent_and_nil_votes_do_not_count",
+        "lander::validate::tests::rejects_duplicate_signers_invalid_signatures_and_changed_sign_bytes",
+        "lander::validate::tests::certificate_for_a_different_block_is_rejected"
+      ],
+      "proofs": [
+        "Etna.Committee.certificate_authority",
+        "Etna.Committee.nil_absent_zero",
+        "Etna.Committee.counted_signature_genuine",
+        "Etna.Refinement.Rust.Committee.rust_quorum_refines"
+      ]
+    },
+    {
+      "behavior": "Empty incoming, missing pending, conflict before lookup",
+      "native": [
+        "abci::committee::tests::an_empty_committee_is_rejected",
+        "abci::app::tests::finalize::a_conflicting_committee_record_is_a_safety_halt",
+        "etna-consensus-core::tests/committee.rs::missing_pending_authority_fails_without_fallback"
+      ],
+      "proofs": [
+        "Etna.Committee.Examples.empty_incoming_rejected",
+        "Etna.Committee.step_missing_authority",
+        "Etna.Committee.conflict_rejected"
+      ],
+      "boundary": "Native empty committee coverage is authenticated snapshot/derive coverage, not a new end-to-end synthetic empty-registry switch test."
+    },
+    {
+      "behavior": "Missing/extra witness, ancestry, pending hash and generation binding",
+      "native": [
+        "lander::batch::tests::missing_extra_and_wrong_epoch_committee_witnesses_are_rejected",
+        "lander::batch::tests::builder_and_observe_reject_missing_and_forged_required_history",
+        "lander::batch::tests::checkpoint_pending_next_validator_hash_is_independently_authenticated",
+        "lander::batch::tests::cached_context_cannot_outlive_generation_genesis_or_bootstrap_identity"
+      ],
+      "proofs": [
+        "Etna.Committee.nonswitch_witness_rejected",
+        "Etna.Committee.no_nonswitch_updates"
+      ]
+    },
+    {
+      "behavior": "Multi-epoch hot/cold and crash replay with pending committee",
+      "native": [
+        "abci::app::tests::finalize::every_switch_height_finds_both_committees",
+        "abci::app::tests::finalize::finalize_is_deterministic_across_fresh_apps",
+        "abci::app::tests::finalize::switch_replay_survives_crashes_before_and_after_commit"
+      ],
+      "proofs": [
+        "Etna.Committee.replay_deterministic",
+        "Etna.Committee.Examples.nonempty_switch_replay"
+      ],
+      "boundary": "The upstream FI hot/cold generator remains before the first switch and is not counted here."
+    },
+    {
+      "behavior": "Cap inequality and accepted zero-cap bootstrap failure",
+      "native": [
+        "abci::rules::tests::back_pressure_boundary",
+        "abci::app::tests::process::back_pressure_boundary",
+        "abci::schedule::first_transition_config_tests::accepted_zero_cap_rejects_checkpoint_zero_first_block"
+      ],
+      "proofs": [
+        "Etna.Committee.step_backpressure",
+        "Etna.Committee.backpressure_switch_bound",
+        "Etna.Committee.invalid_difference_rejected",
+        "Etna.Committee.cap_overflow_rejected",
+        "Etna.Committee.Examples.zero_cap_bootstrap"
+      ],
+      "boundary": "No full coherent zero-cap genesis integration test is asserted; ahead-checkpoint saturation remains accepted."
+    },
+    {
+      "behavior": "Accepted first-transition overflow and checked intermediate stages",
+      "native": [
+        "abci::schedule::first_transition_config_tests::accepted_configuration_can_overflow_at_its_first_transition",
+        "etna-consensus-core::tests/committee.rs::checked_intermediates_do_not_imply_a_future_switch_exists",
+        "abci::schedule::golden_tests::original_checked_schedule_corpus_preserves_adapter_panics"
+      ],
+      "proofs": [
+        "Etna.Committee.Examples.rust_accepted_l1_overflow",
+        "Etna.Committee.Examples.rust_accepted_l2_overflow",
+        "Etna.Committee.Examples.rust_valid_first_transition",
+        "Etna.Committee.Examples.intermediate_last_overflow",
+        "Etna.Committee.Examples.next_is_not_representable_switch"
+      ],
+      "boundary": "Full genesis acceptance is source-derived conditional on coherent owner-authenticated configuration and ordinary valid genesis facts, not an executed full synthetic-genesis reproduction."
+    }
+  ],
+  "historical_docker": {
+    "reused": true,
+    "reason": "Task 4 changes only tests/spec/proofs/harnesses; every temporarily mutated runtime source is byte-restored. The prior same-runtime 36-scenario Docker result is retained, not reported as freshly rerun.",
+    "tests": [
+      "epoch_switch_adds_the_joining_validator",
+      "epoch_switch_activates_without_committee_publication",
+      "restart_recovers_through_the_handshake",
+      "replay_recovers_after_app_state_is_lost",
+      "back_pressure_stops_at_the_unsettled_cap"
+    ]
+  }
+}

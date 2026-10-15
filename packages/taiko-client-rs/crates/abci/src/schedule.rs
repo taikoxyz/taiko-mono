@@ -417,3 +417,37 @@ mod golden_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod first_transition_config_tests {
+    use super::Schedule;
+
+    // These are schedule/config counterexamples, not full synthetic-genesis integration tests.
+    #[test]
+    fn accepted_configuration_can_overflow_at_its_first_transition() {
+        let ordinary = Schedule { l1_0: 64, epoch_len: 20, epoch_len_l1: 1, genesis_cutoff: 63 };
+        ordinary.validate(10).unwrap();
+        assert_eq!(ordinary.h_first(1), 21);
+        assert_eq!(ordinary.checked_l1_first(1), Some(65));
+        let huge_l1 = Schedule { epoch_len_l1: u64::MAX, ..ordinary };
+        huge_l1.validate(10).unwrap();
+        assert_eq!(huge_l1.checked_l1_first(1), None);
+        assert!(std::panic::catch_unwind(|| huge_l1.l1_first(1)).is_err());
+        let huge_l2 = Schedule { epoch_len: u64::MAX, ..ordinary };
+        huge_l2.validate(10).unwrap();
+        assert!(std::panic::catch_unwind(|| huge_l2.h_first(1)).is_err());
+        assert!(std::panic::catch_unwind(|| huge_l2.h_last(0)).is_err());
+    }
+
+    #[test]
+    fn accepted_zero_cap_rejects_checkpoint_zero_first_block() {
+        let s = Schedule { l1_0: 64, epoch_len: 3, epoch_len_l1: 1, genesis_cutoff: 63 };
+        s.validate(0).unwrap();
+        assert_eq!(
+            crate::rules::check_back_pressure(1, 0, 0),
+            Err(crate::rules::RuleViolation::BackPressure { depth: 1, cap: 0 })
+        );
+        assert!(crate::rules::check_back_pressure(1, 1, 0).is_ok());
+        assert!(crate::rules::check_back_pressure(1, 2, 0).is_ok());
+    }
+}
