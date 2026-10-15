@@ -37,8 +37,10 @@ is computed by `cast`, independently of the contracts and of the node. Regenerat
   layout against a deployed Inbox and registry), `EtnaInboxLand.t.sol` (configuration opening and
   V6 statement), `LibEntriesTree.t.sol` (leaves and roots) and `EtnaStakingRegistry.t.sol`
   (registry slots).
-- Etna node (`packages/taiko-client-rs`): the `abci` crate's committee, layout and forced inclusion
-  tests and the `lander` crate's statement tests read the file with `include_str!`.
+- Etna node (`packages/taiko-client-rs`, through `include_str!`): the `abci` crate's committee
+  tests (configuration hash, leaves and roots, snapshot slots and checkpoint packing), storage
+  layout tests, Inbox witness decoding test and fixture planter test, and the `lander` crate's
+  V6 statement test.
 
 taiko-client-rs keeps a byte-identical copy of this directory taken from the protocol revision its
 lander fixtures pin: `packages/taiko-client-rs/script/gen_lander_artifacts.sh` copies it and
