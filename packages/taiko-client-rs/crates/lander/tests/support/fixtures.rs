@@ -62,9 +62,9 @@ pub struct FixtureChain {
     pub headers: Vec<Header>,
     pub anchors: Vec<AnchorState>,
     pub committees: BTreeMap<u64, AuthenticatedCommittee>,
-    /// Blobs of submitted forced inclusion entries, by queue index. The first block whose anchor
-    /// holds the cursor's entry consumes it when its blob is here and otherwise peeks at it.
-    pub forced_blobs: BTreeMap<u64, Bytes>,
+    /// Exact admitted transaction bytes by queue index, carried whenever the anchor proves
+    /// that entry pending; inclusion at position zero consumes it.
+    pub forced_transactions: BTreeMap<u64, Bytes>,
 }
 
 impl FixtureChain {
@@ -84,7 +84,7 @@ impl FixtureChain {
             headers: vec![fixture.parent_header.clone()],
             anchors: vec![anchor],
             committees: BTreeMap::from([(0, committee)]),
-            forced_blobs: BTreeMap::new(),
+            forced_transactions: BTreeMap::new(),
         })
     }
 
@@ -114,7 +114,7 @@ impl FixtureChain {
                 None => parent_anchor.clone(),
             };
             // The entry at the cursor, while the anchor's queue holds one: its real entry proof at
-            // the anchor, with its blob when known (a forced inclusion block), else a peek.
+            // the anchor, with the exact admitted transaction bytes.
             let index = self.forced_cursor();
             let forced = if index < anchor.inbox.forced_inclusion_tail {
                 Some(ForcedWitness {
@@ -127,7 +127,7 @@ impl FixtureChain {
                         )
                         .await?,
                     tx: self
-                        .forced_blobs
+                        .forced_transactions
                         .get(&index)
                         .cloned()
                         .context("missing forced admission bytes")?,
@@ -318,7 +318,7 @@ impl FixtureChain {
             headers: self.headers[..=last as usize].to_vec(),
             anchors: self.anchors[..=last as usize].to_vec(),
             committees: self.committees.clone(),
-            forced_blobs: self.forced_blobs.clone(),
+            forced_transactions: self.forced_transactions.clone(),
         });
         let adapter = Arc::new(FixtureLanding {
             chain: chain.clone(),

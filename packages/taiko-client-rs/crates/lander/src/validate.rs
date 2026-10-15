@@ -52,8 +52,9 @@ pub struct BlockFacts {
     pub derived: Option<CommitteeState>,
     /// Parent facts to consume when validating the next execution header.
     pub parent: ParentInfo,
-    /// For a forced inclusion block, the queue index it consumes (the parent's cursor); `None`
-    /// for an ordinary block. The guest, not the lander, executes the entry's transactions.
+    /// Provisional pure-rule decision for the parent's queue cursor. `NeedsSkip` requires
+    /// asynchronous Engine checking before the lander may authenticate cursor advancement;
+    /// the current dummy proof does not independently establish guest execution.
     pub forced: abci::forced::ForcedDecision,
     /// Consensus-derived singleton attributes, authenticated before asynchronous checking.
     pub expected: rules::ExpectedHeader,

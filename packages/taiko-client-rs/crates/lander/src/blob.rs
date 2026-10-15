@@ -2,10 +2,10 @@
 use alloy_eips::eip7594::BlobTransactionSidecarVariant;
 use alloy_primitives::B256;
 use serde::{Deserialize, Serialize};
-/// Sidecar and immutable ordered commitments generated for one complete V3 payload.
+/// Sidecar and immutable ordered commitments generated for one complete V4 payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PreparedBlobs {
-    /// Number of V3 payload bytes (version byte and compressed list) before field-element
+    /// Number of V4 payload bytes (version byte and compressed list) before field-element
     /// encoding.
     pub payload_bytes: usize,
     /// Explicit target-fork sidecar representation.
@@ -31,7 +31,7 @@ pub const fn required_blobs(payload_bytes: usize) -> usize {
     if payload_bytes == 0 { 0 } else { (payload_bytes - 1) / PAYLOAD_BYTES_PER_BLOB + 1 }
 }
 
-/// Build exactly one sidecar for an already selected complete V3 payload.
+/// Build exactly one sidecar for an already selected complete V4 payload.
 pub fn build(payload: &[u8], limits: &Limits, mode: SidecarMode) -> Result<PreparedBlobs> {
     use alloy_eips::eip4844::builder::SidecarBuilder;
     use protocol::shasta::BlobCoder;
@@ -173,7 +173,7 @@ mod tests {
         wrong.push(wrong[0]);
         assert!(decode(&wrong, &limits(2)).is_err());
         // The blob codec returns a truncated collection's full first blob as is: its length is
-        // exactly one blob's payload. Rejecting such a prefix is left to the V3 payload's zlib
+        // exactly one blob's payload. Rejecting such a prefix is left to the V4 payload's zlib
         // stream end and checksum (`a_truncated_v3_payload_fails_its_zlib_stream`).
         let prefix = decode(&sidecar.sidecar.blobs()[..1], &limits(2)).unwrap();
         assert_eq!(prefix.len(), PAYLOAD_BYTES_PER_BLOB);
@@ -362,7 +362,7 @@ mod tests {
         assert!(prefix <= MAX_PUBLISHED_PREFIX_BYTES, "{prefix}");
     }
 
-    /// A real V3 payload spanning two blobs, cut to its first blob: the blob codec serves the
+    /// A real V4 payload spanning two blobs, cut to its first blob: the blob codec serves the
     /// prefix, and the V3 codec rejects it at the zlib stream's end and checksum.
     #[test]
     fn a_truncated_v3_payload_fails_its_zlib_stream() {

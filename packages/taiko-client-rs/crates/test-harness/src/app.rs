@@ -4,11 +4,6 @@
 //! connection task with it: CometBFT sees exactly what it sees when the app process dies. Starting
 //! it again builds a fresh app over the same store directory and port, as an operator restarting
 //! the process would.
-//!
-//! An app fetches forced inclusion blobs from the devnet's [`FakeBeacon`](crate::FakeBeacon)
-//! through [`LazyBeaconBlobs`], as `taiko-client abci` does from `--l1.beacon`; an app without
-//! beacon ([`DevnetSpec::validators_without_beacon`](crate::DevnetSpec)) gets a [`BlobSource`]
-//! that always fails.
 
 use std::{
     fs,
@@ -18,13 +13,8 @@ use std::{
     time::Duration,
 };
 
-use abci::{
-    App, AppOptions, BlobSource, ChainParams, Engine, LazyBeaconBlobs, RpcEngine, RpcL1Source,
-    Store, serve_with,
-};
-use alloy_primitives::{B256, Bytes};
+use abci::{App, AppOptions, ChainParams, Engine, RpcEngine, RpcL1Source, Store, serve_with};
 use anyhow::{Context, Result, anyhow, ensure};
-use async_trait::async_trait;
 use rpc::client::{connect_http_with_timeout, http_timeout_for};
 use tokio::{net::TcpStream, sync::oneshot};
 use url::Url;
@@ -40,18 +30,6 @@ const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
 /// Deadline for a started app to listen on its port.
 const LISTEN_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// A [`BlobSource`] without a beacon behind it: every fetch fails.
-#[derive(Debug)]
-struct NoBeacon;
-
-#[async_trait]
-impl BlobSource for NoBeacon {
-    /// Fails: there is no beacon to ask.
-    async fn blob(&self, _timestamp: u64, versioned_hash: B256) -> Result<Bytes, String> {
-        Err(format!("no beacon to fetch blob {versioned_hash} from"))
-    }
-}
-
 /// Everything needed to (re)start app `index`.
 #[derive(Clone, Debug)]
 pub(crate) struct AppConfig {
@@ -61,8 +39,6 @@ pub(crate) struct AppConfig {
     pub reth: RethNode,
     /// anvil's JSON-RPC URL on the host (its own L1 view).
     pub l1_http: Url,
-    /// The beacon REST URL it fetches forced inclusion blobs from; `None`: it has no beacon.
-    pub beacon: Option<Url>,
     /// The chain parameters.
     pub params: ChainParams,
     /// The Engine API JWT secret file.
@@ -116,7 +92,7 @@ impl AppNode {
             self.config.l1_http.clone(),
             http_timeout_for(opts.l1_timeout),
         ));
-        Ok(App::new(l1, engine, Arc::new(NoBeacon), self.config.params.clone(), store, opts)?)
+        Ok(App::new(l1, engine, self.config.params.clone(), store, opts)?)
     }
 
     /// The host port it listens on.
@@ -283,7 +259,7 @@ fn run(
 }
 
 /// Waits for the EL's Engine API, loads the KZG trusted setup (as `taiko-client abci` does
-/// before serving) and builds the app over its store and its blob source.
+/// before serving) and builds the app over its store and execution engine.
 async fn build_app(c: &AppConfig) -> Result<App<RpcL1Source, RpcEngine>> {
     let opts = AppOptions::default();
     let engine =
@@ -305,13 +281,7 @@ async fn build_app(c: &AppConfig) -> Result<App<RpcL1Source, RpcEngine>> {
         http_timeout_for(opts.l1_timeout),
     ));
     let store = Store::new(c.store_dir.clone());
-    let blobs: Arc<dyn BlobSource> = match &c.beacon {
-        Some(url) => {
-            Arc::new(LazyBeaconBlobs::new(url.clone(), http_timeout_for(opts.blob_timeout)))
-        }
-        None => Arc::new(NoBeacon),
-    };
-    Ok(App::new(l1, engine, blobs, c.params.clone(), store, opts)?)
+    Ok(App::new(l1, engine, c.params.clone(), store, opts)?)
 }
 
 /// A free host port (bound on all interfaces, then released).

@@ -457,7 +457,6 @@ async fn rpc_engine_invalid_without_a_validation_error_is_a_safety_halt() {
     let mut app = App::new(
         fx.l1(),
         engine,
-        fx.blob_source(),
         fx.params.clone(),
         Store::new(dir.path().to_path_buf()),
         AppOptions::default(),
@@ -1119,10 +1118,10 @@ async fn cold_forced_rebuild_failures_retry_or_halt() {
 }
 
 /// CometBFT replays a decided forced inclusion block after a crash before `Commit`, with no
-/// beacon reachable (FinalizeBlock has none): the cold node confirms the moved anchor in its own
-/// L1, rebuilds the block from the blob its envelope carries alone and answers as before.
+/// admission-log access: the cold node confirms the moved anchor in its own L1 and executes
+/// the included transaction using the proof and exact bytes carried by the envelope.
 #[tokio::test]
-async fn replay_rebuilds_forced_block_without_a_beacon() {
+async fn replay_validates_inclusion_without_admission_log_reads() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
@@ -1141,18 +1140,16 @@ async fn replay_rebuilds_forced_block_without_a_beacon() {
         "the cached verdict was rebuilt and executed already: {calls:?}"
     );
 
-    // Crash before Commit: the EL keeps the block, the store the previous height; the beacon is
-    // down, the own L1 still has block 66.
+    // Crash before Commit: the EL keeps the block, the store the previous height;
+    // the own L1 still has block 66.
     let engine = app.engine().reopen();
     drop(app);
     let l1 = fx.l1();
     plant_due_entry(&fx, &l1, 66, fx.inbox.clone());
     l1.state().calls.clear();
-    fx.blobs.state().fail = Some("unreachable".into());
     let store = Store::new(dir.path().to_path_buf());
-    let mut app =
-        App::new(l1, engine, fx.blob_source(), fx.params.clone(), store, AppOptions::default())
-            .expect("the app restarts");
+    let mut app = App::new(l1, engine, fx.params.clone(), store, AppOptions::default())
+        .expect("the app restarts");
     assert_eq!(app.state(), Some(&committed));
     info(&mut app).await.expect("Info reconciles with an EL ahead");
 
@@ -1164,7 +1161,6 @@ async fn replay_rebuilds_forced_block_without_a_beacon() {
         [L1Call::Finalized, L1Call::CanonicalHash(66)],
         "only the moved anchor is confirmed in the own L1"
     );
-    assert!(fx.blobs.calls().is_empty(), "no blob is fetched, before or after the crash");
     let calls = engine_calls_since(&app, before);
     let [EngineCall::NewPayload(executed), EngineCall::Forkchoice { head, .. }] = calls.as_slice()
     else {

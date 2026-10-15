@@ -617,7 +617,6 @@ async fn restart_rejects_a_changed_committee_config_opening() {
         App::new(
             fx.l1(),
             fx.engine(),
-            fx.blob_source(),
             params,
             Store::new(dir.path().to_path_buf()),
             AppOptions::default()
@@ -659,14 +658,7 @@ fn persisted_fixed_cutoff_config_is_rejected_without_migration() {
     store.save(&state).unwrap();
     let file = dir.path().join(crate::store::STATE_FILE);
     let before = std::fs::read(&file).unwrap();
-    let result = App::new(
-        fx.l1(),
-        fx.engine(),
-        fx.blob_source(),
-        fx.params.clone(),
-        store,
-        AppOptions::default(),
-    );
+    let result = App::new(fx.l1(), fx.engine(), fx.params.clone(), store, AppOptions::default());
     assert!(matches!(result, Err(AbciError::StoredState(_))));
     assert_eq!(std::fs::read(file).unwrap(), before);
 }

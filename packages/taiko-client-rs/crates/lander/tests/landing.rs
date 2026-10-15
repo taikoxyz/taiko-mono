@@ -174,7 +174,7 @@ async fn lander_actual_contract_forced_inclusion_lands_and_pays_fee() -> Result<
     assert_eq!(fixture.forced_inclusion_state().await?, (0, 1));
     // Finalize the entry's L1 block, so the next block's anchor holds it.
     mine_l1_blocks(p, 3).await?;
-    chain.forced_blobs.insert(0, blob.clone());
+    chain.forced_transactions.insert(0, blob.clone());
     chain.extend(&fixture, 4).await?;
     let forced = |height: usize| {
         abci::EtnaEnvelope::decode(&chain.blocks[height - 1].block.data[0]).map(|e| e.forced)

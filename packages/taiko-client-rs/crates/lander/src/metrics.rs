@@ -104,7 +104,7 @@ struct Metrics {
     batch_blocks: IntGauge,
     /// Blobs in the current prepared batch.
     batch_blobs: IntGauge,
-    /// Encoded V3 payload size (version byte and compressed list) before blob field-element
+    /// Encoded V4 payload size (version byte and compressed list) before blob field-element
     /// coding.
     payload_bytes: IntGauge,
     /// One-hot bounded durable transaction phase.

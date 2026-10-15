@@ -1,4 +1,4 @@
-//! zlib helpers shared by landing payload V3 (`0x03 || zlib(rlp(...))`) and the landing capacity
+//! zlib helpers shared by landing payload V4 (`0x04 || zlib(rlp(...))`) and the landing capacity
 //! guard, and the capacity of one landing.
 //!
 //! The lander depends on this crate, so both sides compress with the same codec: `flate2` over

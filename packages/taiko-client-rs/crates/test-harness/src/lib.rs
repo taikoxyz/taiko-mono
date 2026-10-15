@@ -8,9 +8,9 @@
 //! the apps start it plants an initialized Inbox and a staking registry into anvil with
 //! [`Planter`] and builds the CometBFT genesis from that L1 state with `abci::build_genesis`. A
 //! background fake lander advances only `lastCheckpoint` behind the chain; autonomous committee
-//! activation needs no publication, while paused settlement still exercises back-pressure. A
-//! [`FakeBeacon`] serves anvil's blobs to the apps, so a scenario can plant forced inclusion
-//! entries with their admission events ([`Planter::plant_forced_transaction`]).
+//! activation needs no publication, while paused settlement still exercises back-pressure.
+//! Scenarios plant calldata forced inclusion entries with their admission events
+//! ([`Planter::plant_forced_transaction`]).
 //!
 //! Dropping a [`Devnet`] (or awaiting [`Devnet::stop`]) stops the apps, removes every container
 //! and the network and deletes the temporary directories. Dropping it without a successful
@@ -19,7 +19,6 @@
 
 mod anvil;
 mod app;
-mod beacon;
 mod boot;
 mod cleanup;
 mod cometbft;
@@ -33,7 +32,6 @@ mod planter;
 mod wait;
 
 pub use anvil::StandaloneAnvil;
-pub use beacon::FakeBeacon;
 pub use cometbft::{CmtClient, CmtStatus, CmtValidator};
 pub use devnet::{Devnet, DevnetSpec, init_tracing};
 pub use keys::{ValidatorKey, node_keys, validator_keys};

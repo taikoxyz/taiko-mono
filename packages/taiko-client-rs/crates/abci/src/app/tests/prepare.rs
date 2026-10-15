@@ -366,10 +366,9 @@ async fn verified_switch_witness_survives_restart_without_historical_l1_state() 
     let before = propose(&mut app).await;
     app.l1().state().states.clear();
     app.l1().state().calls.clear();
-    let App { l1, engine, _blobs: blobs, params, store, opts, .. } = app;
+    let App { l1, engine, params, store, opts, .. } = app;
     let mut restarted =
-        App::new(Arc::try_unwrap(l1).expect("sole L1 owner"), engine, blobs, params, store, opts)
-            .unwrap();
+        App::new(Arc::try_unwrap(l1).expect("sole L1 owner"), engine, params, store, opts).unwrap();
     let height = next_height(&restarted);
     let time = bft_time(&restarted);
     let txs = prepare(&mut restarted, prepare_req(height, time)).await;
@@ -396,10 +395,9 @@ async fn peer_switch_witness_survives_restart_after_local_execution_refusal() {
     // The judge started a background switch-witness discovery; stop it to take the sole L1.
     *node.committee_prefetch() = None;
     tokio::task::yield_now().await;
-    let App { l1, engine, _blobs: blobs, params, store, opts, .. } = node;
+    let App { l1, engine, params, store, opts, .. } = node;
     let mut restarted =
-        App::new(Arc::try_unwrap(l1).expect("sole L1 owner"), engine, blobs, params, store, opts)
-            .unwrap();
+        App::new(Arc::try_unwrap(l1).expect("sole L1 owner"), engine, params, store, opts).unwrap();
     assert_eq!(propose(&mut restarted).await.committee, env.committee);
 }
 
@@ -518,10 +516,9 @@ async fn a_switch_witness_prefetched_before_the_derivation_parent_survives_resta
     app.adopt_committee_prefetch(&state);
 
     app.l1().state().states.clear();
-    let App { l1, engine, _blobs: blobs, params, store, opts, .. } = app;
+    let App { l1, engine, params, store, opts, .. } = app;
     let mut restarted =
-        App::new(Arc::try_unwrap(l1).expect("sole L1 owner"), engine, blobs, params, store, opts)
-            .unwrap();
+        App::new(Arc::try_unwrap(l1).expect("sole L1 owner"), engine, params, store, opts).unwrap();
     step(&mut restarted).await;
     step(&mut restarted).await;
     restarted.l1().state().calls.clear();

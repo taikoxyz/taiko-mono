@@ -180,7 +180,7 @@ pub enum Rejection {
     /// A canonical skip failed the shared singleton check.
     #[error("forced inclusion check failed: {0}")]
     ForcedBuild(#[from] crate::engine::forced::ForcedBuildError),
-    /// The block cannot land on its own: its envelope compressed as landing payload V3 would
+    /// The block cannot land on its own: its envelope compressed as landing payload V4 would
     /// publish it, plus [`HEADER_ALLOWANCE`], exceeds [`MAX_BLOCK_LANDING_BYTES`].
     #[error("block needs {bytes} compressed landing bytes, above the {max} one landing carries")]
     LandingCapacity {
@@ -246,7 +246,7 @@ impl From<FetchError> for Rejection {
 }
 
 /// The landing capacity guard: the block of the encoded `envelope` must fit one landing on its
-/// own, i.e. the envelope compressed as landing payload V3 would publish it, plus
+/// own, i.e. the envelope compressed as landing payload V4 would publish it, plus
 /// [`HEADER_ALLOWANCE`] for the published header, is at most [`MAX_BLOCK_LANDING_BYTES`].
 ///
 /// The bound holds for any envelope content: the lander's single-block fallback deflates the

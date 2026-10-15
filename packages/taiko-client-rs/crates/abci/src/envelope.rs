@@ -303,13 +303,13 @@ mod tests {
         vec![bytes!("02f86c82028d8084b2d05e00"), bytes!("f86b808504a817c800825208")]
     }
 
-    /// A full-size raw blob (the envelope does not interpret it).
-    fn blob() -> Bytes {
-        Bytes::from(vec![0x5b; BLOB_BYTES])
+    /// A full-size raw tx (the envelope does not interpret it).
+    fn tx() -> Bytes {
+        Bytes::from(vec![0x5b; FORCED_TX_BYTES])
     }
 
-    /// The size of an EIP-4844 blob.
-    const BLOB_BYTES: usize = 131_072;
+    /// Maximum transaction bytes the calldata FI protocol permits.
+    const FORCED_TX_BYTES: usize = crate::forced::MAX_FORCED_TX_BYTES;
 
     fn account_witness(seed: u8) -> AccountWitness {
         AccountWitness {
@@ -364,8 +364,8 @@ mod tests {
         }
     }
 
-    fn forced(blob: Bytes) -> ForcedWitness {
-        ForcedWitness { index: 6, entry: account_witness(0xc3), tx: blob }
+    fn forced(tx: Bytes) -> ForcedWitness {
+        ForcedWitness { index: 6, entry: account_witness(0xc3), tx }
     }
 
     fn envelope(
@@ -398,8 +398,8 @@ mod tests {
     fn round_trips_every_witness_combination() {
         for anchor in [None, Some(anchor())] {
             for committee in [None, Some(committee())] {
-                // A forced witness with the blob, an empty-blob peek, or none.
-                for forced in [None, Some(forced(Bytes::new())), Some(forced(blob()))] {
+                // A forced witness with the tx, an empty invalid transaction input, or none.
+                for forced in [None, Some(forced(Bytes::new())), Some(forced(tx()))] {
                     let env = envelope(anchor.clone(), committee.clone(), forced);
                     let encoded = env.encode();
                     assert_eq!(EtnaEnvelope::decode(&encoded), Ok(env));
@@ -410,7 +410,7 @@ mod tests {
 
     #[test]
     fn encode_starts_with_version_byte() {
-        let env = envelope(Some(anchor()), None, Some(forced(blob())));
+        let env = envelope(Some(anchor()), None, Some(forced(tx())));
         let encoded = env.encode();
         assert_eq!(encoded[0], 0x05);
         assert_eq!(encoded.len(), 1 + alloy_rlp::encode(env).len());
@@ -446,16 +446,16 @@ mod tests {
         assert_eq!(EtnaEnvelope::decode(&old), Err(EnvelopeError::Version(4)));
     }
 
-    /// The forced inclusion witness is the RLP list `[index, entry, tx]`, an empty blob being
+    /// The forced inclusion witness is the RLP list `[index, entry, tx]`, an empty tx being
     /// the empty byte string.
     #[test]
-    fn forced_witness_is_a_list_of_index_entry_and_blob() {
-        for blob in [Bytes::new(), blob()] {
-            let w = forced(blob.clone());
+    fn forced_witness_is_a_list_of_index_entry_and_tx() {
+        for tx in [Bytes::new(), tx()] {
+            let w = forced(tx.clone());
             let expected = rlp_list(&[
                 alloy_rlp::encode(6u64),
                 alloy_rlp::encode(account_witness(0xc3)),
-                alloy_rlp::encode(&blob),
+                alloy_rlp::encode(&tx),
             ]);
             assert_eq!(alloy_rlp::encode(&w), expected);
         }
@@ -478,7 +478,7 @@ mod tests {
 
     #[test]
     fn decode_rejects_malformed_rlp() {
-        let encoded = envelope(Some(anchor()), Some(committee()), Some(forced(blob()))).encode();
+        let encoded = envelope(Some(anchor()), Some(committee()), Some(forced(tx()))).encode();
         // Version byte only.
         assert!(matches!(EtnaEnvelope::decode(&[ENVELOPE_VERSION]), Err(EnvelopeError::Rlp(_))));
         // Truncated body.
@@ -508,10 +508,10 @@ mod tests {
         let body =
             rlp_list(&[block.clone(), empty.clone(), empty.clone(), empty.clone(), vec![0x01]]);
         assert!(matches!(EtnaEnvelope::decode(&versioned(body)), Err(EnvelopeError::Rlp(_))));
-        // Only three elements in the outer list: a version-3 body under the version-4 byte.
+        // Only three elements in the outer list: a version-3 body under the version-5 byte.
         let body = rlp_list(&[block, empty.clone(), empty]);
         assert!(matches!(EtnaEnvelope::decode(&versioned(body)), Err(EnvelopeError::Rlp(_))));
-        // A forced witness missing its blob.
+        // A forced witness missing its transaction bytes.
         let short = rlp_list(&[alloy_rlp::encode(6u64), alloy_rlp::encode(account_witness(0xc3))]);
         let body = rlp_list(&[
             alloy_rlp::encode(&env.block),
@@ -571,7 +571,7 @@ mod tests {
                 "committee",
             ),
             (
-                rlp_list(&[block, empty.clone(), empty, twice(alloy_rlp::encode(forced(blob())))]),
+                rlp_list(&[block, empty.clone(), empty, twice(alloy_rlp::encode(forced(tx())))]),
                 "forced",
             ),
         ]
@@ -609,7 +609,7 @@ mod tests {
 
     #[test]
     fn rlp_decodable_matches_versioned_decode() {
-        let env = envelope(Some(anchor()), Some(committee()), Some(forced(blob())));
+        let env = envelope(Some(anchor()), Some(committee()), Some(forced(tx())));
         let body = alloy_rlp::encode(&env);
         let mut buf = body.as_slice();
         assert_eq!(<EtnaEnvelope as Decodable>::decode(&mut buf), Ok(env));
@@ -731,9 +731,10 @@ mod tests {
     /// field order of `ExecutionBlock`, `AnchorWitness`, `CommitteeWitness`, `ForcedWitness`,
     /// `AccountWitness`, `StorageProof`, `CommitteeRecord` and `RegistryEntry`, the post-Prague
     /// header fields, the anchor's L1 header as one byte string of its raw RLP (here with two
-    /// fields alloy's header does not know), the forced witness's full-size blob as one byte
-    /// string, and the one-element list wrapping a present witness. If it changes, the encoding
-    /// changed, which is a consensus-breaking change for every node replaying committed blocks.
+    /// fields alloy's header does not know), the forced witness's maximum-size transaction bytes as
+    /// one byte string, and the one-element list wrapping a present witness. If it changes, the
+    /// encoding changed, which is a consensus-breaking change for every node replaying
+    /// committed blocks.
     ///
     /// The expected bytes are assembled from per-field RLP written out by hand (only list headers
     /// are computed), so they do not depend on the encoder under test. Same-typed sibling fields
@@ -754,8 +755,8 @@ mod tests {
             assert!(len > 255, "the long-string form with a 2-byte length");
             [vec![0xb9], len.to_be_bytes().to_vec(), bytes.to_vec()].concat()
         }
-        // The raw blob the forced witness carries.
-        let blob = vec![0x5c; BLOB_BYTES];
+        // The raw tx the forced witness carries.
+        let tx = vec![0x5c; FORCED_TX_BYTES];
 
         let header = |number: u64| Header {
             parent_hash: B256::repeat_byte(0x01),
@@ -882,7 +883,7 @@ mod tests {
                         proof: vec![bytes!("e3a12055")],
                     }],
                 },
-                tx: blob.clone().into(),
+                tx: tx.clone().into(),
             }),
         };
 
@@ -961,8 +962,8 @@ mod tests {
         let forced = list(&[
             &hex!("820203"), // index
             &entry,          // entry
-            // blob: one byte string with a 3-byte length (131,072 = 0x020000)
-            &[hex!("ba020000").as_slice(), &blob].concat(),
+            // tx: one byte string with a 2-byte length (8192 = 0x2000)
+            &[hex!("b92000").as_slice(), &tx].concat(),
         ]);
         let expected = versioned(list(&[
             &block,

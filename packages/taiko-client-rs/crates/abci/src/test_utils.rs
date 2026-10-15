@@ -6,14 +6,13 @@
 //!
 //! [`InboxStorage`] packs Inbox facts and forced inclusion queue entries into storage words
 //! exactly as [`crate::l1::layout`] lays them out, and [`anchor_witness`] /
-//! [`genesis_inbox_witness`] turn it into witnesses with real proofs. [`forced_blob`] codes a
-//! forced inclusion payload ([`manifest_payload`]) into one blob and its versioned hash.
+//! [`genesis_inbox_witness`] turn it into witnesses with real proofs.
 //! [`RegistryStorage`] does the same for the staking registry's checkpoints (and the last
 //! checkpoint's entries), and [`committee_witness`] proves one checkpoint of it.
 //!
-//! [`MockL1`], [`MockEngine`] and [`MockBlobs`] are in-memory
-//! [`L1Source`](crate::l1::source::L1Source), [`Engine`](crate::engine::Engine) and
-//! [`BlobSource`](crate::l1::blobs::BlobSource) implementations with scripted answers and call
+//! [`MockL1`] and [`MockEngine`] are in-memory
+//! [`L1Source`](crate::l1::source::L1Source) and [`Engine`](crate::engine::Engine)
+//! implementations with scripted answers and call
 //! logs.
 //! [`Fixture`] combines all of them into a complete genesis for app tests.
 
@@ -23,16 +22,10 @@ use std::{
 };
 
 use alloy_consensus::{Header, SignableTransaction, TxEip1559, TxEnvelope, TxLegacy};
-use alloy_eips::eip4844::{builder::SidecarBuilder, c_kzg};
 use alloy_primitives::{Address, B256, Bytes, Signature, TxKind, U256, keccak256};
 use alloy_trie::{
     HashBuilder, Nibbles, TrieAccount,
     proof::{ProofNodes, ProofRetainer},
-};
-
-use protocol::shasta::{
-    BlobCoder,
-    manifest::{BlockManifest, DerivationSourceManifest},
 };
 
 use crate::{
@@ -55,7 +48,7 @@ mod fixture;
 mod mocks;
 
 pub(crate) use fixture::{Fixture, GenesisSpec, validator_updates};
-pub(crate) use mocks::{EngineCall, L1Call, MockBlobs, MockEngine, MockL1, simple_block};
+pub(crate) use mocks::{EngineCall, L1Call, MockEngine, MockL1, simple_block};
 
 /// One account of a [`TestState`]: `(address, nonce, balance, code_hash, storage)`, where
 /// `storage` lists `(slot, value)` pairs (zero values are the same as absent slots; on duplicate
@@ -213,7 +206,7 @@ pub(crate) struct InboxStorage {
     /// Slot 281, `uint48` at bits 48–95.
     pub(crate) forced_inclusion_tail: u64,
     /// Entries of the forced inclusion `queue` mapping (slot 280), each written at its own
-    /// `index` with a one-element blob-hash array; independent of the tail.
+    /// `index` with its transaction hash and packed metadata; independent of the tail.
     pub(crate) forced_inclusion_queue: Vec<ForcedEntry>,
     /// Slots 272–274, `genesis_cutoff` in slot 279 (`uint64` at bits 0–63) and the forced
     /// inclusion delay and maximum anchor age in slot 282 (`uint64`s at bits 0–63 and 64–127);
@@ -289,38 +282,6 @@ impl InboxStorage {
         }
         slots
     }
-}
-
-/// The Ethereum KZG trusted setup the test helpers commit blobs under: the one the code under
-/// test loads (no precomputation), so a test process loads one setup, not two.
-fn kzg_settings() -> &'static c_kzg::KzgSettings {
-    c_kzg::ethereum_kzg_settings(0)
-}
-
-/// `payload` coded into one blob by [`BlobCoder`] (as a forced inclusion submitter codes its
-/// source), and the blob's KZG versioned hash.
-pub(crate) fn forced_blob(payload: &[u8]) -> (Bytes, B256) {
-    let sidecar = SidecarBuilder::<BlobCoder>::from_slice(payload)
-        .build_4844_with_settings(kzg_settings())
-        .expect("the payload codes into a valid blob");
-    assert_eq!(sidecar.blobs.len(), 1, "a forced inclusion source is one blob");
-    let hash = sidecar.versioned_hash_for_blob(0).expect("one blob");
-    (Bytes::copy_from_slice(sidecar.blobs[0].as_slice()), hash)
-}
-
-/// The Shasta forced inclusion source bytes of a one-block manifest holding `transactions`:
-/// version word, size word and zlib of the manifest RLP.
-pub(crate) fn manifest_payload(transactions: Vec<TxEnvelope>) -> Vec<u8> {
-    let manifest = DerivationSourceManifest {
-        blocks: vec![BlockManifest {
-            timestamp: 1_760_000_000,
-            coinbase: Address::repeat_byte(0xc0),
-            anchor_block_number: 9,
-            gas_limit: 15_000_000,
-            transactions,
-        }],
-    };
-    manifest.encode_and_compress().expect("the manifest encodes")
 }
 
 /// Two distinct signed transactions (a legacy and an EIP-1559 one) with a fixed, non-recoverable
@@ -809,7 +770,7 @@ mod tests {
         assert_eq!(slots.len(), 5 + 6);
     }
 
-    /// A queue entry packs into its four slots like Solidity writes `queue[i]`.
+    /// A queue entry packs into its two slots like Solidity writes `queue[i]`.
     #[test]
     fn inbox_storage_packs_forced_inclusion_entries() {
         let entry = ForcedEntry {

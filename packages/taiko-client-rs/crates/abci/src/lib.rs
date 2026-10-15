@@ -9,8 +9,8 @@
 //!
 //! The `types`, `config`, `schedule`, `envelope`, `l1::header`, `l1::layout`, `l1::mpt`,
 //! `l1::witness`, `committee`, `compression`, `forced`, `rules` and `engine::convert` modules and
-//! the genesis `app_state` codec perform no I/O; `l1::source`, `l1::blobs`, `engine` and
-//! `elsync` hold the L1, beacon and execution-engine adapters, `l1::fetch` and the genesis
+//! the genesis `app_state` codec perform no I/O; `l1::source`, `l1::forced_tx`, `engine` and
+//! `elsync` hold the L1 and execution-engine adapters, `l1::fetch` and the genesis
 //! builder read L1 through them, `app` answers CometBFT's ABCI requests on top of them, and
 //! `server` serves the app on CometBFT's ABCI socket.
 
@@ -18,7 +18,7 @@
 pub mod app;
 /// Committee derivation from staking-registry snapshots, MEM-08 set roots and record hashes.
 pub mod committee;
-/// zlib helpers shared with landing payload V3, and the capacity of one landing.
+/// zlib helpers shared with landing payload V4, and the capacity of one landing.
 pub mod compression;
 /// Chain parameters (built-in per L2 chain id, optional TOML override).
 pub mod config;
@@ -68,9 +68,8 @@ pub use genesis::{
     encode_app_state,
 };
 pub use l1::{
-    BeaconBlobs, BlobSource, CommitteeL1Source, FetchError, L1Error, L1HeaderError, L1Source,
-    LazyBeaconBlobs, RawL1Header, RpcL1Source, build_committee_witness,
-    build_committee_witness_at_cutoff, header_at, is_final_canonical,
+    CommitteeL1Source, FetchError, L1Error, L1HeaderError, L1Source, RawL1Header, RpcL1Source,
+    build_committee_witness, build_committee_witness_at_cutoff, header_at, is_final_canonical,
 };
 pub use metrics::AbciMetrics;
 pub use rules::{ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation};

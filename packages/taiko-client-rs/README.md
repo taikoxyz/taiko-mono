@@ -22,9 +22,8 @@ Every validator and every full node runs three processes:
                   │  ABCI socket (proxy_app, default tcp://127.0.0.1:26658)
                   ▼
       taiko-client abci  ── Engine API (JWT) + eth RPC ──▶  alethia-reth
-          │     │     │
-          │     │     └── own L1 node: headers, eth_getProof, `finalized`
-          │     └── L1 beacon node: forced inclusion blobs (proposing, prefetching)
+          │     │
+          │     └── own L1 execution node: headers, eth_getProof, eth_getLogs, `finalized`
           └── --data-dir: abci-state.json
 ```
 
@@ -34,11 +33,12 @@ Every validator and every full node runs three processes:
   them from its own txpool.
 - **`taiko-client abci`** wraps each execution block, together with the L1 facts it consumes (an
   L1 header plus EIP-1186 storage proofs of the Inbox and the staking registry; while an entry the
-  chain has not consumed is queued at the anchor, that entry's proof and, when the block consumes
-  it before it expires, its blob), into the CometBFT block. Validators only check with their own
-  L1 node that the anchored L1 header is canonical and final. `FinalizeBlock`, replay and block
-  sync never call the beacon or read L1 state; for a block the node never judged, they make the
-  same canonical-and-final check of its anchor header (see Restarts). At each switch height the
+  chain has not consumed is queued at the anchor, that entry's proof and exact calldata bytes),
+  into the CometBFT block. Validators check with their own L1 node that the anchored header is
+  canonical and final. `FinalizeBlock`, replay and block sync read no L1 state or admission logs;
+  for a block the node never judged, they confirm its anchor header (see Restarts). Canonical
+  forced transactions omitted at position zero require Engine checks against the authenticated
+  parent; valid inclusion and invalid-byte skips need no singleton build. At each switch height the
   app derives the target committee from the committed parent anchor and hands CometBFT the
   validator updates, effective two heights later. Its state is persisted atomically at every
   `Commit`. The genesis record includes the authenticated committee config hash, and the epoch
@@ -54,10 +54,10 @@ Every validator and every full node runs three processes:
 | `bin/client/`          | The `taiko-client` binary (`abci`, `abci-genesis`, `abci-committee-record`, `lander`) |
 | `crates/lander/`       | Permissionless batch/blob construction, proof trait and durable L1 submission         |
 | `crates/abci/`         | The ABCI++ application of the Etna PoS chain                                          |
-| `crates/protocol/`     | Shared helpers; `shasta` serves raiko2 and forced inclusion decoding                  |
-| `crates/rpc/`          | Engine API and JWT helpers; beacon and blob clients for forced inclusion              |
+| `crates/protocol/`     | Shared helpers; `shasta` and `FixedKSigner` serve raiko2                              |
+| `crates/rpc/`          | Engine API and JWT helpers                                                            |
 | `crates/bindings/`     | Generated Anchor contract bindings, kept for protocol's anchor builder (raiko2)       |
-| `crates/test-harness/` | Docker devnet (anvil, alethia-reth, CometBFT) and a fake beacon for the scenarios     |
+| `crates/test-harness/` | Docker devnet (anvil, alethia-reth, CometBFT) and calldata admission fixtures         |
 | `script/`              | Maintenance scripts (binding generation)                                              |
 | `tests/`               | The integration test entrypoint and the test JWT secret                               |
 
@@ -92,15 +92,15 @@ height 8 anchored 1020 may select a different committee; all nodes replaying one
 
 The config hash binds nine ABI words: `ETNA_PARENT_ANCHOR_V1`, L2 chain id, registry,
 `vp_unit`, `s_min`, `n_max`, `heartbeat_window`, heartbeat lookahead 2 and membership algorithm 1.
-The envelope is version 4, the landing payload V3, the statement V6 and the lander journal
-schema 7 (original Comet protobuf block witnesses and protobuf commits). State files must contain `genesis.committee_config_hash` and the forced inclusion
-fields (`forced_cursor`, `genesis.forced_inclusion_delay`, `genesis.max_anchor_age` and the
-anchor's `forced_inclusion_head` and `forced_inclusion_tail`), and local parameters must open
-the config hash correctly. Histories with envelope version 2 or 3, fixed-cutoff
-configuration/state openings, state files without the forced inclusion fields or required Inbox binding, and schema-2 to
-schema-5 journals (older statements/payloads or lossy domain block witnesses) are rejected; never discard an
-outstanding signed nonce to force startup.
-No migration is provided. The committee record encoding remains version 1.
+The envelope is version 5, the landing payload V4, the statement V6 and the lander journal
+schema 8 (original Comet protobuf witnesses and commits). ABCI advertises `APP_VERSION = 1`;
+persisted `app_version` is mandatory and must equal 1. State files also require
+`genesis.committee_config_hash`, `forced_cursor`, `genesis.forced_inclusion_delay`,
+`genesis.max_anchor_age`, the anchor's queue head/tail and the authenticated Inbox binding.
+Local parameters must open the config hash correctly. Earlier envelope/payload prefixes,
+schema-7 and older journals, and missing or incompatible app versions are rejected. No migration
+is provided. Never edit signed journal bytes, delete an outstanding signed nonce, or discard
+CometBFT history to force startup. The committee record encoding remains version 1.
 
 Settlement back-pressure remains `height - anchoredCheckpointHeight <= d_max - margin_v`;
 generation behavior is unchanged. Thus committee authorization does not wait for `land`, while
@@ -116,87 +116,57 @@ a recovery-generation bootstrap or an implicit replacement set.
 
 ## Forced inclusion
 
-A user whose transactions the committee does not include can submit them to the Etna Inbox as a
-forced inclusion, with Shasta's `IForcedInclusionStore` interface and blob format: one blob, an
-offset into it and a fee that grows linearly with the number of unsettled entries (doubling at a
-configured threshold). The Inbox appends the entry to its queue with the L1 timestamp of the
-submission. The chain keeps its own cursor `c`
-(`forced_cursor` in `abci-state.json`), the number of entries its blocks have consumed; every
-landing sets the Inbox queue's `head` to the cursor at its checkpoint.
+A user can submit one exact transaction byte string to the Etna Inbox with `saveForcedInclusion(bytes)`.
+The maximum is 8192 bytes; empty and undecodable bytes are admissible input but cannot count as
+valid inclusion. The admission event records the raw bytes. Queue entries commit their Keccak-256
+hash and pack the L1 timestamp, L1 submission block and fee in gwei. The fee grows with unsettled
+entries. The app tracks `forced_cursor`, and each landing advances the Inbox's queue head to its
+checkpoint cursor. Consumed queue entries remain stored.
 
-Each block is judged from its own anchor `A`, with `tail(A)` the queue's tail proven at `A` (every
-anchor witness proves it). Entry `c` is due when `A.timestamp >= entry.timestamp + D`, where `D` is
-the `forcedInclusionDelay` the genesis record reads from the Inbox, and expired when
-`A.timestamp >= entry.timestamp + E`, with `E` fixed at 14 days (1,209,600 seconds):
+Each block uses its own authenticated anchor `A` and the parent cursor `c`. A pending entry is
+due when `A.timestamp >= entry.timestamp + forcedInclusionDelay`. The delay must be positive;
+there is no expiry or expiry-derived upper bound.
 
-- `c >= tail(A)`: no entry is pending at `A`; the block is ordinary and carries no forced
-  inclusion witness.
-- Entry `c` is waiting (`c < tail(A)`, not yet due): every block carries a peek, the entry's
-  storage proof without a blob, which shows the entry is not yet due. The rule also accepts an
-  early inclusion, but this client never proposes one.
-- Entry `c` is due and not expired: the block must be the forced inclusion block of entry `c`.
-  A block that skips it or consumes another entry is invalid; entries are consumed one by one,
-  in queue order.
-- Entry `c` is expired: an empty forced inclusion block without a blob consumes it, since the
-  beacon may no longer hold the blob. Every expired entry is also due (`E > D`); expiry takes
-  precedence.
+- If `c >= tail(A)`, the block carries no forced witness and consumes no entry.
+- Otherwise every block carries entry `c`'s two-slot proof and exact bytes, including before it is
+  due. The bytes must match the proven hash and size cap. Witness RLP decoding checks the borrowed
+  transaction field's byte length before copying it.
+- A canonical transaction included byte-for-byte at position zero consumes the entry, even early.
+  Ordinary transactions may follow it; matching a transaction at another position is insufficient.
+- An entry absent from position zero cannot be consumed early. Once due, empty, malformed or
+  noncanonical transaction bytes consume the entry directly as an invalid-byte skip.
+- Due canonical bytes absent from position zero require the shared Engine skip checker. It
+  builds the singleton on the authenticated parent, checks a still-canonical parent immediately
+  before FCU, and requires the singleton to preserve the consensus-derived header and retain no transaction.
+  Filtering or zk-gas overflow can yield that empty result and authorize the skip. RPC errors, missing
+  history, malformed results and a signature-recovery failure in a transaction the block
+  claims to include never authorize consumption.
 
-A forced inclusion block holds only the entry's transactions. Its envelope's `forced` field
-carries the entry index, the entry's EIP-1186 proof under the anchor's state root and the raw
-128 KiB blob, which must match the entry's versioned hash. The transactions are read the way
-Shasta derivation reads a forced inclusion source: `BlobCoder` decoding, then a
-`DerivationSourceManifest` at the entry's offset holding exactly one block. A manifest that is
-invalid, decompresses beyond 1 MiB, or holds zero or several blocks still consumes the entry,
-as an empty block. The proposer builds the block through the EL from that explicit `txList`
-(alethia-reth skips transactions that do not decode, recover or validate, or that exceed the
-remaining block gas, and stops when zk gas runs out). Every validator rebuilds it on the
-committed parent from the same inputs and requires the same block hash: in `ProcessProposal`,
-and in `FinalizeBlock` whenever it has no `ProcessProposal` verdict (replay, block sync).
-Because the blob travels in the envelope, replay and block sync never need the beacon or L1 state,
-and the lander re-publishes the blob in its landing blobs.
+At most one queue entry is consumed per block. Included and invalid-byte cases require no
+singleton build. `ProcessProposal`, cold `FinalizeBlock` and the lander share the classifier and
+skip checker. Host Engine checks establish current dummy-proof behavior; an independent validity
+proof guest remains future work. `land` pays consumed fees to the statement-bound `feeRecipient`,
+the lander's sending address.
 
-Validators apply this rule in consensus, so only a committee with more than 2/3 of the voting
-power can decide a block that skips a due entry, and a batch holding such a block cannot be
-proven, so it never lands. Skipping a due entry therefore stops settlement and, through
-back-pressure, the chain. Delaying the moment an entry becomes due takes only more than 1/3
-of the voting power (the exact threshold lies between 1/3 and 1/2, depending on how finely stake
-is divided; see Anchor freshness). `land` pays the consumed entries' fees to the `feeRecipient`
-the landing statement binds, the lander's sending address.
+Proposers retrieve admission bytes with `eth_getLogs` for the exact proven submission block,
+Inbox address and event identity, then recheck the transaction hash. Retain historical admission
+logs as long as queued entries may remain pending. No beacon endpoint, blob timeout or KZG warmup
+is used for FI. The removed `--l1.beacon` and `--l1.blob-timeout` flags are rejected. Lander batch
+publication still uses blobs and EIP-4844/EIP-7594 sidecars.
 
-A startup background smoke test warms beacon metadata and checks the blobs endpoint; prefetching
-and proposing fetch the actual entry blob. A proposer that cannot fetch a due entry's blob from
-`--l1.beacon`, or fetches a blob that does not match the entry, proposes nothing and records
-the halt reason `blob_unavailable` (a beacon that does not answer before the proposal's deadline
-records `timeout` instead); another proposer's round can still include the entry. The app loads
-the KZG trusted setup at startup, so no ABCI request pays for it. Completed anchor and forced
-entry proofs and verified blobs are kept for later rounds at the same height, with proof reuse
-bound to the header hash or state root and queue index. A single owned forced-entry proof can
-finish after a round's overall timeout, within its L1 deadline; a single owned blob fetch runs
-within its own `--l1.blob-timeout` (default 30 s), so a beacon slower than the L1 deadline still
-delivers the blob to a later round. Changing a read's key or committing aborts unfinished work,
-except for the entry at the committed cursor: whenever the committed anchor's queue holds one,
-every node fetches that entry's blob in the background, within the blob deadline, and keeps it
-across heights, from the facts a decided block proved or, for an entry queued behind a consumed
-one, after reading the entry under the committed anchor. A live `Commit` starts this, and every
-`ProcessProposal` (each round that delivers a proposal while the node is not locked on a block,
-empty ones included) restarts a failed
-read or fetch, which also covers a restarted node. Whichever node proposes once the entry falls
-due therefore holds its blob, or has been fetching it since the entry reached the cursor. An
-entry first visible at a newer anchor than the committed one and already due there (a forced
-inclusion delay shorter than the anchor's step of about 384 seconds, or an anchor catching up
-after L1 lag or a halt) is fetched by proposers on their turns, each read surviving the stalled
-height's rounds; keep the delay at least two anchor steps. Initial anchor header and proof reads run together. This avoids
-repeatedly restarting slow work inside the two-second default preparation budget. Permanently
-unavailable blobs still prevent due inclusion; configure the L1, blob and prepare timeouts for
-backend latency, keeping preparation below CometBFT's proposal timeout.
+Completed proposal anchor/entry proofs and authenticated transaction bytes are cached under their
+exact header/root/entry identity. One bounded entry/event read can survive a cancelled round;
+changing its context aborts unfinished work. A commit retains bytes and an in-flight event read
+only for the still-pending cursor. These reads use `--l1.timeout`; the overall preparation budget
+must remain below CometBFT's proposal timeout. Missing or mismatching admission data prevents a
+proposal rather than authorizing a skip. Committee witness prefetch and retry backoff are unchanged.
 
 ### Anchor freshness
 
 Every block must satisfy `block.timestamp - anchor.timestamp <= maxAnchorAge`, checked in
 `PrepareProposal`, `ProcessProposal` and `FinalizeBlock` replay. `maxAnchorAge` is a genesis
 parameter the genesis record reads from Inbox slot 282, next to the delay. The pinned Inbox
-initializer requires `maxAnchorAge >= 1152` seconds and
-`forcedInclusionDelay + maxAnchorAge + 384 <= 14 days`. ABCI uses that authenticated value
+initializer requires `maxAnchorAge >= 1152` seconds and a positive `forcedInclusionDelay`. There is no expiry bound. ABCI uses that authenticated value
 for its block rule. The block timestamp is the derived `max(parent + 1, floor(BFT time), anchor.timestamp)`.
 
 What freshness guarantees: a block's anchor never trails that derived timestamp by more than
@@ -215,10 +185,8 @@ includes in them only enough honest precommits to clear 2/3, which gives its own
 majority of the median weight (the exact threshold lies between 1/3 and 1/2, depending on how
 finely stake is divided). Either coalition can hold block timestamps back and, while satisfying
 the freshness rule, keep anchors stale and delay forced inclusions; each block still advances
-the timestamp by at least one second. A delay that reaches the 14-day expiry becomes a drop: the
-entry is then consumed by an empty block. Raising this bound would need a validator-local clock
-check (PBTS-style timeliness); that is an open, launch-blocking design decision and is not
-implemented.
+the timestamp by at least one second. A delayed entry never expires. Bounding this delay in wall-clock time would need a validator-local
+clock check (PBTS-style timeliness); that remains an open, launch-blocking design decision.
 
 ## Prerequisites
 
@@ -246,19 +214,17 @@ Serves the ABCI++ application to a CometBFT node.
 | `--chain-config`                        | `ABCI_CHAIN_CONFIG`    | Optional TOML overriding the built-in chain parameters (devnet only)          |
 | `--l1.http`                             | `L1_HTTP`              | The operator's own L1 node, HTTP(S) only, required (see L1 node requirements) |
 | `--l1.archive`                          | `ABCI_L1_ARCHIVE`      | Optional archive RPC for fixed committee registry snapshots only              |
-| `--l1.beacon`                           | `L1_BEACON`            | L1 beacon node serving forced inclusion blobs, HTTP(S), required              |
 | `--l2.http`                             | `L2_HTTP`              | alethia-reth's JSON-RPC endpoint, required                                    |
 | `--l2.auth`                             | `L2_AUTH`              | alethia-reth's Engine API endpoint, plain `http` only, required               |
 | `--jwt.secret`                          | `JWT_SECRET`           | Engine API JWT secret file, required                                          |
 | `--l1.timeout`                          | `ABCI_L1_TIMEOUT`      | Deadline of one L1 read, in seconds (default 3)                               |
-| `--l1.blob-timeout`                     | `ABCI_L1_BLOB_TIMEOUT` | Deadline of one forced inclusion blob read, in seconds (default 30)           |
 | `--engine.timeout`                      | `ABCI_ENGINE_TIMEOUT`  | Deadline of one Engine API or EL RPC call, in seconds (default 5)             |
 | `--elsync.timeout`                      | `ABCI_ELSYNC_TIMEOUT`  | Deadline of an EL sync to a trusted head, in seconds (default 600)            |
 | `--prepare.timeout`                     | `ABCI_PREPARE_TIMEOUT` | `PrepareProposal` deadline in seconds (default 2), below `timeout_propose`    |
 | `--metrics.enabled` / `.addr` / `.port` | `METRICS_*`            | Prometheus metrics server (default off, `0.0.0.0:9090`)                       |
 | `-v`, `--verbosity`                     | `VERBOSITY`            | Log level, 0 = error … 4 = trace (default 2); `RUST_LOG` overrides it         |
 
-The five timeouts accept 1 to 3600 seconds. The L2 chain id is read from `--l2.http` and
+The four timeouts accept 1 to 3600 seconds. The L2 chain id is read from `--l2.http` and
 selects the built-in chain parameters. Only the internal devnet (chain id `167001`) has Etna PoS
 parameters so far; on other chains `abci` refuses to start. The `--chain-config` TOML uses the
 snake_case names of `abci::ChainParams` (for example `d_max = 12`); absent keys keep their
@@ -272,16 +238,16 @@ header whose hash and state root match H* and S*.
 A safety halt (a committed block or the execution engine contradicting the app state) exits the
 process with status 2; investigate before restarting. Liveness halts (anchor not final, anchor
 older than `maxAnchorAge`, back-pressure, committee discovery unavailable, a due forced
-inclusion blob unavailable, superseded generation) keep the process running and CometBFT
+inclusion event unavailable, superseded generation) keep the process running and CometBFT
 rounding; the ABCI query `/status` reports the head, epoch, generation and halt reason.
 
 `PrepareProposal` and `ProcessProposal` also refuse a block that could not land on its own: one
-whose envelope, zlib-compressed as payload V3 compresses it, plus a 1,024-byte header allowance
+whose envelope, zlib-compressed as payload V4 compresses it, plus a 1,024-byte header allowance
 exceeds 776,168 bytes (six landing blobs less 4 KiB of payload framing). This landing capacity
 guard keeps every decided block landable; it is a liveness guard, not a validity rule, so
 `FinalizeBlock` does not re-check it. The allowance covers the published header prefix (at most
 768 bytes) and the framing of the lander's single-block fallback, which compresses the envelope
-exactly as the guard does (see payload V3 below).
+exactly as the guard does (see payload V4 below).
 
 ### `lander`
 
@@ -296,10 +262,10 @@ value for landing to succeed. A real Etna validity-proof guest/provider remains
 separate work; the current contract tests establish the submission and binding
 path rather than EVM validity-proof soundness.
 
-Required inputs are public `--l1.http`, public `--l2.http`, `--comet.http`, a
+Required inputs are `--l1.http`, `--l2.http`, `--l2.auth`, `--jwt.secret`, `--comet.http`, a
 `--signing-key` file containing a hex key, an exclusive `--data-dir`,
 `--max-blocks`, `--max-blobs`, all three fee caps, and `--sidecar`.
-The command needs no Engine API or JWT. Fee caps are positive wei per gas:
+The authenticated Engine API is required for historical singleton skip checks. Fee caps are positive wei per gas:
 `--max-fee-per-gas`, `--max-priority-fee-per-gas`, and
 `--max-fee-per-blob-gas`; the priority cap cannot exceed the execution cap.
 Signed transactions add a checked 20% gas-limit margin to the RPC estimate,
@@ -309,7 +275,8 @@ explicitly before running this example:
 
 ```sh
 taiko-client lander --l1.http http://l1-node:8545 \
-  --l2.http http://localhost:8545 --comet.http http://localhost:26657 \
+  --l2.http http://localhost:8545 --l2.auth http://localhost:8551 --jwt.secret ./jwt.hex \
+  --comet.http http://localhost:26657 \
   --signing-key ./lander.key --data-dir ./lander-data \
   --max-blocks 10 --max-blobs 6 --sidecar eip7594 \
   --max-fee-per-gas "$LANDER_MAX_FEE_PER_GAS" \
@@ -354,18 +321,17 @@ hash, terminal block/root, blob hashes, the forced inclusion queue head before (
 after the batch, and the fee recipient. Each committee is independently derived from its
 committed derivation parent's L1 snapshot; no per-epoch committee output or starting-set hint is authoritative.
 
-Every block is held to the ABCI forced inclusion rule (`abci::forced::check`): its witness proves
-the queue entry at the cursor under the block's anchor, a due entry must be consumed, and a
-consuming block's blob must match the entry's versioned hash. The lander does not execute the
-entry's transactions; the guest does. The cursor starts at the snapshot's Inbox head (each
-landing leaves the head at its checkpoint's cursor), consumed entries must follow it one by one,
-and `forcedInclusionHead` in `LandInput` is the cursor after the batch's last block.
-`LandInput.feeRecipient` is the lander's sending address: `land` pays the consumed entries' fees
-to it and emits `ForcedInclusionsConsumed`, and the statement binds it, so whoever copies a
-public landing transaction cannot redirect the fees. There is nothing to configure. The Inbox
-rejects a zero recipient (`ZeroFeeRecipient`); the lander treats that revert as a configuration
-error. A forced inclusion block's envelope carries its 128 KiB blob, which can
-take up to one more landing blob.
+Every block is held to the shared ABCI calldata classifier and asynchronous skip checker. Its
+witness authenticates the cursor's entry under that block's anchor. Inclusion must match the exact
+canonical bytes at position zero; a due invalid-byte skip consumes directly, while a due canonical
+skip requires Engine evidence. Unavailable evidence retries without cursor advancement. The cursor
+starts at the snapshot's Inbox head and advances by at most one per block. `forcedInclusionHead`
+in `LandInput` is the cursor after the batch's last block.
+`LandInput.feeRecipient` is the lander's sending address: `land` pays consumed fees to it and emits
+`ForcedInclusionsConsumed`. The statement binding prevents copied landing transactions from
+redirecting fees. The Inbox rejects a zero recipient (`ZeroFeeRecipient`); the lander treats that
+revert as a configuration error. Envelope v5 carries at most 8192 FI transaction bytes, which the
+lander republishes in payload V4 alongside the exact signed consensus data.
 
 Proof requests retain the Inbox schedule/config/checkpoint proof under the batch parent's anchor,
 along with each committee's registry witness and proving header in the reference ancestry.
@@ -381,7 +347,7 @@ required derivation parent is at most `epochLenL2 + 2` links behind the checkpoi
 The latest Inbox snapshot used to collect a coherent checkpoint is a separate operational
 input; it cannot replace a proof under an older reference chain.
 
-Blob payload V3 is `0x03 || zlib(rlp([[comet_header_proto, envelope], ...]))`: an RLP list of
+Blob payload V4 is `0x04 || zlib(rlp([[comet_header_proto, envelope], ...]))`: an RLP list of
 the canonical `tendermint-proto` v0_38 header and the exact envelope bytes of each block's single
 transaction, compressed as one zlib stream with the same codec as the ABCI landing capacity
 guard. Each header hashes to the block id its committee signed, its `data_hash` commits
@@ -463,8 +429,7 @@ that past L1 block explicitly, as it is written before the initialization block 
 later epoch uses the committed switch-parent anchor; the new block's proposed anchor and a
 lander's reference cannot replace it. Genesis verification also checks the stored committee config hash against
 the local parameters. The genesis record carries the forced inclusion delay and `maxAnchorAge`
-proven from Inbox slot 282; a delay of zero or of 14 days or more, or a zero `maxAnchorAge`, is
-refused.
+proven from Inbox slot 282; a zero delay or `maxAnchorAge < 1152` is refused.
 
 | Flag             | Description                                                                           |
 | ---------------- | ------------------------------------------------------------------------------------- |
@@ -565,7 +530,7 @@ or config opening differs.
    must listen before CometBFT connects):
 
    ```sh
-   taiko-client abci --l1.http http://l1-node:8545 --l1.beacon http://l1-beacon:5052 \
+   taiko-client abci --l1.http http://l1-node:8545 \
      --l2.http http://localhost:8545 --l2.auth http://localhost:8551 --jwt.secret ./jwt.hex \
      --data-dir ./abci-data
    ```
@@ -586,8 +551,8 @@ or config opening differs.
   outage would leave every later L1 read failing until a restart.
 - **Every node** reads L1 headers and the `finalized` block from its own L1 node to check that
   anchored L1 headers are canonical and final. Full nodes also run the background prefetches
-  validators use (the switch witness before a switch height, a queued forced inclusion entry's
-  proof and blob), so give them the same L1 proof access and `--l1.beacon` as validators.
+  validators use for committee switch witnesses, so give them the same L1 proof access.
+  Proposers also need exact-block historical admission logs for pending forced entries.
 - **Validators** also build proposals, so their L1 node must serve `eth_getProof` (EIP-1186) for
   historical blocks. A proposal proves Inbox storage at its anchor, which is at least
   `l1_finality_extra_depth` blocks behind L1 `finalized`. At a switch height the proposer also
@@ -638,19 +603,9 @@ or config opening differs.
   app re-encodes the header from `eth_getBlockByNumber`, which works only while it knows every
   header field: after the next L1 fork that adds one, proposals fail with an error naming the
   unknown fields until the namespace is enabled.
-- **Validators** fetch the blob of a due forced inclusion entry from `--l1.beacon`
-  (`/eth/v1/beacon/blobs/{slot}`). After Fulu the [Beacon API specification](https://github.com/ethereum/beacon-APIs/blob/master/apis/beacon/blobs/blobs.yaml)
-  guarantees this route for supernodes; other nodes may reconstruct complete blobs.
-  [Lighthouse supports both `--supernode` and `--semi-supernode`](https://lighthouse-book.sigmaprime.io/advanced_blobs.html),
-  with a supernode avoiding the latter's reconstruction latency. Configure retention for every
-  unexpired entry (14 days): a node started or checkpoint-synced recently may lack older columns
-  despite the usual 18-day retention period. A nonfatal background startup probe initializes
-  metadata and checks `/eth/v1/beacon/blobs/head`; `abci_beacon_blob_endpoint_up` is 1 when the
-  last probe or fetch succeeded, 0 when unchecked or failed. A successful empty-head probe does
-  not prove historical custody. Without a reachable beacon the app still starts, replays and
-  votes, but proposes nothing in place of a due entry's block. A
-  hosted beacon's path prefix (e.g. `https://host/<key>/`, with or without the trailing slash)
-  is kept on every request, and the app's errors and logs never print the endpoint.
+- **Proposers** fetch calldata admission events from `--l1.http` using exact-block `eth_getLogs`.
+  Keep old logs available for still-pending queue entries; no FI expiry permits deleting them.
+  Voters and cold replay use envelope-carried bytes and proofs instead of fetching admission logs.
 - `abci-genesis` reads the initialization block and the registry entries back to the Inbox's
   `genesisCutoff`. That block is fixed when the initializing DAO proposal is written, well before
   the initialization block, so in practice `abci-genesis` needs an archive node.
@@ -682,25 +637,42 @@ or config opening differs.
 
 ### Execution layer state history
 
-- A node that lost `abci-state.json` (or starts with an empty `--data-dir` next to an existing
-  alethia-reth) is replayed by CometBFT from its last saved state, and `FinalizeBlock` judges
-  each replayed block cold. A cold forced inclusion block is rebuilt in alethia-reth on its
-  parent, which needs the parent's state, possibly far behind alethia-reth's head.
-- Cold rebuilding on a canonical ancestor requires the alethia-reth behavior selected by
-  [`TaikoChainSpec::is_optimism() == true`](https://github.com/taikoxyz/alethia-reth/blob/53d2cd81eb7dd271ef4eec693a14afc1a35ac12b/crates/chainspec/src/spec.rs#L146).
-  [reth's launcher](https://github.com/paradigmxyz/reth/blob/f2eecc65482af4085e43eedb27a32024bf177a0d/crates/node/builder/src/launch/engine.rs#L248)
-  uses it to select the engine path that processes payload attributes on canonical ancestors;
-  a generic Ethereum engine can ignore that FCU and return no payload id. An unknown payload id
-  (`-38001`), e.g. after an EL restart between FCU and getPayload, restarts the entire rebuild
-  to obtain a fresh id.
-- So keep alethia-reth's state history over the distance a node may replay (do not prune state
-  history below it), or run it as an archive node. An alethia-reth restored from a snapshot
-  taken after the replayed blocks lacks their state as well.
-- Without that state, the replay of a forced inclusion block either keeps retrying, logged at
-  WARN (ERROR after a minute) under `method="forced inclusion rebuild"` with a reason naming the
-  parent alethia-reth cannot build on, or stops with a safety halt labeled
-  `forced_rebuild_unavailable`. Give alethia-reth that history (resync it from a node that has
-  it, or restore an older snapshot), then restart the app and CometBFT.
+- Cold replay judges each decided block from its authenticated parent. Inclusion and invalid-byte
+  skips need no singleton build. A due canonical entry absent from position zero requires a
+  historical singleton and therefore the parent's execution state. Landers need the same history
+  when authenticating canonical skips in decided batches.
+- Keep the pinned alethia-reth behavior that processes payload attributes on historical canonical
+  parents (`TaikoChainSpec::is_optimism() == true`). Leave
+  `--engine.allow-unwind-canonical-header` disabled (the default): enabling it can rewind the shared
+  canonical head. The client checks the candidate parent's numeric canonical hash before probing;
+  this guard is not an atomic lock against concurrent reorgs. It does not submit or forkchoice the
+  singleton result. Engine builds are not universally read-only, especially on noncanonical parents.
+- Retain execution state over the entire replay/landing distance, or use an archive node. A later
+  snapshot may lack the required old state. Generic unavailable-build RPC errors are retryable,
+  non-consuming and logged with `reason="forced_rebuild_unavailable"`, parent number/hash and a
+  qualified historical-state hint. A generic internal RPC error does not confirm pruning. Unknown
+  payload IDs (`-38001`) restart the build to obtain a fresh ID. When state becomes available,
+  retry resumes without advancing the cursor prematurely. Nonretryable failures retain the safety
+  halt. Restore the required state/history before restarting a halted app and CometBFT.
+
+### Future validity proof boundary
+
+The current proof provider returns dummy `0x00`; no real guest/prover is implemented. Current host
+skip checks use Engine provided-list builds. A future prover can use the existing
+`debug_executionWitnessForTxList` replay RPC as a witness collection primitive: recoverable
+nonce/balance failures can contribute attempted state reads, and replay stops at the first zk-gas
+overflow. Transactions after that cutoff are not replayed. Unrecoverable signatures are dropped
+before execution, so their rejection needs authenticated raw bytes/signature validation rather
+than an account witness. Malformed input and nonrecoverable errors still fail the RPC.
+
+Candidate replay may need `options.skipZkGasDifficultyCheck = true` because the canonical header's
+reused difficulty need not match the candidate list's finalized zk gas. This only bypasses that
+post-execution mismatch; it does not remove other validation or guarantee witness availability.
+The RPC supplies no FI rejection certificate, queue commitment or guest acceptance guarantee.
+Future guest inputs must authenticate queue/raw transaction/context commitments, reproduce the
+immediate execution prefix and budget, verify state witnesses, independently recheck the allowed
+rejection or overflow, and bind cursor advancement/output. A candidate beyond an earlier cutoff
+or under another parent context needs a suitable collection path.
 
 ## Development
 
@@ -717,9 +689,10 @@ just clippy     # doc lints on library code, then every target with -D warnings
 - `just test` runs the serial Docker integration scenarios in `crates/abci/tests`,
   `crates/lander/tests`, `crates/test-harness/tests` and `bin/client/tests`. ABCI scenarios cover single validator,
   anchor finality, restart and lost-state replay, epoch switch with and without landing, back-pressure, generation
-  bump, smoke, a forced inclusion executed after its delay, a validator without beacon access
-  that cannot censor a due entry, and an L1 finality stall that pauses and resumes L2 (a fake
-  beacon in the harness serves anvil's blobs). Lander scenarios cover actual Inbox blob
+  bump, smoke, calldata inclusion, invalid-byte skips, canonical skips, and unavailable-history
+  retry/recovery, plus an L1 finality stall that pauses and resumes L2. The history test emulates
+  the source-backed unavailable-build RPC shape through a delegating Engine adapter; it does not
+  actually prune Reth state. Lander scenarios cover actual Inbox blob
   transactions, a forced inclusion landing that pays its fee, permissionless races,
   verifier rejection, receipt reorgs, durable nonce recovery, stock CometBFT collection,
   and actual-CLI SIGTERM/SIGKILL restarts, minimum/timeout batching, and pressure/epoch flushes. Each scenario boots its own devnet through the docker CLI (anvil as L1,
@@ -738,10 +711,13 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 Regenerate lander ABI/deployment fixtures with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `f370455143e81fa12ad3b627d4c2b8d62c770631`,
+The script requires protocol HEAD `d220217af46d8bc5de2012d4e51eb28c30067c15`,
 installs pnpm dependencies before Foundry, verifies compiler source hashes,
 formats generated JSON, and records ABI/bytecode/compiler provenance. It leaves
-the existing Anchor bindings unchanged.
+the existing Anchor bindings unchanged. Run it twice and require identical generated output.
+Regenerate test-only `InboxSetter` and `ZkGasFixture` artifacts with
+`script/gen_test_harness_artifacts.sh`; it verifies compiler settings and source hashes and records
+bytecode provenance. Run that generator twice with identical output as well.
 
 ## License
 

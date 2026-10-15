@@ -247,7 +247,6 @@ fn app_new_rejects_invalid_parameters() {
     let err = App::new(
         fx.l1(),
         fx.engine(),
-        fx.blob_source(),
         params,
         Store::new(dir.path().into()),
         AppOptions::default(),
@@ -266,7 +265,6 @@ async fn app_new_rejects_a_stored_state_of_another_chain() {
     let err = App::new(
         fx.l1(),
         fx.engine(),
-        fx.blob_source(),
         params,
         Store::new(dir.path().into()),
         AppOptions::default(),
@@ -285,7 +283,6 @@ async fn app_new_rejects_a_changed_inbox_after_initialization() {
     let err = App::new(
         fx.l1(),
         fx.engine(),
-        fx.blob_source(),
         params,
         Store::new(dir.path().into()),
         AppOptions::default(),
@@ -305,7 +302,6 @@ async fn app_new_rejects_a_stored_schedule_violating_the_cap() {
     let err = App::new(
         fx.l1(),
         fx.engine(),
-        fx.blob_source(),
         params,
         Store::new(dir.path().into()),
         AppOptions::default(),
@@ -336,15 +332,9 @@ async fn app_new_rejects_an_inconsistent_stored_state() {
 
     for state in [bad_generation, bad_genesis, bad_parent, bad_height] {
         store.save(&state).unwrap();
-        let err = App::new(
-            fx.l1(),
-            fx.engine(),
-            fx.blob_source(),
-            fx.params.clone(),
-            store.clone(),
-            AppOptions::default(),
-        )
-        .expect_err("inconsistent stored state");
+        let err =
+            App::new(fx.l1(), fx.engine(), fx.params.clone(), store.clone(), AppOptions::default())
+                .expect_err("inconsistent stored state");
         assert!(matches!(err, AbciError::StoredState(_)), "{err:?}");
     }
 }
@@ -438,14 +428,8 @@ fn saved_state_rejects_old_and_unknown_protocol_versions() {
         let mut state = fx.expected_state();
         state.app_version = version;
         store.save(&state).unwrap();
-        let result = App::new(
-            fx.l1(),
-            fx.engine(),
-            fx.blob_source(),
-            fx.params.clone(),
-            store,
-            AppOptions::default(),
-        );
+        let result =
+            App::new(fx.l1(), fx.engine(), fx.params.clone(), store, AppOptions::default());
         assert!(
             matches!(result,Err(AbciError::StoredState(ref msg)) if msg.contains("app version"))
         );

@@ -15,7 +15,7 @@ tokio = { workspace = true }
 
 # ethereum
 alloy-consensus = { workspace = true }
-alloy-eips = { workspace = true, features = ["kzg"] }
+alloy-eips = { workspace = true }
 alloy-primitives = { workspace = true, features = ["std", "serde", "rlp"] }
 alloy-provider = { workspace = true }
 alloy-rlp = { workspace = true, features = ["std", "derive"] }
