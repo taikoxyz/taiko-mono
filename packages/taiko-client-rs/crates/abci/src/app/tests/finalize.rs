@@ -1521,3 +1521,50 @@ async fn cached_verdict_is_bound_to_exact_proposal_bytes() {
     finalize(&mut app, final_req).await.unwrap();
     assert_eq!(app.pending.as_ref().unwrap().parent.hash, replacement.block.header.hash_slow());
 }
+
+/// Cold canonical skips must preserve the consumed cursor through crash replay and Commit.
+#[tokio::test]
+async fn cold_canonical_skip_advances_cursor_on_replay_and_persists_after_commit() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    step(&mut app).await; // A persisted parent with a real canonical EL header for restart.
+    let mut env = forced_block_on(&fx, &app);
+    env.block.transactions.clear();
+    env.block.header.transactions_root = alloy_consensus::EMPTY_ROOT_HASH;
+    let parent = app.state().unwrap().clone();
+    let req = cold_req(&app, &env);
+    app.engine().state().build_script.push_back(Ok(env.block.clone()));
+    let first = finalize(&mut app, req.clone()).await.unwrap();
+    assert_eq!(app.state().unwrap().forced_cursor, 0, "Finalize has not committed");
+    assert_eq!(app.pending.as_ref().unwrap().forced_cursor, 1, "cold canonical skip consumes once");
+    let engine = app.engine().reopen();
+    drop(app); // Crash after Finalize, before Commit; the persisted cursor is still zero.
+    let l1 = fx.l1();
+    plant_due_entry(&fx, &l1, 66, fx.inbox.clone());
+    let mut replay = App::new(
+        l1,
+        engine,
+        fx.params.clone(),
+        Store::new(dir.path().into()),
+        AppOptions::default(),
+    )
+    .unwrap();
+    assert_eq!(replay.state(), Some(&parent));
+    info(&mut replay).await.unwrap();
+    replay.engine().state().build_script.push_back(Ok(env.block.clone()));
+    let again = finalize(&mut replay, req).await.unwrap();
+    assert_eq!(again, first);
+    assert_eq!(replay.pending.as_ref().unwrap().forced_cursor, 1);
+    commit(&mut replay).await.unwrap();
+    assert_eq!(replay.state().unwrap().forced_cursor, 1);
+    let reopened = App::new(
+        fx.l1(),
+        replay.engine().reopen(),
+        fx.params.clone(),
+        Store::new(dir.path().into()),
+        AppOptions::default(),
+    )
+    .unwrap();
+    assert_eq!(reopened.state().unwrap().forced_cursor, 1);
+}

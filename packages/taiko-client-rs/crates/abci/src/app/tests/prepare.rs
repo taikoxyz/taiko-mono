@@ -923,22 +923,66 @@ async fn invalid_input_is_retained_early_and_consumed_when_due() {
 }
 
 #[tokio::test]
-async fn missing_or_wrong_admission_bytes_cannot_produce_a_proposal() {
-    for missing in [true, false] {
-        let fx = Fixture::genesis(1);
-        let dir = tempfile::tempdir().unwrap();
-        let mut app = mid_epoch(&fx, dir.path(), 5).await;
-        plant_input(&fx, &app, sample_transactions()[0].encoded_2718().into(), false);
-        let key = (fx.params.inbox, 0, 66);
-        if missing {
-            app.l1().state().forced_transactions.remove(&key);
-        } else {
-            app.l1().state().forced_transactions.insert(key, Bytes::from_static(&[0xff]));
+async fn unavailable_admission_bytes_block_only_due_proposals() {
+    for due in [false, true] {
+        for failure in 0..3 {
+            let fx = Fixture::genesis(1);
+            let dir = tempfile::tempdir().unwrap();
+            let mut app = mid_epoch(&fx, dir.path(), 5).await;
+            plant_input(&fx, &app, sample_transactions()[0].encoded_2718().into(), due);
+            let key = (fx.params.inbox, 0, 66);
+            match failure {
+                0 => {
+                    app.l1().state().forced_transactions.remove(&key);
+                }
+                1 => {
+                    app.l1().state().forced_transactions.insert(key, Bytes::from_static(&[0xff]));
+                }
+                _ => {
+                    app.l1().state().forced_transaction_fail =
+                        Some(L1Error::Rpc("logs unavailable".into()));
+                }
+            }
+            if due {
+                let time = bft_time(&app);
+                assert!(prepare(&mut app, prepare_req(6, time)).await.is_empty());
+                assert!(!built_any(&app));
+            } else {
+                let env = propose(&mut app).await;
+                assert!(env.forced.as_ref().unwrap().tx.is_empty());
+                assert!(env.block.transactions.is_empty());
+                accept_and_commit(&mut app, &env).await;
+                assert_eq!(app.state().unwrap().forced_cursor, 0);
+            }
         }
-        let time = bft_time(&app);
-        assert!(prepare(&mut app, prepare_req(6, time)).await.is_empty());
-        assert!(!built_any(&app));
     }
+}
+
+#[tokio::test(start_paused = true)]
+async fn slow_pre_due_admission_read_leaves_time_for_ordinary_build_and_is_reused() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let raw: Bytes = sample_transactions()[0].encoded_2718().into();
+    plant_input(&fx, &app, raw.clone(), false);
+    app.l1().state().forced_transaction_delay = Some(Duration::from_millis(2500));
+    app.engine().state().delay = Some(Duration::from_secs(1));
+    let start = tokio::time::Instant::now();
+    let env = propose(&mut app).await;
+    assert!(start.elapsed() < app.opts.prepare_timeout);
+    assert!(env.forced.as_ref().unwrap().tx.is_empty());
+    assert!(env.block.transactions.is_empty());
+    accept_and_commit(&mut app, &env).await;
+    assert_eq!(app.state().unwrap().forced_cursor, 0);
+    tokio::time::advance(Duration::from_secs(3)).await;
+    tokio::task::yield_now().await;
+    app.engine().state().delay = None;
+    let next = propose(&mut app).await;
+    assert_eq!(next.block.transactions.first(), Some(&raw));
+    assert_eq!(
+        app.l1().calls().iter().filter(|c| matches!(c, L1Call::ForcedTransaction { .. })).count(),
+        1
+    );
 }
 
 #[tokio::test]

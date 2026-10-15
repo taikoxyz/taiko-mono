@@ -22,7 +22,7 @@ use crate::{
     committee::{AuthenticatedCommittee, authenticate},
     config::COMET_BLOCK_MAX_BYTES,
     contracts::IEtnaInbox::LandInput,
-    error::{LanderError, Result},
+    error::{LanderError, Result, engine_diagnostic},
     history,
     l1::{LandingSource, ParentContext},
     proof::ProofRequest,
@@ -700,18 +700,43 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             },
         )
         .map_err(|e| LanderError::Safety(e.to_string()))?;
+        let probe_context = || {
+            format!(
+                "L2 {}, entry {}, parent {} ({}), anchor {} ({})",
+                facts.expected.number,
+                state.forced_cursor,
+                state.parent.number,
+                state.parent.hash,
+                facts.anchor.number,
+                facts.anchor.hash,
+            )
+        };
         if matches!(facts.forced, abci::forced::ForcedDecision::NeedsSkip { .. }) {
             let header = tokio::time::timeout(
                 self.engine_timeout,
                 self.engine.header_by_number(state.parent.number),
             )
             .await
-            .map_err(|_| LanderError::Temporary("forced parent lookup timed out".into()))?
-            .map_err(|_| LanderError::Temporary("forced parent lookup unavailable".into()))?;
-            if header.is_none_or(|header| header.hash_slow() != state.parent.hash) {
-                return Err(LanderError::Temporary(
-                    "forced singleton parent is not available on the canonical EL chain".into(),
-                ));
+            .map_err(|_| {
+                LanderError::Temporary(format!(
+                    "forced parent lookup at {} timed out after {:?}",
+                    probe_context(),
+                    self.engine_timeout,
+                ))
+            })?
+            .map_err(|error| {
+                LanderError::Temporary(format!(
+                    "forced parent lookup at {}: {}",
+                    probe_context(),
+                    engine_diagnostic(&error),
+                ))
+            })?;
+            let observed = header.map(|header| header.hash_slow());
+            if observed != Some(state.parent.hash) {
+                return Err(LanderError::Temporary(format!(
+                    "forced parent lookup at {}: canonical header hash {observed:?} does not match the authenticated parent",
+                    probe_context(),
+                )));
             }
         }
         let consumed = tokio::time::timeout(
@@ -723,12 +748,23 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             ),
         )
         .await
-        .map_err(|_| LanderError::Temporary("forced singleton check timed out".into()))?
+        .map_err(|_| {
+            LanderError::Temporary(format!(
+                "forced singleton check at {} timed out after {:?}",
+                probe_context(),
+                self.engine_timeout,
+            ))
+        })?
         .map_err(|e| match e {
-            ForcedBuildError::Engine(_) => {
-                LanderError::Temporary("forced singleton build unavailable".into())
-            }
-            other => LanderError::Safety(other.to_string()),
+            ForcedBuildError::Engine(error) => LanderError::Temporary(format!(
+                "forced singleton build at {}: {}",
+                probe_context(),
+                engine_diagnostic(&error),
+            )),
+            other => LanderError::Safety(format!(
+                "forced singleton check at {}: {other}",
+                probe_context()
+            )),
         })?;
         let forced_cursor = if consumed.is_some() {
             state
@@ -2059,7 +2095,7 @@ mod tests {
         #[tokio::test(start_paused = true)]
         async fn canonical_skip_requires_completed_empty_matching_singleton() {
             use test_harness::unavailable_engine::ProbeEngine;
-            for mode in 0..6 {
+            for mode in 0..7 {
                 let plan = ForcedPlan { delay: 5, entries: vec![(10, 5)], consume_at: vec![1] };
                 let mut fixture = Fixture::with_forced(0, 1, plan);
                 alter_envelope(&mut fixture, 1, |env| {
@@ -2085,6 +2121,12 @@ mod tests {
                     parent,
                     result: if mode == 3 {
                         Err(abci::EngineError::Transport("unavailable".into()))
+                    } else if mode == 6 {
+                        Err(abci::EngineError::ErrorReply {
+                            call: "engine_getPayloadV5 at http://user-secret:pass-secret@el.test/path-secret?key=query-secret".into(),
+                            code: -32603,
+                            message: "upstream body-secret echoed path-secret".into(),
+                        })
                     } else {
                         Ok(result)
                     },
@@ -2094,7 +2136,36 @@ mod tests {
                 match mode {
                     0 => assert_eq!(heads(&prepared.unwrap().unwrap()), (0, 1)),
                     1 | 2 | 5 => assert!(matches!(prepared, Err(LanderError::Safety(_)))),
-                    _ => assert!(matches!(prepared, Err(LanderError::Temporary(_)))),
+                    _ => {
+                        let error = prepared.unwrap_err();
+                        assert!(matches!(error, LanderError::Temporary(_)));
+                        let text = error.to_string();
+                        assert!(
+                            text.contains("L2 1") &&
+                                text.contains("entry 0") &&
+                                text.contains("parent 0"),
+                            "{text}"
+                        );
+                        assert!(
+                            text.contains(&fixture.headers[&0].hash_slow().to_string()),
+                            "{text}"
+                        );
+                        if mode == 6 {
+                            assert!(
+                                text.contains("engine_getPayloadV5") && text.contains("-32603"),
+                                "{text}"
+                            );
+                            for secret in [
+                                "user-secret",
+                                "pass-secret",
+                                "path-secret",
+                                "query-secret",
+                                "body-secret",
+                            ] {
+                                assert!(!text.contains(secret), "{text}");
+                            }
+                        }
+                    }
                 }
             }
         }

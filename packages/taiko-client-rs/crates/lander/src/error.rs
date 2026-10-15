@@ -63,3 +63,46 @@ pub(crate) fn sanitized_rpc_error(
     };
     LanderError::Temporary(format!("{operation}: {reason}"))
 }
+
+/// Retains stable Engine failure categories, methods and RPC codes without exposing endpoint
+/// credentials or arbitrary upstream messages. Generic failures do not establish state pruning.
+pub(crate) fn engine_diagnostic(error: &abci::EngineError) -> String {
+    use abci::EngineError;
+    match error {
+        EngineError::ErrorReply { call, code, .. } => {
+            let method = [
+                "engine_forkchoiceUpdatedV3",
+                "engine_getPayloadV5",
+                "engine_newPayloadV4",
+                "engine_exchangeCapabilities",
+                "eth_getBlockByNumber",
+                "eth_getBlockByHash",
+                "taiko_txPoolContentWithMinTip",
+            ]
+            .into_iter()
+            .find(|method| call.starts_with(method))
+            .unwrap_or("Engine RPC");
+            format!("{method} error code {code}")
+        }
+        EngineError::Transport(_) => "Engine transport failure".into(),
+        EngineError::BadReply(_) => "malformed or missing Engine reply".into(),
+        EngineError::Setup(_) => "Engine/JWT configuration failure".into(),
+        EngineError::BuildNotStarted(description) => {
+            let status = ["SYNCING", "ACCEPTED", "INVALID"]
+                .into_iter()
+                .find(|status| description.contains(status));
+            match status {
+                Some(status) => format!("payload build not started: {status}"),
+                None => "payload build not started or payload id missing".into(),
+            }
+        }
+        EngineError::BlockHashMismatch { .. } |
+        EngineError::Withdrawals(_) |
+        EngineError::BlobGas { .. } |
+        EngineError::BaseFeeOverflow(_) |
+        EngineError::DifficultyOverflow(_) |
+        EngineError::NotEtnaShaped(_) |
+        EngineError::HeaderHashMismatch { .. } |
+        EngineError::HeaderNumberMismatch { .. } => error.to_string(),
+    }
+}
