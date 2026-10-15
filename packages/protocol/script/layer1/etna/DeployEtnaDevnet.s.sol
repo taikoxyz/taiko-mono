@@ -6,6 +6,7 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { Script, console2 } from "forge-std/src/Script.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
+import { EtnaRewardPool } from "src/layer1/etna/impl/EtnaRewardPool.sol";
 import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 
@@ -13,8 +14,9 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// @notice Deploys a new Etna chain starting from L2 block 0.
 /// @dev First run `run()` to deploy the registry. Register validators, wait for their activation
 /// and L1 finality, then compute committee 0 at a past genesis cutoff. Call `deployInbox()` to
-/// deploy fresh SignalService and EtnaInbox proxies; the Inbox constructor call initializes the
-/// genesis record and saves the block-0 checkpoint atomically. No existing Inbox is required.
+/// deploy fresh SignalService, EtnaInbox and EtnaRewardPool proxies; the Inbox constructor call
+/// initializes the genesis record and saves the block-0 checkpoint atomically. No existing Inbox
+/// is required.
 ///
 /// Environment shared by both calls: PRIVATE_KEY; optional CONTRACT_OWNER (the deployer if zero).
 /// `run()`: TAIKO_TOKEN, REGISTRY_MIN_STAKE (base units), REGISTRY_ACTIVATION_DELAY,
@@ -26,8 +28,11 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD (non-zero), GENESIS_BLOCK_HASH, GENESIS_STATE_ROOT,
 /// EPOCH_LEN_L2, EPOCH_LEN_L1, GENESIS_CUTOFF, COMMITTEE_RECORD_HASH, COMMITTEE_CONFIG_HASH,
 /// FORCED_INCLUSION_DELAY (seconds, non-zero) and MAX_ANCHOR_AGE (seconds, at least 1152, above
-/// the expected L1 finality lag). There is no expiry-derived upper bound. The genesis values must
-/// match the L2 genesis file and the committee derived by
+/// the expected L1 finality lag), plus the reward inputs L1_BRIDGE (the L1 Bridge delivering fee
+/// sweeps), L2_FEE_VAULT (the fee vault on L2), ALLOC_VALIDATOR_PPM and ALLOC_PROVER_PPM (shares
+/// of the pool's free balance per frozen epoch, summing to at most 1,000,000) and
+/// LANDING_REWARD_PER_BLOCK (wei, may be 0). There is no expiry-derived upper bound. The genesis
+/// values must match the L2 genesis file and the committee derived by
 /// taiko-client-rs. The node requires EPOCH_LEN_L2 >= D_MAX - MARGIN_V + 3; heartbeat and stake
 /// parameters must match its constants.
 ///
@@ -57,18 +62,27 @@ contract DeployEtnaDevnet is Script {
         console2.log("Register validators and compute committee 0 before deploying the Inbox.");
     }
 
-    /// @notice Deploys fresh SignalService and EtnaInbox proxies initialized from L2 genesis.
-    /// @dev Four consecutive CREATEs are broadcast from one deployer. Predicts the final proxy
-    /// address so the SignalService authorizes it before the Inbox initializes its checkpoint.
+    /// @notice Deploys fresh SignalService and EtnaInbox proxies initialized from L2 genesis, and
+    /// the EtnaRewardPool proxy the Inbox reports to.
+    /// @dev Six consecutive CREATEs are broadcast from one deployer: the SignalService
+    /// implementation and proxy (n, n + 1), the Inbox implementation and proxy (n + 2, n + 3) and
+    /// the pool implementation and proxy (n + 4, n + 5). Predicts the Inbox proxy so the
+    /// SignalService authorizes it before the Inbox initializes its checkpoint, and the pool proxy
+    /// so the Inbox implementation can name it before the pool exists.
     /// COMMITTEE_CONFIG_HASH must be the canonical ETNA_PARENT_ANCHOR_V2 opening for this chain
     /// and registry, matching node parameters (including d_max and margin_v). Fixture inputs may use a dummy verifier only on
     /// ephemeral devnets; ETNA_PROOF_VERIFIER must explicitly select that deployed verifier.
     /// @return inbox_ The new EtnaInbox proxy.
     /// @return signalService_ The new L1 SignalService proxy.
-    function deployInbox() external returns (address inbox_, address signalService_) {
+    /// @return rewardPool_ The new EtnaRewardPool proxy.
+    function deployInbox()
+        external
+        returns (address inbox_, address signalService_, address rewardPool_)
+    {
         uint256 privateKey = _privateKey();
         address owner = _owner(privateKey);
-        // The SignalService proxy is set once deployed; one struct keeps the stack shallow.
+        // The SignalService proxy is set once deployed and the pool proxy once predicted; one
+        // struct keeps the stack shallow.
         IEtnaInbox.Config memory config = IEtnaInbox.Config({
             proofVerifier: vm.envAddress("ETNA_PROOF_VERIFIER"),
             signalService: address(0),
@@ -76,7 +90,9 @@ contract DeployEtnaDevnet is Script {
             l2ChainId: _envUint64("L2_CHAIN_ID"),
             maxBatchBlocks: _envUint64("MAX_BATCH_BLOCKS"),
             forcedInclusionFeeInGwei: _envUint64("FORCED_INCLUSION_FEE_GWEI"),
-            forcedInclusionFeeDoubleThreshold: _envUint64("FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD")
+            forcedInclusionFeeDoubleThreshold: _envUint64("FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD"),
+            rewardPool: address(0),
+            landingRewardPerBlock: SafeCast.toUint128(vm.envUint("LANDING_REWARD_PER_BLOCK"))
         });
         require(config.proofVerifier.code.length != 0, ProofVerifierHasNoCode());
         address remoteSignalService = vm.envAddress("REMOTE_SIGNAL_SERVICE");
@@ -93,6 +109,7 @@ contract DeployEtnaDevnet is Script {
         });
         address deployer = vm.addr(privateKey);
         address predictedInbox = vm.computeCreateAddress(deployer, vm.getNonce(deployer) + 3);
+        config.rewardPool = vm.computeCreateAddress(deployer, vm.getNonce(deployer) + 5);
 
         vm.startBroadcast(privateKey);
         address signalImpl = address(new SignalService(predictedInbox, remoteSignalService, owner));
@@ -103,11 +120,14 @@ contract DeployEtnaDevnet is Script {
         inbox_ = address(
             new ERC1967Proxy(inboxImpl, abi.encodeCall(EtnaInbox.init, (owner, genesis)))
         );
+        rewardPool_ = _newRewardPool(inbox_, config, owner);
         vm.stopBroadcast();
         require(inbox_ == predictedInbox, InboxAddressMismatch());
+        require(rewardPool_ == config.rewardPool, RewardPoolAddressMismatch());
 
         console2.log("EtnaInbox proxy:", inbox_);
         console2.log("SignalService proxy:", signalService_);
+        console2.log("EtnaRewardPool proxy:", rewardPool_);
         console2.log("Staking registry:", config.stakingRegistry);
         console2.log("Owner:", owner);
     }
@@ -150,6 +170,34 @@ contract DeployEtnaDevnet is Script {
         );
     }
 
+    /// @dev Deploys the reward pool implementation and its initialized proxy, reading the
+    /// L1_BRIDGE, L2_FEE_VAULT, ALLOC_VALIDATOR_PPM and ALLOC_PROVER_PPM environment.
+    /// @param _inbox The Inbox proxy the pool reports to.
+    /// @param _config The Inbox configuration, for its registry and L2 chain id.
+    /// @param _owner The pool owner.
+    /// @return The reward pool proxy.
+    function _newRewardPool(
+        address _inbox,
+        IEtnaInbox.Config memory _config,
+        address _owner
+    )
+        private
+        returns (address)
+    {
+        address impl = address(
+            new EtnaRewardPool(
+                _inbox,
+                _config.stakingRegistry,
+                vm.envAddress("L1_BRIDGE"),
+                vm.envAddress("L2_FEE_VAULT"),
+                _config.l2ChainId,
+                SafeCast.toUint32(vm.envUint("ALLOC_VALIDATOR_PPM")),
+                SafeCast.toUint32(vm.envUint("ALLOC_PROVER_PPM"))
+            )
+        );
+        return address(new ERC1967Proxy(impl, abi.encodeCall(EtnaRewardPool.init, (_owner))));
+    }
+
     /// @dev Reads an environment integer and rejects values outside uint64.
     /// @param _name The variable name.
     /// @return The uint64 value.
@@ -164,4 +212,5 @@ contract DeployEtnaDevnet is Script {
     error InboxAddressMismatch();
     error InvalidPrivateKey();
     error ProofVerifierHasNoCode();
+    error RewardPoolAddressMismatch();
 }

@@ -28,7 +28,7 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
         vm.warp(block.timestamp + 12 * (L1_HEAD - block.number));
         vm.roll(L1_HEAD);
         handler = new EtnaInboxHandler(
-            etnaInbox, signalService, landVerifier, etnaConfig, genesisStateRoot
+            etnaInbox, signalService, landVerifier, etnaConfig, genesisStateRoot, _committee()
         );
 
         bytes4[] memory selectors = new bytes4[](3);
