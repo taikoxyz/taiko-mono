@@ -157,7 +157,7 @@ pub fn verify_entry(
 
 /// Whether an anchor timestamp reaches the submission timestamp plus delay, in seconds.
 /// Wide arithmetic prevents overflow from making an entry due prematurely.
-fn is_due(timestamp: u64, delay: u64, anchor_timestamp: u64) -> bool {
+pub(crate) fn is_due(timestamp: u64, delay: u64, anchor_timestamp: u64) -> bool {
     u128::from(anchor_timestamp) >= u128::from(timestamp) + u128::from(delay)
 }
 

@@ -92,6 +92,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if self.superseded {
             return Err(Rejection::ChainSuperseded);
         }
+        let prepare_deadline = tokio::time::Instant::now() + self.opts.prepare_timeout;
         let params = &self.params;
         let schedule = &state.schedule();
         let height = req.height.value();
@@ -153,7 +154,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if let Some((target_epoch, witness)) = &committee {
             self.cache_committee_witness(state, *target_epoch, witness)?;
         }
-        let mut forced = self.forced_inclusion(state, &facts.anchor).await?;
+        let mut forced = self.forced_inclusion(state, &facts.anchor, prepare_deadline).await?;
         let context = ForcedContext {
             cursor: state.forced_cursor,
             anchor: &facts.anchor,
@@ -297,18 +298,49 @@ impl<L: L1Source, E: Engine> App<L, E> {
         .await?)
     }
 
-    /// Fetches the pending entry proof and its authenticated admission bytes, even before due.
+    /// Fetches the mandatory entry proof. Before due, spends at most one quarter of the
+    /// remaining preparation time on optional authenticated admission bytes, leaving time for
+    /// an ordinary build. Cancelled waiters retain the bounded owned read for a later round.
+    /// Due acquisition errors remain fatal to preparation and never authorize a skip.
     async fn forced_inclusion(
         &self,
         state: &AppState,
         anchor: &AnchorState,
+        prepare_deadline: tokio::time::Instant,
     ) -> Result<Option<ForcedWitness>, Rejection> {
         let index = state.forced_cursor;
         if index >= anchor.inbox.forced_inclusion_tail {
             return Ok(None);
         }
         let cached = self.forced_entry(anchor, index).await?;
-        let tx = self.forced_transaction(cached.proven).await?;
+        let tx = if forced::is_due(
+            cached.proven.timestamp,
+            state.genesis.forced_inclusion_delay,
+            anchor.timestamp,
+        ) {
+            self.forced_transaction(cached.proven).await?
+        } else {
+            let budget =
+                prepare_deadline.saturating_duration_since(tokio::time::Instant::now()) / 4;
+            match tokio::time::timeout(budget, self.forced_transaction(cached.proven)).await {
+                Ok(Ok(tx)) => tx,
+                Ok(Err(error)) => {
+                    tracing::debug!(
+                        index,
+                        reason = error.label(),
+                        "pre-due admission unavailable; building ordinary block"
+                    );
+                    Bytes::new()
+                }
+                Err(_) => {
+                    tracing::debug!(
+                        index,
+                        "pre-due admission still pending; building ordinary block"
+                    );
+                    Bytes::new()
+                }
+            }
+        };
         Ok(Some(ForcedWitness { index, entry: cached.witness, tx }))
     }
 

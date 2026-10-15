@@ -16,7 +16,7 @@ sol!(
 );
 
 /// Protocol revision from which the interface and contract fixtures are generated.
-pub const PROTOCOL_REVISION: &str = "d220217af46d8bc5de2012d4e51eb28c30067c15";
+pub const PROTOCOL_REVISION: &str = "afe4550cd87c5009c251aad24a256102e4c63e56";
 
 /// Journal representation of generated ABI values as canonical ABI bytes.
 pub(crate) mod land_input_serde {

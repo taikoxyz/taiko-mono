@@ -151,6 +151,9 @@ there is no expiry or expiry-derived upper bound.
   missing history, malformed results and a signature-recovery failure in a transaction the block
   claims to include never authorize consumption.
 
+At or after due, a block that neither includes the entry nor completes an authenticated valid
+skip is invalid; it cannot retain the cursor.
+
 At most one queue entry is consumed per block. Included and invalid-byte cases require no
 singleton build. `ProcessProposal`, cold `FinalizeBlock` and the lander share the classifier and
 skip checker. Prepare reclassifies its final candidate after an ordinary fallback, reusing a
@@ -160,7 +163,10 @@ remains future work. `land` pays consumed fees to the statement-bound `feeRecipi
 the lander's sending address.
 
 Proposers retrieve admission bytes with `eth_getLogs` for the exact proven submission block,
-Inbox address and event identity, then recheck the transaction hash. Retain historical admission
+Inbox address and event identity, then recheck the transaction hash. Before due, this lookup is
+optional and gets at most one quarter of the remaining Prepare budget: errors or a slow lookup
+fall back to an ordinary block with the mandatory entry proof and empty witness bytes. Owned
+reads may complete for later rounds. At due, missing bytes cannot authorize a skip. Retain historical admission
 logs as long as queued entries may remain pending. No beacon endpoint, blob timeout or KZG warmup
 is used for FI. The removed `--l1.beacon` and `--l1.blob-timeout` flags are rejected. Lander batch
 publication still uses blobs and EIP-4844/EIP-7594 sidecars.
@@ -725,7 +731,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 Regenerate lander ABI/deployment fixtures with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `d220217af46d8bc5de2012d4e51eb28c30067c15`,
+The script requires protocol HEAD `afe4550cd87c5009c251aad24a256102e4c63e56`,
 installs pnpm dependencies before Foundry, verifies compiler source hashes,
 formats generated JSON, and records ABI/bytecode/compiler provenance. It leaves
 the existing Anchor bindings unchanged. Run it twice and require identical generated output.

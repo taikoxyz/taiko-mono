@@ -48,6 +48,10 @@ pub(crate) struct MockL1State {
     pub(crate) finalized: u64,
     /// Forced transaction bytes keyed by Inbox, queue index and L1 block.
     pub(crate) forced_transactions: BTreeMap<(Address, u64, u64), Bytes>,
+    /// Delay limited to admission-byte acquisition, leaving proof reads available.
+    pub(crate) forced_transaction_delay: Option<Duration>,
+    /// Failure limited to admission-byte acquisition.
+    pub(crate) forced_transaction_fail: Option<L1Error>,
     /// Scripted `finalized_number` answers, popped one per call before falling back to
     /// `finalized`.
     pub(crate) finalized_script: VecDeque<Result<u64, L1Error>>,
@@ -236,7 +240,14 @@ impl L1Source for MockL1 {
     ) -> Result<Bytes, L1Error> {
         let _call = InFlight::new(self);
         self.pause().await;
+        let delay = self.state().forced_transaction_delay;
+        if let Some(delay) = delay {
+            tokio::time::sleep(delay).await;
+        }
         let state = self.record(L1Call::ForcedTransaction { inbox, index, l1_block })?;
+        if let Some(error) = &state.forced_transaction_fail {
+            return Err(error.clone());
+        }
         state.forced_transactions.get(&(inbox, index, l1_block)).cloned().ok_or_else(|| {
             L1Error::MalformedResponse(format!(
                 "mock L1: missing forced event {index} at block {l1_block}"
