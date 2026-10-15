@@ -15,6 +15,7 @@ use crate::{
     test_utils::{EngineCall, Fixture, MockBlobs, MockEngine, MockL1},
 };
 
+mod admission_cache;
 mod committee_witness;
 mod finalize;
 mod handle;

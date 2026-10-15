@@ -1,0 +1,36 @@
+{
+  "artifact": {
+    "path": "crates/test-harness/contracts/ZkGasFixture.json",
+    "sha256": "be67511f89d5aac4975c38461beafdd1e662c003d1f7e0d40307782855810531"
+  },
+  "compiler": {
+    "version": "0.8.30+commit.73712a01"
+  },
+  "foundryVersion": [
+    "forge Version: 1.5.1-stable",
+    "Commit SHA: b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2",
+    "Build Timestamp: 2025-12-22T11:41:09.812070000Z (1766403669)",
+    "Build Profile: maxperf"
+  ],
+  "generator": "script/gen_test_harness_artifacts.sh",
+  "settings": {
+    "compilationTarget": {
+      "contracts/ZkGasFixture.sol": "ZkGasFixture"
+    },
+    "evmVersion": "osaka",
+    "libraries": {},
+    "metadata": {
+      "bytecodeHash": "ipfs"
+    },
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "remappings": []
+  },
+  "source": {
+    "keccak256": "0xb5a03fe9bc3bc4a3c25b4e38167376ff7b64734d9a5f94eea98d3d193bc40bbb",
+    "path": "crates/test-harness/contracts/ZkGasFixture.sol",
+    "sha256": "0166a2f543ca70daae882b59375c8b4b023d243c679cd76f48cc5655d6ea066a"
+  }
+}

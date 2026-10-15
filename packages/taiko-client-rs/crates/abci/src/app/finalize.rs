@@ -331,7 +331,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 Ok(Err(e)) => return Err(invalid_block(height, &Rejection::ForcedBuild(e))),
                 Err(_) => format!("timed out after {limit:?}"),
             };
-            backoff.wait(REBUILD, &reason).await;
+            let diagnostic = format!("{}: {reason}", cannot_build_on(&state.parent));
+            backoff.wait(REBUILD, &diagnostic).await;
         }
     }
 
@@ -367,7 +368,7 @@ const ANCHOR_OFF_CHAIN_WINDOW: Duration = Duration::from_secs(5);
 
 /// The label of a cold forced inclusion rebuild (an EL block build: a forkchoice update with
 /// attributes, then `getPayload`), for logs and safety-halt messages.
-const REBUILD: &str = "forced inclusion rebuild";
+const REBUILD: &str = "forced_rebuild_unavailable";
 
 /// Why the EL may not build a forced inclusion block on `parent`: it lacks the parent block, or
 /// the parent's state (pruned, or skipped by a snapshot restore).
