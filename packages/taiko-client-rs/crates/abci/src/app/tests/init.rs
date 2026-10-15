@@ -656,3 +656,50 @@ async fn lost_state_rejects_old_app_zero_genesis_before_replay() {
     ));
     assert_not_initialized(&app, dir.path());
 }
+
+/// Back-pressure values are per-chain configuration authenticated at genesis and restart.
+#[tokio::test]
+async fn genesis_and_restart_authenticate_chain_specific_backpressure_parameters() {
+    let params =
+        ChainParams::builtin(167001).unwrap().with_overrides("d_max = 30\nmargin_v = 5").unwrap();
+    let fx = Fixture::build(GenesisSpec { params, epoch_len: 28, ..GenesisSpec::new(2) });
+    let dir = tempfile::tempdir().unwrap();
+    let app = initialized(&fx, dir.path()).await;
+    let expected = app.state().unwrap().clone();
+    drop(app);
+    let mut reopened = fx.app(dir.path());
+    info(&mut reopened).await.unwrap();
+    assert_eq!(reopened.state(), Some(&expected));
+    drop(reopened);
+    for field in ["d_max", "margin_v"] {
+        let mut wrong = fx.clone();
+        match field {
+            "d_max" => wrong.params.d_max -= 1,
+            "margin_v" => wrong.params.margin_v += 1,
+            _ => unreachable!(),
+        }
+        let empty_dir = tempfile::tempdir().unwrap();
+        let mut app = wrong.app(empty_dir.path());
+        assert!(
+            matches!(
+                init_chain(&mut app, fx.request.clone()).await,
+                Err(AbciError::Genesis(GenesisError::ConfigMismatch { .. }))
+            ),
+            "wrong {field} opened genesis"
+        );
+        assert_not_initialized(&app, empty_dir.path());
+        let error = App::new(
+            wrong.l1(),
+            wrong.engine(),
+            wrong.params,
+            Store::new(dir.path().into()),
+            AppOptions::default(),
+        )
+        .expect_err("wrong back-pressure configuration opened stored state");
+        assert!(
+            matches!(error, AbciError::StoredState(message)
+            if message.contains("configuration opening")),
+            "wrong {field} opened persisted state"
+        );
+    }
+}

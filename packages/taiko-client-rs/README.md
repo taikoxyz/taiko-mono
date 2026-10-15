@@ -92,7 +92,9 @@ height 8 anchored 1020 may select a different committee; all nodes replaying one
 
 The config hash binds eleven ABI words: `ETNA_PARENT_ANCHOR_V2`, L2 chain id, registry,
 `vp_unit`, `s_min`, `n_max`, `heartbeat_window`, heartbeat lookahead 2, membership algorithm 1,
-`d_max` and `margin_v`.
+`d_max` and `margin_v`. The opening is exactly 352 bytes. V1 config commitments require an
+explicit coordinated consensus upgrade; the client provides no automatic opening fallback or
+state/journal rewriting.
 The envelope is version 5, the landing payload V4, the statement V6 and the lander journal
 schema 8 (original Comet protobuf witnesses and commits). ABCI advertises `APP_VERSION = 2`;
 persisted `app_version` is mandatory and must equal 2. Version 1 state is incompatible with the
