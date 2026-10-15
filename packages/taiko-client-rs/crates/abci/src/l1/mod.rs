@@ -12,6 +12,8 @@ pub mod archive;
 pub mod blobs;
 /// Committee-witness discovery from the node's own L1 (proposers and the genesis builder).
 pub mod fetch;
+/// Exact-block calldata forced inclusion event acquisition.
+pub mod forced_tx;
 /// The raw L1 header witnesses carry, read by position.
 pub mod header;
 /// Storage slots of the Inbox and staking registry.

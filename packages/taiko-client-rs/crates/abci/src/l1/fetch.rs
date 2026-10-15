@@ -390,6 +390,7 @@ mod tests {
             L1Call::Header(block) |
             L1Call::AccountWitness { block, .. } |
             L1Call::StorageAt { block, .. } => Some(*block),
+            L1Call::ForcedTransaction { l1_block, .. } => Some(*l1_block),
         }
     }
 

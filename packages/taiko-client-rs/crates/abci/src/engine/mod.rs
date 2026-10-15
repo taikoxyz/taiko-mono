@@ -7,7 +7,7 @@
 //! the envelope carries and back.
 
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
-use alloy_consensus::Header;
+use alloy_consensus::{Header, TxEnvelope};
 use alloy_primitives::{B256, U256};
 use async_trait::async_trait;
 
@@ -19,6 +19,7 @@ pub mod convert;
 pub mod rpc_engine;
 
 pub use convert::{block_from_payload, payload_from_block};
+pub use rpc::auth::PoolSelection;
 pub use rpc_engine::RpcEngine;
 
 /// The execution engine's verdict on a payload or forkchoice update.
@@ -40,6 +41,13 @@ pub enum PayloadVerdict {
 pub trait Engine: Send + Sync + 'static {
     /// Fails unless the engine serves every Engine API method this client calls.
     async fn check_capabilities(&self) -> Result<(), EngineError>;
+
+    /// Selects an ordered candidate transaction list under the supplied gas, byte and fee bounds.
+    /// Acquisition failures remain local errors and cannot authorize consuming forced input.
+    async fn pool_transactions(
+        &self,
+        selection: PoolSelection,
+    ) -> Result<Vec<TxEnvelope>, EngineError>;
 
     /// Builds a block on top of `parent_hash` from `attrs` and returns it with its full header.
     ///

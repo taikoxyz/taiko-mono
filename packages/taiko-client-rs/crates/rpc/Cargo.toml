@@ -21,6 +21,7 @@ url = { workspace = true }
 
 # ethereum
 alloy = { workspace = true, features = ["json-rpc", "rpc-client"] }
+alloy-consensus = { workspace = true }
 alloy-eips = { workspace = true, features = ["kzg"] }
 alloy-primitives = { workspace = true, default-features = false }
 alloy-provider = { workspace = true, features = ["reqwest"] }

@@ -2,7 +2,7 @@
 
 use std::{fmt, future::Future, sync::Arc, time::Duration};
 
-use alloy_primitives::{Address, B256, U256};
+use alloy_primitives::{Address, B256, Bytes, U256};
 use async_trait::async_trait;
 
 use super::{L1Error, L1Source, RawL1Header};
@@ -125,6 +125,16 @@ impl<L: L1Source> L1Source for CommitteeL1Source<L> {
         }
     }
 
+    /// Reads forced events only from the primary L1 source, never the committee archive.
+    async fn forced_transaction(
+        &self,
+        inbox: Address,
+        index: u64,
+        l1_block: u64,
+    ) -> Result<Bytes, L1Error> {
+        self.primary.forced_transaction(inbox, index, l1_block).await
+    }
+
     /// Discovers raw registry words at the exact requested block; proof verification decides trust.
     async fn storage_at(&self, address: Address, slot: B256, block: u64) -> Result<U256, L1Error> {
         let primary = self.primary.storage_at(address, slot, block);
@@ -145,6 +155,27 @@ mod tests {
         l1::{build_committee_witness, layout::registry},
         test_utils::{Fixture, L1Call, RegistryStorage, sample_entries},
     };
+
+    #[tokio::test]
+    async fn forced_tx_events_use_primary_only_even_when_archive_has_data() {
+        let fx = Fixture::genesis(3);
+        let primary = fx.l1();
+        let archive = Arc::new(fx.l1());
+        let key = (fx.params.inbox, 42, fx.genesis.l1_0);
+        let transaction = Bytes::from_static(&[2, 3]);
+        primary.state().forced_transactions.insert(key, transaction.clone());
+        archive.state().forced_transactions.insert(key, Bytes::from_static(&[4, 5]));
+        archive.state().forced_transactions.insert((key.0, key.1 + 1, key.2), transaction.clone());
+        let source = CommitteeL1Source::new(
+            primary,
+            Some(archive.clone()),
+            fx.params.registry,
+            Duration::from_secs(3),
+        );
+        assert_eq!(source.forced_transaction(key.0, key.1, key.2).await.unwrap(), transaction);
+        assert!(source.forced_transaction(key.0, key.1 + 1, key.2).await.is_err());
+        assert!(archive.calls().is_empty());
+    }
 
     #[tokio::test]
     async fn archive_recovers_pruned_fixed_snapshot_without_becoming_finality_authority() {

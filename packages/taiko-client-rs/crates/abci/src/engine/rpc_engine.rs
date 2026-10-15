@@ -4,7 +4,7 @@
 use std::{path::Path, time::Duration};
 
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
-use alloy_consensus::Header;
+use alloy_consensus::{Header, TxEnvelope};
 use alloy_primitives::B256;
 use alloy_provider::{
     Provider, RootProvider,
@@ -14,7 +14,7 @@ use alloy_rpc_types_engine::{ForkchoiceState, PayloadStatusEnum};
 use async_trait::async_trait;
 use rpc::{
     RpcClientError,
-    auth::EngineClient,
+    auth::{EngineClient, PoolSelection},
     client::{
         build_jwt_http_provider, connect_http_with_timeout, http_timeout_for, read_jwt_secret,
     },
@@ -215,6 +215,17 @@ impl Engine for RpcEngine {
         })
     }
 
+    /// Selects candidate pool transactions over the authenticated endpoint with explicit bounds.
+    async fn pool_transactions(
+        &self,
+        selection: PoolSelection,
+    ) -> Result<Vec<TxEnvelope>, EngineError> {
+        self.auth
+            .tx_pool_transactions(selection)
+            .await
+            .map_err(|error| self.auth_error("taikoAuth_txPoolContentWithMinTip", error))
+    }
+
     /// `engine_forkchoiceUpdatedV3({head: parent, safe: 0, finalized: 0}, attrs)`, which must
     /// answer `VALID` with a payload id ([`EngineError::BuildNotStarted`] otherwise), then
     /// `engine_getPayloadV5`, rebuilt with [`block_from_payload`] (zk gas = `blockValue`, root =
@@ -401,6 +412,145 @@ mod tests {
 
     fn fcu(status_value: Value, payload_id: Option<&str>) -> Value {
         json!({ "payloadStatus": status_value, "payloadId": payload_id })
+    }
+
+    fn selection() -> super::super::PoolSelection {
+        super::super::PoolSelection {
+            beneficiary: alloy_primitives::Address::repeat_byte(0x12),
+            base_fee: 1_000_000_000,
+            gas_limit: 30_000_000,
+            max_bytes: 100_000,
+            min_tip: 1_000_000,
+        }
+    }
+
+    /// Pinned alethia-reth returns pending RPC transaction objects inside `txList`, with
+    /// decimal list statistics; the canonical signed envelope survives those extra fields.
+    fn pool_reply() -> Value {
+        let transactions = crate::test_utils::sample_transactions()
+            .into_iter()
+            .map(|tx| {
+                let mut value = serde_json::to_value(tx).unwrap();
+                let object = value.as_object_mut().unwrap();
+                object.insert("from".into(), json!(alloy_primitives::Address::repeat_byte(0x33)));
+                object.insert("blockHash".into(), Value::Null);
+                object.insert("blockNumber".into(), Value::Null);
+                object.insert("transactionIndex".into(), Value::Null);
+                if value["type"] != "0x0" {
+                    value["gasPrice"] = json!("0x3b9aca00");
+                }
+                value
+            })
+            .collect::<Vec<_>>();
+        json!([{"txList":transactions,"estimatedGasUsed":71000,"bytesLength":258}])
+    }
+
+    #[tokio::test]
+    async fn pool_transactions_mock_uses_configured_list_and_records_selection() {
+        let engine = crate::test_utils::MockEngine::new();
+        let transactions = crate::test_utils::sample_transactions();
+        engine.state().pool = transactions.clone();
+        assert_eq!(engine.pool_transactions(selection()).await.unwrap(), transactions);
+        assert_eq!(
+            engine.calls(),
+            vec![crate::test_utils::EngineCall::PoolTransactions(selection())]
+        );
+        engine
+            .state()
+            .pool_script
+            .push_back(Err(EngineError::Transport("pool unavailable".into())));
+        assert!(engine.pool_transactions(selection()).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn pool_transactions_preserve_canonical_envelopes_and_empty_pool() {
+        let m = mocked();
+        m.auth.push_success(&pool_reply());
+        let transactions = m.engine.pool_transactions(selection()).await.unwrap();
+        assert_eq!(transactions, crate::test_utils::sample_transactions());
+        for result in [json!([]), json!([{"txList":[],"estimatedGasUsed":0,"bytesLength":0}])] {
+            m.auth.push_success(&result);
+            assert!(m.engine.pool_transactions(selection()).await.unwrap().is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn pool_transactions_fail_closed_on_unusable_replies() {
+        for result in [
+            Value::Null,
+            json!({}),
+            json!([{"txList":["0x02"],"estimatedGasUsed":0,"bytesLength":0}]),
+            json!([{"txList":[],"estimatedGasUsed":0,"bytesLength":0}, {"txList":[],"estimatedGasUsed":0,"bytesLength":0}]),
+        ] {
+            let m = mocked();
+            m.auth.push_success(&result);
+            assert!(
+                matches!(
+                    m.engine.pool_transactions(selection()).await,
+                    Err(EngineError::BadReply(_))
+                ),
+                "{result}"
+            );
+        }
+        let m = mocked();
+        m.auth.push_failure_msg("pool unavailable");
+        assert!(matches!(
+            m.engine.pool_transactions(selection()).await,
+            Err(EngineError::ErrorReply { .. })
+        ));
+    }
+
+    #[tokio::test]
+    async fn pool_transactions_send_exact_authenticated_positional_params() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = Url::parse(&format!("http://{}/", listener.local_addr().unwrap())).unwrap();
+        let request = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = Vec::new();
+            let body = loop {
+                let mut buf = [0u8; 4096];
+                let n = socket.read(&mut buf).await.unwrap();
+                assert_ne!(n, 0);
+                request.extend_from_slice(&buf[..n]);
+                if let Some(end) = request.windows(4).position(|w| w == b"\r\n\r\n") {
+                    let head = String::from_utf8_lossy(&request[..end]).to_lowercase();
+                    let len = head
+                        .lines()
+                        .find_map(|l| l.strip_prefix("content-length:"))
+                        .unwrap()
+                        .trim()
+                        .parse::<usize>()
+                        .unwrap();
+                    if request.len() >= end + 4 + len {
+                        break serde_json::from_slice::<Value>(&request[end + 4..end + 4 + len])
+                            .unwrap();
+                    }
+                }
+            };
+            let response =
+                json!({"jsonrpc":"2.0","id":body["id"],"result":pool_reply()}).to_string();
+            socket.write_all(format!("HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",response.len(),response).as_bytes()).await.unwrap();
+            body
+        });
+        assert_eq!(
+            over_http(&url).pool_transactions(selection()).await.unwrap(),
+            crate::test_utils::sample_transactions()
+        );
+        let request = request.await.unwrap();
+        assert_eq!(request["method"], "taikoAuth_txPoolContentWithMinTip");
+        assert_eq!(
+            request["params"],
+            json!([
+                selection().beneficiary,
+                1_000_000_000,
+                30_000_000,
+                100_000,
+                null,
+                1,
+                1_000_000
+            ])
+        );
     }
 
     #[tokio::test]
