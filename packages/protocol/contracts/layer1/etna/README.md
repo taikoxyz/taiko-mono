@@ -3,13 +3,13 @@
 Etna starts as a new proof-of-stake chain at L2 block 0. A committee of TAIKO stakers orders and
 signs L2 blocks with CometBFT, and anyone can land proven batches on L1.
 
-| Contract                           | Role                                                                                     |
-| ---------------------------------- | ---------------------------------------------------------------------------------------- |
-| `impl/EtnaInbox.sol`               | A fresh UUPS proxy initialized with L2 genesis and committee 0; lands proven batches.    |
-| `impl/EtnaStakingRegistry.sol`     | Validators stake TAIKO, heartbeat, exit and withdraw. Its checkpoints define committees. |
-| `impl/EtnaRewardPool.sol`          | Receives swept L2 fees; each epoch's last landing splits them to validators and provers. |
-| `libs/LibEntriesTree.sol`          | The incremental Merkle tree behind the registry checkpoints.                             |
-| `../../layer2/core/L2FeeVault.sol` | The L2 fee recipient; anyone can sweep its whole balance to the reward pool.             |
+| Contract                           | Role                                                                                                |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `impl/EtnaInbox.sol`               | A fresh UUPS proxy initialized with L2 genesis and committee 0; lands proven batches.               |
+| `impl/EtnaStakingRegistry.sol`     | Validators stake TAIKO, heartbeat, exit and withdraw. Its checkpoints define committees.            |
+| `impl/EtnaRewardPool.sol`          | Receives swept L2 fees and splits them to validators and provers once an epoch's last commit lands. |
+| `libs/LibEntriesTree.sol`          | The incremental Merkle tree behind the registry checkpoints.                                        |
+| `../../layer2/core/L2FeeVault.sol` | The L2 fee recipient; anyone can sweep its whole balance to the reward pool.                        |
 
 The ABCI node in taikoxyz/taiko-mono#22280 reads the Inbox and registry with EIP-1186 proofs.
 Its interface is `crates/abci/src/l1/layout.rs`. This PR preserves that storage interface; it
@@ -591,10 +591,11 @@ The existing status, generation, anchor progress and back-pressure checks remain
 outage, and `epochLenL2 >= unsettledCap + 3` remains the schedule bound. Committee authorization
 is autonomous, while settlement progress still matters for overall liveness.
 
-The fixed Solidity vector pins the six-field ABI, eleven-word config, a one-epoch participation
-hash, the empty participation hash and the V7 statement against an independent `cast abi-encode`
-encoding. Tests use an explicitly dummy verifier for batching, statement binding, participation
-shape, settlement and rollback; they do not prove the authoritative guest rules. Dummy proof
+The shared vector (`testdata/etna_vectors`, computed with `cast abi-encode` and read by both
+`EtnaInboxLand.t.sol` and the lander) pins the six-field ABI, eleven-word config, a one-epoch
+participation hash, the empty participation hash and the V7 statement. Tests use an explicitly
+dummy verifier for batching, statement binding, participation shape, settlement and rollback; they
+do not prove the authoritative guest rules. Dummy proof
 `0x00` remains explicit; no real ZK guest is part of this change, and host/contract integration
 checks do not establish production ZK soundness. Empty-roster liveness and old-key/withdrawal
 assumptions remain unchanged.
@@ -630,12 +631,15 @@ increments `sweepNonce` (slot 252) and emits `FeesSwept(nonce, amount, relayFee,
 empty vault sends nothing, changes nothing and returns 0, and then rejects a relay fee
 (`EmptyVaultWithFee`). The caller picks only the timing, the gas limit and the relay fee.
 
-The gas limit must satisfy `0 < gasLimit <= MAX_SWEEP_GAS_LIMIT = 3,000,000`. The Bridge also
-rejects a limit at or below its minimum for this message, about 808,704 gas, so a working sweep
-uses a limit in roughly `[808,705, 3,000,000]`. The pool's invocation gets the excess over that
-minimum and needs only about 27k. The cap exists because a larger limit can never be forwarded by
-a relayer under the L1 transaction gas cap: every relayed `processMessage` would fail and the
-message would stay `NEW`, where only the pool, as `destOwner`, could process it. A zero limit is
+The gas limit must satisfy `0 < gasLimit <= MAX_SWEEP_GAS_LIMIT = 3,000,000`. The L2 Bridge's
+`sendMessage` also rejects a limit at or below its minimum for this message, about 808,704 gas
+(`B_INVALID_GAS_LIMIT`), which reverts the whole sweep, so a working sweep uses a limit in roughly
+`[808,705, 3,000,000]`. The pool's invocation gets the excess over that minimum and needs about
+27k: a limit near the minimum leaves too little, so the message lands `RETRIABLE` and its value
+waits for a `retryMessage`. Use at least about 850,000. The cap is a conservative bound, well
+below what a relayer can forward under the L1 transaction gas cap (limits up to about 16M are
+forwardable): a limit too large to forward would make every relayed `processMessage` fail and
+leave the message `NEW`, where only the pool, as `destOwner`, could process it. A zero limit is
 rejected for the same reason.
 
 ### Reward pool
@@ -723,6 +727,11 @@ Configuration checks).
 - The Etna guest is a follow-up; the blob encoding and lander are in #22280. No slashing or stall
   recovery exist here; `recoveryGeneration` stays 0. The staking withdrawal delay must cover the
   evidence and landing windows once slashing is introduced.
+- `EpochAlreadyFrozen` and the per-epoch committee hash binding in the reward pool assume that
+  each height lands exactly once. A future GOV-04-style stall recovery that re-lands heights or
+  re-derives an epoch's committee mid-epoch must migrate the pool's epoch records and counts;
+  otherwise the re-landed epochs revert `EpochAlreadyFrozen` or `CommitteeMismatch` and landing
+  halts.
 - Registry capacity: withdrawn slots are reused, so cycling registration and exit no longer
   consumes capacity. Holding all 4096 slots still blocks new registrations for as long as
   `4096 · minStake` stays locked; `minStake` sizing is the bound. A slot whose owner exits but
@@ -749,10 +758,12 @@ Configuration checks).
   make batches delayed by a long lander outage unlandable.
 - These scripts deploy no L1 Bridge, and sweeps need one. `Bridge.signalService` is immutable, so
   `L1_BRIDGE` must be a Bridge built on this deployment's SignalService proxy, whose resolver names
-  the Etna L2 Bridge, and which holds enough Ether to release each sweep's value. The pool fixes
-  `l1Bridge` at deployment, so a Bridge deployed later needs a predicted address or a pool
-  upgrade. Until a sweep is processed on L1, its value is not released and rewards pause; nothing
-  accrues as debt.
+  the Etna L2 Bridge, which holds enough Ether to release each sweep's value, and which has no
+  Ether quota or a quota above the largest sweep: a `quotaManager` cap below a sweep's value makes
+  every `processMessage` of it revert, leaving it `NEW` until governance raises the quota. The
+  pool fixes `l1Bridge` at deployment, so a Bridge deployed later needs a predicted address or a
+  pool upgrade. Until a sweep is processed on L1, its value is not released and rewards pause;
+  nothing accrues as debt.
 - The proposer of block `h + 1` chooses which precommits beyond the 2/3 threshold enter its
   `last_commit`, so it can omit a validator's signature and lower that validator's count for
   height `h`.
