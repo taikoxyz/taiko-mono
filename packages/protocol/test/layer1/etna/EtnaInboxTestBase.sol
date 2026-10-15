@@ -64,7 +64,6 @@ abstract contract EtnaInboxTestBase is CommonTest {
     uint64 internal constant FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD = 50;
     uint64 internal constant FORCED_INCLUSION_DELAY = 1 hours;
     uint64 internal constant MAX_ANCHOR_AGE = 2 hours;
-    uint64 internal constant FORCED_INCLUSION_EXPIRY = 14 days;
     uint64 internal constant EPOCH_LEN_L2 = 10;
     uint64 internal constant EPOCH_LEN_L1 = 32;
     bytes32 internal constant COMMITTEE_RECORD_0 = keccak256("committee record 0");

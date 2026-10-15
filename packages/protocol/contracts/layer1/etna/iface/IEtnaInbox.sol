@@ -13,6 +13,20 @@ interface IEtnaInbox {
     // Structs
     // ---------------------------------------------------------------
 
+    /// @notice A forced L2 transaction authenticated by the submission's L1 state.
+    /// @dev Two storage words: the transaction hash, then timestamp (bits 0-47), L1 block
+    /// (bits 48-111), and fee in Gwei (bits 112-175).
+    struct ForcedInclusion {
+        /// @notice The keccak256 hash of the submitted transaction bytes.
+        bytes32 txHash;
+        /// @notice The L1 submission timestamp in seconds.
+        uint48 timestamp;
+        /// @notice The L1 block containing the submission and its transaction bytes event.
+        uint64 l1Block;
+        /// @notice The paid fee in Gwei, released when the entry is consumed.
+        uint64 feeInGwei;
+    }
+
     /// @notice The constructor parameters of the Etna Inbox implementation.
     struct Config {
         /// @notice The verifier of `land` proofs.
@@ -48,12 +62,10 @@ interface IEtnaInbox {
         /// @notice The non-zero commitment to the parent-anchor committee derivation configuration.
         bytes32 committeeConfigHash;
         /// @notice The non-zero forced inclusion delay in seconds. An entry is due at an L2 block
-        /// whose anchor timestamp is at least its timestamp plus it. The delay plus maxAnchorAge
-        /// plus a 384-second anchor update margin must not exceed the 14-day expiry.
+        /// whose anchor timestamp is at least its timestamp plus it, evaluated without wrapping.
         uint64 forcedInclusionDelay;
         /// @notice The maximum anchor age in seconds, at least 1152 (three Ethereum epochs): every
-        /// L2 block requires `block.timestamp - anchor.timestamp <= maxAnchorAge`. Its upper bound
-        /// is 14 days minus forcedInclusionDelay minus the 384-second anchor update margin.
+        /// L2 block requires `block.timestamp - anchor.timestamp <= maxAnchorAge`.
         uint64 maxAnchorAge;
     }
 
@@ -115,6 +127,11 @@ interface IEtnaInbox {
     // Events
     // ---------------------------------------------------------------
 
+    /// @notice Emitted when transaction bytes are appended to the forced inclusion queue.
+    /// @param index The assigned queue index.
+    /// @param tx The original transaction bytes, whose hash is stored in the queue entry.
+    event ForcedInclusionSaved(uint48 indexed index, bytes tx);
+
     /// @notice Emitted when a fresh Etna proxy is initialized from L2 genesis.
     /// @param genesisBlockHash The hash of L2 block 0.
     /// @param genesisStateRoot The state root of L2 block 0.
@@ -165,12 +182,44 @@ interface IEtnaInbox {
     // External Functions
     // ---------------------------------------------------------------
 
+    /// @notice Appends a forced L2 transaction and pays the current queue fee.
+    /// @dev Requires active status and at most 8192 bytes. Admission does not validate transaction
+    /// encoding or execution validity: empty and undecodable input is handled by L2 consumption.
+    /// Stores the bytes hash, L1 timestamp, L1 block and fee; emits the bytes and refunds excess
+    /// Ether to the caller. Reverts if the fee is insufficient or the refund fails.
+    /// @param _tx The transaction bytes to publish through calldata.
+    function saveForcedInclusion(bytes calldata _tx) external payable;
+
+    /// @notice Returns the fee in Gwei to submit the next forced transaction.
+    /// @dev Uses baseFee * (threshold + pending) / threshold, capped at uint64.max.
+    /// @return feeInGwei_ The next admission fee in Gwei.
+    function getCurrentForcedInclusionFee() external view returns (uint64 feeInGwei_);
+
+    /// @notice Returns pending forced transactions starting from a queue index.
+    /// @dev Returns an empty array if the start is outside [head, tail) or the maximum is zero.
+    /// Consumed entries remain stored but are excluded from this pending-entry getter.
+    /// @param _start The queue index to start reading.
+    /// @param _maxCount The maximum number of entries to return.
+    /// @return inclusions_ At most min(_maxCount, tail - _start) entries for a valid start.
+    function getForcedInclusions(
+        uint48 _start,
+        uint48 _maxCount
+    )
+        external
+        view
+        returns (ForcedInclusion[] memory inclusions_);
+
+    /// @notice Returns the forced inclusion queue pointers.
+    /// @dev The packed pointers occupy Inbox slot 281.
+    /// @return head_ The next entry to consume.
+    /// @return tail_ The index assigned to the next submission.
+    function getForcedInclusionState() external view returns (uint48 head_, uint48 tail_);
+
     /// @notice Initializes a fresh Etna proxy and its L2 block-0 checkpoint.
     /// @dev Call atomically in the proxy constructor. Requires non-zero genesis hash, state root,
     /// committee record and derivation configuration hash, epochLenL2 >= 3, epochLenL1 > 0,
     /// a past genesis cutoff at or after the registry's first checkpoint, a forced inclusion
-    /// delay greater than zero, maxAnchorAge >= 1152 seconds, and
-    /// forcedInclusionDelay + maxAnchorAge + 384 seconds <= 14 days. Choose maxAnchorAge above
+    /// delay greater than zero and maxAnchorAge >= 1152 seconds. Choose maxAnchorAge above
     /// the expected L1 finality lag, including extra depth and RPC latency. The SignalService must
     /// authorize this proxy as its
     /// syncer: initialization saves its block-0 checkpoint too, and any failure rolls back all

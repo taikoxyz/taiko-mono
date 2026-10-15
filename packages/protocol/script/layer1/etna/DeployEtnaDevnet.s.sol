@@ -26,8 +26,8 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD (non-zero), GENESIS_BLOCK_HASH, GENESIS_STATE_ROOT,
 /// EPOCH_LEN_L2, EPOCH_LEN_L1, GENESIS_CUTOFF, COMMITTEE_RECORD_HASH, COMMITTEE_CONFIG_HASH,
 /// FORCED_INCLUSION_DELAY (seconds, non-zero) and MAX_ANCHOR_AGE (seconds, at least 1152, above
-/// the expected L1 finality lag), with FORCED_INCLUSION_DELAY + MAX_ANCHOR_AGE + 384 at most
-/// 14 days. The genesis values must match the L2 genesis file and the committee derived by
+/// the expected L1 finality lag). There is no expiry-derived upper bound. The genesis values must
+/// match the L2 genesis file and the committee derived by
 /// taiko-client-rs. The node requires EPOCH_LEN_L2 >= D_MAX - MARGIN_V + 3; heartbeat and stake
 /// parameters must match its constants.
 ///

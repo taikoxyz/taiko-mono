@@ -4,8 +4,6 @@ pragma solidity ^0.8.26;
 import { EtnaInboxTestBase, MockLandProofVerifier } from "./EtnaInboxTestBase.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { Vm } from "forge-std/src/Vm.sol";
-import { IForcedInclusionStore } from "src/layer1/core/iface/IForcedInclusionStore.sol";
-import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
@@ -571,8 +569,10 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         assertEq(Carol.balance - recipientBefore, feesWei, "recipient paid both fees");
         assertEq(Bob.balance, landerBefore, "the caller is not paid");
         assertEq(inboxBefore - address(etnaInbox).balance, feesWei, "Inbox paid out both fees");
-        assertEq(_loadSlot(_entrySlot(0)), fees[0], "consumed entry 0 kept");
-        assertEq(_loadSlot(_entrySlot(1)), fees[1], "consumed entry 1 kept");
+        assertEq(bytes32(_loadSlot(_entrySlot(0))), keccak256(hex"c0"), "consumed entry 0 kept");
+        assertEq(uint64(_loadSlot(_entrySlot(0) + 1) >> 112), fees[0], "consumed fee 0 kept");
+        assertEq(bytes32(_loadSlot(_entrySlot(1))), keccak256(hex"c0"), "consumed entry 1 kept");
+        assertEq(uint64(_loadSlot(_entrySlot(1) + 1) >> 112), fees[1], "consumed fee 1 kept");
         _assertLastCheckpoint(3, input.lastBlockHash);
         _assertSignalCheckpoint(input);
     }
@@ -743,10 +743,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         input.feeRecipient = address(lander);
         bytes[2] memory reentries = [
             abi.encodeCall(IEtnaInbox.land, (_batch(5), PROOF)),
-            abi.encodeCall(
-                IForcedInclusionStore.saveForcedInclusion,
-                (LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 }))
-            )
+            abi.encodeCall(IEtnaInbox.saveForcedInclusion, (hex"c0"))
         ];
         uint256[2] memory values =
             [uint256(0), uint256(etnaInbox.getCurrentForcedInclusionFee()) * 1 gwei];
@@ -1089,7 +1086,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         return uint48(_loadSlot(FORCED_INCLUSION_HEAD_TAIL_SLOT));
     }
 
-    /// @dev The first word of forced inclusion entry `_index`, holding its fee in Gwei.
+    /// @dev The first word of forced inclusion entry `_index`, holding its transaction hash.
     function _entrySlot(uint256 _index) internal pure returns (uint256) {
         return uint256(keccak256(abi.encode(_index, FORCED_INCLUSION_QUEUE_SLOT)));
     }
@@ -1101,7 +1098,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         }
     }
 
-    /// @dev Alice saves `_count` single-blob forced inclusions at the current fee each.
+    /// @dev Alice saves `_count` calldata forced inclusions at the current fee each.
     function _saveForcedInclusions(uint256 _count) internal returns (uint64[] memory fees_) {
         vm.deal(Alice, 1000 ether);
         vm.blobhashes(_getBlobHashes(1));
@@ -1109,9 +1106,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         for (uint256 i; i < _count; ++i) {
             fees_[i] = etnaInbox.getCurrentForcedInclusionFee();
             vm.prank(Alice);
-            etnaInbox.saveForcedInclusion{ value: uint256(fees_[i]) * 1 gwei }(
-                LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 })
-            );
+            etnaInbox.saveForcedInclusion{ value: uint256(fees_[i]) * 1 gwei }(hex"c0");
         }
     }
 

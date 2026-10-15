@@ -2,7 +2,6 @@
 pragma solidity ^0.8.26;
 
 import { EtnaInboxTestBase } from "./EtnaInboxTestBase.sol";
-import { IForcedInclusionStore } from "src/layer1/core/iface/IForcedInclusionStore.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { LibForcedInclusion } from "src/layer1/core/libs/LibForcedInclusion.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
@@ -50,7 +49,11 @@ contract LibForcedInclusionReference {
 
 /// @notice Exposes `LibEtnaForcedInclusion.consume` over a queue whose fees the test sets.
 contract LibEtnaForcedInclusionHarness {
-    LibForcedInclusion.Storage private _queue;
+    LibEtnaForcedInclusion.Storage private _queue;
+
+    function entry(uint256 _index) external view returns (IEtnaInbox.ForcedInclusion memory) {
+        return _queue.queue[_index];
+    }
 
     function setEntryFee(uint256 _index, uint64 _feeInGwei) external {
         _queue.queue[_index].feeInGwei = _feeInGwei;
@@ -82,23 +85,19 @@ contract ReentrantForcedInclusionCaller {
 
     function save(bool _catch, uint256 _value) external {
         _catchReentry = _catch;
-        _inbox.saveForcedInclusion{ value: _value }(_blobReference());
+        _inbox.saveForcedInclusion{ value: _value }(hex"c0");
     }
 
     receive() external payable {
         uint256 fee = uint256(_inbox.getCurrentForcedInclusionFee()) * 1 gwei;
         if (!_catchReentry) {
-            _inbox.saveForcedInclusion{ value: fee }(_blobReference());
+            _inbox.saveForcedInclusion{ value: fee }(hex"c0");
             return;
         }
-        try _inbox.saveForcedInclusion{ value: fee }(_blobReference()) { }
+        try _inbox.saveForcedInclusion{ value: fee }(hex"c0") { }
         catch (bytes memory reason) {
             reentryError = reason;
         }
-    }
-
-    function _blobReference() private pure returns (LibBlobs.BlobReference memory) {
-        return LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 });
     }
 }
 
@@ -108,62 +107,66 @@ contract EtnaInboxForcedInclusionTest is EtnaInboxTestBase {
         vm.deal(Alice, 1000 ether);
     }
 
-    function test_saveForcedInclusion_enqueuesAtTailAndRefundsExcess() external {
-        vm.blobhashes(_getBlobHashes(1));
+    function test_saveForcedInclusion_enqueuesCalldataAndRefundsExcess() external {
+        bytes memory txBytes = hex"c0";
         uint64 fee = etnaInbox.getCurrentForcedInclusionFee();
-        assertEq(fee, FORCED_INCLUSION_FEE_GWEI, "base fee with an empty queue");
-        IForcedInclusionStore.ForcedInclusion memory expected = IForcedInclusionStore.ForcedInclusion({
-            feeInGwei: fee,
-            blobSlice: LibBlobs.BlobSlice({
-                blobHashes: _getBlobHashes(1), offset: 7, timestamp: uint48(block.timestamp)
-            })
-        });
-        uint256 balanceBefore = Alice.balance;
-
-        vm.expectEmit(address(etnaInbox));
-        emit IForcedInclusionStore.ForcedInclusionSaved(expected);
+        uint256 beforeBalance = Alice.balance;
+        vm.expectEmit();
+        emit IEtnaInbox.ForcedInclusionSaved(0, txBytes);
         vm.prank(Alice);
-        etnaInbox.saveForcedInclusion{ value: uint256(fee) * 1 gwei + 1 }(_blobReference(7));
-
+        etnaInbox.saveForcedInclusion{ value: uint256(fee) * 1 gwei + 1 }(txBytes);
+        IEtnaInbox.ForcedInclusion[] memory entries = etnaInbox.getForcedInclusions(0, 1);
+        assertEq(entries.length, 1);
+        assertEq(entries[0].txHash, keccak256(txBytes));
+        assertEq(entries[0].timestamp, block.timestamp);
+        assertEq(entries[0].l1Block, block.number);
+        assertEq(entries[0].feeInGwei, fee);
+        assertEq(beforeBalance - Alice.balance, uint256(fee) * 1 gwei);
         (uint48 head, uint48 tail) = etnaInbox.getForcedInclusionState();
-        assertEq(head, 0, "head");
-        assertEq(tail, 1, "tail");
-        IForcedInclusionStore.ForcedInclusion[] memory entries =
-            etnaInbox.getForcedInclusions(0, 10);
-        assertEq(entries.length, 1, "one entry");
-        assertEq(entries[0].feeInGwei, fee, "fee");
-        assertEq(entries[0].blobSlice.blobHashes.length, 1, "one blob");
-        assertEq(entries[0].blobSlice.blobHashes[0], blobhash(0), "blob hash");
-        assertEq(entries[0].blobSlice.offset, 7, "offset");
-        assertEq(entries[0].blobSlice.timestamp, block.timestamp, "timestamp");
-        assertEq(balanceBefore - Alice.balance, uint256(fee) * 1 gwei, "1 wei refunded");
-        assertEq(address(etnaInbox).balance, uint256(fee) * 1 gwei, "fee held by the Inbox");
+        assertEq(head, 0);
+        assertEq(tail, 1);
+        assertEq(address(etnaInbox).balance, uint256(fee) * 1 gwei);
+    }
+
+    function test_saveForcedInclusion_accepts8192Bytes() external {
+        bytes memory txBytes = new bytes(8192);
+        vm.expectEmit();
+        emit IEtnaInbox.ForcedInclusionSaved(0, txBytes);
+        _saveForcedInclusion(txBytes);
+        assertEq(etnaInbox.getForcedInclusions(0, 1)[0].txHash, keccak256(txBytes));
+    }
+
+    /// @dev Admission publishes even invalid input; L2 consumption determines its validity.
+    function test_saveForcedInclusion_acceptsEmptyInput() external {
+        vm.expectEmit();
+        emit IEtnaInbox.ForcedInclusionSaved(0, hex"");
+        _saveForcedInclusion(hex"");
+        assertEq(etnaInbox.getForcedInclusions(0, 1)[0].txHash, keccak256(hex""));
+    }
+
+    function test_saveForcedInclusion_revertsOn8193Bytes() external {
+        bytes memory txBytes = new bytes(8193);
+        uint256 fee = uint256(etnaInbox.getCurrentForcedInclusionFee()) * 1 gwei;
+        vm.expectRevert(EtnaInbox.ForcedTransactionTooLarge.selector);
+        vm.prank(Alice);
+        etnaInbox.saveForcedInclusion{ value: fee }(txBytes);
+        (, uint48 tail) = etnaInbox.getForcedInclusionState();
+        assertEq(tail, 0);
+        assertEq(address(etnaInbox).balance, 0);
     }
 
     function test_saveForcedInclusion_revertsBeforeActivation() external {
         _deployFreshInbox(false);
-        vm.blobhashes(_getBlobHashes(1));
         vm.expectRevert(EtnaInbox.EtnaNotActive.selector);
         vm.prank(Alice);
-        etnaInbox.saveForcedInclusion{ value: 1 ether }(_blobReference(0));
+        etnaInbox.saveForcedInclusion{ value: 1 ether }(hex"c0");
     }
 
     function test_saveForcedInclusion_revertsOnInsufficientFee() external {
-        vm.blobhashes(_getBlobHashes(1));
         uint256 fee = uint256(etnaInbox.getCurrentForcedInclusionFee()) * 1 gwei;
-        vm.expectRevert(LibForcedInclusion.InsufficientFee.selector);
+        vm.expectRevert(EtnaInbox.InsufficientFee.selector);
         vm.prank(Alice);
-        etnaInbox.saveForcedInclusion{ value: fee - 1 }(_blobReference(0));
-    }
-
-    function test_saveForcedInclusion_revertsOnTwoBlobs() external {
-        vm.blobhashes(_getBlobHashes(2));
-        uint256 fee = uint256(etnaInbox.getCurrentForcedInclusionFee()) * 1 gwei;
-        vm.expectRevert(LibForcedInclusion.OnlySingleBlobAllowed.selector);
-        vm.prank(Alice);
-        etnaInbox.saveForcedInclusion{ value: fee }(
-            LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 2, offset: 0 })
-        );
+        etnaInbox.saveForcedInclusion{ value: fee - 1 }(hex"c0");
     }
 
     /// @dev Saves the same entries in the Etna store and the Shasta library: every fee and refund
@@ -186,7 +189,7 @@ contract EtnaInboxForcedInclusionTest is EtnaInboxTestBase {
             );
             uint256 balanceBefore = Alice.balance;
             vm.prank(Alice);
-            etnaInbox.saveForcedInclusion{ value: value }(_blobReference(0));
+            etnaInbox.saveForcedInclusion{ value: value }(hex"c0");
             assertEq(balanceBefore - Alice.balance, value - refund, "refund");
         }
         (, uint48 tail) = etnaInbox.getForcedInclusionState();
@@ -249,39 +252,42 @@ contract EtnaInboxForcedInclusionTest is EtnaInboxTestBase {
     }
 
     function test_storage_queueAt280HeadTailAt281() external {
-        vm.blobhashes(_getBlobHashes(1));
-        _saveForcedInclusion(0);
+        _saveForcedInclusion(hex"c0");
         _advanceBlock();
-        bytes32 secondBlobHash = keccak256("second forced inclusion blob");
-        bytes32[] memory blobHashes = new bytes32[](1);
-        blobHashes[0] = secondBlobHash;
-        vm.blobhashes(blobHashes);
-        uint24 offset = 0x0abcde;
-        uint64 secondFee = _saveForcedInclusion(offset);
-
+        bytes memory txBytes = hex"abcdef";
+        uint64 secondFee = _saveForcedInclusion(txBytes);
         assertEq(_loadSlot(FORCED_INCLUSION_QUEUE_SLOT), 0, "280: mapping slot");
-        assertEq(
-            _loadSlot(FORCED_INCLUSION_HEAD_TAIL_SLOT),
-            (uint256(2) << 48) | 0,
-            "281: head 0 (bits 0-47), tail 2 (bits 48-95)"
-        );
+        assertEq(_loadSlot(FORCED_INCLUSION_HEAD_TAIL_SLOT), uint256(2) << 48, "281: head and tail");
         uint256 base = uint256(keccak256(abi.encode(uint256(1), FORCED_INCLUSION_QUEUE_SLOT)));
-        assertEq(_loadSlot(base), secondFee, "base: feeInGwei");
-        assertEq(_loadSlot(base + 1), 1, "base + 1: blobHashes length");
+        assertEq(bytes32(_loadSlot(base)), keccak256(txBytes), "base: transaction hash");
         assertEq(
-            _loadSlot(base + 2),
-            uint256(offset) | (uint256(block.timestamp) << 24),
-            "base + 2: offset (bits 0-23), timestamp (bits 24-71)"
+            _loadSlot(base + 1),
+            uint256(block.timestamp) | (uint256(block.number) << 48) | (uint256(secondFee) << 112),
+            "base + 1: timestamp, L1 block and fee"
         );
-        assertEq(
-            bytes32(_loadSlot(uint256(keccak256(abi.encode(base + 1))))),
-            secondBlobHash,
-            "blobHashes[0]"
+        assertEq(_loadSlot(base + 2), 0, "entry occupies only two slots");
+    }
+
+    function test_getForcedInclusions_preservesBoundsAndConsumedEntries() external {
+        _saveForcedInclusion(hex"c0");
+        _saveForcedInclusion(hex"c1");
+        assertEq(etnaInbox.getForcedInclusions(0, type(uint48).max).length, 2);
+        assertEq(etnaInbox.getForcedInclusions(1, 5).length, 1);
+        assertEq(etnaInbox.getForcedInclusions(0, 0).length, 0);
+        assertEq(etnaInbox.getForcedInclusions(2, 1).length, 0);
+        assertEq(etnaInbox.getForcedInclusions(type(uint48).max, 1).length, 0);
+        vm.store(
+            address(etnaInbox),
+            bytes32(FORCED_INCLUSION_HEAD_TAIL_SLOT),
+            bytes32(uint256(1) | (uint256(2) << 48))
         );
+        assertEq(etnaInbox.getForcedInclusions(0, 1).length, 0);
+        assertEq(etnaInbox.getForcedInclusions(1, 2)[0].txHash, keccak256(hex"c1"));
+        uint256 base = uint256(keccak256(abi.encode(uint256(0), FORCED_INCLUSION_QUEUE_SLOT)));
+        assertEq(bytes32(_loadSlot(base)), keccak256(hex"c0"), "consumed entry retained");
     }
 
     function test_saveForcedInclusion_isNonReentrant() external {
-        vm.blobhashes(_getBlobHashes(1));
         ReentrantForcedInclusionCaller caller = new ReentrantForcedInclusionCaller(etnaInbox);
         vm.deal(address(caller), 10 ether);
         uint256 value = uint256(etnaInbox.getCurrentForcedInclusionFee()) * 1 gwei + 1;
@@ -310,6 +316,8 @@ contract EtnaInboxForcedInclusionTest is EtnaInboxTestBase {
         queue.setState(1, 4);
 
         assertEq(queue.consume(3), 3 + 5, "fees of entries 1 and 2");
+        assertEq(queue.entry(1).feeInGwei, 3, "consumed entry 1 retained");
+        assertEq(queue.entry(2).feeInGwei, 5, "consumed entry 2 retained");
         (uint48 head, uint48 tail) = queue.state();
         assertEq(head, 3, "head advanced");
         assertEq(tail, 4, "tail unchanged");
@@ -320,10 +328,10 @@ contract EtnaInboxForcedInclusionTest is EtnaInboxTestBase {
         assertEq(head, 4, "head at tail");
     }
 
-    function _saveForcedInclusion(uint24 _offset) private returns (uint64 fee_) {
+    function _saveForcedInclusion(bytes memory _tx) private returns (uint64 fee_) {
         fee_ = etnaInbox.getCurrentForcedInclusionFee();
         vm.prank(Alice);
-        etnaInbox.saveForcedInclusion{ value: uint256(fee_) * 1 gwei }(_blobReference(_offset));
+        etnaInbox.saveForcedInclusion{ value: uint256(fee_) * 1 gwei }(_tx);
     }
 
     function _blobReference(uint24 _offset) private pure returns (LibBlobs.BlobReference memory) {
