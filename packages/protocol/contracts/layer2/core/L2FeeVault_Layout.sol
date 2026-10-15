@@ -18,4 +18,6 @@ pragma solidity ^0.8.26;
 //   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1   
 //   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
-//   __gap                          | uint256[50]                                        | Slot: 251  | Offset: 0    | Bytes: 1600
+//   sweptTotal                     | uint256                                            | Slot: 251  | Offset: 0    | Bytes: 32  
+//   sweepNonce                     | uint64                                             | Slot: 252  | Offset: 0    | Bytes: 8   
+//   __gap                          | uint256[48]                                        | Slot: 253  | Offset: 0    | Bytes: 1536
