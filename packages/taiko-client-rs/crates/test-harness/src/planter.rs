@@ -211,35 +211,49 @@ impl Planter {
 
     /// Writes an entry and emits its authenticated admission event in one mined transaction.
     pub async fn plant_forced_transaction(&self, tx: Bytes) -> Result<PlantedEntry> {
+        Ok(self.plant_forced_transactions(&[tx]).await?.remove(0))
+    }
+
+    /// Admits consecutive entries with genuine logs in one mined block.
+    pub async fn plant_forced_transactions(
+        &self,
+        transactions: &[Bytes],
+    ) -> Result<Vec<PlantedEntry>> {
         let mut next = self.next_block().await?;
         let head_tail = self.inbox_word(inbox::slot(inbox::FORCED_INCLUSION_HEAD_TAIL)).await?;
-        let index = u64::try_from((head_tail >> 48) & U256::from(U48_MASK))?;
-        ensure!(index < U48_MASK, "forced queue is full");
-        let input = InboxSetter::plantForcedTransactionCall {
-            _index: alloy_primitives::aliases::U48::from(index),
-            _tx: tx.clone(),
-            _feeInGwei: FORCED_INCLUSION_FEE_GWEI,
+        let first = u64::try_from((head_tail >> 48) & U256::from(U48_MASK))?;
+        ensure!(first + transactions.len() as u64 <= U48_MASK, "forced queue is full");
+        for (offset, tx) in transactions.iter().enumerate() {
+            let input = InboxSetter::plantForcedTransactionCall {
+                _index: alloy_primitives::aliases::U48::from(first + offset as u64),
+                _tx: tx.clone(),
+                _feeInGwei: FORCED_INCLUSION_FEE_GWEI,
+            }
+            .abi_encode();
+            let hash = anvil_request(
+                &self.l1,
+                "eth_sendTransaction",
+                json!([{"from":SENDER,"to":self.inbox,"data":Bytes::from(input),"gas":"0x100000"}]),
+            )
+            .await?;
+            next.sent.push(hash);
         }
-        .abi_encode();
-        let hash = anvil_request(
-            &self.l1,
-            "eth_sendTransaction",
-            json!([{"from":SENDER,"to":self.inbox,"data":Bytes::from(input),"gas":"0x100000"}]),
-        )
-        .await?;
-        next.sent.push(hash);
         let l1_block = next.commit().await?;
         let block = self
             .l1
             .get_block_by_number(BlockNumberOrTag::Number(l1_block))
             .await?
             .context("mined block missing")?;
-        Ok(PlantedEntry {
-            index,
-            tx_hash: keccak256(&tx),
-            timestamp: block.header.timestamp,
-            l1_block,
-        })
+        Ok(transactions
+            .iter()
+            .enumerate()
+            .map(|(offset, tx)| PlantedEntry {
+                index: first + offset as u64,
+                tx_hash: keccak256(tx),
+                timestamp: block.header.timestamp,
+                l1_block,
+            })
+            .collect())
     }
 
     /// The raw storage word of `address` at `slot` in the latest block.
@@ -434,6 +448,23 @@ mod tests {
         );
         assert_eq!(manifest["compiler"]["version"], "0.8.30+commit.73712a01");
         assert!(!setter_code().is_empty());
+    }
+
+    #[test]
+    fn zk_gas_fixture_matches_source_provenance() {
+        use sha2::{Digest, Sha256};
+        let manifest: Value =
+            serde_json::from_str(include_str!("../contracts/ZkGasFixture.manifest.json")).unwrap();
+        let source = include_bytes!("../contracts/ZkGasFixture.sol");
+        assert_eq!(manifest["source"]["sha256"], format!("{:x}", Sha256::digest(source)));
+        assert_eq!(manifest["source"]["keccak256"], keccak256(source).to_string());
+        assert_eq!(
+            manifest["artifact"]["sha256"],
+            format!("{:x}", Sha256::digest(include_bytes!("../contracts/ZkGasFixture.json")))
+        );
+        assert_eq!(manifest["compiler"]["version"], "0.8.30+commit.73712a01");
+        assert_eq!(manifest["settings"]["evmVersion"], "osaka");
+        assert_eq!(manifest["settings"]["optimizer"]["runs"], 200);
     }
 
     #[test]

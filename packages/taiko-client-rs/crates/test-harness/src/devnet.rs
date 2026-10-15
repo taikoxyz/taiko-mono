@@ -235,6 +235,21 @@ impl Devnet {
         connect_http_with_timeout(self.l2_http(i), DEFAULT_HTTP_TIMEOUT)
     }
 
+    /// Returns a real Engine client after the validator app has stopped.
+    pub fn rpc_engine(&self, i: usize) -> Result<abci::RpcEngine> {
+        self.apps[i].rpc_engine()
+    }
+
+    /// Builds an isolated app over a test-owned saved parent and Engine adapter.
+    pub fn detached_app<E: abci::Engine>(
+        &self,
+        i: usize,
+        store: abci::Store,
+        engine: E,
+    ) -> Result<abci::App<abci::RpcL1Source, E>> {
+        self.apps[i].detached_app(store, engine)
+    }
+
     /// The hashes of blocks `1..=head` of alethia-reth `i`.
     pub async fn l2_block_hashes(&self, i: usize, head: u64) -> Result<Vec<B256>> {
         let l2 = self.l2_provider(i);

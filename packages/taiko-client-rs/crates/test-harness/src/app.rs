@@ -92,6 +92,33 @@ impl AppNode {
         Ok(node)
     }
 
+    /// Independent real Engine client for deterministic tests while this app is stopped.
+    pub(crate) fn rpc_engine(&self) -> Result<RpcEngine> {
+        ensure!(!self.is_running(), "stop the live app before direct Engine builds");
+        let c = &self.config;
+        Ok(RpcEngine::new(
+            c.reth.http.clone(),
+            c.reth.auth.clone(),
+            &c.jwt,
+            AppOptions::default().engine_timeout,
+        )?)
+    }
+
+    /// Loads a caller-owned store with real L1 and the selected Engine adapter.
+    pub(crate) fn detached_app<E: Engine>(
+        &self,
+        store: Store,
+        engine: E,
+    ) -> Result<App<RpcL1Source, E>> {
+        ensure!(!self.is_running(), "stop the live app before detached ABCI requests");
+        let opts = AppOptions::default();
+        let l1 = RpcL1Source::new(connect_http_with_timeout(
+            self.config.l1_http.clone(),
+            http_timeout_for(opts.l1_timeout),
+        ));
+        Ok(App::new(l1, engine, Arc::new(NoBeacon), self.config.params.clone(), store, opts)?)
+    }
+
     /// The host port it listens on.
     pub(crate) fn port(&self) -> u16 {
         self.config.port

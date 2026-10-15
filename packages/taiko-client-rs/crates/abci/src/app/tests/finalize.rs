@@ -1084,7 +1084,9 @@ async fn cold_forced_rebuild_failures_retry_or_halt() {
     let retries = logs.at("WARN");
     assert_eq!(retries.len(), 3, "{}", logs.text());
     for line in &retries {
-        assert!(line.contains("method=\"forced inclusion rebuild\""), "{line}");
+        assert!(line.contains("method=\"forced_rebuild_unavailable\""), "{line}");
+        assert!(line.contains(&on_parent), "{line}");
+        assert!(line.contains("may lack"), "{line}");
     }
     assert!(retries[0].contains("connection refused"), "{}", retries[0]);
     assert!(retries[1].contains("SYNCING"), "{}", retries[1]);
