@@ -12,4 +12,8 @@ import TaikoSpec.Chain
 import TaikoSpec.Derivation.RustOrder
 import TaikoSpec.Proofs.Source
 import TaikoSpec.Proofs.Derive
+import TaikoSpec.Derivation.ExtraData
+import TaikoSpec.Derivation.Header
+import TaikoSpec.Proofs.ExtraData
+import TaikoSpec.Proofs.Header
 import TaikoSpec.Properties
