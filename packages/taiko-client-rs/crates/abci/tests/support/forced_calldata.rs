@@ -227,10 +227,19 @@ impl Engine for ObservedEngine {
 }
 
 /// Thread-safe tracing sink for observing fail-closed replay diagnostics.
-pub struct LogWriter(pub Arc<Mutex<Vec<u8>>>);
+pub struct LogWriter {
+    pub bytes: Arc<Mutex<Vec<u8>>>,
+    pub retry_recorded: Arc<tokio::sync::Notify>,
+}
 impl std::io::Write for LogWriter {
     fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        self.0.lock().unwrap().extend_from_slice(bytes);
+        let mut captured = self.bytes.lock().unwrap();
+        captured.extend_from_slice(bytes);
+        if captured.ends_with(b"\n") &&
+            String::from_utf8_lossy(&captured).contains("forced_rebuild_unavailable")
+        {
+            self.retry_recorded.notify_one();
+        }
         Ok(bytes.len())
     }
     fn flush(&mut self) -> std::io::Result<()> {
