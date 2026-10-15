@@ -5,14 +5,23 @@ use std::{
     fs::File,
     path::{Path, PathBuf},
     process::{ExitStatus, Stdio},
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
     time::Duration,
 };
 
 use abci::CommitteeState;
 use alloy_consensus::Header;
 use anyhow::{Context, Result, bail, ensure};
-use axum::{Json, Router, extract::State, routing::post};
+use axum::{
+    Json, Router,
+    extract::State,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    routing::post,
+};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use lander::CertifiedBlock;
 use serde_json::{Value, json};
@@ -36,7 +45,16 @@ pub struct RpcData {
 pub struct FixtureRpc {
     pub url: Url,
     pub data: Arc<RwLock<RpcData>>,
+    pub engine_reply: Arc<RwLock<(StatusCode, Value)>>,
+    pub capability_calls: Arc<AtomicUsize>,
     task: JoinHandle<()>,
+}
+
+#[derive(Clone)]
+struct RpcState {
+    data: Arc<RwLock<RpcData>>,
+    engine_reply: Arc<RwLock<(StatusCode, Value)>>,
+    capability_calls: Arc<AtomicUsize>,
 }
 
 impl FixtureRpc {
@@ -44,11 +62,22 @@ impl FixtureRpc {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
         let url = Url::parse(&format!("http://{}/", listener.local_addr()?))?;
         let data = Arc::new(RwLock::new(data));
-        let router = Router::new().route("/", post(rpc)).with_state(data.clone());
+        let engine_reply = Arc::new(RwLock::new((
+            StatusCode::OK,
+            json!({
+                "jsonrpc": "2.0", "result": rpc::auth::REQUIRED_ENGINE_METHODS,
+            }),
+        )));
+        let capability_calls = Arc::new(AtomicUsize::new(0));
+        let router = Router::new().route("/", post(rpc)).with_state(RpcState {
+            data: data.clone(),
+            engine_reply: engine_reply.clone(),
+            capability_calls: capability_calls.clone(),
+        });
         let task = tokio::spawn(async move {
             let _ = axum::serve(listener, router).await;
         });
-        Ok(Self { url, data, task })
+        Ok(Self { url, data, engine_reply, capability_calls, task })
     }
 
     pub async fn replace(&self, data: RpcData) {
@@ -62,8 +91,14 @@ impl Drop for FixtureRpc {
     }
 }
 
-async fn rpc(State(data): State<Arc<RwLock<RpcData>>>, Json(request): Json<Value>) -> Json<Value> {
-    let data = data.read().await;
+async fn rpc(State(state): State<RpcState>, Json(request): Json<Value>) -> Response {
+    if request["method"] == "engine_exchangeCapabilities" {
+        state.capability_calls.fetch_add(1, Ordering::Relaxed);
+        let (status, mut reply) = state.engine_reply.read().await.clone();
+        reply["id"] = request["id"].clone();
+        return (status, Json(reply)).into_response();
+    }
+    let data = state.data.read().await;
     let method = request["method"].as_str().unwrap_or_default();
     let params = &request["params"];
     let result = match method {
@@ -114,7 +149,7 @@ async fn rpc(State(data): State<Arc<RwLock<RpcData>>>, Json(request): Json<Value
         None => {
             json!({"jsonrpc":"2.0","id":id,"error":{"code":-32602,"message":"fixture method or history unavailable"}})
         }
-    })
+    }).into_response()
 }
 
 /// Paths and endpoints supplied to the actual compiled client executable.

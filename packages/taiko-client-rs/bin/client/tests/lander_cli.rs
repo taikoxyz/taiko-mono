@@ -477,3 +477,88 @@ async fn lander_cli_flushes_backpressure_and_switch_witnesses_before_batch_deadl
     }
     result
 }
+
+/// Exercise the actual startup wiring without contracts, history or a pending forced skip.
+/// Grouped with the CLI integration suite so the standard test entrypoint runs it.
+#[tokio::test]
+#[ignore = "docker"]
+async fn lander_cli_checks_engine_before_opening_journal_or_running() -> Result<()> {
+    use axum::http::StatusCode;
+    use std::sync::atomic::Ordering;
+
+    for (status, body, expected, retry) in [
+        (
+            StatusCode::UNAUTHORIZED,
+            json!({"error": "upstream-private-token"}),
+            "Engine transport failure",
+            true,
+        ),
+        (
+            StatusCode::OK,
+            json!({"jsonrpc":"2.0", "error": {
+                "code": -32601, "message": "upstream-private-token"
+            }}),
+            "engine_exchangeCapabilities error code -32601",
+            false,
+        ),
+        (
+            StatusCode::OK,
+            json!({"jsonrpc":"2.0", "result": []}),
+            "Engine/JWT configuration failure",
+            false,
+        ),
+    ] {
+        let rpc = FixtureRpc::start(RpcData {
+            blocks: Vec::new(),
+            headers: Vec::new(),
+            committees: Default::default(),
+        })
+        .await?;
+        *rpc.engine_reply.write().await = (status, body);
+        let directory = TempDir::new()?;
+        let key = directory.path().join("key.hex");
+        let chain_config = directory.path().join("chain.toml");
+        std::fs::write(&key, DEV_KEY.to_string())?;
+        std::fs::write(key.with_file_name("jwt.hex"), "11".repeat(32))?;
+        std::fs::write(&chain_config, "")?;
+        let args = CliInputs {
+            l1: rpc.url.clone(),
+            rpc: rpc.url.clone(),
+            key,
+            chain_config,
+            data: directory.path().join("lander"),
+            max_blocks: 1,
+        };
+        let mut process =
+            CliProcess::spawn(Path::new(CLIENT), &args, directory.path().join("startup.log"), &[])?;
+        if retry {
+            tokio::time::timeout(Duration::from_secs(5), async {
+                while rpc.capability_calls.load(Ordering::Relaxed) < 2 {
+                    process.assert_running()?;
+                    tokio::time::sleep(Duration::from_millis(25)).await;
+                }
+                anyhow::Ok(())
+            })
+            .await
+            .context("startup did not retry authenticated capability exchange")??;
+            ensure!(
+                process.signal(libc::SIGTERM).await?.success(),
+                "startup retry must be cancellable"
+            );
+        } else {
+            ensure!(!process.wait_exit().await?.success(), "invalid Engine API reached runner");
+            ensure!(rpc.capability_calls.load(Ordering::Relaxed) == 1, "fatal setup error retried");
+        }
+        let output = process.output();
+        ensure!(output.contains(expected), "missing startup diagnostic: {output}");
+        ensure!(output.contains("l2.auth"), "missing authenticated endpoint flag: {output}");
+        ensure!(!output.contains("upstream-private-token"), "upstream text was exposed");
+        ensure!(
+            !output.contains("running the permissionless Etna lander"),
+            "runner started without Engine"
+        );
+        ensure!(!args.data.exists(), "startup failure opened the journal");
+        assert_key_absent(&process);
+    }
+    Ok(())
+}

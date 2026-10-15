@@ -1568,3 +1568,62 @@ async fn cold_canonical_skip_advances_cursor_on_replay_and_persists_after_commit
     .unwrap();
     assert_eq!(reopened.state().unwrap().forced_cursor, 1);
 }
+
+/// Hot cached consumption and cold replay must commit the same canonical-skip cursor.
+#[tokio::test]
+async fn hot_canonical_skip_matches_cold_replay_and_persists_after_commit() {
+    let fx = Fixture::genesis(1);
+    let hot_dir = tempfile::tempdir().unwrap();
+    let cold_dir = tempfile::tempdir().unwrap();
+    let mut hot = initialized(&fx, hot_dir.path()).await;
+    let mut cold = initialized(&fx, cold_dir.path()).await;
+    step(&mut hot).await;
+    step(&mut cold).await;
+    assert_eq!(hot.state(), cold.state());
+    let mut env = forced_block_on(&fx, &hot);
+    plant_due_entry(&fx, cold.l1(), 66, fx.inbox.clone());
+    env.block.transactions.clear();
+    env.block.header.transactions_root = alloy_consensus::EMPTY_ROOT_HASH;
+    hot.engine().state().build_script.push_back(Ok(env.block.clone()));
+    let (verdict, req) = judge(&mut hot, &env).await;
+    assert_eq!(verdict, response::ProcessProposal::Accept, "halt = {:?}", hot.halt);
+    assert!(matches!(
+        hot.verdicts.get(&req.hash).unwrap().decision,
+        crate::forced::ForcedDecision::NeedsSkip { index: 0, .. }
+    ));
+    let before = hot.engine().calls().len();
+    let response = finalize(&mut hot, finalize_req(&req)).await.unwrap();
+    assert_eq!(hot.state().unwrap().forced_cursor, 0, "Finalize has not committed");
+    assert_eq!(hot.pending.as_ref().unwrap().forced_cursor, 1, "hot canonical skip consumes once");
+    let hash = env.block.header.hash_slow();
+    assert_eq!(
+        engine_calls_since(&hot, before),
+        [EngineCall::Forkchoice {
+            head: hash,
+            safe: hash,
+            finalized: fx.inbox.last_checkpoint_hash,
+        }],
+        "hot Finalize must use ProcessProposal's cached consumption without rebuilding"
+    );
+    assert!(hot.verdicts.get(&req.hash).is_none());
+    cold.engine().state().build_script.push_back(Ok(env.block.clone()));
+    assert!(cold.verdicts.is_empty(), "cold replay has no ProcessProposal verdict");
+    assert_eq!(finalize(&mut cold, finalize_req(&req)).await.unwrap(), response);
+    assert_eq!(hot.pending, cold.pending, "complete hot and cold successor states match");
+    commit(&mut hot).await.unwrap();
+    commit(&mut cold).await.unwrap();
+    assert_eq!(hot.state(), cold.state());
+    assert_eq!(hot.state().unwrap().forced_cursor, 1);
+    let expected = hot.state().unwrap().clone();
+    let mut reopened = App::new(
+        fx.l1(),
+        hot.engine().reopen(),
+        fx.params.clone(),
+        Store::new(hot_dir.path().into()),
+        AppOptions::default(),
+    )
+    .unwrap();
+    assert_eq!(reopened.state(), Some(&expected));
+    info(&mut reopened).await.unwrap();
+    assert_eq!(reopened.state().unwrap().forced_cursor, 1);
+}

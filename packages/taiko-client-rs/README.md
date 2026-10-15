@@ -282,7 +282,12 @@ path rather than EVM validity-proof soundness.
 Required inputs are `--l1.http`, `--l2.http`, `--l2.auth`, `--jwt.secret`, `--comet.http`, a
 `--signing-key` file containing a hex key, an exclusive `--data-dir`,
 `--max-blocks`, `--max-blobs`, all three fee caps, and `--sidecar`.
-The authenticated Engine API is required for historical singleton skip checks. Fee caps are positive wei per gas:
+The authenticated Engine API is required for historical singleton skip checks. Startup exchanges
+Engine capabilities before opening the journal or running the lander, so JWT/endpoint failures are
+reported before any skip is encountered. Transport failures (including HTTP authentication errors)
+retry with bounded backoff and can be stopped by a signal; missing methods and malformed replies
+stop startup. Diagnostics identify `--l2.auth` and `--jwt.secret` without copying upstream messages.
+Fee caps are positive wei per gas:
 `--max-fee-per-gas`, `--max-priority-fee-per-gas`, and
 `--max-fee-per-blob-gas`; the priority cap cannot exceed the execution cap.
 Signed transactions add a checked 20% gas-limit margin to the RPC estimate,
