@@ -28,9 +28,14 @@
     "doc_tests": 2,
     "unit_annotation": "947 tests passed; existing hot/cold test marked LEAK once in full concurrent run. Focused nextest rerun passed1/1 without LEAK (run5b40f70f-0037-4f4a-baf5-60b63a52c9f5).",
     "docker": {
-      "status": "running",
+      "status": "passed",
       "run_id": "d860a505-0362-4c40-bf50-536253777ab3",
-      "log": "/private/tmp/etna-fi-final-test.log"
+      "log": "/private/tmp/etna-fi-final-test.log",
+      "tests": 36,
+      "passed": 36,
+      "seconds": 620.33,
+      "exit_code": 0,
+      "implementation_revision": "d0d0dda8274eb14f8f0da939eb88e9478fdcf5df"
     }
   },
   "mutations": [
@@ -84,5 +89,6 @@
     "Exact-context authentic completed execution, newPayload validity and settlement",
     "Successful durable writes/reopen and async scheduling are external laws/conformance only",
     "COM/Landing/CI and advanced upstream pairing refresh remain controller-owned pending work"
-  ]
+  ],
+  "committed_manifest_audit": "43/43 passed after pre-commit formatting"
 }
