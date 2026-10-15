@@ -258,7 +258,6 @@ fn run(
 /// Waits for the EL's Engine API, loads the KZG trusted setup (as `taiko-client abci` does
 /// before serving) and builds the app over its store and its blob source.
 async fn build_app(c: &AppConfig) -> Result<App<RpcL1Source, RpcEngine>> {
-    tokio::task::spawn_blocking(abci::forced::warm_kzg_settings).await?;
     let opts = AppOptions::default();
     let engine =
         RpcEngine::new(c.reth.http.clone(), c.reth.auth.clone(), &c.jwt, opts.engine_timeout)?;

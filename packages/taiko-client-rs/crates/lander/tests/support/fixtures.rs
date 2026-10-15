@@ -22,7 +22,7 @@ use alloy_consensus::{EMPTY_ROOT_HASH, Header};
 use alloy_eips::{BlockId, eip7685::EMPTY_REQUESTS_HASH};
 use alloy_primitives::{B256, Bytes, U256};
 use alloy_provider::Provider;
-use anyhow::{Result, ensure};
+use anyhow::{Context, Result, ensure};
 use ed25519_dalek::{Signer, SigningKey};
 use lander::{
     CertifiedBlock, LandingSnapshot, Limits, ProofRequest, SidecarMode,
@@ -126,12 +126,16 @@ impl FixtureChain {
                             anchor.number,
                         )
                         .await?,
-                    blob: self.forced_blobs.get(&index).cloned().unwrap_or_default(),
+                    tx: self
+                        .forced_blobs
+                        .get(&index)
+                        .cloned()
+                        .context("missing forced admission bytes")?,
                 })
             } else {
                 None
             };
-            let consumed = forced.as_ref().filter(|w| !w.blob.is_empty()).map(|w| w.index);
+            let consumed = forced.as_ref().filter(|w| !w.tx.is_empty()).map(|w| w.index);
             let committee = if let Some(target) = switch {
                 Some(
                     build_committee_witness(
@@ -185,7 +189,11 @@ impl FixtureChain {
                 params: &fixture.params,
                 min_base_fee: protocol::shasta::constants::min_base_fee_for_chain(L2_CHAIN_ID),
             })?;
+            let transactions = forced.as_ref().map(|w| vec![w.tx.clone()]).unwrap_or_default();
             let header = Header {
+                transactions_root: alloy_consensus::proofs::ordered_trie_root_encoded(
+                    &transactions,
+                ),
                 number: height,
                 parent_hash: expected.parent_hash,
                 timestamp: expected.timestamp,
@@ -203,7 +211,7 @@ impl FixtureChain {
                 ..Header::default()
             };
             let envelope = EtnaEnvelope {
-                block: ExecutionBlock { header: header.clone(), transactions: vec![] },
+                block: ExecutionBlock { header: header.clone(), transactions },
                 anchor: witness,
                 committee,
                 forced,
@@ -231,7 +239,13 @@ impl FixtureChain {
                     forced_inclusion_delay: fixture.genesis.forced_inclusion_delay,
                 },
             )?;
-            ensure!(facts.forced == consumed, "forced inclusion at height {height}");
+            ensure!(
+                facts.forced ==
+                    consumed
+                        .map(abci::forced::ForcedDecision::Included)
+                        .unwrap_or(abci::forced::ForcedDecision::Ordinary),
+                "forced inclusion at height {height}"
+            );
             if let Some(derived) = facts.derived {
                 let epoch = derived.record.target_epoch;
                 let hash = record_hash(L2_CHAIN_ID, &derived.record);
@@ -251,7 +265,7 @@ impl FixtureChain {
         self.blocks
             .iter()
             .filter_map(|pair| EtnaEnvelope::decode(&pair.block.data[0]).ok()?.forced)
-            .filter(|witness| !witness.blob.is_empty())
+            .filter(|witness| !witness.tx.is_empty())
             .count() as u64
     }
 
@@ -314,10 +328,14 @@ impl FixtureChain {
         lander::batch::BatchBuilder::new(
             chain,
             adapter,
-            fixture.params.clone(),
-            limits(),
-            mode,
-            test_harness::dev_signer().address(),
+            lander::batch::BatchBuilderConfig {
+                params: fixture.params.clone(),
+                limits: limits(),
+                mode,
+                fee_recipient: test_harness::dev_signer().address(),
+                engine: std::sync::Arc::new(test_harness::unavailable_engine::UnavailableEngine),
+                engine_timeout: std::time::Duration::from_secs(1),
+            },
         )?
         .prepare(snapshot)
         .await?

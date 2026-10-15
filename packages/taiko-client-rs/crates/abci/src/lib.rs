@@ -28,8 +28,7 @@ pub mod elsync;
 pub mod engine;
 /// The CometBFT block envelope codec (`0x04 || rlp([block, anchor, committee, forced])`).
 pub mod envelope;
-/// Etna forced inclusion: the per-block rule, entry proofs and the blob → transaction list
-/// derivation.
+/// Etna calldata forced inclusion: authenticated entry proofs and per-block classification.
 pub mod forced;
 /// The CometBFT genesis: the `app_state` genesis witness, its codec, and the builder of the
 /// whole `genesis.json` from L1.

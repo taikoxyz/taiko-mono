@@ -17,8 +17,8 @@ use crate::{
     validate::data_hash,
 };
 
-/// Version prefix of `0x03 || zlib(rlp([[header_proto, envelope], ...]))`.
-pub const VERSION: u8 = 3;
+/// Version prefix of `0x04 || zlib(rlp([[header_proto, envelope], ...]))`.
+pub const VERSION: u8 = 4;
 
 use abci::compression::{
     InflateError, zlib_compress, zlib_compress_best, zlib_compress_split, zlib_inflate_exact,
@@ -106,7 +106,7 @@ fn single_envelope_offset(list: &[u8]) -> Option<usize> {
     fields.is_empty().then(|| list.len() - envelope.len())
 }
 
-/// `0x03 || zlib(list)`, bounded by `max_payload_bytes`.
+/// `0x04 || zlib(list)`, bounded by `max_payload_bytes`.
 pub(crate) fn compress(list: &[u8], limits: &Limits) -> Result<Vec<u8>> {
     compressed_payload(zlib_compress(list), limits)
 }
@@ -463,7 +463,7 @@ mod tests {
         bytes
     }
 
-    /// `0x03 || zlib(rlp([[header, envelope], ...]))`, assembled independently of `encode`.
+    /// `0x04 || zlib(rlp([[header, envelope], ...]))`, assembled independently of `encode`.
     fn wire(items: &[(Vec<u8>, Vec<u8>)]) -> Vec<u8> {
         frame(VERSION, &list(items))
     }
@@ -479,7 +479,7 @@ mod tests {
     fn canonical_wire_is_v038_header_protobuf_and_envelope_in_two_rlp_strings() {
         let blocks = chain(1);
         let expected = wire(&items(&blocks));
-        assert_eq!(expected[0], 3);
+        assert_eq!(expected[0], 4);
         assert_eq!(encode(&blocks, &limits()).unwrap(), expected);
         assert_eq!(decode(&expected, &limits()).unwrap(), published(&blocks));
     }
@@ -618,6 +618,10 @@ mod tests {
     fn v2_payload_is_rejected() {
         let blocks = chain(2);
         let list = list(&items(&blocks));
+        assert!(
+            encoding_error(decode(&frame(3, &list), &limits()))
+                .contains("unsupported batch version 3")
+        );
         let mut v2 = vec![2];
         v2.extend_from_slice(&list);
         assert!(encoding_error(decode(&v2, &limits())).contains("unsupported batch version 2"));

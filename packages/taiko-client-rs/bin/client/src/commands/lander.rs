@@ -6,7 +6,7 @@ use alloy_provider::Provider;
 use clap::Parser;
 use lander::{
     DummyProofProvider, LanderError,
-    batch::BatchBuilder,
+    batch::{BatchBuilder, BatchBuilderConfig},
     comet::HttpCometSource,
     l1::{LandingSource, RpcLandingSource},
     metrics::LanderMetrics,
@@ -23,7 +23,7 @@ use crate::{
     flags::{common::ObservabilityArgs, lander::LanderArgs},
 };
 
-/// Independent lander command; no Engine API or JWT credentials are required.
+/// Independent lander with authenticated EL checking for forced transaction skips.
 #[derive(Parser, Clone, Debug)]
 #[command(about = "Runs the permissionless Etna lander with the dummy (0x00) proof provider")]
 pub struct LanderSubCommand {
@@ -60,6 +60,12 @@ impl LanderSubCommand {
         })
         .await?;
         let params = load_chain_params(chain_id, config.chain_config.as_deref())?;
+        let engine = Arc::new(abci::RpcEngine::new(
+            config.l2_http.clone(),
+            config.l2_auth.clone(),
+            &config.jwt_secret,
+            config.timeouts.engine,
+        )?);
         let landing = Arc::new(RpcLandingSource::new(l1, l2, params.clone()));
         let snapshot =
             retry_bootstrap(config.poll_interval, retry_max_delay, || landing.snapshot()).await?;
@@ -90,10 +96,14 @@ impl LanderSubCommand {
         let batches = Arc::new(BatchBuilder::new(
             comet,
             landing.clone(),
-            params,
-            config.limits,
-            config.sidecar_mode,
-            sender,
+            BatchBuilderConfig {
+                params,
+                limits: config.limits,
+                mode: config.sidecar_mode,
+                fee_recipient: sender,
+                engine,
+                engine_timeout: config.timeouts.engine,
+            },
         )?);
         let mut runner = Runner::new(
             batches,

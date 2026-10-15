@@ -20,9 +20,18 @@ pub struct LanderArgs {
     /// Public HTTP(S) L1 JSON-RPC endpoint, serving the required historical state.
     #[clap(long = "l1.http", env = "L1_HTTP", required = true, value_parser = http_url)]
     pub l1_http_endpoint: Url,
-    /// Public HTTP(S) L2 execution JSON-RPC endpoint; Engine access is unnecessary.
+    /// Public HTTP(S) L2 execution JSON-RPC endpoint.
     #[clap(long = "l2.http", env = "L2_HTTP", required = true, value_parser = http_url)]
     pub l2_http_endpoint: Url,
+    /// Authenticated Engine API endpoint used to verify forced transaction skips.
+    #[clap(long="l2.auth",env="L2_AUTH",required=true,value_parser=http_url)]
+    pub l2_auth_endpoint: Url,
+    /// File containing the Engine API JWT secret.
+    #[clap(long = "jwt.secret", env = "JWT_SECRET", required = true)]
+    pub jwt_secret: PathBuf,
+    /// Deadline of a forced singleton check, in seconds.
+    #[clap(long="engine.timeout",env="LANDER_ENGINE_TIMEOUT",default_value_t=30,value_parser=clap::value_parser!(u64).range(1..=MAX_TIMEOUT_SECS))]
+    pub engine_timeout_secs: u64,
     /// HTTP(S) CometBFT RPC endpoint supplying blocks, commits and committee queries.
     #[clap(long = "comet.http", env = "LANDER_COMET_HTTP", required = true, value_parser = http_url)]
     pub comet_http_endpoint: Url,
@@ -100,6 +109,8 @@ impl LanderArgs {
         let config = LanderConfig {
             l1_http: self.l1_http_endpoint.clone(),
             l2_http: self.l2_http_endpoint.clone(),
+            l2_auth: self.l2_auth_endpoint.clone(),
+            jwt_secret: self.jwt_secret.clone(),
             comet_http: self.comet_http_endpoint.clone(),
             signing_key: self.signing_key.clone(),
             data_dir: self.data_dir.clone(),
@@ -123,6 +134,7 @@ impl LanderArgs {
             sidecar_mode: self.sidecar,
             timeouts: Timeouts {
                 rpc: Duration::from_secs(self.rpc_timeout_secs),
+                engine: Duration::from_secs(self.engine_timeout_secs),
                 proof: Duration::from_secs(self.proof_timeout_secs),
                 broadcast: Duration::from_secs(self.broadcast_timeout_secs),
                 receipt: Duration::from_secs(self.receipt_timeout_secs),
@@ -210,6 +222,10 @@ mod tests {
             "http://l1:8545",
             "--l2.http",
             "http://l2:8545",
+            "--l2.auth",
+            "http://l2:8551",
+            "--jwt.secret",
+            "/jwt.hex",
             "--comet.http",
             "http://comet:26657",
             "--signing-key",
@@ -239,7 +255,7 @@ mod tests {
     }
 
     #[test]
-    fn accepts_public_endpoints_without_engine_or_jwt() {
+    fn accepts_required_public_and_authenticated_engine_endpoints() {
         let _lock = ENV_LOCK.lock().unwrap();
         let _clear = clear_env();
         let cmd = parse(argv()).unwrap();
@@ -256,6 +272,23 @@ mod tests {
             parse(args).unwrap().lander_flags.config().unwrap().sidecar_mode,
             SidecarMode::Eip7594
         );
+    }
+
+    #[test]
+    fn requires_engine_and_jwt_and_bounds_engine_timeout() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let _clear = clear_env();
+        for flag in ["--l2.auth", "--jwt.secret"] {
+            let mut args = argv();
+            let i = args.iter().position(|arg| *arg == flag).unwrap();
+            args.drain(i..i + 2);
+            assert!(parse(args).is_err());
+        }
+        for value in ["0", "3601"] {
+            let mut args = argv();
+            args.extend(["--engine.timeout", value]);
+            assert!(parse(args).is_err());
+        }
     }
 
     #[test]

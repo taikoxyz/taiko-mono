@@ -39,7 +39,7 @@ pub struct ForcedEntry {
 
 /// Proof and exact transaction bytes for the entry at a block's parent cursor.
 ///
-/// RLP: `[index, entry, tx]`; this local witness does not change the active v4 envelope.
+/// RLP: `[index, entry, tx]`; the mandatory transaction bytes are carried by envelope v5.
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable, RlpDecodable)]
 pub struct ForcedWitness {
     /// Queue index, required to equal the parent cursor.

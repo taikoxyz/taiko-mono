@@ -688,12 +688,13 @@ async fn persistent_off_chain_answers_halt_after_the_suspicion_window() {
 async fn cold_forced_rebuild_retries_an_unknown_payload_id() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
-    let (mut app, env) = forced_block(&fx, dir.path()).await;
+    let (mut app, env) = skipped_block(&fx, dir.path()).await;
     app.engine().state().build_script.push_back(Err(EngineError::ErrorReply {
         call: "engine_getPayloadV5".into(),
         code: -38001,
         message: "Unknown payload".into(),
     }));
+    app.engine().state().build_script.push_back(Ok(env.block.clone()));
     let req = cold_req(&app, &env);
     finalize(&mut app, req).await.expect("rebuilds with a fresh payload id");
     assert_eq!(app.pending.as_ref().map(|s| s.parent.hash), Some(env.block.header.hash_slow()));
@@ -1028,42 +1029,29 @@ fn cold_req(app: &App<MockL1, MockEngine>, env: &EtnaEnvelope) -> request::Final
     finalize_req(&process_req(next_height(app), bft_time(app), vec![env.encode()]))
 }
 
-/// A decided forced inclusion block with one more transaction than its entry's list, finalized
-/// by a node that never judged it: the EL's rebuild differs, a safety halt before the EL executes
-/// the block.
+/// Cold included replay executes the ordinary mixed payload without probing forced input.
 #[tokio::test]
-async fn cold_finalize_halts_on_a_forced_rebuild_mismatch() {
+async fn cold_inclusion_needs_no_forced_rebuild() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let (mut app, honest) = forced_block(&fx, dir.path()).await;
-    let env = with_extra_transaction(honest.clone());
-    let before = app.engine().calls().len();
+    let env = with_extra_transaction(honest);
     let req = cold_req(&app, &env);
-    let msg = safety_halt(finalize(&mut app, req).await);
-    let mismatch = Rejection::ForcedRebuildMismatch {
-        expected: honest.block.header.hash_slow(),
-        got: env.block.header.hash_slow(),
-    };
-    assert!(msg.contains(&mismatch.to_string()), "{msg}");
-    let calls = engine_calls_since(&app, before);
-    assert!(matches!(calls.as_slice(), [EngineCall::BuildBlock { .. }]), "not executed: {calls:?}");
-    assert_eq!(app.pending, None);
-
-    // The honest block finalizes cold: rebuilt from the entry's list, then executed.
     let before = app.engine().calls().len();
-    let req = cold_req(&app, &honest);
-    finalize(&mut app, req).await.expect("the honest block finalizes");
-    let calls = engine_calls_since(&app, before);
-    let [
-        EngineCall::BuildBlock { parent, attrs },
-        EngineCall::NewPayload(_),
-        EngineCall::Forkchoice { .. },
-    ] = calls.as_slice()
-    else {
-        panic!("a rebuild, then the execution: {calls:?}");
-    };
-    assert_eq!(*parent, app.state().unwrap().parent.hash);
-    assert_eq!(attrs.block_metadata.tx_list, Some(sample_tx_list()));
+    finalize(&mut app, req).await.unwrap();
+    assert!(matches!(
+        &app.engine().calls()[before..],
+        [EngineCall::NewPayload(_), EngineCall::Forkchoice { .. }]
+    ));
+    assert_eq!(app.pending.as_ref().unwrap().forced_cursor, 1);
+}
+
+/// Canonical skip fixture whose ordinary block omits the forced transaction.
+async fn skipped_block(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, EtnaEnvelope) {
+    let (app, mut env) = forced_block(fx, dir).await;
+    env.block.transactions.clear();
+    env.block.header.transactions_root = alloy_consensus::EMPTY_ROOT_HASH;
+    (app, env)
 }
 
 /// The EL failing to rebuild a decided forced inclusion block for a node-local reason (a
@@ -1075,7 +1063,7 @@ async fn cold_finalize_halts_on_a_forced_rebuild_mismatch() {
 async fn cold_forced_rebuild_failures_retry_or_halt() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
-    let (mut app, env) = forced_block(&fx, dir.path()).await;
+    let (mut app, env) = skipped_block(&fx, dir.path()).await;
     let req = cold_req(&app, &env);
     let slow = app.opts.engine_timeout + Duration::from_secs(1);
     {
@@ -1084,6 +1072,7 @@ async fn cold_forced_rebuild_failures_retry_or_halt() {
             Err(EngineError::Transport("connection refused".into())),
             Err(EngineError::BuildNotStarted("SYNCING".into())),
         ]);
+        engine.build_script.push_back(Ok(env.block.clone()));
         engine.delay_script.extend([Duration::ZERO, Duration::ZERO, slow]);
     }
     let parent = app.state().unwrap().parent.clone();
@@ -1098,13 +1087,7 @@ async fn cold_forced_rebuild_failures_retry_or_halt() {
         assert!(line.contains("method=\"forced inclusion rebuild\""), "{line}");
     }
     assert!(retries[0].contains("connection refused"), "{}", retries[0]);
-    assert!(
-        retries[1].contains(&format!("cannot build on {on_parent}")) &&
-            retries[1].contains("historical state") &&
-            retries[1].contains("SYNCING"),
-        "{}",
-        retries[1]
-    );
+    assert!(retries[1].contains("SYNCING"), "{}", retries[1]);
     // Pauses of 100, 200 and 400 ms after the two failures and the timed-out third build.
     assert_eq!(start.elapsed(), app.opts.engine_timeout + Duration::from_millis(700));
     let builds = engine_calls_since(&app, before)
@@ -1124,7 +1107,7 @@ async fn cold_forced_rebuild_failures_retry_or_halt() {
     assert!(msg.contains("-38003"), "{msg}");
     // The halt names the parent the EL could not build on and what to do about it.
     assert!(msg.contains(&on_parent), "{msg}");
-    assert!(msg.contains("historical state") && msg.contains("archive"), "{msg}");
+    assert!(msg.contains("historical state"), "{msg}");
     let halts = logs.at("ERROR");
     assert!(
         halts.iter().any(|line| line.contains("reason=\"forced_rebuild_unavailable\"")),
@@ -1181,16 +1164,10 @@ async fn replay_rebuilds_forced_block_without_a_beacon() {
     );
     assert!(fx.blobs.calls().is_empty(), "no blob is fetched, before or after the crash");
     let calls = engine_calls_since(&app, before);
-    let [
-        EngineCall::BuildBlock { parent, attrs },
-        EngineCall::NewPayload(executed),
-        EngineCall::Forkchoice { head, .. },
-    ] = calls.as_slice()
+    let [EngineCall::NewPayload(executed), EngineCall::Forkchoice { head, .. }] = calls.as_slice()
     else {
-        panic!("a rebuild, then the execution: {calls:?}");
+        panic!("ordinary execution only: {calls:?}");
     };
-    assert_eq!(*parent, committed.parent.hash);
-    assert_eq!(attrs.block_metadata.tx_list, Some(sample_tx_list()));
     assert_eq!((*executed, *head), (hash, hash));
     commit(&mut app).await.expect("commits");
     let state = app.state().unwrap();
@@ -1529,4 +1506,17 @@ async fn switch_replay_survives_crashes_before_and_after_commit() {
         }
     }
     assert_eq!(switches, [1, 2, 3]);
+}
+
+#[tokio::test]
+async fn cached_verdict_is_bound_to_exact_proposal_bytes() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let (mut app, env) = forced_block(&fx, dir.path()).await;
+    let (_, req) = judge(&mut app, &env).await;
+    let replacement = with_extra_transaction(env);
+    let mut final_req = finalize_req(&req);
+    final_req.txs = vec![replacement.encode().0];
+    finalize(&mut app, final_req).await.unwrap();
+    assert_eq!(app.pending.as_ref().unwrap().parent.hash, replacement.block.header.hash_slow());
 }

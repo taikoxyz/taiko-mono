@@ -1,16 +1,13 @@
 //! `ProcessProposal`: the deterministic checks of [`validate_block`], then the
 //! node-local ¹ checks (anchor finality in the own L1 view, EL execution), with the EL rebuild of
-//! a forced inclusion block before its execution.
+//! canonical forced skips before normal execution.
 
 use alloy_primitives::Bytes;
 use tendermint::abci::{request, response};
 
 use super::{
     AbciError, App, deadline, unix_secs,
-    validate::{
-        Rejection, Validated, check_forced_rebuild, check_landing_capacity,
-        forced_rebuild_attributes, validate_block,
-    },
+    validate::{Rejection, Validated, check_landing_capacity, validate_block},
 };
 use crate::{
     engine::{Engine, PayloadVerdict},
@@ -37,7 +34,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
             None => return Err(AbciError::Uninitialized("ProcessProposal")),
             Some(state) => {
                 self.prefetch_committee_witness(state);
-                self.prefetch_forced_blob(state);
                 self.judge(state, &req).await
             }
         };
@@ -64,9 +60,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// [`validate_block`] with the request's BFT time; the block must fit one landing on its own
     /// ([`check_landing_capacity`], a liveness guard `FinalizeBlock` does not repeat); a present
     /// anchor witness must be final and canonical in the own L1 view (L1 is not called when it is
-    /// absent); a forced inclusion block must be the block the EL rebuilds on the committed parent
-    /// from its entry's transaction list ([`forced_rebuild_attributes`], [`check_forced_rebuild`]),
-    /// within the engine deadline; the EL must execute the block as `VALID`.
+    /// absent); the shared checker must complete the authenticated forced decision within the
+    /// engine deadline; finally the EL must execute the ordinary candidate payload as `VALID`.
     ///
     /// Supersession is reported only after the supplied anchor is independently confirmed final
     /// and canonical, since a forged header could claim a later generation. Verified committee
@@ -86,7 +81,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let txs: Vec<Bytes> = req.txs.iter().cloned().map(Bytes::from).collect();
         let env = single_envelope(&txs)?;
         let (height, bft_secs) = (req.height.value(), unix_secs(req.time));
-        let validated = match validate_block(state, &self.params, &env, height, bft_secs) {
+        let mut validated = match validate_block(state, &self.params, &env, height, bft_secs) {
             Err(l1_fact @ Rejection::Superseded { .. }) => {
                 // Without a witness the facts are the committed parent's, already trusted.
                 if let Some(w) = &env.anchor {
@@ -103,17 +98,19 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if let Some(w) = &env.anchor {
             self.check_anchor_final(w).await?;
         }
-        if let Some(attrs) =
-            forced_rebuild_attributes(state, &self.params, height, bft_secs, &validated)?
-        {
-            let rebuilt = deadline(
-                "engine block build",
-                self.opts.engine_timeout,
-                self.engine.build_block(state.parent.hash, attrs),
-            )
-            .await?;
-            check_forced_rebuild(&validated.block, &rebuilt)?;
-        }
+        validated.forced = deadline(
+            "forced singleton check",
+            self.opts.engine_timeout,
+            crate::engine::forced::verify_forced(
+                self.engine(),
+                crate::engine::forced::ForcedBuildContext {
+                    expected: &validated.expected,
+                    anchor_hash: validated.anchor.hash,
+                },
+                &validated.decision,
+            ),
+        )
+        .await?;
         let verdict = deadline(
             "engine_newPayload",
             self.opts.engine_timeout,

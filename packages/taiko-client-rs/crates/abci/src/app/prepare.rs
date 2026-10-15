@@ -1,16 +1,15 @@
 //! `PrepareProposal`: choose the anchor, collect the L1 witnesses the height needs (with the
-//! blob of a due forced inclusion entry), check them as `ProcessProposal` would, and let the EL
-//! build the block.
+//! authenticated transaction of every pending forced entry), check them as `ProcessProposal` would,
+//! and let the EL build the block.
 
 use std::future::Future;
 
+use alloy_consensus::Transaction;
 use alloy_primitives::Bytes;
 use tendermint::abci::{request, response};
 
 use super::{
-    AbciError, App, deadline,
-    preparation_cache::CachedBlob,
-    unix_secs,
+    AbciError, App, deadline, unix_secs,
     validate::{
         Candidate, Rejection, check_candidate_anchor, check_landing_capacity, expected_header,
         finish_candidate,
@@ -19,7 +18,7 @@ use super::{
 use crate::{
     engine::Engine,
     envelope::{AnchorWitness, CommitteeWitness, EtnaEnvelope, ForcedWitness},
-    forced::{self, ForcedEntry, ForcedError},
+    forced::{self, ForcedContext},
     l1::{
         L1Error, L1Source, build_committee_witness_within, header_at, layout::inbox,
         verify_anchor_witness,
@@ -37,7 +36,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// The whole build runs within [`AppOptions::prepare_timeout`](super::AppOptions) (each
     /// external call also keeps its own deadline), so the proposer answers before CometBFT's
     /// `timeout_propose` even when every call is slow but in time. A failed build (I/O error,
-    /// timeout, a failing pre-check, an unavailable forced inclusion blob, an envelope above
+    /// timeout, a failing pre-check, unavailable forced admission bytes, an envelope above
     /// `max_tx_bytes` or one landing) is recorded as the halt reason and logged, and answers
     /// empty `txs`; it is never an error. The only error is a request before `InitChain`.
     pub(super) async fn prepare_proposal(
@@ -77,10 +76,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// `maxAnchorAge` proposes nothing until L1 finalizes a newer block). At `H(t)-2`, discovers
     /// or reuses committee `t` under the committed parent's state root and anchor number. Then
     /// verifies the candidate, collects the forced inclusion witness the anchor's queue requires
-    /// ([`App::forced_inclusion`]), builds through the EL (from the consumed entry's transaction
-    /// list for a forced inclusion block), checks every derived header field and ensures the
-    /// envelope fits CometBFT's transaction limit and one landing on its own
-    /// ([`check_landing_capacity`]).
+    /// ([`App::forced_inclusion`]), attempts a forced-first mixed list, confirms any required skip,
+    /// restores full ordinary selection after a failed forced attempt, checks every derived header
+    /// field and ensures the envelope fits CometBFT's transaction limit and one landing on its
+    /// own ([`check_landing_capacity`]).
     async fn propose(
         &self,
         state: &AppState,
@@ -150,15 +149,91 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if let Some((target_epoch, witness)) = &committee {
             self.cache_committee_witness(state, *target_epoch, witness)?;
         }
-        let (forced, tx_list) = self.forced_inclusion(state, &facts.anchor).await?;
-        let attrs = rules::payload_attributes(&expected, facts.anchor.hash, tx_list);
-        let block = deadline(
+        let forced = self.forced_inclusion(state, &facts.anchor).await?;
+        let context = ForcedContext {
+            cursor: state.forced_cursor,
+            anchor: &facts.anchor,
+            delay: state.genesis.forced_inclusion_delay,
+            inbox: params.inbox,
+        };
+        let canonical = forced.as_ref().and_then(|w| forced::decode_canonical(&w.tx));
+        let tx_list = if let Some(transaction) = canonical {
+            let gas_limit = expected.gas_limit.saturating_sub(transaction.gas_limit());
+            let max_bytes = (alloy_eips::eip4844::BYTES_PER_BLOB as u64)
+                .saturating_sub(forced.as_ref().expect("pending witness").tx.len() as u64);
+            let tail = if gas_limit == 0 || max_bytes == 0 {
+                Vec::new()
+            } else {
+                deadline(
+                    "pool selection",
+                    self.opts.engine_timeout,
+                    self.engine.pool_transactions(crate::engine::PoolSelection {
+                        beneficiary: expected.beneficiary,
+                        base_fee: expected.base_fee,
+                        gas_limit,
+                        max_bytes,
+                        min_tip: 0,
+                    }),
+                )
+                .await?
+            };
+            Some(protocol::shasta::encode_transactions(
+                &std::iter::once(transaction).chain(tail).collect::<Vec<_>>(),
+            ))
+        } else {
+            None
+        };
+        let attempted = tx_list.is_some();
+        let mut block = deadline(
             "engine block build",
             self.opts.engine_timeout,
-            self.engine.build_block(state.parent.hash, attrs),
+            self.engine.build_block(
+                state.parent.hash,
+                rules::payload_attributes(&expected, facts.anchor.hash, tx_list),
+            ),
         )
         .await?;
         rules::check_header(&block.header, &expected).map_err(Rejection::BuiltHeader)?;
+        let decision = forced::check(
+            context,
+            forced.as_ref(),
+            block.transactions.first().map(|tx| tx.as_ref()),
+        )?;
+        let build_context = crate::engine::forced::ForcedBuildContext {
+            expected: &expected,
+            anchor_hash: facts.anchor.hash,
+        };
+        deadline(
+            "forced singleton check",
+            self.opts.engine_timeout,
+            crate::engine::forced::verify_forced(self.engine(), build_context, &decision),
+        )
+        .await?;
+        if attempted && !matches!(decision, forced::ForcedDecision::Included(_)) {
+            // The provided-list builder can stop at a rejected forced transaction (e.g. zk gas).
+            // An ordinary build restores its full native mempool budget.
+            block = deadline(
+                "ordinary block build",
+                self.opts.engine_timeout,
+                self.engine.build_block(
+                    state.parent.hash,
+                    rules::payload_attributes(&expected, facts.anchor.hash, None),
+                ),
+            )
+            .await?;
+            rules::check_header(&block.header, &expected).map_err(Rejection::BuiltHeader)?;
+            let decision = forced::check(
+                context,
+                forced.as_ref(),
+                block.transactions.first().map(|tx| tx.as_ref()),
+            )?;
+            deadline(
+                "final forced singleton check",
+                self.opts.engine_timeout,
+                crate::engine::forced::verify_forced(self.engine(), build_context, &decision),
+            )
+            .await?;
+        }
 
         let committee = committee.map(|(_, w)| w);
         let envelope = EtnaEnvelope { block, anchor, committee, forced }.encode();
@@ -200,59 +275,30 @@ impl<L: L1Source, E: Engine> App<L, E> {
         .await?)
     }
 
-    /// The forced inclusion witness of the block on top of `state` anchored at `anchor`, and the
-    /// EL transaction list of a forced inclusion block (`None`: the EL selects the transactions).
-    ///
-    /// With the cursor `c` at or past the anchor's queue tail the block is ordinary and carries no
-    /// witness. Otherwise it proves entry `c` at the anchor and, as the forced inclusion rule
-    /// requires (early inclusion is never chosen): carries the entry's blob and consumes it when
-    /// due; carries no blob and consumes it as an empty block when expired, without fetching
-    /// anything; carries no blob and stays ordinary (a peek) while it is pending. The witness is
-    /// then judged by [`forced::check`], as validators judge it. A due entry whose blob cannot be
-    /// fetched, or whose fetched blob is not the entry's, is [`Rejection::BlobUnavailable`].
+    /// Fetches the pending entry proof and its authenticated admission bytes, even before due.
     async fn forced_inclusion(
         &self,
         state: &AppState,
         anchor: &AnchorState,
-    ) -> Result<(Option<ForcedWitness>, Option<Bytes>), Rejection> {
+    ) -> Result<Option<ForcedWitness>, Rejection> {
         let index = state.forced_cursor;
         if index >= anchor.inbox.forced_inclusion_tail {
-            return Ok((None, None));
+            return Ok(None);
         }
-        let inbox = self.params.inbox;
         let cached = self.forced_entry(anchor, index).await?;
-        let (entry, proven) = (cached.witness, cached.proven);
-        let delay = state.genesis.forced_inclusion_delay;
-        let blob = if forced::is_due(&proven, anchor.timestamp, delay) &&
-            !forced::is_expired(&proven, anchor.timestamp)
-        {
-            self.forced_blob(&proven).await?
-        } else {
-            Bytes::new()
-        };
-        let witness = ForcedWitness { index, entry, blob };
-        let consumed =
-            forced::check(index, anchor, delay, inbox, Some(&witness)).map_err(|e| match e {
-                ForcedError::BlobHashMismatch { .. } | ForcedError::BadBlob => {
-                    Rejection::BlobUnavailable(e.to_string())
-                }
-                e => Rejection::Forced(e),
-            })?;
-        if !witness.blob.is_empty() {
-            self.preparation_cache().blob =
-                Some(CachedBlob { hash: proven.blob_hash, bytes: witness.blob.clone() });
-        }
-        Ok((Some(witness), consumed.map(|c| c.tx_list)))
-    }
-
-    /// The blob of the due forced inclusion `entry`, by the entry's timestamp and versioned hash,
-    /// from the blob source within the blob deadline; one bounded fetch survives cancellation of
-    /// the round that awaits it (and `Commit`, when a decided block prefetched it), so a later
-    /// round reuses its verified result. A failed fetch is [`Rejection::BlobUnavailable`], and one
-    /// that does not answer in time is [`Rejection::Timeout`] (as is a proposal whose own
-    /// deadline expires first).
-    async fn forced_blob(&self, entry: &ForcedEntry) -> Result<Bytes, Rejection> {
-        self.fetch_forced_blob(entry).await
+        let tx = self.forced_transaction(cached.proven).await?;
+        let witness = ForcedWitness { index, entry: cached.witness, tx };
+        forced::check(
+            ForcedContext {
+                cursor: index,
+                anchor,
+                delay: state.genesis.forced_inclusion_delay,
+                inbox: self.params.inbox,
+            },
+            Some(&witness),
+            None,
+        )?;
+        Ok(Some(witness))
     }
 
     /// The anchor witness at L1 block `n`: its canonical header (which must be block `n`) and the

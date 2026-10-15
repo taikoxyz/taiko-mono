@@ -54,7 +54,9 @@ pub struct BlockFacts {
     pub parent: ParentInfo,
     /// For a forced inclusion block, the queue index it consumes (the parent's cursor); `None`
     /// for an ordinary block. The guest, not the lander, executes the entry's transactions.
-    pub forced: Option<u64>,
+    pub forced: abci::forced::ForcedDecision,
+    /// Consensus-derived singleton attributes, authenticated before asynchronous checking.
+    pub expected: rules::ExpectedHeader,
 }
 
 /// Authenticates canonical precommits with distinct signers and strict `> 2/3` power.
@@ -379,14 +381,16 @@ pub fn verify_envelope(
     rules::check_header(&envelope.block.header, &expected)
         .map_err(|e| ValidationError::Etna(e.to_string()))?;
     let forced_index = abci::forced::check(
-        forced_cursor,
-        &anchor,
-        forced_inclusion_delay,
-        params.inbox,
+        abci::forced::ForcedContext {
+            cursor: forced_cursor,
+            anchor: &anchor,
+            delay: forced_inclusion_delay,
+            inbox: params.inbox,
+        },
         envelope.forced.as_ref(),
+        envelope.block.transactions.first().map(|tx| tx.as_ref()),
     )
-    .map_err(|e| ValidationError::Etna(e.to_string()))?
-    .map(|consumption| consumption.index);
+    .map_err(|e| ValidationError::Etna(e.to_string()))?;
     let header = &envelope.block.header;
     let next_parent = ParentInfo {
         number: height,
@@ -400,7 +404,14 @@ pub fn verify_envelope(
         difficulty: header.difficulty,
         grandparent_timestamp: parent.timestamp,
     };
-    Ok(BlockFacts { envelope, anchor, derived, parent: next_parent, forced: forced_index })
+    Ok(BlockFacts {
+        envelope,
+        anchor,
+        derived,
+        parent: next_parent,
+        forced: forced_index,
+        expected,
+    })
 }
 
 #[cfg(test)]

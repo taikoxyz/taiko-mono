@@ -1,0 +1,36 @@
+{
+  "artifact": {
+    "path": "crates/test-harness/contracts/InboxSetter.json",
+    "sha256": "9809c86c1846a0d05799ab00ed7afe3850f9a0b0687c7dbfab19f693d6292ae2"
+  },
+  "compiler": {
+    "version": "0.8.30+commit.73712a01"
+  },
+  "foundryVersion": [
+    "forge Version: 1.5.1-stable",
+    "Commit SHA: b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2",
+    "Build Timestamp: 2025-12-22T11:41:09.812070000Z (1766403669)",
+    "Build Profile: maxperf"
+  ],
+  "generator": "script/gen_test_harness_artifacts.sh",
+  "settings": {
+    "compilationTarget": {
+      "contracts/InboxSetter.sol": "InboxSetter"
+    },
+    "evmVersion": "osaka",
+    "libraries": {},
+    "metadata": {
+      "bytecodeHash": "ipfs"
+    },
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "remappings": []
+  },
+  "source": {
+    "keccak256": "0xaebeea5b59ddaa6918e1150bddb54759e3a9f8a03ae80a76eb441e21861a0bb6",
+    "path": "crates/test-harness/contracts/InboxSetter.sol",
+    "sha256": "70e260c48d16d5487f79ee05b42bf5701ee17a1097c9048a2a6aadb5fd93e6f4"
+  }
+}

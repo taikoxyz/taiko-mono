@@ -40,6 +40,7 @@ fn inputs(fixture: &ContractFixture, rpc: &FixtureRpc, root: &TempDir) -> Result
     let key = root.path().join("key.hex");
     let chain_config = root.path().join("chain.toml");
     std::fs::write(&key, DEV_KEY.to_string())?;
+    std::fs::write(key.with_file_name("jwt.hex"), "11".repeat(32))?;
     std::fs::write(
         &chain_config,
         format!(

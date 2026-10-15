@@ -288,11 +288,6 @@ impl MockBlobs {
         self.state.lock().expect("mock blobs lock")
     }
 
-    /// Serves `blob` under `versioned_hash` (not checked: a test may serve a wrong blob).
-    pub(crate) fn insert(&self, versioned_hash: B256, blob: Bytes) {
-        self.state().blobs.insert(versioned_hash, blob);
-    }
-
     /// Every call so far, in order.
     pub(crate) fn calls(&self) -> Vec<BlobCall> {
         self.state().calls.clone()

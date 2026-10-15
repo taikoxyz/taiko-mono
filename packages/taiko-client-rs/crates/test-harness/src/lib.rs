@@ -10,7 +10,7 @@
 //! background fake lander advances only `lastCheckpoint` behind the chain; autonomous committee
 //! activation needs no publication, while paused settlement still exercises back-pressure. A
 //! [`FakeBeacon`] serves anvil's blobs to the apps, so a scenario can plant forced inclusion
-//! entries with their blobs ([`Planter::plant_forced_inclusion`]).
+//! entries with their admission events ([`Planter::plant_forced_transaction`]).
 //!
 //! Dropping a [`Devnet`] (or awaiting [`Devnet::stop`]) stops the apps, removes every container
 //! and the network and deletes the temporary directories. Dropping it without a successful
@@ -41,3 +41,6 @@ pub use l1::{anvil_request, block_number, finalized_number, mine_l1_blocks, set_
 pub use l2::{DEV_KEY, anchor_of, dev_signer, extra_data_of, send_transfer, sign_transfer};
 pub use planter::{InboxValues, NextBlock, PlantedEntry, Planter, registry_entry};
 pub use wait::{Fatal, wait_until};
+
+/// Explicitly unavailable EL for tests that must never require execution evidence.
+pub mod unavailable_engine;

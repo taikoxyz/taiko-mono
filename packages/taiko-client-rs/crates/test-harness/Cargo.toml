@@ -10,13 +10,14 @@ async-trait = { workspace = true }
 tokio = { workspace = true }
 
 # ethereum
-alloy = { workspace = true, features = ["consensus", "signer-local", "std"] }
+alloy = { workspace = true, features = ["consensus", "signer-local", "std", "json"] }
 alloy-eips = { workspace = true, features = ["kzg"] }
 alloy-primitives = { workspace = true, features = ["std", "serde"] }
 alloy-provider = { workspace = true }
 
 # taiko
 abci = { path = "../abci" }
+alethia-reth-primitives = { workspace = true }
 protocol = { path = "../protocol", default-features = false }
 rpc = { path = "../rpc" }
 

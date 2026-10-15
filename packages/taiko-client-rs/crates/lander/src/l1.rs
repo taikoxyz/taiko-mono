@@ -484,8 +484,7 @@ fn decode_snapshot(
         genesis.genesis_state_root.is_zero() ||
         genesis.genesis_cutoff >= genesis.l1_0 ||
         genesis.forced_inclusion_delay == 0 ||
-        genesis.forced_inclusion_delay >= abci::forced::FORCED_INCLUSION_EXPIRY_SECS ||
-        genesis.max_anchor_age == 0 ||
+        genesis.max_anchor_age < 1152 ||
         bootstrap.is_zero()
     {
         return Err(LanderError::Configuration("Inbox genesis record is invalid".into()));

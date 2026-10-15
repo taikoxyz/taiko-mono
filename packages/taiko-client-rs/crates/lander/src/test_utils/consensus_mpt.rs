@@ -23,10 +23,7 @@ use abci::{
     rules::{self, HeaderInputs},
 };
 use alloy_consensus::{EMPTY_OMMER_ROOT_HASH, EMPTY_ROOT_HASH, Header};
-use alloy_eips::{
-    eip4844::{builder::SidecarBuilder, c_kzg},
-    eip7685::EMPTY_REQUESTS_HASH,
-};
+use alloy_eips::eip7685::EMPTY_REQUESTS_HASH;
 use alloy_primitives::{Address, B256, Bytes, U256, keccak256};
 use alloy_trie::{
     HashBuilder, Nibbles, TrieAccount,
@@ -225,12 +222,15 @@ fn state_with_queue(
         ),
     ]);
     for entry in &queue.entries {
-        let [fee, length, slice, hash] = inbox::forced_inclusion_entry_slots(entry.index);
+        let [hash, metadata] = inbox::forced_inclusion_entry_slots(entry.index);
         slots.extend([
-            (fee, U256::from(entry.fee_in_gwei)),
-            (length, U256::from(1)),
-            (slice, U256::from(entry.offset) | U256::from(entry.timestamp) << 24),
-            (hash, entry.blob_hash.into()),
+            (hash, entry.tx_hash.into()),
+            (
+                metadata,
+                U256::from(entry.timestamp) |
+                    (U256::from(entry.l1_block) << 48) |
+                    (U256::from(entry.fee_in_gwei) << 112),
+            ),
         ]);
     }
     let checkpoint = registry::checkpoint_slots(0);
@@ -281,8 +281,8 @@ impl ForcedPlan {
                 let entry = ForcedEntry {
                     index,
                     fee_in_gwei: 1_000 + index,
-                    blob_hash,
-                    offset: 0,
+                    tx_hash: blob_hash,
+                    l1_block: l1,
                     timestamp,
                 };
                 (l1, entry, blob)
@@ -308,23 +308,16 @@ impl ForcedPlan {
 /// The blob of planted forced inclusion entry `index` and its KZG versioned hash: a Shasta source
 /// of one empty block whose timestamp is `index`, so every entry's blob differs.
 fn forced_blob(index: u64) -> (Bytes, B256) {
-    use protocol::shasta::{
-        BlobCoder,
-        manifest::{BlockManifest, DerivationSourceManifest},
-    };
-    let payload = DerivationSourceManifest {
-        blocks: vec![BlockManifest { timestamp: index, ..Default::default() }],
-    }
-    .encode_and_compress()
-    .unwrap();
-    let sidecar = SidecarBuilder::<BlobCoder>::from_slice(&payload)
-        .build_4844_with_settings(c_kzg::ethereum_kzg_settings(0))
-        .unwrap();
-    assert_eq!(sidecar.blobs.len(), 1);
-    (
-        Bytes::copy_from_slice(sidecar.blobs[0].as_slice()),
-        sidecar.versioned_hash_for_blob(0).unwrap(),
+    use alloy_consensus::{SignableTransaction, TxEnvelope, TxLegacy};
+    use alloy_eips::eip2718::Encodable2718;
+    let tx: Bytes = TxEnvelope::Legacy(
+        TxLegacy { nonce: index, gas_limit: 21_000, ..Default::default() }
+            .into_signed(alloy_primitives::Signature::new(U256::from(1), U256::from(1), false)),
     )
+    .encoded_2718()
+    .into();
+    let hash = keccak256(&tx);
+    (tx, hash)
 }
 
 fn anchor(raw: &RawL1Header, height: u64, hash: B256, queue: &Queue) -> AnchorState {
@@ -581,18 +574,18 @@ impl Fixture {
             // at a planned height, otherwise peeked at.
             let witness_forced = (cursor < a.inbox.forced_inclusion_tail).then(|| {
                 let consume = plan.consume_at.contains(&height);
-                let blob = if consume { planted[cursor as usize].2.clone() } else { Bytes::new() };
+                let blob = planted[cursor as usize].2.clone();
                 let w = ForcedWitness {
                     index: cursor,
                     entry: states[&number]
                         .witness(params.inbox, &inbox::forced_inclusion_entry_slots(cursor)),
-                    blob,
+                    tx: blob,
                 };
                 cursor += u64::from(consume);
                 w
             });
             assert!(
-                witness_forced.as_ref().is_some_and(|w| !w.blob.is_empty()) ||
+                witness_forced.as_ref().is_some_and(|w| !w.tx.is_empty()) ||
                     !plan.consume_at.contains(&height),
                 "plan consumes at height {height} without a pending entry"
             );
@@ -600,7 +593,7 @@ impl Fixture {
                 height,
                 parent: &parent,
                 anchor: &a,
-                bft_time_secs: 100 + height,
+                bft_time_secs: if max_anchor_age < 7200 { 1261 + height } else { 100 + height },
                 generation: 0,
                 params: &params,
                 min_base_fee: protocol::shasta::constants::min_base_fee_for_chain(
@@ -608,7 +601,7 @@ impl Fixture {
                 ),
             })
             .unwrap();
-            let transactions = if bytes == 0 {
+            let mut transactions = if bytes == 0 {
                 vec![]
             } else {
                 use alloy::signers::SignerSync;
@@ -632,6 +625,9 @@ impl Fixture {
                     super::runtime::signer().sign_hash_sync(&tx.signature_hash()).unwrap();
                 vec![Bytes::from(TxEnvelope::Eip1559(tx.into_signed(signature)).encoded_2718())]
             };
+            if plan.consume_at.contains(&height) {
+                transactions.insert(0, witness_forced.as_ref().expect("pending").tx.clone());
+            }
             let el = Header {
                 transactions_root: alloy_trie::root::ordered_trie_root_encoded(&transactions),
                 number: height,
@@ -662,6 +658,10 @@ impl Fixture {
                 &keys,
                 blocks.get(&(height - 1)),
             );
+            if max_anchor_age < 7200 {
+                pair.block.header.time =
+                    tendermint::Time::from_unix_timestamp((1261 + height) as i64, 0).unwrap();
+            }
             pair.block.header.next_validators_hash =
                 committees[&schedule.epoch_of(height + 1)].validators.hash();
             super::consensus::resign(&mut pair, &committees[&schedule.epoch_of(height)], &keys);
@@ -918,10 +918,14 @@ mod readiness {
         BatchBuilder::new(
             fixture.clone(),
             fixture.clone(),
-            fixture.params.clone(),
-            limits,
-            SidecarMode::Eip4844,
-            FEE_RECIPIENT,
+            crate::batch::BatchBuilderConfig {
+                params: fixture.params.clone(),
+                limits,
+                mode: SidecarMode::Eip4844,
+                fee_recipient: FEE_RECIPIENT,
+                engine: std::sync::Arc::new(test_harness::unavailable_engine::UnavailableEngine),
+                engine_timeout: std::time::Duration::from_secs(1),
+            },
         )
         .unwrap()
     }

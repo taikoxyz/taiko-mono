@@ -15,7 +15,7 @@ use alloy_primitives::U256;
 
 /// Inbox storage slots (contract address = chain constant `ETNA_INBOX`).
 pub mod inbox {
-    use alloy_primitives::{B256, U256, keccak256};
+    use alloy_primitives::{B256, U256};
 
     /// Inbox initialization status: `uint8`, bits 0–7. Slot 258 remains compatible with
     /// the contract's `migrationState()` getter.
@@ -89,24 +89,9 @@ pub mod inbox {
         .to_vec()
     }
 
-    /// The four slots of forced inclusion entry `index`, as Solidity lays out
-    /// `queue[index]` (a `ForcedInclusion { uint64 feeInGwei; BlobSlice blobSlice; }` with
-    /// `BlobSlice { bytes32[] blobHashes; uint24 offset; uint48 timestamp; }`) at
-    /// `base = keccak256(abi.encode(index, 280))`:
-    ///
-    /// 1. `base`: `feeInGwei` (bits 0–63);
-    /// 2. `base + 1`: `blobHashes.length`;
-    /// 3. `base + 2`: `offset` (bits 0–23) and `timestamp` (bits 24–71);
-    /// 4. `keccak256(base + 1)`: `blobHashes[0]`.
-    ///
-    /// Additions wrap in U256.
-    pub fn forced_inclusion_entry_slots(index: u64) -> [B256; 4] {
-        let mut preimage = [0u8; 64];
-        preimage[..32].copy_from_slice(&U256::from(index).to_be_bytes::<32>());
-        preimage[32..].copy_from_slice(&U256::from(FORCED_INCLUSION_QUEUE).to_be_bytes::<32>());
-        let base = U256::from_be_bytes(keccak256(preimage).0);
-        let length = B256::from(base.wrapping_add(U256::from(1)));
-        [B256::from(base), length, B256::from(base.wrapping_add(U256::from(2))), keccak256(length)]
+    /// The two calldata queue slots: transaction hash and packed timestamp, L1 block and fee.
+    pub fn forced_inclusion_entry_slots(index: u64) -> [B256; 2] {
+        crate::forced::entry_slots(index)
     }
 }
 
@@ -254,8 +239,6 @@ mod tests {
         let base = U256::from_be_bytes(keccak256(preimage).0);
         assert_eq!(slots[0], B256::from(base));
         assert_eq!(slots[1], B256::from(base + U256::from(1)));
-        assert_eq!(slots[2], B256::from(base + U256::from(2)));
-        assert_eq!(slots[3], keccak256(slots[1]));
 
         // Pinned with `cast index uint256 7 280` and `cast keccak`.
         assert_eq!(
@@ -263,8 +246,6 @@ mod tests {
             [
                 b256!("fe59ba1b996c9452f7b7815b262d72cb08473c9b1ad66a36420423a2c51d1f32"),
                 b256!("fe59ba1b996c9452f7b7815b262d72cb08473c9b1ad66a36420423a2c51d1f33"),
-                b256!("fe59ba1b996c9452f7b7815b262d72cb08473c9b1ad66a36420423a2c51d1f34"),
-                b256!("61e848bf49344b279049a8d9175c784c35bb8aea653f992d2fdbba7fc2fb23d4"),
             ]
         );
         assert_ne!(inbox::forced_inclusion_entry_slots(8)[0], slots[0]);
