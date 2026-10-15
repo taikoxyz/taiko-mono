@@ -19,6 +19,7 @@ mod admission_cache;
 mod committee_witness;
 mod finalize;
 mod handle;
+mod hot_cold;
 mod info;
 mod init;
 mod metrics;
