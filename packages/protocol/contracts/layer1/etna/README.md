@@ -67,7 +67,8 @@ the config hash and use the dummy proof provider, which does not enforce guest c
   node `max(s_min, vp_unit)`. Choose `vp_unit` large enough that the entire TAIKO supply cannot
   exceed CometBFT's maximum voting power.
 - Choose `epochLenL2 >= D_MAX - MARGIN_V + 3`, the node's back-pressure requirement. The contract
-  checks only the minimum of 3 because those node parameters are not on-chain.
+  checks only the minimum of 3: `d_max` and `margin_v` are bound only inside the opaque
+  `committeeConfigHash`, which the contract does not open.
 - Set a non-zero registry `churnWindow` outside throwaway devnets, together with `churnBps` and a
   `minChurnPerWindow` floor of at least `minStake`. Zero disables the churn limit. `bondedStake`
   starts at 0, so before genesis only the floor activates per window: register the genesis set
@@ -244,17 +245,20 @@ only `R` through `R + 5`.
 
 ## Authenticated committee configuration
 
-The canonical commitment is the nine-word encoding (288 bytes):
+The canonical commitment is the eleven-word encoding (352 bytes):
 
 ```solidity
 committeeConfigHash = keccak256(abi.encode(
-    bytes32("ETNA_PARENT_ANCHOR_V1"), uint256(l2ChainId), address(stakingRegistry),
+    bytes32("ETNA_PARENT_ANCHOR_V2"), uint256(l2ChainId), address(stakingRegistry),
     uint256(vpUnit), uint256(sMin), uint64(nMax),
-    uint64(heartbeatWindow), uint64(2), uint8(1)
+    uint64(heartbeatWindow), uint64(2), uint8(1),
+    uint64(dMax), uint64(marginV)
 ));
 ```
 
-The last words bind heartbeat lookahead 2 and retained membership/MEM-08 algorithm version 1.
+Words 8 and 9 bind heartbeat lookahead 2 and retained membership/MEM-08 algorithm version 1. The
+last two bind the back-pressure parameters `d_max` and `margin_v`, so every node of a chain must
+run the same unsettled cap; a node whose cap differs cannot open the stored hash.
 Supply this nonzero hash as `COMMITTEE_CONFIG_HASH` at deployment. Slot 269 remains an opaque
 commitment; the node/guest must open it against its configured parameters and persist/check it
 in authenticated genesis state. Authenticate `L1_0`, both epoch lengths and `genesisCutoff` from
@@ -482,7 +486,7 @@ The existing status, generation, anchor progress and back-pressure checks remain
 outage, and `epochLenL2 >= unsettledCap + 3` remains the schedule bound. Committee authorization
 is autonomous, while settlement progress still matters for overall liveness.
 
-The fixed Solidity vector pins the six-field ABI, nine-word config and V6 statement against an
+The fixed Solidity vector pins the six-field ABI, eleven-word config and V6 statement against an
 independent `cast abi-encode` encoding. Tests use an explicitly dummy verifier for batching,
 statement binding and rollback; they do not prove the authoritative guest rules. Dummy proof
 `0x00` remains explicit; no real ZK guest is part of this change, and host/contract integration

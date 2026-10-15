@@ -60,8 +60,8 @@ contract DeployEtnaDevnet is Script {
     /// @notice Deploys fresh SignalService and EtnaInbox proxies initialized from L2 genesis.
     /// @dev Four consecutive CREATEs are broadcast from one deployer. Predicts the final proxy
     /// address so the SignalService authorizes it before the Inbox initializes its checkpoint.
-    /// COMMITTEE_CONFIG_HASH must be the canonical ETNA_PARENT_ANCHOR_V1 opening for this chain
-    /// and registry, matching node parameters. Fixture inputs may use a dummy verifier only on
+    /// COMMITTEE_CONFIG_HASH must be the canonical ETNA_PARENT_ANCHOR_V2 opening for this chain
+    /// and registry, matching node parameters (including d_max and margin_v). Fixture inputs may use a dummy verifier only on
     /// ephemeral devnets; ETNA_PROOF_VERIFIER must explicitly select that deployed verifier.
     /// @return inbox_ The new EtnaInbox proxy.
     /// @return signalService_ The new L1 SignalService proxy.
