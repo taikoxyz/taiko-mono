@@ -63,6 +63,8 @@ fs_permissions = [
     { access = "read", path = "./test" },
     { access = "read", path = "./script/" },
     { access = "read", path = "./genesis" },
+    # The Etna vectors shared with taiko-client-rs (testdata/etna_vectors/README.md).
+    { access = "read", path = "../../testdata/etna_vectors" },
 ]
 
 # 2394: Transient storage warning

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import { EtnaInboxTestBase, MockLandProofVerifier } from "./EtnaInboxTestBase.sol";
+import { LibEtnaVectors } from "./LibEtnaVectors.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
@@ -961,48 +962,27 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         );
     }
 
-    /// @dev Independent vector shared with the client; config 352 bytes, V6 576 bytes. The V5
-    /// vector's inputs plus forced inclusion heads 3 (before) and 5 (after) and fee recipient
-    /// 0x...aa, hashed by `cast keccak $(cast abi-encode "f(bytes32,uint256,uint64,address,
-    /// address,uint64,uint64,bytes32,bytes32,uint64,bytes32,bytes32,uint64,bytes32,bytes32,
-    /// uint48,uint48,address)" ...)`.
+    /// @dev The configuration opening (352 bytes) and V6 statement (576 bytes) vectors of
+    /// `testdata/etna_vectors/vectors.json`, which `cast` computes and taiko-client-rs reads too.
+    /// The Inbox is etched at the vector's address with the vector's identities and
+    /// configuration hash, so `hashLandStatement` binds exactly the vector's eighteen words.
     function test_hashLandStatement_MatchesTheV6Vector() external {
-        vm.chainId(1);
-        address vectorInbox = 0x1111111111111111111111111111111111111111;
-        IEtnaInbox.Config memory config = etnaConfig;
-        config.stakingRegistry = 0x2222222222222222222222222222222222222222;
-        EtnaInbox impl = new EtnaInbox(config);
-        vm.etch(vectorInbox, address(impl).code);
-        bytes memory configWords = _parentAnchorConfigWords(config.stakingRegistry);
-        bytes32 configHash = 0x483221e100b91b58a058b89723effa13d9a8b8527f8915ca8ad74cc44d5b7c0e;
-        assertEq(configWords.length, 352, "eleven config words");
-        assertEq(keccak256(configWords), configHash, "config opening");
-        vm.store(vectorInbox, bytes32(COMMITTEE_CONFIG_SLOT), configHash);
-        IEtnaInbox.LandInput memory input = IEtnaInbox.LandInput({
-            lastHeight: 164,
-            lastBlockHash: bytes32(uint256(0x22)),
-            lastStateRoot: bytes32(uint256(0x33)),
-            l1ReferenceBlockNumber: 19_000_000,
-            forcedInclusionHead: 5,
-            feeRecipient: address(0xaa)
-        });
-        assertEq(abi.encode(input).length, 192, "six static LandInput words");
-        bytes32[] memory blobs = new bytes32[](2);
-        blobs[0] = bytes32(uint256(0x01aa));
-        blobs[1] = bytes32(uint256(0x01bb));
+        string memory json = LibEtnaVectors.load();
+        address vectorInbox = _etchVectorInbox(json);
+        bytes32[] memory blobs =
+            vm.parseJsonBytes32Array(json, ".land_statement.inputs.blob_hashes");
         assertEq(
             keccak256(abi.encodePacked(blobs)),
-            0xe7591a4eb3dcfdc958b08bf3db6054ebae1f9b1a82b8c685499c13314381ea64,
+            LibEtnaVectors.bytes32At(json, ".land_statement.blob_hashes_hash"),
             "ordered blobs"
         );
+        bytes32 expected = LibEtnaVectors.bytes32At(json, ".land_statement.hash");
         assertEq(
-            EtnaInbox(vectorInbox)
-                .hashLandStatement(
-                    3, 100, bytes32(uint256(0x11)), 3, input, bytes32(uint256(0x44)), blobs
-                ),
-            0xe4f69a2c2e4a504cafcb7a737cd9eb64b1f6523fafa82e606c568f410ba24ca6,
-            "V6 statement"
+            keccak256(LibEtnaVectors.bytesAt(json, ".land_statement.preimage")),
+            expected,
+            "the preimage opens the statement"
         );
+        assertEq(_hashVectorStatement(json, vectorInbox, blobs), expected, "V6 statement");
     }
 
     function test_land_RejectsEveryMutatedParentAnchorConfigWord() external {
@@ -1051,6 +1031,57 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
             input,
             _manualStatement(0, genesisBlockHash, formerConfigHash, input, L1_REFERENCE_BLOCK_HASH)
         );
+    }
+
+    /// @dev Etches an Inbox at the V6 vector's address with the vector's chain ids, registry and
+    /// configuration hash, after checking the configuration opening vector.
+    function _etchVectorInbox(string memory _json) internal returns (address inbox_) {
+        string memory p = ".land_statement.inputs.";
+        vm.chainId(LibEtnaVectors.uintAt(_json, string.concat(p, "l1_chain_id")));
+        inbox_ = LibEtnaVectors.addressAt(_json, string.concat(p, "inbox"));
+        IEtnaInbox.Config memory config = etnaConfig;
+        config.l2ChainId = uint64(LibEtnaVectors.uintAt(_json, string.concat(p, "l2_chain_id")));
+        config.stakingRegistry = LibEtnaVectors.addressAt(_json, string.concat(p, "registry"));
+        vm.etch(inbox_, address(new EtnaInbox(config)).code);
+
+        bytes memory configWords = LibEtnaVectors.configWords(_json);
+        bytes32 configHash = LibEtnaVectors.bytes32At(_json, ".committee_config.hash");
+        assertEq(configWords.length, 352, "eleven config words");
+        assertEq(configWords, LibEtnaVectors.bytesAt(_json, ".committee_config.preimage"));
+        assertEq(keccak256(configWords), configHash, "config opening");
+        assertEq(
+            LibEtnaVectors.bytes32At(_json, string.concat(p, "committee_config_hash")),
+            configHash,
+            "the statement binds the config vector"
+        );
+        vm.store(inbox_, bytes32(COMMITTEE_CONFIG_SLOT), configHash);
+    }
+
+    /// @dev `hashLandStatement` of the Inbox at `_inbox` over the V6 vector's inputs.
+    function _hashVectorStatement(
+        string memory _json,
+        address _inbox,
+        bytes32[] memory _blobs
+    )
+        internal
+        view
+        returns (bytes32)
+    {
+        string memory p = ".land_statement.inputs.";
+        IEtnaInbox.LandInput memory input = LibEtnaVectors.landInput(_json);
+        assertEq(abi.encode(input).length, 192, "six static LandInput words");
+        return EtnaInbox(_inbox)
+            .hashLandStatement(
+                uint64(LibEtnaVectors.uintAt(_json, string.concat(p, "generation"))),
+                uint64(LibEtnaVectors.uintAt(_json, string.concat(p, "parent_height"))),
+                LibEtnaVectors.bytes32At(_json, string.concat(p, "parent_hash")),
+                uint48(
+                    LibEtnaVectors.uintAt(_json, string.concat(p, "forced_inclusion_head_before"))
+                ),
+                input,
+                LibEtnaVectors.bytes32At(_json, string.concat(p, "l1_reference_block_hash")),
+                _blobs
+            );
     }
 
     /// @dev Eleven independent static words; the contract stores this commitment opaquely.

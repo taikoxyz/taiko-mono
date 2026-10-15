@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { LibEtnaVectors } from "./LibEtnaVectors.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { LibEntriesTree } from "src/layer1/etna/libs/LibEntriesTree.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
@@ -38,15 +39,17 @@ contract LibEntriesTreeHarness {
 }
 
 contract LibEntriesTreeTest is CommonTest {
-    /// @dev `0x01` repeated 32 times; times a byte value gives that byte repeated.
-    uint256 private constant _ONES =
-        0x0101010101010101010101010101010101010101010101010101010101010101;
+    /// @dev The number of `registry_entries` in the shared vectors.
+    uint256 private constant _VECTOR_ENTRIES = 5;
 
     LibEntriesTreeHarness internal tree;
+    /// @dev `testdata/etna_vectors/vectors.json`.
+    string internal vectors;
 
     function setUp() public virtual override {
         super.setUp();
         tree = new LibEntriesTreeHarness();
+        vectors = LibEtnaVectors.load();
     }
 
     // ---------------------------------------------------------------
@@ -84,29 +87,29 @@ contract LibEntriesTreeTest is CommonTest {
     }
 
     // ---------------------------------------------------------------
-    // leaf and root: the taiko-client-rs `entries_root` vectors
+    // leaf and root: the shared `registry_entries` vectors (testdata/etna_vectors), which
+    // taiko-client-rs `entries_root` reads too
     // ---------------------------------------------------------------
 
-    function test_root_MatchesRustVectors() external {
+    function test_leaf_MatchesTheSharedVectors() external view {
+        for (uint256 i; i < _VECTOR_ENTRIES; ++i) {
+            assertEq(tree.leaf(i, _vectorEntry(i)), _vectorLeaf(i), "leaf");
+        }
+    }
+
+    function test_root_MatchesTheSharedVectors() external {
         assertEq(tree.root(0), bytes32(0));
-        assertEq(_freshRoot(1), 0xa8f6885e8bcbd1472f170ee0c1881bd17e2777b5be837042a869f9af9b0ad4e5);
-        assertEq(_freshRoot(2), 0x1277441ec01a1f4fc6387db4a7ed59c0451b9dd11861bc34d135bff4a33d9025);
-        assertEq(_freshRoot(3), 0x6ad9da0279384bc7b83f94a9745abd095c3d6b759cc4ff09a9c5efaa1d2b8072);
-        assertEq(_freshRoot(5), 0xc89969296cd089a4e790030d9a57997264d9518a044fe6af270bc59df4c1d689);
+        assertEq(_vectorRoot(0), bytes32(0));
+        for (uint256 count = 1; count <= _VECTOR_ENTRIES; ++count) {
+            assertEq(_freshRoot(count), _vectorRoot(count), "root");
+        }
     }
 
     function test_update_ReturnsTheRootAfterEachAppend() external {
-        bytes32[5] memory expected = [
-            bytes32(0xa8f6885e8bcbd1472f170ee0c1881bd17e2777b5be837042a869f9af9b0ad4e5),
-            0x1277441ec01a1f4fc6387db4a7ed59c0451b9dd11861bc34d135bff4a33d9025,
-            0x6ad9da0279384bc7b83f94a9745abd095c3d6b759cc4ff09a9c5efaa1d2b8072,
-            bytes32(0),
-            0xc89969296cd089a4e790030d9a57997264d9518a044fe6af270bc59df4c1d689
-        ];
-        for (uint256 i; i < 5; ++i) {
+        for (uint256 i; i < _VECTOR_ENTRIES; ++i) {
             bytes32 root = tree.update(i + 1, i, tree.leaf(i, _vectorEntry(i)));
             assertEq(root, tree.root(i + 1));
-            if (expected[i] != 0) assertEq(root, expected[i]);
+            assertEq(root, _vectorRoot(i + 1));
         }
     }
 
@@ -262,18 +265,25 @@ contract LibEntriesTreeTest is CommonTest {
     // Helpers
     // ---------------------------------------------------------------
 
-    /// @dev The taiko-client-rs vector entry `_i`: pubkey `0xa1 + _i` repeated, `_i + 1` TAIKO,
-    /// active from `10 + _i`, exit at `1000 + _i` for odd `_i` (none otherwise), heartbeat at
-    /// `20 + _i` with sequence `30 + _i`.
-    function _vectorEntry(uint256 _i) private pure returns (IEtnaStakingRegistry.Entry memory) {
-        return IEtnaStakingRegistry.Entry({
-            pubkey: bytes32(_ONES * (0xa1 + _i)),
-            effStake: (_i + 1) * 1 ether,
-            activeFromL1: uint64(10 + _i),
-            exitEffectiveL1: _i % 2 == 1 ? uint64(1000 + _i) : type(uint64).max,
-            lastHeartbeatAt: uint64(20 + _i),
-            lastHeartbeatSeq: uint64(30 + _i)
-        });
+    /// @dev The shared vector entry `_i` (`registry_entries.entries`): pubkey `0xa1 + _i`
+    /// repeated, `_i + 1` TAIKO, active from `10 + _i`, exit at `1000 + _i` for odd `_i` (none
+    /// otherwise), heartbeat at `20 + _i` with sequence `30 + _i`.
+    function _vectorEntry(uint256 _i) private view returns (IEtnaStakingRegistry.Entry memory) {
+        return LibEtnaVectors.registryEntry(vectors, _i);
+    }
+
+    /// @dev The shared vector leaf of entry `_i`.
+    function _vectorLeaf(uint256 _i) private view returns (bytes32) {
+        return LibEtnaVectors.bytes32At(
+            vectors, string.concat(".registry_entries.leaves[", vm.toString(_i), "]")
+        );
+    }
+
+    /// @dev The shared vector entries root over the first `_count` entries.
+    function _vectorRoot(uint256 _count) private view returns (bytes32) {
+        string memory p = string.concat(".registry_entries.roots[", vm.toString(_count), "].");
+        assertEq(LibEtnaVectors.uintAt(vectors, string.concat(p, "count")), _count, "root order");
+        return LibEtnaVectors.bytes32At(vectors, string.concat(p, "entries_root"));
     }
 
     /// @dev The leaf as taiko-client-rs `entry_leaf` encodes it, each uint64 widened to a word.

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { LibEtnaVectors } from "./LibEtnaVectors.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
@@ -613,19 +614,43 @@ contract EtnaStakingRegistryTest is CommonTest {
     // Storage layout read by the Etna node
     // ---------------------------------------------------------------
 
-    function test_storage_BaseSlotMatchesErc7201() external pure {
-        bytes32 base = keccak256(abi.encode(uint256(keccak256("taiko.etna.registry")) - 1))
-            & ~bytes32(uint256(0xff));
+    /// @dev The registry slots of the shared vectors (testdata/etna_vectors), which the Etna node
+    /// reads too, follow from the ERC-7201 namespace and Solidity's dynamic-array layout.
+    function test_storage_BaseSlotMatchesErc7201() external view {
+        string memory json = LibEtnaVectors.load();
+        string memory p = ".layout.registry.";
+        bytes32 base = keccak256(
+            abi.encode(
+                uint256(keccak256(bytes(vm.parseJsonString(json, string.concat(p, "namespace")))))
+                    - 1
+            )
+        ) & ~bytes32(uint256(0xff));
         assertEq(base, REGISTRY_BASE);
-        // taiko-client-rs `checkpoint_slots(0)[0]` and `entry_slots(0)[0]`.
+        assertEq(LibEtnaVectors.bytes32At(json, string.concat(p, "base")), REGISTRY_BASE);
         assertEq(
-            _checkpointSlot(0, 0),
-            bytes32(0xd9a608a417f242366fbd54f054137bf7eb45998d56e782c42e929a940d78cebf)
+            LibEtnaVectors.bytes32At(json, string.concat(p, "entries_length_slot")),
+            bytes32(uint256(REGISTRY_BASE) + 1)
         );
-        assertEq(
-            _entrySlot(0, 0),
-            bytes32(0x4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcba)
-        );
+        for (uint256 k; k < 4; ++k) {
+            string memory c = string.concat(p, "checkpoint_slots[", vm.toString(k), "].");
+            uint256 i = LibEtnaVectors.uintAt(json, string.concat(c, "index"));
+            for (uint256 w; w < 2; ++w) {
+                assertEq(
+                    LibEtnaVectors.bytes32At(json, string.concat(c, "slots[", vm.toString(w), "]")),
+                    _checkpointSlot(i, w),
+                    "checkpoint slot"
+                );
+            }
+            string memory e = string.concat(p, "entry_slots[", vm.toString(k), "].");
+            uint256 j = LibEtnaVectors.uintAt(json, string.concat(e, "index"));
+            for (uint256 w; w < 3; ++w) {
+                assertEq(
+                    LibEtnaVectors.bytes32At(json, string.concat(e, "slots[", vm.toString(w), "]")),
+                    _entrySlot(j, w),
+                    "entry slot"
+                );
+            }
+        }
     }
 
     function test_storage_CheckpointsAndEntriesAtTheNodeSlots() external {
