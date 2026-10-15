@@ -1055,13 +1055,11 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         );
     }
 
-    /// @dev The configuration opening (352 bytes) vector of `testdata/etna_vectors/vectors.json`,
-    /// which `cast` computes and taiko-client-rs reads too, and the V7 statement (608 bytes): the
-    /// shared vector's inputs plus participation [(16, 0x...55, [3, 0, 7])]. The participation
-    /// hash is `cast keccak $(cast abi-encode "f((uint64,bytes32,uint32[])[])"
-    /// "[(16,0x...55,[3,0,7])]")` and the statement `cast keccak $(cast abi-encode "f(bytes32,
-    /// uint256,uint64,address,address,uint64,uint64,bytes32,bytes32,uint64,bytes32,bytes32,uint64,
-    /// bytes32,bytes32,uint48,uint48,address,bytes32)" ...)`.
+    /// @dev The configuration opening (352 bytes) and V7 statement (608 bytes) vectors of
+    /// `testdata/etna_vectors/vectors.json`, which `cast` computes and taiko-client-rs reads too.
+    /// The Inbox is etched at the vector's address with the vector's identities and
+    /// configuration hash, so `hashLandStatement` binds exactly the vector's nineteen words, the
+    /// last of them the hash of the vector's participation.
     function test_hashLandStatement_MatchesTheV7Vector() external {
         string memory json = LibEtnaVectors.load();
         address vectorInbox = _etchVectorInbox(json);
@@ -1072,28 +1070,29 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
             LibEtnaVectors.bytes32At(json, ".land_statement.blob_hashes_hash"),
             "ordered blobs"
         );
-        uint32[] memory counts = new uint32[](3);
-        (counts[0], counts[1], counts[2]) = (3, 0, 7);
-        IEtnaInbox.EpochParticipation[] memory parts = new IEtnaInbox.EpochParticipation[](1);
-        parts[0] = IEtnaInbox.EpochParticipation({
-            epoch: 16, committeeHash: bytes32(uint256(0x55)), signedCounts: counts
-        });
-        assertEq(abi.encode(parts).length, 320, "ten participation words");
+        IEtnaInbox.EpochParticipation[] memory parts = LibEtnaVectors.participation(json);
+        assertEq(
+            abi.encode(parts),
+            LibEtnaVectors.bytesAt(json, ".land_statement.participation_encoding"),
+            "participation encoding"
+        );
         assertEq(
             keccak256(abi.encode(parts)),
-            0xc62a675c336fef9bf36145cc651d75a91dfd94fdd252f5ae7fe36c66e0db4d21,
+            LibEtnaVectors.bytes32At(json, ".land_statement.participation_hash"),
             "participation hash"
         );
         assertEq(
             keccak256(abi.encode(new IEtnaInbox.EpochParticipation[](0))),
-            0x569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd,
+            LibEtnaVectors.bytes32At(json, ".land_statement.empty_participation_hash"),
             "empty participation hash"
         );
+        bytes32 expected = LibEtnaVectors.bytes32At(json, ".land_statement.hash");
         assertEq(
-            _hashVectorStatement(json, vectorInbox, parts, blobs),
-            0x5daa726c9fd7ef3d3e70eb787228cd9ebbf53ce00ba261714f7b0efd10c370ab,
-            "V7 statement"
+            keccak256(LibEtnaVectors.bytesAt(json, ".land_statement.preimage")),
+            expected,
+            "the preimage opens the statement"
         );
+        assertEq(_hashVectorStatement(json, vectorInbox, parts, blobs), expected, "V7 statement");
     }
 
     function test_land_RejectsEveryMutatedParentAnchorConfigWord() external {

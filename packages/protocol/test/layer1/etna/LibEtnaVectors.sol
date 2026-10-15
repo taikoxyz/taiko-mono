@@ -107,6 +107,70 @@ library LibEtnaVectors {
         input_.feeRecipient = addressAt(_json, string.concat(p, "fee_recipient"));
     }
 
+    /// @dev The number of elements of the array at `_key`.
+    /// @param _json The vectors document.
+    /// @param _key The JSON path of the array.
+    /// @return count_ The element count.
+    function lengthAt(
+        string memory _json,
+        string memory _key
+    )
+        internal
+        view
+        returns (uint256 count_)
+    {
+        while (_VM.keyExistsJson(_json, string.concat(_key, "[", _VM.toString(count_), "]"))) {
+            ++count_;
+        }
+    }
+
+    /// @dev The `land_statement` participation input: one part per epoch, in order.
+    /// @param _json The vectors document.
+    /// @return parts_ The participation.
+    function participation(string memory _json)
+        internal
+        view
+        returns (IEtnaInbox.EpochParticipation[] memory parts_)
+    {
+        string memory p = ".land_statement.inputs.participation";
+        parts_ = new IEtnaInbox.EpochParticipation[](lengthAt(_json, p));
+        for (uint256 k; k < parts_.length; ++k) {
+            string memory e = string.concat(p, "[", _VM.toString(k), "].");
+            uint256[] memory counts =
+                _VM.parseJsonUintArray(_json, string.concat(e, "signed_counts"));
+            parts_[k].epoch = uint64(uintAt(_json, string.concat(e, "epoch")));
+            parts_[k].committeeHash = bytes32At(_json, string.concat(e, "committee_hash"));
+            parts_[k].signedCounts = new uint32[](counts.length);
+            for (uint256 i; i < counts.length; ++i) {
+                parts_[k].signedCounts[i] = uint32(counts[i]);
+            }
+        }
+    }
+
+    /// @dev The members of committee `_index` of `committee_hashes`, in order.
+    /// @param _json The vectors document.
+    /// @param _index The committee's index.
+    /// @return members_ The committee.
+    function committee(
+        string memory _json,
+        uint256 _index
+    )
+        internal
+        view
+        returns (IEtnaInbox.CommitteeMember[] memory members_)
+    {
+        string memory p = string.concat(".committee_hashes[", _VM.toString(_index), "].members");
+        members_ = new IEtnaInbox.CommitteeMember[](lengthAt(_json, p));
+        for (uint256 i; i < members_.length; ++i) {
+            string memory m = string.concat(p, "[", _VM.toString(i), "].");
+            members_[i] = IEtnaInbox.CommitteeMember({
+                bondId: uint32(uintAt(_json, string.concat(m, "bond_id"))),
+                activeFromL1: uint64(uintAt(_json, string.concat(m, "active_from_l1"))),
+                effStake: uintAt(_json, string.concat(m, "eff_stake"))
+            });
+        }
+    }
+
     /// @dev Registry entry `_index` of `registry_entries`.
     /// @param _json The vectors document.
     /// @param _index The entry's index (its bond id).
