@@ -1,7 +1,8 @@
 //! Genuine deterministic Ed25519 certificates used by consensus tests.
 
 use abci::{
-    ChainParams, CommitteeRecord, CommitteeState, EtnaEnvelope, ExecutionBlock, Member,
+    AccountWitness, AnchorState, ChainParams, CommitteeRecord, CommitteeState, CommitteeWitness,
+    EtnaEnvelope, ExecutionBlock, InboxFacts, Member, RegistryEntry,
     committee::{mem08_key, mem08_root, record_hash},
 };
 use alloy_consensus::Header;
@@ -34,6 +35,9 @@ pub fn parameters() -> ChainParams {
     params
 }
 
+/// A committee of one member per power, keyed by seeds `1..`, with a registry provenance whose
+/// entries are those keys in seed order (bond id = seed - 1), active from L1 block 1 and staking
+/// their power, so [`crate::participation::committee_members`] lists it at cutoff 1.
 pub fn committee(
     powers: &[u64],
     epoch: u64,
@@ -64,11 +68,50 @@ pub fn committee(
         encoding_version: 1,
     };
     let hash = record_hash(params.l2_chain_id, &record);
-    (
-        params.clone(),
-        authenticate(CommitteeState { record, members }, epoch, hash, &params).unwrap(),
-        keys,
-    )
+    let entries = keys
+        .iter()
+        .zip(powers)
+        .map(|(key, power)| RegistryEntry {
+            pubkey: B256::from(key.verifying_key().to_bytes()),
+            eff_stake: U256::from(*power),
+            active_from_l1: 1,
+            exit_effective_l1: u64::MAX,
+            last_heartbeat_at: 1,
+            last_heartbeat_seq: 1,
+        })
+        .collect();
+    let registry = AccountWitness {
+        address: params.registry,
+        nonce: 0,
+        balance: U256::ZERO,
+        storage_root: B256::ZERO,
+        code_hash: B256::ZERO,
+        account_proof: vec![],
+        storage: vec![],
+    };
+    let anchor = AnchorState {
+        number: 1,
+        hash: B256::repeat_byte(1),
+        state_root: B256::repeat_byte(2),
+        timestamp: 1,
+        inbox: InboxFacts {
+            status: 3,
+            recovery_generation: 0,
+            last_checkpoint_height: 0,
+            last_checkpoint_hash: B256::ZERO,
+            forced_inclusion_head: 0,
+            forced_inclusion_tail: 0,
+        },
+    };
+    let mut committee =
+        authenticate(CommitteeState { record: record.clone(), members }, epoch, hash, &params)
+            .unwrap();
+    committee.provenance = Some(crate::types::CommitteeContext {
+        anchor,
+        derivation_parent: None,
+        witness: CommitteeWitness { record, registry, entries },
+    });
+    (params, committee, keys)
 }
 
 pub fn merkle(items: &[Vec<u8>]) -> Hash {

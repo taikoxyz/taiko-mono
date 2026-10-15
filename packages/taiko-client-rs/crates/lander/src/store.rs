@@ -16,7 +16,11 @@ use std::{
 
 /// Journal schema version; incompatible formats stop rather than discard outstanding nonces.
 ///
-/// Schema 8 binds calldata FI envelope v5 and payload v4; older journals are rejected intact.
+/// Schema 9 jobs bind the nineteen-word V7 statement, whose last word hashes the batch's
+/// validator participation, journal that participation and the settlement committees as
+/// canonical ABI bytes, and sign the four-argument `land(input, participation, settlements,
+/// proof)`; older journals are rejected intact.
+/// Schema 8 binds calldata FI envelope v5 and payload v4 under the V6 statement.
 /// Schema 7 journals the paired commit as a protobuf too: schema 6 kept it in the domain JSON
 /// form, which reads a Unix-epoch vote time as absent and cannot restore such a certificate.
 /// Schema 6 additionally preserves authoritative original Comet protobuf block bytes. Schema 5
@@ -24,7 +28,7 @@ use std::{
 /// over a six-field `LandInput` (forced inclusion head after the batch and fee recipient included),
 /// compressed V3 blob payloads and snapshots carrying the forced inclusion queue; schema 4 bound V5
 /// statements over uncompressed V2 payloads and schema 3 complete V1 blocks.
-const JOURNAL_VERSION: u8 = 8;
+const JOURNAL_VERSION: u8 = 9;
 /// Hard allocation bound before reading or decoding an untrusted journal.
 pub(crate) const MAX_JOURNAL_BYTES: u64 = 256 * 1024 * 1024;
 
@@ -275,12 +279,20 @@ impl Store {
             crate::statement::hash(
                 snapshot,
                 &batch.input,
+                &batch.participation,
                 header.hash(),
                 &batch.blobs.versioned_hashes,
             ) != batch.statement_hash
         {
-            return Err(LanderError::Journal("job V6 statement identity mismatch".into()));
+            return Err(LanderError::Journal("job V7 statement identity mismatch".into()));
         }
+        crate::participation::verify_settlements(
+            &batch.participation,
+            &batch.settlements,
+            batch.input.lastHeight,
+            snapshot.genesis.epoch_len,
+        )
+        .map_err(|e| LanderError::Journal(format!("job settlements: {e}")))?;
         let limits = crate::types::Limits {
             max_blocks: 100_000,
             max_blobs: 128,
@@ -406,11 +418,11 @@ mod tests {
     }
 
     /// Schema 2 holds V4 statements, schema 3 complete-block V1 blob payloads and schema 4
-    /// uncompressed V2 payloads; schema 5 used lossy domain block serialization and schema 6
-    /// domain JSON commits.
+    /// uncompressed V2 payloads; schema 5 used lossy domain block serialization, schema 6
+    /// domain JSON commits and schema 8 V6 statements without participation.
     #[test]
     fn legacy_journals_are_rejected_without_modifying_their_files() {
-        for version in [2, 3, 4, 5, 6, 7] {
+        for version in [2, 3, 4, 5, 6, 7, 8] {
             let directory = tempfile::tempdir().unwrap();
             let journal = serde_json::json!({
                 "version": version,
@@ -445,7 +457,7 @@ mod tests {
         };
         let state =
             JournalState::Pending { job: Box::new(ProvedJob { request, proof }), transaction };
-        for version in [2, 3, 4, 5, 6, 7] {
+        for version in [2, 3, 4, 5, 6, 7, 8] {
             let directory = tempfile::tempdir().unwrap();
             let bytes = serde_json::to_vec(
                 &serde_json::json!({ "version": version, "identity": id, "state": state }),
@@ -460,6 +472,47 @@ mod tests {
             assert!(error.to_string().contains("incompatible journal schema"), "{error}");
             assert_eq!(std::fs::read(path).unwrap(), bytes);
         }
+    }
+
+    /// A schema-8 job (a V6 statement and the two-argument `land`, with no participation or
+    /// settlements) signed at nonce 7 stays on disk byte for byte, nonce included, and the store
+    /// refuses to open it.
+    #[tokio::test]
+    async fn journal_v8_signed_job_is_refused_intact() {
+        let request = crate::test_utils::runtime::request();
+        let proof = Bytes::from_static(&[0]);
+        let transaction = crate::test_utils::runtime::signed(&request, &proof, 7).await;
+        let id = JournalIdentity {
+            l1_chain_id: request.batch.snapshot.l1_chain_id,
+            l2_chain_id: request.batch.snapshot.l2_chain_id,
+            inbox: request.batch.snapshot.inbox,
+            registry: request.batch.snapshot.registry,
+            sender: transaction.sender,
+        };
+        let state =
+            JournalState::Signed { job: Box::new(ProvedJob { request, proof }), transaction };
+        let mut journal = serde_json::json!({ "version": 8, "identity": id, "state": state });
+        let batch = journal["state"]["job"]["request"]["batch"].as_object_mut().unwrap();
+        assert!(batch.remove("participation").is_some() && batch.remove("settlements").is_some());
+        let bytes = serde_json::to_vec(&journal).unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("lander-state.json");
+        std::fs::write(&path, &bytes).unwrap();
+
+        let error = match Store::open(directory.path(), id.clone()) {
+            Err(e) => e,
+            Ok(_) => panic!("schema 8 must be rejected"),
+        };
+        assert!(
+            error.to_string().contains("incompatible journal schema 8 (expected 9)"),
+            "{error}"
+        );
+        assert_eq!(std::fs::read(&path).unwrap(), bytes);
+        let kept: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(kept["state"]["phase"], "signed");
+        assert_eq!(kept["state"]["transaction"]["nonce"], 7);
+        assert!(!directory.path().join("lander-state.json.tmp").exists());
     }
 
     /// The blobs must carry exactly the job's published blocks; their compressed bytes need not

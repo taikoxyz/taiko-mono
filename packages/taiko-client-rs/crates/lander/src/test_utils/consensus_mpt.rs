@@ -5,7 +5,7 @@ use crate::{
     batch::verify_reference_chain,
     comet::{CometSource, CometStatus},
     committee::{AuthenticatedCommittee, authenticate},
-    contracts::IEtnaInbox::LandInput,
+    contracts::IEtnaInbox::{EpochParticipation, LandInput},
     error::{LanderError, Result},
     l1::{LandingSource, ParentContext},
     statement,
@@ -861,13 +861,14 @@ impl LandingSource for Fixture {
         &self,
         snapshot: &LandingSnapshot,
         input: &LandInput,
+        participation: &[EpochParticipation],
         reference: B256,
         blobs: &[B256],
     ) -> Result<B256> {
         Ok(if self.mismatch_statement.load(Ordering::Relaxed) {
             B256::ZERO
         } else {
-            statement::hash(snapshot, input, reference, blobs)
+            statement::hash(snapshot, input, participation, reference, blobs)
         })
     }
     async fn canonical_hash(&self, number: u64) -> Result<B256> {

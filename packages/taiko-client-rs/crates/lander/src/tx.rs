@@ -24,7 +24,20 @@ use crate::{
     contracts::{IEtnaInbox::landCall, ZeroFeeRecipient},
     error::{LanderError, Result, sanitized_rpc_error},
     proof::ProofRequest,
+    types::PreparedBatch,
 };
+
+/// The exact calldata of `land(input, participation, settlements, proof)` for a prepared job:
+/// the job's public inputs, its validator participation and settlement committees, and `proof`.
+pub fn land_calldata(batch: &PreparedBatch, proof: &Bytes) -> Vec<u8> {
+    landCall {
+        _input: batch.input.clone(),
+        _participation: batch.participation.clone(),
+        _settlements: batch.settlements.clone(),
+        _proof: proof.clone(),
+    }
+    .abi_encode()
+}
 
 /// Explicit operator fee ceilings, all denominated in wei per gas unit.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -92,7 +105,7 @@ impl SignedTransaction {
         let batch = &request.batch;
         let chain_id = u64::try_from(batch.snapshot.l1_chain_id)
             .map_err(|_| LanderError::Configuration("L1 chain id exceeds signing format".into()))?;
-        let call = landCall { _input: batch.input.clone(), _proof: proof.clone() }.abi_encode();
+        let call = land_calldata(batch, proof);
         if variant.chain_id() != Some(chain_id) ||
             variant.nonce() != self.nonce ||
             variant.to() != Some(batch.snapshot.inbox) ||
@@ -223,8 +236,7 @@ impl TransactionTransport for RpcTransactionTransport {
         let nonce = self.nonce_state().await?;
         nonce.validate()?;
         let nonce = nonce.pending;
-        let input: Bytes =
-            landCall { _input: batch.input.clone(), _proof: proof.clone() }.abi_encode().into();
+        let input: Bytes = land_calldata(batch, proof).into();
         let mut tx = TxEip4844 {
             chain_id,
             nonce,
@@ -400,6 +412,17 @@ mod tests {
         let proof = Bytes::from_static(&[0]);
         let transaction = signed(&request, &proof, 4).await;
         transaction.validate(&request, &proof).unwrap();
+        let call = landCall::abi_decode(&land_calldata(&request.batch, &proof)).unwrap();
+        assert_eq!(
+            (call._input, call._participation, call._settlements, call._proof),
+            (
+                request.batch.input.clone(),
+                request.batch.participation.clone(),
+                request.batch.settlements.clone(),
+                proof.clone()
+            )
+        );
+        assert!(!request.batch.participation.is_empty(), "the batch (0, 2] reports height 1");
         assert!(transaction.validate(&request, &Bytes::new()).is_err());
         let mut other = request.clone();
         other.batch.snapshot.inbox = Address::repeat_byte(99);
@@ -410,6 +433,12 @@ mod tests {
         other = request.clone();
         other.batch.blobs.versioned_hashes[0] = B256::repeat_byte(1);
         assert!(transaction.validate(&other, &proof).is_err());
+        other = request.clone();
+        other.batch.participation[0].signedCounts[0] += 1;
+        assert!(transaction.validate(&other, &proof).is_err(), "participation is signed");
+        other = request.clone();
+        other.batch.settlements.push(vec![]);
+        assert!(transaction.validate(&other, &proof).is_err(), "settlements are signed");
         let mut corrupted = transaction.clone();
         corrupted.nonce += 1;
         assert!(corrupted.validate(&request, &proof).is_err());

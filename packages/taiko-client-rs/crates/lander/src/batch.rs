@@ -25,6 +25,7 @@ use crate::{
     error::{LanderError, Result, engine_diagnostic},
     history,
     l1::{LandingSource, ParentContext},
+    participation::{self, CommitSigners},
     proof::ProofRequest,
     statement,
     store::MAX_JOURNAL_BYTES,
@@ -645,6 +646,10 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         })
     }
     /// Verify one successor using a known outgoing certificate before accepting new authorities.
+    ///
+    /// Returns the signers of the block's `last_commit`, the canonical commit of the previous
+    /// height, verified against that height's committee; `None` only for block 1, which carries
+    /// no commit.
     async fn authenticate_block(
         &self,
         snapshot: &LandingSnapshot,
@@ -652,7 +657,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         state: &mut ForwardState,
         committees: &mut BTreeMap<u64, AuthenticatedCommittee>,
         pair: &CertifiedBlock,
-    ) -> Result<()> {
+    ) -> Result<Option<CommitSigners>> {
         let chain_id = rules::chain_id_for(snapshot.l2_chain_id, snapshot.generation);
         let expected = state
             .parent
@@ -675,12 +680,20 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         }
         let envelope = verify_structure(pair, state.previous.as_ref(), height, state.parent.hash)
             .map_err(|e| LanderError::Safety(e.to_string()))?;
-        if let (Some(last), Some(previous)) = (&pair.block.last_commit, state.previous.as_ref()) {
-            let prev_epoch = schedule.epoch_of(height - 1);
-
-            verify_commit(last, &previous.block.header, &committees[&prev_epoch], &chain_id)
+        let last_signers = match (&pair.block.last_commit, state.previous.as_ref()) {
+            (Some(last), Some(previous)) => {
+                let prev_epoch = schedule.epoch_of(height - 1);
+                let signed = verify_commit(
+                    last,
+                    &previous.block.header,
+                    &committees[&prev_epoch],
+                    &chain_id,
+                )
                 .map_err(|e| LanderError::Safety(e.to_string()))?;
-        }
+                Some(CommitSigners { height: height - 1, signed })
+            }
+            _ => None,
+        };
         verify_commit(&pair.commit, &pair.block.header, &committees[&epoch], &chain_id)
             .map_err(|e| LanderError::Safety(e.to_string()))?;
         let bft_secs = u64::try_from(pair.block.header.time.unix_timestamp())
@@ -811,11 +824,12 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         state.anchor = facts.anchor;
         state.previous = Some(pair.clone());
         state.forced_cursor = forced_cursor;
-        Ok(())
+        Ok(last_signers)
     }
 
-    /// Retain only the selected proof prefix's per-block anchors after shared verification, and
-    /// the forced inclusion cursor after its last block.
+    /// Retain only the selected proof prefix's per-block anchors after shared verification, the
+    /// forced inclusion cursor after its last block, and the signers of every verified
+    /// `last_commit` the prefix carries (heights `max(p, 1)..=L - 1`, in order).
     async fn authenticate_blocks(
         &self,
         snapshot: &LandingSnapshot,
@@ -823,14 +837,17 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         start: &BatchStart,
         committees: &mut BTreeMap<u64, AuthenticatedCommittee>,
         blocks: &[CertifiedBlock],
-    ) -> Result<(Vec<AnchorState>, u64)> {
+    ) -> Result<(Vec<AnchorState>, u64, Vec<CommitSigners>)> {
         let mut state = ForwardState::new(start, snapshot)?;
         let mut anchors = Vec::new();
+        let mut signers = Vec::new();
         for pair in blocks {
-            self.authenticate_block(snapshot, schedule, &mut state, committees, pair).await?;
+            signers.extend(
+                self.authenticate_block(snapshot, schedule, &mut state, committees, pair).await?,
+            );
             anchors.push(state.anchor.clone());
         }
-        Ok((anchors, state.forced_cursor))
+        Ok((anchors, state.forced_cursor, signers))
     }
 }
 
@@ -897,7 +914,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
         let mut committees = BTreeMap::new();
         let start = self.checkpoint(&snapshot, &schedule, &mut committees).await?;
         let prefix = self.publishable_prefix(&snapshot, status.height).await?;
-        let (anchors, forced_cursor) = self
+        let (anchors, forced_cursor, signers) = self
             .authenticate_blocks(&snapshot, &schedule, &start, &mut committees, &prefix.blocks)
             .await?;
         if prefix.blocks.is_empty() {
@@ -931,15 +948,35 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             })?,
             feeRecipient: self.fee_recipient,
         };
+        let participation = participation::build(
+            &schedule,
+            &self.params,
+            snapshot.checkpoint_height,
+            input.lastHeight,
+            &signers,
+            &committees,
+        )?;
         let blobs = blob::build(&payload, &self.limits, self.mode)?;
-        let hash = statement::hash(&snapshot, &input, reference.hash(), &blobs.versioned_hashes);
+        let hash = statement::hash(
+            &snapshot,
+            &input,
+            &participation.parts,
+            reference.hash(),
+            &blobs.versioned_hashes,
+        );
         let contract_hash = self
             .l1
-            .statement_hash(&snapshot, &input, reference.hash(), &blobs.versioned_hashes)
+            .statement_hash(
+                &snapshot,
+                &input,
+                &participation.parts,
+                reference.hash(),
+                &blobs.versioned_hashes,
+            )
             .await?;
         if contract_hash != hash {
             return Err(LanderError::Configuration(format!(
-                "local V6 statement {hash} differs from Inbox helper {contract_hash}"
+                "local V7 statement {hash} differs from Inbox helper {contract_hash}"
             )));
         }
         Ok(Some(ProofRequest {
@@ -959,6 +996,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
                     .collect(),
                 committees: committees.into_values().map(|committee| committee.state).collect(),
                 input,
+                participation: participation.parts,
+                settlements: participation.settlements,
                 blobs,
                 statement_hash: hash,
             },
@@ -1180,10 +1219,13 @@ mod tests {
             &self,
             snapshot: &LandingSnapshot,
             input: &LandInput,
+            participation: &[crate::contracts::IEtnaInbox::EpochParticipation],
             reference_hash: alloy_primitives::B256,
             blob_hashes: &[alloy_primitives::B256],
         ) -> Result<alloy_primitives::B256> {
-            self.fixture().statement_hash(snapshot, input, reference_hash, blob_hashes).await
+            self.fixture()
+                .statement_hash(snapshot, input, participation, reference_hash, blob_hashes)
+                .await
         }
 
         async fn canonical_hash(&self, number: u64) -> Result<alloy_primitives::B256> {
@@ -1579,6 +1621,66 @@ mod tests {
         );
     }
 
+    /// The batch (0, 3] counts heights 1 and 2 (blocks 2 and 3 carry their commits); (20, 26]
+    /// with 23-block epochs counts 20..=23 under epoch 0, which it completes, and 24..=25 under
+    /// epoch 1. Epoch 0's committee holds only registry entry 0 (entry 1 activates at L1 10).
+    #[tokio::test]
+    async fn prepared_batch_counts_its_canonical_commits_and_settles_completed_epochs() {
+        use crate::contracts::IEtnaInbox::CommitteeMember;
+        let member = |bond_id: u32, active_from_l1: u64, stake: u64| CommitteeMember {
+            bondId: bond_id,
+            activeFromL1: active_from_l1,
+            effStake: alloy_primitives::U256::from(stake),
+        };
+        let fixture = Arc::new(Fixture::new(0, 3));
+        let request =
+            builder(fixture.clone(), limits(3)).prepare(fixture.snapshot.clone()).await.unwrap();
+        let batch = request.unwrap().batch;
+        let epoch0 = vec![member(0, 1, 3)];
+        assert_eq!(batch.participation.len(), 1);
+        assert_eq!(batch.participation[0].epoch, 0);
+        assert_eq!(batch.participation[0].committeeHash, participation::committee_hash(&epoch0));
+        assert_eq!(batch.participation[0].signedCounts, [2]);
+        assert!(batch.settlements.is_empty());
+
+        let fixture = Arc::new(Fixture::new(20, 26));
+        let request =
+            builder(fixture.clone(), limits(6)).prepare(fixture.snapshot.clone()).await.unwrap();
+        let batch = request.unwrap().batch;
+        let schedule = Schedule::from_genesis(&batch.snapshot.genesis);
+        assert_eq!((schedule.epoch_len, batch.input.lastHeight), (23, 26));
+        let key = |seed: u8| {
+            abci::committee::mem08_key(
+                fixture.params.l2_chain_id,
+                alloy_primitives::B256::from(
+                    ed25519_dalek::SigningKey::from_bytes(&[seed; 32]).verifying_key().to_bytes(),
+                ),
+            )
+        };
+        let epoch1 = if key(1) < key(2) {
+            vec![member(0, 1, 3), member(1, 10, 1)]
+        } else {
+            vec![member(1, 10, 1), member(0, 1, 3)]
+        };
+        assert_eq!(batch.participation.iter().map(|p| p.epoch).collect::<Vec<_>>(), [0, 1]);
+        assert_eq!(batch.participation[0].signedCounts, [4]);
+        assert_eq!(batch.participation[1].signedCounts, [2, 2]);
+        assert_eq!(batch.participation[0].committeeHash, participation::committee_hash(&epoch0));
+        assert_eq!(batch.participation[1].committeeHash, participation::committee_hash(&epoch1));
+        assert_eq!(batch.settlements, [epoch0], "only epoch 0 ends at or below height 25");
+        let reference = alloy_primitives::keccak256(&batch.reference_headers[0]);
+        assert_eq!(
+            batch.statement_hash,
+            statement::hash(
+                &batch.snapshot,
+                &batch.input,
+                &batch.participation,
+                reference,
+                &batch.blobs.versioned_hashes
+            )
+        );
+    }
+
     #[tokio::test]
     async fn batch_input_and_statement_carry_the_stored_head_and_the_fee_recipient() {
         let fixture = Arc::new(Fixture::new(0, 3));
@@ -1588,14 +1690,24 @@ mod tests {
         assert_eq!(batch.input.forcedInclusionHead, alloy_primitives::aliases::U48::from(3));
         assert_eq!(batch.input.feeRecipient, FEE_RECIPIENT, "the configured recipient");
         let reference = alloy_primitives::keccak256(&batch.reference_headers[0]);
-        let preimage =
-            statement::preimage(&snapshot, &batch.input, reference, &batch.blobs.versioned_hashes);
+        let preimage = statement::preimage(
+            &snapshot,
+            &batch.input,
+            &batch.participation,
+            reference,
+            &batch.blobs.versioned_hashes,
+        );
         let three = alloy_primitives::U256::from(3).to_be_bytes::<32>();
         assert_eq!(
             (&preimage[15 * 32..16 * 32], &preimage[16 * 32..17 * 32]),
             (&three[..], &three[..])
         );
-        assert_eq!(&preimage[17 * 32 + 12..], FEE_RECIPIENT.as_slice(), "the last word");
+        assert_eq!(&preimage[17 * 32 + 12..18 * 32], FEE_RECIPIENT.as_slice(), "word 18");
+        assert_eq!(
+            preimage[18 * 32..],
+            statement::participation_hash(&batch.participation).0,
+            "the last word"
+        );
         assert_eq!(batch.statement_hash, alloy_primitives::keccak256(preimage));
     }
 
@@ -1671,10 +1783,12 @@ mod tests {
         assert!(error.to_string().contains("height 22"));
         let fixture = Arc::new(Fixture::new(0, 1));
         fixture.mismatch_statement.store(true, Ordering::Relaxed);
-        assert!(matches!(
-            builder(fixture.clone(), limits(1)).prepare(fixture.snapshot.clone()).await,
-            Err(LanderError::Configuration(_))
-        ));
+        let error = builder(fixture.clone(), limits(1))
+            .prepare(fixture.snapshot.clone())
+            .await
+            .unwrap_err();
+        assert!(matches!(error, LanderError::Configuration(_)), "{error}");
+        assert!(error.to_string().contains("local V7 statement"), "{error}");
     }
 
     #[test]
@@ -1911,14 +2025,15 @@ mod tests {
         }
 
         /// The forced inclusion heads before and after `request`'s batch, read from its statement
-        /// preimage (words 16 and 17, before the fee recipient), which must hash to the statement
-        /// and carry the input's.
+        /// preimage (words 16 and 17, before the fee recipient and the participation hash), which
+        /// must hash to the statement and carry the input's.
         fn heads(request: &ProofRequest) -> (u64, u64) {
             let batch = &request.batch;
             let reference = alloy_primitives::keccak256(&batch.reference_headers[0]);
             let preimage = statement::preimage(
                 &batch.snapshot,
                 &batch.input,
+                &batch.participation,
                 reference,
                 &batch.blobs.versioned_hashes,
             );
@@ -1928,7 +2043,8 @@ mod tests {
                     .to::<u64>()
             };
             assert_eq!(U48::from(word(16)), batch.input.forcedInclusionHead);
-            assert_eq!(&preimage[17 * 32 + 12..], FEE_RECIPIENT.as_slice(), "the last word");
+            assert_eq!(&preimage[17 * 32 + 12..18 * 32], FEE_RECIPIENT.as_slice(), "word 18");
+            assert_eq!(preimage[18 * 32..], statement::participation_hash(&batch.participation).0);
             (word(15), word(16))
         }
 

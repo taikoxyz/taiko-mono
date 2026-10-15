@@ -12,7 +12,7 @@ use tendermint_proto::v0_38::types::{Block as RawBlock, Commit as RawCommit};
 
 use crate::{
     blob::PreparedBlobs,
-    contracts::IEtnaInbox::LandInput,
+    contracts::IEtnaInbox::{CommitteeMember, EpochParticipation, LandInput},
     error::{LanderError, Result},
 };
 
@@ -269,7 +269,8 @@ pub struct PreparedBatch {
     #[serde(with = "rlp_serde")]
     pub starting_inbox_witness: AnchorWitness,
     /// Exact complete block/commit pairs in increasing height order. Only their headers and
-    /// envelopes are published; commits and signatures reach the proof only as witnesses.
+    /// envelopes are published; commits and signatures reach the proof only as witnesses. The
+    /// blocks' `last_commit`s are also the canonical commits [`Self::participation`] counts.
     pub blocks: Vec<CertifiedBlock>,
     /// Each block's own authenticated L1 anchor, in matching block order.
     pub anchors: Vec<AnchorState>,
@@ -282,11 +283,22 @@ pub struct PreparedBatch {
     /// The exact six `LandInput` fields the contract receives: the terminal height, block hash
     /// and state root, the L1 reference block number, the forced inclusion head after the batch
     /// and the fee recipient.
-    #[serde(with = "crate::contracts::land_input_serde")]
+    #[serde(with = "crate::contracts::abi_serde")]
     pub input: LandInput,
+    /// The validator participation the V7 statement binds (`land`'s `_participation`): one part
+    /// per epoch of the commit range `[max(p, 1), L - 1]` that the blocks' `last_commit`s carry,
+    /// in epoch order, with the epoch committee's hash and each member's verified commit
+    /// signatures counted in MEM-08 order. Empty when the batch carries no commit.
+    #[serde(with = "crate::contracts::abi_serde")]
+    pub participation: Vec<EpochParticipation>,
+    /// `land`'s `_settlements`: the MEM-08 committee list of each epoch the batch completes
+    /// (`h_last(e) <= L - 1`), in ascending epoch order. Not part of the statement: the reward
+    /// pool checks each list against the committee hash of the matching participation part.
+    #[serde(with = "crate::contracts::abi_serde")]
+    pub settlements: Vec<Vec<CommitteeMember>>,
     /// Sidecar and ordered versioned blob hashes binding the V4 payload.
     pub blobs: PreparedBlobs,
-    /// Identity of this job: the exact V6 public statement hash.
+    /// Identity of this job: the exact V7 public statement hash.
     pub statement_hash: B256,
 }
 
