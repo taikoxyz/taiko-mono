@@ -5,6 +5,8 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/protocol/**"
+      # The Etna vectors the protocol tests read (shared with taiko-client-rs).
+      - "testdata/etna_vectors/**"
       - "!packages/protocol/contract_layout_*"
       - "!packages/protocol/audit/**"
       - "!packages/protocol/docs/**"
