@@ -281,31 +281,43 @@ interface IEtnaInbox {
     /// new L1 calls. Epoch-first blocks need no publication witness.
     ///
     /// Forced inclusions: cursor c starts at 0; each block consumes at most entry c and advances
-    /// once, or keeps c. After landing, the stored head equals the checkpoint cursor. For anchor
-    /// A, forbid a forced witness if c >= tail(A); otherwise require exactly c's witness
-    /// [index, entryProof, tx]. Authenticate the Inbox account, both entry slots and tail under
-    /// A.stateRoot, enforce tx.length <= 8192 and keccak256(tx) == entry.txHash, even for a
-    /// pre-due peek. Read tail from A, never genesis: save may follow init in the same L1 block;
-    /// block 1 always carries its own anchor witness. Authenticate delay/maxAnchorAge in slot 282
-    /// under genesis. Due means A.timestamp >= entry.timestamp + delay without integer wrapping.
-    /// Entries never expire, even after fourteen days.
+    /// once, or keeps c. After landing, the stored head equals the checkpoint cursor. For the
+    /// candidate's anchor A (its own or inherited), forbid a forced witness if c >= tail(A);
+    /// otherwise require exactly c's witness [index, entryProof, tx]. Authenticate the Inbox
+    /// account, both entry slots and tail under A.stateRoot and enforce tx.length <= 8192.
+    /// The tx byte string may be empty for a pre-due ordinary block or inclusion. Nonempty bytes,
+    /// including redundant historical witness bytes, always require keccak256(tx) == entry.txHash.
+    /// Before a due skip, require that equality even for empty bytes: omission can only skip an
+    /// actual empty admission. Read tail from A, never genesis: save may follow init in the same
+    /// L1 block; block 1 always carries its own anchor witness. Authenticate delay/maxAnchorAge in
+    /// slot 282 under genesis. Due means A.timestamp >= entry.timestamp + delay without integer
+    /// wrapping. Entries never expire, even after fourteen days.
     ///
     /// Canonical bytes decode as exactly one complete EIP-2718 envelope (including legacy),
     /// consume all input and re-encode identically using the pinned EL's codec. Empty, undecodable
-    /// or failed-round-trip bytes are invalid input. Canonical bytes exactly equal to transaction
-    /// zero consume c before or after due; later positions and same-sender/nonce replacements do
-    /// not count. Without inclusion, a pre-due entry keeps c; a due noncanonical entry skips and
-    /// advances once without an EL build; a due canonical entry advances only after a successful
-    /// completed singleton EL build returns no transactions. Use the same committed parent and
-    /// deterministic candidate attributes, changing only the provided list to [tx], under the
-    /// pinned legacy provided-list semantics. A nonempty result rejects the skip; build errors,
-    /// timeouts, missing parent state, cancellation or incomplete results never permit consumption.
+    /// or failed-round-trip bytes are invalid input. Canonical execution-block transaction zero
+    /// of at most 8192 bytes whose hash equals entry.txHash consumes c before or after due without
+    /// a duplicate witness preimage; later positions and same-sender/nonce replacements do not
+    /// count. Without inclusion, a pre-due entry keeps c; a due authenticated noncanonical entry
+    /// skips and advances once without an EL build; a due authenticated canonical entry advances
+    /// only after a successful completed singleton EL build returns no transactions. At or after
+    /// due, a block that neither includes nor legally skips the entry is invalid; it cannot keep c.
+    /// For the singleton, use the same committed parent and deterministic candidate attributes,
+    /// changing only the provided list to [tx], under the pinned legacy provided-list semantics.
+    /// A nonempty result rejects the skip; build errors, timeouts, missing parent state, cancellation
+    /// or incomplete results never permit consumption.
     /// Do not duplicate EL signature, nonce, balance, gas or fee validation or specially defer
     /// semantic failures after due. Inclusion may share a block with later mempool transactions
     /// and may revert in EVM execution; receipt success is not required. The candidate still
     /// requires normal header and EL payload validation, including
     /// block.timestamp - A.timestamp <= maxAnchorAge. An allowed skip rebuilds an ordinary mempool
     /// block with its full budget when the combined build stopped at the forced transaction.
+    ///
+    /// Before due, a proposer may attempt bounded opportunistic preimage log reads to preserve
+    /// time for an ordinary block. Unavailable, inconsistent or oversized logs, read errors and
+    /// timeouts may fall back to an ordinary block with empty witness tx bytes. The entry proof
+    /// remains mandatory, nonempty witness bytes remain authenticated, and every due safety rule
+    /// still applies; preimage acquisition failure never justifies a due block retaining c.
     ///
     /// The future guest must enforce the same MPT/hash/canonical/position/due checks and consume
     /// [forcedInclusionHeadBefore, forcedInclusionHeadAfter) in order. An EL-dependent skip needs
@@ -320,10 +332,11 @@ interface IEtnaInbox {
     /// block data in the bound blobs. The blobs carry payload V4: 0x04 and the zlib-compressed
     /// RLP list of each block's canonical CometBFT header and Etna envelope, where every header
     /// hashes to a certified block id, its data hash commits to the envelope and its last block
-    /// id links the batch. Envelope v5's forced witness carries transaction bytes, not a forced
-    /// blob. Landing still publishes batch blobs. Commits and signatures are proof witnesses,
-    /// not blob data. A batch may start/end at any valid height without a previous batch's
-    /// committee output. Envelope version 5, payload V4 and journal schema 8 reject older formats;
+    /// id links the batch. Envelope v5's forced witness carries optional transaction bytes for
+    /// the rules above, not a forced blob. Landing still publishes batch blobs. Commits and
+    /// signatures are proof witnesses, not blob data. A batch may start/end at any valid height
+    /// without a previous batch's committee output. Envelope version 5, payload V4 and journal
+    /// schema 8 reject older formats;
     /// never discard or replace a signed nonce. The verifier must pin a guest enforcing these V6
     /// rules. Dummy proof 0x00 is for development only; no real guest exists here and the dummy
     /// verifier does not establish consensus validity or ZK soundness.
