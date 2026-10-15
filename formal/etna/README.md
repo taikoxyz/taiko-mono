@@ -151,3 +151,62 @@ Run `python3 scripts/committee_conformance.py` for the fixed JSONL corpus, then 
 Two existing owner-configuration boundaries are deliberately preserved. `validate` accepts `L1_0=64,L=20,E=u64::MAX,U=10`, although checked `l1_first(1)` fails and the runtime wrapper can panic at the first activation. It also accepts `L=u64::MAX,E=1`, although eager lander lookahead can panic at height 1. Actual generated-source Lean counterexamples and positive examples are audited. Full genesis acceptance is based on the traced validation/epoch-zero derivation paths with coherent authenticated facts, not a new synthetic-genesis integration reproduction. Protocol uint48 anchors and Comet int64 heights further restrict the practical domain; checking only u64 arithmetic does not establish runnability.
 
 Likewise, coherent `d_max=margin_v` gives accepted cap zero, but a first block with authenticated checkpoint zero fails back-pressure. The model provides that exact failed step and a positive ahead-checkpoint saturation example. This is a bootstrap/runnability policy decision, not a remote exploit or a proof that every possible zero-cap anchor fails. A separate compatibility decision can prohibit or document intentional stopped configurations, define a supported schedule horizon/height domain, and replace eager lookahead panic with a typed terminal boundary. This task changes no configuration policy.
+
+### Landing operation and actual contract conformance
+
+`Etna/Landing` proves LAND-01..06 and LAND-08 as source-level specifications. The
+staged World includes Inbox identity/configuration/checkpoint, queue head/tail and
+retained uint64 fee entries, SignalService checkpoint effects, protocol logs,
+Inbox-issued transfer instructions and the transient guard. A persistent journal
+retains tentative writes and unwinds them under the named generic EVM journal law.
+It excludes sender nonce/gas and unrelated recipient account effects. The explicit
+callback frame preserves protected fields and excludes an authorized malicious
+upgrade during the operation; ordinary same-Inbox land/save reentry is rejected.
+
+The exact18-word encoder returns576 bytes and has a proved decoder/left inverse;
+all bounded uint256 integer encodings are injective, and addresses have12 zero
+prefix bytes. The domain is a length-checked32-byte ASCII vector. Ordered fixed-width
+blob concatenation is injective before hashing. Actual Keccak and trace-local
+collision separation are distinct assumptions; global Keccak injectivity is never
+assumed. LAND-06's structural and Lean/Solidity legs are complete here; the Rust
+third leg and LAND-07 real-guest composition belong to the subsequent task.
+
+`manifests/contracts.json` records full theorem types and boundaries. The
+`reports/landing-source-map.md` maps each check/write/call/event to the model and
+pinned actual source. `corpus/landing.jsonl` contains56 independent typed fixture
+worlds. Boundary storage seeding is deliberate and does not assert every fixture
+is reachable through admission.
+
+The harness is physically stored in `adapters/solidity` because this branch is
+stacked on the client feature; its immutable protocol dependency is27777e9. The
+runner stages it at the logical protocol test path and restores the exact previous
+files in `finally`. Protocol test execution must use the required Solidity tester.
+It must run Foundry with `-vvv` or higher for opcode debug recording. From this
+formal package:
+
+```sh
+lake build
+python3 scripts/audit_proofs.py
+# Read-only comparison with retained actual observations:
+python3 scripts/landing_conformance.py \
+  --observations reports/landing-solidity-observations.jsonl
+# Required Solidity tester only; reversible actual-protocol assembly:
+python3 scripts/landing_conformance.py \
+  --protocol /path/to/pinned/taiko-mono/packages/protocol --run-solidity \
+  --observations /tmp/landing-observations.jsonl
+```
+
+The actual proxy trace supplies the unique576-byte SHA3 memory input; a copied
+Solidity helper is not used as the source of production bytes. Lean independently
+builds fields from the input row and precall fixture context, with an independent
+Keccak oracle over the ordered raw blob prefix.56 cases match, including30 real
+preimages/digests, tentative effects and committed business effects. Raw reverted
+logs remain separate from committed-log claims. Both-invalid reference/blob inputs
+allow either sibling-error ordering at source level.
+
+The required full Etna glob passed205 tests in14 suites. Four real production
+mutants were killed (recipient word, tail bound, fee interval, verifier failure).
+The tail mutant initially survived because a second guard masked the target; the
+corpus was corrected and all mutants rerun. Source/runtime/ABI/semantic storage
+layout identities were restored and verified. This is **spec-proved plus actual
+Solidity conformance-tested**; Solidity bytecode correctness remains pending.

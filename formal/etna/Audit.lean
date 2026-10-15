@@ -4,6 +4,9 @@ import Etna.Committee.Schedule
 import Etna.Common.Words
 import Etna.FI.Examples
 import Etna.FI.Proofs
+import Etna.Landing.Examples
+import Etna.Landing.Proofs
+import Etna.Landing.Statement
 import Etna.Refinement.Rust.Committee
 import Etna.Refinement.Rust.EtnaConsensusCore
 import Etna.Refinement.Rust.Forced
@@ -2039,6 +2042,666 @@ run_elab do
       throwError "refinement left side must call the generated function"
     unless args[2]!.getAppFn.isConstOf ``Aeneas.Std.Result.ok do
       throwError "refinement right side must be outer Result.ok"
+-- LAND-AUX-01; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.wordAt_encode
+  unless info.isTheorem do throwError "Etna.Landing.wordAt_encode is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : Etna.Landing.LandStatement) (i : Fin 18), Etna.Landing.wordAt (Etna.Landing.encodeStatement s) i = (Etna.Landing.words s)[↑i]))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.wordAt_encode: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.wordAt_encode
+-- LAND-AUX-02; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.decode_encode
+  unless info.isTheorem do throwError "Etna.Landing.decode_encode is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : Etna.Landing.LandStatement), Etna.Landing.decodeStatement (Etna.Landing.encodeStatement s) = s))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.decode_encode: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.decode_encode
+-- LAND-05; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.statement_complete
+  unless info.isTheorem do throwError "Etna.Landing.statement_complete is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (a b : Etna.Landing.LandStatement), Etna.Landing.encodeStatement a = Etna.Landing.encodeStatement b ↔ a = b))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.statement_complete: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.statement_complete
+-- LAND-AUX-04; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.recipient_word
+  unless info.isTheorem do throwError "Etna.Landing.recipient_word is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : Etna.Landing.LandStatement), Etna.Landing.wordAt (Etna.Landing.encodeStatement s) 17 = s.recipient))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.recipient_word: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.recipient_word
+-- LAND-AUX-05; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.natWord_byte
+  unless info.isTheorem do throwError "Etna.Landing.natWord_byte is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (n : Nat) (i : Fin 32), ((Etna.Landing.natWord n)[i.val]).val = n / 256 ^ (31 - i.val) % 256))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.natWord_byte: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.natWord_byte
+-- LAND-AUX-06; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.address_padding
+  unless info.isTheorem do throwError "Etna.Landing.address_padding is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (n : Nat), n < 2 ^ 160 → ∀ (i : Fin 32), i.val < 12 → ((Etna.Landing.natWord n)[i.val]).val = 0))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.address_padding: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.address_padding
+-- LAND-AUX-07; explicit assumptions: ["Trace-local collision separation for the two compared576-byte preimages; no global Keccak injectivity"]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.hash_binding
+  unless info.isTheorem do throwError "Etna.Landing.hash_binding is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (hash : Vector Etna.Landing.Byte 576 → Etna.Word256) (a b : Etna.Landing.LandStatement), Etna.Landing.LocalHashSeparation hash a b → hash (Etna.Landing.encodeStatement a) = hash (Etna.Landing.encodeStatement b) → a = b))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.hash_binding: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.hash_binding
+-- LAND-AUX-08; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.encoding_conformance
+  unless info.isTheorem do throwError "Etna.Landing.encoding_conformance is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : Etna.Landing.LandStatement) (observedWords : Vector Etna.Landing.AbiWord 18), observedWords = Etna.Landing.words s → observedWords.flatten = Etna.Landing.encodeStatement s))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.encoding_conformance: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.encoding_conformance
+-- LAND-AUX-09; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.natWord_injective
+  unless info.isTheorem do throwError "Etna.Landing.natWord_injective is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (a b : ℕ), a < 2 ^ 256 → b < 2 ^ 256 → Etna.Landing.natWord a = Etna.Landing.natWord b → a = b))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.natWord_injective: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.natWord_injective
+-- LAND-AUX-10; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.blob_encoding_injective
+  unless info.isTheorem do throwError "Etna.Landing.blob_encoding_injective is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {n : ℕ} (a b : Vector Etna.Landing.AbiWord n), a.flatten = b.flatten ↔ a = b))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.blob_encoding_injective: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.blob_encoding_injective
+-- LAND-AUX-11; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.local_separation_distinct_nonvacuity
+  unless info.isTheorem do throwError "Etna.Landing.local_separation_distinct_nonvacuity is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (a b : Etna.Landing.LandStatement), a ≠ b → ∃ hash, Etna.Landing.LocalHashSeparation hash a b))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.local_separation_distinct_nonvacuity: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.local_separation_distinct_nonvacuity
+-- LAND-06; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.encoding_byte
+  unless info.isTheorem do throwError "Etna.Landing.encoding_byte is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : Etna.Landing.LandStatement) (index : Fin 576), (Etna.Landing.encodeStatement s)[↑index] = (Etna.Landing.words s)[↑index / 32][↑index % 32]))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.encoding_byte: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.encoding_byte
+-- LAND-AUX-13; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.validate_bounds
+  unless info.isTheorem do throwError "Etna.Landing.validate_bounds is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput), Etna.Landing.validate w i = Option.none → Etna.Landing.Bounds w i))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.validate_bounds: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.validate_bounds
+-- LAND-AUX-14; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.successful_checks
+  unless info.isTheorem do throwError "Etna.Landing.successful_checks is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execLandSteps w i x).error = Option.none → Etna.Landing.validate w i = Option.none ∧ Etna.Landing.environmentCheck x.environment i = Option.none))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.successful_checks: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.successful_checks
+-- LAND-01; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.bounds_preserved
+  unless info.isTheorem do throwError "Etna.Landing.bounds_preserved is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execLandSteps w i x).error = Option.none → Etna.Landing.Bounds w i))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.bounds_preserved: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.bounds_preserved
+-- LAND-AUX-16; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.fee_sum_bound
+  unless info.isTheorem do throwError "Etna.Landing.fee_sum_bound is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (fee : ℕ → Etna.Word64) (before after : ℕ), Etna.Landing.fees fee before after ≤ (after - before) * (2 ^ 64 - 1)))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.fee_sum_bound: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.fee_sum_bound
+-- LAND-AUX-17; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.fees_uint256
+  unless info.isTheorem do throwError "Etna.Landing.fees_uint256 is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (fee : ℕ → Etna.Word64) (before after : Etna.Word48), Etna.Landing.fees fee ↑before ↑after < 2 ^ 112 ∧ Etna.Landing.fees fee ↑before ↑after * 1000000000 < 2 ^ 142 ∧ Etna.Landing.fees fee ↑before ↑after * 1000000000 < 2 ^ 256))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.fees_uint256: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.fees_uint256
+-- LAND-AUX-18; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.intervals_disjoint
+  unless info.isTheorem do throwError "Etna.Landing.intervals_disjoint is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (a b c index : ℕ), a ≤ b → b ≤ c → a ≤ index ∧ index < b → ¬(b ≤ index ∧ index < c)))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.intervals_disjoint: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.intervals_disjoint
+-- LAND-AUX-19; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.journal_rollback_write
+  unless info.isTheorem do throwError "Etna.Landing.journal_rollback_write is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {α : Type} (j : Etna.Landing.Journal α) (next : α), (j.write next).rollback = j.rollback))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.journal_rollback_write: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.journal_rollback_write
+-- LAND-AUX-20; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.checked_journal_root
+  unless info.isTheorem do throwError "Etna.Landing.checked_journal_root is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execChecked w i x).journal.rollback = w))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.checked_journal_root: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.checked_journal_root
+-- LAND-AUX-21; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.execution_journal_root
+  unless info.isTheorem do throwError "Etna.Landing.execution_journal_root is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execLandSteps w i x).journal.rollback = w))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.execution_journal_root: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.execution_journal_root
+-- LAND-AUX-22; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.rollback_atomic
+  unless info.isTheorem do throwError "Etna.Landing.rollback_atomic is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes) (e : Etna.Landing.Error), (Etna.Landing.execLandSteps w i x).error = Option.some e → (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world = w))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.rollback_atomic: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.rollback_atomic
+-- LAND-AUX-23; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.same_inbox_reentry
+  unless info.isTheorem do throwError "Etna.Landing.same_inbox_reentry is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (w : Etna.Landing.World), w.guard = Bool.true → Etna.Landing.nestedGuard w.inbox w = Option.some Etna.Landing.Error.reentrant))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.same_inbox_reentry: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.same_inbox_reentry
+-- LAND-AUX-24; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.other_inbox_not_locked
+  unless info.isTheorem do throwError "Etna.Landing.other_inbox_not_locked is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (w : Etna.Landing.World) (other : Etna.Landing.Address), other ≠ w.inbox → Etna.Landing.nestedGuard other w = Option.none))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.other_inbox_not_locked: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.other_inbox_not_locked
+-- LAND-08; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.reference_and_blobs
+  unless info.isTheorem do throwError "Etna.Landing.reference_and_blobs is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (e : Etna.Landing.Environment) (r : Etna.Word64) (route : Etna.Landing.ReferenceRoute) (hash : Etna.Word256), Etna.Landing.referenceHash e r = Except.ok (route, hash) → ↑r < e.blockNumber ∧ e.blockNumber - ↑r ≤ 8191 ∧ hash ≠ 0 ∧ (route = Etna.Landing.ReferenceRoute.blockhash → e.blockNumber - ↑r ≤ 256 ∧ hash = e.blockHash) ∧ (route = Etna.Landing.ReferenceRoute.history → 256 < e.blockNumber - ↑r ∧ e.historySuccess = Bool.true ∧ e.historyLength = 32 ∧ hash = e.historyHash)))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.reference_and_blobs: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.reference_and_blobs
+-- LAND-AUX-26; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.blobs_from_environment
+  unless info.isTheorem do throwError "Etna.Landing.blobs_from_environment is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (e : Etna.Landing.Environment), Etna.Landing.actualBlobs e = List.takeWhile (fun x => x != 0) e.blobHashes))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.blobs_from_environment: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.blobs_from_environment
+-- LAND-AUX-27; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.environment_success_nonempty
+  unless info.isTheorem do throwError "Etna.Landing.environment_success_nonempty is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (e : Etna.Landing.Environment) (i : Etna.Landing.LandInput), Etna.Landing.environmentCheck e i = Option.none → Etna.Landing.actualBlobs e ≠ []))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.environment_success_nonempty: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.environment_success_nonempty
+-- LAND-AUX-28; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.successful_poststate
+  unless info.isTheorem do throwError "Etna.Landing.successful_poststate is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execChecked w i x).error = Option.none → (Etna.Landing.execChecked w i x).journal.current.head = i.headAfter ∧ (Etna.Landing.execChecked w i x).journal.current.checkpoint = { height := ↑i.lastHeight, blockHash := i.lastBlockHash } ∧ (Etna.Landing.execChecked w i x).journal.current.guard = Bool.false ∧ (Etna.Landing.execChecked w i x).journal.current.transfers = w.transfers ++ if i.headAfter ≠ w.head ∧ 0 < Etna.Landing.fees w.fee ↑w.head ↑i.headAfter * 1000000000 then [{ recipient := i.recipient, wei := Etna.Landing.fees w.fee ↑w.head ↑i.headAfter * 1000000000 }] else []))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.successful_poststate: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.successful_poststate
+-- LAND-03; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.recipient_bound
+  unless info.isTheorem do throwError "Etna.Landing.recipient_bound is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execLandSteps w i x).error = Option.none → i.recipient ≠ 0 ∧ (Etna.Landing.execLandSteps w i x).journal.current.transfers = w.transfers ++ if i.headAfter ≠ w.head ∧ 0 < Etna.Landing.fees w.fee ↑w.head ↑i.headAfter * 1000000000 then [{ recipient := i.recipient, wei := Etna.Landing.fees w.fee ↑w.head ↑i.headAfter * 1000000000 }] else []))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.recipient_bound: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.recipient_bound
+-- LAND-AUX-30; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.committed_head
+  unless info.isTheorem do throwError "Etna.Landing.committed_head is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execLandSteps w i x).error = Option.none → (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.head = i.headAfter))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.committed_head: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.committed_head
+-- LAND-AUX-31; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.successive_no_double_consumption
+  unless info.isTheorem do throwError "Etna.Landing.successive_no_double_consumption is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes) (j : Etna.Landing.LandInput) (y : Etna.Landing.ExternalOutcomes), (Etna.Landing.execLandSteps w i x).error = Option.none → (Etna.Landing.execLandSteps (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world j y).error = Option.none → ∀ (index : ℕ), ↑w.head ≤ index ∧ index < ↑i.headAfter → ¬(↑(Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.head ≤ index ∧ index < ↑j.headAfter)))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.successive_no_double_consumption: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.successive_no_double_consumption
+-- LAND-AUX-32; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.copied_calldata_recipient
+  unless info.isTheorem do throwError "Etna.Landing.copied_calldata_recipient is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (i : Etna.Landing.LandInput) (caller : Etna.Landing.Address), ({ i with caller := caller } : Etna.Landing.LandInput).recipient = i.recipient))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.copied_calldata_recipient: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.copied_calldata_recipient
+-- LAND-AUX-33; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.statement_is_constructed
+  unless info.isTheorem do throwError "Etna.Landing.statement_is_constructed is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), Etna.Landing.validate w i = Option.none → Etna.Landing.environmentCheck x.environment i = Option.none → (Etna.Landing.execLandSteps w i x).statement = Option.some (Etna.Landing.computedStatement w i x)))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.statement_is_constructed: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.statement_is_constructed
+-- LAND-AUX-34; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.statement_recipient_from_input
+  unless info.isTheorem do throwError "Etna.Landing.statement_recipient_from_input is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.computedStatement w i x).recipient = Etna.Landing.natWord ↑i.recipient))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.statement_recipient_from_input: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.statement_recipient_from_input
+-- LAND-AUX-35; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.statement_copied_caller
+  unless info.isTheorem do throwError "Etna.Landing.statement_copied_caller is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes) (caller : Etna.Landing.Address), Etna.Landing.computedStatement w { lastHeight := i.lastHeight, lastBlockHash := i.lastBlockHash, lastStateRoot := i.lastStateRoot, reference := i.reference, headAfter := i.headAfter, recipient := i.recipient, caller := caller } x = Etna.Landing.computedStatement w i x))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.statement_copied_caller: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.statement_copied_caller
+-- LAND-AUX-36; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.every_word_independent
+  unless info.isTheorem do throwError "Etna.Landing.every_word_independent is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (a b : Etna.Landing.LandStatement) (field : Fin 18), (Etna.Landing.words a)[↑field] ≠ (Etna.Landing.words b)[↑field] → Etna.Landing.encodeStatement a ≠ Etna.Landing.encodeStatement b))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.every_word_independent: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.every_word_independent
+-- LAND-AUX-37; explicit assumptions: ["AuthenticEnvironment: explicit currentblock/canonicalhash/transactionblob equalities and successful32byte history content"]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.authenticated_reference_content
+  unless info.isTheorem do throwError "Etna.Landing.authenticated_reference_content is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (e : Etna.Landing.Environment) (r : Etna.Word64) (currentBlock : ℕ) (canonicalBlockHash : ℕ → Etna.Word256) (transactionBlobs : List Etna.Word256), Etna.Landing.AuthenticEnvironment e r currentBlock canonicalBlockHash transactionBlobs → ∀ (route : Etna.Landing.ReferenceRoute) (hash : Etna.Word256), Etna.Landing.referenceHash e r = Except.ok (route, hash) → hash = canonicalBlockHash ↑r))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.authenticated_reference_content: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.authenticated_reference_content
+-- LAND-AUX-38; explicit assumptions: ["AuthenticEnvironment: explicit currentblock/canonicalhash/transactionblob equalities and successful32byte history content"]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.authenticated_blob_prefix
+  unless info.isTheorem do throwError "Etna.Landing.authenticated_blob_prefix is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (e : Etna.Landing.Environment) (r : Etna.Word64) (currentBlock : ℕ) (canonicalBlockHash : ℕ → Etna.Word256) (transactionBlobs : List Etna.Word256), Etna.Landing.AuthenticEnvironment e r currentBlock canonicalBlockHash transactionBlobs → Etna.Landing.actualBlobs e = List.takeWhile (fun x => x != 0) transactionBlobs))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.authenticated_blob_prefix: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.authenticated_blob_prefix
+-- LAND-AUX-39; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.successful_signal_checkpoint
+  unless info.isTheorem do throwError "Etna.Landing.successful_signal_checkpoint is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execChecked w i x).error = Option.none → (Etna.Landing.execChecked w i x).journal.current.signal = w.signal ++ [{ height := ↑i.lastHeight, blockHash := i.lastBlockHash, stateRoot := i.lastStateRoot }]))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.successful_signal_checkpoint: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.successful_signal_checkpoint
+-- LAND-AUX-40; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.fee_interval_add
+  unless info.isTheorem do throwError "Etna.Landing.fee_interval_add is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (fee : ℕ → Etna.Word64) (a b c : ℕ), a ≤ b → b ≤ c → Etna.Landing.fees fee a c = Etna.Landing.fees fee a b + Etna.Landing.fees fee b c))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.fee_interval_add: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.fee_interval_add
+-- LAND-AUX-41; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.blob_prefix_nonzero
+  unless info.isTheorem do throwError "Etna.Landing.blob_prefix_nonzero is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (e : Etna.Landing.Environment), ∀ hash ∈ Etna.Landing.actualBlobs e, hash ≠ 0))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.blob_prefix_nonzero: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.blob_prefix_nonzero
+-- LAND-04; explicit assumptions: ["EvmJournalLaw: generic commit/abort materialization for arbitrary journals, independent of Landing; nonce/gas excluded"]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.rollback_atomic_evm
+  unless info.isTheorem do throwError "Etna.Landing.rollback_atomic_evm is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (materialize : Etna.Landing.Journal Etna.Landing.World → Bool → Etna.Landing.World), Etna.Landing.EvmJournalLaw materialize → ∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes) (e : Etna.Landing.Error), (Etna.Landing.execLandSteps w i x).error = Option.some e → materialize (Etna.Landing.execLandSteps w i x).journal (Etna.Landing.execLandSteps w i x).error.isNone = w))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.rollback_atomic_evm: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.rollback_atomic_evm
+-- LAND-AUX-43; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.evm_journal_nonvacuity
+  unless info.isTheorem do throwError "Etna.Landing.evm_journal_nonvacuity is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(Etna.Landing.EvmJournalLaw fun journal committed => if committed = Bool.true then journal.current else journal.rollback))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.evm_journal_nonvacuity: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.evm_journal_nonvacuity
+-- LAND-AUX-44; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.consumption_event_exact
+  unless info.isTheorem do throwError "Etna.Landing.consumption_event_exact is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execChecked w i x).error = Option.none → (Etna.Landing.execChecked w i x).journal.current.logs = w.logs ++ [Etna.Landing.Event.checkpointSaved { height := ↑i.lastHeight, blockHash := i.lastBlockHash, stateRoot := i.lastStateRoot }, Etna.Landing.Event.batchLanded (w.checkpoint.height + 1) (↑i.lastHeight) i.lastBlockHash i.lastStateRoot (↑i.reference) i.caller] ++ if i.headAfter ≠ w.head then [Etna.Landing.Event.consumed (↑w.head) (↑i.headAfter) (Etna.Landing.fees w.fee ↑w.head ↑i.headAfter * 1000000000) i.recipient] else []))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.consumption_event_exact: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.consumption_event_exact
+-- LAND-AUX-45; explicit assumptions: ["CallbackFrame: concrete protected Inbox/config/queue equality; forbids authorized malicious upgrade during callback"]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.callback_frame_preserves_bounds
+  unless info.isTheorem do throwError "Etna.Landing.callback_frame_preserves_bounds is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (before after : Etna.Landing.World) (i : Etna.Landing.LandInput), Etna.Landing.CallbackFrame before after → Etna.Landing.Bounds before i → Etna.Landing.Bounds after i))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.callback_frame_preserves_bounds: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.callback_frame_preserves_bounds
+-- LAND-AUX-46; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.callback_frame_nonvacuity
+  unless info.isTheorem do throwError "Etna.Landing.callback_frame_nonvacuity is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (w : Etna.Landing.World), Etna.Landing.CallbackFrame w w))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.callback_frame_nonvacuity: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.callback_frame_nonvacuity
+-- LAND-02; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.fees_exact_once
+  unless info.isTheorem do throwError "Etna.Landing.fees_exact_once is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execLandSteps w i x).error = Option.none → (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.head = i.headAfter ∧ ↑w.head ≤ ↑i.headAfter ∧ ((Etna.Landing.execLandSteps w i x).journal.current.transfers = w.transfers ++ if i.headAfter ≠ w.head ∧ 0 < Etna.Landing.fees w.fee ↑w.head ↑i.headAfter * 1000000000 then [{ recipient := i.recipient, wei := Etna.Landing.fees w.fee ↑w.head ↑i.headAfter * 1000000000 }] else []) ∧ Etna.Landing.fees w.fee ↑w.head ↑i.headAfter < 2 ^ 112 ∧ Etna.Landing.fees w.fee ↑w.head ↑i.headAfter * 1000000000 < 2 ^ 256))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.fees_exact_once: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.fees_exact_once
+-- LAND-AUX-48; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.locked_land_and_save_reject
+  unless info.isTheorem do throwError "Etna.Landing.locked_land_and_save_reject is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), w.guard = Bool.true → (Etna.Landing.execLandSteps w i x).error = Option.some Etna.Landing.Error.reentrant ∧ (Etna.Landing.execLandSteps w i x).journal.current = w ∧ Etna.Landing.nestedGuard w.inbox w = Option.some Etna.Landing.Error.reentrant))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.locked_land_and_save_reject: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.locked_land_and_save_reject
+-- LAND-AUX-49; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.normal_nonvacuity
+  unless info.isTheorem do throwError "Etna.Landing.normal_nonvacuity is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `((Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput Etna.Landing.exampleExternal).error = Option.none))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.normal_nonvacuity: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.normal_nonvacuity
+-- LAND-AUX-50; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.nonzero_payment_nonvacuity
+  unless info.isTheorem do throwError "Etna.Landing.nonzero_payment_nonvacuity is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `((Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput Etna.Landing.exampleExternal).journal.current.transfers = [{ recipient := 48879, wei := 18000000000 }]))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.nonzero_payment_nonvacuity: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.nonzero_payment_nonvacuity
+-- LAND-AUX-51; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.verifier_failure_after_writes
+  unless info.isTheorem do throwError "Etna.Landing.verifier_failure_after_writes is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(let r := Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput { Etna.Landing.exampleExternal with verifierReturnsNormally := false }; r.error = some .verifier ∧ r.journal.current.head.val = 4 ∧ r.journal.current.checkpoint.height = 13 ∧ r.journal.current.signal.length = 1 ∧ r.journal.current.logs.length = 2))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.verifier_failure_after_writes: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.verifier_failure_after_writes
+-- LAND-AUX-52; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.signal_failure_after_writes
+  unless info.isTheorem do throwError "Etna.Landing.signal_failure_after_writes is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(let r := Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput { Etna.Landing.exampleExternal with signalAuthorized := false }; r.error = some .signalUnauthorized ∧ r.journal.current.head.val = 4 ∧ r.journal.current.checkpoint.height = 13 ∧ r.journal.current.signal = []))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.signal_failure_after_writes: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.signal_failure_after_writes
+-- LAND-AUX-53; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.payment_failure_after_verifier
+  unless info.isTheorem do throwError "Etna.Landing.payment_failure_after_verifier is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(let r := Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput { Etna.Landing.exampleExternal with paymentReturnsNormally := false }; r.error = some .payment ∧ r.journal.current.head.val = 4 ∧ r.journal.current.signal.length = 1 ∧ r.journal.current.logs.length = 2))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.payment_failure_after_verifier: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.payment_failure_after_verifier
+-- LAND-AUX-54; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.zero_fee_skips_callback
+  unless info.isTheorem do throwError "Etna.Landing.zero_fee_skips_callback is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `((Etna.Landing.execLandSteps (have __src := Etna.Landing.exampleWorld; { inbox := __src.inbox, l1ChainId := __src.l1ChainId, l2ChainId := __src.l2ChainId, registry := __src.registry, generation := __src.generation, config := __src.config, active := __src.active, maxBatchBlocks := __src.maxBatchBlocks, checkpoint := __src.checkpoint, head := __src.head, tail := __src.tail, fee := fun x => 0, signal := __src.signal, inboxBalance := __src.inboxBalance, transfers := __src.transfers, logs := __src.logs, guard := __src.guard }) Etna.Landing.exampleInput (have __src := Etna.Landing.exampleExternal; { environment := __src.environment, signalAuthorized := __src.signalAuthorized, verifierReturnsNormally := __src.verifierReturnsNormally, paymentReturnsNormally := Bool.false, reentry := Etna.Landing.ReentryMode.landUncaught, keccakBlobWords := __src.keccakBlobWords })).error = Option.none))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.zero_fee_skips_callback: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.zero_fee_skips_callback
+-- LAND-AUX-55; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.caught_reentry_nonvacuity
+  unless info.isTheorem do throwError "Etna.Landing.caught_reentry_nonvacuity is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `((Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput (have __src := Etna.Landing.exampleExternal; { environment := __src.environment, signalAuthorized := __src.signalAuthorized, verifierReturnsNormally := __src.verifierReturnsNormally, paymentReturnsNormally := __src.paymentReturnsNormally, reentry := Etna.Landing.ReentryMode.landCaught, keccakBlobWords := __src.keccakBlobWords })).error = Option.none ∧ Etna.Landing.nestedGuard Etna.Landing.exampleWorld.inbox (have __src := Etna.Landing.exampleWorld; { inbox := __src.inbox, l1ChainId := __src.l1ChainId, l2ChainId := __src.l2ChainId, registry := __src.registry, generation := __src.generation, config := __src.config, active := __src.active, maxBatchBlocks := __src.maxBatchBlocks, checkpoint := __src.checkpoint, head := __src.head, tail := __src.tail, fee := __src.fee, signal := __src.signal, inboxBalance := __src.inboxBalance, transfers := __src.transfers, logs := __src.logs, guard := Bool.true }) = Option.some Etna.Landing.Error.reentrant))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.caught_reentry_nonvacuity: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.caught_reentry_nonvacuity
+-- LAND-AUX-56; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.static_verifier_guard_nonvacuity
+  unless info.isTheorem do throwError "Etna.Landing.static_verifier_guard_nonvacuity is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `((Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput (have __src := Etna.Landing.exampleExternal; { environment := __src.environment, signalAuthorized := __src.signalAuthorized, verifierReturnsNormally := __src.verifierReturnsNormally, paymentReturnsNormally := __src.paymentReturnsNormally, reentry := Etna.Landing.ReentryMode.verifierLand, keccakBlobWords := __src.keccakBlobWords })).error = Option.none))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.static_verifier_guard_nonvacuity: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.static_verifier_guard_nonvacuity
+-- LAND-AUX-57; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.reference_boundaries_nonvacuity
+  unless info.isTheorem do throwError "Etna.Landing.reference_boundaries_nonvacuity is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(Etna.Landing.referenceHash Etna.Landing.exampleEnvironment 19744 = Except.ok (Etna.Landing.ReferenceRoute.blockhash, 2748) ∧ Etna.Landing.referenceHash Etna.Landing.exampleEnvironment 19743 = Except.ok (Etna.Landing.ReferenceRoute.history, 2748) ∧ Etna.Landing.referenceHash Etna.Landing.exampleEnvironment 11809 = Except.ok (Etna.Landing.ReferenceRoute.history, 2748) ∧ Etna.Landing.referenceHash Etna.Landing.exampleEnvironment 11808 = Except.error Etna.Landing.Error.anchorUnavailable ∧ Etna.Landing.referenceHash Etna.Landing.exampleEnvironment 20000 = Except.error Etna.Landing.Error.anchorUnavailable ∧ Etna.Landing.referenceHash Etna.Landing.exampleEnvironment 20001 = Except.error Etna.Landing.Error.anchorUnavailable))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.reference_boundaries_nonvacuity: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.reference_boundaries_nonvacuity
+-- LAND-AUX-58; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.malformed_history_nonvacuity
+  unless info.isTheorem do throwError "Etna.Landing.malformed_history_nonvacuity is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(Etna.Landing.referenceHash (have __src := Etna.Landing.exampleEnvironment; { blockNumber := __src.blockNumber, blockHash := __src.blockHash, historySuccess := __src.historySuccess, historyLength := 31, historyHash := __src.historyHash, blobHashes := __src.blobHashes }) 19743 = Except.error Etna.Landing.Error.anchorUnavailable ∧ Etna.Landing.referenceHash (have __src := Etna.Landing.exampleEnvironment; { blockNumber := __src.blockNumber, blockHash := __src.blockHash, historySuccess := __src.historySuccess, historyLength := 33, historyHash := __src.historyHash, blobHashes := __src.blobHashes }) 19743 = Except.error Etna.Landing.Error.anchorUnavailable ∧ Etna.Landing.referenceHash (have __src := Etna.Landing.exampleEnvironment; { blockNumber := __src.blockNumber, blockHash := __src.blockHash, historySuccess := __src.historySuccess, historyLength := 0, historyHash := __src.historyHash, blobHashes := __src.blobHashes }) 19743 = Except.error Etna.Landing.Error.anchorUnavailable))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.malformed_history_nonvacuity: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.malformed_history_nonvacuity
+-- LAND-AUX-59; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.ordered_blobs_nonvacuity
+  unless info.isTheorem do throwError "Etna.Landing.ordered_blobs_nonvacuity is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(Etna.Landing.actualBlobs Etna.Landing.exampleEnvironment = [1, 2] ∧ Etna.Landing.actualBlobs (have __src := Etna.Landing.exampleEnvironment; { blockNumber := __src.blockNumber, blockHash := __src.blockHash, historySuccess := __src.historySuccess, historyLength := __src.historyLength, historyHash := __src.historyHash, blobHashes := [2, 1] }) = [2, 1] ∧ Etna.Landing.actualBlobs (have __src := Etna.Landing.exampleEnvironment; { blockNumber := __src.blockNumber, blockHash := __src.blockHash, historySuccess := __src.historySuccess, historyLength := __src.historyLength, historyHash := __src.historyHash, blobHashes := [1, 0, 2] }) = [1] ∧ Etna.Landing.environmentCheck (have __src := Etna.Landing.exampleEnvironment; { blockNumber := __src.blockNumber, blockHash := __src.blockHash, historySuccess := __src.historySuccess, historyLength := __src.historyLength, historyHash := __src.historyHash, blobHashes := [] }) Etna.Landing.exampleInput = Option.some Etna.Landing.Error.blobsRequired))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.ordered_blobs_nonvacuity: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.ordered_blobs_nonvacuity
+-- LAND-AUX-60; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Landing.local_separation_nonvacuity
+  unless info.isTheorem do throwError "Etna.Landing.local_separation_nonvacuity is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (s : Etna.Landing.LandStatement), Etna.Landing.LocalHashSeparation (fun x => 0) s s))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Landing.local_separation_nonvacuity: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Landing.local_separation_nonvacuity
 -- CORE-01; explicit assumptions: []
 run_elab do
   let info ← Lean.getConstInfo `Etna.checkedWord_some_iff

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "cases": 56,
+  "actual_preimages": 30,
+  "failures": [],
+  "specification": "Lean executable staged model",
+  "bridge": "actual production Inbox/proxy conformance; bytecode refinement pending",
+  "crypto": "cast Keccak oracle; local hash separation required for binding proofs",
+  "observations": "committed business state plus separately recorded tentative effects",
+  "corpus_sha256": "b92877e89a4c5fc69a177499e5d97f5ddf0c83fbb80e2bd9b657df959247b72c",
+  "observations_sha256": "9622994a975b5c98287dad57b0a7f705de82a342e9f455f5bbe5496d9aa4e5ca"
+}

@@ -1,0 +1,54 @@
+[
+  {
+    "mutant": "recipient-omission",
+    "exit": 1,
+    "seconds": 2.9572737216949463,
+    "failures": [
+      "[FAIL: normal: real statement bytes: 0x5441494b4f5f45544e415f4c414e445f563600000000000000000000000000000000000000000000000000000000000000000000000000000000000000007a690000000000000000000000000000000000000000000000000000000000028c590000000000000000000",
+      "[FAIL: normal: real statement bytes: 0x5441494b4f5f45544e415f4c414e445f563600000000000000000000000000000000000000000000000000000000000000000000000000000000000000007a690000000000000000000000000000000000000000000000000000000000028c590000000000000000000"
+    ],
+    "runner": "{\"command\": [\"forge\", \"test\", \"--match-path\", \"test/layer1/etna/EtnaInboxLeanConformance.t.sol\", \"-vvv\"], \"cwd\": \"/Users/davidcai/.codex/worktrees/etna-protocol-dependency/taiko-mono/packages/protocol\", \"log\": \"/private/tmp/etna-landing-solidity-full.log\", \"exit\": 1, \"durationSeconds\": 2.899590253829956, \"head\": \"27777e9d7147e7b1d3543711f4d7370a0377fa53\", \"cases\": 56}\nSTAGED_SOURCE_RESTORATION_OK\n",
+    "source": "contracts/layer1/etna/impl/EtnaInbox.sol",
+    "old": "statement.feeRecipient = _input.feeRecipient;",
+    "new": "statement.feeRecipient = address(0);"
+  },
+  {
+    "mutant": "head-tail-bound",
+    "exit": 1,
+    "seconds": 3.23675799369812,
+    "failures": [
+      "[FAIL: successful head tail bound: 6 > 5] test_land_LeanCorpus() (gas: 679933)",
+      "[FAIL: successful head tail bound: 6 > 5] test_land_LeanCorpus() (gas: 679933)"
+    ],
+    "runner": "{\"command\": [\"forge\", \"test\", \"--match-path\", \"test/layer1/etna/EtnaInboxLeanConformance.t.sol\", \"-vvv\"], \"cwd\": \"/Users/davidcai/.codex/worktrees/etna-protocol-dependency/taiko-mono/packages/protocol\", \"log\": \"/private/tmp/etna-landing-solidity-full.log\", \"exit\": 1, \"durationSeconds\": 3.1779539585113525, \"head\": \"27777e9d7147e7b1d3543711f4d7370a0377fa53\", \"cases\": 56}\nSTAGED_SOURCE_RESTORATION_OK\n",
+    "source": "contracts/layer1/etna/impl/EtnaInbox.sol",
+    "old": "headBefore <= headAfter && headAfter <= _forcedInclusionStorage.tail",
+    "new": "headBefore <= headAfter"
+  },
+  {
+    "mutant": "fee-interval",
+    "exit": 1,
+    "seconds": 2.8179781436920166,
+    "failures": [
+      "[FAIL: actual consumed interval/fee: 0x00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000028fa6ae00 != 0x0000000000000",
+      "[FAIL: actual consumed interval/fee: 0x00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000028fa6ae00 != 0x0000000000000"
+    ],
+    "runner": "{\"command\": [\"forge\", \"test\", \"--match-path\", \"test/layer1/etna/EtnaInboxLeanConformance.t.sol\", \"-vvv\"], \"cwd\": \"/Users/davidcai/.codex/worktrees/etna-protocol-dependency/taiko-mono/packages/protocol\", \"log\": \"/private/tmp/etna-landing-solidity-full.log\", \"exit\": 1, \"durationSeconds\": 2.763561964035034, \"head\": \"27777e9d7147e7b1d3543711f4d7370a0377fa53\", \"cases\": 56}\nSTAGED_SOURCE_RESTORATION_OK\n",
+    "source": "contracts/layer1/etna/libs/LibEtnaForcedInclusion.sol",
+    "old": "for (uint256 i = $.head; i < _newHead; ++i)",
+    "new": "for (uint256 i = uint256($.head) + 1; i < _newHead; ++i)"
+  },
+  {
+    "mutant": "verifier-bypass",
+    "exit": 1,
+    "seconds": 4.079122066497803,
+    "failures": [
+      "[FAIL: successful land requires normal verifier return] test_land_LeanCorpus() (gas: 1856367)",
+      "[FAIL: successful land requires normal verifier return] test_land_LeanCorpus() (gas: 1856367)"
+    ],
+    "runner": "{\"command\": [\"forge\", \"test\", \"--match-path\", \"test/layer1/etna/EtnaInboxLeanConformance.t.sol\", \"-vvv\"], \"cwd\": \"/Users/davidcai/.codex/worktrees/etna-protocol-dependency/taiko-mono/packages/protocol\", \"log\": \"/private/tmp/etna-landing-solidity-full.log\", \"exit\": 1, \"durationSeconds\": 4.021565914154053, \"head\": \"27777e9d7147e7b1d3543711f4d7370a0377fa53\", \"cases\": 56}\nSTAGED_SOURCE_RESTORATION_OK\n",
+    "source": "contracts/layer1/etna/impl/EtnaInbox.sol",
+    "old": "_proofVerifier.verifyProof(0, statementHash, _proof);",
+    "new": "address(_proofVerifier).staticcall(abi.encodeCall(IProofVerifier.verifyProof, (uint256(0), statementHash, _proof)));"
+  }
+]

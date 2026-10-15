@@ -1,0 +1,930 @@
+{
+  "schema_version": 1,
+  "status": {
+    "spec": "LAND01-06,08 spec-proved",
+    "solidity_refinement": "pending; source-levelmodel and actualcontractconformance only",
+    "conformance": "56actualproxycases/30actual576bytepreimages",
+    "rust_solidity_encoding": "Task5Lean-Solidity complete; Rustthirdleg Task6pending",
+    "composition": "LAND07 Task6pending"
+  },
+  "assumption_boundary": {
+    "typed_abi": "Well-formed typed calldata/nonpayable dispatcher; source flag active means status==3",
+    "environment": "Authentic/stable EVM block/chain/BLOCKHASH/history/BLOBHASH; finite zero-terminated blob prefix",
+    "crypto": "Canonical word encoding unconditional; actual Keccak correctness and trace-local collision separation separate",
+    "external": "Pinned concrete SignalService; void verifier STATICCALL; normal externalcall outcome; protected callback frame/no authorizedmaliciousupgrade",
+    "evm": "Proxy address(this)/storage/transientguard and generic EvmJournalLaw; gas/nonce excluded",
+    "projection": "Inbox-issued transfers/protocol logs; unrelated recipient storage/logs/transfers outside projected World"
+  },
+  "theorems": [
+    {
+      "id": "LAND-AUX-01",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.wordAt_encode",
+      "type": "\u2200 (s : Etna.Landing.LandStatement) (i : Fin 18), Etna.Landing.wordAt (Etna.Landing.encodeStatement s) i = (Etna.Landing.words s)[\u2191i]",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-02",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.decode_encode",
+      "type": "\u2200 (s : Etna.Landing.LandStatement), Etna.Landing.decodeStatement (Etna.Landing.encodeStatement s) = s",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-05",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.statement_complete",
+      "type": "\u2200 (a b : Etna.Landing.LandStatement), Etna.Landing.encodeStatement a = Etna.Landing.encodeStatement b \u2194 a = b",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-04",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.recipient_word",
+      "type": "\u2200 (s : Etna.Landing.LandStatement), Etna.Landing.wordAt (Etna.Landing.encodeStatement s) 17 = s.recipient",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-05",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.natWord_byte",
+      "type": "\u2200 (n : Nat) (i : Fin 32), ((Etna.Landing.natWord n)[i.val]).val = n / 256 ^ (31 - i.val) % 256",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-06",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.address_padding",
+      "type": "\u2200 (n : Nat), n < 2 ^ 160 \u2192 \u2200 (i : Fin 32), i.val < 12 \u2192 ((Etna.Landing.natWord n)[i.val]).val = 0",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-07",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.hash_binding",
+      "type": "\u2200 (hash : Vector Etna.Landing.Byte 576 \u2192 Etna.Word256) (a b : Etna.Landing.LandStatement), Etna.Landing.LocalHashSeparation hash a b \u2192 hash (Etna.Landing.encodeStatement a) = hash (Etna.Landing.encodeStatement b) \u2192 a = b",
+      "assumptions": [
+        "Trace-local collision separation for the two compared576-byte preimages; no global Keccak injectivity"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-08",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.encoding_conformance",
+      "type": "\u2200 (s : Etna.Landing.LandStatement) (observedWords : Vector Etna.Landing.AbiWord 18), observedWords = Etna.Landing.words s \u2192 observedWords.flatten = Etna.Landing.encodeStatement s",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-09",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.natWord_injective",
+      "type": "\u2200 (a b : \u2115), a < 2 ^ 256 \u2192 b < 2 ^ 256 \u2192 Etna.Landing.natWord a = Etna.Landing.natWord b \u2192 a = b",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-10",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.blob_encoding_injective",
+      "type": "\u2200 {n : \u2115} (a b : Vector Etna.Landing.AbiWord n), a.flatten = b.flatten \u2194 a = b",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-11",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.local_separation_distinct_nonvacuity",
+      "type": "\u2200 (a b : Etna.Landing.LandStatement), a \u2260 b \u2192 \u2203 hash, Etna.Landing.LocalHashSeparation hash a b",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-06",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.encoding_byte",
+      "type": "\u2200 (s : Etna.Landing.LandStatement) (index : Fin 576), (Etna.Landing.encodeStatement s)[\u2191index] = (Etna.Landing.words s)[\u2191index / 32][\u2191index % 32]",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-13",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.validate_bounds",
+      "type": "\u2200 (w : Etna.Landing.World) (i : Etna.Landing.LandInput), Etna.Landing.validate w i = Option.none \u2192 Etna.Landing.Bounds w i",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-14",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.successful_checks",
+      "type": "\u2200 (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execLandSteps w i x).error = Option.none \u2192 Etna.Landing.validate w i = Option.none \u2227 Etna.Landing.environmentCheck x.environment i = Option.none",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-01",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.bounds_preserved",
+      "type": "\u2200 (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execLandSteps w i x).error = Option.none \u2192 Etna.Landing.Bounds w i",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-16",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.fee_sum_bound",
+      "type": "\u2200 (fee : \u2115 \u2192 Etna.Word64) (before after : \u2115), Etna.Landing.fees fee before after \u2264 (after - before) * (2 ^ 64 - 1)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-17",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.fees_uint256",
+      "type": "\u2200 (fee : \u2115 \u2192 Etna.Word64) (before after : Etna.Word48), Etna.Landing.fees fee \u2191before \u2191after < 2 ^ 112 \u2227 Etna.Landing.fees fee \u2191before \u2191after * 1000000000 < 2 ^ 142 \u2227 Etna.Landing.fees fee \u2191before \u2191after * 1000000000 < 2 ^ 256",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-18",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.intervals_disjoint",
+      "type": "\u2200 (a b c index : \u2115), a \u2264 b \u2192 b \u2264 c \u2192 a \u2264 index \u2227 index < b \u2192 \u00ac(b \u2264 index \u2227 index < c)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-19",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.journal_rollback_write",
+      "type": "\u2200 {\u03b1 : Type} (j : Etna.Landing.Journal \u03b1) (next : \u03b1), (j.write next).rollback = j.rollback",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-20",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.checked_journal_root",
+      "type": "\u2200 (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execChecked w i x).journal.rollback = w",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-21",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.execution_journal_root",
+      "type": "\u2200 (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execLandSteps w i x).journal.rollback = w",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-22",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.rollback_atomic",
+      "type": "\u2200 (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes) (e : Etna.Landing.Error), (Etna.Landing.execLandSteps w i x).error = Option.some e \u2192 (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world = w",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-23",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.same_inbox_reentry",
+      "type": "\u2200 (w : Etna.Landing.World), w.guard = Bool.true \u2192 Etna.Landing.nestedGuard w.inbox w = Option.some Etna.Landing.Error.reentrant",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-24",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.other_inbox_not_locked",
+      "type": "\u2200 (w : Etna.Landing.World) (other : Etna.Landing.Address), other \u2260 w.inbox \u2192 Etna.Landing.nestedGuard other w = Option.none",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-08",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.reference_and_blobs",
+      "type": "\u2200 (e : Etna.Landing.Environment) (r : Etna.Word64) (route : Etna.Landing.ReferenceRoute) (hash : Etna.Word256), Etna.Landing.referenceHash e r = Except.ok (route, hash) \u2192 \u2191r < e.blockNumber \u2227 e.blockNumber - \u2191r \u2264 8191 \u2227 hash \u2260 0 \u2227 (route = Etna.Landing.ReferenceRoute.blockhash \u2192 e.blockNumber - \u2191r \u2264 256 \u2227 hash = e.blockHash) \u2227 (route = Etna.Landing.ReferenceRoute.history \u2192 256 < e.blockNumber - \u2191r \u2227 e.historySuccess = Bool.true \u2227 e.historyLength = 32 \u2227 hash = e.historyHash)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-26",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.blobs_from_environment",
+      "type": "\u2200 (e : Etna.Landing.Environment), Etna.Landing.actualBlobs e = List.takeWhile (fun x => x != 0) e.blobHashes",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-27",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.environment_success_nonempty",
+      "type": "\u2200 (e : Etna.Landing.Environment) (i : Etna.Landing.LandInput), Etna.Landing.environmentCheck e i = Option.none \u2192 Etna.Landing.actualBlobs e \u2260 []",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-28",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.successful_poststate",
+      "type": "\u2200 (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execChecked w i x).error = Option.none \u2192 (Etna.Landing.execChecked w i x).journal.current.head = i.headAfter \u2227 (Etna.Landing.execChecked w i x).journal.current.checkpoint = { height := \u2191i.lastHeight, blockHash := i.lastBlockHash } \u2227 (Etna.Landing.execChecked w i x).journal.current.guard = Bool.false \u2227 (Etna.Landing.execChecked w i x).journal.current.transfers = w.transfers ++ if i.headAfter \u2260 w.head \u2227 0 < Etna.Landing.fees w.fee \u2191w.head \u2191i.headAfter * 1000000000 then [{ recipient := i.recipient, wei := Etna.Landing.fees w.fee \u2191w.head \u2191i.headAfter * 1000000000 }] else []",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-03",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.recipient_bound",
+      "type": "\u2200 (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execLandSteps w i x).error = Option.none \u2192 i.recipient \u2260 0 \u2227 (Etna.Landing.execLandSteps w i x).journal.current.transfers = w.transfers ++ if i.headAfter \u2260 w.head \u2227 0 < Etna.Landing.fees w.fee \u2191w.head \u2191i.headAfter * 1000000000 then [{ recipient := i.recipient, wei := Etna.Landing.fees w.fee \u2191w.head \u2191i.headAfter * 1000000000 }] else []",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-30",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.committed_head",
+      "type": "\u2200 (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execLandSteps w i x).error = Option.none \u2192 (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.head = i.headAfter",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-31",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.successive_no_double_consumption",
+      "type": "\u2200 (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes) (j : Etna.Landing.LandInput) (y : Etna.Landing.ExternalOutcomes), (Etna.Landing.execLandSteps w i x).error = Option.none \u2192 (Etna.Landing.execLandSteps (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world j y).error = Option.none \u2192 \u2200 (index : \u2115), \u2191w.head \u2264 index \u2227 index < \u2191i.headAfter \u2192 \u00ac(\u2191(Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.head \u2264 index \u2227 index < \u2191j.headAfter)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-32",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.copied_calldata_recipient",
+      "type": "\u2200 (i : Etna.Landing.LandInput) (caller : Etna.Landing.Address), ({ i with caller := caller } : Etna.Landing.LandInput).recipient = i.recipient",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-33",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.statement_is_constructed",
+      "type": "\u2200 (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), Etna.Landing.validate w i = Option.none \u2192 Etna.Landing.environmentCheck x.environment i = Option.none \u2192 (Etna.Landing.execLandSteps w i x).statement = Option.some (Etna.Landing.computedStatement w i x)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-34",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.statement_recipient_from_input",
+      "type": "\u2200 (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.computedStatement w i x).recipient = Etna.Landing.natWord \u2191i.recipient",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-35",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.statement_copied_caller",
+      "type": "\u2200 (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes) (caller : Etna.Landing.Address), Etna.Landing.computedStatement w { lastHeight := i.lastHeight, lastBlockHash := i.lastBlockHash, lastStateRoot := i.lastStateRoot, reference := i.reference, headAfter := i.headAfter, recipient := i.recipient, caller := caller } x = Etna.Landing.computedStatement w i x",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-36",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.every_word_independent",
+      "type": "\u2200 (a b : Etna.Landing.LandStatement) (field : Fin 18), (Etna.Landing.words a)[\u2191field] \u2260 (Etna.Landing.words b)[\u2191field] \u2192 Etna.Landing.encodeStatement a \u2260 Etna.Landing.encodeStatement b",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-37",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.authenticated_reference_content",
+      "type": "\u2200 (e : Etna.Landing.Environment) (r : Etna.Word64) (currentBlock : \u2115) (canonicalBlockHash : \u2115 \u2192 Etna.Word256) (transactionBlobs : List Etna.Word256), Etna.Landing.AuthenticEnvironment e r currentBlock canonicalBlockHash transactionBlobs \u2192 \u2200 (route : Etna.Landing.ReferenceRoute) (hash : Etna.Word256), Etna.Landing.referenceHash e r = Except.ok (route, hash) \u2192 hash = canonicalBlockHash \u2191r",
+      "assumptions": [
+        "AuthenticEnvironment: explicit currentblock/canonicalhash/transactionblob equalities and successful32byte history content"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-38",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.authenticated_blob_prefix",
+      "type": "\u2200 (e : Etna.Landing.Environment) (r : Etna.Word64) (currentBlock : \u2115) (canonicalBlockHash : \u2115 \u2192 Etna.Word256) (transactionBlobs : List Etna.Word256), Etna.Landing.AuthenticEnvironment e r currentBlock canonicalBlockHash transactionBlobs \u2192 Etna.Landing.actualBlobs e = List.takeWhile (fun x => x != 0) transactionBlobs",
+      "assumptions": [
+        "AuthenticEnvironment: explicit currentblock/canonicalhash/transactionblob equalities and successful32byte history content"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-39",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.successful_signal_checkpoint",
+      "type": "\u2200 (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execChecked w i x).error = Option.none \u2192 (Etna.Landing.execChecked w i x).journal.current.signal = w.signal ++ [{ height := \u2191i.lastHeight, blockHash := i.lastBlockHash, stateRoot := i.lastStateRoot }]",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-40",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.fee_interval_add",
+      "type": "\u2200 (fee : \u2115 \u2192 Etna.Word64) (a b c : \u2115), a \u2264 b \u2192 b \u2264 c \u2192 Etna.Landing.fees fee a c = Etna.Landing.fees fee a b + Etna.Landing.fees fee b c",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-41",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.blob_prefix_nonzero",
+      "type": "\u2200 (e : Etna.Landing.Environment), \u2200 hash \u2208 Etna.Landing.actualBlobs e, hash \u2260 0",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-04",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.rollback_atomic_evm",
+      "type": "\u2200 (materialize : Etna.Landing.Journal Etna.Landing.World \u2192 Bool \u2192 Etna.Landing.World), Etna.Landing.EvmJournalLaw materialize \u2192 \u2200 (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes) (e : Etna.Landing.Error), (Etna.Landing.execLandSteps w i x).error = Option.some e \u2192 materialize (Etna.Landing.execLandSteps w i x).journal (Etna.Landing.execLandSteps w i x).error.isNone = w",
+      "assumptions": [
+        "EvmJournalLaw: generic commit/abort materialization for arbitrary journals, independent of Landing; nonce/gas excluded"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-43",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.evm_journal_nonvacuity",
+      "type": "Etna.Landing.EvmJournalLaw fun journal committed => if committed = Bool.true then journal.current else journal.rollback",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-44",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.consumption_event_exact",
+      "type": "\u2200 (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execChecked w i x).error = Option.none \u2192 (Etna.Landing.execChecked w i x).journal.current.logs = w.logs ++ [Etna.Landing.Event.checkpointSaved { height := \u2191i.lastHeight, blockHash := i.lastBlockHash, stateRoot := i.lastStateRoot }, Etna.Landing.Event.batchLanded (w.checkpoint.height + 1) (\u2191i.lastHeight) i.lastBlockHash i.lastStateRoot (\u2191i.reference) i.caller] ++ if i.headAfter \u2260 w.head then [Etna.Landing.Event.consumed (\u2191w.head) (\u2191i.headAfter) (Etna.Landing.fees w.fee \u2191w.head \u2191i.headAfter * 1000000000) i.recipient] else []",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-45",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.callback_frame_preserves_bounds",
+      "type": "\u2200 (before after : Etna.Landing.World) (i : Etna.Landing.LandInput), Etna.Landing.CallbackFrame before after \u2192 Etna.Landing.Bounds before i \u2192 Etna.Landing.Bounds after i",
+      "assumptions": [
+        "CallbackFrame: concrete protected Inbox/config/queue equality; forbids authorized malicious upgrade during callback"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-46",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.callback_frame_nonvacuity",
+      "type": "\u2200 (w : Etna.Landing.World), Etna.Landing.CallbackFrame w w",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-02",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.fees_exact_once",
+      "type": "\u2200 (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execLandSteps w i x).error = Option.none \u2192 (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.head = i.headAfter \u2227 \u2191w.head \u2264 \u2191i.headAfter \u2227 ((Etna.Landing.execLandSteps w i x).journal.current.transfers = w.transfers ++ if i.headAfter \u2260 w.head \u2227 0 < Etna.Landing.fees w.fee \u2191w.head \u2191i.headAfter * 1000000000 then [{ recipient := i.recipient, wei := Etna.Landing.fees w.fee \u2191w.head \u2191i.headAfter * 1000000000 }] else []) \u2227 Etna.Landing.fees w.fee \u2191w.head \u2191i.headAfter < 2 ^ 112 \u2227 Etna.Landing.fees w.fee \u2191w.head \u2191i.headAfter * 1000000000 < 2 ^ 256",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-48",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.locked_land_and_save_reject",
+      "type": "\u2200 (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), w.guard = Bool.true \u2192 (Etna.Landing.execLandSteps w i x).error = Option.some Etna.Landing.Error.reentrant \u2227 (Etna.Landing.execLandSteps w i x).journal.current = w \u2227 Etna.Landing.nestedGuard w.inbox w = Option.some Etna.Landing.Error.reentrant",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-49",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.normal_nonvacuity",
+      "type": "(Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput Etna.Landing.exampleExternal).error = Option.none",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-50",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.nonzero_payment_nonvacuity",
+      "type": "(Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput Etna.Landing.exampleExternal).journal.current.transfers = [{ recipient := 48879, wei := 18000000000 }]",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-51",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.verifier_failure_after_writes",
+      "type": "let r := Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput { Etna.Landing.exampleExternal with verifierReturnsNormally := false }; r.error = some .verifier \u2227 r.journal.current.head.val = 4 \u2227 r.journal.current.checkpoint.height = 13 \u2227 r.journal.current.signal.length = 1 \u2227 r.journal.current.logs.length = 2",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-52",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.signal_failure_after_writes",
+      "type": "let r := Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput { Etna.Landing.exampleExternal with signalAuthorized := false }; r.error = some .signalUnauthorized \u2227 r.journal.current.head.val = 4 \u2227 r.journal.current.checkpoint.height = 13 \u2227 r.journal.current.signal = []",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-53",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.payment_failure_after_verifier",
+      "type": "let r := Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput { Etna.Landing.exampleExternal with paymentReturnsNormally := false }; r.error = some .payment \u2227 r.journal.current.head.val = 4 \u2227 r.journal.current.signal.length = 1 \u2227 r.journal.current.logs.length = 2",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-54",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.zero_fee_skips_callback",
+      "type": "(Etna.Landing.execLandSteps (have __src := Etna.Landing.exampleWorld; { inbox := __src.inbox, l1ChainId := __src.l1ChainId, l2ChainId := __src.l2ChainId, registry := __src.registry, generation := __src.generation, config := __src.config, active := __src.active, maxBatchBlocks := __src.maxBatchBlocks, checkpoint := __src.checkpoint, head := __src.head, tail := __src.tail, fee := fun x => 0, signal := __src.signal, inboxBalance := __src.inboxBalance, transfers := __src.transfers, logs := __src.logs, guard := __src.guard }) Etna.Landing.exampleInput (have __src := Etna.Landing.exampleExternal; { environment := __src.environment, signalAuthorized := __src.signalAuthorized, verifierReturnsNormally := __src.verifierReturnsNormally, paymentReturnsNormally := Bool.false, reentry := Etna.Landing.ReentryMode.landUncaught, keccakBlobWords := __src.keccakBlobWords })).error = Option.none",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-55",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.caught_reentry_nonvacuity",
+      "type": "(Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput (have __src := Etna.Landing.exampleExternal; { environment := __src.environment, signalAuthorized := __src.signalAuthorized, verifierReturnsNormally := __src.verifierReturnsNormally, paymentReturnsNormally := __src.paymentReturnsNormally, reentry := Etna.Landing.ReentryMode.landCaught, keccakBlobWords := __src.keccakBlobWords })).error = Option.none \u2227 Etna.Landing.nestedGuard Etna.Landing.exampleWorld.inbox (have __src := Etna.Landing.exampleWorld; { inbox := __src.inbox, l1ChainId := __src.l1ChainId, l2ChainId := __src.l2ChainId, registry := __src.registry, generation := __src.generation, config := __src.config, active := __src.active, maxBatchBlocks := __src.maxBatchBlocks, checkpoint := __src.checkpoint, head := __src.head, tail := __src.tail, fee := __src.fee, signal := __src.signal, inboxBalance := __src.inboxBalance, transfers := __src.transfers, logs := __src.logs, guard := Bool.true }) = Option.some Etna.Landing.Error.reentrant",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-56",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.static_verifier_guard_nonvacuity",
+      "type": "(Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput (have __src := Etna.Landing.exampleExternal; { environment := __src.environment, signalAuthorized := __src.signalAuthorized, verifierReturnsNormally := __src.verifierReturnsNormally, paymentReturnsNormally := __src.paymentReturnsNormally, reentry := Etna.Landing.ReentryMode.verifierLand, keccakBlobWords := __src.keccakBlobWords })).error = Option.none",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-57",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.reference_boundaries_nonvacuity",
+      "type": "Etna.Landing.referenceHash Etna.Landing.exampleEnvironment 19744 = Except.ok (Etna.Landing.ReferenceRoute.blockhash, 2748) \u2227 Etna.Landing.referenceHash Etna.Landing.exampleEnvironment 19743 = Except.ok (Etna.Landing.ReferenceRoute.history, 2748) \u2227 Etna.Landing.referenceHash Etna.Landing.exampleEnvironment 11809 = Except.ok (Etna.Landing.ReferenceRoute.history, 2748) \u2227 Etna.Landing.referenceHash Etna.Landing.exampleEnvironment 11808 = Except.error Etna.Landing.Error.anchorUnavailable \u2227 Etna.Landing.referenceHash Etna.Landing.exampleEnvironment 20000 = Except.error Etna.Landing.Error.anchorUnavailable \u2227 Etna.Landing.referenceHash Etna.Landing.exampleEnvironment 20001 = Except.error Etna.Landing.Error.anchorUnavailable",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-58",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.malformed_history_nonvacuity",
+      "type": "Etna.Landing.referenceHash (have __src := Etna.Landing.exampleEnvironment; { blockNumber := __src.blockNumber, blockHash := __src.blockHash, historySuccess := __src.historySuccess, historyLength := 31, historyHash := __src.historyHash, blobHashes := __src.blobHashes }) 19743 = Except.error Etna.Landing.Error.anchorUnavailable \u2227 Etna.Landing.referenceHash (have __src := Etna.Landing.exampleEnvironment; { blockNumber := __src.blockNumber, blockHash := __src.blockHash, historySuccess := __src.historySuccess, historyLength := 33, historyHash := __src.historyHash, blobHashes := __src.blobHashes }) 19743 = Except.error Etna.Landing.Error.anchorUnavailable \u2227 Etna.Landing.referenceHash (have __src := Etna.Landing.exampleEnvironment; { blockNumber := __src.blockNumber, blockHash := __src.blockHash, historySuccess := __src.historySuccess, historyLength := 0, historyHash := __src.historyHash, blobHashes := __src.blobHashes }) 19743 = Except.error Etna.Landing.Error.anchorUnavailable",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-59",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.ordered_blobs_nonvacuity",
+      "type": "Etna.Landing.actualBlobs Etna.Landing.exampleEnvironment = [1, 2] \u2227 Etna.Landing.actualBlobs (have __src := Etna.Landing.exampleEnvironment; { blockNumber := __src.blockNumber, blockHash := __src.blockHash, historySuccess := __src.historySuccess, historyLength := __src.historyLength, historyHash := __src.historyHash, blobHashes := [2, 1] }) = [2, 1] \u2227 Etna.Landing.actualBlobs (have __src := Etna.Landing.exampleEnvironment; { blockNumber := __src.blockNumber, blockHash := __src.blockHash, historySuccess := __src.historySuccess, historyLength := __src.historyLength, historyHash := __src.historyHash, blobHashes := [1, 0, 2] }) = [1] \u2227 Etna.Landing.environmentCheck (have __src := Etna.Landing.exampleEnvironment; { blockNumber := __src.blockNumber, blockHash := __src.blockHash, historySuccess := __src.historySuccess, historyLength := __src.historyLength, historyHash := __src.historyHash, blobHashes := [] }) Etna.Landing.exampleInput = Option.some Etna.Landing.Error.blobsRequired",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-60",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.local_separation_nonvacuity",
+      "type": "\u2200 (s : Etna.Landing.LandStatement), Etna.Landing.LocalHashSeparation (fun x => 0) s s",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:243-300@27777e9d7147e7b1d3543711f4d7370a0377fa53"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    }
+  ]
+}

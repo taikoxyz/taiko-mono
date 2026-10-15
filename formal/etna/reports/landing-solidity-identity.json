@@ -1,0 +1,10 @@
+{
+  "head": "27777e9d7147e7b1d3543711f4d7370a0377fa53",
+  "runtimeEqualBaseline": true,
+  "layoutEqualBaseline": true,
+  "abiEqualBaseline": true,
+  "runtimeSHA256": "1aea2ee9f5541502b1a5253a40aea8e16267cc58c1d94fa1283512cbb99480b3",
+  "inboxSourceSHA256": "9473e949f1b2fa6dc4a87448fbe9b2af945e0a438d609e0ba6479dee87cc5001",
+  "artifactPath": "/Users/davidcai/.codex/worktrees/etna-protocol-dependency/taiko-mono/packages/protocol/out/layer1/EtnaInbox.sol/EtnaInbox.json",
+  "productionDiff": ""
+}
