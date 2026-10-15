@@ -122,6 +122,16 @@ pub trait L1Source: Send + Sync + 'static {
         block: u64,
     ) -> Result<AccountWitness, L1Error>;
 
+    /// The calldata transaction emitted by exactly one `ForcedInclusionSaved` event from
+    /// `inbox` for `index` in the proven L1 block `l1_block`. Acquisition failures are errors;
+    /// callers must additionally authenticate the returned bytes against the proven hash.
+    async fn forced_transaction(
+        &self,
+        inbox: Address,
+        index: u64,
+        l1_block: u64,
+    ) -> Result<Bytes, L1Error>;
+
     /// The raw (unproven) storage word of `address` at `slot` as of block `block`; used only to
     /// discover which proofs to read (the registry's `checkpoints` length and heads in
     /// `l1::fetch`, the Inbox's `migrationState` and genesis word in the genesis builder),
@@ -285,6 +295,16 @@ impl L1Source for RpcL1Source {
         block: u64,
     ) -> Result<AccountWitness, L1Error> {
         self.account_witness_at(address, slots, BlockId::number(block)).await
+    }
+
+    /// Fetches and validates one exact-block calldata forced inclusion event.
+    async fn forced_transaction(
+        &self,
+        inbox: Address,
+        index: u64,
+        l1_block: u64,
+    ) -> Result<Bytes, L1Error> {
+        super::forced_tx::fetch(&self.provider, inbox, index, l1_block).await
     }
 
     /// `eth_getStorageAt(address, slot, block)`.

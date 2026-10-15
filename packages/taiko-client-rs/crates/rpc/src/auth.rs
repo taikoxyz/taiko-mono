@@ -3,7 +3,8 @@
 use std::borrow::Cow;
 
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
-use alloy_primitives::{B256, Bytes};
+use alloy_consensus::TxEnvelope;
+use alloy_primitives::{Address, B256, Bytes};
 use alloy_provider::{Provider, RootProvider};
 use alloy_rpc_types_engine::{
     ExecutionPayloadEnvelopeV5, ExecutionPayloadV3, ForkchoiceState, ForkchoiceUpdated, PayloadId,
@@ -18,6 +19,30 @@ use crate::error::{Result, RpcClientError};
 /// serves since it removed the V2 methods.
 pub const REQUIRED_ENGINE_METHODS: [&str; 3] =
     ["engine_forkchoiceUpdatedV3", "engine_getPayloadV5", "engine_newPayloadV4"];
+
+/// Resource and fee bounds for one candidate transaction list from the authenticated pool.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PoolSelection {
+    /// Fee recipient address used while simulating candidate transactions.
+    pub beneficiary: Address,
+    /// Candidate block base fee, in wei per execution gas.
+    pub base_fee: u64,
+    /// Maximum execution gas available to the candidate list, in gas units.
+    pub gas_limit: u64,
+    /// Maximum data availability size of the candidate list, in bytes.
+    pub max_bytes: u64,
+    /// Minimum transaction priority fee, in wei per execution gas.
+    pub min_tip: u64,
+}
+
+/// Pinned alethia-reth's prebuilt-list response; RPC transaction metadata and list statistics
+/// do not alter the canonical signed envelopes decoded from the flattened transaction objects.
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PoolTransactionList {
+    /// Signed Ethereum transactions in their selected pool order.
+    tx_list: Vec<TxEnvelope>,
+}
 
 /// JSON payload submitted as the first `engine_newPayloadV4` argument.
 ///
@@ -123,6 +148,30 @@ impl EngineClient {
         check_engine_capabilities(advertised)
     }
 
+    /// Selects one candidate transaction list through `taikoAuth_txPoolContentWithMinTip`.
+    /// Empty returned lists mean an empty pool. Unusable responses and RPC failures remain errors.
+    pub async fn tx_pool_transactions(&self, selection: PoolSelection) -> Result<Vec<TxEnvelope>> {
+        let params = (
+            selection.beneficiary,
+            selection.base_fee,
+            selection.gas_limit,
+            selection.max_bytes,
+            Option::<Vec<Address>>::None,
+            1_u64,
+            selection.min_tip,
+        );
+        let mut lists: Vec<PoolTransactionList> = self
+            .provider
+            .raw_request(Cow::Borrowed("taikoAuth_txPoolContentWithMinTip"), params)
+            .await?;
+        if lists.len() > 1 {
+            return Err(RpcClientError::Other(anyhow!(
+                "pool returned more than the requested one transaction list"
+            )));
+        }
+        Ok(lists.pop().map_or_else(Vec::new, |list| list.tx_list))
+    }
+
     /// Update the forkchoice state via `engine_forkchoiceUpdatedV3`, optionally starting a payload
     /// build.
     ///
@@ -186,6 +235,49 @@ mod tests {
     use alethia_reth_primitives::payload::attributes::RpcL1Origin;
     use alloy_primitives::{Address, B256, Bytes, U256};
     use alloy_rpc_types_engine::{ExecutionPayloadV1, ExecutionPayloadV2, ExecutionPayloadV3};
+
+    #[test]
+    fn pool_response_decodes_pinned_rpc_shape_without_changing_transaction_bytes() {
+        use alloy_consensus::{SignableTransaction, TxEip1559};
+        use alloy_eips::eip2718::Encodable2718;
+        use alloy_primitives::{Signature, TxKind};
+
+        let expected = TxEnvelope::Eip1559(
+            TxEip1559 {
+                chain_id: 1,
+                nonce: 4,
+                gas_limit: 50_000,
+                max_fee_per_gas: 2_000_000_000,
+                max_priority_fee_per_gas: 1_000_000,
+                to: TxKind::Call(Address::repeat_byte(0x22)),
+                value: U256::ZERO,
+                access_list: Default::default(),
+                input: Bytes::from_static(&[0xde, 0xad, 0xbe, 0xef]),
+            }
+            .into_signed(Signature::new(U256::from(1), U256::from(1), false)),
+        );
+        // Pinned EL 1e25b484: PreBuiltTxList<RpcTransaction> serializes the signed
+        // envelope flattened with sender, null pending metadata and effective gasPrice.
+        let mut response = serde_json::json!([{
+            "txList": [{
+                "type":"0x2", "chainId":"0x1", "nonce":"0x4", "gas":"0xc350",
+                "maxFeePerGas":"0x77359400", "maxPriorityFeePerGas":"0xf4240",
+                "to":Address::repeat_byte(0x22), "value":"0x0", "input":"0xdeadbeef",
+                "accessList":[], "r":"0x1", "s":"0x1", "yParity":"0x0", "v":"0x0",
+                "hash":expected.tx_hash(), "from":Address::repeat_byte(0x33),
+                "blockHash":null, "blockNumber":null, "transactionIndex":null,
+                "gasPrice":"0x3b9aca00"
+            }],
+            "estimatedGasUsed": 50000,
+            "bytesLength": 111
+        }]);
+        for statistics in [0, u64::MAX] {
+            response[0]["estimatedGasUsed"] = serde_json::json!(statistics);
+            response[0]["bytesLength"] = serde_json::json!(statistics);
+            let lists: Vec<PoolTransactionList> = serde_json::from_value(response.clone()).unwrap();
+            assert_eq!(lists[0].tx_list[0].encoded_2718(), expected.encoded_2718());
+        }
+    }
 
     /// Owned capability list naming `methods`.
     fn advertised(methods: &[&str]) -> Vec<String> {

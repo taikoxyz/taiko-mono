@@ -21,7 +21,7 @@ use async_trait::async_trait;
 
 use super::TestState;
 use crate::{
-    engine::{Engine, EngineError, PayloadVerdict},
+    engine::{Engine, EngineError, PayloadVerdict, PoolSelection},
     envelope::ExecutionBlock,
     l1::{
         blobs::BlobSource,
@@ -34,6 +34,7 @@ use crate::{
 /// One call made to a [`MockL1`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum L1Call {
+    ForcedTransaction { inbox: Address, index: u64, l1_block: u64 },
     Finalized,
     CanonicalHash(u64),
     Header(u64),
@@ -46,6 +47,8 @@ pub(crate) enum L1Call {
 pub(crate) struct MockL1State {
     /// What `finalized_number` returns once `finalized_script` is empty.
     pub(crate) finalized: u64,
+    /// Forced transaction bytes keyed by Inbox, queue index and L1 block.
+    pub(crate) forced_transactions: BTreeMap<(Address, u64, u64), Bytes>,
     /// Scripted `finalized_number` answers, popped one per call before falling back to
     /// `finalized`.
     pub(crate) finalized_script: VecDeque<Result<u64, L1Error>>,
@@ -226,6 +229,22 @@ impl L1Source for MockL1 {
         Ok(Self::state_at(&state, address, block)?.witness(address, slots))
     }
 
+    async fn forced_transaction(
+        &self,
+        inbox: Address,
+        index: u64,
+        l1_block: u64,
+    ) -> Result<Bytes, L1Error> {
+        let _call = InFlight::new(self);
+        self.pause().await;
+        let state = self.record(L1Call::ForcedTransaction { inbox, index, l1_block })?;
+        state.forced_transactions.get(&(inbox, index, l1_block)).cloned().ok_or_else(|| {
+            L1Error::MalformedResponse(format!(
+                "mock L1: missing forced event {index} at block {l1_block}"
+            ))
+        })
+    }
+
     async fn storage_at(&self, address: Address, slot: B256, block: u64) -> Result<U256, L1Error> {
         let _call = InFlight::new(self);
         self.pause().await;
@@ -301,6 +320,7 @@ impl BlobSource for MockBlobs {
 /// One call made to a [`MockEngine`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum EngineCall {
+    PoolTransactions(PoolSelection),
     CheckCapabilities,
     BuildBlock { parent: B256, attrs: Box<TaikoPayloadAttributes> },
     NewPayload(B256),
@@ -314,6 +334,10 @@ pub(crate) enum EngineCall {
 /// (see each method on the [`Engine`] impl).
 #[derive(Debug, Default)]
 pub(crate) struct MockEngineState {
+    /// Configured pool transactions, returned unchanged when no scripted result remains.
+    pub(crate) pool: Vec<TxEnvelope>,
+    /// Scripted pool selection answers.
+    pub(crate) pool_script: VecDeque<Result<Vec<TxEnvelope>, EngineError>>,
     /// The canonical chain served by `header_by_number`.
     pub(crate) chain: BTreeMap<u64, Header>,
     /// Every block the EL holds, canonical or not, by hash.
@@ -469,6 +493,16 @@ impl Engine for MockEngine {
         let mut state = self.state();
         state.calls.push(EngineCall::CheckCapabilities);
         state.capabilities.clone().map_or(Ok(()), Err)
+    }
+
+    async fn pool_transactions(
+        &self,
+        selection: PoolSelection,
+    ) -> Result<Vec<TxEnvelope>, EngineError> {
+        self.pause().await;
+        let mut state = self.state();
+        state.calls.push(EngineCall::PoolTransactions(selection));
+        state.pool_script.pop_front().unwrap_or_else(|| Ok(state.pool.clone()))
     }
 
     /// Pops `build_script`, defaulting to [`simple_block`]; a built block becomes known.
