@@ -24,6 +24,9 @@ pub use types::{CertifiedBlock, LandingSnapshot, Limits, PreparedBatch, SidecarM
 #[cfg(test)]
 pub(crate) mod test_utils;
 
+#[cfg(test)]
+mod proptests;
+
 /// Operator limits, fees, deadlines and endpoint validation.
 pub mod config;
 /// Hash-pinned L1 and public L2 source adapters.
