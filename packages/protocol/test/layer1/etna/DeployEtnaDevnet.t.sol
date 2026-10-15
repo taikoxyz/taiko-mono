@@ -40,6 +40,8 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         _deployInbox_RevertWhen_ForcedInclusionFeeDoubleThresholdIsZero();
         _deployInbox_RevertWhen_ForcedInclusionDelayIsZero();
         _deployInbox_RevertWhen_MaxAnchorAgeIsZero();
+        _deployInbox_RevertWhen_ProverShareHasNoLandingReward();
+        _deployInbox_AcceptsAZeroLandingRewardWithoutAProverShare();
     }
 
     modifier withEnvironment() {
@@ -263,6 +265,20 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     function _deployInbox_RevertWhen_MaxAnchorAgeIsZero() private withEnvironment {
         vm.setEnv("MAX_ANCHOR_AGE", "0");
         _expectRejectedDeployment(EtnaInbox.InvalidMaxAnchorAge.selector);
+    }
+
+    /// @dev The proving shares the pool sends would sit in the ledger with no reward to drain it.
+    function _deployInbox_RevertWhen_ProverShareHasNoLandingReward() private withEnvironment {
+        vm.setEnv("LANDING_REWARD_PER_BLOCK", "0");
+        _expectRejectedDeployment(DeployEtnaDevnet.ProverShareWithoutLandingReward.selector);
+    }
+
+    function _deployInbox_AcceptsAZeroLandingRewardWithoutAProverShare() private withEnvironment {
+        vm.setEnv("LANDING_REWARD_PER_BLOCK", "0");
+        vm.setEnv("ALLOC_PROVER_PPM", "0");
+        (address deployedInbox,, address deployedPool) = _deployment.deployInbox();
+        assertEq(EtnaInbox(payable(deployedInbox)).landingRewardPerBlock(), 0, "no landing reward");
+        assertEq(EtnaRewardPool(payable(deployedPool)).allocProverPpm(), 0, "no proving share");
     }
 
     function _expectRejectedDeployment(bytes4 _error) private {

@@ -129,7 +129,10 @@ constraints.
 - `allocValidatorPpm + allocProverPpm` may not exceed 1,000,000; whatever a freeze does not
   allocate stays in the free balance for later epochs. `landingRewardPerBlock` is paid per landed
   block and capped by the prover reward ledger, so `maxBatchBlocks` times it bounds one landing's
-  reward. All three are implementation immutables; changing them takes an upgrade.
+  reward. The ledger drains only through these rewards, at `landingRewardPerBlock` per landed
+  block, so a zero reward with a non-zero `allocProverPpm` strands every proving share in the
+  Inbox; `DeployEtnaDevnet` rejects that combination (`ProverShareWithoutLandingReward`). All
+  three are implementation immutables; changing them takes an upgrade.
 - The registry, Inbox, reward pool and fee vault owners can upgrade the contracts; use the
   intended chain governance. An upgrade is the only privileged way to move the pool's or the
   vault's Ether.
@@ -671,7 +674,8 @@ landing's `msg.value`. Each landing pays `min(landingRewardPerBlock * (L - p), l
 the price is per block, splitting a range into more landings earns nothing extra, and a proving
 share frozen by a landing already funds that landing's own reward. Anyone holding pool credits can
 also fund the ledger with `withdrawRewards(inbox)`, which the Inbox accepts because the pool sends
-it.
+it. Landing rewards are the ledger's only outflow, at most `landingRewardPerBlock` per landed
+block.
 
 ### Settlement gas
 
