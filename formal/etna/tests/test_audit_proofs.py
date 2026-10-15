@@ -10,7 +10,7 @@ AUDIT = ROOT / 'scripts' / 'audit_proofs.py'
 
 
 class ProofAuditTests(unittest.TestCase):
-    def audit(self, source, theorem='Fixture.sound', type_='∀ (n : Nat), n = n', imports=True):
+    def audit(self, source, theorem='Fixture.sound', type_='∀ (n : Nat), n = n', imports=True, bridge='spec-proved', refinement=None):
         with tempfile.TemporaryDirectory(dir=ROOT) as tmp:
             path = pathlib.Path(tmp)
             module = path.name + '.Fixture'
@@ -18,11 +18,78 @@ class ProofAuditTests(unittest.TestCase):
             manifest = {'schema_version': 1, 'theorems': [{
                 'id': 'TEST-01', 'module': module if imports else '',
                 'declaration': theorem, 'type': type_, 'assumptions': [],
-                'bridge_level': 'spec-proved', 'production': [], 'tests': []}]}
+                'bridge_level': bridge, 'production': [], 'tests': [], **({'refinement': refinement} if refinement else {})}]}
             (path / 'manifest.json').write_text(json.dumps(manifest))
             return subprocess.run(['python3', str(AUDIT), '--manifest', str(path / 'manifest.json'),
                                    '--output', str(path / 'Audit.lean')], cwd=ROOT,
                                   text=True, capture_output=True)
+
+    def refinement(self, **changes):
+        return {
+            'generated_module': 'Etna.Refinement.Rust.EtnaConsensusCore',
+            'generated_definition': 'etna_consensus_core.forced.is_due',
+            'rust_symbol': 'etna_consensus_core::forced::is_due',
+            'source': 'packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs',
+            'provenance': 'Etna/Refinement/Rust/provenance.json',
+            **changes,
+        }
+
+    def test_accepts_actual_total_refinement(self):
+        result = self.audit(
+            'import Etna.Refinement.Rust.Forced\n'
+            'namespace Fixture\n'
+            'theorem sound (t d a : Aeneas.Std.U64) : etna_consensus_core.forced.is_due t d a = '
+            'Aeneas.Std.Result.ok (Etna.FI.isDue t.val d.val a.val) := '
+            'Etna.Refinement.Rust.rust_is_due_refines t d a\nend Fixture\n',
+            type_='∀ (t d a : Aeneas.Std.U64), etna_consensus_core.forced.is_due t d a = '
+                  'Aeneas.Std.Result.ok (Etna.FI.isDue t.val d.val a.val)',
+            bridge='rust-refinement-proved', refinement=self.refinement())
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_rejects_refinement_without_provenance(self):
+        result = self.audit('namespace Fixture\ntheorem sound (n : Nat) : n = n := rfl\nend Fixture\n',
+                            bridge='rust-refinement-proved')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('refinement metadata', result.stderr)
+
+    def test_rejects_falsely_labelled_refinement(self):
+        result = self.audit('namespace Fixture\ntheorem sound (n : Nat) : n = n := rfl\nend Fixture\n',
+                            bridge='rust-refinement-proved', refinement=self.refinement())
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('generated function', result.stderr)
+
+    def test_rejects_forged_source_symbol(self):
+        result = self.audit('namespace Fixture\ntheorem sound (n : Nat) : n = n := rfl\nend Fixture\n',
+                            bridge='rust-refinement-proved',
+                            refinement=self.refinement(rust_symbol='forged::symbol'))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('source symbol', result.stderr)
+
+    def test_rejects_wrong_production_file(self):
+        result = self.audit('namespace Fixture\ntheorem sound (n : Nat) : n = n := rfl\nend Fixture\n',
+                            bridge='rust-refinement-proved', refinement=self.refinement(
+                                source='packages/taiko-client-rs/crates/etna-consensus-core/src/lib.rs'))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('wrong production file', result.stderr)
+
+    def test_rejects_stale_source_digest(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp:
+            path = pathlib.Path(tmp) / 'provenance.json'
+            data = json.loads((ROOT / 'Etna/Refinement/Rust/provenance.json').read_text())
+            data['source_sha256'][self.refinement()['source']] = '0' * 64
+            path.write_text(json.dumps(data))
+            result = self.audit('namespace Fixture\ntheorem sound (n : Nat) : n = n := rfl\nend Fixture\n',
+                                bridge='rust-refinement-proved', refinement=self.refinement(
+                                    provenance=str(path.relative_to(ROOT))))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('source digest mismatch', result.stderr)
+
+    def test_rejects_native_decide_trust(self):
+        result = self.audit('import Mathlib\nnamespace Fixture\n'
+                            'theorem sound : (1 : Nat) = 1 := by native_decide\nend Fixture\n',
+                            type_='(1 : Nat) = 1')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('forbidden axioms', result.stderr)
 
     def test_accepts_kernel_checked_theorem(self):
         result = self.audit('namespace Fixture\ntheorem sound (n : Nat) : n = n := rfl\nend Fixture\n')

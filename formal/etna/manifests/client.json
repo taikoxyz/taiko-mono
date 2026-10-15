@@ -1,0 +1,679 @@
+{
+  "schema_version": 1,
+  "status": {
+    "spec": "FI-01..09-proved",
+    "rust_refinement": "six-FI-functions-total-refined",
+    "async_adapter": "conformance-tested",
+    "committee": "pending"
+  },
+  "theorems": [
+    {
+      "id": "FI-01",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi01_due",
+      "type": "\u2200 (timestamp delay anchor : Etna.Word64), Etna.FI.isDue timestamp.val delay.val anchor.val = true \u2194 timestamp.val + delay.val \u2264 anchor.val",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-fi01-sum-bound",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi01_sum_bound",
+      "type": "\u2200 (timestamp delay : Etna.Word64), timestamp.val + delay.val < 2^128",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-02",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi02_pending",
+      "type": "\u2200 (cursor tail : Nat) (witness : Option Nat), Etna.FI.pending cursor tail witness = .ok true \u2194 cursor < tail \u2227 witness = some cursor",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-fi02-authenticated",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi02_authenticated",
+      "type": "\u2200 (a : Etna.FI.Authentication) (c : Etna.FI.Context) (w : Etna.FI.Witness)\n    (context : Etna.FI.ContextEvidence a c)\n    (verified : a.verify c.stateRoot c.inbox (Etna.FI.entrySlots a.slot c.cursor.val)\n      w.entry w.proof = true), a.storageEntry (a.committedRoot c.anchorHash) c.inbox\n      (Etna.FI.entrySlots a.slot c.cursor.val) = some w.entry",
+      "assumptions": [
+        "Authentication.sound: verified root/inbox/exact ordered slots bind stored entry; ContextEvidence binds anchor root/time/tail where required"
+      ],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-fi02-bad-proof-rejects",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi02_bad_proof_rejects",
+      "type": "\u2200 (a : Etna.FI.Authentication) (codec : Etna.FI.Codec) (c : Etna.FI.Context)\n    (w : Etna.FI.Witness) (txs : List Etna.FI.Bytes) (pendingBound : c.cursor.val < c.tail.val)\n    (index : w.index = c.cursor.val)\n    (rejected : a.verify c.stateRoot c.inbox (Etna.FI.entrySlots a.slot c.cursor.val)\n      w.entry w.proof = false), Etna.FI.evaluate a codec c (some w) txs = .error .malformed",
+      "assumptions": [
+        "Authentication.sound: verified root/inbox/exact ordered slots bind stored entry; ContextEvidence binds anchor root/time/tail where required"
+      ],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-fi02-evaluate-authenticated",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi02_evaluate_authenticated",
+      "type": "\u2200 (a : Etna.FI.Authentication) (codec : Etna.FI.Codec) (c : Etna.FI.Context)\n    (w : Etna.FI.Witness) (txs : List Etna.FI.Bytes) (pendingBound : c.cursor.val < c.tail.val)\n    (index : w.index = c.cursor.val)\n    (verified : a.verify c.stateRoot c.inbox (Etna.FI.entrySlots a.slot c.cursor.val)\n      w.entry w.proof = true), Etna.FI.evaluate a codec c (some w) txs = Etna.FI.classify (Etna.FI.scalarFacts codec c w txs)",
+      "assumptions": [
+        "Authentication.sound: verified root/inbox/exact ordered slots bind stored entry; ContextEvidence binds anchor root/time/tail where required"
+      ],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-03",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi03_included_iff",
+      "type": "\u2200 (f : Etna.FI.ForcedFacts)\n    (prechecked : Etna.FI.checkPreimage f.preimageLen f.preimageHashMatches = .ok ()), Etna.FI.classify f = .ok (.included f.cursor) \u2194 f.firstMatches = true",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-fi03-head-binding",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi03_head_binding",
+      "type": "\u2200 (codec : Etna.FI.Codec) (entry : Etna.FI.Entry) (txs : List Etna.FI.Bytes), Etna.FI.firstMatches codec entry txs = true \u2194\n      \u2203 head rest, txs = head :: rest \u2227 head.length \u2264 8192 \u2227\n        codec.canonical head = true \u2227 codec.hash head = entry.digest",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-fi03-authenticated-inclusion",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi03_authenticated_inclusion",
+      "type": "\u2200 (a : Etna.FI.Authentication) (codec : Etna.FI.Codec) (c : Etna.FI.Context)\n    (w : Etna.FI.Witness) (txs : List Etna.FI.Bytes) (context : Etna.FI.ContextEvidence a c)\n    (pendingBound : c.cursor.val < c.tail.val) (index : w.index = c.cursor.val)\n    (verified : a.verify c.stateRoot c.inbox (Etna.FI.entrySlots a.slot c.cursor.val)\n      w.entry w.proof = true)\n    (prechecked : Etna.FI.checkPreimage w.preimage.length (decide (codec.hash w.preimage = w.entry.digest)) = .ok ()), a.storageEntry (a.committedRoot c.anchorHash) c.inbox (Etna.FI.entrySlots a.slot c.cursor.val) = some w.entry \u2227\n    (Etna.FI.evaluate a codec c (some w) txs = .ok (.included c.cursor.val) \u2194\n      \u2203 head rest, txs = head :: rest \u2227 head.length \u2264 8192 \u2227 codec.canonical head = true \u2227\n        codec.hash head = w.entry.digest)",
+      "assumptions": [
+        "Authentication.sound: verified root/inbox/exact ordered slots bind stored entry; ContextEvidence binds anchor root/time/tail where required"
+      ],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-fi03-exact-bytes",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi03_exact_bytes",
+      "type": "\u2200 (codec : Etna.FI.Codec) (admitted candidate : Etna.FI.Bytes)\n    (separated : Etna.FI.LocallySeparated codec.hash admitted candidate)\n    (sameHash : codec.hash admitted = codec.hash candidate), admitted = candidate",
+      "assumptions": [
+        "Trace-local hash separation only for admitted and candidate bytes"
+      ],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-classify-branches",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.classify_branches",
+      "type": "\u2200 (f : Etna.FI.ForcedFacts)\n    (prechecked : Etna.FI.checkPreimage f.preimageLen f.preimageHashMatches = .ok ()), Etna.FI.classify f =\n      if f.firstMatches then .ok (.included f.cursor)\n      else if Etna.FI.isDue f.timestamp f.delay f.anchorTimestamp then\n        if f.preimageHashMatches then\n          if f.preimageCanonical then .ok (.needsSkip f.cursor)\n          else .ok (.skippedInvalid f.cursor)\n        else .error .hashMismatch\n      else .ok .ordinary",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-04",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi04_predue",
+      "type": "\u2200 (f : Etna.FI.ForcedFacts)\n    (prechecked : Etna.FI.checkPreimage f.preimageLen f.preimageHashMatches = .ok ())\n    (head : f.firstMatches = false)\n    (early : f.anchorTimestamp < f.timestamp + f.delay), Etna.FI.classify f = .ok .ordinary",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-05",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi05_due_skip",
+      "type": "\u2200 (f : Etna.FI.ForcedFacts)\n    (prechecked : Etna.FI.checkPreimage f.preimageLen f.preimageHashMatches = .ok ())\n    (head : f.firstMatches = false) (due : f.timestamp + f.delay \u2264 f.anchorTimestamp)\n    (hash : f.preimageHashMatches = true), Etna.FI.classify f = .ok (if f.preimageCanonical then .needsSkip f.cursor else .skippedInvalid f.cursor)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-06",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi06_resolve",
+      "type": "\u2200 (index : Nat) (outcome : Etna.FI.SingletonOutcome), Etna.FI.resolve (.needsSkip index) outcome = .ok (some index) \u2194 outcome = .completedEmpty",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-fi06-completed-context",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi06_completed_context",
+      "type": "\u2200 (request : Etna.FI.BuildRequest) (response : Etna.FI.BuildResponse), Etna.FI.singletonOutcome request response = .completedEmpty \u2194 response = .completed request []",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-fi06-execution-evidence",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi06_execution_evidence",
+      "type": "\u2200 (execution : Etna.FI.Execution) (c : Etna.FI.Context) (tx : Etna.FI.Bytes)\n    (empty : Etna.FI.singletonOutcome (Etna.FI.singletonRequest c tx)\n      (execution.run (Etna.FI.singletonRequest c tx)) = .completedEmpty), execution.validExecution \u27e8c.parent, c.attributes, c.anchorHash, [tx]\u27e9 []",
+      "assumptions": [
+        "Execution.sound: completed response binds actual request to validExecution; deterministic run for equal inputs"
+      ],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-fi07-advance",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi07_advance",
+      "type": "\u2200 (cursor : Etna.Word64) (tail : Etna.Word48) (pendingBound : cursor.val < tail.val), Etna.FI.advance cursor.val (some cursor.val) = .ok (cursor.val + 1) \u2227 cursor.val + 1 < 2^64",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-valid-step-count",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.valid_step_count",
+      "type": "\u2200 {before after : Nat} {consumed : Option Nat}\n    (step : Etna.FI.ValidStep before after consumed), after = before + (if consumed.isSome then 1 else 0)",
+      "assumptions": [
+        "Each trace step carries successful classify/resolve/advance evidence and authenticated 48-bit tail bound"
+      ],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-07",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi07_trace_count",
+      "type": "\u2200 {before after : Nat} {steps : List (Option Nat)}\n    (trace : Etna.FI.ValidTrace before steps after), after = before + Etna.FI.consumptionCount steps",
+      "assumptions": [
+        "Each trace step carries successful classify/resolve/advance evidence and authenticated 48-bit tail bound"
+      ],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-fi07-trace-bound",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi07_trace_bound",
+      "type": "\u2200 {before after : Nat} {steps : List (Option Nat)}\n    (initial : before < 2^64) (trace : Etna.FI.ValidTrace before steps after), after < 2^64",
+      "assumptions": [
+        "Each trace step carries successful classify/resolve/advance evidence and authenticated 48-bit tail bound"
+      ],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-fi07-count-le-blocks",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi07_count_le_blocks",
+      "type": "\u2200 (steps : List (Option Nat)), Etna.FI.consumptionCount steps \u2264 steps.length",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-fi07-consumed-index",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi07_consumed_index",
+      "type": "\u2200 (f : Etna.FI.ForcedFacts) (d : Etna.FI.Decision) (o : Etna.FI.SingletonOutcome) (index : Nat)\n    (classified : Etna.FI.classify f = .ok d) (resolved : Etna.FI.resolve d o = .ok (some index)), index = f.cursor",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-08",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi08_success_equivalence",
+      "type": "\u2200 (a : Etna.FI.Authentication) (codec : Etna.FI.Codec) (execution : Etna.FI.Execution)\n    (c : Etna.FI.Context) (w : Option Etna.FI.Witness) (txs : List Etna.FI.Bytes) (cache : Etna.FI.CacheEntry) (envelope : Etna.FI.Bytes)\n    (usable : Etna.FI.cacheUsable cache c envelope = true)\n    (evidence : Etna.FI.CacheEvidence a codec execution c w txs cache), Etna.FI.finalizeCached cache c envelope = Etna.FI.execute a codec execution c w txs",
+      "assumptions": [
+        "Authentication.sound: verified root/inbox/exact ordered slots bind stored entry; ContextEvidence binds anchor root/time/tail where required",
+        "Execution.sound: completed response binds actual request to validExecution; deterministic run for equal inputs",
+        "Cached intermediate classification and singleton outcome agree with fresh deterministic facts; canonical envelope/context checked"
+      ],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-fi08-commit-reopen",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi08_commit_reopen",
+      "type": "\u2200 {Store : Type} (store : Etna.FI.DurableStore Store)\n    (a : Etna.FI.Authentication) (codec : Etna.FI.Codec) (execution : Etna.FI.Execution)\n    (c : Etna.FI.Context) (w : Option Etna.FI.Witness) (txs : List Etna.FI.Bytes) (cache : Etna.FI.CacheEntry) (envelope : Etna.FI.Bytes)\n    (usable : Etna.FI.cacheUsable cache c envelope = true)\n    (evidence : Etna.FI.CacheEvidence a codec execution c w txs cache)\n    (beforeHot beforeCold afterHot afterCold : Store) (hotCursor coldCursor : Nat)\n    (hotSuccess : Etna.FI.finalizeCached cache c envelope = .ok hotCursor)\n    (coldSuccess : Etna.FI.execute a codec execution c w txs = .ok coldCursor)\n    (hotCommitted : store.write beforeHot hotCursor = .ok afterHot)\n    (coldCommitted : store.write beforeCold coldCursor = .ok afterCold), hotCursor = coldCursor \u2227 store.reopen afterHot = store.reopen afterCold",
+      "assumptions": [
+        "Authentication.sound: verified root/inbox/exact ordered slots bind stored entry; ContextEvidence binds anchor root/time/tail where required",
+        "Execution.sound: completed response binds actual request to validExecution; deterministic run for equal inputs",
+        "Cached intermediate classification and singleton outcome agree with fresh deterministic facts; canonical envelope/context checked",
+        "Successful durable write/read roundtrip; no availability assumption"
+      ],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-fi08-cache-context",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi08_cache_context",
+      "type": "\u2200 (cache : Etna.FI.CacheEntry) (c : Etna.FI.Context) (envelope : Etna.FI.Bytes), Etna.FI.cacheUsable cache c envelope = true \u2194 cache.context = c \u2227 cache.envelope = envelope",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-09",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.fi09_no_expiry",
+      "type": "\u2200 (f : Etna.FI.ForcedFacts) (later : Nat)\n    (due : f.timestamp + f.delay \u2264 f.anchorTimestamp)\n    (stillDue : f.timestamp + f.delay \u2264 later), Etna.FI.classify {f with anchorTimestamp := later} = Etna.FI.classify f",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-ordinary-example",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.ordinary_example",
+      "type": "Etna.FI.pending 0 0 none = .ok false",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-predue-include-example",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.predue_include_example",
+      "type": "Etna.FI.classify \u27e80, 10, 10, 11, 0, false, false, true\u27e9 = .ok (.included 0)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-due-invalid-example",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.due_invalid_example",
+      "type": "Etna.FI.classify \u27e80, 10, 10, 20, 0, true, false, false\u27e9 = .ok (.skippedInvalid 0)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-due-empty-example",
+      "module": "Etna.FI.Proofs",
+      "declaration": "Etna.FI.due_empty_example",
+      "type": "Etna.FI.classify \u27e80, 10, 10, 20, 0, true, true, false\u27e9 = .ok (.needsSkip 0) \u2227\n    Etna.FI.resolve (.needsSkip 0) .completedEmpty = .ok (some 0)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-authenticated-ordinary-example",
+      "module": "Etna.FI.Examples",
+      "declaration": "Etna.FI.authenticated_ordinary_example",
+      "type": "Etna.FI.ContextEvidence (Etna.FI.exampleAuthentication \u27e810, 0\u27e9 20 0) { Etna.FI.exampleContext with tail := 0 } \u2227\n    Etna.FI.evaluate (Etna.FI.exampleAuthentication \u27e810, 0\u27e9 20 0) Etna.FI.exampleCodec\n      { Etna.FI.exampleContext with tail := 0 } none [] = .ok .ordinary",
+      "assumptions": [
+        "Authentication.sound: verified root/inbox/exact ordered slots bind stored entry; ContextEvidence binds anchor root/time/tail where required"
+      ],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-authenticated-predue-include-example",
+      "module": "Etna.FI.Examples",
+      "declaration": "Etna.FI.authenticated_predue_include_example",
+      "type": "Etna.FI.ContextEvidence (Etna.FI.exampleAuthentication \u27e810, 0\u27e9 11 1)\n      { Etna.FI.exampleContext with anchorTimestamp := 11 } \u2227\n    Etna.FI.evaluate (Etna.FI.exampleAuthentication \u27e810, 0\u27e9 11 1) Etna.FI.exampleCodec\n      { Etna.FI.exampleContext with anchorTimestamp := 11 }\n      (some \u27e80, \u27e810, 0\u27e9, [], []\u27e9) [[]] = .ok (.included 0)",
+      "assumptions": [
+        "Authentication.sound: verified root/inbox/exact ordered slots bind stored entry; ContextEvidence binds anchor root/time/tail where required"
+      ],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-authenticated-due-invalid-example",
+      "module": "Etna.FI.Examples",
+      "declaration": "Etna.FI.authenticated_due_invalid_example",
+      "type": "Etna.FI.ContextEvidence (Etna.FI.exampleAuthentication \u27e810, 1\u27e9 20 1) Etna.FI.exampleContext \u2227\n    Etna.FI.evaluate (Etna.FI.exampleAuthentication \u27e810, 1\u27e9 20 1) Etna.FI.exampleCodec Etna.FI.exampleContext\n      (some \u27e80, \u27e810, 1\u27e9, [0], []\u27e9) [] = .ok (.skippedInvalid 0)",
+      "assumptions": [
+        "Authentication.sound: verified root/inbox/exact ordered slots bind stored entry; ContextEvidence binds anchor root/time/tail where required"
+      ],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-authenticated-due-empty-example",
+      "module": "Etna.FI.Examples",
+      "declaration": "Etna.FI.authenticated_due_empty_example",
+      "type": "Etna.FI.ContextEvidence (Etna.FI.exampleAuthentication \u27e810, 0\u27e9 20 1) Etna.FI.exampleContext \u2227\n    Etna.FI.execute (Etna.FI.exampleAuthentication \u27e810, 0\u27e9 20 1) Etna.FI.exampleCodec Etna.FI.exampleExecution Etna.FI.exampleContext\n      (some \u27e80, \u27e810, 0\u27e9, [], []\u27e9) [] = .ok 1",
+      "assumptions": [
+        "Authentication.sound: verified root/inbox/exact ordered slots bind stored entry; ContextEvidence binds anchor root/time/tail where required",
+        "Execution.sound: completed response binds actual request to validExecution; deterministic run for equal inputs"
+      ],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-authenticated-cache-example",
+      "module": "Etna.FI.Examples",
+      "declaration": "Etna.FI.authenticated_cache_example",
+      "type": "Etna.FI.CacheEvidence (Etna.FI.exampleAuthentication \u27e810, 0\u27e9 20 1) Etna.FI.exampleCachedCodec Etna.FI.exampleExecution\n      Etna.FI.exampleContext (some \u27e80, \u27e810, 0\u27e9, [], []\u27e9) [] Etna.FI.exampleCache \u2227\n    Etna.FI.finalizeCached Etna.FI.exampleCache Etna.FI.exampleContext [] = .ok 1",
+      "assumptions": [
+        "Authentication.sound: verified root/inbox/exact ordered slots bind stored entry; ContextEvidence binds anchor root/time/tail where required",
+        "Execution.sound: completed response binds actual request to validExecution; deterministic run for equal inputs",
+        "Cached intermediate classification and singleton outcome agree with fresh deterministic facts; canonical envelope/context checked"
+      ],
+      "bridge_level": "spec-proved",
+      "production": ["packages/taiko-client-rs/crates/abci/src/forced.rs"],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ]
+    },
+    {
+      "id": "FI-rust-pending-refines",
+      "module": "Etna.Refinement.Rust.Forced",
+      "declaration": "Etna.Refinement.Rust.rust_pending_refines",
+      "type": "\u2200 (cursor tail : Aeneas.Std.U64) (witness : Option Aeneas.Std.U64), etna_consensus_core.forced.pending_entry cursor tail witness =\n      .ok (Etna.Refinement.Rust.result id (Etna.FI.pending cursor.val tail.val (witness.map Aeneas.Std.UScalar.val)))",
+      "assumptions": [],
+      "bridge_level": "rust-refinement-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs"
+      ],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ],
+      "refinement": {
+        "generated_module": "Etna.Refinement.Rust.EtnaConsensusCore",
+        "generated_definition": "etna_consensus_core.forced.pending_entry",
+        "rust_symbol": "etna_consensus_core::forced::pending_entry",
+        "source": "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs",
+        "provenance": "Etna/Refinement/Rust/provenance.json"
+      }
+    },
+    {
+      "id": "FI-rust-preimage-refines",
+      "module": "Etna.Refinement.Rust.Forced",
+      "declaration": "Etna.Refinement.Rust.rust_preimage_refines",
+      "type": "\u2200 (size : Aeneas.Std.U64) (hashMatches : Bool), etna_consensus_core.forced.check_preimage size hashMatches =\n      .ok (Etna.Refinement.Rust.result id (Etna.FI.checkPreimage size.val hashMatches))",
+      "assumptions": [],
+      "bridge_level": "rust-refinement-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs"
+      ],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ],
+      "refinement": {
+        "generated_module": "Etna.Refinement.Rust.EtnaConsensusCore",
+        "generated_definition": "etna_consensus_core.forced.check_preimage",
+        "rust_symbol": "etna_consensus_core::forced::check_preimage",
+        "source": "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs",
+        "provenance": "Etna/Refinement/Rust/provenance.json"
+      }
+    },
+    {
+      "id": "FI-rust-is-due-refines",
+      "module": "Etna.Refinement.Rust.Forced",
+      "declaration": "Etna.Refinement.Rust.rust_is_due_refines",
+      "type": "\u2200 (timestamp delay anchor : Aeneas.Std.U64), etna_consensus_core.forced.is_due timestamp delay anchor =\n      .ok (Etna.FI.isDue timestamp.val delay.val anchor.val)",
+      "assumptions": [],
+      "bridge_level": "rust-refinement-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs"
+      ],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ],
+      "refinement": {
+        "generated_module": "Etna.Refinement.Rust.EtnaConsensusCore",
+        "generated_definition": "etna_consensus_core.forced.is_due",
+        "rust_symbol": "etna_consensus_core::forced::is_due",
+        "source": "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs",
+        "provenance": "Etna/Refinement/Rust/provenance.json"
+      }
+    },
+    {
+      "id": "FI-rust-classify-refines",
+      "module": "Etna.Refinement.Rust.Forced",
+      "declaration": "Etna.Refinement.Rust.rust_classify_refines",
+      "type": "\u2200 (f : etna_consensus_core.forced.ForcedFacts), etna_consensus_core.forced.classify_forced f = .ok (Etna.Refinement.Rust.result Etna.Refinement.Rust.decision (Etna.FI.classify (Etna.Refinement.Rust.facts f)))",
+      "assumptions": [],
+      "bridge_level": "rust-refinement-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs"
+      ],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ],
+      "refinement": {
+        "generated_module": "Etna.Refinement.Rust.EtnaConsensusCore",
+        "generated_definition": "etna_consensus_core.forced.classify_forced",
+        "rust_symbol": "etna_consensus_core::forced::classify_forced",
+        "source": "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs",
+        "provenance": "Etna/Refinement/Rust/provenance.json"
+      }
+    },
+    {
+      "id": "FI-rust-resolve-refines",
+      "module": "Etna.Refinement.Rust.Forced",
+      "declaration": "Etna.Refinement.Rust.rust_resolve_refines",
+      "type": "\u2200 (d : etna_consensus_core.forced.ForcedDecision)\n    (o : etna_consensus_core.forced.SingletonOutcome), etna_consensus_core.forced.resolve_forced d o =\n      .ok (Etna.Refinement.Rust.result (Option.map Etna.Refinement.Rust.word) (Etna.FI.resolve (Etna.Refinement.Rust.modelDecision d) (Etna.Refinement.Rust.modelOutcome o)))",
+      "assumptions": [],
+      "bridge_level": "rust-refinement-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs"
+      ],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ],
+      "refinement": {
+        "generated_module": "Etna.Refinement.Rust.EtnaConsensusCore",
+        "generated_definition": "etna_consensus_core.forced.resolve_forced",
+        "rust_symbol": "etna_consensus_core::forced::resolve_forced",
+        "source": "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs",
+        "provenance": "Etna/Refinement/Rust/provenance.json"
+      }
+    },
+    {
+      "id": "FI-rust-advance-refines",
+      "module": "Etna.Refinement.Rust.Forced",
+      "declaration": "Etna.Refinement.Rust.rust_advance_refines",
+      "type": "\u2200 (cursor : Aeneas.Std.U64) (consumed : Option Aeneas.Std.U64), etna_consensus_core.forced.advance_cursor cursor consumed =\n      .ok (Etna.Refinement.Rust.result Etna.Refinement.Rust.word (Etna.FI.advance cursor.val (consumed.map Aeneas.Std.UScalar.val)))",
+      "assumptions": [],
+      "bridge_level": "rust-refinement-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs"
+      ],
+      "tests": ["scripts/fi_conformance.py"],
+      "boundaries": [
+        "MPT/anchor authentication, canonical byte parser and Keccak semantics are external; exact historic bytes need trace-local separation.",
+        "Engine authenticity and deterministic exact-context execution, payload validity, settlement, durable Commit/reopen and async scheduling are adapter boundaries; tested, not Rust-refined here."
+      ],
+      "refinement": {
+        "generated_module": "Etna.Refinement.Rust.EtnaConsensusCore",
+        "generated_definition": "etna_consensus_core.forced.advance_cursor",
+        "rust_symbol": "etna_consensus_core::forced::advance_cursor",
+        "source": "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs",
+        "provenance": "Etna/Refinement/Rust/provenance.json"
+      }
+    }
+  ]
+}

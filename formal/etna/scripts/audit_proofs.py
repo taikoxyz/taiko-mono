@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Generate and execute a Lean kernel/type/transitive-axiom audit from exact manifests."""
 import argparse
+import hashlib
 import json
 import pathlib
 import re
@@ -17,6 +18,48 @@ def run(command):
     if result.returncode:
         raise ValueError(result.stdout + result.stderr)
     return result.stdout + result.stderr
+
+
+def checked_path(base, relative):
+    path = (base / relative).resolve()
+    if not path.is_relative_to(base.resolve()):
+        raise ValueError('provenance path escapes its source root')
+    return path
+
+
+def validate_refinement(entry):
+    ref = entry.get('refinement')
+    fields = {'generated_module', 'generated_definition', 'rust_symbol', 'source', 'provenance'}
+    if not isinstance(ref, dict) or not fields <= ref.keys():
+        raise ValueError('complete refinement metadata required')
+    for key in ('generated_module', 'generated_definition'):
+        if not NAME.fullmatch(ref[key]):
+            raise ValueError('invalid generated function/module name')
+    provenance = json.loads(checked_path(ROOT, ref['provenance']).read_text())
+    pair = {'rust_symbol': ref['rust_symbol'], 'lean_definition': ref['generated_definition']}
+    if pair not in provenance['generated_definitions']:
+        raise ValueError('source symbol does not match generated provenance')
+    locks = json.loads((ROOT / 'tools.lock.json').read_text())
+    for tool, pin in provenance['tools'].items():
+        if locks.get(tool) != pin:
+            raise ValueError('refinement toolchain pin differs from tools.lock.json')
+    for section in ('source_sha256', 'cargo_sha256'):
+        for relative, digest in provenance[section].items():
+            path = checked_path(ROOT.parents[1], relative)
+            if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+                raise ValueError('refinement production source digest mismatch: ' + relative)
+    source = checked_path(ROOT.parents[1], ref['source'])
+    expected = provenance['source_sha256'].get(ref['source'])
+    if not expected or hashlib.sha256(source.read_bytes()).hexdigest() != expected:
+        raise ValueError('refinement production source digest mismatch')
+    generated = checked_path(ROOT, ref['generated_module'].replace('.', '/') + '.lean')
+    expected = provenance['generated_sha256'].get(generated.name)
+    if not expected or hashlib.sha256(generated.read_bytes()).hexdigest() != expected:
+        raise ValueError('refinement generated source digest mismatch')
+    origin = re.search(r'/-- \[' + re.escape(ref['rust_symbol']) +
+                       r'\]:[\s\S]*?Source: \'([^\']+)\'', generated.read_text())
+    if not origin or ref['source'] != 'packages/taiko-client-rs/' + origin.group(1):
+        raise ValueError('source symbol is linked to the wrong production file')
 
 
 def audit(manifests, output):
@@ -37,10 +80,14 @@ def audit(manifests, output):
                 raise ValueError(f'invalid or missing {key}: {entry[key]}')
         if not entry['type'] or not isinstance(entry['assumptions'], list):
             raise ValueError('complete type and explicit assumption list required')
-        if entry['bridge_level'] != 'spec-proved':
-            raise ValueError('core audit accepts only spec-proved declarations')
+        if entry['bridge_level'] == 'rust-refinement-proved':
+            validate_refinement(entry)
+        elif entry['bridge_level'] != 'spec-proved':
+            raise ValueError('audit accepts only kernel-checked spec/refinement declarations')
     run(['lake', 'build'])
-    modules = sorted({entry['module'] for entry in entries})
+    modules = sorted({entry['module'] for entry in entries} |
+                     {entry['refinement']['generated_module'] for entry in entries
+                      if entry['bridge_level'] == 'rust-refinement-proved'})
     for module in modules:
         source = ROOT / (module.replace('.', '/') + '.lean')
         target = ROOT / '.lake/build/lib/lean' / (module.replace('.', '/') + '.olean')
@@ -62,6 +109,18 @@ def audit(manifests, output):
                   f'  unless ← Lean.Meta.isDefEq info.type expected do throwError "{decl}: full type mismatch"',
                   '  Lean.logInfo m!"Full declared type: {info.type}"',
                   f'#print axioms {decl}']
+        if entry['bridge_level'] == 'rust-refinement-proved':
+            generated = entry['refinement']['generated_definition']
+            lines += ['run_elab do', f'  let info ← Lean.getConstInfo `{decl}',
+                      '  Lean.Meta.forallTelescopeReducing info.type fun _ body => do',
+                      '    let body ← Lean.Meta.whnf body',
+                      '    unless body.isAppOfArity ``Eq 3 do',
+                      '      throwError "refinement must be an exact total output equality"',
+                      '    let args := body.getAppArgs',
+                      f'    unless args[1]!.getAppFn.isConstOf `{generated} do',
+                      '      throwError "refinement left side must call the generated function"',
+                      '    unless args[2]!.getAppFn.isConstOf ``Aeneas.Std.Result.ok do',
+                      '      throwError "refinement right side must be outer Result.ok"']
     output.write_text('\n'.join(lines) + '\n')
     result = run(['lake', 'env', 'lean', str(output)])
     for entry in entries:

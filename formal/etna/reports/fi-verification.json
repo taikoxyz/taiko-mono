@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "base_revision": "7f8053847b529966148d16168662c8534850470d",
+  "scope": "FI-01..09 model proofs and six total actual-generated Rust refinements; async conformance distinct",
+  "audit": {
+    "theorems": 43,
+    "fi": 41,
+    "core": 2,
+    "allowed_axioms": ["propext", "Classical.choice", "Quot.sound"],
+    "forbidden_axioms": []
+  },
+  "corpus": {
+    "cases": 94,
+    "sha256": "3b95093d9ba702bf408a895eb47fafd58bf3a5112b10fd96d3df9fdeba3747cd",
+    "lean": "passed",
+    "production_rust": "passed"
+  },
+  "negative_tests": {
+    "tests": 22,
+    "status": "passed"
+  },
+  "rust": {
+    "fmt": "passed",
+    "clippy_fix": "passed",
+    "clippy": "passed",
+    "workspace_tests": 947,
+    "protocol_tests": 60,
+    "doc_tests": 2,
+    "unit_annotation": "947 tests passed; existing hot/cold test marked LEAK once in full concurrent run. Focused nextest rerun passed1/1 without LEAK (run5b40f70f-0037-4f4a-baf5-60b63a52c9f5).",
+    "docker": {
+      "status": "running",
+      "run_id": "d860a505-0362-4c40-bf50-536253777ab3",
+      "log": "/private/tmp/etna-fi-final-test.log"
+    }
+  },
+  "mutations": [
+    {
+      "mutation": "due-strict",
+      "corpus_exit": 1,
+      "refinement_exit": 1,
+      "gate": "actual regenerated source refinement and corpus",
+      "restored": true
+    },
+    {
+      "mutation": "unfinished-consumes",
+      "corpus_exit": 1,
+      "refinement_exit": 1,
+      "gate": "actual regenerated source refinement and corpus",
+      "restored": true
+    },
+    {
+      "mutation": "error-as-empty",
+      "test": "engine::forced::tests::engine_failures_and_incomplete_results_do_not_authorize_consumption",
+      "exit": 101,
+      "gate": "actual async adapter assertion",
+      "restored": true
+    },
+    {
+      "mutation": "hot-consumption-removed",
+      "test": "app::tests::finalize::hot_canonical_skip_matches_cold_replay_and_persists_after_commit",
+      "exit": 101,
+      "gate": "actual async adapter assertion",
+      "restored": true
+    },
+    {
+      "mutation": "cold-consumption-removed",
+      "test": "app::tests::finalize::hot_canonical_skip_matches_cold_replay_and_persists_after_commit",
+      "exit": 101,
+      "gate": "actual async adapter assertion",
+      "restored": true
+    }
+  ],
+  "production_sha256": {
+    "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs": "e9484871ddad7baf70454c8223e175d8117e6366792535728d6e467c0045db7e",
+    "packages/taiko-client-rs/crates/abci/src/forced.rs": "0eafa1b6448ca5eb7b5b938101592cb35f44bd36e062c55e8cd609f19197978d",
+    "packages/taiko-client-rs/crates/abci/src/engine/forced.rs": "a47dc5cc261d9aed5286b3240ce971755bdc9c5bbb33db1f61aae02636cf6fa8",
+    "packages/taiko-client-rs/crates/abci/src/app/finalize.rs": "5446426dc9c1b6e19ff2e33d70ac9ada7d6a22b7b110b08825c3dc8320a4cafb"
+  },
+  "generated_sha256": "de74fbf200f60c99a050a40f9fa76f7ab6285bdbac55591e59a3aafd3e187096",
+  "boundaries": [
+    "Pinned compiler, Charon, Aeneas translation and standard-library models",
+    "MPT/anchor authentication, exact slot derivation, byte/envelope parsing and Keccak semantics",
+    "Historical byte equality requires trace-local separation, never global injectivity",
+    "Exact-context authentic completed execution, newPayload validity and settlement",
+    "Successful durable writes/reopen and async scheduling are external laws/conformance only",
+    "COM/Landing/CI and advanced upstream pairing refresh remain controller-owned pending work"
+  ]
+}

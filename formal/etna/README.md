@@ -107,3 +107,19 @@ External authentication, hash/encoding, completed singleton execution, consensus
 rollback/frame and real guest facts are explicit parameterized interfaces in
 `Etna/Common/Assumptions.lean`. Constructing these interfaces is not evidence that
 the facts hold; protocol theorems must accept and use the precise required facts.
+
+## Forced inclusion verification
+
+`Etna/FI/Model.lean` and `Proofs.lean` cover FI-01 through FI-09. The staged model checks witness/index before authenticated storage and preimage checks. Its evidence binds the committed anchor root/time/tail, Inbox and ordered slots, the actual execution-list head, and the exact singleton parent/attributes/anchor/transaction request. Four complete authenticated examples in `Examples.lean` establish satisfiability. Finite valid traces carry those intermediate validation and execution results; induction proves cursor conservation and bounds.
+
+`Etna/Refinement/Rust/Forced.lean` proves exact total output equalities for all six **actual generated production functions**: pending-entry, preimage, due, classify, resolve and cursor advance. Each result is outer `Aeneas.Std.Result.ok`, preserving Rust's inner `Ok`/`Err` and payloads, including maximum-u64 overflow. These are total proofs, with no partial-WP divergence escape. The pinned compiler/Charon/Aeneas translation and Aeneas standard models remain the extraction trust boundary. No byte parser, MPT, Keccak, async Engine, ABCI handler, storage or Solidity implementation proof is claimed.
+
+`manifests/client.json` records full theorem types, explicit assumptions and source boundaries. `scripts/audit_proofs.py` verifies the actual theorem type, transitive axioms, generated-function equality shape, source symbol and source/generated/toolchain provenance. Only `propext`, `Classical.choice` and `Quot.sound` are permitted. The file is additive: committee obligations remain pending.
+
+Run `python3 scripts/fi_conformance.py` to compare the fixed 94-case JSONL corpus with the independent Lean model and actual Rust reducer source. The corpus preserves the original 60 authenticated-classifier goldens and adds witness, boundary, resolution and overflow cases. Actual Process/Finalize/Commit/reopen, cancellation, missing history, wrong headers and stale checked-cache fields are covered separately by Rust adapter tests; this is conformance evidence, not formal refinement.
+
+With `AENEAS_ROOT` and `CHARON_ROOT` set to the pinned built tools (and optional `AENEAS_EXE`/`CARGO_TARGET_DIR` overrides), `python3 scripts/fi_mutations.py` temporarily mutates real production source, requires semantic test failures, regenerates the two scalar mutants and requires their Lean refinements to fail. It restores original source/generated/provenance bytes in `finally`; run it exclusively, without another build or editor touching those files. The three async mutants cover error-as-empty and removal of hot-only or cold-only consumption.
+
+Exact historical admission bytes require trace-local hash separation; no global Keccak injectivity is assumed. FI-08 compares successful hot/cold results from equal canonical inputs and checked intermediate facts, with explicit successful durable-write/reopen laws. Production cache comparisons use a digest and selected fresh fields; arbitrary context changes are not claimed to miss. FI-09 preserves behavior only while both timestamps remain due. The finite example codec is a satisfiability witness, not a cryptographic implementation.
+
+Format the standalone Rust harness with `rustfmt +nightly-2025-09-27 --config-path adapters/rustfmt.toml adapters/fi.rs`. Its `skip_children = true` setting prevents traversal into the pinned production source referenced by `#[path]`; workspace formatting remains `just fmt`.
