@@ -156,11 +156,15 @@ pending entries only, and returns an empty array outside `[head, tail)` or for z
 A proposer retrieves the original bytes with `eth_getLogs` filtered to the proven `l1Block`,
 Inbox address, event signature and indexed queue index. Decode the event and verify its bytes
 against the proven `txHash` before caching or using them. No receipt proof is needed because
-the storage proof authenticates the expected hash. Missing, inconsistent, oversized or unavailable
-event data is a preparation failure and never authorizes consumption. Cached bytes must match the
-selected anchor and proven entry identity. Validators and cold replay authenticate an included
-transaction directly from execution-block position zero; only skips need the separate preimage
-in the forced witness. Neither path fetches submission calldata or logs during validation.
+the storage proof authenticates the expected hash. Before due, this read is optional and bounded
+to preserve time for an ordinary block: missing, inconsistent, oversized or unavailable event data,
+read errors and timeouts may fall back to an ordinary block with empty witness `tx` bytes. The entry
+proof remains mandatory under the candidate's anchor, and nonempty witness bytes remain
+authenticated. At or after due, acquisition failure never permits retaining the cursor: the block
+must include or legally skip the entry under the rules below. Cached bytes must match the selected
+anchor and proven entry identity. Validators and cold replay authenticate an included transaction
+directly from execution-block position zero; only skips need the separate preimage in the forced
+witness. Neither path fetches submission calldata or logs during validation.
 
 `migrationState()` retains its name as a compatibility getter for the ABCI status word.
 It exposes no migration state machine. `activation()` returns the genesis record.
@@ -408,9 +412,10 @@ earlier batch's committee output.
 ### Forced inclusion obligations
 
 The L2 chain tracks a cursor `c(h)`, the number of entries consumed after block `h`; `c(0) = 0`.
-Each block consumes at most one entry, exactly `c(h-1)`, or keeps the cursor. For block `h` with
-committed parent cursor `c` and anchor `A` (its own anchor or the inherited one), read `tail(A)`
-from `A`'s state. If `c >= tail(A)`, forbid a forced witness. Otherwise require exactly entry `c`'s
+Each block consumes at most one entry, exactly `c(h-1)`, or keeps the cursor when no entry is
+pending or the pending entry is not yet due. For block `h` with committed parent cursor `c` and
+candidate anchor `A` (its own anchor or the inherited one), read `tail(A)` from `A`'s state.
+If `c >= tail(A)`, forbid a forced witness. Otherwise require exactly entry `c`'s
 witness `[index, entryProof, tx]`, authenticate the Inbox account and both entry slots under
 `A.stateRoot`, and enforce `tx.length <= 8192`. The witness's `tx` byte string may be empty:
 pre-due peeks need no preimage, and inclusion authenticates execution-block transaction zero
@@ -428,6 +433,9 @@ days. Canonical means exactly one complete EIP-2718 transaction envelope, includ
 transactions, whose decoding consumes all input and whose re-encoding reproduces the exact bytes.
 Use the codec compatible with the pinned EL. Empty, undecodable or failed-round-trip bytes are
 invalid forced input; do not duplicate signature, nonce, balance, gas or fee validation.
+At or after due, a block that neither includes nor legally skips the entry is invalid; it cannot
+retain the cursor. Log acquisition failure or an unavailable singleton verdict does not relax this
+rule.
 
 | Condition                                                                        | Action                                                                                                |
 | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
