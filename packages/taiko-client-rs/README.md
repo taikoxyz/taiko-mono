@@ -750,7 +750,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 Regenerate lander ABI/deployment fixtures with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `9b381ac1aa29af5b28c7d27065c1dc266bcaa0c5`,
+The script requires protocol HEAD `27777e9d7147e7b1d3543711f4d7370a0377fa53`,
 installs pnpm dependencies before Foundry, verifies compiler source hashes,
 formats generated JSON, and records ABI/bytecode/compiler provenance. It also copies the Etna
 vectors shared with the contracts (`testdata/etna_vectors`, which the `abci` and `lander` unit
