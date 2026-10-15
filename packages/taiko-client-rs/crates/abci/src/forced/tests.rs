@@ -523,3 +523,44 @@ async fn original_resolution_and_cursor_corpus() {
     }
     assert_eq!(rows, include_str!("resolution-corpus.csv"));
 }
+
+#[test]
+fn nonempty_legacy_preimages_decode_only_when_a_skip_needs_them() {
+    let (mut anchor, witness) = fixture(canonical_tx());
+    assert!(!witness.tx.is_empty());
+
+    anchor.timestamp = T0 + DELAY - 1;
+    CANONICAL_DECODE_CALLS.with(|calls| calls.set(0));
+    assert_eq!(check(context(&anchor), Some(&witness), None), Ok(ForcedDecision::Ordinary));
+    assert_eq!(
+        CANONICAL_DECODE_CALLS.with(|calls| calls.get()),
+        0,
+        "ordinary legacy preimage needs no decoding"
+    );
+
+    for timestamp in [T0 + DELAY - 1, T0 + DELAY] {
+        anchor.timestamp = timestamp;
+        CANONICAL_DECODE_CALLS.with(|calls| calls.set(0));
+        assert_eq!(
+            check(context(&anchor), Some(&witness), Some(&witness.tx)),
+            Ok(ForcedDecision::Included(INDEX))
+        );
+        assert_eq!(
+            CANONICAL_DECODE_CALLS.with(|calls| calls.get()),
+            1,
+            "only the matching first transaction needs decoding"
+        );
+    }
+
+    anchor.timestamp = T0 + DELAY;
+    CANONICAL_DECODE_CALLS.with(|calls| calls.set(0));
+    assert_eq!(
+        check(context(&anchor), Some(&witness), None),
+        Ok(ForcedDecision::NeedsSkip { index: INDEX, tx: witness.tx.clone() })
+    );
+    assert_eq!(
+        CANONICAL_DECODE_CALLS.with(|calls| calls.get()),
+        1,
+        "due skip must still decode its preimage"
+    );
+}

@@ -128,11 +128,19 @@ pub fn entry_slots(index: u64) -> [B256; 2] {
     [base.into(), base.wrapping_add(U256::from(1)).into()]
 }
 
+#[cfg(test)]
+std::thread_local! {
+    // Counts actual canonical decoder entries on this test thread, including re-encoding.
+    static CANONICAL_DECODE_CALLS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 /// Decodes exactly one canonical EIP-2718 transaction with no trailing bytes.
 ///
 /// Re-encoding equality rejects alternative encodings of the same transaction. Empty, malformed
 /// and network-wrapped typed input is invalid and returns `None`.
 pub fn decode_canonical(bytes: &[u8]) -> Option<TxEnvelope> {
+    #[cfg(test)]
+    CANONICAL_DECODE_CALLS.with(|calls| calls.set(calls.get() + 1));
     let mut remaining = bytes;
     let tx = TxEnvelope::decode_2718(&mut remaining).ok()?;
     (remaining.is_empty() && tx.encoded_2718().as_slice() == bytes).then_some(tx)
@@ -220,6 +228,17 @@ pub fn check(
     core::check_preimage(w.tx.len() as u64, true).map_err(map_error)?;
     let hash_matches = keccak256(&w.tx) == entry.tx_hash;
     core::check_preimage(w.tx.len() as u64, hash_matches).map_err(map_error)?;
+    let first_matches = first_tx.is_some_and(|tx| {
+        tx.len() <= MAX_FORCED_TX_BYTES &&
+            keccak256(tx) == entry.tx_hash &&
+            decode_canonical(tx).is_some()
+    });
+    // Canonicality is an adapter fact only needed on the classifier's due-skip branch.
+    // Legacy preimages on ordinary/included blocks must not allocate or re-encode here.
+    let preimage_canonical = !first_matches &&
+        is_due(entry.timestamp, context.delay, context.anchor.timestamp) &&
+        hash_matches &&
+        decode_canonical(&w.tx).is_some();
     let decision = core::classify_forced(core::ForcedFacts {
         cursor: context.cursor,
         timestamp: entry.timestamp,
@@ -227,12 +246,8 @@ pub fn check(
         anchor_timestamp: context.anchor.timestamp,
         preimage_len: w.tx.len() as u64,
         preimage_hash_matches: hash_matches,
-        preimage_canonical: decode_canonical(&w.tx).is_some(),
-        first_matches: first_tx.is_some_and(|tx| {
-            tx.len() <= MAX_FORCED_TX_BYTES &&
-                keccak256(tx) == entry.tx_hash &&
-                decode_canonical(tx).is_some()
-        }),
+        preimage_canonical,
+        first_matches,
     })
     .map_err(map_error)?;
     Ok(match decision {

@@ -31,7 +31,7 @@ pub struct ForcedFacts {
     pub preimage_len: u64,
     /// Keccak of supplied bytes equals the authenticated entry hash.
     pub preimage_hash_matches: bool,
-    /// Supplied bytes decode and re-encode as exactly one canonical transaction.
+    /// Canonical supplied bytes; required only when due, hash-matching and not included.
     pub preimage_canonical: bool,
     /// First block transaction is canonical, within the byte limit and hash-matching.
     pub first_matches: bool,
