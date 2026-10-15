@@ -175,6 +175,11 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     assert_eq!(free, U256::ZERO, "the two shares take the whole free balance");
     let open = view(p, fixture.pool, EtnaRewardPool::epochRecordCall { _epoch: 1 }, None).await?;
     assert_eq!(open.frozenAtL1, 0, "epoch 1's last commit has not landed");
+    // The fixture's one validator signs every height. Heights 1..=EPOCH_LEN reach the pool
+    // through the last commits of blocks 2..=EPOCH_LEN + 1, spread over several landings, so a
+    // count of exactly EPOCH_LEN means each height was counted once across the batch boundaries.
+    let signed = EtnaRewardPool::signedCountOfCall { _epoch: 0, _index: U256::ZERO };
+    assert_eq!(u64::from(view(p, fixture.pool, signed, None).await?), EPOCH_LEN);
     // Every settled validator's registration owner holds a credit; the fixture's one validator
     // takes the whole validator share.
     let [member] = settled.batch.settlements[0].as_slice() else {
@@ -216,6 +221,8 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
         view(p, fixture.inbox, EtnaInbox::proverRewardLedgerCall {}, None).await?,
         proving - per_block * U256::from(3)
     );
+    let solvent = view(p, fixture.pool, EtnaRewardPool::checkInvariantsCall {}, None).await?;
+    assert!(solvent, "the pool's balance covers its reservations");
     fixture.anvil.stop().await
 }
 
