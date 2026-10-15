@@ -85,7 +85,7 @@ mod tests {
         snapshot.checkpoint_height = 100;
         snapshot.checkpoint_hash = B256::from(U256::from(0x11));
         snapshot.committee_config_hash =
-            b256!("a39d945e8d229bca83870430088db2065f92f8b01303480447d03d5dd11ee377");
+            b256!("483221e100b91b58a058b89723effa13d9a8b8527f8915ca8ad74cc44d5b7c0e");
         snapshot.forced_inclusion_head = 3;
         let input = LandInput {
             lastHeight: 164,
@@ -116,23 +116,24 @@ mod tests {
         assert_eq!(preimage.len(), 576);
         assert_eq!(
             hash(&snapshot, &input, reference, &hashes),
-            b256!("05d7780cd6d28e0ddb88f9d1c6c60e04be965f69e40ac3c57c617a4fd3458928")
+            b256!("e4f69a2c2e4a504cafcb7a737cd9eb64b1f6523fafa82e606c568f410ba24ca6")
         );
         assert_eq!(preimage[15 * 32..16 * 32], U256::from(3).to_be_bytes::<32>());
         assert_eq!(preimage[16 * 32..17 * 32], U256::from(5).to_be_bytes::<32>());
         assert_eq!(preimage[17 * 32..17 * 32 + 12], [0; 12]);
         assert_eq!(preimage[17 * 32 + 12..], input.feeRecipient.0);
-        // The recipient is appended: the first seventeen words are the former V6 vector.
+        // The recipient is appended: the first seventeen words are the former seventeen-word V6
+        // encoding of the same inputs (independently `cast abi-encode`d).
         assert_eq!(
             keccak256(&preimage[..17 * 32]),
-            b256!("4815a3e1647da69f7c7cb55035aa8dd6fcf0e4690fe18e570d322a6d12a3699d")
+            b256!("1ddacd671b06fb32f3daa57d1abf0fae06ccdec5190c33ecf7a4e649d7b8762a")
         );
-        // Under the V5 domain, the first fifteen words are exactly the pinned V5 vector.
+        // Under the V5 domain, the first fifteen words are the V5 encoding of the same inputs.
         let mut v5 = preimage;
         v5[b"TAIKO_ETNA_LAND_V6".len() - 1] = b'5';
         assert_eq!(
             keccak256(&v5[..15 * 32]),
-            b256!("4d02d06b547ccf426c7797489fa6bf8e68ed66b1dbdfcab3ba38cfcf0845d870")
+            b256!("43533fd98016f831c0f94ce56cf0b8e1480a275e07a0fbf22ce0f23a5fb9c4d7")
         );
     }
 
