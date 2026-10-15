@@ -20,10 +20,11 @@ REPO = ROOT.parents[1]
 UPSTREAM_CLIENT = '2af0f30485b9990eae87074037bede11c59e8883'
 # Frozen independently of the manifests/ledger. Deleting both copies is still rejected.
 POLICY = ROOT/'schemas/coverage-policy.json'
-POLICY_SHA256 = '866810ac3a55e8d3eb9dfae9cb77ae81aab56054a59fd6a1c74fc9d5f2721a50'
+POLICY_SHA256 = '207c0ab1498db472164a8bfd8520f04d57fc0ad3fcd2ce7a3b4fad7f95f38330'
 if hashlib.sha256(POLICY.read_bytes()).hexdigest() != POLICY_SHA256:
     raise ValueError('coverage policy changed without explicit checker review')
 _POLICY = json.loads(POLICY.read_text())
+# Per-ID tuple: declaration, bridge, source mappings, prose-premise digest, full-type digest.
 REQUIRED = _POLICY['required']
 REQUIRED_FILES = _POLICY['required_files']
 PENDING = {'GUEST-SOUNDNESS', 'TIME-RULE-REFINEMENT', 'SOLIDITY-BYTECODE-REFINEMENT'}
@@ -71,6 +72,11 @@ def check_ledger(ledger, entries, source_root=None):
             raise ValueError('invalid obligation schema')
         entry = index[row['id']]
         required = REQUIRED[row['id']]
+        # The independently reviewed policy pins the complete expected contract,
+        # not only mutable manifest/ledger agreement or prose premise labels.
+        if (len(required) != 5 or row['type_sha256'] != required[4] or
+                canonical(entry['type']) != required[4]):
+            raise ValueError('mandatory full theorem contract changed: '+row['id'])
         if [entry['declaration'],entry['bridge_level']] != required[:2] or [row['declaration'],row['bridge_level']] != required[:2]:
             raise ValueError('mandatory declaration/bridge changed or downgraded: '+row['id'])
         if [[v['path'],v['symbol'],v['relation']] for v in row['source_symbols']] != required[2]:

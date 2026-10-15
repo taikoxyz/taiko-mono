@@ -5695,7 +5695,7 @@
     "adapters/solidity/EtnaInboxLeanConformance.t.sol": "a23a2a0bdb7c44391ba251c3c7fbcd3880b0be973adbe98f32eb097bfc7b750d",
     "corpus/landing.jsonl": "b92877e89a4c5fc69a177499e5d97f5ddf0c83fbb80e2bd9b657df959247b72c",
     "tools.lock.json": "47f66b9b2d441aac44da4a08fe21ca6bb7321c4483aa2c1ca978a756bfc8cbdd",
-    "schemas/coverage-policy.json": "866810ac3a55e8d3eb9dfae9cb77ae81aab56054a59fd6a1c74fc9d5f2721a50",
+    "schemas/coverage-policy.json": "207c0ab1498db472164a8bfd8520f04d57fc0ad3fcd2ce7a3b4fad7f95f38330",
     "schemas/coverage.schema.json": "41ac3806d950b5823920257717b247f2625678e4e59198340f8662854a22461b"
   },
   "contract_artifacts": {

@@ -60,6 +60,22 @@ class CoverageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'downgraded'):
             self.check(ledger,entries)
 
+    def test_coordinated_manifest_ledger_weakening_is_rejected(self):
+        ledger=copy.deepcopy(self.ledger); entries=copy.deepcopy(self.entries)
+        entry=next(e for e in entries if e['id']=='INT-fees-nonvacuity')
+        entry['type']='True'
+        next(r for r in ledger['obligations'] if r['id']==entry['id'])['type_sha256']=coverage.canonical(entry['type'])
+        with self.assertRaisesRegex(ValueError,'mandatory full theorem contract'):
+            self.check(ledger,entries)
+
+    def test_coordinated_manifest_ledger_added_premise_is_rejected(self):
+        ledger=copy.deepcopy(self.ledger); entries=copy.deepcopy(self.entries)
+        entry=next(e for e in entries if e['id']=='LAND-07')
+        entry['type']='False → ('+entry['type']+')'
+        next(r for r in ledger['obligations'] if r['id']==entry['id'])['type_sha256']=coverage.canonical(entry['type'])
+        with self.assertRaisesRegex(ValueError,'mandatory full theorem contract'):
+            self.check(ledger,entries)
+
     def test_missing_renamed_duplicate_theorem_fails(self):
         for mutate in [lambda rows:rows.pop(),lambda rows:rows.append(rows[0]),
                        lambda rows:rows[0].update(declaration='Etna.DoesNotExist')]:
