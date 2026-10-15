@@ -516,9 +516,8 @@ func (i *Indexer) checkReorg(ctx context.Context, emittedInBlockNumber uint64) e
 	return nil
 }
 
-// indexMessageProcessedEvents indexes `MessageProcessed` events on the bridge contract
-// and stores them to the database, and adds the message to the queue if it has not been
-// seen before.
+// indexMessageProcessedEvents fetches `MessageProcessed` events from the bridge
+// and handles them for database indexing. It does not publish messages to the queue.
 func (i *Indexer) indexMessageProcessedEvents(ctx context.Context,
 	filterOpts *bind.FilterOpts,
 ) error {
