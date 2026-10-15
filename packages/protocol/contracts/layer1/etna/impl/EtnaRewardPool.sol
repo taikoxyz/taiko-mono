@@ -125,7 +125,8 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
     // ---------------------------------------------------------------
 
     /// @notice Initializes the pool.
-    /// @param _owner The owner, who can only upgrade the pool; `msg.sender` if zero.
+    /// @param _owner The owner, who can upgrade the pool, pause and unpause it (no pool flow
+    /// checks the pause) and transfer ownership; `msg.sender` if zero.
     function init(address _owner) external initializer {
         __Essential_init(_owner);
     }

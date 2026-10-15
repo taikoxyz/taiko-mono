@@ -103,8 +103,8 @@ contract L2FeeVault is EssentialContract {
     /// @param _gasLimit The gas limit of the message on L1, in `(0, MAX_SWEEP_GAS_LIMIT]`. A zero
     /// limit lets only the pool process the message; a limit no relayer can forward under the
     /// L1 transaction gas cap makes the Bridge reject every relayed attempt. Either way the
-    /// message would never leave `NEW`. The Bridge also rejects a limit below its minimum for the
-    /// message.
+    /// message would never leave `NEW`. The Bridge also rejects a limit at or below its minimum
+    /// for the message.
     /// @return msgHash_ The hash of the Bridge message, or zero for an empty vault.
     function sweep(uint32 _gasLimit) external payable nonReentrant returns (bytes32 msgHash_) {
         uint256 amount = address(this).balance - msg.value;
