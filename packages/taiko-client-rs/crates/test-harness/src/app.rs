@@ -258,8 +258,7 @@ fn run(
     runtime.shutdown_timeout(SHUTDOWN_TIMEOUT);
 }
 
-/// Waits for the EL's Engine API, loads the KZG trusted setup (as `taiko-client abci` does
-/// before serving) and builds the app over its store and execution engine.
+/// Waits for the EL's Engine API and builds the app over its store and execution engine.
 async fn build_app(c: &AppConfig) -> Result<App<RpcL1Source, RpcEngine>> {
     let opts = AppOptions::default();
     let engine =
