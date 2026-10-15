@@ -9,6 +9,7 @@ PINNED_REVISION=27777e9d7147e7b1d3543711f4d7370a0377fa53
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLIENT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROTOCOL_CHECKOUT="$(cd "${1:?usage: gen_lander_artifacts.sh <taiko-mono-checkout>}" && pwd)"
+python3 "$SCRIPT_DIR/foundry_identity.py"
 ACTUAL_REVISION="$(git -C "$PROTOCOL_CHECKOUT" rev-parse HEAD)"
 if [[ "$ACTUAL_REVISION" != "$PINNED_REVISION" ]]; then
     echo "protocol checkout must be $PINNED_REVISION (found $ACTUAL_REVISION)" >&2
@@ -34,6 +35,9 @@ import subprocess
 import sys
 
 checkout, client, revision = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]), sys.argv[3]
+sys.path.insert(0, str(client / "script"))
+from foundry_identity import checked_identity
+
 protocol = checkout / "packages/protocol"
 output = client / "crates/lander/tests/fixtures/contracts"
 output.mkdir(parents=True, exist_ok=True)
@@ -48,12 +52,9 @@ artifacts = {
 manifest = {
     "protocolRevision": revision,
     "generator": "script/gen_lander_artifacts.sh",
-    # The release and commit only: build timestamps differ between platforms' release binaries.
-    "foundryVersion": [
-        line
-        for line in subprocess.check_output(["forge", "--version"], text=True).splitlines()
-        if line.startswith(("forge Version:", "Commit SHA:"))
-    ],
+    # Canonical source identity only after authenticating the exact platform binary;
+    # its observed label/build identity is emitted separately by the preflight receipt.
+    "foundryVersion": checked_identity()["canonical"],
     "artifacts": {},
 }
 for name, relative in artifacts.items():

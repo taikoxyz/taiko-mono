@@ -758,6 +758,11 @@ tests read) from that revision and records their hashes. It leaves
 the existing Anchor bindings unchanged. Run it twice and require identical generated output.
 `just check-lander-artifacts` (the CI job "Lander artifacts") runs it on the pinned revision in a
 temporary git worktree and fails unless every generated file equals the committed one.
+Both commands authenticate the actual Forge binary SHA256, full source commit and build profile
+through `script/foundry_identity.py`. Only the pinned Linux official1.5.1 and reviewed macOS arm64
+producer are accepted. Their `1.5.1-v1.5.1`/`1.5.1-stable` display labels map to the same canonical
+manifest identity; observed identity is logged and artifact bytes remain exact. Other platform or
+rebuilt binaries require a reviewed pin update, even if their numeric version matches.
 Regenerate test-only `InboxSetter` and `ZkGasFixture` artifacts with
 `script/gen_test_harness_artifacts.sh`; it verifies compiler settings and source hashes and records
 bytecode provenance. Run that generator twice with identical output as well.

@@ -73,9 +73,10 @@ if [[ "$mode" == extract ]]; then
   env -u CARGO_TARGET_DIR -u RUSTFLAGS -u CARGO_ENCODED_RUSTFLAGS cargo +nightly-2026-09-17 build --manifest-path "$etna_tools/aeneas/charon/charon/Cargo.toml" --release --locked --bin charon --bin charon-driver
   mkdir -p "$etna_tools/aeneas/charon/bin"
   install -m755 "$etna_tools/aeneas/charon/charon/target/release/charon" "$etna_tools/aeneas/charon/charon/target/release/charon-driver" "$etna_tools/aeneas/charon/bin/"
-  opam --root="$etna_tools/opam-root" init --bare --no-setup -y
-  opam --root="$etna_tools/opam-root" switch import "$etna_repo/formal/etna/tools/opam-environment.export" --switch="$etna_tools/ocaml" -y
-  (cd "$etna_tools/aeneas"; opam --root="$etna_tools/opam-root" exec --switch="$etna_tools/ocaml" -- make build-bin)
+  "$etna_tools/bin/opam" --version
+  "$etna_tools/bin/opam" init --root="$etna_tools/opam-root" --bare --no-setup -y
+  "$etna_tools/bin/opam" switch import --root="$etna_tools/opam-root" "$etna_repo/formal/etna/tools/opam-environment.export" --switch="$etna_tools/ocaml" -y
+  (cd "$etna_tools/aeneas"; "$etna_tools/bin/opam" exec --root="$etna_tools/opam-root" --switch="$etna_tools/ocaml" -- make build-bin)
   {
     echo "AENEAS_ROOT=$etna_tools/aeneas"
     echo "CHARON_ROOT=$etna_tools/aeneas/charon"

@@ -20,12 +20,9 @@ GENERATED=(
     testdata/etna_vectors
 )
 
-expected_forge="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["foundryVersion"][0])' "$MANIFEST")"
-actual_forge="$(forge --version | head -n 1)"
-if [[ "$actual_forge" != "$expected_forge" ]]; then
-    echo "the fixtures were generated with '$expected_forge'; found '$actual_forge'" >&2
-    exit 1
-fi
+# The two reviewed platform binaries differ only in their release-channel display label.
+# Authenticate actual binary bytes and the full source/build identity, never numeric version alone.
+python3 "$SCRIPT_DIR/foundry_identity.py" --manifest "$MANIFEST"
 if [[ -n "$(git -C "$REPO_ROOT" status --porcelain -- "${GENERATED[@]}")" ]]; then
     echo "commit or discard local changes to the generated files first:" >&2
     git -C "$REPO_ROOT" status --short -- "${GENERATED[@]}" >&2

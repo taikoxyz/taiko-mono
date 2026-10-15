@@ -15,7 +15,10 @@ RELEVANT=('formal/etna/','packages/protocol/','packages/taiko-client-rs/',
 PROOF=('formal/etna/Etna/','formal/etna/manifests/','formal/etna/schemas/',
        'formal/etna/coverage.json','formal/etna/scripts/','formal/etna/tools',
        'formal/etna/lean-toolchain','formal/etna/lake','formal/etna/adapters/',
-       '.github/workflows/etna--formal.yml')
+       '.github/workflows/etna--formal.yml',
+       'packages/taiko-client-rs/script/foundry_identity.py',
+       'packages/taiko-client-rs/script/gen_lander_artifacts.sh',
+       'packages/taiko-client-rs/script/check_lander_artifacts.sh')
 
 def relevant(paths): return any(p.startswith(RELEVANT) for p in paths)
 def proof_change(paths): return any(p.startswith(PROOF) for p in paths)
