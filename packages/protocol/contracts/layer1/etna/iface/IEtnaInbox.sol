@@ -115,7 +115,7 @@ interface IEtnaInbox {
         /// @notice The forced inclusion queue head after the batch: the number of entries the
         /// L2 chain has consumed up to `lastHeight`.
         /// @dev At least the stored head, at most the queue tail, and ahead of the stored head by
-        /// at most the batch's block count, since each forced inclusion is its own block.
+        /// at most the batch's block count, since each block consumes at most one entry.
         uint48 forcedInclusionHead;
         /// @notice The receiver of the fees of the forced inclusions the batch consumes.
         /// @dev Non-zero, and bound into the V6 statement, so a copy of a public landing
@@ -280,36 +280,51 @@ interface IEtnaInbox {
     /// generation and back-pressure rules still apply; deterministic Finalize/replay makes no
     /// new L1 calls. Epoch-first blocks need no publication witness.
     ///
-    /// Forced inclusions: the L2 cursor c starts at 0; a forced inclusion block consumes exactly
-    /// entry c and increments it, every other block keeps it, and after every landing the stored
-    /// head equals the cursor at the checkpoint. For a block with anchor A, entry c is due iff
-    /// c < tail(A) and A.timestamp >= entry.timestamp + forcedInclusionDelay, and expired iff
-    /// c < tail(A) and A.timestamp >= entry.timestamp + 14 days. A due entry requires a forced
-    /// inclusion block for entry c; a pending entry that is not due may be included early; with
-    /// c >= tail(A) the block is ordinary; skipping or reordering is invalid. Every block also
-    /// requires block.timestamp - A.timestamp <= maxAnchorAge. A forced inclusion block keeps the
-    /// ordinary header rules and holds exactly what the EL produces in provided-list mode from
-    /// the entry's transaction list: its blob must match the entry's versioned hash, and Shasta's
-    /// forced inclusion manifest decoded at the entry's offset (at most 1 MiB decompressed)
-    /// gives the list when it has exactly one block; otherwise the list is empty. An expired
-    /// entry is consumed with an empty list and no blob. The batch consumes entries
-    /// [forcedInclusionHeadBefore, forcedInclusionHeadAfter) in order. Authenticate entries and
-    /// tail by storage proofs under the authenticated anchors, and slot 282 under genesis state.
-    /// Reject an entry whose proven blobHashes length is not exactly 1 (the store never writes
-    /// one). Read tail(A) from A's state, never genesis: a save can follow init in the same L1
-    /// block, so the queue may be non-empty at L1_0; block 1 always carries its own anchor
-    /// witness. feeRecipient is a public input the guest binds but does not constrain.
+    /// Forced inclusions: cursor c starts at 0; each block consumes at most entry c and advances
+    /// once, or keeps c. After landing, the stored head equals the checkpoint cursor. For anchor
+    /// A, forbid a forced witness if c >= tail(A); otherwise require exactly c's witness
+    /// [index, entryProof, tx]. Authenticate the Inbox account, both entry slots and tail under
+    /// A.stateRoot, enforce tx.length <= 8192 and keccak256(tx) == entry.txHash, even for a
+    /// pre-due peek. Read tail from A, never genesis: save may follow init in the same L1 block;
+    /// block 1 always carries its own anchor witness. Authenticate delay/maxAnchorAge in slot 282
+    /// under genesis. Due means A.timestamp >= entry.timestamp + delay without integer wrapping.
+    /// Entries never expire, even after fourteen days.
+    ///
+    /// Canonical bytes decode as exactly one complete EIP-2718 envelope (including legacy),
+    /// consume all input and re-encode identically using the pinned EL's codec. Empty, undecodable
+    /// or failed-round-trip bytes are invalid input. Canonical bytes exactly equal to transaction
+    /// zero consume c before or after due; later positions and same-sender/nonce replacements do
+    /// not count. Without inclusion, a pre-due entry keeps c; a due noncanonical entry skips and
+    /// advances once without an EL build; a due canonical entry advances only after a successful
+    /// completed singleton EL build returns no transactions. Use the same committed parent and
+    /// deterministic candidate attributes, changing only the provided list to [tx], under the
+    /// pinned legacy provided-list semantics. A nonempty result rejects the skip; build errors,
+    /// timeouts, missing parent state, cancellation or incomplete results never permit consumption.
+    /// Do not duplicate EL signature, nonce, balance, gas or fee validation or specially defer
+    /// semantic failures after due. Inclusion may share a block with later mempool transactions
+    /// and may revert in EVM execution; receipt success is not required. The candidate still
+    /// requires normal header and EL payload validation, including
+    /// block.timestamp - A.timestamp <= maxAnchorAge. An allowed skip rebuilds an ordinary mempool
+    /// block with its full budget when the combined build stopped at the forced transaction.
+    ///
+    /// The future guest must enforce the same MPT/hash/canonical/position/due checks and consume
+    /// [forcedInclusionHeadBefore, forcedInclusionHeadAfter) in order. An EL-dependent skip needs
+    /// an execution witness and guest execution of the singleton on the authenticated parent
+    /// with the candidate attributes; debug_executionWitnessForTxList generates that witness.
+    /// feeRecipient is a public input the guest binds but does not constrain. No expiry-derived
+    /// deletion exists, but BFT time suppression can still delay inclusion and a quorum can stop
+    /// settlement; these rules do not establish a wall-clock deadline.
     ///
     /// Prove contiguous execution from the parent hash to the terminal hash/state root, every
     /// anchor and actual proving L1 root on the header chain ending at the reference hash, and
-    /// block data in the bound blobs. The blobs carry payload V3: 0x03 and the zlib-compressed
+    /// block data in the bound blobs. The blobs carry payload V4: 0x04 and the zlib-compressed
     /// RLP list of each block's canonical CometBFT header and Etna envelope, where every header
     /// hashes to a certified block id, its data hash commits to the envelope and its last block
-    /// id links the batch. A forced inclusion block's envelope carries its entry's blob. Commits
-    /// and signatures are proof witnesses, not blob data. A batch may start/end at any valid
-    /// height without a previous batch's committee output. Envelope version 4, payload V3 and
-    /// journal schema 5 reject former envelope-3 histories, V2 payloads and older jobs; never
-    /// discard or replace a signed nonce. The verifier must pin a guest enforcing these V6
+    /// id links the batch. Envelope v5's forced witness carries transaction bytes, not a forced
+    /// blob. Landing still publishes batch blobs. Commits and signatures are proof witnesses,
+    /// not blob data. A batch may start/end at any valid height without a previous batch's
+    /// committee output. Envelope version 5, payload V4 and journal schema 8 reject older formats;
+    /// never discard or replace a signed nonce. The verifier must pin a guest enforcing these V6
     /// rules. Dummy proof 0x00 is for development only; no real guest exists here and the dummy
     /// verifier does not establish consensus validity or ZK soundness.
     /// @param _input The six-field batch: terminal checkpoint, reference block, forced inclusion

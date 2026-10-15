@@ -35,9 +35,8 @@ implements no Shasta-to-Etna migration. The protocol specification is #22262.
 
 `init(owner, params)` requires non-zero genesis hash, state root, committee record hash and committee config hash;
 `epochLenL2 >= 3`; `epochLenL1 > 0`; a past `genesisCutoff` at or after the registry's first
-checkpoint; `forcedInclusionDelay > 0`; `maxAnchorAge >= 1152 seconds`; and
-`forcedInclusionDelay + maxAnchorAge + 384 seconds <= 14 days`. It runs once;
-implementation contracts have initializers disabled. SignalService must
+checkpoint; `forcedInclusionDelay > 0`; and `maxAnchorAge >= 1152 seconds`. Neither parameter has
+an expiry-derived upper bound. Initialization runs once; implementation contracts have initializers disabled. SignalService must
 authorize this proxy, or initialization reverts without retaining ownership or genesis state.
 
 The genesis hash, state root, committee record and config hash are trusted bootstrap inputs. The deployer must
@@ -81,38 +80,34 @@ the config hash and use the dummy proof provider, which does not enforce guest c
   initialization block reduces the chance of entries exiting or going offline before startup.
 - `forcedInclusionFeeInGwei` and `forcedInclusionFeeDoubleThreshold` are non-zero implementation
   immutables. As in Shasta, a new entry costs
-  `forcedInclusionFeeInGwei * (threshold + pending) / threshold` Gwei (rounded down), so the fee
-  doubles once `threshold` entries are pending. The landing that consumes an entry pays its fee to
-  the `feeRecipient` that landing names. Size the fee to what an entry costs the lander: each
-  forced inclusion block re-publishes the entry's whole 128 KiB blob in the landing blobs (about
-  one extra landing blob, paid by the lander), and each due entry takes its own L2 block. The base
-  fee should cover about one to two landing blobs plus the entry's storage proof, which also
-  travels in the landing blobs, and the doubling threshold should be small.
+  `forcedInclusionFeeInGwei * (threshold + pending) / threshold` Gwei (rounded down and capped at
+  `uint64.max`), so the fee doubles once `threshold` entries are pending. This preserves the
+  existing fee curve and overflow behavior. Admission requires that fee multiplied by `1 gwei`
+  in wei and refunds excess Ether to the caller; a failed refund reverts the submission. The
+  landing that consumes an entry pays its stored fee to the statement-bound `feeRecipient`.
+  Size the fee and doubling threshold for the transaction bytes, envelope/storage proof and
+  landing/execution costs. Forced entries no longer carry a 128 KiB blob or require their own
+  transaction-only L2 block.
 - `forcedInclusionDelay` (seconds) is fixed at genesis in slot 282; the node and guest read it
   from storage. An entry is due at an L2 block whose anchor timestamp is at least the entry's
-  timestamp plus the delay; before that, validators may include it early. Initialization requires
-  `D > 0`, `M >= 1152 seconds` and `D + M + 384 seconds <= 14 days`, where `D` is the delay and
-  `M` is the maximum anchor age. Thus `M <= 14 days - D - 384 seconds`. The 384-second margin is
-  one Ethereum epoch (32 slots of 12 seconds), leaving room for a normal finalized-anchor update
-  before expiry. Merely requiring `D < 14 days` admits a due window shorter than an L1 slot or
-  an anchor update, so the first due anchor can already expire the entry and discard its list.
-  The coupled bound also prevents a stale anchor from staying not due until the block timestamp
-  reaches `entry.timestamp + 14 days` while satisfying the freshness rule.
+  timestamp plus the delay, evaluated without integer wraparound. Before due, validators may
+  include it early but may not skip it. Initialization requires `D > 0` and `M >= 1152 seconds`,
+  where `D` is the delay and `M` is the maximum anchor age. Entries never expire, and there is
+  no expiry-derived upper bound on either parameter.
 - `maxAnchorAge` (seconds) is fixed at genesis in slot 282. Every L2 block requires
   `block.timestamp - anchor.timestamp <= maxAnchorAge`. Its 1152-second minimum budgets three
   Ethereum epochs for normal finality lag; this is a deployment safeguard, not an upper bound
   on actual finality lag. Choose it above the expected lag, including `l1_finality_extra_depth`,
-  RPC latency and the desired stall tolerance, while respecting the coupled expiry bound.
+  RPC latency and the desired stall tolerance.
   An L1 finality stall longer than it pauses L2 until finality resumes. The rule bounds how
   far a block's anchor trails the block's derived timestamp, not real time: a pending entry is due
   at any block whose timestamp has reached `entry.timestamp + forcedInclusionDelay + maxAnchorAge`,
   so a longer value delays forced transactions more. Block timestamps follow BFT time, which a
   large enough coalition can hold back (see Open items). The proposed default is 2 hours; Ethereum
   finality stalls have lasted about an hour.
-- These parameter checks reserve a usable window under normal anchor and block progress. They
-  do not guarantee inclusion during a long L1/L2 outage, when earlier queued entries cannot be
-  drained before expiry, or when a voting coalition holds BFT time back. The 384-second margin
-  is a normal anchor update budget, not a bound on finality stalls or missed checkpoint slots.
+- Removing expiry prevents an outage or suppressed BFT time from deleting a pending transaction
+  merely because it is old. It does not guarantee a wall-clock inclusion deadline, sufficient
+  queue throughput during outages, or settlement against a quorum willing to stop landing.
 - The registry and Inbox owners can upgrade the contracts; use the intended chain governance.
 
 ## Node-facing storage
@@ -146,9 +141,25 @@ interface stable; they do not contain Shasta state.
 | 282     | `forcedInclusionDelay`, `maxAnchorAge`                 | `uint64` bits 0–63, `uint64` bits 64–127 (seconds) |
 | 283–300 | `__gap`                                                | —                                                  |
 
-Forced inclusion entry `i` starts at `base = keccak256(abi.encode(i, 280))`: `feeInGwei` (`uint64`
-bits 0–63) at `base`, `blobHashes.length` (always 1) at `base + 1`, `offset` (`uint24` bits 0–23)
-and `timestamp` (`uint48` bits 24–71) at `base + 2`, and `blobHashes[0]` at `keccak256(base + 1)`.
+Forced inclusion entry `i` starts at `base = keccak256(abi.encode(i, 280))`: `txHash`
+(`bytes32`) occupies `base`; `timestamp` (`uint48`, bits 0–47), `l1Block` (`uint64`, bits 48–111)
+and `feeInGwei` (`uint64`, bits 112–175) share `base + 1`. The timestamp and block number come
+from the L1 submission. Consumed entries remain stored.
+
+`saveForcedInclusion(bytes tx)` requires active status and at most `MAX_FORCED_TX_BYTES = 8192`
+bytes, stores `keccak256(tx)` and emits `ForcedInclusionSaved(uint48 indexed index, bytes tx)`.
+Admission does not validate encoding or execution: empty/undecodable bytes are invalid forced
+input under the consumption rule. `getCurrentForcedInclusionFee()` returns Gwei;
+`getForcedInclusionState()` returns `(head, tail)`; `getForcedInclusions(start, maxCount)` returns
+pending entries only, and returns an empty array outside `[head, tail)` or for zero `maxCount`.
+
+A proposer retrieves the original bytes with `eth_getLogs` filtered to the proven `l1Block`,
+Inbox address, event signature and indexed queue index. Decode the event and verify its bytes
+against the proven `txHash` before caching or using them. No receipt proof is needed because
+the storage proof authenticates the expected hash. Missing, inconsistent, oversized or unavailable
+event data is a preparation failure and never authorizes consumption. Cached bytes must match the
+selected anchor and proven entry identity. Validators and cold replay use the authenticated bytes
+in the envelope rather than fetching submission calldata or logs.
 
 `migrationState()` retains its name as a compatibility getter for the ABCI status word.
 It exposes no migration state machine. `activation()` returns the genesis record.
@@ -295,7 +306,7 @@ receiver of the consumed entries' fees. With `p` and `parentHash` the stored che
 `tail` the stored queue, `land` requires active status, `p < lastHeight <= p + maxBatchBlocks`,
 `lastHeight <= type(uint48).max` and a non-zero `feeRecipient` (`ZeroFeeRecipient` otherwise,
 whether or not the batch consumes entries). It also requires `head <= forcedInclusionHead <= tail`
-and `forcedInclusionHead - head <= lastHeight - p`, since each forced inclusion is its own block;
+and `forcedInclusionHead - head <= lastHeight - p`, since each block consumes at most one entry;
 otherwise it reverts `InvalidForcedInclusionHead`. The reference must be a past L1 block with a
 nonzero hash available from `blockhash` (256 blocks) or the EIP-2935 history contract (8191
 blocks). At least one transaction blob is required.
@@ -331,10 +342,10 @@ contract. The reference hash and ordered blob hashes come from the actual L1 exe
 `hashLandStatement` derives identities and config internally but accepts raw generation, parent,
 head before and terminal inputs for encoding; it does not authenticate them. Call it through the
 proxy to bind that proxy's address. V5 digests, seventeen-word V6 digests without `feeRecipient`,
-four- and five-field `LandInput`s, fixed-cutoff configuration openings, envelope-3 histories, V2
-blob payloads and journal-schema-4 jobs are incompatible with this prelaunch version. The envelope
-version is 4, the blob payload version 3 and the journal schema 5; record encoding stays 1. No
-deployed-chain migration is provided. Reject old signed jobs without discarding their nonce,
+four- and five-field `LandInput`s, fixed-cutoff configuration openings, envelopes before version 5,
+blob payloads before version 4 and journals before schema 8 are incompatible with this prelaunch
+version. The envelope version is 5, the landing blob payload version 4 and the journal schema 8;
+record encoding stays 1. No deployed-chain migration is provided. Reject old signed jobs without discarding their nonce,
 cancelling or automatically replacing their transaction.
 
 ### Guest and consensus obligations
@@ -382,56 +393,74 @@ Verify the parent certificate and every current/pending certificate, current val
 `nextValidatorHash` across `S/S+1/H` and arbitrary cuts. Require strictly more than two-thirds voting
 power from distinct signers under `taiko-etna-<l2ChainId>-g<generation>`. Prove execution ancestry
 from the stored parent to terminal hash/state root and blob data. The bound blobs carry payload
-V3, `0x03 || zlib(rlp([[header_proto, envelope], ...]))` in the existing blob coding, with each
+V4, `0x04 || zlib(rlp([[header_proto, envelope], ...]))` in the existing blob coding, with each
 block's canonical CometBFT header and Etna envelope: header hashes are the certified block ids,
-`data_hash` commits to the envelope and `last_block_id` links the batch. A forced inclusion block's
-envelope carries its entry's whole blob. Commits and signatures are proof witnesses, not blob data.
+`data_hash` commits to the envelope and `last_block_id` links the batch. Envelope v5 carries a
+forced witness `[index, entryProof, tx]` when the anchor proves a pending entry. Landing still
+publishes batch blobs; forced transaction submission and its envelope witness use calldata bytes.
+Commits and signatures are proof witnesses, not blob data.
 Every anchor and actual proving L1 root belongs to the header chain ending at the reference hash.
 Reference headers may be recent even for old batches. Arbitrary batch cuts never depend on an
 earlier batch's committee output.
 
 ### Forced inclusion obligations
 
-The L2 chain tracks a cursor `c(h)`, the number of entries consumed after block `h`; `c(0) = 0`. A
-forced inclusion block consumes exactly entry `c(h-1)` and sets `c(h) = c(h-1) + 1`; every other
-block keeps the cursor. Genesis initialization enforces `D > 0`, `M >= 1152 seconds` and
-`D + M + 384 seconds <= E`, with `D = forcedInclusionDelay`, `E = 14 days` and `M = maxAnchorAge`.
-The 384-second margin reserves one normal Ethereum finalized-anchor update before expiry.
-Deployment must additionally budget extra finality depth, RPC delay and expected queue throughput.
+The L2 chain tracks a cursor `c(h)`, the number of entries consumed after block `h`; `c(0) = 0`.
+Each block consumes at most one entry, exactly `c(h-1)`, or keeps the cursor. For block `h` with
+committed parent cursor `c` and anchor `A` (its own anchor or the inherited one), read `tail(A)`
+from `A`'s state. If `c >= tail(A)`, forbid a forced witness. Otherwise require exactly entry `c`'s
+witness `[index, entryProof, tx]`, authenticate the Inbox account and both entry slots under
+`A.stateRoot`, enforce `tx.length <= 8192`, and require `keccak256(tx) == entry.txHash`. These
+checks also apply to a pre-due peek. Authenticate entries and `tail` (slots 280–281) under `A`
+and `D` and `M` (slot 282) under the genesis proof. Read `tail(A)` from each anchor, never genesis:
+`saveForcedInclusion` can follow `init` in the same L1 block, so the queue need not be empty at
+`L1_0`. Block 1 always carries its own anchor witness.
 
-For block `h` with parent cursor `c` and anchor `A` (its own anchor or the inherited one), with
-`tail(A)` the queue tail in `A`'s state:
+Due means `A.timestamp >= entry.timestamp + D`, evaluated with widened or checked arithmetic;
+an overflowing timestamp-plus-delay is not yet due. There is no expiry, including after fourteen
+days. Canonical means exactly one complete EIP-2718 transaction envelope, including legacy
+transactions, whose decoding consumes all input and whose re-encoding reproduces the exact bytes.
+Use the codec compatible with the pinned EL. Empty, undecodable or failed-round-trip bytes are
+invalid forced input; do not duplicate signature, nonce, balance, gas or fee validation.
 
-- Entry `c` is due iff `c < tail(A)` and `A.timestamp >= entry.timestamp + D`, and expired iff
-  `c < tail(A)` and `A.timestamp >= entry.timestamp + E`.
-- If entry `c` is due, block `h` must be a forced inclusion block for entry `c`. If it is pending
-  but not due, block `h` may include it early or be ordinary. If `c >= tail(A)`, block `h` must be
-  ordinary. Skipping or reordering entries is invalid.
-- Every block, forced or ordinary, requires `block.timestamp - A.timestamp <= M`, with the
-  timestamp the existing rules derive. A proposer whose newest finalized anchor is older than `M`
-  proposes nothing, so an L1 finality stall longer than `M` pauses L2.
-- A forced inclusion block keeps the ordinary header, anchor, generation, back-pressure and
-  committee rules and carries the entry's witness. Its transactions are exactly what the EL
-  produces with `execute_provided_transactions` from the entry's list: it skips undecodable or
-  unrecoverable transactions, unsupported types, invalid transactions and those whose gas limit
-  exceeds the remaining block gas, and stops at zk gas exhaustion.
+| Condition                                                | Action                                                                                                |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Canonical forced bytes exactly equal block transaction 0 | Include; advance cursor by one, before or after due.                                                  |
+| Not included, not due                                    | Peek; keep the cursor.                                                                                |
+| Not included, due, noncanonical/undecodable input        | Skip; advance cursor by one without an EL build.                                                      |
+| Not included, due, canonical input                       | Require a successful singleton EL build with an empty transaction result, then advance cursor by one. |
 
-Reject an entry whose proven `blobHashes` length is not exactly 1; the store never writes one, so
-this is defence in depth. The list of a non-expired entry comes from its blob `B`: require
-`kzg_to_versioned_hash(blob_to_kzg_commitment(B)) == entry.blobHashes[0]`, decode the blob as Shasta
-derivation does, and decode Shasta's forced inclusion `DerivationSourceManifest` at `entry.offset`
-with at most one block, stopping decompression at 1 MiB. A manifest with exactly one block gives
-that block's `transactions` and ignores its other fields; any other manifest (default, zero or
-several blocks, over the cap) gives an empty list. An expired entry gives an empty list and needs
-no blob. The EL `txList` is the RLP list of those transactions.
+Only position zero counts as inclusion. A different transaction with the same sender and nonce,
+or the forced transaction at a later position, cannot justify skipping a transaction the singleton
+build retains. Inclusion may share a block with later mempool transactions. An included transaction
+may revert during EVM execution: receipt success is not part of the rule. Examples: a canonical
+transaction first in a pre-due mixed block advances once; invalid bytes before due retain the
+cursor; those same bytes at the due boundary skip once; age alone never consumes an entry.
 
-The guest checks, per block, these rules, the witness presence rules, the KZG binding, the list
-derivation and the EL semantics, and that the batch consumes exactly entries
-`[forcedInclusionHeadBefore, forcedInclusionHeadAfter)` in order. Entry facts and `tail` are
-authenticated by storage proofs (slots 280–281) under anchors already authenticated by the
-reference header chain; `D` and `M` (slot 282) under the genesis proof. Read `tail(A)` from each
-anchor's state, never from genesis: `saveForcedInclusion` can follow `init` in the same L1 block,
-so the queue need not be empty at `L1_0`. Block 1 always carries its own anchor witness.
+For a canonical skip, build the singleton list `[tx]` on the same committed parent with the same
+deterministic payload attributes as the candidate, changing only the provided list. Use the pinned
+legacy provided-list behavior and a completed build result. A nonempty result rejects the skip.
+Build errors, timeouts, unavailable parent state, cancellation and incomplete results never prove
+invalidity and never authorize consumption. No semantic reason gets special deferral after due:
+fee, nonce, balance, signature, unsupported-type, declared gas-limit and zk-gas failures all use
+this rule. A combined forced-plus-mempool build can stop at zk-gas exhaustion; after a permitted
+skip, rebuild an ordinary mempool block with its full budget instead of publishing an empty result
+solely because that combined build stopped.
+
+The whole candidate still passes normal header and EL payload validation. Every block requires
+`block.timestamp - A.timestamp <= M` and the existing anchor, generation, back-pressure and
+committee rules. A proposer with no finalized anchor fresh enough for `M` proposes nothing, so
+a longer L1 finality stall pauses L2. ProcessProposal, hot/cold FinalizeBlock, proposer final-block
+checking and lander validation must agree on the classification and completed singleton verdict.
+Canonical skips need parent state; unavailable cold rebuilding remains an actionable
+`forced_rebuild_unavailable` failure.
+
+A future guest must enforce the same MPT, hash, exact canonical round-trip, position and due
+checks and prove that the batch consumes exactly `[forcedInclusionHeadBefore,
+forcedInclusionHeadAfter)` in order. An EL-dependent skip additionally needs an execution witness
+and guest execution of the singleton list on the authenticated parent with the candidate's
+attributes. `debug_executionWitnessForTxList` is the existing witness-generation entry point.
+This change implements no real guest or prover, and dummy proofs do not establish soundness.
 `feeRecipient` is a public input the guest binds but does not constrain.
 
 The existing status, generation, anchor progress and back-pressure checks remain. In particular,
@@ -468,8 +497,9 @@ assumptions remain unchanged.
   only enough honest precommits to clear 2/3 (the exact threshold lies between 1/3 and 1/2,
   depending on stake granularity). Either coalition can hold block timestamps back and, while
   satisfying freshness, keep anchors stale and delay forced inclusions; each block still advances
-  the timestamp by at least one second. A delay that reaches the 14-day expiry becomes a drop: the
-  entry is then consumed by an empty block. Freshness only bounds anchor lag relative to the
+  the timestamp by at least one second. Entries never expire, so holding time back cannot
+  turn age into deletion, but there is still no wall-clock inclusion deadline or guarantee of
+  settlement against a quorum willing to stop landing. Freshness only bounds anchor lag relative to the
   derived block timestamp, and pauses L2 during L1 finality stalls longer than `maxAnchorAge`.
   A validator-local clock check (PBTS-style timeliness) would raise the bound; it is an open,
   launch-blocking decision and is not implemented. An L1-clock check at landing would instead
