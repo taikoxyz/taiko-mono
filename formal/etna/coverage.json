@@ -5696,7 +5696,7 @@
     "corpus/landing.jsonl": "b92877e89a4c5fc69a177499e5d97f5ddf0c83fbb80e2bd9b657df959247b72c",
     "tools.lock.json": "47f66b9b2d441aac44da4a08fe21ca6bb7321c4483aa2c1ca978a756bfc8cbdd",
     "schemas/coverage-policy.json": "866810ac3a55e8d3eb9dfae9cb77ae81aab56054a59fd6a1c74fc9d5f2721a50",
-    "schemas/coverage.schema.json": "6fa124f90ca65be3f17d4f3afa386c2c5b1f6f6d46dca371a4bb6334f42b8d1b"
+    "schemas/coverage.schema.json": "41ac3806d950b5823920257717b247f2625678e4e59198340f8662854a22461b"
   },
   "contract_artifacts": {
     "manifest_sha256": "f101fd5e9530864247e8a1b49d72f3a17c8511ac89acaa4048382ec7ec9023ba",

@@ -10,8 +10,8 @@
   "kernel_audit": true,
   "upstream_client": "2af0f30485b9990eae87074037bede11c59e8883",
   "paired_protocol": "27777e9d7147e7b1d3543711f4d7370a0377fa53",
-  "verification_overlay": "52a348645dff7e768a970340d674b0a717f96c60",
-  "ledger_sha256": "8bfbfe7c16db420497dcbeaf91f2d16a6d6e2d36110d4947016f06aa0f6e04c3",
+  "verification_overlay": "b6d351ac143ae5abac01ae0bd92f35624257ae8d",
+  "ledger_sha256": "b0272dad4ec5e797b7f5a6dffb9df9c04afda171450785f764e2651aa467a9fc",
   "contract_sources_abi_layout_bytecode": "verified against actual paired artifacts",
   "solidity_bridge": "specification plus finite conformance; bytecode refinement remains pending"
 }
