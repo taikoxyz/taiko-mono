@@ -5,6 +5,7 @@
 //! [`verify_snapshot`] authenticates the checkpoint, its successor and the complete entry root.
 //! [`derive`] retains the existing eligibility, heartbeat, lowest-bond-id deduplication, stake cap,
 //! MEM-08 ordering and voting-power rules. [`committee_config_hash`] binds their configuration.
+//! [`member_bond_ids`] names each member's registry entry, from the same selection.
 //!
 //! Runtime witnesses appear only at `H(t)-2`, proven under the committed parent's anchor, whose
 //! number is the snapshot itself. A failed or empty committed snapshot has no implicit fallback;
@@ -155,6 +156,10 @@ pub enum CommitteeError {
     /// The committee's total effective stake overflows `uint256`.
     #[error("total stake overflows uint256")]
     TotalStakeOverflow,
+    /// A member's `bondId`, its index in the snapshot's entries, does not fit the registry's
+    /// `uint32` bond id.
+    #[error("bond id {0} does not fit u32")]
+    BondIdOutOfRange(usize),
     /// The record the witness claims differs from the one derived from the snapshot.
     #[error("claimed committee record {claimed:?} differs from the derived {derived:?}")]
     RecordMismatch {
@@ -404,58 +409,8 @@ pub fn derive(
     schedule: &Schedule,
     params: &ChainParams,
 ) -> Result<(CommitteeRecord, Vec<Member>), CommitteeError> {
-    if params.vp_unit.is_zero() {
-        return Err(CommitteeError::ZeroVpUnit);
-    }
-    let k = target_epoch
-        .checked_sub(Schedule::E0)
-        .and_then(|d| d.checked_add(1))
-        .ok_or(CommitteeError::EpochOutOfRange(target_epoch))?;
-    let min_stake = params.s_min.max(params.vp_unit);
-    let floor = heartbeat_floor(schedule, params.heartbeat_window, target_epoch, cutoff)?;
-
-    // `(MEM-08 key, bondId, entry)`; `bondId` is the entry's index in the snapshot.
-    let mut eligible: Vec<(B256, usize, &RegistryEntry)> = snapshot
-        .entries
-        .iter()
-        .enumerate()
-        .filter(|(_, e)| is_eligible(e, cutoff, min_stake, floor))
-        .map(|(bond_id, e)| (mem08_key(params.l2_chain_id, e.pubkey), bond_id, e))
-        .collect();
-    // Equal pubkeys have equal keys, so after the sort the entries of one pubkey are adjacent,
-    // lowest bondId first, and `dedup_by_key` keeps exactly that one.
-    eligible.sort_by_key(|(key, bond_id, _)| (*key, *bond_id));
-    eligible.dedup_by_key(|(key, _, _)| *key);
-    let mut eligible: Vec<(B256, &RegistryEntry)> =
-        eligible.into_iter().map(|(key, _, e)| (key, e)).collect();
-    if eligible.len() > params.n_max {
-        eligible.sort_by(|a, b| b.1.eff_stake.cmp(&a.1.eff_stake).then(a.0.cmp(&b.0)));
-        eligible.truncate(params.n_max);
-        eligible.sort_by_key(|(key, _)| *key);
-    }
-    if eligible.is_empty() {
-        return Err(CommitteeError::Empty);
-    }
-
-    let members = eligible
-        .iter()
-        .map(|(_, e)| {
-            let power = u64::try_from(e.eff_stake / params.vp_unit)
-                .map_err(|_| CommitteeError::PowerOverflow { pubkey: e.pubkey })?;
-            Ok(Member { pubkey: e.pubkey, eff_stake: e.eff_stake, power })
-        })
-        .collect::<Result<Vec<_>, CommitteeError>>()?;
-
-    let total = members.iter().fold(0u128, |acc, m| acc.saturating_add(u128::from(m.power)));
-    let total_power = u64::try_from(total)
-        .ok()
-        .filter(|t| *t <= MAX_TOTAL_POWER)
-        .ok_or(CommitteeError::TotalPowerTooLarge { total })?;
-    let total_stake = members
-        .iter()
-        .try_fold(U256::ZERO, |acc, m| acc.checked_add(m.eff_stake))
-        .ok_or(CommitteeError::TotalStakeOverflow)?;
-
+    let Selection { k, members, total_power, total_stake, .. } =
+        select(&snapshot.entries, cutoff, target_epoch, schedule, params)?;
     let record = CommitteeRecord {
         target_epoch,
         cutoff_l1_block: cutoff,
@@ -466,6 +421,26 @@ pub fn derive(
         encoding_version: ENCODING_VERSION,
     };
     Ok((record, members))
+}
+
+/// The `(bondId, activeFromL1)` of each member [`derive()`] returns for `target_epoch` at `cutoff`
+/// from a snapshot of `entries` (indexed by `bondId`), in the same MEM-08 order.
+///
+/// Shares [`derive()`]'s selection, so it fails exactly where [`derive()`] fails, with the same
+/// error, and also with [`CommitteeError::BondIdOutOfRange`] for a member whose `bondId` exceeds
+/// `u32::MAX`.
+pub fn member_bond_ids(
+    entries: &[RegistryEntry],
+    cutoff: u64,
+    target_epoch: u64,
+    schedule: &Schedule,
+    params: &ChainParams,
+) -> Result<Vec<(u32, u64)>, CommitteeError> {
+    select(entries, cutoff, target_epoch, schedule, params)?
+        .selected
+        .into_iter()
+        .map(|(index, e)| Ok((bond_id(index)?, e.active_from_l1)))
+        .collect()
 }
 
 /// Verifies a committee witness for a target epoch after `e_0` end to end against the parent's
@@ -536,6 +511,89 @@ pub fn validator_updates(old: &[Member], new: &[Member]) -> Vec<(B256, u64)> {
     let mut updates: BTreeMap<B256, u64> = old.iter().map(|m| (m.pubkey, 0)).collect();
     updates.extend(new.iter().map(|m| (m.pubkey, m.power)));
     updates.into_iter().collect()
+}
+
+/// The committee [`derive()`] selects from a snapshot's entries, before its record.
+struct Selection<'a> {
+    /// MEM-08 `k = targetEpoch − e_0 + 1`.
+    k: u64,
+    /// Each member's `bondId` (index in the entries) and entry, sorted by [`mem08_key`].
+    selected: Vec<(usize, &'a RegistryEntry)>,
+    /// The members, in the order of `selected`.
+    members: Vec<Member>,
+    /// The members' total voting power, at most [`MAX_TOTAL_POWER`].
+    total_power: u64,
+    /// The members' total effective stake.
+    total_stake: U256,
+}
+
+/// Selects the committee for `target_epoch` at `cutoff` from `entries` (indexed by `bondId`)
+/// under every rule and check of [`derive()`], which only adds the record. Shared by [`derive()`]
+/// and [`member_bond_ids`].
+fn select<'a>(
+    entries: &'a [RegistryEntry],
+    cutoff: u64,
+    target_epoch: u64,
+    schedule: &Schedule,
+    params: &ChainParams,
+) -> Result<Selection<'a>, CommitteeError> {
+    if params.vp_unit.is_zero() {
+        return Err(CommitteeError::ZeroVpUnit);
+    }
+    let k = target_epoch
+        .checked_sub(Schedule::E0)
+        .and_then(|d| d.checked_add(1))
+        .ok_or(CommitteeError::EpochOutOfRange(target_epoch))?;
+    let min_stake = params.s_min.max(params.vp_unit);
+    let floor = heartbeat_floor(schedule, params.heartbeat_window, target_epoch, cutoff)?;
+
+    // `(MEM-08 key, bondId, entry)`; `bondId` is the entry's index in the snapshot.
+    let mut eligible: Vec<(B256, usize, &RegistryEntry)> = entries
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| is_eligible(e, cutoff, min_stake, floor))
+        .map(|(bond_id, e)| (mem08_key(params.l2_chain_id, e.pubkey), bond_id, e))
+        .collect();
+    // Equal pubkeys have equal keys, so after the sort the entries of one pubkey are adjacent,
+    // lowest bondId first, and `dedup_by_key` keeps exactly that one.
+    eligible.sort_by_key(|(key, bond_id, _)| (*key, *bond_id));
+    eligible.dedup_by_key(|(key, _, _)| *key);
+    if eligible.len() > params.n_max {
+        eligible.sort_by(|a, b| b.2.eff_stake.cmp(&a.2.eff_stake).then(a.0.cmp(&b.0)));
+        eligible.truncate(params.n_max);
+        eligible.sort_by_key(|(key, _, _)| *key);
+    }
+    if eligible.is_empty() {
+        return Err(CommitteeError::Empty);
+    }
+    let selected: Vec<(usize, &RegistryEntry)> =
+        eligible.into_iter().map(|(_, bond_id, e)| (bond_id, e)).collect();
+
+    let members = selected
+        .iter()
+        .map(|(_, e)| {
+            let power = u64::try_from(e.eff_stake / params.vp_unit)
+                .map_err(|_| CommitteeError::PowerOverflow { pubkey: e.pubkey })?;
+            Ok(Member { pubkey: e.pubkey, eff_stake: e.eff_stake, power })
+        })
+        .collect::<Result<Vec<_>, CommitteeError>>()?;
+
+    let total = members.iter().fold(0u128, |acc, m| acc.saturating_add(u128::from(m.power)));
+    let total_power = u64::try_from(total)
+        .ok()
+        .filter(|t| *t <= MAX_TOTAL_POWER)
+        .ok_or(CommitteeError::TotalPowerTooLarge { total })?;
+    let total_stake = members
+        .iter()
+        .try_fold(U256::ZERO, |acc, m| acc.checked_add(m.eff_stake))
+        .ok_or(CommitteeError::TotalStakeOverflow)?;
+
+    Ok(Selection { k, selected, members, total_power, total_stake })
+}
+
+/// The registry's `uint32` bond id of the entry at `index`.
+fn bond_id(index: usize) -> Result<u32, CommitteeError> {
+    u32::try_from(index).map_err(|_| CommitteeError::BondIdOutOfRange(index))
 }
 
 /// Whether `e` is eligible at `cutoff`: active, staked at least `min_stake` and, when the epoch is
