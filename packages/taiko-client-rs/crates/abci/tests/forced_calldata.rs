@@ -341,21 +341,33 @@ async fn forced_invalid_skip_keeps_mempool() -> Result<()> {
             use tracing::instrument::WithSubscriber;
             let logs = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
             let sink = logs.clone();
+            let retry_recorded = std::sync::Arc::new(tokio::sync::Notify::new());
+            let notification = retry_recorded.clone();
             let subscriber = tracing_subscriber::fmt()
                 .without_time()
                 .with_ansi(false)
                 .with_max_level(tracing::Level::WARN)
-                .with_writer(move || LogWriter(sink.clone()))
+                .with_writer(move || LogWriter {
+                    bytes: sink.clone(),
+                    retry_recorded: notification.clone(),
+                })
                 .finish();
-            assert!(
-                tokio::time::timeout(
-                    Duration::from_millis(350),
-                    cold.handle(request).with_subscriber(subscriber)
-                )
-                .await
-                .is_err(),
-                "unavailable replay cannot finalize"
-            );
+            {
+                let finalize = cold.handle(request).with_subscriber(subscriber);
+                tokio::pin!(finalize);
+                tokio::select! {
+                    result = &mut finalize => {
+                        anyhow::bail!("unavailable replay finished before retry observation: {result:?}");
+                    }
+                    observed = tokio::time::timeout(Duration::from_secs(30), retry_recorded.notified()) => {
+                        observed.context("waiting for unavailable singleton retry diagnostic")?;
+                    }
+                }
+                assert!(
+                    futures::poll!(&mut finalize).is_pending(),
+                    "unavailable replay cannot finalize after its observed retry"
+                );
+            }
             let diagnostic = String::from_utf8(logs.lock().unwrap().clone())?;
             assert!(
                 diagnostic.contains("forced_rebuild_unavailable"),
