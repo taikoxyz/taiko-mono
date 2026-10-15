@@ -66,7 +66,7 @@ pub(crate) fn sanitized_rpc_error(
 
 /// Retains stable Engine failure categories, methods and RPC codes without exposing endpoint
 /// credentials or arbitrary upstream messages. Generic failures do not establish state pruning.
-pub(crate) fn engine_diagnostic(error: &abci::EngineError) -> String {
+pub fn engine_diagnostic(error: &abci::EngineError) -> String {
     use abci::EngineError;
     match error {
         EngineError::ErrorReply { call, code, .. } => {

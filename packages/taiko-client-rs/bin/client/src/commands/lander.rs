@@ -2,6 +2,7 @@
 
 use std::{future::Future, sync::Arc, time::Duration};
 
+use abci::Engine;
 use alloy_provider::Provider;
 use clap::Parser;
 use lander::{
@@ -36,7 +37,7 @@ pub struct LanderSubCommand {
 }
 
 impl LanderSubCommand {
-    /// Validate local options, bootstrap public chain identities and drive the durable runner.
+    /// Validate local options, authenticate Engine capabilities, then drive the durable runner.
     ///
     /// Startup endpoint outages are retried; safety/configuration errors stop. Reading the key
     /// obtains its public address but cannot submit anything. The journal lock and integrity
@@ -66,6 +67,30 @@ impl LanderSubCommand {
             &config.jwt_secret,
             config.timeouts.engine,
         )?);
+        retry_bootstrap(config.poll_interval, retry_max_delay, || async {
+            tokio::time::timeout(config.timeouts.engine, engine.check_capabilities())
+                .await
+                .map_err(|_| {
+                    LanderError::Temporary(
+                        "startup engine_exchangeCapabilities timed out; check --l2.auth and \
+                         --jwt.secret"
+                            .into(),
+                    )
+                })?
+                .map_err(|error| {
+                    let message = format!(
+                        "startup engine_exchangeCapabilities on --l2.auth: {}; check the endpoint \
+                         and --jwt.secret",
+                        lander::error::engine_diagnostic(&error),
+                    );
+                    if error.is_retryable() {
+                        LanderError::Temporary(message)
+                    } else {
+                        LanderError::Configuration(message)
+                    }
+                })
+        })
+        .await?;
         let landing = Arc::new(RpcLandingSource::new(l1, l2, params.clone()));
         let snapshot =
             retry_bootstrap(config.poll_interval, retry_max_delay, || landing.snapshot()).await?;
