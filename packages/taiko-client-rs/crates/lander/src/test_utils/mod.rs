@@ -6,3 +6,5 @@ pub(crate) mod runtime;
 pub(crate) mod consensus_mpt;
 
 pub(crate) mod artifacts;
+
+pub(crate) mod vectors;

@@ -1,0 +1,391 @@
+{
+  "schema_version": 1,
+  "committee_config": {
+    "inputs": {
+      "tag": "ETNA_PARENT_ANCHOR_V2",
+      "l2_chain_id": "167001",
+      "registry": "0x2222222222222222222222222222222222222222",
+      "vp_unit": "1000000000",
+      "s_min": "1000000000000000000",
+      "n_max": "128",
+      "heartbeat_window": "32",
+      "lookahead_epochs": "2",
+      "encoding_version": "1",
+      "d_max": "12",
+      "margin_v": "2"
+    },
+    "preimage": "0x45544e415f504152454e545f414e43484f525f563200000000000000000000000000000000000000000000000000000000000000000000000000000000028c590000000000000000000000002222222222222222222222222222222222222222000000000000000000000000000000000000000000000000000000003b9aca000000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000002",
+    "hash": "0x483221e100b91b58a058b89723effa13d9a8b8527f8915ca8ad74cc44d5b7c0e"
+  },
+  "land_statement": {
+    "inputs": {
+      "tag": "TAIKO_ETNA_LAND_V6",
+      "l1_chain_id": "1",
+      "l2_chain_id": "167001",
+      "inbox": "0x1111111111111111111111111111111111111111",
+      "registry": "0x2222222222222222222222222222222222222222",
+      "generation": "3",
+      "parent_height": "100",
+      "parent_hash": "0x0000000000000000000000000000000000000000000000000000000000000011",
+      "committee_config_hash": "0x483221e100b91b58a058b89723effa13d9a8b8527f8915ca8ad74cc44d5b7c0e",
+      "last_height": "164",
+      "last_block_hash": "0x0000000000000000000000000000000000000000000000000000000000000022",
+      "last_state_root": "0x0000000000000000000000000000000000000000000000000000000000000033",
+      "l1_reference_block_number": "19000000",
+      "l1_reference_block_hash": "0x0000000000000000000000000000000000000000000000000000000000000044",
+      "blob_hashes": [
+        "0x00000000000000000000000000000000000000000000000000000000000001aa",
+        "0x00000000000000000000000000000000000000000000000000000000000001bb"
+      ],
+      "forced_inclusion_head_before": "3",
+      "forced_inclusion_head_after": "5",
+      "fee_recipient": "0x00000000000000000000000000000000000000aa"
+    },
+    "blob_hashes_hash": "0xe7591a4eb3dcfdc958b08bf3db6054ebae1f9b1a82b8c685499c13314381ea64",
+    "preimage": "0x5441494b4f5f45544e415f4c414e445f5636000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000028c5900000000000000000000000011111111111111111111111111111111111111110000000000000000000000002222222222222222222222222222222222222222000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000640000000000000000000000000000000000000000000000000000000000000011483221e100b91b58a058b89723effa13d9a8b8527f8915ca8ad74cc44d5b7c0e00000000000000000000000000000000000000000000000000000000000000a400000000000000000000000000000000000000000000000000000000000000220000000000000000000000000000000000000000000000000000000000000033000000000000000000000000000000000000000000000000000000000121eac00000000000000000000000000000000000000000000000000000000000000044e7591a4eb3dcfdc958b08bf3db6054ebae1f9b1a82b8c685499c13314381ea640000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000500000000000000000000000000000000000000000000000000000000000000aa",
+    "hash": "0xe4f69a2c2e4a504cafcb7a737cd9eb64b1f6523fafa82e606c568f410ba24ca6"
+  },
+  "registry_entries": {
+    "entries": [
+      {
+        "pubkey": "0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "eff_stake": "1000000000000000000",
+        "active_from_l1": "10",
+        "exit_effective_l1": "18446744073709551615",
+        "last_heartbeat_at": "20",
+        "last_heartbeat_seq": "30"
+      },
+      {
+        "pubkey": "0xa2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2",
+        "eff_stake": "2000000000000000000",
+        "active_from_l1": "11",
+        "exit_effective_l1": "1001",
+        "last_heartbeat_at": "21",
+        "last_heartbeat_seq": "31"
+      },
+      {
+        "pubkey": "0xa3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3",
+        "eff_stake": "3000000000000000000",
+        "active_from_l1": "12",
+        "exit_effective_l1": "18446744073709551615",
+        "last_heartbeat_at": "22",
+        "last_heartbeat_seq": "32"
+      },
+      {
+        "pubkey": "0xa4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4",
+        "eff_stake": "4000000000000000000",
+        "active_from_l1": "13",
+        "exit_effective_l1": "1003",
+        "last_heartbeat_at": "23",
+        "last_heartbeat_seq": "33"
+      },
+      {
+        "pubkey": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "eff_stake": "5000000000000000000",
+        "active_from_l1": "14",
+        "exit_effective_l1": "18446744073709551615",
+        "last_heartbeat_at": "24",
+        "last_heartbeat_seq": "34"
+      }
+    ],
+    "leaves": [
+      "0xa8f6885e8bcbd1472f170ee0c1881bd17e2777b5be837042a869f9af9b0ad4e5",
+      "0x20c93c9923569501a0b30a26b8fe3dbaea669cda1b9bb4714d3bcb37179fef97",
+      "0x4a289cbab32bde6f5421f7d7fad7a9857e01bfd365458d364c026b058f9ce7d8",
+      "0xa381fd1c09c3d0b1f581ef55f90ec8d86ac403aeabc3b7ef72a4329600cd40d2",
+      "0xae31d22e7282fe34efcb4079806b55b9efebdd57c3901919d2dec37da71d6706"
+    ],
+    "roots": [
+      {
+        "count": "0",
+        "entries_root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      {
+        "count": "1",
+        "entries_root": "0xa8f6885e8bcbd1472f170ee0c1881bd17e2777b5be837042a869f9af9b0ad4e5"
+      },
+      {
+        "count": "2",
+        "entries_root": "0x1277441ec01a1f4fc6387db4a7ed59c0451b9dd11861bc34d135bff4a33d9025"
+      },
+      {
+        "count": "3",
+        "entries_root": "0x6ad9da0279384bc7b83f94a9745abd095c3d6b759cc4ff09a9c5efaa1d2b8072"
+      },
+      {
+        "count": "4",
+        "entries_root": "0xb61ba636cadf6e9cf966f6f8b971f5411a1f1053bca471aa24294803d2d696a6"
+      },
+      {
+        "count": "5",
+        "entries_root": "0xc89969296cd089a4e790030d9a57997264d9518a044fe6af270bc59df4c1d689"
+      }
+    ]
+  },
+  "layout": {
+    "inbox": {
+      "slots": {
+        "status": "258",
+        "recovery_generation": "268",
+        "committee_config_hash": "269",
+        "last_checkpoint_height": "270",
+        "last_checkpoint_hash": "271",
+        "activation_packed": "272",
+        "genesis_block_hash": "273",
+        "genesis_state_root": "274",
+        "genesis_committee_hash": "278",
+        "genesis_cutoff": "279",
+        "forced_inclusion_queue": "280",
+        "forced_inclusion_head_tail": "281",
+        "forced_inclusion_config": "282"
+      },
+      "packing": {
+        "status": {
+          "status": {
+            "offset": "0",
+            "bits": "8"
+          }
+        },
+        "recovery_generation": {
+          "recovery_generation": {
+            "offset": "0",
+            "bits": "64"
+          }
+        },
+        "last_checkpoint_height": {
+          "height": {
+            "offset": "0",
+            "bits": "64"
+          }
+        },
+        "activation_packed": {
+          "genesis_height": {
+            "offset": "0",
+            "bits": "64"
+          },
+          "l1_block": {
+            "offset": "64",
+            "bits": "64"
+          },
+          "epoch_len_l2": {
+            "offset": "128",
+            "bits": "64"
+          },
+          "epoch_len_l1": {
+            "offset": "192",
+            "bits": "64"
+          }
+        },
+        "genesis_cutoff": {
+          "genesis_cutoff": {
+            "offset": "0",
+            "bits": "64"
+          }
+        },
+        "forced_inclusion_head_tail": {
+          "head": {
+            "offset": "0",
+            "bits": "48"
+          },
+          "tail": {
+            "offset": "48",
+            "bits": "48"
+          }
+        },
+        "forced_inclusion_config": {
+          "delay": {
+            "offset": "0",
+            "bits": "64"
+          },
+          "max_anchor_age": {
+            "offset": "64",
+            "bits": "64"
+          }
+        },
+        "forced_inclusion_entry_metadata": {
+          "timestamp": {
+            "offset": "0",
+            "bits": "48"
+          },
+          "l1_block": {
+            "offset": "48",
+            "bits": "64"
+          },
+          "fee_in_gwei": {
+            "offset": "112",
+            "bits": "64"
+          }
+        }
+      },
+      "status_active": "3",
+      "anchor_slots": ["258", "268", "270", "271", "281"],
+      "genesis_slots": [
+        "258",
+        "268",
+        "272",
+        "273",
+        "274",
+        "279",
+        "278",
+        "269",
+        "282"
+      ],
+      "forced_inclusion_entry_slots": [
+        {
+          "index": "0",
+          "slots": [
+            "0x12dd3252bc8fae713ab8206fb991e3eff690190c913bc642d6b99d237fbf982a",
+            "0x12dd3252bc8fae713ab8206fb991e3eff690190c913bc642d6b99d237fbf982b"
+          ]
+        },
+        {
+          "index": "7",
+          "slots": [
+            "0xfe59ba1b996c9452f7b7815b262d72cb08473c9b1ad66a36420423a2c51d1f32",
+            "0xfe59ba1b996c9452f7b7815b262d72cb08473c9b1ad66a36420423a2c51d1f33"
+          ]
+        }
+      ]
+    },
+    "registry": {
+      "namespace": "taiko.etna.registry",
+      "base": "0x46e4e2fea4a7d0ac18aca03baa3a1f64e1be04ec23c1ca0c7b901af7b59b8000",
+      "entries_length_slot": "0x46e4e2fea4a7d0ac18aca03baa3a1f64e1be04ec23c1ca0c7b901af7b59b8001",
+      "packing": {
+        "checkpoint_head": {
+          "l1_block": {
+            "offset": "0",
+            "bits": "64"
+          },
+          "count": {
+            "offset": "64",
+            "bits": "32"
+          }
+        },
+        "entry_packed": {
+          "active_from_l1": {
+            "offset": "0",
+            "bits": "64"
+          },
+          "exit_effective_l1": {
+            "offset": "64",
+            "bits": "64"
+          },
+          "last_heartbeat_at": {
+            "offset": "128",
+            "bits": "64"
+          },
+          "last_heartbeat_seq": {
+            "offset": "192",
+            "bits": "64"
+          }
+        }
+      },
+      "checkpoint_slots": [
+        {
+          "index": "0",
+          "slots": [
+            "0xd9a608a417f242366fbd54f054137bf7eb45998d56e782c42e929a940d78cebf",
+            "0xd9a608a417f242366fbd54f054137bf7eb45998d56e782c42e929a940d78cec0"
+          ]
+        },
+        {
+          "index": "1",
+          "slots": [
+            "0xd9a608a417f242366fbd54f054137bf7eb45998d56e782c42e929a940d78cec1",
+            "0xd9a608a417f242366fbd54f054137bf7eb45998d56e782c42e929a940d78cec2"
+          ]
+        },
+        {
+          "index": "5",
+          "slots": [
+            "0xd9a608a417f242366fbd54f054137bf7eb45998d56e782c42e929a940d78cec9",
+            "0xd9a608a417f242366fbd54f054137bf7eb45998d56e782c42e929a940d78ceca"
+          ]
+        },
+        {
+          "index": "18446744073709551615",
+          "slots": [
+            "0xd9a608a417f242366fbd54f054137bf7eb45998d56e782c62e929a940d78cebd",
+            "0xd9a608a417f242366fbd54f054137bf7eb45998d56e782c62e929a940d78cebe"
+          ]
+        }
+      ],
+      "entry_slots": [
+        {
+          "index": "0",
+          "slots": [
+            "0x4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcba",
+            "0x4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcbb",
+            "0x4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcbc"
+          ]
+        },
+        {
+          "index": "1",
+          "slots": [
+            "0x4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcbd",
+            "0x4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcbe",
+            "0x4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcbf"
+          ]
+        },
+        {
+          "index": "2",
+          "slots": [
+            "0x4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcc0",
+            "0x4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcc1",
+            "0x4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcc2"
+          ]
+        },
+        {
+          "index": "18446744073709551615",
+          "slots": [
+            "0x4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32dbebc7877436afbcb7",
+            "0x4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32dbebc7877436afbcb8",
+            "0x4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32dbebc7877436afbcb9"
+          ]
+        }
+      ],
+      "snapshot_slots": [
+        {
+          "index": "0",
+          "has_next": false,
+          "slots": [
+            "0x46e4e2fea4a7d0ac18aca03baa3a1f64e1be04ec23c1ca0c7b901af7b59b8000",
+            "0xd9a608a417f242366fbd54f054137bf7eb45998d56e782c42e929a940d78cebf",
+            "0xd9a608a417f242366fbd54f054137bf7eb45998d56e782c42e929a940d78cec0"
+          ]
+        },
+        {
+          "index": "0",
+          "has_next": true,
+          "slots": [
+            "0x46e4e2fea4a7d0ac18aca03baa3a1f64e1be04ec23c1ca0c7b901af7b59b8000",
+            "0xd9a608a417f242366fbd54f054137bf7eb45998d56e782c42e929a940d78cebf",
+            "0xd9a608a417f242366fbd54f054137bf7eb45998d56e782c42e929a940d78cec0",
+            "0xd9a608a417f242366fbd54f054137bf7eb45998d56e782c42e929a940d78cec1"
+          ]
+        },
+        {
+          "index": "3",
+          "has_next": true,
+          "slots": [
+            "0x46e4e2fea4a7d0ac18aca03baa3a1f64e1be04ec23c1ca0c7b901af7b59b8000",
+            "0xd9a608a417f242366fbd54f054137bf7eb45998d56e782c42e929a940d78cec5",
+            "0xd9a608a417f242366fbd54f054137bf7eb45998d56e782c42e929a940d78cec6",
+            "0xd9a608a417f242366fbd54f054137bf7eb45998d56e782c42e929a940d78cec7"
+          ]
+        },
+        {
+          "index": "18446744073709551615",
+          "has_next": true,
+          "slots": [
+            "0x46e4e2fea4a7d0ac18aca03baa3a1f64e1be04ec23c1ca0c7b901af7b59b8000",
+            "0xd9a608a417f242366fbd54f054137bf7eb45998d56e782c62e929a940d78cebd",
+            "0xd9a608a417f242366fbd54f054137bf7eb45998d56e782c62e929a940d78cebe",
+            "0xd9a608a417f242366fbd54f054137bf7eb45998d56e782c62e929a940d78cebf"
+          ]
+        }
+      ]
+    }
+  }
+}

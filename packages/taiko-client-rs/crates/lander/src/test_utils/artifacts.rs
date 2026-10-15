@@ -29,6 +29,38 @@ fn lander_artifacts_match_pinned_compiler_and_recorded_hashes() -> Result<()> {
     Ok(())
 }
 
+/// The shared Etna vectors (`testdata/etna_vectors`, which the abci and lander tests read) are
+/// exactly the files the generator copied from the pinned protocol revision: no file is missing,
+/// added or changed.
+#[test]
+fn shared_vectors_match_the_pinned_protocol_copy() -> Result<()> {
+    use crate::test_utils::vectors::DIR;
+    let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let manifest: serde_json::Value = serde_json::from_slice(&std::fs::read(
+        manifest_dir.join("tests/fixtures/contracts/manifest.json"),
+    )?)?;
+    assert_eq!(manifest["vectors"]["source"], DIR);
+    let recorded = manifest["vectors"]["files"].as_object().context("vector file hashes")?;
+    let dir = manifest_dir.join("../../../..").join(DIR);
+    let mut names = std::fs::read_dir(&dir)?
+        .map(|entry| Ok(entry?.file_name().into_string().expect("UTF-8 file name")))
+        .collect::<Result<Vec<_>>>()?;
+    // Untracked dotfiles (a desktop's folder metadata) are not part of the copy.
+    names.retain(|name| !name.starts_with('.'));
+    names.sort();
+    assert_eq!(names, recorded.keys().cloned().collect::<Vec<_>>(), "vector files");
+    assert!(names.iter().any(|name| name == "vectors.json"));
+    for (name, digest) in recorded {
+        let bytes = std::fs::read(dir.join(name))?;
+        assert_eq!(
+            alloy_primitives::hex::encode(Sha256::digest(bytes)),
+            digest.as_str().context("vector file hash")?,
+            "{name}"
+        );
+    }
+    Ok(())
+}
+
 /// The pinned `EtnaInbox` declares the `ZeroFeeRecipient()` error the lander recognizes in a
 /// rejected gas estimation, with the same selector.
 #[test]

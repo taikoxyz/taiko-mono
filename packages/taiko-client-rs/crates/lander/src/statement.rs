@@ -70,53 +70,54 @@ pub fn hash(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::protocol::request;
+    use crate::test_utils::{protocol::request, vectors};
     use alloy_primitives::{address, aliases::U48, b256};
 
-    /// The V5 fixed-vector inputs plus forced inclusion heads 3 (stored) and 5 (input) and fee
-    /// recipient `0x…aa`.
+    /// The shared `land_statement` vector (`testdata/etna_vectors`; the V5 inputs plus forced
+    /// inclusion heads 3 (stored) and 5 (input) and fee recipient `0x…aa`), whose configuration
+    /// hash is the shared `committee_config` vector.
     fn vector() -> (LandingSnapshot, LandInput, B256, Vec<B256>) {
+        let input = |name: &str| format!("/land_statement/inputs/{name}");
+        assert_eq!(vectors::str_at(&input("tag")), "TAIKO_ETNA_LAND_V6");
         let mut snapshot = request().batch.snapshot;
-        snapshot.l1_chain_id = U256::from(1);
-        snapshot.l2_chain_id = 167001;
-        snapshot.inbox = address!("1111111111111111111111111111111111111111");
-        snapshot.registry = address!("2222222222222222222222222222222222222222");
-        snapshot.generation = 3;
-        snapshot.checkpoint_height = 100;
-        snapshot.checkpoint_hash = B256::from(U256::from(0x11));
-        snapshot.committee_config_hash =
-            b256!("483221e100b91b58a058b89723effa13d9a8b8527f8915ca8ad74cc44d5b7c0e");
-        snapshot.forced_inclusion_head = 3;
-        let input = LandInput {
-            lastHeight: 164,
-            lastBlockHash: B256::from(U256::from(0x22)),
-            lastStateRoot: B256::from(U256::from(0x33)),
-            l1ReferenceBlockNumber: 19_000_000,
-            forcedInclusionHead: U48::from(5),
-            feeRecipient: address!("00000000000000000000000000000000000000aa"),
+        snapshot.l1_chain_id = vectors::u256_at(&input("l1_chain_id"));
+        snapshot.l2_chain_id = vectors::u64_at(&input("l2_chain_id"));
+        snapshot.inbox = vectors::address_at(&input("inbox"));
+        snapshot.registry = vectors::address_at(&input("registry"));
+        snapshot.generation = vectors::u64_at(&input("generation"));
+        snapshot.checkpoint_height = vectors::u64_at(&input("parent_height"));
+        snapshot.checkpoint_hash = vectors::b256_at(&input("parent_hash"));
+        snapshot.committee_config_hash = vectors::b256_at(&input("committee_config_hash"));
+        assert_eq!(snapshot.committee_config_hash, vectors::b256_at("/committee_config/hash"));
+        snapshot.forced_inclusion_head = vectors::u64_at(&input("forced_inclusion_head_before"));
+        let land = LandInput {
+            lastHeight: vectors::u64_at(&input("last_height")),
+            lastBlockHash: vectors::b256_at(&input("last_block_hash")),
+            lastStateRoot: vectors::b256_at(&input("last_state_root")),
+            l1ReferenceBlockNumber: vectors::u64_at(&input("l1_reference_block_number")),
+            forcedInclusionHead: U48::from(vectors::u64_at(&input("forced_inclusion_head_after"))),
+            feeRecipient: vectors::address_at(&input("fee_recipient")),
         };
         (
             snapshot,
-            input,
-            B256::from(U256::from(0x44)),
-            vec![B256::from(U256::from(0x01aa)), B256::from(U256::from(0x01bb))],
+            land,
+            vectors::b256_at(&input("l1_reference_block_hash")),
+            vectors::b256s_at(&input("blob_hashes")),
         )
     }
 
-    /// The vector the contracts pin (`EtnaInboxLand.t.sol`), computed independently there with
-    /// `cast abi-encode` and `cast keccak` over the eighteen words.
+    /// The shared V6 vector, which the contracts check with `EtnaInboxLand.t.sol` (both read
+    /// `testdata/etna_vectors`; `cast` computed it): the exact eighteen-word preimage and hash.
     #[test]
     fn matches_independent_v6_vector_and_exact_eighteen_words() {
         let (snapshot, input, reference, hashes) = vector();
-        assert_eq!(
-            blob_hashes_hash(&hashes),
-            b256!("e7591a4eb3dcfdc958b08bf3db6054ebae1f9b1a82b8c685499c13314381ea64")
-        );
+        assert_eq!(blob_hashes_hash(&hashes), vectors::b256_at("/land_statement/blob_hashes_hash"));
         let preimage = preimage(&snapshot, &input, reference, &hashes);
         assert_eq!(preimage.len(), 576);
+        assert_eq!(preimage.as_slice(), vectors::bytes_at("/land_statement/preimage").as_ref());
         assert_eq!(
             hash(&snapshot, &input, reference, &hashes),
-            b256!("e4f69a2c2e4a504cafcb7a737cd9eb64b1f6523fafa82e606c568f410ba24ca6")
+            vectors::b256_at("/land_statement/hash")
         );
         assert_eq!(preimage[15 * 32..16 * 32], U256::from(3).to_be_bytes::<32>());
         assert_eq!(preimage[16 * 32..17 * 32], U256::from(5).to_be_bytes::<32>());
