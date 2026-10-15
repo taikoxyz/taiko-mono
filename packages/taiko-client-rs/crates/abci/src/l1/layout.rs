@@ -194,6 +194,7 @@ pub fn word_u8(word: U256, bit_offset: usize) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_utils::vectors;
     use alloy_primitives::{B256, b256, keccak256};
 
     #[test]
@@ -214,16 +215,38 @@ mod tests {
         assert_eq!(inbox::slot(u64::MAX), B256::from(U256::from(u64::MAX)));
     }
 
+    /// Every plain Inbox slot, the active status and the anchor and genesis witness slot lists
+    /// (in proof order) match the shared layout vectors (`testdata/etna_vectors`), which the
+    /// contracts check against a deployed Inbox.
     #[test]
-    fn anchor_slots_are_fixed() {
-        assert_eq!(inbox::anchor_slots(), [258u64, 268, 270, 271, 281].map(inbox::slot).to_vec());
-    }
-    #[test]
-    fn genesis_slots_are_ordered() {
-        assert_eq!(
-            inbox::genesis_slots(),
-            [258u64, 268, 272, 273, 274, 279, 278, 269, 282].map(inbox::slot).to_vec()
-        );
+    fn inbox_slots_match_the_shared_vectors() {
+        let slots = vectors::at("/layout/inbox/slots").as_object().expect("named slots");
+        assert_eq!(slots.len(), 13);
+        for name in slots.keys() {
+            let constant = match name.as_str() {
+                "status" => inbox::STATUS,
+                "recovery_generation" => inbox::RECOVERY_GENERATION,
+                "committee_config_hash" => inbox::COMMITTEE_CONFIG_HASH,
+                "last_checkpoint_height" => inbox::LAST_CHECKPOINT_HEIGHT,
+                "last_checkpoint_hash" => inbox::LAST_CHECKPOINT_HASH,
+                "activation_packed" => inbox::GENESIS_PACKED,
+                "genesis_block_hash" => inbox::GENESIS_BLOCK_HASH,
+                "genesis_state_root" => inbox::GENESIS_STATE_ROOT,
+                "genesis_committee_hash" => inbox::GENESIS_COMMITTEE_HASH,
+                "genesis_cutoff" => inbox::GENESIS_CUTOFF,
+                "forced_inclusion_queue" => inbox::FORCED_INCLUSION_QUEUE,
+                "forced_inclusion_head_tail" => inbox::FORCED_INCLUSION_HEAD_TAIL,
+                "forced_inclusion_config" => inbox::FORCED_INCLUSION_CONFIG,
+                other => panic!("the node reads no Inbox slot named {other}"),
+            };
+            assert_eq!(constant, vectors::u64_at(&format!("/layout/inbox/slots/{name}")), "{name}");
+        }
+        assert_eq!(u64::from(inbox::ETNA_ACTIVE), vectors::u64_at("/layout/inbox/status_active"));
+        let listed = |pointer: &str| -> Vec<B256> {
+            vectors::u64s_at(pointer).into_iter().map(inbox::slot).collect()
+        };
+        assert_eq!(inbox::anchor_slots(), listed("/layout/inbox/anchor_slots"));
+        assert_eq!(inbox::genesis_slots(), listed("/layout/inbox/genesis_slots"));
     }
 
     /// Entry `i` of the `queue` mapping at slot 280 is a `ForcedInclusion` struct at
@@ -239,16 +262,19 @@ mod tests {
         let base = U256::from_be_bytes(keccak256(preimage).0);
         assert_eq!(slots[0], B256::from(base));
         assert_eq!(slots[1], B256::from(base + U256::from(1)));
-
-        // Pinned with `cast index uint256 7 280` and `cast keccak`.
-        assert_eq!(
-            slots,
-            [
-                b256!("fe59ba1b996c9452f7b7815b262d72cb08473c9b1ad66a36420423a2c51d1f32"),
-                b256!("fe59ba1b996c9452f7b7815b262d72cb08473c9b1ad66a36420423a2c51d1f33"),
-            ]
-        );
         assert_ne!(inbox::forced_inclusion_entry_slots(8)[0], slots[0]);
+
+        // The shared vectors (`cast index uint256 <i> 280`), which the contracts check against
+        // a deployed Inbox's queue.
+        for k in 0..vectors::len_at("/layout/inbox/forced_inclusion_entry_slots") {
+            let p = format!("/layout/inbox/forced_inclusion_entry_slots/{k}");
+            let index = vectors::u64_at(&format!("{p}/index"));
+            assert_eq!(
+                inbox::forced_inclusion_entry_slots(index).to_vec(),
+                vectors::b256s_at(&format!("{p}/slots")),
+                "entry {index}"
+            );
+        }
     }
 
     /// Slot 281 packs `head` (`uint48`, bits 0–47) and `tail` (`uint48`, bits 48–95).
@@ -264,13 +290,30 @@ mod tests {
         assert_eq!(word_u48(U256::MAX, 256), 0);
     }
 
+    /// The registry namespace, base, entries length slot and the checkpoint and entry slots
+    /// (including the last `u64` index) match the shared layout vectors, which the contracts
+    /// check against a deployed registry.
     #[test]
-    fn registry_base_is_pinned() {
-        assert_eq!(
-            registry::base(),
-            b256!("46e4e2fea4a7d0ac18aca03baa3a1f64e1be04ec23c1ca0c7b901af7b59b8000")
-        );
+    fn registry_slots_match_the_shared_vectors() {
+        assert_eq!(registry::NAMESPACE, vectors::str_at("/layout/registry/namespace"));
+        assert_eq!(registry::base(), vectors::b256_at("/layout/registry/base"));
         assert_eq!(registry::length_slot(), registry::base());
+        assert_eq!(
+            registry::entries_length_slot(),
+            vectors::b256_at("/layout/registry/entries_length_slot")
+        );
+        for k in 0..vectors::len_at("/layout/registry/checkpoint_slots") {
+            let p = format!("/layout/registry/checkpoint_slots/{k}");
+            let i = vectors::u64_at(&format!("{p}/index"));
+            let expected = vectors::b256s_at(&format!("{p}/slots"));
+            assert_eq!(registry::checkpoint_slots(i).to_vec(), expected, "checkpoint {i}");
+        }
+        for k in 0..vectors::len_at("/layout/registry/entry_slots") {
+            let p = format!("/layout/registry/entry_slots/{k}");
+            let j = vectors::u64_at(&format!("{p}/index"));
+            let expected = vectors::b256s_at(&format!("{p}/slots"));
+            assert_eq!(registry::entry_slots(j).to_vec(), expected, "entry {j}");
+        }
     }
 
     #[test]
@@ -291,86 +334,18 @@ mod tests {
     }
 
     #[test]
-    fn registry_checkpoint_slots_are_pinned() {
-        assert_eq!(
-            registry::checkpoint_slots(0),
-            [
-                b256!("d9a608a417f242366fbd54f054137bf7eb45998d56e782c42e929a940d78cebf"),
-                b256!("d9a608a417f242366fbd54f054137bf7eb45998d56e782c42e929a940d78cec0"),
-            ]
-        );
-        assert_eq!(
-            registry::checkpoint_slots(1),
-            [
-                b256!("d9a608a417f242366fbd54f054137bf7eb45998d56e782c42e929a940d78cec1"),
-                b256!("d9a608a417f242366fbd54f054137bf7eb45998d56e782c42e929a940d78cec2"),
-            ]
-        );
-        assert_eq!(
-            registry::checkpoint_slots(5),
-            [
-                b256!("d9a608a417f242366fbd54f054137bf7eb45998d56e782c42e929a940d78cec9"),
-                b256!("d9a608a417f242366fbd54f054137bf7eb45998d56e782c42e929a940d78ceca"),
-            ]
-        );
-        assert_eq!(
-            registry::checkpoint_slots(u64::MAX),
-            [
-                b256!("d9a608a417f242366fbd54f054137bf7eb45998d56e782c62e929a940d78cebd"),
-                b256!("d9a608a417f242366fbd54f054137bf7eb45998d56e782c62e929a940d78cebe"),
-            ]
-        );
-    }
-
-    #[test]
     fn registry_checkpoint_data_starts_at_keccak_of_base() {
         assert_eq!(registry::checkpoint_slots(0)[0], keccak256(registry::base()));
+        // Element `i` is two words past element `i - 1`, wrapping in U256 at the last index.
+        let data = U256::from_be_bytes(keccak256(registry::base()).0);
+        let last = data.wrapping_add(U256::from(u64::MAX) * U256::from(2));
+        assert_eq!(registry::checkpoint_slots(u64::MAX)[0], B256::from(last));
     }
 
     #[test]
     fn registry_entries_length_slot_is_base_plus_one() {
-        assert_eq!(
-            registry::entries_length_slot(),
-            b256!("46e4e2fea4a7d0ac18aca03baa3a1f64e1be04ec23c1ca0c7b901af7b59b8001")
-        );
         let base = U256::from_be_bytes(registry::base().0);
         assert_eq!(registry::entries_length_slot(), B256::from(base + U256::from(1)));
-    }
-
-    #[test]
-    fn registry_entry_slots_are_pinned() {
-        assert_eq!(
-            registry::entry_slots(0),
-            [
-                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcba"),
-                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcbb"),
-                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcbc"),
-            ]
-        );
-        assert_eq!(
-            registry::entry_slots(1),
-            [
-                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcbd"),
-                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcbe"),
-                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcbf"),
-            ]
-        );
-        assert_eq!(
-            registry::entry_slots(2),
-            [
-                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcc0"),
-                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcc1"),
-                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32d8ebc7877436afbcc2"),
-            ]
-        );
-        assert_eq!(
-            registry::entry_slots(u64::MAX),
-            [
-                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32dbebc7877436afbcb7"),
-                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32dbebc7877436afbcb8"),
-                b256!("4d419ea4bc25ad27df001f0b7723b9f336aaf0c5d43f32dbebc7877436afbcb9"),
-            ]
-        );
     }
 
     #[test]

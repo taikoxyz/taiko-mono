@@ -3,7 +3,7 @@ use crate::{
     l1::layout::registry,
     test_utils::{
         RegistryStorage, TestState, anchor_at, committee_witness, filler_accounts,
-        registry_account, sample_entries,
+        registry_account, sample_entries, vectors,
     },
 };
 use alloy_primitives::{address, b256, keccak256};
@@ -33,17 +33,11 @@ fn devnet() -> ChainParams {
 // (`cast abi-encode` + `cast keccak`), not with this module.
 // ---------------------------------------------------------------------------------------------
 
-/// Vector entry `i`: pubkey `0xa1 + i` repeated, `(i + 1)` TAIKO, active from `10 + i`, exit at
-/// `1000 + i` for odd `i` (none for even `i`), heartbeat at `20 + i` with sequence `30 + i`.
+/// Shared vector entry `i` (`registry_entries` of `testdata/etna_vectors`): pubkey `0xa1 + i`
+/// repeated, `(i + 1)` TAIKO, active from `10 + i`, exit at `1000 + i` for odd `i` (none for
+/// even `i`), heartbeat at `20 + i` with sequence `30 + i`.
 fn vector_entry(i: u8) -> RegistryEntry {
-    RegistryEntry {
-        pubkey: B256::repeat_byte(0xa1 + i),
-        eff_stake: ether(u64::from(i) + 1),
-        active_from_l1: 10 + u64::from(i),
-        exit_effective_l1: if i % 2 == 1 { 1_000 + u64::from(i) } else { u64::MAX },
-        last_heartbeat_at: 20 + u64::from(i),
-        last_heartbeat_seq: 30 + u64::from(i),
-    }
+    vectors::registry_entry(usize::from(i))
 }
 
 /// The three MEM-08 vector members, sorted by MEM-08 key under [`CHAIN`]: that order is
@@ -106,19 +100,79 @@ fn domain_tags_are_right_padded_ascii() {
     );
 }
 
+/// The shared `registry_entries` vectors (`testdata/etna_vectors`, computed with `cast`; the
+/// contracts' `LibEntriesTree` tests read them too): every leaf and the root of every prefix.
 #[test]
-fn entries_root_vectors() {
-    let entries: Vec<RegistryEntry> = (0..5).map(vector_entry).collect();
-    let cases = [
-        (0, B256::ZERO),
-        (1, b256!("a8f6885e8bcbd1472f170ee0c1881bd17e2777b5be837042a869f9af9b0ad4e5")),
-        (2, b256!("1277441ec01a1f4fc6387db4a7ed59c0451b9dd11861bc34d135bff4a33d9025")),
-        (3, b256!("6ad9da0279384bc7b83f94a9745abd095c3d6b759cc4ff09a9c5efaa1d2b8072")),
-        (5, b256!("c89969296cd089a4e790030d9a57997264d9518a044fe6af270bc59df4c1d689")),
-    ];
-    for (count, expected) in cases {
-        assert_eq!(entries_root(&entries[..count]), expected, "count {count}");
+fn entries_root_and_leaves_match_the_shared_vectors() {
+    let entries = vectors::registry_entries();
+    assert_eq!(entries.len(), 5);
+    for (i, entry) in entries.iter().enumerate() {
+        let leaf = vectors::b256_at(&format!("/registry_entries/leaves/{i}"));
+        assert_eq!(entry_leaf(i, entry), leaf, "leaf {i}");
     }
+    let roots = vectors::len_at("/registry_entries/roots");
+    assert_eq!(roots, entries.len() + 1, "a root for every prefix");
+    for k in 0..roots {
+        let count = vectors::usize_at(&format!("/registry_entries/roots/{k}/count"));
+        let root = vectors::b256_at(&format!("/registry_entries/roots/{k}/entries_root"));
+        assert_eq!(entries_root(&entries[..count]), root, "count {count}");
+    }
+}
+
+/// The committee witness slots of the shared `snapshot_slots` vectors, with and without the
+/// next checkpoint, including the last index (whose successor slot wraps nothing).
+#[test]
+fn snapshot_slots_match_the_shared_vectors() {
+    let cases = vectors::len_at("/layout/registry/snapshot_slots");
+    assert!(cases >= 4);
+    for k in 0..cases {
+        let p = format!("/layout/registry/snapshot_slots/{k}");
+        let index = vectors::u64_at(&format!("{p}/index"));
+        let has_next = vectors::at(&format!("{p}/has_next")).as_bool().expect("a boolean");
+        assert_eq!(
+            snapshot_slots(index, has_next),
+            vectors::b256s_at(&format!("{p}/slots")),
+            "snapshot {index}, next {has_next}"
+        );
+    }
+}
+
+/// A registry whose snapshot words are packed per the shared layout vectors (at the vector's
+/// slots, with the vector's checkpoint packing) verifies, and its checkpoint decodes to the
+/// packed `l1Block` with the vector entries.
+#[test]
+fn verify_snapshot_decodes_the_shared_checkpoint_packing() {
+    let case = (0..vectors::len_at("/layout/registry/snapshot_slots"))
+        .map(|k| format!("/layout/registry/snapshot_slots/{k}"))
+        .find(|p| {
+            vectors::u64_at(&format!("{p}/index")) == 0 &&
+                vectors::at(&format!("{p}/has_next")).as_bool() == Some(true)
+        })
+        .expect("a snapshot vector of checkpoint 0 with its successor");
+    let slots = vectors::b256s_at(&format!("{case}/slots"));
+    let packing = "/layout/registry/packing/checkpoint_head";
+    let entries = vectors::registry_entries();
+    let count = U256::from(entries.len());
+    let root = vectors::b256_at(&format!("/registry_entries/roots/{}/entries_root", entries.len()));
+    let (l1_block, next) = (0x0123_4567_89ab_cdef_u64, u64::MAX);
+    let words = vec![
+        (slots[0], U256::from(2)),
+        (slots[1], vectors::pack(packing, &[("l1_block", U256::from(l1_block)), ("count", count)])),
+        (slots[2], root.into()),
+        (slots[3], vectors::pack(packing, &[("l1_block", U256::from(next)), ("count", count)])),
+    ];
+    let mut accounts = filler_accounts();
+    accounts.push((REGISTRY, 1, U256::ZERO, keccak256(b"etna registry code"), words));
+    let state = TestState::new(accounts);
+    let w = CommitteeWitness {
+        record: CommitteeRecord { checkpoint_index: 0, ..vector_record() },
+        registry: state.witness(REGISTRY, &slots),
+        entries: entries.clone(),
+    };
+    assert_eq!(
+        verify_snapshot(state.state_root(), REGISTRY, &w, next - 1),
+        Ok(Snapshot { checkpoint_index: 0, l1_block, entries })
+    );
 }
 
 #[test]
@@ -1045,21 +1099,27 @@ fn validator_updates_restate_unchanged_members() {
     assert_eq!(validator_updates(&set, &set), vec![(B256::repeat_byte(1), 1)]);
 }
 
+/// The shared `committee_config` vector (`testdata/etna_vectors`, computed with `cast`; the
+/// contracts' `EtnaInboxLand` test reads it too): the eleven `ETNA_PARENT_ANCHOR_V2` inputs hash
+/// to the vector's configuration hash.
 #[test]
-fn committee_config_hash_matches_independent_ethers_vector() {
+fn committee_config_hash_matches_the_shared_vector() {
+    let input = |name: &str| format!("/committee_config/inputs/{name}");
+    assert_eq!(vectors::str_at(&input("tag")), "ETNA_PARENT_ANCHOR_V2");
+    assert_eq!(vectors::u64_at(&input("lookahead_epochs")), LOOKAHEAD_EPOCHS);
+    assert_eq!(vectors::u64_at(&input("encoding_version")), u64::from(ENCODING_VERSION));
     let params = ChainParams {
-        l2_chain_id: 167001,
-        registry: Address::repeat_byte(0x22),
-        vp_unit: U256::from(1_000_000_000u64),
-        s_min: ether(1),
-        n_max: 128,
-        heartbeat_window: 32,
+        l2_chain_id: vectors::u64_at(&input("l2_chain_id")),
+        registry: vectors::address_at(&input("registry")),
+        vp_unit: vectors::u256_at(&input("vp_unit")),
+        s_min: vectors::u256_at(&input("s_min")),
+        n_max: vectors::usize_at(&input("n_max")),
+        heartbeat_window: vectors::u64_at(&input("heartbeat_window")),
+        d_max: vectors::u64_at(&input("d_max")),
+        margin_v: vectors::u64_at(&input("margin_v")),
         ..devnet()
     };
-    assert_eq!(
-        committee_config_hash(&params),
-        b256!("483221e100b91b58a058b89723effa13d9a8b8527f8915ca8ad74cc44d5b7c0e")
-    );
+    assert_eq!(committee_config_hash(&params), vectors::b256_at("/committee_config/hash"));
 }
 
 #[test]

@@ -7,11 +7,13 @@ on:
     branches: [main]
     paths:
       - "testdata/derivation_vectors/**"
+      - "testdata/etna_vectors/**"
       - "packages/taiko-client-rs/**"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "testdata/derivation_vectors/**"
+      - "testdata/etna_vectors/**"
       - "packages/taiko-client-rs/**"
       - "!**/*.md"
 
@@ -203,6 +205,46 @@ jobs:
       - name: Run unit tests
         working-directory: packages/taiko-client-rs
         run: just unit
+
+  # The lander contract fixtures, the IEtnaInbox copy and the shared Etna vectors must be what
+  # script/gen_lander_artifacts.sh produces from the pinned protocol revision.
+  lander-artifacts:
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
+    name: Lander artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      # As .github/actions/install-pnpm-dependencies: git-hosted pnpm dependencies over HTTPS.
+      - name: Set up Git to use HTTPS
+        run: git config --global url."https://github.com/".insteadOf "git@github.com:"
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1.5.0
+        with:
+          # The release recorded in crates/lander/tests/fixtures/contracts/manifest.json.
+          version: v1.5.1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+
+      - name: Setup just
+        uses: extractions/setup-just@v4
+        with:
+          just-version: 1.5.0
+
+      - name: Regenerate and compare
+        working-directory: packages/taiko-client-rs
+        run: just check-lander-artifacts
 
   test:
     env:

@@ -202,7 +202,7 @@ mod tests {
     use super::*;
     use crate::test_utils::{
         AccountSpec, InboxStorage, TestState, anchor_witness, anchor_witness_in, edit_l1_header,
-        filler_accounts, genesis_inbox_witness, l1_header, sample_genesis_record,
+        filler_accounts, genesis_inbox_witness, l1_header, sample_genesis_record, vectors,
     };
     use alloy_primitives::{address, keccak256};
 
@@ -226,6 +226,83 @@ mod tests {
 
     fn committee_e0() -> B256 {
         B256::repeat_byte(0xc0)
+    }
+
+    /// Inbox words packed per the shared layout vectors (`testdata/etna_vectors`: the vector
+    /// slots, offsets and widths, which the contracts check against a deployed Inbox) decode
+    /// through both witness verifiers to the packed values, every field using its full width.
+    #[test]
+    fn witnesses_decode_the_shared_inbox_packing() {
+        let slot =
+            |name: &str| inbox::slot(vectors::u64_at(&format!("/layout/inbox/slots/{name}")));
+        let packed = |name: &str, fields: &[(&str, u64)]| {
+            let fields: Vec<(&str, U256)> =
+                fields.iter().map(|(field, value)| (*field, U256::from(*value))).collect();
+            (slot(name), vectors::pack(&format!("/layout/inbox/packing/{name}"), &fields))
+        };
+        let word = |name: &str, byte: u8| (slot(name), U256::from_be_bytes([byte; 32]));
+        let max48 = (1u64 << 48) - 1;
+        let words = vec![
+            packed("status", &[("status", vectors::u64_at("/layout/inbox/status_active"))]),
+            packed("recovery_generation", &[("recovery_generation", u64::MAX - 1)]),
+            packed("last_checkpoint_height", &[("height", 0x0123_4567_89ab_cdef)]),
+            word("last_checkpoint_hash", 0xc4),
+            packed("forced_inclusion_head_tail", &[("head", max48 - 1), ("tail", max48)]),
+            packed(
+                "activation_packed",
+                &[
+                    ("genesis_height", 0),
+                    ("l1_block", u64::MAX - 2),
+                    ("epoch_len_l2", 0x0102_0304_0506_0708),
+                    ("epoch_len_l1", u64::MAX - 3),
+                ],
+            ),
+            word("genesis_block_hash", 0xa1),
+            word("genesis_state_root", 0xa2),
+            packed("genesis_cutoff", &[("genesis_cutoff", u64::MAX - 4)]),
+            word("committee_config_hash", 0xa3),
+            word("genesis_committee_hash", 0xa4),
+            packed(
+                "forced_inclusion_config",
+                &[("delay", u64::MAX - 5), ("max_anchor_age", u64::MAX)],
+            ),
+        ];
+        let mut accounts = filler_accounts();
+        accounts.push((INBOX, 1, U256::ZERO, keccak256(b"etna inbox code"), words));
+        let state = TestState::new(accounts);
+
+        let genesis_witness = state.witness(INBOX, &inbox::genesis_slots());
+        let (genesis, _, committee) =
+            verify_genesis_inbox(state.state_root(), &genesis_witness, INBOX).unwrap();
+        assert_eq!(
+            genesis,
+            GenesisRecord {
+                committee_config_hash: B256::repeat_byte(0xa3),
+                genesis_height: 0,
+                l1_0: u64::MAX - 2,
+                epoch_len: 0x0102_0304_0506_0708,
+                epoch_len_l1: u64::MAX - 3,
+                genesis_hash: B256::repeat_byte(0xa1),
+                genesis_state_root: B256::repeat_byte(0xa2),
+                genesis_cutoff: u64::MAX - 4,
+                forced_inclusion_delay: u64::MAX - 5,
+                max_anchor_age: u64::MAX,
+            }
+        );
+        assert_eq!(committee, B256::repeat_byte(0xa4));
+
+        let anchor = anchor_witness_in(&state, INBOX, l1_header(4_242, 1_760_000_123));
+        assert_eq!(
+            verify_anchor_witness(&anchor, INBOX).unwrap().inbox,
+            InboxFacts {
+                status: inbox::ETNA_ACTIVE,
+                recovery_generation: u64::MAX - 1,
+                last_checkpoint_height: 0x0123_4567_89ab_cdef,
+                last_checkpoint_hash: B256::repeat_byte(0xc4),
+                forced_inclusion_head: max48 - 1,
+                forced_inclusion_tail: max48,
+            }
+        );
     }
 
     #[test]
