@@ -4,7 +4,6 @@ pragma solidity ^0.8.26;
 import { EtnaInboxTestBase } from "./EtnaInboxTestBase.sol";
 import { VmSafe } from "forge-std/src/Vm.sol";
 import { DeployEtnaDevnet } from "script/layer1/etna/DeployEtnaDevnet.s.sol";
-import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
@@ -39,7 +38,6 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         _deployInbox_RevertWhen_ForcedInclusionFeeIsZero();
         _deployInbox_RevertWhen_ForcedInclusionFeeDoubleThresholdIsZero();
         _deployInbox_RevertWhen_ForcedInclusionDelayIsZero();
-        _deployInbox_RevertWhen_ForcedInclusionDelayIsAtExpiry();
         _deployInbox_RevertWhen_MaxAnchorAgeIsZero();
     }
 
@@ -141,9 +139,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         vm.deal(Alice, 1 ether);
         vm.blobhashes(_getBlobHashes(1));
         vm.prank(Alice);
-        deployed.saveForcedInclusion{ value: uint256(FORCED_INCLUSION_FEE_GWEI) * 1 gwei }(
-            LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 })
-        );
+        deployed.saveForcedInclusion{ value: uint256(FORCED_INCLUSION_FEE_GWEI) * 1 gwei }(hex"c0");
 
         IEtnaInbox.LandInput memory input = IEtnaInbox.LandInput({
             lastHeight: 1,
@@ -228,11 +224,6 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
 
     function _deployInbox_RevertWhen_ForcedInclusionDelayIsZero() private withEnvironment {
         vm.setEnv("FORCED_INCLUSION_DELAY", "0");
-        _expectRejectedDeployment(EtnaInbox.InvalidForcedInclusionDelay.selector);
-    }
-
-    function _deployInbox_RevertWhen_ForcedInclusionDelayIsAtExpiry() private withEnvironment {
-        vm.setEnv("FORCED_INCLUSION_DELAY", vm.toString(FORCED_INCLUSION_EXPIRY));
         _expectRejectedDeployment(EtnaInbox.InvalidForcedInclusionDelay.selector);
     }
 
