@@ -1058,7 +1058,7 @@ fn committee_config_hash_matches_independent_ethers_vector() {
     };
     assert_eq!(
         committee_config_hash(&params),
-        b256!("a39d945e8d229bca83870430088db2065f92f8b01303480447d03d5dd11ee377")
+        b256!("483221e100b91b58a058b89723effa13d9a8b8527f8915ca8ad74cc44d5b7c0e")
     );
 }
 
@@ -1083,6 +1083,12 @@ fn committee_config_hash_binds_each_config_opening_field() {
     variants.push(p);
     let mut p = params.clone();
     p.heartbeat_window += 1;
+    variants.push(p);
+    let mut p = params.clone();
+    p.d_max += 1;
+    variants.push(p);
+    let mut p = params.clone();
+    p.margin_v += 1;
     variants.push(p);
     for changed in variants {
         assert_ne!(committee_config_hash(&changed), committee_config_hash(&params));

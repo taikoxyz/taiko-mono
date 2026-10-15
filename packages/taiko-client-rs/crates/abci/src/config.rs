@@ -15,9 +15,11 @@ pub struct ChainParams {
     pub registry: Address,
     /// `L2FeeVault`: L2 coinbase and suggested fee recipient of every block.
     pub fee_vault: Address,
-    /// `D_MAX`: maximum unsettled depth, in L2 blocks (HALT-03).
+    /// `D_MAX`: maximum unsettled depth, in L2 blocks (HALT-03); bound by the committee
+    /// configuration hash.
     pub d_max: u64,
-    /// `MARGIN_V`: safety margin subtracted from `d_max`, in L2 blocks; `d_max >= margin_v`.
+    /// `MARGIN_V`: safety margin subtracted from `d_max`, in L2 blocks; `d_max >= margin_v`;
+    /// bound by the committee configuration hash.
     pub margin_v: u64,
     /// `VP_UNIT`: effective stake per unit of voting power, in TAIKO base units; `> 0`.
     pub vp_unit: U256,
@@ -122,9 +124,11 @@ impl ChainParams {
     /// Applies a TOML override on top of `self` and returns the result.
     ///
     /// The TOML is a table whose keys are this struct's snake_case field names; every key is
-    /// optional and absent keys keep their current value. `fee_vault`, `block_gas_limit`,
-    /// `d_max` and `margin_v` must equal their built-in values: the authenticated committee
-    /// commitment does not bind these consensus constants. Integers are TOML integers, addresses
+    /// optional and absent keys keep their current value. `fee_vault` and `block_gas_limit` must
+    /// equal their built-in values: the authenticated committee commitment does not bind these
+    /// consensus constants. `d_max` and `margin_v` may differ, because the commitment binds them:
+    /// a node whose values differ from its chain's cannot open the stored committee
+    /// configuration hash. Integers are TOML integers, addresses
     /// are hex strings and `U256` values (`vp_unit`, `s_min`) are decimal or `0x`-hex strings.
     /// Unknown keys and malformed values are rejected with [`ConfigError::Toml`]; an
     /// `l2_chain_id` different from `self.l2_chain_id` is rejected with
@@ -143,8 +147,6 @@ impl ChainParams {
         let fixed = [
             ("fee_vault", o.fee_vault.is_some_and(|v| v != builtin.fee_vault)),
             ("block_gas_limit", o.block_gas_limit.is_some_and(|v| v != builtin.block_gas_limit)),
-            ("d_max", o.d_max.is_some_and(|v| v != builtin.d_max)),
-            ("margin_v", o.margin_v.is_some_and(|v| v != builtin.margin_v)),
         ];
         if let Some((parameter, _)) = fixed.into_iter().find(|(_, changed)| *changed) {
             return Err(ConfigError::FixedConsensusParameter { parameter });
@@ -314,8 +316,6 @@ mod tests {
         for (parameter, document) in [
             ("fee_vault", "fee_vault = \"0x3333333333333333333333333333333333333333\""),
             ("block_gas_limit", "block_gas_limit = 60000000"),
-            ("d_max", "d_max = 30"),
-            ("margin_v", "margin_v = 5"),
         ] {
             let err = devnet().with_overrides(document).expect_err("consensus override");
             assert!(
@@ -323,6 +323,20 @@ mod tests {
                 "{document}: {err:?}"
             );
         }
+    }
+
+    #[test]
+    fn overrides_committed_back_pressure_parameters() {
+        let p = devnet().with_overrides("d_max = 1024\nmargin_v = 5").unwrap();
+        assert_eq!(p.d_max, 1024);
+        assert_eq!(p.margin_v, 5);
+        assert_eq!(p.unsettled_cap(), 1019);
+        p.validate().expect("overridden back-pressure parameters are valid");
+        assert_ne!(
+            crate::committee::committee_config_hash(&p),
+            crate::committee::committee_config_hash(&devnet()),
+            "the committee configuration commits d_max and margin_v"
+        );
     }
 
     #[test]

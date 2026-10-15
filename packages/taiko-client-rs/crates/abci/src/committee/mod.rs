@@ -258,14 +258,15 @@ pub fn record_hash(l2_chain_id: u64, r: &CommitteeRecord) -> B256 {
     )
 }
 
-/// The authenticated derivation configuration: nine static Solidity ABI words.
+/// The authenticated derivation configuration: eleven static Solidity ABI words.
 ///
 /// Binds the L2 chain, registry, stake/power rules, heartbeat window,
-/// two-epoch heartbeat lookahead and committee-record encoding version.
+/// two-epoch heartbeat lookahead, committee-record encoding version and the back-pressure
+/// parameters `d_max` and `margin_v`.
 pub fn committee_config_hash(params: &ChainParams) -> B256 {
     keccak256(
         [
-            tag(b"ETNA_PARENT_ANCHOR_V1"),
+            tag(b"ETNA_PARENT_ANCHOR_V2"),
             word(params.l2_chain_id),
             B256::from(U256::from_be_slice(params.registry.as_slice())),
             word(params.vp_unit),
@@ -274,6 +275,8 @@ pub fn committee_config_hash(params: &ChainParams) -> B256 {
             word(params.heartbeat_window),
             word(LOOKAHEAD_EPOCHS),
             word(ENCODING_VERSION),
+            word(params.d_max),
+            word(params.margin_v),
         ]
         .concat(),
     )

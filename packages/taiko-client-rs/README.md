@@ -90,8 +90,9 @@ committed anchor and activates at height 11. If height 8 anchored L1 block 1010,
 1030 proposed at height 9 cannot change that selection. A different decided history whose
 height 8 anchored 1020 may select a different committee; all nodes replaying one history agree.
 
-The config hash binds nine ABI words: `ETNA_PARENT_ANCHOR_V1`, L2 chain id, registry,
-`vp_unit`, `s_min`, `n_max`, `heartbeat_window`, heartbeat lookahead 2 and membership algorithm 1.
+The config hash binds eleven ABI words: `ETNA_PARENT_ANCHOR_V2`, L2 chain id, registry,
+`vp_unit`, `s_min`, `n_max`, `heartbeat_window`, heartbeat lookahead 2, membership algorithm 1,
+`d_max` and `margin_v`.
 The envelope is version 5, the landing payload V4, the statement V6 and the lander journal
 schema 8 (original Comet protobuf witnesses and commits). ABCI advertises `APP_VERSION = 2`;
 persisted `app_version` is mandatory and must equal 2. Version 1 state is incompatible with the
@@ -244,10 +245,12 @@ Serves the ABCI++ application to a CometBFT node.
 The four timeouts accept 1 to 3600 seconds. The L2 chain id is read from `--l2.http` and
 selects the built-in chain parameters. Only the internal devnet (chain id `167001`) has Etna PoS
 parameters so far; on other chains `abci` refuses to start. The `--chain-config` TOML uses the
-snake_case names of `abci::ChainParams` (for example `d_max = 12`); absent keys keep their
-built-in values. `fee_vault`, `block_gas_limit`, `d_max`, and `margin_v` may only repeat the
-built-in values, because the nine-word contract configuration does not commit these fields.
-Changing them requires a coordinated protocol/built-in update. The authenticated Inbox address
+snake_case names of `abci::ChainParams` (for example `d_max = 1024`); absent keys keep their
+built-in values. `fee_vault` and `block_gas_limit` may only repeat the built-in values, because
+the eleven-word contract configuration does not commit these fields; changing them requires a
+coordinated protocol/built-in update. `d_max` and `margin_v` are committed, so a chain may set
+its own; every node and lander of that chain must use the values its Inbox configuration hash
+opens with. The authenticated Inbox address
 is also required in persisted state and checked again on restart. `InitChain` requires the exact
 L1_0 genesis time, canonical representable CometBFT consensus parameters, and an EL genesis
 header whose hash and state root match H* and S*.
@@ -736,7 +739,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 Regenerate lander ABI/deployment fixtures with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `afe4550cd87c5009c251aad24a256102e4c63e56`,
+The script requires protocol HEAD `41241d5e6440c2ab244ccfdf572d1af8016f70c6`,
 installs pnpm dependencies before Foundry, verifies compiler source hashes,
 formats generated JSON, and records ABI/bytecode/compiler provenance. It leaves
 the existing Anchor bindings unchanged. Run it twice and require identical generated output.
