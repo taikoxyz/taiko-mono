@@ -86,6 +86,17 @@ constraints.
 - Choose `epochLenL2 >= D_MAX - MARGIN_V + 3`, the node's back-pressure requirement. The contract
   checks only the minimum of 3: `d_max` and `margin_v` are bound only inside the opaque
   `committeeConfigHash`, which the contract does not open.
+- Keep `n_max` at or below about 400. The landing that carries an epoch's last commit settles the
+  whole epoch inline, and it must fit in one L1 transaction, which Osaka caps at 16,777,216 gas
+  (EIP-7825). In the worst case, where every member's registration owner is credited for the first
+  time, the pool frame costs about 34.9k gas per member (4,464,698 measured for 128), and the
+  settlement list and counts add about 128 bytes of calldata per member, on top of the landing's
+  own verification, checkpoint and forced inclusion costs (see Settlement gas). Well above 400
+  members that landing cannot be included: landing halts, back-pressure then halts L2, and only a
+  pool upgrade recovers. A production landing settles at most one epoch, because
+  `epochLenL2 >= d_max - margin_v + 3` keeps every batch shorter than an epoch, so the bound
+  applies per landing. The contracts cannot check it: `n_max` is bound only inside the opaque
+  `committeeConfigHash`.
 - Set a non-zero registry `churnWindow` outside throwaway devnets, together with `churnBps` and a
   `minChurnPerWindow` floor of at least `minStake`. Zero disables the churn limit. `bondedStake`
   starts at 0, so before genesis only the floor activates per window: register the genesis set
@@ -684,7 +695,9 @@ member. For a 128-member epoch the pool frame measured about 1.6M gas when every
 holds credits and about 4.46M in the worst case, where all 128 owners are credited for the first
 time. The landing also carries about 12 KB of committee calldata (three words per member). The
 lander of the freezing landing pays all of this, so its gas estimate must cover it. The contracts
-do not bound the committee size; the client's `n_max` does.
+do not bound the committee size. The committee configuration's `n_max` caps it, and `n_max` must
+itself stay low enough, about 400, for that landing to fit under the L1 transaction gas cap (see
+Configuration checks).
 
 ### Deviations from #22262
 
