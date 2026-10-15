@@ -363,7 +363,7 @@ mod tests {
     }
 
     /// A real V4 payload spanning two blobs, cut to its first blob: the blob codec serves the
-    /// prefix, and the V3 codec rejects it at the zlib stream's end and checksum.
+    /// prefix, and the V4 codec rejects it at the zlib stream's end and checksum.
     #[test]
     fn a_truncated_v3_payload_fails_its_zlib_stream() {
         let limits = landing_limits();

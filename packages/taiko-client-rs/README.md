@@ -136,10 +136,11 @@ there is no expiry or expiry-derived upper bound.
 - An entry absent from position zero cannot be consumed early. Once due, empty, malformed or
   noncanonical transaction bytes consume the entry directly as an invalid-byte skip.
 - Due canonical bytes absent from position zero require the shared Engine skip checker. It
-  builds the singleton on the authenticated parent, checks a still-canonical parent immediately
-  before FCU, and requires the singleton to preserve the consensus-derived header and retain no transaction.
-  Filtering or zk-gas overflow can yield that empty result and authorize the skip. RPC errors, missing
-  history, malformed results and a signature-recovery failure in a transaction the block
+  builds the singleton on the supplied authenticated parent and requires the result to preserve
+  the consensus-derived header and retain no transaction. ABCI supplies its committed-parent
+  context; the lander additionally checks that parent's numeric canonical hash before probing.
+  Filtering or zk-gas overflow can yield the empty result and authorize the skip. RPC errors,
+  missing history, malformed results and a signature-recovery failure in a transaction the block
   claims to include never authorize consumption.
 
 At most one queue entry is consumed per block. Included and invalid-byte cases require no
@@ -644,16 +645,19 @@ or config opening differs.
 - Keep the pinned alethia-reth behavior that processes payload attributes on historical canonical
   parents (`TaikoChainSpec::is_optimism() == true`). Leave
   `--engine.allow-unwind-canonical-header` disabled (the default): enabling it can rewind the shared
-  canonical head. The client checks the candidate parent's numeric canonical hash before probing;
-  this guard is not an atomic lock against concurrent reorgs. It does not submit or forkchoice the
-  singleton result. Engine builds are not universally read-only, especially on noncanonical parents.
+  canonical head. The lander checks the candidate parent's numeric canonical hash before probing;
+  this guard is not an atomic lock against concurrent reorgs. ABCI supplies its committed-parent
+  context without an equivalent numeric lookup. Neither path submits or forkchoices the singleton
+  result. Engine builds are not universally read-only, especially on noncanonical parents.
 - Retain execution state over the entire replay/landing distance, or use an archive node. A later
-  snapshot may lack the required old state. Generic unavailable-build RPC errors are retryable,
-  non-consuming and logged with `reason="forced_rebuild_unavailable"`, parent number/hash and a
-  qualified historical-state hint. A generic internal RPC error does not confirm pruning. Unknown
-  payload IDs (`-38001`) restart the build to obtain a fresh ID. When state becomes available,
-  retry resumes without advancing the cursor prematurely. Nonretryable failures retain the safety
-  halt. Restore the required state/history before restarting a halted app and CometBFT.
+  snapshot may lack the required old state. Retryable unavailable-build RPC errors are
+  non-consuming and logged with `method="forced_rebuild_unavailable"`; the `reason` diagnostic
+  includes the parent number/hash and a qualified historical-state hint. A generic internal RPC
+  error does not confirm pruning. Unknown payload IDs (`-38001`) restart the build to obtain a
+  fresh ID. When state becomes available, retry resumes without advancing the cursor prematurely.
+  Nonretryable Engine build failures stop through the safety-halt path, whose log uses
+  `reason="forced_rebuild_unavailable"`. Restore the required state/history before restarting a
+  halted app and CometBFT.
 
 ### Future validity proof boundary
 
