@@ -508,7 +508,7 @@ fn snapshot_decoding_returns_the_planted_forced_inclusion_head_and_tail() {
 #[test]
 fn snapshot_with_an_invalid_forced_inclusion_config_is_a_configuration_error() {
     let fixture = crate::test_utils::consensus_mpt::Fixture::new(0, 2);
-    for (forced_inclusion_delay, max_anchor_age) in [(0, 7_200), (1_209_600, 7_200), (3_600, 0)] {
+    for (forced_inclusion_delay, max_anchor_age) in [(0, 7_200), (1, 1151), (3_600, 0)] {
         let genesis = GenesisRecord {
             forced_inclusion_delay,
             max_anchor_age,

@@ -1,6 +1,6 @@
 //! EL confirmation of calldata forced-inclusion decisions.
 //!
-//! This adapter is dormant until calldata envelope activation. Only a canonical transaction
+//! Only a canonical transaction
 //! absent from a singleton build on the candidate's exact parent may be skipped. Callers own
 //! timeouts and retry policy; no returned build is submitted or made canonical here.
 

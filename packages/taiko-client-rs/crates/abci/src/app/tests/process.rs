@@ -18,10 +18,10 @@ use crate::{
     compression::{HEADER_ALLOWANCE, MAX_BLOCK_LANDING_BYTES, zlib_compress},
     engine::{EngineError, PayloadVerdict},
     envelope::{EnvelopeError, EtnaEnvelope},
-    forced::{ForcedConsumption, ForcedError},
+    forced::ForcedError,
     l1::L1Error,
     rules::{RuleViolation, encode_extra_data},
-    test_utils::{edit_l1_header, sample_transactions, simple_block},
+    test_utils::{edit_l1_header, sample_transactions},
 };
 
 /// One in-place header mutation.
@@ -339,20 +339,19 @@ async fn ordinary_block_skipping_a_due_entry_is_rejected() {
     assert_eq!(rejected(&mut app, &ordinary).await, "forced_inclusion");
 
     let mut peek = ordinary.clone();
-    peek.forced = Some(fx.forced_witness(app.l1(), 66, 0, Bytes::new()));
-    assert_eq!(
-        validate(&app, &peek).map(|_| ()),
-        Err(Rejection::Forced(ForcedError::Due { index: 0 }))
-    );
-    assert_eq!(rejected(&mut app, &peek).await, "forced_inclusion");
+    peek.forced = Some(fx.forced_witness(app.l1(), 66, 0, blob.clone()));
+    assert!(matches!(
+        validate(&app, &peek).unwrap().decision,
+        crate::forced::ForcedDecision::NeedsSkip { .. }
+    ));
+    assert_eq!(rejected(&mut app, &peek).await, "forced_skip_invalid");
 
     let witness = fx.forced_witness(app.l1(), 66, 0, blob);
     let forced = hand_forced_envelope(&app, ordinary.anchor, None, witness, sample_tx_list());
-    let consumed = ForcedConsumption {
-        index: 0,
-        tx_list: protocol::shasta::encode_transactions(&sample_transactions()),
-    };
-    assert_eq!(validate(&app, &forced).map(|v| v.forced), Ok(Some(consumed)));
+    assert_eq!(
+        validate(&app, &forced).unwrap().decision,
+        crate::forced::ForcedDecision::Included(0)
+    );
     let (resp, _) = judge(&mut app, &forced).await;
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
 }
@@ -382,54 +381,27 @@ async fn process_accepts_a_forced_block_equal_to_the_rebuild() {
     let (resp, req) = judge(&mut app, &env).await;
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
 
-    let parent = app.state().unwrap().parent.hash;
     let calls = app.engine().calls()[before..].to_vec();
-    let [EngineCall::BuildBlock { parent: built_on, attrs }, EngineCall::NewPayload(executed)] =
-        calls.as_slice()
-    else {
-        panic!("a rebuild, then the execution: {calls:?}");
-    };
-    assert_eq!(*built_on, parent);
-    assert_eq!(attrs.block_metadata.tx_list, Some(sample_tx_list()), "the explicit list");
-    assert!(attrs.l1_origin.is_forced_inclusion);
-    assert_eq!(simple_block(parent, attrs), env.block, "the attributes derive the block");
-    assert_eq!(*executed, env.block.header.hash_slow());
+    assert!(
+        matches!(calls.as_slice(), [EngineCall::NewPayload(_)]),
+        "included transaction requires no singleton build: {calls:?}"
+    );
     let v = app.verdicts.get(&req.hash).expect("the verdict is cached");
-    assert_eq!(v.forced.as_ref().map(|f| f.index), Some(0));
+    assert_eq!(v.forced, Some(0));
     assert!(v.executed);
 }
 
-/// A forced inclusion block with one more transaction than its entry's list passes every
-/// deterministic check, but is not the block the EL rebuilds: rejected before it is executed.
+/// Mixed inclusion permits an ordinary tail and requires no singleton probe.
 #[tokio::test]
-async fn process_rejects_a_forced_block_with_an_extra_transaction() {
+async fn process_accepts_a_forced_block_with_an_extra_transaction() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let (mut app, honest) = forced_block(&fx, dir.path()).await;
-    let env = with_extra_transaction(honest.clone());
-    assert!(validate(&app, &env).is_ok(), "deterministically valid");
-
+    let env = with_extra_transaction(honest);
     let before = app.engine().calls().len();
-    assert_eq!(rejected(&mut app, &env).await, "forced_rebuild_mismatch");
-    let calls = app.engine().calls()[before..].to_vec();
-    assert!(matches!(calls.as_slice(), [EngineCall::BuildBlock { .. }]), "not executed: {calls:?}");
-    assert!(app.verdicts.is_empty());
-    assert_eq!(
-        Rejection::ForcedRebuildMismatch {
-            expected: honest.block.header.hash_slow(),
-            got: env.block.header.hash_slow(),
-        }
-        .label(),
-        "forced_rebuild_mismatch"
-    );
-
-    // An EL that cannot rebuild the block refuses it too (liveness only), without executing it.
-    let other_dir = tempfile::tempdir().unwrap();
-    let (mut app, env) = forced_block(&fx, other_dir.path()).await;
-    let build_failure = EngineError::BuildNotStarted("SYNCING".into());
-    app.engine().state().build_script.push_back(Err(build_failure));
-    assert_eq!(rejected(&mut app, &env).await, "engine_error");
-    assert!(!app.engine().calls().iter().any(|c| matches!(c, EngineCall::NewPayload(_))));
+    let (resp, _) = judge(&mut app, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept);
+    assert!(matches!(&app.engine().calls()[before..], [EngineCall::NewPayload(_)]));
 }
 
 /// While the queue's next entry is pending but not due, ordinary blocks peek it (its proof with an
@@ -444,8 +416,8 @@ async fn pending_entry_is_peeked_by_ordinary_blocks() {
     inbox.forced_inclusion_queue = vec![crate::forced::ForcedEntry {
         index: 0,
         fee_in_gwei: 7,
-        blob_hash: B256::repeat_byte(0x01),
-        offset: 0,
+        tx_hash: alloy_primitives::keccak256([]),
+        l1_block: 66,
         // One second short of due at block 66.
         timestamp: Fixture::l1_timestamp(66) - fx.genesis.forced_inclusion_delay + 1,
     }];
@@ -596,4 +568,55 @@ async fn proposals_before_init_chain_are_errors() {
     let req = super::proposal::prepare_req(1_001, 0);
     let err = app.handle(Request::PrepareProposal(req)).await.expect_err("not initialized");
     assert!(matches!(err, AbciError::Uninitialized("PrepareProposal")), "{err:?}");
+}
+
+#[tokio::test]
+async fn same_sender_nonce_replacement_and_later_position_cannot_skip_retained_forced_tx() {
+    use alloy_consensus::{SignableTransaction, TxEnvelope, TxLegacy};
+    use alloy_eips::eip2718::Encodable2718;
+    let signer = protocol::signer::FixedKSigner::golden_touch().unwrap();
+    let signed = |price| {
+        let tx = TxLegacy {
+            chain_id: Some(167001),
+            nonce: 0,
+            gas_limit: 21000,
+            gas_price: price,
+            ..Default::default()
+        };
+        let signature = signer.sign_with_predefined_k(&tx.signature_hash().0).unwrap().signature;
+        TxEnvelope::Legacy(tx.into_signed(signature))
+    };
+    let forced = signed(100);
+    let replacement = signed(200);
+    for later in [false, true] {
+        let fx = Fixture::genesis(1);
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = mid_epoch(&fx, dir.path(), 5).await;
+        let due = Fixture::l1_timestamp(66) - fx.genesis.forced_inclusion_delay;
+        let tx = super::proposal::plant_entries(
+            &fx,
+            app.l1(),
+            66,
+            fx.inbox.clone(),
+            vec![(due, vec![forced.clone()])],
+        )
+        .remove(0);
+        let witness = fx.forced_witness(app.l1(), 66, 0, tx);
+        let mut txs = vec![replacement.clone()];
+        if later {
+            txs.push(forced.clone());
+        }
+        let env = hand_forced_envelope(
+            &app,
+            Some(fx.anchor_witness(app.l1(), 66)),
+            None,
+            witness,
+            protocol::shasta::encode_transactions(&txs),
+        );
+        let before = app.engine().calls().len();
+        assert_eq!(rejected(&mut app, &env).await, "forced_skip_invalid");
+        assert!(matches!(&app.engine().calls()[before..], [EngineCall::BuildBlock { .. }]));
+        assert_eq!(app.state().unwrap().forced_cursor, 0);
+        assert_ne!(env.block.transactions[0], forced.encoded_2718());
+    }
 }

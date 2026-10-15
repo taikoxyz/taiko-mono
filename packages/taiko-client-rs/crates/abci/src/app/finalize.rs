@@ -1,8 +1,8 @@
 //! `FinalizeBlock` and `Commit`.
 //!
 //! `FinalizeBlock` is deterministic: it judges a decided block on its envelope, the committed
-//! [`AppState`] and the EL, never a beacon (every L1 fact a block consumes travels in the block, a
-//! forced inclusion block's blob included), so a node replaying after a crash or block-syncing
+//! [`AppState`] and the EL, never a beacon (every L1 fact a block consumes travels in the block,
+//! the forced transaction bytes included), so a node replaying after a crash or block-syncing
 //! derives the same response and state as one that voted. The one L1 read is for a block this
 //! node never judged whose envelope moves the anchor: its own L1 must have finalized that very
 //! header ([`App::confirm_anchor`]), so a block-synced history cannot carry a forged L1 header and
@@ -27,9 +27,7 @@ use tokio::time::Instant;
 use super::{
     AbciError, App, FINALIZE_RETRY_ESCALATE, FINALIZE_RETRY_INITIAL, FINALIZE_RETRY_MAX, app_hash,
     deadline, unix_secs,
-    validate::{
-        Rejection, Validated, check_forced_rebuild, forced_rebuild_attributes, validate_block,
-    },
+    validate::{Rejection, Validated, validate_block},
 };
 use crate::{
     committee,
@@ -42,33 +40,12 @@ use crate::{
 };
 
 impl<L: L1Source, E: Engine> App<L, E> {
-    /// Handles `FinalizeBlock`: derives the state after the decided block and makes the EL
-    /// execute it and adopt it as its head.
-    ///
-    /// In order: the block's [`Validated`] verdict is taken from the `ProcessProposal` cache
-    /// (by CometBFT block hash) or, when absent (crash replay, block sync), recomputed by
-    /// [`validate_block`] from the block's single envelope and BFT time, a moved anchor then being
-    /// confirmed final and canonical in the own L1 ([`App::confirm_anchor`]); the next state and
-    /// the validator updates are derived ([`next_state`]); with a recomputed verdict, a forced
-    /// inclusion block must be the block the EL rebuilds from its entry's transaction list
-    /// ([`App::rebuild_forced`]; `ProcessProposal` did so for a cached one); the EL executes the
-    /// block unless the cached verdict already did, then moves its forkchoice to `head = safe =`
-    /// the block and `finalized =` the anchored `lastCheckpoint.blockHash` (the L1-accepted
-    /// checkpoint, so the EL can still rewind above it; zero stays zero); the next state becomes
-    /// pending until `Commit`. The state is derived before any EL call so a contradiction halts
-    /// before the EL moves.
-    ///
-    /// The response carries one code-0 `ExecTxResult` for the envelope transaction, the
-    /// validator updates of a switch height (CometBFT applies them two heights later, at
-    /// `h_first`), `app_hash =` the block hash, no events and no parameter updates.
-    ///
-    /// Re-finalizing a block the EL already executed (a replay after a crash before `Commit`)
-    /// answers the same: the EL accepts a known payload and forkchoice again, and rebuilds a
-    /// forced inclusion block on its parent although its head is that block (alethia-reth builds
-    /// on a canonical ancestor without moving its head). EL calls block until the EL settles the
-    /// block ([`App::settle`]), and an anchor confirmation blocks until the own L1 answers.
-    /// Errors: [`AbciError::Uninitialized`] before `InitChain`;
-    /// [`AbciError::SafetyHalt`] for any failure of the decided block.
+    /// Authenticates a decided envelope against the committed context and settles its payload.
+    /// A cached verdict is reused only for identical envelope bytes, expected header, parent
+    /// cursor and authenticated facts. Cold decisions confirm moved anchors and complete any
+    /// canonical skip probe before deriving the next state. The candidate executes through
+    /// `newPayload` and becomes the forkchoice head; singleton evidence never becomes the head.
+    /// State stays pending until `Commit`. Invalid decisions halt; temporary EL failures retry.
     pub(super) async fn finalize_block(
         &mut self,
         req: request::FinalizeBlock,
@@ -79,43 +56,45 @@ impl<L: L1Source, E: Engine> App<L, E> {
             return Err(AbciError::Uninitialized("FinalizeBlock"));
         };
         let bft_secs = unix_secs(req.time);
-        let (validated, cold) = match self.verdicts.remove(&req.hash) {
-            Some(cached) => (cached, false),
-            None => {
-                let txs: Vec<Bytes> = req.txs.iter().cloned().map(Bytes::from).collect();
-                let env = single_envelope(&txs)
-                    .map_err(|e| invalid_block(height, &Rejection::from(e)))?;
-                let validated = validate_block(state, &self.params, &env, height, bft_secs)
-                    .map_err(|rejection| invalid_block(height, &rejection))?;
-                if let Some(witness) = &env.anchor {
-                    self.confirm_anchor(height, &witness.l1_header).await?;
-                }
-                (validated, true)
+        let txs: Vec<Bytes> = req.txs.iter().cloned().map(Bytes::from).collect();
+        let env = single_envelope(&txs).map_err(|e| invalid_block(height, &Rejection::from(e)))?;
+        let fresh = validate_block(state, &self.params, &env, height, bft_secs)
+            .map_err(|e| invalid_block(height, &e))?;
+        let cached = self.verdicts.remove(&req.hash).filter(|v| {
+            v.envelope_hash == fresh.envelope_hash &&
+                v.parent_cursor == fresh.parent_cursor &&
+                v.expected == fresh.expected &&
+                v.anchor == fresh.anchor &&
+                v.derived == fresh.derived &&
+                v.decision == fresh.decision
+        });
+        let (mut validated, cold) = if let Some(cached) = cached {
+            (cached, false)
+        } else {
+            if let Some(witness) = &env.anchor {
+                self.confirm_anchor(height, &witness.l1_header).await?;
             }
+            (fresh, true)
         };
+        if cold {
+            validated.forced = self.rebuild_forced(state, height, &validated).await?;
+        }
         let (next, updates) = next_state(state, &validated, height)?;
         let validator_updates = updates
             .into_iter()
             .map(|update| validator_update(height, update))
             .collect::<Result<Vec<_>, _>>()?;
-        if cold {
-            self.rebuild_forced(state, height, bft_secs, &validated).await?;
-        }
 
         let hash = next.parent.hash;
         let finalized = next.anchor.inbox.last_checkpoint_hash;
         self.settle(height, &validated, finalized).await?;
-        // The pending entry a decided block proves needs no read to prefetch its blob at Commit.
-        if let Some(entry) = validated.pending_forced {
-            self.preparation_cache().known_entry = Some(entry);
-        }
         self.decided_live = !cold;
 
         tracing::debug!(
             height,
             %hash,
             anchor = next.anchor.number,
-            forced = ?validated.forced.as_ref().map(|f| f.index),
+            forced = ?validated.forced,
             validator_updates = validator_updates.len(),
             "block finalized"
         );
@@ -133,10 +112,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// committed state.
     ///
     /// Clears the `ProcessProposal` cache, the kept reads of an unfinished committee discovery,
-    /// the proposal reads (but for the entry at the committed cursor, whose blob a live decision
-    /// prefetches) and the halt reason, drops a cached committee witness the new committed state
-    /// no longer needs, starts a live decision's switch-witness prefetch, publishes the new
-    /// head's gauges, and answers `retain_height = 0` (no block pruning). Errors:
+    /// the proposal reads (but for the entry at the committed cursor, whose authenticated bytes
+    /// remain reusable) and the halt reason, drops a cached committee witness the new committed
+    /// state no longer needs, starts a live decision's switch-witness prefetch, publishes the
+    /// new head's gauges, and answers `retain_height = 0` (no block pruning). Errors:
     /// [`AbciError::NothingToCommit`] without a pending state; [`AbciError::Store`] when it
     /// cannot be persisted (it then stays pending).
     pub(super) fn commit(&mut self) -> Result<response::Commit, AbciError> {
@@ -306,70 +285,50 @@ impl<L: L1Source, E: Engine> App<L, E> {
         AnchorRead::Pending(format!("own L1 finalized {finalized}, anchor {number} needs {bound}"))
     }
 
-    /// Rebuilds the forced inclusion block of `v`, decided at `height` with BFT time `bft_secs` on
-    /// top of `state` and judged without a `ProcessProposal` verdict, and requires the decided
-    /// block to be it, as `ProcessProposal` does ([`forced_rebuild_attributes`],
-    /// [`check_forced_rebuild`]); an ordinary block needs nothing. The rebuild reads the envelope
-    /// alone, never L1 or a beacon.
-    ///
-    /// The rebuild needs the parent's state in the EL. A node replaying after losing its ABCI
-    /// state rebuilds on a parent that may be far behind the EL's head, so an EL that prunes state
-    /// history, or was restored from a snapshot taken past that parent, may be unable to build.
-    ///
-    /// A build failing for a node-local reason is retried on its own [`Backoff`], as
-    /// [`App::settle`] retries, logged under the label [`REBUILD`]: a retryable engine error
-    /// ([`EngineError::is_retryable`]), an elapsed engine deadline, an unknown payload id
-    /// (`-38001`, e.g. an EL restart between FCU and getPayload), or a build the EL did not
-    /// start ([`EngineError::BuildNotStarted`], e.g. while it lacks the parent, which the build's
-    /// forkchoice update points it at, or the parent's state), whose retry reason names the parent
-    /// and that likely cause. Rebuilding a canonical ancestor also requires alethia-reth's
-    /// `TaikoChainSpec::is_optimism() == true` engine path, which starts the build instead of
-    /// ignoring an ancestor FCU as a stale update. Every other engine error is an
-    /// [`AbciError::SafetyHalt`] labeled `forced_rebuild_unavailable`, whose message names the
-    /// parent and how to give the EL its state; a rebuilt block whose hash differs from the
-    /// decided block's ([`Rejection::ForcedRebuildMismatch`]) is a safety halt too.
+    /// Completes a cold forced decision before deriving the next cursor. Included transactions,
+    /// early peeks and invalid-byte skips need no singleton build. Canonical skips require the
+    /// committed parent's historical state and an empty singleton result with matching headers.
+    /// Retryable errors and timeouts wait; permanent availability errors halt under
+    /// `forced_rebuild_unavailable`. Never submit or canonicalize the singleton result.
+    /// Keep the pinned EL's `allow-unwind-canonical-header` disabled for historical probes.
     async fn rebuild_forced(
         &self,
         state: &AppState,
         height: u64,
-        bft_secs: u64,
         v: &Validated,
-    ) -> Result<(), AbciError> {
-        let attrs = forced_rebuild_attributes(state, &self.params, height, bft_secs, v)
-            .map_err(|rule| invalid_block(height, &Rejection::Rule(rule)))?;
-        let Some(attrs) = attrs else {
-            return Ok(());
-        };
+    ) -> Result<Option<u64>, AbciError> {
+        use crate::engine::forced::{ForcedBuildContext, ForcedBuildError, verify_forced};
         let limit = self.opts.engine_timeout;
         let mut backoff = Backoff::new(height);
         loop {
-            let build = self.engine.build_block(state.parent.hash, attrs.clone());
+            let build = verify_forced(
+                self.engine(),
+                ForcedBuildContext { expected: &v.expected, anchor_hash: v.anchor.hash },
+                &v.decision,
+            );
             let reason = match tokio::time::timeout(limit, build).await {
-                Ok(Ok(rebuilt)) => {
-                    return check_forced_rebuild(&v.block, &rebuilt)
-                        .map_err(|rejection| invalid_block(height, &rejection));
+                Ok(Ok(consumed)) => return Ok(consumed),
+                Ok(Err(ForcedBuildError::Engine(e)))
+                    if e.is_retryable() ||
+                        matches!(
+                            e,
+                            EngineError::BuildNotStarted(_) |
+                                EngineError::ErrorReply { code: -38001, .. }
+                        ) =>
+                {
+                    e.to_string()
                 }
-                Ok(Err(e @ EngineError::BuildNotStarted(_))) => {
-                    format!("{}: {e}", cannot_build_on(&state.parent))
-                }
-                Ok(Err(e @ EngineError::ErrorReply { code: -38001, .. })) => {
-                    format!("payload id was lost; restarting the build: {e}")
-                }
-                Ok(Err(e)) if e.is_retryable() => e.to_string(),
-                Ok(Err(e)) => {
+                Ok(Err(ForcedBuildError::Engine(e))) => {
                     return Err(safety_halt(
                         height,
                         "forced_rebuild_unavailable",
                         format!(
-                            "{REBUILD} failed: {}: {e}. Replaying a forced inclusion block needs \
-                             its parent's state; an EL that prunes state history or was restored \
-                             from a snapshot taken past the parent lacks it. Keep EL state history \
-                             over the replay distance (or run an archive node), or resync the EL \
-                             to a node that has it, then restart",
+                            "{}: {e}; restore historical parent state before replay",
                             cannot_build_on(&state.parent)
                         ),
-                    ));
+                    ))
                 }
+                Ok(Err(e)) => return Err(invalid_block(height, &Rejection::ForcedBuild(e))),
                 Err(_) => format!("timed out after {limit:?}"),
             };
             backoff.wait(REBUILD, &reason).await;

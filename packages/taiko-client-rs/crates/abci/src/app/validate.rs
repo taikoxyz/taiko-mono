@@ -8,16 +8,11 @@
 //! its own witnesses before it asks the EL to build.
 //! [`check_landing_capacity`] is the landing capacity guard `ProcessProposal` and
 //! `PrepareProposal` run on the encoded envelope (liveness only, never in `FinalizeBlock`).
-//! [`forced_rebuild_attributes`] and [`check_forced_rebuild`] are the EL rebuild of a forced
-//! inclusion block, which `ProcessProposal` and a cold `FinalizeBlock` run after
-//! [`validate_block`].
-//! [`Rejection`] also carries the reasons of the ¹ checks, of the envelope decoding, of the
-//! landing capacity guard, of a failed build, of an unavailable forced inclusion blob and of a
-//! forced inclusion rebuild, so every handler reports one label set.
+//! The authenticated forced decision is completed by the shared asynchronous singleton checker
+//! before any handler advances the queue cursor. Ordinary execution remains independent.
 
 use std::fmt;
 
-use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy_consensus::Header;
 use alloy_primitives::B256;
 use protocol::shasta::constants::min_base_fee_for_chain;
@@ -28,7 +23,7 @@ use crate::{
     config::ChainParams,
     engine::EngineError,
     envelope::{AnchorWitness, CommitteeWitness, EnvelopeError, EtnaEnvelope, ExecutionBlock},
-    forced::{self, ForcedConsumption, ForcedEntry, ForcedError},
+    forced::{self, ForcedContext, ForcedDecision, ForcedError},
     l1::{FetchError, L1Error, WitnessError, layout::inbox, verify_anchor_witness},
     rules::{self, ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation},
     store::{AppState, CommitteeState},
@@ -38,18 +33,22 @@ use crate::{
 /// A block that passed [`validate_block`], with everything `FinalizeBlock` needs to commit it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Validated {
+    /// Hash of canonical envelope bytes, binding every witness and transaction.
+    pub envelope_hash: B256,
+    /// Committed cursor against which this completed decision was evaluated.
+    pub parent_cursor: u64,
     /// The execution block the envelope carries.
     pub block: ExecutionBlock,
     /// The block's anchor: proven by its witness, or the parent's when it carries none.
     pub anchor: AnchorState,
     /// At switch height `H(t)-2`: the freshly derived incoming committee, keyed by target epoch.
     pub derived: Option<(u64, CommitteeState)>,
-    /// For a forced inclusion block: the consumed entry (the committed cursor) and the EL
-    /// transaction list its block is built from; `None` for an ordinary block.
-    pub forced: Option<ForcedConsumption>,
-    /// For an ordinary block that proves the pending entry at the cursor (a peek): that entry,
-    /// a node-local hint to fetch its blob before it falls due; no consensus rule reads it.
-    pub pending_forced: Option<ForcedEntry>,
+    /// Pure authenticated decision, awaiting the shared singleton check if required.
+    pub decision: ForcedDecision,
+    /// Consensus-derived attributes reused by the asynchronous forced checker.
+    pub expected: ExpectedHeader,
+    /// Completed consumed index, populated only after the shared check succeeds.
+    pub forced: Option<u64>,
     /// Whether the EL already executed the block and answered `VALID`.
     pub executed: bool,
 }
@@ -82,8 +81,8 @@ impl fmt::Display for WitnessKind {
 /// ones ([`Rejection::Envelope`], [`Rejection::EmptyProposal`], [`Rejection::ChainSuperseded`],
 /// [`Rejection::PayloadInvalid`], [`Rejection::Registry`], [`Rejection::CommitteeCache`],
 /// [`Rejection::Oversize`],
-/// [`Rejection::BuiltHeader`], [`Rejection::LandingCapacity`], [`Rejection::BlobUnavailable`],
-/// [`Rejection::ForcedRebuildMismatch`]) come from the handlers.
+/// [`Rejection::BuiltHeader`], [`Rejection::LandingCapacity`], [`Rejection::ForcedBuild`]) come
+/// from the handlers.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum Rejection {
     /// The block's transactions are not exactly one well-formed envelope.
@@ -178,20 +177,9 @@ pub enum Rejection {
     /// The block breaks the forced inclusion rule ([`forced::check`]).
     #[error("forced inclusion rule violated: {0}")]
     Forced(#[from] ForcedError),
-    /// `PrepareProposal`: the blob of the due forced inclusion entry the block must consume
-    /// cannot be fetched (or is not the entry's blob), so nothing is proposed: never an
-    /// ordinary block in its place.
-    #[error("forced inclusion blob unavailable: {0}")]
-    BlobUnavailable(String),
-    /// A forced inclusion block is not the block the EL rebuilds on the committed parent from
-    /// its entry's transaction list: their hashes differ.
-    #[error("forced inclusion block {got} differs from the block {expected} rebuilt from its list")]
-    ForcedRebuildMismatch {
-        /// The hash of the block the EL rebuilt.
-        expected: B256,
-        /// The hash of the proposed (or decided) block.
-        got: B256,
-    },
+    /// A canonical skip failed the shared singleton check.
+    #[error("forced inclusion check failed: {0}")]
+    ForcedBuild(#[from] crate::engine::forced::ForcedBuildError),
     /// The block cannot land on its own: its envelope compressed as landing payload V3 would
     /// publish it, plus [`HEADER_ALLOWANCE`], exceeds [`MAX_BLOCK_LANDING_BYTES`].
     #[error("block needs {bytes} compressed landing bytes, above the {max} one landing carries")]
@@ -232,8 +220,7 @@ impl Rejection {
             Self::Oversize { .. } => "envelope_too_large",
             Self::BuiltHeader(_) => "built_header_mismatch",
             Self::Forced(_) => "forced_inclusion",
-            Self::BlobUnavailable(_) => "blob_unavailable",
-            Self::ForcedRebuildMismatch { .. } => "forced_rebuild_mismatch",
+            Self::ForcedBuild(_) => "forced_skip_invalid",
             Self::LandingCapacity { .. } => "landing_capacity",
         }
     }
@@ -342,70 +329,27 @@ pub(crate) fn validate_block(
         state.genesis.max_anchor_age,
     )?;
     rules::check_header(header, &expected)?;
-    let forced = forced::check(
-        state.forced_cursor,
-        &facts.anchor,
-        state.genesis.forced_inclusion_delay,
-        params.inbox,
+    let decision = forced::check(
+        ForcedContext {
+            cursor: state.forced_cursor,
+            anchor: &facts.anchor,
+            delay: state.genesis.forced_inclusion_delay,
+            inbox: params.inbox,
+        },
         env.forced.as_ref(),
+        env.block.transactions.first().map(|tx| tx.as_ref()),
     )?;
-    // `check` already verified a peek's entry proof; this only recovers the proven entry.
-    let pending_forced = match (&forced, &env.forced) {
-        (None, Some(witness)) => forced::verify_entry(
-            facts.anchor.state_root,
-            &witness.entry,
-            params.inbox,
-            witness.index,
-        )
-        .ok(),
-        _ => None,
-    };
     Ok(Validated {
+        envelope_hash: alloy_primitives::keccak256(env.encode()),
+        parent_cursor: state.forced_cursor,
         block: env.block.clone(),
         anchor: facts.anchor,
         derived: facts.derived,
-        forced,
-        pending_forced,
+        decision,
+        expected,
+        forced: None,
         executed: false,
     })
-}
-
-/// The payload attributes the EL rebuilds the forced inclusion block of `v` from, as the block
-/// at `height` on top of `state` with BFT time `bft_secs`: the derived header's
-/// ([`rules::payload_attributes`]) with the consumed entry's transaction list. `None` for an
-/// ordinary block.
-///
-/// A forced inclusion block's EL block is derived, not chosen: the EL builds it on the committed
-/// parent from these attributes alone, so every node rebuilds it and requires the proposed block
-/// to be the same ([`check_forced_rebuild`]). The list comes from the blob the envelope carries,
-/// so the rebuild needs no L1 or beacon access.
-pub(crate) fn forced_rebuild_attributes(
-    state: &AppState,
-    params: &ChainParams,
-    height: u64,
-    bft_secs: u64,
-    v: &Validated,
-) -> Result<Option<TaikoPayloadAttributes>, RuleViolation> {
-    let Some(forced) = &v.forced else {
-        return Ok(None);
-    };
-    let expected = expected_header(state, params, height, &v.anchor, bft_secs)?;
-    Ok(Some(rules::payload_attributes(&expected, v.anchor.hash, Some(forced.tx_list.clone()))))
-}
-
-/// Requires the forced inclusion `block` to be the block the EL `rebuilt` from its attributes
-/// ([`forced_rebuild_attributes`]): equal header hashes, else
-/// [`Rejection::ForcedRebuildMismatch`]. The hash binds the transactions root; that the carried
-/// transactions match it is the EL's `newPayload` check.
-pub(crate) fn check_forced_rebuild(
-    block: &ExecutionBlock,
-    rebuilt: &ExecutionBlock,
-) -> Result<(), Rejection> {
-    let (expected, got) = (rebuilt.header.hash_slow(), block.header.hash_slow());
-    if expected != got {
-        return Err(Rejection::ForcedRebuildMismatch { expected, got });
-    }
-    Ok(())
 }
 
 /// The derived header fields of the block at `height` on top of `state` with `anchor` and BFT

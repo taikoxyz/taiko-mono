@@ -48,6 +48,8 @@ pub struct CommitteeState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppState {
+    /// Mandatory consensus format marker; old saved state has no implicit migration.
+    pub app_version: u64,
     /// CometBFT `chain_id` (`taiko-etna-<l2ChainId>-g<generation>`).
     pub chain_id: String,
     /// Recovery generation of the running chain (the `chain_id` suffix).
@@ -262,6 +264,7 @@ mod tests {
             max_anchor_age: 7_200,
         };
         AppState {
+            app_version: crate::app::APP_VERSION,
             chain_id: "taiko-etna-167001-g0".to_string(),
             generation: 0,
             inbox: alloy_primitives::address!("00000000000000000000000000000000E7A10001"),
@@ -395,6 +398,7 @@ mod tests {
         let store = Store::new(dir.path().into());
         let current = serde_json::to_value(state()).unwrap();
         for (object, field) in [
+            ("", "app_version"),
             ("", "forced_cursor"),
             ("/genesis", "forced_inclusion_delay"),
             ("/genesis", "max_anchor_age"),

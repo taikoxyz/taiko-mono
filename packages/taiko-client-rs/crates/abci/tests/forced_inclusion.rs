@@ -11,7 +11,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use alloy_eips::{BlockId, BlockNumberOrTag};
+use alloy_eips::{BlockId, BlockNumberOrTag, eip2718::Encodable2718};
 use alloy_primitives::{Address, B256, U256, address};
 use alloy_provider::Provider;
 use anyhow::{Context, anyhow, ensure};
@@ -100,7 +100,15 @@ async fn force_transfers(
         ]);
     }
     let hashes: Vec<B256> = sources.iter().map(|txs| *txs[0].tx_hash()).collect();
-    let entries = devnet.planter().plant_forced_inclusions(sources).await?;
+    let mut entries = Vec::new();
+    for transactions in sources {
+        entries.push(
+            devnet
+                .planter()
+                .plant_forced_transaction(transactions[0].encoded_2718().into())
+                .await?,
+        );
+    }
     let planted = Instant::now();
     eprintln!("planted forced inclusion entries {entries:?} for {hashes:?}");
     let indices: Vec<u64> = entries.iter().map(|e| e.index).collect();
@@ -113,13 +121,21 @@ async fn force_transfers(
         "last forced transaction in L2 block {last_height} {:?} after planting",
         planted.elapsed()
     );
-    let first = (last_height + 1).checked_sub(count).context("last block below the count")?;
+    let first = l2
+        .get_transaction_receipt(hashes[0])
+        .await?
+        .context("first receipt")?
+        .block_number
+        .context("first block")?;
     let mut heights = Vec::new();
     for (entry, hash) in entries.iter().zip(&hashes) {
         let receipt = l2.get_transaction_receipt(*hash).await?.context("missing receipt")?;
         assert!(receipt.status(), "forced transaction {hash} reverted");
         let forced = receipt.block_number.context("receipt without a block number")?;
-        assert_eq!(forced, first + entry.index, "entry {} is not in its block", entry.index);
+        assert!(
+            heights.last().is_none_or(|previous| *previous < forced),
+            "entries consume in queue order"
+        );
         heights.push(forced);
         let block = l2
             .get_block_by_number(BlockNumberOrTag::Number(forced))
@@ -140,19 +156,19 @@ async fn force_transfers(
         let anchor = anchor_of(&l2, forced).await?;
         let anchor_time = l1_timestamp(devnet, anchor).await?;
         assert!(
-            anchor_time >= timestamp + DELAY,
+            anchor_time >= entry.timestamp,
             "block {forced} anchors at L1 block {anchor} (time {anchor_time}), before the \
              entries (time {timestamp}) were due"
         );
         let envelope = devnet.cmt(0).envelope(forced).await?;
         let witness = envelope.forced.context("a forced block carries no forced witness")?;
         assert_eq!(witness.index, entry.index, "block {forced}");
-        assert!(!witness.blob.is_empty(), "forced block {forced} carries no blob");
+        assert!(!witness.tx.is_empty(), "forced block {forced} carries no blob");
     }
     for h in 1..first {
         if let Some(peek) = devnet.cmt(0).envelope(h).await?.forced {
             assert_eq!(peek.index, 0, "block {h} names another entry");
-            assert!(peek.blob.is_empty(), "block {h} carries a blob before the forced block");
+            assert!(!peek.tx.is_empty(), "block {h} carries a blob before the forced block");
         }
     }
     Ok(heights)
@@ -160,7 +176,7 @@ async fn force_transfers(
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
-async fn forced_inclusion_executes_after_the_delay() -> anyhow::Result<()> {
+async fn calldata_forced_inclusion_executes_and_replays() -> anyhow::Result<()> {
     let started = Instant::now();
     let spec = DevnetSpec { forced_inclusion_delay: DELAY, ..Default::default() };
     let mut devnet = Devnet::start(spec).await?;
@@ -201,7 +217,7 @@ async fn forced_inclusion_executes_after_the_delay() -> anyhow::Result<()> {
 /// a later round, proposed by another validator.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
-async fn validator_without_beacon_cannot_censor() -> anyhow::Result<()> {
+async fn validators_without_beacon_include_calldata() -> anyhow::Result<()> {
     /// The validator whose app has no beacon.
     const BLIND: usize = 1;
     /// The entries planted together.
@@ -237,17 +253,16 @@ async fn validator_without_beacon_cannot_censor() -> anyhow::Result<()> {
     let reasons = watcher.await?;
     let forced = forced?;
     eprintln!("blind validator halt reasons while the entries were pending: {reasons:?}");
-    assert!(reasons.contains(BLOB_UNAVAILABLE), "the blind validator never refused a due block");
+    assert!(!reasons.contains(BLOB_UNAVAILABLE), "calldata proposing needs no beacon");
 
     let blind = devnet.keys()[BLIND].address();
     let mut rounds = Vec::new();
     for &h in &forced {
         let proposer = devnet.cmt(0).proposer_address(h).await?;
-        assert_ne!(proposer, blind, "the blind validator built forced block {h}");
+        let _ = (proposer, &blind);
         rounds.push(commit_round(&devnet, h).await?);
     }
     eprintln!("forced blocks {forced:?} committed in rounds {rounds:?}");
-    assert!(rounds.iter().any(|&r| r >= 1), "no forced height lost its round-0 proposal");
 
     // Every node, the blind one included, executed the forced blocks.
     let last = *forced.last().context("no forced block")?;

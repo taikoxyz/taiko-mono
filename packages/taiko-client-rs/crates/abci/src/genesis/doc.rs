@@ -265,7 +265,7 @@ mod tests {
                         "max_bytes": "1048576"
                     },
                     "validator": { "pub_key_types": ["ed25519"] },
-                    "version": { "app": "0" },
+                    "version": { "app": "1" },
                     "abci": { "vote_extensions_enable_height": "0" },
                     "authority": { "authority": "" }
                 },

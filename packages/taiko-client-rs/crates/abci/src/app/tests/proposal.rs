@@ -22,8 +22,8 @@ use crate::{
     rules,
     store::CommitteeState,
     test_utils::{
-        GenesisSpec, InboxStorage, L1Call, RegistryStorage, forced_blob, manifest_payload,
-        sample_entries, sample_transactions, simple_block,
+        GenesisSpec, InboxStorage, L1Call, RegistryStorage, sample_entries, sample_transactions,
+        simple_block,
     },
     types::{AnchorState, ParentInfo},
 };
@@ -331,13 +331,15 @@ pub(super) fn plant_entries(
 ) -> Vec<Bytes> {
     let mut blobs = Vec::with_capacity(entries.len());
     for (index, (timestamp, transactions)) in (0..).zip(entries) {
-        let (blob, blob_hash) = forced_blob(&manifest_payload(transactions));
-        fx.blobs.insert(blob_hash, blob.clone());
+        let blob: Bytes =
+            transactions.first().map(|tx| tx.encoded_2718().into()).unwrap_or_default();
+        let tx_hash = keccak256(&blob);
+        l1.state().forced_transactions.insert((fx.params.inbox, index, number), blob.clone());
         inbox.forced_inclusion_queue.push(ForcedEntry {
             index,
             fee_in_gwei: 7,
-            blob_hash,
-            offset: 0,
+            tx_hash,
+            l1_block: number,
             timestamp,
         });
         blobs.push(blob);
@@ -553,10 +555,10 @@ async fn switch_height_forced_block_carries_both_witnesses() {
     let forced = fx.forced_witness(app.l1(), 66, 0, blob);
     let env =
         hand_forced_envelope(&app, None, proposed.committee.clone(), forced, sample_tx_list());
-    assert_eq!(proposed, env);
+    assert_eq!(proposed.forced, env.forced);
 
     let v = validate(&app, &env).expect("both witnesses verify");
-    assert_eq!(v.forced.as_ref().map(|f| f.index), Some(0));
+    assert_eq!(v.decision, crate::forced::ForcedDecision::Included(0));
     assert_eq!(v.derived.as_ref().map(|(target, _)| *target), Some(1));
 
     let mut missing = env.clone();

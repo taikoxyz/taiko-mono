@@ -441,7 +441,7 @@ async fn genesis_rejects_noncanonical_consensus_parameters() {
     changed.validator.pub_key_types.push(public_key::Algorithm::Secp256k1);
     changes.push(("validator key types", changed));
     let mut changed = canonical.clone();
-    changed.version.as_mut().unwrap().app = 1;
+    changed.version.as_mut().unwrap().app = crate::app::APP_VERSION + 1;
     changes.push(("app version", changed));
     let mut changed = canonical.clone();
     changed.version = None;
@@ -640,5 +640,19 @@ async fn genesis_rejects_a_different_committee_config_opening() {
     assert!(
         matches!(err, AbciError::Genesis(GenesisError::ConfigMismatch {local:l,proven:p}) if l==local && p==proven)
     );
+    assert_not_initialized(&app, dir.path());
+}
+
+#[tokio::test]
+async fn lost_state_rejects_old_app_zero_genesis_before_replay() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = fx.app(dir.path());
+    let mut request = fx.request.clone();
+    request.consensus_params.version.as_mut().unwrap().app = 0;
+    assert!(matches!(
+        init_chain(&mut app, request).await,
+        Err(AbciError::GenesisConsensusParamsMismatch)
+    ));
     assert_not_initialized(&app, dir.path());
 }

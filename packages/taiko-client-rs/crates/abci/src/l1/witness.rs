@@ -9,7 +9,6 @@ use alloy_primitives::{Address, B256, U256};
 
 use crate::{
     envelope::AnchorWitness,
-    forced::FORCED_INCLUSION_EXPIRY_SECS,
     l1::{
         header::RawL1Header,
         layout::{inbox, word_u8, word_u48, word_u64},
@@ -56,12 +55,9 @@ pub enum WitnessError {
         /// The genesis record's `L1_0`.
         l1_0: u64,
     },
-    /// Genesis only: the forced inclusion delay is zero or not below the expiry
-    /// ([`FORCED_INCLUSION_EXPIRY_SECS`]), or the maximum anchor age is zero.
+    /// Genesis requires a positive delay and maximum anchor age of at least 1152 seconds.
     #[error(
-        "forced inclusion delay {delay} s must be in 1..{expiry} and maximum anchor age \
-         {max_anchor_age} s nonzero",
-        expiry = FORCED_INCLUSION_EXPIRY_SECS
+        "forced inclusion delay {delay} s must be positive and maximum anchor age {max_anchor_age} s at least 1152"
     )]
     InvalidForcedInclusionConfig {
         /// The proven `forcedInclusionDelay` (slot 282, bits 0–63).
@@ -117,7 +113,7 @@ pub(crate) fn anchor_state(header: &RawL1Header, inbox: InboxFacts) -> AnchorSta
 /// always carries its own anchor witness). Rejects, in this order: `status != ETNA_ACTIVE`, a
 /// zero genesis hash, a zero bootstrap committee hash, a zero
 /// epoch length, `genesisCutoff >= L1_0`, a forced inclusion delay outside
-/// `1..FORCED_INCLUSION_EXPIRY_SECS` or a zero maximum anchor age. The remaining schedule bounds
+/// a positive delay and maximum anchor age of at least 1152 seconds. The remaining schedule bounds
 /// are checked by [`crate::Schedule::validate`].
 pub fn verify_genesis_inbox(
     state_root: B256,
@@ -165,7 +161,7 @@ pub fn verify_genesis_inbox(
         });
     }
     let (delay, max_anchor_age) = (genesis.forced_inclusion_delay, genesis.max_anchor_age);
-    if delay == 0 || delay >= FORCED_INCLUSION_EXPIRY_SECS || max_anchor_age == 0 {
+    if delay == 0 || max_anchor_age < 1152 {
         return Err(WitnessError::InvalidForcedInclusionConfig { delay, max_anchor_age });
     }
 
@@ -495,13 +491,11 @@ mod tests {
         }
     }
 
-    /// The delay must lie in `1..FORCED_INCLUSION_EXPIRY_SECS` and the maximum anchor age must be
-    /// non-zero; the check comes after the genesis cutoff's.
+    /// The delay must be positive and the maximum anchor age at least 1152 seconds; the check comes
+    /// after the genesis cutoff's.
     #[test]
     fn genesis_rejects_invalid_forced_inclusion_config() {
-        for (delay, max_anchor_age) in
-            [(0, 7_200), (1_209_600, 7_200), (u64::MAX, 7_200), (3_600, 0)]
-        {
+        for (delay, max_anchor_age) in [(0, 7_200), (1, 1151), (3_600, 0)] {
             let genesis = GenesisRecord {
                 forced_inclusion_delay: delay,
                 max_anchor_age,
@@ -523,7 +517,7 @@ mod tests {
         }
 
         // The extremes of the accepted ranges.
-        for (delay, max_anchor_age) in [(1, 1), (1_209_599, u64::MAX)] {
+        for (delay, max_anchor_age) in [(1, 1152), (u64::MAX, u64::MAX)] {
             let genesis = GenesisRecord {
                 forced_inclusion_delay: delay,
                 max_anchor_age,

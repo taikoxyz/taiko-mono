@@ -68,7 +68,7 @@ pub const APP_NAME: &str = "taiko-abci";
 
 /// The ABCI application version reported in `Info.app_version`; the genesis
 /// `consensus_params.version.app` carries the same value.
-pub const APP_VERSION: u64 = 0;
+pub const APP_VERSION: u64 = 1;
 
 /// Interval between EL polls while waiting for an EL sync to a trusted head.
 pub const ELSYNC_POLL: Duration = Duration::from_secs(1);
@@ -271,7 +271,7 @@ pub struct App<L: L1Source, E: Engine> {
     engine: E,
     /// Where `PrepareProposal` fetches the blob of a due forced inclusion entry (never used by
     /// `ProcessProposal`, `FinalizeBlock` or replay: a forced inclusion block carries its blob).
-    blobs: Arc<dyn BlobSource>,
+    _blobs: Arc<dyn BlobSource>,
     /// The chain parameters (validated).
     params: ChainParams,
     /// Where [`App::state`] is persisted.
@@ -330,8 +330,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// its `chain_id` must name `params.l2_chain_id` and its generation, and
     /// its last height must equal its parent's number and fit a CometBFT height.
     ///
-    /// The KZG trusted setup forced inclusion blocks need is not loaded here: a server calls
-    /// [`forced::warm_kzg_settings`](crate::forced::warm_kzg_settings) before serving.
+    /// Forced inclusion uses authenticated calldata and requires no KZG initialization.
     pub fn new(
         l1: L,
         engine: E,
@@ -349,7 +348,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let app = Self {
             l1: Arc::new(l1),
             engine,
-            blobs,
+            _blobs: blobs,
             params,
             store,
             opts,
@@ -569,6 +568,12 @@ fn at_genesis(state: &AppState) -> bool {
 
 /// Rejects a persisted state that `params` or the state itself contradicts (see [`App::new`]).
 fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), AbciError> {
+    if state.app_version != APP_VERSION {
+        return Err(AbciError::StoredState(format!(
+            "unsupported app version {} (expected {APP_VERSION})",
+            state.app_version
+        )));
+    }
     if state.inbox != params.inbox {
         return Err(AbciError::StoredState(format!(
             "Inbox {} differs from the authenticated genesis account {}",

@@ -5,45 +5,29 @@
 //! state when it starts mining block `n + 1`, so an out-of-band `anvil_setStorageAt` made in
 //! between leaks into block `n`'s state, and `eth_getProof` / `eth_getStorageAt` at `n` then
 //! disagree with `n`'s header `stateRoot`. [`Planter::install`] therefore places a tiny
-//! storage-setter contract ([`SETTER_CODE`]) at both addresses once, before the genesis block,
+//! storage-setter contract ([`setter_code`]) at both addresses once, before the genesis block,
 //! and every later write is a transaction to it from anvil's first dev account.
 //!
 //! anvil also keeps every zero `SSTORE` as an explicit zero leaf, so zeros are never written:
 //! a zero for a slot that reads zero is skipped and clearing a non-zero slot is an error.
 //!
 //! As the Inbox holds the setter, forced inclusion entries cannot be submitted through
-//! `saveForcedInclusion`: [`Planter::plant_forced_inclusion`] writes an entry's slots instead,
-//! in the L1 block that carries the entry's blob.
+//! `saveForcedInclusion`: [`Planter::plant_forced_transaction`] writes an entry's slots instead,
+//! and emits the admission event in the same mined transaction.
 
-use std::{
-    sync::Arc,
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
+use std::{sync::Arc, time::Duration};
 
 use abci::{
     GenesisRecord, RegistryEntry,
     committee::entries_root,
     l1::layout::{inbox, registry},
 };
-use alloy::{
-    consensus::{
-        SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope,
-    },
-    signers::{SignerSync, local::PrivateKeySigner},
-};
-use alloy_eips::{
-    BlockId, BlockNumberOrTag,
-    eip2718::Encodable2718,
-    eip4844::{BlobTransactionSidecar, builder::SidecarBuilder, c_kzg},
-    eip7594::BlobTransactionSidecarVariant,
-};
-use alloy_primitives::{Address, B256, Bytes, U256, address, b256, bytes};
+use alloy::sol_types::SolCall;
+use alloy_eips::{BlockId, BlockNumberOrTag};
+alloy::sol!(InboxSetter, "contracts/InboxSetter.json");
+use alloy_primitives::{Address, B256, Bytes, U256, address, keccak256};
 use alloy_provider::{Provider, RootProvider};
 use anyhow::{Context, Result, bail, ensure};
-use protocol::shasta::{
-    BlobCoder,
-    manifest::{BlockManifest, DerivationSourceManifest},
-};
 use serde_json::{Value, json};
 use tokio::sync::{Mutex, OwnedMutexGuard};
 
@@ -52,14 +36,12 @@ use crate::{
     wait::wait_until,
 };
 
-/// Runtime code of the storage setter: for every 64-byte calldata chunk `(slot, value)` it runs
-/// `SSTORE(slot, value)`.
-///
-/// ```text
-/// 00 PUSH1 0  02 JUMPDEST DUP1 CALLDATASIZE GT PUSH1 0x0a JUMPI STOP
-/// 0a JUMPDEST DUP1 PUSH1 32 ADD CALLDATALOAD DUP2 CALLDATALOAD SSTORE PUSH1 64 ADD PUSH1 2 JUMP
-/// ```
-pub const SETTER_CODE: Bytes = bytes!("60005b803611600a57005b8060200135813555604001600256");
+/// Generated runtime for atomic forced-transaction admission and raw storage fallback.
+fn setter_code() -> Bytes {
+    let artifact: Value = serde_json::from_str(include_str!("../contracts/InboxSetter.json"))
+        .expect("generated artifact");
+    artifact["deployedBytecode"]["object"].as_str().expect("runtime").parse().expect("runtime hex")
+}
 
 /// anvil's first dev account (unlocked), the sender of every planting transaction.
 const SENDER: Address = address!("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
@@ -67,37 +49,23 @@ const SENDER: Address = address!("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
 /// Deadline for a planting transaction's receipt.
 const RECEIPT_TIMEOUT: Duration = Duration::from_secs(30);
 
-/// Private key of anvil's second dev account (`0x7099…79C8`), the signer of the blob transactions
-/// of [`Planter::plant_forced_inclusion`]; [`SENDER`]'s nonces are anvil's to assign.
-const BLOB_SENDER_KEY: B256 =
-    b256!("59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d");
-
-/// Fee cap of the blob transactions, per gas and per blob gas: 100 gwei, far above anvil's
-/// fees (the devnet sends next to nothing).
-const BLOB_TX_FEE_CAP: u128 = 100_000_000_000;
-
-/// Priority fee of the blob transactions: 1 gwei.
-const BLOB_TX_PRIORITY_FEE: u128 = 1_000_000_000;
-
 /// The fee recorded in every planted forced inclusion entry: 0.001 ETH, in gwei.
 const FORCED_INCLUSION_FEE_GWEI: u64 = 1_000_000;
 
 /// The mask of a `uint48` field of the forced inclusion queue's head/tail word.
 const U48_MASK: u64 = (1 << 48) - 1;
 
-/// The most entries [`Planter::plant_forced_inclusions`] plants at once: their blobs travel in one
-/// transaction, which Osaka caps at six blobs.
-const MAX_BLOBS_PER_PLANT: usize = 6;
-
-/// A forced inclusion entry planted by [`Planter::plant_forced_inclusion`].
+/// One calldata entry admitted by a real mined setter transaction.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PlantedEntry {
-    /// The entry's queue index (the queue's tail before planting).
+    /// Queue index.
     pub index: u64,
-    /// The KZG versioned hash of the entry's blob (`blobHashes[0]`).
-    pub versioned_hash: B256,
-    /// The entry's timestamp: that of the L1 block holding the entry and its blob.
+    /// Hash of the exact admission bytes.
+    pub tx_hash: B256,
+    /// L1 submission timestamp.
     pub timestamp: u64,
+    /// L1 block containing the matching event.
+    pub l1_block: u64,
 }
 
 /// Inbox values to write; `None` / empty fields are left untouched.
@@ -186,14 +154,14 @@ impl Planter {
         Self { l1, inbox, registry, mining: Arc::new(Mutex::new(())) }
     }
 
-    /// Places [`SETTER_CODE`] at the Inbox and registry addresses (`anvil_setCode`, out of band)
+    /// Places [`setter_code`] at the Inbox and registry addresses (`anvil_setCode`, out of band)
     /// and mines one block so the code is in place before any planted state.
     pub async fn install(&self) -> Result<()> {
         for address in [self.inbox, self.registry] {
             anvil_request::<serde_json::Value>(
                 &self.l1,
                 "anvil_setCode",
-                json!([address, SETTER_CODE]),
+                json!([address, setter_code()]),
             )
             .await?;
         }
@@ -241,112 +209,37 @@ impl Planter {
         self.word(self.inbox, slot).await
     }
 
-    /// Plants a forced inclusion entry carrying `transactions` at the queue's tail and returns
-    /// it: [`Planter::plant_forced_inclusions`] with one source.
-    pub async fn plant_forced_inclusion(
-        &self,
-        transactions: Vec<TxEnvelope>,
-    ) -> Result<PlantedEntry> {
-        let entries = self.plant_forced_inclusions(vec![transactions]).await?;
-        let [entry] = entries.as_slice() else {
-            bail!("planted {} entries for one source", entries.len());
-        };
-        Ok(*entry)
-    }
-
-    /// Plants one forced inclusion entry per element of `sources` (at most six, the blobs of one
-    /// transaction), as consecutive entries from the queue's tail in one L1 block, hence with one
-    /// timestamp, and returns them in order.
-    ///
-    /// Each entry's source is a one-block Shasta manifest of its transactions (the other fields
-    /// default), coded by [`BlobCoder`] into one blob read at offset 0. The L1 block, mined as a
-    /// [`NextBlock`] section with its timestamp set ahead (`evm_setNextBlockTimestamp`), holds a
-    /// type-3 transaction to the Inbox carrying the blobs in entry order and the setter writes of
-    /// the entries (fee, one blob hash, offset 0 and that block's timestamp) and of the tail (the
-    /// head kept).
-    pub async fn plant_forced_inclusions(
-        &self,
-        sources: Vec<Vec<TxEnvelope>>,
-    ) -> Result<Vec<PlantedEntry>> {
-        ensure!(
-            (1..=MAX_BLOBS_PER_PLANT).contains(&sources.len()),
-            "{} forced inclusion sources: plant 1..={MAX_BLOBS_PER_PLANT} at once",
-            sources.len()
-        );
-        let mut sidecar = BlobTransactionSidecar::default();
-        for transactions in sources {
-            let manifest = DerivationSourceManifest {
-                blocks: vec![BlockManifest { transactions, ..Default::default() }],
-            };
-            let payload = manifest.encode_and_compress().context("encoding the manifest")?;
-            // The trusted setup the in-process apps load: alloy's default would add another.
-            let one = SidecarBuilder::<BlobCoder>::from_slice(&payload)
-                .build_4844_with_settings(c_kzg::ethereum_kzg_settings(0))
-                .context("coding the manifest into a blob")?;
-            ensure!(one.blobs.len() == 1, "a manifest takes {} blobs", one.blobs.len());
-            sidecar.blobs.extend(one.blobs);
-            sidecar.commitments.extend(one.commitments);
-            sidecar.proofs.extend(one.proofs);
-        }
-        let hashes: Vec<B256> = sidecar.versioned_hashes().collect();
-
+    /// Writes an entry and emits its authenticated admission event in one mined transaction.
+    pub async fn plant_forced_transaction(&self, tx: Bytes) -> Result<PlantedEntry> {
         let mut next = self.next_block().await?;
-        let latest = self
-            .l1
-            .get_block_by_number(BlockNumberOrTag::Latest)
-            .await?
-            .context("anvil has no latest block")?;
-        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-        let timestamp = now.max(latest.header.timestamp + 1);
-        anvil_request::<Value>(&self.l1, "evm_setNextBlockTimestamp", json!([timestamp])).await?;
-
         let head_tail = self.inbox_word(inbox::slot(inbox::FORCED_INCLUSION_HEAD_TAIL)).await?;
-        let (first, writes) = forced_inclusion_writes(head_tail, &hashes, timestamp)?;
-        next.sent.push(self.send_blob(sidecar).await?);
-        next.sent.extend(self.submit(self.inbox, &writes).await?);
-        let number = next.commit().await?;
-
+        let index = u64::try_from((head_tail >> 48) & U256::from(U48_MASK))?;
+        ensure!(index < U48_MASK, "forced queue is full");
+        let input = InboxSetter::plantForcedTransactionCall {
+            _index: alloy_primitives::aliases::U48::from(index),
+            _tx: tx.clone(),
+            _feeInGwei: FORCED_INCLUSION_FEE_GWEI,
+        }
+        .abi_encode();
+        let hash = anvil_request(
+            &self.l1,
+            "eth_sendTransaction",
+            json!([{"from":SENDER,"to":self.inbox,"data":Bytes::from(input),"gas":"0x100000"}]),
+        )
+        .await?;
+        next.sent.push(hash);
+        let l1_block = next.commit().await?;
         let block = self
             .l1
-            .get_block_by_number(BlockNumberOrTag::Number(number))
+            .get_block_by_number(BlockNumberOrTag::Number(l1_block))
             .await?
-            .with_context(|| format!("L1 block {number} missing"))?;
-        ensure!(
-            block.header.timestamp == timestamp,
-            "L1 block {number} has timestamp {}, not {timestamp}",
-            block.header.timestamp
-        );
-        Ok((first..)
-            .zip(hashes)
-            .map(|(index, versioned_hash)| PlantedEntry { index, versioned_hash, timestamp })
-            .collect())
-    }
-
-    /// Signs and sends a type-3 transaction to the Inbox carrying the blobs of `sidecar`, from
-    /// anvil's second dev account; returns its hash.
-    async fn send_blob(&self, sidecar: BlobTransactionSidecar) -> Result<B256> {
-        let signer = PrivateKeySigner::from_bytes(&BLOB_SENDER_KEY)?;
-        let tx = TxEip4844 {
-            chain_id: self.l1.get_chain_id().await?,
-            nonce: self.l1.get_transaction_count(signer.address()).pending().await?,
-            gas_limit: 50_000,
-            max_fee_per_gas: BLOB_TX_FEE_CAP,
-            max_priority_fee_per_gas: BLOB_TX_PRIORITY_FEE,
-            to: self.inbox,
-            value: U256::ZERO,
-            access_list: Default::default(),
-            blob_versioned_hashes: sidecar.versioned_hashes().collect(),
-            max_fee_per_blob_gas: BLOB_TX_FEE_CAP,
-            input: Bytes::new(),
-        };
-        let variant: TxEip4844Variant = TxEip4844WithSidecar::from_tx_and_sidecar(
-            tx,
-            BlobTransactionSidecarVariant::Eip4844(sidecar),
-        )
-        .into();
-        let signature = signer.sign_hash_sync(&variant.signature_hash())?;
-        let network = TxEnvelope::Eip4844(variant.into_signed(signature)).encoded_2718();
-        Ok(*self.l1.send_raw_transaction(&network).await?.tx_hash())
+            .context("mined block missing")?;
+        Ok(PlantedEntry {
+            index,
+            tx_hash: keccak256(&tx),
+            timestamp: block.header.timestamp,
+            l1_block,
+        })
     }
 
     /// The raw storage word of `address` at `slot` in the latest block.
@@ -445,35 +338,6 @@ impl Planter {
     }
 }
 
-/// The Inbox writes appending one forced inclusion entry per blob of `versioned_hashes` (offset
-/// 0, `timestamp`) to the queue whose head/tail word is `head_tail`: each entry's slots at
-/// consecutive indices from the tail ([`inbox::forced_inclusion_entry_slots`]; fee
-/// [`FORCED_INCLUSION_FEE_GWEI`], one blob hash) and the tail advanced past them, every other bit
-/// of the word (the head) kept. Returns the first index with the writes.
-fn forced_inclusion_writes(
-    head_tail: U256,
-    versioned_hashes: &[B256],
-    timestamp: u64,
-) -> Result<(u64, Vec<(B256, U256)>)> {
-    let tail_bits: U256 = U256::from(U48_MASK) << 48;
-    let first = u64::try_from((head_tail & tail_bits) >> 48)?;
-    let end = first + versioned_hashes.len() as u64;
-    ensure!(end <= U48_MASK, "the forced inclusion queue is full");
-    let mut writes = Vec::with_capacity(4 * versioned_hashes.len() + 1);
-    for (index, hash) in (first..).zip(versioned_hashes) {
-        let [fee, length, slice, blob_hash] = inbox::forced_inclusion_entry_slots(index);
-        writes.extend([
-            (fee, U256::from(FORCED_INCLUSION_FEE_GWEI)),
-            (length, U256::from(1)),
-            (slice, U256::from(timestamp) << 24),
-            (blob_hash, (*hash).into()),
-        ]);
-    }
-    let tail = (head_tail & !tail_bits) | (U256::from(end) << 48);
-    writes.push((inbox::slot(inbox::FORCED_INCLUSION_HEAD_TAIL), tail));
-    Ok((first, writes))
-}
-
 /// A section with interval mining paused: writes made through it land in block
 /// [`NextBlock::number`]. Dropping it without [`NextBlock::commit`] resumes interval mining in the
 /// background without mining.
@@ -554,32 +418,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn forced_inclusion_writes_append_at_the_tail_and_keep_the_head() {
-        let (a, b) = (B256::repeat_byte(7), B256::repeat_byte(8));
-        // head 2, tail 5, and a stray high bit that must survive.
-        let head_tail = U256::from(2u64) | U256::from(5u64) << 48 | U256::from(1u64) << 200;
-        let (first, writes) = forced_inclusion_writes(head_tail, &[a, b], 1_700_000_000).unwrap();
-        assert_eq!(first, 5);
-        let entry = |index: u64, hash: B256| {
-            let [fee, length, slice, blob_hash] = inbox::forced_inclusion_entry_slots(index);
-            [
-                (fee, U256::from(FORCED_INCLUSION_FEE_GWEI)),
-                (length, U256::from(1u64)),
-                (slice, U256::from(1_700_000_000u64) << 24),
-                (blob_hash, U256::from_be_bytes(hash.0)),
-            ]
-        };
-        let mut expected = entry(5, a).to_vec();
-        expected.extend(entry(6, b));
-        expected.push((
-            inbox::slot(281),
-            U256::from(2u64) | U256::from(7u64) << 48 | U256::from(1u64) << 200,
-        ));
-        assert_eq!(writes, expected);
-
-        let (first, writes) = forced_inclusion_writes(U256::ZERO, &[a], 1).unwrap();
-        assert_eq!(first, 0);
-        assert_eq!(writes[4], (inbox::slot(281), U256::from(1u64) << 48));
+    fn generated_setter_matches_source_provenance() {
+        let manifest: Value =
+            serde_json::from_str(include_str!("../contracts/manifest.json")).unwrap();
+        assert_eq!(
+            manifest["source"]["keccak256"],
+            keccak256(include_bytes!("../contracts/InboxSetter.sol")).to_string()
+        );
+        assert_eq!(manifest["settings"]["evmVersion"], "osaka");
+        assert_eq!(manifest["settings"]["optimizer"]["runs"], 200);
+        use sha2::{Digest, Sha256};
+        assert_eq!(
+            manifest["artifact"]["sha256"],
+            format!("{:x}", Sha256::digest(include_bytes!("../contracts/InboxSetter.json")))
+        );
+        assert_eq!(manifest["compiler"]["version"], "0.8.30+commit.73712a01");
+        assert!(!setter_code().is_empty());
     }
 
     #[test]

@@ -23,7 +23,7 @@ use std::{
 };
 
 use alloy_consensus::{Header, SignableTransaction, TxEip1559, TxEnvelope, TxLegacy};
-use alloy_eips::eip4844::{BlobTransactionSidecar, builder::SidecarBuilder, c_kzg};
+use alloy_eips::eip4844::{builder::SidecarBuilder, c_kzg};
 use alloy_primitives::{Address, B256, Bytes, Signature, TxKind, U256, keccak256};
 use alloy_trie::{
     HashBuilder, Nibbles, TrieAccount,
@@ -55,7 +55,7 @@ mod fixture;
 mod mocks;
 
 pub(crate) use fixture::{Fixture, GenesisSpec, validator_updates};
-pub(crate) use mocks::{BlobCall, EngineCall, L1Call, MockBlobs, MockEngine, MockL1, simple_block};
+pub(crate) use mocks::{EngineCall, L1Call, MockBlobs, MockEngine, MockL1, simple_block};
 
 /// One account of a [`TestState`]: `(address, nonce, balance, code_hash, storage)`, where
 /// `storage` lists `(slot, value)` pairs (zero values are the same as absent slots; on duplicate
@@ -276,12 +276,15 @@ impl InboxStorage {
             slots.push((inbox::slot(inbox::GENESIS_COMMITTEE_HASH), hash.into()));
         }
         for entry in &self.forced_inclusion_queue {
-            let [fee, length, slice, hash] = inbox::forced_inclusion_entry_slots(entry.index);
+            let [hash, metadata] = inbox::forced_inclusion_entry_slots(entry.index);
             slots.extend([
-                (fee, U256::from(entry.fee_in_gwei)),
-                (length, U256::from(1)),
-                (slice, U256::from(entry.offset) | (U256::from(entry.timestamp) << 24)),
-                (hash, entry.blob_hash.into()),
+                (hash, entry.tx_hash.into()),
+                (
+                    metadata,
+                    U256::from(entry.timestamp) |
+                        (U256::from(entry.l1_block) << 48) |
+                        (U256::from(entry.fee_in_gwei) << 112),
+                ),
             ]);
         }
         slots
@@ -303,16 +306,6 @@ pub(crate) fn forced_blob(payload: &[u8]) -> (Bytes, B256) {
     assert_eq!(sidecar.blobs.len(), 1, "a forced inclusion source is one blob");
     let hash = sidecar.versioned_hash_for_blob(0).expect("one blob");
     (Bytes::copy_from_slice(sidecar.blobs[0].as_slice()), hash)
-}
-
-/// The KZG versioned hash of the raw blob `blob`, computed through alloy's sidecar (independent of
-/// the code under test).
-pub(crate) fn blob_versioned_hash(blob: &[u8]) -> B256 {
-    let blobs = vec![blob.try_into().expect("a 131,072-byte blob")];
-    BlobTransactionSidecar::try_from_blobs_with_settings(blobs, kzg_settings())
-        .expect("a valid blob")
-        .versioned_hash_for_blob(0)
-        .expect("one blob")
 }
 
 /// The Shasta forced inclusion source bytes of a one-block manifest holding `transactions`:
@@ -821,28 +814,24 @@ mod tests {
     fn inbox_storage_packs_forced_inclusion_entries() {
         let entry = ForcedEntry {
             index: 7,
-            fee_in_gwei: 0x0102,
-            blob_hash: B256::repeat_byte(0x0b),
-            offset: 0x0a_0b0c,
-            timestamp: 0x0102_0304_0506,
+            tx_hash: B256::repeat_byte(0x0b),
+            timestamp: 0xabcdef,
+            l1_block: 456,
+            fee_in_gwei: u64::MAX,
         };
         let storage = InboxStorage {
             forced_inclusion_queue: vec![entry],
-            ..InboxStorage::genesis(sample_genesis_record(), B256::ZERO)
+            ..InboxStorage::genesis(sample_genesis_record(), B256::repeat_byte(9))
         };
         let slots = storage.slots();
-        let [fee, length, slice, hash] = inbox::forced_inclusion_entry_slots(7);
-        assert_eq!(
-            B256::from(word(&slots, fee)),
-            b256!("0000000000000000000000000000000000000000000000000000000000000102")
-        );
-        assert_eq!(word(&slots, length), U256::from(1));
-        assert_eq!(
-            B256::from(word(&slots, slice)),
-            b256!("00000000000000000000000000000000000000000000000102030405060a0b0c")
-        );
-        assert_eq!(B256::from(word(&slots, hash)), B256::repeat_byte(0x0b));
-        assert_eq!(slots.len(), 5 + 6 + 1 + 4);
+        let [hash, metadata] = inbox::forced_inclusion_entry_slots(7);
+        assert!(slots.contains(&(hash, entry.tx_hash.into())));
+        assert!(slots.contains(&(
+            metadata,
+            U256::from(entry.timestamp) |
+                (U256::from(entry.l1_block) << 48) |
+                (U256::from(entry.fee_in_gwei) << 112)
+        )));
     }
 
     #[test]

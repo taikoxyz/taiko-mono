@@ -342,7 +342,7 @@ impl Fixture {
         ForcedWitness {
             index,
             entry: state.witness(self.params.inbox, &inbox::forced_inclusion_entry_slots(index)),
-            blob,
+            tx: blob,
         }
     }
 
@@ -380,6 +380,7 @@ impl Fixture {
             0
         };
         AppState {
+            app_version: crate::app::APP_VERSION,
             chain_id: self.request.chain_id.clone(),
             generation: self.inbox.recovery_generation,
             inbox: self.params.inbox,
@@ -483,7 +484,7 @@ pub(crate) fn consensus_params() -> consensus::Params {
             max_bytes: 1_048_576,
         },
         validator: ValidatorParams { pub_key_types: vec![public_key::Algorithm::Ed25519] },
-        version: Some(VersionParams { app: 0 }),
+        version: Some(VersionParams { app: crate::app::APP_VERSION }),
         abci: AbciParams::default(),
     }
 }

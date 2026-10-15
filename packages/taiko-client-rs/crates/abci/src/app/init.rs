@@ -133,6 +133,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         check_validators(&req.validators, &committee.members)?;
         let parent = self.genesis_parent(&context.genesis).await?;
         Ok(AppState {
+            app_version: crate::app::APP_VERSION,
             chain_id: req.chain_id.clone(),
             generation,
             inbox: w.inbox.address,

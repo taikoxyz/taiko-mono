@@ -1,6 +1,6 @@
 //! `abci` subcommand: serves the Etna PoS chain's ABCI++ app to CometBFT.
 
-use std::{sync::Arc, time::Instant};
+use std::sync::Arc;
 
 use abci::{
     AbciMetrics, App, CommitteeL1Source, Engine, L1Source, LazyBeaconBlobs, RpcEngine, RpcL1Source,
@@ -99,11 +99,6 @@ impl Subcommand for AbciSubCommand {
             ))) as Arc<dyn L1Source>
         });
         let l1 = CommitteeL1Source::new(l1, archive, params.registry, opts.l1_timeout);
-        let started = Instant::now();
-        tokio::task::spawn_blocking(abci::forced::warm_kzg_settings)
-            .await
-            .map_err(std::io::Error::other)?;
-        info!(elapsed = ?started.elapsed(), "loaded the KZG trusted setup");
         let blobs = Arc::new(LazyBeaconBlobs::new(
             flags.l1_beacon_endpoint.clone(),
             http_timeout_for(opts.blob_timeout),

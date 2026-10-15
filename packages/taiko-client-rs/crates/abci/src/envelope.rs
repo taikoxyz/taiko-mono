@@ -3,12 +3,12 @@
 //! Every CometBFT block's `Data.Txs` holds exactly one item, the envelope:
 //!
 //! ```text
-//! envelope     = 0x04 || rlp(EtnaEnvelope)
+//! envelope     = 0x05 || rlp(EtnaEnvelope)
 //! EtnaEnvelope = [ block, anchor, committee, forced ]
 //! block        = [ header, transactions ]   // EL header RLP, EIP-2718 tx bytes as opaque strings
 //! anchor       = [] | [ AnchorWitness ]     // empty list = absent
 //! committee    = [] | [ CommitteeWitness ]
-//! forced       = [] | [ ForcedWitness ]     // [ index, entry, blob ]
+//! forced       = [] | [ ForcedWitness ]     // [ index, entry, tx ]
 //! ```
 //!
 //! The inner structs are RLP lists of their fields in declaration order. The anchor's L1 header
@@ -25,7 +25,7 @@ use crate::{
 };
 
 /// Leading version byte of every envelope.
-pub const ENVELOPE_VERSION: u8 = 4;
+pub const ENVELOPE_VERSION: u8 = 5;
 
 /// Name of the optional `anchor` field, as carried by [`EnvelopeError::OptionalArity`].
 const ANCHOR_FIELD: &str = "anchor";
@@ -73,25 +73,11 @@ pub struct CommitteeWitness {
     pub entries: Vec<RegistryEntry>,
 }
 
-/// The forced inclusion witness: the proof of the queue entry at the parent's cursor and, for a
-/// forced inclusion block, the entry's blob.
-///
-/// RLP: `[index, entry, blob]`. The entry proof verifies against the block anchor's `stateRoot`
-/// ([`crate::forced::check`] judges it).
-#[derive(Clone, Debug, PartialEq, Eq, RlpEncodable, RlpDecodable)]
-pub struct ForcedWitness {
-    /// The queue index of the entry; must equal the parent's cursor.
-    pub index: u64,
-    /// EIP-1186 proof of the Inbox account and the entry's four slots, in slot order.
-    pub entry: AccountWitness,
-    /// The raw 131,072-byte blob of a forced inclusion block that is not expired; empty for an
-    /// expired entry's block and for a peek (an ordinary block proving the entry is not due).
-    pub blob: Bytes,
-}
+pub use crate::forced::ForcedWitness;
 
 /// The decoded block envelope: the execution block plus the optional L1 witnesses.
 ///
-/// Wire format: `0x04 || rlp([block, anchor, committee, forced])`, where each optional witness is
+/// Wire format: `0x05 || rlp([block, anchor, committee, forced])`, where each optional witness is
 /// an empty RLP list when absent and a one-element RLP list holding the witness when present.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EtnaEnvelope {
@@ -131,7 +117,7 @@ pub enum EnvelopeError {
 }
 
 impl EtnaEnvelope {
-    /// Encodes the envelope as `0x04 || rlp([block, anchor, committee, forced])`.
+    /// Encodes the envelope as `0x05 || rlp([block, anchor, committee, forced])`.
     pub fn encode(&self) -> Bytes {
         let mut out = Vec::with_capacity(1 + Encodable::length(self));
         out.push(ENVELOPE_VERSION);
@@ -379,7 +365,7 @@ mod tests {
     }
 
     fn forced(blob: Bytes) -> ForcedWitness {
-        ForcedWitness { index: 6, entry: account_witness(0xc3), blob }
+        ForcedWitness { index: 6, entry: account_witness(0xc3), tx: blob }
     }
 
     fn envelope(
@@ -426,7 +412,7 @@ mod tests {
     fn encode_starts_with_version_byte() {
         let env = envelope(Some(anchor()), None, Some(forced(blob())));
         let encoded = env.encode();
-        assert_eq!(encoded[0], 0x04);
+        assert_eq!(encoded[0], 0x05);
         assert_eq!(encoded.len(), 1 + alloy_rlp::encode(env).len());
     }
 
@@ -451,7 +437,16 @@ mod tests {
         assert_eq!(env.encode().to_vec(), expected);
     }
 
-    /// The forced inclusion witness is the RLP list `[index, entry, blob]`, an empty blob being
+    #[test]
+    fn calldata_activation_requires_envelope_v5() {
+        let encoded = envelope(None, None, None).encode();
+        assert_eq!(encoded[0], 5);
+        let mut old = encoded.to_vec();
+        old[0] = 4;
+        assert_eq!(EtnaEnvelope::decode(&old), Err(EnvelopeError::Version(4)));
+    }
+
+    /// The forced inclusion witness is the RLP list `[index, entry, tx]`, an empty blob being
     /// the empty byte string.
     #[test]
     fn forced_witness_is_a_list_of_index_entry_and_blob() {
@@ -475,7 +470,7 @@ mod tests {
     #[test]
     fn decode_rejects_wrong_version() {
         let mut encoded = envelope(None, None, None).encode().to_vec();
-        for version in [0x00, 0x01, 0x02, 0x03, 0x05, 0xff] {
+        for version in [0x00, 0x01, 0x02, 0x03, 0x04, 0xff] {
             encoded[0] = version;
             assert_eq!(EtnaEnvelope::decode(&encoded), Err(EnvelopeError::Version(version)));
         }
@@ -642,7 +637,7 @@ mod tests {
             forced: None,
         };
         let expected = hex!(
-            "04"       // ENVELOPE_VERSION
+            "05"       // ENVELOPE_VERSION
             "f901f7"   // envelope list
             "f901f1"   // block list
             "f901ed"   // header list (Header::default(): 15 pre-London fields)
@@ -887,7 +882,7 @@ mod tests {
                         proof: vec![bytes!("e3a12055")],
                     }],
                 },
-                blob: blob.clone().into(),
+                tx: blob.clone().into(),
             }),
         };
 

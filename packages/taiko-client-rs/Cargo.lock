@@ -7195,6 +7195,7 @@ name = "test-harness"
 version = "2.3.0"
 dependencies = [
  "abci",
+ "alethia-reth-primitives",
  "alloy",
  "alloy-eips 1.8.3",
  "alloy-primitives",

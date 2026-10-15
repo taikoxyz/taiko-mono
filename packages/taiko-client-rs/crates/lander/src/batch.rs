@@ -1,6 +1,10 @@
 //! Consecutive, authenticated batch assembly and immutable proof-job construction.
 
-use std::{collections::BTreeMap, sync::Arc};
+use abci::engine::{
+    Engine,
+    forced::{ForcedBuildContext, ForcedBuildError, verify_forced},
+};
+use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use abci::{
     AnchorState, ChainParams, ParentInfo, Schedule,
@@ -180,12 +184,33 @@ pub trait BatchSource: Send + Sync {
     async fn validate_checkpoint(&self, snapshot: &LandingSnapshot) -> Result<()>;
 }
 
+/// Validated runtime dependencies and limits for authenticated batch construction.
+pub struct BatchBuilderConfig {
+    /// Shared consensus parameters.
+    pub params: ChainParams,
+    /// Complete-block and codec capacity limits.
+    pub limits: Limits,
+    /// L1 sidecar representation.
+    pub mode: SidecarMode,
+    /// Nonzero recipient bound into the landing statement.
+    pub fee_recipient: Address,
+    /// Operator-controlled EL used to establish canonical forced-transaction skips.
+    /// Leave allow-unwind-canonical-header disabled for historical canonical probes.
+    pub engine: Arc<dyn Engine>,
+    /// Positive, bounded deadline for a singleton check.
+    pub engine_timeout: Duration,
+}
+
 /// Collector-backed builder; no proof computation or transaction mutation occurs here.
 pub struct BatchBuilder<C: ?Sized, L: ?Sized> {
     /// Read-only CometBFT block/certificate source.
     comet: Arc<C>,
     /// Coherent L1 reads and public L2 checkpoint headers.
     l1: Arc<L>,
+    /// EL dependency for completed forced decisions.
+    engine: Arc<dyn Engine>,
+    /// Deadline bounding the entire forced check.
+    engine_timeout: Duration,
     /// Shared Etna constants; the existing ABCI helpers enforce them.
     params: ChainParams,
     /// Explicit codec, complete-block and transaction blob bounds.
@@ -208,14 +233,16 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     /// Create a builder after validating operator and consensus limits. Every batch names
     /// `fee_recipient` as its `LandInput.feeRecipient`; a zero address is a configuration error,
     /// since the Inbox rejects it (`ZeroFeeRecipient`).
-    pub fn new(
-        comet: Arc<C>,
-        l1: Arc<L>,
-        params: ChainParams,
-        limits: Limits,
-        mode: SidecarMode,
-        fee_recipient: Address,
-    ) -> Result<Self> {
+    pub fn new(comet: Arc<C>, l1: Arc<L>, config: BatchBuilderConfig) -> Result<Self> {
+        let BatchBuilderConfig { params, limits, mode, fee_recipient, engine, engine_timeout } =
+            config;
+        if engine_timeout.is_zero() ||
+            engine_timeout > Duration::from_secs(crate::config::MAX_TIMEOUT_SECS)
+        {
+            return Err(LanderError::Configuration(
+                "engine timeout must be positive and at most one hour".into(),
+            ));
+        }
         params.validate().map_err(|e| LanderError::Configuration(e.to_string()))?;
         limits.validate()?;
         if fee_recipient.is_zero() {
@@ -226,6 +253,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         Ok(Self {
             comet,
             l1,
+            engine,
+            engine_timeout,
             params,
             limits,
             mode,
@@ -616,7 +645,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         })
     }
     /// Verify one successor using a known outgoing certificate before accepting new authorities.
-    fn authenticate_block(
+    async fn authenticate_block(
         &self,
         snapshot: &LandingSnapshot,
         schedule: &Schedule,
@@ -671,9 +700,37 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             },
         )
         .map_err(|e| LanderError::Safety(e.to_string()))?;
-        // Forced inclusion blocks consume consecutive entries from the snapshot's Inbox head:
-        // `verify_envelope` only lets a block consume the entry at `state.forced_cursor`.
-        let forced_cursor = if facts.forced.is_some() {
+        if matches!(facts.forced, abci::forced::ForcedDecision::NeedsSkip { .. }) {
+            let header = tokio::time::timeout(
+                self.engine_timeout,
+                self.engine.header_by_number(state.parent.number),
+            )
+            .await
+            .map_err(|_| LanderError::Temporary("forced parent lookup timed out".into()))?
+            .map_err(|_| LanderError::Temporary("forced parent lookup unavailable".into()))?;
+            if header.is_none_or(|header| header.hash_slow() != state.parent.hash) {
+                return Err(LanderError::Temporary(
+                    "forced singleton parent is not available on the canonical EL chain".into(),
+                ));
+            }
+        }
+        let consumed = tokio::time::timeout(
+            self.engine_timeout,
+            verify_forced(
+                self.engine.as_ref(),
+                ForcedBuildContext { expected: &facts.expected, anchor_hash: facts.anchor.hash },
+                &facts.forced,
+            ),
+        )
+        .await
+        .map_err(|_| LanderError::Temporary("forced singleton check timed out".into()))?
+        .map_err(|e| match e {
+            ForcedBuildError::Engine(_) => {
+                LanderError::Temporary("forced singleton build unavailable".into())
+            }
+            other => LanderError::Safety(other.to_string()),
+        })?;
+        let forced_cursor = if consumed.is_some() {
             state
                 .forced_cursor
                 .checked_add(1)
@@ -723,7 +780,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
 
     /// Retain only the selected proof prefix's per-block anchors after shared verification, and
     /// the forced inclusion cursor after its last block.
-    fn authenticate_blocks(
+    async fn authenticate_blocks(
         &self,
         snapshot: &LandingSnapshot,
         schedule: &Schedule,
@@ -734,7 +791,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         let mut state = ForwardState::new(start, snapshot)?;
         let mut anchors = Vec::new();
         for pair in blocks {
-            self.authenticate_block(snapshot, schedule, &mut state, committees, pair)?;
+            self.authenticate_block(snapshot, schedule, &mut state, committees, pair).await?;
             anchors.push(state.anchor.clone());
         }
         Ok((anchors, state.forced_cursor))
@@ -768,12 +825,13 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
         let start = self.checkpoint(snapshot, &schedule, &mut committees).await?;
         let mut state = ForwardState::new(&start, snapshot)?;
         for pair in &prefix.blocks {
-            self.authenticate_block(snapshot, &schedule, &mut state, &mut committees, pair)?;
+            self.authenticate_block(snapshot, &schedule, &mut state, &mut committees, pair).await?;
         }
         let fetched = state.parent.number;
         for height in fetched + 1..=status.height {
             let pair = self.comet.block(height).await?;
-            self.authenticate_block(snapshot, &schedule, &mut state, &mut committees, &pair)?;
+            self.authenticate_block(snapshot, &schedule, &mut state, &mut committees, &pair)
+                .await?;
         }
         let anchor = &state.anchor;
         let epoch = schedule.epoch_of(status.height);
@@ -803,13 +861,9 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
         let mut committees = BTreeMap::new();
         let start = self.checkpoint(&snapshot, &schedule, &mut committees).await?;
         let prefix = self.publishable_prefix(&snapshot, status.height).await?;
-        let (anchors, forced_cursor) = self.authenticate_blocks(
-            &snapshot,
-            &schedule,
-            &start,
-            &mut committees,
-            &prefix.blocks,
-        )?;
+        let (anchors, forced_cursor) = self
+            .authenticate_blocks(&snapshot, &schedule, &start, &mut committees, &prefix.blocks)
+            .await?;
         if prefix.blocks.is_empty() {
             return Ok(None);
         }
@@ -1000,10 +1054,16 @@ mod tests {
             BatchBuilder::new(
                 self.clone(),
                 self.clone(),
-                self.fixture().params.clone(),
-                limits(max_blocks),
-                SidecarMode::Eip4844,
-                FEE_RECIPIENT,
+                crate::batch::BatchBuilderConfig {
+                    params: self.fixture().params.clone(),
+                    limits: limits(max_blocks),
+                    mode: SidecarMode::Eip4844,
+                    fee_recipient: FEE_RECIPIENT,
+                    engine: std::sync::Arc::new(
+                        test_harness::unavailable_engine::UnavailableEngine,
+                    ),
+                    engine_timeout: std::time::Duration::from_secs(1),
+                },
             )
             .unwrap()
         }
@@ -1248,10 +1308,14 @@ mod tests {
         BatchBuilder::new(
             fixture.clone(),
             fixture.clone(),
-            fixture.params.clone(),
-            limits,
-            SidecarMode::Eip4844,
-            FEE_RECIPIENT,
+            crate::batch::BatchBuilderConfig {
+                params: fixture.params.clone(),
+                limits,
+                mode: SidecarMode::Eip4844,
+                fee_recipient: FEE_RECIPIENT,
+                engine: std::sync::Arc::new(test_harness::unavailable_engine::UnavailableEngine),
+                engine_timeout: std::time::Duration::from_secs(1),
+            },
         )
         .unwrap()
     }
@@ -1264,10 +1328,14 @@ mod tests {
         let error = BatchBuilder::new(
             fixture.clone(),
             fixture.clone(),
-            fixture.params.clone(),
-            limits(3),
-            SidecarMode::Eip4844,
-            alloy_primitives::Address::ZERO,
+            crate::batch::BatchBuilderConfig {
+                params: fixture.params.clone(),
+                limits: limits(3),
+                mode: SidecarMode::Eip4844,
+                fee_recipient: alloy_primitives::Address::ZERO,
+                engine: std::sync::Arc::new(test_harness::unavailable_engine::UnavailableEngine),
+                engine_timeout: std::time::Duration::from_secs(1),
+            },
         )
         .err()
         .expect("a zero fee recipient is refused");
@@ -1403,15 +1471,15 @@ mod tests {
     /// fixture (101 s) uses anchor 10 (10 s), an anchor age of 91 s.
     #[tokio::test]
     async fn a_block_with_an_anchor_older_than_the_genesis_maximum_age_is_rejected() {
-        let fixture = Arc::new(Fixture::with_max_anchor_age(0, 1, 91));
+        let fixture = Arc::new(Fixture::with_max_anchor_age(0, 1, 1252));
         builder(fixture.clone(), limits(1))
             .prepare(fixture.snapshot.clone())
             .await
             .unwrap()
             .unwrap();
 
-        let fixture = Arc::new(Fixture::with_max_anchor_age(0, 1, 90));
-        let violation = abci::rules::RuleViolation::AnchorTooOld { age: 91, max: 90 };
+        let fixture = Arc::new(Fixture::with_max_anchor_age(0, 1, 1251));
+        let violation = abci::rules::RuleViolation::AnchorTooOld { age: 1252, max: 1251 };
         for observation in [false, true] {
             let b = builder(fixture.clone(), limits(1));
             let error = if observation {
@@ -1859,8 +1927,8 @@ mod tests {
             let request = prepare(&fixture, 3).await;
             let peek = envelope(&request, 0).forced.unwrap();
             let consumed = envelope(&request, 1).forced.unwrap();
-            assert_eq!((peek.index, peek.blob.is_empty()), (0, true));
-            assert_eq!((consumed.index, consumed.blob.is_empty()), (0, false));
+            assert_eq!((peek.index, peek.tx.is_empty()), (0, false));
+            assert_eq!((consumed.index, consumed.tx.is_empty()), (0, false));
             assert_eq!(envelope(&request, 2).forced, None);
 
             // A stored head past the entry block 2 consumes contradicts the decided chain.
@@ -1886,9 +1954,9 @@ mod tests {
             let request = prepare(&fixture, 6).await;
             assert_eq!(request.batch.input.lastHeight, 26);
             let first = envelope(&request, 0).forced.unwrap();
-            assert_eq!((first.index, first.blob.is_empty()), (1, true));
+            assert_eq!((first.index, first.tx.is_empty()), (1, false));
             let consumed = envelope(&request, 3).forced.unwrap();
-            assert_eq!((consumed.index, consumed.blob.is_empty()), (1, false));
+            assert_eq!((consumed.index, consumed.tx.is_empty()), (1, false));
             assert_eq!(heads(&request), (1, 2));
             // A cut that ends before block 24 keeps the stored head.
             let request = prepare(&fixture, 3).await;
@@ -1915,9 +1983,9 @@ mod tests {
             }
             let request = prepare(&fixture, 6).await;
             let first = envelope(&request, 0).forced.unwrap();
-            assert_eq!((first.index, first.blob.is_empty()), (0, false));
+            assert_eq!((first.index, first.tx.is_empty()), (0, false));
             let peek = envelope(&request, 1).forced.unwrap();
-            assert_eq!((peek.index, peek.blob.is_empty()), (1, true));
+            assert_eq!((peek.index, peek.tx.is_empty()), (1, false));
 
             // A stored head of 1 says entry 0 is settled, so block 21 consuming it is out of order.
             let snapshot = fixture.snapshot_with_forced_queue(snapshot.genesis.clone(), 1, 2);
@@ -1941,7 +2009,7 @@ mod tests {
             assert_eq!(switch.block.header.number, 22);
             assert!(switch.anchor.is_some() && switch.committee.is_some());
             let witness = switch.forced.unwrap();
-            assert_eq!((witness.index, witness.blob.is_empty()), (0, false));
+            assert_eq!((witness.index, witness.tx.is_empty()), (0, false));
             assert_eq!(envelope(&request, 0).forced, None);
             assert_eq!(heads(&request), (0, 1));
             assert_eq!(
@@ -1955,11 +2023,51 @@ mod tests {
             let mut fixture = forced();
             alter_envelope(&mut fixture, 22, |envelope| {
                 let witness = envelope.forced.as_mut().unwrap();
-                let mut blob = witness.blob.to_vec();
-                blob[1_000] ^= 1;
-                witness.blob = blob.into();
+                let mut blob = witness.tx.to_vec();
+                blob[0] ^= 1;
+                witness.tx = blob.into();
             });
-            assert_safety(fixture, "blob versioned hash").await;
+            assert_safety(fixture, "transaction hash").await;
+        }
+
+        #[tokio::test(start_paused = true)]
+        async fn canonical_skip_requires_completed_empty_matching_singleton() {
+            use test_harness::unavailable_engine::ProbeEngine;
+            for mode in 0..5 {
+                let plan = ForcedPlan { delay: 5, entries: vec![(10, 5)], consume_at: vec![1] };
+                let mut fixture = Fixture::with_forced(0, 1, plan);
+                alter_envelope(&mut fixture, 1, |env| {
+                    env.block.transactions.clear();
+                    env.block.header.transactions_root = alloy_consensus::EMPTY_ROOT_HASH;
+                });
+                let env = abci::EtnaEnvelope::decode(&fixture.blocks[&1].block.data[0]).unwrap();
+                let mut result = env.block.clone();
+                if mode == 1 {
+                    result.transactions.push(env.forced.as_ref().unwrap().tx.clone());
+                }
+                if mode == 2 {
+                    result.header.timestamp += 1;
+                }
+                let parent = fixture.headers[&0].clone();
+                let fixture = Arc::new(fixture);
+                let mut b = builder(fixture.clone(), limits(1));
+                b.engine_timeout = Duration::from_millis(10);
+                b.engine = Arc::new(ProbeEngine {
+                    parent,
+                    result: if mode == 3 {
+                        Err(abci::EngineError::Transport("unavailable".into()))
+                    } else {
+                        Ok(result)
+                    },
+                    delay: if mode == 4 { Duration::from_secs(1) } else { Duration::ZERO },
+                });
+                let prepared = b.prepare(fixture.snapshot.clone()).await;
+                match mode {
+                    0 => assert_eq!(heads(&prepared.unwrap().unwrap()), (0, 1)),
+                    1 | 2 => assert!(matches!(prepared, Err(LanderError::Safety(_)))),
+                    _ => assert!(matches!(prepared, Err(LanderError::Temporary(_)))),
+                }
+            }
         }
 
         #[tokio::test]
@@ -1971,8 +2079,15 @@ mod tests {
             assert_eq!(heads(&prepare(&fixture, 3).await), (0, 1));
 
             // Block 1 peeks at the due entry; block 2 consumes it too late.
-            let violation = ForcedError::Due { index: 0 }.to_string();
-            assert_safety(Fixture::with_forced(0, 3, due(vec![2])), &violation).await;
+            let absent = Arc::new(Fixture::with_forced(0, 3, due(vec![2])));
+            let error = builder(absent.clone(), limits(3))
+                .prepare(absent.snapshot.clone())
+                .await
+                .unwrap_err();
+            assert!(
+                matches!(error, LanderError::Temporary(_)),
+                "missing execution state must fail closed: {error}"
+            );
             // Block 1 carries no forced witness at all.
             let mut fixture = Fixture::with_forced(0, 3, due(vec![1]));
             alter_envelope(&mut fixture, 1, |envelope| envelope.forced = None);

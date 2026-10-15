@@ -13,6 +13,20 @@ interface IEtnaInbox {
     // Structs
     // ---------------------------------------------------------------
 
+    /// @notice A forced L2 transaction authenticated by the submission's L1 state.
+    /// @dev Two storage words: the transaction hash, then timestamp (bits 0-47), L1 block
+    /// (bits 48-111), and fee in Gwei (bits 112-175).
+    struct ForcedInclusion {
+        /// @notice The keccak256 hash of the submitted transaction bytes.
+        bytes32 txHash;
+        /// @notice The L1 submission timestamp in seconds.
+        uint48 timestamp;
+        /// @notice The L1 block containing the submission and its transaction bytes event.
+        uint64 l1Block;
+        /// @notice The paid fee in Gwei, released when the entry is consumed.
+        uint64 feeInGwei;
+    }
+
     /// @notice The constructor parameters of the Etna Inbox implementation.
     struct Config {
         /// @notice The verifier of `land` proofs.
@@ -48,12 +62,10 @@ interface IEtnaInbox {
         /// @notice The non-zero commitment to the parent-anchor committee derivation configuration.
         bytes32 committeeConfigHash;
         /// @notice The non-zero forced inclusion delay in seconds. An entry is due at an L2 block
-        /// whose anchor timestamp is at least its timestamp plus it. The delay plus maxAnchorAge
-        /// plus a 384-second anchor update margin must not exceed the 14-day expiry.
+        /// whose anchor timestamp is at least its timestamp plus it, evaluated without wrapping.
         uint64 forcedInclusionDelay;
         /// @notice The maximum anchor age in seconds, at least 1152 (three Ethereum epochs): every
-        /// L2 block requires `block.timestamp - anchor.timestamp <= maxAnchorAge`. Its upper bound
-        /// is 14 days minus forcedInclusionDelay minus the 384-second anchor update margin.
+        /// L2 block requires `block.timestamp - anchor.timestamp <= maxAnchorAge`.
         uint64 maxAnchorAge;
     }
 
@@ -103,7 +115,7 @@ interface IEtnaInbox {
         /// @notice The forced inclusion queue head after the batch: the number of entries the
         /// L2 chain has consumed up to `lastHeight`.
         /// @dev At least the stored head, at most the queue tail, and ahead of the stored head by
-        /// at most the batch's block count, since each forced inclusion is its own block.
+        /// at most the batch's block count, since each block consumes at most one entry.
         uint48 forcedInclusionHead;
         /// @notice The receiver of the fees of the forced inclusions the batch consumes.
         /// @dev Non-zero, and bound into the V6 statement, so a copy of a public landing
@@ -114,6 +126,11 @@ interface IEtnaInbox {
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
+
+    /// @notice Emitted when transaction bytes are appended to the forced inclusion queue.
+    /// @param index The assigned queue index.
+    /// @param tx The original transaction bytes, whose hash is stored in the queue entry.
+    event ForcedInclusionSaved(uint48 indexed index, bytes tx);
 
     /// @notice Emitted when a fresh Etna proxy is initialized from L2 genesis.
     /// @param genesisBlockHash The hash of L2 block 0.
@@ -165,12 +182,44 @@ interface IEtnaInbox {
     // External Functions
     // ---------------------------------------------------------------
 
+    /// @notice Appends a forced L2 transaction and pays the current queue fee.
+    /// @dev Requires active status and at most 8192 bytes. Admission does not validate transaction
+    /// encoding or execution validity: empty and undecodable input is handled by L2 consumption.
+    /// Stores the bytes hash, L1 timestamp, L1 block and fee; emits the bytes and refunds excess
+    /// Ether to the caller. Reverts if the fee is insufficient or the refund fails.
+    /// @param _tx The transaction bytes to publish through calldata.
+    function saveForcedInclusion(bytes calldata _tx) external payable;
+
+    /// @notice Returns the fee in Gwei to submit the next forced transaction.
+    /// @dev Uses baseFee * (threshold + pending) / threshold, capped at uint64.max.
+    /// @return feeInGwei_ The next admission fee in Gwei.
+    function getCurrentForcedInclusionFee() external view returns (uint64 feeInGwei_);
+
+    /// @notice Returns pending forced transactions starting from a queue index.
+    /// @dev Returns an empty array if the start is outside [head, tail) or the maximum is zero.
+    /// Consumed entries remain stored but are excluded from this pending-entry getter.
+    /// @param _start The queue index to start reading.
+    /// @param _maxCount The maximum number of entries to return.
+    /// @return inclusions_ At most min(_maxCount, tail - _start) entries for a valid start.
+    function getForcedInclusions(
+        uint48 _start,
+        uint48 _maxCount
+    )
+        external
+        view
+        returns (ForcedInclusion[] memory inclusions_);
+
+    /// @notice Returns the forced inclusion queue pointers.
+    /// @dev The packed pointers occupy Inbox slot 281.
+    /// @return head_ The next entry to consume.
+    /// @return tail_ The index assigned to the next submission.
+    function getForcedInclusionState() external view returns (uint48 head_, uint48 tail_);
+
     /// @notice Initializes a fresh Etna proxy and its L2 block-0 checkpoint.
     /// @dev Call atomically in the proxy constructor. Requires non-zero genesis hash, state root,
     /// committee record and derivation configuration hash, epochLenL2 >= 3, epochLenL1 > 0,
     /// a past genesis cutoff at or after the registry's first checkpoint, a forced inclusion
-    /// delay greater than zero, maxAnchorAge >= 1152 seconds, and
-    /// forcedInclusionDelay + maxAnchorAge + 384 seconds <= 14 days. Choose maxAnchorAge above
+    /// delay greater than zero and maxAnchorAge >= 1152 seconds. Choose maxAnchorAge above
     /// the expected L1 finality lag, including extra depth and RPC latency. The SignalService must
     /// authorize this proxy as its
     /// syncer: initialization saves its block-0 checkpoint too, and any failure rolls back all
@@ -231,36 +280,51 @@ interface IEtnaInbox {
     /// generation and back-pressure rules still apply; deterministic Finalize/replay makes no
     /// new L1 calls. Epoch-first blocks need no publication witness.
     ///
-    /// Forced inclusions: the L2 cursor c starts at 0; a forced inclusion block consumes exactly
-    /// entry c and increments it, every other block keeps it, and after every landing the stored
-    /// head equals the cursor at the checkpoint. For a block with anchor A, entry c is due iff
-    /// c < tail(A) and A.timestamp >= entry.timestamp + forcedInclusionDelay, and expired iff
-    /// c < tail(A) and A.timestamp >= entry.timestamp + 14 days. A due entry requires a forced
-    /// inclusion block for entry c; a pending entry that is not due may be included early; with
-    /// c >= tail(A) the block is ordinary; skipping or reordering is invalid. Every block also
-    /// requires block.timestamp - A.timestamp <= maxAnchorAge. A forced inclusion block keeps the
-    /// ordinary header rules and holds exactly what the EL produces in provided-list mode from
-    /// the entry's transaction list: its blob must match the entry's versioned hash, and Shasta's
-    /// forced inclusion manifest decoded at the entry's offset (at most 1 MiB decompressed)
-    /// gives the list when it has exactly one block; otherwise the list is empty. An expired
-    /// entry is consumed with an empty list and no blob. The batch consumes entries
-    /// [forcedInclusionHeadBefore, forcedInclusionHeadAfter) in order. Authenticate entries and
-    /// tail by storage proofs under the authenticated anchors, and slot 282 under genesis state.
-    /// Reject an entry whose proven blobHashes length is not exactly 1 (the store never writes
-    /// one). Read tail(A) from A's state, never genesis: a save can follow init in the same L1
-    /// block, so the queue may be non-empty at L1_0; block 1 always carries its own anchor
-    /// witness. feeRecipient is a public input the guest binds but does not constrain.
+    /// Forced inclusions: cursor c starts at 0; each block consumes at most entry c and advances
+    /// once, or keeps c. After landing, the stored head equals the checkpoint cursor. For anchor
+    /// A, forbid a forced witness if c >= tail(A); otherwise require exactly c's witness
+    /// [index, entryProof, tx]. Authenticate the Inbox account, both entry slots and tail under
+    /// A.stateRoot, enforce tx.length <= 8192 and keccak256(tx) == entry.txHash, even for a
+    /// pre-due peek. Read tail from A, never genesis: save may follow init in the same L1 block;
+    /// block 1 always carries its own anchor witness. Authenticate delay/maxAnchorAge in slot 282
+    /// under genesis. Due means A.timestamp >= entry.timestamp + delay without integer wrapping.
+    /// Entries never expire, even after fourteen days.
+    ///
+    /// Canonical bytes decode as exactly one complete EIP-2718 envelope (including legacy),
+    /// consume all input and re-encode identically using the pinned EL's codec. Empty, undecodable
+    /// or failed-round-trip bytes are invalid input. Canonical bytes exactly equal to transaction
+    /// zero consume c before or after due; later positions and same-sender/nonce replacements do
+    /// not count. Without inclusion, a pre-due entry keeps c; a due noncanonical entry skips and
+    /// advances once without an EL build; a due canonical entry advances only after a successful
+    /// completed singleton EL build returns no transactions. Use the same committed parent and
+    /// deterministic candidate attributes, changing only the provided list to [tx], under the
+    /// pinned legacy provided-list semantics. A nonempty result rejects the skip; build errors,
+    /// timeouts, missing parent state, cancellation or incomplete results never permit consumption.
+    /// Do not duplicate EL signature, nonce, balance, gas or fee validation or specially defer
+    /// semantic failures after due. Inclusion may share a block with later mempool transactions
+    /// and may revert in EVM execution; receipt success is not required. The candidate still
+    /// requires normal header and EL payload validation, including
+    /// block.timestamp - A.timestamp <= maxAnchorAge. An allowed skip rebuilds an ordinary mempool
+    /// block with its full budget when the combined build stopped at the forced transaction.
+    ///
+    /// The future guest must enforce the same MPT/hash/canonical/position/due checks and consume
+    /// [forcedInclusionHeadBefore, forcedInclusionHeadAfter) in order. An EL-dependent skip needs
+    /// an execution witness and guest execution of the singleton on the authenticated parent
+    /// with the candidate attributes; debug_executionWitnessForTxList generates that witness.
+    /// feeRecipient is a public input the guest binds but does not constrain. No expiry-derived
+    /// deletion exists, but BFT time suppression can still delay inclusion and a quorum can stop
+    /// settlement; these rules do not establish a wall-clock deadline.
     ///
     /// Prove contiguous execution from the parent hash to the terminal hash/state root, every
     /// anchor and actual proving L1 root on the header chain ending at the reference hash, and
-    /// block data in the bound blobs. The blobs carry payload V3: 0x03 and the zlib-compressed
+    /// block data in the bound blobs. The blobs carry payload V4: 0x04 and the zlib-compressed
     /// RLP list of each block's canonical CometBFT header and Etna envelope, where every header
     /// hashes to a certified block id, its data hash commits to the envelope and its last block
-    /// id links the batch. A forced inclusion block's envelope carries its entry's blob. Commits
-    /// and signatures are proof witnesses, not blob data. A batch may start/end at any valid
-    /// height without a previous batch's committee output. Envelope version 4, payload V3 and
-    /// journal schema 5 reject former envelope-3 histories, V2 payloads and older jobs; never
-    /// discard or replace a signed nonce. The verifier must pin a guest enforcing these V6
+    /// id links the batch. Envelope v5's forced witness carries transaction bytes, not a forced
+    /// blob. Landing still publishes batch blobs. Commits and signatures are proof witnesses,
+    /// not blob data. A batch may start/end at any valid height without a previous batch's
+    /// committee output. Envelope version 5, payload V4 and journal schema 8 reject older formats;
+    /// never discard or replace a signed nonce. The verifier must pin a guest enforcing these V6
     /// rules. Dummy proof 0x00 is for development only; no real guest exists here and the dummy
     /// verifier does not establish consensus validity or ZK soundness.
     /// @param _input The six-field batch: terminal checkpoint, reference block, forced inclusion

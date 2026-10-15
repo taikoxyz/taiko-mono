@@ -10,13 +10,8 @@ use alloy::{
     sol,
     sol_types::{SolCall, SolConstructor},
 };
-use alloy_consensus::{
-    Header, SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope,
-};
-use alloy_eips::{
-    BlockId, eip2718::Encodable2718, eip4844::builder::SidecarBuilder,
-    eip7594::BlobTransactionSidecarVariant,
-};
+use alloy_consensus::{Header, SignableTransaction, TxEnvelope};
+use alloy_eips::{BlockId, eip2718::Encodable2718};
 use alloy_primitives::{Address, B256, Bytes, U256};
 use alloy_provider::{Provider, RootProvider};
 use anyhow::{Context, Result, ensure};
@@ -299,44 +294,24 @@ impl ContractFixture {
         let fee_gwei =
             view(p, self.inbox, EtnaInbox::getCurrentForcedInclusionFeeCall {}, None).await?;
         let fee = U256::from(fee_gwei) * U256::from(1_000_000_000u64);
-        let sidecar =
-            SidecarBuilder::<protocol::shasta::BlobCoder>::from_slice(payload).build_7594()?;
-        ensure!(sidecar.blobs.len() == 1, "a forced inclusion source is one blob");
-        let blob = Bytes::copy_from_slice(sidecar.blobs[0].as_slice());
         let signer: PrivateKeySigner = USER_KEY.parse()?;
-        let mut tx = TxEip4844 {
+        let tx = alloy_consensus::TxEip1559 {
             chain_id: p.get_chain_id().await?,
             nonce: p.get_transaction_count(signer.address()).await?,
-            gas_limit: 0,
+            gas_limit: 1_000_000,
             max_fee_per_gas: 20_000_000_000,
             max_priority_fee_per_gas: 1_000_000_000,
-            to: self.inbox,
+            to: alloy_primitives::TxKind::Call(self.inbox),
             value: fee,
+            input: EtnaInbox::saveForcedInclusionCall { _tx: Bytes::copy_from_slice(payload) }
+                .abi_encode()
+                .into(),
             access_list: Default::default(),
-            blob_versioned_hashes: sidecar.versioned_hashes().collect(),
-            max_fee_per_blob_gas: 20_000_000_000,
-            input: EtnaInbox::saveForcedInclusionCall {
-                _blobReference: LibBlobs::BlobReference {
-                    blobStartIndex: 0,
-                    numBlobs: 1,
-                    offset: Default::default(),
-                },
-            }
-            .abi_encode()
-            .into(),
         };
-        let mut estimate = TransactionRequest::from_transaction(tx.clone()).from(signer.address());
-        estimate.gas = None;
-        let gas = p.estimate_gas(estimate).await.context("saveForcedInclusion estimate")?;
-        tx.gas_limit = gas.saturating_add(gas / 5);
-        let variant: TxEip4844Variant = TxEip4844WithSidecar::from_tx_and_sidecar(
-            tx,
-            BlobTransactionSidecarVariant::Eip7594(sidecar),
-        )
-        .into();
-        let signature = signer.sign_hash_sync(&variant.signature_hash())?;
-        let network = TxEnvelope::Eip4844(variant.into_signed(signature)).encoded_2718();
+        let signature = signer.sign_hash_sync(&tx.signature_hash())?;
+        let network = TxEnvelope::Eip1559(tx.into_signed(signature)).encoded_2718();
         let hash = *p.send_raw_transaction(&network).await?.tx_hash();
+        let blob = Bytes::copy_from_slice(payload);
         let saved = receipt(p, hash).await?;
         ensure!(saved.status(), "saveForcedInclusion reverted: {hash}");
         Ok((saved, blob, fee))

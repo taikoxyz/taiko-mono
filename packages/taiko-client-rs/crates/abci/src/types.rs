@@ -150,11 +150,10 @@ pub struct GenesisRecord {
     /// Runtime epochs select the committed derivation parent anchor instead.
     pub genesis_cutoff: u64,
     /// `forcedInclusionDelay` (`D`, slot 282 bits 0–63), in seconds: an entry is due once an
-    /// anchor's timestamp reaches its own plus `D`. Validated `0 < D <`
-    /// [`FORCED_INCLUSION_EXPIRY_SECS`](crate::forced::FORCED_INCLUSION_EXPIRY_SECS).
+    /// anchor's timestamp reaches its own plus `D`. Validated positive with no upper bound.
     pub forced_inclusion_delay: u64,
     /// `maxAnchorAge` (`M`, slot 282 bits 64–127), in seconds: a block's timestamp may exceed
-    /// its anchor's by at most `M`. Validated `> 0`.
+    /// its anchor's by at most `M`. Validated `>= 1152`.
     pub max_anchor_age: u64,
 }
 

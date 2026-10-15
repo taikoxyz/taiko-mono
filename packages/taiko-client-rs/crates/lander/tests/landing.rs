@@ -162,10 +162,13 @@ async fn lander_actual_contract_forced_inclusion_lands_and_pays_fee() -> Result<
     chain.extend(&fixture, 2).await?;
 
     // A one-block Shasta source; the lander checks the blob's binding, not its transactions.
-    let payload = protocol::shasta::manifest::DerivationSourceManifest {
-        blocks: vec![protocol::shasta::manifest::BlockManifest::default()],
-    }
-    .encode_and_compress()?;
+    use alloy_consensus::{SignableTransaction, TxEnvelope, TxLegacy};
+    use alloy_eips::eip2718::Encodable2718;
+    let payload = TxEnvelope::Legacy(
+        TxLegacy { gas_limit: 21_000, ..Default::default() }
+            .into_signed(alloy_primitives::Signature::new(U256::from(1), U256::from(1), false)),
+    )
+    .encoded_2718();
     let (saved, blob, fee) = fixture.save_forced_inclusion(&payload).await?;
     assert_eq!(fee, U256::from(1_000_000_000u64), "1 gwei with an empty queue");
     assert_eq!(fixture.forced_inclusion_state().await?, (0, 1));
@@ -177,7 +180,7 @@ async fn lander_actual_contract_forced_inclusion_lands_and_pays_fee() -> Result<
         abci::EtnaEnvelope::decode(&chain.blocks[height - 1].block.data[0]).map(|e| e.forced)
     };
     let witness = forced(3)?.context("block 3 consumes the entry")?;
-    assert_eq!((witness.index, &witness.blob), (0, &blob));
+    assert_eq!((witness.index, &witness.tx), (0, &blob));
     assert!(chain.anchors[3].number >= saved.block_number.context("save block")?);
     assert_eq!((forced(2)?, forced(4)?), (None, None));
 

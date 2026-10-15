@@ -25,6 +25,8 @@ pub use crate::tx::FeeCaps;
 pub struct Timeouts {
     /// Deadline of one read-only RPC operation.
     pub rpc: Duration,
+    /// Deadline of the authenticated engine singleton check.
+    pub engine: Duration,
     /// Deadline of one proof request.
     pub proof: Duration,
     /// Deadline of one raw-transaction broadcast.
@@ -38,6 +40,7 @@ impl Timeouts {
     pub fn validate(&self) -> Result<()> {
         for (name, deadline) in [
             ("RPC", self.rpc),
+            ("engine", self.engine),
             ("proof", self.proof),
             ("broadcast", self.broadcast),
             ("receipt", self.receipt),
@@ -57,6 +60,7 @@ impl Default for Timeouts {
     fn default() -> Self {
         Self {
             rpc: Duration::from_secs(30),
+            engine: Duration::from_secs(30),
             proof: Duration::from_secs(300),
             broadcast: Duration::from_secs(30),
             receipt: Duration::from_secs(30),
@@ -103,6 +107,10 @@ pub struct LanderConfig {
     pub l1_http: Url,
     /// Public HTTP(S) endpoint of the operator's L2 execution node.
     pub l2_http: Url,
+    /// Authenticated HTTP(S) Engine API endpoint.
+    pub l2_auth: Url,
+    /// File containing the Engine API JWT secret.
+    pub jwt_secret: PathBuf,
     /// HTTP(S) RPC endpoint of its CometBFT node.
     pub comet_http: Url,
     /// File containing a hex-encoded signing key.
@@ -139,16 +147,22 @@ impl LanderConfig {
         }
         self.fee_caps.validate()?;
         self.timeouts.validate()?;
-        for (name, endpoint) in
-            [("L1", &self.l1_http), ("L2", &self.l2_http), ("CometBFT", &self.comet_http)]
-        {
+        for (name, endpoint) in [
+            ("L1", &self.l1_http),
+            ("L2", &self.l2_http),
+            ("Engine", &self.l2_auth),
+            ("CometBFT", &self.comet_http),
+        ] {
             if !matches!(endpoint.scheme(), "http" | "https") || endpoint.host_str().is_none() {
                 return Err(LanderError::Configuration(format!(
                     "{name} endpoint requires HTTP(S) and a host"
                 )));
             }
         }
-        if self.signing_key.as_os_str().is_empty() || self.data_dir.as_os_str().is_empty() {
+        if self.signing_key.as_os_str().is_empty() ||
+            self.data_dir.as_os_str().is_empty() ||
+            self.jwt_secret.as_os_str().is_empty()
+        {
             return Err(LanderError::Configuration(
                 "signing-key and data-dir paths must be nonempty".into(),
             ));
@@ -179,6 +193,8 @@ mod tests {
         LanderConfig {
             l1_http: Url::parse("http://l1:8545").unwrap(),
             l2_http: Url::parse("https://l2.example/rpc").unwrap(),
+            l2_auth: Url::parse("http://l2:8551").unwrap(),
+            jwt_secret: "jwt.hex".into(),
             comet_http: Url::parse("http://comet:26657").unwrap(),
             signing_key: PathBuf::from("/keys/lander.hex"),
             data_dir: PathBuf::from("/data/lander"),
