@@ -23,6 +23,7 @@ async fn forced_transaction_event_provenance() -> Result<()> {
     let mut d = Devnet::start(DevnetSpec::default()).await?;
     d.wait_for_height(0, 3, Duration::from_secs(60)).await?;
     freeze(&mut d).await?;
+    ensure!(comet_exit_code(&d).await? == 0, "healthy Comet must stop without forced termination");
     let artifact: serde_json::Value =
         serde_json::from_str(include_str!("../../test-harness/contracts/InboxSetter.json"))?;
     let runtime: Bytes = artifact["deployedBytecode"]["object"].as_str().unwrap().parse()?;
@@ -429,5 +430,33 @@ async fn forced_invalid_skip_keeps_mempool() -> Result<()> {
     let receipt = l2.get_transaction_receipt(*tx.tx_hash()).await?.context("revert receipt")?;
     assert!(!receipt.status());
     assert_eq!(app.state().unwrap().forced_cursor, e.index + 1);
+    d.stop().await
+}
+
+/// A stalled Comet process must not prevent freezing the parent or later handshake replay.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "docker"]
+async fn frozen_comet_is_reaped_before_parent_read_and_recovers() -> Result<()> {
+    let mut d = Devnet::start(DevnetSpec::default()).await?;
+    d.wait_for_height(0, 3, Duration::from_secs(60)).await?;
+    let name = d.cmt_container(0);
+    // SIGSTOP makes graceful shutdown impossible without changing the app or its history.
+    let paused = tokio::process::Command::new("docker")
+        .args(["kill", "--signal=STOP", &name])
+        .output()
+        .await?;
+    ensure!(paused.status.success(), "pause the test's Comet process");
+    let parent = freeze(&mut d).await?;
+    ensure!(!d.app_running(0) && !d.cmt_running(0).await?, "both node processes must be stopped");
+    ensure!(comet_exit_code(&d).await? == 137, "unresponsive Comet must be killed");
+    let hashes = d.l2_block_hashes(0, parent.last_height).await?;
+    d.app_start(0).await?;
+    d.cmt_restart(0).await?;
+    d.wait_for_height(0, parent.last_height + 3, Duration::from_secs(60)).await?;
+    ensure!(
+        d.l2_block_hashes(0, parent.last_height).await? == hashes,
+        "managed stop and handshake must preserve committed execution history"
+    );
+    ensure!(d.app_halt(0).is_none(), "restart must not enter a safety halt");
     d.stop().await
 }

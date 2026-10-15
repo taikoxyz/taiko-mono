@@ -12,7 +12,8 @@
 //! [`HaltHook`] runs (in production [`ExitProcess`], which exits the process with
 //! [`SAFETY_HALT_EXIT_CODE`]: no automatic restart into signing) and the worker stops. Any other
 //! error is answered as an error too, on which tower-abci closes that connection and CometBFT
-//! stops on its broken ABCI client.
+//! attempts to stop on its broken ABCI client. The pinned CometBFT socket client can hang if a
+//! new request races with EOF, so process supervision must bound CometBFT's stop separately.
 //!
 //! A `unix://` socket file outlives the process (exiting skips any cleanup), so [`serve_with`]
 //! removes a stale socket at the path before it binds: one whose probe connection is refused.

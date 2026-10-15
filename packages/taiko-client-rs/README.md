@@ -639,8 +639,17 @@ or config opening differs.
 
 ### Restarts
 
-- Restart `taiko-client abci` and CometBFT together, the app first: CometBFT stops when its
-  connection to the app breaks, and the app must listen before CometBFT connects.
+- Stop CometBFT first while `taiko-client abci` can still answer in-flight requests, then stop
+  the app. Start in the opposite order: the app must listen before CometBFT connects.
+- Bound CometBFT's termination with the process supervisor. The pinned v0.40.0 socket client can
+  accept a new ABCI request after EOF has drained its queues, leaving consensus blocked in
+  `Flush` and shutdown blocked in `ConsensusState.Wait` (see the
+  [pinned socket client](https://github.com/cometbft/cometbft/blob/0880b4d378f347ab16e54ec677ff50d803f37d62/abci/client/socket_client.go#L443-L482)).
+  A disconnected app therefore does not
+  guarantee CometBFT exits. After an app crash, explicitly stop/reap CometBFT before restarting
+  the pair; allow the supervisor to send SIGKILL when its graceful stop expires. Preserve the
+  CometBFT home, validator signing state and ABCI store so the normal handshake can recover.
+  This is a CometBFT process-lifecycle limitation, not a request to edit or discard chain state.
 - The app checks alethia-reth against its committed head once per process, at CometBFT's first
   handshake `Info`, and syncs alethia-reth to that head if it lacks it. A CometBFT restart under a
   running app is not re-checked.
