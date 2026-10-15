@@ -48,6 +48,10 @@
       "environment_success_nonempty",
       "blob_prefix_nonzero",
       "blob_encoding_injective"
+    ],
+    "LAND-07": [
+      "Etna.Integration.compose_trace_landing",
+      "Etna.Integration.landed_cuts_compose"
     ]
   },
   "case_ids": [
@@ -110,9 +114,9 @@
   ],
   "actual_contract_tests": "test/layer1/etna/EtnaInboxLeanConformance.t.sol + required test/layer1/etna/*.t.sol",
   "pending": [
-    "LAND07 real guest composition",
-    "Rust third encoding leg Task6",
-    "Solidity bytecode refinement"
+    "Real guest/verifier soundness for the concrete ValidBatch relation",
+    "Solidity bytecode refinement",
+    "Execution header/time-rule refinement"
   ],
   "domain_bug": "Independent Lean adapter initially used33-byte tag and lost first byte through modulo normalization; actual trace comparison failed all30 preimages; corrected to exact32byte structural vector and reran green",
   "mutation_gap": "Original head-past-tail case also violated consumed<=blocks; isolated lastHeight14 then tail mutant killed",
@@ -132,5 +136,5 @@
     "independent_word_mutations": "EtnaInboxLand.t.sol:988 test_land_RejectsEveryMutatedParentAnchorConfigWord"
   },
   "identity_test_boundary": "Existing actual contract tests are included in the205passing requiredglob;56shared JSONL cases use fixedidentity/config context except caller/blob/recipient cases. every_word_independent proves all18wirefields; no shared-corpusvaryinggeneration/proxy claim.",
-  "conformance_gate_tests": "tests/test_landing_conformance.py:24 tests; baseline false-green failures reproduced before fix"
+  "conformance_gate_tests": "tests/test_landing_conformance.py:33 tests including mandatory Rust/cut output completeness"
 }

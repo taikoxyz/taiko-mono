@@ -15,3 +15,6 @@ public import Etna.Refinement.Rust.Committee
 
 public import Etna.Landing.Proofs
 public import Etna.Landing.Examples
+
+public import Etna.Integration.Composition
+public import Etna.Integration.Examples

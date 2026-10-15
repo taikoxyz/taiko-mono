@@ -4,6 +4,8 @@ import Etna.Committee.Schedule
 import Etna.Common.Words
 import Etna.FI.Examples
 import Etna.FI.Proofs
+import Etna.Integration.Composition
+import Etna.Integration.Examples
 import Etna.Landing.Examples
 import Etna.Landing.Proofs
 import Etna.Landing.Statement
@@ -2845,3 +2847,332 @@ run_elab do
   unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.word64_add_fits128: full type mismatch"
   Lean.logInfo m!"Full declared type: {info.type}"
 #print axioms Etna.word64_add_fits128
+-- INT-fi-projection; explicit assumptions: ["JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Integration.fi_projection
+  unless info.isTheorem do throwError "Etna.Integration.fi_projection is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {ctx : Etna.Committee.Context}
+  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}
+  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option ℕ)} {updates : Etna.Committee.Updates},
+  Etna.Integration.JointTrace a before blocks consumed updates after →
+    Etna.FI.ValidTrace before.cursor consumed after.cursor))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Integration.fi_projection: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Integration.fi_projection
+-- INT-committee-projection; explicit assumptions: ["JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Integration.committee_projection
+  unless info.isTheorem do throwError "Etna.Integration.committee_projection is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {ctx : Etna.Committee.Context}
+  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}
+  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option ℕ)} {updates : Etna.Committee.Updates},
+  Etna.Integration.JointTrace a before blocks consumed updates after →
+    Etna.Committee.replay ctx (List.map Etna.Integration.Block.committee blocks) before.committee =
+      Except.ok (after.committee, updates)))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Integration.committee_projection: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Integration.committee_projection
+-- INT-trace-lengths; explicit assumptions: ["JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Integration.trace_lengths
+  unless info.isTheorem do throwError "Etna.Integration.trace_lengths is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {ctx : Etna.Committee.Context}
+  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}
+  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option ℕ)} {updates : Etna.Committee.Updates},
+  Etna.Integration.JointTrace a before blocks consumed updates after → consumed.length = blocks.length))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Integration.trace_lengths: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Integration.trace_lengths
+-- INT-step-height; explicit assumptions: ["Successful checked Committee.step on the supplied authenticated block; bound/height/hash/anchor projections are derived from the reducer."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Integration.step_height
+  unless info.isTheorem do throwError "Etna.Integration.step_height is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {ctx : Etna.Committee.Context}
+  {before after : Etna.Committee.CommitteeState} {block : Etna.Committee.AuthenticatedBlockFacts ctx}
+  {updates : Etna.Committee.Updates},
+  Etna.Committee.step ctx before block = Except.ok (after, updates) →
+    after.height = before.height + 1 ∧
+      after.blockHash = block.facts.blockHash ∧ after.anchor = block.facts.anchor ∧ after.height ≤ Etna.Committee.max64))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Integration.step_height: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Integration.step_height
+-- INT-trace-height; explicit assumptions: ["JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Integration.trace_height
+  unless info.isTheorem do throwError "Etna.Integration.trace_height is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {ctx : Etna.Committee.Context}
+  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}
+  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option ℕ)} {updates : Etna.Committee.Updates},
+  Etna.Integration.JointTrace a before blocks consumed updates after →
+    after.committee.height = before.committee.height + blocks.length))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Integration.trace_height: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Integration.trace_height
+-- INT-trace-height-bound; explicit assumptions: ["JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Integration.trace_height_bound
+  unless info.isTheorem do throwError "Etna.Integration.trace_height_bound is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {ctx : Etna.Committee.Context}
+  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}
+  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option ℕ)} {updates : Etna.Committee.Updates},
+  Etna.Integration.JointTrace a before blocks consumed updates after →
+    before.committee.height ≤ Etna.Committee.max64 → after.committee.height ≤ Etna.Committee.max64))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Integration.trace_height_bound: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Integration.trace_height_bound
+-- INT-trace-count; explicit assumptions: ["JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Integration.trace_count
+  unless info.isTheorem do throwError "Etna.Integration.trace_count is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {ctx : Etna.Committee.Context}
+  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}
+  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option ℕ)} {updates : Etna.Committee.Updates},
+  Etna.Integration.JointTrace a before blocks consumed updates after →
+    after.cursor = before.cursor + Etna.FI.consumptionCount consumed ∧ Etna.FI.consumptionCount consumed ≤ blocks.length))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Integration.trace_count: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Integration.trace_count
+-- INT-trace-append; explicit assumptions: ["JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Integration.trace_append
+  unless info.isTheorem do throwError "Etna.Integration.trace_append is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {ctx : Etna.Committee.Context}
+  {a : Etna.Integration.Authentication ctx} {before middle after : Etna.Integration.State}
+  {xs ys : List (Etna.Integration.Block ctx)} {cs ds : List (Option ℕ)} {us vs : Etna.Committee.Updates},
+  Etna.Integration.JointTrace a before xs cs us middle →
+    Etna.Integration.JointTrace a middle ys ds vs after →
+      Etna.Integration.JointTrace a before (xs ++ ys) (cs ++ ds) (us ++ vs) after))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Integration.trace_append: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Integration.trace_append
+-- INT-arbitrary-cuts; explicit assumptions: ["JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Integration.arbitrary_cuts
+  unless info.isTheorem do throwError "Etna.Integration.arbitrary_cuts is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {ctx : Etna.Committee.Context}
+  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}
+  {parts : List (List (Etna.Integration.Block ctx))} {consumed : List (Option ℕ)} {updates : Etna.Committee.Updates},
+  Etna.Integration.Cuts a before parts consumed updates after →
+    Etna.Integration.JointTrace a before parts.flatten consumed updates after))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Integration.arbitrary_cuts: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Integration.arbitrary_cuts
+-- INT-successful-verifier; explicit assumptions: ["Successful staged Landing model execution; actual EVM journal/environment/callback implementation semantics are external bridges."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Integration.successful_verifier
+  unless info.isTheorem do throwError "Etna.Integration.successful_verifier is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (w : Etna.Landing.World)
+  (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes),
+  (Etna.Landing.execLandSteps w i x).error = Option.none → x.verifierReturnsNormally = Bool.true))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Integration.successful_verifier: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Integration.successful_verifier
+-- LAND-07; explicit assumptions: ["GuestSoundness for the actual normal-return verifier establishes the concrete ValidBatch relation; no production/Dummy instance exists.", "ValidBatch authenticates exact seed committee/cursor/checkpoint, deployment/genesis configuration, canonical envelope/payload and actual blob-prefix decoding, and per-block L1 ancestry.", "Successful Landing staged model execution; real EVM/environment/crypto/journal/callback frame semantics remain external and bytecode refinement is pending."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Integration.compose_trace_landing
+  unless info.isTheorem do throwError "Etna.Integration.compose_trace_landing is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {ctx : Etna.Committee.Context}
+  (a : Etna.Integration.Authentication ctx) (w : Etna.Landing.World) (i : Etna.Landing.LandInput)
+  (x : Etna.Landing.ExternalOutcomes),
+  Etna.Integration.GuestSoundness a w i x →
+    (Etna.Landing.execLandSteps w i x).error = Option.none →
+      ∃ batch,
+        Etna.Integration.ValidBatch a w i x (Etna.Landing.computedStatement w i x) batch ∧
+          ↑(Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.head =
+              ↑w.head + Etna.FI.consumptionCount batch.consumed ∧
+            Etna.FI.consumptionCount batch.consumed ≤ batch.blockCount ∧
+              ↑i.lastHeight = w.checkpoint.height + batch.blockCount ∧
+                Etna.Committee.replay ctx (List.map Etna.Integration.Block.committee batch.blocks)
+                      batch.parent.committee =
+                    Except.ok (batch.terminal.committee, batch.updates) ∧
+                  (Etna.Landing.execLandSteps w i x).journal.current.transfers =
+                    w.transfers ++
+                      if i.headAfter ≠ w.head ∧ 0 < Etna.Landing.fees w.fee ↑w.head ↑i.headAfter * 1000000000 then
+                        [{ recipient := i.recipient, wei := Etna.Landing.fees w.fee ↑w.head ↑i.headAfter * 1000000000 }]
+                      else []))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Integration.compose_trace_landing: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Integration.compose_trace_landing
+-- INT-valid-batch-head; explicit assumptions: ["Each ValidBatch binds the successful joint reducer output to all eighteen actual statement words and authenticates seed/configuration/payload/blob decoding/L1 ancestry.", "For LandedCuts each nonempty piece has successful staged Landing execution; fee entries are proved preserved in this model. Real guest, EVM journal and callback semantics remain external."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Integration.valid_batch_head
+  unless info.isTheorem do throwError "Etna.Integration.valid_batch_head is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {ctx : Etna.Committee.Context}
+  {a : Etna.Integration.Authentication ctx} {w : Etna.Landing.World} {i : Etna.Landing.LandInput}
+  {x : Etna.Landing.ExternalOutcomes} {batch : Etna.Integration.BatchSummary ctx},
+  Etna.Integration.ValidBatch a w i x (Etna.Landing.computedStatement w i x) batch →
+    ↑i.headAfter = batch.terminal.cursor))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Integration.valid_batch_head: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Integration.valid_batch_head
+-- INT-fee-cuts-exact; explicit assumptions: ["Monotone finite FeeCuts on one retained-entry fee function; each interval amount is computed, not supplied as a conclusion."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Integration.fee_cuts_exact
+  unless info.isTheorem do throwError "Etna.Integration.fee_cuts_exact is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {fee : ℕ → Etna.Word64} {before after : ℕ}
+  {heads : List ℕ} {paid : ℕ},
+  Etna.Integration.FeeCuts fee before heads after paid → before ≤ after ∧ paid = Etna.Landing.fees fee before after))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Integration.fee_cuts_exact: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Integration.fee_cuts_exact
+-- INT-landing-fee-frame; explicit assumptions: ["Successful staged Landing model execution; actual EVM journal/environment/callback implementation semantics are external bridges."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Integration.landing_fee_frame
+  unless info.isTheorem do throwError "Etna.Integration.landing_fee_frame is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ (w : Etna.Landing.World)
+  (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes),
+  (Etna.Landing.execLandSteps w i x).error = Option.none →
+    (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.fee = w.fee))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Integration.landing_fee_frame: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Integration.landing_fee_frame
+-- INT-landed-cuts-compose; explicit assumptions: ["Each ValidBatch binds the successful joint reducer output to all eighteen actual statement words and authenticates seed/configuration/payload/blob decoding/L1 ancestry.", "For LandedCuts each nonempty piece has successful staged Landing execution; fee entries are proved preserved in this model. Real guest, EVM journal and callback semantics remain external."]
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Integration.landed_cuts_compose
+  unless info.isTheorem do throwError "Etna.Integration.landed_cuts_compose is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(∀ {ctx : Etna.Committee.Context}
+  {a : Etna.Integration.Authentication ctx} {w : Etna.Landing.World} {before : Etna.Integration.State}
+  {parts : List (List (Etna.Integration.Block ctx))} {consumed : List (Option ℕ)} {updates : Etna.Committee.Updates}
+  {final : Etna.Landing.World} {after : Etna.Integration.State} {paid : ℕ},
+  Etna.Integration.LandedCuts a w before parts consumed updates final after paid →
+    Etna.Integration.JointTrace a before parts.flatten consumed updates after ∧
+      ↑final.head = ↑w.head + Etna.FI.consumptionCount consumed ∧ paid = Etna.Landing.fees w.fee ↑w.head ↑final.head))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Integration.landed_cuts_compose: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Integration.landed_cuts_compose
+-- INT-joint-nonvacuity; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Integration.Examples.joint_nonvacuity
+  unless info.isTheorem do throwError "Etna.Integration.Examples.joint_nonvacuity is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(Etna.Integration.ValidBatch Etna.Integration.Examples.auth Etna.Integration.Examples.world Etna.Integration.Examples.input Etna.Integration.Examples.external (Etna.Landing.computedStatement Etna.Integration.Examples.world Etna.Integration.Examples.input Etna.Integration.Examples.external) Etna.Integration.Examples.batch ∧
+(Etna.Landing.execLandSteps Etna.Integration.Examples.world Etna.Integration.Examples.input Etna.Integration.Examples.external).error = none ∧
+(Etna.Landing.runTransaction Etna.Integration.Examples.world (Etna.Landing.execLandSteps Etna.Integration.Examples.world Etna.Integration.Examples.input Etna.Integration.Examples.external)).world.head.val = (1 : Nat) ∧
+(Etna.Landing.execLandSteps Etna.Integration.Examples.world Etna.Integration.Examples.input Etna.Integration.Examples.external).journal.current.transfers = [⟨(48879 : Etna.Landing.Address), (1000000000 : Nat)⟩]))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Integration.Examples.joint_nonvacuity: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Integration.Examples.joint_nonvacuity
+-- INT-two-cuts-nonvacuity; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Integration.Examples.two_cuts_nonvacuity
+  unless info.isTheorem do throwError "Etna.Integration.Examples.two_cuts_nonvacuity is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(Etna.Integration.Cuts
+  Etna.Integration.Examples.auth Etna.Integration.Examples.before [[], [Etna.Integration.Examples.block]]
+  [Option.some 0] [] Etna.Integration.Examples.after))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Integration.Examples.two_cuts_nonvacuity: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Integration.Examples.two_cuts_nonvacuity
+-- INT-fees-nonvacuity; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Integration.Examples.fees_nonvacuity
+  unless info.isTheorem do throwError "Etna.Integration.Examples.fees_nonvacuity is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(Etna.Integration.FeeCuts (fun x => 1) 0
+  [0, 1, 1] 1 1))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Integration.Examples.fees_nonvacuity: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Integration.Examples.fees_nonvacuity
+-- INT-second-valid; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Integration.Examples.second_valid
+  unless info.isTheorem do throwError "Etna.Integration.Examples.second_valid is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(Etna.Integration.ValidBatch
+  Etna.Integration.Examples.auth Etna.Integration.Examples.middleWorld Etna.Integration.Examples.secondInput
+  Etna.Integration.Examples.secondExternal
+  (Etna.Landing.computedStatement Etna.Integration.Examples.middleWorld Etna.Integration.Examples.secondInput
+    Etna.Integration.Examples.secondExternal)
+  Etna.Integration.Examples.secondBatch))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Integration.Examples.second_valid: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Integration.Examples.second_valid
+-- INT-landed-multicall-nonvacuity; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Integration.Examples.landed_multicall_nonvacuity
+  unless info.isTheorem do throwError "Etna.Integration.Examples.landed_multicall_nonvacuity is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(Etna.Integration.LandedCuts
+  Etna.Integration.Examples.auth Etna.Integration.Examples.world Etna.Integration.Examples.before
+  [[Etna.Integration.Examples.block], [Etna.Integration.Examples.secondBlock]] [Option.some 0, Option.none] []
+  Etna.Integration.Examples.finalWorld Etna.Integration.Examples.secondState 1))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Integration.Examples.landed_multicall_nonvacuity: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Integration.Examples.landed_multicall_nonvacuity
+-- INT-forged-head-not-valid; explicit assumptions: []
+run_elab do
+  let info ← Lean.getConstInfo `Etna.Integration.Examples.forged_head_not_valid
+  unless info.isTheorem do throwError "Etna.Integration.Examples.forged_head_not_valid is not a theorem"
+  let expected ← Lean.Elab.Term.elabType (← `(¬Etna.Integration.ValidBatch
+    Etna.Integration.Examples.auth Etna.Integration.Examples.world
+    (have __src := Etna.Integration.Examples.input;
+    { lastHeight := __src.lastHeight, lastBlockHash := __src.lastBlockHash, lastStateRoot := __src.lastStateRoot,
+      reference := __src.reference, headAfter := 0, recipient := __src.recipient, caller := __src.caller })
+    Etna.Integration.Examples.external
+    (Etna.Landing.computedStatement Etna.Integration.Examples.world
+      (have __src := Etna.Integration.Examples.input;
+      { lastHeight := __src.lastHeight, lastBlockHash := __src.lastBlockHash, lastStateRoot := __src.lastStateRoot,
+        reference := __src.reference, headAfter := 0, recipient := __src.recipient, caller := __src.caller })
+      Etna.Integration.Examples.external)
+    Etna.Integration.Examples.batch))
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  let expected ← Lean.instantiateMVars expected
+  if expected.hasMVar then throwError "manifest type contains unresolved metavariables"
+  unless ← Lean.Meta.isDefEq info.type expected do throwError "Etna.Integration.Examples.forged_head_not_valid: full type mismatch"
+  Lean.logInfo m!"Full declared type: {info.type}"
+#print axioms Etna.Integration.Examples.forged_head_not_valid

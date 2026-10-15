@@ -4,8 +4,8 @@
     "spec": "LAND01-06,08 spec-proved",
     "solidity_refinement": "pending; source-levelmodel and actualcontractconformance only",
     "conformance": "56actualproxycases/30actual576bytepreimages",
-    "rust_solidity_encoding": "Task5Lean-Solidity complete; Rustthirdleg Task6pending",
-    "composition": "LAND07 Task6pending"
+    "rust_solidity_encoding": "56 production Rust rows;30 actual Inbox 576byte preimages matched with Lean",
+    "composition": "LAND07 conditional joint-trace/cut composition in integration.json; real guest soundness pending"
   },
   "assumption_boundary": {
     "typed_abi": "Well-formed typed calldata/nonpayable dispatcher; source flag active means status==3",

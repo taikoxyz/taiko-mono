@@ -2,6 +2,7 @@
 import copy
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -213,11 +214,95 @@ class PinnedInputTests(unittest.TestCase):
             self.stage()
         self.assertEqual(external.read_text(),'user-owned bytes\n')
 
+    def test_owned_directory_and_fifo_rejected_before_reading(self):
+        target=self.protocol/'test/layer1/etna/EtnaInboxLeanConformance.t.sol'
+        target.mkdir()
+        with self.assertRaisesRegex(ValueError,'non-regular'):
+            self.stage()
+        target.rmdir()
+        os.mkfifo(target)
+        with self.assertRaisesRegex(ValueError,'non-regular'):
+            self.stage()
+        self.assertTrue(target.exists())
+
+    def test_symlinked_staging_parent_rejected_without_external_write(self):
+        parent=self.protocol/'test/layer1/etna'
+        relocated=self.repo/'external-tests'
+        parent.rename(relocated)
+        parent.symlink_to(relocated,target_is_directory=True)
+        with self.assertRaises(ValueError):
+            self.stage()
+        self.assertFalse((relocated/'EtnaInboxLeanConformance.t.sol').exists())
+
     def test_other_package_overlay_does_not_change_protocol_pin(self):
         path=self.repo/'packages/taiko-client-rs/Cargo.toml'
         path.parent.mkdir(parents=True)
         path.write_text('[package]\nname="overlay"\n')
         self.stage()
+
+class RustAndCutsGateTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.cuts = landing.load(ROOT/'reports/landing-cuts-observations.jsonl')
+
+    def expected(self):
+        return [{k:r[k] for k in ['id','finalHead','finalHeight','paidWei','intervals']} for r in self.cuts]
+
+    def compare(self, rows=None, rust=None, lean=None):
+        with patch.object(landing, 'run', return_value='\n'.join(json.dumps(r) for r in
+                (self.expected() if lean is None else lean))):
+            return landing.compare_cuts(self.cuts if rows is None else rows,
+                                        self.expected() if rust is None else rust)
+
+    def test_all_cut_plans_and_intervals_accepted(self):
+        result = self.compare()
+        self.assertEqual((result['plans'], result['intervals'], result['failures']), (4,12,[]))
+
+    def test_empty_partial_duplicate_rust_cut_output_fails(self):
+        for rows in [[], self.expected()[:3], [self.expected()[0]]*4]:
+            with self.subTest(rows=rows), self.assertRaisesRegex(ValueError,'Rust cuts'):
+                self.compare(rust=rows)
+
+    def test_empty_partial_duplicate_lean_cut_output_fails(self):
+        for rows in [[], self.expected()[:3], [self.expected()[0]]*4]:
+            with self.subTest(rows=rows), self.assertRaisesRegex(ValueError,'Lean cuts'):
+                self.compare(lean=rows)
+
+    def test_missing_and_duplicate_actual_plans_fail(self):
+        for rows in [[], self.cuts[:3], [self.cuts[0]]*4]:
+            with self.subTest(rows=rows), self.assertRaisesRegex(ValueError,'Solidity cuts'):
+                self.compare(rows=rows)
+
+    def test_outcome_and_interval_mutations_fail(self):
+        for language in ['actual','rust']:
+            for field in ['finalHead','paidWei','intervals']:
+                rows = copy.deepcopy(self.cuts if language == 'actual' else self.expected())
+                rows[0][field] = [] if field == 'intervals' else 'wrong'
+                with self.subTest(language=language, field=field):
+                    result = self.compare(rows=rows) if language == 'actual' else self.compare(rust=rows)
+                    self.assertTrue(result['failures'])
+
+    def test_step_cut_and_admission_identity_mutations_fail(self):
+        for field, value in [('steps',[0]*6),('cuts',[1,6]),('feesGwei',['1']*4),
+                             ('proxy','0x'+'00'*20),('finalHash','0x0')]:
+            rows=copy.deepcopy(self.cuts)
+            rows[0][field]=value
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                self.compare(rows=rows)
+
+    def test_rust_statement_ids_are_mandatory(self):
+        corpus=landing.load(ROOT/'corpus/landing.jsonl')[:1]
+        observed=landing.load(ROOT/'reports/landing-solidity-observations.jsonl')[:1]
+        lean=[{k:observed[0][k] for k in landing.FIELDS} |
+              {'expectedPreimage':observed[0]['actualPreimage']}]
+        with patch.object(landing,'run',return_value=json.dumps(lean[0])), \
+             patch.object(landing,'keccak',return_value=observed[0]['actualDigest']):
+            for rust in [[],[{'id':'other'}],[{'id':corpus[0]['id']}]*2]:
+                with self.subTest(rust=rust), self.assertRaisesRegex(ValueError,'Rust output'):
+                    landing.compare(corpus,observed,rust)
+            bad = landing.compare(corpus,observed,[{'id':corpus[0]['id'],'rustPreimage':'0x00',
+                                                   'rustDigest':observed[0]['actualDigest']}])
+            self.assertIn('rustPreimage',[f['field'] for f in bad['failures']])
 
 
 if __name__=='__main__':

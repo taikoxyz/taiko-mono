@@ -1,0 +1,506 @@
+{
+  "schema_version": 1,
+  "status": {
+    "spec": "LAND-07-proved-conditionally",
+    "guest_soundness": "pending",
+    "conformance": "Rust/Lean/actual Inbox 56 rows,30 preimages,4 cut plans,12 intervals"
+  },
+  "theorems": [
+    {
+      "id": "INT-fi-projection",
+      "module": "Etna.Integration.Composition",
+      "declaration": "Etna.Integration.fi_projection",
+      "type": "\u2200 {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}\n  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option \u2115)} {updates : Etna.Committee.Updates},\n  Etna.Integration.JointTrace a before blocks consumed updates after \u2192\n    Etna.FI.ValidTrace before.cursor consumed after.cursor",
+      "assumptions": [
+        "JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/lander/src/validate.rs",
+        "packages/taiko-client-rs/crates/lander/src/statement.rs",
+        "packages/taiko-client-rs/crates/lander/src/proof.rs",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol"
+      ],
+      "tests": [
+        "scripts/landing_conformance.py",
+        "tests/test_landing_conformance.py",
+        "tests/test_coverage.py"
+      ],
+      "boundaries": [
+        "Conditional specification composition only; arbitrary-cuts proof and finite real-contract conformance are separate."
+      ]
+    },
+    {
+      "id": "INT-committee-projection",
+      "module": "Etna.Integration.Composition",
+      "declaration": "Etna.Integration.committee_projection",
+      "type": "\u2200 {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}\n  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option \u2115)} {updates : Etna.Committee.Updates},\n  Etna.Integration.JointTrace a before blocks consumed updates after \u2192\n    Etna.Committee.replay ctx (List.map Etna.Integration.Block.committee blocks) before.committee =\n      Except.ok (after.committee, updates)",
+      "assumptions": [
+        "JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/lander/src/validate.rs",
+        "packages/taiko-client-rs/crates/lander/src/statement.rs",
+        "packages/taiko-client-rs/crates/lander/src/proof.rs",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol"
+      ],
+      "tests": [
+        "scripts/landing_conformance.py",
+        "tests/test_landing_conformance.py",
+        "tests/test_coverage.py"
+      ],
+      "boundaries": [
+        "Conditional specification composition only; arbitrary-cuts proof and finite real-contract conformance are separate."
+      ]
+    },
+    {
+      "id": "INT-trace-lengths",
+      "module": "Etna.Integration.Composition",
+      "declaration": "Etna.Integration.trace_lengths",
+      "type": "\u2200 {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}\n  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option \u2115)} {updates : Etna.Committee.Updates},\n  Etna.Integration.JointTrace a before blocks consumed updates after \u2192 consumed.length = blocks.length",
+      "assumptions": [
+        "JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/lander/src/validate.rs",
+        "packages/taiko-client-rs/crates/lander/src/statement.rs",
+        "packages/taiko-client-rs/crates/lander/src/proof.rs",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol"
+      ],
+      "tests": [
+        "scripts/landing_conformance.py",
+        "tests/test_landing_conformance.py",
+        "tests/test_coverage.py"
+      ],
+      "boundaries": [
+        "Conditional specification composition only; arbitrary-cuts proof and finite real-contract conformance are separate."
+      ]
+    },
+    {
+      "id": "INT-step-height",
+      "module": "Etna.Integration.Composition",
+      "declaration": "Etna.Integration.step_height",
+      "type": "\u2200 {ctx : Etna.Committee.Context}\n  {before after : Etna.Committee.CommitteeState} {block : Etna.Committee.AuthenticatedBlockFacts ctx}\n  {updates : Etna.Committee.Updates},\n  Etna.Committee.step ctx before block = Except.ok (after, updates) \u2192\n    after.height = before.height + 1 \u2227\n      after.blockHash = block.facts.blockHash \u2227 after.anchor = block.facts.anchor \u2227 after.height \u2264 Etna.Committee.max64",
+      "assumptions": [
+        "Successful checked Committee.step on the supplied authenticated block; bound/height/hash/anchor projections are derived from the reducer."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/lander/src/validate.rs",
+        "packages/taiko-client-rs/crates/lander/src/statement.rs",
+        "packages/taiko-client-rs/crates/lander/src/proof.rs",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol"
+      ],
+      "tests": [
+        "scripts/landing_conformance.py",
+        "tests/test_landing_conformance.py",
+        "tests/test_coverage.py"
+      ],
+      "boundaries": [
+        "Conditional specification composition only; arbitrary-cuts proof and finite real-contract conformance are separate."
+      ]
+    },
+    {
+      "id": "INT-trace-height",
+      "module": "Etna.Integration.Composition",
+      "declaration": "Etna.Integration.trace_height",
+      "type": "\u2200 {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}\n  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option \u2115)} {updates : Etna.Committee.Updates},\n  Etna.Integration.JointTrace a before blocks consumed updates after \u2192\n    after.committee.height = before.committee.height + blocks.length",
+      "assumptions": [
+        "JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/lander/src/validate.rs",
+        "packages/taiko-client-rs/crates/lander/src/statement.rs",
+        "packages/taiko-client-rs/crates/lander/src/proof.rs",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol"
+      ],
+      "tests": [
+        "scripts/landing_conformance.py",
+        "tests/test_landing_conformance.py",
+        "tests/test_coverage.py"
+      ],
+      "boundaries": [
+        "Conditional specification composition only; arbitrary-cuts proof and finite real-contract conformance are separate."
+      ]
+    },
+    {
+      "id": "INT-trace-height-bound",
+      "module": "Etna.Integration.Composition",
+      "declaration": "Etna.Integration.trace_height_bound",
+      "type": "\u2200 {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}\n  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option \u2115)} {updates : Etna.Committee.Updates},\n  Etna.Integration.JointTrace a before blocks consumed updates after \u2192\n    before.committee.height \u2264 Etna.Committee.max64 \u2192 after.committee.height \u2264 Etna.Committee.max64",
+      "assumptions": [
+        "JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/lander/src/validate.rs",
+        "packages/taiko-client-rs/crates/lander/src/statement.rs",
+        "packages/taiko-client-rs/crates/lander/src/proof.rs",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol"
+      ],
+      "tests": [
+        "scripts/landing_conformance.py",
+        "tests/test_landing_conformance.py",
+        "tests/test_coverage.py"
+      ],
+      "boundaries": [
+        "Conditional specification composition only; arbitrary-cuts proof and finite real-contract conformance are separate."
+      ]
+    },
+    {
+      "id": "INT-trace-count",
+      "module": "Etna.Integration.Composition",
+      "declaration": "Etna.Integration.trace_count",
+      "type": "\u2200 {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}\n  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option \u2115)} {updates : Etna.Committee.Updates},\n  Etna.Integration.JointTrace a before blocks consumed updates after \u2192\n    after.cursor = before.cursor + Etna.FI.consumptionCount consumed \u2227 Etna.FI.consumptionCount consumed \u2264 blocks.length",
+      "assumptions": [
+        "JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/lander/src/validate.rs",
+        "packages/taiko-client-rs/crates/lander/src/statement.rs",
+        "packages/taiko-client-rs/crates/lander/src/proof.rs",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol"
+      ],
+      "tests": [
+        "scripts/landing_conformance.py",
+        "tests/test_landing_conformance.py",
+        "tests/test_coverage.py"
+      ],
+      "boundaries": [
+        "Conditional specification composition only; arbitrary-cuts proof and finite real-contract conformance are separate."
+      ]
+    },
+    {
+      "id": "INT-trace-append",
+      "module": "Etna.Integration.Composition",
+      "declaration": "Etna.Integration.trace_append",
+      "type": "\u2200 {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before middle after : Etna.Integration.State}\n  {xs ys : List (Etna.Integration.Block ctx)} {cs ds : List (Option \u2115)} {us vs : Etna.Committee.Updates},\n  Etna.Integration.JointTrace a before xs cs us middle \u2192\n    Etna.Integration.JointTrace a middle ys ds vs after \u2192\n      Etna.Integration.JointTrace a before (xs ++ ys) (cs ++ ds) (us ++ vs) after",
+      "assumptions": [
+        "JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/lander/src/validate.rs",
+        "packages/taiko-client-rs/crates/lander/src/statement.rs",
+        "packages/taiko-client-rs/crates/lander/src/proof.rs",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol"
+      ],
+      "tests": [
+        "scripts/landing_conformance.py",
+        "tests/test_landing_conformance.py",
+        "tests/test_coverage.py"
+      ],
+      "boundaries": [
+        "Conditional specification composition only; arbitrary-cuts proof and finite real-contract conformance are separate."
+      ]
+    },
+    {
+      "id": "INT-arbitrary-cuts",
+      "module": "Etna.Integration.Composition",
+      "declaration": "Etna.Integration.arbitrary_cuts",
+      "type": "\u2200 {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}\n  {parts : List (List (Etna.Integration.Block ctx))} {consumed : List (Option \u2115)} {updates : Etna.Committee.Updates},\n  Etna.Integration.Cuts a before parts consumed updates after \u2192\n    Etna.Integration.JointTrace a before parts.flatten consumed updates after",
+      "assumptions": [
+        "JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/lander/src/validate.rs",
+        "packages/taiko-client-rs/crates/lander/src/statement.rs",
+        "packages/taiko-client-rs/crates/lander/src/proof.rs",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol"
+      ],
+      "tests": [
+        "scripts/landing_conformance.py",
+        "tests/test_landing_conformance.py",
+        "tests/test_coverage.py"
+      ],
+      "boundaries": [
+        "Conditional specification composition only; arbitrary-cuts proof and finite real-contract conformance are separate."
+      ]
+    },
+    {
+      "id": "INT-successful-verifier",
+      "module": "Etna.Integration.Composition",
+      "declaration": "Etna.Integration.successful_verifier",
+      "type": "\u2200 (w : Etna.Landing.World)\n  (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes),\n  (Etna.Landing.execLandSteps w i x).error = Option.none \u2192 x.verifierReturnsNormally = Bool.true",
+      "assumptions": [
+        "Successful staged Landing model execution; actual EVM journal/environment/callback implementation semantics are external bridges."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/lander/src/validate.rs",
+        "packages/taiko-client-rs/crates/lander/src/statement.rs",
+        "packages/taiko-client-rs/crates/lander/src/proof.rs",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol"
+      ],
+      "tests": [
+        "scripts/landing_conformance.py",
+        "tests/test_landing_conformance.py",
+        "tests/test_coverage.py"
+      ],
+      "boundaries": [
+        "Conditional specification composition only; arbitrary-cuts proof and finite real-contract conformance are separate."
+      ]
+    },
+    {
+      "id": "LAND-07",
+      "module": "Etna.Integration.Composition",
+      "declaration": "Etna.Integration.compose_trace_landing",
+      "type": "\u2200 {ctx : Etna.Committee.Context}\n  (a : Etna.Integration.Authentication ctx) (w : Etna.Landing.World) (i : Etna.Landing.LandInput)\n  (x : Etna.Landing.ExternalOutcomes),\n  Etna.Integration.GuestSoundness a w i x \u2192\n    (Etna.Landing.execLandSteps w i x).error = Option.none \u2192\n      \u2203 batch,\n        Etna.Integration.ValidBatch a w i x (Etna.Landing.computedStatement w i x) batch \u2227\n          \u2191(Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.head =\n              \u2191w.head + Etna.FI.consumptionCount batch.consumed \u2227\n            Etna.FI.consumptionCount batch.consumed \u2264 batch.blockCount \u2227\n              \u2191i.lastHeight = w.checkpoint.height + batch.blockCount \u2227\n                Etna.Committee.replay ctx (List.map Etna.Integration.Block.committee batch.blocks)\n                      batch.parent.committee =\n                    Except.ok (batch.terminal.committee, batch.updates) \u2227\n                  (Etna.Landing.execLandSteps w i x).journal.current.transfers =\n                    w.transfers ++\n                      if i.headAfter \u2260 w.head \u2227 0 < Etna.Landing.fees w.fee \u2191w.head \u2191i.headAfter * 1000000000 then\n                        [{ recipient := i.recipient, wei := Etna.Landing.fees w.fee \u2191w.head \u2191i.headAfter * 1000000000 }]\n                      else []",
+      "assumptions": [
+        "GuestSoundness for the actual normal-return verifier establishes the concrete ValidBatch relation; no production/Dummy instance exists.",
+        "ValidBatch authenticates exact seed committee/cursor/checkpoint, deployment/genesis configuration, canonical envelope/payload and actual blob-prefix decoding, and per-block L1 ancestry.",
+        "Successful Landing staged model execution; real EVM/environment/crypto/journal/callback frame semantics remain external and bytecode refinement is pending."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/lander/src/validate.rs",
+        "packages/taiko-client-rs/crates/lander/src/statement.rs",
+        "packages/taiko-client-rs/crates/lander/src/proof.rs",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol"
+      ],
+      "tests": [
+        "scripts/landing_conformance.py",
+        "tests/test_landing_conformance.py",
+        "tests/test_coverage.py"
+      ],
+      "boundaries": [
+        "Conditional specification composition only; arbitrary-cuts proof and finite real-contract conformance are separate."
+      ]
+    },
+    {
+      "id": "INT-valid-batch-head",
+      "module": "Etna.Integration.Composition",
+      "declaration": "Etna.Integration.valid_batch_head",
+      "type": "\u2200 {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {w : Etna.Landing.World} {i : Etna.Landing.LandInput}\n  {x : Etna.Landing.ExternalOutcomes} {batch : Etna.Integration.BatchSummary ctx},\n  Etna.Integration.ValidBatch a w i x (Etna.Landing.computedStatement w i x) batch \u2192\n    \u2191i.headAfter = batch.terminal.cursor",
+      "assumptions": [
+        "Each ValidBatch binds the successful joint reducer output to all eighteen actual statement words and authenticates seed/configuration/payload/blob decoding/L1 ancestry.",
+        "For LandedCuts each nonempty piece has successful staged Landing execution; fee entries are proved preserved in this model. Real guest, EVM journal and callback semantics remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/lander/src/validate.rs",
+        "packages/taiko-client-rs/crates/lander/src/statement.rs",
+        "packages/taiko-client-rs/crates/lander/src/proof.rs",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol"
+      ],
+      "tests": [
+        "scripts/landing_conformance.py",
+        "tests/test_landing_conformance.py",
+        "tests/test_coverage.py"
+      ],
+      "boundaries": [
+        "Conditional specification composition only; arbitrary-cuts proof and finite real-contract conformance are separate."
+      ]
+    },
+    {
+      "id": "INT-fee-cuts-exact",
+      "module": "Etna.Integration.Composition",
+      "declaration": "Etna.Integration.fee_cuts_exact",
+      "type": "\u2200 {fee : \u2115 \u2192 Etna.Word64} {before after : \u2115}\n  {heads : List \u2115} {paid : \u2115},\n  Etna.Integration.FeeCuts fee before heads after paid \u2192 before \u2264 after \u2227 paid = Etna.Landing.fees fee before after",
+      "assumptions": [
+        "Monotone finite FeeCuts on one retained-entry fee function; each interval amount is computed, not supplied as a conclusion."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/lander/src/validate.rs",
+        "packages/taiko-client-rs/crates/lander/src/statement.rs",
+        "packages/taiko-client-rs/crates/lander/src/proof.rs",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol"
+      ],
+      "tests": [
+        "scripts/landing_conformance.py",
+        "tests/test_landing_conformance.py",
+        "tests/test_coverage.py"
+      ],
+      "boundaries": [
+        "Conditional specification composition only; arbitrary-cuts proof and finite real-contract conformance are separate."
+      ]
+    },
+    {
+      "id": "INT-landing-fee-frame",
+      "module": "Etna.Integration.Composition",
+      "declaration": "Etna.Integration.landing_fee_frame",
+      "type": "\u2200 (w : Etna.Landing.World)\n  (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes),\n  (Etna.Landing.execLandSteps w i x).error = Option.none \u2192\n    (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.fee = w.fee",
+      "assumptions": [
+        "Successful staged Landing model execution; actual EVM journal/environment/callback implementation semantics are external bridges."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/lander/src/validate.rs",
+        "packages/taiko-client-rs/crates/lander/src/statement.rs",
+        "packages/taiko-client-rs/crates/lander/src/proof.rs",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol"
+      ],
+      "tests": [
+        "scripts/landing_conformance.py",
+        "tests/test_landing_conformance.py",
+        "tests/test_coverage.py"
+      ],
+      "boundaries": [
+        "Conditional specification composition only; arbitrary-cuts proof and finite real-contract conformance are separate."
+      ]
+    },
+    {
+      "id": "INT-landed-cuts-compose",
+      "module": "Etna.Integration.Composition",
+      "declaration": "Etna.Integration.landed_cuts_compose",
+      "type": "\u2200 {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {w : Etna.Landing.World} {before : Etna.Integration.State}\n  {parts : List (List (Etna.Integration.Block ctx))} {consumed : List (Option \u2115)} {updates : Etna.Committee.Updates}\n  {final : Etna.Landing.World} {after : Etna.Integration.State} {paid : \u2115},\n  Etna.Integration.LandedCuts a w before parts consumed updates final after paid \u2192\n    Etna.Integration.JointTrace a before parts.flatten consumed updates after \u2227\n      \u2191final.head = \u2191w.head + Etna.FI.consumptionCount consumed \u2227 paid = Etna.Landing.fees w.fee \u2191w.head \u2191final.head",
+      "assumptions": [
+        "Each ValidBatch binds the successful joint reducer output to all eighteen actual statement words and authenticates seed/configuration/payload/blob decoding/L1 ancestry.",
+        "For LandedCuts each nonempty piece has successful staged Landing execution; fee entries are proved preserved in this model. Real guest, EVM journal and callback semantics remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/lander/src/validate.rs",
+        "packages/taiko-client-rs/crates/lander/src/statement.rs",
+        "packages/taiko-client-rs/crates/lander/src/proof.rs",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol"
+      ],
+      "tests": [
+        "scripts/landing_conformance.py",
+        "tests/test_landing_conformance.py",
+        "tests/test_coverage.py"
+      ],
+      "boundaries": [
+        "Conditional specification composition only; arbitrary-cuts proof and finite real-contract conformance are separate."
+      ]
+    },
+    {
+      "id": "INT-joint-nonvacuity",
+      "module": "Etna.Integration.Examples",
+      "declaration": "Etna.Integration.Examples.joint_nonvacuity",
+      "type": "Etna.Integration.ValidBatch Etna.Integration.Examples.auth Etna.Integration.Examples.world Etna.Integration.Examples.input Etna.Integration.Examples.external (Etna.Landing.computedStatement Etna.Integration.Examples.world Etna.Integration.Examples.input Etna.Integration.Examples.external) Etna.Integration.Examples.batch \u2227\n(Etna.Landing.execLandSteps Etna.Integration.Examples.world Etna.Integration.Examples.input Etna.Integration.Examples.external).error = none \u2227\n(Etna.Landing.runTransaction Etna.Integration.Examples.world (Etna.Landing.execLandSteps Etna.Integration.Examples.world Etna.Integration.Examples.input Etna.Integration.Examples.external)).world.head.val = (1 : Nat) \u2227\n(Etna.Landing.execLandSteps Etna.Integration.Examples.world Etna.Integration.Examples.input Etna.Integration.Examples.external).journal.current.transfers = [\u27e8(48879 : Etna.Landing.Address), (1000000000 : Nat)\u27e9]",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/lander/src/validate.rs",
+        "packages/taiko-client-rs/crates/lander/src/statement.rs",
+        "packages/taiko-client-rs/crates/lander/src/proof.rs",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol"
+      ],
+      "tests": [
+        "scripts/landing_conformance.py",
+        "tests/test_landing_conformance.py",
+        "tests/test_coverage.py"
+      ],
+      "boundaries": [
+        "Conditional specification composition only; arbitrary-cuts proof and finite real-contract conformance are separate."
+      ]
+    },
+    {
+      "id": "INT-two-cuts-nonvacuity",
+      "module": "Etna.Integration.Examples",
+      "declaration": "Etna.Integration.Examples.two_cuts_nonvacuity",
+      "type": "Etna.Integration.Cuts\n  Etna.Integration.Examples.auth Etna.Integration.Examples.before [[], [Etna.Integration.Examples.block]]\n  [Option.some 0] [] Etna.Integration.Examples.after",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/lander/src/validate.rs",
+        "packages/taiko-client-rs/crates/lander/src/statement.rs",
+        "packages/taiko-client-rs/crates/lander/src/proof.rs",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol"
+      ],
+      "tests": [
+        "scripts/landing_conformance.py",
+        "tests/test_landing_conformance.py",
+        "tests/test_coverage.py"
+      ],
+      "boundaries": [
+        "Conditional specification composition only; arbitrary-cuts proof and finite real-contract conformance are separate."
+      ]
+    },
+    {
+      "id": "INT-fees-nonvacuity",
+      "module": "Etna.Integration.Examples",
+      "declaration": "Etna.Integration.Examples.fees_nonvacuity",
+      "type": "Etna.Integration.FeeCuts (fun x => 1) 0\n  [0, 1, 1] 1 1",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/lander/src/validate.rs",
+        "packages/taiko-client-rs/crates/lander/src/statement.rs",
+        "packages/taiko-client-rs/crates/lander/src/proof.rs",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol"
+      ],
+      "tests": [
+        "scripts/landing_conformance.py",
+        "tests/test_landing_conformance.py",
+        "tests/test_coverage.py"
+      ],
+      "boundaries": [
+        "Conditional specification composition only; arbitrary-cuts proof and finite real-contract conformance are separate."
+      ]
+    },
+    {
+      "id": "INT-second-valid",
+      "module": "Etna.Integration.Examples",
+      "declaration": "Etna.Integration.Examples.second_valid",
+      "type": "Etna.Integration.ValidBatch\n  Etna.Integration.Examples.auth Etna.Integration.Examples.middleWorld Etna.Integration.Examples.secondInput\n  Etna.Integration.Examples.secondExternal\n  (Etna.Landing.computedStatement Etna.Integration.Examples.middleWorld Etna.Integration.Examples.secondInput\n    Etna.Integration.Examples.secondExternal)\n  Etna.Integration.Examples.secondBatch",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/lander/src/validate.rs",
+        "packages/taiko-client-rs/crates/lander/src/statement.rs",
+        "packages/taiko-client-rs/crates/lander/src/proof.rs",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol"
+      ],
+      "tests": [
+        "scripts/landing_conformance.py",
+        "tests/test_landing_conformance.py",
+        "tests/test_coverage.py"
+      ],
+      "boundaries": [
+        "Conditional specification composition only; arbitrary-cuts proof and finite real-contract conformance are separate."
+      ]
+    },
+    {
+      "id": "INT-landed-multicall-nonvacuity",
+      "module": "Etna.Integration.Examples",
+      "declaration": "Etna.Integration.Examples.landed_multicall_nonvacuity",
+      "type": "Etna.Integration.LandedCuts\n  Etna.Integration.Examples.auth Etna.Integration.Examples.world Etna.Integration.Examples.before\n  [[Etna.Integration.Examples.block], [Etna.Integration.Examples.secondBlock]] [Option.some 0, Option.none] []\n  Etna.Integration.Examples.finalWorld Etna.Integration.Examples.secondState 1",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/lander/src/validate.rs",
+        "packages/taiko-client-rs/crates/lander/src/statement.rs",
+        "packages/taiko-client-rs/crates/lander/src/proof.rs",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol"
+      ],
+      "tests": [
+        "scripts/landing_conformance.py",
+        "tests/test_landing_conformance.py",
+        "tests/test_coverage.py"
+      ],
+      "boundaries": [
+        "Conditional specification composition only; arbitrary-cuts proof and finite real-contract conformance are separate."
+      ]
+    },
+    {
+      "id": "INT-forged-head-not-valid",
+      "module": "Etna.Integration.Examples",
+      "declaration": "Etna.Integration.Examples.forged_head_not_valid",
+      "type": "\u00acEtna.Integration.ValidBatch\n    Etna.Integration.Examples.auth Etna.Integration.Examples.world\n    (have __src := Etna.Integration.Examples.input;\n    { lastHeight := __src.lastHeight, lastBlockHash := __src.lastBlockHash, lastStateRoot := __src.lastStateRoot,\n      reference := __src.reference, headAfter := 0, recipient := __src.recipient, caller := __src.caller })\n    Etna.Integration.Examples.external\n    (Etna.Landing.computedStatement Etna.Integration.Examples.world\n      (have __src := Etna.Integration.Examples.input;\n      { lastHeight := __src.lastHeight, lastBlockHash := __src.lastBlockHash, lastStateRoot := __src.lastStateRoot,\n        reference := __src.reference, headAfter := 0, recipient := __src.recipient, caller := __src.caller })\n      Etna.Integration.Examples.external)\n    Etna.Integration.Examples.batch",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/taiko-client-rs/crates/lander/src/validate.rs",
+        "packages/taiko-client-rs/crates/lander/src/statement.rs",
+        "packages/taiko-client-rs/crates/lander/src/proof.rs",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol"
+      ],
+      "tests": [
+        "scripts/landing_conformance.py",
+        "tests/test_landing_conformance.py",
+        "tests/test_coverage.py"
+      ],
+      "boundaries": [
+        "Conditional specification composition only; arbitrary-cuts proof and finite real-contract conformance are separate."
+      ]
+    }
+  ]
+}

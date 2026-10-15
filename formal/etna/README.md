@@ -1,11 +1,13 @@
 # Etna proof foundation
 
-This package fixes Lean, Mathlib and extraction tool revisions for the Etna protocol
-models. `manifests/core.json` currently covers the two common arithmetic lemmas only.
-It does **not** establish FI, committee, landing, Rust implementation, or Solidity
-implementation correctness. Each future theorem manifest records its full Lean type,
-explicit assumptions, bridge level, production symbols and conformance tests.
-
+This package pins Lean, Mathlib and extraction tools and checks 204 declarations:
+FI and committee specification proofs, 17 exact extracted Rust function refinements,
+Landing specification proofs and conditional joint-trace/landing composition.
+`coverage.json` records exact theorem/type/source digests, named premises and tests;
+`schemas/coverage-policy.json` fixes the mandatory obligations independently of the
+manifests. Wrapper conformance and scalar-function refinement remain separate levels.
+Real guest soundness, execution header/time rules and Solidity bytecode refinement
+are mandatory pending ledger entries.
 Current upstream dependencies are client `2af0f30485b9990eae87074037bede11c59e8883`
 and protocol `27777e9d7147e7b1d3543711f4d7370a0377fa53`. The client pin names the
 upstream base; this verification branch adds the production core, adapter wiring
@@ -83,9 +85,10 @@ are zero unresolved generated axioms or opaque stubs. The extractor rejects such
 placeholders, missing roots and tool failures. Original fixture and captured
 behavior corpus provenance is in `reports/rust-behavior-baseline.json`.
 
-Generation and compilation establish a usable extracted implementation model.
-**Rust refinement theorems remain pending**; no FI or committee implementation
-correctness claim follows from extraction or tests alone.
+Seventeen exact total-output refinement theorems connect the generated functions to
+the scalar specification. This covers those named production functions only; it does
+not upgrade the async wrapper, authentication, whole committee history or guest to
+implementation correctness.
 
 ## Solidity feasibility
 
@@ -230,3 +233,41 @@ third-party dependencies remain the separately stated package/toolchain trust bo
 Unrelated client-package overlays are outside the protocol dependency check.
 Run `python3 -m unittest discover -s tests -p test_landing_conformance.py` for the24
 negative/completeness and temporary-Git preflight regressions.
+
+## Joint traces, actual cuts and coverage gate
+
+`Etna/Integration/Composition.lean` couples actual FI and committee successful steps
+on the same authenticated blocks. It derives consumed count, exact public height and
+head, full committee state/update history, and fee composition across any finite
+sequence of valid successful landings. `GuestSoundness` requires the concrete
+`ValidBatch` relation; `DummyProofProvider` supplies no such instance. Canonical
+payload/blob decoding, seed/genesis/config/anchor authentication, cryptographic
+primitives/local binding, and EVM/journal/callback semantics remain explicit boundaries.
+`Examples.lean` supplies a coherent nonempty two-call witness and rejects a forged
+output head. These finite interpretations establish satisfiability, not real crypto.
+
+The durable comparison invokes actual Rust `lander::statement::preimage/hash` and
+FI `advance_cursor`, the executable Lean models, and the tester-owned actual Inbox
+proxy harness. It requires every one of 56 cases, all 30 reached 576-byte preimages,
+and four sampled cut plans with 12 intervals. Cut samples exercise real admissions,
+including empty payment intervals, separately from the arbitrary-cut theorem.
+
+```sh
+# Only the repository-required Solidity tester runs --run-solidity interactively.
+CARGO_TARGET_DIR=/path/to/reusable/target python3 scripts/landing_conformance.py \
+  --protocol /path/to/paired/packages/protocol --run-solidity \
+  --observations /tmp/etna-observations.jsonl --report reports/integration-conformance.json
+# Read-only actual source/ABI/layout/bytecode provenance plus full kernel audit.
+python3 scripts/check_coverage.py --protocol /path/to/paired/packages/protocol
+```
+
+The coverage gate checks current source bytes and actual compiled artifacts against
+client artifact provenance at the paired protocol revision. It rejects missing IDs,
+changed mandatory declarations/premises/bridge levels, missing or stale generated
+sources, removed pending boundaries, and type/axiom drift. `--static-only` explicitly
+omits the kernel audit and is not a complete release gate. Source/artifact changes
+require the existing artifact and core generators, each twice for determinism; never
+hand-edit generated output. Task6 changed neither production runtime nor generated
+artifacts, so their original provenance remains valid and the generators were not rerun.
+The upstream client pin, paired protocol pin and tested verification overlay/digests
+are retained separately. CI wiring is deferred to Task7.
