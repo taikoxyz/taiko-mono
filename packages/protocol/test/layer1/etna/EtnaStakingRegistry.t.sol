@@ -141,6 +141,15 @@ contract EtnaStakingRegistryTest is CommonTest {
         assertEq(registry.entryCount(), 3);
     }
 
+    function test_register_RecordsRegistrationOwner() external {
+        uint64 activeFromL1 = START_BLOCK + ACTIVATION_DELAY;
+        assertEq(_register(Alice, KEY_A), 0);
+        assertEq(registry.entryAt(0).activeFromL1, activeFromL1);
+
+        assertEq(registry.registrationOwnerOf(0, activeFromL1), Alice);
+        assertEq(registry.registrationOwnerOf(0, activeFromL1 + 1), address(0));
+    }
+
     function test_register_RevertWhen_StakeTooLow() external {
         vm.expectRevert(EtnaStakingRegistry.StakeTooLow.selector);
         vm.prank(Alice);
@@ -206,6 +215,22 @@ contract EtnaStakingRegistryTest is CommonTest {
 
         vm.expectRevert(EtnaStakingRegistry.RegistryFull.selector);
         registry.register(bytes32(maxEntries + 1), MIN_STAKE);
+    }
+
+    function test_register_RevertWhen_RegistrationKeyTaken() external {
+        // Without delays, a slot is registered, exited, withdrawn and reused in one block.
+        registry = _newApprovedProxy(
+            new EtnaStakingRegistry(address(token), MIN_STAKE, 0, 0, 0, HEARTBEAT_WINDOW, 0, 0, 0)
+        );
+        _register(Alice, KEY_A);
+        vm.startPrank(Alice);
+        registry.requestExit(0);
+        registry.withdraw(0, Alice);
+        vm.stopPrank();
+        assertEq(registry.entryAt(0).activeFromL1, START_BLOCK);
+
+        vm.expectRevert(EtnaStakingRegistry.RegistrationKeyTaken.selector);
+        _register(Bob, KEY_B);
     }
 
     // ---------------------------------------------------------------
@@ -744,6 +769,12 @@ contract EtnaStakingRegistryTest is CommonTest {
         assertEq(_load(bytes32(uint256(REGISTRY_BASE) + 7)), MIN_STAKE);
     }
 
+    function test_storage_RegistrationOwnerAtR12() external {
+        _register(Alice, KEY_A);
+        bytes32 key = keccak256(abi.encode(uint256(0), START_BLOCK + ACTIVATION_DELAY));
+        assertEq(_load(_mappingSlot(key, 12)), uint256(uint160(Alice)));
+    }
+
     // ---------------------------------------------------------------
     // slot reuse
     // ---------------------------------------------------------------
@@ -869,6 +900,18 @@ contract EtnaStakingRegistryTest is CommonTest {
         vm.expectRevert(EtnaStakingRegistry.NotBondOwner.selector);
         registry.withdraw(0, Alice);
         vm.stopPrank();
+    }
+
+    function test_register_ReusedSlotKeepsFormerRegistrationOwner() external {
+        _register(Alice, KEY_A);
+        uint64 aliceActiveFromL1 = registry.entryAt(0).activeFromL1;
+        _exitAndWithdraw(Alice, 0);
+        assertEq(_register(Bob, KEY_B), 0);
+        uint64 bobActiveFromL1 = registry.entryAt(0).activeFromL1;
+
+        assertEq(registry.bondOwnerOf(0), Bob);
+        assertEq(registry.registrationOwnerOf(0, aliceActiveFromL1), Alice);
+        assertEq(registry.registrationOwnerOf(0, bobActiveFromL1), Bob);
     }
 
     function test_register_AcceptsAPubkeyWhoseHolderSlotWasReused() external {
@@ -1003,13 +1046,20 @@ contract EtnaStakingRegistryTest is CommonTest {
         uint256 _minChurnPerWindow
     )
         private
+        returns (EtnaStakingRegistry)
+    {
+        return _newApprovedProxy(_newChurnRegistryImpl(_churnWindow, _churnBps, _minChurnPerWindow));
+    }
+
+    /// @dev A registry proxy over `_impl` the stakers have approved.
+    function _newApprovedProxy(EtnaStakingRegistry _impl)
+        private
         returns (EtnaStakingRegistry registry_)
     {
         registry_ = EtnaStakingRegistry(
             address(
                 new ERC1967Proxy(
-                    address(_newChurnRegistryImpl(_churnWindow, _churnBps, _minChurnPerWindow)),
-                    abi.encodeCall(EtnaStakingRegistry.init, (address(0)))
+                    address(_impl), abi.encodeCall(EtnaStakingRegistry.init, (address(0)))
                 )
             )
         );

@@ -105,13 +105,15 @@ interface IEtnaStakingRegistry {
     // ---------------------------------------------------------------
 
     /// @notice Registers `_pubkey` with a stake of `_amount` TAIKO pulled from the caller, who
-    /// becomes the bond owner.
+    /// becomes the bond owner and the registration owner.
     /// @dev Reverts if `_amount` is below the minimum stake, `_pubkey` is zero, all
-    /// `MAX_ENTRIES` slots hold unwithdrawn stake, or another entry holds `_pubkey` and its
-    /// exit is not yet effective. Takes the most recently freed slot (see `withdraw`), or a new
-    /// slot if none is free. The entry becomes active `activationDelay` blocks later, or later
-    /// still if the activation churn limit defers it, and has no exit and no heartbeat
-    /// (`lastHeartbeatAt = 0`, `lastHeartbeatSeq = 0`). Writes the current block's checkpoint.
+    /// `MAX_ENTRIES` slots hold unwithdrawn stake, another entry holds `_pubkey` and its
+    /// exit is not yet effective, or an earlier registration of the slot has the same
+    /// `activeFromL1` (possible only if the activation, exit and withdrawal delays are all 0).
+    /// Takes the most recently freed slot (see `withdraw`), or a new slot if none is free. The
+    /// entry becomes active `activationDelay` blocks later, or later still if the activation
+    /// churn limit defers it, and has no exit and no heartbeat (`lastHeartbeatAt = 0`,
+    /// `lastHeartbeatSeq = 0`). Writes the current block's checkpoint.
     /// @param _pubkey The Ed25519 consensus public key.
     /// @param _amount The TAIKO stake; the caller must have approved it.
     /// @return bondId_ The new entry's bond id (its slot).
@@ -180,6 +182,21 @@ interface IEtnaStakingRegistry {
     /// @param _bondId The bond id.
     /// @return The bond owner.
     function bondOwnerOf(uint256 _bondId) external view returns (address);
+
+    /// @notice Returns the owner of the registration that took slot `_bondId` with
+    /// `activeFromL1 = _activeFromL1`, or `address(0)` if there is none.
+    /// @dev Unlike `bondOwnerOf`, which names the slot's current holder, this names the owner of
+    /// one registration and is unaffected by the slot's later reuse.
+    /// @param _bondId The bond id.
+    /// @param _activeFromL1 The registration's `activeFromL1`.
+    /// @return The registration owner.
+    function registrationOwnerOf(
+        uint256 _bondId,
+        uint64 _activeFromL1
+    )
+        external
+        view
+        returns (address);
 
     /// @notice Returns whether the stake of `_bondId`'s current holder was withdrawn (false if
     /// the slot does not exist or was reused).
