@@ -6,6 +6,16 @@ It does **not** establish FI, committee, landing, Rust implementation, or Solidi
 implementation correctness. Each future theorem manifest records its full Lean type,
 explicit assumptions, bridge level, production symbols and conformance tests.
 
+Current upstream dependencies are client `2af0f30485b9990eae87074037bede11c59e8883`
+and protocol `27777e9d7147e7b1d3543711f4d7370a0377fa53`. The client pin names the
+upstream base; this verification branch adds the production core, adapter wiring
+and FI proofs. Exact current source/Cargo/generated digests are recorded in
+`Etna/Refinement/Rust/provenance.json`; `reports/pair-refresh.json` records the
+merge overlay, refreshed checks and precisely labelled reused evidence. Original
+source baselines remain historical; the original contract inventory is retained
+in Git at `44afbca320dfd9f23fdb6ea46ad641cb1b51a01e` and identified by digest
+in the pair-refresh report.
+
 Run from this directory:
 
 ```sh
@@ -90,7 +100,7 @@ Regenerate from an actual Foundry artifact. The generator validates raw solc com
 ```sh
 python3 scripts/solidity_inventory.py /path/to/EtnaInbox.json \
   --source-checkout /path/to/exact/taiko-mono/packages/protocol \
-  --source-revision 41241d5e6440c2ab244ccfdf572d1af8016f70c6 \
+  --source-revision 27777e9d7147e7b1d3543711f4d7370a0377fa53 \
   --evmyul-root /path/to/pinned/EVMYulLean --clear-root /path/to/pinned/Clear \
   --output reports/solidity-inventory.json
 ```

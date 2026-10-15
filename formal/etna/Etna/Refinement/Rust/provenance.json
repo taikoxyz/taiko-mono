@@ -17,8 +17,8 @@
     "packages/taiko-client-rs/crates/etna-consensus-core/src/transition.rs": "29314c8522f1bfb669ed33c5c0c9cfe108dc1f803c1172a2dc9f78fa494f7223"
   },
   "cargo_sha256": {
-    "packages/taiko-client-rs/Cargo.toml": "12117b4dae8d2bb39aadc7ade0da7a784a301e032906e35f52a6c3eb221f83db",
-    "packages/taiko-client-rs/Cargo.lock": "98a7e32e7323f4dba0859a5013bb4eb9a6aaff7d77f2d418c14b524020219d32",
+    "packages/taiko-client-rs/Cargo.toml": "a14a4f63cb36eafee3f299ad44ec1373efa218bb46141f0ddd060613ecd236b0",
+    "packages/taiko-client-rs/Cargo.lock": "7049832ca66c07f7eff1e61719c54b38f4046c9ff3d28679aa43049b0afa8763",
     "packages/taiko-client-rs/crates/etna-consensus-core/Cargo.toml": "9a6d61ba3821dbae3278460421f2bbb8b6d65bec7d60f319227f00bf635267e5"
   },
   "generated_sha256": {
