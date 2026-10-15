@@ -10,10 +10,13 @@
     "forbidden_axioms": []
   },
   "corpus": {
+    "bridge": "conformance-tested",
     "cases": 94,
-    "sha256": "3b95093d9ba702bf408a895eb47fafd58bf3a5112b10fd96d3df9fdeba3747cd",
-    "lean": "passed",
-    "production_rust": "passed"
+    "lean": "pass",
+    "production_rust": "pass",
+    "rust_compiler": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "rust_toolchain": "1.95",
+    "sha256": "3b95093d9ba702bf408a895eb47fafd58bf3a5112b10fd96d3df9fdeba3747cd"
   },
   "negative_tests": {
     "tests": 19,
@@ -122,5 +125,37 @@
       "19 proof trust-test methods"
     ],
     "logs": "/private/tmp/etna-fi-fix1-{provenance-red,provenance-green,audit,conformance,trust-tests}.log"
+  },
+  "standalone_compiler_correction": {
+    "historical_corpus": {
+      "cases": 94,
+      "sha256": "3b95093d9ba702bf408a895eb47fafd58bf3a5112b10fd96d3df9fdeba3747cd",
+      "lean": "passed",
+      "production_rust": "passed"
+    },
+    "historical_compiler": "rustc 1.94.0 (4a4ef493e 2026-03-02)",
+    "current_compiler": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "current_scalar_corpus_mutants": {
+      "mutations": [
+        {
+          "mutation": "due-strict",
+          "corpus_exit": 1,
+          "gate": "actual production Rust fixed corpus; extraction/refinement not rerun",
+          "restored": true
+        },
+        {
+          "mutation": "unfinished-consumes",
+          "corpus_exit": 1,
+          "gate": "actual production Rust fixed corpus; extraction/refinement not rerun",
+          "restored": true
+        }
+      ],
+      "standalone_rust_compiler": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "core_sha256": "e9484871ddad7baf70454c8223e175d8117e6366792535728d6e467c0045db7e",
+      "generated_sha256": "de74fbf200f60c99a050a40f9fa76f7ab6285bdbac55591e59a3aafd3e187096"
+    },
+    "qualification": "Earlier standalone corpus and scalar corpus mutation logs used host default 1.94.0. This correction refreshes only standalone corpus gates at explicit1.95; prior pinned Aeneas extraction/refinement and native adapter results are not relabelled or rerun.",
+    "current_report": "formal/etna/reports/committee-verification.json:standalone_compiler_correction",
+    "corpus_log": "/private/tmp/task4-fix1-fi-restored.log"
   }
 }

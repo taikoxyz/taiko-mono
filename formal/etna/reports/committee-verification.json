@@ -20,6 +20,8 @@
       "cases": 902,
       "lean": "pass",
       "production_rust": "pass",
+      "rust_compiler": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "rust_toolchain": "1.95",
       "sha256": "693920654a0efeae9004ff81ba8da30449f4c8cb50271f4c66de5ad82b3e99e4"
     },
     "fi": {
@@ -27,6 +29,8 @@
       "cases": 94,
       "lean": "pass",
       "production_rust": "pass",
+      "rust_compiler": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "rust_toolchain": "1.95",
       "sha256": "3b95093d9ba702bf408a895eb47fafd58bf3a5112b10fd96d3df9fdeba3747cd"
     }
   },
@@ -95,7 +99,8 @@
       "formal/etna/Etna/Refinement/Rust/provenance.json": "1167caaf30f7b2d31bbc5c48c1d5d510b4cacaeb65c5909f07a6032397159eb0",
       "packages/taiko-client-rs/crates/abci/src/app/validate.rs": "59fb502735ae74af43c5f5c5e20ab6a7e8819fae1275672bb00e37cc9b3d7a00",
       "packages/taiko-client-rs/crates/abci/src/app/finalize.rs": "5446426dc9c1b6e19ff2e33d70ac9ada7d6a22b7b110b08825c3dc8320a4cafb"
-    }
+    },
+    "historical_standalone_corpus_compiler": "rustc 1.94.0 (4a4ef493e 2026-03-02)"
   },
   "boundaries": [
     "COM history step is spec-proved; only the 11 named generated scalar functions have Rust source refinement.",
@@ -117,5 +122,102 @@
     "certificate_tests": "/private/tmp/committee-native-certificate.log",
     "leak_followup": "/private/tmp/committee-leak-rerun.log",
     "mutations": "/private/tmp/committee-mutations.log"
+  },
+  "standalone_compiler_correction": {
+    "review_base": "b43d5d28318387595616d0cc6c401ca030118002",
+    "finding": "Standalone compiler calls inherited the formal/etna host default rustc 1.94.0; they did not select production 1.95.",
+    "historical_compiler": "rustc 1.94.0 (4a4ef493e 2026-03-02)",
+    "current_compiler": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "fix": "All three FI/committee rustc compilation calls explicitly use +1.95; successful corpus reports record the queried selected compiler. No global rustup setting changed.",
+    "scope": "Fresh FI94/COM902 green baselines before and after serial five scalar corpus-only mutants. Extraction/refinement and native adapter mutation gates were not rerun and remain prior evidence.",
+    "scalar_corpus_mutants": {
+      "fi": {
+        "mutations": [
+          {
+            "mutation": "due-strict",
+            "corpus_exit": 1,
+            "gate": "actual production Rust fixed corpus; extraction/refinement not rerun",
+            "restored": true
+          },
+          {
+            "mutation": "unfinished-consumes",
+            "corpus_exit": 1,
+            "gate": "actual production Rust fixed corpus; extraction/refinement not rerun",
+            "restored": true
+          }
+        ],
+        "standalone_rust_compiler": "rustc 1.95.0 (59807616e 2026-04-14)",
+        "core_sha256": "e9484871ddad7baf70454c8223e175d8117e6366792535728d6e467c0045db7e",
+        "generated_sha256": "de74fbf200f60c99a050a40f9fa76f7ab6285bdbac55591e59a3aafd3e187096"
+      },
+      "committee": {
+        "mutations": [
+          {
+            "mutation": "activation-early",
+            "corpus_exit": 1,
+            "gate": "actual production Rust fixed corpus; extraction/refinement not rerun",
+            "restored": true
+          },
+          {
+            "mutation": "activation-late",
+            "corpus_exit": 1,
+            "gate": "actual production Rust fixed corpus; extraction/refinement not rerun",
+            "restored": true
+          },
+          {
+            "mutation": "quorum-inclusive",
+            "corpus_exit": 1,
+            "gate": "actual production Rust fixed corpus; extraction/refinement not rerun",
+            "restored": true
+          }
+        ],
+        "standalone_rust_compiler": "rustc 1.95.0 (59807616e 2026-04-14)",
+        "restored_sha256": {
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/lib.rs": "ee2db741ba5d0e625900c63a58cf75213fe8740083f9f97751d2238018ab4b35",
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs": "b96055637f7ec5aae5d52f0a20c086b317a1e1871eb02f6e6c115695998aadb8",
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/transition.rs": "29314c8522f1bfb669ed33c5c0c9cfe108dc1f803c1172a2dc9f78fa494f7223",
+          "formal/etna/Etna/Refinement/Rust/EtnaConsensusCore.lean": "de74fbf200f60c99a050a40f9fa76f7ab6285bdbac55591e59a3aafd3e187096",
+          "formal/etna/Etna/Refinement/Rust/provenance.json": "1167caaf30f7b2d31bbc5c48c1d5d510b4cacaeb65c5909f07a6032397159eb0",
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs": "59fb502735ae74af43c5f5c5e20ab6a7e8819fae1275672bb00e37cc9b3d7a00",
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs": "5446426dc9c1b6e19ff2e33d70ac9ada7d6a22b7b110b08825c3dc8320a4cafb"
+        }
+      }
+    },
+    "audit": {
+      "theorems": 112,
+      "status": "passed",
+      "allowed_axioms": ["propext", "Classical.choice", "Quot.sound"]
+    },
+    "python": {
+      "toolchain_tests_passed": 7,
+      "changed_scripts_py_compile": 4,
+      "invalid_scope_cli_checks": 4
+    },
+    "restoration": "All 9 source/Cargo/generated/provenance paths byte-identical to review base; source/Cargo/generated SHA values match pinned provenance.",
+    "logs": {
+      "fi": "/private/tmp/task4-fix1-fi-restored.log",
+      "committee": "/private/tmp/task4-fix1-committee-restored.log",
+      "fi_mutants": "/private/tmp/task4-fix1-fi-mutants/core-corpus.json",
+      "committee_mutants": "/private/tmp/task4-fix1-committee-mutants/core-corpus.json",
+      "audit": "/private/tmp/task4-fix1-audit.log",
+      "python": "/private/tmp/task4-fix1-python.log",
+      "restoration": "/private/tmp/task4-fix1-restoration.log"
+    },
+    "historical_conformance": {
+      "committee": {
+        "bridge": "conformance-tested",
+        "cases": 902,
+        "lean": "pass",
+        "production_rust": "pass",
+        "sha256": "693920654a0efeae9004ff81ba8da30449f4c8cb50271f4c66de5ad82b3e99e4"
+      },
+      "fi": {
+        "bridge": "conformance-tested",
+        "cases": 94,
+        "lean": "pass",
+        "production_rust": "pass",
+        "sha256": "3b95093d9ba702bf408a895eb47fafd58bf3a5112b10fd96d3df9fdeba3747cd"
+      }
+    }
   }
 }

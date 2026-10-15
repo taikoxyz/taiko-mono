@@ -30,13 +30,19 @@ def require_failed(command, log, marker, **kwargs):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--group', choices=['core', 'adapters', 'all'], default='all')
+    parser.add_argument('--corpus-only', action='store_true',
+                        help='With --group core, refresh only standalone compiler/corpus gates; no extraction or proof rerun')
     parser.add_argument('--output', type=Path, default=Path('/private/tmp/etna-fi-mutations'))
     args = parser.parse_args()
+    if args.corpus_only and args.group != 'core':
+        parser.error('--corpus-only requires --group core')
     args.output.mkdir(parents=True, exist_ok=True)
     records = []
     generated_original, provenance_original = GENERATED.read_bytes(), PROVENANCE.read_bytes()
     env = dict(os.environ)
-    if args.group in ['core', 'all']:
+    corpus_compiler = (subprocess.check_output(['rustc', '+1.95', '--version'], cwd=ROOT, text=True).strip()
+                       if args.group in ['core', 'all'] else None)
+    if args.group in ['core', 'all'] and not args.corpus_only:
         for required in ['AENEAS_ROOT', 'CHARON_ROOT']:
             if not env.get(required):
                 raise ValueError(f'{required} must identify the pinned built extractor')
@@ -58,6 +64,10 @@ def main():
                 CORE.write_text(source.replace(before, after))
                 corpus_code = require_failed(['python3', 'scripts/fi_conformance.py'],
                                              target / 'corpus.log', 'rust corpus mismatch')
+                if args.corpus_only:
+                    records.append({'mutation': name, 'corpus_exit': corpus_code,
+                                    'gate': 'actual production Rust fixed corpus; extraction/refinement not rerun'})
+                    continue
                 extraction = ['python3', str(ROOT / 'scripts/extract_rust_core.py'),
                               '--work', str(target / 'extraction'), '--output', str(target / 'generated')]
                 if run(extraction, target / 'extraction.log', env=env):
@@ -69,8 +79,9 @@ def main():
                                 'gate': 'actual regenerated source refinement and corpus'})
             finally:
                 CORE.write_bytes(original)
-                GENERATED.write_bytes(generated_original)
-                PROVENANCE.write_bytes(provenance_original)
+                if not args.corpus_only:
+                    GENERATED.write_bytes(generated_original)
+                    PROVENANCE.write_bytes(provenance_original)
                 assert CORE.read_bytes() == original
                 assert GENERATED.read_bytes() == generated_original
                 assert PROVENANCE.read_bytes() == provenance_original
@@ -106,9 +117,9 @@ def main():
                 assert path.read_bytes() == original
     for record in records:
         record['restored'] = True
-    report = {'mutations': records, 'core_sha256': hashlib.sha256(CORE.read_bytes()).hexdigest(),
+    report = {'mutations': records, 'standalone_rust_compiler': corpus_compiler, 'core_sha256': hashlib.sha256(CORE.read_bytes()).hexdigest(),
               'generated_sha256': hashlib.sha256(GENERATED.read_bytes()).hexdigest()}
-    (args.output / f'{args.group}.json').write_text(json.dumps(report, indent=2) + '\n')
+    (args.output / f'{args.group}{"-corpus" if args.corpus_only else ""}.json').write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps(report, sort_keys=True))
 
 

@@ -19,6 +19,7 @@ def run(args, **kwargs):
 
 
 def check(corpus):
+    compiler = run(['rustc', '+1.95', '--version']).strip()
     rows = [json.loads(line) for line in corpus.read_text().splitlines()]
     ids = [row['id'] for row in rows]
     if len(set(ids)) != len(ids) or not rows:
@@ -37,8 +38,8 @@ def check(corpus):
         binary = str(Path(tmp) / 'committee')
         library = str(Path(tmp) / 'libetna_consensus_core.rlib')
         source = ROOT.parents[1] / 'packages/taiko-client-rs/crates/etna-consensus-core/src/lib.rs'
-        run(['rustc', '--edition=2024', '--crate-type=rlib', '--crate-name=etna_consensus_core', str(source), '-o', library])
-        run(['rustc', '--edition=2024', '-D', 'warnings', 'adapters/committee.rs', '--extern', f'etna_consensus_core={library}', '-o', binary])
+        run(['rustc', '+1.95', '--edition=2024', '--crate-type=rlib', '--crate-name=etna_consensus_core', str(source), '-o', library])
+        run(['rustc', '+1.95', '--edition=2024', '-D', 'warnings', 'adapters/committee.rs', '--extern', f'etna_consensus_core={library}', '-o', binary])
         actuals = {
             'rust': run([binary], input=wire),
             'lean': run(['lake', 'env', 'lean', '--run', 'Check/Committee.lean', str(corpus)]),
@@ -48,7 +49,8 @@ def check(corpus):
             mismatches = [(e, a) for e, a in zip(expected.splitlines(), actual.splitlines()) if e != a]
             raise ValueError(f'{name} corpus mismatch: {mismatches[:8]}; output lines={len(actual.splitlines())}')
     print(json.dumps({'cases': len(rows), 'sha256': hashlib.sha256(corpus.read_bytes()).hexdigest(),
-                      'lean': 'pass', 'production_rust': 'pass', 'bridge': 'conformance-tested'}, sort_keys=True))
+                      'lean': 'pass', 'production_rust': 'pass', 'bridge': 'conformance-tested',
+                      'rust_toolchain': '1.95', 'rust_compiler': compiler}, sort_keys=True))
 
 
 if __name__ == '__main__':

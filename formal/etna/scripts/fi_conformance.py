@@ -19,6 +19,7 @@ def run(args, **kwargs):
 
 
 def check(corpus):
+    compiler = run(['rustc', '+1.95', '--version']).strip()
     rows = [json.loads(line) for line in corpus.read_text().splitlines()]
     ids = [row['id'] for row in rows]
     if len(set(ids)) != len(ids) or not rows:
@@ -35,7 +36,7 @@ def check(corpus):
     ]]) + '\n' for r in rows)
     with tempfile.TemporaryDirectory(prefix='etna-fi-conformance-') as tmp:
         binary = str(Path(tmp) / 'fi')
-        run(['rustc', '--edition=2024', '-D', 'warnings', 'adapters/fi.rs', '-o', binary])
+        run(['rustc', '+1.95', '--edition=2024', '-D', 'warnings', 'adapters/fi.rs', '-o', binary])
         actuals = {
             'rust': run([binary], input=wire),
             'lean': run(['lake', 'env', 'lean', '--run', 'Check/FI.lean', str(corpus)]),
@@ -45,7 +46,8 @@ def check(corpus):
             mismatches = [(e, a) for e, a in zip(expected.splitlines(), actual.splitlines()) if e != a]
             raise ValueError(f'{name} corpus mismatch: {mismatches[:8]}; output lines={len(actual.splitlines())}')
     print(json.dumps({'cases': len(rows), 'sha256': hashlib.sha256(corpus.read_bytes()).hexdigest(),
-                      'lean': 'pass', 'production_rust': 'pass', 'bridge': 'conformance-tested'}, sort_keys=True))
+                      'lean': 'pass', 'production_rust': 'pass', 'bridge': 'conformance-tested',
+                      'rust_toolchain': '1.95', 'rust_compiler': compiler}, sort_keys=True))
 
 
 if __name__ == '__main__':
