@@ -622,3 +622,23 @@ async fn same_sender_nonce_replacement_and_later_position_cannot_skip_retained_f
         assert_ne!(env.block.transactions[0], forced.encoded_2718());
     }
 }
+
+#[tokio::test]
+async fn missing_due_preimage_rejects_before_any_engine_call() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    plant_due_entry(&fx, app.l1(), 66, fx.inbox.clone());
+    let witness = fx.forced_witness(app.l1(), 66, 0, Bytes::new());
+    let env = hand_forced_envelope(
+        &app,
+        Some(fx.anchor_witness(app.l1(), 66)),
+        None,
+        witness,
+        protocol::shasta::encode_transactions(&[]),
+    );
+    let before = app.engine().calls().len();
+    assert_eq!(rejected(&mut app, &env).await, "forced_inclusion");
+    assert_eq!(app.engine().calls().len(), before);
+    assert_eq!(app.state().unwrap().forced_cursor, 0);
+}

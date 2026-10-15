@@ -93,8 +93,10 @@ height 8 anchored 1020 may select a different committee; all nodes replaying one
 The config hash binds nine ABI words: `ETNA_PARENT_ANCHOR_V1`, L2 chain id, registry,
 `vp_unit`, `s_min`, `n_max`, `heartbeat_window`, heartbeat lookahead 2 and membership algorithm 1.
 The envelope is version 5, the landing payload V4, the statement V6 and the lander journal
-schema 8 (original Comet protobuf witnesses and commits). ABCI advertises `APP_VERSION = 1`;
-persisted `app_version` is mandatory and must equal 1. State files also require
+schema 8 (original Comet protobuf witnesses and commits). ABCI advertises `APP_VERSION = 2`;
+persisted `app_version` is mandatory and must equal 2. Version 1 state is incompatible with the
+optional-preimage FI rule. An app-v1 chain requires an explicit consensus upgrade; editing the
+state-file version or automatically rewriting it is unsupported. State files also require
 `genesis.committee_config_hash`, `forced_cursor`, `genesis.forced_inclusion_delay`,
 `genesis.max_anchor_age`, the anchor's queue head/tail and the authenticated Inbox binding.
 Local parameters must open the config hash correctly. Earlier envelope/payload prefixes,
@@ -128,11 +130,17 @@ due when `A.timestamp >= entry.timestamp + forcedInclusionDelay`. The delay must
 there is no expiry or expiry-derived upper bound.
 
 - If `c >= tail(A)`, the block carries no forced witness and consumes no entry.
-- Otherwise every block carries entry `c`'s two-slot proof and exact bytes, including before it is
-  due. The bytes must match the proven hash and size cap. Witness RLP decoding checks the borrowed
-  transaction field's byte length before copying it.
-- A canonical transaction included byte-for-byte at position zero consumes the entry, even early.
-  Ordinary transactions may follow it; matching a transaction at another position is insufficient.
+- Otherwise every block carries entry `c`'s two-slot proof. Proposers leave the witness's `tx`
+  byte string empty for ordinary and included blocks, avoiding repeated admission data while an
+  entry waits. Only skips carry the original preimage; an actually empty admission also uses an
+  empty byte string and is distinguished by the proven hash and due time.
+- A canonical transaction at position zero whose hash matches the proven entry consumes it,
+  even early, without duplicating its bytes in the witness. It must fit the 8192-byte admission
+  cap. Ordinary transactions may follow; matching a later transaction is insufficient.
+- Nonempty witness bytes always match the proven hash and byte limit, including historical
+  envelopes that redundantly carry them. RLP decoding bounds the bytes before copying them.
+  A due entry absent from position zero must authenticate its preimage before any skip decision;
+  omitted bytes cannot authorize skipping a nonempty admission.
 - An entry absent from position zero cannot be consumed early. Once due, empty, malformed or
   noncanonical transaction bytes consume the entry directly as an invalid-byte skip.
 - Due canonical bytes absent from position zero require the shared Engine skip checker. It

@@ -153,7 +153,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if let Some((target_epoch, witness)) = &committee {
             self.cache_committee_witness(state, *target_epoch, witness)?;
         }
-        let forced = self.forced_inclusion(state, &facts.anchor).await?;
+        let mut forced = self.forced_inclusion(state, &facts.anchor).await?;
         let context = ForcedContext {
             cursor: state.forced_cursor,
             anchor: &facts.anchor,
@@ -198,7 +198,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         )
         .await?;
         rules::check_header(&block.header, &expected).map_err(Rejection::BuiltHeader)?;
-        let decision = forced::check(
+        let mut decision = forced::check(
             context,
             forced.as_ref(),
             block.transactions.first().map(|tx| tx.as_ref()),
@@ -245,6 +245,16 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 )
                 .await?;
             }
+            decision = final_decision;
+        }
+        if matches!(
+            decision,
+            forced::ForcedDecision::Ordinary | forced::ForcedDecision::Included(_)
+        ) && let Some(witness) = &mut forced
+        {
+            // The entry proof determines timing; the canonical first transaction proves
+            // inclusion. Only a skip needs to publish a separate admission preimage.
+            witness.tx = Bytes::new();
         }
 
         let committee = committee.map(|(_, w)| w);
