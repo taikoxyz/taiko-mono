@@ -29,6 +29,10 @@ use crate::{
     types::AnchorState,
 };
 
+/// Maximum encoded transaction bytes selected for a forced-first mixed candidate. This
+/// proposer policy preserves the existing 128 KiB budget; landing capacity is checked separately.
+const MIXED_TX_SELECTION_BYTES: u64 = 128 * 1024;
+
 impl<L: L1Source, E: Engine> App<L, E> {
     /// Handles `PrepareProposal`: one envelope, or no transactions when the node cannot or must
     /// not propose (liveness only).
@@ -159,7 +163,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let canonical = forced.as_ref().and_then(|w| forced::decode_canonical(&w.tx));
         let tx_list = if let Some(transaction) = canonical {
             let gas_limit = expected.gas_limit.saturating_sub(transaction.gas_limit());
-            let max_bytes = (alloy_eips::eip4844::BYTES_PER_BLOB as u64)
+            let max_bytes = MIXED_TX_SELECTION_BYTES
                 .saturating_sub(forced.as_ref().expect("pending witness").tx.len() as u64);
             let tail = if gas_limit == 0 || max_bytes == 0 {
                 Vec::new()
@@ -222,17 +226,25 @@ impl<L: L1Source, E: Engine> App<L, E> {
             )
             .await?;
             rules::check_header(&block.header, &expected).map_err(Rejection::BuiltHeader)?;
-            let decision = forced::check(
+            let final_decision = forced::check(
                 context,
                 forced.as_ref(),
                 block.transactions.first().map(|tx| tx.as_ref()),
             )?;
-            deadline(
-                "final forced singleton check",
-                self.opts.engine_timeout,
-                crate::engine::forced::verify_forced(self.engine(), build_context, &decision),
-            )
-            .await?;
+            // The parent, expected header, anchor and witness are unchanged. The successful
+            // confirmation above remains valid only if the final candidate has the same decision.
+            if final_decision != decision {
+                deadline(
+                    "final forced singleton check",
+                    self.opts.engine_timeout,
+                    crate::engine::forced::verify_forced(
+                        self.engine(),
+                        build_context,
+                        &final_decision,
+                    ),
+                )
+                .await?;
+            }
         }
 
         let committee = committee.map(|(_, w)| w);
@@ -287,18 +299,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
         let cached = self.forced_entry(anchor, index).await?;
         let tx = self.forced_transaction(cached.proven).await?;
-        let witness = ForcedWitness { index, entry: cached.witness, tx };
-        forced::check(
-            ForcedContext {
-                cursor: index,
-                anchor,
-                delay: state.genesis.forced_inclusion_delay,
-                inbox: self.params.inbox,
-            },
-            Some(&witness),
-            None,
-        )?;
-        Ok(Some(witness))
+        Ok(Some(ForcedWitness { index, entry: cached.witness, tx }))
     }
 
     /// The anchor witness at L1 block `n`: its canonical header (which must be block `n`) and the

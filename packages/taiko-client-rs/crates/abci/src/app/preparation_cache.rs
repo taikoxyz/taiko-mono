@@ -36,8 +36,6 @@ pub(super) struct PreparationCache {
 pub(super) struct CachedForcedEntry {
     /// Authentication root.
     pub(super) state_root: B256,
-    /// Queue index.
-    pub(super) index: u64,
     /// Two-slot proof to carry in the envelope.
     pub(super) witness: AccountWitness,
     /// Decoded authenticated metadata.
@@ -136,7 +134,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         lock(&self.preparation_cache)
     }
     /// Clears proofs after commit while retaining only bytes for the still-pending entry.
-    pub(super) fn prepare_next_height(&self, state: &AppState, _live: bool) {
+    pub(super) fn prepare_next_height(&self, state: &AppState) {
         let mut cache = self.preparation_cache();
         let transaction =
             cache.transaction.take().filter(|(entry, _)| entry.index == state.forced_cursor);
@@ -156,7 +154,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let key = (anchor.state_root, index);
         let result = {
             let mut cache = self.preparation_cache();
-            if let Some(entry) = cache.entry.as_ref().filter(|e| (e.state_root, e.index) == key) {
+            if let Some(entry) =
+                cache.entry.as_ref().filter(|e| (e.state_root, e.proven.index) == key)
+            {
                 return Ok(entry.clone());
             }
             if cache.entry_flight.as_ref().is_none_or(|flight| flight.key != key || flight.failed())
@@ -171,7 +171,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                         .map_err(FetchFailure::L1)?;
                     let proven = forced::verify_entry(key.0, &witness, inbox, index)
                         .map_err(FetchFailure::Forced)?;
-                    Ok(CachedForcedEntry { state_root: key.0, index, witness, proven })
+                    Ok(CachedForcedEntry { state_root: key.0, witness, proven })
                 };
                 cache.entry_flight = Some(FetchTask::spawn(
                     key,

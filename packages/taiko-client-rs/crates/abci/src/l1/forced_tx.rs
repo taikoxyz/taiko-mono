@@ -5,7 +5,7 @@ use alloy_provider::{Provider, RootProvider};
 use serde_json::{Value, json};
 
 use super::L1Error;
-use crate::forced::calldata::MAX_FORCED_TX_BYTES;
+use crate::forced::MAX_FORCED_TX_BYTES;
 
 /// The fields needed to bind an event to the exact requested queue entry and L1 block.
 #[derive(serde::Deserialize)]

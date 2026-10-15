@@ -8,7 +8,7 @@ use alloy_primitives::B256;
 
 use super::{Engine, EngineError};
 use crate::{
-    forced::calldata::{ForcedDecision, decode_canonical},
+    forced::{ForcedDecision, decode_canonical},
     rules::{self, ExpectedHeader, RuleViolation},
 };
 

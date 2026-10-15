@@ -869,7 +869,6 @@ fn plant_input(fx: &Fixture, app: &App<MockL1, MockEngine>, tx: Bytes, due: bool
         tx_hash: alloy_primitives::keccak256(&tx),
         timestamp,
         l1_block: 66,
-        fee_in_gwei: 7,
     }];
     app.l1().state().forced_transactions.insert((fx.params.inbox, 0, 66), tx);
     fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
@@ -903,10 +902,7 @@ async fn mixed_forced_inclusion_works_before_and_after_due() {
         assert_eq!(selections.len(), 1);
         use alloy_consensus::Transaction;
         assert_eq!(selections[0].gas_limit, fx.params.block_gas_limit - txs[0].gas_limit());
-        assert_eq!(
-            selections[0].max_bytes,
-            alloy_eips::eip4844::BYTES_PER_BLOB as u64 - tx.len() as u64
-        );
+        assert_eq!(selections[0].max_bytes, 131_072 - tx.len() as u64);
         accept_and_commit(&mut app, &env).await;
         assert_eq!(app.state().unwrap().forced_cursor, 1);
     }
@@ -946,7 +942,7 @@ async fn missing_or_wrong_admission_bytes_cannot_produce_a_proposal() {
 }
 
 #[tokio::test]
-async fn canonical_skip_rebuilds_an_ordinary_block_with_full_budget() {
+async fn canonical_skip_reuses_confirmation_after_restoring_the_ordinary_budget() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
@@ -961,7 +957,7 @@ async fn canonical_skip_rebuilds_an_ordinary_block_with_full_budget() {
         Ok(empty.clone()),
         Ok(empty.clone()),
         Ok(ordinary.clone()),
-        Ok(empty),
+        Err(EngineError::Transport("a repeated singleton check is unavailable".into())),
     ]);
     let env = propose(&mut app).await;
     assert_eq!(env.block, ordinary);
@@ -973,8 +969,8 @@ async fn canonical_skip_rebuilds_an_ordinary_block_with_full_budget() {
             _ => None,
         })
         .collect::<Vec<_>>();
-    assert_eq!(lists.len(), 4);
-    assert!(lists[0].is_some() && lists[1].is_some() && lists[2].is_none() && lists[3].is_some());
+    assert_eq!(lists.len(), 3);
+    assert!(lists[0].is_some() && lists[1].is_some() && lists[2].is_none());
     assert_eq!(app.state().unwrap().forced_cursor, 0);
 }
 

@@ -77,7 +77,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             (fresh, true)
         };
         if cold {
-            validated.forced = self.rebuild_forced(state, height, &validated).await?;
+            validated.forced = self.confirm_forced(state, height, &validated).await?;
         }
         let (next, updates) = next_state(state, &validated, height)?;
         let validator_updates = updates
@@ -130,7 +130,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         self.verdicts.clear();
         self.discovery.clear();
         let state = self.state.as_ref().expect("just committed");
-        self.prepare_next_height(state, self.decided_live);
+        self.prepare_next_height(state);
         if self.decided_live {
             self.prefetch_committee_witness(state);
         } else {
@@ -291,7 +291,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Retryable errors and timeouts wait; permanent availability errors halt under
     /// `forced_rebuild_unavailable`. Never submit or canonicalize the singleton result.
     /// Keep the pinned EL's `allow-unwind-canonical-header` disabled for historical probes.
-    async fn rebuild_forced(
+    async fn confirm_forced(
         &self,
         state: &AppState,
         height: u64,
@@ -332,7 +332,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 Err(_) => format!("timed out after {limit:?}"),
             };
             let diagnostic = format!("{}: {reason}", cannot_build_on(&state.parent));
-            backoff.wait(REBUILD, &diagnostic).await;
+            backoff.wait(FORCED_SKIP_CHECK, &diagnostic).await;
         }
     }
 
@@ -366,11 +366,11 @@ const FCU: &str = "engine_forkchoiceUpdated";
 /// Minimum continuous suspicion interval before repeated L1 disagreements justify a halt.
 const ANCHOR_OFF_CHAIN_WINDOW: Duration = Duration::from_secs(5);
 
-/// The label of a cold forced inclusion rebuild (an EL block build: a forkchoice update with
-/// attributes, then `getPayload`), for logs and safety-halt messages.
-const REBUILD: &str = "forced_rebuild_unavailable";
+/// Legacy diagnostic label retained for cold canonical-skip probes so recovery alerts remain
+/// compatible. A probe builds only the singleton; it does not reconstruct the proposed block.
+const FORCED_SKIP_CHECK: &str = "forced_rebuild_unavailable";
 
-/// Why the EL may not build a forced inclusion block on `parent`: it lacks the parent block, or
+/// Why the EL may not probe a forced transaction on `parent`: it lacks the parent block, or
 /// the parent's state (pruned, or skipped by a snapshot restore).
 fn cannot_build_on(parent: &ParentInfo) -> String {
     format!(

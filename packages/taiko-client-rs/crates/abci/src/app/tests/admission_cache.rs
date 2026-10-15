@@ -6,7 +6,7 @@ use crate::{forced::ForcedEntry, test_utils::L1Call};
 use alloy_primitives::{Bytes, keccak256};
 
 fn entry(tx: &Bytes, block: u64) -> ForcedEntry {
-    ForcedEntry { index: 0, tx_hash: keccak256(tx), timestamp: 1, l1_block: block, fee_in_gwei: 7 }
+    ForcedEntry { index: 0, tx_hash: keccak256(tx), timestamp: 1, l1_block: block }
 }
 fn install(app: &App<MockL1, MockEngine>, e: ForcedEntry, tx: Bytes) {
     app.l1().state().forced_transactions.insert((app.params.inbox, e.index, e.l1_block), tx);

@@ -337,7 +337,6 @@ pub(super) fn plant_entries(
         l1.state().forced_transactions.insert((fx.params.inbox, index, number), blob.clone());
         inbox.forced_inclusion_queue.push(ForcedEntry {
             index,
-            fee_in_gwei: 7,
             tx_hash,
             l1_block: number,
             timestamp,
