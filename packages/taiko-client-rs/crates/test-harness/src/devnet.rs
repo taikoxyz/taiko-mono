@@ -254,11 +254,27 @@ impl Devnet {
         format!("abci-{}-cmt-{i}", self.id)
     }
 
-    /// Whether CometBFT node `i`'s container is running (it exits when its ABCI connection
-    /// breaks).
+    /// Whether CometBFT node `i`'s container is running. An ABCI disconnect alone does not
+    /// guarantee exit: the pinned socket client can leave consensus waiting during shutdown.
     pub async fn cmt_running(&self, i: usize) -> Result<bool> {
         let name = self.cmt_container(i);
         Ok(docker(&["inspect", "-f", "{{.State.Running}}", &name]).await? == "true")
+    }
+
+    /// Stops CometBFT before the app, keeping ABCI available while consensus drains.
+    /// Docker grants ten seconds before SIGKILL, so an already disconnected or unresponsive
+    /// Comet process cannot hold the fixture open indefinitely. The app is also stopped when
+    /// Docker reports an error; callers must not read or replace its store until this succeeds.
+    pub async fn node_stop(&mut self, i: usize) -> Result<()> {
+        let name = self.cmt_container(i);
+        let stopped = docker(&["stop", "--time", "10", &name]).await;
+        self.app_stop(i).await;
+        stopped?;
+        let exit = docker(&["inspect", "--format", "{{.State.ExitCode}}", &name]).await?;
+        if exit == "137" {
+            tracing::warn!(node = i, container = %name, "CometBFT stopped with SIGKILL; inspect its shutdown logs");
+        }
+        Ok(())
     }
 
     /// Restarts CometBFT node `i`'s container (`docker restart`; it also starts a container that
@@ -310,8 +326,9 @@ impl Devnet {
     }
 
     /// Stops app `i` completely: its runtime shuts down, closing the listener and CometBFT's
-    /// ABCI connections (CometBFT node `i` then exits; see [`Devnet::cmt_restart`]). A no-op when
-    /// it is not running.
+    /// ABCI connections. This intentionally models an app crash; CometBFT may remain stuck
+    /// after the disconnect. Use [`Devnet::node_stop`] for controlled shutdown and before
+    /// restarting the pair. A no-op when the app is not running.
     pub async fn app_stop(&mut self, i: usize) {
         self.apps[i].stop().await;
     }
@@ -326,23 +343,17 @@ impl Devnet {
     /// persisted and the state the replay rebuilt.
     ///
     /// Pauses the fake lander (freezing `lastCheckpoint`), stops app `i`, waits for CometBFT node
-    /// `i` to exit, reads the app's state file and moves it aside (`abci-state.saved.json`), then
-    /// starts the app and CometBFT again: the app starts without state, so the handshake replays
-    /// every block from `InitChain` on through a `FinalizeBlock` without a `ProcessProposal`
-    /// verdict. Once node `i` is back at the old head, the rebuilt state is read and the EL's
-    /// blocks `1..=` the old head must be unchanged; the lander then resumes and node `i` must
-    /// commit three blocks past the old head.
+    /// `i` to stop through the bounded supervisor, reads the app's state file and moves it aside
+    /// (`abci-state.saved.json`), then starts the app and CometBFT again: the app starts
+    /// without state, so the handshake replays every block from `InitChain` on through a
+    /// `FinalizeBlock` without a `ProcessProposal` verdict. Once node `i` is back at the old
+    /// head, the rebuilt state is read and the EL's blocks `1..=` the old head must be
+    /// unchanged; the lander then resumes and node `i` must commit three blocks past the old
+    /// head.
     pub async fn replay_after_state_loss(&mut self, i: usize) -> Result<(AppState, AppState)> {
         self.lander_pause().await;
         self.app_stop(i).await;
-        let this = &*self;
-        wait_until(
-            &format!("CometBFT node {i} exit"),
-            Duration::from_secs(30),
-            Duration::from_millis(100),
-            || async move { Ok((!this.cmt_running(i).await?).then_some(())) },
-        )
-        .await?;
+        self.node_stop(i).await?;
         let file = self.app_data_dir(i).join(STATE_FILE);
         let before: AppState = serde_json::from_slice(&fs::read(&file)?)?;
         let old_head = before.last_height;
@@ -421,13 +432,13 @@ impl Devnet {
         self.docker.dump_logs();
     }
 
-    /// Stops the devnet: the lander and the apps, then every container and the network; the
+    /// Stops the devnet: the lander, each Comet/app pair, then every container and network; the
     /// temporary directories go when `self` drops. Only a successful stop spares the drop's
     /// diagnostics.
     pub async fn stop(mut self) -> Result<()> {
         self.lander.stop();
-        for app in &mut self.apps {
-            app.stop().await;
+        for i in 0..self.apps.len() {
+            self.node_stop(i).await?;
         }
         self.docker.cleanup().await?;
         self.stopped = true;

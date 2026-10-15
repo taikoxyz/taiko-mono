@@ -36,17 +36,19 @@ pub fn pool_signer() -> PrivateKeySigner {
 }
 pub async fn freeze(devnet: &mut Devnet) -> Result<AppState> {
     devnet.lander_pause().await;
-    devnet.app_stop(0).await;
-    let d = &*devnet;
-    wait_until(
-        "CometBFT exit",
-        Duration::from_secs(30),
-        Duration::from_millis(100),
-        || async move { Ok((!d.cmt_running(0).await?).then_some(())) },
-    )
-    .await?;
+    devnet.node_stop(0).await?;
     Store::new(devnet.app_data_dir(0)).load()?.context("persisted parent")
 }
+pub async fn comet_exit_code(devnet: &Devnet) -> Result<i32> {
+    let name = devnet.cmt_container(0);
+    let output = tokio::process::Command::new("docker")
+        .args(["inspect", "--format", "{{.State.ExitCode}}", &name])
+        .output()
+        .await?;
+    ensure!(output.status.success(), "read Comet exit status");
+    Ok(String::from_utf8(output.stdout)?.trim().parse()?)
+}
+
 pub async fn fund_pool(devnet: &Devnet) -> Result<()> {
     let l2 = devnet.l2_provider(0);
     let signer = dev_signer();

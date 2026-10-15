@@ -26,15 +26,8 @@ async fn restart_recovers_through_the_handshake() -> anyhow::Result<()> {
     let old_head = l2.get_block_number().await?;
     let old_hashes = devnet.l2_block_hashes(0, old_head).await?;
     eprintln!("app stopped at L2 head {old_head} after {:?}", started.elapsed());
-    // CometBFT loses its ABCI connection and exits; nothing commits while the app is down.
-    let devnet_ref = &devnet;
-    wait_until(
-        "CometBFT exit",
-        Duration::from_secs(30),
-        Duration::from_millis(250),
-        || async move { Ok((!devnet_ref.cmt_running(0).await?).then_some(())) },
-    )
-    .await?;
+    // The app is already gone. Reap Comet explicitly: its socket client may hang after EOF.
+    devnet.node_stop(0).await?;
     assert_eq!(l2.get_block_number().await?, old_head, "the EL moved without its app");
 
     devnet.app_start(0).await?;
