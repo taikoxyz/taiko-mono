@@ -31,7 +31,8 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// the expected L1 finality lag), plus the reward inputs L1_BRIDGE (the L1 Bridge delivering fee
 /// sweeps), L2_FEE_VAULT (the fee vault on L2), ALLOC_VALIDATOR_PPM and ALLOC_PROVER_PPM (shares
 /// of the pool's free balance per frozen epoch, summing to at most 1,000,000) and
-/// LANDING_REWARD_PER_BLOCK (wei, may be 0). There is no expiry-derived upper bound. The genesis
+/// LANDING_REWARD_PER_BLOCK (wei; 0 only with a zero ALLOC_PROVER_PPM, since the prover reward
+/// ledger drains only through landing rewards). There is no expiry-derived upper bound. The genesis
 /// values must match the L2 genesis file and the committee derived by
 /// taiko-client-rs. The node requires EPOCH_LEN_L2 >= D_MAX - MARGIN_V + 3; heartbeat and stake
 /// parameters must match its constants.
@@ -95,6 +96,10 @@ contract DeployEtnaDevnet is Script {
             landingRewardPerBlock: SafeCast.toUint128(vm.envUint("LANDING_REWARD_PER_BLOCK"))
         });
         require(config.proofVerifier.code.length != 0, ProofVerifierHasNoCode());
+        require(
+            vm.envUint("ALLOC_PROVER_PPM") == 0 || config.landingRewardPerBlock != 0,
+            ProverShareWithoutLandingReward()
+        );
         address remoteSignalService = vm.envAddress("REMOTE_SIGNAL_SERVICE");
         IEtnaInbox.GenesisParams memory genesis = IEtnaInbox.GenesisParams({
             genesisBlockHash: vm.envBytes32("GENESIS_BLOCK_HASH"),
@@ -212,5 +217,6 @@ contract DeployEtnaDevnet is Script {
     error InboxAddressMismatch();
     error InvalidPrivateKey();
     error ProofVerifierHasNoCode();
+    error ProverShareWithoutLandingReward();
     error RewardPoolAddressMismatch();
 }
