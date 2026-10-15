@@ -1,4 +1,5 @@
-//! Deploy the pinned real Inbox, registry and SignalService, without planting their storage.
+//! Deploy the pinned real Inbox, registry, reward pool and SignalService, without planting their
+//! storage.
 
 use abci::{
     ChainParams, CommitteeState, GenesisRecord, RegistryEntry, Schedule, Snapshot,
@@ -28,6 +29,13 @@ sol!(
 );
 sol!(TestERC20, "../../crates/lander/tests/fixtures/contracts/TestERC20.json");
 
+/// The pool's ABI names the Inbox's participation structs, so its `IEtnaInbox` lives apart from
+/// the one the Inbox artifact generates.
+mod reward_pool {
+    alloy::sol!(EtnaRewardPool, "../../crates/lander/tests/fixtures/contracts/EtnaRewardPool.json");
+}
+pub use reward_pool::EtnaRewardPool;
+
 /// Known ephemeral Ed25519 seed used only in these throw-away integration fixtures.
 pub const CONSENSUS_SEED: [u8; 32] = [0x19; 32];
 /// Effective stake: one TAIKO, with default devnet power mapping.
@@ -42,12 +50,21 @@ pub const FORCED_INCLUSION_DELAY: u64 = 3_600;
 pub const MAX_ANCHOR_AGE: u64 = 7_200;
 /// Anvil's third development key: a forced inclusion user, neither the lander nor the admin.
 pub const USER_KEY: &str = "5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a";
+/// The reward pool's validator share of its free balance at each freeze, in parts per million.
+pub const ALLOC_VALIDATOR_PPM: u32 = 600_000;
+/// The reward pool's proving share of its free balance at each freeze, in parts per million.
+pub const ALLOC_PROVER_PPM: u32 = 400_000;
+/// The Inbox's landing reward per landed block: 0.001 ether.
+pub const LANDING_REWARD_PER_BLOCK: u128 = 1_000_000_000_000_000;
+/// The reward pool's free balance, donated by a plain transfer at deployment: 10 ether.
+pub const POOL_FUNDING: u128 = 10_000_000_000_000_000_000;
 
 /// An actual deployed protocol instance on one disposable Osaka anvil.
 pub struct ContractFixture {
     pub anvil: StandaloneAnvil,
     pub inbox: Address,
     pub registry: Address,
+    pub pool: Address,
     pub signal: Address,
     pub verifier: Address,
     pub admin: Address,
@@ -145,8 +162,11 @@ impl ContractFixture {
             Vec::new(),
         )
         .await?;
+        // SignalService implementation and proxy, Inbox implementation and proxy, then the reward
+        // pool's implementation and proxy: the SignalService and the Inbox each name a later proxy.
         let next_nonce = p.get_transaction_count(owner).await?;
         let predicted_inbox = owner.create(next_nonce + 3);
+        let predicted_pool = owner.create(next_nonce + 5);
         let signal_impl = deploy(
             p,
             owner,
@@ -179,6 +199,8 @@ impl ContractFixture {
                     maxBatchBlocks: 1000,
                     forcedInclusionFeeInGwei: 1,
                     forcedInclusionFeeDoubleThreshold: 50,
+                    rewardPool: predicted_pool,
+                    landingRewardPerBlock: LANDING_REWARD_PER_BLOCK,
                 },
             }
             .abi_encode(),
@@ -220,6 +242,43 @@ impl ContractFixture {
         )
         .await?;
         ensure!(inbox == predicted_inbox, "CREATE-predicted authorized syncer differs");
+        let pool_impl = deploy(
+            p,
+            owner,
+            include_str!("../fixtures/contracts/EtnaRewardPool.json"),
+            EtnaRewardPool::constructorCall {
+                _inbox: inbox,
+                _stakingRegistry: registry,
+                _l1Bridge: Address::repeat_byte(0xb1),
+                _l2FeeVault: Address::repeat_byte(0xfe),
+                _l2ChainId: L2_CHAIN_ID,
+                _allocValidatorPpm: ALLOC_VALIDATOR_PPM,
+                _allocProverPpm: ALLOC_PROVER_PPM,
+            }
+            .abi_encode(),
+        )
+        .await?;
+        let pool = proxy(
+            p,
+            owner,
+            pool_impl,
+            EtnaRewardPool::initCall { _owner: owner }.abi_encode().into(),
+        )
+        .await?;
+        ensure!(pool == predicted_pool, "CREATE-predicted reward pool differs");
+        // The pool's `receive` takes any Ether as free balance, as a donation.
+        let funding = TransactionRequest::default()
+            .from(owner)
+            .to(pool)
+            .value(U256::from(POOL_FUNDING))
+            .gas_limit(100_000);
+        let funded = p.send_transaction(funding).await?.get_receipt().await?;
+        ensure!(funded.status(), "reward pool funding reverted");
+        ensure!(
+            view(p, pool, EtnaRewardPool::freeBalanceCall {}, None).await? ==
+                U256::from(POOL_FUNDING),
+            "reward pool free balance"
+        );
         let activated = view(p, inbox, EtnaInbox::activationCall {}, None).await?;
         let genesis = GenesisRecord {
             committee_config_hash: committee_config_hash(&params),
@@ -242,6 +301,7 @@ impl ContractFixture {
             anvil,
             inbox,
             registry,
+            pool,
             signal,
             verifier,
             admin,
@@ -316,7 +376,7 @@ impl ContractFixture {
         Ok((saved, blob, fee))
     }
 
-    /// Require the verifier to receive this exact V6 public statement.
+    /// Require the verifier to receive this exact V7 public statement.
     pub async fn expect_statement(&self, hash: B256) -> Result<()> {
         transact(
             &self.anvil.provider,

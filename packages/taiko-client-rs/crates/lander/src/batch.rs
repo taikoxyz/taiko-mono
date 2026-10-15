@@ -1681,6 +1681,70 @@ mod tests {
         );
     }
 
+    /// CometBFT's `/commit` for a height can carry precommits that block `h + 1`'s canonical
+    /// `last_commit` lacks; participation must follow the canonical commit.
+    #[tokio::test]
+    async fn participation_follows_the_next_blocks_last_commit_not_the_seen_commit() {
+        let mut fixture = Fixture::new(20, 26);
+        let key = ed25519_dalek::SigningKey::from_bytes(&[2; 32]);
+        let pubkey = B256::from(key.verifying_key().to_bytes());
+        let slot = fixture.committees[&1]
+            .validators
+            .validators()
+            .iter()
+            .position(|validator| validator.pub_key.to_bytes() == pubkey.as_slice())
+            .unwrap();
+        // Height 24's `/commit` has the power-1 member's precommit; block 25's `last_commit`
+        // omits it, which leaves 3 of 4 power, still a quorum.
+        let seen = &fixture.blocks[&24].commit;
+        assert!(matches!(
+            seen.signatures[slot],
+            tendermint::block::CommitSig::BlockIdFlagCommit { .. }
+        ));
+        let pair = fixture.blocks.get_mut(&25).unwrap();
+        let last_commit = pair.block.last_commit.as_mut().unwrap();
+        last_commit.signatures[slot] = tendermint::block::CommitSig::BlockIdFlagAbsent;
+        pair.block.header.last_commit_hash = Some(crate::validate::commit_hash(last_commit));
+        reseal_from(&mut fixture, 25);
+        assert!(matches!(
+            fixture.blocks[&24].commit.signatures[slot],
+            tendermint::block::CommitSig::BlockIdFlagCommit { .. }
+        ));
+
+        let fixture = Arc::new(fixture);
+        let batch = builder(fixture.clone(), limits(6))
+            .prepare(fixture.snapshot.clone())
+            .await
+            .unwrap()
+            .unwrap()
+            .batch;
+        let mem08 = |seed: u8| {
+            abci::committee::mem08_key(
+                fixture.params.l2_chain_id,
+                B256::from(
+                    ed25519_dalek::SigningKey::from_bytes(&[seed; 32]).verifying_key().to_bytes(),
+                ),
+            )
+        };
+        // Epoch 1's commits are heights 24 and 25: the power-3 member signs both, the power-1
+        // member only 25 in the canonical commits (both in the seen commits).
+        let counts = if mem08(1) < mem08(2) { [2, 1] } else { [1, 2] };
+        assert_eq!(batch.participation.iter().map(|p| p.epoch).collect::<Vec<_>>(), [0, 1]);
+        assert_eq!(batch.participation[0].signedCounts, [4]);
+        assert_eq!(batch.participation[1].signedCounts, counts);
+        let reference = alloy_primitives::keccak256(&batch.reference_headers[0]);
+        assert_eq!(
+            batch.statement_hash,
+            statement::hash(
+                &batch.snapshot,
+                &batch.input,
+                &batch.participation,
+                reference,
+                &batch.blobs.versioned_hashes
+            )
+        );
+    }
+
     #[tokio::test]
     async fn batch_input_and_statement_carry_the_stored_head_and_the_fee_recipient() {
         let fixture = Arc::new(Fixture::new(0, 3));
@@ -1818,6 +1882,12 @@ mod tests {
         change(&mut envelope);
         pair.block.data[0] = envelope.encode().to_vec();
         pair.block.header.data_hash = Some(crate::validate::data_hash(&pair.block.data));
+        reseal_from(fixture, height);
+    }
+
+    /// Re-signs block `height` after a change to it, then relinks and re-signs every later block,
+    /// each carrying its predecessor's new `/commit` as its `last_commit`.
+    fn reseal_from(fixture: &mut Fixture, height: u64) {
         let keys = vec![
             ed25519_dalek::SigningKey::from_bytes(&[1; 32]),
             ed25519_dalek::SigningKey::from_bytes(&[2; 32]),
