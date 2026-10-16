@@ -143,12 +143,17 @@ impl Fixture {
         control.snapshot.checkpoint_hash = B256::repeat_byte(height as u8);
     }
     fn mine(&self, transaction: &SignedTransaction, success: bool) {
+        self.mine_using(transaction, success, 100_000);
+    }
+    /// Mine `transaction` with `gas_used`; its signed limit is 500,000.
+    fn mine_using(&self, transaction: &SignedTransaction, success: bool, gas_used: u64) {
         let mut control = self.control.lock().unwrap();
         control.receipt = Some(LandingReceipt {
             transaction_hash: transaction.hash,
             block_number: 30,
             block_hash: control.canonical_receipt,
             success,
+            gas_used,
         });
         control.nonce =
             NonceState { confirmed: transaction.nonce + 1, pending: transaction.nonce + 1 };
@@ -496,6 +501,49 @@ async fn unchanged_checkpoint_revert_stops_once_but_competing_revert_can_settle(
             assert!(matches!(fixture.runner().state(), JournalState::Idle), "persisted");
         }
         assert_eq!(fixture.control.lock().unwrap().signs, 1);
+    }
+}
+
+/// A canonical revert that used its whole gas limit ran out of gas, so the runner persists Idle
+/// and continues: the next steps rebuild, re-estimate and sign a new job at the next nonce. A
+/// revert below the limit still stops.
+#[tokio::test]
+async fn unchanged_checkpoint_out_of_gas_rebuilds_but_other_reverts_stop() {
+    for out_of_gas in [true, false] {
+        let fixture = Fixture::new();
+        let mut runner = fixture.runner();
+        for _ in 0..3 {
+            runner.step().await.unwrap();
+        }
+        let tx = pending_transaction(&runner);
+        let limit = tx.gas_limit().unwrap();
+        assert_eq!(limit, 500_000);
+        fixture.mine_using(&tx, false, if out_of_gas { limit } else { limit - 1 });
+        assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+        assert!(matches!(runner.state(), JournalState::Confirming { .. }));
+        fixture.control.lock().unwrap().snapshot.l1_block_number = 31;
+        let outcome = runner.step().await;
+        assert!(matches!(runner.state(), JournalState::Idle));
+        let saved: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(fixture.directory.path().join("lander-state.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(saved["state"]["phase"], "idle", "persisted");
+        if !out_of_gas {
+            assert!(matches!(outcome, Err(LanderError::Reverted(_))), "{outcome:?}");
+            assert_eq!(fixture.control.lock().unwrap().signs, 1);
+            continue;
+        }
+        assert_eq!(outcome.unwrap(), StepOutcome::Rebuild);
+        // The same runner keeps going: prove, sign and broadcast a rebuilt job at nonce + 1.
+        fixture.control.lock().unwrap().receipt = None;
+        for _ in 0..3 {
+            assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+        }
+        let retry = pending_transaction(&runner);
+        assert_eq!(retry.nonce, tx.nonce + 1);
+        let control = fixture.control.lock().unwrap();
+        assert_eq!((control.signs, control.broadcasts.len()), (2, 2));
     }
 }
 

@@ -383,6 +383,7 @@ mod tests {
                     block_number: 30,
                     block_hash: alloy_primitives::B256::repeat_byte(30),
                     success: true,
+                    gas_used: 21_000,
                 },
             },
         ];
@@ -395,9 +396,23 @@ mod tests {
         assert!(store.save(&JournalState::Prepared { job: altered }).is_err());
         drop(store);
         assert!(matches!(
-            Store::open(directory.path(), identity).unwrap().load().unwrap(),
+            Store::open(directory.path(), identity.clone()).unwrap().load().unwrap(),
             JournalState::Confirming { .. }
         ));
+        // A schema-9 Confirming journal written before receipts recorded `gas_used` still loads,
+        // reading it as zero.
+        let path = directory.path().join("lander-state.json");
+        let mut journal: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        let receipt = journal["state"]["receipt"].as_object_mut().unwrap();
+        assert_eq!(receipt.remove("gas_used"), Some(serde_json::json!(21_000)));
+        std::fs::write(&path, serde_json::to_vec(&journal).unwrap()).unwrap();
+        let JournalState::Confirming { receipt, .. } =
+            Store::open(directory.path(), identity).unwrap().load().unwrap()
+        else {
+            panic!("expected the Confirming phase");
+        };
+        assert_eq!((receipt.block_number, receipt.gas_used), (30, 0));
     }
     #[test]
     fn idle_wait_roundtrip_and_phase_save_clears_the_marker() {

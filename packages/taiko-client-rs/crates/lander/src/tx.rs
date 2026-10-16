@@ -144,6 +144,13 @@ impl SignedTransaction {
             .map_err(|e| LanderError::Journal(format!("signed sidecar: {e}")))?;
         Ok(())
     }
+
+    /// The signed execution gas limit, decoded from the journaled network bytes.
+    pub fn gas_limit(&self) -> Result<u64> {
+        let envelope = TxEnvelope::decode_2718(&mut self.network_bytes.as_ref())
+            .map_err(|e| LanderError::Journal(format!("signed envelope: {e}")))?;
+        Ok(envelope.gas_limit())
+    }
 }
 
 /// Minimal receipt context, always checked against the canonical block hash by the runner.
@@ -157,6 +164,10 @@ pub struct LandingReceipt {
     pub block_hash: B256,
     /// Whether execution succeeded rather than reverted.
     pub success: bool,
+    /// Execution gas the transaction used; equal to its gas limit when it ran out of gas. Zero in
+    /// a journal written before it was recorded, which matches no signed landing's limit.
+    #[serde(default)]
+    pub gas_used: u64,
 }
 
 /// Account nonce view; both values are read before deciding whether identical rebroadcast is safe.
@@ -324,6 +335,7 @@ impl TransactionTransport for RpcTransactionTransport {
                         LanderError::Safety("mined receipt lacks block hash".into())
                     })?,
                     success: receipt.status(),
+                    gas_used: receipt.gas_used,
                 })
             })
             .transpose()
