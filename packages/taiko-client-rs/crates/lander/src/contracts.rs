@@ -16,7 +16,7 @@ sol!(
 );
 
 /// Protocol revision from which the interface and contract fixtures are generated.
-pub const PROTOCOL_REVISION: &str = "4f4e855ac5cf505b3b245f354b0b4f3cd8bcf177";
+pub const PROTOCOL_REVISION: &str = "d85737e712f792aa73fdb774290a09e185a7f379";
 
 /// Journal representation of generated ABI values (the `LandInput`, the participation parts and
 /// the settlement committees) as their canonical Solidity `abi.encode` bytes.
