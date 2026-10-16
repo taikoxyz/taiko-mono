@@ -6,7 +6,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use abci::{ChainParams, rules::decode_extra_data};
+use abci::rules::decode_extra_data;
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{U256, address};
 use alloy_provider::Provider;
@@ -57,7 +57,7 @@ async fn single_validator_produces_blocks_by_the_header_rules() -> anyhow::Resul
     devnet.wait_for_height(0, (last_tx_block + 4).max(10), Duration::from_secs(60)).await?;
     let head = l2.get_block_number().await?;
     devnet.wait_for_height(0, head + 1, Duration::from_secs(30)).await?;
-    let fee_vault = ChainParams::builtin(devnet.params().l2_chain_id)?.fee_vault;
+    let proposer_recipient = devnet.keys()[0].reward_recipient();
     let gas_limit = devnet.params().block_gas_limit;
     let l1 = devnet.l1();
     let finalized = finalized_number(l1).await?;
@@ -69,9 +69,9 @@ async fn single_validator_produces_blocks_by_the_header_rules() -> anyhow::Resul
         let block =
             l2.get_block_by_number(BlockNumberOrTag::Number(h)).await?.context("missing block")?;
         let header = &block.header;
-        assert_eq!(header.beneficiary, fee_vault, "block {h}: coinbase");
+        assert_eq!(header.beneficiary, proposer_recipient, "block {h}: coinbase");
         let (pctg, generation, anchor) = decode_extra_data(&header.extra_data)?;
-        assert_eq!((pctg, generation), (100, 0), "block {h}: extraData pctg / generation");
+        assert_eq!((pctg, generation), (0, 0), "block {h}: extraData pctg / generation");
         assert!(anchor >= prev_anchor, "block {h}: anchor {anchor} below {prev_anchor}");
         assert!(anchor <= finalized, "block {h}: anchor {anchor} above L1 finalized {finalized}");
         let l1_block = l1
