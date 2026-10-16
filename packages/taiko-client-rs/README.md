@@ -415,21 +415,25 @@ choose its signatures. A batch `(p, L]` therefore carries the commits of heights
 `L - 1`, and height `L`'s commit rides in the next batch, so every height counts once. A height's
 `/commit` (CometBFT's seen commit, which may hold other signatures) is verified but never counted.
 The proposer of block `h + 1` chooses which precommits beyond the 2/3 threshold enter its
-`last_commit`. Omitting one is not attributable, so the pool pays a Cosmos-style proposer bonus:
-block `h + 1` scores `floor(10_000 * includedEffStake / totalEffStake)`, the share of the
-committee's effective stake its `last_commit` carries, for its proposer, and the pool pays
-`proposerBonusPpm` (30% on devnets) of each validator share by score. A single omitter with stake
-share `a` that leaves stake share `c` out of its own blocks (keeping `1 - c` above 2/3) raises its
-base share from `a` to `a / (1 - a * c)` but cuts its bonus share from `a` to `a * (1 - c)`, so
-omitting pays only while the bonus share is below `a / (1 + a * (1 - c))`. That bound approaches
-3/11 (about 27.3%) as `a` and `c` approach 1/3, so 30% makes omission unprofitable for every
-single omitter below 1/3. With A at 30%, B at 37% and C at 33% of the voting power, A omitting C
-whenever A proposes (A and B still clear 2/3) would raise A's reward by about 11% without the
-bonus; with it A loses about 2.2% while C still loses about 16%, and below a bonus share of about
-25% the omission pays again. A coalition above 1/3 can withhold its votes from other proposals,
-the same way it can suppress BFT time, so that only its own proposals are decided, and exclude the
-victim entirely: with A at 34%, B at 33% and C at 33%, C earns nothing. Having the guest count
-extra valid precommits would close that.
+`last_commit`. Omitting one is not attributable, so the pool keeps it from paying anyone. It
+divides each member's base weight (stake times signed heights) by the committee's full weight,
+its stake times the epoch length, so omitting a member raises no one's base part, and a
+Cosmos-style proposer bonus makes omission cost the proposer: block `h + 1` scores
+`floor(10_000 * includedEffStake / totalEffStake)`, the share of the committee's effective stake
+its `last_commit` carries, for its proposer, and the pool pays `proposerBonusPpm` (30% on
+devnets) of each validator share by score out of the epoch's possible `10_000 * epochLenL2`. The
+base of unsigned heights and the bonus no proposer earned stay in the pool for later epochs, so
+online members no longer absorb an offline member's share. For example, with A at 33.3%, B at
+33.4%, C at 23.3% and D (10%) offline over 1000 heights, A leaving C's precommit out of its 370
+blocks lowers A's credit from 33.30% to 30.71% of the validator share and C's from 23.30% to
+17.27%, and leaves B's at 33.40%; dividing by the signed weight instead, the same omission
+would have raised A's credit from 35.89% to 36.05% despite the bonus. The bonus share therefore
+does not need to exceed a break-even threshold; it rewards including signatures. A coalition
+above 1/3 can still withhold its votes from other proposals, the same way it can suppress BFT
+time, so that only its own proposals are decided, and exclude a victim entirely: with A at 34%,
+B at 33% and C at 33%, C earns nothing. Excluding C gains A nothing (its blocks score 6,700
+instead of 10,000), though deciding only its own proposals lifts A's bonus. Having the guest
+count extra valid precommits would close the exclusion.
 For each epoch those heights touch, in ascending order, an `EpochParticipation` names the epoch,
 the hash of its committee as `CommitteeMember { bondId, activeFromL1, effStake }` in MEM-08 order
 (read from the committee's authenticated registry witness), per member the number of those
@@ -442,15 +446,15 @@ landing whose commits reach an epoch's last height (`L - 1 >= (e + 1) * epochLen
 epoch: it passes the epoch's committee list in `settlements`, which the pool checks against the
 committee hash the epoch's reports stored, so the lists stay out of the statement. The pool credits
 the validator share of its free balance to the members' registration owners, the base part by stake
-times signed heights and the bonus part by proposer score (bonus no proposer earned stays in the
-pool), and sends the proving share to the Inbox's prover reward ledger. Every landing then pays
+times signed heights out of the committee's full weight and the bonus part by proposer score out
+of the epoch's possible score (the rest stays in the pool), and sends the proving share to the Inbox's prover reward ledger. Every landing then pays
 `min(landingRewardPerBlock * (L - p), ledger)` to `feeRecipient` with the consumed FI fees and emits
 `LandingRewardPaid`; an empty ledger pays nothing and the landing still succeeds. The journal keeps
 each job's participation and settlement lists, and refuses a job whose participation does not have
 the shape `land` requires or whose settlement lists do not hash to its completed epochs' committees.
 
 A freezing landing pays for the settlement. For a 128-member committee the pool frame needs up to
-about 5.01M gas when one landing writes every member's count and score and credits every owner for
+about 5.02M gas when one landing writes every member's count and score and credits every owner for
 the first time, and about 1.3M (a whole transaction) for a later epoch whose owners already hold
 credits, plus about 20 KB of committee and participation calldata. The gas estimate alone cannot be
 trusted to cover it: the pool skips its crediting loop when the frozen epoch's allocation is zero,
@@ -458,7 +462,7 @@ so an estimate taken while the pool is empty (before the first sweep arrives, or
 when the two shares sum to 100%) leaves out the crediting and the epoch's first record, reservation
 and ledger writes, and any sweep or donation before inclusion runs the landing out of gas. Measured
 as whole transactions on the pinned contracts, a freezing landing costs 250,935 gas with an empty
-pool and 425,371 with a funded one for one member, and 261,792 and 528,894 for four: about 143k
+pool and 425,667 with a funded one for one member, and 261,792 and 529,466 for four: about 143k
 per landing and 31k per member. The lander therefore adds 200,000 gas once and 40,000 per settled
 member on top of the estimate and its 20% margin. Should a landing still run out of gas with the
 checkpoint unchanged, the lander resets to idle and rebuilds and re-estimates the job instead of
