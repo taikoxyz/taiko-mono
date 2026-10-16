@@ -20,6 +20,11 @@ pub struct ValidatorKey {
 }
 
 impl ValidatorKey {
+    /// A disposable validator from an explicitly supplied test seed.
+    pub fn from_seed(seed: [u8; 32]) -> Self {
+        Self { signing: SigningKey::from_bytes(&seed) }
+    }
+
     /// The key whose seed is `sha256(label ‖ be64(index))`.
     pub fn derive(label: &str, index: u64) -> Self {
         let mut hasher = Sha256::new();

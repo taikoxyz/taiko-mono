@@ -25,6 +25,7 @@ mod app;
 mod boot;
 mod cleanup;
 mod cometbft;
+mod consensus;
 mod devnet;
 mod docker;
 pub mod genesis;
@@ -37,6 +38,7 @@ mod wait;
 
 pub use anvil::StandaloneAnvil;
 pub use cometbft::{CmtClient, CmtStatus, CmtValidator};
+pub use consensus::ContractConsensus;
 pub use devnet::{Devnet, DevnetSpec, init_tracing};
 pub use genesis::{EtnaGenesis, StandaloneReth};
 pub use keys::{ValidatorKey, node_keys, validator_keys};

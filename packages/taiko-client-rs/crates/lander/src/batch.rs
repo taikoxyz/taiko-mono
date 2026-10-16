@@ -1545,8 +1545,7 @@ mod tests {
         }
     }
 
-    /// A batch `(p, L]` carries the commits of `max(p, 1)..=L - 1`; it may end at the latest at
-    /// `h_first(e + 1)`, the block carrying the last commit of the epoch `e` of `max(p, 1)`.
+    /// A complete prefix may cross epoch boundaries without a reward settlement cutoff.
     #[tokio::test]
     async fn no_freeze_cutoff_in_complete_prefix() {
         for checkpoint in [20, 22, 23] {
