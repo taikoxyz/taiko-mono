@@ -450,11 +450,12 @@ pool and 424,855 with a funded one for one member, and 261,792 and 527,835 for f
 per landing and 31k per member. The lander therefore adds 200,000 gas once and 40,000 per settled
 member on top of the estimate and its 20% margin. Should a landing still run out of gas with the
 checkpoint unchanged, the lander resets to idle and rebuilds and re-estimates the job instead of
-stopping; any other canonical revert stops it. The settlement runs in the pool behind two proxies,
-and each calling frame keeps 1/64 of its gas, which a top-level revert refunds, so an out-of-gas
-there reports less gas used than the limit: the lander counts a failed landing that used at least
-15/16 of its limit as out of gas. Choose the fee caps and fund the sending account so that such a
-landing stays affordable.
+stopping, once: a second out-of-gas landing in a row on the same checkpoint stops it, like any
+other canonical revert. The settlement runs in the pool behind two proxies, and each calling frame
+keeps 1/64 of its gas, which a top-level revert refunds, so an out-of-gas there reports less gas
+used than the limit: the lander counts a failed landing that used at least 15/16 of its limit as
+out of gas. Choose the fee caps and fund the sending account so that such a landing stays
+affordable.
 The landing must also fit in one L1 transaction, which Osaka caps at 16,777,216 gas (EIP-7825),
 and the lander caps its gas limit there. Measured as a whole transaction, the worst-case freezing
 landing needs 5,473,469 gas at 128 members, 14,791,922 at 360 and 16,396,887 at 400, about 40.1k
@@ -539,10 +540,13 @@ an underpriced transaction or a dropped stale job can require operator
 reconciliation. A transaction that reverts canonically at the confirmation depth with the
 checkpoint unchanged stops the lander once, with the journal already reset to idle: its nonce
 is spent, so the next run builds a fresh job (a deterministic revert then stops at gas
-estimation, before signing) rather than re-reading the receipt. A revert that used its whole gas
-limit ran out of gas, which depends on state at inclusion rather than on the job, so the lander
-resets to idle and keeps running, rebuilding and re-estimating the next job. Use one active lander per
-signing account and separate accounts for independent competitors.
+estimation, before signing) rather than re-reading the receipt. A revert that used at least 15/16
+of its gas limit ran out of gas, which depends on state at inclusion rather than on the job, so the
+lander resets to idle and keeps running, rebuilding and re-estimating the next job. A second
+out-of-gas landing in a row on the same checkpoint stops it with the journal idle, so a landing
+that cannot fit its limit does not keep spending fees. The count is kept in memory only: a settled
+landing, a checkpoint change or a restart starts it again. Use one active lander per signing
+account and separate accounts for independent competitors.
 
 The service needs unpruned CometBFT blocks/commits, the checkpoint parent and required EL ancestor headers, and
 L1 headers/proofs and registry snapshot entries for every consumed historical snapshot. Starting EL ancestry is

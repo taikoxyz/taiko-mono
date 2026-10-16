@@ -553,6 +553,57 @@ async fn unchanged_checkpoint_out_of_gas_rebuilds_but_other_reverts_stop() {
     }
 }
 
+/// Drives the runner from Idle through a canonical out-of-gas landing on the fixture's checkpoint
+/// and returns the outcome of the step that confirms it; the runner must be Idle with no receipt.
+async fn land_out_of_gas(fixture: &Fixture, runner: &mut Runner) -> Result<StepOutcome> {
+    fixture.control.lock().unwrap().receipt = None;
+    for _ in 0..3 {
+        assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    }
+    let tx = pending_transaction(runner);
+    fixture.mine_using(&tx, false, tx.gas_limit().unwrap());
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    fixture.control.lock().unwrap().snapshot.l1_block_number = 31;
+    let outcome = runner.step().await;
+    assert!(matches!(runner.state(), JournalState::Idle));
+    outcome
+}
+
+/// The first out-of-gas landing on a checkpoint is rebuilt and lands again at the next nonce; a
+/// second in a row on the same checkpoint stops with `Reverted`, the journal already Idle, instead
+/// of rebuilding a third landing.
+#[tokio::test]
+async fn second_consecutive_out_of_gas_on_one_checkpoint_stops() {
+    let fixture = Fixture::new();
+    let mut runner = fixture.runner();
+    assert_eq!(land_out_of_gas(&fixture, &mut runner).await.unwrap(), StepOutcome::Rebuild);
+    let outcome = land_out_of_gas(&fixture, &mut runner).await;
+    assert!(matches!(outcome, Err(LanderError::Reverted(_))), "{outcome:?}");
+    drop(runner);
+    assert!(matches!(fixture.runner().state(), JournalState::Idle), "persisted");
+    let control = fixture.control.lock().unwrap();
+    assert_eq!((control.signs, control.broadcasts.len()), (2, 2));
+    assert_eq!(control.nonce.confirmed, 2, "both landings spent their nonces");
+}
+
+/// A checkpoint change between two out-of-gas landings resets the count, so the second is rebuilt
+/// too. Here the checkpoint moves away and back, so the mock can rebuild the same job.
+#[tokio::test]
+async fn out_of_gas_count_resets_when_the_checkpoint_changes() {
+    let fixture = Fixture::new();
+    let mut runner = fixture.runner();
+    assert_eq!(land_out_of_gas(&fixture, &mut runner).await.unwrap(), StepOutcome::Rebuild);
+    fixture.compete(1);
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    {
+        let mut control = fixture.control.lock().unwrap();
+        control.snapshot.checkpoint_height = fixture.request.batch.snapshot.checkpoint_height;
+        control.snapshot.checkpoint_hash = fixture.request.batch.snapshot.checkpoint_hash;
+    }
+    assert_eq!(land_out_of_gas(&fixture, &mut runner).await.unwrap(), StepOutcome::Rebuild);
+    assert_eq!(fixture.control.lock().unwrap().signs, 2);
+}
+
 #[tokio::test]
 async fn dropped_transaction_is_identically_rebroadcast_after_receipt_and_nonce_reads() {
     let fixture = Fixture::new();
