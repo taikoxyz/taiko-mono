@@ -4,7 +4,7 @@
 //! parent anchor. Genesis and host proof jobs may name an explicit historical snapshot.
 //! [`verify_snapshot`] authenticates the checkpoint, its successor and the complete entry root.
 //! [`derive`] retains the existing eligibility, heartbeat, lowest-bond-id deduplication, stake cap,
-//! MEM-08 ordering and voting-power rules. [`committee_config_hash`] binds their configuration.
+//! set-key ordering and voting-power rules. [`committee_config_hash`] binds their configuration.
 //! [`member_bond_ids`] names each member's registry entry, from the same selection.
 //!
 //! Runtime witnesses appear only at `H(t)-2`, proven under the committed parent's anchor, whose
@@ -34,17 +34,17 @@ pub const ENCODING_VERSION: u8 = 1;
 /// `(2^63 − 1) / 8`.
 pub const MAX_TOTAL_POWER: u64 = (i64::MAX as u64) / 8;
 
-/// `LOOKAHEAD_EPOCHS` of #22262 (normative, not tunable): MEM-13 evaluates the heartbeats of
-/// epoch `e`'s committee at the start of the L1-side epoch `e − LOOKAHEAD_EPOCHS`.
+/// `LOOKAHEAD_EPOCHS` of #22262 (normative, not tunable): heartbeat eligibility for epoch
+/// `e`'s committee is evaluated at the start of the L1-side epoch `e − LOOKAHEAD_EPOCHS`.
 pub const LOOKAHEAD_EPOCHS: u64 = 2;
 
 /// `bytes32("ETNA_REG_ENTRY")`: domain tag of registry entry leaves.
 const REG_ENTRY_TAG: B256 = tag(b"ETNA_REG_ENTRY");
-/// `bytes32("ETNA_SET_KEY")`: domain tag of the MEM-08 member sort key.
+/// `bytes32("ETNA_SET_KEY")`: domain tag of the member sort key ([`set_key`]).
 const SET_KEY_TAG: B256 = tag(b"ETNA_SET_KEY");
-/// `bytes32("ETNA_SET_LEAF")`: domain tag of MEM-08 set leaves.
+/// `bytes32("ETNA_SET_LEAF")`: domain tag of set-root leaves.
 const SET_LEAF_TAG: B256 = tag(b"ETNA_SET_LEAF");
-/// `bytes32("ETNA_SET_NODE")`: domain tag of MEM-08 inner nodes.
+/// `bytes32("ETNA_SET_NODE")`: domain tag of set-root inner nodes.
 const SET_NODE_TAG: B256 = tag(b"ETNA_SET_NODE");
 /// `bytes32("ETNA_COMMITTEE_V1")`: domain tag of the committee record hash.
 const RECORD_TAG: B256 = tag(b"ETNA_COMMITTEE_V1");
@@ -133,7 +133,7 @@ pub enum CommitteeError {
     /// `HEARTBEAT_WINDOW` is zero, so the heartbeat windows of a filtered epoch are undefined.
     #[error("heartbeat window must be >= 1")]
     ZeroHeartbeatWindow,
-    /// The target epoch has no MEM-08 `k = targetEpoch − e_0 + 1` in `u64`, or its heartbeat
+    /// The target epoch has no set version `k = targetEpoch − e_0 + 1` in `u64`, or its heartbeat
     /// evaluation block `L1_first(targetEpoch − LOOKAHEAD_EPOCHS)` overflows `u64`.
     #[error("target epoch {0} is out of range")]
     EpochOutOfRange(u64),
@@ -200,29 +200,29 @@ pub fn entries_root(entries: &[RegistryEntry]) -> B256 {
     level[0]
 }
 
-/// The MEM-08 sort key of `pubkey`:
+/// The set key of `pubkey`, which orders committee members (set-key order):
 /// `keccak256(abi.encode(bytes32("ETNA_SET_KEY"), uint256 chainId, bytes32 pubkey))`.
 ///
 /// `l2_chain_id` is the L2 EVM chain id, which unlike the CometBFT `chain_id` does not change
 /// with the recovery generation.
-pub fn mem08_key(l2_chain_id: u64, pubkey: B256) -> B256 {
+pub fn set_key(l2_chain_id: u64, pubkey: B256) -> B256 {
     keccak256([SET_KEY_TAG, word(l2_chain_id), pubkey].concat())
 }
 
-/// The MEM-08 set root over `members` (#22262), with `chainId` = the L2 EVM chain id.
+/// The Merkle set root over `members`, with `chainId` = the L2 EVM chain id.
 ///
-/// `members` must already be sorted by [`mem08_key`] ascending (checked in debug builds). Leaf
+/// `members` must already be sorted by [`set_key`] ascending (checked in debug builds). Leaf
 /// `index` = `keccak256(abi.encode(bytes32("ETNA_SET_LEAF"), uint256 chainId, uint256 k,
 /// uint256 index, bytes32 pubkey, uint256 effStake))`; inner node =
 /// `keccak256(abi.encode(bytes32("ETNA_SET_NODE"), uint256 chainId, uint256 k, bytes32 left,
 /// bytes32 right))`. Each level pairs nodes left to right and promotes an odd last node
 /// unchanged. One member gives its leaf; no members give `bytes32(0)` (never a valid committee).
-pub fn mem08_root(l2_chain_id: u64, k: u64, members: &[Member]) -> B256 {
+pub fn set_root(l2_chain_id: u64, k: u64, members: &[Member]) -> B256 {
     debug_assert!(
         members
             .windows(2)
-            .all(|w| mem08_key(l2_chain_id, w[0].pubkey) < mem08_key(l2_chain_id, w[1].pubkey)),
-        "members must be sorted by MEM-08 key without duplicates"
+            .all(|w| set_key(l2_chain_id, w[0].pubkey) < set_key(l2_chain_id, w[1].pubkey)),
+        "members must be sorted by set key without duplicates"
     );
     if members.is_empty() {
         return B256::ZERO;
@@ -361,7 +361,7 @@ pub fn verify_snapshot(
     Ok(Snapshot { checkpoint_index: index, l1_block, entries: w.entries.clone() })
 }
 
-/// The existing MEM-13 heartbeat floor for the committee of `target_epoch` at `cutoff`.
+/// The existing heartbeat floor for the committee of `target_epoch` at `cutoff`.
 ///
 /// Epochs 0, 1 and 2 are exempt. Later epochs evaluate the start of the heartbeat window
 /// containing `L1_first(target_epoch-2)`, capped by the window containing the cutoff, and
@@ -390,7 +390,7 @@ pub fn heartbeat_floor(
 }
 
 /// Derives the committee for `target_epoch` from a verified `snapshot` at `cutoff` and returns its
-/// record and members (sorted by [`mem08_key`]).
+/// record and members (sorted by [`set_key`]).
 ///
 /// An entry is eligible iff `active_from_l1 <= cutoff < exit_effective_l1`,
 /// `eff_stake >= max(s_min, vp_unit)` and, when [`heartbeat_floor`] filters the epoch,
@@ -399,7 +399,7 @@ pub fn heartbeat_floor(
 /// deterministic tie-break, not registration order, since the registry reuses withdrawn slots.
 /// This is defence in depth: the registry keeps at most one entry per pubkey whose exit is not
 /// yet effective (see the module docs), so no two eligible entries share a key. If
-/// more than `n_max` remain, the first `n_max` by (`eff_stake` descending, MEM-08 key ascending)
+/// more than `n_max` remain, the first `n_max` by (`eff_stake` descending, set key ascending)
 /// are kept. Each member's power is `eff_stake / vp_unit`; the total must not exceed
 /// [`MAX_TOTAL_POWER`]. No eligible entry is [`CommitteeError::Empty`].
 pub fn derive(
@@ -415,7 +415,7 @@ pub fn derive(
         target_epoch,
         cutoff_l1_block: cutoff,
         checkpoint_index: snapshot.checkpoint_index,
-        set_root: mem08_root(params.l2_chain_id, k, &members),
+        set_root: set_root(params.l2_chain_id, k, &members),
         total_stake,
         total_power,
         encoding_version: ENCODING_VERSION,
@@ -424,7 +424,7 @@ pub fn derive(
 }
 
 /// The `(bondId, activeFromL1)` of each member [`derive()`] returns for `target_epoch` at `cutoff`
-/// from a snapshot of `entries` (indexed by `bondId`), in the same MEM-08 order.
+/// from a snapshot of `entries` (indexed by `bondId`), in the same set-key order.
 ///
 /// Shares [`derive()`]'s selection, so it fails exactly where [`derive()`] fails, with the same
 /// error, and also with [`CommitteeError::BondIdOutOfRange`] for a member whose `bondId` exceeds
@@ -515,9 +515,9 @@ pub fn validator_updates(old: &[Member], new: &[Member]) -> Vec<(B256, u64)> {
 
 /// The committee [`derive()`] selects from a snapshot's entries, before its record.
 struct Selection<'a> {
-    /// MEM-08 `k = targetEpoch − e_0 + 1`.
+    /// Set version `k = targetEpoch − e_0 + 1`.
     k: u64,
-    /// Each member's `bondId` (index in the entries) and entry, sorted by [`mem08_key`].
+    /// Each member's `bondId` (index in the entries) and entry, sorted by [`set_key`].
     selected: Vec<(usize, &'a RegistryEntry)>,
     /// The members, in the order of `selected`.
     members: Vec<Member>,
@@ -547,12 +547,12 @@ fn select<'a>(
     let min_stake = params.s_min.max(params.vp_unit);
     let floor = heartbeat_floor(schedule, params.heartbeat_window, target_epoch, cutoff)?;
 
-    // `(MEM-08 key, bondId, entry)`; `bondId` is the entry's index in the snapshot.
+    // `(set key, bondId, entry)`; `bondId` is the entry's index in the snapshot.
     let mut eligible: Vec<(B256, usize, &RegistryEntry)> = entries
         .iter()
         .enumerate()
         .filter(|(_, e)| is_eligible(e, cutoff, min_stake, floor))
-        .map(|(bond_id, e)| (mem08_key(params.l2_chain_id, e.pubkey), bond_id, e))
+        .map(|(bond_id, e)| (set_key(params.l2_chain_id, e.pubkey), bond_id, e))
         .collect();
     // Equal pubkeys have equal keys, so after the sort the entries of one pubkey are adjacent,
     // lowest bondId first, and `dedup_by_key` keeps exactly that one.
@@ -622,7 +622,7 @@ fn entry_leaf(index: usize, e: &RegistryEntry) -> B256 {
     )
 }
 
-/// The MEM-08 leaf of the member at sorted position `index` (see [`mem08_root`]).
+/// The set-root leaf of the member at sorted position `index` (see [`set_root`]).
 fn set_leaf(l2_chain_id: u64, k: u64, index: usize, m: &Member) -> B256 {
     keccak256(
         [SET_LEAF_TAG, word(l2_chain_id), word(k), word(index), m.pubkey, word(m.eff_stake)]
@@ -630,7 +630,7 @@ fn set_leaf(l2_chain_id: u64, k: u64, index: usize, m: &Member) -> B256 {
     )
 }
 
-/// A MEM-08 inner node over `left` and `right` (see [`mem08_root`]).
+/// A set-root inner node over `left` and `right` (see [`set_root`]).
 fn set_node(l2_chain_id: u64, k: u64, left: B256, right: B256) -> B256 {
     keccak256([SET_NODE_TAG, word(l2_chain_id), word(k), left, right].concat())
 }

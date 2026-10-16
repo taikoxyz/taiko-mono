@@ -8,7 +8,7 @@
 //!
 //! The output follows `EtnaInbox`'s participation shape and the reward pool's settlement rules:
 //! one [`EpochParticipation`] per epoch from `epoch_of(c0)` to `epoch_of(c1)`, in order, counting
-//! each member's verified `BlockIdFlagCommit` signatures in MEM-08 member order, and the
+//! each member's verified `BlockIdFlagCommit` signatures in set-key member order, and the
 //! [`CommitteeMember`] list of every epoch `e` the batch completes (`h_last(e) <= L - 1`), in
 //! ascending order. Committee and participation hashes are Solidity `keccak256(abi.encode(x))`
 //! of one dynamic array `x`, leading offset word included. Under the dummy verifier L1 checks only
@@ -56,12 +56,13 @@ pub struct Participation {
     /// One part per epoch of the batch's commit range, in ascending epoch order; empty when the
     /// batch carries no commit.
     pub parts: Vec<EpochParticipation>,
-    /// The MEM-08 committee list of each epoch the batch completes, in ascending epoch order:
+    /// The committee list, in set-key order, of each epoch the batch completes, in ascending
+    /// epoch order:
     /// `land`'s settlements.
     pub settlements: Vec<Vec<CommitteeMember>>,
 }
 
-/// The authenticated committee's members as the reward pool settles them, in MEM-08 order.
+/// The authenticated committee's members as the reward pool settles them, in set-key order.
 ///
 /// Each member's `bondId` and `activeFromL1` name the registry entry the committee was derived
 /// from, recomputed from the committee's own registry witness ([`member_bond_ids`]); `effStake`
@@ -132,8 +133,8 @@ pub fn committee_hash(members: &[CommitteeMember]) -> B256 {
 /// `signers` must be the verified `last_commit`s of the batch's blocks, exactly heights
 /// `max(parent_height, 1)..=last_height - 1` in order, each with one flag per slot of the
 /// committee of its height's epoch, which `committees` must hold with its registry provenance.
-/// Each slot is mapped to its member's MEM-08 index by public key, and each carrying block's
-/// proposer to its member's MEM-08 index by CometBFT address.
+/// Each slot is mapped to its member's index in set-key order by public key, and each carrying
+/// block's proposer to its member's index by CometBFT address.
 pub fn build(
     schedule: &Schedule,
     params: &ChainParams,
@@ -396,7 +397,7 @@ mod tests {
         )
     }
 
-    /// The registry-backed MEM-08 committee list of `committee`.
+    /// The registry-backed committee list of `committee`, in set-key order.
     fn members(committee: &AuthenticatedCommittee, schedule: &Schedule) -> Vec<CommitteeMember> {
         committee_members(committee, schedule, &crate::test_utils::consensus::parameters()).unwrap()
     }
@@ -444,7 +445,7 @@ mod tests {
     }
 
     #[test]
-    fn participation_maps_cometbft_slots_to_mem08_indices() {
+    fn participation_maps_cometbft_slots_to_set_key_indices() {
         let powers = [3, 4, 1, 2];
         let (params, committee, keys) = committee(&powers, 0);
         let seed_of = |key: &[u8]| {
@@ -464,8 +465,8 @@ mod tests {
             .iter()
             .map(|m| seed_of(m.pubkey.as_slice()))
             .collect::<Vec<_>>();
-        assert_ne!(member_seeds, slot_seeds, "MEM-08 order must differ from CometBFT order");
-        assert_ne!(member_seeds, [1, 2, 3, 4], "MEM-08 order must differ from bond id order");
+        assert_ne!(member_seeds, slot_seeds, "set-key order must differ from CometBFT order");
+        assert_ne!(member_seeds, [1, 2, 3, 4], "set-key order must differ from bond id order");
 
         // Seed s signs the first s of the four commits; seed 3 proposes every block.
         let signers = (1..=4)
@@ -482,12 +483,12 @@ mod tests {
             result.parts[0].signedCounts,
             member_seeds.iter().map(|seed| *seed as u32).collect::<Vec<_>>()
         );
-        // Seed 3's MEM-08 index takes the scores, mapped by address: height 1 carries all 10
+        // Seed 3's set-key index takes the scores, mapped by address: height 1 carries all 10
         // staked, height 2 seeds 2 to 4 (7 of 10), height 3 seeds 3 and 4 (3 of 10) and height 4
         // seed 4 alone (2 of 10).
         let proposer = member_seeds.iter().position(|seed| *seed == 3).unwrap();
         assert_eq!(member_seeds, [4, 3, 2, 1]);
-        // MEM-08 index 1, CometBFT slot 3 and bond id 2 all differ.
+        // Set-key index 1, CometBFT slot 3 and bond id 2 all differ.
         assert_eq!(proposer, 1);
         assert_eq!(slot_seeds.iter().position(|seed| *seed == 3), Some(3));
         let mut scores = vec![0; 4];

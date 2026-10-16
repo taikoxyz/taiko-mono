@@ -107,8 +107,8 @@ pub(crate) fn anchor_state(header: &RawL1Header, inbox: InboxFacts) -> AnchorSta
 /// `genesisCommitteeRecordHash` record hash.
 ///
 /// The witness must prove the account at `inbox` and `layout::inbox::genesis_slots()`. The
-/// returned facts take the last checkpoint from the genesis record (`(B*, H*)`, the genesis
-/// record of #22262's MIG rules) and an empty forced inclusion queue (head = tail = 0: Etna
+/// returned facts take the last checkpoint from the genesis record (`(B*, H*)`, the L2 genesis
+/// block's number and hash) and an empty forced inclusion queue (head = tail = 0: Etna
 /// starts with an empty queue, slot 281 is not part of the genesis witness, and the first block
 /// always carries its own anchor witness). Rejects, in this order: `status != ETNA_ACTIVE`, a
 /// zero genesis hash, a zero bootstrap committee hash, a zero

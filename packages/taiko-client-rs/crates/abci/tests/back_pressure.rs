@@ -1,5 +1,5 @@
 //! Docker scenario: with `lastCheckpoint` frozen on L1 the chain stops at the unsettled depth
-//! `U = D_MAX − MARGIN_V` (HALT-03), and a planted advance resumes it.
+//! `U = D_MAX − MARGIN_V`, and a planted advance resumes it.
 //!
 //! The defaults `D_MAX = 12`, `MARGIN_V = 2` give `U = 10`, comfortably above the ~5–6 blocks the
 //! running fake lander's checkpoint trails the head by (its own lag plus L1 finality), so only
@@ -14,7 +14,7 @@ use abci::l1::layout::inbox;
 use alloy_provider::Provider;
 use test_harness::{Devnet, DevnetSpec};
 
-/// The `/status` halt reason of HALT-03 (`RuleViolation::BackPressure`).
+/// The `/status` halt reason of the back-pressure rule (`RuleViolation::BackPressure`).
 const BACK_PRESSURE: &str = "back_pressure";
 
 #[tokio::test(flavor = "multi_thread")]

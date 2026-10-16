@@ -443,10 +443,11 @@ of 10,000), but as the only proposer A recaptures 32.3% of C's forfeited share a
 exclusion gains A about 1.4% in the long run, and deciding only its own proposals lifts A's bonus
 in any case. Having the guest count extra valid precommits would close the exclusion.
 For each epoch those heights touch, in ascending order, an `EpochParticipation` names the epoch,
-the hash of its committee as `CommitteeMember { bondId, activeFromL1, effStake }` in MEM-08 order
-(read from the committee's authenticated registry witness), per member the number of those
-heights whose commit holds the member's verified `BlockIdFlagCommit` precommit (nil and absent
-votes do not count), and per member its proposer scores: each carrying block's score goes to the
+the hash of its committee as `CommitteeMember { bondId, activeFromL1, effStake }` in set-key order
+(members ascending by `keccak256(abi.encode(bytes32("ETNA_SET_KEY"), l2ChainId, pubkey))`, read
+from the committee's authenticated registry witness), per member the number of those heights whose
+commit holds the member's verified `BlockIdFlagCommit` precommit (nil and absent votes do not
+count), and per member its proposer scores: each carrying block's score goes to the
 member whose CometBFT address, derived from its key, is the block's certified `proposer_address`.
 A carrying block proposed outside the epoch's committee, which only an epoch's first block can be,
 scores for nobody. Each part's scores sum to at most 10,000 per height, as `land` requires. The
@@ -856,7 +857,7 @@ rejection or overflow, and bind cursor advancement/output. A candidate beyond an
 or under another parent context needs a suitable collection path.
 
 A guest must also prove the V7 participation. For each epoch the commit range `[max(p, 1), L - 1]`
-touches, in ascending order, it outputs that epoch committee's `CommitteeMember` list in MEM-08
+touches, in ascending order, it outputs that epoch committee's `CommitteeMember` list in set-key
 order, with every field from the authenticated registry entries of the committee derivation it
 already owes. `signedCounts[i]` is the number of heights `h` in the range and the epoch whose block
 `h + 1` carries a `last_commit` with member `i`'s verified `BlockIdFlagCommit` signature; a seen
@@ -909,7 +910,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 Regenerate lander ABI/deployment fixtures with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `1fad7739a0b27dcad563b2c71e6e0c6ce5eee6d8` (also the
+The script requires protocol HEAD `5787d217f508a115a171f5dafb93a8fb8950c10f` (also the
 `PROTOCOL_REVISION` in `crates/lander/src/contracts.rs`),
 installs pnpm dependencies before Foundry, builds the Inbox, registry, `EtnaRewardPool` and
 SignalService with their test fixtures, verifies compiler source hashes,

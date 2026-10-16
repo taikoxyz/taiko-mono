@@ -61,11 +61,12 @@ pub struct RegistryEntry {
     /// First L1 block number at which the entry is exited (exclusive end of activity);
     /// `u64::MAX` means no exit is scheduled.
     pub exit_effective_l1: u64,
-    /// Start L1 block of the heartbeat window the entry's last accepted heartbeat named
-    /// (MEM-13(2b) of #22262); 0 before the first heartbeat, and also after one naming window 0.
+    /// Start L1 block of the heartbeat window the entry's last accepted heartbeat named;
+    /// 0 before the first heartbeat, and also after one naming window 0.
     pub last_heartbeat_at: u64,
     /// `lastHeartbeatSeq`: the sequence of the entry's last accepted heartbeat; 0 means the entry
-    /// never sent one (MEM-13(3)'s guard, which `last_heartbeat_at` cannot give for window 0).
+    /// never sent one. Eligibility requires a nonzero sequence, a test `last_heartbeat_at` cannot
+    /// give for window 0.
     pub last_heartbeat_seq: u64,
 }
 
@@ -80,7 +81,8 @@ pub struct CommitteeRecord {
     pub cutoff_l1_block: u64,
     /// Index `i` of that registry checkpoint in `checkpoints[]`.
     pub checkpoint_index: u64,
-    /// MEM-08 set root over the members, with `chainId` = the L2 EVM chain id.
+    /// Set root ([`set_root`](crate::committee::set_root)) over the members, with `chainId` = the
+    /// L2 EVM chain id.
     pub set_root: B256,
     /// Sum of the members' effective stake, in TAIKO base units.
     pub total_stake: U256,
@@ -92,8 +94,8 @@ pub struct CommitteeRecord {
 
 /// One committee member, derived from an eligible registry entry.
 ///
-/// Member lists are kept sorted by the MEM-08 sort key
-/// `keccak256(abi.encode("ETNA_SET_KEY", chainId, pubkey))`, ascending.
+/// Member lists are kept in set-key order: ascending by
+/// `keccak256(abi.encode("ETNA_SET_KEY", chainId, pubkey))`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Member {
     /// The member's Ed25519 consensus public key (32 raw bytes).

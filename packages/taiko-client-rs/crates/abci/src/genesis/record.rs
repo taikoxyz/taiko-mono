@@ -29,7 +29,7 @@ pub struct GenesisCommitteeRecord {
     /// checkpoint index, set root and totals.
     #[serde(serialize_with = "serialize_record")]
     pub record: CommitteeRecord,
-    /// The members, sorted by the MEM-08 key; their powers become the genesis validator set.
+    /// The members, in set-key order; their powers become the genesis validator set.
     #[serde(serialize_with = "serialize_members")]
     pub members: Vec<Member>,
     /// The L1 block the registry snapshot was read and proven at (the proving block).
