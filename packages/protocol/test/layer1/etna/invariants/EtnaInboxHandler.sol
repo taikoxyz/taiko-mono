@@ -82,8 +82,9 @@ contract EtnaInboxHandler is CommonBase {
 
     /// @dev The EIP-2935 history storage contract and its runtime code.
     address internal constant HISTORY_STORAGE = 0x0000F90827F1C53a10cb7A02335B175320002935;
-    bytes internal constant HISTORY_STORAGE_CODE =
-        hex"3373fffffffffffffffffffffffffffffffffffffffe14604657602036036042575f35600143038111604257611fff81430311604257611fff9006545f5260205ff35b5f5ffd5b5f35611fff60014303065500";
+    bytes internal constant HISTORY_STORAGE_CODE = hex"3373fffffffffffffffffffffffffffffffffffffffe"
+        hex"14604657602036036042575f35600143038111"
+        hex"604257611fff81430311604257611fff9006545f5260205ff35b5f5ffd5b5f35611fff60014303065500";
 
     bytes internal constant PROOF = "etna proof";
     uint256 internal constant MAX_TX_BYTES = 8192;

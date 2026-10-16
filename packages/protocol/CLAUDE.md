@@ -255,3 +255,13 @@ For upgradeable contracts:
 ---
 
 **Note**: For monorepo-wide guidance, see root `/CLAUDE.md`
+
+## Etna new-genesis rewards
+
+Etna uses nonpayable V8 landing statements (20 words), receipt commitments at Inbox mapping
+slot 283, and explicit proof-based claims from the immutable L2 treasury. Keep L1 queue-fee
+`feeRecipient` separate from `l2RewardRecipient`; there is no L1 reward pool, DAO subsidy,
+pre-funding or participation settlement. Follow `contracts/layer1/etna/README.md` for predicted
+Inbox/genesis ordering, immutable registration recipients and strict format boundaries. The real
+guest is absent; dummy verifier tests establish contract/client behavior only. Preserve the
+mandatory `solidity-tester` delegation above for all Solidity test work.
