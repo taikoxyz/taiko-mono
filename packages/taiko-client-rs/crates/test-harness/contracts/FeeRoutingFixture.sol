@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 /// @notice Real EVM effects for the fee-routing acceptance suite.
 contract FeeRoutingFixture {
+    /// @notice The stored value used to observe storage refunds and delegated execution.
     uint256 public value;
 
     /// @notice Writes a nonzero storage value before the refund test.

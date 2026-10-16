@@ -1,7 +1,7 @@
 {
   "artifact": {
     "path": "crates/test-harness/contracts/FeeRoutingFixture.json",
-    "sha256": "c65f66091219bf59afb6d0b3dbe6ed9ca65d80670b76766970ebf9e9e45eb744"
+    "sha256": "474cccda0fd37e58c008cfbb3b089690ed56ac1879d3f7740f5cce1e27f4ad5f"
   },
   "compiler": {
     "version": "0.8.30+commit.73712a01"
@@ -29,8 +29,8 @@
     "remappings": []
   },
   "source": {
-    "keccak256": "0x7d153ad823506f5c3b490f518fc675b35fe9d87300ee745ba4783789ae3a9624",
+    "keccak256": "0xb9723e7a21bd5da4aa92d91cae70f6b9f2de233a184549cb715a4c549d7f1d58",
     "path": "crates/test-harness/contracts/FeeRoutingFixture.sol",
-    "sha256": "a2dbb1095d420000be0d5662ea4942ab2058332627e0086e8fe88839041af62f"
+    "sha256": "453171cff809a5e3a2ceed558202582712d1bdd5ab0e159142c34815a07d5f9c"
   }
 }
