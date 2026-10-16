@@ -1,7 +1,8 @@
 //! Canonical L2 reward receipts and checked host accounting over authenticated execution headers.
 //!
-//! Header multiplication is a host implementation pending the real EL fee identity checks. A
-//! future guest must authenticate each transaction's actual charges by reexecution.
+//! Real EL regressions cover the executed-header fee identity, including refunds and reverts.
+//! A future guest must independently authenticate actual charges and destinations by reexecution;
+//! those runtime regressions do not establish validity-proof soundness.
 
 use crate::{LanderError, Result};
 use alloy::sol_types::SolValue;
@@ -80,8 +81,8 @@ pub fn receipt_slot(id: B256) -> B256 {
 }
 
 /// Sum base fee times gas used over already authenticated headers, rejecting missing base fees
-/// and arithmetic overflow. This host formula still requires the Task10 real EL fee identity
-/// acceptance; a future guest must authenticate transaction charges by reexecution.
+/// and arithmetic overflow. Real EL acceptance covers this fee identity; a future guest must
+/// independently authenticate transaction charges and destinations by reexecution.
 pub fn basefee_sum(headers: &[Header]) -> Result<U256> {
     headers.iter().try_fold(U256::ZERO, |sum, header| {
         let fee = header

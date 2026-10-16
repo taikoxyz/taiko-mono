@@ -343,7 +343,13 @@ interface IEtnaInbox {
     /// [forcedInclusionHeadBefore, forcedInclusionHeadAfter) in order. An EL-dependent skip needs
     /// an execution witness and guest execution of the singleton on the authenticated parent
     /// with the candidate attributes; debug_executionWitnessForTxList generates that witness.
-    /// feeRecipient is a public input the guest binds but does not constrain. No expiry-derived
+    /// feeRecipient and l2RewardRecipient are nonzero public inputs chosen by the lander and
+    /// bound by the proof; neither is derived from a block proposer. Authenticate each block's
+    /// beneficiary as the registered recipient of the original proposer in its certified CometBFT
+    /// header under that height's committee, including valid blocks retained across rounds.
+    /// Reexecute transactions to authenticate actual fee charges and destinations, and prove
+    /// baseFeeAmount = sum(header.baseFeePerGas * header.gasUsed) over the landed range.
+    /// The receipt binds the lander's l2RewardRecipient and this exact amount. No expiry-derived
     /// deletion exists, but BFT time suppression can still delay inclusion and a quorum can stop
     /// settlement; these rules do not establish a wall-clock deadline.
     ///

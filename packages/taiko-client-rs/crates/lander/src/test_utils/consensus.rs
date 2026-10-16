@@ -35,19 +35,49 @@ pub fn parameters() -> ChainParams {
     params
 }
 
-/// A committee of one member per power, keyed by seeds `1..`, with a registry provenance whose
-/// entries are those keys in seed order (bond id = seed - 1), active from L1 block 1 and staking
+/// A committee of one member per power, keyed by domain-separated full-width indices, with
+/// registry entries in index order (bond id = index), active from L1 block 1 and staking
 /// their power, preserving the authenticated registry stake for epoch derivation.
 pub fn committee(
     powers: &[u64],
     epoch: u64,
 ) -> (ChainParams, AuthenticatedCommittee, Vec<SigningKey>) {
-    let params = parameters();
     let keys = powers
         .iter()
         .enumerate()
-        .map(|(i, _)| SigningKey::from_bytes(&[u8::try_from(i + 1).unwrap(); 32]))
+        .map(|(i, _)| {
+            let index = u64::try_from(i).unwrap();
+            let seed = Sha256::new()
+                .chain_update(b"etna-lander-test-member")
+                .chain_update(index.to_be_bytes())
+                .finalize();
+            SigningKey::from_bytes(&seed.into())
+        })
         .collect::<Vec<_>>();
+    committee_with_keys(powers, epoch, keys)
+}
+
+/// Reproduce the fixed one-byte seeds of the checked-in stock-Go differential vectors.
+/// This bounded fixture convention is separate from the general full-width member builder.
+pub fn stock_go_committee(
+    powers: &[u64],
+    epoch: u64,
+) -> (ChainParams, AuthenticatedCommittee, Vec<SigningKey>) {
+    assert!(powers.len() <= usize::from(u8::MAX), "stock-Go fixture seed range");
+    let keys = (1..=powers.len())
+        .map(|index| SigningKey::from_bytes(&[u8::try_from(index).unwrap(); 32]))
+        .collect();
+    committee_with_keys(powers, epoch, keys)
+}
+
+/// Build the same authenticated member structure for either deterministic test-key convention.
+fn committee_with_keys(
+    powers: &[u64],
+    epoch: u64,
+    keys: Vec<SigningKey>,
+) -> (ChainParams, AuthenticatedCommittee, Vec<SigningKey>) {
+    let mut params = parameters();
+    params.n_max = params.n_max.max(powers.len());
     let mut members = keys
         .iter()
         .zip(powers)
