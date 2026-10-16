@@ -1,9 +1,11 @@
 """Regression tests for the alloc-only Etna genesis builder (stdlib only)."""
 import importlib.util
 import json
-from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[3] / "script/layer2/build_etna_genesis.py"
 
@@ -72,6 +74,52 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
                 self.builder.build(self.base, self.runtime)
         finally:
             self.builder.ROOTS_RUNTIME = original
+
+    def test_cli_rejects_duplicate_literal_alloc_keys_without_output(self):
+        key = "0xabcdef0000000000000000000000000000000000"
+        raw_base = ('{"config":{"chainId":167001},"alloc":{'
+                    + json.dumps(key) + ':{"balance":"123"},'
+                    + json.dumps(key) + ':{"balance":"456"}}}')
+        self._assert_cli_rejected(raw_base, json.dumps(self.runtime))
+
+    def test_cli_rejects_normalized_alloc_aliases_without_output(self):
+        self.base["alloc"]["0xabcdef0000000000000000000000000000000000"] = {"balance": "456"}
+        self._assert_cli_rejected(json.dumps(self.base), json.dumps(self.runtime),
+                                  "duplicate alloc address after normalization")
+
+    def test_cli_rejects_duplicate_runtime_metadata_keys_without_output(self):
+        for key in ("l1ChainId", "l1Inbox", "runtime"):
+            with self.subTest(key=key):
+                # Repeating the same value is ambiguous too; neither occurrence may win.
+                raw_runtime = ("{" + json.dumps(key) + ":" + json.dumps(self.runtime[key])
+                               + "," + json.dumps(self.runtime)[1:])
+                self._assert_cli_rejected(json.dumps(self.base), raw_runtime)
+
+    def test_cli_valid_json_preserves_output_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result, output = self._run_cli(directory, json.dumps(self.base), json.dumps(self.runtime))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            expected = (json.dumps(self.builder.build(self.base, self.runtime),
+                                   sort_keys=True, indent=2) + "\n").encode()
+            self.assertEqual(output.read_bytes(), expected)
+
+    def _assert_cli_rejected(self, raw_base, raw_runtime, diagnostic="duplicate JSON key"):
+        with tempfile.TemporaryDirectory() as directory:
+            result, output = self._run_cli(directory, raw_base, raw_runtime)
+            self.assertFalse(output.exists(), "ambiguous input must not create genesis output")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(diagnostic, result.stderr)
+
+    def _run_cli(self, directory, raw_base, raw_runtime):
+        base = Path(directory) / "base.json"
+        runtime = Path(directory) / "runtime.json"
+        output = Path(directory) / "genesis.json"
+        base.write_text(raw_base)
+        runtime.write_text(raw_runtime)
+        result = subprocess.run([sys.executable, str(SCRIPT), "--base", str(base),
+                                 "--runtime", str(runtime), "--output", str(output)],
+                                text=True, capture_output=True, check=False)
+        return result, output
 
     def test_write_is_deterministic(self):
         with tempfile.TemporaryDirectory() as directory:

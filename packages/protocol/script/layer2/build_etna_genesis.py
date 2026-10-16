@@ -68,6 +68,21 @@ def write(genesis, output):
     Path(output).write_text(json.dumps(genesis, sort_keys=True, indent=2) + "\n")
 
 
+def _unique_object(pairs):
+    """Reject duplicate literal keys before JSON decoding can discard earlier values."""
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON key: " + repr(key))
+        result[key] = value
+    return result
+
+
+def load(path):
+    """Load base or runtime JSON, requiring unique keys in every nested object."""
+    return json.loads(Path(path).read_text(), object_pairs_hook=_unique_object)
+
+
 def main():
     """Read explicit input paths and emit the alloc-only genesis."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -75,7 +90,7 @@ def main():
     parser.add_argument("--runtime", type=Path, required=True, help="ExportEtnaGenesis JSON")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    write(build(json.loads(args.base.read_text()), json.loads(args.runtime.read_text())), args.output)
+    write(build(load(args.base), load(args.runtime)), args.output)
 
 
 if __name__ == "__main__":
