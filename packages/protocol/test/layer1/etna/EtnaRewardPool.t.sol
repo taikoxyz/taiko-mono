@@ -468,8 +468,8 @@ contract EtnaRewardPoolTest is CommonTest {
         settlements[0] = committee;
         settlements[1] = committee;
         IEtnaInbox.EpochParticipation[] memory parts = new IEtnaInbox.EpochParticipation[](2);
-        parts[0] = _part(0, _hash(committee), _counts2(1, 1));
-        parts[1] = _part(1, _hash(committee), _counts2(1, 1));
+        parts[0] = _part(0, _hash(committee), _counts2(10, 10));
+        parts[1] = _part(1, _hash(committee), _counts2(10, 10));
 
         halfPool.recordLanding(21, EPOCH_LEN, parts, settlements);
 
@@ -486,27 +486,26 @@ contract EtnaRewardPoolTest is CommonTest {
 
     function test_recordLanding_RoundsDownAndLeavesTheRemainderFree() external {
         EtnaRewardPool fullPool = _deployPool(address(bridge), 1_000_000, 0, 0);
-        vm.deal(address(fullPool), 10);
+        vm.deal(address(fullPool), 11);
         uint256 inboxBefore = address(this).balance;
-        // Weights 1000·3 : 3000·1 : 1000·3 = 1 : 1 : 1.
+        // Everyone signs all ten heights: weights 1000 : 3000 : 1000 of 11 wei are 2.2, 6.6 and
+        // 2.2.
         IEtnaInbox.CommitteeMember[] memory committee = _aliceBobCarol();
         uint32[] memory counts = new uint32[](3);
-        counts[0] = 3;
-        counts[1] = 1;
-        counts[2] = 3;
+        (counts[0], counts[1], counts[2]) = (10, 10, 10);
 
         fullPool.recordLanding(
             11, EPOCH_LEN, _single(_part(0, _hash(committee), counts)), _settle(committee)
         );
 
         IEtnaRewardPool.EpochRecord memory record = fullPool.epochRecord(0);
-        assertEq(record.alloc, 10);
-        assertEq(record.paid, 9);
+        assertEq(record.alloc, 11);
+        assertEq(record.paid, 10);
         assertEq(record.provingShare, 0);
-        assertEq(fullPool.creditsOf(Alice), 3);
-        assertEq(fullPool.creditsOf(Bob), 3);
-        assertEq(fullPool.creditsOf(Carol), 3);
-        assertEq(fullPool.reservedTotal(), 9);
+        assertEq(fullPool.creditsOf(Alice), 2);
+        assertEq(fullPool.creditsOf(Bob), 6);
+        assertEq(fullPool.creditsOf(Carol), 2);
+        assertEq(fullPool.reservedTotal(), 10);
         assertEq(fullPool.freeBalance(), 1);
         // A zero proving share sends nothing to the inbox.
         assertEq(address(this).balance, inboxBefore);
@@ -564,6 +563,106 @@ contract EtnaRewardPoolTest is CommonTest {
         assertEq(pool.epochRecord(0).paid, 6 ether);
         assertEq(pool.creditsOf(Alice), 1.5 ether);
         assertEq(pool.creditsOf(Bob), 4.5 ether);
+    }
+
+    /// @dev The base divides by the whole committee's weight, its stake times the epoch length,
+    /// so each signed height earns the same whoever else signed. Alice signs four of the ten
+    /// heights and Bob all ten: Alice earns 6 ether * 1000 * 4 / (4000 * 10) = 0.6 ether and Bob
+    /// 4.5 ether, and the base of Alice's six missing heights stays free.
+    function test_recordLanding_PaysEachSignedHeightItsShareOfTheFullWeight() external {
+        vm.deal(address(pool), 10 ether);
+        IEtnaInbox.CommitteeMember[] memory committee = _aliceAndBob();
+
+        _record(11, _single(_part(0, _hash(committee), _counts2(4, 10))), _settle(committee));
+
+        assertEq(pool.creditsOf(Alice), 0.6 ether);
+        assertEq(pool.creditsOf(Bob), 4.5 ether);
+        assertEq(pool.epochRecord(0).paid, 5.1 ether);
+        assertEq(pool.freeBalance(), 0.9 ether, "Alice's unsigned heights");
+        assertTrue(pool.checkInvariants());
+    }
+
+    /// @dev Bob, three quarters of the stake, is offline and signs nothing. Alice still earns
+    /// only her quarter of the 6 ether, and Bob's 4.5 ether stays in the free balance for later
+    /// epochs rather than going to Alice.
+    function test_recordLanding_AnOfflineMembersBaseStaysFree() external {
+        vm.deal(address(pool), 10 ether);
+        IEtnaInbox.CommitteeMember[] memory committee = _aliceAndBob();
+
+        vm.recordLogs();
+        _record(11, _single(_part(0, _hash(committee), _counts2(10, 0))), _settle(committee));
+
+        assertEq(_countLogs(vm.getRecordedLogs(), IEtnaRewardPool.ValidatorRewarded.selector), 1);
+        assertEq(pool.creditsOf(Alice), 1.5 ether, "a quarter of 6 ether");
+        assertEq(pool.creditsOf(Bob), 0);
+        assertEq(pool.epochRecord(0).paid, 1.5 ether);
+        assertEq(pool.reservedTotal(), 1.5 ether);
+        assertEq(pool.freeBalance(), 4.5 ether, "Bob's base stays free");
+        assertTrue(pool.checkInvariants());
+    }
+
+    /// @dev Carol's count falls from ten to seven, as when a proposer leaves her precommit out
+    /// of three of its blocks; with the scores unchanged, Alice's and Bob's credits are exactly
+    /// what they are when Carol signs everything, and only Carol's falls.
+    function test_recordLanding_OmittingAMemberChangesNoOtherMembersCredit() external {
+        IEtnaInbox.CommitteeMember[] memory committee = _aliceBobCarol();
+        uint32[] memory scores = new uint32[](3);
+        (scores[0], scores[1], scores[2]) = (30_000, 40_000, 30_000);
+        uint32[] memory signed = new uint32[](3);
+        (signed[0], signed[1], signed[2]) = (10, 10, 10);
+        uint32[] memory omitted = new uint32[](3);
+        (omitted[0], omitted[1], omitted[2]) = (10, 10, 7);
+
+        EtnaRewardPool honest = _freezeFresh(committee, signed, scores, EPOCH_LEN, BONUS_PPM);
+        EtnaRewardPool omitting = _freezeFresh(committee, omitted, scores, EPOCH_LEN, BONUS_PPM);
+
+        assertEq(omitting.creditsOf(Alice), honest.creditsOf(Alice), "Alice");
+        assertEq(omitting.creditsOf(Bob), honest.creditsOf(Bob), "Bob");
+        assertLt(omitting.creditsOf(Carol), honest.creditsOf(Carol), "Carol");
+    }
+
+    /// @dev Defence in depth: counts above the epoch length, fed straight to the pool, cannot
+    /// make it credit more than the base part. Alice and Bob each report 30 signed heights of a
+    /// ten-height epoch, a weight of 120,000 ether-heights against the committee's full 40,000,
+    /// so the pool divides by the larger: 1 : 3 of the 6 ether. Dividing by the full weight would
+    /// have credited 18 ether and left the balance below the reservations.
+    function test_recordLanding_OverCapCountsCreditAtMostTheBasePart() external {
+        vm.deal(address(pool), 10 ether);
+        IEtnaInbox.CommitteeMember[] memory committee = _aliceAndBob();
+
+        _record(11, _single(_part(0, _hash(committee), _counts2(30, 30))), _settle(committee));
+
+        assertEq(pool.creditsOf(Alice), 1.5 ether);
+        assertEq(pool.creditsOf(Bob), 4.5 ether);
+        assertEq(pool.epochRecord(0).paid, 6 ether);
+        assertEq(pool.reservedTotal(), 6 ether);
+        assertEq(pool.freeBalance(), 0);
+        assertTrue(pool.checkInvariants());
+    }
+
+    /// @dev Any counts, within the Inbox's bound or not, credit at most the base part and keep
+    /// the balance above the reservations. The pool pays no bonus, so every credit is base.
+    function testFuzz_recordLanding_AnyCountsCreditAtMostTheBasePart(
+        uint32 _a,
+        uint32 _b,
+        uint32 _c,
+        uint96 _balance
+    )
+        external
+    {
+        vm.deal(address(pool), _balance);
+        IEtnaInbox.CommitteeMember[] memory committee = _aliceBobCarol();
+        uint32[] memory counts = new uint32[](3);
+        (counts[0], counts[1], counts[2]) = (_a, _b, _c);
+
+        _record(11, _single(_part(0, _hash(committee), counts)), _settle(committee));
+
+        uint256 baseAlloc = uint256(_balance) * VALIDATOR_PPM / 1_000_000;
+        uint256 credited = pool.creditsOf(Alice) + pool.creditsOf(Bob) + pool.creditsOf(Carol);
+        assertLe(credited, baseAlloc);
+        assertEq(pool.epochRecord(0).paid, credited);
+        assertEq(pool.reservedTotal(), credited);
+        assertTrue(pool.checkInvariants());
     }
 
     function test_recordLanding_DonationRaisesOnlyLaterAllocations() external {
@@ -704,7 +803,7 @@ contract EtnaRewardPoolTest is CommonTest {
         uint256 gasUsed = vm.lastCallGas().gasTotalUsed;
         console2.log("recordLanding gas, 128 members:", gasUsed);
 
-        // Measured 5,005,164 cold (4,464,698 before proposer scores); the bound leaves about 10%.
+        // Measured 5,017,144 cold (4,464,698 before proposer scores); the bound leaves about 10%.
         assertLt(gasUsed, 5_500_000);
         assertEq(pool.epochRecord(0).frozenAtL1, block.number);
         assertEq(pool.reservedTotal(), pool.epochRecord(0).paid);
@@ -921,55 +1020,76 @@ contract EtnaRewardPoolTest is CommonTest {
         assertTrue(pool.checkInvariants());
     }
 
-    /// @dev The README's example: A (30%), B (37%) and C (33%) each propose their stake's share
-    /// of 100 blocks and everyone signs everything, or A leaves C's precommit out of its 30
-    /// blocks. Omitting raises A's base part from 30% to 3000 / 9010 of it but drops A's score
-    /// per block from 10,000 to 6,700. With a 30% bonus A loses more bonus than it gains base;
-    /// with a 20% bonus omitting pays.
-    function test_recordLanding_OmittingASignerCostsTheOmitterAtAThirtyPercentBonus() external {
-        IEtnaInbox.CommitteeMember[] memory committee = new IEtnaInbox.CommitteeMember[](3);
-        address[3] memory owners = [address(0xa0), address(0xb0), address(0xc0)];
-        uint256[3] memory stakes = [uint256(3000 ether), 3700 ether, 3300 ether];
-        for (uint256 i; i < 3; ++i) {
+    /// @dev The README's example: of 1000 heights, A (33.3% of the stake), B (33.4%) and C
+    /// (23.3%) sign every height and D (10%) is offline. Every block carries A, B and C, 90% of
+    /// the stake, and scores 9000; A proposes 370 blocks, B 371 and C 259. Or A leaves C's
+    /// precommit out of its 370 blocks, which then carry 66.7% and score 6670, so C signs 630
+    /// heights. The base divides by the committee's full weight, so A's base part does not
+    /// change: omitting only costs A its lower scores, at any bonus share, and leaves B's credit
+    /// as it was. Divided by the signed weight instead, A's base part would rise from 37% to
+    /// 40.9% of the base and omitting would pay A even at a 30% bonus.
+    function test_recordLanding_OmittingASignerNeverPaysTheOmitter() external {
+        IEtnaInbox.CommitteeMember[] memory committee = new IEtnaInbox.CommitteeMember[](4);
+        uint256[4] memory stakes = [uint256(3330 ether), 3340 ether, 2330 ether, 1000 ether];
+        for (uint256 i; i < 4; ++i) {
             (uint256 bondId, uint64 activeFromL1) =
-                _registerValidator(owners[i], bytes32(0xe000 + i), stakes[i]);
+                _registerValidator(_exampleOwner(i), bytes32(0xe000 + i), stakes[i]);
             committee[i] = _member(bondId, activeFromL1, stakes[i]);
         }
-        uint32[] memory honestCounts = new uint32[](3);
-        (honestCounts[0], honestCounts[1], honestCounts[2]) = (100, 100, 100);
-        uint32[] memory honestScores = new uint32[](3);
-        (honestScores[0], honestScores[1], honestScores[2]) = (300_000, 370_000, 330_000);
-        uint32[] memory omittingCounts = new uint32[](3);
-        (omittingCounts[0], omittingCounts[1], omittingCounts[2]) = (100, 100, 70);
-        uint32[] memory omittingScores = new uint32[](3);
-        (omittingScores[0], omittingScores[1], omittingScores[2]) = (201_000, 370_000, 330_000);
+        uint32[] memory signedCounts = new uint32[](4);
+        (signedCounts[0], signedCounts[1], signedCounts[2]) = (1000, 1000, 1000);
+        uint32[] memory signedScores = new uint32[](4);
+        (signedScores[0], signedScores[1], signedScores[2]) = (3_330_000, 3_339_000, 2_331_000);
+        uint32[] memory omittingCounts = new uint32[](4);
+        (omittingCounts[0], omittingCounts[1], omittingCounts[2]) = (1000, 1000, 630);
+        uint32[] memory omittingScores = new uint32[](4);
+        (omittingScores[0], omittingScores[1], omittingScores[2]) =
+        (2_467_900, 3_339_000, 2_331_000);
 
-        uint32[2] memory bonuses = [uint32(300_000), 200_000];
-        for (uint256 b; b < 2; ++b) {
-            uint256 honest = _creditOfA(committee, honestCounts, honestScores, bonuses[b]);
-            uint256 omitting = _creditOfA(committee, omittingCounts, omittingScores, bonuses[b]);
-            if (b == 0) assertGt(honest, omitting, "a 30% bonus makes omitting unprofitable");
-            else assertLt(honest, omitting, "a 20% bonus does not");
+        uint32[3] memory bonuses = [uint32(300_000), 100_000, 0];
+        for (uint256 b; b < 3; ++b) {
+            EtnaRewardPool honest =
+                _freezeFresh(committee, signedCounts, signedScores, 1000, bonuses[b]);
+            EtnaRewardPool omitting =
+                _freezeFresh(committee, omittingCounts, omittingScores, 1000, bonuses[b]);
+            uint256 a = honest.creditsOf(_exampleOwner(0));
+            uint256 aOmitting = omitting.creditsOf(_exampleOwner(0));
+            if (bonuses[b] == 0) {
+                assertEq(aOmitting, a, "without a bonus, A's credit is unchanged");
+            } else {
+                assertLt(aOmitting, a, "omitting costs A its lower scores");
+            }
+            assertEq(omitting.creditsOf(_exampleOwner(1)), honest.creditsOf(_exampleOwner(1)), "B");
+            assertLt(omitting.creditsOf(_exampleOwner(2)), honest.creditsOf(_exampleOwner(2)), "C");
+            assertEq(honest.creditsOf(_exampleOwner(3)), 0, "D is offline");
         }
     }
 
-    /// @dev Freezes one 100-block epoch of a fresh pool holding 1 ether, every wei to validators,
-    /// and returns the credit of the committee's first member.
-    function _creditOfA(
+    /// @dev The registration owner of the README example's member `_index`.
+    function _exampleOwner(uint256 _index) internal pure returns (address) {
+        return address(uint160(0xa0 + 0x10 * _index));
+    }
+
+    /// @dev Freezes one `_epochLen`-block epoch of a fresh pool holding 1 ether, every wei to
+    /// validators with `_bonusPpm` of it as bonus, and returns the pool.
+    function _freezeFresh(
         IEtnaInbox.CommitteeMember[] memory _committee,
         uint32[] memory _counts,
         uint32[] memory _scores,
+        uint64 _epochLen,
         uint32 _bonusPpm
     )
         internal
-        returns (uint256)
+        returns (EtnaRewardPool fresh_)
     {
-        EtnaRewardPool fresh = _deployPool(address(bridge), 1_000_000, 0, _bonusPpm);
-        vm.deal(address(fresh), 1 ether);
-        fresh.recordLanding(
-            101, 100, _single(_part(0, _hash(_committee), _counts, _scores)), _settle(_committee)
+        fresh_ = _deployPool(address(bridge), 1_000_000, 0, _bonusPpm);
+        vm.deal(address(fresh_), 1 ether);
+        fresh_.recordLanding(
+            _epochLen + 1,
+            _epochLen,
+            _single(_part(0, _hash(_committee), _counts, _scores)),
+            _settle(_committee)
         );
-        return fresh.creditsOf(address(0xa0));
     }
 
     // ---------------------------------------------------------------

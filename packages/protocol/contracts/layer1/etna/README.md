@@ -724,17 +724,24 @@ upgrade it. Nothing in the pool is pausable. Its free balance is `balance - rese
   earlier one's unpaid remainder.
 - Settlement. `bonusAlloc = alloc * proposerBonusPpm / 1e6` and `baseAlloc = alloc - bonusAlloc`.
   Member `i` weighs `effStake_i * signedCount_i`; its base part is
-  `mulDiv(baseAlloc, weight, totalWeight)`, or nothing when the total weight is zero, and its bonus
-  part is `mulDiv(bonusAlloc, proposerScore_i, max(10_000 * epochLenL2, totalScore))`, both rounded
-  down, where `totalScore` sums the committee members' scores; counts and scores at indices past
-  the committee are ignored. The Inbox keeps `totalScore` at most `10_000 * epochLenL2`, and the
-  maximum guards the pool if recorded scores ever exceeded it: the bonus parts never sum to more
-  than `bonusAlloc`, so the pool stays solvent. A member whose sum is non-zero is credited it
-  to `registrationOwnerOf(bondId, activeFromL1)`, emitting `ValidatorRewarded` with the sum; a
-  member whose registration has no owner is skipped. The credited sum is the epoch's `paid` and
-  joins `reservedTotal`. `alloc - paid` (rounding remainders, ownerless shares and the bonus no
-  proposer earned) never leaves the free balance. The proving share is then sent to the Inbox, and
-  `EpochFrozen(e, alloc, paid, provingShare)` is emitted.
+  `mulDiv(baseAlloc, weight, max(fullWeight, totalWeight))`, or nothing when the total weight is
+  zero, and its bonus part is
+  `mulDiv(bonusAlloc, proposerScore_i, max(10_000 * epochLenL2, totalScore))`, both rounded down.
+  `fullWeight` sums `effStake_j * epochLenL2` over the committee, the weight of an epoch whose every
+  height every member signed; `totalWeight` sums the members' weights and `totalScore` their
+  scores; counts and scores at indices past the committee are ignored. Each height lands once and
+  the Inbox bounds each landing's counts and scores, so `totalWeight <= fullWeight` and
+  `totalScore <= 10_000 * epochLenL2`, and each part is that fraction of what the whole committee
+  could have earned. The maxima guard the pool if recorded values ever exceeded those bounds: the
+  base and bonus parts never sum to more than `baseAlloc` and `bonusAlloc`, so the pool stays
+  solvent. A member whose sum is non-zero is credited it to
+  `registrationOwnerOf(bondId, activeFromL1)`, emitting `ValidatorRewarded` with the sum; a member
+  whose registration has no owner is skipped. The credited sum is the epoch's `paid` and joins
+  `reservedTotal`. `alloc - paid` (rounding remainders, ownerless shares, the base of heights that
+  members did not sign and the bonus no proposer earned) never leaves the free balance, so an
+  offline member's share raises later epochs' allocations rather than the online members' credits.
+  The proving share is then sent to the Inbox, and `EpochFrozen(e, alloc, paid, provingShare)` is
+  emitted.
 - Withdrawal. `withdrawRewards(to)` sends all of the caller's credits to a non-zero `to`, releases
   their reservation and emits `RewardsWithdrawn`; a rejected transfer reverts, and a caller without
   credits gets 0. Credits belong to the registration owner, not to the slot's current `bondOwner`.
@@ -744,10 +751,14 @@ upgrade it. Nothing in the pool is pausable. Its free balance is `balance - rese
 ### Proposer bonus
 
 The proposer of block `h + 1` chooses which precommits for height `h` its `last_commit` carries,
-beyond the 2/3 it needs, and those signatures are what the base part pays for. To make leaving
-one out cost the proposer, the bonus part pays each block's proposer for the stake its
-`last_commit` includes, as Cosmos's proposer reward does:
+beyond the 2/3 it needs, and those signatures are what the base part pays for. Leaving one out
+must pay nobody: the base part's denominator sees to that, and the bonus part makes it cost the
+proposer, as Cosmos's proposer reward does:
 
+- The base part divides by the committee's full weight, not by the weight that signed, so a
+  member's base part depends only on its own stake and signed heights. Omitting a precommit
+  lowers the omitted member's count and raises nobody's base part, the omitter's included; the
+  omitted heights' base stays in the free balance for later epochs.
 - Each block `h + 1` (`h >= 1`) scores `floor(10_000 * includedEffStake / totalEffStake)` with the
   committee of `h`'s epoch: 10,000 when every member's precommit is included. The score goes to the
   member whose CometBFT address is the block's `proposer_address`. A block whose proposer is not
@@ -756,27 +767,23 @@ one out cost the proposer, the bonus part pays each block's proposer for the sta
 - An epoch of `epochLenL2` heights can score at most `10_000 * epochLenL2`, and each member
   receives that fraction of `bonusAlloc` its scores earned. The pool divides by the committee's
   score total instead when it is larger, which the Inbox's bound rules out, so the bonus never
-  exceeds `bonusAlloc`. The bonus that no proposer earned (omitted stake, dropped boundary
-  scores, rounding) stays in the free balance for later epochs, rather than going to the other
-  members.
-- The base part is the rest of the validator share, split by stake times signed heights exactly
-  as without a bonus.
+  exceeds `bonusAlloc`. The bonus that no proposer earned (omitted or offline stake, dropped
+  boundary scores, rounding) stays in the free balance for later epochs, rather than going to the
+  other members.
 
-Devnets set `proposerBonusPpm = 300,000`. The share must outweigh what omitting a precommit
-gains through the base part. Let every member propose its stake's share of the blocks and sign
-every height, except that one omitter with stake share `a` leaves precommits of stake share `c`
-out of its own blocks; it must keep `1 - c` above 2/3, so `c < 1/3`. The omitted members' signed
-heights fall to `1 - a` of the epoch, so the omitter's base share rises from `a` to
-`a / (1 - a * c)`, and its blocks score `10,000 * (1 - c)` instead of 10,000, so its bonus share
-falls from `a` to `a * (1 - c)`. With bonus share `β`, omitting pays
-`(1 - β) * a / (1 - a * c) + β * a * (1 - c)` against `a` for signing, so it is unprofitable
-exactly when `β > β* = a / (1 + a * (1 - c))`. `β*` grows with both `a` and `c` and approaches
-`3/11` (about 27.3%) as both approach 1/3, so a 30% bonus makes omission unprofitable for every
-single omitter below 1/3. For example, with A at 30%, B at 37% and C at 33% of the stake, A
-leaving C's precommit out of its own blocks (A and B still clear 2/3) raises A's base part from
-30% to `3000 / 9010` (about 33.3%) of `baseAlloc`, and drops the score of A's blocks from 10,000
-to 6,700, so A's bonus falls from 30% to 20.1% of `bonusAlloc`. Here `β*` is about 25%; at 30%
-omitting costs A about 2.2% of its reward, while C still loses about 16%.
+Devnets set `proposerBonusPpm = 300,000`. Since omission gains nothing through the base part, for
+any bonus share and any number of omitters, the bonus share does not have to exceed a threshold:
+it is a positive incentive to include signatures, as each block whose proposer leaves stake share
+`c` out scores `10_000 * c` less. For example, over 1000 heights, A (33.3% of
+the stake), B (33.4%) and C (23.3%) sign every height and D (10%) is offline, so every block
+carries 90% and scores 9000; A proposes 370 blocks, B 371 and C 259. With a 30% bonus A earns
+33.30% of the validator share, B 33.40%, C 23.30%, and D's 10% stays free. If A leaves C's
+precommit out of its 370 blocks (A and B still clear 2/3), C signs only 630 heights and A's blocks
+score 6670: A's credit falls to 30.71%, B's stays 33.40% and C's falls to 17.27%. Had the base
+divided by the signed weight, D's absence alone would have raised everyone's base, and the omission
+would have raised A's base part from 37% to 40.9% of `baseAlloc` and A's credit from 35.89% to
+36.05% even at a 30% bonus. The price of the full-weight base is that online members no longer
+absorb an offline member's share; it stays free and rolls into later epochs.
 
 ### Landing reward
 
@@ -827,6 +834,10 @@ ceiling at which it no longer fits is about 407 members (see Configuration check
 - An epoch freezes when its last commit lands, not at `evidenceClose(e)`, and needs no freeze
   cascade: there is no slashing.
 - Participation counts signed heights per member rather than a head-certificate signature bitmap.
+- The base part divides each member's weight by the committee's full weight
+  `sum(effStake) * epochLenL2` rather than by #22262's participating stake `PS(e)`, so the share
+  of offline or omitted members stays free instead of going to the members that signed, and
+  omitting a signature never raises another member's payout.
 - Committee hashes reach L1 through the V7 statement; there is no `commitSet` committee root.
 - The freezing landing settles the whole epoch into owner credits; there is no per-member
   `claimValidatorReward`, so a recipient that rejects Ether cannot block anyone else.
@@ -842,7 +853,7 @@ ceiling at which it no longer fits is about 407 members (see Configuration check
 - Rewards count the signatures in block `h + 1`'s `last_commit`, a set its proposer chooses above
   the 2/3 threshold, and there is no counting of extra valid precommits. A Cosmos-style proposer
   bonus, which #22262 does not have, pays `proposerBonusPpm` of each validator share to proposers
-  by the stake their `last_commit`s include, so omitting a precommit costs the omitter too (see
+  by the stake their `last_commit`s include, so omitting a precommit costs the omitter (see
   Proposer bonus and Open items).
 
 ## Open items
@@ -855,10 +866,10 @@ ceiling at which it no longer fits is about 407 members (see Configuration check
   re-derives an epoch's committee mid-epoch must migrate the pool's epoch records, signed counts
   and proposer scores; otherwise the re-landed epochs revert `EpochAlreadyFrozen` or
   `CommitteeMismatch` and landing halts. Re-landing an open epoch's heights would also add their
-  counts and scores twice. The pool stays solvent regardless: its bonus denominator is at least
-  the committee's score total, so the bonus parts never exceed `bonusAlloc`. But double-counted
-  scores would still distort the epoch's bonus shares, and double-counted counts its base shares,
-  so such a recovery must still migrate the pool's state.
+  counts and scores twice. The pool stays solvent regardless: its base and bonus denominators are
+  at least the committee's weight and score totals, so the parts never exceed `baseAlloc` and
+  `bonusAlloc`. But double-counted scores would still distort the epoch's bonus shares, and
+  double-counted counts its base shares, so such a recovery must still migrate the pool's state.
 - Registry capacity: withdrawn slots are reused, so cycling registration and exit no longer
   consumes capacity. Holding all 4096 slots still blocks new registrations for as long as
   `4096 · minStake` stays locked; `minStake` sizing is the bound. A slot whose owner exits but
@@ -893,18 +904,17 @@ ceiling at which it no longer fits is about 407 members (see Configuration check
   nothing accrues as debt.
 - The proposer of block `h + 1` chooses which precommits beyond the 2/3 threshold enter its
   `last_commit`, so it can omit a validator's signature and lower that validator's count for
-  height `h`. Omitting a precommit is not attributable, but the proposer bonus makes it cost the
-  omitter. With A at 30%, B at 37% and C at 33% of the voting power, A omitting C whenever A
-  proposes (A and B still clear 2/3) would raise A's reward by about 11% without a bonus; with a
-  30% bonus it lowers A's by about 2.2%, while C still loses about 16%. In general a single
-  omitter with stake share `a` that omits stake share `c` profits only while the bonus share is
-  below `a / (1 + a * (1 - c))` (see Proposer bonus): about 25% in this example, and under 3/11
-  (about 27.3%) for every omitter and omitted stake below 1/3, so a 30% bonus leaves no single
-  omitter below 1/3 a profit. A coalition above 1/3 can use the vote withholding that suppresses
-  BFT time (above) to have only its own proposals decided and exclude the victim entirely: with A
-  at 34%, B at 33% and C at 33%, C earns nothing, and A, whose blocks then all score 6,700, about
-  55.6% with a 30% bonus. The protocol does not prevent this; having the guest count extra valid
-  precommits beyond those in `last_commit` would.
+  height `h`. Omitting a precommit is not attributable, but it never pays: the base part divides
+  by the committee's full weight, so omission raises nobody's base part, and the omitter's blocks
+  score less bonus. In the Proposer bonus example, A omitting C costs A about 7.8% of its credit
+  and C about 26%. A coalition above 1/3 can still use the vote withholding that suppresses BFT
+  time (above) to have only its own proposals decided and exclude a victim entirely: with A at
+  34%, B at 33% and C at 33%, C earns nothing. Excluding C gains A nothing: its base part stays
+  23.8% of the validator share with a 30% bonus, and its blocks score 6,700 instead of 10,000, so
+  A earns 43.9% instead of the 53.8% it would earn by proposing every decided block and including
+  C. The withholding itself, which leaves only A's proposals decided, is what lifts A above its
+  34%: the bonus pays per decided proposal. The protocol prevents neither; having the guest count
+  extra valid precommits beyond those in `last_commit` would close the exclusion.
 - Shares are fixed fractions of the free balance at the freeze, so a lander can time the freezing
   landing before or after a large sweep arrives, moving value between that epoch and later ones;
   the total is unchanged.

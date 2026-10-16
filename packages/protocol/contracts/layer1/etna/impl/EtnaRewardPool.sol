@@ -18,12 +18,13 @@ import "./EtnaRewardPool_Layout.sol"; // DO NOT DELETE
 /// @dev Freezing an epoch splits fixed shares off the free balance (`balance - reservedTotal`):
 /// the validator share is credited to the owners of the committee's registrations and reserved
 /// until they withdraw, and the proving share goes to the Inbox's prover reward ledger. The
-/// validator share has a base part, paid by effective stake times signed heights, and a proposer
-/// bonus part, paid by the stake each member's proposals included in their last commits. What a
-/// settlement does not credit (rounding remainders, shares without an owner, bonus no proposer
-/// earned) never leaves the free balance. Each epoch freezes once, in the landing whose commit
-/// range reaches its last height, so sweeps and donations that arrive later only raise later
-/// epochs' allocations.
+/// validator share has a base part, paid by effective stake times signed heights out of the whole
+/// committee's possible weight, and a proposer bonus part, paid by the stake each member's
+/// proposals included in their last commits out of the epoch's possible score. What a settlement
+/// does not credit (rounding remainders, shares without an owner, base no member signed for, bonus
+/// no proposer earned) never leaves the free balance. Each epoch freezes once, in the landing whose
+/// commit range reaches its last height, so sweeps and donations that arrive later only raise
+/// later epochs' allocations.
 ///
 /// Nothing is pausable: the Bridge must always be able to deliver or retry a sweep, a landing must
 /// never fail on the pool, and owners withdraw their credits themselves. No privileged role can
@@ -341,9 +342,9 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
     }
 
     /// @dev Credits `_alloc` to the committee's registration owners: each member's base part plus
-    /// its proposer bonus part, both rounded down. The bonus parts share `proposerBonusPpm` of
-    /// `_alloc` and the base parts the rest. Members without a registration owner or with a zero
-    /// amount are skipped.
+    /// its proposer bonus part, both rounded down. The bonus parts share at most
+    /// `proposerBonusPpm` of `_alloc` and the base parts at most the rest. Members without a
+    /// registration owner or with a zero amount are skipped.
     /// @param _epoch The epoch.
     /// @param _epochLenL2 The epoch length in L2 blocks.
     /// @param _alloc The validator share to distribute.
@@ -361,7 +362,7 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
         if (_alloc == 0) return 0;
 
         uint256 bonusAlloc = _alloc * proposerBonusPpm / _PPM;
-        uint256[] memory amounts = _baseParts(_epoch, _alloc - bonusAlloc, _committee);
+        uint256[] memory amounts = _baseParts(_epoch, _epochLenL2, _alloc - bonusAlloc, _committee);
         uint256[] memory bonuses = _bonusParts(_epoch, _epochLenL2, bonusAlloc, _committee.length);
         for (uint256 i; i < amounts.length; ++i) {
             uint256 amount = amounts[i] + bonuses[i];
@@ -369,15 +370,24 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
         }
     }
 
-    /// @dev Returns each member's base part, `mulDiv(_baseAlloc, weight, totalWeight)` of its
-    /// weight `effStake * count`; all zero when the total weight is zero. Counts at indices past
-    /// the committee are ignored.
+    /// @dev Returns each member's base part, `mulDiv(_baseAlloc, weight, denominator)` of its weight
+    /// `effStake * count`, with `denominator = max(fullWeight, totalWeight)`. `fullWeight` sums
+    /// `effStake * _epochLenL2` over the committee, the weight of an epoch whose every height every
+    /// member signed, and `totalWeight` sums the members' weights. Dividing by the full weight
+    /// rather than the signed weight leaves the base of an offline or omitted member's heights
+    /// free instead of handing it to the members that signed, so omitting a signature never
+    /// raises anyone else's base part. Each count is at most `_epochLenL2` when every height lands
+    /// once, as the Inbox's per-landing bound keeps it; the larger denominator keeps the parts
+    /// within `_baseAlloc` even for larger counts. All zero when the total weight is zero. Counts
+    /// at indices past the committee are ignored.
     /// @param _epoch The epoch.
+    /// @param _epochLenL2 The epoch length in L2 blocks.
     /// @param _baseAlloc The base part of the validator share.
     /// @param _committee The epoch's committee in MEM-08 order.
     /// @return parts_ The base part per member index.
     function _baseParts(
         uint64 _epoch,
+        uint64 _epochLenL2,
         uint256 _baseAlloc,
         IEtnaInbox.CommitteeMember[] calldata _committee
     )
@@ -388,19 +398,23 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
         mapping(uint256 => uint256) storage words = _signedCounts[_epoch];
         uint256 n = _committee.length;
         parts_ = new uint256[](n);
+        uint256 totalStake;
         uint256 totalWeight;
         uint256 word;
         for (uint256 i; i < n; ++i) {
+            uint256 effStake = _committee[i].effStake;
+            totalStake += effStake;
             if (i & 7 == 0) word = words[i >> 3];
             uint256 count = uint32(word >> ((i & 7) << 5));
             if (count == 0) continue;
-            uint256 weight = _committee[i].effStake * count;
+            uint256 weight = effStake * count;
             parts_[i] = weight;
             totalWeight += weight;
         }
         if (totalWeight == 0) return parts_;
+        uint256 denominator = Math.max(totalStake * _epochLenL2, totalWeight);
         for (uint256 i; i < n; ++i) {
-            if (parts_[i] != 0) parts_[i] = Math.mulDiv(_baseAlloc, parts_[i], totalWeight);
+            if (parts_[i] != 0) parts_[i] = Math.mulDiv(_baseAlloc, parts_[i], denominator);
         }
     }
 
