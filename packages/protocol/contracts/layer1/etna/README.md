@@ -186,7 +186,6 @@ All state lives in the ERC-7201 namespace `taiko.etna.registry`, at base slot
 | `R + 9`  | activation churn: the latest scheduled window's remaining capacity (contract-internal)  |
 | `R + 10` | exit churn: one past the latest scheduled window (contract-internal)                    |
 | `R + 11` | exit churn: the latest scheduled window's remaining capacity (contract-internal)        |
-| `R + 12` | `registrationOwner`: `mapping(bytes32 key => address)` (contract-internal)              |
 
 | Word                        | Content                                                                  | Packing                                      |
 | --------------------------- | ------------------------------------------------------------------------ | -------------------------------------------- |
@@ -208,12 +207,10 @@ its id and keeps `count` unchanged. Snapshots read entries at a historical L1 bl
 against that checkpoint's root, so slot reuse is invisible to committee derivation. The node reads
 only `R` through `R + 5`.
 
-Registration also records its caller as the owner of the registration, under the key
-`keccak256(abi.encode(bondId, activeFromL1))`. Slot reuse adds a new key and keeps the old one, so
-`registrationOwnerOf(bondId, activeFromL1)` names the owner of the registration a committee member
-came from, while `bondOwnerOf(bondId)` names the slot's current holder. Two registrations of one
-slot share a key only when the activation, exit and withdrawal delays are all 0; the second then
-reverts `RegistrationKeyTaken`.
+`bondOwnerOf(bondId)` names the slot's current holder and controls its bond permissions.
+Historical committee membership and payout addresses are authenticated by the historical
+checkpoint's entries root, not an owner-history mapping. Same-block reuse is allowed when the
+activation, exit and withdrawal delays permit it; the reused slot may have a new payout address.
 
 ## Contract obligations
 
@@ -341,9 +338,14 @@ function land(LandInput calldata input, bytes calldata proof) external;
 `LandInput` is `(uint64 lastHeight, bytes32 lastBlockHash, bytes32 lastStateRoot,
 uint64 l1ReferenceBlockNumber, uint48 forcedInclusionHead, address feeRecipient,
 address l2RewardRecipient, uint256 baseFeeAmount)`. Both recipients must be nonzero, including
-for zero fees. `feeRecipient` receives only consumed L1 forced inclusion fees. The guest derives
-`l2RewardRecipient` from the authenticated proposer of the final execution block and proves
-`baseFeeAmount = sum(header.baseFeePerGas * header.gasUsed)` over `(parentHeight, lastHeight]`.
+for zero fees. `feeRecipient` receives only consumed L1 forced inclusion fees. The lander selects
+`l2RewardRecipient` independently of block proposers; the V8 statement and receipt bind that
+exact address. A future guest must bind this nonzero recipient and prove
+`baseFeeAmount = sum(header.baseFeePerGas * header.gasUsed)` over `(parentHeight, lastHeight]`,
+authenticating actual execution charges and destinations by reexecution. Separately, each block's
+beneficiary must equal the registered recipient of the original proposer in its certified CometBFT
+header, under that height's committee, including valid blocks retained across rounds. Real EL
+regressions exercise the header fee identity; no real guest is implemented.
 
 Landing requires active status, `parentHeight < lastHeight <= parentHeight + maxBatchBlocks`,
 `lastHeight <= type(uint48).max`, ordered queue progress within the tail, at most one consumed

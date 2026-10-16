@@ -109,11 +109,10 @@ interface IEtnaStakingRegistry {
     // ---------------------------------------------------------------
 
     /// @notice Registers `_pubkey` with a stake of `_amount` TAIKO pulled from the caller, who
-    /// becomes the bond owner and the registration owner.
+    /// becomes the bond owner.
     /// @dev Reverts if `_amount` is below the minimum stake, `_pubkey` or `_rewardRecipient`
     /// is zero, all `MAX_ENTRIES` slots hold unwithdrawn stake, another entry holds `_pubkey` and its
-    /// exit is not yet effective, or an earlier registration of the slot has the same
-    /// `activeFromL1` (possible only if the activation, exit and withdrawal delays are all 0).
+    /// exit is not yet effective. Same-block slot reuse is allowed when all delays permit it.
     /// Takes the most recently freed slot (see `withdraw`), or a new slot if none is free. The
     /// entry becomes active `activationDelay` blocks later, or later still if the activation
     /// churn limit defers it, and has no exit and no heartbeat (`lastHeartbeatAt = 0`,
