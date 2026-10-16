@@ -194,21 +194,6 @@ interface IEtnaStakingRegistry {
     /// @return The bond owner.
     function bondOwnerOf(uint256 _bondId) external view returns (address);
 
-    /// @notice Returns the owner of the registration that took slot `_bondId` with
-    /// `activeFromL1 = _activeFromL1`, or `address(0)` if there is none.
-    /// @dev Unlike `bondOwnerOf`, which names the slot's current holder, this names the owner of
-    /// one registration and is unaffected by the slot's later reuse.
-    /// @param _bondId The bond id.
-    /// @param _activeFromL1 The registration's `activeFromL1`.
-    /// @return The registration owner.
-    function registrationOwnerOf(
-        uint256 _bondId,
-        uint64 _activeFromL1
-    )
-        external
-        view
-        returns (address);
-
     /// @notice Returns whether the stake of `_bondId`'s current holder was withdrawn (false if
     /// the slot does not exist or was reused).
     /// @param _bondId The bond id.

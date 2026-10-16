@@ -62,9 +62,6 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         Churn activationChurn;
         /// @dev Slots `R + 10` and `R + 11`.
         Churn exitChurn;
-        /// @dev Slot `R + 12`: the owner of each registration, keyed by
-        /// `keccak256(abi.encode(bondId, activeFromL1))`; kept when the slot is reused.
-        mapping(bytes32 registrationKey => address owner) registrationOwner;
     }
 
     // ---------------------------------------------------------------
@@ -221,10 +218,6 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
             bondId_ = count++;
             $.entries.push(entry);
         }
-        // Two registrations of one slot share an `activeFromL1` only if all three delays are 0.
-        bytes32 registrationKey = _registrationKey(bondId_, entry.activeFromL1);
-        require($.registrationOwner[registrationKey] == address(0), RegistrationKeyTaken());
-        $.registrationOwner[registrationKey] = msg.sender;
         $.bondedStake += _amount;
         $.bondOwner[bondId_] = msg.sender;
         $.keyHolder[_pubkey] = bondId_ + 1;
@@ -332,18 +325,6 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// @inheritdoc IEtnaStakingRegistry
     function bondOwnerOf(uint256 _bondId) external view returns (address) {
         return _registryStorage().bondOwner[_bondId];
-    }
-
-    /// @inheritdoc IEtnaStakingRegistry
-    function registrationOwnerOf(
-        uint256 _bondId,
-        uint64 _activeFromL1
-    )
-        external
-        view
-        returns (address)
-    {
-        return _registryStorage().registrationOwner[_registrationKey(_bondId, _activeFromL1)];
     }
 
     /// @inheritdoc IEtnaStakingRegistry
@@ -459,19 +440,6 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         effective_ = windowStart > _earliest ? SafeCast.toUint64(windowStart) : _earliest;
     }
 
-    /// @dev Returns the `registrationOwner` key of the registration that took slot `_bondId`
-    /// with `_activeFromL1`.
-    /// @param _bondId The bond id.
-    /// @param _activeFromL1 The registration's `activeFromL1`.
-    /// @return The registration key.
-    function _registrationKey(uint256 _bondId, uint64 _activeFromL1)
-        private
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(_bondId, _activeFromL1));
-    }
-
     /// @dev Returns the registry's ERC-7201 storage.
     /// @return $ The registry storage.
     function _registryStorage() private pure returns (RegistryStorage storage $) {
@@ -493,7 +461,6 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     error InvalidHeartbeatWindow();
     error NotBondOwner();
     error PubkeyInUse();
-    error RegistrationKeyTaken();
     error RegistryFull();
     error StakeTooLow();
     error UnknownBond();

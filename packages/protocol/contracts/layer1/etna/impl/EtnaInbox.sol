@@ -2,13 +2,12 @@
 pragma solidity ^0.8.26;
 
 import { IEtnaInbox } from "../iface/IEtnaInbox.sol";
-import { IEtnaRewardPool } from "../iface/IEtnaRewardPool.sol";
 import { IEtnaStakingRegistry } from "../iface/IEtnaStakingRegistry.sol";
 import { LibEtnaForcedInclusion } from "../libs/LibEtnaForcedInclusion.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
+import { LibEtnaRewards } from "src/shared/libs/LibEtnaRewards.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
@@ -21,10 +20,8 @@ import "./EtnaInbox_Layout.sol"; // DO NOT DELETE
 /// logic. Slots 251–257, 259–267 and 275–277 are reserved to keep the node-facing slots unchanged.
 /// The calldata forced inclusion store preserves the existing fee rule; its queue lives
 /// at slots 280–281 and its genesis delay and maximum anchor age at slot 282. Landing advances the
-/// queue head, reports the batch's validator participation to the reward pool, and pays the
-/// consumed entries' fees and a per-block landing reward to the recipient its statement binds.
-/// The reward comes from the prover reward ledger at slot 283, which the node does not read; the
-/// pool's proving shares and landings' `msg.value` fund it.
+/// queue head, records a fixed-size L2 reward commitment at slot 283, and pays only consumed
+/// forced-inclusion fees to the bound L1 fee recipient.
 /// @custom:security-contact security@taiko.xyz
 contract EtnaInbox is IEtnaInbox, EssentialContract {
     using LibAddress for address;
@@ -34,8 +31,8 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     // Structs
     // ---------------------------------------------------------------
 
-    /// @dev The V7 statement in wire order. All fields are static, so abi.encode of this
-    /// memory-only struct is the same nineteen-word encoding as the flat field list. Building
+    /// @dev The V8 statement in wire order. All fields are static, so abi.encode of this
+    /// memory-only struct is the same twenty-word encoding as the flat field list. Building
     /// it one field at a time keeps the non-IR compiler within its stack limit.
     struct LandStatement {
         bytes32 domain;
@@ -56,7 +53,8 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         uint48 forcedInclusionHeadBefore;
         uint48 forcedInclusionHeadAfter;
         address feeRecipient;
-        bytes32 participationHash;
+        address l2RewardRecipient;
+        uint256 baseFeeAmount;
     }
 
     /// @dev The genesis forced inclusion parameters, packed into one storage word.
@@ -75,14 +73,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev The smallest epoch length in L2 blocks.
     uint64 private constant _MIN_EPOCH_LEN_L2 = 3;
 
-    /// @dev The proposer score of a block whose last commit carries the whole committee's stake.
-    uint256 private constant _MAX_BLOCK_SCORE = 10_000;
-
-    /// @dev The largest epoch length in L2 blocks, 429,496: a member proposing every block of an
-    /// epoch scores at most `_MAX_BLOCK_SCORE * epochLenL2`, which must fit the reward pool's
-    /// uint32 score total.
-    uint64 private constant _MAX_EPOCH_LEN_L2 = uint64(type(uint32).max / _MAX_BLOCK_SCORE);
-
     /// @notice The maximum byte length of a submitted forced transaction.
     uint256 public constant MAX_FORCED_TX_BYTES = 8192;
 
@@ -93,7 +83,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     uint64 private constant _MIN_MAX_ANCHOR_AGE = 3 * _L1_EPOCH_DURATION;
 
     /// @dev The domain tag of the landing statement.
-    bytes32 private constant _LAND_STATEMENT_TAG = bytes32("TAIKO_ETNA_LAND_V7");
+    bytes32 private constant _LAND_STATEMENT_TAG = bytes32("TAIKO_ETNA_LAND_V8");
 
     /// @dev The number of most recent L1 blocks whose hash `blockhash` returns.
     uint256 private constant _BLOCKHASH_WINDOW = 256;
@@ -128,12 +118,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @dev The number of pending forced inclusions at which the fee doubles.
     uint64 internal immutable _forcedInclusionFeeDoubleThreshold;
-
-    /// @dev The reward pool that records each landing's participation and funds the ledger.
-    address internal immutable _rewardPool;
-
-    /// @dev The landing reward per landed L2 block, in wei.
-    uint128 internal immutable _landingRewardPerBlock;
 
     // ---------------------------------------------------------------
     // State Variables
@@ -178,9 +162,8 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// (bits 64–127), in seconds.
     ForcedInclusionConfig private _forcedInclusionConfig;
 
-    /// @dev Slot 283: the prover reward ledger in wei, the part of the balance reserved for
-    /// landing rewards; not read by the node.
-    uint256 private _proverRewardLedger;
+    /// @inheritdoc IEtnaInbox
+    mapping(bytes32 batchId => bytes32 commitment) public override rewardCommitments;
 
     uint256[17] private __gap;
 
@@ -190,12 +173,11 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @notice Sets the implementation's immutable parameters.
     /// @param _config The configuration; addresses, `l2ChainId`, `maxBatchBlocks` and both
-    /// forced inclusion fee parameters must be non-zero; the landing reward may be zero.
+    /// forced inclusion fee parameters must be non-zero.
     constructor(Config memory _config) {
         require(_config.proofVerifier != address(0), ZERO_ADDRESS());
         require(_config.signalService != address(0), ZERO_ADDRESS());
         require(_config.stakingRegistry != address(0), ZERO_ADDRESS());
-        require(_config.rewardPool != address(0), ZERO_ADDRESS());
         require(_config.l2ChainId != 0, ZERO_VALUE());
         require(_config.maxBatchBlocks != 0, ZERO_VALUE());
         require(_config.forcedInclusionFeeInGwei != 0, ForcedInclusionFeeZero());
@@ -210,8 +192,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         _maxBatchBlocks = _config.maxBatchBlocks;
         _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
         _forcedInclusionFeeDoubleThreshold = _config.forcedInclusionFeeDoubleThreshold;
-        _rewardPool = _config.rewardPool;
-        _landingRewardPerBlock = _config.landingRewardPerBlock;
     }
 
     // ---------------------------------------------------------------
@@ -222,7 +202,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     function init(address _owner, GenesisParams calldata _params) external initializer {
         require(_params.genesisBlockHash != 0 && _params.genesisStateRoot != 0, InvalidGenesis());
         require(
-            _params.epochLenL2 >= _MIN_EPOCH_LEN_L2 && _params.epochLenL2 <= _MAX_EPOCH_LEN_L2
+            _params.epochLenL2 >= _MIN_EPOCH_LEN_L2 && _params.epochLenL2 < type(uint48).max
                 && _params.epochLenL1 != 0,
             InvalidEpochLength()
         );
@@ -269,27 +249,8 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         );
     }
 
-    /// @notice Credits Ether from the reward pool, a frozen epoch's proving share, to the prover
-    /// reward ledger.
-    /// @dev Reverts `UnauthorizedRewardSender` for any other sender. Not `nonReentrant`: the pool
-    /// sends while `land` holds the lock.
-    // solhint-disable-next-line no-complex-fallback
-    receive() external payable {
-        require(msg.sender == _rewardPool, UnauthorizedRewardSender());
-        _proverRewardLedger += msg.value;
-    }
-
     /// @inheritdoc IEtnaInbox
-    function land(
-        LandInput calldata _input,
-        EpochParticipation[] calldata _participation,
-        CommitteeMember[][] calldata _settlements,
-        bytes calldata _proof
-    )
-        external
-        payable
-        nonReentrant
-    {
+    function land(LandInput calldata _input, bytes calldata _proof) external nonReentrant {
         require(_status == _ETNA_ACTIVE, EtnaNotActive());
 
         LandedCheckpoint memory parent = _lastCheckpoint;
@@ -298,6 +259,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         require(lastHeight - parent.height <= _maxBatchBlocks, BatchTooLarge());
         require(lastHeight <= type(uint48).max, HeightOverflow());
         require(_input.feeRecipient != address(0), ZeroFeeRecipient());
+        require(_input.l2RewardRecipient != address(0), ZeroRewardRecipient());
 
         uint48 headBefore = _forcedInclusionStorage.head;
         uint48 headAfter = _input.forcedInclusionHead;
@@ -307,9 +269,8 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
                 && headAfter - headBefore <= lastHeight - parent.height,
             InvalidForcedInclusionHead()
         );
-        _checkParticipation(parent.height, lastHeight, _activation.epochLenL2, _participation);
 
-        bytes32 statementHash = _landStatementHash(parent, headBefore, _input, _participation);
+        bytes32 statementHash = _landStatementHash(parent, headBefore, _input);
 
         uint256 feesWei;
         if (headAfter != headBefore) {
@@ -320,10 +281,11 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
         _proofVerifier.verifyProof(0, statementHash, _proof);
 
-        // Frozen epochs' proving shares arrive through `receive` before the reward is computed.
-        IEtnaRewardPool(_rewardPool)
-            .recordLanding(lastHeight, _activation.epochLenL2, _participation, _settlements);
-        _payLander(_input.feeRecipient, lastHeight - parent.height, feesWei, headBefore, headAfter);
+        _recordReward(parent, _input);
+        if (feesWei != 0) _input.feeRecipient.sendEtherAndVerify(feesWei);
+        if (headAfter != headBefore) {
+            emit ForcedInclusionsConsumed(headBefore, headAfter, feesWei, _input.feeRecipient);
+        }
     }
 
     /// @inheritdoc IEtnaInbox
@@ -333,7 +295,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         bytes32 _parentHash,
         uint48 _forcedInclusionHeadBefore,
         LandInput calldata _input,
-        EpochParticipation[] calldata _participation,
         bytes32 _l1ReferenceBlockHash,
         bytes32[] calldata _blobHashes
     )
@@ -347,7 +308,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             _parentHash,
             _forcedInclusionHeadBefore,
             _input,
-            _participation,
             _l1ReferenceBlockHash,
             _blobHashes
         );
@@ -420,21 +380,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     }
 
     /// @inheritdoc IEtnaInbox
-    function proverRewardLedger() external view returns (uint256) {
-        return _proverRewardLedger;
-    }
-
-    /// @inheritdoc IEtnaInbox
-    function rewardPool() external view returns (address) {
-        return _rewardPool;
-    }
-
-    /// @inheritdoc IEtnaInbox
-    function landingRewardPerBlock() external view returns (uint128) {
-        return _landingRewardPerBlock;
-    }
-
-    /// @inheritdoc IEtnaInbox
     function getCurrentForcedInclusionFee() external view returns (uint64 feeInGwei_) {
         return _forcedInclusionStorage.currentFee(
             _forcedInclusionFeeInGwei, _forcedInclusionFeeDoubleThreshold
@@ -471,7 +416,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @param _parentHash The hash of the block the batch builds on.
     /// @param _forcedInclusionHeadBefore The forced inclusion queue head before the batch.
     /// @param _input The batch.
-    /// @param _participation The validator participation per epoch of the batch's commit range.
     /// @param _l1ReferenceBlockHash The L1 block hash of `_input.l1ReferenceBlockNumber`.
     /// @param _blobHashes The versioned hashes of the batch's blobs.
     /// @return The landing statement hash.
@@ -481,7 +425,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         bytes32 _parentHash,
         uint48 _forcedInclusionHeadBefore,
         LandInput calldata _input,
-        EpochParticipation[] calldata _participation,
         bytes32 _l1ReferenceBlockHash,
         bytes32[] memory _blobHashes
     )
@@ -508,7 +451,8 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         statement.forcedInclusionHeadBefore = _forcedInclusionHeadBefore;
         statement.forcedInclusionHeadAfter = _input.forcedInclusionHead;
         statement.feeRecipient = _input.feeRecipient;
-        statement.participationHash = keccak256(abi.encode(_participation));
+        statement.l2RewardRecipient = _input.l2RewardRecipient;
+        statement.baseFeeAmount = _input.baseFeeAmount;
         return keccak256(abi.encode(statement));
     }
 
@@ -522,13 +466,11 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @param _parent The parent checkpoint.
     /// @param _headBefore The forced inclusion queue head before the batch.
     /// @param _input The batch.
-    /// @param _participation The validator participation per epoch of the batch's commit range.
     /// @return The landing statement hash.
     function _landStatementHash(
         LandedCheckpoint memory _parent,
         uint48 _headBefore,
-        LandInput calldata _input,
-        EpochParticipation[] calldata _participation
+        LandInput calldata _input
     )
         private
         view
@@ -540,7 +482,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             _parent.blockHash,
             _headBefore,
             _input,
-            _participation,
             _readL1ReferenceBlockHash(_input.l1ReferenceBlockNumber),
             _readBlobHashes()
         );
@@ -578,86 +519,35 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         );
     }
 
-    /// @dev Adds `msg.value` to the prover reward ledger, debits the landing reward for
-    /// `_blocks` blocks, capped at the ledger, and sends it with the consumed forced inclusions'
-    /// fees to `_recipient` in one transfer when the sum is non-zero; a failed transfer reverts.
-    /// @param _recipient The batch's fee recipient.
-    /// @param _blocks The number of landed blocks.
-    /// @param _feesWei The consumed forced inclusions' fees in wei.
-    /// @param _headBefore The forced inclusion queue head before the batch.
-    /// @param _headAfter The forced inclusion queue head after the batch.
-    function _payLander(
-        address _recipient,
-        uint64 _blocks,
-        uint256 _feesWei,
-        uint48 _headBefore,
-        uint48 _headAfter
-    )
-        private
-    {
-        uint256 ledger = _proverRewardLedger + msg.value;
-        uint256 reward = Math.min(uint256(_landingRewardPerBlock) * _blocks, ledger);
-        ledger -= reward;
-        _proverRewardLedger = ledger;
-
-        _recipient.sendEtherAndVerify(_feesWei + reward);
-        if (_headAfter != _headBefore) {
-            emit ForcedInclusionsConsumed(_headBefore, _headAfter, _feesWei, _recipient);
-        }
-        emit LandingRewardPaid(_recipient, reward, ledger);
-    }
-
-    /// @dev Requires `_participation` to have the shape of the batch `(_parentHeight,
-    /// _lastHeight]`: block h + 1 carries the commit of height h and height 0 has none, so the
-    /// commit range is `[max(_parentHeight, 1), _lastHeight - 1]`. An empty range takes no
-    /// part; otherwise each epoch of the range takes one part, in ascending order, and no signed
-    /// count may exceed the range's heights in its epoch. Each part has one proposer score per
-    /// signed count, and its scores sum to at most `_MAX_BLOCK_SCORE` per height: each height's
-    /// carrying block scores at most that much, for one proposer. The sum bound keeps every
-    /// epoch's scores within what the pool's proposer bonus can pay. All arithmetic is in
-    /// uint256.
-    /// @param _parentHeight The height of the block the batch builds on.
-    /// @param _lastHeight The height of the batch's last block, above `_parentHeight`.
-    /// @param _epochLenL2 The epoch length in L2 blocks.
-    /// @param _participation The participation to check.
-    function _checkParticipation(
-        uint64 _parentHeight,
-        uint64 _lastHeight,
-        uint64 _epochLenL2,
-        EpochParticipation[] calldata _participation
-    )
-        private
-        pure
-    {
-        uint256 first = Math.max(_parentHeight, 1);
-        uint256 last = uint256(_lastHeight) - 1;
-        if (first > last) {
-            require(_participation.length == 0, InvalidParticipation());
-            return;
-        }
-
-        uint256 epoch = (first - 1) / _epochLenL2;
-        require(
-            _participation.length == (last - 1) / _epochLenL2 - epoch + 1, InvalidParticipation()
+    /// @dev Records a single receipt using the actual parent, stored generation and chain identities.
+    /// @param _parent The checkpoint read before the landing.
+    /// @param _input The proven batch outputs.
+    function _recordReward(LandedCheckpoint memory _parent, LandInput calldata _input) private {
+        LibEtnaRewards.Receipt memory receipt = LibEtnaRewards.Receipt({
+            l1ChainId: block.chainid,
+            l2ChainId: _l2ChainId,
+            inbox: address(this),
+            generation: _recoveryGeneration,
+            parentHeight: _parent.height,
+            parentHash: _parent.blockHash,
+            lastHeight: _input.lastHeight,
+            lastBlockHash: _input.lastBlockHash,
+            l2RewardRecipient: _input.l2RewardRecipient,
+            baseFeeAmount: _input.baseFeeAmount
+        });
+        bytes32 id = LibEtnaRewards.batchId(receipt);
+        require(rewardCommitments[id] == bytes32(0), RewardAlreadyRecorded());
+        rewardCommitments[id] = LibEtnaRewards.commitment(receipt);
+        emit BatchRewardRecorded(
+            id,
+            receipt.l2RewardRecipient,
+            receipt.baseFeeAmount,
+            receipt.generation,
+            receipt.parentHeight,
+            receipt.parentHash,
+            receipt.lastHeight,
+            receipt.lastBlockHash
         );
-        for (uint256 k; k < _participation.length; ++k) {
-            require(_participation[k].epoch == epoch, InvalidParticipation());
-            // Epoch e holds heights [e * epochLenL2 + 1, (e + 1) * epochLenL2].
-            uint256 heights = Math.min(last, (epoch + 1) * _epochLenL2)
-                - Math.max(first, epoch * _epochLenL2 + 1) + 1;
-            uint32[] calldata counts = _participation[k].signedCounts;
-            for (uint256 i; i < counts.length; ++i) {
-                require(counts[i] <= heights, InvalidParticipation());
-            }
-            uint32[] calldata scores = _participation[k].proposerScores;
-            require(scores.length == counts.length, InvalidParticipation());
-            uint256 scoreSum;
-            for (uint256 i; i < scores.length; ++i) {
-                scoreSum += scores[i];
-            }
-            require(scoreSum <= heights * _MAX_BLOCK_SCORE, InvalidParticipation());
-            ++epoch;
-        }
     }
 
     /// @dev Returns the hash of L1 block `_l1ReferenceBlockNumber`: from `blockhash` for the last 256
@@ -728,9 +618,9 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     error InvalidForcedInclusionHead();
     error InvalidGenesisCutoff();
     error InvalidMaxAnchorAge();
-    error InvalidParticipation();
+    error RewardAlreadyRecorded();
     error NoProgress();
-    error UnauthorizedRewardSender();
+    error ZeroRewardRecipient();
     error ZeroCommitteeRecord();
     error ZeroCommitteeConfigHash();
     error ZeroFeeRecipient();

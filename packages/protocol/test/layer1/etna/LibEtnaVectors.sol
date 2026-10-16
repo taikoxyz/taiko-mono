@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import { Vm } from "forge-std/src/Vm.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
+import { LibEtnaRewards } from "src/shared/libs/LibEtnaRewards.sol";
 
 /// @title LibEtnaVectors
 /// @notice Reads `testdata/etna_vectors/vectors.json`, the Etna vectors the contracts share with
@@ -105,6 +106,8 @@ library LibEtnaVectors {
         input_.forcedInclusionHead =
             uint48(uintAt(_json, string.concat(p, "forced_inclusion_head_after")));
         input_.feeRecipient = addressAt(_json, string.concat(p, "fee_recipient"));
+        input_.l2RewardRecipient = addressAt(_json, string.concat(p, "l2_reward_recipient"));
+        input_.baseFeeAmount = uintAt(_json, string.concat(p, "base_fee_amount"));
     }
 
     /// @dev The number of elements of the array at `_key`.
@@ -124,47 +127,27 @@ library LibEtnaVectors {
         }
     }
 
-    /// @dev The `land_statement` participation input: one part per epoch, in order.
+    /// @dev Reads the receipt whose independent cast goldens accompany the landing statement.
     /// @param _json The vectors document.
-    /// @return parts_ The participation.
-    function participation(string memory _json)
+    /// @return receipt_ The receipt.
+    function rewardReceipt(string memory _json)
         internal
-        view
-        returns (IEtnaInbox.EpochParticipation[] memory parts_)
+        pure
+        returns (LibEtnaRewards.Receipt memory receipt_)
     {
-        string memory p = ".land_statement.inputs.participation";
-        parts_ = new IEtnaInbox.EpochParticipation[](lengthAt(_json, p));
-        for (uint256 k; k < parts_.length; ++k) {
-            string memory e = string.concat(p, "[", _VM.toString(k), "].");
-            parts_[k].epoch = uint64(uintAt(_json, string.concat(e, "epoch")));
-            parts_[k].committeeHash = bytes32At(_json, string.concat(e, "committee_hash"));
-            parts_[k].signedCounts = _uint32Array(_json, string.concat(e, "signed_counts"));
-            parts_[k].proposerScores = _uint32Array(_json, string.concat(e, "proposer_scores"));
-        }
-    }
-
-    /// @dev The members of committee `_index` of `committee_hashes`, in order.
-    /// @param _json The vectors document.
-    /// @param _index The committee's index.
-    /// @return members_ The committee.
-    function committee(
-        string memory _json,
-        uint256 _index
-    )
-        internal
-        view
-        returns (IEtnaInbox.CommitteeMember[] memory members_)
-    {
-        string memory p = string.concat(".committee_hashes[", _VM.toString(_index), "].members");
-        members_ = new IEtnaInbox.CommitteeMember[](lengthAt(_json, p));
-        for (uint256 i; i < members_.length; ++i) {
-            string memory m = string.concat(p, "[", _VM.toString(i), "].");
-            members_[i] = IEtnaInbox.CommitteeMember({
-                bondId: uint32(uintAt(_json, string.concat(m, "bond_id"))),
-                activeFromL1: uint64(uintAt(_json, string.concat(m, "active_from_l1"))),
-                effStake: uintAt(_json, string.concat(m, "eff_stake"))
-            });
-        }
+        string memory p = ".land_statement.inputs.";
+        receipt_ = LibEtnaRewards.Receipt({
+            l1ChainId: uintAt(_json, string.concat(p, "l1_chain_id")),
+            l2ChainId: uint64(uintAt(_json, string.concat(p, "l2_chain_id"))),
+            inbox: addressAt(_json, string.concat(p, "inbox")),
+            generation: uint64(uintAt(_json, string.concat(p, "generation"))),
+            parentHeight: uint64(uintAt(_json, string.concat(p, "parent_height"))),
+            parentHash: bytes32At(_json, string.concat(p, "parent_hash")),
+            lastHeight: uint64(uintAt(_json, string.concat(p, "last_height"))),
+            lastBlockHash: bytes32At(_json, string.concat(p, "last_block_hash")),
+            l2RewardRecipient: addressAt(_json, string.concat(p, "l2_reward_recipient")),
+            baseFeeAmount: uintAt(_json, string.concat(p, "base_fee_amount"))
+        });
     }
 
     /// @dev Registry entry `_index` of `registry_entries`.
@@ -235,24 +218,5 @@ library LibEtnaVectors {
         uint256 mask = (1 << uintAt(_json, string.concat(p, "bits"))) - 1;
         require(_value <= mask, "field value too wide");
         return (_word & ~(mask << offset)) | (_value << offset);
-    }
-
-    /// @dev Reads the decimal-string array at `_key` as uint32 values.
-    /// @param _json The vectors document.
-    /// @param _key The JSON path.
-    /// @return values_ The values.
-    function _uint32Array(
-        string memory _json,
-        string memory _key
-    )
-        private
-        pure
-        returns (uint32[] memory values_)
-    {
-        uint256[] memory raw = _VM.parseJsonUintArray(_json, _key);
-        values_ = new uint32[](raw.length);
-        for (uint256 i; i < raw.length; ++i) {
-            values_[i] = uint32(raw[i]);
-        }
     }
 }
