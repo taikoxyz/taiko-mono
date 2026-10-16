@@ -7,12 +7,16 @@ use serde::{Deserialize, Deserializer, de};
 /// The largest committee size [`ChainParams::validate`] accepts.
 ///
 /// The landing that carries an epoch's last commit settles every member of that epoch's committee
-/// in one L1 transaction, which EIP-7825 caps at 16,777,216 gas. In the worst case, where that
-/// landing writes every member's signed count and proposer score and credits every registration
-/// owner for the first time, it costs about 40.3k gas per member: measured as a whole transaction
-/// on the pinned contracts, 14,865,689 at 360 members (about 11% under the cap) and 16,478,834 at
-/// 400. It stops fitting at about 407.
-pub const MAX_N_MAX: usize = 360;
+/// in one L1 transaction, which EIP-7825 caps at 16,777,216 gas. The lander ends every batch at an
+/// epoch's last commit, so that landing carries one participation part, but a batch that also
+/// carries the next epoch's first commits writes that epoch's committee hash, counts and proposer
+/// scores for the first time too, and the cap must hold for it as well. Measured as whole
+/// transactions on the pinned contracts, with every registration owner credited for the first
+/// time, such a two-part freezing landing needs 14,313,606 gas at 300 members (2.46M, 14.7%, under
+/// the cap, which leaves room for a real verifier and consumed forced inclusions) and 17,075,337
+/// at 360, about 46k per member: it stops fitting at about 353. A one-part freezing landing that
+/// writes its whole epoch for the first time needs 12,487,285 at 300 members.
+pub const MAX_N_MAX: usize = 300;
 
 /// Per-chain constants consumed by consensus.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -90,9 +94,9 @@ pub enum ConfigError {
     /// `n_max == 0`.
     #[error("n_max must be >= 1")]
     ZeroNMax,
-    /// `n_max > MAX_N_MAX`: the landing that settles a full committee's epoch would keep less
-    /// than about 11% of margin under the EIP-7825 transaction gas cap, and above about 407
-    /// members would exceed it and never be included.
+    /// `n_max > MAX_N_MAX`: a landing that settles a full committee's epoch together with the
+    /// next epoch's first commits would keep less than about 14.7% of margin under the EIP-7825
+    /// transaction gas cap, and above about 353 members would exceed it and never be included.
     #[error("n_max ({n_max}) must be <= {max}")]
     NMaxTooLarge {
         /// Configured `n_max`.
@@ -195,7 +199,7 @@ impl ChainParams {
         self.d_max.saturating_sub(self.margin_v)
     }
 
-    /// Checks `d_max > margin_v`, `vp_unit > 0`, `1 <= n_max <= MAX_N_MAX` (360),
+    /// Checks `d_max > margin_v`, `vp_unit > 0`, `1 <= n_max <= MAX_N_MAX` (300),
     /// `heartbeat_window >= 1`, `block_gas_limit > 0` and `s_min >= vp_unit`, returning the first
     /// violation.
     pub fn validate(&self) -> Result<(), ConfigError> {
@@ -505,15 +509,20 @@ mod tests {
 
     #[test]
     fn validate_bounds_n_max_by_the_freezing_landing_gas() {
-        assert_eq!(MAX_N_MAX, 360);
+        assert_eq!(MAX_N_MAX, 300);
         ChainParams { n_max: MAX_N_MAX, ..devnet() }.validate().unwrap();
         let p = ChainParams { n_max: MAX_N_MAX + 1, ..devnet() };
         assert!(matches!(
             p.validate().unwrap_err(),
-            ConfigError::NMaxTooLarge { n_max: 361, max: 360 }
+            ConfigError::NMaxTooLarge { n_max: 301, max: 300 }
+        ));
+        // The former bound, 360, no longer validates.
+        assert!(matches!(
+            ChainParams { n_max: 360, ..devnet() }.validate().unwrap_err(),
+            ConfigError::NMaxTooLarge { n_max: 360, max: 300 }
         ));
         // An override cannot raise it either: loaders validate after applying overrides.
-        let overridden = devnet().with_overrides("n_max = 361").unwrap();
+        let overridden = devnet().with_overrides("n_max = 301").unwrap();
         assert!(matches!(overridden.validate().unwrap_err(), ConfigError::NMaxTooLarge { .. }));
     }
 
