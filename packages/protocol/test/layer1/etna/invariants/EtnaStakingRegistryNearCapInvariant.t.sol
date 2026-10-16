@@ -127,6 +127,22 @@ contract EtnaStakingRegistryNearCapInvariantTest is EtnaStakingRegistryNearCapIn
 /// forge-config: default.invariant.depth = 50
 /// forge-config: default.invariant.fail_on_revert = true
 contract EtnaStakingRegistryNearCapRootInvariantTest is EtnaStakingRegistryNearCapInvariantBase {
+    function test_afterInvariant_RecomputesAfterWithdrawalAdvance() external {
+        // The shrunk sequence from the original full L1 MemoryOOG failure.
+        handler.advanceToWithdrawal(
+            189_689_194_050_321_522_700_280_257_463_889_328_031_035_485_734_358_930_318_117_075_242
+        );
+        this.afterInvariant();
+    }
+
+    function test_afterInvariant_RecomputesAllEntriesAtCapacity() external {
+        vm.pauseGasMetering();
+        handler.prefill(3, PREFILL_KEY + maxEntries - 3);
+        vm.resumeGasMetering();
+        assertEq(registry.entryCount(), 4096);
+        this.afterInvariant();
+    }
+
     /// @notice 1. After every call `entriesRoot()` equals the root of the handler's ghost tree
     /// over the modelled entries, and the latest checkpoint holds it and the entry count.
     function invariant_entriesRootMatchesTheGhostTree() external view {

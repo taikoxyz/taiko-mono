@@ -409,7 +409,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         _checkQueue(_activations, ACTIVATION_CHURN_SLOT);
 
         vm.prank(_caller);
-        try registry.register(_pubkey, _amount) returns (uint256 bondId) {
+        try registry.register(_pubkey, _amount, _caller) returns (uint256 bondId) {
             if (expected != 0) {
                 _violate(Property.Slots, "register accepted where the model rejects it");
             } else if (bondId != expectedId) {
@@ -468,7 +468,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
             activeFromL1: activeFromL1,
             exitEffectiveL1: NO_EXIT,
             lastHeartbeatAt: 0,
-            lastHeartbeatSeq: 0
+            lastHeartbeatSeq: 0,
+            rewardRecipient: _caller
         });
         s.owner = _caller;
         s.withdrawn = false;
@@ -840,7 +841,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
         return _a.pubkey == _b.pubkey && _a.effStake == _b.effStake
             && _a.activeFromL1 == _b.activeFromL1 && _a.exitEffectiveL1 == _b.exitEffectiveL1
             && _a.lastHeartbeatAt == _b.lastHeartbeatAt
-            && _a.lastHeartbeatSeq == _b.lastHeartbeatSeq;
+            && _a.lastHeartbeatSeq == _b.lastHeartbeatSeq
+            && _a.rewardRecipient == _b.rewardRecipient;
     }
 
     /// @dev The first block at which the stake of `_bondId`, whose exit was requested, can be

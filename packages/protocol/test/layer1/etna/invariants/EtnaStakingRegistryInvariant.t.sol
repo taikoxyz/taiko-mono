@@ -250,6 +250,8 @@ abstract contract EtnaStakingRegistryInvariantBase is CommonTest {
         assertEq(entry.exitEffectiveL1, slot.entry.exitEffectiveL1, "modelled exit");
         assertEq(entry.lastHeartbeatAt, slot.entry.lastHeartbeatAt, "modelled heartbeat window");
         assertEq(entry.lastHeartbeatSeq, slot.entry.lastHeartbeatSeq, "modelled heartbeat seq");
+        assertEq(entry.rewardRecipient, slot.entry.rewardRecipient, "modelled reward recipient");
+        assertTrue(entry.rewardRecipient != address(0), "nonzero reward recipient");
         assertEq(registry.bondOwnerOf(_bondId), slot.owner, "modelled owner");
         assertEq(registry.isWithdrawn(_bondId), slot.withdrawn, "modelled withdrawal");
     }
@@ -284,12 +286,35 @@ abstract contract EtnaStakingRegistryInvariantBase is CommonTest {
         return level[0];
     }
 
-    /// @dev The naive root over `LibEntriesTree.leaf(i, entryAt(i))` for every slot.
+    /// @notice Returns one registry entry leaf for the naive recomputation.
+    /// @dev A separate call frame bounds temporary Entry/ABI allocations per leaf. Otherwise
+    /// the near-cap recompute retains thousands of those allocations and pays quadratic memory
+    /// expansion costs before reducing the tree, exceeding the test block's gas limit.
+    /// @param _index The entry index.
+    /// @return The leaf hash.
+    function entryLeafAt(uint256 _index) external view returns (bytes32) {
+        IEtnaStakingRegistry.Entry memory entry = registry.entryAt(_index);
+        return keccak256(
+            abi.encode(
+                bytes32("ETNA_REG_ENTRY_V2"),
+                _index,
+                entry.pubkey,
+                entry.effStake,
+                uint256(entry.activeFromL1),
+                uint256(entry.exitEffectiveL1),
+                uint256(entry.lastHeartbeatAt),
+                uint256(entry.lastHeartbeatSeq),
+                entry.rewardRecipient
+            )
+        );
+    }
+
+    /// @dev The naive root over independently encoded V2 entry leaves for every slot.
     function _naiveRootOfEntries() internal view returns (bytes32) {
         uint256 count = registry.entryCount();
         bytes32[] memory leaves = new bytes32[](count);
         for (uint256 i; i < count; ++i) {
-            leaves[i] = LibEntriesTree.leaf(i, registry.entryAt(i));
+            leaves[i] = this.entryLeafAt(i);
         }
         return _naiveRoot(leaves);
     }

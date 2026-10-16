@@ -12,7 +12,7 @@ byte. Both sides read this one file instead of carrying their own copies of the 
   and the statement hash.
 - `committee_hashes`: three committees (`CommitteeMember[]`), their ABI encodings and hashes: the
   committee hash a participation part binds and `EtnaRewardPool` checks a settlement list against.
-- `registry_entries`: five staking-registry entries, their `ETNA_REG_ENTRY` leaves and the entries
+- `registry_entries`: five staking-registry entries, their `ETNA_REG_ENTRY_V2` leaves and the entries
   root of every prefix (0 to 5 entries, zero-padded to the next power of two).
 - `layout`: the storage the node proves with EIP-1186 proofs. For the Inbox: the plain slot numbers,
   the bit offsets of every packed field, the anchor and genesis witness slot lists in proof order,

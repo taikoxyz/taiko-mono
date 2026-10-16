@@ -31,8 +31,8 @@ library LibEntriesTree {
     /// @dev The number of leaf positions, `2 ** DEPTH`.
     uint256 internal constant CAPACITY = 4096;
 
-    /// @dev The domain tag of entry leaves: "ETNA_REG_ENTRY", right-padded with zero bytes.
-    bytes32 internal constant ENTRY_TAG = bytes32("ETNA_REG_ENTRY");
+    /// @dev The domain tag of entry leaves: "ETNA_REG_ENTRY_V2", right-padded with zero bytes.
+    bytes32 internal constant ENTRY_TAG = bytes32("ETNA_REG_ENTRY_V2");
 
     /// @dev `zero(l)` for `l = 1..12`; `zero(0)` is `bytes32(0)`.
     bytes32 private constant _Z1 =
@@ -66,7 +66,8 @@ library LibEntriesTree {
 
     /// @dev Hashes entry `_index` into its leaf:
     /// `keccak256(abi.encode(ENTRY_TAG, uint256(_index), pubkey, effStake, uint64 activeFromL1,
-    /// uint64 exitEffectiveL1, uint64 lastHeartbeatAt, uint64 lastHeartbeatSeq))`.
+    /// uint64 exitEffectiveL1, uint64 lastHeartbeatAt, uint64 lastHeartbeatSeq,
+    /// address rewardRecipient))`.
     /// @param _index The entry's index (its bond id).
     /// @param _entry The entry.
     /// @return The leaf hash.
@@ -87,7 +88,8 @@ library LibEntriesTree {
                 _entry.activeFromL1,
                 _entry.exitEffectiveL1,
                 _entry.lastHeartbeatAt,
-                _entry.lastHeartbeatSeq
+                _entry.lastHeartbeatSeq,
+                _entry.rewardRecipient
             )
         );
     }

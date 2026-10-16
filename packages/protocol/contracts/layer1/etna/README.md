@@ -291,13 +291,15 @@ All state lives in the ERC-7201 namespace `taiko.etna.registry`, at base slot
 | --------------------------- | ------------------------------------------------------------------------ | -------------------------------------------- |
 | `keccak256(R) + 2i`         | `checkpoints[i].l1Block`, `checkpoints[i].count`                         | `uint64` bits 0–63, `uint32` bits 64–95      |
 | `keccak256(R) + 2i + 1`     | `checkpoints[i].entriesRoot`                                             | `bytes32`                                    |
-| `keccak256(R + 1) + 3j`     | `entries[j].pubkey`                                                      | `bytes32`                                    |
-| `keccak256(R + 1) + 3j + 1` | `entries[j].effStake` (TAIKO base units)                                 | `uint256`                                    |
-| `keccak256(R + 1) + 3j + 2` | `activeFromL1`, `exitEffectiveL1`, `lastHeartbeatAt`, `lastHeartbeatSeq` | `uint64` bits 0–63, 64–127, 128–191, 192–255 |
+| `keccak256(R + 1) + 4j`     | `entries[j].pubkey`                                                      | `bytes32`                                    |
+| `keccak256(R + 1) + 4j + 1` | `entries[j].effStake` (TAIKO base units)                                 | `uint256`                                    |
+| `keccak256(R + 1) + 4j + 2` | `activeFromL1`, `exitEffectiveL1`, `lastHeartbeatAt`, `lastHeartbeatSeq` | `uint64` bits 0–63, 64–127, 128–191, 192–255 |
+| `keccak256(R + 1) + 4j + 3` | `entries[j].rewardRecipient`                                             | `address` bits 0–159                         |
 
-`exitEffectiveL1 = type(uint64).max` means no exit was requested. Entry leaf `j` is
-`keccak256(abi.encode(bytes32("ETNA_REG_ENTRY"), uint256(j), pubkey, effStake, activeFromL1,
-exitEffectiveL1, lastHeartbeatAt, lastHeartbeatSeq))`. `entriesRoot` over `count` entries pads the
+`rewardRecipient` is the nonzero L2 reward address fixed at registration; it does not grant
+bond-owner permissions. `exitEffectiveL1 = type(uint64).max` means no exit was requested. Entry leaf `j` is
+`keccak256(abi.encode(bytes32("ETNA_REG_ENTRY_V2"), uint256(j), pubkey, effStake, activeFromL1,
+exitEffectiveL1, lastHeartbeatAt, lastHeartbeatSeq, rewardRecipient))`. `entriesRoot` over `count` entries pads the
 leaves with zero leaves to the next power of two and hashes pairs as `keccak256(left ‖ right)`;
 one entry gives leaf 0 and no entry gives `bytes32(0)`. At most 4096 slots exist. A bond id
 names a slot: after a bond is withdrawn, the next registration overwrites its entry, takes over

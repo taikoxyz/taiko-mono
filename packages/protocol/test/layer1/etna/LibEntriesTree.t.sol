@@ -64,7 +64,7 @@ contract LibEntriesTreeTest is CommonTest {
     function test_entryTag_IsRightPaddedAscii() external pure {
         assertEq(
             LibEntriesTree.ENTRY_TAG,
-            bytes32(0x45544e415f5245475f454e545259000000000000000000000000000000000000)
+            bytes32(0x45544e415f5245475f454e5452595f5632000000000000000000000000000000)
         );
     }
 
@@ -297,14 +297,15 @@ contract LibEntriesTreeTest is CommonTest {
     {
         return keccak256(
             abi.encode(
-                bytes32("ETNA_REG_ENTRY"),
+                bytes32("ETNA_REG_ENTRY_V2"),
                 _index,
                 _entry.pubkey,
                 _entry.effStake,
                 uint256(_entry.activeFromL1),
                 uint256(_entry.exitEffectiveL1),
                 uint256(_entry.lastHeartbeatAt),
-                uint256(_entry.lastHeartbeatSeq)
+                uint256(_entry.lastHeartbeatSeq),
+                _entry.rewardRecipient
             )
         );
     }

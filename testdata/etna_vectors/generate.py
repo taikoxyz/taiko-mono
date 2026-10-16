@@ -219,11 +219,11 @@ def committee_hashes():
 
 
 def registry_entries():
-    """Five registry entries, their `ETNA_REG_ENTRY` leaves and the entries root of each prefix.
+    """Five registry entries, their `ETNA_REG_ENTRY_V2` leaves and the entries root of each prefix.
 
     Entry `i`: pubkey `0xa1 + i` repeated, `i + 1` TAIKO, active from `10 + i`, exit at
     `1000 + i` for odd `i` (none, `type(uint64).max`, for even `i`), heartbeat at `20 + i` with
-    sequence `30 + i`.
+    sequence `30 + i`, and L2 recipient `0xb1 + i` repeated to 20 bytes.
     """
     entries = []
     leaves = []
@@ -235,11 +235,12 @@ def registry_entries():
             "exit_effective_l1": 1000 + i if i % 2 == 1 else U64_MAX,
             "last_heartbeat_at": 20 + i,
             "last_heartbeat_seq": 30 + i,
+            "reward_recipient": "0x" + format(0xB1 + i, "02x") * 20,
         }
         leaf = keccak(
             abi_encode(
-                "f(bytes32,uint256,bytes32,uint256,uint64,uint64,uint64,uint64)",
-                tag("ETNA_REG_ENTRY"),
+                "f(bytes32,uint256,bytes32,uint256,uint64,uint64,uint64,uint64,address)",
+                tag("ETNA_REG_ENTRY_V2"),
                 i,
                 entry["pubkey"],
                 entry["eff_stake"],
@@ -247,6 +248,7 @@ def registry_entries():
                 entry["exit_effective_l1"],
                 entry["last_heartbeat_at"],
                 entry["last_heartbeat_seq"],
+                entry["reward_recipient"],
             )
         )
         entries.append({k: v if isinstance(v, str) else dec(v) for k, v in entry.items()})
@@ -288,8 +290,8 @@ def layout():
         return [word(first), word(first + 1)]
 
     def entry_slots(j):
-        first = entry_data + 3 * j
-        return [word(first), word(first + 1), word(first + 2)]
+        first = entry_data + 4 * j
+        return [word(first + w) for w in range(4)]
 
     def snapshot_slots(i, has_next):
         head, root = checkpoint_slots(i)

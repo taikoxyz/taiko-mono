@@ -46,7 +46,7 @@ abstract contract EtnaInboxSettlementGasTestBase is EtnaInboxTestBase {
             taikoToken.mint(owner, stake);
             vm.startPrank(owner);
             taikoToken.approve(address(registry), stake);
-            uint256 bondId = registry.register(bytes32(0x1000 + i), stake);
+            uint256 bondId = registry.register(bytes32(0x1000 + i), stake, owner);
             vm.stopPrank();
             _members.push(
                 IEtnaInbox.CommitteeMember({
