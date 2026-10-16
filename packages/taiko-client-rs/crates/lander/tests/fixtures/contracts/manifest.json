@@ -1395,10 +1395,7 @@
       }
     }
   },
-  "foundryVersion": [
-    "forge Version: 1.5.1-stable",
-    "Commit SHA: b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2"
-  ],
+  "foundryVersion": ["Commit SHA: b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2"],
   "generator": "script/gen_lander_artifacts.sh",
   "interface": {
     "sha256": "66d9d9ad96aac5364e978aca32533c3281b81133e18bf6d4d0be3769df540f0c",

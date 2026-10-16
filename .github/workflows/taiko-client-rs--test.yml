@@ -223,7 +223,8 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1.5.0
         with:
-          # The release recorded in crates/lander/tests/fixtures/contracts/manifest.json.
+          # A release built from the commit recorded in
+          # crates/lander/tests/fixtures/contracts/manifest.json (`foundryVersion`).
           version: v1.5.1
 
       - name: Install pnpm
