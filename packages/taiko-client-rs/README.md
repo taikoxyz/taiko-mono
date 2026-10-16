@@ -328,7 +328,9 @@ Fee caps are positive wei per gas:
 `--max-fee-per-blob-gas`; the priority cap cannot exceed the execution cap.
 Signed transactions add a checked 20% gas-limit margin to the RPC estimate,
 covering a pending reference that moves from BLOCKHASH into the EIP-2935 lookup
-branch before inclusion. Set the limits to match the deployed Inbox and L1 fork. Choose the budgets
+branch before inclusion, plus 40,000 gas per committee member the landing settles (see the
+freezing landing below), and never exceed EIP-7825's 16,777,216; an estimate above that cap stops
+the lander before signing. Set the limits to match the deployed Inbox and L1 fork. Choose the budgets
 explicitly before running this example:
 
 ```sh
@@ -398,6 +400,15 @@ canonical commit is block `h + 1`'s `last_commit`: that block's header binds it,
 choose its signatures. A batch `(p, L]` therefore carries the commits of heights `max(p, 1)` to
 `L - 1`, and height `L`'s commit rides in the next batch, so every height counts once. A height's
 `/commit` (CometBFT's seen commit, which may hold other signatures) is verified but never counted.
+The proposer of block `h + 1` chooses which precommits beyond the 2/3 threshold enter its
+`last_commit`. Omitting one is not attributable, and there is no proposer bonus to lose. A
+coalition below 1/3 costs a victim the share of blocks it proposes: with A at 30%, B at 37% and C
+at 33% of the voting power, A omitting C whenever A proposes (A and B still clear 2/3) cuts C's
+reward by about 22% and raises A's by about 11%. A coalition above 1/3 can withhold its votes from
+other proposals, the same way it can suppress BFT time, so that only its own proposals are
+decided, and exclude the victim entirely: with A at 34%, B at 33% and C at 33%, C earns nothing and
+A about 50.7%. Candidate remedies are a Cosmos-style proposer bonus, which needs each height's
+proposer bound into the participation data, or having the guest count extra valid precommits.
 For each epoch those heights touch, in ascending order, an `EpochParticipation` names the epoch,
 the hash of its committee as `CommitteeMember { bondId, activeFromL1, effStake }` in MEM-08 order
 (read from the committee's authenticated registry witness), and per member the number of those
@@ -415,13 +426,21 @@ lists do not hash to its completed epochs' committees.
 
 A freezing landing pays for the settlement. For a 128-member committee the pool needs about 1.6M
 extra gas when every owner already holds credits and up to about 4.5M when all are credited for the
-first time, plus about 12 KB of committee calldata. The gas estimate and its 20% margin cover it,
-but choose the fee caps and fund the sending account so that such a landing stays affordable.
-The landing must also fit in one L1 transaction, which Osaka caps at 16,777,216 gas (EIP-7825).
-The worst case grows by about 34.9k gas and 128 bytes of calldata per member, so a committee
-configuration whose `n_max` is well above about 400 makes the freezing landing un-includable:
-landing halts, back-pressure then halts L2, and only a pool upgrade recovers. Keep `n_max` at or
-below about 400 (Configuration checks in the protocol package's Etna README).
+first time, plus about 12 KB of committee calldata. The gas estimate alone cannot be trusted to
+cover it: the pool skips its crediting loop when the frozen epoch's allocation is zero, so an
+estimate taken while the pool is empty (before the first sweep arrives, or after every freeze when
+the two shares sum to 100%) leaves the loop out, and any sweep or donation before inclusion runs
+the landing out of gas. The lander therefore adds 40,000 gas (the measured worst case is about
+34.9k) per settled member on top of the estimate and its 20% margin. Should a landing still run
+out of gas with the checkpoint unchanged, the lander resets to idle and rebuilds and re-estimates
+the job instead of stopping; any other canonical revert stops it. Choose the fee caps and fund the
+sending account so that such a landing stays affordable.
+The landing must also fit in one L1 transaction, which Osaka caps at 16,777,216 gas (EIP-7825),
+and the lander caps its gas limit there. The worst case grows by about 34.9k gas and 128 bytes of
+calldata per member: at 400 members the worst-case freezing landing needs about 14.5M, and above
+about 455 it cannot be included at all, so landing would halt, back-pressure then halt L2, and only
+a pool upgrade recover. The client therefore rejects an `n_max` above 400 (`MAX_N_MAX`; see
+Configuration checks in the protocol package's Etna README).
 
 Proof requests retain the Inbox schedule/config/checkpoint proof under the batch parent's anchor,
 along with each committee's registry witness and proving header in the reference ancestry.
@@ -499,7 +518,9 @@ an underpriced transaction or a dropped stale job can require operator
 reconciliation. A transaction that reverts canonically at the confirmation depth with the
 checkpoint unchanged stops the lander once, with the journal already reset to idle: its nonce
 is spent, so the next run builds a fresh job (a deterministic revert then stops at gas
-estimation, before signing) rather than re-reading the receipt. Use one active lander per
+estimation, before signing) rather than re-reading the receipt. A revert that used its whole gas
+limit ran out of gas, which depends on state at inclusion rather than on the job, so the lander
+resets to idle and keeps running, rebuilding and re-estimating the next job. Use one active lander per
 signing account and separate accounts for independent competitors.
 
 The service needs unpruned CometBFT blocks/commits, the checkpoint parent and required EL ancestor headers, and
