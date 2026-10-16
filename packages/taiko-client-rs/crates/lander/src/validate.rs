@@ -60,24 +60,19 @@ pub struct BlockFacts {
     pub expected: rules::ExpectedHeader,
 }
 
-/// Authenticates canonical precommits with distinct signers and strict `> 2/3` power, and
-/// returns which slots signed the block.
+/// Authenticate canonical precommits with distinct signers and strict `> 2/3` signed power.
 ///
 /// The timestamp, round, block id, height and chain id all enter Tendermint's canonical
 /// length-delimited vote sign bytes. Nil votes are verified but contribute no block power.
 /// Absent slots contribute no power. Signatures must follow the authenticated validator order.
 /// Ed25519 acceptance follows CometBFT's ZIP215 consensus rules, including torsion components;
 /// every future proof guest must use the same verifier.
-///
-/// The result has one flag per slot, in the committee's CometBFT validator order (power
-/// descending, then address ascending): true iff the slot holds a `BlockIdFlagCommit` signature,
-/// which every successful return has verified. Nil votes and absent slots are false.
 pub fn verify_commit(
     commit: &Commit,
     header: &tendermint::block::Header,
     committee: &AuthenticatedCommittee,
     chain_id: &str,
-) -> Result<Vec<bool>, ValidationError> {
+) -> Result<(), ValidationError> {
     if header.chain_id.as_str() != chain_id || commit.height != header.height {
         return Err(ValidationError::Certificate("chain id or commit height mismatch".into()));
     }
@@ -99,7 +94,6 @@ pub fn verify_commit(
     }
     let mut signed_power = 0u128;
     let mut seen = BTreeSet::new();
-    let mut signed = vec![false; commit.signatures.len()];
     for (index, (sig, validator)) in
         commit.signatures.iter().zip(committee.validators.validators()).enumerate()
     {
@@ -151,7 +145,6 @@ pub fn verify_commit(
             .map_err(|e| ValidationError::Certificate(format!("Ed25519 verification: {e}")))?;
         if is_commit {
             signed_power += u128::from(validator.power());
-            signed[index] = true;
         }
     }
     let total = u128::from(committee.state.record.total_power);
@@ -160,7 +153,7 @@ pub fn verify_commit(
             "insufficient commit power {signed_power}/{total}; require strictly more than 2/3"
         )));
     }
-    Ok(signed)
+    Ok(())
 }
 
 /// Tendermint's simple Merkle root of byte slices, including the SHA-256 empty root.
@@ -540,29 +533,20 @@ mod tests {
     fn weighted_quorum_absent_and_nil_votes_do_not_count() {
         let (_, committee, keys) = committee(&[3, 1], 0);
         let mut block = pair(1, B256::ZERO, &committee, &keys, None);
-        assert_eq!(
-            verify_commit(&block.commit, &block.block.header, &committee, "taiko-etna-167001-g0")
-                .unwrap(),
-            [true, true]
-        );
+        verify_commit(&block.commit, &block.block.header, &committee, "taiko-etna-167001-g0")
+            .unwrap();
         block.commit.signatures[1] = CommitSig::BlockIdFlagAbsent;
-        assert_eq!(
-            verify_commit(&block.commit, &block.block.header, &committee, "taiko-etna-167001-g0")
-                .unwrap(),
-            [true, false]
-        );
+        verify_commit(&block.commit, &block.block.header, &committee, "taiko-etna-167001-g0")
+            .unwrap();
         let mut nil_block = pair(1, B256::ZERO, &committee, &keys, None);
         nil_block.commit.signatures[1] = nil_vote(&nil_block, &committee, &keys, 1);
-        assert_eq!(
-            verify_commit(
-                &nil_block.commit,
-                &nil_block.block.header,
-                &committee,
-                "taiko-etna-167001-g0",
-            )
-            .unwrap(),
-            [true, false]
-        );
+        verify_commit(
+            &nil_block.commit,
+            &nil_block.block.header,
+            &committee,
+            "taiko-etna-167001-g0",
+        )
+        .unwrap();
         nil_block.commit.signatures[0] = nil_vote(&nil_block, &committee, &keys, 0);
         assert!(
             verify_commit(

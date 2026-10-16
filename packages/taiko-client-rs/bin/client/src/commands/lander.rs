@@ -126,6 +126,7 @@ impl LanderSubCommand {
                 limits: config.limits,
                 mode: config.sidecar_mode,
                 fee_recipient: sender,
+                l2_reward_recipient: config.l2_reward_recipient,
                 engine,
                 engine_timeout: config.timeouts.engine,
             },

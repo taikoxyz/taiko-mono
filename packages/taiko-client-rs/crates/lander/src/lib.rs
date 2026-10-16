@@ -10,11 +10,11 @@ pub mod codec;
 pub mod contracts;
 /// Classified errors shared by the lander's components.
 pub mod error;
-/// Per-epoch validator participation from the canonical commits a batch carries.
-pub mod participation;
 /// Asynchronous proof-provider boundary and explicitly dummy implementation.
 pub mod proof;
-/// Exact V7 public statement encoding and hashing.
+/// Canonical L2 reward receipts and checked host base fee accounting.
+pub mod rewards;
+/// Exact V8 public statement encoding and hashing.
 pub mod statement;
 /// Immutable contexts shared by collectors, proof providers and persistence.
 pub mod types;

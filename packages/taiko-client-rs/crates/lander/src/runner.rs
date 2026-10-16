@@ -482,13 +482,7 @@ impl Runner {
         let batch = &job.request.batch;
         let contract_hash = self
             .l1
-            .statement_hash(
-                snapshot,
-                &batch.input,
-                &batch.participation,
-                reference_hash,
-                &batch.blobs.versioned_hashes,
-            )
+            .statement_hash(snapshot, &batch.input, reference_hash, &batch.blobs.versioned_hashes)
             .await?;
         if contract_hash != batch.statement_hash {
             return Err(LanderError::Configuration(
@@ -680,9 +674,7 @@ impl Runner {
             // The revert is canonical at the confirmation depth, so its nonce is spent and
             // nothing of this job can land any more.
             if ran_out_of_gas(receipt.gas_used, transaction.gas_limit()?) {
-                // It ran out of gas: state that changed after estimation made the landing
-                // costlier, such as a sweep arriving at an empty reward pool before a freezing
-                // landing. Rebuild and re-estimate against the current state, but only once in a
+                // Rebuild and re-estimate an out-of-gas landing against current state once in a
                 // row per checkpoint: a landing that keeps running out of gas stops below.
                 let count = match self.out_of_gas {
                     Some(streak) if streak.matches(&snapshot) => streak.count + 1,
@@ -753,8 +745,8 @@ fn observe_state(state: &JournalState) {
 /// Whether a canonical failed landing that used `gas_used` of its `gas_limit` ran out of gas.
 ///
 /// An out-of-gas below the top frame does not use the whole limit. The landing calls the Inbox
-/// proxy, which delegates to its implementation and calls the reward pool proxy, which delegates
-/// again; EIP-150 keeps 1/64 of the remaining gas in each calling frame, and the top-level revert
+/// proxy, which delegates to its implementation and may make further external calls.
+/// EIP-150 keeps 1/64 of the remaining gas in each calling frame, and the top-level revert
 /// that the inner out-of-gas becomes refunds what the outer frames kept (measured on anvil: a
 /// direct out-of-gas uses 1,000,000 of 1,000,000, one behind a reverting delegatecall proxy
 /// 984,753 of 1,000,000 and 16,515,450 of 16,777,216). Any use of at least 15/16 of the limit

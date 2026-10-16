@@ -136,11 +136,10 @@ async fn lander_cli_lands_blob_batches_and_resumes_after_sigterm() -> Result<()>
             second.signal(libc::SIGTERM).await?.success(),
             "restarted command should stop gracefully"
         );
-        // (0, 5], then (5, epoch_len + 1], which ends at the block carrying epoch 0's last
-        // commit, then (epoch_len + 1, epoch_len + 2].
+        // (0, 5], then a complete prefix (5, epoch_len + 2] crossing the epoch.
         ensure!(
-            fixture.anvil.provider.get_transaction_count(sender).await? == nonce + 3,
-            "expected three real blob landing transactions"
+            fixture.anvil.provider.get_transaction_count(sender).await? == nonce + 2,
+            "expected two real blob landing transactions"
         );
         assert_key_absent(&second);
         Ok(())

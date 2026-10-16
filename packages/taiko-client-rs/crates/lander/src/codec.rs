@@ -18,7 +18,7 @@ use crate::{
 };
 
 /// Version prefix of `0x04 || zlib(rlp([[header_proto, envelope], ...]))`.
-pub const VERSION: u8 = 4;
+pub const VERSION: u8 = 5;
 
 use abci::compression::{
     InflateError, zlib_compress, zlib_compress_best, zlib_compress_split, zlib_inflate_exact,
@@ -131,7 +131,7 @@ pub(crate) const fn payload_bound(list_len: usize) -> usize {
     list_len.saturating_add(list_len / 256).saturating_add(64)
 }
 
-/// A V4 payload's RLP list, built one validated block at a time so prefix selection checks and
+/// A V5 payload's RLP list, built one validated block at a time so prefix selection checks and
 /// encodes each block once rather than once per candidate prefix.
 pub(crate) struct PayloadList {
     /// Bounds applied to every appended block and to the whole list.
@@ -479,7 +479,7 @@ mod tests {
     fn canonical_wire_is_v038_header_protobuf_and_envelope_in_two_rlp_strings() {
         let blocks = chain(1);
         let expected = wire(&items(&blocks));
-        assert_eq!(expected[0], 4);
+        assert_eq!(expected[0], 5);
         assert_eq!(encode(&blocks, &limits()).unwrap(), expected);
         assert_eq!(decode(&expected, &limits()).unwrap(), published(&blocks));
     }
@@ -621,6 +621,10 @@ mod tests {
         assert!(
             encoding_error(decode(&frame(3, &list), &limits()))
                 .contains("unsupported batch version 3")
+        );
+        assert!(
+            encoding_error(decode(&frame(4, &list), &limits()))
+                .contains("unsupported batch version 4")
         );
         let mut v2 = vec![2];
         v2.extend_from_slice(&list);
