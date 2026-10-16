@@ -74,6 +74,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
         );
     }
 
+    /// @notice Checks that nonempty vector leaves use the epoch-derived set version.
     function test_committeeSets_LeafVersionFollowsTargetEpoch() external view {
         for (uint256 k = 1; k < 4; ++k) {
             string memory p = string.concat(".committee_sets[", vm.toString(k), "].");
@@ -87,22 +88,28 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
         }
     }
 
+    /// @notice Checks recipient binding and odd-node promotion for the five-member vector.
     function test_committeeSets_BindRecipientsAndPromoteOddNodes() external view {
         _assertCommitteeSet(3);
     }
 
+    /// @notice Checks the empty set's encoding vector without treating it as a valid committee.
     function test_committeeSets_EmptyIsEncodingOnly() external view {
         _assertCommitteeSet(0);
     }
 
+    /// @notice Checks the singleton vector whose root is its member leaf.
     function test_committeeSets_SingleMember() external view {
         _assertCommitteeSet(1);
     }
 
+    /// @notice Checks that the three-member vector promotes its unpaired final leaf.
     function test_committeeSets_ThreeMembersPromoteOddNode() external view {
         _assertCommitteeSet(2);
     }
 
+    /// @dev Checks one shared set's metadata, member leaves, tree root and record preimage/hash.
+    /// @param _case The index of the shared committee-set case.
     function _assertCommitteeSet(uint256 _case) private view {
         assertEq(LibEtnaVectors.lengthAt(vectors, ".committee_sets"), 4);
         string memory p = string.concat(".committee_sets[", vm.toString(_case), "].");
@@ -162,6 +169,11 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
         );
     }
 
+    /// @dev Checks one ordered vector member and its recipient-bound leaf against the registry.
+    /// @param _prefix The JSON path prefix of the committee-set case.
+    /// @param _index The member's position in set-key order.
+    /// @param _setVersion The epoch-derived set version used by the leaf.
+    /// @return leaf_ The verified member leaf hash.
     function _memberVector(
         string memory _prefix,
         uint256 _index,
@@ -210,6 +222,11 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
         assertEq(LibEtnaVectors.uintAt(vectors, string.concat(m, "power")), entry.effStake / 1e9);
     }
 
+    /// @dev Encodes the independent seven-word V2 leaf preimage for the vector's L2 chain.
+    /// @param _index The member's position in set-key order.
+    /// @param _entry The registry entry supplying the public key, stake and recipient.
+    /// @param _setVersion The epoch-derived set version, distinct from the record target epoch.
+    /// @return The ABI-encoded leaf preimage.
     function _setLeafWords(
         uint256 _index,
         IEtnaStakingRegistry.Entry memory _entry,
