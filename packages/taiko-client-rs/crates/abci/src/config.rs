@@ -18,7 +18,7 @@ pub struct ChainParams {
     /// `D_MAX`: maximum unsettled depth, in L2 blocks (HALT-03); bound by the committee
     /// configuration hash.
     pub d_max: u64,
-    /// `MARGIN_V`: safety margin subtracted from `d_max`, in L2 blocks; `d_max >= margin_v`;
+    /// `MARGIN_V`: safety margin subtracted from `d_max`, in L2 blocks; `d_max > margin_v`;
     /// bound by the committee configuration hash.
     pub margin_v: u64,
     /// `VP_UNIT`: effective stake per unit of voting power, in TAIKO base units; `> 0`.
@@ -65,9 +65,10 @@ pub enum ConfigError {
         /// The consensus constant whose override differed from its built-in value.
         parameter: &'static str,
     },
-    /// `d_max < margin_v`, so the unsettled cap would be negative.
-    #[error("d_max ({d_max}) must be >= margin_v ({margin_v})")]
-    DMaxBelowMargin {
+    /// `d_max <= margin_v`, so the unsettled cap would not be positive: block 1 could never pass
+    /// back-pressure against the genesis checkpoint at height 0.
+    #[error("d_max ({d_max}) must be > margin_v ({margin_v})")]
+    DMaxNotAboveMargin {
         /// Configured `d_max`.
         d_max: u64,
         /// Configured `margin_v`.
@@ -168,17 +169,21 @@ impl ChainParams {
 
     /// The unsettled-depth cap `U = d_max - margin_v`, in L2 blocks (HALT-03).
     ///
-    /// Saturates at 0 when `d_max < margin_v`, which [`ChainParams::validate`] rejects.
+    /// At least 1 for parameters that pass [`ChainParams::validate`]; saturates at 0 when
+    /// `d_max < margin_v`.
     pub fn unsettled_cap(&self) -> u64 {
         self.d_max.saturating_sub(self.margin_v)
     }
 
-    /// Checks `d_max >= margin_v`, `vp_unit > 0`, `n_max >= 1`, `heartbeat_window >= 1`,
+    /// Checks `d_max > margin_v`, `vp_unit > 0`, `n_max >= 1`, `heartbeat_window >= 1`,
     /// `block_gas_limit > 0` and `s_min >= vp_unit`, returning the first
     /// violation.
     pub fn validate(&self) -> Result<(), ConfigError> {
-        if self.d_max < self.margin_v {
-            return Err(ConfigError::DMaxBelowMargin { d_max: self.d_max, margin_v: self.margin_v });
+        if self.d_max <= self.margin_v {
+            return Err(ConfigError::DMaxNotAboveMargin {
+                d_max: self.d_max,
+                margin_v: self.margin_v,
+            });
         }
         if self.vp_unit.is_zero() {
             return Err(ConfigError::ZeroVpUnit);
@@ -449,13 +454,18 @@ mod tests {
     }
 
     #[test]
-    fn validate_rejects_d_max_below_margin() {
-        let p = ChainParams { d_max: 1, margin_v: 2, ..devnet() };
-        assert!(matches!(
-            p.validate().unwrap_err(),
-            ConfigError::DMaxBelowMargin { d_max: 1, margin_v: 2 }
-        ));
-        ChainParams { d_max: 2, margin_v: 2, ..devnet() }.validate().unwrap();
+    fn validate_requires_d_max_above_margin() {
+        for (d_max, margin_v) in [(1, 2), (2, 2), (0, 0)] {
+            let err = ChainParams { d_max, margin_v, ..devnet() }.validate().unwrap_err();
+            let ConfigError::DMaxNotAboveMargin { d_max: d, margin_v: m } = err else {
+                panic!("{d_max}/{margin_v}: {err:?}");
+            };
+            assert_eq!((d, m), (d_max, margin_v));
+        }
+        // An unsettled cap of 1 lets block 1 pass back-pressure against checkpoint 0.
+        let p = ChainParams { d_max: 3, margin_v: 2, ..devnet() };
+        p.validate().unwrap();
+        assert_eq!(p.unsettled_cap(), 1);
     }
 
     #[test]

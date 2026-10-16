@@ -7,10 +7,16 @@
 //! applies the updates two heights later. Epoch 0's validators come from genesis.
 //!
 //! Methods dividing by `L` panic when it is zero; [`Schedule::validate`] rejects it.
-//! Epoch offsets and derivation-parent heights are checked for `u64` overflow.
+//! Epoch offsets and derivation-parent heights are checked for `u64` overflow, and
+//! [`Schedule::validate`] keeps the first transition within the protocol's [`UINT48_MAX`]
+//! height and anchor ranges.
 
 use crate::types::GenesisRecord;
 use serde::{Deserialize, Serialize};
+
+/// `type(uint48).max`: the largest L2 height `land` accepts and the largest anchor L1 block
+/// number the Etna `extraData` encodes. CometBFT's `int64` heights are wider.
+pub const UINT48_MAX: u64 = (1 << 48) - 1;
 
 /// The epoch schedule: the genesis-record fields the epoch arithmetic and the committee
 /// snapshot cutoffs need.
@@ -18,10 +24,11 @@ use serde::{Deserialize, Serialize};
 pub struct Schedule {
     /// `L1_0`: L1 block number of initialization; the minimum anchor of epoch `e_0`.
     pub l1_0: u64,
-    /// `L`: epoch length in L2 blocks (CometBFT heights); validated `>= 3` and `>= U + 3`.
+    /// `L`: epoch length in L2 blocks (CometBFT heights); validated `>= 3`, `>= U + 3` and
+    /// `< UINT48_MAX`, so `h_first(1)` is a `uint48` height.
     pub epoch_len: u64,
     /// `EPOCH_LEN_L1`: epoch length in L1 blocks, the step of the per-epoch minimum anchor;
-    /// validated `>= 1`.
+    /// validated `>= 1` and `<= UINT48_MAX - l1_0`, so `L1_first(1)` is a `uint48` anchor.
     pub epoch_len_l1: u64,
     /// `genesisCutoff`: the explicit L1 block of epoch `e_0`'s registry snapshot; `< l1_0`
     /// for a verified genesis. Runtime epochs use the committed derivation parent anchor.
@@ -50,6 +57,22 @@ pub enum ScheduleError {
     /// `epoch_len_l1 == 0`.
     #[error("epoch_len_l1 must be >= 1")]
     ZeroEpochLenL1,
+    /// `h_first(1) = epoch_len + 1` exceeds [`UINT48_MAX`], the last height `land` accepts, so
+    /// the first switch could never settle.
+    #[error("epoch_len ({epoch_len}) puts h_first(1) above the uint48 height range")]
+    FirstEpochBeyondHeightRange {
+        /// The rejected `L`.
+        epoch_len: u64,
+    },
+    /// `L1_first(1) = l1_0 + epoch_len_l1` exceeds [`UINT48_MAX`], the last anchor the
+    /// `extraData` encodes, so no anchor could open epoch 1.
+    #[error("l1_0 ({l1_0}) + epoch_len_l1 ({epoch_len_l1}) is above the uint48 anchor range")]
+    FirstEpochBeyondAnchorRange {
+        /// `L1_0`.
+        l1_0: u64,
+        /// The rejected `EPOCH_LEN_L1`.
+        epoch_len_l1: u64,
+    },
 }
 
 impl Schedule {
@@ -90,9 +113,12 @@ impl Schedule {
     ///
     /// If the height overflows `u64`.
     pub fn h_first(&self, e: u64) -> u64 {
-        Self::offset(e, self.epoch_len)
-            .and_then(|o| o.checked_add(self.h0()))
-            .expect("h_first: height overflows u64")
+        self.checked_h_first(e).expect("h_first: height overflows u64")
+    }
+
+    /// [`Schedule::h_first`], or `None` if the height overflows `u64`.
+    pub fn checked_h_first(&self, e: u64) -> Option<u64> {
+        Self::offset(e, self.epoch_len)?.checked_add(self.h0())
     }
 
     /// The committed L2 parent selecting `target_epoch` at its switch: `H(target_epoch) - 3`.
@@ -165,9 +191,14 @@ impl Schedule {
         (offset % len == 0).then(|| offset / len + Self::E0)
     }
 
-    /// Checks `epoch_len >= 3`, `epoch_len >= unsettled_cap + 3` and `epoch_len_l1 >= 1`;
-    /// returns the first violation. `InitChain` and every load
+    /// Checks `epoch_len >= 3`, `epoch_len >= unsettled_cap + 3`, `epoch_len_l1 >= 1` and that
+    /// the first transition fits the protocol's `uint48` ranges: `h_first(1) <= UINT48_MAX`
+    /// (a `land` height) and `L1_first(1) <= UINT48_MAX` (an `extraData` anchor). Returns the
+    /// first violation. `InitChain` and every load
     /// of `AppState` must call this before using the schedule.
+    ///
+    /// Later epochs are not range-checked: an epoch whose `L1_first` exceeds the anchor range
+    /// never opens on L1, which stops the chain with a rule violation rather than a panic.
     pub fn validate(&self, unsettled_cap: u64) -> Result<(), ScheduleError> {
         if self.epoch_len < 3 {
             return Err(ScheduleError::EpochTooShort { epoch_len: self.epoch_len });
@@ -180,6 +211,15 @@ impl Schedule {
         }
         if self.epoch_len_l1 == 0 {
             return Err(ScheduleError::ZeroEpochLenL1);
+        }
+        if self.checked_h_first(1).is_none_or(|h| h > UINT48_MAX) {
+            return Err(ScheduleError::FirstEpochBeyondHeightRange { epoch_len: self.epoch_len });
+        }
+        if self.checked_l1_first(1).is_none_or(|n| n > UINT48_MAX) {
+            return Err(ScheduleError::FirstEpochBeyondAnchorRange {
+                l1_0: self.l1_0,
+                epoch_len_l1: self.epoch_len_l1,
+            });
         }
         Ok(())
     }
@@ -256,6 +296,7 @@ mod tests {
                 (7, h0 + 7 * l, h0 + 8 * l - 1, L1_0 + 7 * EPOCH_LEN_L1),
             ] {
                 assert_eq!(s.h_first(e), first, "{ctx} h_first({e})");
+                assert_eq!(s.checked_h_first(e), Some(first), "{ctx} checked_h_first({e})");
                 assert_eq!(s.h_last(e), last, "{ctx} h_last({e})");
                 assert_eq!(s.l1_first(e), l1, "{ctx} l1_first({e})");
                 assert_eq!(s.epoch_of(first), e, "{ctx} epoch_of(h_first({e}))");
@@ -350,9 +391,46 @@ mod tests {
     }
 
     #[test]
+    fn validate_keeps_the_first_transition_in_the_uint48_ranges() {
+        // h_first(1) = L + 1 may be the last height `land` accepts, not one above it.
+        let s = Schedule { epoch_len: UINT48_MAX - 1, ..schedule(20) };
+        s.validate(10).unwrap();
+        assert_eq!(s.h_first(1), UINT48_MAX);
+        for epoch_len in [UINT48_MAX, u64::MAX - 1, u64::MAX] {
+            assert_eq!(
+                Schedule { epoch_len, ..schedule(20) }.validate(10),
+                Err(ScheduleError::FirstEpochBeyondHeightRange { epoch_len }),
+                "L={epoch_len}"
+            );
+        }
+
+        // L1_first(1) = L1_0 + EPOCH_LEN_L1 may be the last anchor extraData encodes.
+        let s = Schedule { epoch_len_l1: UINT48_MAX - L1_0, ..schedule(20) };
+        s.validate(10).unwrap();
+        assert_eq!(s.l1_first(1), UINT48_MAX);
+        for epoch_len_l1 in [UINT48_MAX - L1_0 + 1, u64::MAX - L1_0, u64::MAX] {
+            assert_eq!(
+                Schedule { epoch_len_l1, ..schedule(20) }.validate(10),
+                Err(ScheduleError::FirstEpochBeyondAnchorRange { l1_0: L1_0, epoch_len_l1 }),
+                "EPOCH_LEN_L1={epoch_len_l1}"
+            );
+        }
+    }
+
+    #[test]
     #[should_panic(expected = "h_first")]
     fn h_first_panics_on_overflow() {
         schedule(20).h_first(u64::MAX);
+    }
+
+    #[test]
+    fn checked_h_first_reports_overflow() {
+        assert_eq!(schedule(20).checked_h_first(u64::MAX), None);
+        assert_eq!(Schedule { epoch_len: u64::MAX, ..schedule(20) }.checked_h_first(1), None);
+        assert_eq!(
+            Schedule { epoch_len: u64::MAX - 1, ..schedule(20) }.checked_h_first(1),
+            Some(u64::MAX)
+        );
     }
 
     #[test]
