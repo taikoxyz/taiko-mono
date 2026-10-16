@@ -74,68 +74,98 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
         );
     }
 
-    function test_committeeSets_BindRecipientsAndPromoteOddNodes() external view {
-        assertEq(LibEtnaVectors.lengthAt(vectors, ".committee_sets"), 4);
-        for (uint256 k; k < 4; ++k) {
+    function test_committeeSets_LeafVersionFollowsTargetEpoch() external view {
+        for (uint256 k = 1; k < 4; ++k) {
             string memory p = string.concat(".committee_sets[", vm.toString(k), "].");
-            assertEq(LibEtnaVectors.uintAt(vectors, string.concat(p, "l2_chain_id")), 167_001);
-            assertEq(LibEtnaVectors.uintAt(vectors, string.concat(p, "target_epoch")), 7);
-            assertEq(LibEtnaVectors.uintAt(vectors, string.concat(p, "cutoff_l1_block")), 100);
-            assertEq(LibEtnaVectors.uintAt(vectors, string.concat(p, "checkpoint_index")), 3);
-            assertEq(LibEtnaVectors.uintAt(vectors, string.concat(p, "encoding_version")), 2);
-            uint256 count = LibEtnaVectors.lengthAt(vectors, string.concat(p, "members"));
-            bytes32[] memory level = new bytes32[](count);
-            uint256 stake;
-            uint256 power;
-            for (uint256 i; i < count; ++i) {
-                level[i] = _memberVector(p, i);
-                string memory member = string.concat(p, "members[", vm.toString(i), "].");
-                stake += LibEtnaVectors.uintAt(vectors, string.concat(member, "eff_stake"));
-                power += LibEtnaVectors.uintAt(vectors, string.concat(member, "power"));
-            }
-            uint256 width = count;
-            while (width > 1) {
-                for (uint256 i; i < width; i += 2) {
-                    level[i / 2] = i + 1 == width
-                        ? level[i]
-                        : keccak256(
-                            abi.encode(
-                                bytes32("ETNA_SET_NODE"),
-                                uint256(167_001),
-                                uint256(7),
-                                level[i],
-                                level[i + 1]
-                            )
-                        );
-                }
-                width = (width + 1) / 2;
-            }
-            bytes32 root = count == 0 ? bytes32(0) : level[0];
-            assertEq(root, LibEtnaVectors.bytes32At(vectors, string.concat(p, "set_root")));
-            assertEq(stake, LibEtnaVectors.uintAt(vectors, string.concat(p, "total_stake")));
-            assertEq(power, LibEtnaVectors.uintAt(vectors, string.concat(p, "total_power")));
-            bytes memory record = abi.encode(
-                bytes32("ETNA_COMMITTEE_V2"),
-                uint256(167_001),
-                uint64(7),
-                uint64(100),
-                uint64(3),
-                root,
-                stake,
-                uint64(power),
-                uint8(2)
-            );
-            assertEq(record, LibEtnaVectors.bytesAt(vectors, string.concat(p, "record_preimage")));
-            assertEq(
-                keccak256(record),
-                LibEtnaVectors.bytes32At(vectors, string.concat(p, "record_hash"))
-            );
+            bytes memory leaf =
+                LibEtnaVectors.bytesAt(vectors, string.concat(p, "set_leaf_preimages[0]"));
+            (,, uint256 setVersion,,,,) =
+                abi.decode(leaf, (bytes32, uint256, uint256, uint256, bytes32, uint256, address));
+            uint256 targetEpoch = LibEtnaVectors.uintAt(vectors, string.concat(p, "target_epoch"));
+            assertEq(setVersion, targetEpoch + 1, "k = targetEpoch - E0 + 1; E0 = 0");
+            assertEq(setVersion, LibEtnaVectors.uintAt(vectors, string.concat(p, "set_version")));
         }
+    }
+
+    function test_committeeSets_BindRecipientsAndPromoteOddNodes() external view {
+        _assertCommitteeSet(3);
+    }
+
+    function test_committeeSets_EmptyIsEncodingOnly() external view {
+        _assertCommitteeSet(0);
+    }
+
+    function test_committeeSets_SingleMember() external view {
+        _assertCommitteeSet(1);
+    }
+
+    function test_committeeSets_ThreeMembersPromoteOddNode() external view {
+        _assertCommitteeSet(2);
+    }
+
+    function _assertCommitteeSet(uint256 _case) private view {
+        assertEq(LibEtnaVectors.lengthAt(vectors, ".committee_sets"), 4);
+        string memory p = string.concat(".committee_sets[", vm.toString(_case), "].");
+        assertEq(LibEtnaVectors.uintAt(vectors, string.concat(p, "l2_chain_id")), 167_001);
+        assertEq(LibEtnaVectors.uintAt(vectors, string.concat(p, "target_epoch")), 7);
+        assertEq(LibEtnaVectors.uintAt(vectors, string.concat(p, "cutoff_l1_block")), 100);
+        assertEq(LibEtnaVectors.uintAt(vectors, string.concat(p, "checkpoint_index")), 3);
+        assertEq(LibEtnaVectors.uintAt(vectors, string.concat(p, "encoding_version")), 2);
+        uint256 setVersion = LibEtnaVectors.uintAt(vectors, string.concat(p, "set_version"));
+        assertEq(setVersion, 8);
+        assertEq(setVersion, LibEtnaVectors.uintAt(vectors, string.concat(p, "target_epoch")) + 1);
+        uint256 count = LibEtnaVectors.lengthAt(vectors, string.concat(p, "members"));
+        bytes32[] memory level = new bytes32[](count);
+        uint256 stake;
+        uint256 power;
+        for (uint256 i; i < count; ++i) {
+            level[i] = _memberVector(p, i, setVersion);
+            string memory member = string.concat(p, "members[", vm.toString(i), "].");
+            stake += LibEtnaVectors.uintAt(vectors, string.concat(member, "eff_stake"));
+            power += LibEtnaVectors.uintAt(vectors, string.concat(member, "power"));
+        }
+        uint256 width = count;
+        while (width > 1) {
+            for (uint256 i; i < width; i += 2) {
+                level[i / 2] = i + 1 == width
+                    ? level[i]
+                    : keccak256(
+                        abi.encode(
+                            bytes32("ETNA_SET_NODE"),
+                            uint256(167_001),
+                            setVersion,
+                            level[i],
+                            level[i + 1]
+                        )
+                    );
+            }
+            width = (width + 1) / 2;
+        }
+        bytes32 root = count == 0 ? bytes32(0) : level[0];
+        assertEq(root, LibEtnaVectors.bytes32At(vectors, string.concat(p, "set_root")));
+        assertEq(stake, LibEtnaVectors.uintAt(vectors, string.concat(p, "total_stake")));
+        assertEq(power, LibEtnaVectors.uintAt(vectors, string.concat(p, "total_power")));
+        bytes memory record = abi.encode(
+            bytes32("ETNA_COMMITTEE_V2"),
+            uint256(167_001),
+            uint64(7),
+            uint64(100),
+            uint64(3),
+            root,
+            stake,
+            uint64(power),
+            uint8(2)
+        );
+        assertEq(record, LibEtnaVectors.bytesAt(vectors, string.concat(p, "record_preimage")));
+        assertEq(
+            keccak256(record), LibEtnaVectors.bytes32At(vectors, string.concat(p, "record_hash"))
+        );
     }
 
     function _memberVector(
         string memory _prefix,
-        uint256 _index
+        uint256 _index,
+        uint256 _setVersion
     )
         private
         view
@@ -161,7 +191,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
                 assertGt(uint256(key), uint256(LibEtnaVectors.bytes32At(vectors, previous)));
             }
         }
-        bytes memory leaf = _setLeafWords(_index, entry);
+        bytes memory leaf = _setLeafWords(_index, entry, _setVersion);
         assertEq(
             leaf,
             LibEtnaVectors.bytesAt(
@@ -176,13 +206,14 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
             )
         );
         entry.rewardRecipient = address(uint160(entry.rewardRecipient) ^ 1);
-        assertNotEq(leaf_, keccak256(_setLeafWords(_index, entry)));
+        assertNotEq(leaf_, keccak256(_setLeafWords(_index, entry, _setVersion)));
         assertEq(LibEtnaVectors.uintAt(vectors, string.concat(m, "power")), entry.effStake / 1e9);
     }
 
     function _setLeafWords(
         uint256 _index,
-        IEtnaStakingRegistry.Entry memory _entry
+        IEtnaStakingRegistry.Entry memory _entry,
+        uint256 _setVersion
     )
         private
         pure
@@ -191,7 +222,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
         return abi.encode(
             bytes32("ETNA_SET_LEAF_V2"),
             uint256(167_001),
-            uint256(7),
+            _setVersion,
             _index,
             _entry.pubkey,
             _entry.effStake,
