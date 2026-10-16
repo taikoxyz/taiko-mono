@@ -335,7 +335,7 @@ branch before inclusion, plus, for a landing that settles an epoch, 200,000 gas 
 committee member it settles (see the freezing landing below), and never exceed EIP-7825's
 16,777,216. When the node returns an estimate above that cap, the lander stops before signing; an
 Osaka node may instead fail the estimate itself, which the lander retries as a temporary error.
-`n_max <= 360` keeps every landing well below the cap. Set the limits to match the deployed
+`n_max <= 300` keeps every landing below the cap (see the freezing landing below). Set the limits to match the deployed
 Inbox and L1 fork. Choose the budgets
 explicitly before running this example:
 
@@ -469,12 +469,18 @@ used than the limit: the lander counts a failed landing that used at least 15/16
 out of gas. Choose the fee caps and fund the sending account so that such a landing stays
 affordable.
 The landing must also fit in one L1 transaction, which Osaka caps at 16,777,216 gas (EIP-7825),
-and the lander caps its gas limit there. Measured as a whole transaction, the worst-case freezing
-landing needs 5,499,792 gas at 128 members, 14,865,689 at 360 and 16,478,834 at 400, about 40.3k
-gas and 160 bytes of calldata more per member, and above about 407 members it cannot be included
-at all, so landing would halt, back-pressure then halt L2, and only a pool upgrade recover. The
-client therefore rejects an `n_max` above 360 (`MAX_N_MAX`), which keeps about 1.91M (11%) of
-headroom (see Configuration checks in the protocol package's Etna README).
+and the lander caps its gas limit there. Measured as whole transactions on the pinned contracts
+(the protocol package's `EtnaInboxSettlementGas.t.sol`), a one-part freezing landing that writes
+its whole epoch for the first time needs 5,510,080 gas at 128 members, 12,487,285 at 300 and
+16,515,694 at 400, about 40.3k gas and 160 bytes of calldata more per member. A batch that also
+carried the next epoch's first commits would write that epoch's committee hash, counts and
+scores for the first time as well: such a two-part freezing landing needs 14,313,606 gas at 300
+members and 17,075,337 at 360, about 46k per member, and stops fitting at about 353. Above that
+it could not be included at all, so landing would halt, back-pressure then halt L2, and only a
+pool upgrade recover. The lander no longer builds two-part freezing landings, but the client
+rejects an `n_max` above 300 (`MAX_N_MAX`) so that even one keeps 2.46M (14.7%) of headroom for
+a real verifier and consumed forced inclusions (see Configuration checks in the protocol
+package's Etna README).
 
 Proof requests retain the Inbox schedule/config/checkpoint proof under the batch parent's anchor,
 along with each committee's registry witness and proving header in the reference ancestry.
