@@ -182,6 +182,11 @@ impl FixtureChain {
             let time = parent.timestamp + 1;
             let expected = expected_header(&HeaderInputs {
                 height,
+                reward_recipient: abci::rules::proposer_recipient(
+                    &self.committees[&schedule.epoch_of(height)].state.members,
+                    self.committees[&schedule.epoch_of(height)].validators.validators()[0].address,
+                )
+                .unwrap(),
                 parent: &parent_info,
                 anchor: &anchor,
                 bft_time_secs: time,
@@ -229,6 +234,8 @@ impl FixtureChain {
                 envelope,
                 EnvelopeContext {
                     bft_time_secs: time,
+                    proposer: pair.block.header.proposer_address,
+                    members: &current.state.members,
                     parent: &parent_info,
                     parent_anchor,
                     generation: 0,

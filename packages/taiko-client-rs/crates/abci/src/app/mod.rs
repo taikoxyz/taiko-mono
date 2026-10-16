@@ -294,7 +294,8 @@ pub struct App<L: L1Source, E: Engine> {
     committee_prefetch: Mutex<Option<CommitteePrefetch>>,
     /// Bounded completed anchor, forced proof and authenticated transaction reads. Each successful
     /// stage survives an overall proposal timeout; root/hash keys prevent reuse for different
-    /// facts.
+    /// facts. These reads are proposer-independent; expected headers, builds and singleton
+    /// verdicts are derived anew for every request's certified proposer.
     preparation_cache: Arc<Mutex<preparation_cache::PreparationCache>>,
     /// Whether the block `FinalizeBlock` last decided was judged here (its `ProcessProposal`
     /// verdict was cached), rather than replayed or block-synced; gates `Commit`'s prefetches.
