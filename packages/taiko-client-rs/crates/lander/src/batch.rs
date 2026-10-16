@@ -62,7 +62,8 @@ pub struct BatchObservation {
     pub publishable_blocks: usize,
     /// The certified tip's anchored unsettled depth has reached `U - 1`.
     pub force_backpressure: bool,
-    /// An unlanded switch witness exists anywhere in the decided backlog.
+    /// An unlanded switch witness exists anywhere in the decided backlog, or the publishable
+    /// prefix reaches its epoch's last commit, past which it cannot grow.
     pub force_epoch: bool,
 }
 
@@ -75,6 +76,9 @@ struct PublishablePrefix {
     /// The selected blocks' V4 payload, when sizing already compressed it; otherwise its
     /// worst-case size fits and [`BatchBuilder::payload`] compresses it once.
     payload: Option<Vec<u8>>,
+    /// The prefix ends at [`epoch_end_block`]: it carries its epoch's last commit and cannot
+    /// grow.
+    ends_epoch: bool,
 }
 
 /// Fully authenticated starting checkpoint and immutable derivation history.
@@ -325,7 +329,9 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
 
     /// Select exact complete-block boundaries using canonical codec and blob capacity checks.
     ///
-    /// An oversized first block is a capacity error; a later oversized block ends the prefix.
+    /// The prefix ends at the latest at [`epoch_end_block`], so a landing that freezes an epoch
+    /// carries exactly one participation part. An oversized first block is a capacity error; a
+    /// later oversized block ends the prefix.
     /// This shared preview performs no signature/MPT validation, reference reads or KZG work.
     /// Each block is validated and encoded once. A prefix whose worst-case compressed size fits
     /// is accepted without deflating it; otherwise it is deflated off the async workers, within
@@ -333,6 +339,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     async fn publishable_prefix(
         &self,
         snapshot: &LandingSnapshot,
+        schedule: &Schedule,
         decided_height: u64,
     ) -> Result<PublishablePrefix> {
         let limits = self.selection_limits();
@@ -343,8 +350,10 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         let mut blocks = Vec::new();
         let mut payload = None;
         let mut deflated = 0usize;
+        let epoch_end = epoch_end_block(schedule, snapshot.checkpoint_height);
         let stop = decided_height
-            .min(snapshot.checkpoint_height.saturating_add(self.limits.max_blocks as u64));
+            .min(snapshot.checkpoint_height.saturating_add(self.limits.max_blocks as u64))
+            .min(epoch_end.unwrap_or(u64::MAX));
         for height in snapshot.checkpoint_height + 1..=stop {
             let pair = self.comet.block(height).await?;
             if pair.block.header.height.value() != height {
@@ -394,7 +403,9 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 Err(error) => return Err(error),
             }
         }
-        Ok(PublishablePrefix { blocks, list, payload })
+        let last = snapshot.checkpoint_height + blocks.len() as u64;
+        let ends_epoch = !blocks.is_empty() && epoch_end == Some(last);
+        Ok(PublishablePrefix { blocks, list, payload, ends_epoch })
     }
 
     /// The configured limits with the list budget applied to the decompressed bound.
@@ -878,7 +889,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
                 force_epoch: false,
             });
         }
-        let prefix = self.publishable_prefix(snapshot, status.height).await?;
+        let prefix = self.publishable_prefix(snapshot, &schedule, status.height).await?;
         let mut committees = BTreeMap::new();
         let start = self.checkpoint(snapshot, &schedule, &mut committees).await?;
         let mut state = ForwardState::new(&start, snapshot)?;
@@ -898,8 +909,10 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             force_backpressure: status.height.saturating_sub(anchor.inbox.last_checkpoint_height) >=
                 self.params.unsettled_cap().saturating_sub(1),
             // A decided switch witness can justify useful settlement even outside this prefix;
-            // publication is never permission to activate its committee.
-            force_epoch: force_epoch(&schedule, status.height, snapshot.checkpoint_height),
+            // publication is never permission to activate its committee. A prefix that reaches its
+            // epoch's last commit freezes the epoch and cannot grow, so waiting gains nothing.
+            force_epoch: prefix.ends_epoch ||
+                force_epoch(&schedule, status.height, snapshot.checkpoint_height),
         })
     }
 
@@ -912,7 +925,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
         }
         let mut committees = BTreeMap::new();
         let start = self.checkpoint(&snapshot, &schedule, &mut committees).await?;
-        let prefix = self.publishable_prefix(&snapshot, status.height).await?;
+        let prefix = self.publishable_prefix(&snapshot, &schedule, status.height).await?;
         let (anchors, forced_cursor, signers) = self
             .authenticate_blocks(&snapshot, &schedule, &start, &mut committees, &prefix.blocks)
             .await?;
@@ -955,6 +968,16 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             &signers,
             &committees,
         )?;
+        // The prefix ends by its first commit's epoch's last block, so its commits lie in one
+        // epoch: a landing that freezes an epoch settles exactly that one.
+        if participation.parts.len() > 1 {
+            return Err(LanderError::Safety(format!(
+                "batch ({}, {}] spans {} epochs' commits",
+                snapshot.checkpoint_height,
+                input.lastHeight,
+                participation.parts.len()
+            )));
+        }
         let blobs = blob::build(&payload, &self.limits, self.mode)?;
         let hash = statement::hash(
             &snapshot,
@@ -1039,6 +1062,19 @@ fn parent_info(context: &ParentContext) -> Result<ParentInfo> {
             .ok_or_else(|| LanderError::Safety("EL parent has no base fee".into()))?,
         grandparent_timestamp: context.grandparent_timestamp,
     })
+}
+
+/// The last block of a batch from `checkpoint` whose commits stay within one epoch:
+/// `h_first(e + 1) = h_last(e) + 1`, with `e` the epoch of its first commit height
+/// `max(checkpoint, 1)`. A batch `(p, L]` carries the commits of heights `max(p, 1)..=L - 1`, so a
+/// batch ending here carries `e`'s last commit and freezes `e` in a landing with exactly one
+/// participation part. Continuing past it would add the first commits of `e + 1`, whose committee
+/// hash, counts and proposer scores that landing would write for the first time on top of `e`'s
+/// settlement, the costliest shape the EIP-7825 gas cap must accommodate. Always above
+/// `checkpoint`, so a batch cut here is never empty; `None` if it overflows `u64`.
+fn epoch_end_block(schedule: &Schedule, checkpoint: u64) -> Option<u64> {
+    let epoch = schedule.epoch_of(checkpoint.max(schedule.h0()));
+    schedule.checked_h_first(epoch.checked_add(1)?)
 }
 
 /// Whether a decided switch is still unlanded: the decided `tip` is a switch height, the next
@@ -1556,6 +1592,70 @@ mod tests {
         }
     }
 
+    /// A batch `(p, L]` carries the commits of `max(p, 1)..=L - 1`; it may end at the latest at
+    /// `h_first(e + 1)`, the block carrying the last commit of the epoch `e` of `max(p, 1)`.
+    #[test]
+    fn epoch_end_block_ends_a_batch_at_its_epochs_last_commit() {
+        let schedule = Schedule { l1_0: 10, epoch_len: 10, epoch_len_l1: 1, genesis_cutoff: 1 };
+        // Genesis: (0, 11] carries the commits of heights 1 to 10, all of epoch 0.
+        assert_eq!(epoch_end_block(&schedule, 0), Some(11));
+        // Within epoch 0, up to its last height: (10, 11] carries height 10's commit alone.
+        for checkpoint in [1, 5, 9, 10] {
+            assert_eq!(epoch_end_block(&schedule, checkpoint), Some(11), "{checkpoint}");
+        }
+        // From h_first(1) = 11 the commits are epoch 1's, up to block 21.
+        for checkpoint in [11, 15, 20] {
+            assert_eq!(epoch_end_block(&schedule, checkpoint), Some(21), "{checkpoint}");
+        }
+        for checkpoint in [0, 1, 10, 11, 20, 21, 1_000] {
+            assert!(epoch_end_block(&schedule, checkpoint).unwrap() > checkpoint);
+        }
+        let unbounded = Schedule { epoch_len: u64::MAX, ..schedule };
+        assert_eq!(epoch_end_block(&unbounded, 0), None, "h_first(1) overflows u64");
+    }
+
+    /// With 23-block epochs, a prefix crossing epoch 0's last commit (height 23, carried by block
+    /// 24) is cut at block 24 and forces publication: it freezes epoch 0 and cannot grow. A prefix
+    /// ending before block 24 or starting at block 24 is not cut.
+    #[tokio::test]
+    async fn prefix_ends_at_the_block_carrying_its_epochs_last_commit() {
+        for (checkpoint, tip, blocks, ends_epoch) in [
+            (20, 26, 4, true),
+            (22, 26, 2, true),
+            (23, 26, 1, true),
+            (20, 23, 3, false),
+            (24, 26, 2, false),
+            (0, 3, 3, false),
+        ] {
+            let fixture = Arc::new(Fixture::new(checkpoint, tip));
+            let builder = builder(fixture.clone(), limits(20));
+            let schedule = builder.schedule(&fixture.snapshot).unwrap();
+            let prefix =
+                builder.publishable_prefix(&fixture.snapshot, &schedule, tip).await.unwrap();
+            assert_eq!(
+                (prefix.blocks.len(), prefix.ends_epoch),
+                (blocks, ends_epoch),
+                "{checkpoint}"
+            );
+            let observed = builder.observe(&fixture.snapshot).await.unwrap();
+            assert_eq!(observed.publishable_blocks, blocks, "{checkpoint}");
+            if ends_epoch {
+                assert!(observed.force_epoch, "{checkpoint}");
+            }
+            let request = builder.prepare(fixture.snapshot.clone()).await.unwrap().unwrap();
+            assert_eq!(request.batch.input.lastHeight, checkpoint + blocks as u64);
+            assert!(request.batch.participation.len() <= 1, "{checkpoint}");
+            assert_eq!(request.batch.settlements.len(), usize::from(ends_epoch), "{checkpoint}");
+        }
+        // Without the cut, neither a switch nor back-pressure would force these two.
+        for checkpoint in [22, 23] {
+            let fixture = Arc::new(Fixture::new(checkpoint, 26));
+            let schedule =
+                builder(fixture.clone(), limits(20)).schedule(&fixture.snapshot).unwrap();
+            assert!(!force_epoch(&schedule, 26, checkpoint), "{checkpoint}");
+        }
+    }
+
     #[tokio::test]
     async fn observe_authenticates_switch_beyond_capacity_limited_prefix() {
         let fixture = Arc::new(Fixture::new(20, 26));
@@ -1674,9 +1774,11 @@ mod tests {
         );
     }
 
-    /// The batch (0, 3] counts heights 1 and 2 (blocks 2 and 3 carry their commits); (20, 26]
-    /// with 23-block epochs counts 20..=23 under epoch 0, which it completes, and 24..=25 under
-    /// epoch 1. Epoch 0's committee holds only registry entry 0 (entry 1 activates at L1 10).
+    /// The batch (0, 3] counts heights 1 and 2 (blocks 2 and 3 carry their commits). With
+    /// 23-block epochs, a batch from 20 ends at block 24, which carries the commit of epoch 0's
+    /// last height: (20, 24] counts 20..=23 under epoch 0 alone and completes it. (24, 26] then
+    /// counts 24 and 25 under epoch 1. Epoch 0's committee holds only registry entry 0 (entry 1
+    /// activates at L1 10).
     #[tokio::test]
     async fn prepared_batch_counts_its_canonical_commits_and_settles_completed_epochs() {
         use crate::contracts::IEtnaInbox::CommitteeMember;
@@ -1701,7 +1803,28 @@ mod tests {
             builder(fixture.clone(), limits(6)).prepare(fixture.snapshot.clone()).await.unwrap();
         let batch = request.unwrap().batch;
         let schedule = Schedule::from_genesis(&batch.snapshot.genesis);
-        assert_eq!((schedule.epoch_len, batch.input.lastHeight), (23, 26));
+        assert_eq!((schedule.epoch_len, batch.input.lastHeight), (23, 24));
+        assert_eq!(batch.participation.iter().map(|p| p.epoch).collect::<Vec<_>>(), [0]);
+        assert_eq!(batch.participation[0].signedCounts, [4]);
+        assert_eq!(batch.participation[0].committeeHash, participation::committee_hash(&epoch0));
+        assert_eq!(batch.settlements, [epoch0], "block 24 carries height 23's commit");
+        let reference = alloy_primitives::keccak256(&batch.reference_headers[0]);
+        assert_eq!(
+            batch.statement_hash,
+            statement::hash(
+                &batch.snapshot,
+                &batch.input,
+                &batch.participation,
+                reference,
+                &batch.blobs.versioned_hashes
+            )
+        );
+
+        let fixture = Arc::new(Fixture::new(24, 26));
+        let request =
+            builder(fixture.clone(), limits(6)).prepare(fixture.snapshot.clone()).await.unwrap();
+        let batch = request.unwrap().batch;
+        assert_eq!(batch.input.lastHeight, 26);
         let key = |seed: u8| {
             abci::committee::mem08_key(
                 fixture.params.l2_chain_id,
@@ -1715,12 +1838,10 @@ mod tests {
         } else {
             vec![member(1, 10, 1), member(0, 1, 3)]
         };
-        assert_eq!(batch.participation.iter().map(|p| p.epoch).collect::<Vec<_>>(), [0, 1]);
-        assert_eq!(batch.participation[0].signedCounts, [4]);
-        assert_eq!(batch.participation[1].signedCounts, [2, 2]);
-        assert_eq!(batch.participation[0].committeeHash, participation::committee_hash(&epoch0));
-        assert_eq!(batch.participation[1].committeeHash, participation::committee_hash(&epoch1));
-        assert_eq!(batch.settlements, [epoch0], "only epoch 0 ends at or below height 25");
+        assert_eq!(batch.participation.iter().map(|p| p.epoch).collect::<Vec<_>>(), [1]);
+        assert_eq!(batch.participation[0].signedCounts, [2, 2]);
+        assert_eq!(batch.participation[0].committeeHash, participation::committee_hash(&epoch1));
+        assert!(batch.settlements.is_empty(), "epoch 1 ends at height 46");
         let reference = alloy_primitives::keccak256(&batch.reference_headers[0]);
         assert_eq!(
             batch.statement_hash,
@@ -1738,7 +1859,7 @@ mod tests {
     /// `last_commit` lacks; participation must follow the canonical commit.
     #[tokio::test]
     async fn participation_follows_the_next_blocks_last_commit_not_the_seen_commit() {
-        let mut fixture = Fixture::new(20, 26);
+        let mut fixture = Fixture::new(24, 26);
         let key = ed25519_dalek::SigningKey::from_bytes(&[2; 32]);
         let pubkey = B256::from(key.verifying_key().to_bytes());
         let slot = fixture.committees[&1]
@@ -1782,9 +1903,8 @@ mod tests {
         // Epoch 1's commits are heights 24 and 25: the power-3 member signs both, the power-1
         // member only 25 in the canonical commits (both in the seen commits).
         let counts = if mem08(1) < mem08(2) { [2, 1] } else { [1, 2] };
-        assert_eq!(batch.participation.iter().map(|p| p.epoch).collect::<Vec<_>>(), [0, 1]);
-        assert_eq!(batch.participation[0].signedCounts, [4]);
-        assert_eq!(batch.participation[1].signedCounts, counts);
+        assert_eq!(batch.participation.iter().map(|p| p.epoch).collect::<Vec<_>>(), [1]);
+        assert_eq!(batch.participation[0].signedCounts, counts);
         let reference = alloy_primitives::keccak256(&batch.reference_headers[0]);
         assert_eq!(
             batch.statement_hash,
@@ -1833,7 +1953,8 @@ mod tests {
         let fixture = Arc::new(Fixture::new(20, 26));
         let snapshot = fixture.snapshot.clone();
         let request = builder(fixture.clone(), limits(6)).prepare(snapshot).await.unwrap().unwrap();
-        assert_eq!(request.batch.input.lastHeight, 26);
+        // Block 24 carries epoch 0's last commit, so the batch ends there.
+        assert_eq!(request.batch.input.lastHeight, 24);
         assert_eq!(request.batch.committee_witnesses.len(), 2);
         assert_eq!(
             request
@@ -2028,7 +2149,10 @@ mod tests {
 
     #[tokio::test]
     async fn arbitrary_batch_cuts_rederive_starting_and_pending_committees_without_hints() {
-        for (checkpoint, tip) in [(20, 26), (22, 26), (23, 26), (24, 26), (20, 39)] {
+        // A batch from 20, 22 or 23 ends at block 24, which carries epoch 0's last commit.
+        for (checkpoint, tip, last) in
+            [(20, 26, 24), (22, 26, 24), (23, 26, 24), (24, 26, 26), (20, 39, 24), (24, 39, 39)]
+        {
             let mut fixture = Fixture::new(checkpoint, tip);
             fixture.reject_committee_hints = true;
             let fixture = Arc::new(fixture);
@@ -2037,7 +2161,7 @@ mod tests {
                 .await
                 .unwrap()
                 .unwrap();
-            assert_eq!(request.batch.input.lastHeight, tip);
+            assert_eq!(request.batch.input.lastHeight, last);
             let (genesis, bootstrap) = crate::l1::verify_starting_inbox(
                 &request.batch.starting_inbox_witness,
                 &request.batch.parent_anchor,
@@ -2227,7 +2351,8 @@ mod tests {
             let snapshot = &fixture.snapshot;
             assert_eq!((snapshot.forced_inclusion_head, snapshot.forced_inclusion_tail), (1, 2));
             let request = prepare(&fixture, 6).await;
-            assert_eq!(request.batch.input.lastHeight, 26);
+            // Block 24 carries epoch 0's last commit, so the batch ends there.
+            assert_eq!(request.batch.input.lastHeight, 24);
             let first = envelope(&request, 0).forced.unwrap();
             assert_eq!((first.index, first.tx.is_empty()), (1, false));
             let consumed = envelope(&request, 3).forced.unwrap();
