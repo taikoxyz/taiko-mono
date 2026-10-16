@@ -184,7 +184,8 @@ pub enum RuleViolation {
     EpochNotOpenOnL1 {
         /// The epoch of the block's height.
         epoch: u64,
-        /// `L1_first(epoch)`, the minimum anchor L1 block number of that epoch.
+        /// `L1_first(epoch)`, the minimum anchor L1 block number of that epoch; `u64::MAX` when
+        /// it overflows `u64`, as no anchor opens such an epoch.
         l1_first: u64,
     },
     /// The block is more than the genesis `maxAnchorAge` younger than its anchor L1 block.
@@ -458,12 +459,12 @@ pub fn payload_attributes(
 ///
 /// In order: `anchor >= parent_anchor` ([`RuleViolation::AnchorRegressed`]), `anchor >= L1_0`
 /// ([`RuleViolation::AnchorBeforeActivation`]) and `anchor >= L1_first(epoch_of(height))`
-/// ([`RuleViolation::EpochNotOpenOnL1`]). `height` must be `>= H_0`.
+/// ([`RuleViolation::EpochNotOpenOnL1`]). `height` must be `>= H_0`. An `L1_first` overflowing
+/// `u64` is checked, not computed: no anchor opens that epoch.
 ///
 /// # Panics
 ///
-/// As [`Schedule::epoch_of`] and [`Schedule::l1_first`] (a schedule that failed
-/// [`Schedule::validate`], or an L1 block number overflowing `u64`).
+/// As [`Schedule::epoch_of`] (a zero epoch length, which [`Schedule::validate`] rejects).
 pub fn check_anchor_progress(
     parent_anchor: u64,
     anchor: u64,
@@ -477,11 +478,12 @@ pub fn check_anchor_progress(
         return Err(RuleViolation::AnchorBeforeActivation { anchor, l1_0: schedule.l1_0 });
     }
     let epoch = schedule.epoch_of(height);
-    let l1_first = schedule.l1_first(epoch);
-    if anchor < l1_first {
-        return Err(RuleViolation::EpochNotOpenOnL1 { epoch, l1_first });
+    match schedule.checked_l1_first(epoch) {
+        Some(l1_first) if anchor >= l1_first => Ok(()),
+        l1_first => {
+            Err(RuleViolation::EpochNotOpenOnL1 { epoch, l1_first: l1_first.unwrap_or(u64::MAX) })
+        }
     }
-    Ok(())
 }
 
 /// Anchor freshness: `block_timestamp - anchor_timestamp <= max_anchor_age`, all in seconds,

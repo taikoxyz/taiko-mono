@@ -501,6 +501,20 @@ fn anchor_progress_rejects_an_epoch_not_yet_open_on_l1() {
 }
 
 #[test]
+fn anchor_progress_rejects_an_epoch_whose_l1_first_overflows_without_panicking() {
+    // Unvalidated: L1_first(1) = 50 + u64::MAX overflows, so no anchor opens epoch 1.
+    let s = Schedule { epoch_len_l1: u64::MAX, ..schedule() };
+    check_anchor_progress(50, 50, &s, 20).unwrap();
+    for anchor in [50, u64::MAX] {
+        assert_eq!(
+            check_anchor_progress(50, anchor, &s, 21),
+            Err(RuleViolation::EpochNotOpenOnL1 { epoch: 1, l1_first: u64::MAX }),
+            "anchor {anchor}"
+        );
+    }
+}
+
+#[test]
 fn back_pressure_boundary() {
     check_back_pressure(110, 100, 10).expect("depth == cap is allowed");
     assert_eq!(

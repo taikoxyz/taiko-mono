@@ -887,7 +887,6 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
                 .await?;
         }
         let anchor = &state.anchor;
-        let epoch = schedule.epoch_of(status.height);
         Ok(BatchObservation {
             decided_height: status.height,
             publishable_blocks: prefix.blocks.len(),
@@ -895,12 +894,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
                 self.params.unsettled_cap().saturating_sub(1),
             // A decided switch witness can justify useful settlement even outside this prefix;
             // publication is never permission to activate its committee.
-            force_epoch: schedule.switch_target(status.height).is_some() ||
-                schedule.h_first(epoch.saturating_add(1)).saturating_sub(2) <= status.height &&
-                    schedule.h_first(epoch.saturating_add(1)).saturating_sub(2) >
-                        snapshot.checkpoint_height ||
-                epoch > 0 &&
-                    schedule.h_first(epoch).saturating_sub(2) > snapshot.checkpoint_height,
+            force_epoch: force_epoch(&schedule, status.height, snapshot.checkpoint_height),
         })
     }
 
@@ -1040,6 +1034,21 @@ fn parent_info(context: &ParentContext) -> Result<ParentInfo> {
             .ok_or_else(|| LanderError::Safety("EL parent has no base fee".into()))?,
         grandparent_timestamp: context.grandparent_timestamp,
     })
+}
+
+/// Whether a decided switch is still unlanded: the decided `tip` is a switch height, the next
+/// switch height lies in `(checkpoint, tip]`, or the switch into `tip`'s epoch lies above
+/// `checkpoint`. Switch heights are computed with checked arithmetic; one beyond `u64` does not
+/// exist.
+fn force_epoch(schedule: &Schedule, tip: u64, checkpoint: u64) -> bool {
+    let switch_height = |epoch: u64| schedule.checked_h_first(epoch).map(|h| h.saturating_sub(2));
+    let epoch = schedule.epoch_of(tip);
+    schedule.switch_target(tip).is_some() ||
+        epoch
+            .checked_add(1)
+            .and_then(switch_height)
+            .is_some_and(|next| next <= tip && next > checkpoint) ||
+        epoch > 0 && switch_height(epoch).is_some_and(|current| current > checkpoint)
 }
 
 /// Independently checks the exact descending header chain and every consumed anchor.
@@ -1500,6 +1509,45 @@ mod tests {
                     assert!(matches!(error, LanderError::Safety(_)), "{error}");
                 }
             }
+        }
+    }
+
+    #[test]
+    fn force_epoch_flags_unlanded_switches_without_overflowing() {
+        // L = 10: the switch heights are 9 (to epoch 1) and 19 (to epoch 2).
+        let base = Schedule { l1_0: 10, epoch_len: 10, epoch_len_l1: 1, genesis_cutoff: 1 };
+        for (tip, checkpoint, expected) in [
+            (5, 0, false),
+            (9, 0, true),
+            (10, 0, true),
+            (10, 9, false),
+            (12, 8, true),
+            (12, 9, false),
+            (19, 12, true),
+        ] {
+            assert_eq!(force_epoch(&base, tip, checkpoint), expected, "tip {tip} cp {checkpoint}");
+        }
+        // The same answer as the former unchecked expression wherever that one did not overflow.
+        for epoch_len in [3, 10, 20] {
+            let s = Schedule { epoch_len, ..base };
+            for tip in 1..100 {
+                let epoch = s.epoch_of(tip);
+                for checkpoint in 0..=tip {
+                    let former = s.switch_target(tip).is_some() ||
+                        s.h_first(epoch + 1) - 2 <= tip && s.h_first(epoch + 1) - 2 > checkpoint ||
+                        epoch > 0 && s.h_first(epoch) - 2 > checkpoint;
+                    assert_eq!(
+                        force_epoch(&s, tip, checkpoint),
+                        former,
+                        "L={epoch_len} {tip}/{checkpoint}"
+                    );
+                }
+            }
+        }
+        // Unvalidated L = u64::MAX: h_first(1) overflows, so epoch 1 has no switch height.
+        let unbounded = Schedule { epoch_len: u64::MAX, ..base };
+        for tip in [1, 2, i64::MAX as u64] {
+            assert!(!force_epoch(&unbounded, tip, 0), "tip {tip}");
         }
     }
 
