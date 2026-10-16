@@ -810,7 +810,8 @@ estimate misses. The lander in #22280 therefore adds 40,000 gas per settled memb
 once per landing that settles an epoch to its estimate, on top of 20% headroom. A landing that
 reverts below its gas limit can still have run out of gas in the pool, behind two proxies: each
 call frame keeps 1/64 of its gas and the top-level revert refunds it, so the lander treats a
-canonical failed landing that used at least 15/16 of its limit as out of gas and rebuilds.
+canonical failed landing that used at least 15/16 of its limit as out of gas and rebuilds; a
+second out-of-gas landing in a row on the same checkpoint stops it.
 
 The contracts do not bound the committee size. The committee configuration's `n_max` caps it, and
 the client rejects an `n_max` above 360. The lander caps the landing's gas limit at EIP-7825's
