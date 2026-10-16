@@ -691,8 +691,9 @@ caller may pay more, for example during an L1 gas spike, and all of `msg.value` 
 The message gas limit is the constant `SWEEP_GAS_LIMIT = 1,000,000`. The L1 Bridge keeps its
 minimum for this message, 808,704 gas, and forwards the rest to the pool's invocation. The pool's
 first arrival, its most expensive because `arrivedTotal` goes from zero to non-zero, succeeds from
-a limit of 834,088 (measured with a real L1 Bridge), so every sweep reaches `DONE` on its first
-relayed `processMessage` without a `retryMessage`. The limit is far below what a relayer can
+a limit of 834,088 (measured with a real L1 Bridge in a forge test, with its accounts and storage
+already warm; a cold first arrival costs roughly 10-15k more), so every sweep reaches `DONE` on its
+first relayed `processMessage` without a `retryMessage`. The limit is far below what a relayer can
 forward under the L1 transaction gas cap.
 
 ### Reward pool
@@ -780,19 +781,29 @@ block.
 
 Settling an epoch costs one `registrationOwnerOf` call, one credit write and one event per credited
 member, and reads the epoch's packed counts and scores. For a 128-member epoch the pool frame
-measured about 1.3M gas (as an isolated transaction) when every owner already holds credits and
-about 4.98M in the worst case, where one landing writes all 128 members' counts and scores and
-credits every owner for the first time. The landing also carries about 20 KB of committee and
-participation calldata (five words per member). The
-lander of the freezing landing pays all of this, so its gas limit must cover it. A gas estimate
-alone may not: the pool skips the crediting loop when the epoch's allocation is zero, so an
-estimate taken while the pool is empty leaves the loop out, and a sweep or donation arriving
-before inclusion then runs the landing out of gas. The lander in #22280 therefore adds 40,000 gas
-per settled member to its estimate. The contracts do not bound the committee size. The committee
-configuration's `n_max` caps it, and the client rejects an `n_max` above 400. The lander caps the
-landing's gas limit at EIP-7825's 16,777,216; at 400 members the worst-case freezing landing
-needs about 16.4M, and the hard ceiling at which it no longer fits is about 409 members (see
-Configuration checks).
+measured about 4.98M gas in the worst case, where one landing writes all 128 members' counts and
+scores and credits every owner for the first time; the settlement of a later epoch, once every
+owner already holds credits, measured about 1.3M gas as a whole isolated transaction. The landing
+also carries about 20 KB of committee and participation calldata (five words per member).
+
+The lander of the freezing landing pays all of this, so its gas limit must cover it. A gas
+estimate alone may not: the pool skips the crediting loop when the epoch's allocation is zero, so
+an estimate taken while the pool is empty leaves out the crediting, the first writes of the
+epoch's record and of `reservedTotal`, the proving share's transfer into the Inbox ledger and the
+then non-zero landing reward, and a sweep or donation arriving before inclusion runs the landing
+out of gas. Measured as whole transactions paying a fresh fee recipient, a freezing landing costs
+250,935 gas with an empty pool and 424,855 with a funded one for a one-member committee, and
+261,792 and 527,835 for four members: about 143k per landing and 31k per member that the empty
+estimate misses. The lander in #22280 therefore adds 40,000 gas per settled member and 200,000
+once per landing that settles an epoch to its estimate, on top of 20% headroom. A landing that
+reverts below its gas limit can still have run out of gas in the pool, behind two proxies: each
+call frame keeps 1/64 of its gas and the top-level revert refunds it, so the lander treats a
+canonical failed landing that used at least 15/16 of its limit as out of gas and rebuilds.
+
+The contracts do not bound the committee size. The committee configuration's `n_max` caps it, and
+the client rejects an `n_max` above 400. The lander caps the landing's gas limit at EIP-7825's
+16,777,216; at 400 members the worst-case freezing landing needs about 16.4M, and the hard
+ceiling at which it no longer fits is about 409 members (see Configuration checks).
 
 ### Deviations from #22262
 

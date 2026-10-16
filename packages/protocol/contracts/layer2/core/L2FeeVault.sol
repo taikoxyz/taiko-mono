@@ -26,8 +26,9 @@ contract L2FeeVault is EssentialContract {
 
     /// @notice The gas limit of every sweep message. The L1 Bridge keeps its minimum for the
     /// message, 808,704 gas, and forwards the rest to the reward pool's `onMessageInvocation`. The
-    /// pool's first arrival, its most expensive, succeeds from a limit of 834,088. A relayer can
-    /// forward this limit well under the L1 transaction gas cap.
+    /// pool's first arrival, its most expensive, succeeds from a limit of 834,088 measured warm in
+    /// a forge test; a cold first arrival costs roughly 10-15k more, still well under 1,000,000. A
+    /// relayer can forward this limit well under the L1 transaction gas cap.
     uint32 public constant SWEEP_GAS_LIMIT = 1_000_000;
 
     // ---------------------------------------------------------------
