@@ -44,8 +44,14 @@ contract L2FeeVault is EssentialContract {
     /// @notice The `EtnaRewardPool` proxy on L1: the `to` and `destOwner` of every sweep message.
     address public immutable rewardPool;
 
-    /// @notice The smallest relay fee a sweep accepts, in wei. It must cover one relayed L1
-    /// `processMessage` at the expected L1 gas price, so every sweep pays its own delivery.
+    /// @notice The smallest relay fee a sweep accepts, in wei. Price it at
+    /// `SWEEP_GAS_LIMIT * (expected peak L1 base fee + priority fee)`. The L1 Bridge pays a
+    /// relayer at most `gasCharged * fee / SWEEP_GAS_LIMIT`, `gasCharged` being its own measure of
+    /// the relay's gas, so a sweep whose fee is below `SWEEP_GAS_LIMIT * basefee` at relay time
+    /// pays its relayer less than the base fee of that gas and is not profitable to relay. The
+    /// Bridge refunds the part of the fee the relayer does not earn to the reward pool, where it
+    /// becomes revenue, so a generous floor costs the system nothing. Immutable: set it with
+    /// headroom, as only an upgrade can change it.
     uint64 public immutable minRelayFee;
 
     // ---------------------------------------------------------------
@@ -108,9 +114,10 @@ contract L2FeeVault is EssentialContract {
     /// least `minRelayFee` and at most `type(uint64).max`: it becomes the message `fee` and is not
     /// taken from the swept amount. The message gas limit is always `SWEEP_GAS_LIMIT`. The message
     /// invokes `rewardPool.onMessageInvocation` with `abi.encode(nonce)` and makes the pool its
-    /// `destOwner`, so only the pool can fail or finally retry it on L1, and unused fees are
-    /// refunded to the pool. An empty vault sends no message, changes no state and returns zero; a
-    /// relay fee is then rejected.
+    /// `destOwner`, so only the pool can fail or finally retry it on L1. The L1 Bridge pays the
+    /// relayer at most `gasCharged * fee / SWEEP_GAS_LIMIT` and refunds the rest of the fee to the
+    /// pool. An empty vault sends no message, changes no state and returns zero; a relay fee is
+    /// then rejected.
     /// @return msgHash_ The hash of the Bridge message, or zero for an empty vault.
     function sweep() external payable nonReentrant returns (bytes32 msgHash_) {
         uint256 amount = address(this).balance - msg.value;

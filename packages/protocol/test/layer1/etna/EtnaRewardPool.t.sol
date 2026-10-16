@@ -229,55 +229,10 @@ contract EtnaRewardPoolTest is CommonTest {
     /// `SWEEP_GAS_LIMIT`. It is the pool's first arrival, the most expensive one: `arrivedTotal`
     /// goes from zero to non-zero.
     function test_onMessageInvocation_FirstArrivalOfAVaultSweepFitsTheSweepGasLimit() external {
-        vm.startPrank(deployer);
-        SignalService l1SignalService = deploySignalServiceWithoutProof(
-            address(this), address(uint160(uint256(keccak256("REMOTE_SIGNAL_SERVICE")))), deployer
-        );
-        Bridge l1Bridge = deployBridge(
-            address(
-                new Bridge(
-                    address(resolver), address(l1SignalService), address(0), address(0), false
-                )
-            )
-        );
-        // The L2 Bridge registers itself as the source chain's bridge, the app whose signal the L1
-        // Bridge checks.
-        vm.chainId(taikoChainId);
-        SignalService l2SignalService =
-            deploySignalServiceWithoutProof(address(this), address(l1SignalService), deployer);
-        Bridge l2Bridge = deployBridge(
-            address(
-                new Bridge(
-                    address(resolver), address(l2SignalService), address(0), address(0), false
-                )
-            )
-        );
-        vm.chainId(ethereumChainId);
-        vm.stopPrank();
-
-        // The vault's implementation and proxy come first, then the pool's.
-        address poolAddress = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 3);
-        L2FeeVault l2Vault = L2FeeVault(
-            address(
-                new ERC1967Proxy(
-                    address(new L2FeeVault(address(l2Bridge), ethereumChainId, poolAddress, 1)),
-                    abi.encodeCall(L2FeeVault.init, (address(this)))
-                )
-            )
-        );
-        vault = address(l2Vault);
-        EtnaRewardPool realPool =
-            _deployPool(address(l1Bridge), VALIDATOR_PPM, PROVER_PPM, BONUS_PPM);
-        assertEq(address(realPool), poolAddress);
-
-        vm.chainId(taikoChainId);
-        vm.deal(address(l2Vault), 1 ether);
-        vm.deal(Alice, 1 ether);
-        vm.recordLogs();
-        vm.prank(Alice);
-        bytes32 msgHash = l2Vault.sweep{ value: 0.01 ether }();
-        IBridge.Message memory message = _sentMessage(vm.getRecordedLogs(), address(l2Bridge));
-        vm.chainId(ethereumChainId);
+        (Bridge l1Bridge, Bridge l2Bridge, L2FeeVault l2Vault, EtnaRewardPool realPool) =
+            _deploySweepPath();
+        (IBridge.Message memory message, bytes32 msgHash) =
+            _sweepOnL2(l2Vault, address(l2Bridge), 1 ether, 0.01 ether);
 
         assertEq(message.gasLimit, l2Vault.SWEEP_GAS_LIMIT());
         assertEq(l1Bridge.hashMessage(message), msgHash);
@@ -297,6 +252,40 @@ contract EtnaRewardPoolTest is CommonTest {
         assertEq(realPool.arrivedTotal(), 1 ether);
         // The pool, as `destOwner`, also receives the relay fee the relayer did not earn.
         assertEq(realPool.freeBalance(), 1.01 ether - (Carol.balance - carolBefore));
+    }
+
+    /// @dev The L1 Bridge pays a message's relayer at most `gasCharged * fee / gasLimit`, where
+    /// `gasCharged` is its own measure of the relay's gas, and refunds the rest of the fee to the
+    /// pool as `destOwner`. At a 10 gwei base fee, a sweep fee of `SWEEP_GAS_LIMIT * basefee` (0.01
+    /// ether) pays the relayer `gasCharged * basefee`, more than its gas cost (measured here warm
+    /// and without a proof, plus the intrinsic 21,000), while a fee sized to that gas cost repays
+    /// only about a quarter of it. Either way the part of the fee the relayer does not earn joins
+    /// the pool's free balance.
+    function test_onMessageInvocation_ASweepFeeOfTheGasLimitTimesTheBaseFeeRepaysTheRelayer()
+        external
+    {
+        (Bridge l1Bridge, Bridge l2Bridge, L2FeeVault l2Vault, EtnaRewardPool realPool) =
+            _deploySweepPath();
+        uint256 baseFee = 10 gwei;
+        vm.fee(baseFee);
+        vm.deal(address(l1Bridge), 10 ether);
+
+        uint256 fee = uint256(l2Vault.SWEEP_GAS_LIMIT()) * baseFee;
+        (IBridge.Message memory message,) = _sweepOnL2(l2Vault, address(l2Bridge), 1 ether, fee);
+        (uint256 paid, uint256 gasUsed) = _relay(l1Bridge, message);
+        uint256 cost = (gasUsed + 21_000) * baseFee;
+        console2.log("fee = SWEEP_GAS_LIMIT * basefee: paid", paid, "of cost", cost);
+        assertGe(paid, cost, "the relayer recovers its gas");
+        assertEq(realPool.freeBalance(), 1 ether + fee - paid, "the rest of the fee is the pool's");
+
+        uint256 freeBefore = realPool.freeBalance();
+        (message,) = _sweepOnL2(l2Vault, address(l2Bridge), 1 ether, cost);
+        (paid, gasUsed) = _relay(l1Bridge, message);
+        console2.log(
+            "fee = one relay's gas cost: paid", paid, "of cost", (gasUsed + 21_000) * baseFee
+        );
+        assertLt(paid, (gasUsed + 21_000) * baseFee / 2, "a fee of one relay's cost repays less");
+        assertEq(realPool.freeBalance() - freeBefore, 1 ether + cost - paid, "refund");
     }
 
     function test_receive_RecordsADonation() external {
@@ -1278,6 +1267,91 @@ contract EtnaRewardPoolTest is CommonTest {
             budget -= score;
         }
         return _part(_epoch, _committeeHash, counts, scores);
+    }
+
+    /// @dev Deploys a real L1 Bridge on a SignalService that skips proofs, a real L2 Bridge, which
+    /// registers itself as the source chain's bridge (the app whose signal the L1 Bridge checks),
+    /// a vault on it with a 1 wei relay fee floor, and a pool that the L1 Bridge delivers to.
+    function _deploySweepPath()
+        internal
+        returns (Bridge l1Bridge_, Bridge l2Bridge_, L2FeeVault l2Vault_, EtnaRewardPool realPool_)
+    {
+        vm.startPrank(deployer);
+        SignalService l1SignalService = deploySignalServiceWithoutProof(
+            address(this), address(uint160(uint256(keccak256("REMOTE_SIGNAL_SERVICE")))), deployer
+        );
+        l1Bridge_ = deployBridge(
+            address(
+                new Bridge(
+                    address(resolver), address(l1SignalService), address(0), address(0), false
+                )
+            )
+        );
+        vm.chainId(taikoChainId);
+        SignalService l2SignalService =
+            deploySignalServiceWithoutProof(address(this), address(l1SignalService), deployer);
+        l2Bridge_ = deployBridge(
+            address(
+                new Bridge(
+                    address(resolver), address(l2SignalService), address(0), address(0), false
+                )
+            )
+        );
+        vm.chainId(ethereumChainId);
+        vm.stopPrank();
+
+        // The vault's implementation and proxy come first, then the pool's.
+        address poolAddress = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 3);
+        l2Vault_ = L2FeeVault(
+            address(
+                new ERC1967Proxy(
+                    address(new L2FeeVault(address(l2Bridge_), ethereumChainId, poolAddress, 1)),
+                    abi.encodeCall(L2FeeVault.init, (address(this)))
+                )
+            )
+        );
+        vault = address(l2Vault_);
+        realPool_ = _deployPool(address(l1Bridge_), VALIDATOR_PPM, PROVER_PPM, BONUS_PPM);
+        assertEq(address(realPool_), poolAddress);
+    }
+
+    /// @dev Alice sweeps `_amount` from `_l2Vault` on L2 with relay fee `_fee`; returns the
+    /// message the L2 Bridge sent and its hash.
+    function _sweepOnL2(
+        L2FeeVault _l2Vault,
+        address _l2Bridge,
+        uint256 _amount,
+        uint256 _fee
+    )
+        internal
+        returns (IBridge.Message memory message_, bytes32 msgHash_)
+    {
+        vm.chainId(taikoChainId);
+        vm.deal(address(_l2Vault), _amount);
+        vm.deal(Alice, _fee);
+        vm.recordLogs();
+        vm.prank(Alice);
+        msgHash_ = _l2Vault.sweep{ value: _fee }();
+        message_ = _sentMessage(vm.getRecordedLogs(), _l2Bridge);
+        vm.chainId(ethereumChainId);
+    }
+
+    /// @dev Carol relays `_message` on `_l1Bridge`; returns what the Bridge paid her and the gas
+    /// the call used.
+    function _relay(
+        Bridge _l1Bridge,
+        IBridge.Message memory _message
+    )
+        internal
+        returns (uint256 paid_, uint256 gasUsed_)
+    {
+        uint256 before = Carol.balance;
+        vm.prank(Carol);
+        uint256 gasStart = gasleft();
+        (IBridge.Status status,) = _l1Bridge.processMessage(_message, "");
+        gasUsed_ = gasStart - gasleft();
+        assertEq(uint8(status), uint8(IBridge.Status.DONE), "relayed");
+        paid_ = Carol.balance - before;
     }
 
     function _registerValidator(

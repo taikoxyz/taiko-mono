@@ -19,8 +19,11 @@ import { L2FeeVault } from "src/layer2/core/L2FeeVault.sol";
 /// - `L1_CHAIN_ID`: the chain ID of L1. Non-zero.
 /// - `REWARD_POOL`: the `EtnaRewardPool` proxy on L1 that receives every sweep. Non-zero.
 /// - `SWEEP_MIN_RELAY_FEE`: the smallest relay fee a sweep accepts, in wei. Non-zero and at most
-///   `type(uint64).max`; size it to cover one relayed L1 `processMessage` at the expected L1 gas
-///   price.
+///   `type(uint64).max`. Set it to `SWEEP_GAS_LIMIT` (1,000,000) times the expected peak L1 base
+///   fee plus priority fee: the L1 Bridge pays a relayer at most
+///   `gasCharged * fee / SWEEP_GAS_LIMIT` and refunds the rest to the reward pool, so a fee below
+///   `SWEEP_GAS_LIMIT * basefee` does not repay the relayer's gas, and overpaying costs the system
+///   nothing. The vault fixes it immutably; changing it takes an upgrade.
 /// @custom:security-contact security@taiko.xyz
 contract DeployL2FeeVault is Script {
     // ---------------------------------------------------------------

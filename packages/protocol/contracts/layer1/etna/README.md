@@ -84,9 +84,13 @@ constraints.
   `fee_vault`, the vault's `rewardPool` the pool proxy and its `l1ChainId` this L1, and
   `L1_BRIDGE` an L1 Bridge that verifies L2 messages against this deployment's SignalService (see
   Fees and rewards).
-- Size the vault's `minRelayFee` (`SWEEP_MIN_RELAY_FEE`) to cover one relayed L1 `processMessage`
-  of a sweep at the expected L1 gas price. It is an implementation immutable; changing it takes an
-  upgrade.
+- Price the vault's `minRelayFee` (`SWEEP_MIN_RELAY_FEE`) at
+  `SWEEP_GAS_LIMIT * (expected peak L1 base fee + priority fee)`, that is 1,000,000 gas at the
+  highest L1 gas price at which a minimum-fee sweep should still be relayed (0.01 ether for
+  10 gwei). The L1 Bridge pays a relayer at most `gasCharged * fee / gasLimit` (see Fee
+  vault), so a fee sized to one `processMessage`'s gas repays only a fraction of it. The part of
+  the fee the relayer does not earn is refunded to the pool, so a generous floor costs the system
+  nothing. It is an implementation immutable; changing it takes an upgrade, so leave headroom.
 - Registry `heartbeatWindow` must equal node `heartbeat_window`, and `minStake` must be at least
   node `max(s_min, vp_unit)`. Choose `vp_unit` large enough that the entire TAIKO supply cannot
   exceed CometBFT's maximum voting power.
@@ -683,9 +687,22 @@ empty vault sends nothing, changes nothing and returns 0, and then rejects a rel
 (`EmptyVaultWithFee`).
 
 The relay fee `msg.value` must be at least the immutable `minRelayFee` (`RelayFeeTooLow`) and at
-most `type(uint64).max` (`RelayFeeTooLarge`). The minimum makes every sweep cost real Ether that
-pays its relayer, so nobody can split the fees into messages worth less than their delivery. A
-caller may pay more, for example during an L1 gas spike, and all of `msg.value` becomes the fee.
+most `type(uint64).max` (`RelayFeeTooLarge`). The L1 Bridge pays the relayer out of it: with
+`gasCharged` its own measure of the relay's gas (its 120,000 `GAS_OVERHEAD` plus the gas used
+until the payout and an estimate of the message calldata), `maxFee = gasCharged * fee / gasLimit`
+and `baseFee = gasCharged * block.basefee`, it pays `min(fee, maxFee)` when `baseFee >= maxFee`
+and `min(fee, (maxFee + baseFee) / 2)` otherwise, and refunds the rest of the fee to `destOwner`,
+the pool, where it arrives as a donation. As `gasLimit` is `SWEEP_GAS_LIMIT`, a sweep whose fee is
+below `SWEEP_GAS_LIMIT * basefee` at relay time pays its relayer less than the base fee of the
+gas charged and is not profitable to relay; at or above it the relayer earns at least
+`gasCharged * basefee`. Price `minRelayFee` at
+`SWEEP_GAS_LIMIT * (expected peak L1 base fee + priority fee)`: whatever the relayer does not earn
+returns to the pool as revenue, so overpaying costs the system nothing. A forge test on a real L1
+Bridge at a 10 gwei base fee measures this: a 0.01 ether fee pays the relayer 0.00178 ether
+against 0.00146 ether of gas, while a fee equal to that gas cost repays about 23% of it. The floor
+also keeps anyone from splitting the fees into messages worth less than their delivery. It is
+immutable and changes only by upgrade, so set it with headroom. A caller may pay more, for example
+during an L1 gas spike, and all of `msg.value` becomes the fee.
 
 The message gas limit is the constant `SWEEP_GAS_LIMIT = 1,000,000`. The L1 Bridge keeps its
 minimum for this message, 808,704 gas, and forwards the rest to the pool's invocation. The pool's
@@ -849,7 +866,8 @@ ceiling at which it no longer fits is about 407 members (see Configuration check
   Ether.
 - A sweep's relay fee is at least the immutable `minRelayFee` rather than exactly the canonical
   fee, so callers can outbid it during L1 gas spikes; the message gas limit is the fixed
-  `SWEEP_GAS_LIMIT`, and the caller chooses only when to sweep.
+  `SWEEP_GAS_LIMIT`, the caller chooses only when to sweep, and the L1 Bridge refunds the part of
+  the fee the relayer does not earn to the pool.
 - Rewards count the signatures in block `h + 1`'s `last_commit`, a set its proposer chooses above
   the 2/3 threshold, and there is no counting of extra valid precommits. A Cosmos-style proposer
   bonus, which #22262 does not have, pays `proposerBonusPpm` of each validator share to proposers
@@ -918,9 +936,12 @@ ceiling at which it no longer fits is about 407 members (see Configuration check
 - Shares are fixed fractions of the free balance at the freeze, so a lander can time the freezing
   landing before or after a large sweep arrives, moving value between that epoch and later ones;
   the total is unchanged.
-- Each sweep costs at least `minRelayFee`, which must cover one L1 `processMessage` at expected L1
-  gas prices. During a gas spike above that expectation, a sweep paying only the minimum may not
-  be worth relaying, and its value stays unreleased until a relayer accepts the fee.
+- Each sweep pays at least `minRelayFee`, priced at `SWEEP_GAS_LIMIT` times the expected peak L1
+  gas price. While the L1 base fee exceeds `fee / SWEEP_GAS_LIMIT`, the Bridge pays a relayer
+  less than the base fee of the gas it charges, so a sweep paying only the minimum is not
+  profitable to relay during a spike above the floor's price, and its value stays unreleased until
+  the base fee falls or someone relays it at a loss. The floor is immutable and changes only by
+  upgrade.
 - Under a dummy verifier, one landing with a wrong committee hash binds that epoch: every later
   honest landing that reports the epoch reverts `CommitteeMismatch`, and freezing the epoch needs
   a committee list matching the bound hash. A dummy verifier also lets any lander report
