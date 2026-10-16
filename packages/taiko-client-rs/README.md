@@ -428,19 +428,18 @@ the hash of its committee as `CommitteeMember { bondId, activeFromL1, effStake }
 heights whose commit holds the member's verified `BlockIdFlagCommit` precommit (nil and absent
 votes do not count), and per member its proposer scores: each carrying block's score goes to the
 member whose CometBFT address, derived from its key, is the block's certified `proposer_address`.
-A carrying block proposed outside the epoch's committee, which only an epoch's first block can
-be, scores for nobody. Each part's scores sum to at most 10,000 per height, as `land` requires. The landing whose commits reach an epoch's last height
-(`L - 1 >= (e + 1) * epochLenL2`) freezes that epoch: it passes the epoch's committee list in
-`settlements`, which the pool checks against the committee hash the epoch's reports stored, so
-the lists stay out of the statement. The pool credits the validator share of its free balance to
-the members' registration owners, the base part by stake times signed heights and the bonus part
-by proposer score (bonus no proposer earned stays in the pool), and sends the proving share to the
-Inbox's prover reward ledger. Every landing then pays
-`min(landingRewardPerBlock * (L - p), ledger)` to `feeRecipient` with the consumed FI fees and
-emits `LandingRewardPaid`; an empty ledger pays nothing and the landing still succeeds. The
-journal keeps each job's participation and settlement lists, and refuses a job whose
-participation does not have the shape `land` requires or whose settlement lists do not hash to
-its completed epochs' committees.
+A carrying block proposed outside the epoch's committee, which only an epoch's first block can be,
+scores for nobody. Each part's scores sum to at most 10,000 per height, as `land` requires. The
+landing whose commits reach an epoch's last height (`L - 1 >= (e + 1) * epochLenL2`) freezes that
+epoch: it passes the epoch's committee list in `settlements`, which the pool checks against the
+committee hash the epoch's reports stored, so the lists stay out of the statement. The pool credits
+the validator share of its free balance to the members' registration owners, the base part by stake
+times signed heights and the bonus part by proposer score (bonus no proposer earned stays in the
+pool), and sends the proving share to the Inbox's prover reward ledger. Every landing then pays
+`min(landingRewardPerBlock * (L - p), ledger)` to `feeRecipient` with the consumed FI fees and emits
+`LandingRewardPaid`; an empty ledger pays nothing and the landing still succeeds. The journal keeps
+each job's participation and settlement lists, and refuses a job whose participation does not have
+the shape `land` requires or whose settlement lists do not hash to its completed epochs' committees.
 
 A freezing landing pays for the settlement. For a 128-member committee the pool frame needs up to
 about 4.98M gas when one landing writes every member's count and score and credits every owner for
@@ -839,9 +838,9 @@ already owes. `signedCounts[i]` is the number of heights `h` in the range and th
 key), where `includedEffStake` sums the effective stake of the members counted for `h`; a block
 proposed outside the epoch's committee scores for nobody. The guest binds
 `participationHash = keccak256(abi.encode(EpochParticipation[]))` as the statement's nineteenth
-word. Until then the dummy verifier proves none of this: anyone can
-land forged counts or scores, or fix a forged committee hash for an epoch, after which every landing that
-reports that epoch reverts with `CommitteeMismatch`. Rewards are only fit for a temporary devnet.
+word. Until then the dummy verifier proves none of this: anyone can land forged counts or scores, or
+fix a forged committee hash for an epoch, after which every landing that reports that epoch reverts
+with `CommitteeMismatch`. Rewards are only fit for a temporary devnet.
 
 ## Development
 
