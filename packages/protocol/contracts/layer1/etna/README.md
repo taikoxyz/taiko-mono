@@ -71,14 +71,14 @@ The builder checks the roots runtime's byte SHA-256 is
 `cb7bd3e115730f7d57c15cd892880ed517ff4421bf43dfc7591198868fffe31d`.
 It adds no Taiko hardfork JSON fields and changes no canonical genesis configuration.
 
-**Execution-client acceptance remains a separate prerequisite.** At the pinned EL revision,
-`--devnet-etna-timestamp 0` works only for the canonical devnet genesis hash; adding vault alloc
-changes that hash. Its custom JSON parser does not activate Taiko forks from extra fields such
-as `etnaTime`. Thus this artifact alone cannot start an Etna custom genesis on that binary.
-The client must build the fork table first and recompute the genesis header/root using that
-actual schedule; a generic parser's cached pre-override block-0 hash may omit Osaka header fields.
-Real EL activation, genesis commitments and block execution must be accepted in the companion
-EL work and Task10/12 integration; the Foundry VM tests do not establish those properties.
+The companion [EL change](https://github.com/taikoxyz/alethia-reth/pull/251), revision
+`5d4d21ac472c024703082ba46c6eacfa3b8ec1bf`, supports `--devnet-etna-timestamp 0` for an
+alloc-only custom genesis whose non-alloc fields equal canonical devnet. It rebuilds the chain
+spec before computing block 0, including the Cancun/Prague header fields omitted by a stale
+pre-override header. The source of the unchanged system runtime bytes above remains pinned
+independently. Verify the actual EL block-0 hash/root and execution; a Foundry VM check alone
+cannot establish those properties. See the [companion client](https://github.com/taikoxyz/taiko-mono/pull/22280)
+for real fee-routing and receipt-claim acceptance.
 
 The deployment script documents its exact environment variables. Both entry points use a
 `PRIVATE_KEY` and optional `CONTRACT_OWNER`. `run()` needs `TAIKO_TOKEN` and `REGISTRY_*`;
@@ -384,6 +384,28 @@ receiptSlot = keccak256(abi.encode(batchId, uint256(283)));
 A zero-fee batch still records a nonzero commitment. Copying a proof cannot redirect either
 recipient. Changed reward recipient or amount changes the V8 statement and commitment while
 retaining the same batch ID. Existing V7 and older landing formats are incompatible.
+
+### Permissionless L2 claims
+
+Anyone may pay gas for `claim(receipt, anchorTimestamp, accountProof, storageProof)` on the
+immutable L2 vault. The receipt fixes the L2 recipient and exact `sum(baseFeePerGas * gasUsed)`
+for the landed batch. `anchorTimestamp` is the timestamp of an executed L2 block carrying the
+finalized L1 state root in EIP-4788, not the L1 block timestamp. The account proof authenticates
+the fixed Inbox and the storage proof authenticates its slot-283 receipt commitment. A global
+batch-id claimed bit prevents replay across later anchors and recovery generations. A zero
+amount receipt is valid and is still consumed once.
+
+The lander's `feeRecipient` receives only consumed forced-inclusion queue fees on L1;
+`l2RewardRecipient` receives base fees on L2. They may be different addresses. Validator priority
+fees go to the immutable address registered with its stake, independently of the batch recipient.
+Neither the Inbox nor the vault needs reward pre-funding. Landers must fund their own L1 gas/blob
+working capital; collected base fees need not cover proving or landing costs. No proving-performance
+reduction has been measured, and a real guest remains unimplemented.
+
+The companion client exposes explicit `taiko-client lander-claim` with independent L1/L2 RPCs,
+landing transaction, batch id, payer key file and claim directory. It retains signed bytes across
+restart; inclusion is provisional until a finalized L1 checkpoint covers the actual claim block
+and its descending EL ancestry is authenticated. No automatic bridge withdrawal is performed.
 
 ### Guest and consensus obligations
 

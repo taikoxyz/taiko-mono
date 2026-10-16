@@ -196,7 +196,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         assertEq(registry.entryCount(), 3);
     }
 
-    function test_register_RecordsRegistrationOwner() external {
+    function test_register_RecordsActivationHeight() external {
         uint64 activeFromL1 = START_BLOCK + ACTIVATION_DELAY;
         assertEq(_register(Alice, KEY_A), 0);
         assertEq(registry.entryAt(0).activeFromL1, activeFromL1);
@@ -951,7 +951,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         vm.stopPrank();
     }
 
-    function test_register_ReusedSlotUpdatesOwnerAndRewardRecipient() external {
+    function test_register_ReusedSlotKeepsRecipientIndependentOfNewOwner() external {
         _register(Alice, KEY_A);
         _exitAndWithdraw(Alice, 0);
         assertEq(_register(Bob, KEY_B), 0);
