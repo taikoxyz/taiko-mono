@@ -15,7 +15,9 @@ byte. Both sides read this one file instead of carrying their own copies of the 
   amount zero; the receipt is still nonzero and consumable exactly once.
 - `committee_sets`: empty (invalid committee), singleton, three- and five-member set-key-ordered
   cases. Each pins recipient-bound `ETNA_SET_LEAF_V2` preimages/leaves, odd-node promotion,
-  totals, and the nine-word `ETNA_COMMITTEE_V2` record at encoding version 2.
+  totals, and the nine-word `ETNA_COMMITTEE_V2` record at encoding version 2. Record
+  `target_epoch` is 7; leaves/nodes use explicit `set_version = target_epoch - E0 + 1 = 8`
+  with `E0 = 0`. Set version must not be replaced by the record target epoch.
 - `registry_entries`: five staking-registry entries, their `ETNA_REG_ENTRY_V2` leaves and the entries
   root of every prefix (0 to 5 entries, zero-padded to the next power of two).
 - `layout`: the storage the node proves with EIP-1186 proofs. For the Inbox: the plain slot numbers,

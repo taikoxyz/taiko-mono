@@ -212,12 +212,61 @@ fn set_root_vectors() {
             })
             .collect::<Vec<_>>();
         let epoch = vectors::u64_at(&format!("{p}/target_epoch"));
-        assert_eq!(set_root(CHAIN, epoch, &members), vectors::b256_at(&format!("{p}/set_root")));
+        let set_version = vectors::u64_at(&format!("{p}/set_version"));
+        assert_eq!(set_version, epoch - Schedule::E0 + 1);
+        assert_eq!(
+            set_root(CHAIN, set_version, &members),
+            vectors::b256_at(&format!("{p}/set_root"))
+        );
         for (j, m) in members.iter().enumerate() {
             assert_eq!(
-                set_leaf(CHAIN, epoch, j, m),
+                set_leaf(CHAIN, set_version, j, m),
                 vectors::b256_at(&format!("{p}/set_leaves/{j}"))
             );
+        }
+    }
+}
+
+#[test]
+fn derive_matches_shared_committee_vectors() {
+    let params = ChainParams {
+        heartbeat_window: vectors::u64_at("/committee_config/inputs/heartbeat_window"),
+        ..devnet()
+    };
+    // At epoch 7, this schedule's L1_first(5) is 50; heartbeat window 32 yields floor 0.
+    // Prefix entries are active by cutoff 100, unexited, and carry qualifying heartbeats/stake.
+    for i in 0..vectors::len_at("/committee_sets") {
+        let p = format!("/committee_sets/{i}");
+        let f = |name: &str| format!("{p}/{name}");
+        let count = vectors::len_at(&f("members"));
+        let target_epoch = vectors::u64_at(&f("target_epoch"));
+        let cutoff = vectors::u64_at(&f("cutoff_l1_block"));
+        assert_eq!(
+            heartbeat_floor(&SCHEDULE, params.heartbeat_window, target_epoch, cutoff),
+            Ok(Some(0))
+        );
+        let snapshot = Snapshot {
+            checkpoint_index: vectors::u64_at(&f("checkpoint_index")),
+            l1_block: 90,
+            entries: vectors::registry_entries().into_iter().take(count).collect(),
+        };
+        let derived = derive(&snapshot, cutoff, target_epoch, &SCHEDULE, &params);
+        if count == 0 {
+            assert_eq!(derived, Err(CommitteeError::Empty));
+            continue;
+        }
+        let (record, members) = derived.expect("all prefix entries are eligible");
+        assert_eq!(members.len(), count);
+        assert_eq!(record.set_root, vectors::b256_at(&f("set_root")), "case {i}");
+        assert_eq!(record.total_stake, vectors::u256_at(&f("total_stake")));
+        assert_eq!(record.total_power, vectors::u64_at(&f("total_power")));
+        assert_eq!(record_hash(CHAIN, &record), vectors::b256_at(&f("record_hash")));
+        for (j, member) in members.iter().enumerate() {
+            let m = |name: &str| format!("{p}/members/{j}/{name}");
+            assert_eq!(member.pubkey, vectors::b256_at(&m("pubkey")));
+            assert_eq!(member.eff_stake, vectors::u256_at(&m("eff_stake")));
+            assert_eq!(member.power, vectors::u64_at(&m("power")));
+            assert_eq!(member.reward_recipient, vectors::address_at(&m("reward_recipient")));
         }
     }
 }
