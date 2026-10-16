@@ -362,9 +362,10 @@ committeeConfigHash = keccak256(abi.encode(
 ));
 ```
 
-Words 8 and 9 bind heartbeat lookahead 2 and retained membership/MEM-08 algorithm version 1. The
-last two bind the back-pressure parameters `d_max` and `margin_v`, so every node of a chain must
-run the same unsettled cap; a node whose cap differs cannot open the stored hash.
+Words 8 and 9 bind heartbeat lookahead 2 and committee record encoding version 1, which fixes the
+membership, member-order and set-root rules. The last two bind the back-pressure parameters `d_max`
+and `margin_v`, so every node of a chain must run the same unsettled cap; a node whose cap differs
+cannot open the stored hash.
 Supply this nonzero hash as `COMMITTEE_CONFIG_HASH` at deployment. Slot 269 remains an opaque
 commitment; the node/guest must open it against its configured parameters and persist/check it
 in authenticated genesis state. Authenticate `L1_0`, both epoch lengths and `genesisCutoff` from
@@ -384,9 +385,12 @@ At switch `S(t)`, registry proofs use exactly the committed parent's anchor root
 never the candidate's new anchor or a fresh finalized head. Select the latest registry checkpoint,
 authenticate its complete entry count/root, and evaluate `active_from <= snapshot < exit_effective`
 at the parent anchor number, rather than the checkpoint's mutation height. Keep effective stake,
-the lowest eligible bond id per pubkey, `nMax` ranking, MEM-08 order/root, voting-power division and
-existing overflow caps. Existing anchor progress ensures runtime anchors are at least `L1_0`,
-which is strictly after `genesisCutoff`; no extra runtime genesis floor is needed.
+the lowest eligible bond id per pubkey, `nMax` ranking, voting-power division and existing overflow
+caps, and list members in set-key order: ascending by
+`keccak256(abi.encode(bytes32("ETNA_SET_KEY"), l2ChainId, pubkey))` of each member's consensus
+public key. The committee's set root is the Merkle root over the members in that order. Existing
+anchor progress ensures runtime anchors are at least `L1_0`, which is strictly after
+`genesisCutoff`; no extra runtime genesis floor is needed.
 
 The set becomes certain only after `D(t)` commits and offers less guaranteed advance notice than
 fixed cutoffs. Different valid L2 anchor histories may select different sets; replaying the same
@@ -410,8 +414,9 @@ Outgoing-quorum, old-key/stake-retention/withdrawal and recovery-bootstrap limit
   `lastHeartbeatAt` at 0, so `lastHeartbeatSeq > 0`, not `lastHeartbeatAt > 0`, tells whether an
   entry has a heartbeat.
 - From epoch `e_0 + 3` on, the node counts an entry as live when `lastHeartbeatSeq > 0` and
-  `lastHeartbeatAt` is at or after a window start it computes from its schedule (`MEM-13`).
-  Epochs `e_0` to `e_0 + 2` apply no heartbeat filter.
+  `lastHeartbeatAt` is at or after a window start it computes from its schedule: for epoch `e`'s
+  committee, the start of the window before the one holding the first L1 block of epoch `e - 2`
+  (or the snapshot block, if earlier). Epochs `e_0` to `e_0 + 2` apply no heartbeat filter.
 
 ## Landing
 
@@ -437,13 +442,13 @@ the EIP-2935 history contract (8191 blocks). At least one transaction blob is re
 
 `EpochParticipation` is
 `(uint64 epoch, bytes32 committeeHash, uint32[] signedCounts, uint32[] proposerScores)` and
-`CommitteeMember` is `(uint32 bondId, uint64 activeFromL1, uint256 effStake)`. A committee is
-listed in MEM-08 order and hashed as `keccak256(abi.encode(CommitteeMember[]))`; `signedCounts`
-and `proposerScores` use the same member indices. Block `h + 1` carries the canonical commit of
-height `h` in its `last_commit` and height 0 has none, so the batch `(p, L]` carries the commits of
-`[c0, c1] = [max(p, 1), L - 1]`. Epoch `e` holds heights
-`[e * epochLenL2 + 1, (e + 1) * epochLenL2]`. `participation` must be empty when `c0 > c1`, as
-for the first batch `(0, 1]`. Otherwise it holds exactly one part per epoch from
+`CommitteeMember` is `(uint32 bondId, uint64 activeFromL1, uint256 effStake)`. A committee is listed
+in set-key order (see Authenticated committee configuration) and hashed as
+`keccak256(abi.encode(CommitteeMember[]))`; `signedCounts` and `proposerScores` use the same member
+indices. Block `h + 1` carries the canonical commit of height `h` in its `last_commit` and height 0
+has none, so the batch `(p, L]` carries the commits of `[c0, c1] = [max(p, 1), L - 1]`. Epoch `e`
+holds heights `[e * epochLenL2 + 1, (e + 1) * epochLenL2]`. `participation` must be empty when
+`c0 > c1`, as for the first batch `(0, 1]`. Otherwise it holds exactly one part per epoch from
 `(c0 - 1) / epochLenL2` to `(c1 - 1) / epochLenL2`, in ascending order, and no signed count may
 exceed the number of `[c0, c1]` heights in its part's epoch. Each part has as many proposer scores
 as signed counts, and its scores sum to at most `10,000` times those heights: each height's
@@ -518,7 +523,7 @@ discarding their nonce, cancelling or automatically replacing their transaction.
 Every account proof must derive its trie path from the corresponding bound Inbox or registry
 address. Authenticate storage under that proved account root and an authenticated L1 header.
 Open `committeeConfigHash` exactly as above and authenticate the genesis schedule. Apply the
-existing membership, lowest eligible bond id per key, stake ranking, MEM-08 ordering, floor power
+existing membership, lowest eligible bond id per key, stake ranking, set-key ordering, floor power
 mapping and overflow rules at the authenticated snapshot. Keep heartbeat evaluation at the target
 schedule instant with its two-epoch lookahead, capped at the snapshot window, including the nonzero
 sequence guard and launch exemptions for epochs 0, 1 and 2. The lookahead does not select a snapshot.
@@ -570,7 +575,7 @@ Reference headers may be recent even for old batches. Arbitrary batch cuts never
 earlier batch's committee output.
 
 For validator participation, output each epoch of the commit range `[c0, c1]` as one part. Its
-committee is the set derived above, listed as `CommitteeMember` entries in MEM-08 order with
+committee is the set derived above, listed as `CommitteeMember` entries in set-key order with
 `bondId`, `activeFromL1` and `effStake` taken from the authenticated registry entries, and
 `committeeHash = keccak256(abi.encode(members))`. `signedCounts[i]` is the number of heights `h`
 of `[c0, c1]` in that epoch whose canonical commit carries a verified `BlockIDFlagCommit`
@@ -916,15 +921,16 @@ and the two-part shape stops fitting at about 337 members (see Configuration che
 - The Etna guest is a follow-up; the blob encoding and lander are in #22280. No slashing or stall
   recovery exist here; `recoveryGeneration` stays 0. The staking withdrawal delay must cover the
   evidence and landing windows once slashing is introduced.
-- `EpochAlreadyFrozen` and the per-epoch committee hash binding in the reward pool assume that
-  each height lands exactly once. A future GOV-04-style stall recovery that re-lands heights or
-  re-derives an epoch's committee mid-epoch must migrate the pool's epoch records, signed counts
-  and proposer scores; otherwise the re-landed epochs revert `EpochAlreadyFrozen` or
-  `CommitteeMismatch` and landing halts. Re-landing an open epoch's heights would also add their
-  counts and scores twice. The pool stays solvent regardless: its base and bonus denominators are
-  at least the committee's weight and score totals, so the parts never exceed `baseAlloc` and
-  `bonusAlloc`. But double-counted scores would still distort the epoch's bonus shares, and
-  double-counted counts its base shares, so such a recovery must still migrate the pool's state.
+- `EpochAlreadyFrozen` and the per-epoch committee hash binding in the reward pool assume that each
+  height lands exactly once. A future stall recovery, such as a timelocked governance action that
+  resumes a stalled chain, that re-lands heights or re-derives an epoch's committee mid-epoch must
+  migrate the pool's epoch records, signed counts and proposer scores; otherwise the re-landed
+  epochs revert `EpochAlreadyFrozen` or `CommitteeMismatch` and landing halts. Re-landing an open
+  epoch's heights would also add their counts and scores twice. The pool stays solvent regardless:
+  its base and bonus denominators are at least the committee's weight and score totals, so the parts
+  never exceed `baseAlloc` and `bonusAlloc`. But double-counted scores would still distort the
+  epoch's bonus shares, and double-counted counts its base shares, so such a recovery must still
+  migrate the pool's state.
 - Registry capacity: withdrawn slots are reused, so cycling registration and exit no longer
   consumes capacity. Holding all 4096 slots still blocks new registrations for as long as
   `4096 · minStake` stays locked; `minStake` sizing is the bound. A slot whose owner exits but

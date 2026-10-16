@@ -46,12 +46,12 @@ interface IEtnaStakingRegistry {
         /// @notice The L1 block at which the exit takes effect; `type(uint64).max` if none was
         /// requested.
         uint64 exitEffectiveL1;
-        /// @notice The start L1 block of the heartbeat window of the last accepted heartbeat
-        /// (MEM-13(2b)); 0 until the first heartbeat (registration is not one).
+        /// @notice The start L1 block of the heartbeat window of the last accepted heartbeat;
+        /// 0 until the first heartbeat (registration is not one).
         uint64 lastHeartbeatAt;
         /// @notice The number of accepted heartbeats; 0 means none. A first heartbeat in window
         /// 0 leaves `lastHeartbeatAt` at 0, so this, not `lastHeartbeatAt`, tells whether the
-        /// entry has a heartbeat (MEM-13(3)).
+        /// entry has a heartbeat, which committee eligibility requires.
         uint64 lastHeartbeatSeq;
     }
 
@@ -129,12 +129,12 @@ interface IEtnaStakingRegistry {
     ///
     /// A first heartbeat in window 0 is valid and leaves `lastHeartbeatAt` at 0, so
     /// `lastHeartbeatAt` alone cannot tell "heartbeat in window 0" from "no heartbeat". The
-    /// sequence is MEM-13(3)'s "has a heartbeat" guard: the node counts an entry as live only
-    /// if `lastHeartbeatSeq > 0 && lastHeartbeatAt >= floor`, where `floor` is the start of
-    /// the oldest window it still accepts.
+    /// sequence is the eligibility rule's "has a heartbeat" guard: the node counts an entry as
+    /// live only if `lastHeartbeatSeq > 0 && lastHeartbeatAt >= floor`, where `floor` is the
+    /// start of the oldest window it still accepts.
     ///
-    /// The bond owner's address heartbeats directly; MEM-13's ECDSA heartbeat key and relayed
-    /// signed heartbeats are a follow-up.
+    /// The bond owner's address heartbeats directly; a separate ECDSA heartbeat key and
+    /// relayed signed heartbeats are a follow-up.
     /// @param _bondId The entry's bond id.
     function heartbeat(uint256 _bondId) external;
 
