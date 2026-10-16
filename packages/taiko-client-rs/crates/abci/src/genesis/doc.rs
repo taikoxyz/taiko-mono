@@ -24,7 +24,7 @@ pub struct GenesisDoc {
     pub initial_height: String,
     /// The consensus parameters ([`GenesisConsensusParams::etna`]).
     pub consensus_params: GenesisConsensusParams,
-    /// The `e_0` committee in MEM-08 order.
+    /// The `e_0` committee in set-key order.
     pub validators: Vec<GenesisValidator>,
     /// The initial app hash; empty, as `InitChain` answers `H*`.
     pub app_hash: String,
@@ -186,7 +186,7 @@ fn ed25519(pubkey: B256) -> PublicKey {
 
 impl GenesisDoc {
     /// The genesis document of a verified genesis: `w` as `app_state` (its `L1_0` timestamp as
-    /// `genesis_time`), `chain_id`, `initial_height` and the committee `members` (MEM-08 order)
+    /// `genesis_time`), `chain_id`, `initial_height` and the committee `members` (set-key order)
     /// as validators, with [`GenesisConsensusParams::etna`].
     ///
     /// Fails with [`GenesisError::GenesisTime`] when the `L1_0` timestamp is not a valid

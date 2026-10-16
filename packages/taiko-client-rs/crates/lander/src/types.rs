@@ -288,12 +288,13 @@ pub struct PreparedBatch {
     /// The validator participation the V7 statement binds (`land`'s `_participation`): one part
     /// per epoch of the commit range `[max(p, 1), L - 1]` that the blocks' `last_commit`s carry,
     /// in epoch order, with the epoch committee's hash and each member's verified commit
-    /// signatures counted in MEM-08 order. Empty when the batch carries no commit.
+    /// signatures counted in set-key order. Empty when the batch carries no commit.
     #[serde(with = "crate::contracts::abi_serde")]
     pub participation: Vec<EpochParticipation>,
-    /// `land`'s `_settlements`: the MEM-08 committee list of each epoch the batch completes
-    /// (`h_last(e) <= L - 1`), in ascending epoch order. Not part of the statement: the reward
-    /// pool checks each list against the committee hash of the matching participation part.
+    /// `land`'s `_settlements`: the committee list, in set-key order, of each epoch the batch
+    /// completes (`h_last(e) <= L - 1`), in ascending epoch order. Not part of the statement: the
+    /// reward pool checks each list against the committee hash of the matching participation
+    /// part.
     #[serde(with = "crate::contracts::abi_serde")]
     pub settlements: Vec<Vec<CommitteeMember>>,
     /// Sidecar and ordered versioned blob hashes binding the V4 payload.

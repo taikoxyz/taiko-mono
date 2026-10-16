@@ -95,10 +95,10 @@ pub enum EngineError {
         /// `keccak256(rlp(header))` of the header rebuilt from the payload.
         computed: B256,
     },
-    /// The payload carries withdrawals; Etna blocks have none (PRF-06). The value is how many.
+    /// The payload carries withdrawals; Etna blocks have none. The value is how many.
     #[error("payload carries {0} withdrawals, expected none")]
     Withdrawals(usize),
-    /// The payload's blob gas fields are not both zero; Etna blocks carry no blobs (PRF-06).
+    /// The payload's blob gas fields are not both zero; Etna blocks carry no blobs.
     #[error(
         "payload blob gas must be zero, got blob_gas_used {blob_gas_used} and excess_blob_gas \
          {excess_blob_gas}"

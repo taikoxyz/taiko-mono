@@ -2,7 +2,7 @@
 
 use abci::{
     ChainParams, CommitteeState,
-    committee::{ENCODING_VERSION, MAX_TOTAL_POWER, mem08_key, mem08_root, record_hash},
+    committee::{ENCODING_VERSION, MAX_TOTAL_POWER, record_hash, set_key, set_root},
 };
 use alloy_primitives::{B256, U256};
 use tendermint::{PublicKey, validator};
@@ -34,7 +34,7 @@ pub enum CommitteeError {
 /// A committee with validated member commitment and a reconstructed CometBFT validator set.
 #[derive(Clone, Debug)]
 pub struct AuthenticatedCommittee {
-    /// The exact full record and canonical MEM-08 ordered members.
+    /// The exact full record and its members in canonical set-key order.
     pub state: CommitteeState,
     /// CometBFT orders its validators by descending power then ascending address.
     pub validators: validator::Set,
@@ -42,7 +42,8 @@ pub struct AuthenticatedCommittee {
     pub provenance: Option<crate::types::CommitteeContext>,
 }
 
-/// Reconstructs MEM-08 and voting power against an independently derived record hash.
+/// Reconstructs the set-key order, set root and voting power against an independently derived
+/// record hash.
 ///
 /// Callers first independently derive registry eligibility under an authenticated L1 root.
 /// This reconstruction then checks the complete record, members and voting power.
@@ -65,10 +66,9 @@ pub fn authenticate(
         return Err(CommitteeError::Invalid("zero voting-power unit"));
     }
     if !state.members.windows(2).all(|pair| {
-        mem08_key(params.l2_chain_id, pair[0].pubkey) <
-            mem08_key(params.l2_chain_id, pair[1].pubkey)
+        set_key(params.l2_chain_id, pair[0].pubkey) < set_key(params.l2_chain_id, pair[1].pubkey)
     }) {
-        return Err(CommitteeError::Invalid("members are duplicated or not in MEM-08 order"));
+        return Err(CommitteeError::Invalid("members are duplicated or not in set-key order"));
     }
     let mut stake = U256::ZERO;
     let mut power = 0u64;
@@ -97,7 +97,7 @@ pub fn authenticate(
         return Err(CommitteeError::Invalid("record stake/power totals mismatch"));
     }
     let k = epoch.checked_add(1).ok_or(CommitteeError::Invalid("epoch overflow"))?;
-    if mem08_root(params.l2_chain_id, k, &state.members) != state.record.set_root {
+    if set_root(params.l2_chain_id, k, &state.members) != state.record.set_root {
         return Err(CommitteeError::Invalid("member root mismatch"));
     }
     let got = record_hash(params.l2_chain_id, &state.record);

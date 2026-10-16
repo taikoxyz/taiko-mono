@@ -134,7 +134,7 @@ pub(crate) struct Fixture {
     pub(crate) witness: GenesisWitness,
     /// The derived `e_0` committee record.
     pub(crate) record: CommitteeRecord,
-    /// The derived `e_0` members (MEM-08 order).
+    /// The derived `e_0` members (set-key order).
     pub(crate) members: Vec<Member>,
     /// The EL's canonical chain: `[B* − 1, B*]` (just `[B*]` when `B* = 0`).
     pub(crate) el_chain: Vec<Header>,

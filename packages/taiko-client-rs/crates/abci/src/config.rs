@@ -30,7 +30,7 @@ pub struct ChainParams {
     pub registry: Address,
     /// `L2FeeVault`: L2 coinbase and suggested fee recipient of every block.
     pub fee_vault: Address,
-    /// `D_MAX`: maximum unsettled depth, in L2 blocks (HALT-03); bound by the committee
+    /// `D_MAX`: maximum unsettled depth, in L2 blocks; bound by the committee
     /// configuration hash.
     pub d_max: u64,
     /// `MARGIN_V`: safety margin subtracted from `d_max`, in L2 blocks; `d_max > margin_v`;
@@ -42,7 +42,7 @@ pub struct ChainParams {
     pub s_min: U256,
     /// `N_MAX`: maximum committee size; in `1..=`[`MAX_N_MAX`].
     pub n_max: usize,
-    /// `HEARTBEAT_WINDOW`: length of the L1 heartbeat windows MEM-13 eligibility is measured
+    /// `HEARTBEAT_WINDOW`: length of the L1 heartbeat windows heartbeat eligibility is measured
     /// in, in L1 blocks ([`committee::heartbeat_floor`](crate::committee::heartbeat_floor));
     /// `>= 1`.
     pub heartbeat_window: u64,
@@ -192,7 +192,7 @@ impl ChainParams {
         Ok(self)
     }
 
-    /// The unsettled-depth cap `U = d_max - margin_v`, in L2 blocks (HALT-03).
+    /// The unsettled-depth cap `U = d_max - margin_v`, in L2 blocks.
     ///
     /// At least 1 for parameters that pass [`ChainParams::validate`]; saturates at 0 when
     /// `d_max < margin_v`.

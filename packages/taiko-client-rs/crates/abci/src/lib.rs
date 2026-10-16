@@ -16,7 +16,7 @@
 
 /// The ABCI++ application: request dispatch and the per-method handlers.
 pub mod app;
-/// Committee derivation from staking-registry snapshots, MEM-08 set roots and record hashes.
+/// Committee derivation from staking-registry snapshots, set roots and record hashes.
 pub mod committee;
 /// zlib helpers shared with landing payload V4, and the capacity of one landing.
 pub mod compression;

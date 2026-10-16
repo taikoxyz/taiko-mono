@@ -1826,7 +1826,7 @@ mod tests {
         let batch = request.unwrap().batch;
         assert_eq!(batch.input.lastHeight, 26);
         let key = |seed: u8| {
-            abci::committee::mem08_key(
+            abci::committee::set_key(
                 fixture.params.l2_chain_id,
                 alloy_primitives::B256::from(
                     ed25519_dalek::SigningKey::from_bytes(&[seed; 32]).verifying_key().to_bytes(),
@@ -1892,8 +1892,8 @@ mod tests {
             .unwrap()
             .unwrap()
             .batch;
-        let mem08 = |seed: u8| {
-            abci::committee::mem08_key(
+        let key = |seed: u8| {
+            abci::committee::set_key(
                 fixture.params.l2_chain_id,
                 B256::from(
                     ed25519_dalek::SigningKey::from_bytes(&[seed; 32]).verifying_key().to_bytes(),
@@ -1902,7 +1902,7 @@ mod tests {
         };
         // Epoch 1's commits are heights 24 and 25: the power-3 member signs both, the power-1
         // member only 25 in the canonical commits (both in the seen commits).
-        let counts = if mem08(1) < mem08(2) { [2, 1] } else { [1, 2] };
+        let counts = if key(1) < key(2) { [2, 1] } else { [1, 2] };
         assert_eq!(batch.participation.iter().map(|p| p.epoch).collect::<Vec<_>>(), [1]);
         assert_eq!(batch.participation[0].signedCounts, counts);
         let reference = alloy_primitives::keccak256(&batch.reference_headers[0]);

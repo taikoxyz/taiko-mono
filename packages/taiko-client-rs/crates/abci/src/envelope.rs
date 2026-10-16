@@ -37,7 +37,7 @@ const FORCED_FIELD: &str = "forced";
 /// The L2 execution block a CometBFT block carries.
 ///
 /// RLP: `[header, transactions]`. The block is fully determined by these two fields: withdrawals
-/// are empty and no transaction carries blobs (PRF-06).
+/// are empty and no transaction carries blobs.
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable, RlpDecodable)]
 pub struct ExecutionBlock {
     /// The full EL header (under alethia-reth #248 `difficulty` carries the block's zk gas).

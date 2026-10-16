@@ -40,7 +40,7 @@ pub const COMMITTEE_WITNESS_TMP_FILE: &str = "abci-committee-witness.json.tmp";
 pub struct CommitteeState {
     /// The committee record of the epoch.
     pub record: CommitteeRecord,
-    /// The members, sorted by the MEM-08 key; their powers are the CometBFT validator set.
+    /// The members, in set-key order; their powers are the CometBFT validator set.
     pub members: Vec<Member>,
 }
 

@@ -49,7 +49,7 @@ pub enum ScheduleError {
         /// The rejected `L`.
         epoch_len: u64,
     },
-    /// `epoch_len < unsettled_cap + 3` (#22262 review 5451940267's `N >= U + 3`): with it,
+    /// `epoch_len < unsettled_cap + 3`. With `epoch_len >= unsettled_cap + 3`,
     /// back-pressure alone keeps `lastCheckpoint.height > h_first(e - 1)` at the switch height
     /// `h_first(e) - 2`.
     #[error("epoch_len ({epoch_len}) must be >= unsettled_cap ({unsettled_cap}) + 3")]

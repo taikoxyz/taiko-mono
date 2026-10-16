@@ -3,7 +3,7 @@
 use abci::{
     AccountWitness, AnchorState, ChainParams, CommitteeRecord, CommitteeState, CommitteeWitness,
     EtnaEnvelope, ExecutionBlock, InboxFacts, Member, RegistryEntry,
-    committee::{mem08_key, mem08_root, record_hash},
+    committee::{record_hash, set_key, set_root},
 };
 use alloy_consensus::Header;
 use alloy_primitives::{B256, U256};
@@ -57,12 +57,12 @@ pub fn committee(
             power: *power,
         })
         .collect::<Vec<_>>();
-    members.sort_by_key(|member| mem08_key(params.l2_chain_id, member.pubkey));
+    members.sort_by_key(|member| set_key(params.l2_chain_id, member.pubkey));
     let record = CommitteeRecord {
         target_epoch: epoch,
         cutoff_l1_block: 1,
         checkpoint_index: 0,
-        set_root: mem08_root(params.l2_chain_id, epoch + 1, &members),
+        set_root: set_root(params.l2_chain_id, epoch + 1, &members),
         total_stake: members.iter().map(|member| member.eff_stake).sum(),
         total_power: powers.iter().sum(),
         encoding_version: 1,

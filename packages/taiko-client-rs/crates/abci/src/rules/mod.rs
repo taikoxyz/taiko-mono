@@ -4,7 +4,7 @@
 //! the committed parent, the block's L1 anchor, the BFT time, the recovery generation and the
 //! chain constants. `PrepareProposal` builds with [`payload_attributes`] of that header;
 //! `ProcessProposal` and `FinalizeBlock` recompute it and compare with [`check_header`]. The
-//! remaining predicates cover anchor progress, anchor freshness, back-pressure (HALT-03), the
+//! remaining predicates cover anchor progress, anchor freshness, back-pressure, the
 //! generation triple and the CometBFT `chain_id`.
 //!
 //! Execution results (state root, receipts root, transactions root, gas used and the zk gas in
@@ -75,7 +75,7 @@ pub struct ExpectedHeader {
     pub parent_hash: B256,
     /// Block timestamp in seconds: `max(parent.timestamp + 1, floor(time_H), anchor.timestamp)`.
     pub timestamp: u64,
-    /// Coinbase and suggested fee recipient: the chain's `L2FeeVault` (ECON-02, CONS-01).
+    /// Coinbase and suggested fee recipient: the chain's `L2FeeVault`.
     pub beneficiary: Address,
     /// The 13-byte `[100 | generation | anchorNumber]` `extraData` ([`encode_extra_data`]).
     pub extra_data: Bytes,
@@ -163,7 +163,7 @@ pub enum RuleViolation {
         /// The parent's block number.
         parent: u64,
     },
-    /// The anchor L1 block is older than the parent's anchor (SYS-02(c)).
+    /// The anchor L1 block is older than the parent's anchor.
     #[error("anchor {anchor} is below the parent's anchor {parent}")]
     AnchorRegressed {
         /// The parent's anchor L1 block number.
@@ -179,7 +179,7 @@ pub enum RuleViolation {
         /// `L1_0`.
         l1_0: u64,
     },
-    /// The anchor L1 block is below the block's epoch minimum `L1_first(epoch)` (CONS-13(2)).
+    /// The anchor L1 block is below the block's epoch minimum `L1_first(epoch)`.
     #[error("epoch {epoch} is not open on L1: the anchor must be >= {l1_first}")]
     EpochNotOpenOnL1 {
         /// The epoch of the block's height.
@@ -196,7 +196,7 @@ pub enum RuleViolation {
         /// The genesis `maxAnchorAge`, in seconds.
         max: u64,
     },
-    /// The unsettled depth `H - lastCheckpoint.height` exceeds `D_MAX - MARGIN_V` (HALT-03).
+    /// The unsettled depth `H - lastCheckpoint.height` exceeds `D_MAX - MARGIN_V`.
     #[error("unsettled depth {depth} exceeds the cap {cap}")]
     BackPressure {
         /// `H - lastCheckpoint.height`, in L2 blocks (0 when the checkpoint is not behind).
@@ -505,7 +505,7 @@ pub fn check_anchor_freshness(
     Ok(())
 }
 
-/// HALT-03 back-pressure: `height - last_checkpoint_height <= cap`, with the depth saturating at
+/// Back-pressure: `height - last_checkpoint_height <= cap`, with the depth saturating at
 /// 0 when the checkpoint is not behind `height`. `cap` is `D_MAX - MARGIN_V`.
 pub fn check_back_pressure(
     height: u64,
