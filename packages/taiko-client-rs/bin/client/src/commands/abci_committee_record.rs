@@ -232,6 +232,7 @@ mod tests {
     #[test]
     fn renders_the_report_one_fact_per_line() {
         let member = |byte: &str, stake: &str, power| Member {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
             pubkey: word(byte).parse().unwrap(),
             eff_stake: stake.parse().unwrap(),
             power,

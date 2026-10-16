@@ -134,7 +134,7 @@ mod tests {
                 3 => state.record.total_power += 1,
                 4 => state.record.total_stake += U256::from(1),
                 5 => state.record.set_root = B256::ZERO,
-                6 => state.record.encoding_version = 2,
+                6 => state.record.encoding_version = 1,
                 7 => state.members.clear(),
                 _ => unreachable!(),
             }

@@ -1,5 +1,5 @@
 // Regenerates consensus byte/hash vectors using stock CometBFT v0.40.0.
-// Invoke generate.sh; the fixture envelope is a deterministic Rust Etna v5 transaction.
+// Invoke generate.sh; the fixture envelope is a deterministic Rust Etna v6 transaction.
 package main
 
 import (

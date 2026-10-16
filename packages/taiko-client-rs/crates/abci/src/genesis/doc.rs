@@ -118,8 +118,8 @@ impl GenesisConsensusParams {
 
     /// The parameters of every Etna genesis: CometBFT's default `block.max_bytes` (22,020,096,
     /// above any envelope) without a gas limit, the default evidence limits (100,000 blocks,
-    /// 48 h, 1 MiB), Ed25519 keys only, app version 0, vote extensions disabled, and no update
-    /// authority.
+    /// 48 h, 1 MiB), Ed25519 keys only, the current app version, vote extensions disabled, and no
+    /// update authority.
     pub fn etna() -> Self {
         let params = Self::abci();
         Self {
@@ -226,7 +226,12 @@ mod tests {
     };
 
     fn member(pubkey: B256, power: u64) -> Member {
-        Member { pubkey, eff_stake: U256::from(power), power }
+        Member {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
+            pubkey,
+            eff_stake: U256::from(power),
+            power,
+        }
     }
 
     #[test]
@@ -265,7 +270,7 @@ mod tests {
                         "max_bytes": "1048576"
                     },
                     "validator": { "pub_key_types": ["ed25519"] },
-                    "version": { "app": "2" },
+                    "version": { "app": "3" },
                     "abci": { "vote_extensions_enable_height": "0" },
                     "authority": { "authority": "" }
                 },

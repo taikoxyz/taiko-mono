@@ -367,6 +367,7 @@ impl Fixture {
             .into_iter()
             .enumerate()
             .map(|(index, seed)| RegistryEntry {
+                reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
                 pubkey: B256::from(SigningKey::from_bytes(&[seed; 32]).verifying_key().to_bytes()),
                 eff_stake: U256::from(if index == 0 { 3 } else { 1 }),
                 active_from_l1: if index == 0 { 1 } else { 10 },
@@ -449,6 +450,7 @@ impl Fixture {
             .iter()
             .enumerate()
             .map(|(index, key)| RegistryEntry {
+                reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
                 pubkey: B256::from(key.verifying_key().to_bytes()),
                 eff_stake: U256::from(if index == 0 { 3 } else { 1 }),
                 active_from_l1: if index == 0 { 1 } else { 10 },

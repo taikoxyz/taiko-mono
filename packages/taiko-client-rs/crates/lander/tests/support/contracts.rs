@@ -221,6 +221,7 @@ impl ContractFixture {
         let schedule =
             Schedule { l1_0: 0, epoch_len: EPOCH_LEN, epoch_len_l1: 1, genesis_cutoff: cutoff };
         let entry = RegistryEntry {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
             pubkey,
             eff_stake: U256::from(STAKE),
             active_from_l1: register_block,

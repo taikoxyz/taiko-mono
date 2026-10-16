@@ -1462,7 +1462,7 @@ async fn switch_replay_survives_crashes_before_and_after_commit() {
             switches.push(target);
             assert!(!committed.committees.contains_key(&target));
             assert!(pending.committees.contains_key(&target));
-            assert!(!response.validator_updates.is_empty());
+            assert_eq!(response.validator_updates.is_empty(), target != 2);
             if target == 2 {
                 assert_eq!(pending.committees[&target].members.len(), 4);
                 assert_eq!(committed.committees[&(target - 1)].members.len(), 3);
@@ -1626,4 +1626,50 @@ async fn hot_canonical_skip_matches_cold_replay_and_persists_after_commit() {
     assert_eq!(reopened.state(), Some(&expected));
     info(&mut reopened).await.unwrap();
     assert_eq!(reopened.state().unwrap().forced_cursor, 1);
+}
+
+/// Payout metadata is installed for its epoch even when the CometBFT set stays identical.
+#[tokio::test]
+async fn payout_only_switch_installs_and_persists_epoch_metadata_without_native_updates() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    let schedule = fx.schedule();
+    let switch = schedule.h_first(4) - 2;
+    let old = sample_entries(3);
+    let mut new = old.clone();
+    new[0].reward_recipient = alloy_primitives::Address::repeat_byte(0x88);
+    let derive = |entries, epoch, cutoff, checkpoint| {
+        let snapshot = Snapshot { checkpoint_index: checkpoint, l1_block: cutoff, entries };
+        let (record, members) =
+            committee::derive(&snapshot, cutoff, epoch, &schedule, &fx.params).unwrap();
+        CommitteeState { record, members }
+    };
+    let previous = derive(old.clone(), 3, 64, 0);
+    let expected = derive(new.clone(), 4, 76, 1);
+    let landed = fx.inbox_with(switch - 5);
+    let changed = RegistryStorage { checkpoints: vec![(63, old.clone()), (71, new.clone())] };
+    fx.advance_l1(app.l1(), 76, &landed, &changed);
+    let anchor = fx.anchor_state(app.l1(), 76);
+    jump(&mut app, switch - 1, anchor, &[(3, previous.clone())]);
+    let env = propose(&mut app).await;
+    let (resp, req) = judge(&mut app, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept);
+    let out = finalize(&mut app, finalize_req(&req)).await.unwrap();
+    assert!(out.validator_updates.is_empty());
+    assert_eq!(app.pending.as_ref().unwrap().committees[&4], expected);
+    commit(&mut app).await.unwrap();
+    let reopened = fx.app(dir.path());
+    let state = reopened.state().unwrap();
+    let recipient_at = |height| {
+        state.committees[&schedule.epoch_of(height)]
+            .members
+            .iter()
+            .find(|m| m.pubkey == old[0].pubkey)
+            .unwrap()
+            .reward_recipient
+    };
+    assert_eq!(recipient_at(schedule.h_first(4) - 1), old[0].reward_recipient);
+    assert_eq!(recipient_at(schedule.h_first(4)), new[0].reward_recipient);
+    assert_eq!(state.committees[&4], expected);
 }

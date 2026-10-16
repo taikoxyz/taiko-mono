@@ -33,6 +33,11 @@ impl ValidatorKey {
         B256::from(self.signing.verifying_key().to_bytes())
     }
 
+    /// The deterministic nonzero L2 payout address used by the test registry planter.
+    pub fn reward_recipient(&self) -> alloy_primitives::Address {
+        alloy_primitives::Address::from_slice(&self.pubkey().as_slice()[12..])
+    }
+
     /// The CometBFT validator address: upper-case hex of `sha256(pubkey)[..20]`.
     pub fn address(&self) -> String {
         abci::genesis::validator_address(self.pubkey())

@@ -45,16 +45,19 @@ fn vector_entry(i: u8) -> RegistryEntry {
 fn vector_members() -> Vec<Member> {
     let mut members = vec![
         Member {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
             pubkey: B256::repeat_byte(0x11),
             eff_stake: U256::from(3_000_000_000_000_000_000u64),
             power: 3_000_000_000,
         },
         Member {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
             pubkey: B256::repeat_byte(0x22),
             eff_stake: U256::from(1_000_000_000_000_000_007u64),
             power: 1_000_000_000,
         },
         Member {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
             pubkey: B256::repeat_byte(0x33),
             eff_stake: U256::from(2_000_000_000_000_000_000u64),
             power: 2_000_000_000,
@@ -78,26 +81,11 @@ fn vector_record() -> CommitteeRecord {
 
 #[test]
 fn domain_tags_are_right_padded_ascii() {
-    assert_eq!(
-        REG_ENTRY_TAG,
-        b256!("45544e415f5245475f454e545259000000000000000000000000000000000000")
-    );
-    assert_eq!(
-        SET_KEY_TAG,
-        b256!("45544e415f5345545f4b45590000000000000000000000000000000000000000")
-    );
-    assert_eq!(
-        SET_LEAF_TAG,
-        b256!("45544e415f5345545f4c45414600000000000000000000000000000000000000")
-    );
-    assert_eq!(
-        SET_NODE_TAG,
-        b256!("45544e415f5345545f4e4f444500000000000000000000000000000000000000")
-    );
-    assert_eq!(
-        RECORD_TAG,
-        b256!("45544e415f434f4d4d49545445455f5631000000000000000000000000000000")
-    );
+    assert_eq!(REG_ENTRY_TAG, tag(b"ETNA_REG_ENTRY_V2"));
+    assert_eq!(SET_KEY_TAG, tag(b"ETNA_SET_KEY"));
+    assert_eq!(SET_LEAF_TAG, tag(b"ETNA_SET_LEAF_V2"));
+    assert_eq!(SET_NODE_TAG, tag(b"ETNA_SET_NODE"));
+    assert_eq!(RECORD_TAG, tag(b"ETNA_COMMITTEE_V2"));
 }
 
 /// The shared `registry_entries` vectors (`testdata/etna_vectors`, computed with `cast`; the
@@ -210,16 +198,27 @@ fn set_key_vectors() {
 
 #[test]
 fn set_root_vectors() {
-    let members = vector_members();
-    let order: Vec<B256> = members.iter().map(|m| m.pubkey).collect();
-    assert_eq!(order, [0x22, 0x33, 0x11].map(B256::repeat_byte));
-    let cases = [
-        (1, b256!("06745b6ce2a128a529dc81bbd7ae7e2ae78ed821e0a47b20fdb7dd1d114012e9")),
-        (2, b256!("130657073f364f5178a54156feeee2e70af266897c9e356e141bd15dfd0179f1")),
-        (3, b256!("4de8033b66bb70d6cfe7d01b17e3f374d9ebdebb4b12f4af66f620b4e5293a2f")),
-    ];
-    for (n, expected) in cases {
-        assert_eq!(set_root(CHAIN, 1, &members[..n]), expected, "n = {n}");
+    for i in 0..vectors::len_at("/committee_sets") {
+        let p = format!("/committee_sets/{i}");
+        let members = (0..vectors::len_at(&format!("{p}/members")))
+            .map(|j| {
+                let f = |name: &str| format!("{p}/members/{j}/{name}");
+                Member {
+                    pubkey: vectors::b256_at(&f("pubkey")),
+                    eff_stake: vectors::u256_at(&f("eff_stake")),
+                    power: vectors::u64_at(&f("power")),
+                    reward_recipient: vectors::address_at(&f("reward_recipient")),
+                }
+            })
+            .collect::<Vec<_>>();
+        let epoch = vectors::u64_at(&format!("{p}/target_epoch"));
+        assert_eq!(set_root(CHAIN, epoch, &members), vectors::b256_at(&format!("{p}/set_root")));
+        for (j, m) in members.iter().enumerate() {
+            assert_eq!(
+                set_leaf(CHAIN, epoch, j, m),
+                vectors::b256_at(&format!("{p}/set_leaves/{j}"))
+            );
+        }
     }
 }
 
@@ -227,7 +226,12 @@ fn set_root_vectors() {
 fn set_root_promotes_an_odd_last_node() {
     let mut members: Vec<Member> = sample_entries(5)
         .into_iter()
-        .map(|e| Member { pubkey: e.pubkey, eff_stake: e.eff_stake, power: 1 })
+        .map(|e| Member {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
+            pubkey: e.pubkey,
+            eff_stake: e.eff_stake,
+            power: 1,
+        })
         .collect();
     members.sort_by_key(|m| set_key(CHAIN, m.pubkey));
     let leaf = |i: usize| set_leaf(CHAIN, 2, i, &members[i]);
@@ -258,10 +262,20 @@ fn set_root_of_no_members_is_zero() {
 
 #[test]
 fn record_hash_vector() {
-    assert_eq!(
-        record_hash(CHAIN, &vector_record()),
-        b256!("07a050ff05bcfa6e1ce71cd6b9536bd68f38c23328ab34a8774fa50155ae484a")
-    );
+    for i in 0..vectors::len_at("/committee_sets") {
+        let p = format!("/committee_sets/{i}");
+        let f = |name: &str| format!("{p}/{name}");
+        let record = CommitteeRecord {
+            target_epoch: vectors::u64_at(&f("target_epoch")),
+            cutoff_l1_block: vectors::u64_at(&f("cutoff_l1_block")),
+            checkpoint_index: vectors::u64_at(&f("checkpoint_index")),
+            set_root: vectors::b256_at(&f("set_root")),
+            total_stake: vectors::u256_at(&f("total_stake")),
+            total_power: vectors::u64_at(&f("total_power")),
+            encoding_version: 2,
+        };
+        assert_eq!(record_hash(CHAIN, &record), vectors::b256_at(&f("record_hash")));
+    }
 }
 
 #[test]
@@ -515,6 +529,7 @@ fn verify_snapshot_rejects_a_bad_proof() {
 /// (sequence 1).
 fn entry(seed: u8, eff_stake: U256) -> RegistryEntry {
     RegistryEntry {
+        reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
         pubkey: B256::repeat_byte(seed),
         eff_stake,
         active_from_l1: 0,
@@ -554,6 +569,7 @@ fn derive_builds_key_sorted_members_and_the_record() {
             .into_iter()
             .zip(&entries)
             .map(|((seed, power), e)| Member {
+                reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
                 pubkey: B256::repeat_byte(seed),
                 eff_stake: e.eff_stake,
                 power,
@@ -723,7 +739,15 @@ fn stake_below_vp_unit_is_ineligible_when_vp_unit_dominates() {
     let at = entry(2, params.vp_unit);
     let (_, members) =
         derive(&snapshot(vec![below, at.clone()]), C, 1, &SCHEDULE, &params).unwrap();
-    assert_eq!(members, vec![Member { pubkey: at.pubkey, eff_stake: at.eff_stake, power: 1 }]);
+    assert_eq!(
+        members,
+        vec![Member {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
+            pubkey: at.pubkey,
+            eff_stake: at.eff_stake,
+            power: 1
+        }]
+    );
 }
 
 /// Among eligible entries sharing a pubkey, the one with the lowest `bondId` (index) is the
@@ -783,7 +807,12 @@ fn a_duplicate_of_an_ineligible_entry_is_ignored() {
         derive(&snapshot(vec![exited, rejoined]), C, 1, &SCHEDULE, &devnet()).unwrap();
     assert_eq!(
         members,
-        vec![Member { pubkey: B256::repeat_byte(1), eff_stake: ether(2), power: 2_000_000_000 }]
+        vec![Member {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
+            pubkey: B256::repeat_byte(1),
+            eff_stake: ether(2),
+            power: 2_000_000_000
+        }]
     );
 }
 
@@ -1025,7 +1054,7 @@ fn verify_committee_witness_rejects_a_record_mismatch() {
         CommitteeRecord { total_stake: derived.total_stake + U256::from(1), ..derived.clone() },
         CommitteeRecord { target_epoch: 4, ..derived.clone() },
         CommitteeRecord { cutoff_l1_block: 23, ..derived.clone() },
-        CommitteeRecord { encoding_version: 2, ..derived.clone() },
+        CommitteeRecord { encoding_version: 1, ..derived.clone() },
     ];
     for claimed in claims {
         let w = committee_witness(&state, REGISTRY, &storage, 1, claimed.clone());
@@ -1161,7 +1190,12 @@ fn verify_committee_witness_at_cutoff_requires_the_cutoff_snapshot() {
 // ---------------------------------------------------------------------------------------------
 
 fn member(seed: u8, power: u64) -> Member {
-    Member { pubkey: B256::repeat_byte(seed), eff_stake: U256::from(power), power }
+    Member {
+        reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
+        pubkey: B256::repeat_byte(seed),
+        eff_stake: U256::from(power),
+        power,
+    }
 }
 
 #[test]
@@ -1194,18 +1228,18 @@ fn validator_updates_from_or_to_an_empty_set() {
 }
 
 #[test]
-fn validator_updates_restate_unchanged_members() {
+fn validator_updates_omit_unchanged_native_members() {
     let set = vec![member(1, 1)];
-    assert_eq!(validator_updates(&set, &set), vec![(B256::repeat_byte(1), 1)]);
+    assert!(validator_updates(&set, &set).is_empty());
 }
 
 /// The shared `committee_config` vector (`testdata/etna_vectors`, computed with `cast`; the
-/// contracts' `EtnaInboxLand` test reads it too): the eleven `ETNA_PARENT_ANCHOR_V2` inputs hash
+/// contracts' `EtnaInboxLand` test reads it too): the eleven `ETNA_PARENT_ANCHOR_V3` inputs hash
 /// to the vector's configuration hash.
 #[test]
 fn committee_config_hash_matches_the_shared_vector() {
     let input = |name: &str| format!("/committee_config/inputs/{name}");
-    assert_eq!(vectors::str_at(&input("tag")), "ETNA_PARENT_ANCHOR_V2");
+    assert_eq!(vectors::str_at(&input("tag")), "ETNA_PARENT_ANCHOR_V3");
     assert_eq!(vectors::u64_at(&input("lookahead_epochs")), LOOKAHEAD_EPOCHS);
     assert_eq!(vectors::u64_at(&input("encoding_version")), u64::from(ENCODING_VERSION));
     let params = ChainParams {
@@ -1285,4 +1319,73 @@ fn committed_parent_snapshot_changes_active_and_exit_eligibility() {
     assert!(!selected[1].contains(&sample_entries(3)[0].pubkey));
     assert!(!selected[0].contains(&sample_entries(3)[1].pubkey));
     assert!(selected[1].contains(&sample_entries(3)[1].pubkey));
+}
+
+#[test]
+fn committee_format_and_capacity_support_payout_addresses() {
+    assert_eq!(ENCODING_VERSION, 2);
+    let params = ChainParams { n_max: 301, ..devnet() };
+    params.validate().unwrap();
+    let snapshot = Snapshot { checkpoint_index: 0, l1_block: C, entries: sample_entries(301) };
+    let (_, members) = derive(&snapshot, C, 0, &SCHEDULE, &params).unwrap();
+    assert_eq!(members.len(), 301);
+}
+
+#[test]
+fn snapshot_authentication_binds_the_reward_recipient() {
+    let storage = registry_storage();
+    let state = registry_state(&storage);
+    let mut witness = witness_at(&state, &storage, 1);
+    witness.entries[0].reward_recipient = Address::repeat_byte(0x88);
+    assert!(matches!(
+        verify_snapshot(state.state_root(), REGISTRY, &witness, 25),
+        Err(CommitteeError::EntriesRootMismatch { .. })
+    ));
+}
+
+#[test]
+fn snapshot_and_derivation_reject_zero_recipients() {
+    let mut entries = sample_entries(1);
+    entries[0].reward_recipient = Address::ZERO;
+    let storage = RegistryStorage { checkpoints: vec![(10, entries.clone())] };
+    let state = registry_state(&storage);
+    let witness = witness_at(&state, &storage, 0);
+    assert_eq!(
+        verify_snapshot(state.state_root(), REGISTRY, &witness, 25),
+        Err(CommitteeError::ZeroRecipient)
+    );
+    assert_eq!(
+        derive(&snapshot(entries), C, 0, &SCHEDULE, &devnet()),
+        Err(CommitteeError::ZeroRecipient)
+    );
+}
+
+#[test]
+fn payout_only_changes_bind_commitments_but_preserve_native_validators() {
+    let old = sample_entries(3);
+    let mut new = old.clone();
+    new[0].reward_recipient = Address::repeat_byte(0x88);
+    let (old_record, old_members) =
+        derive(&snapshot(old.clone()), C, 0, &SCHEDULE, &devnet()).unwrap();
+    let (new_record, new_members) =
+        derive(&snapshot(new.clone()), C, 0, &SCHEDULE, &devnet()).unwrap();
+    assert_ne!(entries_root(&old), entries_root(&new));
+    assert_ne!(old_record.set_root, new_record.set_root);
+    assert_ne!(record_hash(CHAIN, &old_record), record_hash(CHAIN, &new_record));
+    let native_hash = |members: &[Member]| {
+        tendermint::validator::Set::without_proposer(
+            members
+                .iter()
+                .map(|m| {
+                    tendermint::validator::Info::new(
+                        tendermint::PublicKey::from_raw_ed25519(m.pubkey.as_slice()).unwrap(),
+                        m.power.try_into().unwrap(),
+                    )
+                })
+                .collect(),
+        )
+        .hash()
+    };
+    assert_eq!(native_hash(&old_members), native_hash(&new_members));
+    assert!(validator_updates(&old_members, &new_members).is_empty());
 }

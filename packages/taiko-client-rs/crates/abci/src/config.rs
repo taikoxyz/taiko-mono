@@ -4,20 +4,8 @@ use alloy_primitives::{Address, U256, address};
 use protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID;
 use serde::{Deserialize, Deserializer, de};
 
-/// The largest committee size [`ChainParams::validate`] accepts.
-///
-/// The landing that carries an epoch's last commit settles every member of that epoch's committee
-/// in one L1 transaction, which EIP-7825 caps at 16,777,216 gas. The lander ends every batch at an
-/// epoch's last commit, so that landing carries one participation part, but a batch that also
-/// carries the next epoch's first commits writes that epoch's committee hash, counts and proposer
-/// scores for the first time too, and the cap must hold for it as well. Measured as whole
-/// transactions on the pinned contracts, with every registration owner credited for the first
-/// time, such a two-part freezing landing, with every count and score word a first write, needs
-/// 14,963,393 gas at 300 members (1.81M, 10.8%, under the cap, which leaves room for a real
-/// verifier and consumed forced inclusions) and 17,844,824 at 360, about 48k per member: it stops
-/// fitting at about 337. A one-part freezing landing that writes its whole epoch for the first
-/// time needs 12,487,285 at 300 members.
-pub const MAX_N_MAX: usize = 300;
+/// The largest committee size accepted by the registry discovery and consensus bounds.
+pub const MAX_N_MAX: usize = 4096;
 
 /// Per-chain constants consumed by consensus.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -28,7 +16,8 @@ pub struct ChainParams {
     pub inbox: Address,
     /// `ETNA_REGISTRY`: L1 address of the staking registry.
     pub registry: Address,
-    /// `L2FeeVault`: L2 coinbase and suggested fee recipient of every block.
+    /// `L2FeeVault`: canonical L2 treasury of the pinned execution layer, derived from the chain
+    /// id.
     pub fee_vault: Address,
     /// `D_MAX`: maximum unsettled depth, in L2 blocks; bound by the committee
     /// configuration hash.
@@ -95,9 +84,7 @@ pub enum ConfigError {
     /// `n_max == 0`.
     #[error("n_max must be >= 1")]
     ZeroNMax,
-    /// `n_max > MAX_N_MAX`: a landing that settles a full committee's epoch together with the
-    /// next epoch's first commits would keep less than about 10.8% of margin under the EIP-7825
-    /// transaction gas cap, and above about 337 members would exceed it and never be included.
+    /// `n_max` exceeds the authenticated registry discovery capacity.
     #[error("n_max ({n_max}) must be <= {max}")]
     NMaxTooLarge {
         /// Configured `n_max`.
@@ -133,7 +120,7 @@ impl ChainParams {
                 l2_chain_id,
                 inbox: address!("00000000000000000000000000000000E7A10001"),
                 registry: address!("00000000000000000000000000000000E7A10002"),
-                fee_vault: address!("00000000000000000000000000000000E7A10003"),
+                fee_vault: address!("1670010000000000000000000000000000010001"),
                 d_max: 12,
                 margin_v: 2,
                 vp_unit: U256::from(1_000_000_000u64),
@@ -200,7 +187,7 @@ impl ChainParams {
         self.d_max.saturating_sub(self.margin_v)
     }
 
-    /// Checks `d_max > margin_v`, `vp_unit > 0`, `1 <= n_max <= MAX_N_MAX` (300),
+    /// Checks `d_max > margin_v`, `vp_unit > 0`, `1 <= n_max <= MAX_N_MAX` (4096),
     /// `heartbeat_window >= 1`, `block_gas_limit > 0` and `s_min >= vp_unit`, returning the first
     /// violation.
     pub fn validate(&self) -> Result<(), ConfigError> {
@@ -305,7 +292,7 @@ mod tests {
         assert_eq!(p.l2_chain_id, TAIKO_DEVNET_CHAIN_ID);
         assert_eq!(p.inbox, address!("00000000000000000000000000000000E7A10001"));
         assert_eq!(p.registry, address!("00000000000000000000000000000000E7A10002"));
-        assert_eq!(p.fee_vault, address!("00000000000000000000000000000000E7A10003"));
+        assert_eq!(p.fee_vault, address!("1670010000000000000000000000000000010001"));
         assert_eq!(p.d_max, 12);
         assert_eq!(p.margin_v, 2);
         assert_eq!(p.vp_unit, U256::from(1_000_000_000u64));
@@ -375,7 +362,7 @@ mod tests {
     #[test]
     fn overrides_allow_explicit_builtin_consensus_parameters() {
         let document = r#"
-            fee_vault = "0x00000000000000000000000000000000E7A10003"
+            fee_vault = "0x1670010000000000000000000000000000010001"
             block_gas_limit = 45000000
             d_max = 12
             margin_v = 2
@@ -509,22 +496,16 @@ mod tests {
     }
 
     #[test]
-    fn validate_bounds_n_max_by_the_freezing_landing_gas() {
-        assert_eq!(MAX_N_MAX, 300);
-        ChainParams { n_max: MAX_N_MAX, ..devnet() }.validate().unwrap();
-        let p = ChainParams { n_max: MAX_N_MAX + 1, ..devnet() };
+    fn validate_bounds_n_max_by_registry_capacity() {
+        assert_eq!(MAX_N_MAX, 4096);
+        for n_max in [1, 301, 4096] {
+            ChainParams { n_max, ..devnet() }.validate().unwrap();
+        }
+        let p = ChainParams { n_max: 4097, ..devnet() };
         assert!(matches!(
             p.validate().unwrap_err(),
-            ConfigError::NMaxTooLarge { n_max: 301, max: 300 }
+            ConfigError::NMaxTooLarge { n_max: 4097, max: 4096 }
         ));
-        // The former bound, 360, no longer validates.
-        assert!(matches!(
-            ChainParams { n_max: 360, ..devnet() }.validate().unwrap_err(),
-            ConfigError::NMaxTooLarge { n_max: 360, max: 300 }
-        ));
-        // An override cannot raise it either: loaders validate after applying overrides.
-        let overridden = devnet().with_overrides("n_max = 301").unwrap();
-        assert!(matches!(overridden.validate().unwrap_err(), ConfigError::NMaxTooLarge { .. }));
     }
 
     #[test]

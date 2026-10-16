@@ -68,6 +68,9 @@ pub struct RegistryEntry {
     /// never sent one. Eligibility requires a nonzero sequence, a test `last_heartbeat_at` cannot
     /// give for window 0.
     pub last_heartbeat_seq: u64,
+    /// Nonzero L2 address receiving this entry's proposer rewards; authenticated in the entry
+    /// root.
+    pub reward_recipient: Address,
 }
 
 /// The committee record for one target epoch, as deterministically derived from a fixed L1 snapshot
@@ -88,7 +91,7 @@ pub struct CommitteeRecord {
     pub total_stake: U256,
     /// Sum of the members' voting power; at most `(2^63 - 1) / 8` (CometBFT's total-power cap).
     pub total_power: u64,
-    /// Record encoding version; currently always 1.
+    /// Record encoding version; currently always 2.
     pub encoding_version: u8,
 }
 
@@ -104,6 +107,8 @@ pub struct Member {
     pub eff_stake: U256,
     /// CometBFT voting power: `floor(eff_stake / VP_UNIT)`, always >= 1 for a member.
     pub power: u64,
+    /// Authenticated nonzero L2 payout address of the selected registry entry.
+    pub reward_recipient: Address,
 }
 
 /// Inbox facts proven by an anchor (or genesis) witness.
@@ -271,6 +276,7 @@ mod tests {
     #[test]
     fn registry_entry_rlp_round_trips() {
         rlp_round_trip(&RegistryEntry {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
             pubkey: b256!("aa00000000000000000000000000000000000000000000000000000000000001"),
             eff_stake: U256::from(10).pow(U256::from(24)),
             active_from_l1: 12,
@@ -347,6 +353,7 @@ mod tests {
     #[test]
     fn member_json_round_trips() {
         json_round_trip(&Member {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
             pubkey: B256::repeat_byte(0xcc),
             eff_stake: U256::from(5_000_000_000u64),
             power: 5,
