@@ -4,6 +4,14 @@ use alloy_primitives::{Address, U256, address};
 use protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID;
 use serde::{Deserialize, Deserializer, de};
 
+/// The largest committee size [`ChainParams::validate`] accepts.
+///
+/// The landing that carries an epoch's last commit settles every member of that epoch's committee
+/// in one L1 transaction, which EIP-7825 caps at 16,777,216 gas. Crediting a member's registration
+/// owner for the first time costs the reward pool about 34.9k gas, so the worst-case freezing
+/// landing needs about 14.5M at 400 members and stops fitting at about 455.
+pub const MAX_N_MAX: usize = 400;
+
 /// Per-chain constants consumed by consensus.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ChainParams {
@@ -25,7 +33,7 @@ pub struct ChainParams {
     pub vp_unit: U256,
     /// `S_min`: minimum effective stake of an eligible entry, in TAIKO base units; `>= vp_unit`.
     pub s_min: U256,
-    /// `N_MAX`: maximum committee size; `>= 1`.
+    /// `N_MAX`: maximum committee size; in `1..=`[`MAX_N_MAX`].
     pub n_max: usize,
     /// `HEARTBEAT_WINDOW`: length of the L1 heartbeat windows MEM-13 eligibility is measured
     /// in, in L1 blocks ([`committee::heartbeat_floor`](crate::committee::heartbeat_floor));
@@ -80,6 +88,15 @@ pub enum ConfigError {
     /// `n_max == 0`.
     #[error("n_max must be >= 1")]
     ZeroNMax,
+    /// `n_max > MAX_N_MAX`, so the landing that settles a full committee's epoch could exceed
+    /// the EIP-7825 transaction gas cap and never be included.
+    #[error("n_max ({n_max}) must be <= {max}")]
+    NMaxTooLarge {
+        /// Configured `n_max`.
+        n_max: usize,
+        /// The largest accepted value, [`MAX_N_MAX`].
+        max: usize,
+    },
     /// `heartbeat_window == 0`.
     #[error("heartbeat_window must be >= 1")]
     ZeroHeartbeatWindow,
@@ -175,8 +192,8 @@ impl ChainParams {
         self.d_max.saturating_sub(self.margin_v)
     }
 
-    /// Checks `d_max > margin_v`, `vp_unit > 0`, `n_max >= 1`, `heartbeat_window >= 1`,
-    /// `block_gas_limit > 0` and `s_min >= vp_unit`, returning the first
+    /// Checks `d_max > margin_v`, `vp_unit > 0`, `1 <= n_max <= MAX_N_MAX`,
+    /// `heartbeat_window >= 1`, `block_gas_limit > 0` and `s_min >= vp_unit`, returning the first
     /// violation.
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.d_max <= self.margin_v {
@@ -190,6 +207,9 @@ impl ChainParams {
         }
         if self.n_max == 0 {
             return Err(ConfigError::ZeroNMax);
+        }
+        if self.n_max > MAX_N_MAX {
+            return Err(ConfigError::NMaxTooLarge { n_max: self.n_max, max: MAX_N_MAX });
         }
         if self.heartbeat_window == 0 {
             return Err(ConfigError::ZeroHeartbeatWindow);
@@ -478,6 +498,20 @@ mod tests {
     fn validate_rejects_zero_n_max() {
         let p = ChainParams { n_max: 0, ..devnet() };
         assert!(matches!(p.validate().unwrap_err(), ConfigError::ZeroNMax));
+    }
+
+    #[test]
+    fn validate_bounds_n_max_by_the_freezing_landing_gas() {
+        assert_eq!(MAX_N_MAX, 400);
+        ChainParams { n_max: MAX_N_MAX, ..devnet() }.validate().unwrap();
+        let p = ChainParams { n_max: MAX_N_MAX + 1, ..devnet() };
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            ConfigError::NMaxTooLarge { n_max: 401, max: 400 }
+        ));
+        // An override cannot raise it either: loaders validate after applying overrides.
+        let overridden = devnet().with_overrides("n_max = 401").unwrap();
+        assert!(matches!(overridden.validate().unwrap_err(), ConfigError::NMaxTooLarge { .. }));
     }
 
     #[test]
