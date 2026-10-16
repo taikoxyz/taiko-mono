@@ -321,11 +321,12 @@ Outgoing-quorum, old-key/stake-retention/withdrawal and recovery-bootstrap limit
 The V2 set leaf appends the immutable L2 payout address:
 
 ```solidity
-keccak256(abi.encode(bytes32("ETNA_SET_LEAF_V2"), uint256(l2ChainId), uint256(targetEpoch),
+keccak256(abi.encode(bytes32("ETNA_SET_LEAF_V2"), uint256(l2ChainId), uint256(setVersion),
     uint256(index), pubkey, uint256(effStake), address(rewardRecipient)))
 ```
 
-Inner nodes retain `ETNA_SET_NODE`, chain ID, target epoch, left and right ABI words. An odd last
+Set version is `k = targetEpoch - E0 + 1`, with `E0 = 0`; record epoch 7 therefore uses
+set version 8. Inner nodes retain `ETNA_SET_NODE`, chain ID, set version, left and right ABI words. An odd last
 node is promoted unchanged; an empty set root is zero and cannot authorize a committee. The
 nine-word record uses `ETNA_COMMITTEE_V2`, chain ID, target epoch, cutoff L1 block, checkpoint
 index, set root, total stake, total power and `uint8(2)`. The recipient is authenticated through

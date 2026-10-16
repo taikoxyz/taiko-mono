@@ -205,6 +205,8 @@ def committee_sets(entries):
     """
     cases = []
     chain_id, epoch, cutoff, checkpoint = 167001, 7, 100, 3
+    # E0 is zero: record target epoch and set version k are distinct protocol inputs.
+    set_version = epoch + 1
     for count in (0, 1, 3, 5):
         members = []
         for bond_id, entry in enumerate(entries[:count]):
@@ -220,14 +222,14 @@ def committee_sets(entries):
             })
         members.sort(key=lambda member: int(member["set_key"], 16))
         preimages = [abi_encode("f(bytes32,uint256,uint256,uint256,bytes32,uint256,address)",
-            tag("ETNA_SET_LEAF_V2"), chain_id, epoch, index,
+            tag("ETNA_SET_LEAF_V2"), chain_id, set_version, index,
             member["pubkey"], member["eff_stake"], member["reward_recipient"])
             for index, member in enumerate(members)]
         leaves = [keccak(preimage) for preimage in preimages]
         level = leaves[:]
         while len(level) > 1:
             level = [keccak(abi_encode("f(bytes32,uint256,uint256,bytes32,bytes32)",
-                tag("ETNA_SET_NODE"), chain_id, epoch, level[i], level[i + 1]))
+                tag("ETNA_SET_NODE"), chain_id, set_version, level[i], level[i + 1]))
                 if i + 1 < len(level) else level[i] for i in range(0, len(level), 2)]
         root = level[0] if level else word(0)
         total_stake = sum(int(member["eff_stake"]) for member in members)
@@ -238,6 +240,7 @@ def committee_sets(entries):
             root, total_stake, total_power, 2)
         cases.append({
             "l2_chain_id": dec(chain_id), "target_epoch": dec(epoch),
+            "set_version": dec(set_version),
             "cutoff_l1_block": dec(cutoff), "checkpoint_index": dec(checkpoint),
             "encoding_version": "2", "members": members,
             "set_leaf_preimages": preimages, "set_leaves": leaves, "set_root": root,
