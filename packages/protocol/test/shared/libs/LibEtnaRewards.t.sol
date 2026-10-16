@@ -62,6 +62,19 @@ contract LibEtnaRewardsTest is CommonTest {
         assertTrue(LibEtnaRewards.batchId(r) != id);
     }
 
+    /// @notice Checks canonical encoding against independently generated cast hash vectors.
+    function test_canonicalEncodingMatchesCastGoldens() external pure {
+        LibEtnaRewards.Receipt memory r = _receipt();
+        assertEq(
+            LibEtnaRewards.batchId(r),
+            0xe72a891134ec053590cf4870720ddb9bb0fa3949d3f4f26e745fa018d219601a
+        );
+        assertEq(
+            LibEtnaRewards.commitment(r),
+            0xcd1058569a736a4ae8426824c9bd2b55cc8e44b7d9e3194b0e03924cacea03bc
+        );
+    }
+
     /// @notice Checks that reward details change the receipt commitment without changing its batch.
     function test_commitmentBindsRecipientAndAmountWithoutChangingBatchId() external pure {
         LibEtnaRewards.Receipt memory r = _receipt();
@@ -81,7 +94,7 @@ contract LibEtnaRewardsTest is CommonTest {
     /// @notice Checks that receipt storage slots match an independent mapping-slot calculation.
     function test_receiptSlotMatchesIndependentMappingSlotCast() external pure {
         bytes32 id = keccak256("batch");
-        bytes32 expected = keccak256(abi.encode(id, uint256(283)));
+        bytes32 expected = 0xc74c0f5c1fc11def9cf0741a16202164efb7cc7501e3826c320101b248a8058d;
         assertEq(LibEtnaRewards.receiptSlot(id), expected);
     }
 
@@ -102,6 +115,7 @@ contract LibEtnaRewardsTest is CommonTest {
     }
 
     /// @dev Returns a representative receipt used to test canonical batch and receipt encoding.
+    /// @return r The initialized receipt fixture.
     function _receipt() private pure returns (LibEtnaRewards.Receipt memory r) {
         r = LibEtnaRewards.Receipt({
             l1ChainId: 1,
@@ -109,9 +123,9 @@ contract LibEtnaRewardsTest is CommonTest {
             inbox: address(0x1111),
             generation: 2,
             parentHeight: 100,
-            parentHash: keccak256("parent"),
+            parentHash: 0x1111111111111111111111111111111111111111111111111111111111111111,
             lastHeight: 200,
-            lastBlockHash: keccak256("last"),
+            lastBlockHash: 0x2222222222222222222222222222222222222222222222222222222222222222,
             l2RewardRecipient: address(0x2222),
             baseFeeAmount: 3 ether
         });
