@@ -1006,6 +1006,15 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
             "signed count"
         );
         parts[0].signedCounts[0] += 1;
+        parts[0].proposerScores[0] -= 1;
+        assertNotEq(
+            expected,
+            etnaInbox.hashLandStatement(
+                0, 0, genesisBlockHash, 0, input, parts, L1_REFERENCE_BLOCK_HASH, blobs
+            ),
+            "proposer score"
+        );
+        parts[0].proposerScores[0] += 1;
         parts[0].committeeHash = bytes32(uint256(1));
         assertNotEq(
             expected,

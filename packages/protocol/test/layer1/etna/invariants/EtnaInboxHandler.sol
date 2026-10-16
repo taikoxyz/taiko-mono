@@ -18,11 +18,13 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// invariant campaign, and keeps ghost copies of the forced inclusion queue, the landed
 /// checkpoints, the pool's signed counts, reservations and credits, and every wei moved.
 /// @dev Every landing carries the participation of its commit range, one part per epoch, with
-/// each member's count the range's heights in that epoch or fewer, and the committee of each
-/// epoch it completes, shaped as `land` requires; about one landing in eight also funds the
-/// prover reward ledger with `msg.value`. The handler models each freeze (the shares of the free
-/// balance, the credits by effective stake times signed heights rounded down) and the landing
-/// reward (per block, capped at the ledger) independently of the pool and the Inbox.
+/// each member's count the range's heights in that epoch or fewer and proposer scores summing to
+/// at most 10,000 per such height, and the committee of each epoch it completes, shaped as
+/// `land` requires; about one landing in eight also funds the prover reward ledger with
+/// `msg.value`. The handler models each freeze (the shares of the free balance, the split of the
+/// validator share into base and proposer bonus, the base by effective stake times signed heights
+/// and the bonus by proposer score, each rounded down) and the landing reward (per block, capped
+/// at the ledger) independently of the pool and the Inbox.
 /// Each call's outcome is predicted before it runs in try/catch: a save or landing is
 /// either valid or broken in exactly one way, whose custom error is then expected. A landing
 /// mode picks the break: no progress, too many blocks, a zero fee recipient, a queue head
@@ -113,6 +115,7 @@ contract EtnaInboxHandler is CommonBase {
     bytes internal constant PROOF = "etna proof";
     uint256 internal constant MAX_TX_BYTES = 8192;
     uint256 internal constant PPM = 1_000_000;
+    uint256 internal constant MAX_BLOCK_SCORE = 10_000;
 
     // ---------------------------------------------------------------
     // Configuration
@@ -163,11 +166,13 @@ contract EtnaInboxHandler is CommonBase {
     uint256 public landingValue;
     uint256 public rewardsPaid;
 
-    /// @dev The pool's reservations, each owner's credits and each epoch's signed counts as the
-    /// model expects them, and the number of frozen epochs (always a prefix).
+    /// @dev The pool's reservations, each owner's credits and each epoch's signed counts and
+    /// proposer scores as the model expects them, and the number of frozen epochs (always a
+    /// prefix).
     uint256 public ghostReserved;
     mapping(address owner => uint256) internal _ghostCredits;
     mapping(uint256 epoch => mapping(uint256 index => uint256)) internal _ghostSigned;
+    mapping(uint256 epoch => mapping(uint256 index => uint256)) internal _ghostScores;
     uint256 public frozenEpochs;
 
     mapping(Property => uint256) public violations;
@@ -188,6 +193,7 @@ contract EtnaInboxHandler is CommonBase {
     uint256 public withdrawals;
     uint256 public rewardedLandings;
     uint256 public settledEpochs;
+    uint256 public bonusesPaid;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -558,8 +564,10 @@ contract EtnaInboxHandler is CommonBase {
 
     /// @dev The participation of the batch `(parent, lastHeight]`: one part per epoch of its
     /// commit range `[max(parent, 1), lastHeight - 1]`, each member counting the range's heights
-    /// in that epoch or, about one member in two, fewer; and the committee once per epoch whose
-    /// last height the range reaches. Both stay empty when the range is empty.
+    /// in that epoch or, about one member in two, fewer, and scoring a random part of what the
+    /// earlier members left of the bound, 10,000 per height (a quarter of the parts spend all of
+    /// it); and the committee once per epoch whose last height the range reaches. Both stay
+    /// empty when the range is empty.
     function _shapeParticipation(Landing memory _landing) internal view {
         uint256 first = _max(_landing.parent.height, 1);
         uint256 lastHeight = _landing.input.lastHeight;
@@ -576,12 +584,23 @@ contract EtnaInboxHandler is CommonBase {
             uint256 heights =
                 _min(last, (epoch + 1) * epochLen) - _max(first, epoch * epochLen + 1) + 1;
             uint32[] memory counts = new uint32[](committee.length);
+            uint32[] memory scores = new uint32[](committee.length);
+            uint256 budget = heights * MAX_BLOCK_SCORE;
             for (uint256 i; i < counts.length; ++i) {
                 uint256 r = uint256(keccak256(abi.encode(_landing.countSeed, epoch, i)));
                 counts[i] = uint32(r % 2 == 0 ? heights : (r >> 1) % (heights + 1));
+                uint256 score = (r >> 128) % (budget + 1);
+                scores[i] = uint32(score);
+                budget -= score;
             }
+            // About one part in four spends the whole bound, as when every block's last commit
+            // carries the whole committee.
+            if ((_landing.countSeed >> (k % 64)) % 4 == 0) scores[0] += uint32(budget);
             _landing.participation[k] = IEtnaInbox.EpochParticipation({
-                epoch: uint64(epoch), committeeHash: committeeHash, signedCounts: counts
+                epoch: uint64(epoch),
+                committeeHash: committeeHash,
+                signedCounts: counts,
+                proposerScores: scores
             });
         }
 
@@ -786,10 +805,15 @@ contract EtnaInboxHandler is CommonBase {
         for (uint256 k; k < parts.length; ++k) {
             uint64 epoch = parts[k].epoch;
             uint32[] memory counts = parts[k].signedCounts;
+            uint32[] memory scores = parts[k].proposerScores;
             for (uint256 i; i < counts.length; ++i) {
                 _ghostSigned[epoch][i] += counts[i];
+                _ghostScores[epoch][i] += scores[i];
                 if (pool.signedCountOf(epoch, i) != _ghostSigned[epoch][i]) {
                     _violate(Property.Rewards, "a signed count is not the reported total");
+                }
+                if (pool.proposerScoreOf(epoch, i) != _ghostScores[epoch][i]) {
+                    _violate(Property.Rewards, "a proposer score is not the reported total");
                 }
             }
         }
@@ -814,8 +838,10 @@ contract EtnaInboxHandler is CommonBase {
     }
 
     /// @dev Freezes `_epoch` in the model with the pool holding `_poolBalance`: the validator and
-    /// proving shares of the free balance, each member's `alloc * weight / totalWeight` rounded
-    /// down for members with a registration owner, and checks the pool's record.
+    /// proving shares of the free balance, the validator share split into `proposerBonusPpm`
+    /// bonus and the rest base, and for each member with a registration owner its base
+    /// `base * weight / totalWeight` (none without weight) plus its bonus
+    /// `bonus * score / (10_000 * epochLenL2)`, each rounded down; then checks the pool's record.
     function _freeze(uint256 _epoch, uint256 _poolBalance)
         internal
         returns (uint256 provingShare_)
@@ -823,21 +849,18 @@ contract EtnaInboxHandler is CommonBase {
         uint256 free = _poolBalance - ghostReserved;
         uint256 alloc = free * pool.allocValidatorPpm() / PPM;
         provingShare_ = free * pool.allocProverPpm() / PPM;
+        uint256 bonusAlloc = alloc * pool.proposerBonusPpm() / PPM;
+        uint256 baseAlloc = alloc - bonusAlloc;
 
         uint256 totalWeight;
         for (uint256 i; i < _committee.length; ++i) {
             totalWeight += _committee[i].effStake * _ghostSigned[_epoch][i];
         }
         uint256 paid;
-        if (alloc != 0 && totalWeight != 0) {
-            for (uint256 i; i < _committee.length; ++i) {
-                uint256 weight = _committee[i].effStake * _ghostSigned[_epoch][i];
-                uint256 amount = Math.mulDiv(alloc, weight, totalWeight);
-                if (amount == 0 || _memberOwners[i] == address(0)) continue;
-                _ghostCredits[_memberOwners[i]] += amount;
-                paid += amount;
-            }
+        for (uint256 i; i < _committee.length; ++i) {
+            paid += _creditMember(_epoch, i, baseAlloc, bonusAlloc, totalWeight);
         }
+        if (paid > alloc) _violate(Property.Rewards, "a freeze credited more than its share");
         ghostReserved += paid;
 
         IEtnaRewardPool.EpochRecord memory record = pool.epochRecord(uint64(_epoch));
@@ -849,6 +872,30 @@ contract EtnaInboxHandler is CommonBase {
             _violate(Property.Rewards, "an epoch froze other than the model");
         }
         ++settledEpochs;
+    }
+
+    /// @dev Credits member `_index` of `_epoch` in the model and returns what it credited:
+    /// `_baseAlloc * weight / _totalWeight` (none without weight) plus
+    /// `_bonusAlloc * score / (10_000 * epochLenL2)`, each rounded down; nothing without a
+    /// registration owner.
+    function _creditMember(
+        uint256 _epoch,
+        uint256 _index,
+        uint256 _baseAlloc,
+        uint256 _bonusAlloc,
+        uint256 _totalWeight
+    )
+        internal
+        returns (uint256 credited_)
+    {
+        uint256 weight = _committee[_index].effStake * _ghostSigned[_epoch][_index];
+        uint256 bonus =
+            Math.mulDiv(_bonusAlloc, _ghostScores[_epoch][_index], MAX_BLOCK_SCORE * epochLenL2);
+        credited_ = bonus + (weight == 0 ? 0 : Math.mulDiv(_baseAlloc, weight, _totalWeight));
+        address owner = _memberOwners[_index];
+        if (credited_ == 0 || owner == address(0)) return 0;
+        _ghostCredits[owner] += credited_;
+        bonusesPaid += bonus;
     }
 
     // ---------------------------------------------------------------

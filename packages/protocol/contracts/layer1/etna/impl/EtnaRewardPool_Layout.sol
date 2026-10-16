@@ -23,4 +23,5 @@ pragma solidity ^0.8.26;
 //   _epochs                        | mapping(uint64 => struct IEtnaRewardPool.EpochRecord) | Slot: 253  | Offset: 0    | Bytes: 32
 //   _signedCounts                  | mapping(uint64 => mapping(uint256 => uint256))     | Slot: 254  | Offset: 0    | Bytes: 32
 //   _credits                       | mapping(address => uint256)                        | Slot: 255  | Offset: 0    | Bytes: 32
-//   __gap                          | uint256[45]                                        | Slot: 256  | Offset: 0    | Bytes: 1440
+//   _proposerScores                | mapping(uint64 => mapping(uint256 => uint256))     | Slot: 256  | Offset: 0    | Bytes: 32
+//   __gap                          | uint256[44]                                        | Slot: 257  | Offset: 0    | Bytes: 1408

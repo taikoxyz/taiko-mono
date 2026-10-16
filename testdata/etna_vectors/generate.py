@@ -108,7 +108,8 @@ def committee_config():
 def participation_arg(parts):
     """`cast abi-encode` argument text for an `EpochParticipation[]`."""
     return "[" + ",".join(
-        f"({p['epoch']},{p['committee_hash']},[{','.join(map(str, p['signed_counts']))}])"
+        f"({p['epoch']},{p['committee_hash']},[{','.join(map(str, p['signed_counts']))}],"
+        f"[{','.join(map(str, p['proposer_scores']))}])"
         for p in parts
     ) + "]"
 
@@ -138,10 +139,17 @@ def land_statement(config_hash):
         "forced_inclusion_head_before": 3,
         "forced_inclusion_head_after": 5,
         "fee_recipient": "0x00000000000000000000000000000000000000aa",
-        "participation": [{"epoch": 16, "committee_hash": word(0x55), "signed_counts": [3, 0, 7]}],
+        "participation": [
+            {
+                "epoch": 16,
+                "committee_hash": word(0x55),
+                "signed_counts": [3, 0, 7],
+                "proposer_scores": [10000, 0, 6667],
+            }
+        ],
     }
     blob_hashes_hash = keccak(concat(*inputs["blob_hashes"]))
-    participation_signature = "f((uint64,bytes32,uint32[])[])"
+    participation_signature = "f((uint64,bytes32,uint32[],uint32[])[])"
     participation_encoding = abi_encode(
         participation_signature, participation_arg(inputs["participation"])
     )

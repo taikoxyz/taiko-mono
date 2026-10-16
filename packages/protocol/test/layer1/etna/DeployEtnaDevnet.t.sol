@@ -84,6 +84,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         vm.setEnv("L2_FEE_VAULT", vm.toString(L2_FEE_VAULT));
         vm.setEnv("ALLOC_VALIDATOR_PPM", "700000");
         vm.setEnv("ALLOC_PROVER_PPM", "250000");
+        vm.setEnv("PROPOSER_BONUS_PPM", "300000");
         vm.setEnv("LANDING_REWARD_PER_BLOCK", "2000000000000000");
     }
 
@@ -157,6 +158,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(pool.l2ChainId(), L2_CHAIN_ID, "pool L2 chain id");
         assertEq(pool.allocValidatorPpm(), 700_000, "validator share");
         assertEq(pool.allocProverPpm(), 250_000, "proving share");
+        assertEq(pool.proposerBonusPpm(), 300_000, "proposer bonus");
         vm.expectRevert("Initializable: contract is already initialized");
         pool.init(Alice);
 

@@ -136,14 +136,10 @@ library LibEtnaVectors {
         parts_ = new IEtnaInbox.EpochParticipation[](lengthAt(_json, p));
         for (uint256 k; k < parts_.length; ++k) {
             string memory e = string.concat(p, "[", _VM.toString(k), "].");
-            uint256[] memory counts =
-                _VM.parseJsonUintArray(_json, string.concat(e, "signed_counts"));
             parts_[k].epoch = uint64(uintAt(_json, string.concat(e, "epoch")));
             parts_[k].committeeHash = bytes32At(_json, string.concat(e, "committee_hash"));
-            parts_[k].signedCounts = new uint32[](counts.length);
-            for (uint256 i; i < counts.length; ++i) {
-                parts_[k].signedCounts[i] = uint32(counts[i]);
-            }
+            parts_[k].signedCounts = _uint32Array(_json, string.concat(e, "signed_counts"));
+            parts_[k].proposerScores = _uint32Array(_json, string.concat(e, "proposer_scores"));
         }
     }
 
@@ -238,5 +234,24 @@ library LibEtnaVectors {
         uint256 mask = (1 << uintAt(_json, string.concat(p, "bits"))) - 1;
         require(_value <= mask, "field value too wide");
         return (_word & ~(mask << offset)) | (_value << offset);
+    }
+
+    /// @dev Reads the decimal-string array at `_key` as uint32 values.
+    /// @param _json The vectors document.
+    /// @param _key The JSON path.
+    /// @return values_ The values.
+    function _uint32Array(
+        string memory _json,
+        string memory _key
+    )
+        private
+        pure
+        returns (uint32[] memory values_)
+    {
+        uint256[] memory raw = _VM.parseJsonUintArray(_json, _key);
+        values_ = new uint32[](raw.length);
+        for (uint256 i; i < raw.length; ++i) {
+            values_[i] = uint32(raw[i]);
+        }
     }
 }

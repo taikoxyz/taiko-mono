@@ -30,9 +30,10 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// FORCED_INCLUSION_DELAY (seconds, non-zero) and MAX_ANCHOR_AGE (seconds, at least 1152, above
 /// the expected L1 finality lag), plus the reward inputs L1_BRIDGE (the L1 Bridge delivering fee
 /// sweeps), L2_FEE_VAULT (the fee vault on L2), ALLOC_VALIDATOR_PPM and ALLOC_PROVER_PPM (shares
-/// of the pool's free balance per frozen epoch, summing to at most 1,000,000) and
-/// LANDING_REWARD_PER_BLOCK (wei; 0 only with a zero ALLOC_PROVER_PPM, since the prover reward
-/// ledger drains only through landing rewards). There is no expiry-derived upper bound. The genesis
+/// of the pool's free balance per frozen epoch, summing to at most 1,000,000),
+/// PROPOSER_BONUS_PPM (the part of each validator share paid as proposer bonus, at most
+/// 1,000,000; 300,000 on devnets) and LANDING_REWARD_PER_BLOCK (wei; 0 only with a zero
+/// ALLOC_PROVER_PPM, since the prover reward ledger drains only through landing rewards). There is no expiry-derived upper bound. The genesis
 /// values must match the L2 genesis file and the committee derived by
 /// taiko-client-rs. The node requires D_MAX > MARGIN_V, EPOCH_LEN_L2 >= D_MAX - MARGIN_V + 3,
 /// EPOCH_LEN_L2 + 1 <= type(uint48).max and L1_0 + EPOCH_LEN_L1 <= type(uint48).max, where L1_0
@@ -179,7 +180,8 @@ contract DeployEtnaDevnet is Script {
     }
 
     /// @dev Deploys the reward pool implementation and its initialized proxy, reading the
-    /// L1_BRIDGE, L2_FEE_VAULT, ALLOC_VALIDATOR_PPM and ALLOC_PROVER_PPM environment.
+    /// L1_BRIDGE, L2_FEE_VAULT, ALLOC_VALIDATOR_PPM, ALLOC_PROVER_PPM and PROPOSER_BONUS_PPM
+    /// environment.
     /// @param _inbox The Inbox proxy the pool reports to.
     /// @param _config The Inbox configuration, for its registry and L2 chain id.
     /// @param _owner The pool owner.
@@ -200,7 +202,8 @@ contract DeployEtnaDevnet is Script {
                 vm.envAddress("L2_FEE_VAULT"),
                 _config.l2ChainId,
                 SafeCast.toUint32(vm.envUint("ALLOC_VALIDATOR_PPM")),
-                SafeCast.toUint32(vm.envUint("ALLOC_PROVER_PPM"))
+                SafeCast.toUint32(vm.envUint("ALLOC_PROVER_PPM")),
+                SafeCast.toUint32(vm.envUint("PROPOSER_BONUS_PPM"))
             )
         );
         return address(new ERC1967Proxy(impl, abi.encodeCall(EtnaRewardPool.init, (_owner))));

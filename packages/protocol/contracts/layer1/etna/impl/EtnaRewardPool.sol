@@ -17,10 +17,13 @@ import "./EtnaRewardPool_Layout.sol"; // DO NOT DELETE
 /// landing that carries an epoch's last commit freezes the epoch and settles it inline.
 /// @dev Freezing an epoch splits fixed shares off the free balance (`balance - reservedTotal`):
 /// the validator share is credited to the owners of the committee's registrations and reserved
-/// until they withdraw, and the proving share goes to the Inbox's prover reward ledger. What a
-/// settlement does not credit (rounding remainders, shares without an owner) never leaves the free
-/// balance. Each epoch freezes once, in the landing whose commit range reaches its last height, so
-/// sweeps and donations that arrive later only raise later epochs' allocations.
+/// until they withdraw, and the proving share goes to the Inbox's prover reward ledger. The
+/// validator share has a base part, paid by effective stake times signed heights, and a proposer
+/// bonus part, paid by the stake each member's proposals included in their last commits. What a
+/// settlement does not credit (rounding remainders, shares without an owner, bonus no proposer
+/// earned) never leaves the free balance. Each epoch freezes once, in the landing whose commit
+/// range reaches its last height, so sweeps and donations that arrive later only raise later
+/// epochs' allocations.
 ///
 /// Nothing is pausable: the Bridge must always be able to deliver or retry a sweep, a landing must
 /// never fail on the pool, and owners withdraw their credits themselves. No privileged role can
@@ -35,6 +38,9 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
 
     /// @dev The parts-per-million denominator of the allocation shares.
     uint256 private constant _PPM = 1_000_000;
+
+    /// @dev The proposer score of a block whose last commit carries the whole committee's stake.
+    uint256 private constant _MAX_BLOCK_SCORE = 10_000;
 
     // ---------------------------------------------------------------
     // Immutable Variables
@@ -61,6 +67,9 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
     /// @inheritdoc IEtnaRewardPool
     uint32 public immutable allocProverPpm;
 
+    /// @inheritdoc IEtnaRewardPool
+    uint32 public immutable proposerBonusPpm;
+
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
@@ -81,7 +90,10 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
     /// @dev The credits of each registration owner, reserved until withdrawn.
     mapping(address owner => uint256 amount) private _credits;
 
-    uint256[45] private __gap;
+    /// @dev Each epoch's proposer scores, packed like `_signedCounts`.
+    mapping(uint64 epoch => mapping(uint256 word => uint256 scores)) private _proposerScores;
+
+    uint256[44] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -95,6 +107,8 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
     /// @param _l2ChainId The chain id of the Etna L2; must be non-zero.
     /// @param _allocValidatorPpm The validator share of the free balance at each freeze.
     /// @param _allocProverPpm The proving share; the two shares may sum to at most 1,000,000.
+    /// @param _proposerBonusPpm The part of the validator share paid as proposer bonus; at most
+    /// 1,000,000.
     constructor(
         address _inbox,
         address _stakingRegistry,
@@ -102,7 +116,8 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
         address _l2FeeVault,
         uint64 _l2ChainId,
         uint32 _allocValidatorPpm,
-        uint32 _allocProverPpm
+        uint32 _allocProverPpm,
+        uint32 _proposerBonusPpm
     ) {
         require(_inbox != address(0), ZERO_ADDRESS());
         require(_stakingRegistry != address(0), ZERO_ADDRESS());
@@ -110,6 +125,7 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
         require(_l2FeeVault != address(0), ZERO_ADDRESS());
         require(_l2ChainId != 0, ZERO_VALUE());
         require(uint256(_allocValidatorPpm) + _allocProverPpm <= _PPM, InvalidAllocation());
+        require(_proposerBonusPpm <= _PPM, InvalidAllocation());
 
         inbox = _inbox;
         stakingRegistry = _stakingRegistry;
@@ -118,6 +134,7 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
         l2ChainId = _l2ChainId;
         allocValidatorPpm = _allocValidatorPpm;
         allocProverPpm = _allocProverPpm;
+        proposerBonusPpm = _proposerBonusPpm;
     }
 
     // ---------------------------------------------------------------
@@ -174,7 +191,7 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
             // it iff `_lastHeight - 1 >= lastHeightOfEpoch`; written without the subtraction.
             if (uint256(_lastHeight) > (uint256(part.epoch) + 1) * _epochLenL2) {
                 require(settled < _settlements.length, SettlementCountMismatch());
-                _freezeAndSettle(part.epoch, record, _settlements[settled]);
+                _freezeAndSettle(part.epoch, _epochLenL2, record, _settlements[settled]);
                 ++settled;
             }
         }
@@ -213,6 +230,11 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
     }
 
     /// @inheritdoc IEtnaRewardPool
+    function proposerScoreOf(uint64 _epoch, uint256 _index) external view returns (uint32) {
+        return uint32(_proposerScores[_epoch][_index >> 3] >> ((_index & 7) << 5));
+    }
+
+    /// @inheritdoc IEtnaRewardPool
     function creditsOf(address _account) external view returns (uint256) {
         return _credits[_account];
     }
@@ -226,7 +248,8 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
     // Private Functions
     // ---------------------------------------------------------------
 
-    /// @dev Binds a part's committee hash to its epoch and adds its signed counts.
+    /// @dev Binds a part's committee hash to its epoch and adds its signed counts and proposer
+    /// scores.
     /// @param _record The epoch's record.
     /// @param _part The participation of one epoch.
     function _recordParticipation(
@@ -247,32 +270,52 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
             require(stored == committeeHash, CommitteeMismatch());
         }
 
-        mapping(uint256 => uint256) storage words = _signedCounts[_part.epoch];
-        uint32[] calldata counts = _part.signedCounts;
-        uint256 n = counts.length;
+        _addPacked(_signedCounts[_part.epoch], _part.signedCounts);
+        _addPacked(_proposerScores[_part.epoch], _part.proposerScores);
+    }
+
+    /// @dev Adds `_values[i]` to the uint32 at index `i` of the packed `_words`, eight per word:
+    /// index `i` occupies bits `32 * (i % 8)` to `32 * (i % 8) + 31` of word `i / 8`. A word is
+    /// read and written once, and only if one of its eight values is non-zero: proposer scores
+    /// are mostly zero.
+    /// @param _words The packed totals.
+    /// @param _values The values to add.
+    function _addPacked(
+        mapping(uint256 => uint256) storage _words,
+        uint32[] calldata _values
+    )
+        private
+    {
+        uint256 n = _values.length;
         for (uint256 w; w << 3 < n; ++w) {
-            uint256 word = words[w];
-            uint256 updated = word;
+            uint256 updated;
+            bool touched;
             uint256 end = Math.min((w + 1) << 3, n);
             for (uint256 i = w << 3; i < end; ++i) {
-                uint32 count = counts[i];
-                if (count == 0) continue;
+                uint32 value = _values[i];
+                if (value == 0) continue;
+                if (!touched) {
+                    updated = _words[w];
+                    touched = true;
+                }
                 uint256 shift = (i & 7) << 5;
                 // Checked uint32 addition: an overflowing total reverts.
-                uint256 total = uint32(updated >> shift) + count;
+                uint256 total = uint32(updated >> shift) + value;
                 updated = (updated & ~(uint256(type(uint32).max) << shift)) | (total << shift);
             }
-            if (updated != word) words[w] = updated;
+            if (touched) _words[w] = updated;
         }
     }
 
     /// @dev Freezes a complete epoch: fixes its shares of the current free balance, credits the
     /// validator share, reserves what it credits and sends the proving share to the Inbox.
     /// @param _epoch The epoch.
+    /// @param _epochLenL2 The epoch length in L2 blocks.
     /// @param _record The epoch's record.
     /// @param _committee The epoch's committee in MEM-08 order.
     function _freezeAndSettle(
         uint64 _epoch,
+        uint64 _epochLenL2,
         EpochRecord storage _record,
         IEtnaInbox.CommitteeMember[] calldata _committee
     )
@@ -284,7 +327,7 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
         uint256 free = address(this).balance - reserved;
         uint256 alloc = free * allocValidatorPpm / _PPM;
         uint256 provingShare = free * allocProverPpm / _PPM;
-        uint256 paid = _settle(_epoch, alloc, _committee);
+        uint256 paid = _settle(_epoch, _epochLenL2, alloc, _committee);
 
         reservedTotal = reserved + paid;
         _record.alloc = alloc;
@@ -297,15 +340,18 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
         emit EpochFrozen(_epoch, alloc, paid, provingShare);
     }
 
-    /// @dev Credits `_alloc` to the committee's registration owners by effective stake times
-    /// signed heights, rounding each amount down. Counts at indices past the committee are
-    /// ignored; members without a registration owner or with a zero amount are skipped.
+    /// @dev Credits `_alloc` to the committee's registration owners: each member's base part plus
+    /// its proposer bonus part, both rounded down. The bonus parts share `proposerBonusPpm` of
+    /// `_alloc` and the base parts the rest. Members without a registration owner or with a zero
+    /// amount are skipped.
     /// @param _epoch The epoch.
+    /// @param _epochLenL2 The epoch length in L2 blocks.
     /// @param _alloc The validator share to distribute.
     /// @param _committee The epoch's committee in MEM-08 order.
     /// @return paid_ The total credited.
     function _settle(
         uint64 _epoch,
+        uint64 _epochLenL2,
         uint256 _alloc,
         IEtnaInbox.CommitteeMember[] calldata _committee
     )
@@ -314,40 +360,79 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
     {
         if (_alloc == 0) return 0;
 
-        (uint256[] memory weights, uint256 totalWeight) = _weights(_epoch, _committee);
-        if (totalWeight == 0) return 0;
-
-        for (uint256 i; i < weights.length; ++i) {
-            if (weights[i] == 0) continue;
-            uint256 amount = Math.mulDiv(_alloc, weights[i], totalWeight);
+        uint256 bonusAlloc = _alloc * proposerBonusPpm / _PPM;
+        uint256[] memory amounts = _baseParts(_epoch, _alloc - bonusAlloc, _committee);
+        uint256[] memory bonuses = _bonusParts(_epoch, _epochLenL2, bonusAlloc, _committee.length);
+        for (uint256 i; i < amounts.length; ++i) {
+            uint256 amount = amounts[i] + bonuses[i];
             if (amount != 0) paid_ += _credit(_epoch, i, _committee[i], amount);
         }
     }
 
-    /// @dev Returns each member's weight, `effStake * count`, and their sum.
+    /// @dev Returns each member's base part, `mulDiv(_baseAlloc, weight, totalWeight)` of its
+    /// weight `effStake * count`; all zero when the total weight is zero. Counts at indices past
+    /// the committee are ignored.
     /// @param _epoch The epoch.
+    /// @param _baseAlloc The base part of the validator share.
     /// @param _committee The epoch's committee in MEM-08 order.
-    /// @return weights_ The weight per member index.
-    /// @return total_ The total weight.
-    function _weights(
+    /// @return parts_ The base part per member index.
+    function _baseParts(
         uint64 _epoch,
+        uint256 _baseAlloc,
         IEtnaInbox.CommitteeMember[] calldata _committee
     )
         private
         view
-        returns (uint256[] memory weights_, uint256 total_)
+        returns (uint256[] memory parts_)
     {
         mapping(uint256 => uint256) storage words = _signedCounts[_epoch];
         uint256 n = _committee.length;
-        weights_ = new uint256[](n);
+        parts_ = new uint256[](n);
+        uint256 totalWeight;
         uint256 word;
         for (uint256 i; i < n; ++i) {
             if (i & 7 == 0) word = words[i >> 3];
             uint256 count = uint32(word >> ((i & 7) << 5));
             if (count == 0) continue;
             uint256 weight = _committee[i].effStake * count;
-            weights_[i] = weight;
-            total_ += weight;
+            parts_[i] = weight;
+            totalWeight += weight;
+        }
+        if (totalWeight == 0) return parts_;
+        for (uint256 i; i < n; ++i) {
+            if (parts_[i] != 0) parts_[i] = Math.mulDiv(_baseAlloc, parts_[i], totalWeight);
+        }
+    }
+
+    /// @dev Returns each member's proposer bonus part, `mulDiv(_bonusAlloc, score, maxScore)`
+    /// with `maxScore = 10_000 * _epochLenL2`, the score of an epoch whose every block's last
+    /// commit carried the whole committee. The Inbox bounds an epoch's scores to `maxScore` in
+    /// total, so the parts sum to at most `_bonusAlloc`; what no proposer earned stays free.
+    /// Scores at indices past the committee are ignored.
+    /// @param _epoch The epoch.
+    /// @param _epochLenL2 The epoch length in L2 blocks.
+    /// @param _bonusAlloc The proposer bonus part of the validator share.
+    /// @param _n The committee size.
+    /// @return parts_ The bonus part per member index.
+    function _bonusParts(
+        uint64 _epoch,
+        uint64 _epochLenL2,
+        uint256 _bonusAlloc,
+        uint256 _n
+    )
+        private
+        view
+        returns (uint256[] memory parts_)
+    {
+        parts_ = new uint256[](_n);
+        if (_bonusAlloc == 0) return parts_;
+        mapping(uint256 => uint256) storage words = _proposerScores[_epoch];
+        uint256 maxScore = _MAX_BLOCK_SCORE * _epochLenL2;
+        uint256 word;
+        for (uint256 i; i < _n; ++i) {
+            if (i & 7 == 0) word = words[i >> 3];
+            uint256 score = uint32(word >> ((i & 7) << 5));
+            if (score != 0) parts_[i] = Math.mulDiv(_bonusAlloc, score, maxScore);
         }
     }
 
@@ -355,7 +440,7 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
     /// @param _epoch The epoch.
     /// @param _index The member's MEM-08 index.
     /// @param _member The member.
-    /// @param _amount The member's amount.
+    /// @param _amount The member's amount, its proposer bonus included.
     /// @return credited_ `_amount`, or zero if the registration has no owner.
     function _credit(
         uint64 _epoch,

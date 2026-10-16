@@ -94,6 +94,54 @@ contract EtnaInboxRewardsTest is EtnaInboxTestBase {
         assertEq(rewardPool.signedCountOf(2, 0), 6, "both batches' epoch-2 heights");
     }
 
+    /// @dev A part carries one proposer score per signed count, and its scores sum to at most
+    /// 10,000 per height of the range in its epoch, even when each score alone is in bound.
+    function test_land_RevertWhen_ProposerScoresAreOutOfShape() external {
+        _landWith(_batch(21, Bob), _participation(0, 21), _settlements(0, 21), 0);
+
+        // (21, 24]: commits [21, 23] are three heights of epoch 2, worth at most 30,000.
+        landVerifier.setRejects(true);
+        IEtnaInbox.LandInput memory input = _batch(24, Bob);
+        IEtnaInbox.EpochParticipation memory part = _part(2, 3, 0);
+        part.proposerScores = new uint32[](0);
+        _expectInvalidParticipation(input, _partsOf(part), _noSettlements());
+        part.proposerScores = new uint32[](2);
+        _expectInvalidParticipation(input, _partsOf(part), _noSettlements());
+        _expectInvalidParticipation(input, _partsOf(_part(2, 3, 30_001)), _noSettlements());
+        // Two members' scores, each within 30,000, together exceed it.
+        part.signedCounts = new uint32[](2);
+        (part.signedCounts[0], part.signedCounts[1]) = (3, 3);
+        (part.proposerScores[0], part.proposerScores[1]) = (20_000, 10_001);
+        _expectInvalidParticipation(input, _partsOf(part), _noSettlements());
+
+        landVerifier.setRejects(false);
+        part.proposerScores[1] = 10_000;
+        _landWith(input, _partsOf(part), _noSettlements(), 0);
+        assertEq(rewardPool.proposerScoreOf(2, 0), 20_000, "member 0's score");
+        assertEq(rewardPool.proposerScoreOf(2, 1), 10_000, "a score past the committee is kept");
+        assertEq(rewardPool.signedCountOf(2, 1), 3, "a count past the committee is kept");
+    }
+
+    /// @dev Epoch 0 freezes with 6 ether for validators: 4.2 ether base and 1.8 ether bonus. The
+    /// base committee's only member signed all ten heights but its proposals scored 70,000 of
+    /// the possible 100,000, so 0.54 ether of the bonus stays in the free balance.
+    function test_land_PaysTheProposerBonusAtTheFreeze() external {
+        _donateToPool(10 ether);
+        IEtnaInbox.EpochParticipation[] memory parts = _partsOf(_part(0, 10, 70_000));
+
+        vm.expectEmit(address(rewardPool));
+        emit IEtnaRewardPool.ValidatorRewarded(0, 0, 0, Alice, 5.46 ether);
+        vm.expectEmit(address(rewardPool));
+        emit IEtnaRewardPool.EpochFrozen(0, 6 ether, 5.46 ether, 4 ether);
+        _landWith(_batch(11, Carol), parts, _settlements(0, 11), 0);
+
+        assertEq(rewardPool.proposerScoreOf(0, 0), 70_000, "score");
+        assertEq(rewardPool.creditsOf(Alice), 5.46 ether, "base plus bonus");
+        assertEq(rewardPool.reservedTotal(), 5.46 ether, "reserved");
+        assertEq(rewardPool.freeBalance(), 0.54 ether, "unearned bonus stays free");
+        assertTrue(rewardPool.checkInvariants(), "pool invariant");
+    }
+
     /// @dev The pool, not the Inbox, checks the settlement committees.
     function test_land_RevertWhen_SettlementsDoNotMatchTheCompletedEpochs() external {
         IEtnaInbox.LandInput memory input = _batch(11, Bob);
@@ -452,7 +500,8 @@ contract EtnaInboxRewardsTest is EtnaInboxTestBase {
         assertEq(etnaInbox.lastCheckpoint().height, _height, "checkpoint height");
     }
 
-    /// @dev One epoch's part for the base committee with a single signed count.
+    /// @dev One epoch's part for the base committee with a single signed count and no proposer
+    /// score.
     function _part(
         uint64 _epoch,
         uint32 _count
@@ -461,10 +510,29 @@ contract EtnaInboxRewardsTest is EtnaInboxTestBase {
         view
         returns (IEtnaInbox.EpochParticipation memory)
     {
+        return _part(_epoch, _count, 0);
+    }
+
+    /// @dev One epoch's part for the base committee with a single signed count and proposer
+    /// score.
+    function _part(
+        uint64 _epoch,
+        uint32 _count,
+        uint32 _score
+    )
+        internal
+        view
+        returns (IEtnaInbox.EpochParticipation memory)
+    {
         uint32[] memory counts = new uint32[](1);
         counts[0] = _count;
+        uint32[] memory scores = new uint32[](1);
+        scores[0] = _score;
         return IEtnaInbox.EpochParticipation({
-            epoch: _epoch, committeeHash: keccak256(abi.encode(_committee())), signedCounts: counts
+            epoch: _epoch,
+            committeeHash: keccak256(abi.encode(_committee())),
+            signedCounts: counts,
+            proposerScores: scores
         });
     }
 
