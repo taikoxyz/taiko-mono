@@ -1401,7 +1401,7 @@
     "sha256": "66d9d9ad96aac5364e978aca32533c3281b81133e18bf6d4d0be3769df540f0c",
     "source": "packages/protocol/contracts/layer1/etna/iface/IEtnaInbox.sol"
   },
-  "protocolRevision": "4f4e855ac5cf505b3b245f354b0b4f3cd8bcf177",
+  "protocolRevision": "d85737e712f792aa73fdb774290a09e185a7f379",
   "vectors": {
     "files": {
       "README.md": "9613da4498a7e824f973ffba776456f2375a03691055942f011e590ba7c017e9",
