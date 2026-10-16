@@ -137,17 +137,18 @@ constraints.
   calldata per member, on top of the landing's own verification, checkpoint and forced inclusion
   costs (see Settlement gas). A batch that reaches an epoch's last commit can also carry the next
   epoch's first commits, whose committee hash, counts and scores it then writes for the first time
-  as well: such a two-part freezing landing costs about 46k gas per member. The lander ends every
+  as well: such a two-part freezing landing costs about 48k gas per member. The lander ends every
   batch at an epoch's last commit, so its freezing landings carry one part, but `n_max` must leave
   the two-part shape landable too. Measured as whole transactions (execution plus intrinsic and
   calldata gas, `test/layer1/etna/EtnaInboxSettlementGas.t.sol`), a one-part freezing landing that
   writes the whole epoch for the first time needs 5,510,080 gas at 128 members, 12,487,285 at 300,
   14,894,536 at 360 and 16,515,694 at 400, about 40.3k per member more. A two-part one whose
-  frozen epoch's scores and next epoch's hash, counts and scores are all first writes needs
-  6,275,130 at 128 members, 14,313,606 at 300 and 17,075,337 at 360. At the 300 cap it leaves
-  2.46M (14.7%) of headroom for a real verifier (about 0.2-0.5M; the test's accepts every proof)
-  and consumed forced inclusions, and the test keeps it below 15,000,000. The two-part shape
-  stops fitting at about 353 members and the one-part shape at about 406: above that the landing
+  frozen epoch's counts and scores and next epoch's hash, counts and scores are all first writes
+  (a strict upper bound) needs 6,548,717 gas at 128 members, 14,963,393 at 300 and 17,844,824
+  at 360. At the 300 cap it leaves 1.81M (10.8%) of headroom for a real verifier (about
+  0.2-0.5M; the test's accepts every proof) and consumed forced inclusions, and the test keeps it
+  below 15,000,000. The two-part shape stops fitting at about 337 members and the one-part shape at
+  about 406: above that the landing
   cannot be included at all, landing halts, back-pressure then halts L2, and only a pool upgrade
   recovers. A production landing settles at most one epoch, because
   `epochLenL2 >= d_max - margin_v + 3` keeps every batch shorter than an epoch, so the bound
@@ -874,8 +875,8 @@ second out-of-gas landing in a row on the same checkpoint stops it.
 The contracts do not bound the committee size. The committee configuration's `n_max` caps it, and
 the client rejects an `n_max` above 300. The lander caps the landing's gas limit at EIP-7825's
 16,777,216 and ends every batch at an epoch's last commit, so a freezing landing carries one part.
-At 300 members the worst-case freezing landing needs about 12.5M as one part and 14.3M as two,
-and the two-part shape stops fitting at about 353 members (see Configuration checks).
+At 300 members the worst-case freezing landing needs about 12.5M as one part and 15.0M as two,
+and the two-part shape stops fitting at about 337 members (see Configuration checks).
 
 ### Deviations from #22262
 
