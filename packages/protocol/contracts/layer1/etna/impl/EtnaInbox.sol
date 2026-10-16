@@ -78,6 +78,11 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev The proposer score of a block whose last commit carries the whole committee's stake.
     uint256 private constant _MAX_BLOCK_SCORE = 10_000;
 
+    /// @dev The largest epoch length in L2 blocks, 429,496: a member proposing every block of an
+    /// epoch scores at most `_MAX_BLOCK_SCORE * epochLenL2`, which must fit the reward pool's
+    /// uint32 score total.
+    uint64 private constant _MAX_EPOCH_LEN_L2 = uint64(type(uint32).max / _MAX_BLOCK_SCORE);
+
     /// @notice The maximum byte length of a submitted forced transaction.
     uint256 public constant MAX_FORCED_TX_BYTES = 8192;
 
@@ -216,7 +221,9 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     function init(address _owner, GenesisParams calldata _params) external initializer {
         require(_params.genesisBlockHash != 0 && _params.genesisStateRoot != 0, InvalidGenesis());
         require(
-            _params.epochLenL2 >= _MIN_EPOCH_LEN_L2 && _params.epochLenL1 != 0, InvalidEpochLength()
+            _params.epochLenL2 >= _MIN_EPOCH_LEN_L2 && _params.epochLenL2 <= _MAX_EPOCH_LEN_L2
+                && _params.epochLenL1 != 0,
+            InvalidEpochLength()
         );
         require(_isValidGenesisCutoff(_params.genesisCutoff), InvalidGenesisCutoff());
         require(_params.committeeRecordHash != 0, ZeroCommitteeRecord());
