@@ -704,7 +704,7 @@ contract EtnaRewardPoolTest is CommonTest {
         uint256 gasUsed = vm.lastCallGas().gasTotalUsed;
         console2.log("recordLanding gas, 128 members:", gasUsed);
 
-        // Measured 4,978,841 cold (4,464,698 before proposer scores); the bound leaves about 10%.
+        // Measured 5,005,164 cold (4,464,698 before proposer scores); the bound leaves about 10%.
         assertLt(gasUsed, 5_500_000);
         assertEq(pool.epochRecord(0).frozenAtL1, block.number);
         assertEq(pool.reservedTotal(), pool.epochRecord(0).paid);
@@ -854,6 +854,71 @@ contract EtnaRewardPoolTest is CommonTest {
         assertEq(bonusPool.creditsOf(Bob), 3);
         assertEq(bonusPool.creditsOf(Carol), 3);
         assertEq(bonusPool.freeBalance(), 1);
+    }
+
+    /// @dev Defence in depth: scores above the Inbox's bound, fed straight to the pool, cannot
+    /// make it credit more than the bonus part. The committee's scores total 240,000 against an
+    /// epoch maximum of 100,000, so the pool divides 1.8 ether of bonus by 240,000 instead: 90 :
+    /// 80 : 70. The score past the committee is ignored in the total too. Dividing by the maximum
+    /// would have credited 4.32 ether of bonus and left the balance below the reservations.
+    function test_recordLanding_OverCapScoresCreditAtMostTheBonusPart() external {
+        pool = _deployPool(address(bridge), VALIDATOR_PPM, PROVER_PPM, BONUS_PPM);
+        vm.deal(address(pool), 10 ether);
+        IEtnaInbox.CommitteeMember[] memory committee = _aliceBobCarol();
+        uint32[] memory counts = new uint32[](3);
+        (counts[0], counts[1], counts[2]) = (10, 10, 10);
+        uint32[] memory scores = new uint32[](4);
+        (scores[0], scores[1], scores[2], scores[3]) = (90_000, 80_000, 70_000, 50_000);
+
+        vm.prank(pool.inbox());
+        pool.recordLanding(
+            11, EPOCH_LEN, _single(_part(0, _hash(committee), counts, scores)), _settle(committee)
+        );
+
+        // 6 ether to validators: 4.2 ether base split 1 : 3 : 1, 1.8 ether bonus.
+        uint256 bonusAlloc = 1.8 ether;
+        uint256 bonusCredited = (pool.creditsOf(Alice) - 0.84 ether)
+            + (pool.creditsOf(Bob) - 2.52 ether) + (pool.creditsOf(Carol) - 0.84 ether);
+        assertLe(bonusCredited, bonusAlloc, "the bonus credited stays within its part");
+        assertEq(pool.creditsOf(Alice), 0.84 ether + 0.675 ether);
+        assertEq(pool.creditsOf(Bob), 2.52 ether + 0.6 ether);
+        assertEq(pool.creditsOf(Carol), 0.84 ether + 0.525 ether);
+        assertEq(pool.epochRecord(0).paid, 6 ether);
+        assertEq(pool.reservedTotal(), 6 ether);
+        assertEq(pool.freeBalance(), 0);
+        assertTrue(pool.checkInvariants());
+    }
+
+    /// @dev Any scores, within the Inbox's bound or not, credit at most the bonus part and keep the
+    /// balance above the reservations. The whole validator share is bonus, so every credit is.
+    function testFuzz_recordLanding_AnyScoresCreditAtMostTheBonusPart(
+        uint32 _a,
+        uint32 _b,
+        uint32 _c,
+        uint96 _balance
+    )
+        external
+    {
+        pool = _deployPool(address(bridge), VALIDATOR_PPM, PROVER_PPM, 1_000_000);
+        vm.deal(address(pool), _balance);
+        IEtnaInbox.CommitteeMember[] memory committee = _aliceBobCarol();
+        uint32[] memory scores = new uint32[](3);
+        (scores[0], scores[1], scores[2]) = (_a, _b, _c);
+
+        vm.prank(pool.inbox());
+        pool.recordLanding(
+            11,
+            EPOCH_LEN,
+            _single(_part(0, _hash(committee), new uint32[](3), scores)),
+            _settle(committee)
+        );
+
+        uint256 bonusAlloc = uint256(_balance) * VALIDATOR_PPM / 1_000_000;
+        uint256 credited = pool.creditsOf(Alice) + pool.creditsOf(Bob) + pool.creditsOf(Carol);
+        assertLe(credited, bonusAlloc);
+        assertEq(pool.epochRecord(0).paid, credited);
+        assertEq(pool.reservedTotal(), credited);
+        assertTrue(pool.checkInvariants());
     }
 
     /// @dev The README's example: A (30%), B (37%) and C (33%) each propose their stake's share

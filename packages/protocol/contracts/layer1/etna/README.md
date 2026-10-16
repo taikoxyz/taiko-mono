@@ -121,13 +121,13 @@ constraints.
   epoch's last commit settles the whole epoch inline, and it must fit in one L1 transaction, which
   Osaka caps at 16,777,216 gas (EIP-7825); the lander caps its gas limit there. In the worst case,
   where one landing writes every member's count and proposer score for the epoch and credits
-  every registration owner for the first time, the pool frame costs about 38.9k gas per member
-  (4,978,841 measured for 128), and the settlement list, counts and scores add about 160 bytes of
+  every registration owner for the first time, the pool frame costs about 39.1k gas per member
+  (5,005,164 measured for 128), and the settlement list, counts and scores add about 160 bytes of
   calldata per member, on top of the landing's own verification, checkpoint and forced inclusion
   costs (see Settlement gas). Measured as a whole transaction (execution plus intrinsic and
-  calldata gas), that freezing landing needs 5,473,469 gas at 128 members, 14,791,922 at 360 and
-  16,396,887 at 400, about 40.1k per member more. At the 360 cap it leaves about 1.99M (12%) of
-  headroom. The hard ceiling is about 409 members: above it the landing cannot be included at
+  calldata gas), that freezing landing needs 5,499,792 gas at 128 members, 14,865,689 at 360 and
+  16,478,834 at 400, about 40.3k per member more. At the 360 cap it leaves about 1.91M (11%) of
+  headroom. The hard ceiling is about 407 members: above it the landing cannot be included at
   all, landing halts, back-pressure then halts L2, and only a pool upgrade recovers. A production
   landing settles at most one epoch, because `epochLenL2 >= d_max - margin_v + 3` keeps every batch
   shorter than an epoch, so the bound applies per landing. The contracts cannot check it: `n_max`
@@ -726,8 +726,11 @@ upgrade it. Nothing in the pool is pausable. Its free balance is `balance - rese
 - Settlement. `bonusAlloc = alloc * proposerBonusPpm / 1e6` and `baseAlloc = alloc - bonusAlloc`.
   Member `i` weighs `effStake_i * signedCount_i`; its base part is
   `mulDiv(baseAlloc, weight, totalWeight)`, or nothing when the total weight is zero, and its bonus
-  part is `mulDiv(bonusAlloc, proposerScore_i, 10_000 * epochLenL2)`, both rounded down; counts and
-  scores at indices past the committee are ignored. A member whose sum is non-zero is credited it
+  part is `mulDiv(bonusAlloc, proposerScore_i, max(10_000 * epochLenL2, totalScore))`, both rounded
+  down, where `totalScore` sums the committee members' scores; counts and scores at indices past
+  the committee are ignored. The Inbox keeps `totalScore` at most `10_000 * epochLenL2`, and the
+  maximum guards the pool if recorded scores ever exceeded it: the bonus parts never sum to more
+  than `bonusAlloc`, so the pool stays solvent. A member whose sum is non-zero is credited it
   to `registrationOwnerOf(bondId, activeFromL1)`, emitting `ValidatorRewarded` with the sum; a
   member whose registration has no owner is skipped. The credited sum is the epoch's `paid` and
   joins `reservedTotal`. `alloc - paid` (rounding remainders, ownerless shares and the bonus no
@@ -752,9 +755,11 @@ one out cost the proposer, the bonus part pays each block's proposer for the sta
   in that committee, possible only for the first block of an epoch (it carries the previous
   epoch's last commit but is proposed by the new committee), scores for nobody.
 - An epoch of `epochLenL2` heights can score at most `10_000 * epochLenL2`, and each member
-  receives that fraction of `bonusAlloc` its scores earned. The bonus that no proposer earned
-  (omitted stake, dropped boundary scores, rounding) stays in the free balance for later epochs,
-  rather than going to the other members.
+  receives that fraction of `bonusAlloc` its scores earned. The pool divides by the committee's
+  score total instead when it is larger, which the Inbox's bound rules out, so the bonus never
+  exceeds `bonusAlloc`. The bonus that no proposer earned (omitted stake, dropped boundary
+  scores, rounding) stays in the free balance for later epochs, rather than going to the other
+  members.
 - The base part is the rest of the validator share, split by stake times signed heights exactly
   as without a bonus.
 
@@ -781,7 +786,7 @@ block.
 
 Settling an epoch costs one `registrationOwnerOf` call, one credit write and one event per credited
 member, and reads the epoch's packed counts and scores. For a 128-member epoch the pool frame
-measured about 4.98M gas in the worst case, where one landing writes all 128 members' counts and
+measured about 5.01M gas in the worst case, where one landing writes all 128 members' counts and
 scores and credits every owner for the first time; the settlement of a later epoch, once every
 owner already holds credits, measured about 1.3M gas as a whole isolated transaction. The landing
 also carries about 20 KB of committee and participation calldata (five words per member).
@@ -792,8 +797,8 @@ an estimate taken while the pool is empty leaves out the crediting, the first wr
 epoch's record and of `reservedTotal`, the proving share's transfer into the Inbox ledger and the
 then non-zero landing reward, and a sweep or donation arriving before inclusion runs the landing
 out of gas. Measured as whole transactions paying a fresh fee recipient, a freezing landing costs
-250,935 gas with an empty pool and 424,855 with a funded one for a one-member committee, and
-261,792 and 527,835 for four members: about 143k per landing and 31k per member that the empty
+250,935 gas with an empty pool and 425,371 with a funded one for a one-member committee, and
+261,792 and 528,894 for four members: about 143k per landing and 31k per member that the empty
 estimate misses. The lander in #22280 therefore adds 40,000 gas per settled member and 200,000
 once per landing that settles an epoch to its estimate, on top of 20% headroom. A landing that
 reverts below its gas limit can still have run out of gas in the pool, behind two proxies: each
@@ -802,8 +807,8 @@ canonical failed landing that used at least 15/16 of its limit as out of gas and
 
 The contracts do not bound the committee size. The committee configuration's `n_max` caps it, and
 the client rejects an `n_max` above 360. The lander caps the landing's gas limit at EIP-7825's
-16,777,216; at 360 members the worst-case freezing landing needs about 14.8M, and the hard
-ceiling at which it no longer fits is about 409 members (see Configuration checks).
+16,777,216; at 360 members the worst-case freezing landing needs about 14.9M, and the hard
+ceiling at which it no longer fits is about 407 members (see Configuration checks).
 
 ### Deviations from #22262
 
@@ -839,9 +844,13 @@ ceiling at which it no longer fits is about 409 members (see Configuration check
   evidence and landing windows once slashing is introduced.
 - `EpochAlreadyFrozen` and the per-epoch committee hash binding in the reward pool assume that
   each height lands exactly once. A future GOV-04-style stall recovery that re-lands heights or
-  re-derives an epoch's committee mid-epoch must migrate the pool's epoch records and counts;
-  otherwise the re-landed epochs revert `EpochAlreadyFrozen` or `CommitteeMismatch` and landing
-  halts.
+  re-derives an epoch's committee mid-epoch must migrate the pool's epoch records, signed counts
+  and proposer scores; otherwise the re-landed epochs revert `EpochAlreadyFrozen` or
+  `CommitteeMismatch` and landing halts. Re-landing an open epoch's heights would also add their
+  counts and scores twice. The pool stays solvent regardless: its bonus denominator is at least
+  the committee's score total, so the bonus parts never exceed `bonusAlloc`. But double-counted
+  scores would still distort the epoch's bonus shares, and double-counted counts its base shares,
+  so such a recovery must still migrate the pool's state.
 - Registry capacity: withdrawn slots are reused, so cycling registration and exit no longer
   consumes capacity. Holding all 4096 slots still blocks new registrations for as long as
   `4096 · minStake` stays locked; `minStake` sizing is the bound. A slot whose owner exits but

@@ -841,7 +841,8 @@ contract EtnaInboxHandler is CommonBase {
     /// proving shares of the free balance, the validator share split into `proposerBonusPpm`
     /// bonus and the rest base, and for each member with a registration owner its base
     /// `base * weight / totalWeight` (none without weight) plus its bonus
-    /// `bonus * score / (10_000 * epochLenL2)`, each rounded down; then checks the pool's record.
+    /// `bonus * score / max(10_000 * epochLenL2, totalScore)`, each rounded down; then checks the
+    /// pool's record.
     function _freeze(uint256 _epoch, uint256 _poolBalance)
         internal
         returns (uint256 provingShare_)
@@ -853,12 +854,15 @@ contract EtnaInboxHandler is CommonBase {
         uint256 baseAlloc = alloc - bonusAlloc;
 
         uint256 totalWeight;
+        uint256 totalScore;
         for (uint256 i; i < _committee.length; ++i) {
             totalWeight += _committee[i].effStake * _ghostSigned[_epoch][i];
+            totalScore += _ghostScores[_epoch][i];
         }
+        uint256 scoreDenominator = Math.max(MAX_BLOCK_SCORE * epochLenL2, totalScore);
         uint256 paid;
         for (uint256 i; i < _committee.length; ++i) {
-            paid += _creditMember(_epoch, i, baseAlloc, bonusAlloc, totalWeight);
+            paid += _creditMember(_epoch, i, baseAlloc, bonusAlloc, totalWeight, scoreDenominator);
         }
         if (paid > alloc) _violate(Property.Rewards, "a freeze credited more than its share");
         ghostReserved += paid;
@@ -876,21 +880,21 @@ contract EtnaInboxHandler is CommonBase {
 
     /// @dev Credits member `_index` of `_epoch` in the model and returns what it credited:
     /// `_baseAlloc * weight / _totalWeight` (none without weight) plus
-    /// `_bonusAlloc * score / (10_000 * epochLenL2)`, each rounded down; nothing without a
+    /// `_bonusAlloc * score / _scoreDenominator`, each rounded down; nothing without a
     /// registration owner.
     function _creditMember(
         uint256 _epoch,
         uint256 _index,
         uint256 _baseAlloc,
         uint256 _bonusAlloc,
-        uint256 _totalWeight
+        uint256 _totalWeight,
+        uint256 _scoreDenominator
     )
         internal
         returns (uint256 credited_)
     {
         uint256 weight = _committee[_index].effStake * _ghostSigned[_epoch][_index];
-        uint256 bonus =
-            Math.mulDiv(_bonusAlloc, _ghostScores[_epoch][_index], MAX_BLOCK_SCORE * epochLenL2);
+        uint256 bonus = Math.mulDiv(_bonusAlloc, _ghostScores[_epoch][_index], _scoreDenominator);
         credited_ = bonus + (weight == 0 ? 0 : Math.mulDiv(_baseAlloc, weight, _totalWeight));
         address owner = _memberOwners[_index];
         if (credited_ == 0 || owner == address(0)) return 0;
