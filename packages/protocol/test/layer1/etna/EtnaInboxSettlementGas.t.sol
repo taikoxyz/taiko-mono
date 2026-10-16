@@ -93,11 +93,12 @@ abstract contract EtnaInboxSettlementGasTestBase is EtnaInboxTestBase {
     }
 
     /// @dev The `land` calldata of `(_parent, _lastHeight]` for the whole committee, settling each
-    /// epoch whose last height its commit range reaches.
+    /// epoch whose last height its commit range reaches; without `_signed`, every count and score
+    /// is zero.
     function _landCalldata(
         uint64 _parent,
         uint64 _lastHeight,
-        bool _scores
+        bool _signed
     )
         internal
         view
@@ -122,17 +123,18 @@ abstract contract EtnaInboxSettlementGasTestBase is EtnaInboxTestBase {
             feeRecipient: FEE_RECIPIENT
         });
         IEtnaInbox.EpochParticipation[] memory parts =
-            _parts(first, last, keccak256(abi.encode(committee)), _scores);
+            _parts(first, last, keccak256(abi.encode(committee)), _signed);
         return abi.encodeCall(IEtnaInbox.land, (input, parts, settlements, PROOF));
     }
 
-    /// @dev One part per epoch of the commit range `[_first, _last]`: every member signs every
-    /// height of the part and, with `_scores`, scores an equal share of its 10,000 per height.
+    /// @dev One part per epoch of the commit range `[_first, _last]`. With `_signed`, every member
+    /// signs every height of the part and scores an equal share of its 10,000 per height;
+    /// otherwise every count and score is zero.
     function _parts(
         uint64 _first,
         uint64 _last,
         bytes32 _committeeHash,
-        bool _scores
+        bool _signed
     )
         internal
         pure
@@ -147,9 +149,9 @@ abstract contract EtnaInboxSettlementGasTestBase is EtnaInboxTestBase {
             uint32 heights = uint32(hi - lo + 1);
             uint32[] memory counts = new uint32[](MAX_MEMBERS);
             uint32[] memory scores = new uint32[](MAX_MEMBERS);
-            for (uint256 i; i < MAX_MEMBERS; ++i) {
+            for (uint256 i; _signed && i < MAX_MEMBERS; ++i) {
                 counts[i] = heights;
-                if (_scores) scores[i] = uint32(uint256(heights) * 10_000 / MAX_MEMBERS);
+                scores[i] = uint32(uint256(heights) * 10_000 / MAX_MEMBERS);
             }
             parts_[k] = IEtnaInbox.EpochParticipation({
                 epoch: e,
@@ -200,14 +202,15 @@ contract EtnaInboxTwoPartSettlementGasTest is EtnaInboxSettlementGasTestBase {
 
     /// @dev The 150-block batch (125, 275] carries the commits of heights 125 to 274: the last 76
     /// heights of epoch 0, which it freezes, and the first 74 of epoch 1. The setUp's landing
-    /// (0, 125] reported epoch 0's committee and counts but no proposer score, so this landing
-    /// writes every score word of epoch 0 and epoch 1's committee hash, counts and scores for the
-    /// first time, and credits every owner for the first time. The lander no longer builds a
-    /// two-part freezing landing, but one must stay landable: 15,000,000 leaves at least 1.77M
-    /// under the cap for a real verifier and consumed forced inclusions. Measured 14,313,606 gas,
-    /// 0.69M under that bound and 2.46M (14.7%) under the cap; about 46k more per member
-    /// (6,275,130 at 128 members, 15,730,981 at 330, 17,075,337 at 360), so it stops fitting at
-    /// about 353 members.
+    /// (0, 125] reported epoch 0's committee but no signed count or proposer score, so this
+    /// landing writes every count and score word of epoch 0 and epoch 1's committee hash, counts
+    /// and scores for the first time, and credits every owner for the first time: a strict upper
+    /// bound, since the members holding 2/3 of the stake have signed by then in production. The
+    /// lander no longer builds a two-part freezing landing, but one must stay landable:
+    /// 15,000,000 leaves at least 1.77M under the cap for a real verifier and consumed forced
+    /// inclusions. Measured 14,963,393 gas, 36,607 under that bound and 1.81M (10.8%) under the
+    /// cap; about 48k more per member (6,548,717 at 128 members, 16,449,168 at 330, 16,914,260 at
+    /// 340, 17,844,824 at 360), so it stops fitting at about 337 members.
     function test_land_TwoPartFreezingLandingOf300MembersStaysBelow15M() external {
         uint256 gas = _measureLanding(125, 275);
         console2.log("freezing landing, two parts, 300 members:", gas);
