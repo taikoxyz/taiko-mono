@@ -328,9 +328,12 @@ Fee caps are positive wei per gas:
 `--max-fee-per-blob-gas`; the priority cap cannot exceed the execution cap.
 Signed transactions add a checked 20% gas-limit margin to the RPC estimate,
 covering a pending reference that moves from BLOCKHASH into the EIP-2935 lookup
-branch before inclusion, plus 40,000 gas per committee member the landing settles (see the
-freezing landing below), and never exceed EIP-7825's 16,777,216; an estimate above that cap stops
-the lander before signing. Set the limits to match the deployed Inbox and L1 fork. Choose the budgets
+branch before inclusion, plus, for a landing that settles an epoch, 200,000 gas once and 40,000 per
+committee member it settles (see the freezing landing below), and never exceed EIP-7825's
+16,777,216. When the node returns an estimate above that cap, the lander stops before signing; an
+Osaka node may instead fail the estimate itself, which the lander retries as a temporary error.
+`n_max <= 400` keeps every landing below the cap. Set the limits to match the deployed Inbox and
+L1 fork. Choose the budgets
 explicitly before running this example:
 
 ```sh
@@ -401,45 +404,59 @@ choose its signatures. A batch `(p, L]` therefore carries the commits of heights
 `L - 1`, and height `L`'s commit rides in the next batch, so every height counts once. A height's
 `/commit` (CometBFT's seen commit, which may hold other signatures) is verified but never counted.
 The proposer of block `h + 1` chooses which precommits beyond the 2/3 threshold enter its
-`last_commit`. Omitting one is not attributable, and there is no proposer bonus to lose. A
-coalition below 1/3 costs a victim the share of blocks it proposes: with A at 30%, B at 37% and C
-at 33% of the voting power, A omitting C whenever A proposes (A and B still clear 2/3) cuts C's
-reward by about 22% and raises A's by about 11%. A coalition above 1/3 can withhold its votes from
-other proposals, the same way it can suppress BFT time, so that only its own proposals are
-decided, and exclude the victim entirely: with A at 34%, B at 33% and C at 33%, C earns nothing and
-A about 50.7%. Candidate remedies are a Cosmos-style proposer bonus, which needs each height's
-proposer bound into the participation data, or having the guest count extra valid precommits.
+`last_commit`. Omitting one is not attributable, so the pool pays a Cosmos-style proposer bonus:
+block `h + 1` scores `floor(10_000 * includedEffStake / totalEffStake)`, the share of the
+committee's effective stake its `last_commit` carries, for its proposer, and the pool pays
+`proposerBonusPpm` (30% on devnets) of each validator share by score. With A at 30%, B at 37% and
+C at 33% of the voting power, A omitting C whenever A proposes (A and B still clear 2/3) would
+raise A's reward by about 11% without the bonus; with it A loses about 2.2% while C still loses
+about 16%, and below a bonus share of about 25% the omission pays again. A coalition above 1/3 can
+withhold its votes from other proposals, the same way it can suppress BFT time, so that only its
+own proposals are decided, and exclude the victim entirely: with A at 34%, B at 33% and C at 33%,
+C earns nothing. Having the guest count extra valid precommits would close that.
 For each epoch those heights touch, in ascending order, an `EpochParticipation` names the epoch,
 the hash of its committee as `CommitteeMember { bondId, activeFromL1, effStake }` in MEM-08 order
-(read from the committee's authenticated registry witness), and per member the number of those
-heights whose commit holds the member's verified `BlockIdFlagCommit` precommit; nil and absent
-votes do not count. The landing whose commits reach an epoch's last height
+(read from the committee's authenticated registry witness), per member the number of those
+heights whose commit holds the member's verified `BlockIdFlagCommit` precommit (nil and absent
+votes do not count), and per member its proposer scores: each carrying block's score goes to the
+member whose CometBFT address, derived from its key, is the block's certified `proposer_address`.
+A carrying block proposed outside the epoch's committee, which only an epoch's first block can
+be, scores for nobody. Each part's scores sum to at most 10,000 per height, as `land` requires. The landing whose commits reach an epoch's last height
 (`L - 1 >= (e + 1) * epochLenL2`) freezes that epoch: it passes the epoch's committee list in
 `settlements`, which the pool checks against the committee hash the epoch's reports stored, so
 the lists stay out of the statement. The pool credits the validator share of its free balance to
-the members' registration owners by stake times signed heights, and sends the proving share to the
+the members' registration owners, the base part by stake times signed heights and the bonus part
+by proposer score (bonus no proposer earned stays in the pool), and sends the proving share to the
 Inbox's prover reward ledger. Every landing then pays
 `min(landingRewardPerBlock * (L - p), ledger)` to `feeRecipient` with the consumed FI fees and
 emits `LandingRewardPaid`; an empty ledger pays nothing and the landing still succeeds. The
-journal keeps each job's participation and settlement lists, and refuses a job whose settlement
-lists do not hash to its completed epochs' committees.
+journal keeps each job's participation and settlement lists, and refuses a job whose
+participation does not have the shape `land` requires or whose settlement lists do not hash to
+its completed epochs' committees.
 
-A freezing landing pays for the settlement. For a 128-member committee the pool needs about 1.6M
-extra gas when every owner already holds credits and up to about 4.5M when all are credited for the
-first time, plus about 12 KB of committee calldata. The gas estimate alone cannot be trusted to
-cover it: the pool skips its crediting loop when the frozen epoch's allocation is zero, so an
-estimate taken while the pool is empty (before the first sweep arrives, or after every freeze when
-the two shares sum to 100%) leaves the loop out, and any sweep or donation before inclusion runs
-the landing out of gas. The lander therefore adds 40,000 gas (the measured worst case is about
-34.9k) per settled member on top of the estimate and its 20% margin. Should a landing still run
-out of gas with the checkpoint unchanged, the lander resets to idle and rebuilds and re-estimates
-the job instead of stopping; any other canonical revert stops it. Choose the fee caps and fund the
-sending account so that such a landing stays affordable.
+A freezing landing pays for the settlement. For a 128-member committee the pool frame needs up to
+about 4.98M gas when one landing writes every member's count and score and credits every owner for
+the first time, and about 1.3M (a whole transaction) for a later epoch whose owners already hold
+credits, plus about 20 KB of committee and participation calldata. The gas estimate alone cannot be
+trusted to cover it: the pool skips its crediting loop when the frozen epoch's allocation is zero,
+so an estimate taken while the pool is empty (before the first sweep arrives, or after every freeze
+when the two shares sum to 100%) leaves out the crediting and the epoch's first record, reservation
+and ledger writes, and any sweep or donation before inclusion runs the landing out of gas. Measured
+as whole transactions on the pinned contracts, a freezing landing costs 250,935 gas with an empty
+pool and 424,855 with a funded one for one member, and 261,792 and 527,835 for four: about 143k
+per landing and 31k per member. The lander therefore adds 200,000 gas once and 40,000 per settled
+member on top of the estimate and its 20% margin. Should a landing still run out of gas with the
+checkpoint unchanged, the lander resets to idle and rebuilds and re-estimates the job instead of
+stopping; any other canonical revert stops it. The settlement runs in the pool behind two proxies,
+and each calling frame keeps 1/64 of its gas, which a top-level revert refunds, so an out-of-gas
+there reports less gas used than the limit: the lander counts a failed landing that used at least
+15/16 of its limit as out of gas. Choose the fee caps and fund the sending account so that such a
+landing stays affordable.
 The landing must also fit in one L1 transaction, which Osaka caps at 16,777,216 gas (EIP-7825),
-and the lander caps its gas limit there. The worst case grows by about 34.9k gas and 128 bytes of
-calldata per member: at 400 members the worst-case freezing landing needs about 14.5M, and above
-about 455 it cannot be included at all, so landing would halt, back-pressure then halt L2, and only
-a pool upgrade recover. The client therefore rejects an `n_max` above 400 (`MAX_N_MAX`; see
+and the lander caps its gas limit there. Measured as a whole transaction, the worst-case freezing
+landing needs 5,473,469 gas at 128 members and 16,396,887 at 400, about 40.2k gas and 160 bytes of
+calldata more per member, and above about 409 members it cannot be included at all, so landing
+would halt, back-pressure then halt L2, and only a pool upgrade recover. The client therefore rejects an `n_max` above 400 (`MAX_N_MAX`; see
 Configuration checks in the protocol package's Etna README).
 
 Proof requests retain the Inbox schedule/config/checkpoint proof under the batch parent's anchor,
@@ -803,10 +820,14 @@ touches, in ascending order, it outputs that epoch committee's `CommitteeMember`
 order, with every field from the authenticated registry entries of the committee derivation it
 already owes. `signedCounts[i]` is the number of heights `h` in the range and the epoch whose block
 `h + 1` carries a `last_commit` with member `i`'s verified `BlockIdFlagCommit` signature; a seen
-`/commit` never counts. The guest binds
+`/commit` never counts. `proposerScores[i]` sums, over the same heights, the scores
+`floor(10_000 * includedEffStake / totalEffStake)` of the blocks `h + 1` whose certified header's
+`proposer_address` is member `i`'s CometBFT address (the first 20 bytes of SHA-256 of its Ed25519
+key), where `includedEffStake` sums the effective stake of the members counted for `h`; a block
+proposed outside the epoch's committee scores for nobody. The guest binds
 `participationHash = keccak256(abi.encode(EpochParticipation[]))` as the statement's nineteenth
 word. Until then the dummy verifier proves none of this: anyone can
-land forged counts, or fix a forged committee hash for an epoch, after which every landing that
+land forged counts or scores, or fix a forged committee hash for an epoch, after which every landing that
 reports that epoch reverts with `CommitteeMismatch`. Rewards are only fit for a temporary devnet.
 
 ## Development
