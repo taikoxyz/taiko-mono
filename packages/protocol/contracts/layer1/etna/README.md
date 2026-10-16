@@ -60,7 +60,9 @@ optional `CONTRACT_OWNER`; `run()` needs `TAIKO_TOKEN` and `REGISTRY_*`. `deploy
 `COMMITTEE_RECORD_HASH`, `COMMITTEE_CONFIG_HASH`, `FORCED_INCLUSION_DELAY` and `MAX_ANCHOR_AGE`
 (both in seconds), plus the pool's `L1_BRIDGE`, `L2_FEE_VAULT`, `ALLOC_VALIDATOR_PPM` and
 `ALLOC_PROVER_PPM` (shares of the free balance per frozen epoch, summing to at most 1,000,000) and
-the Inbox's `LANDING_REWARD_PER_BLOCK` (wei, may be 0). Use the same deployer for the six
+`PROPOSER_BONUS_PPM` (the part of each validator share paid as proposer bonus, at most 1,000,000;
+300,000 on devnets, see Proposer bonus) and the Inbox's `LANDING_REWARD_PER_BLOCK` (wei, may be
+0). Use the same deployer for the six
 consecutive CREATEs of the Inbox deployment; the script predicts the Inbox and pool proxies from
 its current nonce and reverts if either differs. On L2, `DeployL2FeeVault` reads `PRIVATE_KEY`, a
 required `CONTRACT_OWNER`, `L2_BRIDGE`, `L1_CHAIN_ID` and `REWARD_POOL`.
@@ -102,6 +104,10 @@ constraints.
   `abci-genesis` and the lander reject a schedule outside these bounds, but only after
   initialization has fixed it, so check `epochLenL2 + 1` and the expected `L1_0 + epochLenL1`
   before calling `deployInbox()`.
+- Keep `epochLenL2 <= 429,496`. The pool totals each member's proposer scores for an epoch in a
+  checked `uint32`, and one member proposing every block of a longer epoch could reach
+  `10,000 * epochLenL2 > 2^32 - 1`; the overflow would revert that epoch's landings and halt
+  landing. The contract does not check this bound.
 - Pace the schedule. This is the deployer's obligation, not a validity rule. A block of epoch `e`
   needs an L1-finalized anchor at or after `L1_0 + e * epochLenL1`, so L2 pauses at an epoch
   boundary (`epoch_not_open_on_l1`) whenever it produces `epochLenL2` blocks faster than L1
@@ -114,12 +120,15 @@ constraints.
 - `n_max` may not exceed 400: the client rejects a larger value. The landing that carries an
   epoch's last commit settles the whole epoch inline, and it must fit in one L1 transaction, which
   Osaka caps at 16,777,216 gas (EIP-7825); the lander caps its gas limit there. In the worst case,
-  where every member's registration owner is credited for the first time, the pool frame costs
-  about 34.9k gas per member (4,464,698 measured for 128), and the settlement list and counts add
-  about 128 bytes of calldata per member, on top of the landing's own verification, checkpoint and
-  forced inclusion costs (see Settlement gas). At 400 members that freezing landing needs about
-  14.5M gas. The hard ceiling is about 455 members: above it the landing cannot be included at
-  all, landing halts, back-pressure then halts L2, and only a pool upgrade recovers. A production
+  where one landing writes every member's count and proposer score for the epoch and credits
+  every registration owner for the first time, the pool frame costs about 38.9k gas per member
+  (4,978,841 measured for 128), and the settlement list, counts and scores add about 160 bytes of
+  calldata per member, on top of the landing's own verification, checkpoint and forced inclusion
+  costs (see Settlement gas). Measured as a whole transaction (execution plus intrinsic and
+  calldata gas), that freezing landing needs 5,473,469 gas at 128 members and 16,396,887 at 400,
+  about 40.2k per member more: 400 members leave about 380k of headroom. The hard ceiling is
+  about 409 members: above it the landing cannot be included at all, landing halts,
+  back-pressure then halts L2, and only a pool upgrade recovers. A production
   landing settles at most one epoch, because `epochLenL2 >= d_max - margin_v + 3` keeps every batch
   shorter than an epoch, so the bound applies per landing. The contracts cannot check it: `n_max`
   is bound only inside the opaque `committeeConfigHash`.
@@ -404,21 +413,26 @@ each block consumes at most one entry; otherwise it reverts `InvalidForcedInclus
 reference must be a past L1 block with a nonzero hash available from `blockhash` (256 blocks) or
 the EIP-2935 history contract (8191 blocks). At least one transaction blob is required.
 
-`EpochParticipation` is `(uint64 epoch, bytes32 committeeHash, uint32[] signedCounts)` and
+`EpochParticipation` is
+`(uint64 epoch, bytes32 committeeHash, uint32[] signedCounts, uint32[] proposerScores)` and
 `CommitteeMember` is `(uint32 bondId, uint64 activeFromL1, uint256 effStake)`. A committee is
 listed in MEM-08 order and hashed as `keccak256(abi.encode(CommitteeMember[]))`; `signedCounts`
-uses the same member indices. Block `h + 1` carries the canonical commit of height `h` in its
-`last_commit` and height 0 has none, so the batch `(p, L]` carries the commits of
+and `proposerScores` use the same member indices. Block `h + 1` carries the canonical commit of
+height `h` in its `last_commit` and height 0 has none, so the batch `(p, L]` carries the commits of
 `[c0, c1] = [max(p, 1), L - 1]`. Epoch `e` holds heights
 `[e * epochLenL2 + 1, (e + 1) * epochLenL2]`. `participation` must be empty when `c0 > c1`, as
 for the first batch `(0, 1]`. Otherwise it holds exactly one part per epoch from
 `(c0 - 1) / epochLenL2` to `(c1 - 1) / epochLenL2`, in ascending order, and no signed count may
-exceed the number of `[c0, c1]` heights in its part's epoch. Anything else reverts
+exceed the number of `[c0, c1]` heights in its part's epoch. Each part has as many proposer scores
+as signed counts, and its scores sum to at most `10,000` times those heights: each height's
+carrying block scores at most 10,000, for one proposer. The sum bound, stricter than bounding each
+score alone, keeps an epoch's scores within what its bonus can pay, so even a dummy verifier
+cannot make the pool credit more than an epoch's validator share. Anything else reverts
 `InvalidParticipation` before the proof is verified. This shape check only narrows what a dummy
-verifier admits; the guest makes counts and committee hashes authoritative. `settlements` holds
-the committee of each epoch the batch completes, in ascending order (see Fees and rewards). It is
-not part of the statement: the pool checks each list against the committee hash that the
-participation bound.
+verifier admits; the guest makes counts, scores and committee hashes authoritative.
+`settlements` holds the committee of each epoch the batch completes, in ascending order (see Fees
+and rewards). It is not part of the statement: the pool checks each list against the committee
+hash that the participation bound.
 
 After those checks, landing runs in this order; any revert rolls back every write:
 
@@ -427,7 +441,8 @@ After those checks, landing runs in this order; any revert rolls back every writ
    SignalService, and emit `BatchLanded`.
 3. Call `proofVerifier.verifyProof(0, statementHash, proof)`.
 4. Call `rewardPool.recordLanding(L, epochLenL2, participation, settlements)`. For each part the
-   pool adds the counts and, if the batch completes that epoch, freezes and settles it; each
+   pool adds the counts and scores and, if the batch completes that epoch, freezes and settles it;
+   each
    frozen epoch's proving share arrives through the Inbox's `receive` into the prover reward
    ledger (slot 283).
 5. Add `msg.value` to the ledger and debit the reward
@@ -541,7 +556,16 @@ of `[c0, c1]` in that epoch whose canonical commit carries a verified `BlockIDFl
 signature of member `i`; nil votes and absent signatures do not count. The canonical commit of
 height `h` is block `h + 1`'s `last_commit`, bound by that block's certified header, never a
 separately fetched commit for the same height, whose signature set can differ. Each height's
-commit rides in exactly one batch, so each signature counts once. Bind
+commit rides in exactly one batch, so each signature counts once.
+
+For each such height `h`, block `h + 1` scores
+`floor(10_000 * includedEffStake / totalEffStake)`, where `includedEffStake` sums the `effStake` of
+the members counted for `h` and `totalEffStake` that of the whole committee of `h`'s epoch. The
+score goes to the member whose CometBFT address (the first 20 bytes of SHA-256 of its Ed25519 key,
+as in the validator set) equals the `proposer_address` of block `h + 1`'s certified header; if no
+member of the epoch's committee has that address, which can happen only when `h` is the last
+height of its epoch and block `h + 1` is the next epoch's first block, the score is dropped.
+`proposerScores[i]` sums member `i`'s scores over the part's heights. Bind
 `participationHash = keccak256(abi.encode(EpochParticipation[]))` as the statement's last word.
 
 ### Forced inclusion obligations
@@ -619,7 +643,8 @@ is autonomous, while settlement progress still matters for overall liveness.
 
 The shared vector (`testdata/etna_vectors`, computed with `cast abi-encode` and read by both
 `EtnaInboxLand.t.sol` and the lander) pins the six-field ABI, eleven-word config, a one-epoch
-participation hash, the empty participation hash and the V7 statement. Tests use an explicitly
+participation hash with signed counts and proposer scores, the empty participation hash and the V7
+statement. Tests use an explicitly
 dummy verifier for batching, statement binding, participation shape, settlement and rollback; they
 do not prove the authoritative guest rules. Dummy proof
 `0x00` remains explicit; no real ZK guest is part of this change, and host/contract integration
@@ -673,8 +698,9 @@ forward under the L1 transaction gas cap.
 ### Reward pool
 
 `EtnaRewardPool` is a UUPS proxy whose implementation fixes `inbox`, `stakingRegistry`,
-`l1Bridge`, `l2FeeVault`, `l2ChainId`, `allocValidatorPpm` and `allocProverPpm`, the last two
-summing to at most 1,000,000 (`InvalidAllocation` otherwise). `init(owner)` sets the owner, who can
+`l1Bridge`, `l2FeeVault`, `l2ChainId`, `allocValidatorPpm`, `allocProverPpm` and
+`proposerBonusPpm`; the two allocation shares sum to at most 1,000,000 and the bonus part is at
+most 1,000,000 (`InvalidAllocation` otherwise). `init(owner)` sets the owner, who can
 upgrade it. Nothing in the pool is pausable. Its free balance is `balance - reservedTotal`.
 
 - Arrivals. `onMessageInvocation` requires the L1 Bridge as caller and a Bridge `context()` whose
@@ -686,7 +712,7 @@ upgrade it. Nothing in the pool is pausable. Its free balance is `balance - rese
 - Recording. Only the Inbox calls `recordLanding`, after verification. For each part the committee
   hash must be non-zero (`ZeroCommitteeHash`) and the epoch not yet frozen (`EpochAlreadyFrozen`);
   the first report stores the hash and every later one must match it (`CommitteeMismatch`). Counts
-  are added to packed `uint32` totals with checked arithmetic.
+  and proposer scores are added to packed `uint32` totals with checked arithmetic.
 - Freezing. Epoch `e` is complete when the batch carries the commit of its last height
   `(e + 1) * epochLenL2`, that is, when `L - 1 >= (e + 1) * epochLenL2`, so each epoch freezes in
   exactly one landing. Each complete part, in order, takes the next `settlements` entry: there must
@@ -696,18 +722,48 @@ upgrade it. Nothing in the pool is pausable. Its free balance is `balance - rese
   `provingShare = free * allocProverPpm / 1e6`. An epoch frozen earlier in the same landing
   lowers a later one's base; when the shares sum to 1,000,000, the later epoch gets only the
   earlier one's unpaid remainder.
-- Settlement. Member `i` weighs `effStake_i * signedCount_i`; counts at indices past the committee
-  are ignored. Each member with a non-zero weight is credited `mulDiv(alloc, weight, totalWeight)`,
-  rounded down, to `registrationOwnerOf(bondId, activeFromL1)`, emitting `ValidatorRewarded`; a
+- Settlement. `bonusAlloc = alloc * proposerBonusPpm / 1e6` and `baseAlloc = alloc - bonusAlloc`.
+  Member `i` weighs `effStake_i * signedCount_i`; its base part is
+  `mulDiv(baseAlloc, weight, totalWeight)`, or nothing when the total weight is zero, and its bonus
+  part is `mulDiv(bonusAlloc, proposerScore_i, 10_000 * epochLenL2)`, both rounded down; counts and
+  scores at indices past the committee are ignored. A member whose sum is non-zero is credited it
+  to `registrationOwnerOf(bondId, activeFromL1)`, emitting `ValidatorRewarded` with the sum; a
   member whose registration has no owner is skipped. The credited sum is the epoch's `paid` and
-  joins `reservedTotal`. `alloc - paid` (rounding remainders and ownerless shares) never leaves the
-  free balance, and a zero total weight credits nothing. The proving share is then sent to the
-  Inbox, and `EpochFrozen(e, alloc, paid, provingShare)` is emitted.
+  joins `reservedTotal`. `alloc - paid` (rounding remainders, ownerless shares and the bonus no
+  proposer earned) never leaves the free balance. The proving share is then sent to the Inbox, and
+  `EpochFrozen(e, alloc, paid, provingShare)` is emitted.
 - Withdrawal. `withdrawRewards(to)` sends all of the caller's credits to a non-zero `to`, releases
   their reservation and emits `RewardsWithdrawn`; a rejected transfer reverts, and a caller without
   credits gets 0. Credits belong to the registration owner, not to the slot's current `bondOwner`.
 - `checkInvariants()` returns whether `balance >= reservedTotal`; `freeBalance`, `epochRecord`,
-  `signedCountOf` and `creditsOf` expose the rest.
+  `signedCountOf`, `proposerScoreOf` and `creditsOf` expose the rest.
+
+### Proposer bonus
+
+The proposer of block `h + 1` chooses which precommits for height `h` its `last_commit` carries,
+beyond the 2/3 it needs, and those signatures are what the base part pays for. To make leaving
+one out cost the proposer, the bonus part pays each block's proposer for the stake its
+`last_commit` includes, as Cosmos's proposer reward does:
+
+- Each block `h + 1` (`h >= 1`) scores `floor(10_000 * includedEffStake / totalEffStake)` with the
+  committee of `h`'s epoch: 10,000 when every member's precommit is included. The score goes to the
+  member whose CometBFT address is the block's `proposer_address`. A block whose proposer is not
+  in that committee, possible only for the first block of an epoch (it carries the previous
+  epoch's last commit but is proposed by the new committee), scores for nobody.
+- An epoch of `epochLenL2` heights can score at most `10_000 * epochLenL2`, and each member
+  receives that fraction of `bonusAlloc` its scores earned. The bonus that no proposer earned
+  (omitted stake, dropped boundary scores, rounding) stays in the free balance for later epochs,
+  rather than going to the other members.
+- The base part is the rest of the validator share, split by stake times signed heights exactly
+  as without a bonus.
+
+Devnets set `proposerBonusPpm = 300,000`. The share must outweigh what omitting a precommit
+gains through the base part. With A at 30%, B at 37% and C at 33% of the stake, each proposing
+its stake's share of the blocks, A leaving C's precommit out of its own blocks (A and B still
+clear 2/3) raises A's base part from 30% to `3000 / 9010` (about 33.3%) of `baseAlloc`, and drops
+the score of A's blocks from 10,000 to 6,700, so A's bonus falls from 30% to 20.1% of
+`bonusAlloc`. A's base gain exceeds its bonus loss unless the bonus share is at least about 25%;
+at 30% omitting costs A about 2.2% of its reward, while C still loses about 16%.
 
 ### Landing reward
 
@@ -723,17 +779,20 @@ block.
 ### Settlement gas
 
 Settling an epoch costs one `registrationOwnerOf` call, one credit write and one event per credited
-member. For a 128-member epoch the pool frame measured about 1.6M gas when every owner already
-holds credits and about 4.46M in the worst case, where all 128 owners are credited for the first
-time. The landing also carries about 12 KB of committee calldata (three words per member). The
+member, and reads the epoch's packed counts and scores. For a 128-member epoch the pool frame
+measured about 1.3M gas (as an isolated transaction) when every owner already holds credits and
+about 4.98M in the worst case, where one landing writes all 128 members' counts and scores and
+credits every owner for the first time. The landing also carries about 20 KB of committee and
+participation calldata (five words per member). The
 lander of the freezing landing pays all of this, so its gas limit must cover it. A gas estimate
 alone may not: the pool skips the crediting loop when the epoch's allocation is zero, so an
 estimate taken while the pool is empty leaves the loop out, and a sweep or donation arriving
 before inclusion then runs the landing out of gas. The lander in #22280 therefore adds 40,000 gas
-per settled member to its estimate. The contracts do not bound the committee size. The committee configuration's `n_max` caps it, and the client
-rejects an `n_max` above 400. The lander caps the landing's gas limit at EIP-7825's 16,777,216; at
-400 members the worst-case freezing landing needs about 14.5M, and the hard ceiling at which it
-no longer fits is about 455 members (see Configuration checks).
+per settled member to its estimate. The contracts do not bound the committee size. The committee
+configuration's `n_max` caps it, and the client rejects an `n_max` above 400. The lander caps the
+landing's gas limit at EIP-7825's 16,777,216; at 400 members the worst-case freezing landing
+needs about 16.4M, and the hard ceiling at which it no longer fits is about 409 members (see
+Configuration checks).
 
 ### Deviations from #22262
 
@@ -757,8 +816,10 @@ no longer fits is about 455 members (see Configuration checks).
   fee, so callers can outbid it during L1 gas spikes; the message gas limit is the fixed
   `SWEEP_GAS_LIMIT`, and the caller chooses only when to sweep.
 - Rewards count the signatures in block `h + 1`'s `last_commit`, a set its proposer chooses above
-  the 2/3 threshold. There is no proposer bonus and no counting of extra valid precommits, so an
-  omitted precommit costs its validator a reward without being attributable (see Open items).
+  the 2/3 threshold, and there is no counting of extra valid precommits. A Cosmos-style proposer
+  bonus, which #22262 does not have, pays `proposerBonusPpm` of each validator share to proposers
+  by the stake their `last_commit`s include, so omitting a precommit costs the omitter too (see
+  Proposer bonus and Open items).
 
 ## Open items
 
@@ -804,15 +865,15 @@ no longer fits is about 455 members (see Configuration checks).
   nothing accrues as debt.
 - The proposer of block `h + 1` chooses which precommits beyond the 2/3 threshold enter its
   `last_commit`, so it can omit a validator's signature and lower that validator's count for
-  height `h`. Omitting a precommit is not attributable, and there is no proposer bonus to lose.
-  A coalition below 1/3 costs a victim the share of blocks the coalition proposes: with A at 30%,
-  B at 37% and C at 33% of the voting power, A omitting C whenever A proposes (A and B still
-  clear 2/3) cuts C's reward by about 22% and raises A's by about 11%. A coalition above 1/3 can
-  use the vote withholding that suppresses BFT time (above) to have only its own proposals decided
-  and exclude the victim entirely: with A at 34%, B at 33% and C at 33%, C earns nothing and A
-  about 50.7%. Candidate remedies are a Cosmos-style proposer bonus, which needs each height's
-  proposer bound into the participation data, or having the guest count extra valid precommits
-  beyond those in `last_commit`.
+  height `h`. Omitting a precommit is not attributable, but the proposer bonus makes it cost the
+  omitter. With A at 30%, B at 37% and C at 33% of the voting power, A omitting C whenever A
+  proposes (A and B still clear 2/3) would raise A's reward by about 11% without a bonus; with a
+  30% bonus it lowers A's by about 2.2%, while C still loses about 16%. Below a bonus share of
+  about 25% a single omitter below 1/3 still profits. A coalition above 1/3 can use the vote
+  withholding that suppresses BFT time (above) to have only its own proposals decided and exclude
+  the victim entirely: with A at 34%, B at 33% and C at 33%, C earns nothing, and A, whose blocks
+  then all score 6,700, about 55.6% with a 30% bonus. The protocol does not prevent this; having
+  the guest count extra valid precommits beyond those in `last_commit` would.
 - Shares are fixed fractions of the free balance at the freeze, so a lander can time the freezing
   landing before or after a large sweep arrives, moving value between that epoch and later ones;
   the total is unchanged.
