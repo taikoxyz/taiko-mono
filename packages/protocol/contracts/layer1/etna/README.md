@@ -92,7 +92,9 @@ constraints.
   `SWEEP_GAS_LIMIT * (expected peak L1 base fee + priority fee)`, that is 1,000,000 gas at the
   highest L1 gas price at which a minimum-fee sweep should still be relayed (0.01 ether for
   10 gwei). The L1 Bridge pays a relayer at most `gasCharged * fee / gasLimit` (see Fee
-  vault), so a fee sized to one `processMessage`'s gas repays only a fraction of it. The part of
+  vault), so a fee sized to one `processMessage`'s gas repays only a fraction of it; this
+  break-even is approximate and conservative, since `gasCharged` includes the Bridge's 120,000 gas
+  overhead. The part of
   the fee the relayer does not earn is refunded to the pool, so a generous floor costs the system
   nothing. It is an implementation immutable; changing it takes an upgrade, so leave headroom.
 - Registry `heartbeatWindow` must equal node `heartbeat_window`, and `minStake` must be at least
@@ -703,17 +705,20 @@ empty vault sends nothing, changes nothing and returns 0, and then rejects a rel
 The relay fee `msg.value` must be at least the immutable `minRelayFee` (`RelayFeeTooLow`) and at
 most `type(uint64).max` (`RelayFeeTooLarge`). The L1 Bridge pays the relayer out of it: with
 `gasCharged` its own measure of the relay's gas (its 120,000 `GAS_OVERHEAD` plus the gas used
-until the payout and an estimate of the message calldata), `maxFee = gasCharged * fee / gasLimit`
+until the payout and an estimate of the message calldata, less 20,000 per signal cache operation
+the proof performed), `maxFee = gasCharged * fee / gasLimit`
 and `baseFee = gasCharged * block.basefee`, it pays `min(fee, maxFee)` when `baseFee >= maxFee`
 and `min(fee, (maxFee + baseFee) / 2)` otherwise, and refunds the rest of the fee to `destOwner`,
 the pool, where it arrives as a donation. As `gasLimit` is `SWEEP_GAS_LIMIT`, a sweep whose fee is
-below `SWEEP_GAS_LIMIT * basefee` at relay time pays its relayer less than the base fee of the
-gas charged and is not profitable to relay; at or above it the relayer earns at least
-`gasCharged * basefee`. Price `minRelayFee` at
+below `SWEEP_GAS_LIMIT * basefee` at relay time pays its relayer less than `gasCharged * basefee`,
+and at or above it at least that. The overhead makes `gasCharged` exceed the relay's own gas
+(about 1.22 times in the test below), so relaying stops paying somewhat below that fee:
+`SWEEP_GAS_LIMIT * basefee` is an approximate, conservative break-even. Price `minRelayFee` at
 `SWEEP_GAS_LIMIT * (expected peak L1 base fee + priority fee)`: whatever the relayer does not earn
 returns to the pool as revenue, so overpaying costs the system nothing. A forge test on a real L1
 Bridge at a 10 gwei base fee measures this: a 0.01 ether fee pays the relayer 0.00178 ether
-against 0.00146 ether of gas, while a fee equal to that gas cost repays about 23% of it. The floor
+(`gasCharged` 178,195) against 0.00146 ether of gas, while a fee of 0.00146 ether pays the next
+relayer 15.6% of it, about 23% of that relay's own gas cost. The floor
 also keeps anyone from splitting the fees into messages worth less than their delivery. It is
 immutable and changes only by upgrade, so set it with headroom. A caller may pay more, for example
 during an L1 gas spike, and all of `msg.value` becomes the fee.
@@ -974,10 +979,10 @@ and the two-part shape stops fitting at about 353 members (see Configuration che
   the total is unchanged.
 - Each sweep pays at least `minRelayFee`, priced at `SWEEP_GAS_LIMIT` times the expected peak L1
   gas price. While the L1 base fee exceeds `fee / SWEEP_GAS_LIMIT`, the Bridge pays a relayer
-  less than the base fee of the gas it charges, so a sweep paying only the minimum is not
-  profitable to relay during a spike above the floor's price, and its value stays unreleased until
-  the base fee falls or someone relays it at a loss. The floor is immutable and changes only by
-  upgrade.
+  less than the base fee of the gas it charges, so during a spike somewhat above the floor's price
+  (the Bridge's gas overhead gives some slack) a sweep paying only the minimum stops being worth
+  relaying, and its value stays unreleased until the base fee falls or someone relays it at a
+  loss. The floor is immutable and changes only by upgrade.
 - Under a dummy verifier, one landing with a wrong committee hash binds that epoch: every later
   honest landing that reports the epoch reverts `CommitteeMismatch`, and freezing the epoch needs
   a committee list matching the bound hash. A dummy verifier also lets any lander report

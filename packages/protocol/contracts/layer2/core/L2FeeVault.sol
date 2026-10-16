@@ -48,7 +48,8 @@ contract L2FeeVault is EssentialContract {
     /// `SWEEP_GAS_LIMIT * (expected peak L1 base fee + priority fee)`. The L1 Bridge pays a
     /// relayer at most `gasCharged * fee / SWEEP_GAS_LIMIT`, `gasCharged` being its own measure of
     /// the relay's gas, so a sweep whose fee is below `SWEEP_GAS_LIMIT * basefee` at relay time
-    /// pays its relayer less than the base fee of that gas and is not profitable to relay. The
+    /// pays its relayer less than `gasCharged * basefee`. As `gasCharged` includes the Bridge's
+    /// 120,000 gas overhead, that is an approximate, conservative break-even for relaying. The
     /// Bridge refunds the part of the fee the relayer does not earn to the reward pool, where it
     /// becomes revenue, so a generous floor costs the system nothing. Immutable: set it with
     /// headroom, as only an upgrade can change it.

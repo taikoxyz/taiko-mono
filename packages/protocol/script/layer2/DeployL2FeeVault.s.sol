@@ -22,7 +22,8 @@ import { L2FeeVault } from "src/layer2/core/L2FeeVault.sol";
 ///   `type(uint64).max`. Set it to `SWEEP_GAS_LIMIT` (1,000,000) times the expected peak L1 base
 ///   fee plus priority fee: the L1 Bridge pays a relayer at most
 ///   `gasCharged * fee / SWEEP_GAS_LIMIT` and refunds the rest to the reward pool, so a fee below
-///   `SWEEP_GAS_LIMIT * basefee` does not repay the relayer's gas, and overpaying costs the system
+///   about `SWEEP_GAS_LIMIT * basefee` stops repaying the relayer's gas (conservatively, as
+///   `gasCharged` includes the Bridge's 120,000 gas overhead), and overpaying costs the system
 ///   nothing. The vault fixes it immutably; changing it takes an upgrade.
 /// @custom:security-contact security@taiko.xyz
 contract DeployL2FeeVault is Script {

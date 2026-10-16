@@ -257,10 +257,11 @@ contract EtnaRewardPoolTest is CommonTest {
     /// @dev The L1 Bridge pays a message's relayer at most `gasCharged * fee / gasLimit`, where
     /// `gasCharged` is its own measure of the relay's gas, and refunds the rest of the fee to the
     /// pool as `destOwner`. At a 10 gwei base fee, a sweep fee of `SWEEP_GAS_LIMIT * basefee` (0.01
-    /// ether) pays the relayer `gasCharged * basefee`, more than its gas cost (measured here warm
-    /// and without a proof, plus the intrinsic 21,000), while a fee sized to that gas cost repays
-    /// only about a quarter of it. Either way the part of the fee the relayer does not earn joins
-    /// the pool's free balance.
+    /// ether) pays the relayer `gasCharged * basefee`, 1.78e15 wei, more than its 1.46e15 gas cost
+    /// (measured here warm and without a proof, plus the intrinsic 21,000), while a fee of that gas
+    /// cost pays the next relayer 2.29e14, 15.6% of the fee and about 23% of that relay's own
+    /// 9.96e14 gas cost. Either way the part of the fee the relayer does not earn joins the pool's
+    /// free balance.
     function test_onMessageInvocation_ASweepFeeOfTheGasLimitTimesTheBaseFeeRepaysTheRelayer()
         external
     {
