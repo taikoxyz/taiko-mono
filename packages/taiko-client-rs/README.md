@@ -881,7 +881,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 Regenerate lander ABI/deployment fixtures with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `e26b65008da8df8795f325bde4d859d89ff49f31` (also the
+The script requires protocol HEAD `07e36f73e7fcc81baefe834fd205035df121a5e0` (also the
 `PROTOCOL_REVISION` in `crates/lander/src/contracts.rs`),
 installs pnpm dependencies before Foundry, builds the Inbox, registry, `EtnaRewardPool` and
 SignalService with their test fixtures, verifies compiler source hashes,
