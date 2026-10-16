@@ -104,10 +104,13 @@ interface IEtnaRewardPool {
     /// `baseAlloc = alloc - bonusAlloc`. Each member (indices below the committee length only)
     /// earns the base part `mulDiv(baseAlloc, weight, totalWeight)` of its weight
     /// `effStake * count`, or nothing when the total weight is zero, plus the bonus part
-    /// `mulDiv(bonusAlloc, score, 10_000 * _epochLenL2)` of its proposer score, both rounded
-    /// down. A member whose sum is non-zero is credited it unless its registration has no owner;
-    /// credited amounts are reserved, and the bonus that no proposer earned stays free. The
-    /// proving share is sent to the Inbox; a failed transfer reverts the call.
+    /// `mulDiv(bonusAlloc, score, max(10_000 * _epochLenL2, totalScore))` of its proposer score,
+    /// both rounded down, where `totalScore` sums the committee members' scores. With the
+    /// Inbox's bound the denominator is `10_000 * _epochLenL2`; the maximum keeps the bonus
+    /// parts within `bonusAlloc`, and the pool solvent, for any recorded scores. A member whose
+    /// sum is non-zero is credited it unless its registration has no owner; credited amounts are
+    /// reserved, and the bonus that no proposer earned stays free. The proving share is sent to
+    /// the Inbox; a failed transfer reverts the call.
     /// @param _lastHeight The height of the landing's last block.
     /// @param _epochLenL2 The epoch length in L2 blocks.
     /// @param _parts The participation per epoch of the batch's commit range, in ascending epoch

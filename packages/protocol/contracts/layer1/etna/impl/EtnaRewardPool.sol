@@ -404,11 +404,13 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
         }
     }
 
-    /// @dev Returns each member's proposer bonus part, `mulDiv(_bonusAlloc, score, maxScore)`
-    /// with `maxScore = 10_000 * _epochLenL2`, the score of an epoch whose every block's last
-    /// commit carried the whole committee. The Inbox bounds an epoch's scores to `maxScore` in
-    /// total, so the parts sum to at most `_bonusAlloc`; what no proposer earned stays free.
-    /// Scores at indices past the committee are ignored.
+    /// @dev Returns each member's proposer bonus part, `mulDiv(_bonusAlloc, score, denominator)`
+    /// with `denominator = max(10_000 * _epochLenL2, totalScore)`. `10_000 * _epochLenL2` is the
+    /// score of an epoch whose every block's last commit carried the whole committee, and
+    /// `totalScore` sums the scores of the committee's members. The Inbox bounds an epoch's
+    /// scores to `10_000 * _epochLenL2` in total; the larger denominator keeps the parts within
+    /// `_bonusAlloc` even if recorded scores ever exceeded that bound. What no proposer earned
+    /// stays free. Scores at indices past the committee are ignored.
     /// @param _epoch The epoch.
     /// @param _epochLenL2 The epoch length in L2 blocks.
     /// @param _bonusAlloc The proposer bonus part of the validator share.
@@ -427,12 +429,18 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
         parts_ = new uint256[](_n);
         if (_bonusAlloc == 0) return parts_;
         mapping(uint256 => uint256) storage words = _proposerScores[_epoch];
-        uint256 maxScore = _MAX_BLOCK_SCORE * _epochLenL2;
+        uint256 totalScore;
         uint256 word;
         for (uint256 i; i < _n; ++i) {
             if (i & 7 == 0) word = words[i >> 3];
+            totalScore += uint32(word >> ((i & 7) << 5));
+        }
+        if (totalScore == 0) return parts_;
+        uint256 denominator = Math.max(_MAX_BLOCK_SCORE * _epochLenL2, totalScore);
+        for (uint256 i; i < _n; ++i) {
+            if (i & 7 == 0) word = words[i >> 3];
             uint256 score = uint32(word >> ((i & 7) << 5));
-            if (score != 0) parts_[i] = Math.mulDiv(_bonusAlloc, score, maxScore);
+            if (score != 0) parts_[i] = Math.mulDiv(_bonusAlloc, score, denominator);
         }
     }
 
