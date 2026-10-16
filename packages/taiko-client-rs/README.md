@@ -120,6 +120,36 @@ parent snapshot is committed, later L1 registry changes cannot repair that switc
 retention, withdrawal timing and restart trust assumptions remain; this change does not add
 a recovery-generation bootstrap or an implicit replacement set.
 
+## Genesis schedule bounds and pacing
+
+Inbox initialization fixes `L1_0` (the initialization block), `L = epochLenL2` and
+`E = epochLenL1`, and the configuration hash fixes the unsettled cap `U = d_max - margin_v`, so
+only a new deployment corrects a bad value. `abci`, `abci-genesis` and the lander reject:
+
+- `d_max <= margin_v` (`U = 0`): block 1 would already exceed the cap against the genesis
+  checkpoint at height 0, so the chain could never produce it;
+- `L < 3`, `L < U + 3` or `E = 0`;
+- `h_first(1) = L + 1` above `type(uint48).max`, the last height `land` accepts;
+- `L1_first(1) = L1_0 + E` above `type(uint48).max`, the last anchor number the `extraData`
+  encodes.
+
+Only the first transition is range-checked. At practical values the `uint48` limits lie millions
+of years ahead, and an epoch whose `L1_first` exceeds them never opens (`epoch_not_open_on_l1`)
+rather than crashing a node. The contract checks only `L >= 3` and `E > 0`. `U = 0` is already
+rejected by `abci-committee-record` before deployment, but the schedule bounds are first checked
+by `abci-genesis` after initialization, so check `L + 1` and the expected `L1_0 + E` before
+deploying.
+
+Pacing is the deployer's obligation, not a validity rule. A block of epoch `e` needs an
+L1-finalized anchor at or after `L1_first(e) = L1_0 + e * E`, so L2 pauses at an epoch boundary
+(`epoch_not_open_on_l1`) whenever it produces `L` blocks faster than L1 produces `E` blocks, and
+resumes once L1 finality catches up. To avoid these pauses, keep `E` L1 slots (12 s each on
+Ethereum) no longer than `L` L2 blocks at the fastest intended block rate; every L2 block
+advances the timestamp by at least one second. Back-pressure paces settlement the same way: L2
+pauses (`back_pressure`) while `U` blocks are unlanded, so choose `U` above the number of blocks
+produced during one landing round trip (proving, `land` inclusion and the landing's L1 finality)
+unless such pauses are intended.
+
 ## Forced inclusion
 
 A user can submit one exact transaction byte string to the Etna Inbox with `saveForcedInclusion(bytes)`.
