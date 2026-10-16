@@ -51,8 +51,8 @@ pub const SETTLEMENT_GAS_PER_MEMBER: u64 = 40_000;
 /// recipient (about 34k more when that account is empty).
 ///
 /// Measured as whole transactions on the pinned contracts with a fresh fee recipient, a freezing
-/// landing costs 250,935 gas with an empty pool and 425,371 with a funded one for a one-member
-/// committee, and 261,792 and 528,894 for four members: about 143k per landing plus 31k per member
+/// landing costs 250,935 gas with an empty pool and 425,667 with a funded one for a one-member
+/// committee, and 261,792 and 529,466 for four members: about 143k per landing plus 31k per member
 /// that an empty-pool estimate misses. On the lander's actual-contract fixture (one member, the
 /// lander paying itself), the empty-pool estimate is 200,568 and the funded landing uses 351,830,
 /// under the 480,682 this signs. The 20% headroom on the estimate adds to this margin.
@@ -579,9 +579,9 @@ mod tests {
             600_000 + SETTLEMENT_GAS_PER_LANDING + 2 * SETTLEMENT_GAS_PER_MEMBER
         );
         // The measured empty-pool estimates cover the funded landings they may meet: 250,935 vs
-        // 425,371 gas for one member and 261,792 vs 528,894 for four.
-        assert!(landing_gas_limit(250_935, 1, 1).unwrap() >= 425_371);
-        assert!(landing_gas_limit(261_792, 1, 4).unwrap() >= 528_894);
+        // 425,667 gas for one member and 261,792 vs 529,466 for four.
+        assert!(landing_gas_limit(250_935, 1, 1).unwrap() >= 425_667);
+        assert!(landing_gas_limit(261_792, 1, 4).unwrap() >= 529_466);
         // An estimate under the cap whose headroom or allowance crosses it is clamped to the cap.
         assert_eq!(landing_gas_limit(14_500_000, 0, 0).unwrap(), MAX_TX_GAS);
         assert_eq!(landing_gas_limit(10_000_000, 1, 400).unwrap(), MAX_TX_GAS);
