@@ -129,15 +129,18 @@ only a new deployment corrects a bad value. `abci`, `abci-genesis` and the lande
 - `d_max <= margin_v` (`U = 0`): block 1 would already exceed the cap against the genesis
   checkpoint at height 0, so the chain could never produce it;
 - `L < 3`, `L < U + 3` or `E = 0`;
+- `L > 429,496` (`MAX_EPOCH_LEN = type(uint32).max / 10_000`), which `EtnaInbox.init` also
+  rejects: a member's proposer scores for a longer epoch could overflow the reward pool's `uint32`
+  total;
 - `h_first(1) = L + 1` above `type(uint48).max`, the last height `land` accepts;
 - `L1_first(1) = L1_0 + E` above `type(uint48).max`, the last anchor number the `extraData`
   encodes.
 
 Only the first transition is range-checked. At practical values the `uint48` limits lie millions
 of years ahead, and an epoch whose `L1_first` exceeds them never opens (`epoch_not_open_on_l1`)
-rather than crashing a node. The contract checks only `L >= 3` and `E > 0`. `U = 0` is already
-rejected by `abci-committee-record` before deployment, but the schedule bounds are first checked
-by `abci-genesis` after initialization, so check `L + 1` and the expected `L1_0 + E` before
+rather than crashing a node. The contract checks only `3 <= L <= 429,496` and `E > 0`. `U = 0` is
+already rejected by `abci-committee-record` before deployment, but the schedule bounds are first
+checked by `abci-genesis` after initialization, so check `L + 1` and the expected `L1_0 + E` before
 deploying.
 
 Pacing is the deployer's obligation, not a validity rule. A block of epoch `e` needs an
