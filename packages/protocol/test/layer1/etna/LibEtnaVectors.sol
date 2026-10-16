@@ -64,7 +64,7 @@ library LibEtnaVectors {
         return bytes32(bytes(_VM.parseJsonString(_json, _key)));
     }
 
-    /// @dev Encodes the `committee_config` inputs as the eleven-word `ETNA_PARENT_ANCHOR_V2`
+    /// @dev Encodes the `committee_config` inputs as the eleven-word `ETNA_PARENT_ANCHOR_V3`
     /// opening, field by field with the Solidity types `IEtnaInbox.land` documents.
     /// @param _json The vectors document.
     /// @return words_ The 352-byte opening.

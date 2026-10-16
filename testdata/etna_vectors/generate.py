@@ -70,9 +70,9 @@ def decimals(value):
 
 
 def committee_config():
-    """The `ETNA_PARENT_ANCHOR_V2` configuration opening: eleven static words (352 bytes)."""
+    """The `ETNA_PARENT_ANCHOR_V3` configuration opening: eleven static words (352 bytes)."""
     inputs = {
-        "tag": "ETNA_PARENT_ANCHOR_V2",
+        "tag": "ETNA_PARENT_ANCHOR_V3",
         "l2_chain_id": 167001,
         "registry": "0x2222222222222222222222222222222222222222",
         "vp_unit": 10**9,
@@ -80,7 +80,7 @@ def committee_config():
         "n_max": 128,
         "heartbeat_window": 32,
         "lookahead_epochs": 2,
-        "encoding_version": 1,
+        "encoding_version": 2,
         "d_max": 12,
         "margin_v": 2,
     }
@@ -105,7 +105,7 @@ def committee_config():
     }
 
 
-def land_statement(config_hash):
+def land_statement(config_hash, base_fee_amount=1234567890123456789):
     """The V8 statement: twenty static words, independently encoded by cast."""
     inputs = {
         "tag": "TAIKO_ETNA_LAND_V8",
@@ -127,7 +127,7 @@ def land_statement(config_hash):
         "forced_inclusion_head_after": 5,
         "fee_recipient": "0x00000000000000000000000000000000000000aa",
         "l2_reward_recipient": "0x00000000000000000000000000000000000000bb",
-        "base_fee_amount": 1234567890123456789,
+        "base_fee_amount": base_fee_amount,
     }
     blob_hashes_hash = keccak(concat(*inputs["blob_hashes"]))
     preimage = abi_encode(
@@ -197,33 +197,53 @@ def reward_receipt(landing):
     }
 
 
-def committee_hashes():
-    """Three committees and their hashes, `keccak256(abi.encode(members))` of the
-    `CommitteeMember[]` argument (leading offset word included): the hash a participation part
-    binds and the reward pool checks a settlement list against. Two members in that order, one
-    member with every field at its maximum, and none.
+def committee_sets(entries):
+    """Recipient-bound V2 leaves/records; set-key order and odd-node promotion are unchanged.
+
+    Empty, singleton, odd-width and five-member cases fix tree behavior independently of the
+    node's encoder. An empty root is represented for rejection tests and is never a valid committee.
     """
-    committees = [
-        [(3, 11, 5 * 10**18), (0, 1, 1)],
-        [(U32_MAX, U64_MAX, WORD_MOD - 1)],
-        [],
-    ]
     cases = []
-    for members in committees:
-        encoding = abi_encode(
-            "f((uint32,uint64,uint256)[])",
-            "[" + ",".join(f"({b},{a},{s})" for b, a, s in members) + "]",
-        )
-        cases.append(
-            {
-                "members": [
-                    {"bond_id": dec(b), "active_from_l1": dec(a), "eff_stake": dec(s)}
-                    for b, a, s in members
-                ],
-                "encoding": encoding,
-                "hash": keccak(encoding),
-            }
-        )
+    chain_id, epoch, cutoff, checkpoint = 167001, 7, 100, 3
+    for count in (0, 1, 3, 5):
+        members = []
+        for bond_id, entry in enumerate(entries[:count]):
+            stake = int(entry["eff_stake"])
+            members.append({
+                "bond_id": dec(bond_id),
+                "pubkey": entry["pubkey"],
+                "eff_stake": dec(stake),
+                "power": dec(stake // 10**9),
+                "reward_recipient": entry["reward_recipient"],
+                "set_key": keccak(abi_encode("f(bytes32,uint256,bytes32)",
+                    tag("ETNA_SET_KEY"), chain_id, entry["pubkey"])),
+            })
+        members.sort(key=lambda member: int(member["set_key"], 16))
+        preimages = [abi_encode("f(bytes32,uint256,uint256,uint256,bytes32,uint256,address)",
+            tag("ETNA_SET_LEAF_V2"), chain_id, epoch, index,
+            member["pubkey"], member["eff_stake"], member["reward_recipient"])
+            for index, member in enumerate(members)]
+        leaves = [keccak(preimage) for preimage in preimages]
+        level = leaves[:]
+        while len(level) > 1:
+            level = [keccak(abi_encode("f(bytes32,uint256,uint256,bytes32,bytes32)",
+                tag("ETNA_SET_NODE"), chain_id, epoch, level[i], level[i + 1]))
+                if i + 1 < len(level) else level[i] for i in range(0, len(level), 2)]
+        root = level[0] if level else word(0)
+        total_stake = sum(int(member["eff_stake"]) for member in members)
+        total_power = sum(int(member["power"]) for member in members)
+        record_preimage = abi_encode(
+            "f(bytes32,uint256,uint64,uint64,uint64,bytes32,uint256,uint64,uint8)",
+            tag("ETNA_COMMITTEE_V2"), chain_id, epoch, cutoff, checkpoint,
+            root, total_stake, total_power, 2)
+        cases.append({
+            "l2_chain_id": dec(chain_id), "target_epoch": dec(epoch),
+            "cutoff_l1_block": dec(cutoff), "checkpoint_index": dec(checkpoint),
+            "encoding_version": "2", "members": members,
+            "set_leaf_preimages": preimages, "set_leaves": leaves, "set_root": root,
+            "total_stake": dec(total_stake), "total_power": dec(total_power),
+            "record_preimage": record_preimage, "record_hash": keccak(record_preimage),
+        })
     return cases
 
 
@@ -327,6 +347,7 @@ def layout():
         "forced_inclusion_queue": 280,
         "forced_inclusion_head_tail": 281,
         "forced_inclusion_config": 282,
+        "reward_receipts": 283,
     }
     return {
         "inbox": {
@@ -387,16 +408,20 @@ def layout():
 def main():
     config = committee_config()
     landing = land_statement(config["hash"])
+    entries = registry_entries()
+    zero = land_statement(config["hash"], base_fee_amount=0)
     vectors = {
-        "schema_version": 1,
+        "schema_version": "2",
         "committee_config": config,
         "land_statement": landing,
         "reward_receipt": reward_receipt(landing),
         "land_selector": cast(
             "sig", "land((uint64,bytes32,bytes32,uint64,uint48,address,address,uint256),bytes)"
         ),
-        "committee_hashes": committee_hashes(),
-        "registry_entries": registry_entries(),
+        "claim_selector": cast("sig", "claim((uint256,uint64,address,uint64,uint64,bytes32,uint64,bytes32,address,uint256),uint256,bytes[],bytes[])"),
+        "zero_fee": {"land_statement": zero, "reward_receipt": reward_receipt(zero)},
+        "committee_sets": committee_sets(entries["entries"]),
+        "registry_entries": entries,
         "layout": layout(),
     }
     OUTPUT.write_text(json.dumps(vectors, indent=2) + "\n")

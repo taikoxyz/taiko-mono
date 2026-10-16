@@ -5,6 +5,8 @@ import { EtnaInboxTestBase } from "./EtnaInboxTestBase.sol";
 import { LibEtnaVectors } from "./LibEtnaVectors.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
+import { L2FeeVault } from "src/layer2/core/L2FeeVault.sol";
+import { LibEtnaRewards } from "src/shared/libs/LibEtnaRewards.sol";
 
 /// @title EtnaVectorsTest
 /// @notice Checks the storage layout of `testdata/etna_vectors/vectors.json`, which the Etna node
@@ -20,6 +22,181 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
     function setUp() public override {
         super.setUp();
         vectors = LibEtnaVectors.load();
+    }
+
+    function test_config_UsesV3AndEncodingTwo() external view {
+        assertEq(
+            LibEtnaVectors.tagAt(vectors, ".committee_config.inputs.tag"),
+            bytes32("ETNA_PARENT_ANCHOR_V3")
+        );
+        assertEq(LibEtnaVectors.uintAt(vectors, ".committee_config.inputs.encoding_version"), 2);
+        assertFalse(vm.keyExistsJson(vectors, ".committee_hashes"));
+        assertTrue(vm.keyExistsJson(vectors, ".committee_sets"));
+        assertTrue(vm.keyExistsJson(vectors, ".zero_fee"));
+        assertTrue(vm.keyExistsJson(vectors, ".claim_selector"));
+    }
+
+    function test_claim_SelectorZeroFeesAndReceiptSlotMatchVectors() external view {
+        assertEq(
+            L2FeeVault.claim.selector, bytes4(LibEtnaVectors.bytesAt(vectors, ".claim_selector"))
+        );
+        assertEq(_inboxSlot("reward_receipts"), 283);
+        LibEtnaRewards.Receipt memory receipt = LibEtnaVectors.rewardReceipt(vectors);
+        bytes32 id = LibEtnaRewards.batchId(receipt);
+        receipt.baseFeeAmount = 0;
+        assertEq(id, LibEtnaVectors.bytes32At(vectors, ".zero_fee.reward_receipt.batch_id"));
+        assertEq(
+            LibEtnaRewards.commitment(receipt),
+            LibEtnaVectors.bytes32At(vectors, ".zero_fee.reward_receipt.commitment")
+        );
+        assertNotEq(
+            LibEtnaRewards.commitment(receipt),
+            LibEtnaVectors.bytes32At(vectors, ".reward_receipt.commitment")
+        );
+        assertEq(
+            LibEtnaRewards.receiptSlot(id),
+            LibEtnaVectors.bytes32At(vectors, ".zero_fee.reward_receipt.slot")
+        );
+        assertEq(
+            LibEtnaVectors.uintAt(vectors, ".zero_fee.land_statement.inputs.base_fee_amount"), 0
+        );
+        bytes memory normal = LibEtnaVectors.bytesAt(vectors, ".land_statement.preimage");
+        bytes memory zero = LibEtnaVectors.bytesAt(vectors, ".zero_fee.land_statement.preimage");
+        assertEq(zero.length, 640);
+        for (uint256 i; i < 608; ++i) {
+            assertEq(zero[i], normal[i]);
+        }
+        for (uint256 i = 608; i < 640; ++i) {
+            assertEq(zero[i], bytes1(0));
+        }
+        assertEq(
+            keccak256(zero), LibEtnaVectors.bytes32At(vectors, ".zero_fee.land_statement.hash")
+        );
+    }
+
+    function test_committeeSets_BindRecipientsAndPromoteOddNodes() external view {
+        assertEq(LibEtnaVectors.lengthAt(vectors, ".committee_sets"), 4);
+        for (uint256 k; k < 4; ++k) {
+            string memory p = string.concat(".committee_sets[", vm.toString(k), "].");
+            assertEq(LibEtnaVectors.uintAt(vectors, string.concat(p, "l2_chain_id")), 167_001);
+            assertEq(LibEtnaVectors.uintAt(vectors, string.concat(p, "target_epoch")), 7);
+            assertEq(LibEtnaVectors.uintAt(vectors, string.concat(p, "cutoff_l1_block")), 100);
+            assertEq(LibEtnaVectors.uintAt(vectors, string.concat(p, "checkpoint_index")), 3);
+            assertEq(LibEtnaVectors.uintAt(vectors, string.concat(p, "encoding_version")), 2);
+            uint256 count = LibEtnaVectors.lengthAt(vectors, string.concat(p, "members"));
+            bytes32[] memory level = new bytes32[](count);
+            uint256 stake;
+            uint256 power;
+            for (uint256 i; i < count; ++i) {
+                level[i] = _memberVector(p, i);
+                string memory member = string.concat(p, "members[", vm.toString(i), "].");
+                stake += LibEtnaVectors.uintAt(vectors, string.concat(member, "eff_stake"));
+                power += LibEtnaVectors.uintAt(vectors, string.concat(member, "power"));
+            }
+            uint256 width = count;
+            while (width > 1) {
+                for (uint256 i; i < width; i += 2) {
+                    level[i / 2] = i + 1 == width
+                        ? level[i]
+                        : keccak256(
+                            abi.encode(
+                                bytes32("ETNA_SET_NODE"),
+                                uint256(167_001),
+                                uint256(7),
+                                level[i],
+                                level[i + 1]
+                            )
+                        );
+                }
+                width = (width + 1) / 2;
+            }
+            bytes32 root = count == 0 ? bytes32(0) : level[0];
+            assertEq(root, LibEtnaVectors.bytes32At(vectors, string.concat(p, "set_root")));
+            assertEq(stake, LibEtnaVectors.uintAt(vectors, string.concat(p, "total_stake")));
+            assertEq(power, LibEtnaVectors.uintAt(vectors, string.concat(p, "total_power")));
+            bytes memory record = abi.encode(
+                bytes32("ETNA_COMMITTEE_V2"),
+                uint256(167_001),
+                uint64(7),
+                uint64(100),
+                uint64(3),
+                root,
+                stake,
+                uint64(power),
+                uint8(2)
+            );
+            assertEq(record, LibEtnaVectors.bytesAt(vectors, string.concat(p, "record_preimage")));
+            assertEq(
+                keccak256(record),
+                LibEtnaVectors.bytes32At(vectors, string.concat(p, "record_hash"))
+            );
+        }
+    }
+
+    function _memberVector(
+        string memory _prefix,
+        uint256 _index
+    )
+        private
+        view
+        returns (bytes32 leaf_)
+    {
+        string memory m = string.concat(_prefix, "members[", vm.toString(_index), "].");
+        IEtnaStakingRegistry.Entry memory entry = LibEtnaVectors.registryEntry(
+            vectors, LibEtnaVectors.uintAt(vectors, string.concat(m, "bond_id"))
+        );
+        assertEq(entry.pubkey, LibEtnaVectors.bytes32At(vectors, string.concat(m, "pubkey")));
+        assertEq(entry.effStake, LibEtnaVectors.uintAt(vectors, string.concat(m, "eff_stake")));
+        assertEq(
+            entry.rewardRecipient,
+            LibEtnaVectors.addressAt(vectors, string.concat(m, "reward_recipient"))
+        );
+        {
+            bytes32 key =
+                keccak256(abi.encode(bytes32("ETNA_SET_KEY"), uint256(167_001), entry.pubkey));
+            assertEq(key, LibEtnaVectors.bytes32At(vectors, string.concat(m, "set_key")));
+            if (_index != 0) {
+                string memory previous =
+                    string.concat(_prefix, "members[", vm.toString(_index - 1), "].set_key");
+                assertGt(uint256(key), uint256(LibEtnaVectors.bytes32At(vectors, previous)));
+            }
+        }
+        bytes memory leaf = _setLeafWords(_index, entry);
+        assertEq(
+            leaf,
+            LibEtnaVectors.bytesAt(
+                vectors, string.concat(_prefix, "set_leaf_preimages[", vm.toString(_index), "]")
+            )
+        );
+        leaf_ = keccak256(leaf);
+        assertEq(
+            leaf_,
+            LibEtnaVectors.bytes32At(
+                vectors, string.concat(_prefix, "set_leaves[", vm.toString(_index), "]")
+            )
+        );
+        entry.rewardRecipient = address(uint160(entry.rewardRecipient) ^ 1);
+        assertNotEq(leaf_, keccak256(_setLeafWords(_index, entry)));
+        assertEq(LibEtnaVectors.uintAt(vectors, string.concat(m, "power")), entry.effStake / 1e9);
+    }
+
+    function _setLeafWords(
+        uint256 _index,
+        IEtnaStakingRegistry.Entry memory _entry
+    )
+        private
+        pure
+        returns (bytes memory)
+    {
+        return abi.encode(
+            bytes32("ETNA_SET_LEAF_V2"),
+            uint256(167_001),
+            uint256(7),
+            _index,
+            _entry.pubkey,
+            _entry.effStake,
+            _entry.rewardRecipient
+        );
     }
 
     // ---------------------------------------------------------------
