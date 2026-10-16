@@ -442,7 +442,7 @@ each job's participation and settlement lists, and refuses a job whose participa
 the shape `land` requires or whose settlement lists do not hash to its completed epochs' committees.
 
 A freezing landing pays for the settlement. For a 128-member committee the pool frame needs up to
-about 4.98M gas when one landing writes every member's count and score and credits every owner for
+about 5.01M gas when one landing writes every member's count and score and credits every owner for
 the first time, and about 1.3M (a whole transaction) for a later epoch whose owners already hold
 credits, plus about 20 KB of committee and participation calldata. The gas estimate alone cannot be
 trusted to cover it: the pool skips its crediting loop when the frozen epoch's allocation is zero,
@@ -450,7 +450,7 @@ so an estimate taken while the pool is empty (before the first sweep arrives, or
 when the two shares sum to 100%) leaves out the crediting and the epoch's first record, reservation
 and ledger writes, and any sweep or donation before inclusion runs the landing out of gas. Measured
 as whole transactions on the pinned contracts, a freezing landing costs 250,935 gas with an empty
-pool and 424,855 with a funded one for one member, and 261,792 and 527,835 for four: about 143k
+pool and 425,371 with a funded one for one member, and 261,792 and 528,894 for four: about 143k
 per landing and 31k per member. The lander therefore adds 200,000 gas once and 40,000 per settled
 member on top of the estimate and its 20% margin. Should a landing still run out of gas with the
 checkpoint unchanged, the lander resets to idle and rebuilds and re-estimates the job instead of
@@ -462,10 +462,10 @@ out of gas. Choose the fee caps and fund the sending account so that such a land
 affordable.
 The landing must also fit in one L1 transaction, which Osaka caps at 16,777,216 gas (EIP-7825),
 and the lander caps its gas limit there. Measured as a whole transaction, the worst-case freezing
-landing needs 5,473,469 gas at 128 members, 14,791,922 at 360 and 16,396,887 at 400, about 40.1k
-gas and 160 bytes of calldata more per member, and above about 409 members it cannot be included
+landing needs 5,499,792 gas at 128 members, 14,865,689 at 360 and 16,478,834 at 400, about 40.3k
+gas and 160 bytes of calldata more per member, and above about 407 members it cannot be included
 at all, so landing would halt, back-pressure then halt L2, and only a pool upgrade recover. The
-client therefore rejects an `n_max` above 360 (`MAX_N_MAX`), which keeps about 1.99M (12%) of
+client therefore rejects an `n_max` above 360 (`MAX_N_MAX`), which keeps about 1.91M (11%) of
 headroom (see Configuration checks in the protocol package's Etna README).
 
 Proof requests retain the Inbox schedule/config/checkpoint proof under the batch parent's anchor,
