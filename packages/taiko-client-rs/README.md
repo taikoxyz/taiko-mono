@@ -49,17 +49,17 @@ Every validator and every full node runs three processes:
 
 ## Project structure
 
-| Path                   | Description                                                                           |
-| ---------------------- | ------------------------------------------------------------------------------------- |
-| `bin/client/`          | The `taiko-client` binary (`abci`, `abci-genesis`, `abci-committee-record`, `lander`) |
-| `crates/lander/`       | Permissionless batch/blob construction, proof trait and durable L1 submission         |
-| `crates/abci/`         | The ABCI++ application of the Etna PoS chain                                          |
-| `crates/protocol/`     | Shared helpers; `shasta` and `FixedKSigner` serve raiko2                              |
-| `crates/rpc/`          | Engine API and JWT helpers                                                            |
-| `crates/bindings/`     | Generated Anchor contract bindings, kept for protocol's anchor builder (raiko2)       |
-| `crates/test-harness/` | Docker devnet (anvil, alethia-reth, CometBFT) and calldata admission fixtures         |
-| `script/`              | Maintenance scripts (binding generation)                                              |
-| `tests/`               | The integration test entrypoint and the test JWT secret                               |
+| Path                   | Description                                                                                           |
+| ---------------------- | ----------------------------------------------------------------------------------------------------- |
+| `bin/client/`          | The `taiko-client` binary (`abci`, `abci-genesis`, `abci-committee-record`, `lander`, `lander-claim`) |
+| `crates/lander/`       | Permissionless batch/blob construction, proof trait and durable L1 submission                         |
+| `crates/abci/`         | The ABCI++ application of the Etna PoS chain                                                          |
+| `crates/protocol/`     | Shared helpers; `shasta` and `FixedKSigner` serve raiko2                                              |
+| `crates/rpc/`          | Engine API and JWT helpers                                                                            |
+| `crates/bindings/`     | Generated Anchor contract bindings, kept for protocol's anchor builder (raiko2)                       |
+| `crates/test-harness/` | Docker devnet (anvil, alethia-reth, CometBFT) and calldata admission fixtures                         |
+| `script/`              | Maintenance scripts (binding generation)                                                              |
+| `tests/`               | The integration test entrypoint and the test JWT secret                                               |
 
 ## Committees from the committed parent anchor
 
@@ -90,23 +90,14 @@ committed anchor and activates at height 11. If height 8 anchored L1 block 1010,
 1030 proposed at height 9 cannot change that selection. A different decided history whose
 height 8 anchored 1020 may select a different committee; all nodes replaying one history agree.
 
-The config hash binds eleven ABI words: `ETNA_PARENT_ANCHOR_V2`, L2 chain id, registry,
-`vp_unit`, `s_min`, `n_max`, `heartbeat_window`, heartbeat lookahead 2, membership algorithm 1,
-`d_max` and `margin_v`. The opening is exactly 352 bytes. V1 config commitments require an
-explicit coordinated consensus upgrade; the client provides no automatic opening fallback or
-state/journal rewriting.
-The envelope is version 5, the landing payload V4, the statement V7 and the lander journal
-schema 9 (original Comet protobuf witnesses and commits, plus each job's validator participation
-and settlement committees). ABCI advertises `APP_VERSION = 2`;
-persisted `app_version` is mandatory and must equal 2. Version 1 state is incompatible with the
-optional-preimage FI rule. An app-v1 chain requires an explicit consensus upgrade; editing the
-state-file version or automatically rewriting it is unsupported. State files also require
-`genesis.committee_config_hash`, `forced_cursor`, `genesis.forced_inclusion_delay`,
-`genesis.max_anchor_age`, the anchor's queue head/tail and the authenticated Inbox binding.
-Local parameters must open the config hash correctly. Earlier envelope/payload prefixes,
-schema-8 and older journals, and missing or incompatible app versions are rejected. No migration
-is provided. Never edit signed journal bytes, delete an outstanding signed nonce, or discard
-CometBFT history to force startup. The committee record encoding remains version 1.
+The config hash binds eleven ABI words under `ETNA_PARENT_ANCHOR_V3`: L2 chain id,
+registry, `vp_unit`, `s_min`, `n_max`, `heartbeat_window`, heartbeat lookahead 2,
+membership algorithm 1, `d_max` and `margin_v`. The opening is exactly 352 bytes.
+The coordinated format is envelope v6, payload v5, V8 statement (20 words / 640 bytes),
+journal schema 10, committee encoding version 2 and `APP_VERSION = 3`. State files must
+carry that exact app version and all authenticated genesis, anchor and FI fields. Old formats
+are explicitly rejected; no migration or signed-journal rewrite is provided. Never delete an
+outstanding signed nonce or CometBFT history to force startup.
 
 Settlement back-pressure remains `height - anchoredCheckpointHeight <= d_max - margin_v`;
 generation behavior is unchanged. Thus committee authorization does not wait for `land`, while
@@ -119,6 +110,27 @@ anchor choices can affect membership, so guaranteed advance notice is shorter. O
 parent snapshot is committed, later L1 registry changes cannot repair that switch. Stake
 retention, withdrawal timing and restart trust assumptions remain; this change does not add
 a recovery-generation bootstrap or an implicit replacement set.
+
+## New-genesis deployment order
+
+Deploy the registry and register nonzero immutable L2 recipients first. Predict the Inbox proxy
+CREATE address, export a constructor-resolved `L2FeeVault` runtime bound to that Inbox/L1 chain,
+and install it at the canonical treasury with zero balance, alongside the explicit EIP-4788 roots
+and EIP-2935 history runtimes. Set `BasefeeSharingPctg = 0`. Preserve all non-alloc canonical
+devnet genesis fields. Start the custom-genesis EL and verify its actual block-0 hash/state root
+before initializing Inbox with those commitments. Keep the deployment wallet's nonce unchanged
+between address prediction and deployment. Only after L1 initialization finality should
+`abci-genesis` construct the CometBFT genesis. See the complete
+[protocol deployment instructions](../protocol/contracts/layer1/etna/README.md#genesis-initialization).
+
+The required [EL dependency](https://github.com/taikoxyz/alethia-reth/pull/251) is revision
+`5d4d21ac472c024703082ba46c6eacfa3b8ec1bf`, image `us-docker.pkg.dev/evmchain/images/alethia-reth:sha-5d4d21a`,
+verified manifest digest `sha256:85d23ce00bfe9e917bd3c327256d2c11cc05085a83c7afa33af8f11f50c8d495`.
+It rebuilds the chainspec for an alloc-only canonical devnet override before computing block 0.
+The genesis input/source hashes are indexed in `crates/test-harness/contracts/genesis.manifest.json`;
+real runtime acceptance verifies immutable vault configuration, roots/history and fee movement.
+The protocol dependency is [PR #22286](https://github.com/taikoxyz/taiko-mono/pull/22286); its exact
+immutable revision appears in the artifact index below. This is new-genesis-only deployment.
 
 ## Genesis schedule bounds and pacing
 
@@ -295,12 +307,12 @@ inclusion event unavailable, superseded generation) keep the process running and
 rounding; the ABCI query `/status` reports the head, epoch, generation and halt reason.
 
 `PrepareProposal` and `ProcessProposal` also refuse a block that could not land on its own: one
-whose envelope, zlib-compressed as payload V4 compresses it, plus a 1,024-byte header allowance
+whose envelope, zlib-compressed as payload V5 compresses it, plus a 1,024-byte header allowance
 exceeds 776,168 bytes (six landing blobs less 4 KiB of payload framing). This landing capacity
 guard keeps every decided block landable; it is a liveness guard, not a validity rule, so
 `FinalizeBlock` does not re-check it. The allowance covers the published header prefix (at most
 768 bytes) and the framing of the lander's single-block fallback, which compresses the envelope
-exactly as the guard does (see payload V4 below).
+exactly as the guard does (see payload V5 below).
 
 ### `lander`
 
@@ -313,11 +325,12 @@ The first version implements `ProofProvider` with `DummyProofProvider`, which
 always returns the single byte `0x00`. The deployed verifier must accept this
 value for landing to succeed. A real Etna validity-proof guest/provider remains
 separate work; the current contract tests establish the submission and binding
-path, and the reward pool's settlement, rather than EVM validity-proof soundness.
+path, receipt proofs and L2 payouts; they do not establish EVM validity-proof soundness.
 
 Required inputs are `--l1.http`, `--l2.http`, `--l2.auth`, `--jwt.secret`, `--comet.http`, a
 `--signing-key` file containing a hex key, an exclusive `--data-dir`,
-`--max-blocks`, `--max-blobs`, all three fee caps, and `--sidecar`.
+`--max-blocks`, `--max-blobs`, all three fee caps, `--sidecar`, and a nonzero
+`--l2-reward-recipient`.
 The authenticated Engine API is required for historical singleton skip checks. Startup exchanges
 Engine capabilities before opening the journal or running the lander, so JWT/endpoint failures are
 reported before any skip is encountered. Transport failures (including HTTP authentication errors)
@@ -328,11 +341,10 @@ Fee caps are positive wei per gas:
 `--max-fee-per-blob-gas`; the priority cap cannot exceed the execution cap.
 Signed transactions add a checked 20% gas-limit margin to the RPC estimate,
 covering a pending reference that moves from BLOCKHASH into the EIP-2935 lookup
-branch before inclusion, plus, for a landing that settles an epoch, 200,000 gas once and 40,000 per
-committee member it settles (see the freezing landing below), and never exceed EIP-7825's
-16,777,216. When the node returns an estimate above that cap, the lander stops before signing; an
-Osaka node may instead fail the estimate itself, which the lander retries as a temporary error.
-`n_max <= 300` keeps every landing below the cap (see the freezing landing below). Set the
+branch before inclusion, and never exceed EIP-7825's 16,777,216 limit. No reward settlement
+margin or per-member settlement calldata exists. An estimate above the cap stops signing;
+an Osaka node may instead reject estimation, which remains a retryable error. `n_max` may be
+up to 4096; 301-member authentication has regression coverage. Set the
 limits to match the deployed Inbox and L1 fork. Choose the budgets
 explicitly before running this example:
 
@@ -341,6 +353,7 @@ taiko-client lander --l1.http http://l1-node:8545 \
   --l2.http http://localhost:8545 --l2.auth http://localhost:8551 --jwt.secret ./jwt.hex \
   --comet.http http://localhost:26657 \
   --signing-key ./lander.key --data-dir ./lander-data \
+  --l2-reward-recipient "$L2_REWARD_RECIPIENT" \
   --max-blocks 10 --max-blobs 6 --sidecar eip7594 \
   --max-fee-per-gas "$LANDER_MAX_FEE_PER_GAS" \
   --max-priority-fee-per-gas "$LANDER_MAX_PRIORITY_FEE_PER_GAS" \
@@ -362,22 +375,12 @@ between 1 and `--max-blocks`. Blob/message limits can make a prefix smaller
 than the minimum; its deadline still permits submission. The defaults retain
 immediate submission whenever a complete block is available.
 
-A prefix also ends, at the latest, at the block that carries the last commit of its first
-commit's epoch: `h_first(e + 1)` for a batch `(p, L]` whose first commit height `max(p, 1)` lies
-in epoch `e`. A landing that freezes an epoch therefore carries exactly that epoch's
-participation part, never the next epoch's first commits, whose committee hash, counts and
-proposer scores it would otherwise write for the first time on top of the settlement (see the
-freezing landing below). The cut never empties a batch: `h_first(e + 1) >= p + 1`.
-
-Three conditions bypass both thresholds: only one producible height remains before
-the unsettled cap `U = d_max - margin_v`, an unlanded switch witness is available, or the
-prefix reaches its epoch's last commit, past which it cannot grow.
-Pressure uses the
-checkpoint authenticated by the decided tip's L1 anchor, so a more recent L1
-checkpoint cannot hide pressure while the node has not adopted it. Switch urgency
-covers the unlanded history, allowing several capacity-limited prefixes to publish
-the witness. This flush is useful for settlement and does not authorize committee
-activation. These overrides submit complete blocks and retain all batch validation.
+Batches may cross epoch boundaries; rewards impose no freezing cutoff. Two conditions bypass
+both thresholds: only one producible height remains before the unsettled cap
+`U = d_max - margin_v`, or an unlanded committee switch witness is available. Pressure uses the
+checkpoint authenticated by the decided tip's L1 anchor, so a newer L1 checkpoint cannot hide
+pressure before adoption. Switch urgency flushes unlanded history without authorizing committee
+activation. Every prefix retains full committee, certificate, execution and FI validation.
 
 The waiting timer is keyed by checkpoint height, hash and generation and is
 persisted in the journal. More blocks arriving, temporary RPC failures, and
@@ -386,13 +389,10 @@ backlog resets it. Waiting never requests a proof or signs a transaction.
 
 The batch's L1 reference is separate from each L2 block's anchor. The reference
 authenticates an ancestor header chain covering those anchors; it never changes
-the anchor number or state root committed in an L2 header. V7 binds the Inbox
-proxy, registry, both chain ids, generation, current checkpoint, authenticated committee config
-hash, terminal block/root, blob hashes, the forced inclusion queue head before (stored) and
-after the batch, the fee recipient and, as its nineteenth word, the batch's validator
-participation (`keccak256(abi.encode(EpochParticipation[]))`). Each committee is independently
-derived from its committed derivation parent's L1 snapshot; no per-epoch committee output or
-starting-set hint is authoritative.
+the anchor number or state root committed in an L2 header. V8 binds the Inbox, registry, both
+chain ids, generation, checkpoint, committee configuration, terminal block/root, blobs, FI cursor
+before/after, L1 fee recipient, L2 reward recipient and exact batch basefee amount. Committees are
+independently derived from authenticated historical snapshots; starting-set hints are not authority.
 
 Every block is held to the shared ABCI calldata classifier and asynchronous skip checker. Its
 witness authenticates the cursor's entry under that block's anchor. Inclusion must match the exact
@@ -403,96 +403,27 @@ in `LandInput` is the cursor after the batch's last block.
 `LandInput.feeRecipient` is the lander's sending address: `land` pays consumed fees to it and emits
 `ForcedInclusionsConsumed`. The statement binding prevents copied landing transactions from
 redirecting fees. The Inbox rejects a zero recipient (`ZeroFeeRecipient`); the lander treats that
-revert as a configuration error. Envelope v5 carries at most 8192 FI transaction bytes, which the
-lander republishes in payload V4 alongside the exact signed consensus data.
+revert as a configuration error. Envelope v6 carries at most 8192 FI transaction bytes, which the
+lander republishes in payload V5 alongside the exact signed consensus data.
 
-Each landing also reports validator participation to the Inbox's `EtnaRewardPool`. Height `h`'s
-canonical commit is block `h + 1`'s `last_commit`: that block's header binds it, so no lander can
-choose its signatures. A batch `(p, L]` therefore carries the commits of heights `max(p, 1)` to
-`L - 1`, and height `L`'s commit rides in the next batch, so every height counts once. A height's
-`/commit` (CometBFT's seen commit, which may hold other signatures) is verified but never counted.
-The proposer of block `h + 1` chooses which precommits beyond the 2/3 threshold enter its
-`last_commit`. Omitting one is not attributable. The pool divides each member's base weight
-(stake times signed heights) by the committee's full weight, its stake times the epoch length, so
-omitting a member raises no one's base part in the epoch it freezes, and a Cosmos-style proposer
-bonus makes omission cost the proposer: block `h + 1` scores
-`floor(10_000 * includedEffStake / totalEffStake)`, the share of the committee's effective stake
-its `last_commit` carries, for its proposer, and the pool pays `proposerBonusPpm` (30% on
-devnets) of each validator share by score out of the epoch's possible `10_000 * epochLenL2`. The
-base of unsigned heights and the bonus no proposer earned stay in the pool, so online members no
-longer absorb an offline member's share in its epoch; later freezes allocate it again, and an
-omitter with share `a` of their credits recaptures about `a * v / (v + p)` of it, with `v` and `p`
-the validator and proving allocation shares. Omission therefore stays unprofitable in the long
-run only while the bonus share exceeds that rate: under 20% for a single omitter below 1/3 at the
-devnets' 60/40 split, so their 30% bonus keeps it unprofitable, while a 100% validator share
-would need a bonus above 1/3, and a side-paying coalition with more than half of the credits
-still profits at 60/40 and 30%. For example, with A at 33.3%, B at 33.4%, C at 23.3% and D (10%)
-offline over 1000 heights, A leaving C's precommit out of its 370 blocks lowers A's credit in
-that epoch from 33.30% to 30.71% of the validator share and C's from 23.30% to 17.27%, and leaves
-B's at 33.40%. Including A's recapture over later epochs, it changes A's reward by -2.13% with a
-30% bonus, +0.31% with 20%, +2.74% with 10% and +5.17% without a bonus at 60/40, and by +1.63% at
-30% with a 100% validator share. Dividing by the signed weight instead, the same omission would
-have raised A's credit within the epoch from 35.89% to 36.05% despite the bonus. A coalition above
-1/3 can still withhold its votes from other proposals, the same way it can suppress BFT time, so
-that only its own proposals are decided, and exclude a victim entirely: with A at 34%, B at 33%
-and C at 33%, C earns nothing. In that epoch excluding C costs A (its blocks score 6,700 instead
-of 10,000), but as the only proposer A recaptures 32.3% of C's forfeited share at 60/40, so the
-exclusion gains A about 1.4% in the long run, and deciding only its own proposals lifts A's bonus
-in any case. Having the guest count extra valid precommits would close the exclusion.
-For each epoch those heights touch, in ascending order, an `EpochParticipation` names the epoch,
-the hash of its committee as `CommitteeMember { bondId, activeFromL1, effStake }` in set-key order
-(members ascending by `keccak256(abi.encode(bytes32("ETNA_SET_KEY"), l2ChainId, pubkey))`, read
-from the committee's authenticated registry witness), per member the number of those heights whose
-commit holds the member's verified `BlockIdFlagCommit` precommit (nil and absent votes do not
-count), and per member its proposer scores: each carrying block's score goes to the
-member whose CometBFT address, derived from its key, is the block's certified `proposer_address`.
-A carrying block proposed outside the epoch's committee, which only an epoch's first block can be,
-scores for nobody. Each part's scores sum to at most 10,000 per height, as `land` requires. The
-landing whose commits reach an epoch's last height (`L - 1 >= (e + 1) * epochLenL2`) freezes that
-epoch: it passes the epoch's committee list in `settlements`, which the pool checks against the
-committee hash the epoch's reports stored, so the lists stay out of the statement. The pool credits
-the validator share of its free balance to the members' registration owners, the base part by stake
-times signed heights out of the committee's full weight and the bonus part by proposer score out
-of the epoch's possible score (the rest stays in the pool), and sends the proving share to the
-Inbox's prover reward ledger. Every landing then pays
-`min(landingRewardPerBlock * (L - p), ledger)` to `feeRecipient` with the consumed FI fees and emits
-`LandingRewardPaid`; an empty ledger pays nothing and the landing still succeeds. The journal keeps
-each job's participation and settlement lists, and refuses a job whose participation does not have
-the shape `land` requires or whose settlement lists do not hash to its completed epochs' committees.
+Priority fees go to the block proposer's immutable registered L2 reward address. Both proposal
+preparation and validation bind the beneficiary to the actual proposed Comet round/epoch member;
+registration ownership and L1 fee collection are separate identities. Registration requires a
+nonzero recipient, which cannot be changed during that registration.
 
-A freezing landing pays for the settlement. For a 128-member committee the pool frame needs up to
-about 5.02M gas when one landing writes every member's count and score and credits every owner for
-the first time, and about 1.3M (a whole transaction) for a later epoch whose owners already hold
-credits, plus about 20 KB of committee and participation calldata. The gas estimate alone cannot be
-trusted to cover it: the pool skips its crediting loop when the frozen epoch's allocation is zero,
-so an estimate taken while the pool is empty (before the first sweep arrives, or after every freeze
-when the two shares sum to 100%) leaves out the crediting and the epoch's first record, reservation
-and ledger writes, and any sweep or donation before inclusion runs the landing out of gas. Measured
-as whole transactions on the pinned contracts, a freezing landing costs 250,935 gas with an empty
-pool and 425,667 with a funded one for one member, and 261,792 and 529,466 for four: about 143k
-per landing and 31k per member. The lander therefore adds 200,000 gas once and 40,000 per settled
-member on top of the estimate and its 20% margin. Should a landing still run out of gas with the
-checkpoint unchanged, the lander resets to idle and rebuilds and re-estimates the job instead of
-stopping, once: a second out-of-gas landing in a row on the same checkpoint stops it, like any
-other canonical revert. The settlement runs in the pool behind two proxies, and each calling frame
-keeps 1/64 of its gas, which a top-level revert refunds, so an out-of-gas there reports less gas
-used than the limit: the lander counts a failed landing that used at least 15/16 of its limit as
-out of gas. Choose the fee caps and fund the sending account so that such a landing stays
-affordable.
-The landing must also fit in one L1 transaction, which Osaka caps at 16,777,216 gas (EIP-7825),
-and the lander caps its gas limit there. Measured as whole transactions on the pinned contracts
-(the protocol package's `EtnaInboxSettlementGas.t.sol`), a one-part freezing landing that writes
-its whole epoch for the first time needs 5,510,080 gas at 128 members, 12,487,285 at 300 and
-16,515,694 at 400, about 40.3k gas and 160 bytes of calldata more per member. A batch that also
-carried the next epoch's first commits would write that epoch's committee hash, counts and
-scores for the first time as well: such a two-part freezing landing, with every count and score
-word a first write, needs 14,963,393 gas at 300 members and 17,844,824 at 360, about 48k per
-member, and stops fitting at about 337. Above that
-it could not be included at all, so landing would halt, back-pressure then halt L2, and only a
-pool upgrade recover. The lander no longer builds two-part freezing landings, but the client
-rejects an `n_max` above 300 (`MAX_N_MAX`) so that even one keeps 1.81M (10.8%) of headroom for
-a real verifier and consumed forced inclusions (see Configuration checks in the protocol
-package's Etna README).
+Base fees go to the immutable L2 treasury. A landing records a ten-field receipt commitment for
+`sum(baseFeePerGas * gasUsed)` over exactly `(parentHeight, lastHeight]`, with explicit
+`--l2-reward-recipient`. Anyone can pay gas to claim it once using a real account/storage proof
+under a finalized L1 root relayed into the executed L2 EIP-4788 contract. Vault balances cannot
+define fee earnings: payouts and forced ETH credits are independent of header fee sums.
+
+`feeRecipient` continues to receive consumed queue fees on L1, while `l2RewardRecipient` receives
+base fees on L2. There are no participation arrays, settlement calldata, L1 reward pool, DAO
+subsidies, pre-funding or sweep. The lander needs its own L1 gas/blob working capital; earned
+base fees do not guarantee coverage of proving or landing costs. No proving-performance
+reduction has been measured. Use the explicit `lander-claim` command below; there is no automatic
+bridge withdrawal. A canonical out-of-gas landing may still be rebuilt once with ordinary
+estimation, preserving nonce recovery and the EIP-7825 cap.
 
 Proof requests retain the Inbox schedule/config/checkpoint proof under the batch parent's anchor,
 along with each committee's registry witness and proving header in the reference ancestry.
@@ -508,7 +439,7 @@ required derivation parent is at most `epochLenL2 + 2` links behind the checkpoi
 The latest Inbox snapshot used to collect a coherent checkpoint is a separate operational
 input; it cannot replace a proof under an older reference chain.
 
-Blob payload V4 is `0x04 || zlib(rlp([[comet_header_proto, envelope], ...]))`: an RLP list of
+Blob payload V5 is `0x05 || zlib(rlp([[comet_header_proto, envelope], ...]))`: an RLP list of
 the canonical `tendermint-proto` v0_38 header and the exact envelope bytes of each block's single
 transaction, compressed as one zlib stream with the same codec as the ABCI landing capacity
 guard. Each header hashes to the block id its committee signed, its `data_hash` commits
@@ -532,7 +463,6 @@ first block is always sized). A prefix past either budget waits for a later batc
 commits, evidence and signatures are not published: the proof provider receives the complete
 blocks and commits in `PreparedBatch.blocks`, and a guest must verify their signatures against the
 published header hashes using CometBFT's ZIP215 Ed25519 rules, including valid torsion components.
-The same last commits are the witnesses of the batch's validator participation.
 Existing `BlobCoder` handles multi-blob field encoding of the compressed
 payload.
 `eip4844` and `eip7594` select different sidecar wrappers/proofs for the same payload and
@@ -853,77 +783,11 @@ immediate execution prefix and budget, verify state witnesses, independently rec
 rejection or overflow, and bind cursor advancement/output. A candidate beyond an earlier cutoff
 or under another parent context needs a suitable collection path.
 
-A guest must also prove the V7 participation. For each epoch the commit range `[max(p, 1), L - 1]`
-touches, in ascending order, it outputs that epoch committee's `CommitteeMember` list in set-key
-order, with every field from the authenticated registry entries of the committee derivation it
-already owes. `signedCounts[i]` is the number of heights `h` in the range and the epoch whose block
-`h + 1` carries a `last_commit` with member `i`'s verified `BlockIdFlagCommit` signature; a seen
-`/commit` never counts. `proposerScores[i]` sums, over the same heights, the scores
-`floor(10_000 * includedEffStake / totalEffStake)` of the blocks `h + 1` whose certified header's
-`proposer_address` is member `i`'s CometBFT address (the first 20 bytes of SHA-256 of its Ed25519
-key), where `includedEffStake` sums the effective stake of the members counted for `h`; a block
-proposed outside the epoch's committee scores for nobody. The guest binds
-`participationHash = keccak256(abi.encode(EpochParticipation[]))` as the statement's nineteenth
-word. Until then the dummy verifier proves none of this: anyone can land forged counts or scores, or
-fix a forged committee hash for an epoch, after which every landing that reports that epoch reverts
-with `CommitteeMismatch`. Rewards are only fit for a temporary devnet.
-
-## Development
-
-```sh
-just fmt        # pinned nightly rustfmt + cargo sort (never call cargo fmt directly)
-just fmt-check
-just clippy     # doc lints on library code, then every target with -D warnings
-```
-
-### Tests
-
-- `just unit` runs the unit tests (everything outside `tests/` directories) and the abci
-  doctests. No docker needed.
-- `just test` runs the serial Docker integration scenarios in `crates/abci/tests`,
-  `crates/lander/tests`, `crates/test-harness/tests` and `bin/client/tests`. ABCI scenarios cover single validator,
-  anchor finality, restart and lost-state replay, epoch switch with and without landing, back-pressure, generation
-  bump, smoke, calldata inclusion, invalid-byte skips, canonical skips, and unavailable-history
-  retry/recovery, plus an L1 finality stall that pauses and resumes L2. The history test emulates
-  the source-backed unavailable-build RPC shape through a delegating Engine adapter; it does not
-  actually prune Reth state. Lander scenarios cover actual Inbox blob
-  transactions, a cross-epoch landing that freezes an epoch in the reward pool, credits its
-  validator's registration owner and pays the landing reward, a forced inclusion landing that
-  pays its fee, permissionless races,
-  verifier rejection, receipt reorgs, durable nonce recovery, stock CometBFT collection,
-  and actual-CLI SIGTERM/SIGKILL restarts, minimum/timeout batching, and pressure/epoch flushes. Each scenario boots its own devnet through the docker CLI (anvil as L1,
-  alethia-reth, CometBFT), so they run one at a time; the suite takes about ten minutes. Extra
-  arguments go to `cargo nextest run`, e.g. `just test restart` runs one scenario.
-  `tests/entrypoint.sh` pulls the images first; override them with `ANVIL_IMAGE`,
-  `ALETHIA_RETH_IMAGE`, `COMETBFT_IMAGE` and `LANDER_ANVIL_IMAGE`, or set
-  `PULL_POLICY=missing` to reuse local images. Existing ABCI tests retain Anvil v1.5.1;
-  actual-contract lander tests use v1.8.5, which fixes canonical zero-storage proofs
-  and supports EIP-7594 wrappers. `just unit` also verifies the pinned contract artifact hashes.
-  Harness RPC ports bind to host loopback. SIGINT/SIGTERM remove resources owned by the interrupted
-  test process; the entrypoint and CI use the shared `taiko-client-rs.test-run` Docker label to
-  remove any leftovers from that run, including lander fixtures. Set `TAIKO_CLIENT_RS_TEST_RUN`
-  to a unique identifier when supervising a direct cargo/nextest run and retaining an external
-  cleanup fallback for SIGKILL.
-
-Regenerate lander ABI/deployment fixtures with
-`script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `5787d217f508a115a171f5dafb93a8fb8950c10f` (also the
-`PROTOCOL_REVISION` in `crates/lander/src/contracts.rs`),
-installs pnpm dependencies before Foundry, builds the Inbox, registry, `EtnaRewardPool` and
-SignalService with their test fixtures, verifies compiler source hashes,
-formats generated JSON, and records ABI/bytecode/compiler provenance. It also copies the Etna
-vectors shared with the contracts (`testdata/etna_vectors`, which the `abci` and `lander` unit
-tests read) from that revision and records their hashes. It leaves
-the existing Anchor bindings unchanged. Run it twice and require identical generated output.
-`just check-lander-artifacts` (the CI job "Lander artifacts") runs it on the pinned revision in a
-temporary git worktree and fails unless every generated file equals the committed one.
-Regenerate test-only `InboxSetter` and `ZkGasFixture` artifacts with
-`script/gen_test_harness_artifacts.sh`; it verifies compiler settings and source hashes and records
-bytecode provenance. Run that generator twice with identical output as well.
-
-## License
-
-See the [LICENSE](../../LICENSE) file for details.
+A future guest must bind the V8 recipient and actual executed-header basefee sum, authenticate
+the recipient-bound committee, and verify proposer identity/beneficiary in the actual round and
+epoch. It must preserve certificate threshold, execution ancestry, forced-inclusion and L1
+reference checks. No real guest is implemented; the dummy verifier cannot establish those claims,
+so this version is restricted to disposable development chains.
 
 ### `lander-claim`
 
@@ -959,3 +823,61 @@ in both Included and Finalized states; each restart rechecks current receipt/can
 The default RPC/step deadline is 30 seconds (`--rpc.timeout`, 1–3600); ancestry traversals are also
 bounded to 131,072 headers. Expired roots can refresh before signing, while signed calldata remains
 immutable and may need operator handling if it can no longer execute.
+
+## Development
+
+```sh
+just fmt        # pinned nightly rustfmt + cargo sort (never call cargo fmt directly)
+just fmt-check
+just clippy     # doc lints on library code, then every target with -D warnings
+```
+
+### Tests
+
+- `just unit` runs the unit tests (everything outside `tests/` directories) and the abci
+  doctests. No docker needed.
+- `just test` runs the serial Docker integration scenarios in `crates/abci/tests`,
+  `crates/lander/tests`, `crates/test-harness/tests` and `bin/client/tests`. ABCI scenarios cover single validator,
+  anchor finality, restart and lost-state replay, epoch switch with and without landing, back-pressure, generation
+  bump, smoke, calldata inclusion, invalid-byte skips, canonical skips, and unavailable-history
+  retry/recovery, plus an L1 finality stall that pauses and resumes L2. The history test emulates
+  the source-backed unavailable-build RPC shape through a delegating Engine adapter; it does not
+  actually prune Reth state. Lander scenarios cover actual Inbox blob
+  transactions, cross-epoch batching without reward cutoffs, real EL/Comet basefee claims with
+  genuine L1 account/storage proofs and later-checkpoint finality, replay rejection, claim-spend
+  independence in the next batch, and a forced inclusion landing that
+  pays its fee, permissionless races,
+  verifier rejection, receipt reorgs, durable nonce recovery, stock CometBFT collection,
+  and actual-CLI SIGTERM/SIGKILL restarts, minimum/timeout batching, and pressure/epoch flushes. Each scenario boots its own devnet through the docker CLI (anvil as L1,
+  alethia-reth, CometBFT), so they run one at a time; the suite takes about ten minutes. Extra
+  arguments go to `cargo nextest run`, e.g. `just test restart` runs one scenario.
+  `tests/entrypoint.sh` pulls the images first; override them with `ANVIL_IMAGE`,
+  `ALETHIA_RETH_IMAGE`, `COMETBFT_IMAGE` and `LANDER_ANVIL_IMAGE`, or set
+  `PULL_POLICY=missing` to reuse local images. Existing ABCI tests retain Anvil v1.5.1;
+  actual-contract lander tests use v1.8.5, which fixes canonical zero-storage proofs
+  and supports EIP-7594 wrappers. `just unit` also verifies the pinned contract artifact hashes.
+  Harness RPC ports bind to host loopback. SIGINT/SIGTERM remove resources owned by the interrupted
+  test process; the entrypoint and CI use the shared `taiko-client-rs.test-run` Docker label to
+  remove any leftovers from that run, including lander fixtures. Set `TAIKO_CLIENT_RS_TEST_RUN`
+  to a unique identifier when supervising a direct cargo/nextest run and retaining an external
+  cleanup fallback for SIGKILL.
+
+Regenerate lander ABI/deployment fixtures with
+`script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
+The script requires protocol HEAD `4a2296bdb96a96be1a612025299240eaea0f94e5` (also the
+`PROTOCOL_REVISION` in `crates/lander/src/contracts.rs`),
+installs pnpm dependencies before Foundry, builds the Inbox, registry, immutable `L2FeeVault` and
+SignalService with their test fixtures, verifies compiler source hashes,
+formats generated JSON, and records ABI/bytecode/compiler provenance. It also copies the Etna
+vectors shared with the contracts (`testdata/etna_vectors`, which the `abci` and `lander` unit
+tests read) from that revision and records their hashes. It leaves
+the existing Anchor bindings unchanged. Run it twice and require identical generated output.
+`just check-lander-artifacts` (the CI job "Lander artifacts") runs it on the pinned revision in a
+temporary git worktree and fails unless every generated file equals the committed one.
+Regenerate test-only `InboxSetter`, `ZkGasFixture` and `FeeRoutingFixture` artifacts with
+`script/gen_test_harness_artifacts.sh /path/to/alethia-reth`; it verifies compiler settings and source hashes and records
+bytecode provenance. Run that generator twice with identical output as well.
+
+## License
+
+See the [LICENSE](../../LICENSE) file for details.

@@ -56,3 +56,14 @@ taiko-client-rs keeps a byte-identical copy of this directory taken from the pro
 lander fixtures pin: `packages/taiko-client-rs/script/gen_lander_artifacts.sh` copies it and
 records each file's SHA-256 in the fixture manifest, and a lander unit test checks the copy
 against those hashes.
+
+## Aligned artifact index
+
+The consuming client records the exact immutable protocol commit in its generator, Rust
+`PROTOCOL_REVISION`, fixture manifest and operator documentation. Protocol does not consume
+a client revision; the companion client is [PR #22280](https://github.com/taikoxyz/taiko-mono/pull/22280),
+and the protocol is [PR #22286](https://github.com/taikoxyz/taiko-mono/pull/22286). Regenerate
+this directory, protocol deployment fixtures and the custom-genesis inputs twice and compare bytes.
+The client fixture manifest indexes ABI/bytecode and these vectors; the test-harness manifests
+separately index fixture Solidity and canonical EL genesis/system runtimes. Runtime genesis
+identity also includes the predicted Inbox and L1 chain id, so those inputs must be held fixed.

@@ -352,7 +352,7 @@ pub(crate) fn jwt_path() -> Result<PathBuf> {
 }
 
 /// `<uid>:<gid>` of this process, so CometBFT writes its home as the host user.
-async fn host_user() -> Result<String> {
+pub(crate) async fn host_user() -> Result<String> {
     let id = |flag: &'static str| async move {
         let out = tokio::process::Command::new("id").arg(flag).output().await?;
         ensure!(out.status.success(), "id {flag} failed");
@@ -362,7 +362,7 @@ async fn host_user() -> Result<String> {
 }
 
 /// Makes every directory under `dir` (included) mode 0777 and every file 0666.
-fn make_world_writable(dir: &Path) -> Result<()> {
+pub(crate) fn make_world_writable(dir: &Path) -> Result<()> {
     fs::set_permissions(dir, fs::Permissions::from_mode(0o777))?;
     for entry in fs::read_dir(dir)? {
         let path = entry?.path();

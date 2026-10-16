@@ -17,7 +17,7 @@ use crate::{
     validate::data_hash,
 };
 
-/// Version prefix of `0x04 || zlib(rlp([[header_proto, envelope], ...]))`.
+/// Version prefix of `0x05 || zlib(rlp([[header_proto, envelope], ...]))`.
 pub const VERSION: u8 = 5;
 
 use abci::compression::{
@@ -32,7 +32,7 @@ use tendermint_proto::v0_38::types::{Commit as RawCommit, Header as RawHeader};
 pub struct PublishedBlock {
     /// Canonical CometBFT header whose hash is the signed block id hash.
     pub header: tendermint::block::Header,
-    /// Exact envelope bytes, `0x04 || rlp([block, anchor, committee, forced])`.
+    /// Exact envelope bytes, `0x06 || rlp([block, anchor, committee, forced])`.
     pub envelope: Vec<u8>,
 }
 
@@ -106,7 +106,7 @@ fn single_envelope_offset(list: &[u8]) -> Option<usize> {
     fields.is_empty().then(|| list.len() - envelope.len())
 }
 
-/// `0x04 || zlib(list)`, bounded by `max_payload_bytes`.
+/// `0x05 || zlib(list)`, bounded by `max_payload_bytes`.
 pub(crate) fn compress(list: &[u8], limits: &Limits) -> Result<Vec<u8>> {
     compressed_payload(zlib_compress(list), limits)
 }
@@ -463,7 +463,7 @@ mod tests {
         bytes
     }
 
-    /// `0x04 || zlib(rlp([[header, envelope], ...]))`, assembled independently of `encode`.
+    /// `0x05 || zlib(rlp([[header, envelope], ...]))`, assembled independently of `encode`.
     fn wire(items: &[(Vec<u8>, Vec<u8>)]) -> Vec<u8> {
         frame(VERSION, &list(items))
     }

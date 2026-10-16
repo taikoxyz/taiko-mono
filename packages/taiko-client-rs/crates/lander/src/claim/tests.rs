@@ -183,3 +183,44 @@ fn foreign_store_rejection_does_not_create_files_in_the_landing_directory() {
     assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
     assert_eq!(std::fs::read(file).unwrap(), b"existing signed L1 state must remain untouched");
 }
+
+#[test]
+fn simultaneous_empty_directory_creation_allows_only_one_transaction_kind() {
+    use super::store::ClaimStore;
+    use crate::store::{JournalIdentity, Store};
+    use std::sync::Barrier;
+    // A winning store remains locked until both open attempts have completed.
+    for _ in 0..32 {
+        let dir = tempfile::tempdir().unwrap();
+        let start = Barrier::new(2);
+        let hold = Barrier::new(2);
+        std::thread::scope(|scope| {
+            let claim = scope.spawn(|| {
+                start.wait();
+                let store = ClaimStore::open(dir.path(), identity());
+                hold.wait();
+                store.is_ok()
+            });
+            let landing = scope.spawn(|| {
+                start.wait();
+                let store = Store::open(
+                    dir.path(),
+                    JournalIdentity {
+                        l1_chain_id: U256::from(1),
+                        l2_chain_id: 167001,
+                        inbox: Address::repeat_byte(1),
+                        registry: Address::repeat_byte(2),
+                        sender: Address::repeat_byte(8),
+                    },
+                );
+                hold.wait();
+                store.is_ok()
+            });
+            assert_ne!(
+                claim.join().unwrap(),
+                landing.join().unwrap(),
+                "exactly one store kind wins the empty directory"
+            );
+        });
+    }
+}

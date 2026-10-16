@@ -127,12 +127,12 @@
           ":urc/=node_modules/urc/"
         ]
       },
-      "sha256": "159069da7bc2ea4b9dda2a30a165c0e3a2f591b6fa66865394af2023181c9cfb",
+      "sha256": "af70b35b3b5152bc043453a0dad162cdec333a1fe80cd36635eb4c5722685241",
       "sourceArtifact": "packages/protocol/out/layer1/EtnaInbox.sol/EtnaInbox.json",
       "sources": {
         "contracts/layer1/etna/iface/IEtnaInbox.sol": {
-          "keccak256": "0xe7b36dec6c3b19b5bcd116c170f662bf80cf557694fa3411910391cd85607075",
-          "sha256": "6e2accaaaa3c8398b473f5a56a998b3951cd36679a74a459123397fa3f719382"
+          "keccak256": "0xcee8f3ad32339d2b76913cebcc810b565637ad6d3c6a96e0be6ff7028c44e550",
+          "sha256": "86e35c20554bcf83aa05d752d5a2fc97b232014219a638413e25f9a74dc7289e"
         },
         "contracts/layer1/etna/iface/IEtnaStakingRegistry.sol": {
           "keccak256": "0xca15e1d1df3b47090d868a921c3362ea4bc9ae282676ade08a064c28f4a19d23",
@@ -505,12 +505,12 @@
           ":urc/=node_modules/urc/"
         ]
       },
-      "sha256": "62e478c9955bfe7cc1c04aa29cea621574e305bf73a8a7401fc6ad8c4ba47951",
+      "sha256": "906f4ab822ae44a1d6c39da72f10a739c9b489d40e180d2c87ef86cda1989d40",
       "sourceArtifact": "packages/protocol/out/layer1/EtnaInboxTestBase.sol/MockLandProofVerifier.json",
       "sources": {
         "contracts/layer1/etna/iface/IEtnaInbox.sol": {
-          "keccak256": "0xe7b36dec6c3b19b5bcd116c170f662bf80cf557694fa3411910391cd85607075",
-          "sha256": "6e2accaaaa3c8398b473f5a56a998b3951cd36679a74a459123397fa3f719382"
+          "keccak256": "0xcee8f3ad32339d2b76913cebcc810b565637ad6d3c6a96e0be6ff7028c44e550",
+          "sha256": "86e35c20554bcf83aa05d752d5a2fc97b232014219a638413e25f9a74dc7289e"
         },
         "contracts/layer1/etna/iface/IEtnaStakingRegistry.sol": {
           "keccak256": "0xca15e1d1df3b47090d868a921c3362ea4bc9ae282676ade08a064c28f4a19d23",
@@ -1342,13 +1342,13 @@
   "foundryVersion": ["Commit SHA: b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2"],
   "generator": "script/gen_lander_artifacts.sh",
   "interface": {
-    "sha256": "6e2accaaaa3c8398b473f5a56a998b3951cd36679a74a459123397fa3f719382",
+    "sha256": "86e35c20554bcf83aa05d752d5a2fc97b232014219a638413e25f9a74dc7289e",
     "source": "packages/protocol/contracts/layer1/etna/iface/IEtnaInbox.sol"
   },
-  "protocolRevision": "4584969fbc4037aae99eb725f9c76a6b274ded3e",
+  "protocolRevision": "4a2296bdb96a96be1a612025299240eaea0f94e5",
   "vectors": {
     "files": {
-      "README.md": "4f5c20d99e9f6d5e1b3304ec02309b088d4aa295d51cbc412358c673f30ae249",
+      "README.md": "c68e2293c44999b44f01fafafe2c896ea7637cbb7d69ff118d636e5d9a0c4bd2",
       "generate.py": "a5c2599aa443fd4d6a9f01c7dd072619728ce37784fd2d3d8e3d813335fe2f9f",
       "vectors.json": "3add53982f85d94216e0284336854700e43d0b2ab737853d6979f70ce386d981"
     },

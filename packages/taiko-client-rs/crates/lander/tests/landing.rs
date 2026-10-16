@@ -76,9 +76,8 @@ async fn sign_with_insufficient_gas(
     Ok((estimated, SignedTransaction { network_bytes, hash, sender, nonce: tx.nonce }))
 }
 
-/// Lands the fixture chain from genesis through height `last`, which must stay below the first
-/// freezing height `EPOCH_LEN + 1`: `(0, 5]`, up to the derivation height of epoch 1, then one
-/// block at a time.
+/// Lands the fixture through `last`, visiting derivation and late-epoch checkpoints to
+/// exercise historical committee reconstruction before the next test extends the range.
 async fn land_through(
     fixture: &ContractFixture,
     chain: &mut FixtureChain,

@@ -3,7 +3,7 @@
 //! Every CometBFT block's `Data.Txs` holds exactly one item, the envelope:
 //!
 //! ```text
-//! envelope     = 0x05 || rlp(EtnaEnvelope)
+//! envelope     = 0x06 || rlp(EtnaEnvelope)
 //! EtnaEnvelope = [ block, anchor, committee, forced ]
 //! block        = [ header, transactions ]   // EL header RLP, EIP-2718 tx bytes as opaque strings
 //! anchor       = [] | [ AnchorWitness ]     // empty list = absent
@@ -77,7 +77,7 @@ pub use crate::forced::ForcedWitness;
 
 /// The decoded block envelope: the execution block plus the optional L1 witnesses.
 ///
-/// Wire format: `0x05 || rlp([block, anchor, committee, forced])`, where each optional witness is
+/// Wire format: `0x06 || rlp([block, anchor, committee, forced])`, where each optional witness is
 /// an empty RLP list when absent and a one-element RLP list holding the witness when present.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EtnaEnvelope {
@@ -117,7 +117,7 @@ pub enum EnvelopeError {
 }
 
 impl EtnaEnvelope {
-    /// Encodes the envelope as `0x05 || rlp([block, anchor, committee, forced])`.
+    /// Encodes the envelope as `0x06 || rlp([block, anchor, committee, forced])`.
     pub fn encode(&self) -> Bytes {
         let mut out = Vec::with_capacity(1 + Encodable::length(self));
         out.push(ENVELOPE_VERSION);
