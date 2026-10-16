@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Build an alloc-only Etna genesis from canonical devnet JSON and exported vault runtime.
 
-Only alloc changes. This does not activate Taiko forks: the pinned EL rejects the Etna override
-for altered genesis hashes. Execution-client support and real block-0 acceptance are prerequisites
-for starting this genesis, tracked separately from the exporter.
+Only alloc changes; every non-alloc field must remain identical to canonical devnet JSON.
+The pinned EL dependency (alethia-reth PR #251) supports this strict custom genesis with an
+explicit Etna activation override, restores the canonical fork table and rebuilds its genesis
+header/hash. The client harness checks the actual block-0 hash/root and installed runtimes.
 """
 
 import argparse
