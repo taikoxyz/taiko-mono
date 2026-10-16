@@ -487,11 +487,12 @@ and the lander caps its gas limit there. Measured as whole transactions on the p
 its whole epoch for the first time needs 5,510,080 gas at 128 members, 12,487,285 at 300 and
 16,515,694 at 400, about 40.3k gas and 160 bytes of calldata more per member. A batch that also
 carried the next epoch's first commits would write that epoch's committee hash, counts and
-scores for the first time as well: such a two-part freezing landing needs 14,313,606 gas at 300
-members and 17,075,337 at 360, about 46k per member, and stops fitting at about 353. Above that
+scores for the first time as well: such a two-part freezing landing, with every count and score
+word a first write, needs 14,963,393 gas at 300 members and 17,844,824 at 360, about 48k per
+member, and stops fitting at about 337. Above that
 it could not be included at all, so landing would halt, back-pressure then halt L2, and only a
 pool upgrade recover. The lander no longer builds two-part freezing landings, but the client
-rejects an `n_max` above 300 (`MAX_N_MAX`) so that even one keeps 2.46M (14.7%) of headroom for
+rejects an `n_max` above 300 (`MAX_N_MAX`) so that even one keeps 1.81M (10.8%) of headroom for
 a real verifier and consumed forced inclusions (see Configuration checks in the protocol
 package's Etna README).
 
