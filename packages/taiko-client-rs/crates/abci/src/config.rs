@@ -9,9 +9,9 @@ use serde::{Deserialize, Deserializer, de};
 /// The landing that carries an epoch's last commit settles every member of that epoch's committee
 /// in one L1 transaction, which EIP-7825 caps at 16,777,216 gas. In the worst case, where that
 /// landing writes every member's signed count and proposer score and credits every registration
-/// owner for the first time, it costs about 40.1k gas per member: measured as a whole transaction
-/// on the pinned contracts, 14,791,922 at 360 members (about 12% under the cap) and 16,396,887 at
-/// 400. It stops fitting at about 409.
+/// owner for the first time, it costs about 40.3k gas per member: measured as a whole transaction
+/// on the pinned contracts, 14,865,689 at 360 members (about 11% under the cap) and 16,478,834 at
+/// 400. It stops fitting at about 407.
 pub const MAX_N_MAX: usize = 360;
 
 /// Per-chain constants consumed by consensus.
@@ -91,7 +91,7 @@ pub enum ConfigError {
     #[error("n_max must be >= 1")]
     ZeroNMax,
     /// `n_max > MAX_N_MAX`: the landing that settles a full committee's epoch would keep less
-    /// than about 12% of margin under the EIP-7825 transaction gas cap, and above about 409
+    /// than about 11% of margin under the EIP-7825 transaction gas cap, and above about 407
     /// members would exceed it and never be included.
     #[error("n_max ({n_max}) must be <= {max}")]
     NMaxTooLarge {
