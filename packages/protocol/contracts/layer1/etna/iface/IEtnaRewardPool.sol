@@ -11,7 +11,8 @@ import { IEtnaInbox } from "./IEtnaInbox.sol";
 /// epoch completes, the pool freezes it: it allocates fixed shares of the free balance (the
 /// balance minus the credits not yet withdrawn), credits the validator share to the owners of
 /// the committee's registrations, the base part by effective stake times signed heights and the
-/// proposer bonus part by proposer score, and sends the proving share to the Inbox. Credits are
+/// proposer bonus part by proposer score, each out of what the whole committee could have earned,
+/// and sends the proving share to the Inbox. Credits are
 /// reserved until their owners withdraw them, so no Ether is committed to two epochs and the
 /// balance always covers the reservations.
 /// @custom:security-contact security@taiko.xyz
@@ -102,15 +103,18 @@ interface IEtnaRewardPool {
     /// this epoch's freeze, so an earlier epoch frozen in the same call lowers a later one's. The
     /// validator share splits into `bonusAlloc = alloc * proposerBonusPpm / 1e6` and
     /// `baseAlloc = alloc - bonusAlloc`. Each member (indices below the committee length only)
-    /// earns the base part `mulDiv(baseAlloc, weight, totalWeight)` of its weight
-    /// `effStake * count`, or nothing when the total weight is zero, plus the bonus part
+    /// earns the base part `mulDiv(baseAlloc, weight, max(fullWeight, totalWeight))` of its
+    /// weight `effStake * count`, or nothing when the total weight is zero, plus the bonus part
     /// `mulDiv(bonusAlloc, score, max(10_000 * _epochLenL2, totalScore))` of its proposer score,
-    /// both rounded down, where `totalScore` sums the committee members' scores. With the
-    /// Inbox's bound the denominator is `10_000 * _epochLenL2`; the maximum keeps the bonus
-    /// parts within `bonusAlloc`, and the pool solvent, for any recorded scores. A member whose
-    /// sum is non-zero is credited it unless its registration has no owner; credited amounts are
-    /// reserved, and the bonus that no proposer earned stays free. The proving share is sent to
-    /// the Inbox; a failed transfer reverts the call.
+    /// both rounded down, where `fullWeight` sums `effStake * _epochLenL2` over the committee,
+    /// `totalWeight` sums the members' weights and `totalScore` their scores. With the Inbox's
+    /// bounds the denominators are `fullWeight` and `10_000 * _epochLenL2`, what the whole
+    /// committee could have earned, so omitting a member's signature never raises another
+    /// member's part; the maxima keep the parts within `baseAlloc` and `bonusAlloc`, and the pool
+    /// solvent, for any recorded counts and scores. A member whose sum is non-zero is credited it
+    /// unless its registration has no owner; credited amounts are reserved, and the base no member
+    /// signed for and the bonus no proposer earned stay free. The proving share is sent to the
+    /// Inbox; a failed transfer reverts the call.
     /// @param _lastHeight The height of the landing's last block.
     /// @param _epochLenL2 The epoch length in L2 blocks.
     /// @param _parts The participation per epoch of the batch's commit range, in ascending epoch

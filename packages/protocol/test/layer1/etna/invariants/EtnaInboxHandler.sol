@@ -23,8 +23,8 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// `land` requires; about one landing in eight also funds the prover reward ledger with
 /// `msg.value`. The handler models each freeze (the shares of the free balance, the split of the
 /// validator share into base and proposer bonus, the base by effective stake times signed heights
-/// and the bonus by proposer score, each rounded down) and the landing reward (per block, capped
-/// at the ledger) independently of the pool and the Inbox.
+/// out of the committee's full weight and the bonus by proposer score, each rounded down) and the
+/// landing reward (per block, capped at the ledger) independently of the pool and the Inbox.
 /// Each call's outcome is predicted before it runs in try/catch: a save or landing is
 /// either valid or broken in exactly one way, whose custom error is then expected. A landing
 /// mode picks the break: no progress, too many blocks, a zero fee recipient, a queue head
@@ -840,7 +840,8 @@ contract EtnaInboxHandler is CommonBase {
     /// @dev Freezes `_epoch` in the model with the pool holding `_poolBalance`: the validator and
     /// proving shares of the free balance, the validator share split into `proposerBonusPpm`
     /// bonus and the rest base, and for each member with a registration owner its base
-    /// `base * weight / totalWeight` (none without weight) plus its bonus
+    /// `base * weight / max(fullWeight, totalWeight)` (none without weight), `fullWeight` being
+    /// the committee's stake times `epochLenL2`, plus its bonus
     /// `bonus * score / max(10_000 * epochLenL2, totalScore)`, each rounded down; then checks the
     /// pool's record.
     function _freeze(uint256 _epoch, uint256 _poolBalance)
@@ -853,16 +854,21 @@ contract EtnaInboxHandler is CommonBase {
         uint256 bonusAlloc = alloc * pool.proposerBonusPpm() / PPM;
         uint256 baseAlloc = alloc - bonusAlloc;
 
+        uint256 fullWeight;
         uint256 totalWeight;
         uint256 totalScore;
         for (uint256 i; i < _committee.length; ++i) {
+            fullWeight += _committee[i].effStake * epochLenL2;
             totalWeight += _committee[i].effStake * _ghostSigned[_epoch][i];
             totalScore += _ghostScores[_epoch][i];
         }
+        uint256 weightDenominator = Math.max(fullWeight, totalWeight);
         uint256 scoreDenominator = Math.max(MAX_BLOCK_SCORE * epochLenL2, totalScore);
         uint256 paid;
         for (uint256 i; i < _committee.length; ++i) {
-            paid += _creditMember(_epoch, i, baseAlloc, bonusAlloc, totalWeight, scoreDenominator);
+            paid += _creditMember(
+                _epoch, i, baseAlloc, bonusAlloc, weightDenominator, scoreDenominator
+            );
         }
         if (paid > alloc) _violate(Property.Rewards, "a freeze credited more than its share");
         ghostReserved += paid;
@@ -879,7 +885,7 @@ contract EtnaInboxHandler is CommonBase {
     }
 
     /// @dev Credits member `_index` of `_epoch` in the model and returns what it credited:
-    /// `_baseAlloc * weight / _totalWeight` (none without weight) plus
+    /// `_baseAlloc * weight / _weightDenominator` (none without weight) plus
     /// `_bonusAlloc * score / _scoreDenominator`, each rounded down; nothing without a
     /// registration owner.
     function _creditMember(
@@ -887,7 +893,7 @@ contract EtnaInboxHandler is CommonBase {
         uint256 _index,
         uint256 _baseAlloc,
         uint256 _bonusAlloc,
-        uint256 _totalWeight,
+        uint256 _weightDenominator,
         uint256 _scoreDenominator
     )
         internal
@@ -895,7 +901,7 @@ contract EtnaInboxHandler is CommonBase {
     {
         uint256 weight = _committee[_index].effStake * _ghostSigned[_epoch][_index];
         uint256 bonus = Math.mulDiv(_bonusAlloc, _ghostScores[_epoch][_index], _scoreDenominator);
-        credited_ = bonus + (weight == 0 ? 0 : Math.mulDiv(_baseAlloc, weight, _totalWeight));
+        credited_ = bonus + (weight == 0 ? 0 : Math.mulDiv(_baseAlloc, weight, _weightDenominator));
         address owner = _memberOwners[_index];
         if (credited_ == 0 || owner == address(0)) return 0;
         _ghostCredits[owner] += credited_;
