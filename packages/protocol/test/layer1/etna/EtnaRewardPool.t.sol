@@ -1369,7 +1369,7 @@ contract EtnaRewardPoolTest is CommonTest {
         taikoToken.mint(_owner, _stake);
         vm.startPrank(_owner);
         taikoToken.approve(address(registry), _stake);
-        bondId_ = registry.register(_pubkey, _stake);
+        bondId_ = registry.register(_pubkey, _stake, _owner);
         vm.stopPrank();
         activeFromL1_ = registry.entryAt(bondId_).activeFromL1;
     }

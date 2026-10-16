@@ -109,6 +109,61 @@ contract EtnaStakingRegistryTest is CommonTest {
     // register
     // ---------------------------------------------------------------
 
+    function test_register_CommitsIndependentL2Recipient() external {
+        vm.prank(Alice);
+        uint256 id = registry.register(KEY_A, MIN_STAKE, Bob);
+        assertEq(registry.entryAt(id).rewardRecipient, Bob);
+        assertEq(registry.bondOwnerOf(id), Alice);
+    }
+
+    function test_register_RevertWhen_RecipientIsZero() external {
+        vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
+        vm.prank(Alice);
+        registry.register(KEY_A, MIN_STAKE, address(0));
+    }
+
+    function test_register_RecipientChangesTheCommittedRoot() external {
+        uint256 snapshot = vm.snapshotState();
+        vm.prank(Alice);
+        registry.register(KEY_A, MIN_STAKE, Bob);
+        bytes32 bobRoot = registry.entriesRoot();
+        assertTrue(vm.revertToState(snapshot));
+        vm.prank(Alice);
+        registry.register(KEY_A, MIN_STAKE, Carol);
+        assertNotEq(registry.entriesRoot(), bobRoot);
+    }
+
+    function test_register_RecipientSurvivesHeartbeatExitAndSlotReuseKeepsOldSnapshot() external {
+        vm.prank(Alice);
+        registry.register(KEY_A, MIN_STAKE, Bob);
+        IEtnaStakingRegistry.Entry memory original = registry.entryAt(0);
+        IEtnaStakingRegistry.Checkpoint memory snapshot = registry.checkpointAt(0);
+
+        vm.expectRevert(EtnaStakingRegistry.NotBondOwner.selector);
+        vm.prank(Bob);
+        registry.heartbeat(0);
+        vm.roll(block.number + 1);
+        vm.prank(Alice);
+        registry.heartbeat(0);
+        assertEq(registry.entryAt(0).rewardRecipient, Bob);
+        vm.prank(Alice);
+        registry.requestExit(0);
+        assertEq(registry.entryAt(0).rewardRecipient, Bob);
+        vm.roll(registry.entryAt(0).exitEffectiveL1 + WITHDRAWAL_DELAY);
+        vm.prank(Alice);
+        registry.withdraw(0, Alice);
+        assertEq(registry.entryAt(0).rewardRecipient, Bob);
+        vm.prank(Alice);
+        assertEq(registry.register(KEY_B, MIN_STAKE, Carol), 0);
+
+        assertEq(registry.entryAt(0).rewardRecipient, Carol);
+        assertEq(registry.bondOwnerOf(0), Alice);
+        assertEq(registry.entryCount(), 1);
+        assertEq(registry.checkpointAt(0).entriesRoot, snapshot.entriesRoot);
+        assertEq(snapshot.entriesRoot, LibEntriesTree.leaf(0, original));
+        assertNotEq(registry.entriesRoot(), snapshot.entriesRoot);
+    }
+
     function test_register_AppendsTheEntryWithoutAHeartbeat() external {
         uint256 amount = MIN_STAKE + 1;
         uint64 activeFromL1 = START_BLOCK + ACTIVATION_DELAY;
@@ -117,9 +172,9 @@ contract EtnaStakingRegistryTest is CommonTest {
         vm.expectEmit();
         emit IEtnaStakingRegistry.CheckpointWritten(0, START_BLOCK, 1, root);
         vm.expectEmit();
-        emit IEtnaStakingRegistry.Registered(0, Alice, KEY_A, amount, activeFromL1);
+        emit IEtnaStakingRegistry.Registered(0, Alice, KEY_A, amount, activeFromL1, Alice);
         vm.prank(Alice);
-        uint256 bondId = registry.register(KEY_A, amount);
+        uint256 bondId = registry.register(KEY_A, amount, Alice);
 
         assertEq(bondId, 0);
         _assertEntry(0, KEY_A, amount, activeFromL1, NO_EXIT, 0, 0);
@@ -153,13 +208,13 @@ contract EtnaStakingRegistryTest is CommonTest {
     function test_register_RevertWhen_StakeTooLow() external {
         vm.expectRevert(EtnaStakingRegistry.StakeTooLow.selector);
         vm.prank(Alice);
-        registry.register(KEY_A, MIN_STAKE - 1);
+        registry.register(KEY_A, MIN_STAKE - 1, Alice);
     }
 
     function test_register_RevertWhen_PubkeyIsZero() external {
         vm.expectRevert(EtnaStakingRegistry.ZeroPubkey.selector);
         vm.prank(Alice);
-        registry.register(bytes32(0), MIN_STAKE);
+        registry.register(bytes32(0), MIN_STAKE, Alice);
     }
 
     function test_register_RevertWhen_PubkeyHeldWithoutExit() external {
@@ -167,7 +222,7 @@ contract EtnaStakingRegistryTest is CommonTest {
 
         vm.expectRevert(EtnaStakingRegistry.PubkeyInUse.selector);
         vm.prank(Bob);
-        registry.register(KEY_A, MIN_STAKE);
+        registry.register(KEY_A, MIN_STAKE, Alice);
     }
 
     function test_register_RevertWhen_PubkeyHolderExitNotYetEffective() external {
@@ -179,7 +234,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         vm.roll(exitEffectiveL1 - 1);
         vm.expectRevert(EtnaStakingRegistry.PubkeyInUse.selector);
         vm.prank(Bob);
-        registry.register(KEY_A, MIN_STAKE);
+        registry.register(KEY_A, MIN_STAKE, Alice);
     }
 
     function test_register_ReusesAPubkeyOnceTheHolderExitIsEffective() external {
@@ -194,7 +249,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         // Bob's entry now holds the key and has not exited.
         vm.expectRevert(EtnaStakingRegistry.PubkeyInUse.selector);
         vm.prank(Carol);
-        registry.register(KEY_A, MIN_STAKE);
+        registry.register(KEY_A, MIN_STAKE, Alice);
     }
 
     function test_register_RevertWhen_RegistryFull() external {
@@ -203,7 +258,7 @@ contract EtnaStakingRegistryTest is CommonTest {
 
         vm.pauseGasMetering();
         for (uint256 i; i < maxEntries; ++i) {
-            registry.register(bytes32(i + 1), MIN_STAKE);
+            registry.register(bytes32(i + 1), MIN_STAKE, Alice);
         }
         bytes32 naiveRoot = _naiveEntriesRoot();
         vm.resumeGasMetering();
@@ -214,7 +269,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         assertEq(registry.entriesRoot(), naiveRoot);
 
         vm.expectRevert(EtnaStakingRegistry.RegistryFull.selector);
-        registry.register(bytes32(maxEntries + 1), MIN_STAKE);
+        registry.register(bytes32(maxEntries + 1), MIN_STAKE, Alice);
     }
 
     function test_register_RevertWhen_RegistrationKeyTaken() external {
@@ -668,7 +723,7 @@ contract EtnaStakingRegistryTest is CommonTest {
             }
             string memory e = string.concat(p, "entry_slots[", vm.toString(k), "].");
             uint256 j = LibEtnaVectors.uintAt(json, string.concat(e, "index"));
-            for (uint256 w; w < 3; ++w) {
+            for (uint256 w; w < 4; ++w) {
                 assertEq(
                     LibEtnaVectors.bytes32At(json, string.concat(e, "slots[", vm.toString(w), "]")),
                     _entrySlot(j, w),
@@ -700,7 +755,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         assertEq(uint64(_load(_checkpointSlot(1, 0))), 1250);
         assertEq(uint32(_load(_checkpointSlot(1, 0)) >> 64), 2);
 
-        // entries: length at R + 1; element j at keccak256(R + 1) + 3j (+1, +2).
+        // entries: length at R + 1; element j at keccak256(R + 1) + 4j (+1, +2, +3).
         assertEq(_load(bytes32(uint256(REGISTRY_BASE) + 1)), 2);
         for (uint256 j; j < 2; ++j) {
             IEtnaStakingRegistry.Entry memory e = registry.entryAt(j);
@@ -711,6 +766,7 @@ contract EtnaStakingRegistryTest is CommonTest {
             assertEq(uint64(packed >> 64), e.exitEffectiveL1);
             assertEq(uint64(packed >> 128), e.lastHeartbeatAt);
             assertEq(packed >> 192, e.lastHeartbeatSeq);
+            assertEq(_load(_entrySlot(j, 3)), uint256(uint160(e.rewardRecipient)));
         }
         uint256 bobPacked = _load(_entrySlot(1, 2));
         assertEq(uint64(bobPacked), 1250 + ACTIVATION_DELAY);
@@ -794,7 +850,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         uint64 activeFromL1 = uint64(block.number) + ACTIVATION_DELAY;
 
         vm.expectEmit();
-        emit IEtnaStakingRegistry.Registered(0, Carol, KEY_C, MIN_STAKE, activeFromL1);
+        emit IEtnaStakingRegistry.Registered(0, Carol, KEY_C, MIN_STAKE, activeFromL1, Alice);
         assertEq(_register(Carol, KEY_C), 0);
 
         _assertEntry(0, KEY_C, MIN_STAKE, activeFromL1, NO_EXIT, 0, 0);
@@ -828,11 +884,11 @@ contract EtnaStakingRegistryTest is CommonTest {
 
         vm.pauseGasMetering();
         for (uint256 i; i < maxEntries; ++i) {
-            registry.register(bytes32(i + 1), MIN_STAKE);
+            registry.register(bytes32(i + 1), MIN_STAKE, Alice);
         }
         vm.resumeGasMetering();
         vm.expectRevert(EtnaStakingRegistry.RegistryFull.selector);
-        registry.register(bytes32(maxEntries + 1), MIN_STAKE);
+        registry.register(bytes32(maxEntries + 1), MIN_STAKE, Alice);
 
         registry.requestExit(7);
         vm.roll(registry.entryAt(7).exitEffectiveL1 + WITHDRAWAL_DELAY);
@@ -953,7 +1009,7 @@ contract EtnaStakingRegistryTest is CommonTest {
     function test_register_DefersALargeStakeByWholeWindows() external {
         registry = _newChurnRegistry(CHURN_WINDOW, 0, MIN_STAKE);
         vm.prank(Alice);
-        registry.register(KEY_A, 3 * MIN_STAKE);
+        registry.register(KEY_A, 3 * MIN_STAKE, Alice);
         // Windows 10, 11 and 12 absorb the stake; it activates at the start of window 12.
         assertEq(registry.entryAt(0).activeFromL1, 12 * CHURN_WINDOW);
 
@@ -964,13 +1020,13 @@ contract EtnaStakingRegistryTest is CommonTest {
     function test_register_ScalesTheChurnWithTheBondedStake() external {
         registry = _newChurnRegistry(CHURN_WINDOW, 10_000, MIN_STAKE);
         vm.prank(Alice);
-        registry.register(KEY_A, 4 * MIN_STAKE);
+        registry.register(KEY_A, 4 * MIN_STAKE, Alice);
         // Nothing is bonded yet, so the floor of one minimum stake per window applies.
         assertEq(registry.entryAt(0).activeFromL1, 13 * CHURN_WINDOW);
 
         vm.roll(2001);
         vm.prank(Bob);
-        registry.register(KEY_B, 4 * MIN_STAKE);
+        registry.register(KEY_B, 4 * MIN_STAKE, Alice);
         // 100% of the 4 bonded stakes fits in window 20 at once.
         assertEq(registry.entryAt(1).activeFromL1, 2001 + ACTIVATION_DELAY);
         assertEq(registry.bondedStake(), 8 * MIN_STAKE);
@@ -998,7 +1054,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         registry = _newChurnRegistry(CHURN_WINDOW, 0, MIN_STAKE);
         _register(Alice, KEY_A);
         vm.prank(Bob);
-        registry.register(KEY_B, 50 * MIN_STAKE);
+        registry.register(KEY_B, 50 * MIN_STAKE, Alice);
         _register(Carol, KEY_C);
         // Bob's stake fills the activation windows up to 60; Carol activates in window 61.
         assertEq(registry.entryAt(2).activeFromL1, 61 * CHURN_WINDOW);
@@ -1103,7 +1159,7 @@ contract EtnaStakingRegistryTest is CommonTest {
 
     function _register(address _staker, bytes32 _pubkey) private returns (uint256) {
         vm.prank(_staker);
-        return registry.register(_pubkey, MIN_STAKE);
+        return registry.register(_pubkey, MIN_STAKE, Alice);
     }
 
     function _entry(
@@ -1115,7 +1171,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         uint64 _lastHeartbeatSeq
     )
         private
-        pure
+        view
         returns (IEtnaStakingRegistry.Entry memory)
     {
         return IEtnaStakingRegistry.Entry({
@@ -1124,7 +1180,8 @@ contract EtnaStakingRegistryTest is CommonTest {
             activeFromL1: _activeFromL1,
             exitEffectiveL1: _exitEffectiveL1,
             lastHeartbeatAt: _lastHeartbeatAt,
-            lastHeartbeatSeq: _lastHeartbeatSeq
+            lastHeartbeatSeq: _lastHeartbeatSeq,
+            rewardRecipient: Alice
         });
     }
 
@@ -1147,6 +1204,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         assertEq(e.exitEffectiveL1, _exitEffectiveL1);
         assertEq(e.lastHeartbeatAt, _lastHeartbeatAt);
         assertEq(e.lastHeartbeatSeq, _lastHeartbeatSeq);
+        assertEq(e.rewardRecipient, Alice);
     }
 
     function _assertCheckpoint(
@@ -1198,7 +1256,7 @@ contract EtnaStakingRegistryTest is CommonTest {
     }
 
     function _entrySlot(uint256 _j, uint256 _word) private pure returns (bytes32) {
-        return bytes32(uint256(keccak256(abi.encode(uint256(REGISTRY_BASE) + 1))) + 3 * _j + _word);
+        return bytes32(uint256(keccak256(abi.encode(uint256(REGISTRY_BASE) + 1))) + 4 * _j + _word);
     }
 
     function _mappingSlot(bytes32 _key, uint256 _field) private pure returns (bytes32) {

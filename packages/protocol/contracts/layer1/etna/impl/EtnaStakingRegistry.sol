@@ -178,7 +178,8 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// @inheritdoc IEtnaStakingRegistry
     function register(
         bytes32 _pubkey,
-        uint256 _amount
+        uint256 _amount,
+        address _rewardRecipient
     )
         external
         nonReentrant
@@ -186,6 +187,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     {
         require(_amount >= minStake, StakeTooLow());
         require(_pubkey != 0, ZeroPubkey());
+        require(_rewardRecipient != address(0), ZERO_ADDRESS());
 
         RegistryStorage storage $ = _registryStorage();
         uint256 count = $.entries.length;
@@ -207,7 +209,8 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
             ),
             exitEffectiveL1: _NO_EXIT,
             lastHeartbeatAt: 0,
-            lastHeartbeatSeq: 0
+            lastHeartbeatSeq: 0,
+            rewardRecipient: _rewardRecipient
         });
         if (freeCount != 0) {
             bondId_ = $.freeSlots[freeCount - 1];
@@ -228,7 +231,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         _commit($, count, bondId_, entry);
 
         taikoToken.safeTransferFrom(msg.sender, address(this), _amount);
-        emit Registered(bondId_, msg.sender, _pubkey, _amount, entry.activeFromL1);
+        emit Registered(bondId_, msg.sender, _pubkey, _amount, entry.activeFromL1, _rewardRecipient);
     }
 
     /// @inheritdoc IEtnaStakingRegistry

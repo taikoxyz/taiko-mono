@@ -33,9 +33,9 @@ interface IEtnaStakingRegistry {
     }
 
     /// @notice One registration, indexed by its bond id (its slot).
-    /// @dev Three storage words: `pubkey`, `effStake`, then `activeFromL1` (bits 0–63),
+    /// @dev Four storage words: `pubkey`, `effStake`, then `activeFromL1` (bits 0–63),
     /// `exitEffectiveL1` (bits 64–127), `lastHeartbeatAt` (bits 128–191) and
-    /// `lastHeartbeatSeq` (bits 192–255).
+    /// `lastHeartbeatSeq` (bits 192–255), then `rewardRecipient` (bits 0–159).
     struct Entry {
         /// @notice The Ed25519 consensus public key.
         bytes32 pubkey;
@@ -53,6 +53,8 @@ interface IEtnaStakingRegistry {
         /// 0 leaves `lastHeartbeatAt` at 0, so this, not `lastHeartbeatAt`, tells whether the
         /// entry has a heartbeat, which committee eligibility requires.
         uint64 lastHeartbeatSeq;
+        /// @notice The immutable L2 reward recipient for this registration.
+        address rewardRecipient;
     }
 
     // ---------------------------------------------------------------
@@ -65,12 +67,14 @@ interface IEtnaStakingRegistry {
     /// @param pubkey The Ed25519 consensus public key.
     /// @param amount The TAIKO stake pulled from the owner.
     /// @param activeFromL1 The first L1 block at which the entry may be selected.
+    /// @param rewardRecipient The immutable L2 reward recipient.
     event Registered(
         uint256 indexed bondId,
         address indexed owner,
         bytes32 pubkey,
         uint256 amount,
-        uint64 activeFromL1
+        uint64 activeFromL1,
+        address rewardRecipient
     );
 
     /// @notice Emitted when a heartbeat is accepted.
@@ -106,8 +110,8 @@ interface IEtnaStakingRegistry {
 
     /// @notice Registers `_pubkey` with a stake of `_amount` TAIKO pulled from the caller, who
     /// becomes the bond owner and the registration owner.
-    /// @dev Reverts if `_amount` is below the minimum stake, `_pubkey` is zero, all
-    /// `MAX_ENTRIES` slots hold unwithdrawn stake, another entry holds `_pubkey` and its
+    /// @dev Reverts if `_amount` is below the minimum stake, `_pubkey` or `_rewardRecipient`
+    /// is zero, all `MAX_ENTRIES` slots hold unwithdrawn stake, another entry holds `_pubkey` and its
     /// exit is not yet effective, or an earlier registration of the slot has the same
     /// `activeFromL1` (possible only if the activation, exit and withdrawal delays are all 0).
     /// Takes the most recently freed slot (see `withdraw`), or a new slot if none is free. The
@@ -116,8 +120,15 @@ interface IEtnaStakingRegistry {
     /// `lastHeartbeatSeq = 0`). Writes the current block's checkpoint.
     /// @param _pubkey The Ed25519 consensus public key.
     /// @param _amount The TAIKO stake; the caller must have approved it.
+    /// @param _rewardRecipient The nonzero L2 reward recipient, fixed until this slot is reused.
     /// @return bondId_ The new entry's bond id (its slot).
-    function register(bytes32 _pubkey, uint256 _amount) external returns (uint256 bondId_);
+    function register(
+        bytes32 _pubkey,
+        uint256 _amount,
+        address _rewardRecipient
+    )
+        external
+        returns (uint256 bondId_);
 
     /// @notice Records a heartbeat for `_bondId` in the current heartbeat window.
     /// @dev Only the bond owner, and only before the exit takes effect. With

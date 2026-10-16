@@ -171,6 +171,11 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
                 entry.effStake,
                 "effStake"
             );
+            assertEq(
+                _loadRegistry(LibEtnaVectors.bytes32At(vectors, string.concat(e, "slots[3]"))),
+                uint256(uint160(entry.rewardRecipient)),
+                "rewardRecipient"
+            );
             uint256 word =
                 _loadRegistry(LibEtnaVectors.bytes32At(vectors, string.concat(e, "slots[2]")));
             assertEq(
@@ -332,12 +337,12 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
             taikoToken.approve(address(registry), MIN_STAKE);
         }
         vm.prank(Bob);
-        registry.register(bytes32(uint256(0xb2)), MIN_STAKE);
+        registry.register(bytes32(uint256(0xb2)), MIN_STAKE, Alice);
         vm.prank(Alice);
         registry.heartbeat(0);
         _advanceBlock();
         vm.prank(Carol);
-        registry.register(bytes32(uint256(0xc3)), MIN_STAKE);
+        registry.register(bytes32(uint256(0xc3)), MIN_STAKE, Alice);
         vm.prank(Bob);
         registry.requestExit(1);
     }

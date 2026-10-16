@@ -106,7 +106,7 @@ abstract contract EtnaInboxTestBase is CommonTest {
         taikoToken.mint(Alice, MIN_STAKE);
         vm.startPrank(Alice);
         taikoToken.approve(address(registry), MIN_STAKE);
-        registry.register(VALIDATOR_KEY, MIN_STAKE);
+        registry.register(VALIDATOR_KEY, MIN_STAKE, Alice);
         vm.stopPrank();
         registryCheckpointBlock = uint64(block.number);
         _advanceBlock();

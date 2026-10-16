@@ -186,6 +186,7 @@ library LibEtnaVectors {
         entry_.exitEffectiveL1 = uint64(uintAt(_json, string.concat(p, "exit_effective_l1")));
         entry_.lastHeartbeatAt = uint64(uintAt(_json, string.concat(p, "last_heartbeat_at")));
         entry_.lastHeartbeatSeq = uint64(uintAt(_json, string.concat(p, "last_heartbeat_seq")));
+        entry_.rewardRecipient = _VM.parseJsonAddress(_json, string.concat(p, "reward_recipient"));
     }
 
     /// @dev The packed field `_field` of the storage word `_word` described at `_packing` (e.g.
