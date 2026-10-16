@@ -17,7 +17,7 @@ use alloy_primitives::{Address, B256, Bytes, U256};
 use alloy_provider::{Provider, RootProvider};
 use anyhow::{Context, Result, ensure};
 use ed25519_dalek::SigningKey;
-use test_harness::{StandaloneAnvil, dev_signer, mine_l1_blocks};
+use test_harness::{StandaloneAnvil, StandaloneReth, dev_signer, mine_l1_blocks};
 
 sol!(EtnaInbox, "../../crates/lander/contracts/EtnaInbox.json");
 sol!(EtnaStakingRegistry, "../../crates/lander/tests/fixtures/contracts/EtnaStakingRegistry.json");
@@ -46,6 +46,7 @@ pub const USER_KEY: &str = "5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9
 /// An actual deployed protocol instance on one disposable Osaka anvil.
 pub struct ContractFixture {
     pub anvil: StandaloneAnvil,
+    pub l2: StandaloneReth,
     pub inbox: Address,
     pub registry: Address,
     pub signal: Address,
@@ -65,14 +66,6 @@ impl ContractFixture {
         let p = &anvil.provider;
         let owner = dev_signer().address();
         let admin = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8".parse()?;
-        let parent_header = Header {
-            state_root: B256::repeat_byte(0x31),
-            timestamp: 1,
-            gas_limit: 45_000_000,
-            base_fee_per_gas: Some(1_000_000_000),
-            ..Default::default()
-        };
-        let genesis_hash = parent_header.hash_slow();
         let token = deploy(
             p,
             owner,
@@ -152,6 +145,19 @@ impl ContractFixture {
         // SignalService implementation and proxy precede Inbox implementation and proxy.
         let next_nonce = p.get_transaction_count(owner).await?;
         let predicted_inbox = owner.create(next_nonce + 3);
+        let l2 = StandaloneReth::start(p, predicted_inbox).await?;
+        let parent_header = l2
+            .provider
+            .get_block_by_number(alloy_eips::BlockNumberOrTag::Number(0))
+            .await?
+            .context("real EL genesis")?
+            .header
+            .inner;
+        let genesis_hash = parent_header.hash_slow();
+        ensure!(
+            p.get_transaction_count(owner).await? == next_nonce,
+            "genesis construction must not consume deployment nonce"
+        );
         let signal_impl = deploy(
             p,
             owner,
@@ -246,6 +252,7 @@ impl ContractFixture {
         );
         Ok(Self {
             anvil,
+            l2,
             inbox,
             registry,
             signal,

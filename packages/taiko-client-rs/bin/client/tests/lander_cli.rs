@@ -212,10 +212,10 @@ async fn lander_cli_sigkill_reconciles_the_same_pending_nonce_before_progress() 
         chain.extend(&fixture, resumed_height).await?;
         rpc.replace(rpc_data(&chain)).await;
         wait_checkpoint(&fixture, &mut second, resumed_height).await?;
-        // The batch from 5 ends at the block carrying epoch 0's last commit; one more follows.
+        // V8 lands the available cross-epoch suffix in one batch; there is no reward-freeze cut.
         ensure!(
-            fixture.anvil.provider.get_transaction_count(sender).await? == nonce + 3,
-            "continued progress did not retain one nonce per landing"
+            fixture.anvil.provider.get_transaction_count(sender).await? == nonce + 2,
+            "cross-epoch progress must use exactly one further landing nonce"
         );
         ensure!(
             second.signal(libc::SIGTERM).await?.success(),

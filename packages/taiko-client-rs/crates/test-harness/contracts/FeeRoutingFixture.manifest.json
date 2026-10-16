@@ -1,0 +1,36 @@
+{
+  "artifact": {
+    "path": "crates/test-harness/contracts/FeeRoutingFixture.json",
+    "sha256": "c65f66091219bf59afb6d0b3dbe6ed9ca65d80670b76766970ebf9e9e45eb744"
+  },
+  "compiler": {
+    "version": "0.8.30+commit.73712a01"
+  },
+  "foundryVersion": [
+    "forge Version: 1.5.1-stable",
+    "Commit SHA: b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2",
+    "Build Timestamp: 2025-12-22T11:41:09.812070000Z (1766403669)",
+    "Build Profile: maxperf"
+  ],
+  "generator": "script/gen_test_harness_artifacts.sh",
+  "settings": {
+    "compilationTarget": {
+      "contracts/FeeRoutingFixture.sol": "FeeRoutingFixture"
+    },
+    "evmVersion": "osaka",
+    "libraries": {},
+    "metadata": {
+      "bytecodeHash": "ipfs"
+    },
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "remappings": []
+  },
+  "source": {
+    "keccak256": "0x7d153ad823506f5c3b490f518fc675b35fe9d87300ee745ba4783789ae3a9624",
+    "path": "crates/test-harness/contracts/FeeRoutingFixture.sol",
+    "sha256": "a2dbb1095d420000be0d5662ea4942ab2058332627e0086e8fe88839041af62f"
+  }
+}
