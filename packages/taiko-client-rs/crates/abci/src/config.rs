@@ -12,10 +12,11 @@ use serde::{Deserialize, Deserializer, de};
 /// carries the next epoch's first commits writes that epoch's committee hash, counts and proposer
 /// scores for the first time too, and the cap must hold for it as well. Measured as whole
 /// transactions on the pinned contracts, with every registration owner credited for the first
-/// time, such a two-part freezing landing needs 14,313,606 gas at 300 members (2.46M, 14.7%, under
-/// the cap, which leaves room for a real verifier and consumed forced inclusions) and 17,075,337
-/// at 360, about 46k per member: it stops fitting at about 353. A one-part freezing landing that
-/// writes its whole epoch for the first time needs 12,487,285 at 300 members.
+/// time, such a two-part freezing landing, with every count and score word a first write, needs
+/// 14,963,393 gas at 300 members (1.81M, 10.8%, under the cap, which leaves room for a real
+/// verifier and consumed forced inclusions) and 17,844,824 at 360, about 48k per member: it stops
+/// fitting at about 337. A one-part freezing landing that writes its whole epoch for the first
+/// time needs 12,487,285 at 300 members.
 pub const MAX_N_MAX: usize = 300;
 
 /// Per-chain constants consumed by consensus.
@@ -95,8 +96,8 @@ pub enum ConfigError {
     #[error("n_max must be >= 1")]
     ZeroNMax,
     /// `n_max > MAX_N_MAX`: a landing that settles a full committee's epoch together with the
-    /// next epoch's first commits would keep less than about 14.7% of margin under the EIP-7825
-    /// transaction gas cap, and above about 353 members would exceed it and never be included.
+    /// next epoch's first commits would keep less than about 10.8% of margin under the EIP-7825
+    /// transaction gas cap, and above about 337 members would exceed it and never be included.
     #[error("n_max ({n_max}) must be <= {max}")]
     NMaxTooLarge {
         /// Configured `n_max`.
