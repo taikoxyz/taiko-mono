@@ -644,7 +644,7 @@ impl Runner {
         } else if same_parent(&snapshot, &job.request.batch.snapshot) {
             // The revert is canonical at the confirmation depth, so its nonce is spent and
             // nothing of this job can land any more.
-            if receipt.gas_used == transaction.gas_limit()? {
+            if ran_out_of_gas(receipt.gas_used, transaction.gas_limit()?) {
                 // It ran out of gas: state that changed after estimation made the landing
                 // costlier, such as a sweep arriving at an empty reward pool before a freezing
                 // landing. Rebuild and re-estimate against the current state.
@@ -695,6 +695,20 @@ fn observe_state(state: &JournalState) {
     if phase == TransactionPhase::Idle {
         LanderMetrics::confirmations(0);
     }
+}
+
+/// Whether a canonical failed landing that used `gas_used` of its `gas_limit` ran out of gas.
+///
+/// An out-of-gas below the top frame does not use the whole limit. The landing calls the Inbox
+/// proxy, which delegates to its implementation and calls the reward pool proxy, which delegates
+/// again; EIP-150 keeps 1/64 of the remaining gas in each calling frame, and the top-level revert
+/// that the inner out-of-gas becomes refunds what the outer frames kept (measured on anvil: a
+/// direct out-of-gas uses 1,000,000 of 1,000,000, one behind a reverting delegatecall proxy
+/// 984,753 of 1,000,000 and 16,515,450 of 16,777,216). Any use of at least 15/16 of the limit
+/// therefore counts, which covers about four nested retentions. A deterministic revert this close
+/// to the limit is only rebuilt, and then stops at gas estimation before any signature.
+pub fn ran_out_of_gas(gas_used: u64, gas_limit: u64) -> bool {
+    gas_used >= gas_limit - gas_limit / 16
 }
 
 /// A changed generation, partial checkpoint advance, full advance, or rollback invalidates a job.

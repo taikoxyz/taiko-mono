@@ -79,8 +79,14 @@ pub struct ContractFixture {
 }
 
 impl ContractFixture {
-    /// Deploy all real contracts and initialize the genesis checkpoint through the real proxy.
+    /// Deploy all real contracts and initialize the genesis checkpoint through the real proxy,
+    /// with [`POOL_FUNDING`] donated to the reward pool.
     pub async fn deploy() -> Result<Self> {
+        Self::deploy_with_pool_funding(POOL_FUNDING).await
+    }
+
+    /// [`Self::deploy`] with `pool_funding` wei donated to the reward pool; zero leaves it empty.
+    pub async fn deploy_with_pool_funding(pool_funding: u128) -> Result<Self> {
         let anvil = StandaloneAnvil::start().await?;
         let p = &anvil.provider;
         let owner = dev_signer().address();
@@ -270,17 +276,12 @@ impl ContractFixture {
         )
         .await?;
         ensure!(pool == predicted_pool, "CREATE-predicted reward pool differs");
-        // The pool's `receive` takes any Ether as free balance, as a donation.
-        let funding = TransactionRequest::default()
-            .from(owner)
-            .to(pool)
-            .value(U256::from(POOL_FUNDING))
-            .gas_limit(100_000);
-        let funded = p.send_transaction(funding).await?.get_receipt().await?;
-        ensure!(funded.status(), "reward pool funding reverted");
+        if pool_funding != 0 {
+            fund_pool(p, owner, pool, pool_funding).await?;
+        }
         ensure!(
             view(p, pool, EtnaRewardPool::freeBalanceCall {}, None).await? ==
-                U256::from(POOL_FUNDING),
+                U256::from(pool_funding),
             "reward pool free balance"
         );
         let activated = view(p, inbox, EtnaInbox::activationCall {}, None).await?;
@@ -392,6 +393,24 @@ impl ContractFixture {
         .await
         .map(drop)
     }
+}
+
+/// Donate `amount` wei to the reward pool with a plain transfer: its `receive` takes any Ether as
+/// free balance.
+pub async fn fund_pool(
+    provider: &RootProvider,
+    sender: Address,
+    pool: Address,
+    amount: u128,
+) -> Result<()> {
+    let funding = TransactionRequest::default()
+        .from(sender)
+        .to(pool)
+        .value(U256::from(amount))
+        .gas_limit(100_000);
+    let funded = provider.send_transaction(funding).await?.get_receipt().await?;
+    ensure!(funded.status(), "reward pool funding reverted");
+    Ok(())
 }
 
 /// Submit one call from an unlocked ephemeral anvil account; production landing uses local signing.

@@ -504,12 +504,17 @@ async fn unchanged_checkpoint_revert_stops_once_but_competing_revert_can_settle(
     }
 }
 
-/// A canonical revert that used its whole gas limit ran out of gas, so the runner persists Idle
-/// and continues: the next steps rebuild, re-estimate and sign a new job at the next nonce. A
-/// revert below the limit still stops.
+/// A canonical revert that used at least 15/16 of its gas limit ran out of gas, so the runner
+/// persists Idle and continues: the next steps rebuild, re-estimate and sign a new job at the next
+/// nonce. A revert using less still stops.
 #[tokio::test]
 async fn unchanged_checkpoint_out_of_gas_rebuilds_but_other_reverts_stop() {
-    for out_of_gas in [true, false] {
+    // An out-of-gas behind the Inbox and pool proxies refunds the gas the outer frames kept: 63/64
+    // of the limit for one proxy level, as anvil measures; then the edge of the 15/16 window and a
+    // deterministic revert well inside the limit.
+    for (gas_used, out_of_gas) in
+        [(492_188, true), (500_000, true), (468_750, true), (468_749, false), (100_000, false)]
+    {
         let fixture = Fixture::new();
         let mut runner = fixture.runner();
         for _ in 0..3 {
@@ -518,7 +523,8 @@ async fn unchanged_checkpoint_out_of_gas_rebuilds_but_other_reverts_stop() {
         let tx = pending_transaction(&runner);
         let limit = tx.gas_limit().unwrap();
         assert_eq!(limit, 500_000);
-        fixture.mine_using(&tx, false, if out_of_gas { limit } else { limit - 1 });
+        assert_eq!(super::ran_out_of_gas(gas_used, limit), out_of_gas, "{gas_used}");
+        fixture.mine_using(&tx, false, gas_used);
         assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
         assert!(matches!(runner.state(), JournalState::Confirming { .. }));
         fixture.control.lock().unwrap().snapshot.l1_block_number = 31;
