@@ -90,8 +90,8 @@ interface IBridge {
     /// @param _proof The merkle inclusion proof.
     function recallMessage(Message calldata _message, bytes calldata _proof) external;
 
-    /// @notice Processes a bridge message on the destination chain. This
-    /// function is callable by any address, including the `message.destOwner`.
+    /// @notice Processes a bridge message on the destination chain. Any address may call this
+    /// function when `message.gasLimit` is nonzero; otherwise, only `message.destOwner` may call.
     /// @dev The process begins by hashing the message and checking the message
     /// status in the bridge  If the status is "NEW", the message is invoked. The
     /// status is updated accordingly, and processing fees are refunded as
@@ -106,12 +106,11 @@ interface IBridge {
         external
         returns (Status, StatusReason);
 
-    /// @notice Retries to invoke the messageCall after releasing associated
-    /// Ether and tokens.
-    /// @dev This function can be called by any address, including the
-    /// `message.destOwner`.
-    /// It attempts to invoke the messageCall and updates the message status
-    /// accordingly.
+    /// @notice Retries a retriable bridge message on the destination chain.
+    /// @dev When invoking the message call, only `message.destOwner` may retry if
+    /// `message.gasLimit` is zero or `_isLastAttempt` is true; otherwise, any address may retry.
+    /// If the message call is prohibited, any address may retry the Ether transfer to
+    /// `message.destOwner` instead. The message status is updated according to the result.
     /// @param _message The message to retry.
     /// @param _isLastAttempt Specifies if this is the last attempt to retry the
     /// message.
