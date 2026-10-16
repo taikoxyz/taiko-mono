@@ -7,10 +7,12 @@ use serde::{Deserialize, Deserializer, de};
 /// The largest committee size [`ChainParams::validate`] accepts.
 ///
 /// The landing that carries an epoch's last commit settles every member of that epoch's committee
-/// in one L1 transaction, which EIP-7825 caps at 16,777,216 gas. Crediting a member's registration
-/// owner for the first time costs the reward pool about 34.9k gas, so the worst-case freezing
-/// landing needs about 14.5M at 400 members and stops fitting at about 455.
-pub const MAX_N_MAX: usize = 400;
+/// in one L1 transaction, which EIP-7825 caps at 16,777,216 gas. In the worst case, where that
+/// landing writes every member's signed count and proposer score and credits every registration
+/// owner for the first time, it costs about 40.1k gas per member: measured as a whole transaction
+/// on the pinned contracts, 14,791,922 at 360 members (about 12% under the cap) and 16,396,887 at
+/// 400. It stops fitting at about 409.
+pub const MAX_N_MAX: usize = 360;
 
 /// Per-chain constants consumed by consensus.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -88,8 +90,9 @@ pub enum ConfigError {
     /// `n_max == 0`.
     #[error("n_max must be >= 1")]
     ZeroNMax,
-    /// `n_max > MAX_N_MAX`, so the landing that settles a full committee's epoch could exceed
-    /// the EIP-7825 transaction gas cap and never be included.
+    /// `n_max > MAX_N_MAX`: the landing that settles a full committee's epoch would keep less
+    /// than about 12% of margin under the EIP-7825 transaction gas cap, and above about 409
+    /// members would exceed it and never be included.
     #[error("n_max ({n_max}) must be <= {max}")]
     NMaxTooLarge {
         /// Configured `n_max`.
@@ -192,7 +195,7 @@ impl ChainParams {
         self.d_max.saturating_sub(self.margin_v)
     }
 
-    /// Checks `d_max > margin_v`, `vp_unit > 0`, `1 <= n_max <= MAX_N_MAX`,
+    /// Checks `d_max > margin_v`, `vp_unit > 0`, `1 <= n_max <= MAX_N_MAX` (360),
     /// `heartbeat_window >= 1`, `block_gas_limit > 0` and `s_min >= vp_unit`, returning the first
     /// violation.
     pub fn validate(&self) -> Result<(), ConfigError> {
@@ -502,15 +505,15 @@ mod tests {
 
     #[test]
     fn validate_bounds_n_max_by_the_freezing_landing_gas() {
-        assert_eq!(MAX_N_MAX, 400);
+        assert_eq!(MAX_N_MAX, 360);
         ChainParams { n_max: MAX_N_MAX, ..devnet() }.validate().unwrap();
         let p = ChainParams { n_max: MAX_N_MAX + 1, ..devnet() };
         assert!(matches!(
             p.validate().unwrap_err(),
-            ConfigError::NMaxTooLarge { n_max: 401, max: 400 }
+            ConfigError::NMaxTooLarge { n_max: 361, max: 360 }
         ));
         // An override cannot raise it either: loaders validate after applying overrides.
-        let overridden = devnet().with_overrides("n_max = 401").unwrap();
+        let overridden = devnet().with_overrides("n_max = 361").unwrap();
         assert!(matches!(overridden.validate().unwrap_err(), ConfigError::NMaxTooLarge { .. }));
     }
 

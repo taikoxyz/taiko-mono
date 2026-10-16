@@ -332,8 +332,8 @@ branch before inclusion, plus, for a landing that settles an epoch, 200,000 gas 
 committee member it settles (see the freezing landing below), and never exceed EIP-7825's
 16,777,216. When the node returns an estimate above that cap, the lander stops before signing; an
 Osaka node may instead fail the estimate itself, which the lander retries as a temporary error.
-`n_max <= 400` keeps every landing below the cap. Set the limits to match the deployed Inbox and
-L1 fork. Choose the budgets
+`n_max <= 360` keeps every landing well below the cap. Set the limits to match the deployed
+Inbox and L1 fork. Choose the budgets
 explicitly before running this example:
 
 ```sh
@@ -454,10 +454,11 @@ there reports less gas used than the limit: the lander counts a failed landing t
 landing stays affordable.
 The landing must also fit in one L1 transaction, which Osaka caps at 16,777,216 gas (EIP-7825),
 and the lander caps its gas limit there. Measured as a whole transaction, the worst-case freezing
-landing needs 5,473,469 gas at 128 members and 16,396,887 at 400, about 40.2k gas and 160 bytes of
-calldata more per member, and above about 409 members it cannot be included at all, so landing
-would halt, back-pressure then halt L2, and only a pool upgrade recover. The client therefore rejects an `n_max` above 400 (`MAX_N_MAX`; see
-Configuration checks in the protocol package's Etna README).
+landing needs 5,473,469 gas at 128 members, 14,791,922 at 360 and 16,396,887 at 400, about 40.1k
+gas and 160 bytes of calldata more per member, and above about 409 members it cannot be included
+at all, so landing would halt, back-pressure then halt L2, and only a pool upgrade recover. The
+client therefore rejects an `n_max` above 360 (`MAX_N_MAX`), which keeps about 1.99M (12%) of
+headroom (see Configuration checks in the protocol package's Etna README).
 
 Proof requests retain the Inbox schedule/config/checkpoint proof under the batch parent's anchor,
 along with each committee's registry witness and proving header in the reference ancestry.
