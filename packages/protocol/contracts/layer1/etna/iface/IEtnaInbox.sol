@@ -264,10 +264,10 @@ interface IEtnaInbox {
     /// A valid Etna proof must authenticate every Inbox/registry account and storage proof under
     /// the respective bound address and authenticated L1 state root. It must open the stored
     /// committeeConfigHash using the exact eleven-word encoding (352 bytes):
-    /// abi.encode(bytes32("ETNA_PARENT_ANCHOR_V2"), uint256(l2ChainId), address(stakingRegistry),
-    /// uint256(vpUnit), uint256(sMin), uint64(nMax), uint64(heartbeatWindow), uint64(2), uint8(1),
+    /// abi.encode(bytes32("ETNA_PARENT_ANCHOR_V3"), uint256(l2ChainId), address(stakingRegistry),
+    /// uint256(vpUnit), uint256(sMin), uint64(nMax), uint64(heartbeatWindow), uint64(2), uint8(2),
     /// uint64(dMax), uint64(marginV)). Words 8 and 9 bind heartbeat lookahead 2 and retained
-    /// membership algorithm version 1; the last two bind the back-pressure cap parameters.
+    /// recipient-bound membership encoding version 2; the last two bind the back-pressure cap parameters.
     /// Authenticate the genesis schedule and explicit genesisCutoff from Inbox storage.
     /// Committee 0 opens the plain slot-278 bootstrap record at genesisCutoff (slot 279).
     ///
