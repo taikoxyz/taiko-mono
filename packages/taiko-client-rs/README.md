@@ -121,7 +121,7 @@ devnet genesis fields. Start the custom-genesis EL and verify its actual block-0
 before initializing Inbox with those commitments. Keep the deployment wallet's nonce unchanged
 between address prediction and deployment. Only after L1 initialization finality should
 `abci-genesis` construct the CometBFT genesis. See the complete
-[protocol deployment instructions](../protocol/contracts/layer1/etna/README.md#genesis-initialization).
+[protocol deployment instructions](https://github.com/taikoxyz/taiko-mono/blob/921ea2d39fee2022cd345cbe500a742c2f7a0aaa/packages/protocol/contracts/layer1/etna/README.md#genesis-initialization).
 
 The required [EL dependency](https://github.com/taikoxyz/alethia-reth/pull/251) is revision
 `5d4d21ac472c024703082ba46c6eacfa3b8ec1bf`, image `us-docker.pkg.dev/evmchain/images/alethia-reth:sha-5d4d21a`,
