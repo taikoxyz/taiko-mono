@@ -54,6 +54,9 @@ pub const USER_KEY: &str = "5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9
 pub const ALLOC_VALIDATOR_PPM: u32 = 600_000;
 /// The reward pool's proving share of its free balance at each freeze, in parts per million.
 pub const ALLOC_PROVER_PPM: u32 = 400_000;
+/// The part of each validator share the reward pool pays as proposer bonus, in parts per
+/// million: the devnet value.
+pub const PROPOSER_BONUS_PPM: u32 = 300_000;
 /// The Inbox's landing reward per landed block: 0.001 ether.
 pub const LANDING_REWARD_PER_BLOCK: u128 = 1_000_000_000_000_000;
 /// The reward pool's free balance, donated by a plain transfer at deployment: 10 ether.
@@ -254,6 +257,7 @@ impl ContractFixture {
                 _l2ChainId: L2_CHAIN_ID,
                 _allocValidatorPpm: ALLOC_VALIDATOR_PPM,
                 _allocProverPpm: ALLOC_PROVER_PPM,
+                _proposerBonusPpm: PROPOSER_BONUS_PPM,
             }
             .abi_encode(),
         )

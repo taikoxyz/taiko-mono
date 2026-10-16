@@ -97,6 +97,7 @@ pub(crate) fn request() -> ProofRequest {
                 epoch: 0,
                 committeeHash: B256::repeat_byte(0x55),
                 signedCounts: vec![1, 0, 2],
+                proposerScores: vec![10_000, 0, 6667],
             }],
             settlements: vec![vec![CommitteeMember {
                 bondId: 3,

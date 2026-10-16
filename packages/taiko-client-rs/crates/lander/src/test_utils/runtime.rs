@@ -54,7 +54,11 @@ pub(crate) fn request() -> ProofRequest {
         &params,
         0,
         2,
-        &[crate::participation::CommitSigners { height: 1, signed }],
+        &[crate::participation::CommitSigners {
+            height: 1,
+            signed,
+            proposer: second.block.header.proposer_address,
+        }],
         &std::collections::BTreeMap::from([(0, committee.clone())]),
     )
     .unwrap();

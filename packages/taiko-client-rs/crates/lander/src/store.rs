@@ -286,6 +286,13 @@ impl Store {
         {
             return Err(LanderError::Journal("job V7 statement identity mismatch".into()));
         }
+        crate::participation::verify_shape(
+            &batch.participation,
+            snapshot.checkpoint_height,
+            batch.input.lastHeight,
+            snapshot.genesis.epoch_len,
+        )
+        .map_err(|e| LanderError::Journal(format!("job participation: {e}")))?;
         crate::participation::verify_settlements(
             &batch.participation,
             &batch.settlements,
@@ -569,6 +576,39 @@ mod tests {
             .unwrap_err();
         assert!(error.to_string().contains("job blocks differ"), "{error}");
         assert_eq!(store.load().unwrap(), job);
+    }
+
+    /// A job whose participation `land` would reject (here proposer scores past 10,000 per
+    /// height) is refused even with its statement hash recomputed over it.
+    #[test]
+    fn journal_job_requires_the_inbox_participation_shape() {
+        use crate::test_utils::runtime::{limits, rebind, request};
+        let mut request = request();
+        let snapshot = &request.batch.snapshot;
+        let identity = JournalIdentity {
+            l1_chain_id: snapshot.l1_chain_id,
+            l2_chain_id: snapshot.l2_chain_id,
+            inbox: snapshot.inbox,
+            registry: snapshot.registry,
+            sender: Address::repeat_byte(5),
+        };
+        let directory = tempfile::tempdir().unwrap();
+        let store = Store::open(directory.path(), identity).unwrap();
+        let proof = Bytes::from_static(&[0]);
+        let payload = crate::codec::encode(&request.batch.blocks, &limits()).unwrap();
+        // The batch (0, 2] carries one height, worth at most one block's score.
+        assert_eq!(request.batch.participation[0].proposerScores.iter().sum::<u32>(), 10_000);
+        store
+            .save(&JournalState::Prepared {
+                job: Box::new(ProvedJob { request: request.clone(), proof: proof.clone() }),
+            })
+            .unwrap();
+        request.batch.participation[0].proposerScores[0] += 1;
+        rebind(&mut request, &payload);
+        let error = store
+            .save(&JournalState::Prepared { job: Box::new(ProvedJob { request, proof }) })
+            .unwrap_err();
+        assert!(error.to_string().contains("job participation"), "{error}");
     }
 
     /// Journaled blocks grow the journal by at most 4/3 of their published list bytes (their
