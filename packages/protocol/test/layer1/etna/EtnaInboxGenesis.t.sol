@@ -24,24 +24,6 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         cfg.stakingRegistry = address(0);
         vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
         new EtnaInbox(cfg);
-
-        cfg = etnaConfig;
-        cfg.rewardPool = address(0);
-        vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
-        new EtnaInbox(cfg);
-    }
-
-    function test_constructor_AcceptsAZeroLandingReward() external {
-        IEtnaInbox.Config memory cfg = etnaConfig;
-        cfg.landingRewardPerBlock = 0;
-        assertEq(new EtnaInbox(cfg).landingRewardPerBlock(), 0, "zero landing reward");
-    }
-
-    function test_constructor_SetsTheRewardConfiguration() external view {
-        assertEq(etnaInbox.rewardPool(), address(rewardPool), "reward pool");
-        assertEq(etnaInbox.landingRewardPerBlock(), LANDING_REWARD_PER_BLOCK, "reward per block");
-        assertEq(rewardPool.inbox(), address(etnaInbox), "the pool reports to the Inbox");
-        assertEq(etnaInbox.proverRewardLedger(), 0, "empty ledger");
     }
 
     function test_constructor_RevertWhen_ChainIdOrBatchLimitIsZero() external {
@@ -280,17 +262,13 @@ contract EtnaInboxGenesisValidationTest is EtnaInboxTestBase {
         _expectInvalidGenesis(params, EtnaInbox.InvalidEpochLength.selector);
     }
 
-    /// @dev 10,000 * 429,496 fits a uint32, so a member proposing every block of an epoch cannot
-    /// overflow the reward pool's score total; 429,497 would.
-    function test_init_EpochLenL2IsAtMostTheProposerScoreBound() external {
-        assertEq(uint256(type(uint32).max) / 10_000, 429_496);
+    function test_init_EpochLenL2RequiresRepresentableFirstEpochBoundary() external {
         IEtnaInbox.GenesisParams memory params = _defaultGenesisParams();
-        params.epochLenL2 = 429_497;
+        params.epochLenL2 = type(uint48).max;
         _expectInvalidGenesis(params, EtnaInbox.InvalidEpochLength.selector);
-
-        params.epochLenL2 = 429_496;
+        params.epochLenL2 = type(uint48).max - 1;
         etnaInbox.init(address(this), params);
-        assertEq(etnaInbox.activation().epochLenL2, 429_496, "epoch length L2");
+        assertEq(etnaInbox.activation().epochLenL2, type(uint48).max - 1);
     }
 
     function test_init_RevertWhen_EpochLenL1IsZero() external {

@@ -200,9 +200,6 @@ contract EtnaStakingRegistryTest is CommonTest {
         uint64 activeFromL1 = START_BLOCK + ACTIVATION_DELAY;
         assertEq(_register(Alice, KEY_A), 0);
         assertEq(registry.entryAt(0).activeFromL1, activeFromL1);
-
-        assertEq(registry.registrationOwnerOf(0, activeFromL1), Alice);
-        assertEq(registry.registrationOwnerOf(0, activeFromL1 + 1), address(0));
     }
 
     function test_register_RevertWhen_StakeTooLow() external {
@@ -272,8 +269,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         registry.register(bytes32(maxEntries + 1), MIN_STAKE, Alice);
     }
 
-    function test_register_RevertWhen_RegistrationKeyTaken() external {
-        // Without delays, a slot is registered, exited, withdrawn and reused in one block.
+    function test_register_ReusesSlotWithinOneBlockWithoutRewardOwnerHistory() external {
         registry = _newApprovedProxy(
             new EtnaStakingRegistry(address(token), MIN_STAKE, 0, 0, 0, HEARTBEAT_WINDOW, 0, 0, 0)
         );
@@ -282,10 +278,13 @@ contract EtnaStakingRegistryTest is CommonTest {
         registry.requestExit(0);
         registry.withdraw(0, Alice);
         vm.stopPrank();
-        assertEq(registry.entryAt(0).activeFromL1, START_BLOCK);
-
-        vm.expectRevert(EtnaStakingRegistry.RegistrationKeyTaken.selector);
-        _register(Bob, KEY_B);
+        assertEq(_register(Bob, KEY_B), 0);
+        assertEq(registry.bondOwnerOf(0), Bob);
+        assertEq(
+            registry.entryAt(0).rewardRecipient,
+            Alice,
+            "reward recipient is independent of bond owner"
+        );
     }
 
     // ---------------------------------------------------------------
@@ -825,12 +824,6 @@ contract EtnaStakingRegistryTest is CommonTest {
         assertEq(_load(bytes32(uint256(REGISTRY_BASE) + 7)), MIN_STAKE);
     }
 
-    function test_storage_RegistrationOwnerAtR12() external {
-        _register(Alice, KEY_A);
-        bytes32 key = keccak256(abi.encode(uint256(0), START_BLOCK + ACTIVATION_DELAY));
-        assertEq(_load(_mappingSlot(key, 12)), uint256(uint160(Alice)));
-    }
-
     // ---------------------------------------------------------------
     // slot reuse
     // ---------------------------------------------------------------
@@ -958,16 +951,16 @@ contract EtnaStakingRegistryTest is CommonTest {
         vm.stopPrank();
     }
 
-    function test_register_ReusedSlotKeepsFormerRegistrationOwner() external {
+    function test_register_ReusedSlotUpdatesOwnerAndRewardRecipient() external {
         _register(Alice, KEY_A);
-        uint64 aliceActiveFromL1 = registry.entryAt(0).activeFromL1;
         _exitAndWithdraw(Alice, 0);
         assertEq(_register(Bob, KEY_B), 0);
-        uint64 bobActiveFromL1 = registry.entryAt(0).activeFromL1;
-
         assertEq(registry.bondOwnerOf(0), Bob);
-        assertEq(registry.registrationOwnerOf(0, aliceActiveFromL1), Alice);
-        assertEq(registry.registrationOwnerOf(0, bobActiveFromL1), Bob);
+        assertEq(
+            registry.entryAt(0).rewardRecipient,
+            Alice,
+            "reward recipient is independent of bond owner"
+        );
     }
 
     function test_register_AcceptsAPubkeyWhoseHolderSlotWasReused() external {

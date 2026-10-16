@@ -7,11 +7,7 @@ import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title EtnaInboxInvariantTest
-/// @notice Inbox invariants over forced inclusion saves, landings and the reward pool: the landed
-/// checkpoint only moves forward and reaches the SignalService, the forced inclusion queue moves
-/// only through saves and landings, every wei a save accepts is refunded, paid to a fee
-/// recipient or held for a pending entry, and the reward pool stays solvent, freezes exactly the
-/// complete epochs and funds the prover reward ledger that pays the landing rewards.
+/// @notice Checkpoint monotonicity, queue integrity, forced-fee conservation and single-write receipts.
 /// @dev Foundry runs a separate campaign per invariant function and asserts only that function
 /// in it, so every invariant also asserts that the handler saw no violation of any kind.
 /// forge-config: default.invariant.runs = 256
@@ -29,15 +25,13 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
         vm.warp(block.timestamp + 12 * (L1_HEAD - block.number));
         vm.roll(L1_HEAD);
         handler = new EtnaInboxHandler(
-            etnaInbox, signalService, landVerifier, etnaConfig, genesisStateRoot, _committee()
+            etnaInbox, signalService, landVerifier, etnaConfig, genesisStateRoot
         );
 
-        bytes4[] memory selectors = new bytes4[](5);
+        bytes4[] memory selectors = new bytes4[](3);
         selectors[0] = EtnaInboxHandler.saveForcedInclusion.selector;
         selectors[1] = EtnaInboxHandler.land.selector;
         selectors[2] = EtnaInboxHandler.advanceBlocks.selector;
-        selectors[3] = EtnaInboxHandler.donate.selector;
-        selectors[4] = EtnaInboxHandler.withdrawRewards.selector;
         targetContract(address(handler));
         targetSelector(FuzzSelector({ addr: address(handler), selectors: selectors }));
         // Foundry refunds a call's unused gas to its sender, so a fuzzed sender that happened to
@@ -99,12 +93,12 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
     }
 
     /// @notice 3. Fee conservation: the value accepted by successful saves equals the refunds
-    /// plus the fees paid to recipients plus the Inbox balance outside the prover reward ledger,
+    /// plus the fees paid to recipients plus the Inbox balance,
     /// which is exactly the fees of the pending entries; each landing paid its consumed fees to
     /// its fee recipient only.
     function invariant_forcedInclusionFeesAreConserved() external view {
         _assertModelHeld();
-        uint256 balance = address(etnaInbox).balance - etnaInbox.proverRewardLedger();
+        uint256 balance = address(etnaInbox).balance;
         assertEq(
             handler.valueAccepted(),
             handler.refunded() + handler.paidToRecipients() + balance,
@@ -121,40 +115,16 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
         assertEq(balance, pendingFees, "the Inbox holds exactly the pending fees");
     }
 
-    /// @notice 4. Reward pool solvency and conservation: the pool's balance covers its
-    /// reservations (`checkInvariants`), which are exactly the credits its registration owners
-    /// can withdraw; it holds the donations less the proving shares sent to the Inbox and the
-    /// credits withdrawn; the prover reward ledger is the proving shares and landing values
-    /// received less the landing rewards paid; and the frozen epochs are exactly those whose last
-    /// commit has landed.
-    function invariant_rewardPoolIsSolventAndFundsTheLedger() external view {
+    /// @notice 4. Every successful landing records exactly one immutable receipt at slot 283.
+    function invariant_rewardReceiptsAreSingleWriteCommitments() external view {
         _assertModelHeld();
-        assertTrue(rewardPool.checkInvariants(), "balance >= reserved");
-        address[] memory owners = handler.owners();
-        uint256 credits;
-        for (uint256 i; i < owners.length; ++i) {
-            credits += rewardPool.creditsOf(owners[i]);
+        for (uint256 i; i < handler.landings(); ++i) {
+            bytes32 id = handler.receiptIds(i);
+            bytes32 expected = handler.ghostReceipts(id);
+            assertNotEq(expected, bytes32(0));
+            assertEq(etnaInbox.rewardCommitments(id), expected);
+            assertEq(vm.load(address(etnaInbox), keccak256(abi.encode(id, uint256(283)))), expected);
         }
-        assertEq(rewardPool.reservedTotal(), credits, "reserved = credits owed");
-        assertEq(rewardPool.reservedTotal(), handler.ghostReserved(), "modelled reservations");
-        assertEq(
-            address(rewardPool).balance + handler.provingSharesSent() + handler.withdrawn(),
-            handler.donated(),
-            "donated = held + proving shares + withdrawn"
-        );
-        assertEq(
-            etnaInbox.proverRewardLedger() + handler.rewardsPaid(),
-            handler.provingSharesSent() + handler.landingValue(),
-            "ledger = proving shares + landing value - rewards"
-        );
-
-        uint64 height = etnaInbox.lastCheckpoint().height;
-        uint64 complete = height == 0 ? 0 : (height - 1) / EPOCH_LEN_L2;
-        assertEq(handler.frozenEpochs(), complete, "complete epochs");
-        if (complete != 0) {
-            assertNotEq(rewardPool.epochRecord(complete - 1).frozenAtL1, 0, "last complete frozen");
-        }
-        assertEq(rewardPool.epochRecord(complete).frozenAtL1, 0, "the open epoch is not frozen");
     }
 
     /// @dev Asserts that the handler recorded no broken property and no call whose outcome

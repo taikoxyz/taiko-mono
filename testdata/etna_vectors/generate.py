@@ -105,23 +105,10 @@ def committee_config():
     }
 
 
-def participation_arg(parts):
-    """`cast abi-encode` argument text for an `EpochParticipation[]`."""
-    return "[" + ",".join(
-        f"({p['epoch']},{p['committee_hash']},[{','.join(map(str, p['signed_counts']))}],"
-        f"[{','.join(map(str, p['proposer_scores']))}])"
-        for p in parts
-    ) + "]"
-
-
 def land_statement(config_hash):
-    """The `TAIKO_ETNA_LAND_V7` landing statement: nineteen static words (608 bytes).
-
-    The last word is the participation hash, `keccak256(abi.encode(participation))` of the
-    `EpochParticipation[]` argument (leading offset word included).
-    """
+    """The V8 statement: twenty static words, independently encoded by cast."""
     inputs = {
-        "tag": "TAIKO_ETNA_LAND_V7",
+        "tag": "TAIKO_ETNA_LAND_V8",
         "l1_chain_id": 1,
         "l2_chain_id": 167001,
         "inbox": "0x1111111111111111111111111111111111111111",
@@ -139,24 +126,13 @@ def land_statement(config_hash):
         "forced_inclusion_head_before": 3,
         "forced_inclusion_head_after": 5,
         "fee_recipient": "0x00000000000000000000000000000000000000aa",
-        "participation": [
-            {
-                "epoch": 16,
-                "committee_hash": word(0x55),
-                "signed_counts": [3, 0, 7],
-                "proposer_scores": [10000, 0, 6667],
-            }
-        ],
+        "l2_reward_recipient": "0x00000000000000000000000000000000000000bb",
+        "base_fee_amount": 1234567890123456789,
     }
     blob_hashes_hash = keccak(concat(*inputs["blob_hashes"]))
-    participation_signature = "f((uint64,bytes32,uint32[],uint32[])[])"
-    participation_encoding = abi_encode(
-        participation_signature, participation_arg(inputs["participation"])
-    )
-    participation_hash = keccak(participation_encoding)
     preimage = abi_encode(
         "f(bytes32,uint256,uint64,address,address,uint64,uint64,bytes32,bytes32,uint64,bytes32,"
-        "bytes32,uint64,bytes32,bytes32,uint48,uint48,address,bytes32)",
+        "bytes32,uint64,bytes32,bytes32,uint48,uint48,address,address,uint256)",
         tag(inputs["tag"]),
         inputs["l1_chain_id"],
         inputs["l2_chain_id"],
@@ -175,16 +151,49 @@ def land_statement(config_hash):
         inputs["forced_inclusion_head_before"],
         inputs["forced_inclusion_head_after"],
         inputs["fee_recipient"],
-        participation_hash,
+        inputs["l2_reward_recipient"],
+        inputs["base_fee_amount"],
     )
     return {
         "inputs": decimals(inputs),
         "blob_hashes_hash": blob_hashes_hash,
-        "participation_encoding": participation_encoding,
-        "participation_hash": participation_hash,
-        "empty_participation_hash": keccak(abi_encode(participation_signature, "[]")),
         "preimage": preimage,
         "hash": keccak(preimage),
+    }
+
+
+def reward_receipt(landing):
+    """Cast-derived batch identity, commitment and mapping-slot preimages."""
+    inputs = landing["inputs"]
+    preimage = abi_encode(
+        "f(bytes32,uint256,uint64,address,uint64,uint64,bytes32,uint64,bytes32)",
+        tag("ETNA_L2_REWARD_BATCH_V1"),
+        inputs["l1_chain_id"],
+        inputs["l2_chain_id"],
+        inputs["inbox"],
+        inputs["generation"],
+        inputs["parent_height"],
+        inputs["parent_hash"],
+        inputs["last_height"],
+        inputs["last_block_hash"],
+    )
+    batch_id = keccak(preimage)
+    commitment_preimage = abi_encode(
+        "f(bytes32,bytes32,address,uint256)",
+        tag("ETNA_L2_REWARD_RECEIPT_V1"),
+        batch_id,
+        inputs["l2_reward_recipient"],
+        inputs["base_fee_amount"],
+    )
+    slot_preimage = abi_encode("f(bytes32,uint256)", batch_id, 283)
+    return {
+        "batch_id_preimage": preimage,
+        "batch_id": batch_id,
+        "commitment_preimage": commitment_preimage,
+        "commitment": keccak(commitment_preimage),
+        "mapping_base_slot": "283",
+        "slot_preimage": slot_preimage,
+        "slot": keccak(slot_preimage),
     }
 
 
@@ -377,10 +386,15 @@ def layout():
 
 def main():
     config = committee_config()
+    landing = land_statement(config["hash"])
     vectors = {
         "schema_version": 1,
         "committee_config": config,
-        "land_statement": land_statement(config["hash"]),
+        "land_statement": landing,
+        "reward_receipt": reward_receipt(landing),
+        "land_selector": cast(
+            "sig", "land((uint64,bytes32,bytes32,uint64,uint48,address,address,uint256),bytes)"
+        ),
         "committee_hashes": committee_hashes(),
         "registry_entries": registry_entries(),
         "layout": layout(),
