@@ -376,7 +376,8 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
     /// member signed, and `totalWeight` sums the members' weights. Dividing by the full weight
     /// rather than the signed weight leaves the base of an offline or omitted member's heights
     /// free instead of handing it to the members that signed, so omitting a signature never
-    /// raises anyone else's base part. Each count is at most `_epochLenL2` when every height lands
+    /// raises anyone else's base part of the epoch; later freezes reallocate the free share. Each
+    /// count is at most `_epochLenL2` when every height lands
     /// once, as the Inbox's per-landing bound keeps it; the larger denominator keeps the parts
     /// within `_baseAlloc` even for larger counts. All zero when the total weight is zero. Counts
     /// at indices past the committee are ignored.

@@ -31,8 +31,10 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// the expected L1 finality lag), plus the reward inputs L1_BRIDGE (the L1 Bridge delivering fee
 /// sweeps), L2_FEE_VAULT (the fee vault on L2), ALLOC_VALIDATOR_PPM and ALLOC_PROVER_PPM (shares
 /// of the pool's free balance per frozen epoch, summing to at most 1,000,000), PROPOSER_BONUS_PPM
-/// (the part of each validator share paid as proposer bonus, at most 1,000,000; 300,000 on devnets)
-/// and LANDING_REWARD_PER_BLOCK (wei; 0 only with a zero ALLOC_PROVER_PPM, since the prover reward
+/// (the part of each validator share paid as proposer bonus, at most 1,000,000; 300,000 on
+/// devnets; choose it above 1,000,000 * ALLOC_VALIDATOR_PPM / (3 * (ALLOC_VALIDATOR_PPM +
+/// ALLOC_PROVER_PPM)) with a margin, or omitting signatures pays a single omitter below 1/3 of
+/// the stake once forfeited shares are reallocated) and LANDING_REWARD_PER_BLOCK (wei; 0 only with a zero ALLOC_PROVER_PPM, since the prover reward
 /// ledger drains only through landing rewards). There is no expiry-derived upper bound. The genesis
 /// values must match the L2 genesis file and the committee derived by taiko-client-rs. The Inbox
 /// requires 3 <= EPOCH_LEN_L2 <= 429,496. The node requires D_MAX > MARGIN_V,
