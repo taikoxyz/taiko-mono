@@ -15,8 +15,8 @@ use support::{
     ContractFixture,
     contracts::{
         ALLOC_PROVER_PPM, ALLOC_VALIDATOR_PPM, EPOCH_LEN, EtnaInbox, EtnaRewardPool,
-        EtnaStakingRegistry, LANDING_REWARD_PER_BLOCK, POOL_FUNDING, SignalService, receipt,
-        transact, view,
+        EtnaStakingRegistry, LANDING_REWARD_PER_BLOCK, POOL_FUNDING, PROPOSER_BONUS_PPM,
+        SignalService, receipt, transact, view,
     },
     fixtures::FixtureChain,
 };
@@ -180,6 +180,22 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     // count of exactly EPOCH_LEN means each height was counted once across the batch boundaries.
     let signed = EtnaRewardPool::signedCountOfCall { _epoch: 0, _index: U256::ZERO };
     assert_eq!(u64::from(view(p, fixture.pool, signed, None).await?), EPOCH_LEN);
+    // Its proposals carried its own signature, the whole committee's stake, so each block scored
+    // 10,000: the freezing batch's one height in this landing, and every height in all.
+    assert_eq!(settled.batch.participation[0].proposerScores, [10_000]);
+    let score = EtnaRewardPool::proposerScoreOfCall { _epoch: 0, _index: U256::ZERO };
+    let score = view(p, fixture.pool, score, None).await?;
+    assert_eq!(u64::from(score), 10_000 * EPOCH_LEN);
+    // So it earns the whole bonus part, mulDiv(bonusAlloc, score, 10_000 * EPOCH_LEN), on top of
+    // the whole base part.
+    let bonus_alloc = alloc * U256::from(PROPOSER_BONUS_PPM) / U256::from(1_000_000);
+    let base = alloc - bonus_alloc;
+    let bonus = bonus_alloc * U256::from(score) / U256::from(10_000 * EPOCH_LEN);
+    assert_eq!(bonus, bonus_alloc);
+    let rewarded = landed
+        .decoded_log::<EtnaRewardPool::ValidatorRewarded>()
+        .context("ValidatorRewarded event")?;
+    assert_eq!((rewarded.data.index, rewarded.data.amount), (U256::ZERO, base + bonus));
     // Every settled validator's registration owner holds a credit; the fixture's one validator
     // takes the whole validator share.
     let [member] = settled.batch.settlements[0].as_slice() else {
@@ -197,7 +213,8 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     .await?;
     assert_eq!(owner, dev_signer().address());
     let credits = view(p, fixture.pool, EtnaRewardPool::creditsOfCall { _account: owner }, None);
-    assert_eq!(credits.await?, alloc);
+    assert_eq!(credits.await?, base + bonus);
+    assert_eq!(base + bonus, alloc);
     // The freezing landing pays its fee recipient one block's landing reward out of the proving
     // share the freeze just sent to the Inbox's prover reward ledger.
     let per_block = U256::from(LANDING_REWARD_PER_BLOCK);

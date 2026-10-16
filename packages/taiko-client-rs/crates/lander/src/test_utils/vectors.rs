@@ -73,23 +73,28 @@ pub(crate) fn b256s_at(pointer: &str) -> Vec<B256> {
     (0..len_at(pointer)).map(|i| b256_at(&format!("{pointer}/{i}"))).collect()
 }
 
-/// The `EpochParticipation[]` at `pointer`: parts with `epoch`, `committee_hash` and
-/// `signed_counts`.
+/// The `EpochParticipation[]` at `pointer`: parts with `epoch`, `committee_hash`,
+/// `signed_counts` and `proposer_scores`.
 pub(crate) fn participation_at(pointer: &str) -> Vec<EpochParticipation> {
     (0..len_at(pointer))
         .map(|k| {
             let part = format!("{pointer}/{k}");
-            let counts = format!("{part}/signed_counts");
             EpochParticipation {
                 epoch: u64_at(&format!("{part}/epoch")),
                 committeeHash: b256_at(&format!("{part}/committee_hash")),
-                signedCounts: (0..len_at(&counts))
-                    .map(|i| {
-                        u32::try_from(u64_at(&format!("{counts}/{i}")))
-                            .unwrap_or_else(|e| panic!("Etna vector {counts}/{i}: {e}"))
-                    })
-                    .collect(),
+                signedCounts: u32s_at(&format!("{part}/signed_counts")),
+                proposerScores: u32s_at(&format!("{part}/proposer_scores")),
             }
+        })
+        .collect()
+}
+
+/// The decimal-string `uint32` array at `pointer`.
+fn u32s_at(pointer: &str) -> Vec<u32> {
+    (0..len_at(pointer))
+        .map(|i| {
+            u32::try_from(u64_at(&format!("{pointer}/{i}")))
+                .unwrap_or_else(|e| panic!("Etna vector {pointer}/{i}: {e}"))
         })
         .collect()
 }

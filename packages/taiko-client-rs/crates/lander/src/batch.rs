@@ -648,8 +648,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     /// Verify one successor using a known outgoing certificate before accepting new authorities.
     ///
     /// Returns the signers of the block's `last_commit`, the canonical commit of the previous
-    /// height, verified against that height's committee; `None` only for block 1, which carries
-    /// no commit.
+    /// height, verified against that height's committee, with the block's proposer; `None` only
+    /// for block 1, which carries no commit.
     async fn authenticate_block(
         &self,
         snapshot: &LandingSnapshot,
@@ -690,7 +690,12 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                     &chain_id,
                 )
                 .map_err(|e| LanderError::Safety(e.to_string()))?;
-                Some(CommitSigners { height: height - 1, signed })
+                // `pair`'s header is certified by its own commit, verified below.
+                Some(CommitSigners {
+                    height: height - 1,
+                    signed,
+                    proposer: pair.block.header.proposer_address,
+                })
             }
             _ => None,
         };

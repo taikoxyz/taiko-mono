@@ -93,8 +93,8 @@ mod tests {
 
     /// The shared V7 `land_statement` vector (`testdata/etna_vectors`; the V5 inputs plus forced
     /// inclusion heads 3 (stored) and 5 (input), fee recipient `0x…aa` and one participation
-    /// part: epoch 16, committee hash `0x…55`, counts `[3, 0, 7]`), whose configuration hash is
-    /// the shared `committee_config` vector.
+    /// part: epoch 16, committee hash `0x…55`, counts `[3, 0, 7]`, proposer scores
+    /// `[10000, 0, 6667]`), whose configuration hash is the shared `committee_config` vector.
     fn vector() -> (LandingSnapshot, LandInput, Vec<EpochParticipation>, B256, Vec<B256>) {
         let input = |name: &str| format!("/land_statement/inputs/{name}");
         assert_eq!(vectors::str_at(&input("tag")), "TAIKO_ETNA_LAND_V7");
@@ -138,9 +138,19 @@ mod tests {
             parts.abi_encode(),
             vectors::bytes_at("/land_statement/participation_encoding").to_vec()
         );
+        assert_eq!(parts.len(), 1);
+        assert_eq!((parts[0].epoch, parts[0].committeeHash), (16, B256::with_last_byte(0x55)));
+        assert_eq!(parts[0].signedCounts, [3, 0, 7]);
+        assert_eq!(parts[0].proposerScores, [10_000, 0, 6667]);
         assert_eq!(
             participation_hash(&parts),
             vectors::b256_at("/land_statement/participation_hash")
+        );
+        // `cast keccak $(cast abi-encode 'f((uint64,bytes32,uint32[],uint32[])[])'
+        // '[(16,0x…55,[3,0,7],[10000,0,6667])]')`.
+        assert_eq!(
+            participation_hash(&parts),
+            b256!("6e267b97e6797edbe142fa4397d2d472ceb17752c926a3923bc8923fd204f249")
         );
         assert_eq!(
             participation_hash(&[]),
@@ -237,7 +247,7 @@ mod tests {
                 "output field {field}"
             );
         }
-        for field in 0..7 {
+        for field in 0..10 {
             let mut changed = parts.clone();
             match field {
                 0 => changed[0].epoch += 1,
@@ -247,6 +257,9 @@ mod tests {
                 4 => changed[0].signedCounts.reverse(),
                 5 => changed.push(changed[0].clone()),
                 6 => changed.clear(),
+                7 => changed[0].proposerScores[1] = 1,
+                8 => changed[0].proposerScores.push(0),
+                9 => changed[0].proposerScores.swap(0, 2),
                 _ => unreachable!(),
             }
             assert_ne!(
@@ -276,18 +289,18 @@ mod tests {
         use alloy::sol_types::SolCall;
         assert_eq!(
             landCall::SIGNATURE,
-            "land((uint64,bytes32,bytes32,uint64,uint48,address),(uint64,bytes32,uint32[])[],\
-             (uint32,uint64,uint256)[][],bytes)"
+            "land((uint64,bytes32,bytes32,uint64,uint48,address),\
+             (uint64,bytes32,uint32[],uint32[])[],(uint32,uint64,uint256)[][],bytes)"
         );
         assert_eq!(landCall::SELECTOR, keccak256(landCall::SIGNATURE)[..4]);
-        assert_eq!(landCall::SELECTOR, [0xb0, 0x05, 0x70, 0x1e]);
+        assert_eq!(landCall::SELECTOR, [0x10, 0x4b, 0x42, 0xc5]);
         assert_eq!(
             hashLandStatementCall::SIGNATURE,
             "hashLandStatement(uint64,uint64,bytes32,uint48,\
-             (uint64,bytes32,bytes32,uint64,uint48,address),(uint64,bytes32,uint32[])[],bytes32,\
-             bytes32[])"
+             (uint64,bytes32,bytes32,uint64,uint48,address),(uint64,bytes32,uint32[],uint32[])[],\
+             bytes32,bytes32[])"
         );
-        assert_eq!(hashLandStatementCall::SELECTOR, [0x8a, 0xde, 0xe3, 0x39]);
+        assert_eq!(hashLandStatementCall::SELECTOR, [0xfe, 0x82, 0xda, 0x88]);
 
         let (_, input, parts, _, _) = vector();
         let settlements = vec![vec![
@@ -305,10 +318,10 @@ mod tests {
             _proof: alloy_primitives::Bytes::from_static(&[0]),
         };
         let calldata = call.abi_encode();
-        assert_eq!(calldata.len(), 4 + 29 * 32);
+        assert_eq!(calldata.len(), 4 + 34 * 32);
         assert_eq!(
             keccak256(&calldata),
-            b256!("384c25b3c13291b0a12a7a0c103bca37c5aee54f6ec9fdad12ba352d16e64bff")
+            b256!("c25f31ac1870dfaccf8c4ed5bdbae72e5c1453f3295bd0812f5333c016c55154")
         );
         let decoded = landCall::abi_decode(&calldata).unwrap();
         assert_eq!(decoded._input, input);

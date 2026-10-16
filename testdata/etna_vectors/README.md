@@ -7,7 +7,7 @@ byte. Both sides read this one file instead of carrying their own copies of the 
   `committeeConfigHash` (slot 269): its eleven input words, the 352-byte preimage and the hash.
 - `land_statement`: the `TAIKO_ETNA_LAND_V7` landing statement that `EtnaInbox.land` verifies: its
   nineteen inputs (the blob hashes in transaction order; the validator participation, one part
-  per epoch), the packed blob hashes hash, the participation's ABI encoding and hash, the hash of
+  per epoch with its signed counts and proposer scores), the packed blob hashes hash, the participation's ABI encoding and hash, the hash of
   an empty participation, the 608-byte preimage and the statement hash.
 - `committee_hashes`: three committees (`CommitteeMember[]`), their ABI encodings and hashes: the
   committee hash a participation part binds and `EtnaRewardPool` checks a settlement list against.
