@@ -704,8 +704,8 @@ contract EtnaRewardPoolTest is CommonTest {
         uint256 gasUsed = vm.lastCallGas().gasTotalUsed;
         console2.log("recordLanding gas, 128 members:", gasUsed);
 
-        // Measured ~4.98M (4,978,841) cold; 4,464,698 before proposer scores.
-        assertLt(gasUsed, 5_000_000);
+        // Measured 4,978,841 cold (4,464,698 before proposer scores); the bound leaves about 10%.
+        assertLt(gasUsed, 5_500_000);
         assertEq(pool.epochRecord(0).frozenAtL1, block.number);
         assertEq(pool.reservedTotal(), pool.epochRecord(0).paid);
         // Every block scored the whole committee: the bonus is paid in full.
