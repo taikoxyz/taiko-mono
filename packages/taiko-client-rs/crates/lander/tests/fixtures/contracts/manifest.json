@@ -127,24 +127,24 @@
           ":urc/=node_modules/urc/"
         ]
       },
-      "sha256": "263c75560663023ec17f89febfc775fc77b92c026be95cb1515e75fc4643b264",
+      "sha256": "4763462eaad2b33fee535ea6112a82ced1eafa208ce6f3ab23ef2b7356cf0e77",
       "sourceArtifact": "packages/protocol/out/layer1/EtnaInbox.sol/EtnaInbox.json",
       "sources": {
         "contracts/layer1/etna/iface/IEtnaInbox.sol": {
-          "keccak256": "0x9e8e311d73cf0f73616d2714bab9615be3f4500eef81aa51f80705535b01e855",
-          "sha256": "be8f5c3086fcaa9e00fc50a1d1f82d7c054cdefae29ffdeda4f9d0bc86442c72"
+          "keccak256": "0xf27a3c2a14498aa7ccb7acca4488463183344fd79ce7d5f003f44bfd83fef6f2",
+          "sha256": "7f5e2670ed80287d4ac05095c115ad0adf108b419e5f24005e3a882e3d791a97"
         },
         "contracts/layer1/etna/iface/IEtnaRewardPool.sol": {
-          "keccak256": "0xd55225503a2116687b0f161e7dcfe93945f75a506da94385d3e0ca264a758faa",
-          "sha256": "f5dcb5a2944438c87b1bd7ec29abffe879a68700c5d14dbbaf83bf5895ed24d9"
+          "keccak256": "0x1116901cb08e18d933ded6bf9ba0ec5543d896fc9782d55a769043ac8dbc9e91",
+          "sha256": "eb23bde8f2312041a1a5d28cae0048966b303ac74ecc20d4ca11419819363f36"
         },
         "contracts/layer1/etna/iface/IEtnaStakingRegistry.sol": {
           "keccak256": "0x565d9160301c9902f22721b104f67093c82660bbedd5a426d0db14bd4776e120",
           "sha256": "f5968d4318dc47186784d6c868a9c876d6fd10eaad056123fba3972e23fd3e40"
         },
         "contracts/layer1/etna/impl/EtnaInbox.sol": {
-          "keccak256": "0xc8b1d5c28daf1508d2d16c3eefc9d9ab1bd7c8f07fee0ab3107a3ec33f46d874",
-          "sha256": "eff262c158787eb51f17d88bdab7ad2fd48b2996fa612819df2753bcd5f4ebc5"
+          "keccak256": "0xa55652cc9d8d6987e962aafe882f44acd6cb2d7a64fd64821fb5e8c64b16e342",
+          "sha256": "cebb96d7a74b3a20c84e5a7b1311ede2022e87dbd335726a968d0cc460fa5355"
         },
         "contracts/layer1/etna/impl/EtnaInbox_Layout.sol": {
           "keccak256": "0xe94b1619d722e8d0ba7bb4dbde874d172a055ccc600e5ab7b8dc795918b748c7",
@@ -285,16 +285,16 @@
           ":urc/=node_modules/urc/"
         ]
       },
-      "sha256": "aeb5b236b5605e31a08328dad49af47d1bfa445c0a327d72cb6d6df1a0f9bf4d",
+      "sha256": "802c0d1e0ac4466d12aa2b6804ae5a9ea98fdff39339b7f6b30561eabd0742c4",
       "sourceArtifact": "packages/protocol/out/layer1/EtnaRewardPool.sol/EtnaRewardPool.json",
       "sources": {
         "contracts/layer1/etna/iface/IEtnaInbox.sol": {
-          "keccak256": "0x9e8e311d73cf0f73616d2714bab9615be3f4500eef81aa51f80705535b01e855",
-          "sha256": "be8f5c3086fcaa9e00fc50a1d1f82d7c054cdefae29ffdeda4f9d0bc86442c72"
+          "keccak256": "0xf27a3c2a14498aa7ccb7acca4488463183344fd79ce7d5f003f44bfd83fef6f2",
+          "sha256": "7f5e2670ed80287d4ac05095c115ad0adf108b419e5f24005e3a882e3d791a97"
         },
         "contracts/layer1/etna/iface/IEtnaRewardPool.sol": {
-          "keccak256": "0xd55225503a2116687b0f161e7dcfe93945f75a506da94385d3e0ca264a758faa",
-          "sha256": "f5dcb5a2944438c87b1bd7ec29abffe879a68700c5d14dbbaf83bf5895ed24d9"
+          "keccak256": "0x1116901cb08e18d933ded6bf9ba0ec5543d896fc9782d55a769043ac8dbc9e91",
+          "sha256": "eb23bde8f2312041a1a5d28cae0048966b303ac74ecc20d4ca11419819363f36"
         },
         "contracts/layer1/etna/iface/IEtnaStakingRegistry.sol": {
           "keccak256": "0x565d9160301c9902f22721b104f67093c82660bbedd5a426d0db14bd4776e120",
@@ -565,24 +565,24 @@
           ":urc/=node_modules/urc/"
         ]
       },
-      "sha256": "cf34a442852ed3db8931c2cc6da87b6ede255b61d91fae2a131d3c2305de576a",
+      "sha256": "8a41e3195da135ead199e4d5eedabfe30151aebbdfdc4d62f8fa49e27cb70ee8",
       "sourceArtifact": "packages/protocol/out/layer1/EtnaInboxTestBase.sol/MockLandProofVerifier.json",
       "sources": {
         "contracts/layer1/etna/iface/IEtnaInbox.sol": {
-          "keccak256": "0x9e8e311d73cf0f73616d2714bab9615be3f4500eef81aa51f80705535b01e855",
-          "sha256": "be8f5c3086fcaa9e00fc50a1d1f82d7c054cdefae29ffdeda4f9d0bc86442c72"
+          "keccak256": "0xf27a3c2a14498aa7ccb7acca4488463183344fd79ce7d5f003f44bfd83fef6f2",
+          "sha256": "7f5e2670ed80287d4ac05095c115ad0adf108b419e5f24005e3a882e3d791a97"
         },
         "contracts/layer1/etna/iface/IEtnaRewardPool.sol": {
-          "keccak256": "0xd55225503a2116687b0f161e7dcfe93945f75a506da94385d3e0ca264a758faa",
-          "sha256": "f5dcb5a2944438c87b1bd7ec29abffe879a68700c5d14dbbaf83bf5895ed24d9"
+          "keccak256": "0x1116901cb08e18d933ded6bf9ba0ec5543d896fc9782d55a769043ac8dbc9e91",
+          "sha256": "eb23bde8f2312041a1a5d28cae0048966b303ac74ecc20d4ca11419819363f36"
         },
         "contracts/layer1/etna/iface/IEtnaStakingRegistry.sol": {
           "keccak256": "0x565d9160301c9902f22721b104f67093c82660bbedd5a426d0db14bd4776e120",
           "sha256": "f5968d4318dc47186784d6c868a9c876d6fd10eaad056123fba3972e23fd3e40"
         },
         "contracts/layer1/etna/impl/EtnaInbox.sol": {
-          "keccak256": "0xc8b1d5c28daf1508d2d16c3eefc9d9ab1bd7c8f07fee0ab3107a3ec33f46d874",
-          "sha256": "eff262c158787eb51f17d88bdab7ad2fd48b2996fa612819df2753bcd5f4ebc5"
+          "keccak256": "0xa55652cc9d8d6987e962aafe882f44acd6cb2d7a64fd64821fb5e8c64b16e342",
+          "sha256": "cebb96d7a74b3a20c84e5a7b1311ede2022e87dbd335726a968d0cc460fa5355"
         },
         "contracts/layer1/etna/impl/EtnaInbox_Layout.sol": {
           "keccak256": "0xe94b1619d722e8d0ba7bb4dbde874d172a055ccc600e5ab7b8dc795918b748c7",
@@ -1398,10 +1398,10 @@
   "foundryVersion": ["Commit SHA: b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2"],
   "generator": "script/gen_lander_artifacts.sh",
   "interface": {
-    "sha256": "be8f5c3086fcaa9e00fc50a1d1f82d7c054cdefae29ffdeda4f9d0bc86442c72",
+    "sha256": "7f5e2670ed80287d4ac05095c115ad0adf108b419e5f24005e3a882e3d791a97",
     "source": "packages/protocol/contracts/layer1/etna/iface/IEtnaInbox.sol"
   },
-  "protocolRevision": "b163006d617b1ad22d7c4394916fc270cae1374d",
+  "protocolRevision": "e26b65008da8df8795f325bde4d859d89ff49f31",
   "vectors": {
     "files": {
       "README.md": "385c9d677446732a4ddf835da0f5fe96aaf2685d17e0899b081ee182448f7e4d",
