@@ -764,12 +764,20 @@ one out cost the proposer, the bonus part pays each block's proposer for the sta
   as without a bonus.
 
 Devnets set `proposerBonusPpm = 300,000`. The share must outweigh what omitting a precommit
-gains through the base part. With A at 30%, B at 37% and C at 33% of the stake, each proposing
-its stake's share of the blocks, A leaving C's precommit out of its own blocks (A and B still
-clear 2/3) raises A's base part from 30% to `3000 / 9010` (about 33.3%) of `baseAlloc`, and drops
-the score of A's blocks from 10,000 to 6,700, so A's bonus falls from 30% to 20.1% of
-`bonusAlloc`. A's base gain exceeds its bonus loss unless the bonus share is at least about 25%;
-at 30% omitting costs A about 2.2% of its reward, while C still loses about 16%.
+gains through the base part. Let every member propose its stake's share of the blocks and sign
+every height, except that one omitter with stake share `a` leaves precommits of stake share `c`
+out of its own blocks; it must keep `1 - c` above 2/3, so `c < 1/3`. The omitted members' signed
+heights fall to `1 - a` of the epoch, so the omitter's base share rises from `a` to
+`a / (1 - a * c)`, and its blocks score `10,000 * (1 - c)` instead of 10,000, so its bonus share
+falls from `a` to `a * (1 - c)`. With bonus share `β`, omitting pays
+`(1 - β) * a / (1 - a * c) + β * a * (1 - c)` against `a` for signing, so it is unprofitable
+exactly when `β > β* = a / (1 + a * (1 - c))`. `β*` grows with both `a` and `c` and approaches
+`3/11` (about 27.3%) as both approach 1/3, so a 30% bonus makes omission unprofitable for every
+single omitter below 1/3. For example, with A at 30%, B at 37% and C at 33% of the stake, A
+leaving C's precommit out of its own blocks (A and B still clear 2/3) raises A's base part from
+30% to `3000 / 9010` (about 33.3%) of `baseAlloc`, and drops the score of A's blocks from 10,000
+to 6,700, so A's bonus falls from 30% to 20.1% of `bonusAlloc`. Here `β*` is about 25%; at 30%
+omitting costs A about 2.2% of its reward, while C still loses about 16%.
 
 ### Landing reward
 
@@ -888,12 +896,15 @@ ceiling at which it no longer fits is about 407 members (see Configuration check
   height `h`. Omitting a precommit is not attributable, but the proposer bonus makes it cost the
   omitter. With A at 30%, B at 37% and C at 33% of the voting power, A omitting C whenever A
   proposes (A and B still clear 2/3) would raise A's reward by about 11% without a bonus; with a
-  30% bonus it lowers A's by about 2.2%, while C still loses about 16%. Below a bonus share of
-  about 25% a single omitter below 1/3 still profits. A coalition above 1/3 can use the vote
-  withholding that suppresses BFT time (above) to have only its own proposals decided and exclude
-  the victim entirely: with A at 34%, B at 33% and C at 33%, C earns nothing, and A, whose blocks
-  then all score 6,700, about 55.6% with a 30% bonus. The protocol does not prevent this; having
-  the guest count extra valid precommits beyond those in `last_commit` would.
+  30% bonus it lowers A's by about 2.2%, while C still loses about 16%. In general a single
+  omitter with stake share `a` that omits stake share `c` profits only while the bonus share is
+  below `a / (1 + a * (1 - c))` (see Proposer bonus): about 25% in this example, and under 3/11
+  (about 27.3%) for every omitter and omitted stake below 1/3, so a 30% bonus leaves no single
+  omitter below 1/3 a profit. A coalition above 1/3 can use the vote withholding that suppresses
+  BFT time (above) to have only its own proposals decided and exclude the victim entirely: with A
+  at 34%, B at 33% and C at 33%, C earns nothing, and A, whose blocks then all score 6,700, about
+  55.6% with a 30% bonus. The protocol does not prevent this; having the guest count extra valid
+  precommits beyond those in `last_commit` would.
 - Shares are fixed fractions of the free balance at the freeze, so a lander can time the freezing
   landing before or after a large sweep arrives, moving value between that epoch and later ones;
   the total is unchanged.
