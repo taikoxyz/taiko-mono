@@ -645,8 +645,9 @@ L2 block fees (whole base fee and priority fees)
 `L2FeeVault` is the node's `fee_vault` constant: the coinbase and suggested fee recipient of every
 Etna block, which the EL credits with the whole base fee and the priority fees without running
 code. Its constructor takes `(l2Bridge, l1ChainId, rewardPool, minRelayFee)`, all non-zero
-immutables, and `init(owner)` sets the owner, who can upgrade it. It has no `receive`, so direct transfers revert,
-and no `withdraw`. Ether forced in without a call, such as by `selfdestruct`, is swept as fees.
+immutables, and `init(owner)` sets the owner, who can upgrade it. It has no `receive`, so direct
+transfers revert, and no `withdraw`. Ether forced in without a call, such as by `selfdestruct`, is
+swept as fees.
 
 `sweep()` is permissionless and payable, and the caller chooses only when to sweep. It sends the
 whole balance except `msg.value` through the L2 Bridge as one message: `to` and `destOwner` are
@@ -725,8 +726,11 @@ Settling an epoch costs one `registrationOwnerOf` call, one credit write and one
 member. For a 128-member epoch the pool frame measured about 1.6M gas when every owner already
 holds credits and about 4.46M in the worst case, where all 128 owners are credited for the first
 time. The landing also carries about 12 KB of committee calldata (three words per member). The
-lander of the freezing landing pays all of this, so its gas estimate must cover it. The contracts
-do not bound the committee size. The committee configuration's `n_max` caps it, and the client
+lander of the freezing landing pays all of this, so its gas limit must cover it. A gas estimate
+alone may not: the pool skips the crediting loop when the epoch's allocation is zero, so an
+estimate taken while the pool is empty leaves the loop out, and a sweep or donation arriving
+before inclusion then runs the landing out of gas. The lander in #22280 therefore adds 40,000 gas
+per settled member to its estimate. The contracts do not bound the committee size. The committee configuration's `n_max` caps it, and the client
 rejects an `n_max` above 400. The lander caps the landing's gas limit at EIP-7825's 16,777,216; at
 400 members the worst-case freezing landing needs about 14.5M, and the hard ceiling at which it
 no longer fits is about 455 members (see Configuration checks).
