@@ -80,8 +80,8 @@ async fn sign_at_estimate(
 }
 
 /// Lands the fixture chain from genesis through height `last`, which must stay below the first
-/// freezing height `EPOCH_LEN + 1`, as the cross-epoch scenario cuts it: `(0, 5]`, up to the
-/// derivation height of epoch 1, then one block at a time.
+/// freezing height `EPOCH_LEN + 1`: `(0, 5]`, up to the derivation height of epoch 1, then one
+/// block at a time.
 async fn land_through(
     fixture: &ContractFixture,
     chain: &mut FixtureChain,
@@ -194,13 +194,17 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     )
     .await?;
     let immutable_snapshot = chain.anchors[usize::try_from(derivation_height)?].number;
-    // One-block cuts on S, S+1, H and within epoch 1.
+    // One block on S. Then the decided chain reaches H + 2, but block H carries the commit of
+    // epoch 0's last height S + 1, so the batch from S ends at H: (S, H] freezes epoch 0 with one
+    // participation part, and (H, H + 2] follows within epoch 1.
+    let h = schedule.h_first(1);
     let mut freezing = None;
-    for last in switch_height..=schedule.h_first(1) + 2 {
+    for (tip, last) in [(switch_height, switch_height), (h + 2, h), (h + 2, h + 2)] {
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;
-        chain.extend(&fixture, last).await?;
-        let next = chain.prepare(&fixture, last, SidecarMode::Eip7594).await?;
-        assert_eq!(next.batch.blocks.len(), 1);
+        chain.extend(&fixture, tip).await?;
+        let next = chain.prepare(&fixture, tip, SidecarMode::Eip7594).await?;
+        assert_eq!(next.batch.input.lastHeight, last);
+        assert_eq!(next.batch.participation.len(), 1, "one part at {last}");
         let incoming = next
             .batch
             .committee_witnesses
@@ -225,8 +229,8 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
         fixture.expect_statement(next.batch.statement_hash).await?;
         let signed = sign(&fixture, &next).await?;
         let landed = assert_landed(&fixture, &next, &signed).await?;
-        // Block EPOCH_LEN + 1 carries the commit of epoch 0's last height, so its landing alone
-        // freezes epoch 0.
+        // Block EPOCH_LEN + 1 carries the commit of epoch 0's last height, so the landing ending
+        // there alone freezes epoch 0.
         let freezes = last == EPOCH_LEN + 1;
         assert_eq!(next.batch.settlements.len(), usize::from(freezes), "settlements at {last}");
         if freezes {
@@ -250,8 +254,8 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     let signed = EtnaRewardPool::signedCountOfCall { _epoch: 0, _index: U256::ZERO };
     assert_eq!(u64::from(view(p, fixture.pool, signed, None).await?), EPOCH_LEN);
     // Its proposals carried its own signature, the whole committee's stake, so each block scored
-    // 10,000: the freezing batch's one height in this landing, and every height in all.
-    assert_eq!(settled.batch.participation[0].proposerScores, [10_000]);
+    // 10,000: the freezing batch's two heights in this landing, and every height in all.
+    assert_eq!(settled.batch.participation[0].proposerScores, [20_000]);
     let score = EtnaRewardPool::proposerScoreOfCall { _epoch: 0, _index: U256::ZERO };
     let score = view(p, fixture.pool, score, None).await?;
     assert_eq!(u64::from(score), 10_000 * EPOCH_LEN);
@@ -284,15 +288,16 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     let credits = view(p, fixture.pool, EtnaRewardPool::creditsOfCall { _account: owner }, None);
     assert_eq!(credits.await?, base + bonus);
     assert_eq!(base + bonus, alloc);
-    // The freezing landing pays its fee recipient one block's landing reward out of the proving
+    // The freezing landing pays its fee recipient its two blocks' landing reward out of the proving
     // share the freeze just sent to the Inbox's prover reward ledger.
     let per_block = U256::from(LANDING_REWARD_PER_BLOCK);
+    let reward_of = |blocks: u64| per_block * U256::from(blocks);
     let recipient = settled.batch.input.feeRecipient;
     let reward =
         landed.decoded_log::<EtnaInbox::LandingRewardPaid>().context("LandingRewardPaid event")?;
     assert_eq!(
         (reward.data.recipient, reward.data.amount, reward.data.ledgerAfter),
-        (recipient, per_block, proving - per_block)
+        (recipient, reward_of(2), proving - reward_of(2))
     );
     let block = landed.block_number.context("freezing landing block")?;
     let balance = |number| async move {
@@ -301,11 +306,11 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     let cost = U256::from(landed.gas_used) * U256::from(landed.effective_gas_price) +
         U256::from(landed.blob_gas_used.context("blob gas")?) *
             U256::from(landed.blob_gas_price.context("blob gas price")?);
-    assert_eq!(balance(block).await? + cost, balance(block - 1).await? + per_block);
-    // The two later one-block landings pay one block's reward each.
+    assert_eq!(balance(block).await? + cost, balance(block - 1).await? + reward_of(2));
+    // The later two-block landing pays two more blocks' reward.
     assert_eq!(
         view(p, fixture.inbox, EtnaInbox::proverRewardLedgerCall {}, None).await?,
-        proving - per_block * U256::from(3)
+        proving - reward_of(4)
     );
     let solvent = view(p, fixture.pool, EtnaRewardPool::checkInvariantsCall {}, None).await?;
     assert!(solvent, "the pool's balance covers its reservations");

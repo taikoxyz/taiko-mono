@@ -365,8 +365,16 @@ between 1 and `--max-blocks`. Blob/message limits can make a prefix smaller
 than the minimum; its deadline still permits submission. The defaults retain
 immediate submission whenever a complete block is available.
 
-Two conditions bypass both thresholds: only one producible height remains before
-the unsettled cap `U = d_max - margin_v`, or an unlanded switch witness is available.
+A prefix also ends, at the latest, at the block that carries the last commit of its first
+commit's epoch: `h_first(e + 1)` for a batch `(p, L]` whose first commit height `max(p, 1)` lies
+in epoch `e`. A landing that freezes an epoch therefore carries exactly that epoch's
+participation part, never the next epoch's first commits, whose committee hash, counts and
+proposer scores it would otherwise write for the first time on top of the settlement (see the
+freezing landing below). The cut never empties a batch: `h_first(e + 1) >= p + 1`.
+
+Three conditions bypass both thresholds: only one producible height remains before
+the unsettled cap `U = d_max - margin_v`, an unlanded switch witness is available, or the
+prefix reaches its epoch's last commit, past which it cannot grow.
 Pressure uses the
 checkpoint authenticated by the decided tip's L1 anchor, so a more recent L1
 checkpoint cannot hide pressure while the node has not adopted it. Switch urgency
