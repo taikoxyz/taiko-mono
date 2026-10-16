@@ -41,12 +41,13 @@ lists where the fee loop departs from it.
 5. Once the L1 initialization block is final, run `abci-genesis` and start CometBFT and the EL.
    The first consensus block is L2 block 1. Configure the EL's Etna fork from genesis.
 
-`init(owner, params)` requires non-zero genesis hash, state root, committee record hash and committee config hash;
-`3 <= epochLenL2 <= 429,496`; `epochLenL1 > 0`; a past `genesisCutoff` at or after the
-registry's first checkpoint; `forcedInclusionDelay > 0`; and `maxAnchorAge >= 1152 seconds`. Neither parameter has
-an expiry-derived upper bound. Initialization runs once; implementation contracts have initializers disabled. SignalService must
-authorize this proxy, or initialization reverts without retaining ownership or genesis state.
-The node bounds the epoch lengths and its unsettled cap further; see Configuration checks.
+`init(owner, params)` requires non-zero genesis hash, state root, committee record hash and
+committee config hash; `3 <= epochLenL2 <= 429,496`; `epochLenL1 > 0`; a past `genesisCutoff` at or
+after the registry's first checkpoint; `forcedInclusionDelay > 0`; and
+`maxAnchorAge >= 1152 seconds`. Neither parameter has an expiry-derived upper bound. Initialization
+runs once; implementation contracts have initializers disabled. SignalService must authorize this
+proxy, or initialization reverts without retaining ownership or genesis state. The node bounds the
+epoch lengths and its unsettled cap further; see Configuration checks.
 
 The genesis hash, state root, committee record and config hash are trusted bootstrap inputs. The deployer must
 check that they match the L2 genesis file and the registry snapshot. The contract fixes
@@ -61,11 +62,11 @@ optional `CONTRACT_OWNER`; `run()` needs `TAIKO_TOKEN` and `REGISTRY_*`. `deploy
 (both in seconds), plus the pool's `L1_BRIDGE`, `L2_FEE_VAULT`, `ALLOC_VALIDATOR_PPM` and
 `ALLOC_PROVER_PPM` (shares of the free balance per frozen epoch, summing to at most 1,000,000) and
 `PROPOSER_BONUS_PPM` (the part of each validator share paid as proposer bonus, at most 1,000,000;
-300,000 on devnets, see Proposer bonus) and the Inbox's `LANDING_REWARD_PER_BLOCK` (wei, may be
-0). Use the same deployer for the six
-consecutive CREATEs of the Inbox deployment; the script predicts the Inbox and pool proxies from
-its current nonce and reverts if either differs. On L2, `DeployL2FeeVault` reads `PRIVATE_KEY`, a
-required `CONTRACT_OWNER`, `L2_BRIDGE`, `L1_CHAIN_ID` and `REWARD_POOL`.
+300,000 on devnets, see Proposer bonus) and the Inbox's `LANDING_REWARD_PER_BLOCK` (wei, may be 0).
+Use the same deployer for the six consecutive CREATEs of the Inbox deployment; the script predicts
+the Inbox and pool proxies from its current nonce and reverts if either differs. On L2,
+`DeployL2FeeVault` reads `PRIVATE_KEY`, a required `CONTRACT_OWNER`, `L2_BRIDGE`, `L1_CHAIN_ID` and
+`REWARD_POOL`.
 
 No Etna guest exists yet, so a devnet's `EtnaInbox` uses a stand-in proof verifier such as the
 accept-all `contracts/layer1/devnet/OpVerifier.sol`. As `land` is permissionless, anyone can then
@@ -442,8 +443,7 @@ After those checks, landing runs in this order; any revert rolls back every writ
 3. Call `proofVerifier.verifyProof(0, statementHash, proof)`.
 4. Call `rewardPool.recordLanding(L, epochLenL2, participation, settlements)`. For each part the
    pool adds the counts and scores and, if the batch completes that epoch, freezes and settles it;
-   each
-   frozen epoch's proving share arrives through the Inbox's `receive` into the prover reward
+   each frozen epoch's proving share arrives through the Inbox's `receive` into the prover reward
    ledger (slot 283).
 5. Add `msg.value` to the ledger and debit the reward
    `min(landingRewardPerBlock * (L - p), ledger)`.
@@ -644,12 +644,11 @@ is autonomous, while settlement progress still matters for overall liveness.
 The shared vector (`testdata/etna_vectors`, computed with `cast abi-encode` and read by both
 `EtnaInboxLand.t.sol` and the lander) pins the six-field ABI, eleven-word config, a one-epoch
 participation hash with signed counts and proposer scores, the empty participation hash and the V7
-statement. Tests use an explicitly
-dummy verifier for batching, statement binding, participation shape, settlement and rollback; they
-do not prove the authoritative guest rules. Dummy proof
-`0x00` remains explicit; no real ZK guest is part of this change, and host/contract integration
-checks do not establish production ZK soundness. Empty-roster liveness and old-key/withdrawal
-assumptions remain unchanged.
+statement. Tests use an explicitly dummy verifier for batching, statement binding, participation
+shape, settlement and rollback; they do not prove the authoritative guest rules. Dummy proof `0x00`
+remains explicit; no real ZK guest is part of this change, and host/contract integration checks do
+not establish production ZK soundness. Empty-roster liveness and old-key/withdrawal assumptions
+remain unchanged.
 
 ## Fees and rewards
 

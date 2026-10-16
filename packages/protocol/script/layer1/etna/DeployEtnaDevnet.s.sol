@@ -30,17 +30,17 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// FORCED_INCLUSION_DELAY (seconds, non-zero) and MAX_ANCHOR_AGE (seconds, at least 1152, above
 /// the expected L1 finality lag), plus the reward inputs L1_BRIDGE (the L1 Bridge delivering fee
 /// sweeps), L2_FEE_VAULT (the fee vault on L2), ALLOC_VALIDATOR_PPM and ALLOC_PROVER_PPM (shares
-/// of the pool's free balance per frozen epoch, summing to at most 1,000,000),
-/// PROPOSER_BONUS_PPM (the part of each validator share paid as proposer bonus, at most
-/// 1,000,000; 300,000 on devnets) and LANDING_REWARD_PER_BLOCK (wei; 0 only with a zero
-/// ALLOC_PROVER_PPM, since the prover reward ledger drains only through landing rewards). There is no expiry-derived upper bound. The genesis
-/// values must match the L2 genesis file and the committee derived by
-/// taiko-client-rs. The Inbox requires 3 <= EPOCH_LEN_L2 <= 429,496. The node requires
-/// D_MAX > MARGIN_V, EPOCH_LEN_L2 >= D_MAX - MARGIN_V + 3, EPOCH_LEN_L2 + 1 <= type(uint48).max
-/// (implied by the Inbox's cap) and L1_0 + EPOCH_LEN_L1 <= type(uint48).max, where L1_0 is the
-/// L1 block that initializes the Inbox. The node checks the epoch lengths only after
-/// initialization, so check them before calling `deployInbox()`; Configuration checks in the
-/// Etna README also covers pacing. Heartbeat and stake parameters must match its constants.
+/// of the pool's free balance per frozen epoch, summing to at most 1,000,000), PROPOSER_BONUS_PPM
+/// (the part of each validator share paid as proposer bonus, at most 1,000,000; 300,000 on devnets)
+/// and LANDING_REWARD_PER_BLOCK (wei; 0 only with a zero ALLOC_PROVER_PPM, since the prover reward
+/// ledger drains only through landing rewards). There is no expiry-derived upper bound. The genesis
+/// values must match the L2 genesis file and the committee derived by taiko-client-rs. The Inbox
+/// requires 3 <= EPOCH_LEN_L2 <= 429,496. The node requires D_MAX > MARGIN_V,
+/// EPOCH_LEN_L2 >= D_MAX - MARGIN_V + 3, EPOCH_LEN_L2 + 1 <= type(uint48).max (implied by the
+/// Inbox's cap) and L1_0 + EPOCH_LEN_L1 <= type(uint48).max, where L1_0 is the L1 block that
+/// initializes the Inbox. The node checks the epoch lengths only after initialization, so check
+/// them before calling `deployInbox()`; Configuration checks in the Etna README also covers pacing.
+/// Heartbeat and stake parameters must match its constants.
 ///
 /// No Etna guest exists yet. An accept-all ETNA_PROOF_VERIFIER is DEVNET ONLY: permissionless
 /// landing would otherwise allow anyone to forge checkpoints and to consume pending forced
