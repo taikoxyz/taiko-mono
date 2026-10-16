@@ -1013,11 +1013,14 @@ contract EtnaRewardPoolTest is CommonTest {
     /// (23.3%) sign every height and D (10%) is offline. Every block carries A, B and C, 90% of
     /// the stake, and scores 9000; A proposes 370 blocks, B 371 and C 259. Or A leaves C's
     /// precommit out of its 370 blocks, which then carry 66.7% and score 6670, so C signs 630
-    /// heights. The base divides by the committee's full weight, so A's base part does not
-    /// change: omitting only costs A its lower scores, at any bonus share, and leaves B's credit
-    /// as it was. Divided by the signed weight instead, A's base part would rise from 37% to
-    /// 40.9% of the base and omitting would pay A even at a 30% bonus.
-    function test_recordLanding_OmittingASignerNeverPaysTheOmitter() external {
+    /// heights. The base divides by the committee's full weight, so in the epoch it freezes A's
+    /// base part does not change: omitting only costs A its lower scores, at any bonus share, and
+    /// leaves B's credit as it was. Divided by the signed weight instead, A's base part would rise
+    /// from 37% to 40.9% of the base and omitting would pay A within the epoch even at a 30% bonus.
+    /// What the omission forfeits stays free, and later freezes give A part of it back, so in the
+    /// long run omitting still pays A below a bonus share of about `a * v / (v + p)`; the README's
+    /// Proposer bonus section gives that condition.
+    function test_recordLanding_OmittingASignerRaisesNoPayoutInItsEpoch() external {
         IEtnaInbox.CommitteeMember[] memory committee = new IEtnaInbox.CommitteeMember[](4);
         uint256[4] memory stakes = [uint256(3330 ether), 3340 ether, 2330 ether, 1000 ether];
         for (uint256 i; i < 4; ++i) {

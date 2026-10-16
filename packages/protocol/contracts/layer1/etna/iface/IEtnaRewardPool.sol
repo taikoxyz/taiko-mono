@@ -110,7 +110,7 @@ interface IEtnaRewardPool {
     /// `totalWeight` sums the members' weights and `totalScore` their scores. With the Inbox's
     /// bounds the denominators are `fullWeight` and `10_000 * _epochLenL2`, what the whole
     /// committee could have earned, so omitting a member's signature never raises another
-    /// member's part; the maxima keep the parts within `baseAlloc` and `bonusAlloc`, and the pool
+    /// member's part of that epoch; the maxima keep the parts within `baseAlloc` and `bonusAlloc`, and the pool
     /// solvent, for any recorded counts and scores. A member whose sum is non-zero is credited it
     /// unless its registration has no owner; credited amounts are reserved, and the base no member
     /// signed for and the bonus no proposer earned stay free. The proving share is sent to the
