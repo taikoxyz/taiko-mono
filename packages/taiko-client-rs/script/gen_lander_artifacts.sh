@@ -50,11 +50,12 @@ artifacts = {
 manifest = {
     "protocolRevision": revision,
     "generator": "script/gen_lander_artifacts.sh",
-    # The release and commit only: build timestamps differ between platforms' release binaries.
+    # The commit only: build timestamps differ between platforms' binaries, and release channels
+    # print different version lines for the same commit (`1.5.1-stable`, `1.5.1-v1.5.1`).
     "foundryVersion": [
         line
         for line in subprocess.check_output(["forge", "--version"], text=True).splitlines()
-        if line.startswith(("forge Version:", "Commit SHA:"))
+        if line.startswith("Commit SHA:")
     ],
     "artifacts": {},
 }

@@ -58,7 +58,7 @@ gen_bindings:
 
 # Regenerates the lander contract fixtures, the IEtnaInbox copy and the shared Etna vectors
 # (testdata/etna_vectors) from the pinned protocol revision in a temporary git worktree and fails
-# unless they equal the committed files. Needs the fixtures' Foundry release, pnpm, python3 and
-# network access for `pnpm install` (see script/check_lander_artifacts.sh).
+# unless they equal the committed files. Needs a Foundry build of the fixtures' commit, pnpm,
+# python3 and network access for `pnpm install` (see script/check_lander_artifacts.sh).
 check-lander-artifacts:
   ./script/check_lander_artifacts.sh
