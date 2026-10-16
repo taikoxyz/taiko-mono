@@ -1,0 +1,28 @@
+# Exact historical false positives only; keep all other credential detection enabled.
+# Both Etna companion branches carry this same union to merge without conflicts.
+# Public committee sort hashes: keccak256(abi.encode(ETNA_SET_KEY, chainId, pubkey)).
+# These are deterministic hashes of public inputs, never private/API keys.
+0728056a9ae69edf07070391554aa575cc9cb702:testdata/etna_vectors/vectors.json:generic-api-key:131
+0728056a9ae69edf07070391554aa575cc9cb702:testdata/etna_vectors/vectors.json:generic-api-key:159
+0728056a9ae69edf07070391554aa575cc9cb702:testdata/etna_vectors/vectors.json:generic-api-key:167
+0728056a9ae69edf07070391554aa575cc9cb702:testdata/etna_vectors/vectors.json:generic-api-key:175
+0728056a9ae69edf07070391554aa575cc9cb702:testdata/etna_vectors/vectors.json:generic-api-key:207
+0728056a9ae69edf07070391554aa575cc9cb702:testdata/etna_vectors/vectors.json:generic-api-key:215
+0728056a9ae69edf07070391554aa575cc9cb702:testdata/etna_vectors/vectors.json:generic-api-key:223
+0728056a9ae69edf07070391554aa575cc9cb702:testdata/etna_vectors/vectors.json:generic-api-key:231
+0728056a9ae69edf07070391554aa575cc9cb702:testdata/etna_vectors/vectors.json:generic-api-key:239
+f560c857820e463c25384f7791bce7b3fac8c17a:testdata/etna_vectors/vectors.json:generic-api-key:131
+f560c857820e463c25384f7791bce7b3fac8c17a:testdata/etna_vectors/vectors.json:generic-api-key:159
+f560c857820e463c25384f7791bce7b3fac8c17a:testdata/etna_vectors/vectors.json:generic-api-key:167
+f560c857820e463c25384f7791bce7b3fac8c17a:testdata/etna_vectors/vectors.json:generic-api-key:175
+f560c857820e463c25384f7791bce7b3fac8c17a:testdata/etna_vectors/vectors.json:generic-api-key:207
+f560c857820e463c25384f7791bce7b3fac8c17a:testdata/etna_vectors/vectors.json:generic-api-key:215
+f560c857820e463c25384f7791bce7b3fac8c17a:testdata/etna_vectors/vectors.json:generic-api-key:223
+f560c857820e463c25384f7791bce7b3fac8c17a:testdata/etna_vectors/vectors.json:generic-api-key:231
+f560c857820e463c25384f7791bce7b3fac8c17a:testdata/etna_vectors/vectors.json:generic-api-key:239
+
+# Public CometBFT chain ID literal passed to verify_commit in the 301-member test.
+# The literal taiko-etna-167001-g0 identifies the test chain; it is not a signer key.
+b730595938b38491c06d62a9aadb385168f4538c:packages/taiko-client-rs/crates/lander/src/test_utils/consensus_mpt.rs:generic-api-key:1319
+b730595938b38491c06d62a9aadb385168f4538c:packages/taiko-client-rs/crates/lander/src/test_utils/consensus_mpt.rs:generic-api-key:1323
+b730595938b38491c06d62a9aadb385168f4538c:packages/taiko-client-rs/crates/lander/src/test_utils/consensus_mpt.rs:generic-api-key:1327
