@@ -1,157 +1,109 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
-import { EssentialContract } from "src/shared/common/EssentialContract.sol";
-
-import "./L2FeeVault_Layout.sol"; // DO NOT DELETE
+import { LibEtnaRewards } from "src/shared/libs/LibEtnaRewards.sol";
+import { LibTrieProof } from "src/shared/libs/LibTrieProof.sol";
 
 /// @title L2FeeVault
-/// @notice Holds the L2 transaction fees of the Etna chain until a sweep sends them through the L2
-/// Bridge to the L1 `EtnaRewardPool`.
-/// @dev This contract's address is the Etna node's `fee_vault` chain constant: the coinbase and
-/// suggested fee recipient of every Etna block. Each block credits it the whole base fee
-/// (`basefeeSharingPctg` is pinned to 100) and the priority fees. Coinbase credits run no code, so
-/// the vault keeps no per-block ledger. It has no `receive`: direct transfers revert, and Ether
-/// forced in without a call (such as by `selfdestruct`) is swept as fees.
-///
-/// `sweep` is the only outflow. Any account may call it but picks only its timing and, at or above
-/// `minRelayFee`, the relay fee; the destination (`rewardPool` on `l1ChainId`) and the message gas
-/// limit (`SWEEP_GAS_LIMIT`) are fixed, and the amount is always the whole balance.
+/// @notice Pays the base fees committed by landed Etna batches to their L2 reward recipients.
+/// @dev Deployed directly in a new genesis at the execution client's treasury address. Execution
+/// layer credits execute no code. A receipt in the fixed L1 Inbox authenticates the only payout;
+/// extra or forced Ether creates no entitlement. This contract has no owner or upgrade route.
 /// @custom:security-contact security@taiko.xyz
-contract L2FeeVault is EssentialContract {
-    // ---------------------------------------------------------------
-    // Constants
-    // ---------------------------------------------------------------
+contract L2FeeVault {
+    /// @notice The system contract that exposes authenticated L1 state roots by timestamp.
+    address public constant ROOTS = 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
 
-    /// @notice The gas limit of every sweep message. The L1 Bridge keeps its minimum for the
-    /// message, 808,704 gas, and forwards the rest to the reward pool's `onMessageInvocation`. The
-    /// pool's first arrival, its most expensive, succeeds from a limit of 834,088 measured warm in
-    /// a forge test; a cold first arrival costs roughly 10-15k more, still well under 1,000,000. A
-    /// relayer can forward this limit well under the L1 transaction gas cap.
-    uint32 public constant SWEEP_GAS_LIMIT = 1_000_000;
+    /// @notice The L1 chain on which reward receipts are recorded.
+    uint256 public immutable l1ChainId;
 
-    // ---------------------------------------------------------------
-    // Immutable Variables
-    // ---------------------------------------------------------------
+    /// @notice The L1 Inbox whose storage commits reward receipts.
+    address public immutable l1Inbox;
 
-    /// @notice The Bridge on this chain that carries sweeps to L1.
-    address public immutable l2Bridge;
+    bool private _entered;
 
-    /// @notice The chain ID of L1, the destination of every sweep.
-    uint64 public immutable l1ChainId;
+    /// @notice Whether the batch has already paid its authenticated reward.
+    mapping(bytes32 batchId => bool claimed) public claimed;
 
-    /// @notice The `EtnaRewardPool` proxy on L1: the `to` and `destOwner` of every sweep message.
-    address public immutable rewardPool;
+    /// @notice Emitted when a batch's authenticated reward is claimed.
+    /// @param batchId The identifier of the landed batch.
+    /// @param recipient The recipient committed in the L1 receipt.
+    /// @param amount The committed base fee amount in wei.
+    event RewardClaimed(bytes32 indexed batchId, address indexed recipient, uint256 amount);
 
-    /// @notice The smallest relay fee a sweep accepts, in wei. Price it at
-    /// `SWEEP_GAS_LIMIT * (expected peak L1 base fee + priority fee)`. The L1 Bridge pays a
-    /// relayer at most `gasCharged * fee / SWEEP_GAS_LIMIT`, `gasCharged` being its own measure of
-    /// the relay's gas, so a sweep whose fee is below `SWEEP_GAS_LIMIT * basefee` at relay time
-    /// pays its relayer less than `gasCharged * basefee`. As `gasCharged` includes the Bridge's
-    /// 120,000 gas overhead, that is an approximate, conservative break-even for relaying. The
-    /// Bridge refunds the part of the fee the relayer does not earn to the reward pool, where it
-    /// becomes revenue, so a generous floor costs the system nothing. Immutable: set it with
-    /// headroom, as only an upgrade can change it.
-    uint64 public immutable minRelayFee;
-
-    // ---------------------------------------------------------------
-    // State Variables
-    // ---------------------------------------------------------------
-
-    /// @notice The total amount swept to the reward pool, in wei; relay fees excluded.
-    uint256 public sweptTotal;
-
-    /// @notice The nonce of the next sweep; each sweep message carries its nonce.
-    uint64 public sweepNonce;
-
-    uint256[48] private __gap;
-
-    // ---------------------------------------------------------------
-    // Events
-    // ---------------------------------------------------------------
-
-    /// @notice Emitted when the vault sweeps its balance to the reward pool.
-    /// @param nonce The sweep nonce carried by the message.
-    /// @param amount The amount sent to the reward pool, in wei.
-    /// @param relayFee The relay fee paid by the caller, in wei.
-    /// @param msgHash The hash of the Bridge message.
-    event FeesSwept(uint64 indexed nonce, uint256 amount, uint256 relayFee, bytes32 msgHash);
-
-    // ---------------------------------------------------------------
-    // Constructor
-    // ---------------------------------------------------------------
-
-    /// @notice Sets the sweep destination and the minimum relay fee.
-    /// @param _l2Bridge The Bridge on this chain; must be non-zero.
-    /// @param _l1ChainId The chain ID of L1; must be non-zero.
-    /// @param _rewardPool The `EtnaRewardPool` proxy on L1; must be non-zero.
-    /// @param _minRelayFee The smallest relay fee a sweep accepts, in wei; must be non-zero.
-    constructor(address _l2Bridge, uint64 _l1ChainId, address _rewardPool, uint64 _minRelayFee) {
-        require(_l2Bridge != address(0), ZERO_ADDRESS());
-        require(_l1ChainId != 0, ZERO_VALUE());
-        require(_rewardPool != address(0), ZERO_ADDRESS());
-        require(_minRelayFee != 0, ZERO_VALUE());
-
-        l2Bridge = _l2Bridge;
+    /// @notice Fixes the chain and Inbox that authenticate all claims.
+    /// @param _l1ChainId The nonzero L1 chain ID.
+    /// @param _l1Inbox The nonzero L1 Inbox address.
+    constructor(uint256 _l1ChainId, address _l1Inbox) {
+        require(_l1ChainId != 0 && _l1Inbox != address(0), InvalidL1Identity());
         l1ChainId = _l1ChainId;
-        rewardPool = _rewardPool;
-        minRelayFee = _minRelayFee;
+        l1Inbox = _l1Inbox;
     }
 
     // ---------------------------------------------------------------
     // External & Public Functions
     // ---------------------------------------------------------------
 
-    /// @notice Initializes the vault.
-    /// @param _owner The owner of the vault (the L2 `DelegateController`). `msg.sender` is used if
-    /// this value is zero.
-    function init(address _owner) external initializer {
-        __Essential_init(_owner);
-    }
+    /// @notice Pays a landed batch's base fees exactly once to its committed L2 recipient.
+    /// @dev Anyone may submit the proof. The trusted system root authenticates both the L1 Inbox
+    /// account and receipt storage slot. Failed transfers revert the claim so it can be retried.
+    /// Zero-amount receipts are consumed without calling the recipient.
+    /// @param _receipt The landed batch receipt committed in the L1 Inbox.
+    /// @param _anchorTimestamp The timestamp used to retrieve the authenticated L1 state root.
+    /// @param _accountProof The nonempty L1 Inbox account inclusion proof.
+    /// @param _storageProof The inclusion proof for the batch's receipt commitment.
+    function claim(
+        LibEtnaRewards.Receipt calldata _receipt,
+        uint256 _anchorTimestamp,
+        bytes[] calldata _accountProof,
+        bytes[] calldata _storageProof
+    )
+        external
+    {
+        require(!_entered, ReentrantClaim());
+        _entered = true;
+        require(
+            _receipt.l1ChainId == l1ChainId && _receipt.l2ChainId == block.chainid
+                && _receipt.inbox == l1Inbox && _receipt.lastHeight > _receipt.parentHeight
+                && _receipt.l2RewardRecipient != address(0),
+            InvalidReceipt()
+        );
+        require(_accountProof.length != 0, EmptyAccountProof());
 
-    /// @notice Sends the vault's whole balance through the L2 Bridge to the reward pool.
-    /// @dev Permissionless; the caller chooses only when to sweep. `msg.value` is the relay fee, at
-    /// least `minRelayFee` and at most `type(uint64).max`: it becomes the message `fee` and is not
-    /// taken from the swept amount. The message gas limit is always `SWEEP_GAS_LIMIT`. The message
-    /// invokes `rewardPool.onMessageInvocation` with `abi.encode(nonce)` and makes the pool its
-    /// `destOwner`, so only the pool can fail or finally retry it on L1. The L1 Bridge pays the
-    /// relayer at most `gasCharged * fee / SWEEP_GAS_LIMIT` and refunds the rest of the fee to the
-    /// pool. An empty vault sends no message, changes no state and returns zero; a relay fee is
-    /// then rejected.
-    /// @return msgHash_ The hash of the Bridge message, or zero for an empty vault.
-    function sweep() external payable nonReentrant returns (bytes32 msgHash_) {
-        uint256 amount = address(this).balance - msg.value;
-        if (amount == 0) {
-            require(msg.value == 0, EmptyVaultWithFee());
-            return 0;
+        bytes32 id = LibEtnaRewards.batchId(_receipt);
+        require(!claimed[id], AlreadyClaimed());
+        // EIP-4788 takes a raw 32-byte timestamp, with no function selector.
+        (bool ok, bytes memory data) = ROOTS.staticcall(abi.encode(_anchorTimestamp));
+        require(ok && data.length == 32, InvalidAnchorRoot());
+        bytes32 root = abi.decode(data, (bytes32));
+        require(root != bytes32(0), InvalidAnchorRoot());
+        LibTrieProof.verifyMerkleProof(
+            root,
+            l1Inbox,
+            LibEtnaRewards.receiptSlot(id),
+            LibEtnaRewards.commitment(_receipt),
+            _accountProof,
+            _storageProof
+        );
+
+        claimed[id] = true;
+        if (_receipt.baseFeeAmount != 0) {
+            (ok,) = _receipt.l2RewardRecipient.call{ value: _receipt.baseFeeAmount }("");
+            require(ok, RewardTransferFailed());
         }
-        require(msg.value >= minRelayFee, RelayFeeTooLow());
-        require(msg.value <= type(uint64).max, RelayFeeTooLarge());
-
-        uint64 nonce = sweepNonce;
-        sweptTotal += amount;
-        sweepNonce = nonce + 1;
-
-        IBridge.Message memory message;
-        message.fee = uint64(msg.value);
-        message.gasLimit = SWEEP_GAS_LIMIT;
-        message.srcOwner = address(this);
-        message.destChainId = l1ChainId;
-        message.destOwner = rewardPool;
-        message.to = rewardPool;
-        message.value = amount;
-        message.data = abi.encodeCall(IMessageInvocable.onMessageInvocation, (abi.encode(nonce)));
-
-        (msgHash_,) = IBridge(l2Bridge).sendMessage{ value: amount + msg.value }(message);
-        emit FeesSwept(nonce, amount, msg.value, msgHash_);
+        _entered = false;
+        emit RewardClaimed(id, _receipt.l2RewardRecipient, _receipt.baseFeeAmount);
     }
 
     // ---------------------------------------------------------------
     // Custom Errors
     // ---------------------------------------------------------------
 
-    error EmptyVaultWithFee();
-    error RelayFeeTooLarge();
-    error RelayFeeTooLow();
+    error AlreadyClaimed();
+    error EmptyAccountProof();
+    error InvalidAnchorRoot();
+    error InvalidL1Identity();
+    error InvalidReceipt();
+    error ReentrantClaim();
+    error RewardTransferFailed();
 }

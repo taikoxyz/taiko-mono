@@ -1,332 +1,326 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Vm } from "forge-std/src/Vm.sol";
+import {
+    EtnaClaimReceiver,
+    EtnaVaultProof,
+    EtnaVaultTestBase,
+    ForceEtnaEther,
+    MockEtnaRoots
+} from "./L2FeeVaultTestBase.sol";
 import { L2FeeVault } from "src/layer2/core/L2FeeVault.sol";
-import { DelegateController } from "src/layer2/governance/DelegateController.sol";
-import { Bridge } from "src/shared/bridge/Bridge.sol";
-import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
-import { EssentialContract } from "src/shared/common/EssentialContract.sol";
-import { SignalService } from "src/shared/signal/SignalService.sol";
-import { Layer2Test } from "test/layer2/Layer2Test.sol";
+import { LibEtnaRewards } from "src/shared/libs/LibEtnaRewards.sol";
+import { EtnaRewardProof } from "test/shared/EtnaRewardProof.sol";
 
-contract L2FeeVaultTest is Layer2Test {
-    uint64 private constant MIN_RELAY_FEE = 0.001 ether;
-
-    // Contracts on Ethereum
-    address private daoController = randAddress();
-    address private eBridge = randAddress();
-    address private rewardPool = randAddress();
-
-    // Contracts on Taiko
-    Bridge private tBridge;
-    DelegateController private tDelegateController;
-    L2FeeVault private vault;
-
-    function setUpOnEthereum() internal override {
-        // Enables Ethereum as the destination chain of the Taiko bridge.
-        register("bridge", eBridge);
+contract L2FeeVaultTest is EtnaVaultTestBase {
+    function test_constructor_RevertWhen_ChainOrInboxIsZero() external {
+        vm.expectRevert(L2FeeVault.InvalidL1Identity.selector);
+        new L2FeeVault(0, INBOX);
+        vm.expectRevert(L2FeeVault.InvalidL1Identity.selector);
+        new L2FeeVault(1, address(0));
     }
 
-    function setUpOnTaiko() internal override {
-        SignalService signalService = deploySignalServiceWithoutProof(
-            address(this),
-            address(uint160(uint256(keccak256("REMOTE_SIGNAL_SERVICE_LAYER2")))),
-            deployer
-        );
-        tBridge = deployBridge(
-            address(
-                new Bridge(address(resolver), address(signalService), address(0), address(0), false)
-            )
-        );
-        tDelegateController =
-            deployDelegateController(ethereumChainId, address(tBridge), daoController);
-        vault = L2FeeVault(
-            deploy({
-                name: "",
-                impl: address(
-                    new L2FeeVault(address(tBridge), ethereumChainId, rewardPool, MIN_RELAY_FEE)
-                ),
-                data: abi.encodeCall(L2FeeVault.init, (address(tDelegateController)))
-            })
-        );
+    function test_claim_PaysAuthenticatedRecipientOnce() external {
+        LibEtnaRewards.Receipt memory r = EtnaVaultProof.receipt(0, RECIPIENT, 3 ether);
+        EtnaVaultProof.Proof memory p = _publish(r, 100);
+        bytes32 id = EtnaVaultProof.batchId(r);
+        vm.expectCall(ROOTS, abi.encode(uint256(100)));
+        vm.expectEmit();
+        emit L2FeeVault.RewardClaimed(id, RECIPIENT, 3 ether);
+        vm.prank(address(0x3333));
+        _claim(r, 100, p);
+        assertEq(RECIPIENT.balance, 3 ether);
+        assertEq(address(0x3333).balance, 0);
+        assertEq(address(_vault).balance, 2 ether);
+        assertTrue(_vault.claimed(id));
+        vm.expectRevert(L2FeeVault.AlreadyClaimed.selector);
+        _vault.claim(r, 100, p.account, p.storageProof);
+        assertEq(RECIPIENT.balance, 3 ether);
     }
 
-    // ---------------------------------------------------------------
-    // constructor & init
-    // ---------------------------------------------------------------
-
-    function test_constructor_SetsTheSweepDestination() external view {
-        assertEq(vault.l2Bridge(), address(tBridge));
-        assertEq(vault.l1ChainId(), ethereumChainId);
-        assertEq(vault.rewardPool(), rewardPool);
-        assertEq(vault.minRelayFee(), MIN_RELAY_FEE);
-        assertEq(vault.SWEEP_GAS_LIMIT(), 1_000_000);
+    function testFuzz_claim_RevertWhen_AnyReceiptFieldIsForged(uint8 _field) external {
+        uint256 field = bound(_field, 0, 9);
+        LibEtnaRewards.Receipt memory r = EtnaVaultProof.receipt(0, RECIPIENT, 3 ether);
+        EtnaVaultProof.Proof memory p = _publish(r, 100);
+        if (field == 0) r.l1ChainId++;
+        else if (field == 1) r.l2ChainId++;
+        else if (field == 2) r.inbox = address(0x4444);
+        else if (field == 3) r.generation++;
+        else if (field == 4) r.parentHeight++;
+        else if (field == 5) r.parentHash = bytes32(uint256(77));
+        else if (field == 6) r.lastHeight++;
+        else if (field == 7) r.lastBlockHash = bytes32(uint256(88));
+        else if (field == 8) r.l2RewardRecipient = address(0x4444);
+        else r.baseFeeAmount++;
+        vm.expectRevert();
+        _vault.claim(r, 100, p.account, p.storageProof);
+        assertEq(address(_vault).balance, 5 ether);
+        assertEq(RECIPIENT.balance, 0);
+        assertFalse(_vault.claimed(EtnaVaultProof.batchId(r)));
     }
 
-    function test_constructor_RevertWhen_AnyArgumentIsZero() external {
-        vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
-        new L2FeeVault(address(0), ethereumChainId, rewardPool, MIN_RELAY_FEE);
-
-        vm.expectRevert(EssentialContract.ZERO_VALUE.selector);
-        new L2FeeVault(address(tBridge), 0, rewardPool, MIN_RELAY_FEE);
-
-        vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
-        new L2FeeVault(address(tBridge), ethereumChainId, address(0), MIN_RELAY_FEE);
-
-        vm.expectRevert(EssentialContract.ZERO_VALUE.selector);
-        new L2FeeVault(address(tBridge), ethereumChainId, rewardPool, 0);
-    }
-
-    function test_init_SetsOwner() external view {
-        assertEq(vault.owner(), address(tDelegateController));
-        assertFalse(vault.paused());
-        assertEq(vault.sweptTotal(), 0);
-        assertEq(vault.sweepNonce(), 0);
-    }
-
-    function test_init_RevertWhen_CalledTwice() external {
-        vm.expectRevert("Initializable: contract is already initialized");
-        vault.init(Alice);
-    }
-
-    // ---------------------------------------------------------------
-    // Direct transfers
-    // ---------------------------------------------------------------
-
-    function test_directTransfer_Reverts() external onTaiko {
-        vm.deal(Bob, 1 ether);
-
-        vm.prank(Bob);
-        (bool success,) = address(vault).call{ value: 1 ether }("");
-
-        assertFalse(success);
-        assertEq(address(vault).balance, 0);
-        assertEq(Bob.balance, 1 ether);
-    }
-
-    // ---------------------------------------------------------------
-    // sweep
-    // ---------------------------------------------------------------
-
-    function test_sweep_SendsWholeBalanceToTheRewardPool() external onTaiko {
-        // Block fees reach the coinbase without a call, like vm.deal.
-        vm.deal(address(vault), 2 ether);
-        vm.deal(Carol, 1 ether);
-        uint64 messageId = tBridge.nextMessageId();
-
-        vm.recordLogs();
-        vm.prank(Carol);
-        bytes32 msgHash = vault.sweep{ value: 0.01 ether }();
-
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        (bytes32 sentHash, IBridge.Message memory message) = _messageSent(logs);
-        assertEq(sentHash, msgHash);
-        assertEq(message.id, messageId);
-        assertEq(message.fee, 0.01 ether);
-        assertEq(message.gasLimit, vault.SWEEP_GAS_LIMIT());
-        assertEq(message.from, address(vault));
-        assertEq(message.srcChainId, taikoChainId);
-        assertEq(message.srcOwner, address(vault));
-        assertEq(message.destChainId, ethereumChainId);
-        assertEq(message.destOwner, rewardPool);
-        assertEq(message.to, rewardPool);
-        assertEq(message.value, 2 ether);
-        assertEq(
-            message.data,
-            abi.encodeCall(IMessageInvocable.onMessageInvocation, (abi.encode(uint64(0))))
-        );
-        assertEq(tBridge.hashMessage(message), msgHash);
-        assertTrue(tBridge.isMessageSent(message));
-
-        (uint64 nonce, uint256 amount, uint256 relayFee, bytes32 sweptHash) = _feesSwept(logs);
-        assertEq(nonce, 0);
-        assertEq(amount, 2 ether);
-        assertEq(relayFee, 0.01 ether);
-        assertEq(sweptHash, msgHash);
-
-        assertEq(address(vault).balance, 0);
-        assertEq(address(tBridge).balance, 2.01 ether);
-        assertEq(Carol.balance, 0.99 ether);
-        assertEq(vault.sweptTotal(), 2 ether);
-        assertEq(vault.sweepNonce(), 1);
-    }
-
-    function test_sweep_IncrementsTheNonceEachSweep() external onTaiko {
-        vm.deal(address(vault), 1 ether);
-        vm.deal(Carol, 1 ether);
-        vm.deal(David, 1 ether);
-        vm.recordLogs();
-        vm.prank(Carol);
-        bytes32 firstHash = vault.sweep{ value: MIN_RELAY_FEE }();
-        (, IBridge.Message memory first) = _messageSent(vm.getRecordedLogs());
-
-        vm.deal(address(vault), 0.5 ether);
-        vm.recordLogs();
-        vm.prank(David);
-        bytes32 secondHash = vault.sweep{ value: MIN_RELAY_FEE }();
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        (, IBridge.Message memory second) = _messageSent(logs);
-        (uint64 nonce,,,) = _feesSwept(logs);
-
-        assertEq(
-            first.data,
-            abi.encodeCall(IMessageInvocable.onMessageInvocation, (abi.encode(uint64(0))))
-        );
-        assertEq(
-            second.data,
-            abi.encodeCall(IMessageInvocable.onMessageInvocation, (abi.encode(uint64(1))))
-        );
-        assertEq(nonce, 1);
-        assertEq(first.value, 1 ether);
-        assertEq(second.value, 0.5 ether);
-        assertEq(first.gasLimit, vault.SWEEP_GAS_LIMIT());
-        assertEq(second.gasLimit, vault.SWEEP_GAS_LIMIT());
-        assertTrue(firstHash != secondHash);
-        assertTrue(tBridge.isMessageSent(first));
-        assertTrue(tBridge.isMessageSent(second));
-        assertEq(vault.sweptTotal(), 1.5 ether);
-        assertEq(vault.sweepNonce(), 2);
-    }
-
-    function test_sweep_EmptyVaultIsANoOp() external onTaiko {
-        uint64 messageId = tBridge.nextMessageId();
-
-        vm.recordLogs();
-        vm.prank(Carol);
-        bytes32 msgHash = vault.sweep();
-
-        assertEq(msgHash, 0);
-        assertEq(vm.getRecordedLogs().length, 0);
-        assertEq(tBridge.nextMessageId(), messageId);
-        assertEq(vault.sweptTotal(), 0);
-        assertEq(vault.sweepNonce(), 0);
-    }
-
-    function test_sweep_RevertWhen_EmptyVaultWithFee() external onTaiko {
-        vm.deal(Carol, 1 ether);
-
-        vm.expectRevert(L2FeeVault.EmptyVaultWithFee.selector);
-        vm.prank(Carol);
-        vault.sweep{ value: 1 }();
-    }
-
-    function test_sweep_RevertWhen_RelayFeeIsBelowTheMinimum() external onTaiko {
-        vm.deal(address(vault), 1 ether);
-        vm.deal(Carol, 1 ether);
-        uint64 messageId = tBridge.nextMessageId();
-
-        vm.expectRevert(L2FeeVault.RelayFeeTooLow.selector);
-        vm.prank(Carol);
-        vault.sweep();
-
-        vm.expectRevert(L2FeeVault.RelayFeeTooLow.selector);
-        vm.prank(Carol);
-        vault.sweep{ value: MIN_RELAY_FEE - 1 }();
-
-        assertEq(address(vault).balance, 1 ether);
-        assertEq(tBridge.nextMessageId(), messageId);
-        assertEq(vault.sweepNonce(), 0);
-    }
-
-    function test_sweep_AcceptsTheMinimumRelayFee() external onTaiko {
-        vm.deal(address(vault), 1 ether);
-        vm.deal(Carol, 1 ether);
-
-        vm.recordLogs();
-        vm.prank(Carol);
-        bytes32 msgHash = vault.sweep{ value: MIN_RELAY_FEE }();
-
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        (bytes32 sentHash, IBridge.Message memory message) = _messageSent(logs);
-        (,, uint256 relayFee,) = _feesSwept(logs);
-        assertEq(sentHash, msgHash);
-        assertEq(message.fee, MIN_RELAY_FEE);
-        assertEq(message.gasLimit, vault.SWEEP_GAS_LIMIT());
-        assertEq(message.value, 1 ether);
-        assertEq(relayFee, MIN_RELAY_FEE);
-        assertTrue(tBridge.isMessageSent(message));
-        assertEq(address(vault).balance, 0);
-        assertEq(Carol.balance, 1 ether - MIN_RELAY_FEE);
-    }
-
-    function test_sweep_AboveTheMinimumTheWholeValueIsTheRelayFee() external onTaiko {
-        vm.deal(address(vault), 1 ether);
-        uint256 relayFee = uint256(MIN_RELAY_FEE) * 7 + 3;
-        vm.deal(Carol, relayFee);
-
-        vm.recordLogs();
-        vm.prank(Carol);
-        vault.sweep{ value: relayFee }();
-
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        (, IBridge.Message memory message) = _messageSent(logs);
-        (, uint256 amount, uint256 emittedFee,) = _feesSwept(logs);
-        assertEq(message.fee, relayFee);
-        assertEq(message.gasLimit, vault.SWEEP_GAS_LIMIT());
-        assertEq(message.value, 1 ether);
-        assertEq(amount, 1 ether);
-        assertEq(emittedFee, relayFee);
-        assertEq(address(tBridge).balance, 1 ether + relayFee);
-        assertEq(Carol.balance, 0);
-        assertEq(vault.sweptTotal(), 1 ether);
-    }
-
-    function test_sweep_GasLimitClearsTheBridgeMinimum() external view {
-        bytes memory data =
-            abi.encodeCall(IMessageInvocable.onMessageInvocation, (abi.encode(type(uint64).max)));
-        assertGt(vault.SWEEP_GAS_LIMIT(), tBridge.getMessageMinGasLimit(data.length));
-    }
-
-    function test_sweep_RevertWhen_RelayFeeExceedsUint64() external onTaiko {
-        vm.deal(address(vault), 1 ether);
-        uint256 relayFee = uint256(type(uint64).max) + 1;
-        vm.deal(Carol, relayFee);
-
-        vm.expectRevert(L2FeeVault.RelayFeeTooLarge.selector);
-        vm.prank(Carol);
-        vault.sweep{ value: relayFee }();
-    }
-
-    // ---------------------------------------------------------------
-    // Helpers
-    // ---------------------------------------------------------------
-
-    /// @dev Returns the only `MessageSent` the Taiko bridge emitted in `_logs`.
-    function _messageSent(Vm.Log[] memory _logs)
-        private
-        view
-        returns (bytes32 msgHash_, IBridge.Message memory message_)
-    {
-        uint256 found;
-        for (uint256 i; i < _logs.length; ++i) {
-            if (
-                _logs[i].emitter != address(tBridge)
-                    || _logs[i].topics[0] != IBridge.MessageSent.selector
-            ) continue;
-            msgHash_ = _logs[i].topics[1];
-            message_ = abi.decode(_logs[i].data, (IBridge.Message));
-            ++found;
+    function test_claim_RevertWhen_ConfiguredIdentityMismatchesEvenWithValidProof() external {
+        for (uint256 i; i < 3; ++i) {
+            LibEtnaRewards.Receipt memory r = EtnaVaultProof.receipt(0, RECIPIENT, 3 ether);
+            if (i == 0) r.l1ChainId++;
+            else if (i == 1) r.l2ChainId++;
+            else r.inbox = address(0x4444);
+            EtnaVaultProof.Proof memory p = _publish(r, 100);
+            vm.expectRevert(L2FeeVault.InvalidReceipt.selector);
+            _vault.claim(r, 100, p.account, p.storageProof);
         }
-        assertEq(found, 1, "MessageSent count");
     }
 
-    /// @dev Returns the fields of the only `FeesSwept` the vault emitted in `_logs`.
-    function _feesSwept(Vm.Log[] memory _logs)
-        private
-        view
-        returns (uint64 nonce_, uint256 amount_, uint256 relayFee_, bytes32 msgHash_)
-    {
-        uint256 found;
-        for (uint256 i; i < _logs.length; ++i) {
-            if (
-                _logs[i].emitter != address(vault)
-                    || _logs[i].topics[0] != L2FeeVault.FeesSwept.selector
-            ) continue;
-            nonce_ = uint64(uint256(_logs[i].topics[1]));
-            (amount_, relayFee_, msgHash_) = abi.decode(_logs[i].data, (uint256, uint256, bytes32));
-            ++found;
+    function test_claim_RevertWhen_RangeIsEmptyOrReversed() external {
+        for (uint64 i; i < 2; ++i) {
+            LibEtnaRewards.Receipt memory r = EtnaVaultProof.receipt(1, RECIPIENT, 3 ether);
+            r.lastHeight = r.parentHeight - i;
+            EtnaVaultProof.Proof memory p = _publish(r, 100);
+            vm.expectRevert(L2FeeVault.InvalidReceipt.selector);
+            _vault.claim(r, 100, p.account, p.storageProof);
         }
-        assertEq(found, 1, "FeesSwept count");
+    }
+
+    function test_claim_RevertWhen_RecipientIsZero() external {
+        LibEtnaRewards.Receipt memory r = EtnaVaultProof.receipt(0, address(0), 3 ether);
+        EtnaVaultProof.Proof memory p = _publish(r, 100);
+        vm.expectRevert(L2FeeVault.InvalidReceipt.selector);
+        _vault.claim(r, 100, p.account, p.storageProof);
+    }
+
+    function test_claim_RevertWhen_AccountProofIsEmptyEvenWithStorageRoot() external {
+        LibEtnaRewards.Receipt memory r = EtnaVaultProof.receipt(0, RECIPIENT, 3 ether);
+        EtnaVaultProof.Proof memory p = _publish(r, 100);
+        // LibTrieProof accepts storage-root mode for other users; the vault must not.
+        MockEtnaRoots(ROOTS).setRoot(100, keccak256(p.storageProof[0]));
+        vm.expectRevert(L2FeeVault.EmptyAccountProof.selector);
+        _vault.claim(r, 100, new bytes[](0), p.storageProof);
+    }
+
+    function test_claim_RevertWhen_ProofAuthenticatesAnotherAccount() external {
+        LibEtnaRewards.Receipt memory r = EtnaVaultProof.receipt(0, RECIPIENT, 3 ether);
+        EtnaVaultProof.Proof memory p = EtnaVaultProof.proof(r);
+        (p.root, p.account, p.storageProof) = EtnaRewardProof._proof(
+            address(0x4444),
+            keccak256(abi.encode(EtnaVaultProof.batchId(r), uint256(283))),
+            EtnaVaultProof.commitment(r)
+        );
+        MockEtnaRoots(ROOTS).setRoot(100, p.root);
+        vm.expectRevert();
+        _vault.claim(r, 100, p.account, p.storageProof);
+    }
+
+    function test_claim_RevertWhen_ProofUsesWrongMappingSlot() external {
+        LibEtnaRewards.Receipt memory r = EtnaVaultProof.receipt(0, RECIPIENT, 3 ether);
+        EtnaVaultProof.Proof memory p;
+        (p.root, p.account, p.storageProof) = EtnaRewardProof._proof(
+            INBOX,
+            keccak256(abi.encode(EtnaVaultProof.batchId(r), uint256(284))),
+            EtnaVaultProof.commitment(r)
+        );
+        MockEtnaRoots(ROOTS).setRoot(100, p.root);
+        vm.expectRevert();
+        _vault.claim(r, 100, p.account, p.storageProof);
+    }
+
+    function testFuzz_claim_RevertWhen_AccountOrStorageNodeIsCorrupt(bool _account) external {
+        LibEtnaRewards.Receipt memory r = EtnaVaultProof.receipt(0, RECIPIENT, 3 ether);
+        EtnaVaultProof.Proof memory p = _publish(r, 100);
+        if (_account) p.account[0][p.account[0].length - 1] ^= 0x01;
+        else p.storageProof[0][p.storageProof[0].length - 1] ^= 0x01;
+        vm.expectRevert();
+        _vault.claim(r, 100, p.account, p.storageProof);
+    }
+
+    function test_claim_RevertWhen_StorageProofIsEmpty() external {
+        LibEtnaRewards.Receipt memory r = EtnaVaultProof.receipt(0, RECIPIENT, 3 ether);
+        EtnaVaultProof.Proof memory p = _publish(r, 100);
+        vm.expectRevert();
+        _vault.claim(r, 100, p.account, new bytes[](0));
+    }
+
+    function testFuzz_claim_RevertWhen_RootReturnLengthIsNot32(uint8 _size) external {
+        uint256 size = bound(_size, 0, 96);
+        if (size == 32) size++;
+        LibEtnaRewards.Receipt memory r = EtnaVaultProof.receipt(0, RECIPIENT, 3 ether);
+        EtnaVaultProof.Proof memory p = _publish(r, 100);
+        // A valid root prefix plus trailing bytes must also fail, so this detects a
+        // permissive >=32 length check rather than passing only because the root is zero.
+        bytes memory malformed = new bytes(size);
+        bytes memory prefix = abi.encode(p.root);
+        for (uint256 i; i < size && i < 32; ++i) {
+            malformed[i] = prefix[i];
+        }
+        vm.mockCall(ROOTS, abi.encode(uint256(100)), malformed);
+        vm.expectRevert(L2FeeVault.InvalidAnchorRoot.selector);
+        _vault.claim(r, 100, p.account, p.storageProof);
+    }
+
+    function test_claim_RevertWhen_RootIsZero() external {
+        LibEtnaRewards.Receipt memory r = EtnaVaultProof.receipt(0, RECIPIENT, 3 ether);
+        EtnaVaultProof.Proof memory p = _publish(r, 100);
+        vm.expectRevert(L2FeeVault.InvalidAnchorRoot.selector);
+        _vault.claim(r, 101, p.account, p.storageProof);
+    }
+
+    function test_claim_RevertWhen_RootSourceReverts() external {
+        LibEtnaRewards.Receipt memory r = EtnaVaultProof.receipt(0, RECIPIENT, 3 ether);
+        EtnaVaultProof.Proof memory p = _publish(r, 100);
+        vm.mockCallRevert(ROOTS, abi.encode(uint256(100)), hex"1234");
+        vm.expectRevert(L2FeeVault.InvalidAnchorRoot.selector);
+        _vault.claim(r, 100, p.account, p.storageProof);
+    }
+
+    function test_claim_RevertWhen_RootSourceHasNoCode() external {
+        LibEtnaRewards.Receipt memory r = EtnaVaultProof.receipt(0, RECIPIENT, 3 ether);
+        EtnaVaultProof.Proof memory p = _publish(r, 100);
+        vm.etch(ROOTS, hex"");
+        vm.expectRevert(L2FeeVault.InvalidAnchorRoot.selector);
+        _vault.claim(r, 100, p.account, p.storageProof);
+    }
+
+    function test_claim_RevertWhen_AnchorContainsDifferentStateRoot() external {
+        LibEtnaRewards.Receipt memory r = EtnaVaultProof.receipt(0, RECIPIENT, 3 ether);
+        EtnaVaultProof.Proof memory p = _publish(r, 100);
+        MockEtnaRoots(ROOTS).setRoot(100, bytes32(uint256(123)));
+        vm.expectRevert();
+        _vault.claim(r, 100, p.account, p.storageProof);
+    }
+
+    function test_claim_CanUseNewAnchorAfterOldRootExpires() external {
+        LibEtnaRewards.Receipt memory r = EtnaVaultProof.receipt(0, RECIPIENT, 3 ether);
+        EtnaVaultProof.Proof memory p = _publish(r, 100);
+        MockEtnaRoots(ROOTS).setRoot(100, 0);
+        vm.expectRevert(L2FeeVault.InvalidAnchorRoot.selector);
+        _vault.claim(r, 100, p.account, p.storageProof);
+        // Same persistent receipt under a newer L1 account state (changed account balance).
+        EtnaVaultProof.Proof memory newer = EtnaVaultProof.newerProof(r);
+        assertTrue(newer.root != p.root);
+        MockEtnaRoots(ROOTS).setRoot(9000, newer.root);
+        _claim(r, 9000, newer);
+        assertEq(RECIPIENT.balance, 3 ether);
+        assertTrue(_vault.claimed(EtnaVaultProof.batchId(r)));
+    }
+
+    function test_claim_RevertWhen_SameBatchHasAnotherCommittedRecipientOrAmount() external {
+        LibEtnaRewards.Receipt memory r = EtnaVaultProof.receipt(0, RECIPIENT, 3 ether);
+        EtnaVaultProof.Proof memory p = _publish(r, 100);
+        _claim(r, 100, p);
+        r.l2RewardRecipient = address(0x4444);
+        r.baseFeeAmount = 1 ether;
+        p = _publish(r, 200);
+        vm.expectRevert(L2FeeVault.AlreadyClaimed.selector);
+        _vault.claim(r, 200, p.account, p.storageProof);
+        assertEq(address(0x4444).balance, 0);
+    }
+
+    function testFuzz_claim_LegalBatchesPayInEitherOrder(bool _reverse) external {
+        LibEtnaRewards.Receipt memory first = EtnaVaultProof.receipt(0, RECIPIENT, 2 ether);
+        LibEtnaRewards.Receipt memory second = EtnaVaultProof.receipt(1, address(0x4444), 3 ether);
+        EtnaVaultProof.Proof memory p1 = _publish(first, 100);
+        EtnaVaultProof.Proof memory p2 = _publish(second, 200);
+        if (_reverse) {
+            _claim(second, 200, p2);
+            _claim(first, 100, p1);
+        } else {
+            _claim(first, 100, p1);
+            _claim(second, 200, p2);
+        }
+        assertEq(RECIPIENT.balance, 2 ether);
+        assertEq(address(0x4444).balance, 3 ether);
+        assertEq(address(_vault).balance, 0);
+    }
+
+    function test_claim_ZeroAmountDoesNotCallRecipient() external {
+        EtnaClaimReceiver receiver = new EtnaClaimReceiver();
+        LibEtnaRewards.Receipt memory r = EtnaVaultProof.receipt(0, address(receiver), 0);
+        receiver.configure(_vault, EtnaVaultProof.batchId(r), hex"", true);
+        EtnaVaultProof.Proof memory p = _publish(r, 100);
+        _claim(r, 100, p);
+        assertEq(receiver.calls(), 0);
+        assertTrue(_vault.claimed(EtnaVaultProof.batchId(r)));
+        assertEq(address(_vault).balance, 5 ether);
+    }
+
+    function test_claim_RejectingRecipientRollsBackAndCanRetry() external {
+        EtnaClaimReceiver receiver = new EtnaClaimReceiver();
+        LibEtnaRewards.Receipt memory r = EtnaVaultProof.receipt(0, address(receiver), 3 ether);
+        bytes32 id = EtnaVaultProof.batchId(r);
+        receiver.configure(_vault, id, hex"", true);
+        EtnaVaultProof.Proof memory p = _publish(r, 100);
+        vm.expectRevert(L2FeeVault.RewardTransferFailed.selector);
+        _vault.claim(r, 100, p.account, p.storageProof);
+        assertFalse(_vault.claimed(id));
+        assertEq(address(_vault).balance, 5 ether);
+        assertEq(address(receiver).balance, 0);
+        receiver.configure(_vault, id, hex"", false);
+        _claim(r, 100, p);
+        assertTrue(_vault.claimed(id));
+        assertTrue(receiver.observedClaimed());
+        assertEq(address(receiver).balance, 3 ether);
+    }
+
+    function test_claim_InsufficientFundsRollBackAndCanRetry() external {
+        LibEtnaRewards.Receipt memory r = EtnaVaultProof.receipt(0, RECIPIENT, 6 ether);
+        EtnaVaultProof.Proof memory p = _publish(r, 100);
+        vm.expectRevert(L2FeeVault.RewardTransferFailed.selector);
+        _vault.claim(r, 100, p.account, p.storageProof);
+        assertFalse(_vault.claimed(EtnaVaultProof.batchId(r)));
+        vm.deal(address(_vault), 6 ether);
+        _claim(r, 100, p);
+        assertEq(RECIPIENT.balance, 6 ether);
+    }
+
+    function testFuzz_claim_BlocksSameAndCrossBatchReentry(bool _crossBatch) external {
+        EtnaClaimReceiver receiver = new EtnaClaimReceiver();
+        LibEtnaRewards.Receipt memory r = EtnaVaultProof.receipt(0, address(receiver), 2 ether);
+        EtnaVaultProof.Proof memory p = _publish(r, 100);
+        LibEtnaRewards.Receipt memory nested =
+            _crossBatch ? EtnaVaultProof.receipt(1, RECIPIENT, 3 ether) : r;
+        EtnaVaultProof.Proof memory nestedProof = _publish(nested, 200);
+        receiver.configure(
+            _vault, EtnaVaultProof.batchId(r), _payload(nested, 200, nestedProof), false
+        );
+        _claim(r, 100, p);
+        assertTrue(receiver.observedClaimed());
+        assertFalse(receiver.nestedSuccess());
+        assertEq(receiver.nestedError(), L2FeeVault.ReentrantClaim.selector);
+        assertEq(address(receiver).balance, 2 ether);
+        assertEq(RECIPIENT.balance, 0);
+        assertEq(receiver.calls(), 1);
+        if (_crossBatch) {
+            assertFalse(_vault.claimed(EtnaVaultProof.batchId(nested)));
+            _claim(nested, 200, nestedProof);
+            assertEq(RECIPIENT.balance, 3 ether);
+        }
+    }
+
+    function test_claim_ForcedEtherDoesNotExpandReceiptEntitlement() external {
+        vm.deal(address(this), 7 ether);
+        new ForceEtnaEther{ value: 7 ether }().force(address(_vault));
+        LibEtnaRewards.Receipt memory r = EtnaVaultProof.receipt(0, RECIPIENT, 3 ether);
+        EtnaVaultProof.Proof memory p = _publish(r, 100);
+        _claim(r, 100, p);
+        assertEq(RECIPIENT.balance, 3 ether);
+        assertEq(address(_vault).balance, 9 ether);
+        vm.expectRevert(L2FeeVault.AlreadyClaimed.selector);
+        _vault.claim(r, 100, p.account, p.storageProof);
+    }
+
+    function test_directTransferAndObsoleteMutationRoutes_Revert() external {
+        vm.deal(address(this), 1 ether);
+        (bool ok,) = address(_vault).call{ value: 1 ether }(hex"");
+        assertFalse(ok);
+        bytes[4] memory calls = [
+            abi.encodeWithSignature("sweep()"),
+            abi.encodeWithSignature("init(address)", address(this)),
+            abi.encodeWithSignature("upgradeTo(address)", address(this)),
+            abi.encodeWithSignature("transferOwnership(address)", address(this))
+        ];
+        for (uint256 i; i < calls.length; ++i) {
+            (ok,) = address(_vault).call(calls[i]);
+            assertFalse(ok);
+        }
+        assertEq(address(_vault).balance, 5 ether);
     }
 }
