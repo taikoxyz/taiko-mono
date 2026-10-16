@@ -92,7 +92,7 @@ height 8 anchored 1020 may select a different committee; all nodes replaying one
 
 The config hash binds eleven ABI words under `ETNA_PARENT_ANCHOR_V3`: L2 chain id,
 registry, `vp_unit`, `s_min`, `n_max`, `heartbeat_window`, heartbeat lookahead 2,
-membership algorithm 1, `d_max` and `margin_v`. The opening is exactly 352 bytes.
+recipient-bound committee encoding version 2, `d_max` and `margin_v`. The opening is exactly 352 bytes.
 The coordinated format is envelope v6, payload v5, V8 statement (20 words / 640 bytes),
 journal schema 10, committee encoding version 2 and `APP_VERSION = 3`. State files must
 carry that exact app version and all authenticated genesis, anchor and FI fields. Old formats
@@ -330,7 +330,7 @@ path, receipt proofs and L2 payouts; they do not establish EVM validity-proof so
 Required inputs are `--l1.http`, `--l2.http`, `--l2.auth`, `--jwt.secret`, `--comet.http`, a
 `--signing-key` file containing a hex key, an exclusive `--data-dir`,
 `--max-blocks`, `--max-blobs`, all three fee caps, `--sidecar`, and a nonzero
-`--l2-reward-recipient`.
+`--l2.reward-recipient`.
 The authenticated Engine API is required for historical singleton skip checks. Startup exchanges
 Engine capabilities before opening the journal or running the lander, so JWT/endpoint failures are
 reported before any skip is encountered. Transport failures (including HTTP authentication errors)
@@ -344,7 +344,11 @@ covering a pending reference that moves from BLOCKHASH into the EIP-2935 lookup
 branch before inclusion, and never exceed EIP-7825's 16,777,216 limit. No reward settlement
 margin or per-member settlement calldata exists. An estimate above the cap stops signing;
 an Osaka node may instead reject estimation, which remains a retryable error. `n_max` may be
-up to 4096; 301-member authentication has regression coverage. Set the
+up to the registry/configuration cap of 4096. A bounded regression authenticates 301 distinct
+members through a real registry proof and committee witness, reconstructs the lander validator
+set and verifies real Comet signatures, including payout-tampering and insufficient-quorum
+rejection. Larger sizes still require resource validation; this is not a 301-node network or
+4096-member production-capacity test. Set the
 limits to match the deployed Inbox and L1 fork. Choose the budgets
 explicitly before running this example:
 
@@ -353,7 +357,7 @@ taiko-client lander --l1.http http://l1-node:8545 \
   --l2.http http://localhost:8545 --l2.auth http://localhost:8551 --jwt.secret ./jwt.hex \
   --comet.http http://localhost:26657 \
   --signing-key ./lander.key --data-dir ./lander-data \
-  --l2-reward-recipient "$L2_REWARD_RECIPIENT" \
+  --l2.reward-recipient "$L2_REWARD_RECIPIENT" \
   --max-blocks 10 --max-blobs 6 --sidecar eip7594 \
   --max-fee-per-gas "$LANDER_MAX_FEE_PER_GAS" \
   --max-priority-fee-per-gas "$LANDER_MAX_PRIORITY_FEE_PER_GAS" \
@@ -407,13 +411,14 @@ revert as a configuration error. Envelope v6 carries at most 8192 FI transaction
 lander republishes in payload V5 alongside the exact signed consensus data.
 
 Priority fees go to the block proposer's immutable registered L2 reward address. Both proposal
-preparation and validation bind the beneficiary to the actual proposed Comet round/epoch member;
+preparation and validation bind the beneficiary to the original proposer in the certified
+CometBFT block header, under that height's committee, including valid blocks retained across rounds;
 registration ownership and L1 fee collection are separate identities. Registration requires a
 nonzero recipient, which cannot be changed during that registration.
 
 Base fees go to the immutable L2 treasury. A landing records a ten-field receipt commitment for
 `sum(baseFeePerGas * gasUsed)` over exactly `(parentHeight, lastHeight]`, with explicit
-`--l2-reward-recipient`. Anyone can pay gas to claim it once using a real account/storage proof
+`--l2.reward-recipient`. Anyone can pay gas to claim it once using a real account/storage proof
 under a finalized L1 root relayed into the executed L2 EIP-4788 contract. Vault balances cannot
 define fee earnings: payouts and forced ETH credits are independent of header fee sums.
 
@@ -784,9 +789,10 @@ rejection or overflow, and bind cursor advancement/output. A candidate beyond an
 or under another parent context needs a suitable collection path.
 
 A future guest must bind the V8 recipient and actual executed-header basefee sum, authenticate
-the recipient-bound committee, and verify proposer identity/beneficiary in the actual round and
-epoch. It must preserve certificate threshold, execution ancestry, forced-inclusion and L1
-reference checks. No real guest is implemented; the dummy verifier cannot establish those claims,
+the recipient-bound committee, and verify each beneficiary against the original proposer in
+that block's certified CometBFT header under that height's committee, including retained blocks.
+The lander-selected batch recipient is independent of these per-block proposer recipients.
+It must preserve certificate threshold, execution ancestry, forced-inclusion and L1 reference checks. No real guest is implemented; the dummy verifier cannot establish those claims,
 so this version is restricted to disposable development chains.
 
 ### `lander-claim`
@@ -864,7 +870,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 Regenerate lander ABI/deployment fixtures with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `4a2296bdb96a96be1a612025299240eaea0f94e5` (also the
+The script requires protocol HEAD `921ea2d39fee2022cd345cbe500a742c2f7a0aaa` (also the
 `PROTOCOL_REVISION` in `crates/lander/src/contracts.rs`),
 installs pnpm dependencies before Foundry, builds the Inbox, registry, immutable `L2FeeVault` and
 SignalService with their test fixtures, verifies compiler source hashes,

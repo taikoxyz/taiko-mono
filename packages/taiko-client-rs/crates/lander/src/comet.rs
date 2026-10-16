@@ -551,7 +551,7 @@ mod tests {
     async fn authenticates_stock_go_duplicate_extended_nil_and_light_client_evidence() {
         let fixture: Value =
             serde_json::from_str(include_str!("../testdata/cometbft-v0.40/vectors.json")).unwrap();
-        let (_, committee, _) = committee(&[10, 30], 0);
+        let (_, committee, _) = crate::test_utils::consensus::stock_go_committee(&[10, 30], 0);
         for vector in fixture["vectors"].as_array().unwrap() {
             let rpc = source(
                 vec![success(vector["block_rpc"].clone()), success(vector["commit_rpc"].clone())],
@@ -647,7 +647,7 @@ mod tests {
                 hex(&vector["commit_proto"]),
                 "{name}: commit"
             );
-            let (_, committee, _) = committee(&powers, 0);
+            let (_, committee, _) = crate::test_utils::consensus::stock_go_committee(&powers, 0);
             verify_commit(&pair.commit, &pair.block.header, &committee, "taiko-etna-167001-g0")
                 .unwrap_or_else(|e| panic!("{name}: {e}"));
             assert_eq!(
