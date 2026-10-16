@@ -126,6 +126,7 @@ impl InboxValues {
 /// L1 block in window 0).
 pub fn registry_entry(pubkey: B256, eff_stake: U256) -> RegistryEntry {
     RegistryEntry {
+        reward_recipient: Address::from_slice(&pubkey.as_slice()[12..]),
         pubkey,
         eff_stake,
         active_from_l1: 0,
@@ -284,9 +285,10 @@ impl Planter {
             (registry::entries_length_slot(), U256::from(entries.len())),
         ];
         for (j, e) in entries.iter().enumerate() {
-            let [pubkey, stake, packed] = registry::entry_slots(j as u64);
+            let [pubkey, stake, packed, recipient] = registry::entry_slots(j as u64);
             w.push((pubkey, e.pubkey.into()));
             w.push((stake, e.eff_stake));
+            w.push((recipient, U256::from_be_slice(e.reward_recipient.as_slice())));
             w.push((
                 packed,
                 U256::from(e.active_from_l1) |

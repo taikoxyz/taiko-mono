@@ -422,7 +422,7 @@ async fn check_tx_rejects_every_transaction() {
 #[test]
 fn saved_state_rejects_old_and_unknown_protocol_versions() {
     let fx = Fixture::genesis(1);
-    for version in [0, 1, crate::app::APP_VERSION + 1] {
+    for version in [0, 1, 2, crate::app::APP_VERSION + 1] {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::new(dir.path().into());
         let mut state = fx.expected_state();
@@ -434,4 +434,17 @@ fn saved_state_rejects_old_and_unknown_protocol_versions() {
             matches!(result,Err(AbciError::StoredState(ref msg)) if msg.contains("app version"))
         );
     }
+}
+
+#[test]
+fn saved_state_rejects_payout_metadata_outside_its_set_commitment() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::new(dir.path().into());
+    let mut state = fx.expected_state();
+    state.committees.get_mut(&0).unwrap().members[0].reward_recipient =
+        alloy_primitives::Address::repeat_byte(0x88);
+    store.save(&state).unwrap();
+    let result = App::new(fx.l1(), fx.engine(), fx.params.clone(), store, AppOptions::default());
+    assert!(matches!(result, Err(AbciError::StoredState(ref msg)) if msg.contains("committee")));
 }

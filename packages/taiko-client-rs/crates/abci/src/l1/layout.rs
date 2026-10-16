@@ -100,9 +100,10 @@ pub mod inbox {
 /// The registry keeps its state in an ERC-7201 namespace `taiko.etna.registry` whose first field
 /// is `checkpoints`, a dynamic array of two-word structs
 /// `{ uint64 l1Block; uint32 count; bytes32 entriesRoot; }`. The second field is `entries`, the
-/// live entry array the checkpoints snapshot: a dynamic array of three-word structs
+/// live entry array the checkpoints snapshot: a dynamic array of four-word structs
 /// `{ bytes32 pubkey; uint256 effStake; uint64 activeFromL1; uint64 exitEffectiveL1;
-/// uint64 lastHeartbeatAt; uint64 lastHeartbeatSeq; }` indexed by `bondId`.
+/// uint64 lastHeartbeatAt; uint64 lastHeartbeatSeq; address rewardRecipient; }` indexed by
+/// `bondId`.
 ///
 /// As the contract appends a checkpoint in every L1 block that changes any entry (see the
 /// contract obligations in the module docs), the entries read at block `checkpoints[i].l1Block`
@@ -145,20 +146,22 @@ pub mod registry {
         B256::from(U256::from_be_bytes(base().0).wrapping_add(U256::from(1)))
     }
 
-    /// The three slots of `entries[j]`, as Solidity lays out dynamic-array elements:
-    /// `[keccak256(R + 1) + 3j, keccak256(R + 1) + 3j + 1, keccak256(R + 1) + 3j + 2]` (wrapping
+    /// The four slots of `entries[j]`, as Solidity lays out dynamic-array elements:
+    /// `[keccak256(R + 1) + 4j, ..., keccak256(R + 1) + 4j + 3]` (wrapping
     /// in U256).
     ///
     /// The words are `pubkey` (`bytes32`), `effStake` (`uint256`), and the packed
     /// `activeFromL1` (`uint64`, bits 0–63), `exitEffectiveL1` (bits 64–127),
-    /// `lastHeartbeatAt` (bits 128–191) and `lastHeartbeatSeq` (bits 192–255).
-    pub fn entry_slots(j: u64) -> [B256; 3] {
+    /// `lastHeartbeatAt` (bits 128–191) and `lastHeartbeatSeq` (bits 192–255). The fourth word is
+    /// the nonzero `rewardRecipient` address (bits 0–159), with zero high 96 bits.
+    pub fn entry_slots(j: u64) -> [B256; 4] {
         let data = U256::from_be_bytes(keccak256(entries_length_slot()).0);
-        let first = data.wrapping_add(U256::from(j) * U256::from(3));
+        let first = data.wrapping_add(U256::from(j) * U256::from(4));
         [
             B256::from(first),
             B256::from(first.wrapping_add(U256::from(1))),
             B256::from(first.wrapping_add(U256::from(2))),
+            B256::from(first.wrapping_add(U256::from(3))),
         ]
     }
 }
@@ -221,7 +224,7 @@ mod tests {
     #[test]
     fn inbox_slots_match_the_shared_vectors() {
         let slots = vectors::at("/layout/inbox/slots").as_object().expect("named slots");
-        assert_eq!(slots.len(), 13);
+        assert_eq!(slots.len(), 14);
         for name in slots.keys() {
             let constant = match name.as_str() {
                 "status" => inbox::STATUS,
@@ -237,6 +240,7 @@ mod tests {
                 "forced_inclusion_queue" => inbox::FORCED_INCLUSION_QUEUE,
                 "forced_inclusion_head_tail" => inbox::FORCED_INCLUSION_HEAD_TAIL,
                 "forced_inclusion_config" => inbox::FORCED_INCLUSION_CONFIG,
+                "reward_receipts" => 283,
                 other => panic!("the node reads no Inbox slot named {other}"),
             };
             assert_eq!(constant, vectors::u64_at(&format!("/layout/inbox/slots/{name}")), "{name}");
@@ -346,6 +350,14 @@ mod tests {
     fn registry_entries_length_slot_is_base_plus_one() {
         let base = U256::from_be_bytes(registry::base().0);
         assert_eq!(registry::entries_length_slot(), B256::from(base + U256::from(1)));
+    }
+
+    #[test]
+    fn registry_entries_reject_the_legacy_three_word_stride() {
+        let base = U256::from_be_bytes(keccak256(registry::entries_length_slot()).0);
+        assert_ne!(registry::entry_slots(1)[0], B256::from(base + U256::from(3)));
+        assert_eq!(registry::entry_slots(1)[0], B256::from(base + U256::from(4)));
+        assert_eq!(registry::entry_slots(0).len(), 4);
     }
 
     #[test]

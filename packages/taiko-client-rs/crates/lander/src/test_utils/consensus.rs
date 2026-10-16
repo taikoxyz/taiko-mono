@@ -52,6 +52,7 @@ pub fn committee(
         .iter()
         .zip(powers)
         .map(|(key, power)| Member {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
             pubkey: B256::from(key.verifying_key().to_bytes()),
             eff_stake: U256::from(*power),
             power: *power,
@@ -65,13 +66,14 @@ pub fn committee(
         set_root: set_root(params.l2_chain_id, epoch + 1, &members),
         total_stake: members.iter().map(|member| member.eff_stake).sum(),
         total_power: powers.iter().sum(),
-        encoding_version: 1,
+        encoding_version: abci::committee::ENCODING_VERSION,
     };
     let hash = record_hash(params.l2_chain_id, &record);
     let entries = keys
         .iter()
         .zip(powers)
         .map(|(key, power)| RegistryEntry {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
             pubkey: B256::from(key.verifying_key().to_bytes()),
             eff_stake: U256::from(*power),
             active_from_l1: 1,

@@ -68,7 +68,7 @@ pub const APP_NAME: &str = "taiko-abci";
 
 /// The ABCI application version reported in `Info.app_version`; the genesis
 /// `consensus_params.version.app` carries the same value.
-pub const APP_VERSION: u64 = 2;
+pub const APP_VERSION: u64 = 3;
 
 /// Interval between EL polls while waiting for an EL sync to a trusted head.
 pub const ELSYNC_POLL: Duration = Duration::from_secs(1);
@@ -585,6 +585,31 @@ fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), Abci
         return Err(AbciError::StoredState(
             "committee configuration opening differs from genesis".into(),
         ));
+    }
+    for (epoch, committee) in &state.committees {
+        let members = &committee.members;
+        if committee.record.target_epoch != *epoch ||
+            committee.record.encoding_version != crate::committee::ENCODING_VERSION ||
+            members.is_empty() ||
+            members.len() > params.n_max ||
+            members.iter().any(|member| member.reward_recipient.is_zero()) ||
+            members.windows(2).any(|pair| {
+                crate::committee::set_key(params.l2_chain_id, pair[0].pubkey) >=
+                    crate::committee::set_key(params.l2_chain_id, pair[1].pubkey)
+            })
+        {
+            return Err(AbciError::StoredState(format!(
+                "invalid committee metadata for epoch {epoch}"
+            )));
+        }
+        let k = epoch
+            .checked_add(1)
+            .ok_or_else(|| AbciError::StoredState("committee epoch overflows".into()))?;
+        if crate::committee::set_root(params.l2_chain_id, k, members) != committee.record.set_root {
+            return Err(AbciError::StoredState(format!(
+                "committee members differ from the set commitment for epoch {epoch}"
+            )));
+        }
     }
     if state.parent.number != state.last_height {
         return Err(AbciError::StoredState(format!(

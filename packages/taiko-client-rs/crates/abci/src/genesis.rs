@@ -243,6 +243,7 @@ mod tests {
                 },
                 registry: account(2),
                 entries: vec![RegistryEntry {
+                    reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
                     pubkey: B256::repeat_byte(0xed),
                     eff_stake: U256::from(10).pow(U256::from(19)),
                     active_from_l1: 0,

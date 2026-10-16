@@ -76,6 +76,7 @@ pub(crate) fn u64s_at(pointer: &str) -> Vec<u64> {
 pub(crate) fn registry_entry(index: usize) -> RegistryEntry {
     let field = |name: &str| format!("/registry_entries/entries/{index}/{name}");
     RegistryEntry {
+        reward_recipient: address_at(&field("reward_recipient")),
         pubkey: b256_at(&field("pubkey")),
         eff_stake: u256_at(&field("eff_stake")),
         active_from_l1: u64_at(&field("active_from_l1")),

@@ -269,6 +269,40 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn legacy_v2_committee_config_is_rejected_at_genesis() {
+        use alloy_primitives::U256;
+        let fx = Fixture::genesis(1);
+        let l1 = fx.l1();
+        let p = &fx.params;
+        let word = |value: U256| alloy_primitives::B256::from(value);
+        let mut tag = [0u8; 32];
+        tag[..21].copy_from_slice(b"ETNA_PARENT_ANCHOR_V2");
+        let legacy = alloy_primitives::keccak256(
+            [
+                alloy_primitives::B256::from(tag),
+                word(U256::from(p.l2_chain_id)),
+                word(U256::from_be_slice(p.registry.as_slice())),
+                word(p.vp_unit),
+                word(p.s_min),
+                word(U256::from(p.n_max)),
+                word(U256::from(p.heartbeat_window)),
+                word(U256::from(2u64)),
+                word(U256::from(1u64)),
+                word(U256::from(p.d_max)),
+                word(U256::from(p.margin_v)),
+            ]
+            .concat(),
+        );
+        let mut inbox = fx.inbox.clone();
+        inbox.genesis.as_mut().unwrap().committee_config_hash = legacy;
+        fx.plant_l1_block(&l1, fx.genesis.l1_0, &inbox, &fx.registry);
+        let result = build_genesis(&l1, p).await;
+        assert!(
+            matches!(result, Err(GenesisError::ConfigMismatch { proven, .. }) if proven == legacy)
+        );
+    }
+
     /// The finalized record names L1 block 66, but the record proven there names 64.
     #[tokio::test]
     async fn genesis_record_moved_since_l1_0_is_rejected() {

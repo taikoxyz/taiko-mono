@@ -14,7 +14,7 @@ use std::{
     time::Duration,
 };
 
-use alloy_primitives::{B256, U256};
+use alloy_primitives::{Address, B256, U256};
 use futures::{StreamExt, TryStreamExt, stream};
 
 use super::{
@@ -323,19 +323,20 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
         }
         let entries: Vec<RegistryEntry> = witness
             .storage
-            .chunks_exact(3)
+            .chunks_exact(4)
             .map(|words| {
                 let packed = words[2].value;
-                RegistryEntry {
+                Ok(RegistryEntry {
+                    reward_recipient: decode_reward_recipient(words[3].value)?,
                     pubkey: B256::from(words[0].value),
                     eff_stake: words[1].value,
                     active_from_l1: word_u64(packed, 0),
                     exit_effective_l1: word_u64(packed, 64),
                     last_heartbeat_at: word_u64(packed, 128),
                     last_heartbeat_seq: word_u64(packed, 192),
-                }
+                })
             })
-            .collect();
+            .collect::<Result<_, FetchError>>()?;
         self.progress.lock().batches.insert(key, entries.clone());
         Ok(entries)
     }
@@ -370,6 +371,19 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
     }
 }
 
+/// Decodes a discovery storage word as a canonical nonzero L2 payout address.
+/// The entry remains untrusted until the complete typed snapshot matches its proven entries root.
+fn decode_reward_recipient(word: U256) -> Result<Address, FetchError> {
+    if word >> 160 != U256::ZERO {
+        return Err(FetchError::Registry("noncanonical reward recipient word".into()));
+    }
+    let recipient = Address::from_slice(&word.to_be_bytes::<32>()[12..]);
+    if recipient.is_zero() {
+        return Err(FetchError::Registry("zero reward recipient".into()));
+    }
+    Ok(recipient)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -395,6 +409,34 @@ mod tests {
     }
 
     /// The registry storage slots of entries `0..n`, in read order.
+    #[tokio::test]
+    async fn discovery_rejects_legacy_three_word_entries() {
+        let fx = Fixture::genesis(1);
+        let l1 = fx.l1();
+        let mut words = fx.registry.slots();
+        words.retain(|(slot, _)| *slot != registry::entry_slots(0)[3]);
+        let legacy = TestState::new(vec![(fx.params.registry, 1, U256::ZERO, B256::ZERO, words)]);
+        l1.state().states.insert(fx.genesis.l1_0, legacy);
+        let result =
+            build_committee_witness(&l1, &fx.params, &fx.schedule(), fx.genesis.l1_0, 0).await;
+        assert!(matches!(result, Err(FetchError::Registry(msg)) if msg == "zero reward recipient"));
+    }
+
+    #[test]
+    fn reward_recipient_words_are_canonical_nonzero_addresses() {
+        let recipient = Address::repeat_byte(0x88);
+        let word = U256::from_be_slice(recipient.as_slice());
+        assert_eq!(decode_reward_recipient(word).unwrap(), recipient);
+        assert!(
+            matches!(decode_reward_recipient(U256::ZERO), Err(FetchError::Registry(msg)) if msg == "zero reward recipient")
+        );
+        for bit in [160, 255] {
+            assert!(
+                matches!(decode_reward_recipient(word | (U256::from(1) << bit)), Err(FetchError::Registry(msg)) if msg == "noncanonical reward recipient word")
+            );
+        }
+    }
+
     fn entry_slots(n: u64) -> Vec<B256> {
         (0..n).flat_map(registry::entry_slots).collect()
     }
@@ -595,7 +637,7 @@ mod tests {
             })
             .collect();
         let all = entry_slots(n);
-        let split = usize::try_from(3 * ENTRY_BATCH).unwrap();
+        let split = usize::try_from(4 * ENTRY_BATCH).unwrap();
         assert_eq!(batches, [all[..split].to_vec(), all[split..].to_vec()]);
     }
 
@@ -819,19 +861,20 @@ mod tests {
     }
 
     /// The L1 state of a registry with one checkpoint (at L1 block 1) whose head claims `count`
-    /// entries, none of them stored.
+    /// entries with only their canonical recipient words stored.
     fn registry_claiming(fx: &Fixture, count: u32) -> TestState {
         let head = U256::from(1u64) | (U256::from(count) << 64);
-        TestState::new(vec![(
-            fx.params.registry,
-            1,
-            U256::ZERO,
-            B256::ZERO,
-            vec![
-                (registry::length_slot(), U256::from(1u64)),
-                (registry::checkpoint_slots(0)[0], head),
-            ],
-        )])
+        let mut words = vec![
+            (registry::length_slot(), U256::from(1u64)),
+            (registry::checkpoint_slots(0)[0], head),
+        ];
+        // Let discovery decode a capacity-sized fixture fully before its root is rejected.
+        if count <= MAX_REGISTRY_ENTRIES {
+            words.extend(
+                (0..u64::from(count)).map(|i| (registry::entry_slots(i)[3], U256::from(1))),
+            );
+        }
+        TestState::new(vec![(fx.params.registry, 1, U256::ZERO, B256::ZERO, words)])
     }
 
     /// `count` is an unproven read and `abci-genesis` has no overall deadline: a checkpoint
