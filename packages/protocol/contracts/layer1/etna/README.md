@@ -81,6 +81,9 @@ constraints.
   `fee_vault`, the vault's `rewardPool` the pool proxy and its `l1ChainId` this L1, and
   `L1_BRIDGE` an L1 Bridge that verifies L2 messages against this deployment's SignalService (see
   Fees and rewards).
+- Size the vault's `minRelayFee` (`SWEEP_MIN_RELAY_FEE`) to cover one relayed L1 `processMessage`
+  of a sweep at the expected L1 gas price. It is an implementation immutable; changing it takes an
+  upgrade.
 - Registry `heartbeatWindow` must equal node `heartbeat_window`, and `minStake` must be at least
   node `max(s_min, vp_unit)`. Choose `vp_unit` large enough that the entire TAIKO supply cannot
   exceed CometBFT's maximum voting power.
@@ -108,17 +111,18 @@ constraints.
   Back-pressure paces settlement the same way: L2 pauses (`back_pressure`) while `U` blocks are
   unlanded, so choose `U` above the number of blocks produced during one landing round trip
   (proving, `land` inclusion and the landing's L1 finality) unless such pauses are intended.
-- Keep `n_max` at or below about 400. The landing that carries an epoch's last commit settles the
-  whole epoch inline, and it must fit in one L1 transaction, which Osaka caps at 16,777,216 gas
-  (EIP-7825). In the worst case, where every member's registration owner is credited for the first
-  time, the pool frame costs about 34.9k gas per member (4,464,698 measured for 128), and the
-  settlement list and counts add about 128 bytes of calldata per member, on top of the landing's
-  own verification, checkpoint and forced inclusion costs (see Settlement gas). Well above 400
-  members that landing cannot be included: landing halts, back-pressure then halts L2, and only a
-  pool upgrade recovers. A production landing settles at most one epoch, because
-  `epochLenL2 >= d_max - margin_v + 3` keeps every batch shorter than an epoch, so the bound
-  applies per landing. The contracts cannot check it: `n_max` is bound only inside the opaque
-  `committeeConfigHash`.
+- `n_max` may not exceed 400: the client rejects a larger value. The landing that carries an
+  epoch's last commit settles the whole epoch inline, and it must fit in one L1 transaction, which
+  Osaka caps at 16,777,216 gas (EIP-7825); the lander caps its gas limit there. In the worst case,
+  where every member's registration owner is credited for the first time, the pool frame costs
+  about 34.9k gas per member (4,464,698 measured for 128), and the settlement list and counts add
+  about 128 bytes of calldata per member, on top of the landing's own verification, checkpoint and
+  forced inclusion costs (see Settlement gas). At 400 members that freezing landing needs about
+  14.5M gas. The hard ceiling is about 455 members: above it the landing cannot be included at
+  all, landing halts, back-pressure then halts L2, and only a pool upgrade recovers. A production
+  landing settles at most one epoch, because `epochLenL2 >= d_max - margin_v + 3` keeps every batch
+  shorter than an epoch, so the bound applies per landing. The contracts cannot check it: `n_max`
+  is bound only inside the opaque `committeeConfigHash`.
 - Set a non-zero registry `churnWindow` outside throwaway devnets, together with `churnBps` and a
   `minChurnPerWindow` floor of at least `minStake`. Zero disables the churn limit. `bondedStake`
   starts at 0, so before genesis only the floor activates per window: register the genesis set
@@ -640,29 +644,30 @@ L2 block fees (whole base fee and priority fees)
 
 `L2FeeVault` is the node's `fee_vault` constant: the coinbase and suggested fee recipient of every
 Etna block, which the EL credits with the whole base fee and the priority fees without running
-code. Its constructor takes `(l2Bridge, l1ChainId, rewardPool)`, all non-zero immutables, and
-`init(owner)` sets the owner, who can upgrade it. It has no `receive`, so direct transfers revert,
+code. Its constructor takes `(l2Bridge, l1ChainId, rewardPool, minRelayFee)`, all non-zero
+immutables, and `init(owner)` sets the owner, who can upgrade it. It has no `receive`, so direct transfers revert,
 and no `withdraw`. Ether forced in without a call, such as by `selfdestruct`, is swept as fees.
 
-`sweep(uint32 gasLimit)` is permissionless and payable. It sends the whole balance except
-`msg.value` through the L2 Bridge as one message: `to` and `destOwner` are `rewardPool`,
-`destChainId` is `l1ChainId`, `srcOwner` is the vault, `value` is the amount, `fee` is `msg.value`
-(the caller's relay fee, at most `type(uint64).max`) and `data` calls
+`sweep()` is permissionless and payable, and the caller chooses only when to sweep. It sends the
+whole balance except `msg.value` through the L2 Bridge as one message: `to` and `destOwner` are
+`rewardPool`, `destChainId` is `l1ChainId`, `srcOwner` is the vault, `value` is the amount,
+`gasLimit` is `SWEEP_GAS_LIMIT`, `fee` is `msg.value` and `data` calls
 `onMessageInvocation(abi.encode(sweepNonce))`. It adds the amount to `sweptTotal` (slot 251),
 increments `sweepNonce` (slot 252) and emits `FeesSwept(nonce, amount, relayFee, msgHash)`. An
 empty vault sends nothing, changes nothing and returns 0, and then rejects a relay fee
-(`EmptyVaultWithFee`). The caller picks only the timing, the gas limit and the relay fee.
+(`EmptyVaultWithFee`).
 
-The gas limit must satisfy `0 < gasLimit <= MAX_SWEEP_GAS_LIMIT = 3,000,000`. The L2 Bridge's
-`sendMessage` also rejects a limit at or below its minimum for this message, about 808,704 gas
-(`B_INVALID_GAS_LIMIT`), which reverts the whole sweep, so a working sweep uses a limit in roughly
-`[808,705, 3,000,000]`. The pool's invocation gets the excess over that minimum and needs about
-27k: a limit near the minimum leaves too little, so the message lands `RETRIABLE` and its value
-waits for a `retryMessage`. Use at least about 850,000. The cap is a conservative bound, well
-below what a relayer can forward under the L1 transaction gas cap (limits up to about 16M are
-forwardable): a limit too large to forward would make every relayed `processMessage` fail and
-leave the message `NEW`, where only the pool, as `destOwner`, could process it. A zero limit is
-rejected for the same reason.
+The relay fee `msg.value` must be at least the immutable `minRelayFee` (`RelayFeeTooLow`) and at
+most `type(uint64).max` (`RelayFeeTooLarge`). The minimum makes every sweep cost real Ether that
+pays its relayer, so nobody can split the fees into messages worth less than their delivery. A
+caller may pay more, for example during an L1 gas spike, and all of `msg.value` becomes the fee.
+
+The message gas limit is the constant `SWEEP_GAS_LIMIT = 1,000,000`. The L1 Bridge keeps its
+minimum for this message, 808,704 gas, and forwards the rest to the pool's invocation. The pool's
+first arrival, its most expensive because `arrivedTotal` goes from zero to non-zero, succeeds from
+a limit of 834,088 (measured with a real L1 Bridge), so every sweep reaches `DONE` on its first
+relayed `processMessage` without a `retryMessage`. The limit is far below what a relayer can
+forward under the L1 transaction gas cap.
 
 ### Reward pool
 
@@ -721,9 +726,10 @@ member. For a 128-member epoch the pool frame measured about 1.6M gas when every
 holds credits and about 4.46M in the worst case, where all 128 owners are credited for the first
 time. The landing also carries about 12 KB of committee calldata (three words per member). The
 lander of the freezing landing pays all of this, so its gas estimate must cover it. The contracts
-do not bound the committee size. The committee configuration's `n_max` caps it, and `n_max` must
-itself stay low enough, about 400, for that landing to fit under the L1 transaction gas cap (see
-Configuration checks).
+do not bound the committee size. The committee configuration's `n_max` caps it, and the client
+rejects an `n_max` above 400. The lander caps the landing's gas limit at EIP-7825's 16,777,216; at
+400 members the worst-case freezing landing needs about 14.5M, and the hard ceiling at which it
+no longer fits is about 455 members (see Configuration checks).
 
 ### Deviations from #22262
 
@@ -743,6 +749,12 @@ Configuration checks).
 - There is no withdrawal-root attestation split (`PROVING_ATTEST_PPM`).
 - The vault and pool are upgradeable like the other contracts, so an upgrade can redirect their
   Ether.
+- A sweep's relay fee is at least the immutable `minRelayFee` rather than exactly the canonical
+  fee, so callers can outbid it during L1 gas spikes; the message gas limit is the fixed
+  `SWEEP_GAS_LIMIT`, and the caller chooses only when to sweep.
+- Rewards count the signatures in block `h + 1`'s `last_commit`, a set its proposer chooses above
+  the 2/3 threshold. There is no proposer bonus and no counting of extra valid precommits, so an
+  omitted precommit costs its validator a reward without being attributable (see Open items).
 
 ## Open items
 
@@ -788,13 +800,21 @@ Configuration checks).
   nothing accrues as debt.
 - The proposer of block `h + 1` chooses which precommits beyond the 2/3 threshold enter its
   `last_commit`, so it can omit a validator's signature and lower that validator's count for
-  height `h`.
+  height `h`. Omitting a precommit is not attributable, and there is no proposer bonus to lose.
+  A coalition below 1/3 costs a victim the share of blocks the coalition proposes: with A at 30%,
+  B at 37% and C at 33% of the voting power, A omitting C whenever A proposes (A and B still
+  clear 2/3) cuts C's reward by about 22% and raises A's by about 11%. A coalition above 1/3 can
+  use the vote withholding that suppresses BFT time (above) to have only its own proposals decided
+  and exclude the victim entirely: with A at 34%, B at 33% and C at 33%, C earns nothing and A
+  about 50.7%. Candidate remedies are a Cosmos-style proposer bonus, which needs each height's
+  proposer bound into the participation data, or having the guest count extra valid precommits
+  beyond those in `last_commit`.
 - Shares are fixed fractions of the free balance at the freeze, so a lander can time the freezing
   landing before or after a large sweep arrives, moving value between that epoch and later ones;
   the total is unchanged.
-- Sweeps are permissionless and may carry a zero relay fee, so anyone can create dust sweeps that
-  cost more to relay on L1 than they move. Nobody has to relay them, but their value stays
-  unreleased until someone does.
+- Each sweep costs at least `minRelayFee`, which must cover one L1 `processMessage` at expected L1
+  gas prices. During a gas spike above that expectation, a sweep paying only the minimum may not
+  be worth relaying, and its value stays unreleased until a relayer accepts the fee.
 - Under a dummy verifier, one landing with a wrong committee hash binds that epoch: every later
   honest landing that reports the epoch reverts `CommitteeMismatch`, and freezing the epoch needs
   a committee list matching the bound hash. A dummy verifier also lets any lander report
