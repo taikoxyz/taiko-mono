@@ -11,6 +11,8 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 import { Layer2Test } from "test/layer2/Layer2Test.sol";
 
 contract L2FeeVaultTest is Layer2Test {
+    uint64 private constant MIN_RELAY_FEE = 0.001 ether;
+
     // Contracts on Ethereum
     address private daoController = randAddress();
     address private eBridge = randAddress();
@@ -42,7 +44,9 @@ contract L2FeeVaultTest is Layer2Test {
         vault = L2FeeVault(
             deploy({
                 name: "",
-                impl: address(new L2FeeVault(address(tBridge), ethereumChainId, rewardPool)),
+                impl: address(
+                    new L2FeeVault(address(tBridge), ethereumChainId, rewardPool, MIN_RELAY_FEE)
+                ),
                 data: abi.encodeCall(L2FeeVault.init, (address(tDelegateController)))
             })
         );
@@ -56,17 +60,22 @@ contract L2FeeVaultTest is Layer2Test {
         assertEq(vault.l2Bridge(), address(tBridge));
         assertEq(vault.l1ChainId(), ethereumChainId);
         assertEq(vault.rewardPool(), rewardPool);
+        assertEq(vault.minRelayFee(), MIN_RELAY_FEE);
+        assertEq(vault.SWEEP_GAS_LIMIT(), 1_000_000);
     }
 
     function test_constructor_RevertWhen_AnyArgumentIsZero() external {
         vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
-        new L2FeeVault(address(0), ethereumChainId, rewardPool);
+        new L2FeeVault(address(0), ethereumChainId, rewardPool, MIN_RELAY_FEE);
 
         vm.expectRevert(EssentialContract.ZERO_VALUE.selector);
-        new L2FeeVault(address(tBridge), 0, rewardPool);
+        new L2FeeVault(address(tBridge), 0, rewardPool, MIN_RELAY_FEE);
 
         vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
-        new L2FeeVault(address(tBridge), ethereumChainId, address(0));
+        new L2FeeVault(address(tBridge), ethereumChainId, address(0), MIN_RELAY_FEE);
+
+        vm.expectRevert(EssentialContract.ZERO_VALUE.selector);
+        new L2FeeVault(address(tBridge), ethereumChainId, rewardPool, 0);
     }
 
     function test_init_SetsOwner() external view {
@@ -108,14 +117,14 @@ contract L2FeeVaultTest is Layer2Test {
 
         vm.recordLogs();
         vm.prank(Carol);
-        bytes32 msgHash = vault.sweep{ value: 0.01 ether }(1_000_000);
+        bytes32 msgHash = vault.sweep{ value: 0.01 ether }();
 
         Vm.Log[] memory logs = vm.getRecordedLogs();
         (bytes32 sentHash, IBridge.Message memory message) = _messageSent(logs);
         assertEq(sentHash, msgHash);
         assertEq(message.id, messageId);
         assertEq(message.fee, 0.01 ether);
-        assertEq(message.gasLimit, 1_000_000);
+        assertEq(message.gasLimit, vault.SWEEP_GAS_LIMIT());
         assertEq(message.from, address(vault));
         assertEq(message.srcChainId, taikoChainId);
         assertEq(message.srcOwner, address(vault));
@@ -145,15 +154,17 @@ contract L2FeeVaultTest is Layer2Test {
 
     function test_sweep_IncrementsTheNonceEachSweep() external onTaiko {
         vm.deal(address(vault), 1 ether);
+        vm.deal(Carol, 1 ether);
+        vm.deal(David, 1 ether);
         vm.recordLogs();
         vm.prank(Carol);
-        bytes32 firstHash = vault.sweep(1_000_000);
+        bytes32 firstHash = vault.sweep{ value: MIN_RELAY_FEE }();
         (, IBridge.Message memory first) = _messageSent(vm.getRecordedLogs());
 
         vm.deal(address(vault), 0.5 ether);
         vm.recordLogs();
         vm.prank(David);
-        bytes32 secondHash = vault.sweep(1_100_000);
+        bytes32 secondHash = vault.sweep{ value: MIN_RELAY_FEE }();
         Vm.Log[] memory logs = vm.getRecordedLogs();
         (, IBridge.Message memory second) = _messageSent(logs);
         (uint64 nonce,,,) = _feesSwept(logs);
@@ -169,7 +180,8 @@ contract L2FeeVaultTest is Layer2Test {
         assertEq(nonce, 1);
         assertEq(first.value, 1 ether);
         assertEq(second.value, 0.5 ether);
-        assertEq(second.gasLimit, 1_100_000);
+        assertEq(first.gasLimit, vault.SWEEP_GAS_LIMIT());
+        assertEq(second.gasLimit, vault.SWEEP_GAS_LIMIT());
         assertTrue(firstHash != secondHash);
         assertTrue(tBridge.isMessageSent(first));
         assertTrue(tBridge.isMessageSent(second));
@@ -182,7 +194,7 @@ contract L2FeeVaultTest is Layer2Test {
 
         vm.recordLogs();
         vm.prank(Carol);
-        bytes32 msgHash = vault.sweep(1_000_000);
+        bytes32 msgHash = vault.sweep();
 
         assertEq(msgHash, 0);
         assertEq(vm.getRecordedLogs().length, 0);
@@ -196,44 +208,74 @@ contract L2FeeVaultTest is Layer2Test {
 
         vm.expectRevert(L2FeeVault.EmptyVaultWithFee.selector);
         vm.prank(Carol);
-        vault.sweep{ value: 1 }(1_000_000);
+        vault.sweep{ value: 1 }();
     }
 
-    function test_sweep_RevertWhen_GasLimitIsZero() external onTaiko {
+    function test_sweep_RevertWhen_RelayFeeIsBelowTheMinimum() external onTaiko {
         vm.deal(address(vault), 1 ether);
+        vm.deal(Carol, 1 ether);
+        uint64 messageId = tBridge.nextMessageId();
 
-        vm.expectRevert(L2FeeVault.ZeroGasLimit.selector);
+        vm.expectRevert(L2FeeVault.RelayFeeTooLow.selector);
         vm.prank(Carol);
-        vault.sweep(0);
+        vault.sweep();
+
+        vm.expectRevert(L2FeeVault.RelayFeeTooLow.selector);
+        vm.prank(Carol);
+        vault.sweep{ value: MIN_RELAY_FEE - 1 }();
+
+        assertEq(address(vault).balance, 1 ether);
+        assertEq(tBridge.nextMessageId(), messageId);
+        assertEq(vault.sweepNonce(), 0);
     }
 
-    function test_sweep_RevertWhen_GasLimitExceedsTheCap() external onTaiko {
+    function test_sweep_AcceptsTheMinimumRelayFee() external onTaiko {
         vm.deal(address(vault), 1 ether);
-        uint32 cap = vault.MAX_SWEEP_GAS_LIMIT();
+        vm.deal(Carol, 1 ether);
 
-        vm.expectRevert(L2FeeVault.GasLimitTooLarge.selector);
-        vm.prank(Carol);
-        vault.sweep(cap + 1);
-
-        // The cap itself is accepted.
         vm.recordLogs();
         vm.prank(Carol);
-        vault.sweep(cap);
-        (, IBridge.Message memory message) = _messageSent(vm.getRecordedLogs());
-        assertEq(message.gasLimit, cap);
+        bytes32 msgHash = vault.sweep{ value: MIN_RELAY_FEE }();
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        (bytes32 sentHash, IBridge.Message memory message) = _messageSent(logs);
+        (,, uint256 relayFee,) = _feesSwept(logs);
+        assertEq(sentHash, msgHash);
+        assertEq(message.fee, MIN_RELAY_FEE);
+        assertEq(message.gasLimit, vault.SWEEP_GAS_LIMIT());
+        assertEq(message.value, 1 ether);
+        assertEq(relayFee, MIN_RELAY_FEE);
         assertTrue(tBridge.isMessageSent(message));
         assertEq(address(vault).balance, 0);
+        assertEq(Carol.balance, 1 ether - MIN_RELAY_FEE);
     }
 
-    function test_sweep_RevertWhen_GasLimitIsBelowTheBridgeMinimum() external onTaiko {
+    function test_sweep_AboveTheMinimumTheWholeValueIsTheRelayFee() external onTaiko {
         vm.deal(address(vault), 1 ether);
-        bytes memory data =
-            abi.encodeCall(IMessageInvocable.onMessageInvocation, (abi.encode(uint64(0))));
-        uint32 minGasLimit = tBridge.getMessageMinGasLimit(data.length);
+        uint256 relayFee = uint256(MIN_RELAY_FEE) * 7 + 3;
+        vm.deal(Carol, relayFee);
 
-        vm.expectRevert(Bridge.B_INVALID_GAS_LIMIT.selector);
+        vm.recordLogs();
         vm.prank(Carol);
-        vault.sweep(minGasLimit - 1);
+        vault.sweep{ value: relayFee }();
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        (, IBridge.Message memory message) = _messageSent(logs);
+        (, uint256 amount, uint256 emittedFee,) = _feesSwept(logs);
+        assertEq(message.fee, relayFee);
+        assertEq(message.gasLimit, vault.SWEEP_GAS_LIMIT());
+        assertEq(message.value, 1 ether);
+        assertEq(amount, 1 ether);
+        assertEq(emittedFee, relayFee);
+        assertEq(address(tBridge).balance, 1 ether + relayFee);
+        assertEq(Carol.balance, 0);
+        assertEq(vault.sweptTotal(), 1 ether);
+    }
+
+    function test_sweep_GasLimitClearsTheBridgeMinimum() external view {
+        bytes memory data =
+            abi.encodeCall(IMessageInvocable.onMessageInvocation, (abi.encode(type(uint64).max)));
+        assertGt(vault.SWEEP_GAS_LIMIT(), tBridge.getMessageMinGasLimit(data.length));
     }
 
     function test_sweep_RevertWhen_RelayFeeExceedsUint64() external onTaiko {
@@ -243,7 +285,7 @@ contract L2FeeVaultTest is Layer2Test {
 
         vm.expectRevert(L2FeeVault.RelayFeeTooLarge.selector);
         vm.prank(Carol);
-        vault.sweep{ value: relayFee }(1_000_000);
+        vault.sweep{ value: relayFee }();
     }
 
     // ---------------------------------------------------------------

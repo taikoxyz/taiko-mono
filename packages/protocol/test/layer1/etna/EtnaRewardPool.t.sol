@@ -10,6 +10,7 @@ import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { IEtnaRewardPool } from "src/layer1/etna/iface/IEtnaRewardPool.sol";
 import { EtnaRewardPool } from "src/layer1/etna/impl/EtnaRewardPool.sol";
 import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
+import { L2FeeVault } from "src/layer2/core/L2FeeVault.sol";
 import { Bridge } from "src/shared/bridge/Bridge.sol";
 import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
@@ -207,35 +208,65 @@ contract EtnaRewardPoolTest is CommonTest {
         assertEq(pool.arrivedTotal(), 1 ether);
     }
 
-    function test_onMessageInvocation_AcceptsARealBridgeMessage() external {
+    /// @dev A relayer processes a real vault sweep on a real L1 Bridge at the vault's fixed
+    /// `SWEEP_GAS_LIMIT`. It is the pool's first arrival, the most expensive one: `arrivedTotal`
+    /// goes from zero to non-zero.
+    function test_onMessageInvocation_FirstArrivalOfAVaultSweepFitsTheSweepGasLimit() external {
         vm.startPrank(deployer);
-        SignalService signalService = deploySignalServiceWithoutProof(
+        SignalService l1SignalService = deploySignalServiceWithoutProof(
             address(this), address(uint160(uint256(keccak256("REMOTE_SIGNAL_SERVICE")))), deployer
         );
         Bridge l1Bridge = deployBridge(
             address(
-                new Bridge(address(resolver), address(signalService), address(0), address(0), false)
+                new Bridge(
+                    address(resolver), address(l1SignalService), address(0), address(0), false
+                )
             )
         );
-        // The source chain's bridge is the app whose signal the L1 bridge checks.
-        resolver.registerAddress(taikoChainId, "bridge", randAddress());
+        // The L2 Bridge registers itself as the source chain's bridge, the app whose signal the L1
+        // Bridge checks.
+        vm.chainId(taikoChainId);
+        SignalService l2SignalService =
+            deploySignalServiceWithoutProof(address(this), address(l1SignalService), deployer);
+        Bridge l2Bridge = deployBridge(
+            address(
+                new Bridge(
+                    address(resolver), address(l2SignalService), address(0), address(0), false
+                )
+            )
+        );
+        vm.chainId(ethereumChainId);
         vm.stopPrank();
+
+        // The vault's implementation and proxy come first, then the pool's.
+        address poolAddress = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 3);
+        L2FeeVault l2Vault = L2FeeVault(
+            address(
+                new ERC1967Proxy(
+                    address(new L2FeeVault(address(l2Bridge), ethereumChainId, poolAddress, 1)),
+                    abi.encodeCall(L2FeeVault.init, (address(this)))
+                )
+            )
+        );
+        vault = address(l2Vault);
+        EtnaRewardPool realPool = _deployPool(address(l1Bridge), VALIDATOR_PPM, PROVER_PPM);
+        assertEq(address(realPool), poolAddress);
+
+        vm.chainId(taikoChainId);
+        vm.deal(address(l2Vault), 1 ether);
+        vm.deal(Alice, 1 ether);
+        vm.recordLogs();
+        vm.prank(Alice);
+        bytes32 msgHash = l2Vault.sweep{ value: 0.01 ether }();
+        IBridge.Message memory message = _sentMessage(vm.getRecordedLogs(), address(l2Bridge));
+        vm.chainId(ethereumChainId);
+
+        assertEq(message.gasLimit, l2Vault.SWEEP_GAS_LIMIT());
+        assertEq(l1Bridge.hashMessage(message), msgHash);
+        assertEq(realPool.arrivedTotal(), 0);
         vm.deal(address(l1Bridge), 10 ether);
 
-        EtnaRewardPool realPool = _deployPool(address(l1Bridge), VALIDATOR_PPM, PROVER_PPM);
-
-        IBridge.Message memory message;
-        message.from = vault;
-        message.srcChainId = taikoChainId;
-        message.srcOwner = vault;
-        message.destChainId = ethereumChainId;
-        message.destOwner = address(realPool);
-        message.to = address(realPool);
-        message.value = 1 ether;
-        message.gasLimit = 1_000_000;
-        message.data =
-            abi.encodeCall(IMessageInvocable.onMessageInvocation, (abi.encode(uint64(0))));
-        bytes32 msgHash = l1Bridge.hashMessage(message);
+        uint256 carolBefore = Carol.balance;
 
         vm.expectEmit(address(realPool));
         emit IEtnaRewardPool.FeesArrived(msgHash, 0, 1 ether);
@@ -246,8 +277,8 @@ contract EtnaRewardPoolTest is CommonTest {
         assertEq(uint8(reason), uint8(IBridge.StatusReason.INVOCATION_OK));
         assertEq(uint8(l1Bridge.messageStatus(msgHash)), uint8(IBridge.Status.DONE));
         assertEq(realPool.arrivedTotal(), 1 ether);
-        assertEq(address(realPool).balance, 1 ether);
-        assertEq(realPool.freeBalance(), 1 ether);
+        // The pool, as `destOwner`, also receives the relay fee the relayer did not earn.
+        assertEq(realPool.freeBalance(), 1.01 ether - (Carol.balance - carolBefore));
     }
 
     function test_receive_RecordsADonation() external {
@@ -952,6 +983,25 @@ contract EtnaRewardPoolTest is CommonTest {
         c_ = new uint32[](2);
         c_[0] = _a;
         c_[1] = _b;
+    }
+
+    /// @dev Returns the only `MessageSent` that `_bridge` emitted in `_logs`.
+    function _sentMessage(
+        Vm.Log[] memory _logs,
+        address _bridge
+    )
+        internal
+        returns (IBridge.Message memory message_)
+    {
+        uint256 found;
+        for (uint256 i; i < _logs.length; ++i) {
+            if (_logs[i].emitter != _bridge || _logs[i].topics[0] != IBridge.MessageSent.selector) {
+                continue;
+            }
+            message_ = abi.decode(_logs[i].data, (IBridge.Message));
+            ++found;
+        }
+        assertEq(found, 1, "MessageSent count");
     }
 
     function _countLogs(Vm.Log[] memory _logs, bytes32 _topic) internal view returns (uint256 n_) {
