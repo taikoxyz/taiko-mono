@@ -98,8 +98,8 @@ interface IEtnaInbox {
     }
 
     /// @notice The batch of `land`: the L2 blocks after the last checkpoint up to `lastHeight`,
-    /// the forced inclusions they consume, and the receiver of those inclusions' fees and of the
-    /// landing reward.
+    /// the forced inclusions they consume, separate L1 queue-fee and L2 base-fee recipients,
+    /// and the proven base-fee amount for that range.
     struct LandInput {
         /// @notice The height of the batch's last block.
         uint64 lastHeight;
