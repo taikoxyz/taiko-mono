@@ -75,6 +75,9 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev The smallest epoch length in L2 blocks.
     uint64 private constant _MIN_EPOCH_LEN_L2 = 3;
 
+    /// @dev The proposer score of a block whose last commit carries the whole committee's stake.
+    uint256 private constant _MAX_BLOCK_SCORE = 10_000;
+
     /// @notice The maximum byte length of a submitted forced transaction.
     uint256 public constant MAX_FORCED_TX_BYTES = 8192;
 
@@ -600,7 +603,11 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// _lastHeight]`: block h + 1 carries the commit of height h and height 0 has none, so the
     /// commit range is `[max(_parentHeight, 1), _lastHeight - 1]`. An empty range takes no
     /// part; otherwise each epoch of the range takes one part, in ascending order, and no signed
-    /// count may exceed the range's heights in its epoch. All arithmetic is in uint256.
+    /// count may exceed the range's heights in its epoch. Each part has one proposer score per
+    /// signed count, and its scores sum to at most `_MAX_BLOCK_SCORE` per height: each height's
+    /// carrying block scores at most that much, for one proposer. The sum bound keeps every
+    /// epoch's scores within what the pool's proposer bonus can pay. All arithmetic is in
+    /// uint256.
     /// @param _parentHeight The height of the block the batch builds on.
     /// @param _lastHeight The height of the batch's last block, above `_parentHeight`.
     /// @param _epochLenL2 The epoch length in L2 blocks.
@@ -634,6 +641,13 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             for (uint256 i; i < counts.length; ++i) {
                 require(counts[i] <= heights, InvalidParticipation());
             }
+            uint32[] calldata scores = _participation[k].proposerScores;
+            require(scores.length == counts.length, InvalidParticipation());
+            uint256 scoreSum;
+            for (uint256 i; i < scores.length; ++i) {
+                scoreSum += scores[i];
+            }
+            require(scoreSum <= heights * _MAX_BLOCK_SCORE, InvalidParticipation());
             ++epoch;
         }
     }

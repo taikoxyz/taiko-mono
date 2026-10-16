@@ -79,6 +79,7 @@ abstract contract EtnaInboxTestBase is CommonTest {
     address internal constant L2_FEE_VAULT = address(0xfee5);
     uint32 internal constant ALLOC_VALIDATOR_PPM = 600_000;
     uint32 internal constant ALLOC_PROVER_PPM = 400_000;
+    uint32 internal constant PROPOSER_BONUS_PPM = 300_000;
     uint128 internal constant LANDING_REWARD_PER_BLOCK = 0.001 ether;
 
     uint64 internal constant genesisHeight = 0;
@@ -157,7 +158,8 @@ abstract contract EtnaInboxTestBase is CommonTest {
             L2_FEE_VAULT,
             L2_CHAIN_ID,
             ALLOC_VALIDATOR_PPM,
-            ALLOC_PROVER_PPM
+            ALLOC_PROVER_PPM,
+            PROPOSER_BONUS_PPM
         );
         rewardPool = EtnaRewardPool(
             payable(new ERC1967Proxy(
@@ -224,7 +226,9 @@ abstract contract EtnaInboxTestBase is CommonTest {
 
     /// @dev Full participation for the batch `(_parent, _last]`: one part per epoch of its commit
     /// range `[max(_parent, 1), _last - 1]`, whose single count is the number of the range's
-    /// heights in that epoch. Empty when the range is empty or `_last` is not past `_parent`.
+    /// heights in that epoch. The single member proposes every block and includes its own
+    /// signature, the whole committee's stake, so its score is 10,000 per height. Empty when the
+    /// range is empty or `_last` is not past `_parent`.
     function _participation(
         uint64 _parent,
         uint64 _last
@@ -244,8 +248,10 @@ abstract contract EtnaInboxTestBase is CommonTest {
             uint64 hi = c1 < (e + 1) * EPOCH_LEN_L2 ? c1 : (e + 1) * EPOCH_LEN_L2;
             uint32[] memory counts = new uint32[](1);
             counts[0] = uint32(hi - lo + 1);
+            uint32[] memory scores = new uint32[](1);
+            scores[0] = counts[0] * 10_000;
             parts_[e - eFirst] = IEtnaInbox.EpochParticipation({
-                epoch: e, committeeHash: committeeHash, signedCounts: counts
+                epoch: e, committeeHash: committeeHash, signedCounts: counts, proposerScores: scores
             });
         }
     }

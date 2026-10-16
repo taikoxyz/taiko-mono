@@ -154,6 +154,12 @@ interface IEtnaInbox {
         /// @notice Per MEM-08 member index, the number of the batch's commit heights in this
         /// epoch whose canonical commit carries the member's signature.
         uint32[] signedCounts;
+        /// @notice Per MEM-08 member index, the proposer scores the member earned with the
+        /// batch's commit heights in this epoch; the same length as `signedCounts`. The block
+        /// carrying height h's canonical commit scores
+        /// `floor(10_000 * includedEffStake / totalEffStake)` for its proposer, or nothing if
+        /// its proposer is not a member of the epoch's committee.
+        uint32[] proposerScores;
     }
 
     // ---------------------------------------------------------------
@@ -283,8 +289,10 @@ interface IEtnaInbox {
     /// (p, L] carries the commits of [c0, c1] = [max(p, 1), L - 1]. `_participation` must be
     /// empty if c0 > c1; otherwise it holds one part per epoch from (c0 - 1) / epochLenL2 to
     /// (c1 - 1) / epochLenL2 in ascending order, each signed count at most the number of
-    /// heights of [c0, c1] in that epoch; InvalidParticipation otherwise. The guest, not this
-    /// shape check, makes the counts and committee hashes authoritative.
+    /// heights of [c0, c1] in that epoch, as many proposer scores as signed counts, and the
+    /// part's scores summing to at most 10_000 times those heights; InvalidParticipation
+    /// otherwise. The guest, not this shape check, makes the counts, scores and committee hashes
+    /// authoritative.
     ///
     /// Saves the terminal checkpoint in the Inbox and SignalService, moves the queue head, emits
     /// BatchLanded, then verifies the V7 statement with proposal age 0; verifier failure rolls
@@ -392,6 +400,12 @@ interface IEtnaInbox {
     /// signedCounts[i] is the number of heights h of [c0, c1] in e whose canonical commit, the
     /// last commit of block h + 1 bound by its certified header, carries a verified
     /// BlockIDFlagCommit signature of member i; nil votes and absent signatures do not count.
+    /// For each such height h, block h + 1 scores floor(10_000 * includedEffStake /
+    /// totalEffStake), where includedEffStake sums the effStake of the members counted for h and
+    /// totalEffStake that of the whole committee; the score goes to the member whose CometBFT
+    /// address (SHA-256 of its Ed25519 key, first 20 bytes) is the certified header's
+    /// proposer_address of block h + 1, and is dropped if no member of e has it.
+    /// proposerScores[i] sums member i's scores over the epoch's heights in [c0, c1].
     /// Bind participationHash = keccak256(abi.encode(EpochParticipation[])).
     ///
     /// Prove contiguous execution from the parent hash to the terminal hash/state root, every

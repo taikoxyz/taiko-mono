@@ -10,9 +10,10 @@ import { IEtnaInbox } from "./IEtnaInbox.sol";
 /// @dev The Inbox reports each landing's validator participation through `recordLanding`. When an
 /// epoch completes, the pool freezes it: it allocates fixed shares of the free balance (the
 /// balance minus the credits not yet withdrawn), credits the validator share to the owners of
-/// the committee's registrations by effective stake times signed heights, and sends the proving
-/// share to the Inbox. Credits are reserved until their owners withdraw them, so no Ether is
-/// committed to two epochs and the balance always covers the reservations.
+/// the committee's registrations, the base part by effective stake times signed heights and the
+/// proposer bonus part by proposer score, and sends the proving share to the Inbox. Credits are
+/// reserved until their owners withdraw them, so no Ether is committed to two epochs and the
+/// balance always covers the reservations.
 /// @custom:security-contact security@taiko.xyz
 interface IEtnaRewardPool {
     // ---------------------------------------------------------------
@@ -28,7 +29,8 @@ interface IEtnaRewardPool {
         /// @notice The validator share fixed at the freeze, in wei.
         uint256 alloc;
         /// @notice The part of `alloc` credited to registration owners, in wei. The rest (rounding
-        /// remainders and shares without an owner) stays in the free balance.
+        /// remainders, shares without an owner and unearned proposer bonus) stays in the free
+        /// balance.
         uint256 paid;
         /// @notice The proving share sent to the Inbox at the freeze, in wei.
         uint256 provingShare;
@@ -66,7 +68,7 @@ interface IEtnaRewardPool {
     /// @param index The member's MEM-08 index in the committee.
     /// @param bondId The member's bond id.
     /// @param owner The owner of the member's registration, who is credited.
-    /// @param amount The credited amount, in wei.
+    /// @param amount The credited amount, in wei: the member's base part plus its proposer bonus.
     event ValidatorRewarded(
         uint64 indexed epoch, uint256 index, uint32 bondId, address indexed owner, uint256 amount
     );
@@ -85,8 +87,10 @@ interface IEtnaRewardPool {
     /// the landing completes.
     /// @dev Only the Inbox may call, after the landing's proof is verified. Not pausable. For each
     /// part: the committee hash must be non-zero, the epoch must not be frozen, and the hash is
-    /// stored on the first report and must match on every later one; the signed counts are added
-    /// to the epoch's totals with checked uint32 arithmetic. Epoch `e` is complete when the batch
+    /// stored on the first report and must match on every later one; the signed counts and the
+    /// proposer scores are added to the epoch's totals with checked uint32 arithmetic. The Inbox
+    /// bounds each part's scores to 10_000 per commit height, so an epoch's scores sum to at most
+    /// `10_000 * _epochLenL2`. Epoch `e` is complete when the batch
     /// carries the commit of its last height `(e + 1) * _epochLenL2`, i.e. when
     /// `_lastHeight - 1 >= (e + 1) * _epochLenL2`. Each complete part, in part order, is frozen
     /// and settled with the next entry of `_settlements`, whose hash must equal the stored
@@ -94,10 +98,14 @@ interface IEtnaRewardPool {
     ///
     /// Freezing allocates `free * allocValidatorPpm / 1e6` to validators and
     /// `free * allocProverPpm / 1e6` to proving, where `free` is the free balance just before
-    /// this epoch's freeze, so an earlier epoch frozen in the same call lowers a later one's. Each
-    /// member with a non-zero weight `effStake * count` (indices below the committee length only)
-    /// is credited `mulDiv(alloc, weight, totalWeight)`, rounded down, unless its registration
-    /// has no owner; credited amounts are reserved. A zero total weight credits nothing. The
+    /// this epoch's freeze, so an earlier epoch frozen in the same call lowers a later one's. The
+    /// validator share splits into `bonusAlloc = alloc * proposerBonusPpm / 1e6` and
+    /// `baseAlloc = alloc - bonusAlloc`. Each member (indices below the committee length only)
+    /// earns the base part `mulDiv(baseAlloc, weight, totalWeight)` of its weight
+    /// `effStake * count`, or nothing when the total weight is zero, plus the bonus part
+    /// `mulDiv(bonusAlloc, score, 10_000 * _epochLenL2)` of its proposer score, both rounded
+    /// down. A member whose sum is non-zero is credited it unless its registration has no owner;
+    /// credited amounts are reserved, and the bonus that no proposer earned stays free. The
     /// proving share is sent to the Inbox; a failed transfer reverts the call.
     /// @param _lastHeight The height of the landing's last block.
     /// @param _epochLenL2 The epoch length in L2 blocks.
@@ -143,6 +151,12 @@ interface IEtnaRewardPool {
     /// @return The recorded count.
     function signedCountOf(uint64 _epoch, uint256 _index) external view returns (uint32);
 
+    /// @notice Returns the proposer score recorded for a committee member.
+    /// @param _epoch The epoch.
+    /// @param _index The member's MEM-08 index.
+    /// @return The recorded score, 10_000 per block whose last commit carried the whole committee.
+    function proposerScoreOf(uint64 _epoch, uint256 _index) external view returns (uint32);
+
     /// @notice Returns an owner's credits.
     /// @param _account The owner.
     /// @return The credits not yet withdrawn, in wei.
@@ -180,4 +194,8 @@ interface IEtnaRewardPool {
     /// @notice Returns the proving share of the free balance at each freeze.
     /// @return The share in parts per million.
     function allocProverPpm() external view returns (uint32);
+
+    /// @notice Returns the part of each frozen epoch's validator share paid as proposer bonus.
+    /// @return The part in parts per million of the validator share.
+    function proposerBonusPpm() external view returns (uint32);
 }
