@@ -1659,7 +1659,7 @@ async fn payout_only_switch_installs_and_persists_epoch_metadata_without_native_
     assert!(out.validator_updates.is_empty());
     assert_eq!(app.pending.as_ref().unwrap().committees[&4], expected);
     commit(&mut app).await.unwrap();
-    let reopened = fx.app(dir.path());
+    let mut reopened = fx.app(dir.path());
     let state = reopened.state().unwrap();
     let recipient_at = |height| {
         state.committees[&schedule.epoch_of(height)]
@@ -1672,4 +1672,28 @@ async fn payout_only_switch_installs_and_persists_epoch_metadata_without_native_
     assert_eq!(recipient_at(schedule.h_first(4) - 1), old[0].reward_recipient);
     assert_eq!(recipient_at(schedule.h_first(4)), new[0].reward_recipient);
     assert_eq!(state.committees[&4], expected);
+    fx.advance_l1(reopened.l1(), schedule.l1_first(4), &landed, &changed);
+    assert_eq!(committee::validator_updates(&previous.members, &expected.members), vec![]);
+    // The same key keeps its old payout through the last old-epoch block, then switches
+    // after persistence/reopen despite no native validator changes.
+    for recipient in
+        [alloy_primitives::Address::repeat_byte(0x77), alloy_primitives::Address::repeat_byte(0x88)]
+    {
+        let env = propose(&mut reopened).await;
+        assert_eq!(env.block.header.beneficiary, recipient);
+        let mut wrong = env.clone();
+        wrong.block.header.beneficiary = if recipient == old[0].reward_recipient {
+            new[0].reward_recipient
+        } else {
+            old[0].reward_recipient
+        };
+        assert_eq!(judge(&mut reopened, &wrong).await.0, response::ProcessProposal::Reject);
+        let (resp, req) = judge(&mut reopened, &env).await;
+        assert_eq!(resp, response::ProcessProposal::Accept);
+        // Exercise the cold path's epoch lookup independently of its hot verdict.
+        reopened.verdicts.clear();
+        finalize(&mut reopened, finalize_req(&req)).await.unwrap();
+        assert!(!reopened.decided_live);
+        commit(&mut reopened).await.unwrap();
+    }
 }

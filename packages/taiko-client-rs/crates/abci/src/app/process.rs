@@ -81,16 +81,18 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let txs: Vec<Bytes> = req.txs.iter().cloned().map(Bytes::from).collect();
         let env = single_envelope(&txs)?;
         let (height, bft_secs) = (req.height.value(), unix_secs(req.time));
-        let mut validated = match validate_block(state, &self.params, &env, height, bft_secs) {
-            Err(l1_fact @ Rejection::Superseded { .. }) => {
-                // Without a witness the facts are the committed parent's, already trusted.
-                if let Some(w) = &env.anchor {
-                    self.check_anchor_final(w).await?;
+        let mut validated =
+            match validate_block(state, &self.params, &env, height, bft_secs, req.proposer_address)
+            {
+                Err(l1_fact @ Rejection::Superseded { .. }) => {
+                    // Without a witness the facts are the committed parent's, already trusted.
+                    if let Some(w) = &env.anchor {
+                        self.check_anchor_final(w).await?;
+                    }
+                    return Err(l1_fact);
                 }
-                return Err(l1_fact);
-            }
-            other => other?,
-        };
+                other => other?,
+            };
         if let (Some((target_epoch, _)), Some(witness)) = (&validated.derived, &env.committee) {
             self.cache_committee_witness(state, *target_epoch, witness)?;
         }

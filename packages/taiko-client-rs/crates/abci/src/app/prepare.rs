@@ -136,7 +136,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
             extra_anchor: n,
         };
         let anchor_state = check_candidate_anchor(state, params, height, &candidate)?;
-        let expected = expected_header(state, params, height, &anchor_state, unix_secs(req.time))?;
+        let expected = expected_header(
+            state,
+            params,
+            height,
+            &anchor_state,
+            unix_secs(req.time),
+            req.proposer_address,
+        )?;
         rules::check_anchor_freshness(
             expected.timestamp,
             anchor_state.timestamp,

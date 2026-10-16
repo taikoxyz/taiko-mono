@@ -1105,3 +1105,105 @@ async fn pending_junk_preimage_is_omitted_from_proposal_data() {
     accept_and_commit(&mut app, &env).await;
     assert_eq!(app.state().unwrap().forced_cursor, 0);
 }
+
+/// Cached raw proofs survive proposer changes, while each proposer gets a fresh EL build.
+#[tokio::test]
+async fn preparation_proposer_change_rebuilds_for_payout_and_reuses_raw_proofs() {
+    use super::proposal::plant_due_entry;
+    use crate::test_utils::sample_entries;
+    use alloy_primitives::Address;
+    for recipient in [Address::repeat_byte(0x77), Address::repeat_byte(0x88)] {
+        let mut spec = GenesisSpec::new(3);
+        let mut entries = sample_entries(3);
+        entries[1].reward_recipient = recipient;
+        spec.entries = Some(entries.clone());
+        let fx = Fixture::build(spec);
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = mid_epoch(&fx, dir.path(), 3).await;
+        plant_due_entry(&fx, app.l1(), 70, fx.inbox_with(1));
+        let env = propose(&mut app).await;
+        assert_eq!(env.block.header.beneficiary, Address::repeat_byte(0x77));
+        app.l1().state().calls.clear();
+        let before = app.engine().calls().len();
+        let mut req = prepare_req(next_height(&app), bft_time(&app));
+        req.proposer_address = tendermint::account::Id::from(
+            tendermint::PublicKey::from_raw_ed25519(entries[1].pubkey.as_slice()).unwrap(),
+        );
+        let txs = prepare(&mut app, req).await;
+        assert_eq!(txs.len(), 1);
+        let again = EtnaEnvelope::decode(&txs[0]).unwrap();
+        assert_eq!(again.forced, env.forced);
+        assert_eq!(again.block.header.beneficiary, recipient);
+        let calls = app.engine().calls();
+        let builds: Vec<_> = calls[before..]
+            .iter()
+            .filter_map(|call| match call {
+                EngineCall::BuildBlock { attrs, .. } => Some(attrs),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(builds.len(), 1, "even equal payout addresses require a fresh build");
+        assert_eq!(builds[0].payload_attributes.suggested_fee_recipient, recipient);
+        assert_eq!(builds[0].block_metadata.beneficiary, recipient);
+        assert!(
+            app.l1().calls().iter().all(|call| match call {
+                L1Call::ForcedTransaction { .. } => false,
+                L1Call::AccountWitness { address, slots, .. } =>
+                    *address != fx.params.inbox || *slots != crate::forced::entry_slots(0),
+                _ => true,
+            }),
+            "{:?}",
+            app.l1().calls()
+        );
+    }
+}
+
+/// A cancelled raw event read survives a new certified proposer, authenticated by its own entry.
+#[tokio::test(start_paused = true)]
+async fn preparation_proposer_change_reuses_cancelled_authenticated_io() {
+    use super::proposal::plant_due_entry;
+    use crate::test_utils::sample_entries;
+    use alloy_primitives::Address;
+    let mut spec = GenesisSpec::new(3);
+    let mut entries = sample_entries(3);
+    entries[1].reward_recipient = Address::repeat_byte(0x88);
+    spec.entries = Some(entries.clone());
+    let fx = Fixture::build(spec);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 3).await;
+    let old = propose(&mut app).await;
+    assert_eq!(old.block.header.beneficiary, Address::repeat_byte(0x77));
+    plant_due_entry(&fx, app.l1(), 70, fx.inbox_with(1));
+    let anchor = fx.anchor_state(app.l1(), 70);
+    let entry = app.forced_entry(&anchor, 0).await.unwrap().proven;
+    app.l1().state().delay = Some(Duration::from_secs(1));
+    assert!(
+        tokio::time::timeout(Duration::from_millis(1), app.forced_transaction(entry))
+            .await
+            .is_err()
+    );
+    assert_eq!(app.l1().state().in_flight, 1);
+    tokio::time::advance(Duration::from_secs(1)).await;
+    tokio::task::yield_now().await;
+    app.l1().state().delay = None;
+    app.l1().state().calls.clear();
+    let mut req = prepare_req(next_height(&app), bft_time(&app));
+    req.proposer_address = tendermint::account::Id::from(
+        tendermint::PublicKey::from_raw_ed25519(entries[1].pubkey.as_slice()).unwrap(),
+    );
+    let txs = prepare(&mut app, req).await;
+    assert_eq!(txs.len(), 1);
+    let env = EtnaEnvelope::decode(&txs[0]).unwrap();
+    assert_eq!(env.block.header.beneficiary, Address::repeat_byte(0x88));
+    assert_eq!(env.block.transactions[0], sample_transactions()[0].encoded_2718());
+    assert!(
+        app.l1().calls().iter().all(|call| match call {
+            L1Call::ForcedTransaction { .. } => false,
+            L1Call::AccountWitness { address, slots, .. } =>
+                *address != fx.params.inbox || *slots != crate::forced::entry_slots(0),
+            _ => true,
+        }),
+        "the new proposer reuses only authenticated raw reads: {:?}",
+        app.l1().calls()
+    );
+}

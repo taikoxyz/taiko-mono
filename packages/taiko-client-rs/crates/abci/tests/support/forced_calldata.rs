@@ -113,7 +113,12 @@ pub fn process_request(env: &EtnaEnvelope, time: Time) -> request::ProcessPropos
         height: Height::try_from(env.block.header.number).unwrap(),
         time,
         next_validators_hash: Hash::None,
-        proposer_address: account::Id::new([2; 20]),
+        proposer_address: account::Id::from(
+            tendermint::PublicKey::from_raw_ed25519(
+                test_harness::validator_keys(1)[0].pubkey().as_slice(),
+            )
+            .expect("fixture Ed25519 key"),
+        ),
     }
 }
 pub fn finalize_request(env: &EtnaEnvelope, time: Time) -> Request {
@@ -139,7 +144,12 @@ pub async fn prepare<E: Engine>(app: &mut App<RpcL1Source, E>, time: Time) -> Re
         height: Height::try_from(height)?,
         time,
         next_validators_hash: Hash::None,
-        proposer_address: account::Id::new([1; 20]),
+        proposer_address: account::Id::from(
+            tendermint::PublicKey::from_raw_ed25519(
+                test_harness::validator_keys(1)[0].pubkey().as_slice(),
+            )
+            .expect("fixture Ed25519 key"),
+        ),
     };
     let Response::PrepareProposal(r) = app.handle(Request::PrepareProposal(r)).await? else {
         anyhow::bail!("wrong response")

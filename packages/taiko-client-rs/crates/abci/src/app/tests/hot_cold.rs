@@ -235,9 +235,15 @@ impl Run {
         prop_assert_eq!(self.cold.state(), Some(&committed), "height {}: parents", height);
 
         // The deterministic checks classify the block as the generator meant it.
-        let verdict =
-            validate::validate_block(&committed, &self.hot.params, &block.env, height, block.bft)
-                .map_err(|e| fail(format!("height {height}: generated block invalid: {e}")))?;
+        let verdict = validate::validate_block(
+            &committed,
+            &self.hot.params,
+            &block.env,
+            height,
+            block.bft,
+            super::proposal::proposer(),
+        )
+        .map_err(|e| fail(format!("height {height}: generated block invalid: {e}")))?;
         prop_assert_eq!(&verdict.decision, &block.decision, "height {}: decision", height);
         // A canonical skip's singleton probe: the forced transaction alone, on the committed
         // parent with the candidate's derived attributes. The EL includes nothing.
@@ -457,9 +463,15 @@ fn envelope(
         None => state.anchor.clone(),
     };
     let height = state.last_height + 1;
-    let expected =
-        validate::expected_header(state, &app.params, height, &anchor_state, bft_time(app))
-            .expect("derivable header");
+    let expected = validate::expected_header(
+        state,
+        &app.params,
+        height,
+        &anchor_state,
+        bft_time(app),
+        super::proposal::proposer(),
+    )
+    .expect("derivable header");
     let tx_list = protocol::shasta::encode_transactions(txs);
     let attrs = rules::payload_attributes(&expected, anchor_state.hash, Some(tx_list));
     EtnaEnvelope { block: simple_block(state.parent.hash, &attrs), anchor, committee: None, forced }

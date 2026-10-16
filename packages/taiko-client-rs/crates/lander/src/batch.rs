@@ -718,6 +718,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             envelope,
             EnvelopeContext {
                 bft_time_secs: bft_secs,
+                proposer: pair.block.header.proposer_address,
+                members: &committees[&epoch].state.members,
                 parent: &state.parent,
                 parent_anchor: &state.anchor,
                 generation: snapshot.generation,

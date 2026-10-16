@@ -586,6 +586,11 @@ impl Fixture {
             );
             let expected = rules::expected_header(&HeaderInputs {
                 height,
+                reward_recipient: rules::proposer_recipient(
+                    &committees[&schedule.epoch_of(height)].state.members,
+                    committees[&schedule.epoch_of(height)].validators.validators()[0].address,
+                )
+                .unwrap(),
                 parent: &parent,
                 anchor: &a,
                 bft_time_secs: if max_anchor_age < 7200 { 1261 + height } else { 100 + height },
