@@ -9,7 +9,7 @@
 //! Methods dividing by `L` panic when it is zero; [`Schedule::validate`] rejects it.
 //! Epoch offsets and derivation-parent heights are checked for `u64` overflow, and
 //! [`Schedule::validate`] keeps the first transition within the protocol's [`UINT48_MAX`]
-//! height and anchor ranges.
+//! height and anchor ranges and `L` within [`MAX_EPOCH_LEN`], as `EtnaInbox.init` does.
 
 use crate::types::GenesisRecord;
 use serde::{Deserialize, Serialize};
@@ -18,14 +18,19 @@ use serde::{Deserialize, Serialize};
 /// number the Etna `extraData` encodes. CometBFT's `int64` heights are wider.
 pub const UINT48_MAX: u64 = (1 << 48) - 1;
 
+/// The largest epoch length `EtnaInbox.init` accepts, `type(uint32).max / 10_000`: a member
+/// proposing every block of an epoch scores `10_000` per block, and the reward pool totals an
+/// epoch's scores per member in a `uint32`.
+pub const MAX_EPOCH_LEN: u64 = u32::MAX as u64 / 10_000;
+
 /// The epoch schedule: the genesis-record fields the epoch arithmetic and the committee
 /// snapshot cutoffs need.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Schedule {
     /// `L1_0`: L1 block number of initialization; the minimum anchor of epoch `e_0`.
     pub l1_0: u64,
-    /// `L`: epoch length in L2 blocks (CometBFT heights); validated `>= 3`, `>= U + 3` and
-    /// `< UINT48_MAX`, so `h_first(1)` is a `uint48` height.
+    /// `L`: epoch length in L2 blocks (CometBFT heights); validated `>= 3`, `>= U + 3`,
+    /// `< UINT48_MAX`, so `h_first(1)` is a `uint48` height, and `<=` [`MAX_EPOCH_LEN`].
     pub epoch_len: u64,
     /// `EPOCH_LEN_L1`: epoch length in L1 blocks, the step of the per-epoch minimum anchor;
     /// validated `>= 1` and `<= UINT48_MAX - l1_0`, so `L1_first(1)` is a `uint48` anchor.
@@ -61,6 +66,13 @@ pub enum ScheduleError {
     /// the first switch could never settle.
     #[error("epoch_len ({epoch_len}) puts h_first(1) above the uint48 height range")]
     FirstEpochBeyondHeightRange {
+        /// The rejected `L`.
+        epoch_len: u64,
+    },
+    /// `epoch_len > MAX_EPOCH_LEN`: `EtnaInbox.init` rejects it, since a member's proposer
+    /// scores for such an epoch could overflow the reward pool's `uint32` total.
+    #[error("epoch_len ({epoch_len}) must be <= {MAX_EPOCH_LEN}")]
+    EpochTooLong {
         /// The rejected `L`.
         epoch_len: u64,
     },
@@ -191,11 +203,11 @@ impl Schedule {
         (offset % len == 0).then(|| offset / len + Self::E0)
     }
 
-    /// Checks `epoch_len >= 3`, `epoch_len >= unsettled_cap + 3`, `epoch_len_l1 >= 1` and that
+    /// Checks `epoch_len >= 3`, `epoch_len >= unsettled_cap + 3`, `epoch_len_l1 >= 1`, that
     /// the first transition fits the protocol's `uint48` ranges: `h_first(1) <= UINT48_MAX`
-    /// (a `land` height) and `L1_first(1) <= UINT48_MAX` (an `extraData` anchor). Returns the
-    /// first violation. `InitChain` and every load
-    /// of `AppState` must call this before using the schedule.
+    /// (a `land` height) and `L1_first(1) <= UINT48_MAX` (an `extraData` anchor), and
+    /// `epoch_len <= MAX_EPOCH_LEN`, as `EtnaInbox.init` requires. Returns the first violation.
+    /// `InitChain` and every load of `AppState` must call this before using the schedule.
     ///
     /// Later epochs are not range-checked: an epoch whose `L1_first` exceeds the anchor range
     /// never opens on L1, which stops the chain with a rule violation rather than a panic.
@@ -214,6 +226,9 @@ impl Schedule {
         }
         if self.checked_h_first(1).is_none_or(|h| h > UINT48_MAX) {
             return Err(ScheduleError::FirstEpochBeyondHeightRange { epoch_len: self.epoch_len });
+        }
+        if self.epoch_len > MAX_EPOCH_LEN {
+            return Err(ScheduleError::EpochTooLong { epoch_len: self.epoch_len });
         }
         if self.checked_l1_first(1).is_none_or(|n| n > UINT48_MAX) {
             return Err(ScheduleError::FirstEpochBeyondAnchorRange {
@@ -391,10 +406,23 @@ mod tests {
     }
 
     #[test]
+    fn validate_caps_the_epoch_length_where_proposer_scores_fit_a_uint32() {
+        assert_eq!(MAX_EPOCH_LEN, 429_496);
+        assert!(MAX_EPOCH_LEN * 10_000 <= u64::from(u32::MAX));
+        assert!((MAX_EPOCH_LEN + 1) * 10_000 > u64::from(u32::MAX));
+        Schedule { epoch_len: MAX_EPOCH_LEN, ..schedule(20) }.validate(10).unwrap();
+        assert_eq!(
+            Schedule { epoch_len: MAX_EPOCH_LEN + 1, ..schedule(20) }.validate(10),
+            Err(ScheduleError::EpochTooLong { epoch_len: MAX_EPOCH_LEN + 1 })
+        );
+    }
+
+    #[test]
     fn validate_keeps_the_first_transition_in_the_uint48_ranges() {
-        // h_first(1) = L + 1 may be the last height `land` accepts, not one above it.
+        // h_first(1) = L + 1 may be the last height `land` accepts, not one above it; such an
+        // epoch is still longer than the proposer-score cap.
         let s = Schedule { epoch_len: UINT48_MAX - 1, ..schedule(20) };
-        s.validate(10).unwrap();
+        assert_eq!(s.validate(10), Err(ScheduleError::EpochTooLong { epoch_len: UINT48_MAX - 1 }));
         assert_eq!(s.h_first(1), UINT48_MAX);
         for epoch_len in [UINT48_MAX, u64::MAX - 1, u64::MAX] {
             assert_eq!(
