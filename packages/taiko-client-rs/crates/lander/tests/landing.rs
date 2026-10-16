@@ -1,37 +1,106 @@
 //! Actual pinned-contract landing scenarios. Docker scenarios use real Osaka blob transactions.
 mod support;
 
-use alloy::{consensus::Transaction, rpc::types::TransactionReceipt, sol_types::SolCall};
-use alloy_eips::BlockId;
+use alloy::{
+    consensus::Transaction, rpc::types::TransactionReceipt, signers::SignerSync, sol_types::SolCall,
+};
+use alloy_consensus::{
+    SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope,
+};
+use alloy_eips::{BlockId, eip2718::Encodable2718};
 use alloy_primitives::{B256, Bytes, U256, aliases::U48};
 use alloy_provider::Provider;
+use alloy_rpc_types::TransactionRequest;
 use anyhow::{Context, Result};
 use lander::{
     DummyProofProvider, ProofProvider, ProofRequest, SidecarMode,
     contracts::IEtnaInbox::landCall,
-    tx::{FeeCaps, RpcTransactionTransport, SignedTransaction, TransactionTransport},
+    runner::ran_out_of_gas,
+    tx::{
+        FeeCaps, RpcTransactionTransport, SETTLEMENT_GAS_PER_LANDING, SETTLEMENT_GAS_PER_MEMBER,
+        SignedTransaction, TransactionTransport, land_calldata,
+    },
 };
 use support::{
     ContractFixture,
     contracts::{
         ALLOC_PROVER_PPM, ALLOC_VALIDATOR_PPM, EPOCH_LEN, EtnaInbox, EtnaRewardPool,
         EtnaStakingRegistry, LANDING_REWARD_PER_BLOCK, POOL_FUNDING, PROPOSER_BONUS_PPM,
-        SignalService, receipt, transact, view,
+        SignalService, fund_pool, receipt, transact, view,
     },
     fixtures::FixtureChain,
 };
-use test_harness::{dev_signer, mine_l1_blocks};
+use test_harness::{anvil_request, dev_signer, mine_l1_blocks};
+
+/// The transport's fee caps.
+const FEES: FeeCaps = FeeCaps {
+    max_fee_per_gas: 20_000_000_000,
+    max_priority_fee_per_gas: 1_000_000_000,
+    max_fee_per_blob_gas: 20_000_000_000,
+};
 
 fn transport(fixture: &ContractFixture) -> Result<RpcTransactionTransport> {
-    Ok(RpcTransactionTransport::new(
-        fixture.anvil.provider.clone(),
-        dev_signer(),
-        FeeCaps {
-            max_fee_per_gas: 20_000_000_000,
-            max_priority_fee_per_gas: 1_000_000_000,
-            max_fee_per_blob_gas: 20_000_000_000,
-        },
-    )?)
+    Ok(RpcTransactionTransport::new(fixture.anvil.provider.clone(), dev_signer(), FEES)?)
+}
+
+/// Signs `request`'s landing as the production signer does, except that the gas limit is the
+/// bare estimate, without headroom or settlement allowance. Returns the estimate too.
+async fn sign_at_estimate(
+    fixture: &ContractFixture,
+    request: &ProofRequest,
+    proof: &Bytes,
+) -> Result<(u64, SignedTransaction)> {
+    let p = &fixture.anvil.provider;
+    let sender = dev_signer().address();
+    let batch = &request.batch;
+    let mut tx = TxEip4844 {
+        chain_id: p.get_chain_id().await?,
+        nonce: p.get_transaction_count(sender).await?,
+        gas_limit: 0,
+        max_fee_per_gas: FEES.max_fee_per_gas,
+        max_priority_fee_per_gas: FEES.max_priority_fee_per_gas,
+        to: fixture.inbox,
+        value: U256::ZERO,
+        access_list: Default::default(),
+        blob_versioned_hashes: batch.blobs.versioned_hashes.clone(),
+        max_fee_per_blob_gas: FEES.max_fee_per_blob_gas,
+        input: land_calldata(batch, proof).into(),
+    };
+    let mut estimate = TransactionRequest::from_transaction(tx.clone()).from(sender);
+    estimate.gas = None;
+    let estimated = p.estimate_gas(estimate).await?;
+    tx.gas_limit = estimated;
+    let variant: TxEip4844Variant =
+        TxEip4844WithSidecar::from_tx_and_sidecar(tx.clone(), batch.blobs.sidecar.clone()).into();
+    let signature = dev_signer().sign_hash_sync(&variant.signature_hash())?;
+    let signed = variant.into_signed(signature);
+    let hash = *signed.hash();
+    let network_bytes = TxEnvelope::Eip4844(signed).encoded_2718().into();
+    Ok((estimated, SignedTransaction { network_bytes, hash, sender, nonce: tx.nonce }))
+}
+
+/// Lands the fixture chain from genesis through height `last`, which must stay below the first
+/// freezing height `EPOCH_LEN + 1`, as the cross-epoch scenario cuts it: `(0, 5]`, up to the
+/// derivation height of epoch 1, then one block at a time.
+async fn land_through(
+    fixture: &ContractFixture,
+    chain: &mut FixtureChain,
+    last: u64,
+) -> Result<()> {
+    assert!(last <= EPOCH_LEN);
+    let schedule = abci::Schedule::from_genesis(&fixture.genesis);
+    let derivation_height = schedule.derivation_parent_height(1).context("D height")?;
+    let mut cuts = vec![5, derivation_height];
+    cuts.extend(derivation_height + 1..=last);
+    for cut in cuts {
+        mine_l1_blocks(&fixture.anvil.provider, 3).await?;
+        chain.extend(fixture, cut).await?;
+        let request = chain.prepare(fixture, cut, SidecarMode::Eip7594).await?;
+        assert!(request.batch.settlements.is_empty(), "no freeze before {}", EPOCH_LEN + 1);
+        fixture.expect_statement(request.batch.statement_hash).await?;
+        assert_landed(fixture, &request, &sign(fixture, &request).await?).await?;
+    }
+    Ok(())
 }
 
 async fn sign(fixture: &ContractFixture, request: &ProofRequest) -> Result<SignedTransaction> {
@@ -240,6 +309,75 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     );
     let solvent = view(p, fixture.pool, EtnaRewardPool::checkInvariantsCall {}, None).await?;
     assert!(solvent, "the pool's balance covers its reservations");
+    fixture.anvil.stop().await
+}
+
+/// A sweep reaching an empty reward pool between estimation and inclusion makes the freezing
+/// landing settle what its estimate skipped. The production signer's settlement allowance covers
+/// it; signed at the bare empty-pool estimate, the landing instead runs out of gas inside the pool,
+/// behind two proxies, so its canonical receipt reports less gas than its limit. The runner's
+/// classifier still counts it as out of gas, and the rebuilt landing, estimated against the funded
+/// pool, lands at the next nonce.
+#[tokio::test]
+#[ignore = "requires Docker: actual Etna contracts on Osaka anvil"]
+async fn lander_out_of_gas_freezing_landing_is_rebuilt_and_lands() -> Result<()> {
+    let fixture = ContractFixture::deploy_with_pool_funding(0).await?;
+    let p = &fixture.anvil.provider;
+    let mut chain = FixtureChain::new(&fixture).await?;
+    land_through(&fixture, &mut chain, EPOCH_LEN).await?;
+    mine_l1_blocks(p, 3).await?;
+    chain.extend(&fixture, EPOCH_LEN + 1).await?;
+    let request = chain.prepare(&fixture, EPOCH_LEN + 1, SidecarMode::Eip7594).await?;
+    assert_eq!(request.batch.settlements.iter().map(Vec::len).collect::<Vec<_>>(), [1]);
+    fixture.expect_statement(request.batch.statement_hash).await?;
+    let proof = Bytes::from(vec![0]);
+    let production = transport(&fixture)?.sign(&request, &proof).await?;
+    let (empty_estimate, bare) = sign_at_estimate(&fixture, &request, &proof).await?;
+    assert_eq!(bare.nonce, production.nonce);
+    assert_eq!(
+        production.gas_limit()?,
+        empty_estimate +
+            empty_estimate.div_ceil(5) +
+            SETTLEMENT_GAS_PER_LANDING +
+            SETTLEMENT_GAS_PER_MEMBER
+    );
+    // The sweep arrives, from an account other than the lander's.
+    fund_pool(p, fixture.admin, fixture.pool, POOL_FUNDING).await?;
+    let before: String = anvil_request(p, "evm_snapshot", serde_json::json!([])).await?;
+
+    // The production limit covers the funded settlement.
+    transport(&fixture)?.broadcast(&production).await?;
+    let funded = receipt(p, production.hash).await?;
+    assert!(funded.status());
+    println!(
+        "freezing landing, one member: empty-pool estimate {empty_estimate}, funded gas used {}, \
+         production limit {}",
+        funded.gas_used,
+        production.gas_limit()?
+    );
+    assert!(funded.gas_used > empty_estimate, "the empty-pool estimate skips the settlement");
+    assert!(funded.gas_used <= production.gas_limit()?);
+    assert!(anvil_request::<bool>(p, "evm_revert", serde_json::json!([before])).await?);
+
+    // At the bare estimate it runs out of gas; the outer frames' retained gas is refunded.
+    transport(&fixture)?.broadcast(&bare).await?;
+    let failed = receipt(p, bare.hash).await?;
+    assert!(!failed.status());
+    println!("out of gas at the bare estimate: gas used {} of {empty_estimate}", failed.gas_used);
+    assert!(failed.gas_used < empty_estimate, "an out-of-gas below the top frame");
+    assert!(ran_out_of_gas(failed.gas_used, bare.gas_limit()?));
+    assert_eq!(fixture.checkpoint().await?.0, EPOCH_LEN, "nothing landed");
+
+    // The rebuilt job re-estimates against the funded pool and lands at the next nonce.
+    let rebuilt = chain.prepare(&fixture, EPOCH_LEN + 1, SidecarMode::Eip7594).await?;
+    fixture.expect_statement(rebuilt.batch.statement_hash).await?;
+    let signed = sign(&fixture, &rebuilt).await?;
+    assert_eq!(signed.nonce, bare.nonce + 1);
+    let landed = assert_landed(&fixture, &rebuilt, &signed).await?;
+    let record = view(p, fixture.pool, EtnaRewardPool::epochRecordCall { _epoch: 0 }, None).await?;
+    assert_eq!(record.frozenAtL1, landed.block_number.context("freezing landing block")?);
+    let alloc = U256::from(POOL_FUNDING) * U256::from(ALLOC_VALIDATOR_PPM) / U256::from(1_000_000);
+    assert_eq!((record.alloc, record.paid), (alloc, alloc));
     fixture.anvil.stop().await
 }
 
