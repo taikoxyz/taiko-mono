@@ -66,7 +66,7 @@ interface IEtnaRewardPool {
     /// @notice Emitted for each committee member whose registration owner is credited at a
     /// settlement.
     /// @param epoch The epoch.
-    /// @param index The member's MEM-08 index in the committee.
+    /// @param index The member's index in the committee, in set-key order.
     /// @param bondId The member's bond id.
     /// @param owner The owner of the member's registration, who is credited.
     /// @param amount The credited amount, in wei: the member's base part plus its proposer bonus.
@@ -155,13 +155,13 @@ interface IEtnaRewardPool {
 
     /// @notice Returns the number of signed heights recorded for a committee member.
     /// @param _epoch The epoch.
-    /// @param _index The member's MEM-08 index.
+    /// @param _index The member's index in the committee, in set-key order.
     /// @return The recorded count.
     function signedCountOf(uint64 _epoch, uint256 _index) external view returns (uint32);
 
     /// @notice Returns the proposer score recorded for a committee member.
     /// @param _epoch The epoch.
-    /// @param _index The member's MEM-08 index.
+    /// @param _index The member's index in the committee, in set-key order.
     /// @return The recorded score, 10_000 per block whose last commit carried the whole committee.
     function proposerScoreOf(uint64 _epoch, uint256 _index) external view returns (uint32);
 

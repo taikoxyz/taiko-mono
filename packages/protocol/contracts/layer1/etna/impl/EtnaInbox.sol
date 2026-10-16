@@ -148,7 +148,8 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev Slots 259–267: reserved to preserve the ABCI storage interface.
     uint256[9] private __reservedSpec;
 
-    /// @dev Slot 268: the recovery generation (bits 0–63; the rest is reserved for GOV-04).
+    /// @dev Slot 268: the recovery generation (bits 0–63; the rest is reserved for stall
+    /// recovery).
     uint64 private _recoveryGeneration;
 
     /// @dev Slot 269: the authenticated parent-anchor committee derivation configuration.

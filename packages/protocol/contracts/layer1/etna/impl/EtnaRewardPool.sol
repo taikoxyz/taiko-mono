@@ -313,7 +313,7 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
     /// @param _epoch The epoch.
     /// @param _epochLenL2 The epoch length in L2 blocks.
     /// @param _record The epoch's record.
-    /// @param _committee The epoch's committee in MEM-08 order.
+    /// @param _committee The epoch's committee in set-key order.
     function _freezeAndSettle(
         uint64 _epoch,
         uint64 _epochLenL2,
@@ -348,7 +348,7 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
     /// @param _epoch The epoch.
     /// @param _epochLenL2 The epoch length in L2 blocks.
     /// @param _alloc The validator share to distribute.
-    /// @param _committee The epoch's committee in MEM-08 order.
+    /// @param _committee The epoch's committee in set-key order.
     /// @return paid_ The total credited.
     function _settle(
         uint64 _epoch,
@@ -384,7 +384,7 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
     /// @param _epoch The epoch.
     /// @param _epochLenL2 The epoch length in L2 blocks.
     /// @param _baseAlloc The base part of the validator share.
-    /// @param _committee The epoch's committee in MEM-08 order.
+    /// @param _committee The epoch's committee in set-key order.
     /// @return parts_ The base part per member index.
     function _baseParts(
         uint64 _epoch,
@@ -461,7 +461,7 @@ contract EtnaRewardPool is IEtnaRewardPool, IMessageInvocable, EssentialContract
 
     /// @dev Credits one member's amount to the owner of its registration, if it has one.
     /// @param _epoch The epoch.
-    /// @param _index The member's MEM-08 index.
+    /// @param _index The member's index in the committee, in set-key order.
     /// @param _member The member.
     /// @param _amount The member's amount, its proposer bonus included.
     /// @return credited_ `_amount`, or zero if the registration has no owner.

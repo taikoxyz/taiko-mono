@@ -133,8 +133,9 @@ interface IEtnaInbox {
     }
 
     /// @notice One member of an epoch committee, as the reward pool settles it.
-    /// @dev A committee is listed in MEM-08 order; its hash is
-    /// `keccak256(abi.encode(CommitteeMember[]))`.
+    /// @dev A committee is listed in set-key order: ascending by
+    /// `keccak256(abi.encode(bytes32("ETNA_SET_KEY"), l2ChainId, pubkey))` of each member's
+    /// consensus public key. Its hash is `keccak256(abi.encode(CommitteeMember[]))`.
     struct CommitteeMember {
         /// @notice The member's registry bond id (its entry slot).
         uint32 bondId;
@@ -151,11 +152,11 @@ interface IEtnaInbox {
         uint64 epoch;
         /// @notice The hash of the epoch's committee, `keccak256(abi.encode(CommitteeMember[]))`.
         bytes32 committeeHash;
-        /// @notice Per MEM-08 member index, the number of the batch's commit heights in this
-        /// epoch whose canonical commit carries the member's signature.
+        /// @notice Per member index in set-key order, the number of the batch's commit heights
+        /// in this epoch whose canonical commit carries the member's signature.
         uint32[] signedCounts;
-        /// @notice Per MEM-08 member index, the proposer scores the member earned with the
-        /// batch's commit heights in this epoch; the same length as `signedCounts`. The block
+        /// @notice Per member index in set-key order, the proposer scores the member earned with
+        /// the batch's commit heights in this epoch; the same length as `signedCounts`. The block
         /// carrying height h's canonical commit scores
         /// `floor(10_000 * includedEffStake / totalEffStake)` for its proposer, or nothing if
         /// its proposer is not a member of the epoch's committee.
@@ -325,9 +326,10 @@ interface IEtnaInbox {
     /// anchor number, under that parent's authenticated L1 root; never the candidate's anchor.
     /// Authenticate complete registry entries/count/root and evaluate active/exit eligibility at
     /// that snapshot number. Preserve effective stake, the lowest eligible bondId per pubkey,
-    /// nMax ranking, MEM-08 ordering/root, voting-power division and overflow caps. Heartbeats
-    /// retain target-epoch evaluation with lookahead 2 and exemptions for epochs 0, 1 and 2.
-    /// Non-switch blocks forbid runtime committee witnesses. No empty-set fallback is implied.
+    /// nMax ranking, set-key ordering and set root, voting-power division and overflow caps.
+    /// Heartbeats retain target-epoch evaluation with lookahead 2 and exemptions for epochs 0, 1
+    /// and 2. Non-switch blocks forbid runtime committee witnesses. No empty-set fallback is
+    /// implied.
     ///
     /// For arbitrary batch starts, authenticate the checkpoint EL header against the public
     /// parent hash, then consecutive descending parentHash links through each required D(t).
@@ -396,7 +398,7 @@ interface IEtnaInbox {
     /// settlement; these rules do not establish a wall-clock deadline.
     ///
     /// Participation: for every epoch e of [c0, c1], output e's committee as CommitteeMember
-    /// entries in MEM-08 order, with bondId, activeFromL1 and effStake taken from the
+    /// entries in set-key order, with bondId, activeFromL1 and effStake taken from the
     /// authenticated registry entries, and committeeHash = keccak256(abi.encode(members)).
     /// signedCounts[i] is the number of heights h of [c0, c1] in e whose canonical commit, the
     /// last commit of block h + 1 bound by its certified header, carries a verified
@@ -425,7 +427,7 @@ interface IEtnaInbox {
     /// @param _input The six-field batch: terminal checkpoint, reference block, forced inclusion
     /// head and fee recipient.
     /// @param _participation The validator participation per epoch of the batch's commit range.
-    /// @param _settlements The committee, in MEM-08 order, of each epoch the batch completes, in
+    /// @param _settlements The committee, in set-key order, of each epoch the batch completes, in
     /// ascending epoch order.
     /// @param _proof The proof of the V7 landing statement.
     function land(
@@ -514,7 +516,8 @@ interface IEtnaInbox {
     function migrationState() external view returns (uint8);
 
     /// @notice Returns the recovery generation bound into every landing statement.
-    /// @dev Stays 0 until stall recovery (GOV-04) exists.
+    /// @dev Stays 0 until stall recovery, a governance action that resumes a stalled chain,
+    /// exists.
     /// @return The recovery generation.
     function recoveryGeneration() external view returns (uint64);
 

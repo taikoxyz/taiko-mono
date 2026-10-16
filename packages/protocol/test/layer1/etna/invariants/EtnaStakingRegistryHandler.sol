@@ -527,7 +527,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         }
         if (s.entry.activeFromL1 <= block.number) {
             // An active entry's exit waits only for its own request block and the exit stake
-            // queued in the current busy period, never for a pending activation (M1): the
+            // queued in the current busy period, never for a pending activation: the
             // queue's last window is below busyStart + busyAmount / minChurnPerWindow.
             uint256 lastWindow =
                 _exits.busyStart + _ceilDiv(_exits.busyAmount, minChurnPerWindow) - 1;
