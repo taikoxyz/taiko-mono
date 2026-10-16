@@ -20,7 +20,7 @@ library LibEtnaRewards {
         uint256 baseFeeAmount;
     }
 
-    /// @notice Computes the stable identifier for a contiguous L2 reward batch.
+    /// @dev Computes the stable identifier for a contiguous L2 reward batch.
     /// @param _r The receipt whose chain, inbox, generation, and range identify the batch.
     /// @return id_ The canonical batch identifier.
     function batchId(Receipt memory _r) internal pure returns (bytes32 id_) {
@@ -39,7 +39,7 @@ library LibEtnaRewards {
         );
     }
 
-    /// @notice Computes the commitment to a batch identifier, recipient, and reward amount.
+    /// @dev Computes the commitment to a batch identifier, recipient, and reward amount.
     /// @param _r The receipt whose batch, recipient, and amount are committed.
     /// @return hash_ The canonical receipt commitment.
     function commitment(Receipt memory _r) internal pure returns (bytes32 hash_) {
@@ -53,7 +53,7 @@ library LibEtnaRewards {
         );
     }
 
-    /// @notice Computes the mapping storage slot for a receipt identifier.
+    /// @dev Computes the mapping storage slot for a receipt identifier.
     /// @param _id The canonical receipt identifier.
     /// @return slot_ The storage slot at which the receipt is stored.
     function receiptSlot(bytes32 _id) internal pure returns (bytes32 slot_) {

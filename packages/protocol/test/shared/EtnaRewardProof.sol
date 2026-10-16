@@ -6,7 +6,7 @@ import "@optimism/packages/contracts-bedrock/src/libraries/rlp/RLPWriter.sol";
 /// @title EtnaRewardProof
 /// @notice Builds a valid single-leaf account and storage proof for shared protocol tests.
 library EtnaRewardProof {
-    /// @notice Constructs the account and storage proof for one storage slot.
+    /// @dev Constructs the account and storage proof for one storage slot.
     /// @param _inbox The account address committed in the state trie.
     /// @param _slot The storage slot committed in the storage trie.
     /// @param _value The storage value committed in the storage trie.
