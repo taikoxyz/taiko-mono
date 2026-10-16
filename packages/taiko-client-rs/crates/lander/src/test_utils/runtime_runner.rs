@@ -245,7 +245,7 @@ impl LandingSource for MockL1 {
         &self,
         _: &LandingSnapshot,
         _: &LandInput,
-        _: &[crate::contracts::IEtnaInbox::EpochParticipation],
+
         _: B256,
         _: &[B256],
     ) -> Result<B256> {

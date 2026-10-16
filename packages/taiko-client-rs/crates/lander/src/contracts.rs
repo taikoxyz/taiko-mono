@@ -1,25 +1,28 @@
-//! Types generated at compile time from the exact #22286 Solidity interface snapshot.
+//! Types generated from a provenance-checked projection of the pinned real Inbox ABI.
+//! The full interface snapshot and unmodified real artifacts remain available for verification.
 
 use alloy::sol;
 
 sol!(
     #[sol(all_derives)]
-    "contracts/IEtnaInbox.sol"
+    IEtnaInbox,
+    "contracts/EtnaInbox.json"
 );
 
+// A standalone event retains its exact types and indexed layout without Alloy's generated
+// eight-argument Events enum builder. The generator records the projection's provenance.
 sol!(
-    /// `EtnaInbox`'s revert for a `LandInput` whose `feeRecipient` is zero. Custom errors live in
-    /// the implementation, not the interface snapshot above, so this one is declared here; a unit
-    /// test checks it against the pinned `EtnaInbox` ABI.
     #[sol(all_derives)]
-    error ZeroFeeRecipient();
+    "contracts/BatchRewardRecorded.sol"
 );
+
+/// The generated Inbox revert for an invalid zero L1 forced-fee recipient.
+pub use IEtnaInbox::ZeroFeeRecipient;
 
 /// Protocol revision from which the interface and contract fixtures are generated.
-pub const PROTOCOL_REVISION: &str = "5787d217f508a115a171f5dafb93a8fb8950c10f";
+pub const PROTOCOL_REVISION: &str = "4584969fbc4037aae99eb725f9c76a6b274ded3e";
 
-/// Journal representation of generated ABI values (the `LandInput`, the participation parts and
-/// the settlement committees) as their canonical Solidity `abi.encode` bytes.
+/// Journal representation of the generated eight-field `LandInput` as canonical ABI bytes.
 pub(crate) mod abi_serde {
     use alloy::sol_types::{SolType, SolValue};
     use alloy_primitives::Bytes;

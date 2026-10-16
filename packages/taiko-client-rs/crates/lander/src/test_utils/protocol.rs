@@ -1,6 +1,6 @@
 use crate::{
     blob::PreparedBlobs,
-    contracts::IEtnaInbox::{CommitteeMember, EpochParticipation, LandInput},
+    contracts::IEtnaInbox::LandInput,
     proof::ProofRequest,
     types::{LandingSnapshot, PreparedBatch},
 };
@@ -91,19 +91,10 @@ pub(crate) fn request() -> ProofRequest {
                 lastStateRoot: B256::repeat_byte(8),
                 l1ReferenceBlockNumber: 15,
                 forcedInclusionHead: U48::ZERO,
+                l2RewardRecipient: Address::repeat_byte(0x77),
+                baseFeeAmount: U256::ZERO,
                 feeRecipient: super::consensus_mpt::FEE_RECIPIENT,
             },
-            participation: vec![EpochParticipation {
-                epoch: 0,
-                committeeHash: B256::repeat_byte(0x55),
-                signedCounts: vec![1, 0, 2],
-                proposerScores: vec![10_000, 0, 6667],
-            }],
-            settlements: vec![vec![CommitteeMember {
-                bondId: 3,
-                activeFromL1: 11,
-                effStake: U256::from(5),
-            }]],
             blobs: PreparedBlobs {
                 payload_bytes: 0,
                 sidecar: BlobTransactionSidecarVariant::Eip4844(BlobTransactionSidecar::default()),

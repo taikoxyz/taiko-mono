@@ -16,10 +16,8 @@ use std::{
 
 /// Journal schema version; incompatible formats stop rather than discard outstanding nonces.
 ///
-/// Schema 9 jobs bind the nineteen-word V7 statement, whose last word hashes the batch's
-/// validator participation, journal that participation and the settlement committees as
-/// canonical ABI bytes, and sign the four-argument `land(input, participation, settlements,
-/// proof)`; older journals are rejected intact.
+/// Schema 10 jobs bind the twenty-word V8 statement and eight-field canonical ABI input,
+/// signing `land(input, proof)`. Schema 9 participation-era journals are rejected intact.
 /// Schema 8 binds calldata FI envelope v5 and payload v4 under the V6 statement.
 /// Schema 7 journals the paired commit as a protobuf too: schema 6 kept it in the domain JSON
 /// form, which reads a Unix-epoch vote time as absent and cannot restore such a certificate.
@@ -28,7 +26,7 @@ use std::{
 /// over a six-field `LandInput` (forced inclusion head after the batch and fee recipient included),
 /// compressed V3 blob payloads and snapshots carrying the forced inclusion queue; schema 4 bound V5
 /// statements over uncompressed V2 payloads and schema 3 complete V1 blocks.
-const JOURNAL_VERSION: u8 = 9;
+const JOURNAL_VERSION: u8 = 10;
 /// Hard allocation bound before reading or decoding an untrusted journal.
 pub(crate) const MAX_JOURNAL_BYTES: u64 = 256 * 1024 * 1024;
 
@@ -269,37 +267,7 @@ impl Store {
             return Err(LanderError::Journal("job chain/contract identity mismatch".into()));
         }
         let batch = &job.request.batch;
-        let reference = batch
-            .reference_headers
-            .first()
-            .ok_or_else(|| LanderError::Journal("job has no L1 reference".into()))?;
-        let header = abci::l1::header::RawL1Header::from_raw(reference.clone())
-            .map_err(|e| LanderError::Journal(format!("job reference: {e}")))?;
-        if header.number() != batch.input.l1ReferenceBlockNumber ||
-            crate::statement::hash(
-                snapshot,
-                &batch.input,
-                &batch.participation,
-                header.hash(),
-                &batch.blobs.versioned_hashes,
-            ) != batch.statement_hash
-        {
-            return Err(LanderError::Journal("job V7 statement identity mismatch".into()));
-        }
-        crate::participation::verify_shape(
-            &batch.participation,
-            snapshot.checkpoint_height,
-            batch.input.lastHeight,
-            snapshot.genesis.epoch_len,
-        )
-        .map_err(|e| LanderError::Journal(format!("job participation: {e}")))?;
-        crate::participation::verify_settlements(
-            &batch.participation,
-            &batch.settlements,
-            batch.input.lastHeight,
-            snapshot.genesis.epoch_len,
-        )
-        .map_err(|e| LanderError::Journal(format!("job settlements: {e}")))?;
+        batch.validate_statement()?;
         let limits = crate::types::Limits {
             max_blocks: 100_000,
             max_blobs: 128,
@@ -444,7 +412,7 @@ mod tests {
     /// domain JSON commits and schema 8 V6 statements without participation.
     #[test]
     fn legacy_journals_are_rejected_without_modifying_their_files() {
-        for version in [2, 3, 4, 5, 6, 7, 8] {
+        for version in [2, 3, 4, 5, 6, 7, 8, 9] {
             let directory = tempfile::tempdir().unwrap();
             let journal = serde_json::json!({
                 "version": version,
@@ -479,7 +447,7 @@ mod tests {
         };
         let state =
             JournalState::Pending { job: Box::new(ProvedJob { request, proof }), transaction };
-        for version in [2, 3, 4, 5, 6, 7, 8] {
+        for version in [2, 3, 4, 5, 6, 7, 8, 9] {
             let directory = tempfile::tempdir().unwrap();
             let bytes = serde_json::to_vec(
                 &serde_json::json!({ "version": version, "identity": id, "state": state }),
@@ -496,11 +464,11 @@ mod tests {
         }
     }
 
-    /// A schema-8 job (a V6 statement and the two-argument `land`, with no participation or
-    /// settlements) signed at nonce 7 stays on disk byte for byte, nonce included, and the store
+    /// A schema-9 participation-era job signed at nonce 7 stays on disk byte for byte, nonce
+    /// included, and the store
     /// refuses to open it.
     #[tokio::test]
-    async fn journal_v8_signed_job_is_refused_intact() {
+    async fn journal_v9_signed_job_is_refused_intact() {
         let request = crate::test_utils::runtime::request();
         let proof = Bytes::from_static(&[0]);
         let transaction = crate::test_utils::runtime::signed(&request, &proof, 7).await;
@@ -513,9 +481,7 @@ mod tests {
         };
         let state =
             JournalState::Signed { job: Box::new(ProvedJob { request, proof }), transaction };
-        let mut journal = serde_json::json!({ "version": 8, "identity": id, "state": state });
-        let batch = journal["state"]["job"]["request"]["batch"].as_object_mut().unwrap();
-        assert!(batch.remove("participation").is_some() && batch.remove("settlements").is_some());
+        let journal = serde_json::json!({ "version": 9, "identity": id, "state": state });
         let bytes = serde_json::to_vec(&journal).unwrap();
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("lander-state.json");
@@ -523,10 +489,10 @@ mod tests {
 
         let error = match Store::open(directory.path(), id.clone()) {
             Err(e) => e,
-            Ok(_) => panic!("schema 8 must be rejected"),
+            Ok(_) => panic!("schema 9 must be rejected"),
         };
         assert!(
-            error.to_string().contains("incompatible journal schema 8 (expected 9)"),
+            error.to_string().contains("incompatible journal schema 9 (expected 10)"),
             "{error}"
         );
         assert_eq!(std::fs::read(&path).unwrap(), bytes);
@@ -578,10 +544,9 @@ mod tests {
         assert_eq!(store.load().unwrap(), job);
     }
 
-    /// A job whose participation `land` would reject (here proposer scores past 10,000 per
-    /// height) is refused even with its statement hash recomputed over it.
+    /// Even a recomputed statement cannot authorize a journal amount absent from its headers.
     #[test]
-    fn journal_job_requires_the_inbox_participation_shape() {
+    fn journal_recomputes_base_fee_amount_after_statement_rebinding() {
         use crate::test_utils::runtime::{limits, rebind, request};
         let mut request = request();
         let snapshot = &request.batch.snapshot;
@@ -595,20 +560,19 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let store = Store::open(directory.path(), identity).unwrap();
         let proof = Bytes::from_static(&[0]);
+        let valid = JournalState::Prepared {
+            job: Box::new(ProvedJob { request: request.clone(), proof: proof.clone() }),
+        };
+        store.save(&valid).unwrap();
+        let original = std::fs::read(directory.path().join("lander-state.json")).unwrap();
         let payload = crate::codec::encode(&request.batch.blocks, &limits()).unwrap();
-        // The batch (0, 2] carries one height, worth at most one block's score.
-        assert_eq!(request.batch.participation[0].proposerScores.iter().sum::<u32>(), 10_000);
-        store
-            .save(&JournalState::Prepared {
-                job: Box::new(ProvedJob { request: request.clone(), proof: proof.clone() }),
-            })
-            .unwrap();
-        request.batch.participation[0].proposerScores[0] += 1;
+        request.batch.input.baseFeeAmount ^= U256::from(1);
         rebind(&mut request, &payload);
         let error = store
             .save(&JournalState::Prepared { job: Box::new(ProvedJob { request, proof }) })
             .unwrap_err();
-        assert!(error.to_string().contains("job participation"), "{error}");
+        assert!(error.to_string().contains("reward amount"), "{error}");
+        assert_eq!(std::fs::read(directory.path().join("lander-state.json")).unwrap(), original);
     }
 
     /// Journaled blocks grow the journal by at most 4/3 of their published list bytes (their
@@ -654,7 +618,12 @@ mod tests {
         for height in 1..=2 {
             let envelope = abci::EtnaEnvelope {
                 block: abci::ExecutionBlock {
-                    header: alloy_consensus::Header { number: height, ..Default::default() },
+                    header: alloy_consensus::Header {
+                        number: height,
+                        base_fee_per_gas: Some(7),
+                        gas_used: 21_000,
+                        ..Default::default()
+                    },
                     transactions: vec![vec![0; 1 << 20].into()],
                 },
                 anchor: None,

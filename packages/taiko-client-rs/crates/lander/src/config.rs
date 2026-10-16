@@ -3,6 +3,7 @@
 use std::{path::PathBuf, time::Duration};
 
 use abci::compression::MAX_LANDING_BLOBS;
+use alloy_primitives::Address;
 use url::Url;
 
 use crate::{
@@ -107,6 +108,8 @@ pub struct LanderConfig {
     pub l1_http: Url,
     /// Public HTTP(S) endpoint of the operator's L2 execution node.
     pub l2_http: Url,
+    /// Nonzero L2 base fee recipient, independent of the L1 transaction signer.
+    pub l2_reward_recipient: Address,
     /// Authenticated HTTP(S) Engine API endpoint.
     pub l2_auth: Url,
     /// File containing the Engine API JWT secret.
@@ -138,6 +141,9 @@ pub struct LanderConfig {
 impl LanderConfig {
     /// Validate every local invariant before opening RPCs or reading a signing key.
     pub fn validate(&self) -> Result<()> {
+        if self.l2_reward_recipient.is_zero() {
+            return Err(LanderError::Configuration("L2 reward recipient must be nonzero".into()));
+        }
         self.limits.validate()?;
         self.batch_policy.validate()?;
         if self.batch_policy.min_blocks > self.limits.max_blocks {
@@ -192,6 +198,7 @@ mod tests {
     fn valid() -> LanderConfig {
         LanderConfig {
             l1_http: Url::parse("http://l1:8545").unwrap(),
+            l2_reward_recipient: Address::repeat_byte(0x77),
             l2_http: Url::parse("https://l2.example/rpc").unwrap(),
             l2_auth: Url::parse("http://l2:8551").unwrap(),
             jwt_secret: "jwt.hex".into(),

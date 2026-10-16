@@ -43,12 +43,6 @@ interface IEtnaInbox {
         uint64 forcedInclusionFeeInGwei;
         /// @notice The number of pending forced inclusions at which the fee doubles.
         uint64 forcedInclusionFeeDoubleThreshold;
-        /// @notice The reward pool that records each landing's validator participation and
-        /// sends frozen epochs' proving shares to the prover reward ledger.
-        address rewardPool;
-        /// @notice The landing reward per landed L2 block in wei, paid from the prover reward
-        /// ledger; may be zero.
-        uint128 landingRewardPerBlock;
     }
 
     /// @notice The genesis parameters of a new Etna chain.
@@ -124,43 +118,12 @@ interface IEtnaInbox {
         /// @dev At least the stored head, at most the queue tail, and ahead of the stored head by
         /// at most the batch's block count, since each block consumes at most one entry.
         uint48 forcedInclusionHead;
-        /// @notice The receiver of the fees of the forced inclusions the batch consumes and of the
-        /// landing reward.
-        /// @dev Non-zero, and bound into the V7 statement, so a copy of a public landing
-        /// transaction cannot redirect the payment. A lander normally names its own sending
-        /// address.
+        /// @notice The non-zero L1 receiver of consumed forced-inclusion fees, bound into V8.
         address feeRecipient;
-    }
-
-    /// @notice One member of an epoch committee, as the reward pool settles it.
-    /// @dev A committee is listed in set-key order: ascending by
-    /// `keccak256(abi.encode(bytes32("ETNA_SET_KEY"), l2ChainId, pubkey))` of each member's
-    /// consensus public key. Its hash is `keccak256(abi.encode(CommitteeMember[]))`.
-    struct CommitteeMember {
-        /// @notice The member's registry bond id (its entry slot).
-        uint32 bondId;
-        /// @notice The `activeFromL1` of the registration that holds the slot; with `bondId` it
-        /// names the registration whose owner is rewarded.
-        uint64 activeFromL1;
-        /// @notice The member's effective stake in TAIKO base units.
-        uint256 effStake;
-    }
-
-    /// @notice The validator participation one landing reports for one epoch.
-    struct EpochParticipation {
-        /// @notice The epoch.
-        uint64 epoch;
-        /// @notice The hash of the epoch's committee, `keccak256(abi.encode(CommitteeMember[]))`.
-        bytes32 committeeHash;
-        /// @notice Per member index in set-key order, the number of the batch's commit heights
-        /// in this epoch whose canonical commit carries the member's signature.
-        uint32[] signedCounts;
-        /// @notice Per member index in set-key order, the proposer scores the member earned with
-        /// the batch's commit heights in this epoch; the same length as `signedCounts`. The block
-        /// carrying height h's canonical commit scores
-        /// `floor(10_000 * includedEffStake / totalEffStake)` for its proposer, or nothing if
-        /// its proposer is not a member of the epoch's committee.
-        uint32[] proposerScores;
+        /// @notice The non-zero L2 receiver of the proven batch's base fees, bound into V8.
+        address l2RewardRecipient;
+        /// @notice The proven base-fee reward in wei; may be zero.
+        uint256 baseFeeAmount;
     }
 
     // ---------------------------------------------------------------
@@ -218,12 +181,25 @@ interface IEtnaInbox {
         uint48 headBefore, uint48 headAfter, uint256 feesWei, address indexed recipient
     );
 
-    /// @notice Emitted by every landing with the reward it pays from the prover reward ledger.
-    /// @param recipient The batch's `feeRecipient`, which the landing statement binds.
-    /// @param amount The reward in wei: `landingRewardPerBlock` per landed block, capped at the
-    /// ledger; zero when the ledger is empty.
-    /// @param ledgerAfter The prover reward ledger after the payment, in wei.
-    event LandingRewardPaid(address indexed recipient, uint256 amount, uint256 ledgerAfter);
+    /// @notice Records a fixed-size discovery event for an authenticated L2 reward receipt.
+    /// @param batchId The identity of the chain, generation and batch endpoints.
+    /// @param l2RewardRecipient The L2 reward receiver.
+    /// @param baseFeeAmount The proven reward in wei.
+    /// @param generation The stored recovery generation.
+    /// @param parentHeight The stored parent checkpoint height.
+    /// @param parentHash The stored parent checkpoint hash.
+    /// @param lastHeight The terminal batch height.
+    /// @param lastBlockHash The terminal batch hash.
+    event BatchRewardRecorded(
+        bytes32 indexed batchId,
+        address indexed l2RewardRecipient,
+        uint256 baseFeeAmount,
+        uint64 generation,
+        uint64 parentHeight,
+        bytes32 parentHash,
+        uint64 lastHeight,
+        bytes32 lastBlockHash
+    );
 
     // ---------------------------------------------------------------
     // External Functions
@@ -264,8 +240,8 @@ interface IEtnaInbox {
 
     /// @notice Initializes a fresh Etna proxy and its L2 block-0 checkpoint.
     /// @dev Call atomically in the proxy constructor. Requires non-zero genesis hash, state root,
-    /// committee record and derivation configuration hash, 3 <= epochLenL2 <= 429,496 (so a
-    /// member's proposer scores for an epoch fit the reward pool's uint32 total), epochLenL1 > 0,
+    /// committee record and derivation configuration hash, 3 <= epochLenL2 < type(uint48).max
+    /// (the first epoch boundary plus one must fit uint48), epochLenL1 > 0,
     /// a past genesis cutoff at or after the registry's first checkpoint, a forced inclusion
     /// delay greater than zero and maxAnchorAge >= 1152 seconds. Choose maxAnchorAge above
     /// the expected L1 finality lag, including extra depth and RPC latency. The SignalService must
@@ -277,47 +253,21 @@ interface IEtnaInbox {
     /// @param _params The genesis parameters.
     function init(address _owner, GenesisParams calldata _params) external;
 
-    /// @notice Lands the L2 blocks after the last checkpoint up to `_input.lastHeight`, reports
-    /// their validator participation to the reward pool and pays the landing reward.
-    /// @dev Permissionless; any `msg.value` joins the prover reward ledger. Requires active
-    /// status, progress, at most `maxBatchBlocks` blocks, a last height at or below
-    /// `type(uint48).max` and a non-zero fee recipient. The reference is a past L1 block with a
-    /// non-zero hash available through blockhash (256 blocks) or EIP-2935 (8191 blocks).
-    /// At least one blob is required, and every actual transaction blob hash is bound in order.
-    /// The forced inclusion head must satisfy head <= forcedInclusionHead <= tail and advance by
-    /// at most the batch's block count.
-    ///
-    /// Block h + 1 carries the canonical commit of height h and height 0 has none, so the batch
-    /// (p, L] carries the commits of [c0, c1] = [max(p, 1), L - 1]. `_participation` must be
-    /// empty if c0 > c1; otherwise it holds one part per epoch from (c0 - 1) / epochLenL2 to
-    /// (c1 - 1) / epochLenL2 in ascending order, each signed count at most the number of
-    /// heights of [c0, c1] in that epoch, as many proposer scores as signed counts, and the
-    /// part's scores summing to at most 10_000 times those heights; InvalidParticipation
-    /// otherwise. The guest, not this shape check, makes the counts, scores and committee hashes
-    /// authoritative.
-    ///
-    /// Saves the terminal checkpoint in the Inbox and SignalService, moves the queue head, emits
-    /// BatchLanded, then verifies the V7 statement with proposal age 0; verifier failure rolls
-    /// back every write. Then the reward pool records the participation with `lastHeight` and
-    /// `epochLenL2`: it freezes and settles, in ascending order, every epoch e the batch
-    /// completes (L - 1 >= (e + 1) * epochLenL2) with the matching entry of `_settlements`, and
-    /// sends each one's proving share into the ledger. Settlement committees are not part of the
-    /// statement: the pool checks each against the committee hash the participation bound.
-    /// Finally `msg.value` is added to the ledger and the reward
-    /// min(landingRewardPerBlock * (L - p), ledger) is debited; the reward and the consumed
-    /// entries' fees are sent to `_input.feeRecipient`, not the caller, in one transfer when
-    /// their sum is non-zero, and a rejected transfer reverts the landing.
-    /// ForcedInclusionsConsumed is emitted if the head moved, then LandingRewardPaid. An empty
-    /// ledger pays nothing and does not block landing. Consumed entries are not deleted. No
-    /// future committee record is an input or output of landing.
+    /// @notice Lands proven L2 blocks, records their L2 reward receipt and pays consumed L1 fees.
+    /// @dev Permissionless and nonpayable. Requires active status, progress, at most maxBatchBlocks,
+    /// uint48 terminal height, non-zero L1 and L2 recipients, an available past reference hash and
+    /// at least one blob. The queue head advances at most once per block and cannot exceed tail.
+    /// Records the checkpoint and receipt atomically with proof verification and L1 fee payment;
+    /// any failure rolls back all writes. No prefunding is required, including for zero rewards.
+    /// Clients discover receipts from events and authenticate the slot-283 commitment by proof.
     ///
     /// A valid Etna proof must authenticate every Inbox/registry account and storage proof under
     /// the respective bound address and authenticated L1 state root. It must open the stored
     /// committeeConfigHash using the exact eleven-word encoding (352 bytes):
-    /// abi.encode(bytes32("ETNA_PARENT_ANCHOR_V2"), uint256(l2ChainId), address(stakingRegistry),
-    /// uint256(vpUnit), uint256(sMin), uint64(nMax), uint64(heartbeatWindow), uint64(2), uint8(1),
+    /// abi.encode(bytes32("ETNA_PARENT_ANCHOR_V3"), uint256(l2ChainId), address(stakingRegistry),
+    /// uint256(vpUnit), uint256(sMin), uint64(nMax), uint64(heartbeatWindow), uint64(2), uint8(2),
     /// uint64(dMax), uint64(marginV)). Words 8 and 9 bind heartbeat lookahead 2 and retained
-    /// membership algorithm version 1; the last two bind the back-pressure cap parameters.
+    /// recipient-bound membership encoding version 2; the last two bind the back-pressure cap parameters.
     /// Authenticate the genesis schedule and explicit genesisCutoff from Inbox storage.
     /// Committee 0 opens the plain slot-278 bootstrap record at genesisCutoff (slot 279).
     ///
@@ -397,77 +347,44 @@ interface IEtnaInbox {
     /// deletion exists, but BFT time suppression can still delay inclusion and a quorum can stop
     /// settlement; these rules do not establish a wall-clock deadline.
     ///
-    /// Participation: for every epoch e of [c0, c1], output e's committee as CommitteeMember
-    /// entries in set-key order, with bondId, activeFromL1 and effStake taken from the
-    /// authenticated registry entries, and committeeHash = keccak256(abi.encode(members)).
-    /// signedCounts[i] is the number of heights h of [c0, c1] in e whose canonical commit, the
-    /// last commit of block h + 1 bound by its certified header, carries a verified
-    /// BlockIDFlagCommit signature of member i; nil votes and absent signatures do not count.
-    /// For each such height h, block h + 1 scores floor(10_000 * includedEffStake /
-    /// totalEffStake), where includedEffStake sums the effStake of the members counted for h and
-    /// totalEffStake that of the whole committee; the score goes to the member whose CometBFT
-    /// address (SHA-256 of its Ed25519 key, first 20 bytes) is the certified header's
-    /// proposer_address of block h + 1, and is dropped if no member of e has it.
-    /// proposerScores[i] sums member i's scores over the epoch's heights in [c0, c1].
-    /// Bind participationHash = keccak256(abi.encode(EpochParticipation[])).
-    ///
     /// Prove contiguous execution from the parent hash to the terminal hash/state root, every
     /// anchor and actual proving L1 root on the header chain ending at the reference hash, and
-    /// block data in the bound blobs. The blobs carry payload V4: 0x04 and the zlib-compressed
+    /// block data in the bound blobs. The blobs carry payload V5: 0x05 and the zlib-compressed
     /// RLP list of each block's canonical CometBFT header and Etna envelope, where every header
     /// hashes to a certified block id, its data hash commits to the envelope and its last block
-    /// id links the batch. Envelope v5's forced witness carries optional transaction bytes for
+    /// id links the batch. Envelope v6's forced witness carries optional transaction bytes for
     /// the rules above, not a forced blob. Landing still publishes batch blobs. Commits and
     /// signatures are proof witnesses, not blob data. A batch may start/end at any valid height
-    /// without a previous batch's committee output. Envelope version 5, payload V4 and journal
-    /// schema 9 reject older formats;
-    /// never discard or replace a signed nonce. The verifier must pin a guest enforcing these V7
+    /// without a previous batch's committee output. Envelope version 6, payload V5 and journal
+    /// schema 10 reject older formats;
+    /// never discard or replace a signed nonce. The verifier must pin a guest enforcing these V8
     /// rules. Dummy proof 0x00 is for development only; no real guest exists here and the dummy
-    /// verifier does not establish consensus validity, participation or ZK soundness.
-    /// @param _input The six-field batch: terminal checkpoint, reference block, forced inclusion
-    /// head and fee recipient.
-    /// @param _participation The validator participation per epoch of the batch's commit range.
-    /// @param _settlements The committee, in set-key order, of each epoch the batch completes, in
-    /// ascending epoch order.
-    /// @param _proof The proof of the V7 landing statement.
-    function land(
-        LandInput calldata _input,
-        EpochParticipation[] calldata _participation,
-        CommitteeMember[][] calldata _settlements,
-        bytes calldata _proof
-    )
-        external
-        payable;
+    /// verifier does not establish consensus validity or ZK soundness.
+    /// @param _input The batch checkpoint, reference, queue head, L1 fee receiver and L2 reward.
+    /// @param _proof The V8 proof.
+    function land(LandInput calldata _input, bytes calldata _proof) external;
 
-    /// @notice Encodes the V7 landing statement for supplied batch public inputs.
-    /// @dev Nineteen static ABI words (608 bytes): bytes32("TAIKO_ETNA_LAND_V7"), block.chainid,
-    /// l2ChainId, address(this), address(stakingRegistry), _generation, _parentHeight, _parentHash,
-    /// committeeConfigHash, lastHeight, lastBlockHash, lastStateRoot, l1ReferenceBlockNumber,
-    /// _l1ReferenceBlockHash, keccak256(abi.encodePacked(_blobHashes)),
-    /// _forcedInclusionHeadBefore, forcedInclusionHead, feeRecipient,
-    /// keccak256(abi.encode(_participation)). Chain id is uint256; generation/heights are uint64,
-    /// forced inclusion heads uint48, identities and the fee recipient address, and hashes
-    /// bytes32. The first eighteen words are the V6 words under the V7 tag.
-    /// Identities and the config hash are read internally; call through the Inbox proxy to bind
-    /// its address. This helper does not authenticate supplied batch values or check the
-    /// participation's shape. land reads the stored parent, generation and forced inclusion head,
-    /// resolves the reference hash and reads the actual transaction blob hashes.
+    /// @notice Encodes the V8 landing statement for supplied batch public inputs.
+    /// @dev Exactly twenty static ABI words (640 bytes): bytes32("TAIKO_ETNA_LAND_V8"),
+    /// block.chainid, l2ChainId, address(this), stakingRegistry, generation, parentHeight,
+    /// parentHash, committeeConfigHash, lastHeight, lastBlockHash, lastStateRoot,
+    /// l1ReferenceBlockNumber, l1ReferenceBlockHash, keccak256(abi.encodePacked(blobHashes)),
+    /// forcedInclusionHeadBefore, forcedInclusionHead, feeRecipient, l2RewardRecipient, baseFeeAmount.
+    /// Identities and config are read internally. land also reads the stored parent/generation/head.
     /// @param _generation The recovery generation.
     /// @param _parentHeight The parent checkpoint height.
-    /// @param _parentHash The parent checkpoint block hash.
-    /// @param _forcedInclusionHeadBefore The forced inclusion queue head before the batch.
-    /// @param _input The six-field batch.
-    /// @param _participation The validator participation per epoch of the batch's commit range.
-    /// @param _l1ReferenceBlockHash The hash of `_input.l1ReferenceBlockNumber`.
-    /// @param _blobHashes The versioned blob hashes in transaction order.
-    /// @return statementHash_ The V7 statement hash.
+    /// @param _parentHash The parent checkpoint hash.
+    /// @param _forcedInclusionHeadBefore The previous queue head.
+    /// @param _input The batch.
+    /// @param _l1ReferenceBlockHash The reference hash.
+    /// @param _blobHashes The versioned blob hashes in order.
+    /// @return statementHash_ The statement hash.
     function hashLandStatement(
         uint64 _generation,
         uint64 _parentHeight,
         bytes32 _parentHash,
         uint48 _forcedInclusionHeadBefore,
         LandInput calldata _input,
-        EpochParticipation[] calldata _participation,
         bytes32 _l1ReferenceBlockHash,
         bytes32[] calldata _blobHashes
     )
@@ -521,18 +438,9 @@ interface IEtnaInbox {
     /// @return The recovery generation.
     function recoveryGeneration() external view returns (uint64);
 
-    /// @notice Returns the prover reward ledger: the Inbox Ether reserved for landing rewards.
-    /// @dev Stored at slot 283, which the node does not read. Funded by the reward pool's
-    /// proving shares and by `land`'s `msg.value`; debited by each landing's reward.
-    /// @return The ledger in wei.
-    function proverRewardLedger() external view returns (uint256);
-
-    /// @notice Returns the reward pool that records each landing's participation and funds the
-    /// prover reward ledger; the only accepted sender of plain Ether transfers.
-    /// @return The reward pool proxy.
-    function rewardPool() external view returns (address);
-
-    /// @notice Returns the landing reward per landed L2 block.
-    /// @return The reward in wei.
-    function landingRewardPerBlock() external view returns (uint128);
+    /// @notice Returns the authenticated reward commitment for a batch identity.
+    /// @dev Mapping base slot 283. Zero means no receipt has been recorded.
+    /// @param _batchId The batch identity.
+    /// @return commitment_ The receipt commitment.
+    function rewardCommitments(bytes32 _batchId) external view returns (bytes32 commitment_);
 }

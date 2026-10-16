@@ -27,7 +27,7 @@ use ed25519_dalek::{Signer, SigningKey};
 use lander::{
     CertifiedBlock, LandingSnapshot, Limits, ProofRequest, SidecarMode,
     committee::{AuthenticatedCommittee, authenticate},
-    contracts::IEtnaInbox::{EpochParticipation, LandInput},
+    contracts::IEtnaInbox::LandInput,
     l1::{LandingSource, RpcLandingSource},
     validate::{EnvelopeContext, commit_hash, verify_commit, verify_envelope, verify_structure},
 };
@@ -340,6 +340,7 @@ impl FixtureChain {
                 limits: limits(),
                 mode,
                 fee_recipient: test_harness::dev_signer().address(),
+                l2_reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
                 engine: std::sync::Arc::new(test_harness::unavailable_engine::UnavailableEngine),
                 engine_timeout: std::time::Duration::from_secs(1),
             },
@@ -505,11 +506,10 @@ impl LandingSource for FixtureLanding {
         &self,
         snapshot: &LandingSnapshot,
         input: &LandInput,
-        participation: &[EpochParticipation],
         hash: B256,
         blobs: &[B256],
     ) -> lander::error::Result<B256> {
-        self.rpc.statement_hash(snapshot, input, participation, hash, blobs).await
+        self.rpc.statement_hash(snapshot, input, hash, blobs).await
     }
     async fn canonical_hash(&self, number: u64) -> lander::error::Result<B256> {
         self.rpc.canonical_hash(number).await

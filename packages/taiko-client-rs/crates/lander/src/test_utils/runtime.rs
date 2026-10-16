@@ -41,29 +41,8 @@ pub(crate) fn request() -> ProofRequest {
     request.batch.input.lastHeight = 2;
     request.batch.input.lastBlockHash = last_header.hash_slow();
     request.batch.input.lastStateRoot = last_header.state_root;
-    // Block 2 carries height 1's canonical commit: the batch (0, 2]'s only participation.
-    let signed = crate::validate::verify_commit(
-        second.block.last_commit.as_ref().unwrap(),
-        &block.block.header,
-        &committee,
-        "taiko-etna-167001-g0",
-    )
-    .unwrap();
-    let participation = crate::participation::build(
-        &abci::Schedule::from_genesis(&request.batch.snapshot.genesis),
-        &params,
-        0,
-        2,
-        &[crate::participation::CommitSigners {
-            height: 1,
-            signed,
-            proposer: second.block.header.proposer_address,
-        }],
-        &std::collections::BTreeMap::from([(0, committee.clone())]),
-    )
-    .unwrap();
-    request.batch.participation = participation.parts;
-    request.batch.settlements = participation.settlements;
+    request.batch.input.baseFeeAmount =
+        crate::rewards::basefee_sum(&[first_header, last_header]).unwrap();
     request.batch.blocks = vec![block, second];
     request.batch.committees = vec![committee.state];
     let reference = RawL1Header::from(&Header { number: 15, ..Default::default() });
@@ -91,7 +70,6 @@ pub(crate) fn rebind(request: &mut ProofRequest, payload: &[u8]) {
     request.batch.statement_hash = statement::hash(
         &request.batch.snapshot,
         &request.batch.input,
-        &request.batch.participation,
         reference.hash(),
         &request.batch.blobs.versioned_hashes,
     );
@@ -110,14 +88,7 @@ pub(crate) async fn signed(request: &ProofRequest, proof: &Bytes, nonce: u64) ->
         access_list: Default::default(),
         blob_versioned_hashes: batch.blobs.versioned_hashes.clone(),
         max_fee_per_blob_gas: 10,
-        input: landCall {
-            _input: batch.input.clone(),
-            _participation: batch.participation.clone(),
-            _settlements: batch.settlements.clone(),
-            _proof: proof.clone(),
-        }
-        .abi_encode()
-        .into(),
+        input: landCall { _input: batch.input.clone(), _proof: proof.clone() }.abi_encode().into(),
     };
     let variant: TxEip4844Variant =
         TxEip4844WithSidecar::from_tx_and_sidecar(tx, batch.blobs.sidecar.clone()).into();

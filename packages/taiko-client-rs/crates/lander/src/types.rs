@@ -12,7 +12,7 @@ use tendermint_proto::v0_38::types::{Block as RawBlock, Commit as RawCommit};
 
 use crate::{
     blob::PreparedBlobs,
-    contracts::IEtnaInbox::{CommitteeMember, EpochParticipation, LandInput},
+    contracts::IEtnaInbox::LandInput,
     error::{LanderError, Result},
 };
 
@@ -33,13 +33,13 @@ pub struct Limits {
     pub max_blocks: usize,
     /// Maximum blobs in one transaction, bounded by the target L1 fork.
     pub max_blobs: usize,
-    /// Maximum encoded V4 payload bytes (the version byte and the compressed list), the bytes
+    /// Maximum encoded V5 payload bytes (the version byte and the compressed list), the bytes
     /// blob coding carries.
     pub max_payload_bytes: usize,
     /// Maximum bytes of one protobuf block or commit witness, and of one published header or
     /// envelope.
     pub max_message_bytes: usize,
-    /// Maximum bytes of the V4 payload's RLP list after decompression.
+    /// Maximum bytes of the V5 payload's RLP list after decompression.
     pub max_decompressed_bytes: usize,
 }
 
@@ -269,8 +269,7 @@ pub struct PreparedBatch {
     #[serde(with = "rlp_serde")]
     pub starting_inbox_witness: AnchorWitness,
     /// Exact complete block/commit pairs in increasing height order. Only their headers and
-    /// envelopes are published; commits and signatures reach the proof only as witnesses. The
-    /// blocks' `last_commit`s are also the canonical commits [`Self::participation`] counts.
+    /// envelopes are published; commits and signatures reach the proof only as witnesses.
     pub blocks: Vec<CertifiedBlock>,
     /// Each block's own authenticated L1 anchor, in matching block order.
     pub anchors: Vec<AnchorState>,
@@ -280,27 +279,60 @@ pub struct PreparedBatch {
     pub committees: Vec<CommitteeState>,
     /// Registry witnesses deduplicated by epoch, with their authenticated proving roots.
     pub committee_witnesses: Vec<CommitteeContext>,
-    /// The exact six `LandInput` fields the contract receives: the terminal height, block hash
-    /// and state root, the L1 reference block number, the forced inclusion head after the batch
-    /// and the fee recipient.
+    /// The exact eight `LandInput` fields the contract receives: the terminal height, block hash
+    /// and state root, the L1 reference block number, the forced inclusion head after the batch,
+    /// the L1 fee recipient, the L2 reward recipient and the base fee amount.
     #[serde(with = "crate::contracts::abi_serde")]
     pub input: LandInput,
-    /// The validator participation the V7 statement binds (`land`'s `_participation`): one part
-    /// per epoch of the commit range `[max(p, 1), L - 1]` that the blocks' `last_commit`s carry,
-    /// in epoch order, with the epoch committee's hash and each member's verified commit
-    /// signatures counted in set-key order. Empty when the batch carries no commit.
-    #[serde(with = "crate::contracts::abi_serde")]
-    pub participation: Vec<EpochParticipation>,
-    /// `land`'s `_settlements`: the committee list, in set-key order, of each epoch the batch
-    /// completes (`h_last(e) <= L - 1`), in ascending epoch order. Not part of the statement: the
-    /// reward pool checks each list against the committee hash of the matching participation
-    /// part.
-    #[serde(with = "crate::contracts::abi_serde")]
-    pub settlements: Vec<Vec<CommitteeMember>>,
-    /// Sidecar and ordered versioned blob hashes binding the V4 payload.
+    /// Sidecar and ordered versioned blob hashes binding the V5 payload.
     pub blobs: PreparedBlobs,
-    /// Identity of this job: the exact V7 public statement hash.
+    /// Identity of this job: the exact V8 public statement hash.
     pub statement_hash: B256,
+}
+
+impl PreparedBatch {
+    /// Recompute the reward amount and V8 digest before journal restoration or signing. Headers
+    /// must already have been authenticated by batch construction; future guests must reexecute.
+    pub fn validate_statement(&self) -> Result<()> {
+        let headers = self
+            .blocks
+            .iter()
+            .map(|pair| {
+                pair.block
+                    .data
+                    .first()
+                    .ok_or_else(|| LanderError::Journal("job has no envelope".into()))
+                    .and_then(|bytes| {
+                        abci::EtnaEnvelope::decode(bytes)
+                            .map_err(|error| LanderError::Journal(format!("job envelope: {error}")))
+                    })
+                    .map(|envelope| envelope.block.header)
+            })
+            .collect::<Result<Vec<_>>>()?;
+        if self.input.l2RewardRecipient.is_zero() ||
+            self.input.feeRecipient.is_zero() ||
+            crate::rewards::basefee_sum(&headers)? != self.input.baseFeeAmount
+        {
+            return Err(LanderError::Journal("job reward amount or recipient mismatch".into()));
+        }
+        let raw = self
+            .reference_headers
+            .first()
+            .ok_or_else(|| LanderError::Journal("job has no L1 reference".into()))?;
+        let header = abci::RawL1Header::from_raw(raw.clone())
+            .map_err(|error| LanderError::Journal(format!("job reference: {error}")))?;
+        if header.number() != self.input.l1ReferenceBlockNumber ||
+            crate::statement::hash(
+                &self.snapshot,
+                &self.input,
+                header.hash(),
+                &self.blobs.versioned_hashes,
+            ) != self.statement_hash
+        {
+            return Err(LanderError::Journal("job V8 statement identity mismatch".into()));
+        }
+        Ok(())
+    }
 }
 
 /// Canonical RLP journal encoding for protocol witness types that intentionally have no JSON wire
@@ -335,6 +367,32 @@ mod rlp_serde {
 mod tests {
     use super::*;
     use crate::test_utils::protocol::request;
+
+    #[test]
+    fn prepared_statement_rejects_every_amount_bit_even_with_rebound_digest() {
+        let request = crate::test_utils::runtime::request();
+        request.batch.validate_statement().unwrap();
+        let reference =
+            abci::RawL1Header::from_raw(request.batch.reference_headers[0].clone()).unwrap();
+        for bit in 0..256 {
+            let mut changed = request.batch.clone();
+            changed.input.baseFeeAmount ^= U256::from(1) << bit;
+            assert!(changed.validate_statement().is_err(), "stale digest bit {bit}");
+            changed.statement_hash = crate::statement::hash(
+                &changed.snapshot,
+                &changed.input,
+                reference.hash(),
+                &changed.blobs.versioned_hashes,
+            );
+            assert!(changed.validate_statement().is_err(), "rebound digest bit {bit}");
+        }
+        let mut changed = request.batch.clone();
+        changed.statement_hash = B256::ZERO;
+        assert!(changed.validate_statement().is_err());
+        let mut changed = request.batch;
+        changed.input.l2RewardRecipient = Address::ZERO;
+        assert!(changed.validate_statement().is_err());
+    }
 
     #[test]
     fn forced_inclusion_head_converts_exactly_up_to_uint48() {

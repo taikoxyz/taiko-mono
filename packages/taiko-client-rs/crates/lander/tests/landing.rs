@@ -17,16 +17,13 @@ use lander::{
     contracts::IEtnaInbox::landCall,
     runner::ran_out_of_gas,
     tx::{
-        FeeCaps, RpcTransactionTransport, SETTLEMENT_GAS_PER_LANDING, SETTLEMENT_GAS_PER_MEMBER,
-        SignedTransaction, TransactionTransport, land_calldata,
+        FeeCaps, RpcTransactionTransport, SignedTransaction, TransactionTransport, land_calldata,
     },
 };
 use support::{
     ContractFixture,
     contracts::{
-        ALLOC_PROVER_PPM, ALLOC_VALIDATOR_PPM, EPOCH_LEN, EtnaInbox, EtnaRewardPool,
-        EtnaStakingRegistry, LANDING_REWARD_PER_BLOCK, POOL_FUNDING, PROPOSER_BONUS_PPM,
-        SignalService, fund_pool, receipt, transact, view,
+        EPOCH_LEN, EtnaInbox, EtnaStakingRegistry, SignalService, receipt, transact, view,
     },
     fixtures::FixtureChain,
 };
@@ -44,8 +41,8 @@ fn transport(fixture: &ContractFixture) -> Result<RpcTransactionTransport> {
 }
 
 /// Signs `request`'s landing as the production signer does, except that the gas limit is the
-/// bare estimate, without headroom or settlement allowance. Returns the estimate too.
-async fn sign_at_estimate(
+/// deliberately insufficient execution gas. Returns the normal estimate too.
+async fn sign_with_insufficient_gas(
     fixture: &ContractFixture,
     request: &ProofRequest,
     proof: &Bytes,
@@ -69,7 +66,7 @@ async fn sign_at_estimate(
     let mut estimate = TransactionRequest::from_transaction(tx.clone()).from(sender);
     estimate.gas = None;
     let estimated = p.estimate_gas(estimate).await?;
-    tx.gas_limit = estimated;
+    tx.gas_limit = estimated * 3 / 4;
     let variant: TxEip4844Variant =
         TxEip4844WithSidecar::from_tx_and_sidecar(tx.clone(), batch.blobs.sidecar.clone()).into();
     let signature = dev_signer().sign_hash_sync(&variant.signature_hash())?;
@@ -96,7 +93,6 @@ async fn land_through(
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;
         chain.extend(fixture, cut).await?;
         let request = chain.prepare(fixture, cut, SidecarMode::Eip7594).await?;
-        assert!(request.batch.settlements.is_empty(), "no freeze before {}", EPOCH_LEN + 1);
         fixture.expect_statement(request.batch.statement_hash).await?;
         assert_landed(fixture, &request, &sign(fixture, &request).await?).await?;
     }
@@ -134,9 +130,40 @@ async fn assert_landed(
     assert_eq!(event.data.statementHash, request.batch.statement_hash);
     assert_eq!(event.data.lastHeight, request.batch.input.lastHeight);
     assert_eq!(event.data.lander, dev_signer().address());
-    let reward =
-        receipt.decoded_log::<EtnaInbox::LandingRewardPaid>().context("LandingRewardPaid event")?;
-    assert_eq!(reward.data.recipient, request.batch.input.feeRecipient);
+    let batch = &request.batch;
+    let reward = lander::rewards::Receipt {
+        l1ChainId: batch.snapshot.l1_chain_id,
+        l2ChainId: batch.snapshot.l2_chain_id,
+        inbox: batch.snapshot.inbox,
+        generation: batch.snapshot.generation,
+        parentHeight: batch.snapshot.checkpoint_height,
+        parentHash: batch.snapshot.checkpoint_hash,
+        lastHeight: batch.input.lastHeight,
+        lastBlockHash: batch.input.lastBlockHash,
+        l2RewardRecipient: batch.input.l2RewardRecipient,
+        baseFeeAmount: batch.input.baseFeeAmount,
+    };
+    let id = lander::rewards::batch_id(&reward);
+    let event = receipt
+        .decoded_log::<lander::contracts::BatchRewardRecorded>()
+        .context("BatchRewardRecorded")?;
+    assert_eq!(event.data.batchId, id);
+    assert_eq!(event.data.l2RewardRecipient, reward.l2RewardRecipient);
+    assert_eq!(event.data.baseFeeAmount, reward.baseFeeAmount);
+    assert_eq!(event.data.parentHeight, reward.parentHeight);
+    assert_eq!(event.data.lastHeight, reward.lastHeight);
+    assert_eq!(
+        view(p, fixture.inbox, EtnaInbox::rewardCommitmentsCall { batchId: id }, None).await?,
+        lander::rewards::commitment(&reward)
+    );
+    assert_eq!(
+        p.get_storage_at(
+            fixture.inbox,
+            U256::from_be_slice(lander::rewards::receipt_slot(id).as_slice())
+        )
+        .await?,
+        U256::from_be_slice(lander::rewards::commitment(&reward).as_slice())
+    );
     let tx = p.get_transaction_by_hash(hash).await?.context("landing transaction")?;
     assert_eq!(
         tx.inner.blob_versioned_hashes(),
@@ -145,8 +172,6 @@ async fn assert_landed(
     let decoded = landCall::abi_decode(tx.inner.input())?;
     assert_eq!(decoded._proof.as_ref(), &[0]);
     assert_eq!(decoded._input, request.batch.input);
-    assert_eq!(decoded._participation, request.batch.participation);
-    assert_eq!(decoded._settlements, request.batch.settlements);
     assert_eq!(
         fixture.checkpoint().await?,
         (request.batch.input.lastHeight, request.batch.input.lastBlockHash)
@@ -194,17 +219,13 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     )
     .await?;
     let immutable_snapshot = chain.anchors[usize::try_from(derivation_height)?].number;
-    // One block on S. Then the decided chain reaches H + 2, but block H carries the commit of
-    // epoch 0's last height S + 1, so the batch from S ends at H: (S, H] freezes epoch 0 with one
-    // participation part, and (H, H + 2] follows within epoch 1.
+    // A later prefix crosses the epoch boundary without a reward-freeze cut.
     let h = schedule.h_first(1);
-    let mut freezing = None;
-    for (tip, last) in [(switch_height, switch_height), (h + 2, h), (h + 2, h + 2)] {
-        mine_l1_blocks(&fixture.anvil.provider, 3).await?;
-        chain.extend(&fixture, tip).await?;
-        let next = chain.prepare(&fixture, tip, SidecarMode::Eip7594).await?;
+    for last in [switch_height, h + 2] {
+        mine_l1_blocks(p, 3).await?;
+        chain.extend(&fixture, last).await?;
+        let next = chain.prepare(&fixture, last, SidecarMode::Eip7594).await?;
         assert_eq!(next.batch.input.lastHeight, last);
-        assert_eq!(next.batch.participation.len(), 1, "one part at {last}");
         let incoming = next
             .batch
             .committee_witnesses
@@ -216,173 +237,42 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
             incoming.derivation_parent.as_ref().context("D header")?.number,
             derivation_height
         );
-        if last > switch_height {
-            assert!(
-                incoming.anchor.number > immutable_snapshot,
-                "later root must reconstruct D snapshot"
-            );
-            assert!(
-                incoming.witness.registry.storage.len() > 3,
-                "historical selected/successor proofs retained"
-            );
-        }
         fixture.expect_statement(next.batch.statement_hash).await?;
-        let signed = sign(&fixture, &next).await?;
-        let landed = assert_landed(&fixture, &next, &signed).await?;
-        // Block EPOCH_LEN + 1 carries the commit of epoch 0's last height, so the landing ending
-        // there alone freezes epoch 0.
-        let freezes = last == EPOCH_LEN + 1;
-        assert_eq!(next.batch.settlements.len(), usize::from(freezes), "settlements at {last}");
-        if freezes {
-            freezing = Some((next, landed));
-        }
+        assert_landed(&fixture, &next, &sign(&fixture, &next).await?).await?;
     }
-    let (settled, landed) = freezing.context("the landing that freezes epoch 0")?;
-    let ppm = |share: u32| U256::from(POOL_FUNDING) * U256::from(share) / U256::from(1_000_000);
-    let (alloc, proving) = (ppm(ALLOC_VALIDATOR_PPM), ppm(ALLOC_PROVER_PPM));
-    let record = view(p, fixture.pool, EtnaRewardPool::epochRecordCall { _epoch: 0 }, None).await?;
-    assert_eq!(record.frozenAtL1, landed.block_number.context("freezing landing block")?);
-    assert_eq!(record.committeeHash, settled.batch.participation[0].committeeHash);
-    assert_eq!((record.alloc, record.paid, record.provingShare), (alloc, alloc, proving));
-    let free = view(p, fixture.pool, EtnaRewardPool::freeBalanceCall {}, None).await?;
-    assert_eq!(free, U256::ZERO, "the two shares take the whole free balance");
-    let open = view(p, fixture.pool, EtnaRewardPool::epochRecordCall { _epoch: 1 }, None).await?;
-    assert_eq!(open.frozenAtL1, 0, "epoch 1's last commit has not landed");
-    // The fixture's one validator signs every height. Heights 1..=EPOCH_LEN reach the pool
-    // through the last commits of blocks 2..=EPOCH_LEN + 1, spread over several landings, so a
-    // count of exactly EPOCH_LEN means each height was counted once across the batch boundaries.
-    let signed = EtnaRewardPool::signedCountOfCall { _epoch: 0, _index: U256::ZERO };
-    assert_eq!(u64::from(view(p, fixture.pool, signed, None).await?), EPOCH_LEN);
-    // Its proposals carried its own signature, the whole committee's stake, so each block scored
-    // 10,000: the freezing batch's two heights in this landing, and every height in all.
-    assert_eq!(settled.batch.participation[0].proposerScores, [20_000]);
-    let score = EtnaRewardPool::proposerScoreOfCall { _epoch: 0, _index: U256::ZERO };
-    let score = view(p, fixture.pool, score, None).await?;
-    assert_eq!(u64::from(score), 10_000 * EPOCH_LEN);
-    // So it earns the whole bonus part, mulDiv(bonusAlloc, score, 10_000 * EPOCH_LEN), on top of
-    // the whole base part.
-    let bonus_alloc = alloc * U256::from(PROPOSER_BONUS_PPM) / U256::from(1_000_000);
-    let base = alloc - bonus_alloc;
-    let bonus = bonus_alloc * U256::from(score) / U256::from(10_000 * EPOCH_LEN);
-    assert_eq!(bonus, bonus_alloc);
-    let rewarded = landed
-        .decoded_log::<EtnaRewardPool::ValidatorRewarded>()
-        .context("ValidatorRewarded event")?;
-    assert_eq!((rewarded.data.index, rewarded.data.amount), (U256::ZERO, base + bonus));
-    // Every settled validator's registration owner holds a credit; the fixture's one validator
-    // takes the whole validator share.
-    let [member] = settled.batch.settlements[0].as_slice() else {
-        anyhow::bail!("epoch 0 has the fixture's one validator");
-    };
-    let owner = view(
-        p,
-        fixture.registry,
-        EtnaStakingRegistry::registrationOwnerOfCall {
-            _bondId: U256::from(member.bondId),
-            _activeFromL1: member.activeFromL1,
-        },
-        None,
-    )
-    .await?;
-    assert_eq!(owner, dev_signer().address());
-    let credits = view(p, fixture.pool, EtnaRewardPool::creditsOfCall { _account: owner }, None);
-    assert_eq!(credits.await?, base + bonus);
-    assert_eq!(base + bonus, alloc);
-    // The freezing landing pays its fee recipient its two blocks' landing reward out of the proving
-    // share the freeze just sent to the Inbox's prover reward ledger.
-    let per_block = U256::from(LANDING_REWARD_PER_BLOCK);
-    let reward_of = |blocks: u64| per_block * U256::from(blocks);
-    let recipient = settled.batch.input.feeRecipient;
-    let reward =
-        landed.decoded_log::<EtnaInbox::LandingRewardPaid>().context("LandingRewardPaid event")?;
-    assert_eq!(
-        (reward.data.recipient, reward.data.amount, reward.data.ledgerAfter),
-        (recipient, reward_of(2), proving - reward_of(2))
-    );
-    let block = landed.block_number.context("freezing landing block")?;
-    let balance = |number| async move {
-        anyhow::Ok(p.get_balance(recipient).block_id(BlockId::number(number)).await?)
-    };
-    let cost = U256::from(landed.gas_used) * U256::from(landed.effective_gas_price) +
-        U256::from(landed.blob_gas_used.context("blob gas")?) *
-            U256::from(landed.blob_gas_price.context("blob gas price")?);
-    assert_eq!(balance(block).await? + cost, balance(block - 1).await? + reward_of(2));
-    // The later two-block landing pays two more blocks' reward.
-    assert_eq!(
-        view(p, fixture.inbox, EtnaInbox::proverRewardLedgerCall {}, None).await?,
-        proving - reward_of(4)
-    );
-    let solvent = view(p, fixture.pool, EtnaRewardPool::checkInvariantsCall {}, None).await?;
-    assert!(solvent, "the pool's balance covers its reservations");
     fixture.anvil.stop().await
 }
 
-/// A sweep reaching an empty reward pool between estimation and inclusion makes the freezing
-/// landing settle what its estimate skipped. The production signer's settlement allowance covers
-/// it; signed at the bare empty-pool estimate, the landing instead runs out of gas inside the pool,
-/// behind two proxies, so its canonical receipt reports less gas than its limit. The runner's
-/// classifier still counts it as out of gas, and the rebuilt landing, estimated against the funded
-/// pool, lands at the next nonce.
+/// An underfunded execution attempt consumes its nonce but leaves the checkpoint untouched;
+/// rebuilding retains ordinary gas estimation and lands at the next nonce.
 #[tokio::test]
 #[ignore = "requires Docker: actual Etna contracts on Osaka anvil"]
-async fn lander_out_of_gas_freezing_landing_is_rebuilt_and_lands() -> Result<()> {
-    let fixture = ContractFixture::deploy_with_pool_funding(0).await?;
+async fn lander_out_of_gas_landing_is_rebuilt_and_lands() -> Result<()> {
+    let fixture = ContractFixture::deploy().await?;
     let p = &fixture.anvil.provider;
     let mut chain = FixtureChain::new(&fixture).await?;
     land_through(&fixture, &mut chain, EPOCH_LEN).await?;
     mine_l1_blocks(p, 3).await?;
     chain.extend(&fixture, EPOCH_LEN + 1).await?;
     let request = chain.prepare(&fixture, EPOCH_LEN + 1, SidecarMode::Eip7594).await?;
-    assert_eq!(request.batch.settlements.iter().map(Vec::len).collect::<Vec<_>>(), [1]);
     fixture.expect_statement(request.batch.statement_hash).await?;
     let proof = Bytes::from(vec![0]);
     let production = transport(&fixture)?.sign(&request, &proof).await?;
-    let (empty_estimate, bare) = sign_at_estimate(&fixture, &request, &proof).await?;
-    assert_eq!(bare.nonce, production.nonce);
-    assert_eq!(
-        production.gas_limit()?,
-        empty_estimate +
-            empty_estimate.div_ceil(5) +
-            SETTLEMENT_GAS_PER_LANDING +
-            SETTLEMENT_GAS_PER_MEMBER
-    );
-    // The sweep arrives, from an account other than the lander's.
-    fund_pool(p, fixture.admin, fixture.pool, POOL_FUNDING).await?;
+    let (estimated, bare) = sign_with_insufficient_gas(&fixture, &request, &proof).await?;
+    assert_eq!(production.gas_limit()?, estimated + estimated.div_ceil(5));
     let before: String = anvil_request(p, "evm_snapshot", serde_json::json!([])).await?;
-
-    // The production limit covers the funded settlement.
-    transport(&fixture)?.broadcast(&production).await?;
-    let funded = receipt(p, production.hash).await?;
-    assert!(funded.status());
-    println!(
-        "freezing landing, one member: empty-pool estimate {empty_estimate}, funded gas used {}, \
-         production limit {}",
-        funded.gas_used,
-        production.gas_limit()?
-    );
-    assert!(funded.gas_used > empty_estimate, "the empty-pool estimate skips the settlement");
-    assert!(funded.gas_used <= production.gas_limit()?);
+    assert_landed(&fixture, &request, &production).await?;
     assert!(anvil_request::<bool>(p, "evm_revert", serde_json::json!([before])).await?);
-
-    // At the bare estimate it runs out of gas; the outer frames' retained gas is refunded.
     transport(&fixture)?.broadcast(&bare).await?;
     let failed = receipt(p, bare.hash).await?;
     assert!(!failed.status());
-    println!("out of gas at the bare estimate: gas used {} of {empty_estimate}", failed.gas_used);
-    assert!(failed.gas_used < empty_estimate, "an out-of-gas below the top frame");
     assert!(ran_out_of_gas(failed.gas_used, bare.gas_limit()?));
-    assert_eq!(fixture.checkpoint().await?.0, EPOCH_LEN, "nothing landed");
-
-    // The rebuilt job re-estimates against the funded pool and lands at the next nonce.
+    assert_eq!(fixture.checkpoint().await?.0, EPOCH_LEN);
     let rebuilt = chain.prepare(&fixture, EPOCH_LEN + 1, SidecarMode::Eip7594).await?;
     fixture.expect_statement(rebuilt.batch.statement_hash).await?;
     let signed = sign(&fixture, &rebuilt).await?;
     assert_eq!(signed.nonce, bare.nonce + 1);
-    let landed = assert_landed(&fixture, &rebuilt, &signed).await?;
-    let record = view(p, fixture.pool, EtnaRewardPool::epochRecordCall { _epoch: 0 }, None).await?;
-    assert_eq!(record.frozenAtL1, landed.block_number.context("freezing landing block")?);
-    let alloc = U256::from(POOL_FUNDING) * U256::from(ALLOC_VALIDATOR_PPM) / U256::from(1_000_000);
-    assert_eq!((record.alloc, record.paid), (alloc, alloc));
+    assert_landed(&fixture, &rebuilt, &signed).await?;
     fixture.anvil.stop().await
 }
 

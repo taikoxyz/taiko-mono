@@ -37,7 +37,7 @@ pub fn parameters() -> ChainParams {
 
 /// A committee of one member per power, keyed by seeds `1..`, with a registry provenance whose
 /// entries are those keys in seed order (bond id = seed - 1), active from L1 block 1 and staking
-/// their power, so [`crate::participation::committee_members`] lists it at cutoff 1.
+/// their power, preserving the authenticated registry stake for epoch derivation.
 pub fn committee(
     powers: &[u64],
     epoch: u64,
@@ -146,7 +146,13 @@ pub fn pair(
 ) -> CertifiedBlock {
     let envelope = EtnaEnvelope {
         block: ExecutionBlock {
-            header: Header { number: height, parent_hash: parent, ..Default::default() },
+            header: Header {
+                number: height,
+                parent_hash: parent,
+                base_fee_per_gas: Some(7),
+                gas_used: 21_000,
+                ..Default::default()
+            },
             transactions: vec![],
         },
         anchor: None,

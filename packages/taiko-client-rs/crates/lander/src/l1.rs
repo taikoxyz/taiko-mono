@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 use crate::{
-    contracts::IEtnaInbox::{EpochParticipation, LandInput, hashLandStatementCall},
+    contracts::IEtnaInbox::{LandInput, hashLandStatementCall},
     error::{LanderError, Result, sanitized_rpc_error},
     types::LandingSnapshot,
 };
@@ -78,13 +78,11 @@ pub trait LandingSource: Send + Sync {
         snapshot: &LandingSnapshot,
         anchors: &[AnchorState],
     ) -> Result<Vec<RawL1Header>>;
-    /// Ask the executing Inbox proxy to hash the identical public statement, participation
-    /// included.
+    /// Ask the executing Inbox proxy to hash the identical public V8 statement.
     async fn statement_hash(
         &self,
         snapshot: &LandingSnapshot,
         input: &LandInput,
-        participation: &[EpochParticipation],
         reference_hash: B256,
         blob_hashes: &[B256],
     ) -> Result<B256>;
@@ -370,7 +368,6 @@ impl LandingSource for RpcLandingSource {
         &self,
         snapshot: &LandingSnapshot,
         input: &LandInput,
-        participation: &[EpochParticipation],
         reference_hash: B256,
         blob_hashes: &[B256],
     ) -> Result<B256> {
@@ -380,7 +377,6 @@ impl LandingSource for RpcLandingSource {
             _parentHash: snapshot.checkpoint_hash,
             _forcedInclusionHeadBefore: snapshot.forced_inclusion_head_u48()?,
             _input: input.clone(),
-            _participation: participation.to_vec(),
             _l1ReferenceBlockHash: reference_hash,
             _blobHashes: blob_hashes.to_vec(),
         };

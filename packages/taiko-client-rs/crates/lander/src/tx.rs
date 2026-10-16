@@ -31,43 +31,9 @@ use crate::{
 /// invalid, so a signed landing above it could never be included and would wedge its nonce.
 pub const MAX_TX_GAS: u64 = 1 << 24;
 
-/// Gas reserved per settled committee member on top of the estimate: the `EtnaRewardPool`
-/// crediting a registration owner for the first time (a cold `registrationOwnerOf` call, a fresh
-/// credit slot, its base and proposer bonus parts and an event), measured at about 31k per member.
-///
-/// The estimate cannot cover the settlement on its own. `EtnaRewardPool` skips the whole crediting
-/// loop when the frozen epoch's allocation is zero, and every member whose share rounds to zero,
-/// so a freezing landing estimated while the pool's free balance is empty (before the first sweep
-/// arrives, or after every freeze when the validator and proving shares sum to 100%) omits up to
-/// this much per member. Any sweep arrival or donation before inclusion would then run the landing
-/// out of gas.
-pub const SETTLEMENT_GAS_PER_MEMBER: u64 = 40_000;
-
-/// Gas reserved once per landing that settles at least one epoch, on top of the estimate and
-/// [`SETTLEMENT_GAS_PER_MEMBER`]: what an empty-pool estimate also omits regardless of the
-/// committee size, namely the frozen epoch record's `alloc`, `paid` and `provingShare` and the
-/// pool's `reservedTotal` going from zero to non-zero, the proving share's transfer into the
-/// Inbox's `receive` and its ledger write, and the then non-zero landing reward sent to the fee
-/// recipient (about 34k more when that account is empty).
-///
-/// Measured as whole transactions on the pinned contracts with a fresh fee recipient, a freezing
-/// landing costs 250,935 gas with an empty pool and 425,667 with a funded one for a one-member
-/// committee, and 261,792 and 529,466 for four members: about 143k per landing plus 31k per member
-/// that an empty-pool estimate misses. On the lander's actual-contract fixture (one member, the
-/// lander paying itself), the empty-pool estimate is 200,568 and the funded landing uses 352,126,
-/// under the 480,682 this signs. The 20% headroom on the estimate adds to this margin.
-pub const SETTLEMENT_GAS_PER_LANDING: u64 = 200_000;
-
-/// The exact calldata of `land(input, participation, settlements, proof)` for a prepared job:
-/// the job's public inputs, its validator participation and settlement committees, and `proof`.
+/// Exact two-argument V8 land calldata for the immutable public inputs and proof.
 pub fn land_calldata(batch: &PreparedBatch, proof: &Bytes) -> Vec<u8> {
-    landCall {
-        _input: batch.input.clone(),
-        _participation: batch.participation.clone(),
-        _settlements: batch.settlements.clone(),
-        _proof: proof.clone(),
-    }
-    .abi_encode()
+    landCall { _input: batch.input.clone(), _proof: proof.clone() }.abi_encode()
 }
 
 /// Explicit operator fee ceilings, all denominated in wei per gas unit.
@@ -113,6 +79,7 @@ pub struct SignedTransaction {
 impl SignedTransaction {
     /// Decode and bind every signed input and sidecar to the journal's immutable job.
     pub fn validate(&self, request: &ProofRequest, proof: &Bytes) -> Result<()> {
+        request.batch.validate_statement()?;
         let mut remaining = self.network_bytes.as_ref();
         let envelope = TxEnvelope::decode_2718(&mut remaining)
             .map_err(|e| LanderError::Journal(format!("signed envelope: {e}")))?;
@@ -212,7 +179,7 @@ impl NonceState {
 pub trait TransactionTransport: Send + Sync {
     /// Configured signing identity; private material is never exposed.
     fn sender(&self) -> Address;
-    /// Estimate, reserve rounded-up 20% execution gas plus the settlement allowance, cap the limit
+    /// Estimate, reserve rounded-up 20% execution gas, cap the limit
     /// at [`MAX_TX_GAS`], and sign with the pending nonce without submitting.
     async fn sign(&self, request: &ProofRequest, proof: &Bytes) -> Result<SignedTransaction>;
     /// Submit the already-persisted network bytes; no filling, replacement, or signing occurs.
@@ -276,6 +243,7 @@ impl TransactionTransport for RpcTransactionTransport {
             ));
         }
         let nonce = self.nonce_state().await?;
+        request.batch.validate_statement()?;
         nonce.validate()?;
         let nonce = nonce.pending;
         let input: Bytes = land_calldata(batch, proof).into();
@@ -296,11 +264,7 @@ impl TransactionTransport for RpcTransactionTransport {
         // Zero denotes the as-yet-unfilled signed limit, not a valid estimation ceiling.
         estimate.gas = None;
         let estimated = self.provider.estimate_gas(estimate).await.map_err(estimate_error)?;
-        tx.gas_limit = landing_gas_limit(
-            estimated,
-            batch.settlements.len(),
-            batch.settlements.iter().map(Vec::len).sum(),
-        )?;
+        tx.gas_limit = landing_gas_limit(estimated)?;
         let variant: TxEip4844Variant =
             TxEip4844WithSidecar::from_tx_and_sidecar(tx, batch.blobs.sidecar.clone()).into();
         let signature =
@@ -399,30 +363,15 @@ fn gas_limit_with_headroom(estimated: u64) -> Result<u64> {
     })
 }
 
-/// The signed gas limit of a landing estimated at `estimated` that carries `settled_epochs`
-/// settlement lists of `settled_members` members in all: the 20% headroom plus, when it settles
-/// any epoch, [`SETTLEMENT_GAS_PER_LANDING`] once and [`SETTLEMENT_GAS_PER_MEMBER`] per member,
-/// capped at [`MAX_TX_GAS`].
-///
-/// An estimate above the cap means the landing can never be included, which no retry changes,
-/// so it is a [`LanderError::Configuration`] error before any signature exists.
-fn landing_gas_limit(estimated: u64, settled_epochs: usize, settled_members: usize) -> Result<u64> {
+/// Reserve rounded-up 20% execution headroom, capped at the EIP-7825 transaction limit.
+/// Estimates above the cap are permanent configuration errors rejected before signing.
+fn landing_gas_limit(estimated: u64) -> Result<u64> {
     if estimated > MAX_TX_GAS {
         return Err(LanderError::Configuration(format!(
-            "land gas estimate {estimated} exceeds the EIP-7825 transaction gas cap {MAX_TX_GAS}; \
-             the batch can never be included"
+            "land gas estimate {estimated} exceeds the EIP-7825 transaction gas cap {MAX_TX_GAS}; the batch can never be included"
         )));
     }
-    let allowance = if settled_epochs == 0 {
-        0
-    } else {
-        u64::try_from(settled_members)
-            .ok()
-            .and_then(|members| members.checked_mul(SETTLEMENT_GAS_PER_MEMBER))
-            .and_then(|members| members.checked_add(SETTLEMENT_GAS_PER_LANDING))
-            .unwrap_or(u64::MAX)
-    };
-    Ok(gas_limit_with_headroom(estimated)?.saturating_add(allowance).min(MAX_TX_GAS))
+    Ok(gas_limit_with_headroom(estimated)?.min(MAX_TX_GAS))
 }
 
 /// Recognize idempotent duplicate submission without treating an unknown transaction as known.
@@ -486,16 +435,7 @@ mod tests {
         let transaction = signed(&request, &proof, 4).await;
         transaction.validate(&request, &proof).unwrap();
         let call = landCall::abi_decode(&land_calldata(&request.batch, &proof)).unwrap();
-        assert_eq!(
-            (call._input, call._participation, call._settlements, call._proof),
-            (
-                request.batch.input.clone(),
-                request.batch.participation.clone(),
-                request.batch.settlements.clone(),
-                proof.clone()
-            )
-        );
-        assert!(!request.batch.participation.is_empty(), "the batch (0, 2] reports height 1");
+        assert_eq!((call._input, call._proof), (request.batch.input.clone(), proof.clone()));
         assert!(transaction.validate(&request, &Bytes::new()).is_err());
         let mut other = request.clone();
         other.batch.snapshot.inbox = Address::repeat_byte(99);
@@ -507,11 +447,11 @@ mod tests {
         other.batch.blobs.versioned_hashes[0] = B256::repeat_byte(1);
         assert!(transaction.validate(&other, &proof).is_err());
         other = request.clone();
-        other.batch.participation[0].signedCounts[0] += 1;
-        assert!(transaction.validate(&other, &proof).is_err(), "participation is signed");
+        other.batch.input.baseFeeAmount ^= U256::from(1);
+        assert!(transaction.validate(&other, &proof).is_err(), "amount is signed");
         other = request.clone();
-        other.batch.settlements.push(vec![]);
-        assert!(transaction.validate(&other, &proof).is_err(), "settlements are signed");
+        other.batch.input.l2RewardRecipient = Address::repeat_byte(0x99);
+        assert!(transaction.validate(&other, &proof).is_err(), "L2 recipient is signed");
         let mut corrupted = transaction.clone();
         corrupted.nonce += 1;
         assert!(corrupted.validate(&request, &proof).is_err());
@@ -559,69 +499,26 @@ mod tests {
     }
 
     #[test]
-    fn landing_gas_limit_adds_the_settlement_allowance_and_caps_at_eip_7825() {
-        assert_eq!(MAX_TX_GAS, 16_777_216);
-        // Without settlements the limit is the 20% headroom alone.
-        assert_eq!(landing_gas_limit(500_000, 0, 0).unwrap(), 600_000);
-        // A settling landing adds the fixed settlement gas and each member's crediting gas.
-        assert_eq!(SETTLEMENT_GAS_PER_LANDING, 200_000);
-        assert_eq!(
-            landing_gas_limit(500_000, 1, 1).unwrap(),
-            600_000 + SETTLEMENT_GAS_PER_LANDING + SETTLEMENT_GAS_PER_MEMBER
-        );
-        assert_eq!(
-            landing_gas_limit(500_000, 1, 3).unwrap(),
-            600_000 + SETTLEMENT_GAS_PER_LANDING + 3 * SETTLEMENT_GAS_PER_MEMBER
-        );
-        // Two settled epochs add the fixed settlement gas once.
-        assert_eq!(
-            landing_gas_limit(500_000, 2, 2).unwrap(),
-            600_000 + SETTLEMENT_GAS_PER_LANDING + 2 * SETTLEMENT_GAS_PER_MEMBER
-        );
-        // The measured empty-pool estimates cover the funded landings they may meet: 250,935 vs
-        // 425,667 gas for one member and 261,792 vs 529,466 for four.
-        assert!(landing_gas_limit(250_935, 1, 1).unwrap() >= 425_667);
-        assert!(landing_gas_limit(261_792, 1, 4).unwrap() >= 529_466);
-        // An estimate under the cap whose headroom or allowance crosses it is clamped to the cap.
-        assert_eq!(landing_gas_limit(14_500_000, 0, 0).unwrap(), MAX_TX_GAS);
-        assert_eq!(landing_gas_limit(10_000_000, 1, 400).unwrap(), MAX_TX_GAS);
-        assert_eq!(landing_gas_limit(MAX_TX_GAS, 0, 0).unwrap(), MAX_TX_GAS);
-        assert_eq!(landing_gas_limit(1, 1, usize::MAX).unwrap(), MAX_TX_GAS);
-        // An estimate above the cap can never be included: a stop, not a retry.
-        let error = landing_gas_limit(MAX_TX_GAS + 1, 0, 0).unwrap_err();
-        assert!(
-            matches!(&error, LanderError::Configuration(m)
-                if m.contains("16777217") && m.contains("16777216")),
-            "{error}"
-        );
-        assert!(!error.is_retryable());
-        assert!(matches!(landing_gas_limit(u64::MAX, 1, 400), Err(LanderError::Configuration(_))));
-        assert!(matches!(landing_gas_limit(0, 1, 1), Err(LanderError::Safety(_))));
+    fn landing_gas_limit_reserves_only_headroom_and_caps_at_eip_7825() {
+        assert_eq!(landing_gas_limit(500_000).unwrap(), 600_000);
+        assert_eq!(landing_gas_limit(1).unwrap(), 2);
+        assert_eq!(landing_gas_limit(14_500_000).unwrap(), MAX_TX_GAS);
+        assert_eq!(landing_gas_limit(MAX_TX_GAS).unwrap(), MAX_TX_GAS);
+        assert!(matches!(landing_gas_limit(MAX_TX_GAS + 1), Err(LanderError::Configuration(_))));
+        assert!(matches!(landing_gas_limit(u64::MAX), Err(LanderError::Configuration(_))));
+        assert!(matches!(landing_gas_limit(0), Err(LanderError::Safety(_))));
     }
 
     #[tokio::test]
     async fn rpc_signing_uses_pending_nonce_and_an_unbounded_gas_estimate_before_filling() {
         use serde_json::json;
-        let member = crate::contracts::IEtnaInbox::CommitteeMember {
-            bondId: 1,
-            activeFromL1: 2,
-            effStake: U256::from(3),
-        };
-        for (quote, settlements, expected) in [
-            (500_000u64, vec![], Ok(600_000u64)),
-            (1, vec![], Ok(2)),
-            (14_500_000, vec![], Ok(MAX_TX_GAS)),
-            // Two freezing epochs with three members in all: one landing and three member
-            // allowances.
-            (
-                500_000,
-                vec![vec![member.clone(), member.clone()], vec![member.clone()]],
-                Ok(600_000 + SETTLEMENT_GAS_PER_LANDING + 3 * SETTLEMENT_GAS_PER_MEMBER),
-            ),
-            (10_000_000, vec![vec![member.clone(); 400]], Ok(MAX_TX_GAS)),
-            (0, vec![], Err("safety")),
-            (MAX_TX_GAS + 1, vec![], Err("configuration")),
-            (u64::MAX, vec![], Err("configuration")),
+        for (quote, expected) in [
+            (500_000u64, Ok(600_000u64)),
+            (1, Ok(2)),
+            (14_500_000, Ok(MAX_TX_GAS)),
+            (0, Err("safety")),
+            (MAX_TX_GAS + 1, Err("configuration")),
+            (u64::MAX, Err("configuration")),
         ] {
             let provider =
                 crate::l1::tests::rpc(move |request| match request["method"].as_str().unwrap() {
@@ -656,8 +553,7 @@ mod tests {
                 fees,
             )
             .unwrap();
-            let mut request = request();
-            request.batch.settlements = settlements;
+            let request = request();
             let proof = Bytes::from_static(&[0]);
             let result = transport.sign(&request, &proof).await;
             let expected = match expected {
