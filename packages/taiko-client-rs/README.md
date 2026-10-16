@@ -410,13 +410,18 @@ The proposer of block `h + 1` chooses which precommits beyond the 2/3 threshold 
 `last_commit`. Omitting one is not attributable, so the pool pays a Cosmos-style proposer bonus:
 block `h + 1` scores `floor(10_000 * includedEffStake / totalEffStake)`, the share of the
 committee's effective stake its `last_commit` carries, for its proposer, and the pool pays
-`proposerBonusPpm` (30% on devnets) of each validator share by score. With A at 30%, B at 37% and
-C at 33% of the voting power, A omitting C whenever A proposes (A and B still clear 2/3) would
-raise A's reward by about 11% without the bonus; with it A loses about 2.2% while C still loses
-about 16%, and below a bonus share of about 25% the omission pays again. A coalition above 1/3 can
-withhold its votes from other proposals, the same way it can suppress BFT time, so that only its
-own proposals are decided, and exclude the victim entirely: with A at 34%, B at 33% and C at 33%,
-C earns nothing. Having the guest count extra valid precommits would close that.
+`proposerBonusPpm` (30% on devnets) of each validator share by score. A single omitter with stake
+share `a` that leaves stake share `c` out of its own blocks (keeping `1 - c` above 2/3) raises its
+base share from `a` to `a / (1 - a * c)` but cuts its bonus share from `a` to `a * (1 - c)`, so
+omitting pays only while the bonus share is below `a / (1 + a * (1 - c))`. That bound approaches
+3/11 (about 27.3%) as `a` and `c` approach 1/3, so 30% makes omission unprofitable for every
+single omitter below 1/3. With A at 30%, B at 37% and C at 33% of the voting power, A omitting C
+whenever A proposes (A and B still clear 2/3) would raise A's reward by about 11% without the
+bonus; with it A loses about 2.2% while C still loses about 16%, and below a bonus share of about
+25% the omission pays again. A coalition above 1/3 can withhold its votes from other proposals,
+the same way it can suppress BFT time, so that only its own proposals are decided, and exclude the
+victim entirely: with A at 34%, B at 33% and C at 33%, C earns nothing. Having the guest count
+extra valid precommits would close that.
 For each epoch those heights touch, in ascending order, an `EpochParticipation` names the epoch,
 the hash of its committee as `CommitteeMember { bondId, activeFromL1, effStake }` in MEM-08 order
 (read from the committee's authenticated registry witness), per member the number of those
