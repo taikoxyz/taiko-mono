@@ -10,6 +10,7 @@ use alloy_primitives::{B256, U256, keccak256};
 
 alloy::sol! {
     /// Exact field order and Solidity types of `LibEtnaRewards.Receipt`.
+    #[derive(Debug, PartialEq, Eq)]
     #[sol(all_derives)]
     struct Receipt {
         /// L1 chain authenticating the Inbox receipt.

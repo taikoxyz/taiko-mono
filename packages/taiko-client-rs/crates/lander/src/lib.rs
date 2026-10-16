@@ -55,3 +55,6 @@ pub mod runner;
 
 /// Pure checkpoint-bound execution ancestry and derivation snapshots.
 pub mod history;
+
+/// Independent permissionless L2 reward claims.
+pub mod claim;
