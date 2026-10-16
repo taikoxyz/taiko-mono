@@ -46,6 +46,7 @@ lists where the fee loop departs from it.
 checkpoint; `forcedInclusionDelay > 0`; and `maxAnchorAge >= 1152 seconds`. Neither parameter has
 an expiry-derived upper bound. Initialization runs once; implementation contracts have initializers disabled. SignalService must
 authorize this proxy, or initialization reverts without retaining ownership or genesis state.
+The node bounds the epoch lengths and its unsettled cap further; see Configuration checks.
 
 The genesis hash, state root, committee record and config hash are trusted bootstrap inputs. The deployer must
 check that they match the L2 genesis file and the registry snapshot. The contract fixes
@@ -83,9 +84,30 @@ constraints.
 - Registry `heartbeatWindow` must equal node `heartbeat_window`, and `minStake` must be at least
   node `max(s_min, vp_unit)`. Choose `vp_unit` large enough that the entire TAIKO supply cannot
   exceed CometBFT's maximum voting power.
-- Choose `epochLenL2 >= D_MAX - MARGIN_V + 3`, the node's back-pressure requirement. The contract
-  checks only the minimum of 3: `d_max` and `margin_v` are bound only inside the opaque
-  `committeeConfigHash`, which the contract does not open.
+- Keep the node's unsettled cap `U = d_max - margin_v` at least 1, that is `d_max > margin_v`.
+  With `U = 0`, block 1 already exceeds the cap against the block-0 checkpoint that `init` saves,
+  so the chain never starts. The contract cannot check this: `d_max` and `margin_v` are bound only
+  inside the opaque `committeeConfigHash`, which it does not open. `abci-committee-record`
+  rejects `U = 0` before deployment, and `abci`, `abci-genesis` and the lander reject it too.
+- Choose `epochLenL2 >= U + 3`, the node's back-pressure requirement. The node also requires the
+  first epoch transition to fit the protocol's `uint48` ranges. Epoch 1's first height,
+  `epochLenL2 + 1`, must not exceed `type(uint48).max`, the last height `land` accepts. Its
+  minimum anchor, `L1_0 + epochLenL1` with `L1_0` the L1 block that initializes the Inbox, must
+  not exceed `type(uint48).max` either, the largest anchor number the Etna `extraData` encodes.
+  Later transitions are not range-checked: at practical values the `uint48` limits lie millions
+  of years ahead. The contract checks only `epochLenL2 >= 3` and `epochLenL1 > 0`. `abci`,
+  `abci-genesis` and the lander reject a schedule outside these bounds, but only after
+  initialization has fixed it, so check `epochLenL2 + 1` and the expected `L1_0 + epochLenL1`
+  before calling `deployInbox()`.
+- Pace the schedule. This is the deployer's obligation, not a validity rule. A block of epoch `e`
+  needs an L1-finalized anchor at or after `L1_0 + e * epochLenL1`, so L2 pauses at an epoch
+  boundary (`epoch_not_open_on_l1`) whenever it produces `epochLenL2` blocks faster than L1
+  produces `epochLenL1` blocks, and resumes once L1 finality catches up. To avoid these pauses,
+  keep `epochLenL1` L1 slots (12 s each on Ethereum) no longer than `epochLenL2` L2 blocks at the
+  fastest intended block rate; every L2 block advances the timestamp by at least one second.
+  Back-pressure paces settlement the same way: L2 pauses (`back_pressure`) while `U` blocks are
+  unlanded, so choose `U` above the number of blocks produced during one landing round trip
+  (proving, `land` inclusion and the landing's L1 finality) unless such pauses are intended.
 - Keep `n_max` at or below about 400. The landing that carries an epoch's last commit settles the
   whole epoch inline, and it must fit in one L1 transaction, which Osaka caps at 16,777,216 gas
   (EIP-7825). In the worst case, where every member's registration owner is credited for the first
