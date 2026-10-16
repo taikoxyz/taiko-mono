@@ -42,8 +42,8 @@ lists where the fee loop departs from it.
    The first consensus block is L2 block 1. Configure the EL's Etna fork from genesis.
 
 `init(owner, params)` requires non-zero genesis hash, state root, committee record hash and committee config hash;
-`epochLenL2 >= 3`; `epochLenL1 > 0`; a past `genesisCutoff` at or after the registry's first
-checkpoint; `forcedInclusionDelay > 0`; and `maxAnchorAge >= 1152 seconds`. Neither parameter has
+`3 <= epochLenL2 <= 429,496`; `epochLenL1 > 0`; a past `genesisCutoff` at or after the
+registry's first checkpoint; `forcedInclusionDelay > 0`; and `maxAnchorAge >= 1152 seconds`. Neither parameter has
 an expiry-derived upper bound. Initialization runs once; implementation contracts have initializers disabled. SignalService must
 authorize this proxy, or initialization reverts without retaining ownership or genesis state.
 The node bounds the epoch lengths and its unsettled cap further; see Configuration checks.
@@ -96,18 +96,18 @@ constraints.
   rejects `U = 0` before deployment, and `abci`, `abci-genesis` and the lander reject it too.
 - Choose `epochLenL2 >= U + 3`, the node's back-pressure requirement. The node also requires the
   first epoch transition to fit the protocol's `uint48` ranges. Epoch 1's first height,
-  `epochLenL2 + 1`, must not exceed `type(uint48).max`, the last height `land` accepts. Its
-  minimum anchor, `L1_0 + epochLenL1` with `L1_0` the L1 block that initializes the Inbox, must
-  not exceed `type(uint48).max` either, the largest anchor number the Etna `extraData` encodes.
-  Later transitions are not range-checked: at practical values the `uint48` limits lie millions
-  of years ahead. The contract checks only `epochLenL2 >= 3` and `epochLenL1 > 0`. `abci`,
-  `abci-genesis` and the lander reject a schedule outside these bounds, but only after
-  initialization has fixed it, so check `epochLenL2 + 1` and the expected `L1_0 + epochLenL1`
-  before calling `deployInbox()`.
-- Keep `epochLenL2 <= 429,496`. The pool totals each member's proposer scores for an epoch in a
-  checked `uint32`, and one member proposing every block of a longer epoch could reach
-  `10,000 * epochLenL2 > 2^32 - 1`; the overflow would revert that epoch's landings and halt
-  landing. The contract does not check this bound.
+  `epochLenL2 + 1`, must not exceed `type(uint48).max`, the last height `land` accepts; the
+  429,496 cap below already guarantees it. Its minimum anchor, `L1_0 + epochLenL1` with `L1_0`
+  the L1 block that initializes the Inbox, must not exceed `type(uint48).max` either, the largest
+  anchor number the Etna `extraData` encodes. Later transitions are not range-checked: at
+  practical values the `uint48` limits lie millions of years ahead. The contract checks only
+  `3 <= epochLenL2 <= 429,496` and `epochLenL1 > 0`. `abci`, `abci-genesis` and the lander reject
+  a schedule outside these bounds, but only after initialization has fixed it, so check the
+  expected `L1_0 + epochLenL1` before calling `deployInbox()`.
+- `init` rejects `epochLenL2` above 429,496 (`InvalidEpochLength`), and so does the node. The pool
+  totals each member's proposer scores for an epoch in a checked `uint32`, and one member
+  proposing every block of a longer epoch could reach `10,000 * epochLenL2 > 2^32 - 1`; the
+  overflow would revert that epoch's landings and halt landing.
 - Pace the schedule. This is the deployer's obligation, not a validity rule. A block of epoch `e`
   needs an L1-finalized anchor at or after `L1_0 + e * epochLenL1`, so L2 pauses at an epoch
   boundary (`epoch_not_open_on_l1`) whenever it produces `epochLenL2` blocks faster than L1

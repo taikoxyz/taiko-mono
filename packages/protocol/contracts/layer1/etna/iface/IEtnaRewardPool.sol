@@ -90,8 +90,9 @@ interface IEtnaRewardPool {
     /// stored on the first report and must match on every later one; the signed counts and the
     /// proposer scores are added to the epoch's totals with checked uint32 arithmetic. The Inbox
     /// bounds each part's scores to 10_000 per commit height, so an epoch's scores sum to at most
-    /// `10_000 * _epochLenL2`. Epoch `e` is complete when the batch
-    /// carries the commit of its last height `(e + 1) * _epochLenL2`, i.e. when
+    /// `10_000 * _epochLenL2`, and the epoch length to 429,496, so that total fits a uint32.
+    /// Epoch `e` is complete when the batch carries the commit of its last height
+    /// `(e + 1) * _epochLenL2`, i.e. when
     /// `_lastHeight - 1 >= (e + 1) * _epochLenL2`. Each complete part, in part order, is frozen
     /// and settled with the next entry of `_settlements`, whose hash must equal the stored
     /// committee hash; the number of complete parts must equal `_settlements.length`.

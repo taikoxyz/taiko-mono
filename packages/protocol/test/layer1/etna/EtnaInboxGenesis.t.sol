@@ -280,6 +280,19 @@ contract EtnaInboxGenesisValidationTest is EtnaInboxTestBase {
         _expectInvalidGenesis(params, EtnaInbox.InvalidEpochLength.selector);
     }
 
+    /// @dev 10,000 * 429,496 fits a uint32, so a member proposing every block of an epoch cannot
+    /// overflow the reward pool's score total; 429,497 would.
+    function test_init_EpochLenL2IsAtMostTheProposerScoreBound() external {
+        assertEq(uint256(type(uint32).max) / 10_000, 429_496);
+        IEtnaInbox.GenesisParams memory params = _defaultGenesisParams();
+        params.epochLenL2 = 429_497;
+        _expectInvalidGenesis(params, EtnaInbox.InvalidEpochLength.selector);
+
+        params.epochLenL2 = 429_496;
+        etnaInbox.init(address(this), params);
+        assertEq(etnaInbox.activation().epochLenL2, 429_496, "epoch length L2");
+    }
+
     function test_init_RevertWhen_EpochLenL1IsZero() external {
         IEtnaInbox.GenesisParams memory params = _defaultGenesisParams();
         params.epochLenL1 = 0;

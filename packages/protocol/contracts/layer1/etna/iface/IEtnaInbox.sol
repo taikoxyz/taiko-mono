@@ -263,7 +263,8 @@ interface IEtnaInbox {
 
     /// @notice Initializes a fresh Etna proxy and its L2 block-0 checkpoint.
     /// @dev Call atomically in the proxy constructor. Requires non-zero genesis hash, state root,
-    /// committee record and derivation configuration hash, epochLenL2 >= 3, epochLenL1 > 0,
+    /// committee record and derivation configuration hash, 3 <= epochLenL2 <= 429,496 (so a
+    /// member's proposer scores for an epoch fit the reward pool's uint32 total), epochLenL1 > 0,
     /// a past genesis cutoff at or after the registry's first checkpoint, a forced inclusion
     /// delay greater than zero and maxAnchorAge >= 1152 seconds. Choose maxAnchorAge above
     /// the expected L1 finality lag, including extra depth and RPC latency. The SignalService must
