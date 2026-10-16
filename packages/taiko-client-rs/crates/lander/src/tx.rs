@@ -54,7 +54,7 @@ pub const SETTLEMENT_GAS_PER_MEMBER: u64 = 40_000;
 /// landing costs 250,935 gas with an empty pool and 425,667 with a funded one for a one-member
 /// committee, and 261,792 and 529,466 for four members: about 143k per landing plus 31k per member
 /// that an empty-pool estimate misses. On the lander's actual-contract fixture (one member, the
-/// lander paying itself), the empty-pool estimate is 200,568 and the funded landing uses 351,830,
+/// lander paying itself), the empty-pool estimate is 200,568 and the funded landing uses 352,126,
 /// under the 480,682 this signs. The 20% headroom on the estimate adds to this margin.
 pub const SETTLEMENT_GAS_PER_LANDING: u64 = 200_000;
 

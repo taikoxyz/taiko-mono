@@ -335,8 +335,8 @@ branch before inclusion, plus, for a landing that settles an epoch, 200,000 gas 
 committee member it settles (see the freezing landing below), and never exceed EIP-7825's
 16,777,216. When the node returns an estimate above that cap, the lander stops before signing; an
 Osaka node may instead fail the estimate itself, which the lander retries as a temporary error.
-`n_max <= 300` keeps every landing below the cap (see the freezing landing below). Set the limits to match the deployed
-Inbox and L1 fork. Choose the budgets
+`n_max <= 300` keeps every landing below the cap (see the freezing landing below). Set the
+limits to match the deployed Inbox and L1 fork. Choose the budgets
 explicitly before running this example:
 
 ```sh
