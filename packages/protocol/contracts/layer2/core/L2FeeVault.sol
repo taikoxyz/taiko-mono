@@ -15,19 +15,20 @@ import "./L2FeeVault_Layout.sol"; // DO NOT DELETE
 /// the vault keeps no per-block ledger. It has no `receive`: direct transfers revert, and Ether
 /// forced in without a call (such as by `selfdestruct`) is swept as fees.
 ///
-/// `sweep` is the only outflow. Any account may call it but picks only its timing, the message
-/// gas limit and the relay fee; the destination (`rewardPool` on `l1ChainId`) is immutable and
-/// the amount is always the whole balance.
+/// `sweep` is the only outflow. Any account may call it but picks only its timing and, at or above
+/// `minRelayFee`, the relay fee; the destination (`rewardPool` on `l1ChainId`) and the message gas
+/// limit (`SWEEP_GAS_LIMIT`) are fixed, and the amount is always the whole balance.
 /// @custom:security-contact security@taiko.xyz
 contract L2FeeVault is EssentialContract {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
 
-    /// @notice The largest message gas limit a sweep accepts. A relayer on L1 must be able to
-    /// forward the requested gas, or the L1 Bridge rejects every relayed `processMessage` and the
-    /// message never leaves `NEW`.
-    uint32 public constant MAX_SWEEP_GAS_LIMIT = 3_000_000;
+    /// @notice The gas limit of every sweep message. The L1 Bridge keeps its minimum for the
+    /// message, 808,704 gas, and forwards the rest to the reward pool's `onMessageInvocation`. The
+    /// pool's first arrival, its most expensive, succeeds from a limit of 834,088. A relayer can
+    /// forward this limit well under the L1 transaction gas cap.
+    uint32 public constant SWEEP_GAS_LIMIT = 1_000_000;
 
     // ---------------------------------------------------------------
     // Immutable Variables
@@ -41,6 +42,10 @@ contract L2FeeVault is EssentialContract {
 
     /// @notice The `EtnaRewardPool` proxy on L1: the `to` and `destOwner` of every sweep message.
     address public immutable rewardPool;
+
+    /// @notice The smallest relay fee a sweep accepts, in wei. It must cover one relayed L1
+    /// `processMessage` at the expected L1 gas price, so every sweep pays its own delivery.
+    uint64 public immutable minRelayFee;
 
     // ---------------------------------------------------------------
     // State Variables
@@ -69,18 +74,21 @@ contract L2FeeVault is EssentialContract {
     // Constructor
     // ---------------------------------------------------------------
 
-    /// @notice Sets the sweep destination.
+    /// @notice Sets the sweep destination and the minimum relay fee.
     /// @param _l2Bridge The Bridge on this chain; must be non-zero.
     /// @param _l1ChainId The chain ID of L1; must be non-zero.
     /// @param _rewardPool The `EtnaRewardPool` proxy on L1; must be non-zero.
-    constructor(address _l2Bridge, uint64 _l1ChainId, address _rewardPool) {
+    /// @param _minRelayFee The smallest relay fee a sweep accepts, in wei; must be non-zero.
+    constructor(address _l2Bridge, uint64 _l1ChainId, address _rewardPool, uint64 _minRelayFee) {
         require(_l2Bridge != address(0), ZERO_ADDRESS());
         require(_l1ChainId != 0, ZERO_VALUE());
         require(_rewardPool != address(0), ZERO_ADDRESS());
+        require(_minRelayFee != 0, ZERO_VALUE());
 
         l2Bridge = _l2Bridge;
         l1ChainId = _l1ChainId;
         rewardPool = _rewardPool;
+        minRelayFee = _minRelayFee;
     }
 
     // ---------------------------------------------------------------
@@ -95,25 +103,21 @@ contract L2FeeVault is EssentialContract {
     }
 
     /// @notice Sends the vault's whole balance through the L2 Bridge to the reward pool.
-    /// @dev Permissionless. `msg.value` is the relay fee: it becomes the message `fee` and is not
-    /// taken from the swept amount. The message invokes `rewardPool.onMessageInvocation` with
-    /// `abi.encode(nonce)` and makes the pool its `destOwner`, so only the pool can fail or
-    /// finally retry it on L1, and unused fees are refunded to the pool. An empty vault sends no
-    /// message, changes no state and returns zero; a relay fee is then rejected.
-    /// @param _gasLimit The gas limit of the message on L1, in `(0, MAX_SWEEP_GAS_LIMIT]`. A zero
-    /// limit lets only the pool process the message; a limit no relayer can forward under the
-    /// L1 transaction gas cap makes the Bridge reject every relayed attempt. Either way the
-    /// message would never leave `NEW`. The Bridge also rejects a limit at or below its minimum
-    /// for the message.
+    /// @dev Permissionless; the caller chooses only when to sweep. `msg.value` is the relay fee, at
+    /// least `minRelayFee` and at most `type(uint64).max`: it becomes the message `fee` and is not
+    /// taken from the swept amount. The message gas limit is always `SWEEP_GAS_LIMIT`. The message
+    /// invokes `rewardPool.onMessageInvocation` with `abi.encode(nonce)` and makes the pool its
+    /// `destOwner`, so only the pool can fail or finally retry it on L1, and unused fees are
+    /// refunded to the pool. An empty vault sends no message, changes no state and returns zero; a
+    /// relay fee is then rejected.
     /// @return msgHash_ The hash of the Bridge message, or zero for an empty vault.
-    function sweep(uint32 _gasLimit) external payable nonReentrant returns (bytes32 msgHash_) {
+    function sweep() external payable nonReentrant returns (bytes32 msgHash_) {
         uint256 amount = address(this).balance - msg.value;
         if (amount == 0) {
             require(msg.value == 0, EmptyVaultWithFee());
             return 0;
         }
-        require(_gasLimit != 0, ZeroGasLimit());
-        require(_gasLimit <= MAX_SWEEP_GAS_LIMIT, GasLimitTooLarge());
+        require(msg.value >= minRelayFee, RelayFeeTooLow());
         require(msg.value <= type(uint64).max, RelayFeeTooLarge());
 
         uint64 nonce = sweepNonce;
@@ -122,7 +126,7 @@ contract L2FeeVault is EssentialContract {
 
         IBridge.Message memory message;
         message.fee = uint64(msg.value);
-        message.gasLimit = _gasLimit;
+        message.gasLimit = SWEEP_GAS_LIMIT;
         message.srcOwner = address(this);
         message.destChainId = l1ChainId;
         message.destOwner = rewardPool;
@@ -139,7 +143,6 @@ contract L2FeeVault is EssentialContract {
     // ---------------------------------------------------------------
 
     error EmptyVaultWithFee();
-    error GasLimitTooLarge();
     error RelayFeeTooLarge();
-    error ZeroGasLimit();
+    error RelayFeeTooLow();
 }
