@@ -7101,6 +7101,8 @@ dependencies = [
  "alloy-eips 1.8.3",
  "alloy-primitives",
  "alloy-provider",
+ "alloy-rlp",
+ "alloy-trie",
  "anyhow",
  "async-trait",
  "axum",

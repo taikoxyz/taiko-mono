@@ -41,6 +41,8 @@ url = { workspace = true }
 alloy = { workspace = true, features = ["std", "sol-types", "contract", "providers", "rpc-types", "json-abi"] }
 alloy-consensus = { workspace = true }
 alloy-eips = { workspace = true }
+alloy-rlp = { workspace = true }
+alloy-trie = { workspace = true, features = ["std", "ethereum"] }
 anyhow = { workspace = true }
 base64 = { workspace = true }
 ed25519-dalek = { workspace = true }

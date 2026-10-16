@@ -131,6 +131,8 @@ pub struct Store {
     directory: PathBuf,
     /// The open locked file owns the OS lock until this store is dropped.
     _lock: File,
+    /// Shared directory guard prevents claim/landing marker races.
+    _directory_lock: File,
     /// Expected identities used on every load and save.
     identity: JournalIdentity,
 }
@@ -138,8 +140,7 @@ pub struct Store {
 impl Store {
     /// Lock an existing or empty lander directory; validate the journal before returning.
     pub fn open(path: impl AsRef<Path>, identity: JournalIdentity) -> Result<Self> {
-        let directory = path.as_ref().to_path_buf();
-        std::fs::create_dir_all(&directory).map_err(io_error)?;
+        let (directory, directory_lock) = lock_transaction_directory(path.as_ref(), false)?;
         let lock = OpenOptions::new()
             .read(true)
             .write(true)
@@ -150,7 +151,8 @@ impl Store {
         lock.try_lock().map_err(|e| {
             LanderError::Journal(format!("data directory already locked or cannot be locked: {e}"))
         })?;
-        let store = Self { directory, _lock: lock, identity };
+        File::open(&directory).map_err(io_error)?.sync_all().map_err(io_error)?;
+        let store = Self { directory, _lock: lock, _directory_lock: directory_lock, identity };
         store.load()?;
         Ok(store)
     }
@@ -315,6 +317,41 @@ impl Store {
 /// Include the failing durability operation's OS error without serializing secret data.
 fn io_error(error: std::io::Error) -> LanderError {
     LanderError::Journal(error.to_string())
+}
+
+/// Claim and landing schemas remain independent, but a physical directory has one kind forever.
+/// The shared OS lock closes the check/create race; durable per-kind lock markers cover reopening
+/// in either order, including symlink aliases and directories whose state file was never written.
+pub(crate) fn lock_transaction_directory(path: &Path, claim: bool) -> Result<(PathBuf, File)> {
+    std::fs::create_dir_all(path).map_err(io_error)?;
+    let directory = std::fs::canonicalize(path).map_err(io_error)?;
+    reject_foreign_directory(&directory, claim)?;
+    let lock = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(directory.join("transaction-store.lock"))
+        .map_err(io_error)?;
+    lock.try_lock()
+        .map_err(|_| LanderError::Journal("transaction directory already locked".into()))?;
+    reject_foreign_directory(&directory, claim)?;
+    Ok((directory, lock))
+}
+
+/// Reject foreign markers both before creating a guard and after acquiring it.
+fn reject_foreign_directory(directory: &Path, claim: bool) -> Result<()> {
+    let incompatible = if claim {
+        ["lander.lock", "lander-state.json"]
+    } else {
+        ["claim.lock", "claim-state.json"]
+    };
+    if incompatible.iter().any(|name| directory.join(name).exists()) {
+        return Err(LanderError::Journal(
+            "claim and landing stores require separate directories".into(),
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]

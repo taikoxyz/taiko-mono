@@ -924,3 +924,38 @@ bytecode provenance. Run that generator twice with identical output as well.
 ## License
 
 See the [LICENSE](../../LICENSE) file for details.
+
+### `lander-claim`
+
+`lander-claim` independently claims one landed batch reward on L2. The explicit key file pays
+L2 gas; the authenticated receipt fixes the payout recipient and amount, and there is no redirect
+or automatic bridge operation. Use a dedicated directory for each claim, separate from the L1
+lander directory (including symlink aliases).
+
+```sh
+taiko-client lander-claim --l1.http http://l1-node:8545 --l2.http http://l2-node:8545 \
+  --landing-tx 0x... --batch-id 0x... --key-file /secure/l2-gas-payer.key \
+  --data-dir /data/claims/batch-id
+```
+
+The own L2 endpoint must expose the intended ABCI-produced canonical executed chain. Preparation
+pins and independently hashes an executed header H, authenticates its L1 anchor through the own
+L1 node's finalized ancestry, verifies the fixed Inbox account and receipt mapping proof, and
+checks the actual EIP-4788 roots lookup at H using H's timestamp. The vault's immutable configuration
+supplies the expected Inbox; a discovery event alone cannot authorize payment. Historical receipts
+can use newer anchors and survive recovery-generation changes. Preparation does not require a
+subsequent L1 landing already covering H.
+
+The command estimates ordinary L2 EIP-1559 fees/gas, signs once, fsyncs the original bytes and
+broadcast intent, then submits. An ambiguous send exits with its Pending job intact. Rerun the same
+command and key to reconcile that job before requesting a new proof; unconsumed nonces replay only
+the same bytes. A consumed nonce without the matching canonical receipt requires operator review,
+and the command never automatically changes nonce, fee, proof, or recipient after signing.
+
+An Included result is provisional. Rerun to check Finalized: this requires an Inbox checkpoint proven
+under finalized L1 state plus authenticated descending EL ancestry containing the actual claim block.
+A finalized entitlement root alone does not finalize a claim transaction. Signed bytes remain stored
+in both Included and Finalized states; each restart rechecks current receipt/canonical/claimed state.
+The default RPC/step deadline is 30 seconds (`--rpc.timeout`, 1–3600); ancestry traversals are also
+bounded to 131,072 headers. Expired roots can refresh before signing, while signed calldata remains
+immutable and may need operator handling if it can no longer execute.
