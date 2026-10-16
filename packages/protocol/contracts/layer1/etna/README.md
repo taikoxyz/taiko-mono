@@ -117,7 +117,7 @@ constraints.
   Back-pressure paces settlement the same way: L2 pauses (`back_pressure`) while `U` blocks are
   unlanded, so choose `U` above the number of blocks produced during one landing round trip
   (proving, `land` inclusion and the landing's L1 finality) unless such pauses are intended.
-- `n_max` may not exceed 400: the client rejects a larger value. The landing that carries an
+- `n_max` may not exceed 360: the client rejects a larger value. The landing that carries an
   epoch's last commit settles the whole epoch inline, and it must fit in one L1 transaction, which
   Osaka caps at 16,777,216 gas (EIP-7825); the lander caps its gas limit there. In the worst case,
   where one landing writes every member's count and proposer score for the epoch and credits
@@ -125,10 +125,10 @@ constraints.
   (4,978,841 measured for 128), and the settlement list, counts and scores add about 160 bytes of
   calldata per member, on top of the landing's own verification, checkpoint and forced inclusion
   costs (see Settlement gas). Measured as a whole transaction (execution plus intrinsic and
-  calldata gas), that freezing landing needs 5,473,469 gas at 128 members and 16,396,887 at 400,
-  about 40.2k per member more: 400 members leave about 380k of headroom. The hard ceiling is
-  about 409 members: above it the landing cannot be included at all, landing halts,
-  back-pressure then halts L2, and only a pool upgrade recovers. A production
+  calldata gas), that freezing landing needs 5,473,469 gas at 128 members, 14,791,922 at 360 and
+  16,396,887 at 400, about 40.1k per member more. At the 360 cap it leaves about 1.99M (12%) of
+  headroom. The hard ceiling is about 409 members: above it the landing cannot be included at
+  all, landing halts, back-pressure then halts L2, and only a pool upgrade recovers. A production
   landing settles at most one epoch, because `epochLenL2 >= d_max - margin_v + 3` keeps every batch
   shorter than an epoch, so the bound applies per landing. The contracts cannot check it: `n_max`
   is bound only inside the opaque `committeeConfigHash`.
@@ -801,8 +801,8 @@ call frame keeps 1/64 of its gas and the top-level revert refunds it, so the lan
 canonical failed landing that used at least 15/16 of its limit as out of gas and rebuilds.
 
 The contracts do not bound the committee size. The committee configuration's `n_max` caps it, and
-the client rejects an `n_max` above 400. The lander caps the landing's gas limit at EIP-7825's
-16,777,216; at 400 members the worst-case freezing landing needs about 16.4M, and the hard
+the client rejects an `n_max` above 360. The lander caps the landing's gas limit at EIP-7825's
+16,777,216; at 360 members the worst-case freezing landing needs about 14.8M, and the hard
 ceiling at which it no longer fits is about 409 members (see Configuration checks).
 
 ### Deviations from #22262
