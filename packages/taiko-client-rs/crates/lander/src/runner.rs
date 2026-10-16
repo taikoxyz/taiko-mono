@@ -69,7 +69,8 @@ pub enum StepOutcome {
     Waiting,
     /// Proof, signature, pending phase, or confirmation context became durable.
     Progress,
-    /// Stale unbroadcast work was discarded after a competing checkpoint or reference change.
+    /// Stale unbroadcast work was discarded after a competing checkpoint or reference change, or a
+    /// canonical landing ran out of gas without checkpoint progress; the next job is re-estimated.
     Rebuild,
     /// One canonical transaction settled and the next job can start from L1.
     Settled,
@@ -642,9 +643,18 @@ impl Runner {
             }
         } else if same_parent(&snapshot, &job.request.batch.snapshot) {
             // The revert is canonical at the confirmation depth, so its nonce is spent and
-            // nothing of this job can land any more. Persist Idle before stopping: a restart
-            // then rebuilds from the current checkpoint (a deterministic revert stops again at
-            // gas estimation, before signing) instead of re-reading this receipt forever.
+            // nothing of this job can land any more.
+            if receipt.gas_used == transaction.gas_limit()? {
+                // It ran out of gas: state that changed after estimation made the landing
+                // costlier, such as a sweep arriving at an empty reward pool before a freezing
+                // landing. Rebuild and re-estimate against the current state.
+                tracing::warn!(transaction_hash=%transaction.hash,pending_nonce=transaction.nonce,gas_used=receipt.gas_used,landed_height=snapshot.checkpoint_height,"lander canonical landing ran out of gas; rebuilding");
+                self.transition(JournalState::Idle)?;
+                return Ok(StepOutcome::Rebuild);
+            }
+            // Persist Idle before stopping: a restart then rebuilds from the current checkpoint
+            // (a deterministic revert stops again at gas estimation, before signing) instead of
+            // re-reading this receipt forever.
             self.transition(JournalState::Idle)?;
             return Err(LanderError::Reverted(format!(
                 "{} at nonce {} with unchanged checkpoint {}",
