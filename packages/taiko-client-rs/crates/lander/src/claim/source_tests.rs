@@ -146,7 +146,15 @@ async fn old_claim_uses_nearby_historical_landing_despite_distant_checkpoint_or_
         let fixture = Arc::new(Fixture::new(fault, true));
         let receipt = inclusion(&fixture);
         let (source, _l1, _l2) = connect(fixture.clone()).await;
-        assert!(source.unwrap().transaction_finalized(&receipt, &mut None).await.unwrap());
+        let source = source.unwrap();
+        let mut progress = None;
+        if matches!(fault, Fault::WrongBranch) {
+            assert!(matches!(
+                source.transaction_finalized(&receipt, &mut progress).await,
+                Err(LanderError::Unavailable(_))
+            ));
+        }
+        assert!(source.transaction_finalized(&receipt, &mut progress).await.unwrap());
         let requests = fixture.requests.lock().unwrap();
         assert!(requests.iter().filter(|r| r["method"] == "eth_getBlockByHash").count() <= 4);
         assert!(
@@ -171,7 +179,14 @@ async fn forged_covering_receipt_is_fatal_and_wrong_claim_branch_never_finalizes
     fixture.covering.truncate(1);
     let receipt = inclusion(&fixture);
     let (source, _l1, _l2) = connect(Arc::new(fixture)).await;
-    assert!(!source.unwrap().transaction_finalized(&receipt, &mut None).await.unwrap());
+    let source = source.unwrap();
+    let mut progress = None;
+    for _ in 0..3 {
+        assert!(matches!(
+            source.transaction_finalized(&receipt, &mut progress).await,
+            Ok(false) | Err(LanderError::Unavailable(_))
+        ));
+    }
 }
 
 #[tokio::test]
@@ -281,7 +296,13 @@ async fn unavailable_old_branch_does_not_starve_later_proven_current_candidate()
     let receipt = inclusion(&fixture);
     let fixture = Arc::new(fixture);
     let (source, _l1, _l2) = connect(fixture.clone()).await;
-    assert!(source.unwrap().transaction_finalized(&receipt, &mut None).await.unwrap());
+    let source = source.unwrap();
+    let mut progress = None;
+    assert!(matches!(
+        source.transaction_finalized(&receipt, &mut progress).await,
+        Err(LanderError::Unavailable(_))
+    ));
+    assert!(source.transaction_finalized(&receipt, &mut progress).await.unwrap());
     assert_eq!(
         fixture
             .requests
@@ -306,10 +327,14 @@ async fn second_unavailable_candidate_is_revisited_after_bounded_complete_pass()
     let (source, _l1, _l2) = connect(fixture.clone()).await;
     let source = source.unwrap();
     let mut progress = None;
-    assert!(matches!(
-        source.transaction_finalized(&receipt, &mut progress).await,
-        Err(LanderError::Unavailable(_))
-    ));
+    for index in 1..=2 {
+        assert!(matches!(
+            source.transaction_finalized(&receipt, &mut progress).await,
+            Err(LanderError::Unavailable(_))
+        ));
+        assert_eq!(progress.as_ref().unwrap().page.as_ref().unwrap().next_event, index);
+    }
+    assert!(!source.transaction_finalized(&receipt, &mut progress).await.unwrap());
     assert_eq!(progress.as_ref().unwrap().next, 9 + 16 * 1024);
     assert!(matches!(
         source.transaction_finalized(&receipt, &mut progress).await,
@@ -318,8 +343,126 @@ async fn second_unavailable_candidate_is_revisited_after_bounded_complete_pass()
     assert_eq!(
         progress.as_ref().unwrap().next,
         9,
-        "complete passes revisit all omitted or unavailable hints"
+        "complete pass resets before retained hint retry"
     );
+    assert!(progress.as_ref().unwrap().page.is_none());
     fixture.missing_hashes.lock().unwrap().clear();
+    assert!(matches!(
+        source.transaction_finalized(&receipt, &mut progress).await,
+        Err(LanderError::Unavailable(_))
+    ));
     assert!(source.transaction_finalized(&receipt, &mut progress).await.unwrap());
+}
+
+#[tokio::test]
+async fn permanently_slow_retained_candidate_cannot_starve_fast_later_candidate() {
+    let mut fixture = Fixture::new(Fault::WrongBranch, true);
+    fixture.hash_delay = Duration::from_millis(200);
+    fixture
+        .slow_hashes
+        .lock()
+        .unwrap()
+        .extend(fixture.branch_headers.iter().map(Header::hash_slow));
+    let claim = inclusion(&fixture);
+    let fixture = Arc::new(fixture);
+    let (source, _l1, _l2) = connect(fixture).await;
+    let source = source.unwrap().with_finality_timeout(Duration::from_millis(300)).unwrap();
+    let mut progress = None;
+    assert!(matches!(
+        source.transaction_finalized(&claim, &mut progress).await,
+        Err(LanderError::Temporary(_))
+    ));
+    assert!(progress.as_ref().unwrap().candidate.is_some());
+    assert_eq!(
+        progress.as_ref().unwrap().page.as_ref().unwrap().next_event,
+        1,
+        "outer cancellation preserves the next candidate position"
+    );
+    progress = serde_json::from_slice(&serde_json::to_vec(&progress).unwrap()).unwrap();
+    for _ in 0..4 {
+        match source.transaction_finalized(&claim, &mut progress).await {
+            Ok(true) => return,
+            Ok(false) | Err(LanderError::Unavailable(_) | LanderError::Temporary(_)) => {}
+            Err(error) => panic!("unexpected error: {error}"),
+        }
+        progress = serde_json::from_slice(&serde_json::to_vec(&progress).unwrap()).unwrap();
+    }
+    panic!("permanently slow retained ancestry starved a fully available later endpoint");
+}
+
+#[tokio::test]
+async fn same_page_slow_prefix_cannot_starve_fast_later_candidate_across_timeouts() {
+    let mut fixture = Fixture::new(Fault::None, true);
+    fixture.hash_delay = Duration::from_millis(90);
+    let actual = fixture.covering.pop().unwrap();
+    for index in 0..8 {
+        let mut old = actual.clone();
+        old.lastBlockHash = B256::repeat_byte(40 + index);
+        fixture.slow_hashes.lock().unwrap().push(old.lastBlockHash);
+        fixture.final_values.insert(
+            rewards::receipt_slot(rewards::batch_id(&old)),
+            U256::from_be_bytes(rewards::commitment(&old).0),
+        );
+        fixture.covering.push(old);
+    }
+    fixture.covering.push(actual.clone());
+    let (root, _) =
+        witness(&fixture.final_values, &[rewards::receipt_slot(rewards::batch_id(&actual))]);
+    fixture.l1.get_mut(&11).unwrap().state_root = root;
+    let claim = inclusion(&fixture);
+    let (source, _l1, _l2) = connect(Arc::new(fixture)).await;
+    let source = source.unwrap().with_finality_timeout(Duration::from_millis(300)).unwrap();
+    let mut progress = None;
+    for _ in 0..12 {
+        match source.transaction_finalized(&claim, &mut progress).await {
+            Ok(true) => return,
+            Ok(false) | Err(LanderError::Unavailable(_) | LanderError::Temporary(_)) => {}
+            Err(error) => panic!("unexpected error: {error}"),
+        }
+        progress = serde_json::from_slice(&serde_json::to_vec(&progress).unwrap()).unwrap();
+    }
+    panic!("same-page prefix was repeated instead of reaching the available endpoint");
+}
+
+#[tokio::test]
+async fn legitimate_long_candidate_keeps_the_remaining_configured_operation_budget() {
+    let mut fixture = Fixture::new(Fault::None, true);
+    fixture.hash_delay = Duration::from_millis(300);
+    fixture.slow_hashes.lock().unwrap().extend(fixture.l2.values().map(Header::hash_slow));
+    let claim = inclusion(&fixture);
+    let (source, _l1, _l2) = connect(Arc::new(fixture)).await;
+    let source = source.unwrap().with_finality_timeout(Duration::from_secs(1)).unwrap();
+    assert!(
+        source.transaction_finalized(&claim, &mut None).await.unwrap(),
+        "a legitimate 600ms ancestry must not be cut to a fraction of the 1s budget"
+    );
+}
+
+#[tokio::test]
+async fn legacy_or_changed_page_context_restarts_untrusted_position_without_losing_intent() {
+    for legacy in [true, false] {
+        let fixture = Arc::new(Fixture::new(Fault::WrongBranch, true));
+        let claim = inclusion(&fixture);
+        let (source, _l1, _l2) = connect(fixture).await;
+        let source = source.unwrap();
+        let mut progress = None;
+        assert!(matches!(
+            source.transaction_finalized(&claim, &mut progress).await,
+            Err(LanderError::Unavailable(_))
+        ));
+        assert_eq!(progress.as_ref().unwrap().page.as_ref().unwrap().next_event, 1);
+        let mut value = serde_json::to_value(&progress).unwrap();
+        if legacy {
+            value.as_object_mut().unwrap().remove("page");
+        } else {
+            value["page"]["digest"] = serde_json::to_value(B256::ZERO).unwrap();
+        }
+        progress = serde_json::from_value(value).unwrap();
+        assert!(matches!(
+            source.transaction_finalized(&claim, &mut progress).await,
+            Err(LanderError::Unavailable(_))
+        ));
+        assert_eq!(progress.as_ref().unwrap().page.as_ref().unwrap().next_event, 1);
+        assert!(source.transaction_finalized(&claim, &mut progress).await.unwrap());
+    }
 }

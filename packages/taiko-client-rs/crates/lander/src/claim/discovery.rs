@@ -11,7 +11,7 @@ use crate::{
 use abci::{RawL1Header, l1::source::L1Source};
 use alloy::sol_types::SolEvent;
 use alloy_consensus::Header;
-use alloy_primitives::B256;
+use alloy_primitives::{B256, keccak256};
 use alloy_provider::Provider;
 use alloy_rpc_types::{Filter, Log};
 use serde::{Deserialize, Serialize};
@@ -44,6 +44,32 @@ pub struct DiscoveryProgress {
     pub finalized_hash: B256,
     /// Candidate persisted before expensive proof/ancestry work; always reauthenticated.
     pub candidate: Option<Candidate>,
+    /// Untrusted within-page scheduling position; old v1 metadata omits this optional field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub page: Option<PageCursor>,
+}
+
+/// A position in one bounded, canonically contextualized log response, never finality evidence.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PageCursor {
+    /// Exact page start, which must equal the parent discovery cursor's next L1 block.
+    pub start: u64,
+    /// Fixed inclusive page end, retained when the finalized head advances.
+    pub end: u64,
+    /// Digest of the complete sorted typed log response, including event and block identities.
+    pub digest: B256,
+    /// Next unattempted event index; advanced before any candidate RPC can time out.
+    pub next_event: usize,
+}
+
+impl PageCursor {
+    /// Validate local range/count bounds before a hint influences a new log request.
+    fn valid_range(&self, start: u64, finalized: u64) -> bool {
+        self.start == start &&
+            self.end <= finalized &&
+            self.end.checked_sub(start).is_some_and(|span| span < PAGE_BLOCKS) &&
+            self.next_event <= MAX_LOGS
+    }
 }
 
 /// Untrusted full event hint, retained across unavailable ancestry and operation timeouts.
@@ -56,14 +82,6 @@ pub struct Candidate {
     pub number: u64,
     /// Event block hash checked against own canonical L1 before proof acquisition.
     pub hash: B256,
-}
-
-/// Bounded operation work and the first retryable candidate failure, never finality evidence.
-struct SearchBudget {
-    /// Shared remaining EL header count across all candidate branches.
-    remaining_headers: u64,
-    /// Report availability if no other fully authenticated candidate succeeds this operation.
-    unavailable: Option<LanderError>,
 }
 
 impl RpcClaimSource {
@@ -113,32 +131,24 @@ impl RpcClaimSource {
                 finalized_number: number,
                 finalized_hash: finalized.hash(),
                 candidate: None,
+                page: None,
             });
         }
-        let mut budget = SearchBudget { remaining_headers: MAX_ANCESTRY, unavailable: None };
         let scan = progress.as_mut().expect("initialized discovery context");
         scan.finalized_number = number;
         scan.finalized_hash = finalized.hash();
-        if let Some(candidate) = scan.candidate.clone() {
-            if candidate.number >= scan.start &&
-                candidate.number <= number &&
-                self.covers(&candidate.receipt, inclusion) &&
-                self.anchors.canonical_hash(candidate.number).await.map_err(anchor_error)? ==
-                    candidate.hash
-            {
-                if self.try_candidate(&candidate, inclusion, &finalized, scan, &mut budget).await? {
-                    self.recheck(inclusion, &finalized).await?;
-                    return Ok(true);
-                }
-            } else {
-                scan.candidate = None;
-            }
-        }
+        // Discovery always precedes candidate work. At most one expensive candidate runs per
+        // operation, with the full remaining configured budget, so no smaller ancestry ceiling
+        // is introduced. Its scheduling position is durable even if the outer timeout fires.
         for _ in 0..MAX_PAGES {
             if scan.next > number {
                 break;
             }
-            let end = scan.next.saturating_add(PAGE_BLOCKS - 1).min(number);
+            let end =
+                scan.page.as_ref().filter(|page| page.valid_range(scan.next, number)).map_or_else(
+                    || scan.next.saturating_add(PAGE_BLOCKS - 1).min(number),
+                    |page| page.end,
+                );
             let filter = Filter::new()
                 .address(self.identity.inbox)
                 .event_signature(BatchRewardRecorded::SIGNATURE_HASH)
@@ -159,77 +169,85 @@ impl RpcClaimSource {
             }
             let mut ordered = logs;
             ordered.sort_by_key(|l| (l.block_number, l.log_index));
-            for log in ordered {
+            let digest = keccak256(serde_json::to_vec(&ordered).map_err(|_| {
+                LanderError::Encoding("claim discovery page encoding failed".into())
+            })?);
+            let next_event = scan
+                .page
+                .as_ref()
+                .filter(|page| {
+                    page.valid_range(scan.next, number) &&
+                        page.end == end &&
+                        page.digest == digest &&
+                        page.next_event <= ordered.len()
+                })
+                .map_or(0, |page| page.next_event);
+            scan.page = Some(PageCursor { start: scan.next, end, digest, next_event });
+            for (index, log) in ordered.into_iter().enumerate().skip(next_event) {
                 let candidate = self.candidate(log, scan.next, end)?;
+                scan.page.as_mut().expect("initialized page position").next_event = index + 1;
                 if !self.covers(&candidate.receipt, inclusion) {
                     continue;
                 }
-                if self.anchors.canonical_hash(candidate.number).await.map_err(anchor_error)? !=
-                    candidate.hash
-                {
-                    return Err(LanderError::Unavailable(
-                        "claim discovery event changed branch".into(),
-                    ));
-                }
-                // The retained unavailable hint was already retried at this operation's start.
-                if scan.candidate.as_ref() == Some(&candidate) {
-                    continue;
-                }
-                if self.try_candidate(&candidate, inclusion, &finalized, scan, &mut budget).await? {
-                    self.recheck(inclusion, &finalized).await?;
-                    return Ok(true);
-                }
-                // Wrong branches and unavailable old endpoints never authorize finality, but
-                // neither prevents searching later candidates under the same bounded budget.
+                let matched = self.try_candidate(&candidate, inclusion, &finalized, scan).await?;
+                self.recheck(inclusion, &finalized).await?;
+                return Ok(matched);
             }
             self.recheck(inclusion, &finalized).await?;
             scan.next = end
                 .checked_add(1)
                 .ok_or_else(|| LanderError::Capacity("L1 discovery height overflow".into()))?;
+            scan.page = None;
         }
         self.recheck(inclusion, &finalized).await?;
         if scan.next > number {
-            // Log indexing/completeness is not authenticated. Retry complete passes so an
-            // omitted/delayed event never becomes a permanent cursor-induced absence verdict.
+            // Reset BEFORE a fallback await. An unavailable/slow retained hint must never
+            // prevent the next operation from rediscovering later or newly indexed candidates.
             scan.next = scan.start;
+            scan.page = None;
+            if let Some(candidate) = scan.candidate.clone() {
+                if candidate.number >= scan.start &&
+                    candidate.number <= number &&
+                    self.covers(&candidate.receipt, inclusion)
+                {
+                    let matched =
+                        self.try_candidate(&candidate, inclusion, &finalized, scan).await?;
+                    self.recheck(inclusion, &finalized).await?;
+                    return Ok(matched);
+                }
+                scan.candidate = None;
+            }
         }
-        budget.unavailable.map_or(Ok(false), Err)
+        Ok(false)
     }
 
-    /// Retain one unavailable hint while continuing other candidates; full passes revisit all.
-    /// A later success replaces the hint with the actual authenticated finality endpoint.
+    /// Schedule one freshly authenticated candidate after discovery has saved its next position.
+    /// Retain a retry hint, but never let that hint preempt discovery on the next operation.
     async fn try_candidate(
         &self,
         candidate: &Candidate,
         inclusion: &LandingReceipt,
         finalized: &RawL1Header,
         scan: &mut DiscoveryProgress,
-        budget: &mut SearchBudget,
     ) -> Result<bool> {
         if scan.candidate.is_none() {
             scan.candidate = Some(candidate.clone());
         }
-        match self
-            .authenticate_candidate(candidate, inclusion, finalized, &mut budget.remaining_headers)
-            .await
-        {
-            Ok(true) => {
+        let mut remaining = MAX_ANCESTRY;
+        match self.authenticate_candidate(candidate, inclusion, finalized, &mut remaining).await? {
+            true => {
                 scan.candidate = Some(candidate.clone());
                 Ok(true)
             }
-            Ok(false) => {
+            false => {
                 if scan.candidate.as_ref() == Some(candidate) {
                     scan.candidate = None;
                 }
-                Ok(false)
+                Err(LanderError::Unavailable(
+                    "historical landing is on another execution branch; continuing discovery"
+                        .into(),
+                ))
             }
-            Err(error @ (LanderError::Unavailable(_) | LanderError::Temporary(_))) => {
-                if budget.unavailable.is_none() {
-                    budget.unavailable = Some(error);
-                }
-                Ok(false)
-            }
-            Err(error) => Err(error),
         }
     }
 
@@ -286,6 +304,11 @@ impl RpcClaimSource {
         finalized: &RawL1Header,
         remaining: &mut u64,
     ) -> Result<bool> {
+        if self.anchors.canonical_hash(candidate.number).await.map_err(anchor_error)? !=
+            candidate.hash
+        {
+            return Err(LanderError::Unavailable("claim discovery event changed branch".into()));
+        }
         let r = &candidate.receipt;
         let slot = rewards::receipt_slot(rewards::batch_id(r));
         let witness = self

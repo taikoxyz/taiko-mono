@@ -149,6 +149,8 @@ pub struct Fixture {
     pub hide_logs: std::sync::atomic::AtomicBool,
     pub hang_ancestry: std::sync::atomic::AtomicBool,
     pub missing_hashes: Mutex<Vec<B256>>,
+    pub slow_hashes: Mutex<Vec<B256>>,
+    pub hash_delay: Duration,
     pub requests: Mutex<Vec<Value>>,
     pub sends: Mutex<Vec<Bytes>>,
     accepted: Mutex<Option<B256>>,
@@ -273,6 +275,8 @@ impl Fixture {
             hide_logs: std::sync::atomic::AtomicBool::new(false),
             hang_ancestry: std::sync::atomic::AtomicBool::new(false),
             missing_hashes: Mutex::new(vec![]),
+            slow_hashes: Mutex::new(vec![]),
+            hash_delay: Duration::ZERO,
             requests: Mutex::new(vec![]),
             sends: Mutex::new(vec![]),
             accepted: Mutex::new(None),
@@ -550,6 +554,13 @@ pub async fn server(fixture: Arc<Fixture>, l1: bool) -> Server {
                     fixture.hang_ancestry.load(std::sync::atomic::Ordering::SeqCst)
                 {
                     std::future::pending::<()>().await;
+                }
+                if !l1 && request["method"] == "eth_getBlockByHash" {
+                    let hash: B256 = serde_json::from_value(request["params"][0].clone()).unwrap();
+                    let slow = fixture.slow_hashes.lock().unwrap().contains(&hash);
+                    if slow {
+                        tokio::time::sleep(fixture.hash_delay).await;
+                    }
                 }
                 let response = if fixture
                     .fail_bootstrap
