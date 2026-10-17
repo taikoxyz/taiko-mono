@@ -13,7 +13,8 @@ use alloy_provider::Provider;
 use anyhow::{Context, anyhow, ensure};
 use tendermint::Time;
 use test_harness::{
-    CmtClient, Devnet, DevnetSpec, dev_signer, finalized_number, send_transfer, wait_until,
+    CmtClient, CmtValidator, Devnet, DevnetSpec, dev_signer, finalized_number, send_transfer,
+    wait_until,
 };
 
 #[tokio::test(flavor = "multi_thread")]
@@ -22,6 +23,11 @@ async fn single_validator_produces_blocks_by_the_header_rules() -> anyhow::Resul
     let started = Instant::now();
     let devnet = Devnet::start(DevnetSpec::default()).await?;
     devnet.wait_for_height(0, 1, Duration::from_secs(60)).await?;
+
+    // Check the native validator set before the first epoch switch.
+    let status = devnet.cmt_status(0).await?;
+    let key = devnet.keys()[0].pubkey();
+    assert_eq!(status.validators, vec![CmtValidator { pubkey: key, power: 10_000_000_000 }]);
 
     // Two EIP-1559 transfers into reth 0's pool; the EL selects them when the app builds.
     let l2 = devnet.l2_provider(0);

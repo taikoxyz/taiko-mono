@@ -19,8 +19,8 @@
 - Always use `just fmt` (never call `cargo fmt` directly) so the nightly toolchain and `cargo sort` stay in sync with CI.
 - `just clippy` runs two passes: library targets with doc lints, then `--all-targets` (tests and test-harness included) with `-D warnings`; reserve `just clippy-fix` for mechanical cleanups.
 - `just gen_bindings` executes `script/gen_bindings.sh` to refresh contract bindings whenever ABIs change.
-- After every code change run `just fmt && just clippy-fix` locally so the workspace stays formatted and lint-clean.
-- Before declaring work complete, run the full verification sequence `just fmt && just clippy && just unit && just test` and require it to finish without warnings or errors.
+- After each coherent batch of code changes, run `just fmt && just clippy-fix` locally so the workspace stays formatted and lint-clean. Use targeted tests while iterating.
+- Before declaring work complete, run `just verify` once on the final change batch and require it to finish without warnings or errors. It checks formatting, strict lint, fast tests, committed artifact reproduction and all Docker scenarios.
 
 ## Coding Style & Naming Conventions
 
@@ -44,16 +44,17 @@
 
 ## Testing Guidelines
 
-- `just unit` runs only the unit tests (everything outside `tests/` dirs) with no docker — use it for fast iteration. Unit tests live next to the code (`#[cfg(test)] mod tests`); abci's shared builders live in `crates/abci/src/test_utils*`.
+- `just unit` runs unit tests plus all nine `lander_claim_cli` process tests with no docker, then protocol tests without default features and abci doctests — use it for fast iteration. Unit tests live next to the code (`#[cfg(test)] mod tests`); abci's shared builders live in `crates/abci/src/test_utils*`.
 - `just test` runs the ABCI, lander and CLI Docker scenarios through `tests/entrypoint.sh`: it checks docker, pulls the anvil, alethia-reth and CometBFT images (override with `ANVIL_IMAGE`, `ALETHIA_RETH_IMAGE`, `COMETBFT_IMAGE`, `LANDER_ANVIL_IMAGE`; `PULL_POLICY=missing` reuses local images) and runs the scenarios serially with the nextest `integration` profile, since each boots its own devnet. Extra args go to nextest, e.g. `just test restart` for one scenario.
 - Name tests after observable behavior (e.g., `handles_invalid_proposal`). The harness prints every container's log tail when a scenario fails (panics, returns an error or times out waiting for a height) or its devnet fails to boot; keep that output for any failing integration case.
-- Targeted verification is fine while iterating, but completion still requires a final full `just fmt && just clippy && just unit && just test` pass with clean output.
+- `just test-smoke` runs exactly four Docker scenarios: single-validator header rules, epoch switch, real L2 rewards claim/fee continuation, and lander CLI SIGTERM resume. This fixed recipe accepts no arguments; use `just test` for targeted filters or output options. Smoke is for iteration and never replaces the full merge gate.
+- Targeted verification is fine while iterating; completion requires one final `just verify` pass with clean output. Regenerate artifacts only when their inputs change; `just verify` always checks reproduction of the committed artifacts.
 
 ## Commit & Pull Request Guidelines
 
 - Use Conventional Commit prefixes (`feat:`, `fix:`, `chore:`). Keep subject lines ≤72 characters with optional, meaningful scopes.
 - PR descriptions must summarize impact, link issues, and include command output or screenshots for operator-facing flows.
-- Confirm `just fmt && just clippy && just unit && just test` pass locally with no warnings or errors in the final verification run; call out any follow-up work explicitly.
+- Confirm `just verify` passes locally with no warnings or errors in the final verification run; call out any follow-up work explicitly.
 
 ## Security & Environment Notes
 

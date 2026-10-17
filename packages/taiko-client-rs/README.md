@@ -908,12 +908,12 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 ### Tests
 
-- `just unit` runs the unit tests (everything outside `tests/` directories) and the abci
-  doctests. No docker needed.
+- `just unit` runs all unit tests and the nine `lander_claim_cli` process tests, then protocol
+  tests without default features and the abci doctests. No docker needed.
 - `just test` runs the serial Docker integration scenarios in `crates/abci/tests`,
   `crates/lander/tests`, `crates/test-harness/tests` and `bin/client/tests`. ABCI scenarios cover single validator,
   anchor finality, restart and lost-state replay, epoch switch with and without landing, back-pressure, generation
-  bump, smoke, calldata inclusion, invalid-byte skips, canonical skips, and unavailable-history
+  bump, calldata inclusion, invalid-byte skips, canonical skips, and unavailable-history
   retry/recovery, plus an L1 finality stall that pauses and resumes L2. The history test emulates
   the source-backed unavailable-build RPC shape through a delegating Engine adapter; it does not
   actually prune Reth state. Lander scenarios cover actual Inbox blob
@@ -936,7 +936,15 @@ just clippy     # doc lints on library code, then every target with -D warnings
   to a unique identifier when supervising a direct cargo/nextest run and retaining an external
   cleanup fallback for SIGKILL.
 
-Regenerate lander ABI/deployment fixtures with
+- `just test-smoke` runs exactly four representative Docker scenarios: single-validator header
+  rules, epoch switch, real L2 rewards claim/fee continuation, and lander CLI SIGTERM resume.
+  This fixed recipe accepts no arguments. Use `just test` for targeted subsets or output options.
+- `just verify` is the complete merge gate: formatting, strict clippy, fast tests, committed
+  artifact reproduction, and all Docker scenarios. Smoke is an iteration aid and never replaces
+  this gate. After each coherent code change batch, run `just fmt && just clippy-fix` and targeted
+  tests; run the complete gate once on the final change batch.
+
+Regenerate lander ABI/deployment fixtures only when their inputs change, with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
 The script requires protocol HEAD `2a4bfa747edcafae96c15b58159e31eea0ebe78a` (also the
 `PROTOCOL_REVISION` in `crates/lander/src/contracts.rs`),

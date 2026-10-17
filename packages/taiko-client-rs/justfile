@@ -42,16 +42,24 @@ udeps:
 test *ARGS:
   ./tests/entrypoint.sh "$@"
 
-# Unit tests only (everything outside `tests/` dirs; the docker scenarios are
-# also `#[ignore]`d): no docker. The protocol pass also compiles and runs its
+# Fast tests: unit tests plus the lander_claim_cli process tests, with no docker. The protocol pass also compiles and runs its
 # tests without default features so test-only feature leaks stay covered in CI;
 # it has no filterset, so it also runs protocol's (docker-free) integration
 # binary. nextest skips doctests, so abci's (e.g. its `compile_fail` checks)
 # run in a last `cargo test --doc` pass. Extra args are forwarded to nextest.
 unit *ARGS:
-  cargo nextest run --workspace --exclude bindings --all-features -E '!kind(test)' "$@" && \
+  cargo nextest run --workspace --exclude bindings --all-features -E '!kind(test) | binary(lander_claim_cli)' "$@" && \
   cargo nextest run -p protocol --no-default-features "$@" && \
   cargo test -p abci --doc
+
+# Four representative Docker scenarios for local iteration. Use `test` for subsets
+# or output arguments; this named tier deliberately accepts no extra filters.
+test-smoke:
+  ./tests/entrypoint.sh --smoke
+
+# Complete merge gate; smoke never substitutes for the full Docker suite.
+verify:
+  just fmt-check && just clippy && just unit && just check-lander-artifacts && just test
 
 gen_bindings:
   ./script/gen_bindings.sh

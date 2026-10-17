@@ -9,12 +9,14 @@ on:
       - "testdata/derivation_vectors/**"
       - "testdata/etna_vectors/**"
       - "packages/taiko-client-rs/**"
+      - ".github/workflows/taiko-client-rs--test.yml"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "testdata/derivation_vectors/**"
       - "testdata/etna_vectors/**"
       - "packages/taiko-client-rs/**"
+      - ".github/workflows/taiko-client-rs--test.yml"
       - "!**/*.md"
 
 concurrency:
@@ -121,7 +123,7 @@ jobs:
         working-directory: packages/taiko-client-rs
         run: just clippy
 
-  # Unit tests need no docker — fast fail-first signal while the Tests job below
+  # Unit and claim CLI process tests need no docker — fast signal while Tests below
   # runs the docker scenarios.
   unit:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
@@ -335,12 +337,6 @@ jobs:
       # devnet through the docker CLI, one scenario at a time.
       - name: Run docker scenarios
         working-directory: packages/taiko-client-rs
-        env:
-          # The alethia-reth image built from taikoxyz/alethia-reth#248, until that PR merges.
-          # tests/entrypoint.sh and crates/test-harness/src/boot.rs default to the same tag, so
-          # when it merges move all three to alethia-reth:main (dropping only this variable
-          # keeps the sha-1e25b48 default).
-          ALETHIA_RETH_IMAGE: us-docker.pkg.dev/evmchain/images/alethia-reth:sha-1e25b48
         run: just test
 
       # Each scenario removes its devnet when it ends, but a job cancellation or
