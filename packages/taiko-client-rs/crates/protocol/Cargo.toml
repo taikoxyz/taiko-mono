@@ -7,26 +7,13 @@ license.workspace = true
 
 [features]
 default = ["net"]
-net = [
-    "alloy/default",
-    "alloy/signers",
-    "alloy-consensus/k256",
-    "bindings",
-    "tokio",
-    "tokio-stream",
-    "alloy-provider",
-    "event-scanner",
-    "robust-provider",
-]
+net = ["alloy/default", "alloy-consensus/k256", "bindings", "alloy-provider"]
 
 [dependencies]
 # async
 async-trait = { workspace = true }
-tokio = { workspace = true, optional = true }
-tokio-stream = { workspace = true, optional = true }
 
 # observability
-prometheus = { workspace = true }
 tracing = { workspace = true }
 
 # ethereum
@@ -36,14 +23,10 @@ alloy-contract = { workspace = true }
 alloy-eips = { workspace = true }
 alloy-hardforks = { workspace = true }
 alloy-primitives = { workspace = true, default-features = false }
-alloy-provider = { workspace = true, optional = true, features = ["ws"] }
+alloy-provider = { workspace = true, optional = true }
 alloy-rlp = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine-2 = { workspace = true }
-event-scanner = { workspace = true, optional = true }
-robust-provider = { workspace = true, optional = true, features = [
-    "http-subscription",
-] }
 
 # crypto
 k256 = { workspace = true }
@@ -63,5 +46,4 @@ thiserror = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
-alloy = { workspace = true, features = ["node-bindings"] }
 serde_json = { workspace = true }

@@ -1,0 +1,1030 @@
+{
+  "provenance": "github.com/cometbft/cometbft v0.40.0; generate.sh",
+  "vectors": [
+    {
+      "name": "duplicate_vote",
+      "block_rpc": {
+        "block_id": {
+          "hash": "D62EF482B6D86D193B173C9F1B835D31AC5CC70D175F0F9EB0C84ABE54759473",
+          "parts": {
+            "total": 1,
+            "hash": "EA288567B13334AF4DD3A8053B387A3C58CD45CB95C6C1476D529FE88F6A6DE1"
+          }
+        },
+        "block": {
+          "header": {
+            "version": {
+              "block": "11"
+            },
+            "chain_id": "taiko-etna-167001-g0",
+            "height": "1",
+            "time": "1970-01-01T00:01:41Z",
+            "last_block_id": {
+              "hash": "",
+              "parts": {
+                "total": 0,
+                "hash": ""
+              }
+            },
+            "last_commit_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+            "data_hash": "BC6F449EFE463C9011928FA45866BF6FFECA9AFB3063134ED1ADF0F77AE5EB42",
+            "validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "next_validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "consensus_hash": "0202020202020202020202020202020202020202020202020202020202020202",
+            "app_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "last_results_hash": "",
+            "evidence_hash": "B7A5EF98DB1B6DC16E3B3430E6249A794811517E0F88404076582FDD5F9A7DB0",
+            "proposer_address": "6A3803D5F059902A1C6DAFBC9BA4729212F7CAAC"
+          },
+          "data": {
+            "txs": [
+              "BvkB9/kB8fkB7aAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKAdzE3o3sddequFtWe2zNQa0xJFG5SKdBPwoUL9QNSTR5QAAAAAAAAAAAAAAAAAAAAAAAAAAKBW6B8XG8xVpv+DReaSwPhuW0jgG5lsrcABYi+142O0IaBW6B8XG8xVpv+DReaSwPhuW0jgG5lsrcABYi+142O0IaBW6B8XG8xVpv+DReaSwPhuW0jgG5lsrcABYi+142O0IbkBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAYCAgICgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACIAAAAAAAAAADAwMDA"
+            ]
+          },
+          "evidence": {
+            "evidence": [
+              {
+                "type": "tendermint/DuplicateVoteEvidence",
+                "value": {
+                  "vote_a": {
+                    "type": 2,
+                    "height": "1",
+                    "round": 0,
+                    "block_id": {
+                      "hash": "0303030303030303030303030303030303030303030303030303030303030303",
+                      "parts": {
+                        "total": 1,
+                        "hash": "0404040404040404040404040404040404040404040404040404040404040404"
+                      }
+                    },
+                    "timestamp": "1970-01-01T00:01:40Z",
+                    "validator_address": "34750F98BD59FCFC946DA45AAABE933BE154A4B5",
+                    "validator_index": 1,
+                    "signature": "J4Kgj6XmcV2VGBK5398LSA+kVDq4Fw0YGiq0aXAc9jYoCAE24snWyXlnnKEdRNYM4xJNzPzSoIOreRtUnQDtDA==",
+                    "extension": null,
+                    "extension_signature": null
+                  },
+                  "vote_b": {
+                    "type": 2,
+                    "height": "1",
+                    "round": 0,
+                    "block_id": {
+                      "hash": "0505050505050505050505050505050505050505050505050505050505050505",
+                      "parts": {
+                        "total": 1,
+                        "hash": "0606060606060606060606060606060606060606060606060606060606060606"
+                      }
+                    },
+                    "timestamp": "1970-01-01T00:01:40Z",
+                    "validator_address": "34750F98BD59FCFC946DA45AAABE933BE154A4B5",
+                    "validator_index": 1,
+                    "signature": "FcFU9ctzQyFuaEETk2cpEW7DaBXmzheLWDQj8fQ0tHIqzmu9pb/xT/CClfe2jRVy+BEqedGeCyVDwv8ve9aTCg==",
+                    "extension": null,
+                    "extension_signature": null
+                  },
+                  "TotalVotingPower": "40",
+                  "ValidatorPower": "10",
+                  "Timestamp": "1970-01-01T00:01:40Z"
+                }
+              }
+            ]
+          },
+          "last_commit": {
+            "height": "0",
+            "round": 0,
+            "block_id": {
+              "hash": "",
+              "parts": {
+                "total": 0,
+                "hash": ""
+              }
+            },
+            "signatures": null
+          }
+        }
+      },
+      "commit_rpc": {
+        "signed_header": {
+          "header": {
+            "version": {
+              "block": "11"
+            },
+            "chain_id": "taiko-etna-167001-g0",
+            "height": "1",
+            "time": "1970-01-01T00:01:41Z",
+            "last_block_id": {
+              "hash": "",
+              "parts": {
+                "total": 0,
+                "hash": ""
+              }
+            },
+            "last_commit_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+            "data_hash": "BC6F449EFE463C9011928FA45866BF6FFECA9AFB3063134ED1ADF0F77AE5EB42",
+            "validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "next_validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "consensus_hash": "0202020202020202020202020202020202020202020202020202020202020202",
+            "app_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "last_results_hash": "",
+            "evidence_hash": "B7A5EF98DB1B6DC16E3B3430E6249A794811517E0F88404076582FDD5F9A7DB0",
+            "proposer_address": "6A3803D5F059902A1C6DAFBC9BA4729212F7CAAC"
+          },
+          "commit": {
+            "height": "1",
+            "round": 0,
+            "block_id": {
+              "hash": "D62EF482B6D86D193B173C9F1B835D31AC5CC70D175F0F9EB0C84ABE54759473",
+              "parts": {
+                "total": 1,
+                "hash": "EA288567B13334AF4DD3A8053B387A3C58CD45CB95C6C1476D529FE88F6A6DE1"
+              }
+            },
+            "signatures": [
+              {
+                "block_id_flag": 2,
+                "validator_address": "6A3803D5F059902A1C6DAFBC9BA4729212F7CAAC",
+                "timestamp": "1970-01-01T00:01:41Z",
+                "signature": "HjbQacS1CTslWFOYyL91kFJ2p1jWzbE6Jgpzdbxmgy9pn3t9evqpsOPYeGF7ftqD1y4CXZ/AjV99b/0I3oOFBA=="
+              },
+              {
+                "block_id_flag": 2,
+                "validator_address": "34750F98BD59FCFC946DA45AAABE933BE154A4B5",
+                "timestamp": "1970-01-01T00:01:41Z",
+                "signature": "6bL+mBWH765kePSLofpgzsYSbQ4m3ecqCiT2QNzXg+WjEaPSRqfzY+okE/VFVEOvp3NN3NGWZNqpZsoHvYK4Cw=="
+              }
+            ]
+          }
+        },
+        "canonical": true
+      },
+      "block_proto": "0aa8020a02080b12147461696b6f2d65746e612d3136373030312d67301801220208652a0212003220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8553a20bc6f449efe463c9011928fa45866bf6ffeca9afb3063134ed1adf0f77ae5eb42422033ba4fb61801db7965350beba444eea555f6c1f43a257d2e4c7f7d7dd5fa5e1c4a2033ba4fb61801db7965350beba444eea555f6c1f43a257d2e4c7f7d7dd5fa5e1c522002020202020202020202020202020202020202020202020202020202020202025a2000000000000000000000000000000000000000000000000000000000000000006a20b7a5ef98db1b6dc16e3b3430e6249a794811517e0f88404076582fdd5f9a7db072146a3803d5f059902a1c6dafbc9ba4729212f7caac12fe030afb0306f901f7f901f1f901eda00000000000000000000000000000000000000000000000000000000000000000a01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347940000000000000000000000000000000000000000a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800180808080a00000000000000000000000000000000000000000000000000000000000000000880000000000000000c0c0c0c01aec020ae9020ae6020aac010802100122480a20030303030303030303030303030303030303030303030303030303030303030312240801122004040404040404040404040404040404040404040404040404040404040404042a020864321434750f98bd59fcfc946da45aaabe933be154a4b5380142402782a08fa5e6715d951812b9dfdf0b480fa4543ab8170d181a2ab469701cf63628080136e2c9d6c979679ca11d44d60ce3124dccfcd2a083ab791b549d00ed0c12ac010802100122480a20050505050505050505050505050505050505050505050505050505050505050512240801122006060606060606060606060606060606060606060606060606060606060606062a020864321434750f98bd59fcfc946da45aaabe933be154a4b53801424015c154f5cb7343216e684113936729116ec36815e6ce178b583423f1f434b4722ace6bbda5bff14ff08295f7b68d1572f8112a79d19e0b2543c2ff2f7bd6930a1828200a2a02086422041a021200",
+      "evidence_hash": "b7a5ef98db1b6dc16e3b3430e6249a794811517e0f88404076582fdd5f9a7db0",
+      "parts_hash": "ea288567b13334af4dd3a8053b387a3c58cd45cb95c6c1476d529fe88f6a6de1",
+      "parts_total": 1
+    },
+    {
+      "name": "duplicate_vote_nil",
+      "block_rpc": {
+        "block_id": {
+          "hash": "05FFAC6B016DEC910CFA4D194F20B2E863C36BD216C9B56909D8680B5EA3A7A7",
+          "parts": {
+            "total": 1,
+            "hash": "F9E621F178BC013CA4F3AEC9B84569ADF84F33BF8ADF415DACA50B5C07C3C347"
+          }
+        },
+        "block": {
+          "header": {
+            "version": {
+              "block": "11"
+            },
+            "chain_id": "taiko-etna-167001-g0",
+            "height": "1",
+            "time": "1970-01-01T00:01:41Z",
+            "last_block_id": {
+              "hash": "",
+              "parts": {
+                "total": 0,
+                "hash": ""
+              }
+            },
+            "last_commit_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+            "data_hash": "BC6F449EFE463C9011928FA45866BF6FFECA9AFB3063134ED1ADF0F77AE5EB42",
+            "validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "next_validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "consensus_hash": "0202020202020202020202020202020202020202020202020202020202020202",
+            "app_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "last_results_hash": "",
+            "evidence_hash": "7157BEDCE08798CD79F9281E6E1759E4FF3B0200677A46B894393C6BCA9961BA",
+            "proposer_address": "6A3803D5F059902A1C6DAFBC9BA4729212F7CAAC"
+          },
+          "data": {
+            "txs": [
+              "BvkB9/kB8fkB7aAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKAdzE3o3sddequFtWe2zNQa0xJFG5SKdBPwoUL9QNSTR5QAAAAAAAAAAAAAAAAAAAAAAAAAAKBW6B8XG8xVpv+DReaSwPhuW0jgG5lsrcABYi+142O0IaBW6B8XG8xVpv+DReaSwPhuW0jgG5lsrcABYi+142O0IaBW6B8XG8xVpv+DReaSwPhuW0jgG5lsrcABYi+142O0IbkBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAYCAgICgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACIAAAAAAAAAADAwMDA"
+            ]
+          },
+          "evidence": {
+            "evidence": [
+              {
+                "type": "tendermint/DuplicateVoteEvidence",
+                "value": {
+                  "vote_a": {
+                    "type": 2,
+                    "height": "1",
+                    "round": 0,
+                    "block_id": {
+                      "hash": "",
+                      "parts": {
+                        "total": 0,
+                        "hash": ""
+                      }
+                    },
+                    "timestamp": "1970-01-01T00:01:40Z",
+                    "validator_address": "34750F98BD59FCFC946DA45AAABE933BE154A4B5",
+                    "validator_index": 1,
+                    "signature": "TWaZ6/sjI37R+qFh+H1nM/hABiYVwBJSK6ymgpPg0nnbWv1oogUJFQyzeOvYRqoDdQxIMzdQ1qy6NHuwNbVRAg==",
+                    "extension": null,
+                    "extension_signature": null
+                  },
+                  "vote_b": {
+                    "type": 2,
+                    "height": "1",
+                    "round": 0,
+                    "block_id": {
+                      "hash": "0505050505050505050505050505050505050505050505050505050505050505",
+                      "parts": {
+                        "total": 1,
+                        "hash": "0606060606060606060606060606060606060606060606060606060606060606"
+                      }
+                    },
+                    "timestamp": "1970-01-01T00:01:40Z",
+                    "validator_address": "34750F98BD59FCFC946DA45AAABE933BE154A4B5",
+                    "validator_index": 1,
+                    "signature": "FcFU9ctzQyFuaEETk2cpEW7DaBXmzheLWDQj8fQ0tHIqzmu9pb/xT/CClfe2jRVy+BEqedGeCyVDwv8ve9aTCg==",
+                    "extension": null,
+                    "extension_signature": null
+                  },
+                  "TotalVotingPower": "40",
+                  "ValidatorPower": "10",
+                  "Timestamp": "1970-01-01T00:01:40Z"
+                }
+              }
+            ]
+          },
+          "last_commit": {
+            "height": "0",
+            "round": 0,
+            "block_id": {
+              "hash": "",
+              "parts": {
+                "total": 0,
+                "hash": ""
+              }
+            },
+            "signatures": null
+          }
+        }
+      },
+      "commit_rpc": {
+        "signed_header": {
+          "header": {
+            "version": {
+              "block": "11"
+            },
+            "chain_id": "taiko-etna-167001-g0",
+            "height": "1",
+            "time": "1970-01-01T00:01:41Z",
+            "last_block_id": {
+              "hash": "",
+              "parts": {
+                "total": 0,
+                "hash": ""
+              }
+            },
+            "last_commit_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+            "data_hash": "BC6F449EFE463C9011928FA45866BF6FFECA9AFB3063134ED1ADF0F77AE5EB42",
+            "validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "next_validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "consensus_hash": "0202020202020202020202020202020202020202020202020202020202020202",
+            "app_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "last_results_hash": "",
+            "evidence_hash": "7157BEDCE08798CD79F9281E6E1759E4FF3B0200677A46B894393C6BCA9961BA",
+            "proposer_address": "6A3803D5F059902A1C6DAFBC9BA4729212F7CAAC"
+          },
+          "commit": {
+            "height": "1",
+            "round": 0,
+            "block_id": {
+              "hash": "05FFAC6B016DEC910CFA4D194F20B2E863C36BD216C9B56909D8680B5EA3A7A7",
+              "parts": {
+                "total": 1,
+                "hash": "F9E621F178BC013CA4F3AEC9B84569ADF84F33BF8ADF415DACA50B5C07C3C347"
+              }
+            },
+            "signatures": [
+              {
+                "block_id_flag": 2,
+                "validator_address": "6A3803D5F059902A1C6DAFBC9BA4729212F7CAAC",
+                "timestamp": "1970-01-01T00:01:41Z",
+                "signature": "JlYZuGHgc+gqQN3YhcwyJNwmfg70D18ooJUNY9cNW6puFvZIsyFQ0H8BbAbUfr1R6cSJhThUAEHICB0Pz5BMBQ=="
+              },
+              {
+                "block_id_flag": 2,
+                "validator_address": "34750F98BD59FCFC946DA45AAABE933BE154A4B5",
+                "timestamp": "1970-01-01T00:01:41Z",
+                "signature": "6bL+mBWH765kePSLofpgzsYSbQ4m3ecqCiT2QNzXg+UmFV8mM97pPzTTjxeAXug9M3xjK3LLYhzQ+5WY09IjAQ=="
+              }
+            ]
+          }
+        },
+        "canonical": true
+      },
+      "block_proto": "0aa8020a02080b12147461696b6f2d65746e612d3136373030312d67301801220208652a0212003220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8553a20bc6f449efe463c9011928fa45866bf6ffeca9afb3063134ed1adf0f77ae5eb42422033ba4fb61801db7965350beba444eea555f6c1f43a257d2e4c7f7d7dd5fa5e1c4a2033ba4fb61801db7965350beba444eea555f6c1f43a257d2e4c7f7d7dd5fa5e1c522002020202020202020202020202020202020202020202020202020202020202025a2000000000000000000000000000000000000000000000000000000000000000006a207157bedce08798cd79f9281e6e1759e4ff3b0200677a46b894393c6bca9961ba72146a3803d5f059902a1c6dafbc9ba4729212f7caac12fe030afb0306f901f7f901f1f901eda00000000000000000000000000000000000000000000000000000000000000000a01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347940000000000000000000000000000000000000000a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800180808080a00000000000000000000000000000000000000000000000000000000000000000880000000000000000c0c0c0c01aa5020aa2020a9f020a6608021001220212002a020864321434750f98bd59fcfc946da45aaabe933be154a4b5380142404d6699ebfb23237ed1faa161f87d6733f840062615c012522baca68293e0d279db5afd68a20509150cb378ebd846aa03750c48333750d6acba347bb035b5510212ac010802100122480a20050505050505050505050505050505050505050505050505050505050505050512240801122006060606060606060606060606060606060606060606060606060606060606062a020864321434750f98bd59fcfc946da45aaabe933be154a4b53801424015c154f5cb7343216e684113936729116ec36815e6ce178b583423f1f434b4722ace6bbda5bff14ff08295f7b68d1572f8112a79d19e0b2543c2ff2f7bd6930a1828200a2a02086422041a021200",
+      "evidence_hash": "7157bedce08798cd79f9281e6e1759e4ff3b0200677a46b894393c6bca9961ba",
+      "parts_hash": "f9e621f178bc013ca4f3aec9b84569adf84f33bf8adf415daca50b5c07c3c347",
+      "parts_total": 1
+    },
+    {
+      "name": "duplicate_vote_extension",
+      "block_rpc": {
+        "block_id": {
+          "hash": "A5E77038D83631818A6A14883FF2EAD3AF4B6D34F1204A757C34E6E3F7C3A70D",
+          "parts": {
+            "total": 1,
+            "hash": "B0B0E9E0B799B7D2346BAC2FBB54E48E6E8E76A16CA8A6F649B1C064CF4519F9"
+          }
+        },
+        "block": {
+          "header": {
+            "version": {
+              "block": "11"
+            },
+            "chain_id": "taiko-etna-167001-g0",
+            "height": "1",
+            "time": "1970-01-01T00:01:41Z",
+            "last_block_id": {
+              "hash": "",
+              "parts": {
+                "total": 0,
+                "hash": ""
+              }
+            },
+            "last_commit_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+            "data_hash": "BC6F449EFE463C9011928FA45866BF6FFECA9AFB3063134ED1ADF0F77AE5EB42",
+            "validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "next_validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "consensus_hash": "0202020202020202020202020202020202020202020202020202020202020202",
+            "app_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "last_results_hash": "",
+            "evidence_hash": "E9D8FFDEF4DBDB0A0882F0B5493B6DBFDD254537756FF2663A86A160E5D9F3E0",
+            "proposer_address": "6A3803D5F059902A1C6DAFBC9BA4729212F7CAAC"
+          },
+          "data": {
+            "txs": [
+              "BvkB9/kB8fkB7aAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKAdzE3o3sddequFtWe2zNQa0xJFG5SKdBPwoUL9QNSTR5QAAAAAAAAAAAAAAAAAAAAAAAAAAKBW6B8XG8xVpv+DReaSwPhuW0jgG5lsrcABYi+142O0IaBW6B8XG8xVpv+DReaSwPhuW0jgG5lsrcABYi+142O0IaBW6B8XG8xVpv+DReaSwPhuW0jgG5lsrcABYi+142O0IbkBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAYCAgICgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACIAAAAAAAAAADAwMDA"
+            ]
+          },
+          "evidence": {
+            "evidence": [
+              {
+                "type": "tendermint/DuplicateVoteEvidence",
+                "value": {
+                  "vote_a": {
+                    "type": 2,
+                    "height": "1",
+                    "round": 0,
+                    "block_id": {
+                      "hash": "0303030303030303030303030303030303030303030303030303030303030303",
+                      "parts": {
+                        "total": 1,
+                        "hash": "0404040404040404040404040404040404040404040404040404040404040404"
+                      }
+                    },
+                    "timestamp": "1970-01-01T00:01:40Z",
+                    "validator_address": "34750F98BD59FCFC946DA45AAABE933BE154A4B5",
+                    "validator_index": 1,
+                    "signature": "J4Kgj6XmcV2VGBK5398LSA+kVDq4Fw0YGiq0aXAc9jYoCAE24snWyXlnnKEdRNYM4xJNzPzSoIOreRtUnQDtDA==",
+                    "extension": "AQID",
+                    "extension_signature": "CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQ=="
+                  },
+                  "vote_b": {
+                    "type": 2,
+                    "height": "1",
+                    "round": 0,
+                    "block_id": {
+                      "hash": "0505050505050505050505050505050505050505050505050505050505050505",
+                      "parts": {
+                        "total": 1,
+                        "hash": "0606060606060606060606060606060606060606060606060606060606060606"
+                      }
+                    },
+                    "timestamp": "1970-01-01T00:01:40Z",
+                    "validator_address": "34750F98BD59FCFC946DA45AAABE933BE154A4B5",
+                    "validator_index": 1,
+                    "signature": "FcFU9ctzQyFuaEETk2cpEW7DaBXmzheLWDQj8fQ0tHIqzmu9pb/xT/CClfe2jRVy+BEqedGeCyVDwv8ve9aTCg==",
+                    "extension": null,
+                    "extension_signature": null
+                  },
+                  "TotalVotingPower": "40",
+                  "ValidatorPower": "10",
+                  "Timestamp": "1970-01-01T00:01:40Z"
+                }
+              }
+            ]
+          },
+          "last_commit": {
+            "height": "0",
+            "round": 0,
+            "block_id": {
+              "hash": "",
+              "parts": {
+                "total": 0,
+                "hash": ""
+              }
+            },
+            "signatures": null
+          }
+        }
+      },
+      "commit_rpc": {
+        "signed_header": {
+          "header": {
+            "version": {
+              "block": "11"
+            },
+            "chain_id": "taiko-etna-167001-g0",
+            "height": "1",
+            "time": "1970-01-01T00:01:41Z",
+            "last_block_id": {
+              "hash": "",
+              "parts": {
+                "total": 0,
+                "hash": ""
+              }
+            },
+            "last_commit_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+            "data_hash": "BC6F449EFE463C9011928FA45866BF6FFECA9AFB3063134ED1ADF0F77AE5EB42",
+            "validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "next_validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "consensus_hash": "0202020202020202020202020202020202020202020202020202020202020202",
+            "app_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "last_results_hash": "",
+            "evidence_hash": "E9D8FFDEF4DBDB0A0882F0B5493B6DBFDD254537756FF2663A86A160E5D9F3E0",
+            "proposer_address": "6A3803D5F059902A1C6DAFBC9BA4729212F7CAAC"
+          },
+          "commit": {
+            "height": "1",
+            "round": 0,
+            "block_id": {
+              "hash": "A5E77038D83631818A6A14883FF2EAD3AF4B6D34F1204A757C34E6E3F7C3A70D",
+              "parts": {
+                "total": 1,
+                "hash": "B0B0E9E0B799B7D2346BAC2FBB54E48E6E8E76A16CA8A6F649B1C064CF4519F9"
+              }
+            },
+            "signatures": [
+              {
+                "block_id_flag": 2,
+                "validator_address": "6A3803D5F059902A1C6DAFBC9BA4729212F7CAAC",
+                "timestamp": "1970-01-01T00:01:41Z",
+                "signature": "4prC2DyLV3TryY167Aa6EVh9RIQUkm0kdx31rcLl1vnRiJjhiPz2jz2Qd2WQ5Vw6olbRvxdRCVSD+SScR1v3Dw=="
+              },
+              {
+                "block_id_flag": 2,
+                "validator_address": "34750F98BD59FCFC946DA45AAABE933BE154A4B5",
+                "timestamp": "1970-01-01T00:01:41Z",
+                "signature": "6bL+mBWH765kePSLofpgzsYSbQ4m3ecqCiT2QNzXg+Xz6ZnFlAMcP5zWkaEOr6dHliEc0JXI2Wab3wJAs7IVAw=="
+              }
+            ]
+          }
+        },
+        "canonical": true
+      },
+      "block_proto": "0aa8020a02080b12147461696b6f2d65746e612d3136373030312d67301801220208652a0212003220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8553a20bc6f449efe463c9011928fa45866bf6ffeca9afb3063134ed1adf0f77ae5eb42422033ba4fb61801db7965350beba444eea555f6c1f43a257d2e4c7f7d7dd5fa5e1c4a2033ba4fb61801db7965350beba444eea555f6c1f43a257d2e4c7f7d7dd5fa5e1c522002020202020202020202020202020202020202020202020202020202020202025a2000000000000000000000000000000000000000000000000000000000000000006a20e9d8ffdef4dbdb0a0882f0b5493b6dbfdd254537756ff2663a86a160e5d9f3e072146a3803d5f059902a1c6dafbc9ba4729212f7caac12fe030afb0306f901f7f901f1f901eda00000000000000000000000000000000000000000000000000000000000000000a01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347940000000000000000000000000000000000000000a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800180808080a00000000000000000000000000000000000000000000000000000000000000000880000000000000000c0c0c0c01ab3030ab0030aad030af3010802100122480a20030303030303030303030303030303030303030303030303030303030303030312240801122004040404040404040404040404040404040404040404040404040404040404042a020864321434750f98bd59fcfc946da45aaabe933be154a4b5380142402782a08fa5e6715d951812b9dfdf0b480fa4543ab8170d181a2ab469701cf63628080136e2c9d6c979679ca11d44d60ce3124dccfcd2a083ab791b549d00ed0c4a0301020352400909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090912ac010802100122480a20050505050505050505050505050505050505050505050505050505050505050512240801122006060606060606060606060606060606060606060606060606060606060606062a020864321434750f98bd59fcfc946da45aaabe933be154a4b53801424015c154f5cb7343216e684113936729116ec36815e6ce178b583423f1f434b4722ace6bbda5bff14ff08295f7b68d1572f8112a79d19e0b2543c2ff2f7bd6930a1828200a2a02086422041a021200",
+      "evidence_hash": "e9d8ffdef4dbdb0a0882f0b5493b6dbfdd254537756ff2663a86a160e5d9f3e0",
+      "parts_hash": "b0b0e9e0b799b7d2346bac2fbb54e48e6e8e76a16ca8a6f649b1c064cf4519f9",
+      "parts_total": 1
+    },
+    {
+      "name": "duplicate_vote_extension_signature_65",
+      "block_rpc": {
+        "block_id": {
+          "hash": "80330F708588BB65E0E50A6A99484D440656B20ACE1C6C7B2626FFFF186169C5",
+          "parts": {
+            "total": 1,
+            "hash": "448406D0F2B7C70FDFBF2DDA158925275916D2A2171CB49E035008EF096EB46A"
+          }
+        },
+        "block": {
+          "header": {
+            "version": {
+              "block": "11"
+            },
+            "chain_id": "taiko-etna-167001-g0",
+            "height": "1",
+            "time": "1970-01-01T00:01:41Z",
+            "last_block_id": {
+              "hash": "",
+              "parts": {
+                "total": 0,
+                "hash": ""
+              }
+            },
+            "last_commit_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+            "data_hash": "BC6F449EFE463C9011928FA45866BF6FFECA9AFB3063134ED1ADF0F77AE5EB42",
+            "validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "next_validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "consensus_hash": "0202020202020202020202020202020202020202020202020202020202020202",
+            "app_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "last_results_hash": "",
+            "evidence_hash": "48A4C2C862A55372041E51806BDFFB1D38E585056DD69019A77ACFD7B1F93287",
+            "proposer_address": "6A3803D5F059902A1C6DAFBC9BA4729212F7CAAC"
+          },
+          "data": {
+            "txs": [
+              "BvkB9/kB8fkB7aAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKAdzE3o3sddequFtWe2zNQa0xJFG5SKdBPwoUL9QNSTR5QAAAAAAAAAAAAAAAAAAAAAAAAAAKBW6B8XG8xVpv+DReaSwPhuW0jgG5lsrcABYi+142O0IaBW6B8XG8xVpv+DReaSwPhuW0jgG5lsrcABYi+142O0IaBW6B8XG8xVpv+DReaSwPhuW0jgG5lsrcABYi+142O0IbkBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAYCAgICgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACIAAAAAAAAAADAwMDA"
+            ]
+          },
+          "evidence": {
+            "evidence": [
+              {
+                "type": "tendermint/DuplicateVoteEvidence",
+                "value": {
+                  "vote_a": {
+                    "type": 2,
+                    "height": "1",
+                    "round": 0,
+                    "block_id": {
+                      "hash": "0303030303030303030303030303030303030303030303030303030303030303",
+                      "parts": {
+                        "total": 1,
+                        "hash": "0404040404040404040404040404040404040404040404040404040404040404"
+                      }
+                    },
+                    "timestamp": "1970-01-01T00:01:40Z",
+                    "validator_address": "34750F98BD59FCFC946DA45AAABE933BE154A4B5",
+                    "validator_index": 1,
+                    "signature": "J4Kgj6XmcV2VGBK5398LSA+kVDq4Fw0YGiq0aXAc9jYoCAE24snWyXlnnKEdRNYM4xJNzPzSoIOreRtUnQDtDA==",
+                    "extension": "AQID",
+                    "extension_signature": "CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk="
+                  },
+                  "vote_b": {
+                    "type": 2,
+                    "height": "1",
+                    "round": 0,
+                    "block_id": {
+                      "hash": "0505050505050505050505050505050505050505050505050505050505050505",
+                      "parts": {
+                        "total": 1,
+                        "hash": "0606060606060606060606060606060606060606060606060606060606060606"
+                      }
+                    },
+                    "timestamp": "1970-01-01T00:01:40Z",
+                    "validator_address": "34750F98BD59FCFC946DA45AAABE933BE154A4B5",
+                    "validator_index": 1,
+                    "signature": "FcFU9ctzQyFuaEETk2cpEW7DaBXmzheLWDQj8fQ0tHIqzmu9pb/xT/CClfe2jRVy+BEqedGeCyVDwv8ve9aTCg==",
+                    "extension": null,
+                    "extension_signature": null
+                  },
+                  "TotalVotingPower": "40",
+                  "ValidatorPower": "10",
+                  "Timestamp": "1970-01-01T00:01:40Z"
+                }
+              }
+            ]
+          },
+          "last_commit": {
+            "height": "0",
+            "round": 0,
+            "block_id": {
+              "hash": "",
+              "parts": {
+                "total": 0,
+                "hash": ""
+              }
+            },
+            "signatures": null
+          }
+        }
+      },
+      "commit_rpc": {
+        "signed_header": {
+          "header": {
+            "version": {
+              "block": "11"
+            },
+            "chain_id": "taiko-etna-167001-g0",
+            "height": "1",
+            "time": "1970-01-01T00:01:41Z",
+            "last_block_id": {
+              "hash": "",
+              "parts": {
+                "total": 0,
+                "hash": ""
+              }
+            },
+            "last_commit_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+            "data_hash": "BC6F449EFE463C9011928FA45866BF6FFECA9AFB3063134ED1ADF0F77AE5EB42",
+            "validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "next_validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "consensus_hash": "0202020202020202020202020202020202020202020202020202020202020202",
+            "app_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "last_results_hash": "",
+            "evidence_hash": "48A4C2C862A55372041E51806BDFFB1D38E585056DD69019A77ACFD7B1F93287",
+            "proposer_address": "6A3803D5F059902A1C6DAFBC9BA4729212F7CAAC"
+          },
+          "commit": {
+            "height": "1",
+            "round": 0,
+            "block_id": {
+              "hash": "80330F708588BB65E0E50A6A99484D440656B20ACE1C6C7B2626FFFF186169C5",
+              "parts": {
+                "total": 1,
+                "hash": "448406D0F2B7C70FDFBF2DDA158925275916D2A2171CB49E035008EF096EB46A"
+              }
+            },
+            "signatures": [
+              {
+                "block_id_flag": 2,
+                "validator_address": "6A3803D5F059902A1C6DAFBC9BA4729212F7CAAC",
+                "timestamp": "1970-01-01T00:01:41Z",
+                "signature": "+ArfnSmxlWE2MND3DFjfMu9xSGsQFuA0B2OjHlAlsEVQg8RzZlIp4P6MZkUA6oqhiBe/NIQRsy6Y4d5E0peVDA=="
+              },
+              {
+                "block_id_flag": 2,
+                "validator_address": "34750F98BD59FCFC946DA45AAABE933BE154A4B5",
+                "timestamp": "1970-01-01T00:01:41Z",
+                "signature": "6bL+mBWH765kePSLofpgzsYSbQ4m3ecqCiT2QNzXg+VicHKcU2W8gAE5oiSULcOZsm6+8OM5uAgacMo0uESQAQ=="
+              }
+            ]
+          }
+        },
+        "canonical": true
+      },
+      "block_proto": "0aa8020a02080b12147461696b6f2d65746e612d3136373030312d67301801220208652a0212003220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8553a20bc6f449efe463c9011928fa45866bf6ffeca9afb3063134ed1adf0f77ae5eb42422033ba4fb61801db7965350beba444eea555f6c1f43a257d2e4c7f7d7dd5fa5e1c4a2033ba4fb61801db7965350beba444eea555f6c1f43a257d2e4c7f7d7dd5fa5e1c522002020202020202020202020202020202020202020202020202020202020202025a2000000000000000000000000000000000000000000000000000000000000000006a2048a4c2c862a55372041e51806bdffb1d38e585056dd69019a77acfd7b1f9328772146a3803d5f059902a1c6dafbc9ba4729212f7caac12fe030afb0306f901f7f901f1f901eda00000000000000000000000000000000000000000000000000000000000000000a01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347940000000000000000000000000000000000000000a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800180808080a00000000000000000000000000000000000000000000000000000000000000000880000000000000000c0c0c0c01ab4030ab1030aae030af4010802100122480a20030303030303030303030303030303030303030303030303030303030303030312240801122004040404040404040404040404040404040404040404040404040404040404042a020864321434750f98bd59fcfc946da45aaabe933be154a4b5380142402782a08fa5e6715d951812b9dfdf0b480fa4543ab8170d181a2ab469701cf63628080136e2c9d6c979679ca11d44d60ce3124dccfcd2a083ab791b549d00ed0c4a030102035241090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090912ac010802100122480a20050505050505050505050505050505050505050505050505050505050505050512240801122006060606060606060606060606060606060606060606060606060606060606062a020864321434750f98bd59fcfc946da45aaabe933be154a4b53801424015c154f5cb7343216e684113936729116ec36815e6ce178b583423f1f434b4722ace6bbda5bff14ff08295f7b68d1572f8112a79d19e0b2543c2ff2f7bd6930a1828200a2a02086422041a021200",
+      "evidence_hash": "48a4c2c862a55372041e51806bdffb1d38e585056dd69019a77acfd7b1f93287",
+      "parts_hash": "448406d0f2b7c70fdfbf2dda158925275916d2a2171cb49e035008ef096eb46a",
+      "parts_total": 1
+    },
+    {
+      "name": "duplicate_vote_extension_signature_only_96",
+      "block_rpc": {
+        "block_id": {
+          "hash": "BCEF2EDA7E8B3C918A566B675DE31537C21FCFA60005580A534DAAB0D02DF08B",
+          "parts": {
+            "total": 1,
+            "hash": "4ABDB2E7A67E37A8D30D8D7B5D32BFD24F77493D82230180705073C478ECE2E0"
+          }
+        },
+        "block": {
+          "header": {
+            "version": {
+              "block": "11"
+            },
+            "chain_id": "taiko-etna-167001-g0",
+            "height": "1",
+            "time": "1970-01-01T00:01:41Z",
+            "last_block_id": {
+              "hash": "",
+              "parts": {
+                "total": 0,
+                "hash": ""
+              }
+            },
+            "last_commit_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+            "data_hash": "BC6F449EFE463C9011928FA45866BF6FFECA9AFB3063134ED1ADF0F77AE5EB42",
+            "validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "next_validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "consensus_hash": "0202020202020202020202020202020202020202020202020202020202020202",
+            "app_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "last_results_hash": "",
+            "evidence_hash": "142DE51F8F7E286A3B0C24CB34AF1E1064B64A16598EFBFAB1200057F096001D",
+            "proposer_address": "6A3803D5F059902A1C6DAFBC9BA4729212F7CAAC"
+          },
+          "data": {
+            "txs": [
+              "BvkB9/kB8fkB7aAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKAdzE3o3sddequFtWe2zNQa0xJFG5SKdBPwoUL9QNSTR5QAAAAAAAAAAAAAAAAAAAAAAAAAAKBW6B8XG8xVpv+DReaSwPhuW0jgG5lsrcABYi+142O0IaBW6B8XG8xVpv+DReaSwPhuW0jgG5lsrcABYi+142O0IaBW6B8XG8xVpv+DReaSwPhuW0jgG5lsrcABYi+142O0IbkBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAYCAgICgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACIAAAAAAAAAADAwMDA"
+            ]
+          },
+          "evidence": {
+            "evidence": [
+              {
+                "type": "tendermint/DuplicateVoteEvidence",
+                "value": {
+                  "vote_a": {
+                    "type": 2,
+                    "height": "1",
+                    "round": 0,
+                    "block_id": {
+                      "hash": "0303030303030303030303030303030303030303030303030303030303030303",
+                      "parts": {
+                        "total": 1,
+                        "hash": "0404040404040404040404040404040404040404040404040404040404040404"
+                      }
+                    },
+                    "timestamp": "1970-01-01T00:01:40Z",
+                    "validator_address": "34750F98BD59FCFC946DA45AAABE933BE154A4B5",
+                    "validator_index": 1,
+                    "signature": "J4Kgj6XmcV2VGBK5398LSA+kVDq4Fw0YGiq0aXAc9jYoCAE24snWyXlnnKEdRNYM4xJNzPzSoIOreRtUnQDtDA==",
+                    "extension": null,
+                    "extension_signature": "CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJ"
+                  },
+                  "vote_b": {
+                    "type": 2,
+                    "height": "1",
+                    "round": 0,
+                    "block_id": {
+                      "hash": "0505050505050505050505050505050505050505050505050505050505050505",
+                      "parts": {
+                        "total": 1,
+                        "hash": "0606060606060606060606060606060606060606060606060606060606060606"
+                      }
+                    },
+                    "timestamp": "1970-01-01T00:01:40Z",
+                    "validator_address": "34750F98BD59FCFC946DA45AAABE933BE154A4B5",
+                    "validator_index": 1,
+                    "signature": "FcFU9ctzQyFuaEETk2cpEW7DaBXmzheLWDQj8fQ0tHIqzmu9pb/xT/CClfe2jRVy+BEqedGeCyVDwv8ve9aTCg==",
+                    "extension": null,
+                    "extension_signature": null
+                  },
+                  "TotalVotingPower": "40",
+                  "ValidatorPower": "10",
+                  "Timestamp": "1970-01-01T00:01:40Z"
+                }
+              }
+            ]
+          },
+          "last_commit": {
+            "height": "0",
+            "round": 0,
+            "block_id": {
+              "hash": "",
+              "parts": {
+                "total": 0,
+                "hash": ""
+              }
+            },
+            "signatures": null
+          }
+        }
+      },
+      "commit_rpc": {
+        "signed_header": {
+          "header": {
+            "version": {
+              "block": "11"
+            },
+            "chain_id": "taiko-etna-167001-g0",
+            "height": "1",
+            "time": "1970-01-01T00:01:41Z",
+            "last_block_id": {
+              "hash": "",
+              "parts": {
+                "total": 0,
+                "hash": ""
+              }
+            },
+            "last_commit_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+            "data_hash": "BC6F449EFE463C9011928FA45866BF6FFECA9AFB3063134ED1ADF0F77AE5EB42",
+            "validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "next_validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "consensus_hash": "0202020202020202020202020202020202020202020202020202020202020202",
+            "app_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "last_results_hash": "",
+            "evidence_hash": "142DE51F8F7E286A3B0C24CB34AF1E1064B64A16598EFBFAB1200057F096001D",
+            "proposer_address": "6A3803D5F059902A1C6DAFBC9BA4729212F7CAAC"
+          },
+          "commit": {
+            "height": "1",
+            "round": 0,
+            "block_id": {
+              "hash": "BCEF2EDA7E8B3C918A566B675DE31537C21FCFA60005580A534DAAB0D02DF08B",
+              "parts": {
+                "total": 1,
+                "hash": "4ABDB2E7A67E37A8D30D8D7B5D32BFD24F77493D82230180705073C478ECE2E0"
+              }
+            },
+            "signatures": [
+              {
+                "block_id_flag": 2,
+                "validator_address": "6A3803D5F059902A1C6DAFBC9BA4729212F7CAAC",
+                "timestamp": "1970-01-01T00:01:41Z",
+                "signature": "mc3SEVPfgBWxdrhmybo39HF4Wq/xo2RJyvI00aa9+8zEXr+DyQDIX0v+vCkuObllOSPVY01KvbzMbCHnbeh8AQ=="
+              },
+              {
+                "block_id_flag": 2,
+                "validator_address": "34750F98BD59FCFC946DA45AAABE933BE154A4B5",
+                "timestamp": "1970-01-01T00:01:41Z",
+                "signature": "6bL+mBWH765kePSLofpgzsYSbQ4m3ecqCiT2QNzXg+XxHAlwW2MHHl8unRy1NbNxZtaA/5HzQ8Uwv3044czkAg=="
+              }
+            ]
+          }
+        },
+        "canonical": true
+      },
+      "block_proto": "0aa8020a02080b12147461696b6f2d65746e612d3136373030312d67301801220208652a0212003220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8553a20bc6f449efe463c9011928fa45866bf6ffeca9afb3063134ed1adf0f77ae5eb42422033ba4fb61801db7965350beba444eea555f6c1f43a257d2e4c7f7d7dd5fa5e1c4a2033ba4fb61801db7965350beba444eea555f6c1f43a257d2e4c7f7d7dd5fa5e1c522002020202020202020202020202020202020202020202020202020202020202025a2000000000000000000000000000000000000000000000000000000000000000006a20142de51f8f7e286a3b0c24cb34af1e1064b64a16598efbfab1200057f096001d72146a3803d5f059902a1c6dafbc9ba4729212f7caac12fe030afb0306f901f7f901f1f901eda00000000000000000000000000000000000000000000000000000000000000000a01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347940000000000000000000000000000000000000000a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800180808080a00000000000000000000000000000000000000000000000000000000000000000880000000000000000c0c0c0c01ace030acb030ac8030a8e020802100122480a20030303030303030303030303030303030303030303030303030303030303030312240801122004040404040404040404040404040404040404040404040404040404040404042a020864321434750f98bd59fcfc946da45aaabe933be154a4b5380142402782a08fa5e6715d951812b9dfdf0b480fa4543ab8170d181a2ab469701cf63628080136e2c9d6c979679ca11d44d60ce3124dccfcd2a083ab791b549d00ed0c526009090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090912ac010802100122480a20050505050505050505050505050505050505050505050505050505050505050512240801122006060606060606060606060606060606060606060606060606060606060606062a020864321434750f98bd59fcfc946da45aaabe933be154a4b53801424015c154f5cb7343216e684113936729116ec36815e6ce178b583423f1f434b4722ace6bbda5bff14ff08295f7b68d1572f8112a79d19e0b2543c2ff2f7bd6930a1828200a2a02086422041a021200",
+      "evidence_hash": "142de51f8f7e286a3b0c24cb34af1e1064b64a16598efbfab1200057f096001d",
+      "parts_hash": "4abdb2e7a67e37a8d30d8d7b5d32bfd24f77493d82230180705073c478ece2e0",
+      "parts_total": 1
+    },
+    {
+      "name": "light_client_attack",
+      "block_rpc": {
+        "block_id": {
+          "hash": "920CDFC9A9AA0A73DFFDEDC40A7FA804070893C51A2445338D6388D427DF6DC0",
+          "parts": {
+            "total": 1,
+            "hash": "963D3C7AAA64B64FE88AFADEC8D1D3E1167DCDC500C47B6E55FA974C3597B97A"
+          }
+        },
+        "block": {
+          "header": {
+            "version": {
+              "block": "11"
+            },
+            "chain_id": "taiko-etna-167001-g0",
+            "height": "1",
+            "time": "1970-01-01T00:01:41Z",
+            "last_block_id": {
+              "hash": "",
+              "parts": {
+                "total": 0,
+                "hash": ""
+              }
+            },
+            "last_commit_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+            "data_hash": "BC6F449EFE463C9011928FA45866BF6FFECA9AFB3063134ED1ADF0F77AE5EB42",
+            "validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "next_validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "consensus_hash": "0202020202020202020202020202020202020202020202020202020202020202",
+            "app_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "last_results_hash": "",
+            "evidence_hash": "01BAF3CB0FE3FC7A944F3F8FDD74D504D0C2E9F087DBA5BF6F9D769A29B164E9",
+            "proposer_address": "6A3803D5F059902A1C6DAFBC9BA4729212F7CAAC"
+          },
+          "data": {
+            "txs": [
+              "BvkB9/kB8fkB7aAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKAdzE3o3sddequFtWe2zNQa0xJFG5SKdBPwoUL9QNSTR5QAAAAAAAAAAAAAAAAAAAAAAAAAAKBW6B8XG8xVpv+DReaSwPhuW0jgG5lsrcABYi+142O0IaBW6B8XG8xVpv+DReaSwPhuW0jgG5lsrcABYi+142O0IaBW6B8XG8xVpv+DReaSwPhuW0jgG5lsrcABYi+142O0IbkBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAYCAgICgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACIAAAAAAAAAADAwMDA"
+            ]
+          },
+          "evidence": {
+            "evidence": [
+              {
+                "type": "tendermint/LightClientAttackEvidence",
+                "value": {
+                  "ConflictingBlock": {
+                    "signed_header": {
+                      "header": {
+                        "version": {
+                          "block": "11"
+                        },
+                        "chain_id": "taiko-etna-167001-g0",
+                        "height": "2",
+                        "time": "1970-01-01T00:01:42Z",
+                        "last_block_id": {
+                          "hash": "",
+                          "parts": {
+                            "total": 0,
+                            "hash": ""
+                          }
+                        },
+                        "last_commit_hash": "",
+                        "data_hash": "",
+                        "validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+                        "next_validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+                        "consensus_hash": "0202020202020202020202020202020202020202020202020202020202020202",
+                        "app_hash": "0707070707070707070707070707070707070707070707070707070707070707",
+                        "last_results_hash": "",
+                        "evidence_hash": "",
+                        "proposer_address": "6A3803D5F059902A1C6DAFBC9BA4729212F7CAAC"
+                      },
+                      "commit": {
+                        "height": "2",
+                        "round": 0,
+                        "block_id": {
+                          "hash": "4DA496B98C82BE9C7E8E4BF810F8C8A8FA553CF5B7AF022A494B41B034744C88",
+                          "parts": {
+                            "total": 1,
+                            "hash": "0909090909090909090909090909090909090909090909090909090909090909"
+                          }
+                        },
+                        "signatures": [
+                          {
+                            "block_id_flag": 2,
+                            "validator_address": "6A3803D5F059902A1C6DAFBC9BA4729212F7CAAC",
+                            "timestamp": "1970-01-01T00:01:42Z",
+                            "signature": "sFfKYiE3GULdjbXpMoFsn3AuU75TqVAhriRFVp3mN6tJXkPltetXykEYirxEKZiu/DbqW+mvXtgfl+Aw+FTxBw=="
+                          },
+                          {
+                            "block_id_flag": 2,
+                            "validator_address": "34750F98BD59FCFC946DA45AAABE933BE154A4B5",
+                            "timestamp": "1970-01-01T00:01:42Z",
+                            "signature": "6bL+mBWH765kePSLofpgzsYSbQ4m3ecqCiT2QNzXg+VLCyg12iAmCL8BwZgrAMZWWt9wMHrYFoQIeuzOtcvHBg=="
+                          }
+                        ]
+                      }
+                    },
+                    "validator_set": {
+                      "validators": [
+                        {
+                          "address": "6A3803D5F059902A1C6DAFBC9BA4729212F7CAAC",
+                          "pub_key": {
+                            "type": "tendermint/PubKeyEd25519",
+                            "value": "gTl3Dqh9F19Wo1Rmw0x+zMuNipG07jeiXfYPW4/Js5Q="
+                          },
+                          "voting_power": "30",
+                          "proposer_priority": "-10"
+                        },
+                        {
+                          "address": "34750F98BD59FCFC946DA45AAABE933BE154A4B5",
+                          "pub_key": {
+                            "type": "tendermint/PubKeyEd25519",
+                            "value": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+                          },
+                          "voting_power": "10",
+                          "proposer_priority": "10"
+                        }
+                      ],
+                      "proposer": {
+                        "address": "6A3803D5F059902A1C6DAFBC9BA4729212F7CAAC",
+                        "pub_key": {
+                          "type": "tendermint/PubKeyEd25519",
+                          "value": "gTl3Dqh9F19Wo1Rmw0x+zMuNipG07jeiXfYPW4/Js5Q="
+                        },
+                        "voting_power": "30",
+                        "proposer_priority": "-10"
+                      }
+                    }
+                  },
+                  "CommonHeight": "1",
+                  "ByzantineValidators": [
+                    {
+                      "address": "34750F98BD59FCFC946DA45AAABE933BE154A4B5",
+                      "pub_key": {
+                        "type": "tendermint/PubKeyEd25519",
+                        "value": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+                      },
+                      "voting_power": "10",
+                      "proposer_priority": "10"
+                    }
+                  ],
+                  "TotalVotingPower": "40",
+                  "Timestamp": "1970-01-01T00:01:40Z"
+                }
+              }
+            ]
+          },
+          "last_commit": {
+            "height": "0",
+            "round": 0,
+            "block_id": {
+              "hash": "",
+              "parts": {
+                "total": 0,
+                "hash": ""
+              }
+            },
+            "signatures": null
+          }
+        }
+      },
+      "commit_rpc": {
+        "signed_header": {
+          "header": {
+            "version": {
+              "block": "11"
+            },
+            "chain_id": "taiko-etna-167001-g0",
+            "height": "1",
+            "time": "1970-01-01T00:01:41Z",
+            "last_block_id": {
+              "hash": "",
+              "parts": {
+                "total": 0,
+                "hash": ""
+              }
+            },
+            "last_commit_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+            "data_hash": "BC6F449EFE463C9011928FA45866BF6FFECA9AFB3063134ED1ADF0F77AE5EB42",
+            "validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "next_validators_hash": "33BA4FB61801DB7965350BEBA444EEA555F6C1F43A257D2E4C7F7D7DD5FA5E1C",
+            "consensus_hash": "0202020202020202020202020202020202020202020202020202020202020202",
+            "app_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "last_results_hash": "",
+            "evidence_hash": "01BAF3CB0FE3FC7A944F3F8FDD74D504D0C2E9F087DBA5BF6F9D769A29B164E9",
+            "proposer_address": "6A3803D5F059902A1C6DAFBC9BA4729212F7CAAC"
+          },
+          "commit": {
+            "height": "1",
+            "round": 0,
+            "block_id": {
+              "hash": "920CDFC9A9AA0A73DFFDEDC40A7FA804070893C51A2445338D6388D427DF6DC0",
+              "parts": {
+                "total": 1,
+                "hash": "963D3C7AAA64B64FE88AFADEC8D1D3E1167DCDC500C47B6E55FA974C3597B97A"
+              }
+            },
+            "signatures": [
+              {
+                "block_id_flag": 2,
+                "validator_address": "6A3803D5F059902A1C6DAFBC9BA4729212F7CAAC",
+                "timestamp": "1970-01-01T00:01:41Z",
+                "signature": "Yz4iv/ochOp8Eog/a+tCxLBk129oipUDMAa/YEkYJWik/aitmeXuOlj07xq6m9iYnQRLyLgCQ5WOJOPXFQ/9CQ=="
+              },
+              {
+                "block_id_flag": 2,
+                "validator_address": "34750F98BD59FCFC946DA45AAABE933BE154A4B5",
+                "timestamp": "1970-01-01T00:01:41Z",
+                "signature": "6bL+mBWH765kePSLofpgzsYSbQ4m3ecqCiT2QNzXg+X+2XqUvHrTHqHyebqX+QWD+h4b4LgKyNYoMS3/bWX+Cw=="
+              }
+            ]
+          }
+        },
+        "canonical": true
+      },
+      "block_proto": "0aa8020a02080b12147461696b6f2d65746e612d3136373030312d67301801220208652a0212003220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8553a20bc6f449efe463c9011928fa45866bf6ffeca9afb3063134ed1adf0f77ae5eb42422033ba4fb61801db7965350beba444eea555f6c1f43a257d2e4c7f7d7dd5fa5e1c4a2033ba4fb61801db7965350beba444eea555f6c1f43a257d2e4c7f7d7dd5fa5e1c522002020202020202020202020202020202020202020202020202020202020202025a2000000000000000000000000000000000000000000000000000000000000000006a2001baf3cb0fe3fc7a944f3f8fdd74d504d0c2e9f087dba5bf6f9d769a29b164e972146a3803d5f059902a1c6dafbc9ba4729212f7caac12fe030afb0306f901f7f901f1f901eda00000000000000000000000000000000000000000000000000000000000000000a01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347940000000000000000000000000000000000000000a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800180808080a00000000000000000000000000000000000000000000000000000000000000000880000000000000000c0c0c0c01afd050afa0512f7050aac050ad4030ac2010a02080b12147461696b6f2d65746e612d3136373030312d67301802220208662a021200422033ba4fb61801db7965350beba444eea555f6c1f43a257d2e4c7f7d7dd5fa5e1c4a2033ba4fb61801db7965350beba444eea555f6c1f43a257d2e4c7f7d7dd5fa5e1c522002020202020202020202020202020202020202020202020202020202020202025a20070707070707070707070707070707070707070707070707070707070707070772146a3803d5f059902a1c6dafbc9ba4729212f7caac128c0208021a480a204da496b98c82be9c7e8e4bf810f8c8a8fa553cf5b7af022a494b41b034744c881224080112200909090909090909090909090909090909090909090909090909090909090909225e080212146a3803d5f059902a1c6dafbc9ba4729212f7caac1a0208662240b057ca6221371942dd8db5e932816c9f702e53be53a95021ae2445569de637ab495e43e5b5eb57ca41188abc442998aefc36ea5be9af5ed81f97e030f854f107225e0802121434750f98bd59fcfc946da45aaabe933be154a4b51a0208662240e9b2fe981587efae6478f48ba1fa60cec6126d0e26dde72a0a24f640dcd783e54b0b2835da202608bf01c1982b00c6565adf70307ad81684087aecceb5cbc70612d2010a470a146a3803d5f059902a1c6dafbc9ba4729212f7caac12220a208139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394181e20f6ffffffffffffffff010a3e0a1434750f98bd59fcfc946da45aaabe933be154a4b512220a208a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c180a200a12470a146a3803d5f059902a1c6dafbc9ba4729212f7caac12220a208139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394181e20f6ffffffffffffffff0110011a3e0a1434750f98bd59fcfc946da45aaabe933be154a4b512220a208a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c180a200a20282a02086422041a021200",
+      "evidence_hash": "01baf3cb0fe3fc7a944f3f8fdd74d504d0c2e9f087dba5bf6f9d769a29b164e9",
+      "parts_hash": "963d3c7aaa64b64fe88afadec8d1d3e1167dcdc500c47b6e55fa974c3597b97a",
+      "parts_total": 1
+    }
+  ]
+}

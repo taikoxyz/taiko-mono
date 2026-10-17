@@ -1,0 +1,1170 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "proofVerifier",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "signalService",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "stakingRegistry",
+              "type": "address"
+            },
+            {
+              "internalType": "uint64",
+              "name": "l2ChainId",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "maxBatchBlocks",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "forcedInclusionFeeInGwei",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "forcedInclusionFeeDoubleThreshold",
+              "type": "uint64"
+            }
+          ],
+          "internalType": "struct IEtnaInbox.Config",
+          "name": "_config",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "MAX_FORCED_TX_BYTES",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "acceptOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "activation",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint64",
+              "name": "genesisHeight",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "l1Block",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "epochLenL2",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "epochLenL1",
+              "type": "uint64"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "genesisBlockHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "genesisStateRoot",
+              "type": "bytes32"
+            }
+          ],
+          "internalType": "struct IEtnaInbox.Activation",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "activeCommitteeSnapshot",
+      "outputs": [
+        {
+          "internalType": "uint64",
+          "name": "snapshot_",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "committeeConfigHash",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "configHash_",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "forcedInclusionDelay",
+      "outputs": [
+        {
+          "internalType": "uint64",
+          "name": "",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "genesisCommitteeRecordHash",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "recordHash_",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "genesisCutoff",
+      "outputs": [
+        {
+          "internalType": "uint64",
+          "name": "",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getCurrentForcedInclusionFee",
+      "outputs": [
+        {
+          "internalType": "uint64",
+          "name": "feeInGwei_",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getForcedInclusionState",
+      "outputs": [
+        {
+          "internalType": "uint48",
+          "name": "head_",
+          "type": "uint48"
+        },
+        {
+          "internalType": "uint48",
+          "name": "tail_",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint48",
+          "name": "_start",
+          "type": "uint48"
+        },
+        {
+          "internalType": "uint48",
+          "name": "_maxCount",
+          "type": "uint48"
+        }
+      ],
+      "name": "getForcedInclusions",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "bytes32",
+              "name": "txHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "uint48",
+              "name": "timestamp",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint64",
+              "name": "l1Block",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "feeInGwei",
+              "type": "uint64"
+            }
+          ],
+          "internalType": "struct IEtnaInbox.ForcedInclusion[]",
+          "name": "inclusions_",
+          "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint64",
+          "name": "_generation",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint64",
+          "name": "_parentHeight",
+          "type": "uint64"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "_parentHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint48",
+          "name": "_forcedInclusionHeadBefore",
+          "type": "uint48"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint64",
+              "name": "lastHeight",
+              "type": "uint64"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "lastBlockHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "lastStateRoot",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "uint64",
+              "name": "l1ReferenceBlockNumber",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint48",
+              "name": "forcedInclusionHead",
+              "type": "uint48"
+            },
+            {
+              "internalType": "address",
+              "name": "feeRecipient",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "l2RewardRecipient",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "baseFeeAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint64",
+              "name": "activeCommitteeSnapshot",
+              "type": "uint64"
+            }
+          ],
+          "internalType": "struct IEtnaInbox.LandInput",
+          "name": "_input",
+          "type": "tuple"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "_l1ReferenceBlockHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32[]",
+          "name": "_blobHashes",
+          "type": "bytes32[]"
+        }
+      ],
+      "name": "hashLandStatement",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "statementHash_",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "impl",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "inNonReentrant",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_owner",
+          "type": "address"
+        },
+        {
+          "components": [
+            {
+              "internalType": "bytes32",
+              "name": "genesisBlockHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "genesisStateRoot",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "uint64",
+              "name": "epochLenL2",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "epochLenL1",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "genesisCutoff",
+              "type": "uint64"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "committeeRecordHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "committeeConfigHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "uint64",
+              "name": "forcedInclusionDelay",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "maxAnchorAge",
+              "type": "uint64"
+            }
+          ],
+          "internalType": "struct IEtnaInbox.GenesisParams",
+          "name": "_params",
+          "type": "tuple"
+        }
+      ],
+      "name": "init",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint64",
+              "name": "lastHeight",
+              "type": "uint64"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "lastBlockHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "lastStateRoot",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "uint64",
+              "name": "l1ReferenceBlockNumber",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint48",
+              "name": "forcedInclusionHead",
+              "type": "uint48"
+            },
+            {
+              "internalType": "address",
+              "name": "feeRecipient",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "l2RewardRecipient",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "baseFeeAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint64",
+              "name": "activeCommitteeSnapshot",
+              "type": "uint64"
+            }
+          ],
+          "internalType": "struct IEtnaInbox.LandInput",
+          "name": "_input",
+          "type": "tuple"
+        },
+        {
+          "internalType": "bytes",
+          "name": "_proof",
+          "type": "bytes"
+        }
+      ],
+      "name": "land",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "lastCheckpoint",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint64",
+              "name": "height",
+              "type": "uint64"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "blockHash",
+              "type": "bytes32"
+            }
+          ],
+          "internalType": "struct IEtnaInbox.LandedCheckpoint",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "maxAnchorAge",
+      "outputs": [
+        {
+          "internalType": "uint64",
+          "name": "",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "migrationState",
+      "outputs": [
+        {
+          "internalType": "uint8",
+          "name": "",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "pause",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "paused",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "pendingOwner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "proxiableUUID",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "recoveryGeneration",
+      "outputs": [
+        {
+          "internalType": "uint64",
+          "name": "",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "renounceOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "resolver",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "rewardCommitments",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "commitment",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "_tx",
+          "type": "bytes"
+        }
+      ],
+      "name": "saveForcedInclusion",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "stakingRegistry",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "registry_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "transferOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "unpause",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newImplementation",
+          "type": "address"
+        }
+      ],
+      "name": "upgradeTo",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newImplementation",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        }
+      ],
+      "name": "upgradeToAndCall",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "previousAdmin",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "newAdmin",
+          "type": "address"
+        }
+      ],
+      "name": "AdminChanged",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "firstHeight",
+          "type": "uint64"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "lastHeight",
+          "type": "uint64"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "lastBlockHash",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "lastStateRoot",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "l1ReferenceBlockNumber",
+          "type": "uint64"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "statementHash",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "lander",
+          "type": "address"
+        }
+      ],
+      "name": "BatchLanded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "beacon",
+          "type": "address"
+        }
+      ],
+      "name": "BeaconUpgraded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "genesisBlockHash",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "genesisStateRoot",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "l1Block",
+          "type": "uint64"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "epochLenL2",
+          "type": "uint64"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "epochLenL1",
+          "type": "uint64"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "genesisCutoff",
+          "type": "uint64"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "committeeRecordHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "EtnaInitialized",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint48",
+          "name": "index",
+          "type": "uint48"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes",
+          "name": "tx",
+          "type": "bytes"
+        }
+      ],
+      "name": "ForcedInclusionSaved",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint48",
+          "name": "headBefore",
+          "type": "uint48"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint48",
+          "name": "headAfter",
+          "type": "uint48"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "feesWei",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        }
+      ],
+      "name": "ForcedInclusionsConsumed",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint8",
+          "name": "version",
+          "type": "uint8"
+        }
+      ],
+      "name": "Initialized",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferStarted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferred",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "Paused",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "Unpaused",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "implementation",
+          "type": "address"
+        }
+      ],
+      "name": "Upgraded",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "ACCESS_DENIED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "AnchorUnavailable",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BatchTooLarge",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BlobsRequired",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ETH_TRANSFER_FAILED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "EtnaNotActive",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "FUNC_NOT_IMPLEMENTED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ForcedInclusionFeeDoubleThresholdZero",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ForcedInclusionFeeZero",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ForcedTransactionTooLarge",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "HeightOverflow",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_PAUSE_STATUS",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InsufficientFee",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidCommitteeSnapshot",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidEpochLength",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidFeeDoubleThreshold",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidForcedInclusionDelay",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidForcedInclusionHead",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidGenesis",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidGenesisCutoff",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidMaxAnchorAge",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NoProgress",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "REENTRANT_CALL",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "RewardAlreadyRecorded",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZERO_ADDRESS",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZERO_VALUE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroCommitteeConfigHash",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroCommitteeRecord",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroFeeRecipient",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroRewardRecipient",
+      "type": "error"
+    }
+  ]
+}

@@ -1,47 +1,33 @@
 //! Command implementations.
 
-use std::{io::IsTerminal, net::SocketAddr};
+use std::{io::IsTerminal, net::SocketAddr, path::Path};
 
-use ::driver::config::DriverConfig;
+use ::abci::ChainParams;
 use async_trait::async_trait;
-use rpc::client::ClientConfig;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
 use crate::{
-    error::Result,
-    flags::{common::CommonArgs, driver::DriverArgs},
+    error::{CliError, Result},
+    flags::common::{CommonArgs, ObservabilityArgs},
 };
 
-pub mod driver;
-pub mod proposer;
-pub mod whitelist_preconfirmation_driver;
+pub mod abci;
+pub mod abci_committee_record;
+pub mod abci_genesis;
+pub mod lander;
 
-/// Build a [`ClientConfig`] from the shared common CLI flags.
-pub fn build_client_config(common: &CommonArgs) -> Result<ClientConfig> {
-    Ok(ClientConfig {
-        l1_provider_source: common.l1_provider_source()?,
-        l2_provider_url: common.l2_http_endpoint.clone(),
-        l2_auth_provider_url: common.l2_auth_endpoint.clone(),
-        jwt_secret: common.l2_auth_jwt_secret.clone(),
-        inbox_address: common.shasta_inbox_address,
-    })
-}
-
-/// Build a [`DriverConfig`] from the shared common/driver CLI flags.
-pub fn build_driver_config(
-    common: &CommonArgs,
-    driver: &DriverArgs,
-    preconfirmation_enabled: bool,
-) -> Result<DriverConfig> {
-    Ok(DriverConfig::new(
-        build_client_config(common)?,
-        driver.retry_interval(),
-        driver.l1_beacon_endpoint.clone(),
-        driver.l2_checkpoint_endpoint.clone(),
-        driver.blob_server_endpoint.clone(),
-        preconfirmation_enabled,
-    ))
+/// The chain parameters of `l2_chain_id`: the built-in ones, overridden by the TOML file at
+/// `chain_config` when given, validated.
+pub fn load_chain_params(l2_chain_id: u64, chain_config: Option<&Path>) -> Result<ChainParams> {
+    let mut params = ChainParams::builtin(l2_chain_id)?;
+    if let Some(path) = chain_config {
+        let toml = std::fs::read_to_string(path)
+            .map_err(|source| CliError::ChainConfigRead { path: path.to_path_buf(), source })?;
+        params = params.with_overrides(&toml)?;
+    }
+    params.validate()?;
+    Ok(params)
 }
 
 /// Shared behaviour for CLI subcommands.
@@ -50,46 +36,17 @@ pub trait Subcommand {
     /// Access the common CLI arguments.
     fn common_args(&self) -> &CommonArgs;
 
-    /// Initializes the logging system based on global arguments.
+    /// Initializes the logging system based on shared observability arguments.
     fn init_logs(&self) -> Result<()> {
-        let log_level = self.common_args().log_level();
-        let env_filter = EnvFilter::try_from_default_env()
-            .unwrap_or_else(|_| EnvFilter::new(log_level.as_str().to_lowercase()));
-        let ansi = match std::env::var("RUST_LOG_STYLE") {
-            Ok(value) => match value.to_lowercase().as_str() {
-                "always" => true,
-                "never" => false,
-                _ => std::io::stdout().is_terminal(),
-            },
-            Err(_) => std::io::stdout().is_terminal(),
-        };
-
-        let _ = tracing_subscriber::fmt().with_env_filter(env_filter).with_ansi(ansi).try_init();
-        Ok(())
+        init_logs(&self.common_args().observability)
     }
 
-    /// Initialize Prometheus metrics server.
+    /// Initialize the Prometheus exporter after registering command metrics.
     fn init_metrics(&self) -> Result<()> {
-        if !self.common_args().metrics_enabled {
-            return Ok(());
+        if self.common_args().observability.metrics_enabled {
+            self.register_metrics()?;
         }
-
-        let metrics_addr =
-            format!("{}:{}", self.common_args().metrics_addr, self.common_args().metrics_port);
-        let socket_addr: SocketAddr = metrics_addr.parse()?;
-
-        self.register_metrics()?;
-        crate::metrics::version::VersionInfo::new(env!("CARGO_PKG_VERSION"))
-            .register_version_metrics();
-        crate::metrics::spawn_server(socket_addr)?;
-
-        info!(
-            target: "metrics",
-            "Prometheus metrics server started at http://{}",
-            metrics_addr
-        );
-
-        Ok(())
+        init_metrics(&self.common_args().observability)
     }
 
     /// Hook for registering metrics after the exporter has started.
@@ -100,3 +57,35 @@ pub trait Subcommand {
     /// Execute the subcommand.
     async fn run(&self) -> Result<()>;
 }
+
+/// Initialize tracing for a command that does not require Engine API arguments.
+pub fn init_logs(args: &ObservabilityArgs) -> Result<()> {
+    let env_filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new(args.log_level().as_str().to_lowercase()));
+    let ansi = match std::env::var("RUST_LOG_STYLE") {
+        Ok(value) => match value.to_lowercase().as_str() {
+            "always" => true,
+            "never" => false,
+            _ => std::io::stdout().is_terminal(),
+        },
+        Err(_) => std::io::stdout().is_terminal(),
+    };
+    let _ = tracing_subscriber::fmt().with_env_filter(env_filter).with_ansi(ansi).try_init();
+    Ok(())
+}
+
+/// Start the shared Prometheus exporter when explicitly enabled.
+pub fn init_metrics(args: &ObservabilityArgs) -> Result<()> {
+    if !args.metrics_enabled {
+        return Ok(());
+    }
+    let metrics_addr = format!("{}:{}", args.metrics_addr, args.metrics_port);
+    let socket_addr: SocketAddr = metrics_addr.parse()?;
+    crate::metrics::version::VersionInfo::new(env!("CARGO_PKG_VERSION")).register_version_metrics();
+    crate::metrics::spawn_server(socket_addr)?;
+    info!(target: "metrics", "Prometheus metrics server started at http://{}", metrics_addr);
+    Ok(())
+}
+
+/// Independent L2 reward claims.
+pub mod lander_claim;
