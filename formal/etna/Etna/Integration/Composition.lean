@@ -42,6 +42,9 @@ structure Authentication (ctx : Committee.Context) where
   checkpoint : Nat → Nat → Option State
   decodeBlobs : List Word256 → Option (List (Block ctx))
   ancestor : Nat → Nat → Prop
+  /-- Execution-layer treasury credit of the executed block with this hash: base fee times
+  charged gas after refunds and the calldata floor. The fee identity is an EL boundary. -/
+  treasuryCredit : Nat → Nat
 
 /-- Each step carries the actual successful FI/COM executions and concrete shared input
 links. FI's per-step authentication parent may vary; its root/time/tail views must agree
@@ -172,7 +175,12 @@ structure BatchSummary (ctx : Committee.Context) where
 
 def BatchSummary.blockCount (batch : BatchSummary ctx) : Nat := batch.blocks.length
 
-def summaryStatement (base : Landing.LandStatement) (batch : BatchSummary ctx) : Landing.LandStatement :=
+/-- Treasury credits of a list of executed blocks. -/
+def credits (a : Authentication ctx) (blocks : List (Block ctx)) : Nat :=
+  (blocks.map fun block => a.treasuryCredit block.committee.facts.blockHash).sum
+
+def summaryStatement (base : Landing.LandStatement) (batch : BatchSummary ctx) (baseFees : Nat) :
+    Landing.LandStatement :=
   { base with
     parentHeight := Landing.natWord batch.parent.committee.height,
     parentHash := Landing.natWord batch.parent.committee.blockHash,
@@ -180,11 +188,13 @@ def summaryStatement (base : Landing.LandStatement) (batch : BatchSummary ctx) :
     lastBlockHash := Landing.natWord batch.terminal.committee.blockHash,
     lastStateRoot := Landing.natWord batch.terminal.stateRoot.val,
     headBefore := Landing.natWord batch.parent.cursor,
-    headAfter := Landing.natWord batch.terminal.cursor }
+    headAfter := Landing.natWord batch.terminal.cursor,
+    baseFeeAmount := Landing.natWord baseFees }
 
 /-- Real guest validity must establish this concrete relation. Initial checkpoint/committee
 history, canonical payload/blob decoding and L1 ancestry are explicit authentication gaps.
-The public statement's other eleven words are fixed by the actual captured Landing context.
+The public statement's other twelve words are fixed by the actual captured Landing context;
+the base-fee word is the checked uint256 sum of the batch's treasury credits.
 No Dummy provider, True guest relation or global Keccak injectivity is an instance here. -/
 structure ValidBatch {ctx : Committee.Context} (a : Authentication ctx)
     (w : Landing.World) (i : Landing.LandInput) (x : Landing.ExternalOutcomes)
@@ -201,7 +211,8 @@ structure ValidBatch {ctx : Committee.Context} (a : Authentication ctx)
   decoded : a.decodeBlobs (Landing.actualBlobs x.environment) = some batch.blocks
   ancestry : ∀ block ∈ batch.blocks, a.ancestor block.committee.facts.anchor.blockHash
     (match Landing.referenceHash x.environment i.reference with | .ok (_, hash) => hash.val | .error _ => 0)
-  statement : statement = summaryStatement (Landing.computedStatement w i x) batch
+  baseFeeBound : credits a batch.blocks < 2 ^ 256
+  statement : statement = summaryStatement (Landing.computedStatement w i x) batch (credits a batch.blocks)
 
 /-- A specialized soundness premise, binding acceptance of the actual statement to ValidBatch.
 A deployment needs a real verifier/guest argument to construct this value. -/
@@ -257,7 +268,7 @@ theorem compose_trace_landing {ctx : Committee.Context} (a : Authentication ctx)
     rw [height]
     simpa [BatchSummary.blockCount, valid.parentHeight] using trace_height valid.trace
 
-/-- Recover the bounded reducer cursor from the actual eighteen-word public statement. -/
+/-- Recover the bounded reducer cursor from the actual twenty-word public statement. -/
 theorem valid_batch_head {ctx : Committee.Context} {a : Authentication ctx}
     {w : Landing.World} {i : Landing.LandInput} {x : Landing.ExternalOutcomes}
     {batch : BatchSummary ctx} (valid : ValidBatch a w i x (Landing.computedStatement w i x) batch) :
@@ -267,6 +278,27 @@ theorem valid_batch_head {ctx : Committee.Context} {a : Authentication ctx}
   have words := congrArg Landing.LandStatement.headAfter valid.statement
   exact Landing.natWord_injective i.headAfter.val batch.terminal.cursor
     (by have h := i.headAfter.isLt; omega) (by omega) words
+
+/-- The proven base-fee amount is exactly the batch's treasury credit. -/
+theorem valid_batch_base_fee {ctx : Committee.Context} {a : Authentication ctx}
+    {w : Landing.World} {i : Landing.LandInput} {x : Landing.ExternalOutcomes}
+    {batch : BatchSummary ctx} (valid : ValidBatch a w i x (Landing.computedStatement w i x) batch) :
+    i.baseFeeAmount.val = credits a batch.blocks := by
+  have words := congrArg Landing.LandStatement.baseFeeAmount valid.statement
+  exact Landing.natWord_injective _ _ i.baseFeeAmount.isLt valid.baseFeeBound words
+
+/-- LAND-07 reward leg: a guest-sound landing records exactly one receipt whose amount is the
+landed batch's treasury credit, for the lander-chosen L2 recipient bound by the proof. -/
+theorem compose_trace_reward {ctx : Committee.Context} (a : Authentication ctx)
+    (w : Landing.World) (i : Landing.LandInput) (x : Landing.ExternalOutcomes)
+    (guest : GuestSoundness a w i x)
+    (accepted : (Landing.execLandSteps w i x).error = none) :
+    ∃ batch, ValidBatch a w i x (Landing.computedStatement w i x) batch ∧
+      (Landing.receiptOf w i).amount.val = credits a batch.blocks ∧
+      (Landing.runTransaction w (Landing.execLandSteps w i x)).world.rewardCommitments =
+        Function.update w.rewardCommitments (Landing.rewardId w i x) (Landing.rewardCommitment w i x) := by
+  obtain ⟨batch, valid⟩ := guest.sound (successful_verifier w i x accepted)
+  exact ⟨batch, valid, valid_batch_base_fee valid, (Landing.reward_recorded_exact w i x accepted).2.1⟩
 
 /-- Cut-independent fee arithmetic uses the same authenticated immutable retained entries. -/
 inductive FeeCuts (fee : Nat → Word64) : Nat → List Nat → Nat → Nat → Prop where
@@ -287,40 +319,40 @@ Landing.CallbackFrame relation already exposed by the landing boundary. -/
 theorem landing_fee_frame (w : Landing.World) (i : Landing.LandInput) (x : Landing.ExternalOutcomes)
     (accepted : (Landing.execLandSteps w i x).error = none) :
     (Landing.runTransaction w (Landing.execLandSteps w i x)).world.fee = w.fee := by
-  have checks := Landing.successful_checks w i x accepted
-  simp only [Landing.runTransaction, accepted, Option.isSome_none, Bool.false_eq_true, ↓reduceIte]
-  simp only [Landing.execLandSteps, checks.1, checks.2]
-  simp [Landing.execChecked, Landing.finish, Landing.Journal.update, Landing.Journal.current]
+  rw [(Landing.landing_success w i x accepted).2.2.2.2]
+  simp only [Landing.paymentEffect, Landing.recordReward, Landing.preVerifier]
   split_ifs <;> rfl
 
 /-- Any finite sequence of successful landed pieces of the same authenticated history.
-The guest must establish each concrete ValidBatch; the fee amount is computed per call. -/
-inductive LandedCuts {ctx : Committee.Context} (a : Authentication ctx) :
+The guest must establish each concrete ValidBatch; the fee amount is computed per call.
+Each call records its reward receipt under one fixed Keccak primitive. -/
+inductive LandedCuts {ctx : Committee.Context} (a : Authentication ctx) (keccak : List Landing.Byte → Word256) :
     Landing.World → State → List (List (Block ctx)) → List (Option Nat) → Committee.Updates →
-    Landing.World → State → Nat → Prop where
-  | nil (w state) : LandedCuts a w state [] [] [] w state 0
-  | cons {w before middle final after blocks parts consumed later updates laterUpdates paid}
+    Landing.World → State → Nat → List Landing.Receipt → Prop where
+  | nil (w state) : LandedCuts a keccak w state [] [] [] w state 0 []
+  | cons {w before middle final after blocks parts consumed later updates laterUpdates paid receipts}
       (i : Landing.LandInput) (x : Landing.ExternalOutcomes)
       (valid : ValidBatch a w i x (Landing.computedStatement w i x)
         ⟨before,middle,blocks,consumed,updates⟩)
       (accepted : (Landing.execLandSteps w i x).error = none)
-      (rest : LandedCuts a (Landing.runTransaction w (Landing.execLandSteps w i x)).world
-        middle parts later laterUpdates final after paid) :
-      LandedCuts a w before (blocks::parts) (consumed++later) (updates++laterUpdates) final after
-        (Landing.fees w.fee w.head.val i.headAfter.val + paid)
+      (primitive : x.keccakRewardBytes = keccak)
+      (rest : LandedCuts a keccak (Landing.runTransaction w (Landing.execLandSteps w i x)).world
+        middle parts later laterUpdates final after paid receipts) :
+      LandedCuts a keccak w before (blocks::parts) (consumed++later) (updates++laterUpdates) final after
+        (Landing.fees w.fee w.head.val i.headAfter.val + paid) (Landing.receiptOf w i :: receipts)
 
 /-- LAND-07 over arbitrary many actual successful cuts: join the same joint history,
 derive the final head and telescope fees on retained entries. Amounts here are gwei;
 Landing.fees_exact_once binds each interval's positive payment instruction in wei. -/
-theorem landed_cuts_compose {ctx : Committee.Context} {a : Authentication ctx}
-    {w before parts consumed updates final after paid}
-    (cuts : LandedCuts a w before parts consumed updates final after paid) :
+theorem landed_cuts_compose {ctx : Committee.Context} {a : Authentication ctx} {keccak}
+    {w before parts consumed updates final after paid receipts}
+    (cuts : LandedCuts a keccak w before parts consumed updates final after paid receipts) :
     JointTrace a before parts.flatten consumed updates after ∧
     final.head.val = w.head.val + FI.consumptionCount consumed ∧
     paid = Landing.fees w.fee w.head.val final.head.val := by
   induction cuts with
   | nil => exact ⟨JointTrace.nil _, by simp [FI.consumptionCount], by simp [Landing.fees]⟩
-  | @cons w before middle final after blocks parts consumed later updates laterUpdates paid i x valid accepted rest ih =>
+  | @cons w before middle final after blocks parts consumed later updates laterUpdates paid receipts i x valid accepted primitive rest ih =>
     have head := Landing.committed_head w i x accepted
     have count := trace_count valid.trace
     have bound := (Landing.fees_exact_once w i x accepted).2.1
@@ -332,4 +364,20 @@ theorem landed_cuts_compose {ctx : Committee.Context} {a : Authentication ctx}
       simp [FI.consumptionCount, List.filter_append, Nat.add_assoc]
     · rw [ih.2.2, landing_fee_frame w i x accepted, head]
       exact (Landing.fee_interval_add w.fee _ _ _ bound endBound).symm
+
+/-- LAND-11: the landed cuts form a reward trace whose receipts sum exactly to the treasury
+credits of every landed block, so recorded L2 rewards equal credited base fees. -/
+theorem landed_cuts_rewards {ctx : Committee.Context} {a : Authentication ctx} {keccak}
+    {w before parts consumed updates final after paid receipts}
+    (cuts : LandedCuts a keccak w before parts consumed updates final after paid receipts) :
+    Landing.RewardTrace keccak w receipts final ∧
+    (receipts.map fun r => r.amount.val).sum = credits a parts.flatten := by
+  induction cuts with
+  | nil => exact ⟨.nil _, by simp [credits]⟩
+  | @cons w before middle final after blocks parts consumed later updates laterUpdates paid receipts i x valid accepted primitive rest ih =>
+    refine ⟨.cons i x primitive accepted ih.1, ?_⟩
+    simp only [List.map_cons, List.sum_cons, List.flatten_cons, ih.2]
+    have amount := valid_batch_base_fee valid
+    simp only [credits, List.map_append, List.sum_append] at amount ⊢
+    rw [show (Landing.receiptOf w i).amount = i.baseFeeAmount from rfl, amount]
 end Etna.Integration

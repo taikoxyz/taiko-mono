@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
   "status": {
-    "spec": "LAND-07-proved-conditionally",
+    "spec": "LAND-07, LAND-11 and CLAIM-04 proved conditionally",
     "guest_soundness": "pending",
-    "conformance": "Rust/Lean/actual Inbox 56 rows,30 preimages,4 cut plans,12 intervals"
+    "conformance": "Rust/Lean/actual Inbox 65 rows, 36 preimages, 4 cut plans, 12 intervals"
   },
   "theorems": [
     {
       "id": "INT-fi-projection",
       "module": "Etna.Integration.Composition",
       "declaration": "Etna.Integration.fi_projection",
-      "type": "\u2200 {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}\n  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option \u2115)} {updates : Etna.Committee.Updates},\n  Etna.Integration.JointTrace a before blocks consumed updates after \u2192\n    Etna.FI.ValidTrace before.cursor consumed after.cursor",
+      "type": "∀ {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}\n  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option ℕ)} {updates : Etna.Committee.Updates},\n  Etna.Integration.JointTrace a before blocks consumed updates after →\n    Etna.FI.ValidTrace before.cursor consumed after.cursor",
       "assumptions": [
         "JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."
       ],
@@ -34,7 +34,7 @@
       "id": "INT-committee-projection",
       "module": "Etna.Integration.Composition",
       "declaration": "Etna.Integration.committee_projection",
-      "type": "\u2200 {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}\n  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option \u2115)} {updates : Etna.Committee.Updates},\n  Etna.Integration.JointTrace a before blocks consumed updates after \u2192\n    Etna.Committee.replay ctx (List.map Etna.Integration.Block.committee blocks) before.committee =\n      Except.ok (after.committee, updates)",
+      "type": "∀ {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}\n  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option ℕ)} {updates : Etna.Committee.Updates},\n  Etna.Integration.JointTrace a before blocks consumed updates after →\n    Etna.Committee.replay ctx (List.map Etna.Integration.Block.committee blocks) before.committee =\n      Except.ok (after.committee, updates)",
       "assumptions": [
         "JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."
       ],
@@ -58,7 +58,7 @@
       "id": "INT-trace-lengths",
       "module": "Etna.Integration.Composition",
       "declaration": "Etna.Integration.trace_lengths",
-      "type": "\u2200 {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}\n  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option \u2115)} {updates : Etna.Committee.Updates},\n  Etna.Integration.JointTrace a before blocks consumed updates after \u2192 consumed.length = blocks.length",
+      "type": "∀ {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}\n  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option ℕ)} {updates : Etna.Committee.Updates},\n  Etna.Integration.JointTrace a before blocks consumed updates after → consumed.length = blocks.length",
       "assumptions": [
         "JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."
       ],
@@ -82,7 +82,7 @@
       "id": "INT-step-height",
       "module": "Etna.Integration.Composition",
       "declaration": "Etna.Integration.step_height",
-      "type": "\u2200 {ctx : Etna.Committee.Context}\n  {before after : Etna.Committee.CommitteeState} {block : Etna.Committee.AuthenticatedBlockFacts ctx}\n  {updates : Etna.Committee.Updates},\n  Etna.Committee.step ctx before block = Except.ok (after, updates) \u2192\n    after.height = before.height + 1 \u2227\n      after.blockHash = block.facts.blockHash \u2227 after.anchor = block.facts.anchor \u2227 after.height \u2264 Etna.Committee.max64",
+      "type": "∀ {ctx : Etna.Committee.Context}\n  {before after : Etna.Committee.CommitteeState} {block : Etna.Committee.AuthenticatedBlockFacts ctx}\n  {updates : Etna.Committee.Updates},\n  Etna.Committee.step ctx before block = Except.ok (after, updates) →\n    after.height = before.height + 1 ∧\n      after.blockHash = block.facts.blockHash ∧ after.anchor = block.facts.anchor ∧ after.height ≤ Etna.Committee.max64",
       "assumptions": [
         "Successful checked Committee.step on the supplied authenticated block; bound/height/hash/anchor projections are derived from the reducer."
       ],
@@ -106,7 +106,7 @@
       "id": "INT-trace-height",
       "module": "Etna.Integration.Composition",
       "declaration": "Etna.Integration.trace_height",
-      "type": "\u2200 {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}\n  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option \u2115)} {updates : Etna.Committee.Updates},\n  Etna.Integration.JointTrace a before blocks consumed updates after \u2192\n    after.committee.height = before.committee.height + blocks.length",
+      "type": "∀ {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}\n  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option ℕ)} {updates : Etna.Committee.Updates},\n  Etna.Integration.JointTrace a before blocks consumed updates after →\n    after.committee.height = before.committee.height + blocks.length",
       "assumptions": [
         "JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."
       ],
@@ -130,7 +130,7 @@
       "id": "INT-trace-height-bound",
       "module": "Etna.Integration.Composition",
       "declaration": "Etna.Integration.trace_height_bound",
-      "type": "\u2200 {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}\n  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option \u2115)} {updates : Etna.Committee.Updates},\n  Etna.Integration.JointTrace a before blocks consumed updates after \u2192\n    before.committee.height \u2264 Etna.Committee.max64 \u2192 after.committee.height \u2264 Etna.Committee.max64",
+      "type": "∀ {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}\n  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option ℕ)} {updates : Etna.Committee.Updates},\n  Etna.Integration.JointTrace a before blocks consumed updates after →\n    before.committee.height ≤ Etna.Committee.max64 → after.committee.height ≤ Etna.Committee.max64",
       "assumptions": [
         "JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."
       ],
@@ -154,7 +154,7 @@
       "id": "INT-trace-count",
       "module": "Etna.Integration.Composition",
       "declaration": "Etna.Integration.trace_count",
-      "type": "\u2200 {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}\n  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option \u2115)} {updates : Etna.Committee.Updates},\n  Etna.Integration.JointTrace a before blocks consumed updates after \u2192\n    after.cursor = before.cursor + Etna.FI.consumptionCount consumed \u2227 Etna.FI.consumptionCount consumed \u2264 blocks.length",
+      "type": "∀ {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}\n  {blocks : List (Etna.Integration.Block ctx)} {consumed : List (Option ℕ)} {updates : Etna.Committee.Updates},\n  Etna.Integration.JointTrace a before blocks consumed updates after →\n    after.cursor = before.cursor + Etna.FI.consumptionCount consumed ∧ Etna.FI.consumptionCount consumed ≤ blocks.length",
       "assumptions": [
         "JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."
       ],
@@ -178,7 +178,7 @@
       "id": "INT-trace-append",
       "module": "Etna.Integration.Composition",
       "declaration": "Etna.Integration.trace_append",
-      "type": "\u2200 {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before middle after : Etna.Integration.State}\n  {xs ys : List (Etna.Integration.Block ctx)} {cs ds : List (Option \u2115)} {us vs : Etna.Committee.Updates},\n  Etna.Integration.JointTrace a before xs cs us middle \u2192\n    Etna.Integration.JointTrace a middle ys ds vs after \u2192\n      Etna.Integration.JointTrace a before (xs ++ ys) (cs ++ ds) (us ++ vs) after",
+      "type": "∀ {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before middle after : Etna.Integration.State}\n  {xs ys : List (Etna.Integration.Block ctx)} {cs ds : List (Option ℕ)} {us vs : Etna.Committee.Updates},\n  Etna.Integration.JointTrace a before xs cs us middle →\n    Etna.Integration.JointTrace a middle ys ds vs after →\n      Etna.Integration.JointTrace a before (xs ++ ys) (cs ++ ds) (us ++ vs) after",
       "assumptions": [
         "JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."
       ],
@@ -202,7 +202,7 @@
       "id": "INT-arbitrary-cuts",
       "module": "Etna.Integration.Composition",
       "declaration": "Etna.Integration.arbitrary_cuts",
-      "type": "\u2200 {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}\n  {parts : List (List (Etna.Integration.Block ctx))} {consumed : List (Option \u2115)} {updates : Etna.Committee.Updates},\n  Etna.Integration.Cuts a before parts consumed updates after \u2192\n    Etna.Integration.JointTrace a before parts.flatten consumed updates after",
+      "type": "∀ {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {before after : Etna.Integration.State}\n  {parts : List (List (Etna.Integration.Block ctx))} {consumed : List (Option ℕ)} {updates : Etna.Committee.Updates},\n  Etna.Integration.Cuts a before parts consumed updates after →\n    Etna.Integration.JointTrace a before parts.flatten consumed updates after",
       "assumptions": [
         "JointTrace/contiguous Cuts carry actual successful FI.ValidStep and Committee.step on the same ordered blocks, linked parent/anchor/Inbox/cursor/envelope/execution context and one authenticated view; cryptographic/header/guest implementation bridges remain external."
       ],
@@ -226,7 +226,7 @@
       "id": "INT-successful-verifier",
       "module": "Etna.Integration.Composition",
       "declaration": "Etna.Integration.successful_verifier",
-      "type": "\u2200 (w : Etna.Landing.World)\n  (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes),\n  (Etna.Landing.execLandSteps w i x).error = Option.none \u2192 x.verifierReturnsNormally = Bool.true",
+      "type": "∀ (w : Etna.Landing.World)\n  (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes),\n  (Etna.Landing.execLandSteps w i x).error = Option.none → x.verifierReturnsNormally = Bool.true",
       "assumptions": [
         "Successful staged Landing model execution; actual EVM journal/environment/callback implementation semantics are external bridges."
       ],
@@ -250,7 +250,7 @@
       "id": "LAND-07",
       "module": "Etna.Integration.Composition",
       "declaration": "Etna.Integration.compose_trace_landing",
-      "type": "\u2200 {ctx : Etna.Committee.Context}\n  (a : Etna.Integration.Authentication ctx) (w : Etna.Landing.World) (i : Etna.Landing.LandInput)\n  (x : Etna.Landing.ExternalOutcomes),\n  Etna.Integration.GuestSoundness a w i x \u2192\n    (Etna.Landing.execLandSteps w i x).error = Option.none \u2192\n      \u2203 batch,\n        Etna.Integration.ValidBatch a w i x (Etna.Landing.computedStatement w i x) batch \u2227\n          \u2191(Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.head =\n              \u2191w.head + Etna.FI.consumptionCount batch.consumed \u2227\n            Etna.FI.consumptionCount batch.consumed \u2264 batch.blockCount \u2227\n              \u2191i.lastHeight = w.checkpoint.height + batch.blockCount \u2227\n                Etna.Committee.replay ctx (List.map Etna.Integration.Block.committee batch.blocks)\n                      batch.parent.committee =\n                    Except.ok (batch.terminal.committee, batch.updates) \u2227\n                  (Etna.Landing.execLandSteps w i x).journal.current.transfers =\n                    w.transfers ++\n                      if i.headAfter \u2260 w.head \u2227 0 < Etna.Landing.fees w.fee \u2191w.head \u2191i.headAfter * 1000000000 then\n                        [{ recipient := i.recipient, wei := Etna.Landing.fees w.fee \u2191w.head \u2191i.headAfter * 1000000000 }]\n                      else []",
+      "type": "∀ {ctx : Etna.Committee.Context}\n  (a : Etna.Integration.Authentication ctx) (w : Etna.Landing.World) (i : Etna.Landing.LandInput)\n  (x : Etna.Landing.ExternalOutcomes),\n  Etna.Integration.GuestSoundness a w i x →\n    (Etna.Landing.execLandSteps w i x).error = Option.none →\n      ∃ batch,\n        Etna.Integration.ValidBatch a w i x (Etna.Landing.computedStatement w i x) batch ∧\n          ↑(Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.head =\n              ↑w.head + Etna.FI.consumptionCount batch.consumed ∧\n            Etna.FI.consumptionCount batch.consumed ≤ batch.blockCount ∧\n              ↑i.lastHeight = w.checkpoint.height + batch.blockCount ∧\n                Etna.Committee.replay ctx (List.map Etna.Integration.Block.committee batch.blocks)\n                      batch.parent.committee =\n                    Except.ok (batch.terminal.committee, batch.updates) ∧\n                  (Etna.Landing.execLandSteps w i x).journal.current.transfers =\n                    w.transfers ++\n                      if i.headAfter ≠ w.head ∧ 0 < Etna.Landing.fees w.fee ↑w.head ↑i.headAfter * 1000000000 then\n                        [{ recipient := i.recipient, wei := Etna.Landing.fees w.fee ↑w.head ↑i.headAfter * 1000000000 }]\n                      else []",
       "assumptions": [
         "GuestSoundness for the actual normal-return verifier establishes the concrete ValidBatch relation; no production/Dummy instance exists.",
         "ValidBatch authenticates exact seed committee/cursor/checkpoint, deployment/genesis configuration, canonical envelope/payload and actual blob-prefix decoding, and per-block L1 ancestry.",
@@ -276,7 +276,7 @@
       "id": "INT-valid-batch-head",
       "module": "Etna.Integration.Composition",
       "declaration": "Etna.Integration.valid_batch_head",
-      "type": "\u2200 {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {w : Etna.Landing.World} {i : Etna.Landing.LandInput}\n  {x : Etna.Landing.ExternalOutcomes} {batch : Etna.Integration.BatchSummary ctx},\n  Etna.Integration.ValidBatch a w i x (Etna.Landing.computedStatement w i x) batch \u2192\n    \u2191i.headAfter = batch.terminal.cursor",
+      "type": "∀ {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {w : Etna.Landing.World} {i : Etna.Landing.LandInput}\n  {x : Etna.Landing.ExternalOutcomes} {batch : Etna.Integration.BatchSummary ctx},\n  Etna.Integration.ValidBatch a w i x (Etna.Landing.computedStatement w i x) batch →\n    ↑i.headAfter = batch.terminal.cursor",
       "assumptions": [
         "Each ValidBatch binds the successful joint reducer output to all eighteen actual statement words and authenticates seed/configuration/payload/blob decoding/L1 ancestry.",
         "For LandedCuts each nonempty piece has successful staged Landing execution; fee entries are proved preserved in this model. Real guest, EVM journal and callback semantics remain external."
@@ -301,7 +301,7 @@
       "id": "INT-fee-cuts-exact",
       "module": "Etna.Integration.Composition",
       "declaration": "Etna.Integration.fee_cuts_exact",
-      "type": "\u2200 {fee : \u2115 \u2192 Etna.Word64} {before after : \u2115}\n  {heads : List \u2115} {paid : \u2115},\n  Etna.Integration.FeeCuts fee before heads after paid \u2192 before \u2264 after \u2227 paid = Etna.Landing.fees fee before after",
+      "type": "∀ {fee : ℕ → Etna.Word64} {before after : ℕ}\n  {heads : List ℕ} {paid : ℕ},\n  Etna.Integration.FeeCuts fee before heads after paid → before ≤ after ∧ paid = Etna.Landing.fees fee before after",
       "assumptions": [
         "Monotone finite FeeCuts on one retained-entry fee function; each interval amount is computed, not supplied as a conclusion."
       ],
@@ -325,7 +325,7 @@
       "id": "INT-landing-fee-frame",
       "module": "Etna.Integration.Composition",
       "declaration": "Etna.Integration.landing_fee_frame",
-      "type": "\u2200 (w : Etna.Landing.World)\n  (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes),\n  (Etna.Landing.execLandSteps w i x).error = Option.none \u2192\n    (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.fee = w.fee",
+      "type": "∀ (w : Etna.Landing.World)\n  (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes),\n  (Etna.Landing.execLandSteps w i x).error = Option.none →\n    (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.fee = w.fee",
       "assumptions": [
         "Successful staged Landing model execution; actual EVM journal/environment/callback implementation semantics are external bridges."
       ],
@@ -349,7 +349,7 @@
       "id": "INT-landed-cuts-compose",
       "module": "Etna.Integration.Composition",
       "declaration": "Etna.Integration.landed_cuts_compose",
-      "type": "\u2200 {ctx : Etna.Committee.Context}\n  {a : Etna.Integration.Authentication ctx} {w : Etna.Landing.World} {before : Etna.Integration.State}\n  {parts : List (List (Etna.Integration.Block ctx))} {consumed : List (Option \u2115)} {updates : Etna.Committee.Updates}\n  {final : Etna.Landing.World} {after : Etna.Integration.State} {paid : \u2115},\n  Etna.Integration.LandedCuts a w before parts consumed updates final after paid \u2192\n    Etna.Integration.JointTrace a before parts.flatten consumed updates after \u2227\n      \u2191final.head = \u2191w.head + Etna.FI.consumptionCount consumed \u2227 paid = Etna.Landing.fees w.fee \u2191w.head \u2191final.head",
+      "type": "∀ {ctx : Etna.Committee.Context} {a : Etna.Integration.Authentication ctx}\n  {keccak : List Etna.Landing.Byte → Etna.Word256} {w : Etna.Landing.World} {before : Etna.Integration.State}\n  {parts : List (List (Etna.Integration.Block ctx))} {consumed : List (Option Nat)} {updates : Etna.Committee.Updates}\n  {final : Etna.Landing.World} {after : Etna.Integration.State} {paid : Nat} {receipts : List Etna.Landing.Receipt},\n  @Etna.Integration.LandedCuts ctx a keccak w before parts consumed updates final after paid receipts →\n    And\n      (@Etna.Integration.JointTrace ctx a before (@List.flatten (Etna.Integration.Block ctx) parts) consumed updates\n        after)\n      (And\n        (@Eq Nat\n          (@Fin.val\n            (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n              (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n              (@OfNat.ofNat Nat (nat_lit 48) (instOfNatNat (nat_lit 48))))\n            final.head)\n          (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat)\n            (@Fin.val\n              (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                (@OfNat.ofNat Nat (nat_lit 48) (instOfNatNat (nat_lit 48))))\n              w.head)\n            (Etna.FI.consumptionCount consumed)))\n        (@Eq Nat paid\n          (Etna.Landing.fees w.fee\n            (@Fin.val\n              (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                (@OfNat.ofNat Nat (nat_lit 48) (instOfNatNat (nat_lit 48))))\n              w.head)\n            (@Fin.val\n              (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                (@OfNat.ofNat Nat (nat_lit 48) (instOfNatNat (nat_lit 48))))\n              final.head))))",
       "assumptions": [
         "Each ValidBatch binds the successful joint reducer output to all eighteen actual statement words and authenticates seed/configuration/payload/blob decoding/L1 ancestry.",
         "For LandedCuts each nonempty piece has successful staged Landing execution; fee entries are proved preserved in this model. Real guest, EVM journal and callback semantics remain external."
@@ -374,7 +374,7 @@
       "id": "INT-joint-nonvacuity",
       "module": "Etna.Integration.Examples",
       "declaration": "Etna.Integration.Examples.joint_nonvacuity",
-      "type": "Etna.Integration.ValidBatch Etna.Integration.Examples.auth Etna.Integration.Examples.world Etna.Integration.Examples.input Etna.Integration.Examples.external (Etna.Landing.computedStatement Etna.Integration.Examples.world Etna.Integration.Examples.input Etna.Integration.Examples.external) Etna.Integration.Examples.batch \u2227\n(Etna.Landing.execLandSteps Etna.Integration.Examples.world Etna.Integration.Examples.input Etna.Integration.Examples.external).error = none \u2227\n(Etna.Landing.runTransaction Etna.Integration.Examples.world (Etna.Landing.execLandSteps Etna.Integration.Examples.world Etna.Integration.Examples.input Etna.Integration.Examples.external)).world.head.val = (1 : Nat) \u2227\n(Etna.Landing.execLandSteps Etna.Integration.Examples.world Etna.Integration.Examples.input Etna.Integration.Examples.external).journal.current.transfers = [\u27e8(48879 : Etna.Landing.Address), (1000000000 : Nat)\u27e9]",
+      "type": "Etna.Integration.ValidBatch Etna.Integration.Examples.auth Etna.Integration.Examples.world Etna.Integration.Examples.input Etna.Integration.Examples.external (Etna.Landing.computedStatement Etna.Integration.Examples.world Etna.Integration.Examples.input Etna.Integration.Examples.external) Etna.Integration.Examples.batch ∧\n(Etna.Landing.execLandSteps Etna.Integration.Examples.world Etna.Integration.Examples.input Etna.Integration.Examples.external).error = none ∧\n(Etna.Landing.runTransaction Etna.Integration.Examples.world (Etna.Landing.execLandSteps Etna.Integration.Examples.world Etna.Integration.Examples.input Etna.Integration.Examples.external)).world.head.val = (1 : Nat) ∧\n(Etna.Landing.execLandSteps Etna.Integration.Examples.world Etna.Integration.Examples.input Etna.Integration.Examples.external).journal.current.transfers = [⟨(48879 : Etna.Landing.Address), (1000000000 : Nat)⟩]",
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
@@ -462,7 +462,7 @@
       "id": "INT-landed-multicall-nonvacuity",
       "module": "Etna.Integration.Examples",
       "declaration": "Etna.Integration.Examples.landed_multicall_nonvacuity",
-      "type": "Etna.Integration.LandedCuts\n  Etna.Integration.Examples.auth Etna.Integration.Examples.world Etna.Integration.Examples.before\n  [[Etna.Integration.Examples.block], [Etna.Integration.Examples.secondBlock]] [Option.some 0, Option.none] []\n  Etna.Integration.Examples.finalWorld Etna.Integration.Examples.secondState 1",
+      "type": "@Etna.Integration.LandedCuts Etna.Integration.Examples.ctx Etna.Integration.Examples.auth\n  Etna.Integration.Examples.rewardHash Etna.Integration.Examples.world Etna.Integration.Examples.before\n  (@List.cons (List (Etna.Integration.Block Etna.Integration.Examples.ctx))\n    (@List.cons (Etna.Integration.Block Etna.Integration.Examples.ctx) Etna.Integration.Examples.block\n      (@List.nil (Etna.Integration.Block Etna.Integration.Examples.ctx)))\n    (@List.cons (List (Etna.Integration.Block Etna.Integration.Examples.ctx))\n      (@List.cons (Etna.Integration.Block Etna.Integration.Examples.ctx) Etna.Integration.Examples.secondBlock\n        (@List.nil (Etna.Integration.Block Etna.Integration.Examples.ctx)))\n      (@List.nil (List (Etna.Integration.Block Etna.Integration.Examples.ctx)))))\n  (@List.cons (Option Nat) (@Option.some Nat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))))\n    (@List.cons (Option Nat) (@Option.none Nat) (@List.nil (Option Nat))))\n  (@List.nil (Prod Etna.Committee.Record Etna.Committee.Record)) Etna.Integration.Examples.finalWorld\n  Etna.Integration.Examples.secondState (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1)))\n  (@List.cons Etna.Landing.Receipt\n    (Etna.Landing.receiptOf Etna.Integration.Examples.world Etna.Integration.Examples.input)\n    (@List.cons Etna.Landing.Receipt\n      (Etna.Landing.receiptOf Etna.Integration.Examples.middleWorld Etna.Integration.Examples.secondInput)\n      (@List.nil Etna.Landing.Receipt)))",
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
@@ -484,7 +484,7 @@
       "id": "INT-forged-head-not-valid",
       "module": "Etna.Integration.Examples",
       "declaration": "Etna.Integration.Examples.forged_head_not_valid",
-      "type": "\u00acEtna.Integration.ValidBatch\n    Etna.Integration.Examples.auth Etna.Integration.Examples.world\n    (have __src := Etna.Integration.Examples.input;\n    { lastHeight := __src.lastHeight, lastBlockHash := __src.lastBlockHash, lastStateRoot := __src.lastStateRoot,\n      reference := __src.reference, headAfter := 0, recipient := __src.recipient, caller := __src.caller })\n    Etna.Integration.Examples.external\n    (Etna.Landing.computedStatement Etna.Integration.Examples.world\n      (have __src := Etna.Integration.Examples.input;\n      { lastHeight := __src.lastHeight, lastBlockHash := __src.lastBlockHash, lastStateRoot := __src.lastStateRoot,\n        reference := __src.reference, headAfter := 0, recipient := __src.recipient, caller := __src.caller })\n      Etna.Integration.Examples.external)\n    Etna.Integration.Examples.batch",
+      "type": "¬Etna.Integration.ValidBatch\n    Etna.Integration.Examples.auth Etna.Integration.Examples.world\n    (have __src := Etna.Integration.Examples.input;\n    { lastHeight := __src.lastHeight, lastBlockHash := __src.lastBlockHash, lastStateRoot := __src.lastStateRoot,\n      reference := __src.reference, headAfter := 0, recipient := __src.recipient,\n      rewardRecipient := __src.rewardRecipient, baseFeeAmount := __src.baseFeeAmount, caller := __src.caller })\n    Etna.Integration.Examples.external\n    (Etna.Landing.computedStatement Etna.Integration.Examples.world\n      (have __src := Etna.Integration.Examples.input;\n      { lastHeight := __src.lastHeight, lastBlockHash := __src.lastBlockHash, lastStateRoot := __src.lastStateRoot,\n        reference := __src.reference, headAfter := 0, recipient := __src.recipient,\n        rewardRecipient := __src.rewardRecipient, baseFeeAmount := __src.baseFeeAmount, caller := __src.caller })\n      Etna.Integration.Examples.external)\n    Etna.Integration.Examples.batch",
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
@@ -500,6 +500,204 @@
       ],
       "boundaries": [
         "Conditional specification composition only; arbitrary-cuts proof and finite real-contract conformance are separate."
+      ]
+    },
+    {
+      "id": "LAND-11",
+      "module": "Etna.Integration.Composition",
+      "declaration": "Etna.Integration.landed_cuts_rewards",
+      "type": "∀ {ctx : Etna.Committee.Context} {a : Etna.Integration.Authentication ctx}\n  {keccak : List Etna.Landing.Byte → Etna.Word256} {w : Etna.Landing.World} {before : Etna.Integration.State}\n  {parts : List (List (Etna.Integration.Block ctx))} {consumed : List (Option Nat)} {updates : Etna.Committee.Updates}\n  {final : Etna.Landing.World} {after : Etna.Integration.State} {paid : Nat} {receipts : List Etna.Landing.Receipt},\n  @Etna.Integration.LandedCuts ctx a keccak w before parts consumed updates final after paid receipts →\n    And (Etna.Landing.RewardTrace keccak w receipts final)\n      (@Eq Nat\n        (@List.sum Nat instAddNat (@MulZeroClass.toZero Nat Nat.instMulZeroClass)\n          (@List.map Etna.Landing.Receipt Nat\n            (fun r =>\n              @Fin.val\n                (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                  (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                  (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256))))\n                r.amount)\n            receipts))\n        (@Etna.Integration.credits ctx a (@List.flatten (Etna.Integration.Block ctx) parts)))",
+      "assumptions": [
+        "ValidBatch for every landed cut binds the base-fee word to the batch treasury credits"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
+        "packages/taiko-client-rs/crates/lander/src/rewards.rs"
+      ],
+      "tests": [
+        "adapters/solidity/EtnaInboxCutsConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Conditional composition: guest soundness must establish ValidBatch, including the base-fee word as the checked sum of the EL treasury credits of the batch blocks; that EL fee identity is an execution boundary."
+      ]
+    },
+    {
+      "id": "INT-valid-batch-base-fee",
+      "module": "Etna.Integration.Composition",
+      "declaration": "Etna.Integration.valid_batch_base_fee",
+      "type": "∀ {ctx : Etna.Committee.Context} {a : Etna.Integration.Authentication ctx} {w : Etna.Landing.World}\n  {i : Etna.Landing.LandInput} {x : Etna.Landing.ExternalOutcomes} {batch : Etna.Integration.BatchSummary ctx},\n  @Etna.Integration.ValidBatch ctx a w i x (Etna.Landing.computedStatement w i x) batch →\n    @Eq Nat\n      (@Fin.val\n        (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n          (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n          (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256))))\n        i.baseFeeAmount)\n      (@Etna.Integration.credits ctx a (@Etna.Integration.BatchSummary.blocks ctx batch))",
+      "assumptions": [
+        "ValidBatch binds the base-fee word to the checked sum of batch treasury credits"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
+        "packages/taiko-client-rs/crates/lander/src/rewards.rs"
+      ],
+      "tests": [
+        "adapters/solidity/EtnaInboxCutsConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Conditional composition: guest soundness must establish ValidBatch, including the base-fee word as the checked sum of the EL treasury credits of the batch blocks; that EL fee identity is an execution boundary."
+      ]
+    },
+    {
+      "id": "INT-compose-trace-reward",
+      "module": "Etna.Integration.Composition",
+      "declaration": "Etna.Integration.compose_trace_reward",
+      "type": "∀ {ctx : Etna.Committee.Context} (a : Etna.Integration.Authentication ctx) (w : Etna.Landing.World)\n  (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes),\n  @Etna.Integration.GuestSoundness ctx a w i x →\n    @Eq (Option Etna.Landing.Error) (Etna.Landing.execLandSteps w i x).error (@Option.none Etna.Landing.Error) →\n      ∃ batch,\n        And (@Etna.Integration.ValidBatch ctx a w i x (Etna.Landing.computedStatement w i x) batch)\n          (And\n            (@Eq Nat\n              (@Fin.val\n                (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                  (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                  (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256))))\n                (Etna.Landing.receiptOf w i).amount)\n              (@Etna.Integration.credits ctx a (@Etna.Integration.BatchSummary.blocks ctx batch)))\n            (@Eq (Etna.Word256 → Etna.Word256)\n              (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.rewardCommitments\n              (@Function.update Etna.Word256 (fun a => Etna.Word256)\n                (instDecidableEqFin\n                  (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                    (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                    (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256)))))\n                w.rewardCommitments (Etna.Landing.rewardId w i x) (Etna.Landing.rewardCommitment w i x))))",
+      "assumptions": [
+        "GuestSoundness: an accepted proof yields the concrete ValidBatch relation"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
+        "packages/taiko-client-rs/crates/lander/src/rewards.rs"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Conditional composition: guest soundness must establish ValidBatch, including the base-fee word as the checked sum of the EL treasury credits of the batch blocks; that EL fee identity is an execution boundary."
+      ]
+    },
+    {
+      "id": "CLAIM-04",
+      "module": "Etna.Integration.Rewards",
+      "declaration": "Etna.Integration.claims_bounded_by_credits",
+      "type": "∀ {ctx : Etna.Committee.Context} {a : Etna.Integration.Authentication ctx}\n  {keccak : List Etna.Landing.Byte → Etna.Word256} {w : Etna.Landing.World} {before : Etna.Integration.State}\n  {parts : List (List (Etna.Integration.Block ctx))} {consumed : List (Option Nat)} {updates : Etna.Committee.Updates}\n  {final : Etna.Landing.World} {after : Etna.Integration.State} {paid : Nat} {receipts : List Etna.Landing.Receipt},\n  @Etna.Integration.LandedCuts ctx a keccak w before parts consumed updates final after paid receipts →\n    ∀ {v v' : Etna.Landing.Vault} {cs : List Etna.Landing.Receipt},\n      Etna.Landing.ClaimTrace keccak v cs v' →\n        (∀ (c : Etna.Landing.Receipt),\n            @Membership.mem Etna.Landing.Receipt (List Etna.Landing.Receipt) (@List.instMembership Etna.Landing.Receipt)\n                cs c →\n              ∃ r,\n                And\n                  (@Membership.mem Etna.Landing.Receipt (List Etna.Landing.Receipt)\n                    (@List.instMembership Etna.Landing.Receipt) receipts r)\n                  (And (@Eq Etna.Word256 (Etna.Landing.batchId keccak r) (Etna.Landing.batchId keccak c))\n                    (@Eq Etna.Word256 r.amount c.amount))) →\n          @LE.le Nat instLENat\n            (@List.sum Nat instAddNat (@MulZeroClass.toZero Nat Nat.instMulZeroClass)\n              (@List.map Etna.Landing.Transfer Nat Etna.Landing.Transfer.wei v'.payouts))\n            (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat)\n              (@List.sum Nat instAddNat (@MulZeroClass.toZero Nat Nat.instMulZeroClass)\n                (@List.map Etna.Landing.Transfer Nat Etna.Landing.Transfer.wei v.payouts))\n              (@Etna.Integration.credits ctx a (@List.flatten (Etna.Integration.Block ctx) parts)))",
+      "assumptions": [
+        "Each claimed receipt matches a recorded receipt in batch id and amount (CLAIM-03 supplies this per claim)"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
+        "packages/taiko-client-rs/crates/lander/src/rewards.rs"
+      ],
+      "tests": [
+        "Etna/Integration/Examples.lean",
+        "adapters/solidity/EtnaInboxCutsConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Conditional composition: guest soundness must establish ValidBatch, including the base-fee word as the checked sum of the EL treasury credits of the batch blocks; that EL fee identity is an execution boundary.",
+        "Spec-proved model of L2FeeVault.claim; the vault has no Lean-compared harness here. Its Solidity, MPT and EIP-4788 semantics remain external and are exercised by the protocol L2FeeVault tests."
+      ]
+    },
+    {
+      "id": "INT-matched-sum-le",
+      "module": "Etna.Integration.Rewards",
+      "declaration": "Etna.Integration.matched_sum_le",
+      "type": "∀ (key : Etna.Landing.Receipt → Etna.Word256) (amount : Etna.Landing.Receipt → Nat) (cs rs : List Etna.Landing.Receipt),\n  @List.Pairwise Etna.Landing.Receipt (fun a b => @Ne Etna.Word256 (key a) (key b)) cs →\n    (∀ (c : Etna.Landing.Receipt),\n        @Membership.mem Etna.Landing.Receipt (List Etna.Landing.Receipt) (@List.instMembership Etna.Landing.Receipt) cs\n            c →\n          ∃ r,\n            And\n              (@Membership.mem Etna.Landing.Receipt (List Etna.Landing.Receipt)\n                (@List.instMembership Etna.Landing.Receipt) rs r)\n              (And (@Eq Etna.Word256 (key r) (key c)) (@Eq Nat (amount r) (amount c)))) →\n      @LE.le Nat instLENat\n        (@List.sum Nat instAddNat (@MulZeroClass.toZero Nat Nat.instMulZeroClass)\n          (@List.map Etna.Landing.Receipt Nat amount cs))\n        (@List.sum Nat instAddNat (@MulZeroClass.toZero Nat Nat.instMulZeroClass)\n          (@List.map Etna.Landing.Receipt Nat amount rs))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+      ],
+      "tests": ["Etna/Integration/Examples.lean"],
+      "boundaries": [
+        "Spec-proved model of L2FeeVault.claim; the vault has no Lean-compared harness here. Its Solidity, MPT and EIP-4788 semantics remain external and are exercised by the protocol L2FeeVault tests."
+      ]
+    },
+    {
+      "id": "INT-landed-rewards-nonvacuity",
+      "module": "Etna.Integration.Examples",
+      "declaration": "Etna.Integration.Examples.landed_rewards_nonvacuity",
+      "type": "And\n  (@Eq Nat\n    (@List.sum Nat instAddNat (@MulZeroClass.toZero Nat Nat.instMulZeroClass)\n      (@List.map Etna.Landing.Receipt Nat\n        (fun r =>\n          @Fin.val\n            (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n              (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n              (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256))))\n            r.amount)\n        (@List.cons Etna.Landing.Receipt\n          (Etna.Landing.receiptOf Etna.Integration.Examples.world Etna.Integration.Examples.input)\n          (@List.cons Etna.Landing.Receipt\n            (Etna.Landing.receiptOf Etna.Integration.Examples.middleWorld Etna.Integration.Examples.secondInput)\n            (@List.nil Etna.Landing.Receipt)))))\n    (@Etna.Integration.credits Etna.Integration.Examples.ctx Etna.Integration.Examples.auth\n      (@List.cons (Etna.Integration.Block Etna.Integration.Examples.ctx) Etna.Integration.Examples.block\n        (@List.cons (Etna.Integration.Block Etna.Integration.Examples.ctx) Etna.Integration.Examples.secondBlock\n          (@List.nil (Etna.Integration.Block Etna.Integration.Examples.ctx))))))\n  (And\n    (@Eq Nat (Etna.Landing.receiptOf Etna.Integration.Examples.world Etna.Integration.Examples.input).parentHeight\n      (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))))\n    (And\n      (@Eq Nat\n        (Etna.Landing.receiptOf Etna.Integration.Examples.middleWorld\n            Etna.Integration.Examples.secondInput).parentHeight\n        (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))\n      (@Ne Etna.Word256\n        (Etna.Landing.rewardId Etna.Integration.Examples.world Etna.Integration.Examples.input\n          Etna.Integration.Examples.external)\n        (Etna.Landing.rewardId Etna.Integration.Examples.middleWorld Etna.Integration.Examples.secondInput\n          Etna.Integration.Examples.secondExternal))))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
+        "packages/taiko-client-rs/crates/lander/src/rewards.rs"
+      ],
+      "tests": ["Etna/Integration/Examples.lean"],
+      "boundaries": [
+        "Conditional composition: guest soundness must establish ValidBatch, including the base-fee word as the checked sum of the EL treasury credits of the batch blocks; that EL fee identity is an execution boundary."
+      ]
+    },
+    {
+      "id": "INT-forged-base-fee-not-valid",
+      "module": "Etna.Integration.Examples",
+      "declaration": "Etna.Integration.Examples.forged_base_fee_not_valid",
+      "type": "¬ Etna.Integration.ValidBatch Etna.Integration.Examples.auth Etna.Integration.Examples.world { Etna.Integration.Examples.input with baseFeeAmount := 6 } Etna.Integration.Examples.external (Etna.Landing.computedStatement Etna.Integration.Examples.world { Etna.Integration.Examples.input with baseFeeAmount := 6 } Etna.Integration.Examples.external) Etna.Integration.Examples.batch",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
+        "packages/taiko-client-rs/crates/lander/src/rewards.rs"
+      ],
+      "tests": ["Etna/Integration/Examples.lean"],
+      "boundaries": [
+        "Conditional composition: guest soundness must establish ValidBatch, including the base-fee word as the checked sum of the EL treasury credits of the batch blocks; that EL fee identity is an execution boundary."
+      ]
+    },
+    {
+      "id": "INT-final-ledger-nonvacuity",
+      "module": "Etna.Integration.Examples",
+      "declaration": "Etna.Integration.Examples.final_ledger_nonvacuity",
+      "type": "And\n  (Etna.Landing.ProofSound Etna.Integration.Examples.rewardHash Etna.Integration.Examples.finalWorld.rewardCommitments\n    Etna.Integration.Examples.firstClaim)\n  (Etna.Landing.ProofSound Etna.Integration.Examples.rewardHash Etna.Integration.Examples.finalWorld.rewardCommitments\n    Etna.Integration.Examples.secondClaim)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+      ],
+      "tests": ["Etna/Integration/Examples.lean"],
+      "boundaries": [
+        "Spec-proved model of L2FeeVault.claim; the vault has no Lean-compared harness here. Its Solidity, MPT and EIP-4788 semantics remain external and are exercised by the protocol L2FeeVault tests."
+      ]
+    },
+    {
+      "id": "INT-claims-nonvacuity",
+      "module": "Etna.Integration.Examples",
+      "declaration": "Etna.Integration.Examples.claims_nonvacuity",
+      "type": "And\n  (@Eq (Option (List (Prod Nat Nat))) (Etna.Integration.Examples.pairsOf Etna.Integration.Examples.afterFirst)\n    (@Option.some (List (Prod Nat Nat))\n      (@List.cons (Prod Nat Nat)\n        (@Prod.mk Nat Nat (@OfNat.ofNat Nat (nat_lit 57005) (instOfNatNat (nat_lit 57005)))\n          (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5))))\n        (@List.nil (Prod Nat Nat)))))\n  (And\n    (@Eq (Option (List (Prod Nat Nat))) (Etna.Integration.Examples.pairsOf Etna.Integration.Examples.afterSecond)\n      (@Option.some (List (Prod Nat Nat))\n        (@List.cons (Prod Nat Nat)\n          (@Prod.mk Nat Nat (@OfNat.ofNat Nat (nat_lit 57005) (instOfNatNat (nat_lit 57005)))\n            (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5))))\n          (@List.cons (Prod Nat Nat)\n            (@Prod.mk Nat Nat (@OfNat.ofNat Nat (nat_lit 57005) (instOfNatNat (nat_lit 57005)))\n              (@OfNat.ofNat Nat (nat_lit 3) (instOfNatNat (nat_lit 3))))\n            (@List.nil (Prod Nat Nat))))))\n    (@Eq (Option Etna.Landing.ClaimError)\n      (Etna.Integration.Examples.errorOf\n        (@Except.bind Etna.Landing.ClaimError Etna.Landing.Vault Etna.Landing.Vault\n          Etna.Integration.Examples.afterSecond fun v =>\n          Etna.Landing.claim Etna.Integration.Examples.rewardHash v Etna.Integration.Examples.firstClaim))\n      (@Option.some Etna.Landing.ClaimError Etna.Landing.ClaimError.alreadyClaimed)))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+      ],
+      "tests": ["Etna/Integration/Examples.lean"],
+      "boundaries": [
+        "Spec-proved model of L2FeeVault.claim; the vault has no Lean-compared harness here. Its Solidity, MPT and EIP-4788 semantics remain external and are exercised by the protocol L2FeeVault tests."
+      ]
+    },
+    {
+      "id": "INT-foreign-inbox-rejected",
+      "module": "Etna.Integration.Examples",
+      "declaration": "Etna.Integration.Examples.foreign_inbox_rejected",
+      "type": "Etna.Integration.Examples.errorOf (Etna.Landing.claim Etna.Integration.Examples.rewardHash { Etna.Integration.Examples.vault with inbox := 101 } Etna.Integration.Examples.firstClaim) = some .invalidReceipt",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+      ],
+      "tests": ["Etna/Integration/Examples.lean"],
+      "boundaries": [
+        "Spec-proved model of L2FeeVault.claim; the vault has no Lean-compared harness here. Its Solidity, MPT and EIP-4788 semantics remain external and are exercised by the protocol L2FeeVault tests."
+      ]
+    },
+    {
+      "id": "INT-bounded-claims-nonvacuity",
+      "module": "Etna.Integration.Examples",
+      "declaration": "Etna.Integration.Examples.bounded_claims_nonvacuity",
+      "type": "∃ v₂,\n  And\n    (Etna.Landing.ClaimTrace Etna.Integration.Examples.rewardHash Etna.Integration.Examples.vault\n      (@List.cons Etna.Landing.Receipt Etna.Integration.Examples.firstClaim.receipt\n        (@List.cons Etna.Landing.Receipt Etna.Integration.Examples.secondClaim.receipt\n          (@List.nil Etna.Landing.Receipt)))\n      v₂)\n    (@LE.le Nat instLENat\n      (@List.sum Nat instAddNat (@MulZeroClass.toZero Nat Nat.instMulZeroClass)\n        (@List.map Etna.Landing.Transfer Nat Etna.Landing.Transfer.wei v₂.payouts))\n      (@Etna.Integration.credits Etna.Integration.Examples.ctx Etna.Integration.Examples.auth\n        (@List.cons (Etna.Integration.Block Etna.Integration.Examples.ctx) Etna.Integration.Examples.block\n          (@List.cons (Etna.Integration.Block Etna.Integration.Examples.ctx) Etna.Integration.Examples.secondBlock\n            (@List.nil (Etna.Integration.Block Etna.Integration.Examples.ctx))))))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+      ],
+      "tests": ["Etna/Integration/Examples.lean"],
+      "boundaries": [
+        "Conditional composition: guest soundness must establish ValidBatch, including the base-fee word as the checked sum of the EL treasury credits of the batch blocks; that EL fee identity is an execution boundary.",
+        "Spec-proved model of L2FeeVault.claim; the vault has no Lean-compared harness here. Its Solidity, MPT and EIP-4788 semantics remain external and are exercised by the protocol L2FeeVault tests."
       ]
     }
   ]

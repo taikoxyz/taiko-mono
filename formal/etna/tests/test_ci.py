@@ -49,7 +49,6 @@ class TriggerAndGateTests(unittest.TestCase):
     def test_proof_policy_and_statements_require_review(self):
         for path in ['formal/etna/manifests/fi.json','formal/etna/schemas/coverage-policy.json',
                      'formal/etna/scripts/check_coverage.py','formal/etna/Etna/FI/Proofs.lean',
-                     'packages/taiko-client-rs/script/foundry_identity.py',
                      'packages/taiko-client-rs/script/gen_lander_artifacts.sh',
                      'packages/taiko-client-rs/script/check_lander_artifacts.sh']:
             self.assertTrue(ci_gate.proof_change([path]))

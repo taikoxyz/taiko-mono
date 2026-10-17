@@ -16,7 +16,6 @@ PROOF=('formal/etna/Etna/','formal/etna/manifests/','formal/etna/schemas/',
        'formal/etna/coverage.json','formal/etna/scripts/','formal/etna/tools',
        'formal/etna/lean-toolchain','formal/etna/lake','formal/etna/adapters/',
        '.github/workflows/etna--formal.yml',
-       'packages/taiko-client-rs/script/foundry_identity.py',
        'packages/taiko-client-rs/script/gen_lander_artifacts.sh',
        'packages/taiko-client-rs/script/check_lander_artifacts.sh')
 
@@ -111,7 +110,7 @@ def main():
         validate_heads(current_heads()); verify_event(revision)
         coverage=json.loads(a.coverage.read_text())
         if (coverage.get('verification_overlay') != revision or not coverage.get('kernel_audit')
-                or coverage.get('theorems') != 204 or coverage.get('exact_rust_functions') != 17):
+                or coverage.get('theorems') != 261 or coverage.get('exact_rust_functions') != 21):
             raise ValueError('coverage report lacks exact current SHA/kernel audit')
         ledger=json.loads((ROOT/'coverage.json').read_text())
         if coverage['ledger_sha256'] != sha(ROOT/'coverage.json'): raise ValueError('stale coverage ledger')
@@ -122,7 +121,7 @@ def main():
                 or pair['upstream_client'] != CLIENT or pair['paired_protocol'] != PROTOCOL
                 or not paired['fresh_execution'] or paired['seed'] != 20261015):
             raise ValueError('execution receipts do not bind the current pair')
-        if paired['landing']['failures'] or paired['landing']['cases'] != 56:
+        if paired['landing']['failures'] or paired['landing']['cases'] != 65:
             raise ValueError('paired execution receipt is incomplete')
         report.update(extraction=extraction,conformance=paired,pair_identity=pair['assembled_sha256'],
             protocol_ownership=pair['protocol_ownership'],

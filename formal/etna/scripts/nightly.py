@@ -21,7 +21,14 @@ def main():
         'hot-consumption-removed':'FI-08','cold-consumption-removed':'FI-08',
         'activation-early':'COM-03','activation-late':'COM-03','quorum-inclusive':'COM-04',
         'candidate-anchor':'COM-02','drop-pending-insertion':'COM-06',
+        'committee-size-cap-relaxed':'COM-rust_committee_size_refines',
+        'positive-cap-inclusive':'COM-rust_positive_cap_refines',
+        'first-height-range-bypass':'COM-validate_first_ranges',
+        'first-anchor-range-bypass':'COM-validate_first_ranges',
+        'anchor-overflow-admitted':'COM-rust_anchor_progress_refines',
+        'urgency-overflow-true':'COM-rust_force_epoch_refines',
     }
+    expected_mutants={'fi':5,'committee':11}
     if a.domain in {'fi','committee'}:
         execute(['python3',str(ROOT/'scripts'/f'{a.domain}_mutations.py'),'--group','all','--output',str(a.output/'mutations')],a.output/'mutations.log',env=os.environ | {'RUSTUP_TOOLCHAIN':'1.95'})
         data=json.loads((a.output/'mutations/all.json').read_text())
@@ -34,7 +41,7 @@ def main():
                      if any(marker in line for marker in ['corpus mismatch','error:','panicked','FAILED'])]
             if not reasons: raise ValueError('mutant lacks actual failure diagnostics: '+name)
             records.append(mutation | {'obligation':obligations[name],'actual_failure_reasons':reasons[:30]})
-        if len(records)!=5: raise ValueError('incomplete domain mutation execution')
+        if len(records)!=expected_mutants[a.domain]: raise ValueError('incomplete domain mutation execution')
         # Restore and compile/audit canonical modules again after mutant oleans.
         execute(['python3',str(ROOT/'scripts/audit_proofs.py')],a.output/'restored-audit.log')
     elif a.domain=='landing':

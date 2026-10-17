@@ -1,5 +1,6 @@
 """Negative regressions for the actual Landing comparison/staging trust gates."""
 import copy
+import hashlib
 import importlib.util
 import json
 import os
@@ -89,6 +90,97 @@ class ComparisonGateTests(unittest.TestCase):
             o[0]['actualDigest'] = self.observed['normal']['actualDigest']
         result = self.check(['inactive'], ['inactive'], mutate)
         self.assertTrue(any(f['field']=='preimage-presence' for f in result['failures']), result)
+
+
+def fake_keccak(hex_bytes):
+    """Deterministic stand-in for the cast oracle: distinct preimages give distinct words."""
+    return '0x'+hashlib.sha256(bytes.fromhex(hex_bytes.removeprefix('0x'))).hexdigest()
+
+
+class RewardGateTests(unittest.TestCase):
+    """V8 statement shape and the three-way receipt check (Lean, Python, actual event)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.rows = {r['id']:r for r in landing.load(ROOT/'corpus/landing.jsonl')}
+        cls.observed = {r['id']:r for r in landing.load(ROOT/'reports/landing-solidity-observations.jsonl')}
+
+    def check(self, case, mutate=None):
+        """Builds one self-consistent Lean/actual pair under the fake oracle, then mutates it."""
+        row = copy.deepcopy(self.rows[case])
+        obs = copy.deepcopy(self.observed[case])
+        lean = {k:obs[k] for k in landing.FIELDS}
+        with patch.object(landing, 'keccak', side_effect=fake_keccak):
+            batch, batch_id, commitment, _ = landing.receipt_preimages(row, obs['context'])
+            if 'actualPreimage' in obs:
+                lean['expectedPreimage'] = obs['actualPreimage']
+                obs['actualDigest'] = fake_keccak(obs['actualPreimage'])
+            if obs['error'] in landing.REWARD_STAGE:
+                lean['expectedRewardBatchPreimage'] = '0x'+batch
+                lean['expectedRewardCommitmentPreimage'] = '0x'+commitment
+            if int(obs['actualRewardId'],16):
+                obs['actualRewardId'] = batch_id
+            if mutate:
+                mutate(row, obs, lean)
+            with patch.object(landing, 'run', return_value=json.dumps(lean)):
+                return {f['field'] for f in landing.compare([row], [obs])['failures']}
+
+    def test_v8_statement_shape_is_twenty_words(self):
+        self.assertEqual(len(self.observed['normal']['actualPreimage']), 2+640*2)
+        self.assertEqual(len(self.observed['normal']['statementWords']), 20)
+        self.assertEqual(self.observed['normal']['statementWords'][0],
+                         '0x'+b'TAIKO_ETNA_LAND_V8'.hex().ljust(64,'0'))
+
+    def test_v6_shaped_statement_is_rejected(self):
+        def mutate(c, o, l):
+            for side, key in [(l,'expectedPreimage'), (o,'actualPreimage')]:
+                side[key] = side[key][:2+576*2]
+            o['statementWords'] = o['statementWords'][:18]
+        self.assertIn('preimage-shape', self.check('normal', mutate))
+
+    def test_consistent_reward_rows_are_accepted(self):
+        for case in ['normal','reward-max-amount','reward-before-payment-failure',
+                     'reward-occupied-slot','reward-zero-recipient','verifier-revert']:
+            with self.subTest(case=case):
+                self.assertEqual(self.check(case), set())
+
+    def test_reward_preimage_presence_must_match_the_reached_stage(self):
+        def drop(c, o, l):
+            l.pop('expectedRewardCommitmentPreimage')
+        def add(c, o, l):
+            l['expectedRewardBatchPreimage'] = l['expectedRewardCommitmentPreimage'] = '0x00'
+        self.assertIn('reward-preimage-presence', self.check('normal', drop))
+        self.assertIn('reward-preimage-presence', self.check('verifier-revert', add))
+
+    def test_lean_receipt_preimage_must_match_the_independent_encoding(self):
+        def parent(c, o, l):
+            # Word 5 of the batch preimage is the parent height.
+            p = l['expectedRewardBatchPreimage']
+            l['expectedRewardBatchPreimage'] = p[:2+5*64]+landing.word(c['parentHeight']+1)+p[2+6*64:]
+        def amount(c, o, l):
+            p = l['expectedRewardCommitmentPreimage']
+            l['expectedRewardCommitmentPreimage'] = p[:2+3*64]+landing.word(1)+p[2+4*64:]
+        self.assertTrue({'rewardBatchPreimage','rewardBatchId'} <= self.check('normal', parent))
+        self.assertTrue({'rewardCommitmentPreimage','rewardCommitmentValue'} <=
+                        self.check('reward-max-amount', amount))
+
+    def test_actual_reward_id_must_match_and_appear_only_after_the_record(self):
+        def wrong(c, o, l):
+            o['actualRewardId'] = '0x'+'11'*32
+        def missing(c, o, l):
+            o['actualRewardId'] = '0x'+'00'*32
+        self.assertIn('actualRewardId', self.check('normal', wrong))
+        self.assertIn('reward-event-presence', self.check('normal', missing))
+        self.assertIn('reward-event-presence', self.check('reward-before-payment-failure', missing))
+        # An occupied slot reverts before the event: an emitted receipt there is a mismatch.
+        self.assertIn('reward-event-presence', self.check('reward-occupied-slot', wrong))
+
+    def test_reward_commitment_observations_are_compared(self):
+        for field in ['rewardEvent','rewardCommitment','tentativeRewardCommitment']:
+            def mutate(c, o, l, field=field):
+                l[field] = (not l[field]) if isinstance(l[field], bool) else '0x'+'22'*32
+            with self.subTest(field=field):
+                self.assertIn(field, self.check('reward-before-payment-failure', mutate))
 
 
 class PinnedInputTests(unittest.TestCase):

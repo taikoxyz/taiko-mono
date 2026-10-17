@@ -16,9 +16,10 @@ def exampleWorld : World := {
   transfers := []
   logs := []
   guard := false }
-def exampleInput : LandInput := ⟨13, 291, 1110, 19999, 4, 48879, 51966⟩
+def exampleInput : LandInput := ⟨13, 291, 1110, 19999, 4, 48879, 57005, 123456, 51966⟩
 def exampleEnvironment : Environment := ⟨20000, 2748, true, 32, 2748, [1,2]⟩
-def exampleExternal : ExternalOutcomes := ⟨exampleEnvironment, true, true, true, .none, fun _ => 0⟩
+/-- A constant toy reward hash, not Keccak; it makes every recorded commitment nonzero. -/
+def exampleExternal : ExternalOutcomes := ⟨exampleEnvironment, true, true, true, .none, fun _ => 0, fun _ => 7⟩
 
 theorem normal_nonvacuity : (execLandSteps exampleWorld exampleInput exampleExternal).error = none := by decide
 
@@ -40,7 +41,31 @@ theorem signal_failure_after_writes :
 theorem payment_failure_after_verifier :
     let r := execLandSteps exampleWorld exampleInput { exampleExternal with paymentReturnsNormally := false }
     r.error = some .payment ∧ r.journal.current.head.val = 4 ∧
-    r.journal.current.signal.length = 1 ∧ r.journal.current.logs.length = 2 := by decide
+    r.journal.current.signal.length = 1 ∧ r.journal.current.logs.length = 3 ∧
+    r.journal.current.rewardCommitments 7 = 7 ∧ r.journal.rollback.rewardCommitments 7 = 0 := by decide
+
+/-- The receipt is recorded after the verifier, at its id, with its event before the FI event. -/
+theorem reward_recorded_nonvacuity :
+    let r := execLandSteps exampleWorld exampleInput exampleExternal
+    r.error = none ∧ r.journal.current.rewardCommitments 7 = 7 ∧ r.journal.current.logs.length = 4 ∧
+    r.trace = [.entry, .checked, .statement, .head, .checkpoint, .signal, .batchEvent, .verifier, .reward,
+      .payment, .consumed, .unlock] := by decide
+
+/-- An occupied slot reverts the whole landing after the verifier and before any payment. -/
+theorem occupied_reward_slot_reverts :
+    let w := { exampleWorld with rewardCommitments := fun _ => 1 }
+    let r := execLandSteps w exampleInput exampleExternal
+    r.error = some .rewardAlreadyRecorded ∧ r.stage = .reward ∧ r.journal.current.transfers = [] ∧
+    (runTransaction w r).world.head = w.head := by decide
+
+theorem zero_reward_recipient_rejected :
+    (execLandSteps exampleWorld { exampleInput with rewardRecipient := 0 } exampleExternal).error =
+      some .zeroRewardRecipient := by decide
+
+/-- A zero base-fee amount is still recorded: `claim` later consumes it without a transfer. -/
+theorem zero_base_fee_recorded :
+    let r := execLandSteps exampleWorld { exampleInput with baseFeeAmount := 0 } exampleExternal
+    r.error = none ∧ r.journal.current.rewardCommitments 7 = 7 := by decide
 
 theorem zero_fee_skips_callback :
     (execLandSteps { exampleWorld with fee := fun _ => 0 } exampleInput
@@ -85,7 +110,7 @@ def withBlobPrefix (x : ExternalOutcomes) (blobs : List Word256) : ExternalOutco
 /-- Both local assumptions are satisfiable together on different-length actual prefixes,
 and the resulting outer hashes differ. The conclusion is derived, not an assumed blob equality. -/
 theorem composed_unequal_length_nonvacuity (w : World) (i : LandInput) (x : ExternalOutcomes) :
-    ∃ outerHash : Vector Byte 576 → Word256,
+    ∃ outerHash : Vector Byte 640 → Word256,
       LocalInnerHashSeparation exampleInnerHash
         (actualBlobs (withBlobPrefix x [1]).environment)
         (actualBlobs (withBlobPrefix x [1,2]).environment) ∧

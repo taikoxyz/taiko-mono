@@ -17,10 +17,13 @@ from landing_conformance import PIN, pinned_inputs
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = ROOT.parents[1]
-UPSTREAM_CLIENT = '2af0f30485b9990eae87074037bede11c59e8883'
+UPSTREAM_CLIENT = '6f91f50c6185213ac512a4a46683767c75d8d831'
+# The client's lander fixtures name the protocol revision they were generated at. It may
+# precede the tested pin only when every compiler input below is byte-identical.
+FIXTURE_INPUTS = ['packages/protocol/contracts','packages/protocol/foundry.toml','pnpm-lock.yaml']
 # Frozen independently of the manifests/ledger. Deleting both copies is still rejected.
 POLICY = ROOT/'schemas/coverage-policy.json'
-POLICY_SHA256 = '207c0ab1498db472164a8bfd8520f04d57fc0ad3fcd2ce7a3b4fad7f95f38330'
+POLICY_SHA256 = '2e18d74ce2873728c9ab9bc4cc4acb87183346ddf1f5b33477c80cf8b889f85d'
 if hashlib.sha256(POLICY.read_bytes()).hexdigest() != POLICY_SHA256:
     raise ValueError('coverage policy changed without explicit checker review')
 _POLICY = json.loads(POLICY.read_text())
@@ -134,8 +137,12 @@ def check_contract_artifacts(protocol, expected):
     pinned_inputs(protocol)
     fixture_dir = REPO/'packages/taiko-client-rs/crates/lander/tests/fixtures/contracts'
     manifest = json.loads((fixture_dir/'manifest.json').read_text())
-    if manifest['protocolRevision'] != PIN or sha(fixture_dir/'manifest.json') != expected['manifest_sha256']:
-        raise ValueError('contract artifact provenance revision/digest mismatch')
+    if sha(fixture_dir/'manifest.json') != expected['manifest_sha256']:
+        raise ValueError('contract artifact provenance digest mismatch')
+    if manifest['protocolRevision'] != PIN and subprocess.run(
+            ['git','diff','--quiet',manifest['protocolRevision'],PIN,'--',*FIXTURE_INPUTS],
+            cwd=protocol.parents[1]).returncode != 0:
+        raise ValueError('fixture protocol revision has different compiler inputs from the tested pin')
     for name, provenance in manifest['artifacts'].items():
         fixture = fixture_dir/(name+'.json')
         if sha(fixture) != provenance['sha256']:

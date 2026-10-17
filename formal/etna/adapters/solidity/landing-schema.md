@@ -19,6 +19,13 @@ Required fields (all present, no implicit defaults):
 - `recipient`: 20-byte hex address. Normal rows use `0x000000000000000000000000000000000000bEEF`.
   Callback modes override this with the actual deployed callback address in observed
   context; the Lean runtime is rerun using that context recipient. Zero remains zero.
+- `l2RewardRecipient`: 20-byte hex address, the V8 L2 base-fee receiver. Normal rows use
+  `0x000000000000000000000000000000000000f00d`; zero reverts `ZeroRewardRecipient`, checked
+  immediately after the fee recipient and before the queue head.
+- `baseFeeAmount`: uint256 decimal string; zero is valid.
+- `rewardSeed`: bytes32 hex prestate of `rewardCommitments[batchId]` (slot 283) at this row's
+  receipt id. Zero means unrecorded; nonzero is storage-seeded to exercise
+  `RewardAlreadyRecorded`.
 - `caller`: 20-byte hex address; normal `0x000000000000000000000000000000000000cAFE`.
   Copy cases differ only caller and must preserve recipient.
 - `reference`, `currentBlock`, `referenceHash` (32-byte hex), `historySuccess`
@@ -42,15 +49,18 @@ Output: one JSON object per row, `schemaVersion`, `id`, with:
 
 `status`: `ok` or `revert`;
 `error`: `none`, `reentrant`, `inactive`, `no-progress`, `batch-too-large`,
-`height-overflow`, `zero-recipient`, `invalid-head`, `anchor-unavailable`,
-`blobs-required`, `signal-unauthorized`, `signal-invalid`, `verifier`, `payment`.
+`height-overflow`, `zero-recipient`, `zero-reward-recipient`, `invalid-head`,
+`anchor-unavailable`, `blobs-required`, `signal-unauthorized`, `signal-invalid`,
+`verifier`, `reward-already-recorded`, `payment`.
 When reference and blobs are both invalid, use `environment-error` in comparison
 and record raw compiler selector separately: source sibling evaluation order is
 not fixed. Other errors preserve exact precedence.
 
 Committed business observations: `head`, `tail`, `checkpointHeight`,
 `checkpointHash`, `signalPresent`, `signalHeight`, `signalHash`, `signalRoot`,
-`paidTo`, `paidWei` (decimal string), `batchEvent`, `consumedEvent`.
+`paidTo`, `paidWei` (decimal string), `batchEvent`, `consumedEvent`, `rewardEvent`
+(committed `BatchRewardRecorded`), `rewardCommitment` (final slot-283 value at the
+row's receipt id).
 Payment describes executed successful transfer instruction(s) that commit, not
 recipient net balance. On revert all business fields restore prestate, paidWei=0,
 paidTo=zero, and committed event flags false. Signal fixture begins without target
@@ -60,18 +70,21 @@ log exists. Tail never changes.
 
 Trace observations, separately optional: `tentativeHead`, `tentativeCheckpointHeight`,
 `tentativeSignalPresent`, `tentativeBatchEvent`, `failureStage`, `rawSelector`,
-`nestedError`, `rawLogCount`. Raw recorded logs are not committed logs on revert.
+`nestedError`, `rawLogCount`, `tentativeRewardCommitment` (value written to the
+receipt slot during the call, zero if none), `actualRewardId` (indexed batch id of a raw,
+possibly reverted, `BatchRewardRecorded` log, zero if none). Raw recorded logs are not committed logs on revert.
 Do not claim a tentative value that was only inferred from final rollback state;
 use debugger/storage-access trace or label source-derived separately.
 
 Encoder context (actual fixture values, required whenever actual SHA3 reached):
-`statementWords`: array of EXACTLY 18 hex32 canonical words in source order;
-`actualPreimage`: hex of unique SHA3 memoryInput of length576 in the actual Inbox
+`statementWords`: array of EXACTLY 20 hex32 canonical words in source order, domain
+`TAIKO_ETNA_LAND_V8`;
+`actualPreimage`: hex of unique SHA3 memoryInput of length 640 in the actual Inbox
 PROXY frame recorded during land, not a copied helper;
 `actualDigest`: its Keccak. Statement words must independently assemble source
 values (domain, chain IDs, actual proxy/registry, generation, prior checkpoint,
 config, row inputs, reference result, packed ordered blob commitment, queue heads,
-recipient). A companion `context` object uses the exact keys chainid/l2chainid/proxy/registry/
+recipient, L2 reward recipient, base-fee amount). A companion `context` object uses the exact keys chainid/l2chainid/proxy/registry/
 generation/parentHash/config/recipient, to let Lean independently normalize fields.
 Comparing words is structural Lean encoding + actual trace conformance. Inner blob
 commitment Keccak remains explicit crypto boundary, not injectively proved.
@@ -91,7 +104,7 @@ Tester emits `console2` lines prefixed `LAND_OBSERVATION `; the runner captures 
 parses these into JSONL. Debug recording requires `-vvv` or higher.
 Runner must save original staged files (or absence), finally restore byte-for-byte,
 and compare production git diff/digests before/after. Dependency HEAD remains pinned
-27777e9d7147e7b1d3543711f4d7370a0377fa53. Never concurrently compile same out directory.
+cf4095818050bd670d7d6b8b9f742d55c01e49f0. Never concurrently compile same out directory.
 Required test execution stays with controller-dispatched solidity-tester.
 
 Accepted implementation details: every row emits the complete precall fixture context,
@@ -99,5 +112,7 @@ including early reverts. Recipient callbacks are etched at the requested address
 recipient override is needed. Verifier-land/save statically attempt the guarded function,
 assert its REENTRANT_CALL error, and then return normally iff verifierAccepts=true.
 guardLocked is actual transient storage seeding via temporary proxy runtime restored
-before real land. Canonical corpus remains56 rows; head-past-tail lastHeight14 isolates
+before real land. The driver independently builds the `LibEtnaRewards` batch-id and
+commitment preimages and requires Lean's preimages, its own, and the actual indexed
+event id to agree. Canonical corpus has 65 rows; head-past-tail lastHeight14 isolates
 the tail check from the block-consumption check (initial13 was insufficient).

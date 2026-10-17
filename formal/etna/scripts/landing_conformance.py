@@ -12,11 +12,13 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-PIN = '27777e9d7147e7b1d3543711f4d7370a0377fa53'
+PIN = 'cf4095818050bd670d7d6b8b9f742d55c01e49f0'
 FIELDS = ['schemaVersion','id','status','error','head','tail','checkpointHeight',
           'checkpointHash','signalPresent','signalHeight','signalHash','signalRoot',
           'paidTo','paidWei','batchEvent','consumedEvent','tentativeHead',
-          'tentativeCheckpointHeight','tentativeSignalPresent','tentativeBatchEvent']
+          'tentativeCheckpointHeight','tentativeSignalPresent','tentativeBatchEvent',
+          'rewardEvent','rewardCommitment','tentativeRewardCommitment']
+REWARD_STAGE = {'none','payment','reward-already-recorded'}
 
 
 def run(args, cwd=ROOT, env=None):
@@ -220,6 +222,26 @@ def keccak(hex_bytes):
     return run(['cast','keccak',hex_bytes]).strip().lower()
 
 
+def word(value):
+    return format(value, '064x')
+
+
+def tag(text):
+    return text.encode().hex().ljust(64, '0')
+
+
+def receipt_preimages(row, context):
+    """Independently build LibEtnaRewards' batch-id and commitment preimages (hex, no 0x)."""
+    batch = ''.join([tag('ETNA_L2_REWARD_BATCH_V1'), word(context['chainid']), word(context['l2chainid']),
+                     word(int(context['proxy'],16)), word(context['generation']), word(row['parentHeight']),
+                     context['parentHash'][2:].lower().rjust(64,'0'), word(row['lastHeight']),
+                     row['lastBlockHash'][2:].lower().rjust(64,'0')])
+    batch_id = keccak('0x'+batch)
+    commitment = ''.join([tag('ETNA_L2_REWARD_RECEIPT_V1'), batch_id[2:], word(int(row['l2RewardRecipient'],16)),
+                          word(int(row['baseFeeAmount']))])
+    return batch, batch_id, commitment, keccak('0x'+commitment)
+
+
 def exact_ids(rows, label, expected=None):
     ids = [r.get('id') for r in rows]
     if not ids or any(not isinstance(i,str) or not i for i in ids) or len(set(ids)) != len(ids):
@@ -244,8 +266,10 @@ def compare(corpus, observations, rust_rows=None):
                 break
             ordered.append(blob[2:])
         # Compute all model inputs independently of whether Solidity emitted a preimage.
+        _, batch_id, _, commitment = receipt_preimages(row, context)
         r = row | {'parentHash':context['parentHash'], 'context':context,
-                   'blobCommitment':keccak('0x'+''.join(ordered))}
+                   'blobCommitment':keccak('0x'+''.join(ordered)),
+                   'rewardBatchId':batch_id, 'rewardCommitmentValue':commitment}
         augmented.append(r)
     with tempfile.TemporaryDirectory(prefix='etna-landing-') as temporary:
         p = Path(temporary)/'input.jsonl'
@@ -268,16 +292,37 @@ def compare(corpus, observations, rust_rows=None):
                                  'solidity':obs.get(field)})
         expected_encoding = 'expectedPreimage' in expected
         actual_group = [key in obs for key in ('actualPreimage','actualDigest','statementWords')]
-        reaches_statement = expected['error'] in {'none','signal-unauthorized','signal-invalid','verifier','payment'}
+        reaches_statement = expected['error'] in {'none','signal-unauthorized','signal-invalid','verifier',
+                                                  'reward-already-recorded','payment'}
+        row = next(r for r in corpus if r['id'] == expected['id'])
+        batch, batch_id, commitment_pre, commitment = receipt_preimages(row, obs['context'])
+        reaches_reward = expected['error'] in REWARD_STAGE
+        lean_reward = ('expectedRewardBatchPreimage' in expected, 'expectedRewardCommitmentPreimage' in expected)
+        if lean_reward != (reaches_reward, reaches_reward):
+            failures.append({'id':expected['id'],'field':'reward-preimage-presence'})
+        elif reaches_reward:
+            if expected['expectedRewardBatchPreimage'].lower() != '0x'+batch:
+                failures.append({'id':expected['id'],'field':'rewardBatchPreimage'})
+            if keccak(expected['expectedRewardBatchPreimage']) != batch_id:
+                failures.append({'id':expected['id'],'field':'rewardBatchId'})
+            if expected['expectedRewardCommitmentPreimage'].lower() != '0x'+commitment_pre:
+                failures.append({'id':expected['id'],'field':'rewardCommitmentPreimage'})
+            if keccak(expected['expectedRewardCommitmentPreimage']) != commitment:
+                failures.append({'id':expected['id'],'field':'rewardCommitmentValue'})
+        actual_id = obs.get('actualRewardId','0x'+'0'*64).lower()
+        if int(actual_id,16) != 0 and actual_id != batch_id:
+            failures.append({'id':expected['id'],'field':'actualRewardId'})
+        if (int(actual_id,16) != 0) != (expected['error'] in {'none','payment'}):
+            failures.append({'id':expected['id'],'field':'reward-event-presence'})
         if (expected_encoding != reaches_statement or any(actual_group) != reaches_statement or
                 (any(actual_group) and not all(actual_group))):
             failures.append({'id':expected['id'],'field':'preimage-presence'})
             continue
         if expected_encoding:
-            if (not isinstance(expected['expectedPreimage'],str) or len(expected['expectedPreimage']) != 1154 or
-                    not isinstance(obs['actualPreimage'],str) or len(obs['actualPreimage']) != 1154 or
+            if (not isinstance(expected['expectedPreimage'],str) or len(expected['expectedPreimage']) != 1282 or
+                    not isinstance(obs['actualPreimage'],str) or len(obs['actualPreimage']) != 1282 or
                     not isinstance(obs['actualDigest'],str) or len(obs['actualDigest']) != 66 or
-                    not isinstance(obs['statementWords'],list) or len(obs['statementWords']) != 18):
+                    not isinstance(obs['statementWords'],list) or len(obs['statementWords']) != 20):
                 failures.append({'id':expected['id'],'field':'preimage-shape'})
                 continue
             encoded += 1
@@ -291,7 +336,7 @@ def compare(corpus, observations, rust_rows=None):
                 failures.append({'id':expected['id'],'field':'actualPreimage'})
             if keccak(preimage) != obs['actualDigest'].lower():
                 failures.append({'id':expected['id'],'field':'actualDigest'})
-            if ['0x'+preimage[2+i*64:2+(i+1)*64] for i in range(18)] != [s.lower() for s in obs['statementWords']]:
+            if ['0x'+preimage[2+i*64:2+(i+1)*64] for i in range(20)] != [s.lower() for s in obs['statementWords']]:
                 failures.append({'id':expected['id'],'field':'statementWords'})
     return {'schema_version':1,'cases':len(corpus),'actual_preimages':encoded,
             'failures':failures,'specification':'Lean executable staged model',

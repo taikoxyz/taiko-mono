@@ -9,6 +9,7 @@ import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
+import { LibEtnaRewards } from "src/shared/libs/LibEtnaRewards.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 
@@ -136,6 +137,9 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
         keccak256("ForcedInclusionsConsumed(uint48,uint48,uint256,address)");
     bytes32 private constant _CHECKPOINT_EVENT =
         keccak256("CheckpointSaved(uint48,bytes32,bytes32)");
+    bytes32 private constant _REWARD_EVENT = keccak256(
+        "BatchRewardRecorded(bytes32,address,uint256,uint64,uint64,bytes32,uint64,bytes32)"
+    );
 
     struct Row {
         string id;
@@ -148,6 +152,9 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
         bool active;
         bool locked;
         address recipient;
+        address rewardRecipient;
+        uint256 baseFeeAmount;
+        bytes32 rewardSeed;
         address caller;
         uint64 referenceBlock;
         uint256 currentBlock;
@@ -190,6 +197,11 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
         bytes preimage;
         uint64 statementDepth;
         uint256 verifierCalls;
+        bytes32 rewardSlot;
+        bytes32 rewardCommitment;
+        bytes32 tentativeRewardCommitment;
+        bytes32 actualRewardId;
+        bool rewardEvent;
     }
 
     /// @notice Runs all rows staged by the portable adapter; prints machine-readable observations.
@@ -244,6 +256,9 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
         row_.active = _bool(_json, _key, "active");
         row_.locked = _bool(_json, _key, "guardLocked");
         row_.recipient = vm.parseJsonAddress(_json, string.concat(_key, ".recipient"));
+        row_.rewardRecipient = vm.parseJsonAddress(_json, string.concat(_key, ".l2RewardRecipient"));
+        row_.baseFeeAmount = _uint(_json, _key, "baseFeeAmount");
+        row_.rewardSeed = vm.parseJsonBytes32(_json, string.concat(_key, ".rewardSeed"));
         row_.caller = vm.parseJsonAddress(_json, string.concat(_key, ".caller"));
         row_.referenceBlock = uint64(_uint(_json, _key, "reference"));
         row_.currentBlock = _uint(_json, _key, "currentBlock");
@@ -323,6 +338,9 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
             vm.store(address(etnaInbox), bytes32(uint256(slot) + 1), bytes32(_row.fees[i] << 112));
         }
         vm.deal(address(etnaInbox), _row.balance);
+        if (_row.rewardSeed != bytes32(0)) {
+            vm.store(address(etnaInbox), _rewardSlot(_row), _row.rewardSeed);
+        }
         if (!_row.signalAuthorized) {
             SignalService unauthorized =
                 new SignalService(address(0xbad), REMOTE_SIGNAL_SERVICE, address(0));
@@ -373,7 +391,9 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
             lastStateRoot: _row.lastRoot,
             l1ReferenceBlockNumber: _row.referenceBlock,
             forcedInclusionHead: _row.afterHead,
-            feeRecipient: _row.recipient
+            feeRecipient: _row.recipient,
+            l2RewardRecipient: _row.rewardRecipient,
+            baseFeeAmount: _row.baseFeeAmount
         });
         vm.recordLogs();
         vm.startStateDiffRecording();
@@ -396,6 +416,8 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
         o.height = uint64(uint256(vm.load(address(etnaInbox), bytes32(LAST_CHECKPOINT_SLOT))));
         o.checkpointHash = vm.load(address(etnaInbox), bytes32(LAST_CHECKPOINT_SLOT + 1));
         (o.signalPresent, o.signal) = _signal(_row.lastHeight);
+        o.rewardSlot = _rewardSlot(_row);
+        o.rewardCommitment = vm.load(address(etnaInbox), o.rewardSlot);
         _trace(_row, o, steps, accesses, logs);
         _assertBusiness(_row, o);
         _print(_row, o);
@@ -422,7 +444,7 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
             Vm.DebugStep memory step = _steps[i];
             if (
                 step.contractAddr == address(etnaInbox) && step.opcode == 0x20
-                    && step.memoryInput.length == 576
+                    && step.memoryInput.length == 640
             ) {
                 ++statementCount;
                 _observation.preimage = step.memoryInput;
@@ -436,7 +458,7 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
                 _observation.nestedError = bytes4(step.memoryInput);
             }
         }
-        require(statementCount <= 1, "unique real Inbox 576-byte SHA3");
+        require(statementCount <= 1, "unique real Inbox 640-byte SHA3");
         if (statementCount == 1) {
             bytes32[] memory words = _statementWords(_row);
             assertEq(
@@ -479,6 +501,9 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
                     _observation.checkpointWrite = true;
                     _observation.tentativeHeight = uint64(uint256(write.newValue));
                 }
+                if (write.slot == _observation.rewardSlot) {
+                    _observation.tentativeRewardCommitment = write.newValue;
+                }
             }
         }
         _observation.rawLogCount = _logs.length;
@@ -513,10 +538,42 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
             ) {
                 _observation.tentativeSignal = true;
             }
+            if (_logs[i].emitter == address(etnaInbox) && _logs[i].topics[0] == _REWARD_EVENT) {
+                // Raw logs are in execution order: one receipt, recorded after BatchLanded.
+                assertEq(_observation.actualRewardId, bytes32(0), "unique reward event");
+                assertTrue(_observation.tentativeBatch, "batch event precedes reward event");
+                _observation.actualRewardId = _logs[i].topics[1];
+                if (_observation.ok) {
+                    assertEq(
+                        _logs[i].topics[2],
+                        bytes32(uint256(uint160(_row.rewardRecipient))),
+                        "actual indexed L2 reward recipient"
+                    );
+                    assertEq(
+                        _logs[i].data,
+                        abi.encode(
+                            _row.baseFeeAmount,
+                            uint64(
+                                uint256(
+                                    vm.load(address(etnaInbox), bytes32(RECOVERY_GENERATION_SLOT))
+                                )
+                            ),
+                            _row.parentHeight,
+                            genesisBlockHash,
+                            _row.lastHeight,
+                            _row.lastHash
+                        ),
+                        "actual reward event data"
+                    );
+                    _observation.rewardEvent = true;
+                }
+            }
             if (
                 _logs[i].emitter == address(etnaInbox) && _logs[i].topics[0] == _CONSUMED_EVENT
                     && _observation.ok
             ) {
+                // The receipt is recorded before the fee transfer and its consumption event.
+                assertTrue(_observation.rewardEvent, "reward event precedes consumption event");
                 assertEq(
                     _logs[i].topics[1],
                     bytes32(uint256(uint160(_row.recipient))),
@@ -542,7 +599,7 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
     /// @dev Verifies actual rollback state and emitted/transfer observations against row data.
     /// @param _row The original typed fixture inputs.
     /// @param _observation The actual business state and recorded effects.
-    function _assertBusiness(Row memory _row, Observation memory _observation) private pure {
+    function _assertBusiness(Row memory _row, Observation memory _observation) private view {
         assertEq(_observation.tail, _row.tail, string.concat(_row.id, ": retained tail"));
         if (!_observation.ok) {
             assertEq(_observation.head, _row.beforeHead, string.concat(_row.id, ": rollback head"));
@@ -561,9 +618,15 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
             if (_row.lastHeight != 0) {
                 assertFalse(_observation.signalPresent, string.concat(_row.id, ": rollback signal"));
             }
+            assertEq(
+                _observation.rewardCommitment,
+                _row.rewardSeed,
+                string.concat(_row.id, ": rollback reward slot")
+            );
             return;
         }
         assertTrue(_row.verifierAccepts, "successful land requires normal verifier return");
+        assertEq(_row.rewardSeed, bytes32(0), "successful land requires an empty reward slot");
         assertGt(_row.lastHeight, _row.parentHeight, "successful strict progress");
         assertLe(
             uint256(_row.lastHeight) - _row.parentHeight, _row.maxBatch, "successful batch bound"
@@ -594,7 +657,49 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
             _observation.paidWei == 0 ? address(0) : _row.recipient,
             "actual committed CALL target"
         );
-        assertEq(_observation.preimage.length, 576, "actual successful statement captured");
+        assertEq(_observation.preimage.length, 640, "actual successful statement captured");
+        assertTrue(_observation.rewardEvent, "committed reward event under journal rule");
+        assertEq(
+            _observation.actualRewardId,
+            LibEtnaRewards.batchId(_receipt(_row)),
+            "actual indexed reward batch id"
+        );
+        assertEq(
+            _observation.rewardCommitment,
+            LibEtnaRewards.commitment(_receipt(_row)),
+            "actual committed reward commitment"
+        );
+    }
+
+    /// @dev The receipt `_recordReward` builds from the seeded parent, generation and identities.
+    /// @param _row The original fixture inputs.
+    /// @return receipt_ The receipt for this row's landing.
+    function _receipt(Row memory _row)
+        private
+        view
+        returns (LibEtnaRewards.Receipt memory receipt_)
+    {
+        receipt_ = LibEtnaRewards.Receipt({
+            l1ChainId: block.chainid,
+            l2ChainId: L2_CHAIN_ID,
+            inbox: address(etnaInbox),
+            generation: uint64(
+                uint256(vm.load(address(etnaInbox), bytes32(RECOVERY_GENERATION_SLOT)))
+            ),
+            parentHeight: _row.parentHeight,
+            parentHash: genesisBlockHash,
+            lastHeight: _row.lastHeight,
+            lastBlockHash: _row.lastHash,
+            l2RewardRecipient: _row.rewardRecipient,
+            baseFeeAmount: _row.baseFeeAmount
+        });
+    }
+
+    /// @dev The mapping slot of this row's receipt; seeding and observation use the same slot.
+    /// @param _row The original fixture inputs.
+    /// @return slot_ The `rewardCommitments[batchId]` storage slot.
+    function _rewardSlot(Row memory _row) private view returns (bytes32 slot_) {
+        return LibEtnaRewards.receiptSlot(LibEtnaRewards.batchId(_receipt(_row)));
     }
 
     /// @dev Reads the concrete service rather than inferring its storage from Inbox success.
@@ -620,14 +725,14 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
         }
     }
 
-    /// @dev Independently forms eighteen field words; actual byte observation comes only from trace.
+    /// @dev Independently forms twenty field words; actual byte observation comes only from trace.
     /// @param _row The original inputs supplying the statement fields.
-    /// @return words_ The eighteen canonical words in production wire order.
+    /// @return words_ The twenty canonical words in production wire order.
     function _statementWords(Row memory _row) private view returns (bytes32[] memory words_) {
-        words_ = new bytes32[](18);
+        words_ = new bytes32[](20);
         // The 18-byte ASCII domain fits in 32 bytes; zero right-padding is the wire format.
         // forge-lint: disable-next-line(unsafe-typecast)
-        words_[0] = bytes32("TAIKO_ETNA_LAND_V6");
+        words_[0] = bytes32("TAIKO_ETNA_LAND_V8");
         words_[1] = bytes32(block.chainid);
         words_[2] = bytes32(uint256(L2_CHAIN_ID));
         words_[3] = bytes32(uint256(uint160(address(etnaInbox))));
@@ -651,6 +756,8 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
         words_[15] = bytes32(uint256(_row.beforeHead));
         words_[16] = bytes32(uint256(_row.afterHead));
         words_[17] = bytes32(uint256(uint160(_row.recipient)));
+        words_[18] = bytes32(uint256(uint160(_row.rewardRecipient)));
+        words_[19] = bytes32(_row.baseFeeAmount);
     }
 
     /// @dev Fees are relative to the seeded pre-head; missing queue entries have zero fee.
@@ -675,6 +782,10 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
         if (_selector == EtnaInbox.BatchTooLarge.selector) return "batch-too-large";
         if (_selector == EtnaInbox.HeightOverflow.selector) return "height-overflow";
         if (_selector == EtnaInbox.ZeroFeeRecipient.selector) return "zero-recipient";
+        if (_selector == EtnaInbox.ZeroRewardRecipient.selector) return "zero-reward-recipient";
+        if (_selector == EtnaInbox.RewardAlreadyRecorded.selector) {
+            return "reward-already-recorded";
+        }
         if (_selector == EtnaInbox.InvalidForcedInclusionHead.selector) return "invalid-head";
         if (_selector == EtnaInbox.AnchorUnavailable.selector) return "anchor-unavailable";
         if (_selector == EtnaInbox.BlobsRequired.selector) return "blobs-required";
@@ -708,6 +819,10 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
         vm.serializeString(k, "paidWei", vm.toString(_observation.paidWei));
         vm.serializeBool(k, "batchEvent", _observation.batch);
         vm.serializeBool(k, "consumedEvent", _observation.consumed);
+        vm.serializeBool(k, "rewardEvent", _observation.rewardEvent);
+        vm.serializeBytes32(k, "rewardCommitment", _observation.rewardCommitment);
+        vm.serializeBytes32(k, "tentativeRewardCommitment", _observation.tentativeRewardCommitment);
+        vm.serializeBytes32(k, "actualRewardId", _observation.actualRewardId);
         vm.serializeUint(k, "tentativeHead", _observation.tentativeHead);
         vm.serializeUint(k, "tentativeCheckpointHeight", _observation.tentativeHeight);
         vm.serializeBool(k, "headWriteObserved", _observation.headWrite);

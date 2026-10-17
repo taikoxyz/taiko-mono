@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run actual four Solidity mutants; authenticate narrow exceptions and restore artifacts."""
+"""Run the six actual Solidity mutants; authenticate narrow exceptions and restore artifacts."""
 import argparse
 import json
 import os
@@ -12,8 +12,8 @@ from landing_mutant_specs import MUTANTS, expected_bytes, semantic_kill
 def baseline(protocol, output):
     rows = solidity(protocol, load(ROOT/'corpus/landing.jsonl'), output)
     exact_ids(rows, 'actual baseline', exact_ids(load(ROOT/'corpus/landing.jsonl'), 'corpus'))
-    if len(rows) != 56 or sum('actualPreimage' in r for r in rows) != 30:
-        raise ValueError('baseline did not execute all 56 cases / 30 preimages')
+    if len(rows) != 65 or sum('actualPreimage' in r for r in rows) != 36:
+        raise ValueError('baseline did not execute all 65 cases / 36 preimages')
     from check_coverage import check_contract_artifacts
     check_contract_artifacts(protocol, json.loads((ROOT/'coverage.json').read_text())['contract_artifacts'])
 

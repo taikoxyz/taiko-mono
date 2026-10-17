@@ -5,6 +5,7 @@ import { EtnaInboxTestBase } from "./EtnaInboxTestBase.sol";
 import { Vm, VmSafe } from "forge-std/src/Vm.sol";
 import { console2 } from "forge-std/src/console2.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
+import { LibEtnaRewards } from "src/shared/libs/LibEtnaRewards.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title EtnaInboxCutsConformanceTest
@@ -14,18 +15,23 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 contract EtnaInboxCutsConformanceTest is EtnaInboxTestBase {
     address private constant _RECIPIENT = address(0xbeef);
     address private constant _LANDER = address(0xcafe);
+    address private constant _REWARD_RECIPIENT = address(0xfeed);
     uint64 private constant _REFERENCE = 19_999;
     bytes32 private constant _REFERENCE_HASH = bytes32(uint256(0xabc));
     bytes32 private constant _CONSUMED =
         keccak256("ForcedInclusionsConsumed(uint48,uint48,uint256,address)");
     bytes32 private constant _BATCH =
         keccak256("BatchLanded(uint64,uint64,bytes32,bytes32,uint64,bytes32,address)");
+    bytes32 private constant _REWARD = keccak256(
+        "BatchRewardRecorded(bytes32,address,uint256,uint64,uint64,bytes32,uint64,bytes32)"
+    );
 
     struct Interval {
         uint48 beforeHead;
         uint48 afterHead;
         uint256 paidWei;
         uint64 lastHeight;
+        uint256 rewardWei;
     }
 
     struct PlanResult {
@@ -34,6 +40,7 @@ contract EtnaInboxCutsConformanceTest is EtnaInboxTestBase {
         bytes32 finalHash;
         bytes32 finalRoot;
         uint256 paidWei;
+        uint256 rewardWei;
         Interval[] intervals;
     }
 
@@ -73,6 +80,7 @@ contract EtnaInboxCutsConformanceTest is EtnaInboxTestBase {
                 assertEq(result.finalHeight, combined.finalHeight, "cut-invariant terminal height");
                 assertEq(result.finalHash, combined.finalHash, "cut-invariant terminal hash");
                 assertEq(result.finalRoot, combined.finalRoot, "cut-invariant service state root");
+                assertEq(result.rewardWei, combined.rewardWei, "cut-invariant recorded rewards");
             }
             _print(id, cuts, fees, result);
             assertTrue(vm.revertToStateAndDelete(snapshot), "restore same admitted world");
@@ -97,6 +105,7 @@ contract EtnaInboxCutsConformanceTest is EtnaInboxTestBase {
         uint48 expectedHead;
         uint64 priorHeight;
         uint256 covered;
+        LibEtnaRewards.Receipt[] memory receipts = new LibEtnaRewards.Receipt[](_cuts.length);
         for (uint256 i; i < _cuts.length; ++i) {
             uint64 height = uint64(_cuts[i]);
             assertGt(height, priorHeight, "strict contiguous cut progress");
@@ -110,9 +119,11 @@ contract EtnaInboxCutsConformanceTest is EtnaInboxTestBase {
                 expectedFee += _fees[entryIndex] * 1 gwei;
                 ++covered;
             }
+            receipts[i] = _receipt(priorHeight, height);
             Interval memory interval = this.executeCut(expectedHead, afterHead, height, expectedFee);
             result_.intervals[i] = interval;
             result_.paidWei += interval.paidWei;
+            result_.rewardWei += interval.rewardWei;
             expectedHead = afterHead;
             priorHeight = height;
         }
@@ -129,6 +140,49 @@ contract EtnaInboxCutsConformanceTest is EtnaInboxTestBase {
         assertEq(result_.finalHead, 4, "all four admissions consumed exactly once");
         assertEq(result_.finalHeight, 6, "actual terminal checkpoint");
         assertEq(address(etnaInbox).balance, 0, "all admitted fees transferred once");
+        // Per-block credits h gwei for h = 1..6: every partition records 21 gwei in total.
+        assertEq(result_.rewardWei, 21 gwei, "recorded rewards equal the per-block credits");
+        for (uint256 i; i < receipts.length; ++i) {
+            bytes32 id = LibEtnaRewards.batchId(receipts[i]);
+            for (uint256 j; j < i; ++j) {
+                assertTrue(id != LibEtnaRewards.batchId(receipts[j]), "distinct receipt ids");
+            }
+            assertEq(
+                vm.load(address(etnaInbox), LibEtnaRewards.receiptSlot(id)),
+                LibEtnaRewards.commitment(receipts[i]),
+                "later landings keep every earlier receipt"
+            );
+        }
+    }
+
+    /// @dev The receipt of the landing `(parent, height]`, with per-block credits h gwei.
+    /// @param _parent The landed parent height.
+    /// @param _height The terminal height.
+    /// @return receipt_ The receipt `_recordReward` writes for this cut.
+    function _receipt(
+        uint64 _parent,
+        uint64 _height
+    )
+        private
+        view
+        returns (LibEtnaRewards.Receipt memory receipt_)
+    {
+        uint256 amount;
+        for (uint256 h = uint256(_parent) + 1; h <= _height; ++h) {
+            amount += h * 1 gwei;
+        }
+        receipt_ = LibEtnaRewards.Receipt({
+            l1ChainId: block.chainid,
+            l2ChainId: L2_CHAIN_ID,
+            inbox: address(etnaInbox),
+            generation: etnaInbox.recoveryGeneration(),
+            parentHeight: _parent,
+            parentHash: _parent == 0 ? genesisBlockHash : bytes32(uint256(0x1000) + _parent),
+            lastHeight: _height,
+            lastBlockHash: bytes32(uint256(0x1000) + _height),
+            l2RewardRecipient: _REWARD_RECIPIENT,
+            baseFeeAmount: amount
+        });
     }
 
     /// @notice Lands one batch through the real Inbox/proxy and records actual effects.
@@ -151,7 +205,7 @@ contract EtnaInboxCutsConformanceTest is EtnaInboxTestBase {
         (uint48 observedBefore, uint48 tail) = etnaInbox.getForcedInclusionState();
         assertEq(observedBefore, _before, "consecutive actual head before");
         uint64 parentHeight = etnaInbox.lastCheckpoint().height;
-        interval_ = Interval(_before, _after, _expectedFee, _height);
+        interval_ = Interval(_before, _after, _expectedFee, _height, 0);
         bytes32[] memory blobs = new bytes32[](2);
         blobs[0] = bytes32(uint256(1));
         blobs[1] = bytes32(uint256(2));
@@ -162,7 +216,9 @@ contract EtnaInboxCutsConformanceTest is EtnaInboxTestBase {
             lastStateRoot: bytes32(uint256(0x2000) + _height),
             l1ReferenceBlockNumber: _REFERENCE,
             forcedInclusionHead: _after,
-            feeRecipient: _RECIPIENT
+            feeRecipient: _RECIPIENT,
+            l2RewardRecipient: _REWARD_RECIPIENT,
+            baseFeeAmount: _receipt(parentHeight, _height).baseFeeAmount
         });
         vm.recordLogs();
         vm.startStateDiffRecording();
@@ -171,7 +227,9 @@ contract EtnaInboxCutsConformanceTest is EtnaInboxTestBase {
         etnaInbox.land(input, "sampled cut boundary proof");
         vm.pauseGasMetering();
         uint256 actualPaid = _assertPayment(vm.stopAndReturnStateDiff(), interval_);
-        _assertCutEvents(vm.getRecordedLogs(), interval_, parentHeight);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        _assertCutEvents(logs, interval_, parentHeight);
+        interval_.rewardWei = _assertRewardEvent(logs, _receipt(parentHeight, _height));
         _assertCutState(interval_, tail);
         interval_.paidWei = actualPaid;
     }
@@ -254,6 +312,54 @@ contract EtnaInboxCutsConformanceTest is EtnaInboxTestBase {
             "consumption event condition"
         );
         assertEq(batchEvents, 1, "one batch event per actual landing");
+    }
+
+    /// @dev Decodes the one actual receipt event of a landing and checks it against the receipt.
+    /// @param _logs The executed logs from the successful actual landing.
+    /// @param _expected The receipt `_recordReward` must record for this cut.
+    /// @return amount_ The base-fee amount the actual event recorded.
+    function _assertRewardEvent(
+        Vm.Log[] memory _logs,
+        LibEtnaRewards.Receipt memory _expected
+    )
+        private
+        view
+        returns (uint256 amount_)
+    {
+        uint256 rewardEvents;
+        for (uint256 i; i < _logs.length; ++i) {
+            if (_logs[i].emitter != address(etnaInbox) || _logs[i].topics.length == 0) continue;
+            if (_logs[i].topics[0] != _REWARD) continue;
+            ++rewardEvents;
+            assertEq(_logs[i].topics[1], LibEtnaRewards.batchId(_expected), "actual cut receipt id");
+            assertEq(
+                _logs[i].topics[2],
+                bytes32(uint256(uint160(_REWARD_RECIPIENT))),
+                "actual cut reward recipient"
+            );
+            assertEq(
+                _logs[i].data,
+                abi.encode(
+                    _expected.baseFeeAmount,
+                    _expected.generation,
+                    _expected.parentHeight,
+                    _expected.parentHash,
+                    _expected.lastHeight,
+                    _expected.lastBlockHash
+                ),
+                "actual cut receipt fields"
+            );
+            (amount_,,,,,) =
+                abi.decode(_logs[i].data, (uint256, uint64, uint64, bytes32, uint64, bytes32));
+        }
+        assertEq(rewardEvents, 1, "one reward receipt per actual landing");
+        assertEq(
+            vm.load(
+                address(etnaInbox), LibEtnaRewards.receiptSlot(LibEtnaRewards.batchId(_expected))
+            ),
+            LibEtnaRewards.commitment(_expected),
+            "actual cut receipt commitment"
+        );
     }
 
     /// @dev Reads the actual Inbox and concrete service after every cut.

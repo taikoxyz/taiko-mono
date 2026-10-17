@@ -9,7 +9,8 @@ def Bounds (w : World) (i : LandInput) : Prop :=
   w.checkpoint.height < i.lastHeight.val ∧
   i.lastHeight.val - w.checkpoint.height ≤ w.maxBatchBlocks ∧ i.lastHeight.val < 2 ^ 48 ∧
   w.head.val ≤ i.headAfter.val ∧ i.headAfter.val ≤ w.tail.val ∧
-  i.headAfter.val - w.head.val ≤ i.lastHeight.val - w.checkpoint.height ∧ i.recipient ≠ 0
+  i.headAfter.val - w.head.val ≤ i.lastHeight.val - w.checkpoint.height ∧ i.recipient ≠ 0 ∧
+  i.rewardRecipient ≠ 0
 
 theorem validate_bounds (w : World) (i : LandInput) (h : validate w i = none) : Bounds w i := by
   unfold validate at h
@@ -55,10 +56,80 @@ theorem intervals_disjoint (a b c index : Nat) (_hab : a ≤ b) (_hbc : b ≤ c)
 theorem journal_rollback_write (j : Journal α) (next : α) :
     (Journal.write j next).rollback = j.rollback := rfl
 
+theorem execPayment_root (w : World) (i : LandInput) (x : ExternalOutcomes) (j : Journal World)
+    (st : List Stage) (s : Option LandStatement) : (execPayment w i x j st s).journal.rollback = j.rollback := by
+  unfold execPayment; split <;> rfl
+
+theorem execReward_root (w : World) (i : LandInput) (x : ExternalOutcomes) (j : Journal World)
+    (st : List Stage) (s : Option LandStatement) : (execReward w i x j st s).journal.rollback = j.rollback := by
+  unfold execReward; split
+  · rfl
+  · rw [execPayment_root]; rfl
+
+theorem execReward_statement (w : World) (i : LandInput) (x : ExternalOutcomes) (j : Journal World)
+    (st : List Stage) (s : Option LandStatement) : (execReward w i x j st s).statement = s := by
+  unfold execReward execPayment; split
+  · rfl
+  · split <;> rfl
+
 theorem checked_journal_root (w : World) (i : LandInput) (x : ExternalOutcomes) :
     (execChecked w i x).journal.rollback = w := by
-  simp [execChecked, finish, Journal.update]
-  split_ifs <;> rfl
+  simp only [execChecked]
+  split_ifs
+  all_goals first | rfl | exact (execReward_root _ _ _ _ _ _).trans rfl
+
+theorem execPayment_success (w : World) (i : LandInput) (x : ExternalOutcomes) (j : Journal World)
+    (st : List Stage) (s : Option LandStatement) (h : (execPayment w i x j st s).error = none) :
+    paymentFails w i x = false ∧ (execPayment w i x j st s).journal.current = paymentEffect w i j.current := by
+  unfold execPayment at h ⊢
+  split at h
+  · simp [finish] at h
+  · rename_i ok; simp only [Bool.not_eq_true] at ok
+    exact ⟨ok, by simp [finish, Journal.update, Journal.current, ok]⟩
+
+theorem execReward_success (w : World) (i : LandInput) (x : ExternalOutcomes) (j : Journal World)
+    (st : List Stage) (s : Option LandStatement) (h : (execReward w i x j st s).error = none) :
+    w.rewardCommitments (rewardId w i x) = 0 ∧ paymentFails w i x = false ∧
+    (execReward w i x j st s).journal.current = paymentEffect w i (recordReward w i x j.current) := by
+  unfold execReward at h ⊢
+  split at h
+  · simp [finish] at h
+  · rename_i fresh
+    have pay := execPayment_success w i x _ _ _ h
+    simp only [bne_iff_ne, ne_eq, Decidable.not_not] at fresh
+    refine ⟨fresh, pay.1, ?_⟩
+    rw [ite_cond_eq_false _ _ (by simp [fresh])]
+    exact pay.2
+
+/-- Successful late execution: every check passed and the committed world is the exact
+composition of the pre-verifier writes, the reward record and the payment/unlock. -/
+theorem checked_success (w : World) (i : LandInput) (x : ExternalOutcomes)
+    (h : (execChecked w i x).error = none) :
+    x.signalAuthorized = true ∧ i.lastStateRoot ≠ 0 ∧ i.lastBlockHash ≠ 0 ∧
+    x.verifierReturnsNormally = true ∧ w.rewardCommitments (rewardId w i x) = 0 ∧
+    paymentFails w i x = false ∧
+    (execChecked w i x).journal.current = paymentEffect w i (recordReward w i x (preVerifier w i)) := by
+  simp only [execChecked] at h ⊢
+  split_ifs at h ⊢
+  all_goals first | (simp [finish] at h; done) | skip
+  all_goals
+    obtain ⟨fresh, ok, cur⟩ := execReward_success w i x _ _ _ h
+    clear h
+    refine ⟨?_, ?_, ?_, ?_, fresh, ok, cur.trans ?_⟩
+    all_goals simp_all [Journal.update, Journal.current, preVerifier]
+
+/-- Successful landing in terms of the steps; used by every post-state theorem below. -/
+theorem landing_success (w : World) (i : LandInput) (x : ExternalOutcomes)
+    (h : (execLandSteps w i x).error = none) :
+    validate w i = none ∧ environmentCheck x.environment i = none ∧
+    (execChecked w i x).error = none ∧
+    (execLandSteps w i x).journal.current = paymentEffect w i (recordReward w i x (preVerifier w i)) ∧
+    (runTransaction w (execLandSteps w i x)).world = paymentEffect w i (recordReward w i x (preVerifier w i)) := by
+  have checks := successful_checks w i x h
+  have reduce : execLandSteps w i x = execChecked w i x := by simp only [execLandSteps, checks.1, checks.2]
+  rw [reduce] at h ⊢
+  have cur := (checked_success w i x h).2.2.2.2.2.2
+  exact ⟨checks.1, checks.2, h, cur, by simp [runTransaction, h, cur]⟩
 
 theorem execution_journal_root (w : World) (i : LandInput) (x : ExternalOutcomes) :
     (execLandSteps w i x).journal.rollback = w := by
@@ -111,8 +182,9 @@ theorem successful_poststate (w : World) (i : LandInput) (x : ExternalOutcomes)
     (execChecked w i x).journal.current.transfers = w.transfers ++
       (if i.headAfter ≠ w.head ∧ 0 < fees w.fee w.head.val i.headAfter.val * 1000000000 then
         [⟨i.recipient, fees w.fee w.head.val i.headAfter.val * 1000000000⟩] else []) := by
-  simp only [execChecked, finish, Journal.update, Journal.current] at h ⊢
-  split_ifs at h ⊢ <;> simp_all
+  rw [(checked_success w i x h).2.2.2.2.2.2]
+  simp only [paymentEffect, recordReward, preVerifier, feeWei]
+  split_ifs <;> simp_all
 
 /-- LAND-03: exactly the bound recipient/amount is appended to the transfer-instruction
 ledger. No claim is made about its final balance after it runs arbitrary callbacks. -/
@@ -124,7 +196,7 @@ theorem recipient_bound (w : World) (i : LandInput) (x : ExternalOutcomes)
   have checks := successful_checks w i x h
   have hb := bounds_preserved w i x h
   simp only [execLandSteps, checks.1, checks.2] at h ⊢
-  exact ⟨hb.2.2.2.2.2.2, (successful_poststate w i x h).2.2.2⟩
+  exact ⟨hb.2.2.2.2.2.2.1, (successful_poststate w i x h).2.2.2⟩
 
 theorem committed_head (w : World) (i : LandInput) (x : ExternalOutcomes)
     (h : (execLandSteps w i x).error = none) :
@@ -150,8 +222,9 @@ theorem copied_calldata_recipient (i : LandInput) (caller : Address) :
 theorem statement_is_constructed (w : World) (i : LandInput) (x : ExternalOutcomes)
     (valid : validate w i = none) (env : environmentCheck x.environment i = none) :
     (execLandSteps w i x).statement = some (computedStatement w i x) := by
-  simp only [execLandSteps, valid, env, execChecked, finish]
-  split_ifs <;> rfl
+  simp only [execLandSteps, valid, env, execChecked]
+  split_ifs
+  all_goals first | rfl | exact execReward_statement _ _ _ _ _ _
 
 theorem statement_recipient_from_input (w : World) (i : LandInput) (x : ExternalOutcomes) :
     (computedStatement w i x).recipient = natWord i.recipient.val := rfl
@@ -159,7 +232,7 @@ theorem statement_recipient_from_input (w : World) (i : LandInput) (x : External
 theorem statement_copied_caller (w : World) (i : LandInput) (x : ExternalOutcomes) (caller : Address) :
     computedStatement w { i with caller := caller } x = computedStatement w i x := rfl
 
-theorem every_word_independent (a b : LandStatement) (field : Fin 18)
+theorem every_word_independent (a b : LandStatement) (field : Fin 20)
     (changed : (words a)[field.val] ≠ (words b)[field.val]) :
     encodeStatement a ≠ encodeStatement b := by
   intro same
@@ -198,8 +271,9 @@ theorem successful_signal_checkpoint (w : World) (i : LandInput) (x : ExternalOu
     (h : (execChecked w i x).error = none) :
     (execChecked w i x).journal.current.signal =
       w.signal ++ [⟨i.lastHeight.val, i.lastBlockHash, i.lastStateRoot⟩] := by
-  simp only [execChecked, finish, Journal.update, Journal.current] at h ⊢
-  split_ifs at h ⊢ <;> simp_all
+  rw [(checked_success w i x h).2.2.2.2.2.2]
+  simp only [paymentEffect, recordReward, preVerifier]
+  split_ifs <;> rfl
 
 /-- Cumulative fees split exactly at any monotone intermediate head. -/
 theorem fee_interval_add (fee : Nat → Word64) (a b c : Nat) (hab : a ≤ b) (hbc : b ≤ c) :
@@ -241,12 +315,15 @@ theorem consumption_event_exact (w : World) (i : LandInput) (x : ExternalOutcome
     (h : (execChecked w i x).error = none) :
     (execChecked w i x).journal.current.logs = w.logs ++
       [.checkpointSaved ⟨i.lastHeight.val, i.lastBlockHash, i.lastStateRoot⟩,
-       .batchLanded (w.checkpoint.height+1) i.lastHeight.val i.lastBlockHash i.lastStateRoot i.reference.val i.caller] ++
+       .batchLanded (w.checkpoint.height+1) i.lastHeight.val i.lastBlockHash i.lastStateRoot i.reference.val i.caller,
+       .rewardRecorded (rewardId w i x) i.rewardRecipient i.baseFeeAmount.val w.generation.val
+         w.checkpoint.height w.checkpoint.blockHash i.lastHeight.val i.lastBlockHash] ++
       (if i.headAfter ≠ w.head then
         [.consumed w.head.val i.headAfter.val (fees w.fee w.head.val i.headAfter.val * 1000000000) i.recipient]
        else []) := by
-  simp only [execChecked, finish, Journal.update, Journal.current] at h ⊢
-  split_ifs at h ⊢ <;> simp_all [List.append_assoc]
+  rw [(checked_success w i x h).2.2.2.2.2.2]
+  simp only [paymentEffect, recordReward, preVerifier, feeWei]
+  split_ifs <;> simp_all [List.append_assoc]
 
 /-- External callback frame, deliberately restricted to protected Inbox/config/queue fields.
 It is an application premise about external execution, not an arbitrary proposition field
@@ -256,11 +333,12 @@ def CallbackFrame (before after : World) : Prop :=
   before.l2ChainId = after.l2ChainId ∧ before.registry = after.registry ∧
   before.generation = after.generation ∧ before.config = after.config ∧
   before.maxBatchBlocks = after.maxBatchBlocks ∧ before.checkpoint = after.checkpoint ∧
-  before.head = after.head ∧ before.tail = after.tail ∧ before.fee = after.fee ∧ before.guard = after.guard
+  before.head = after.head ∧ before.tail = after.tail ∧ before.fee = after.fee ∧ before.guard = after.guard ∧
+  before.rewardCommitments = after.rewardCommitments
 
 theorem callback_frame_preserves_bounds (before after : World) (i : LandInput)
     (frame : CallbackFrame before after) (bounds : Bounds before i) : Bounds after i := by
-  rcases frame with ⟨_, _, _, _, _, _, hmax, hcp, hhead, htail, _, _⟩
+  rcases frame with ⟨_, _, _, _, _, _, hmax, hcp, hhead, htail, _, _, _⟩
   simpa [Bounds, ← hmax, ← hcp, ← hhead, ← htail] using bounds
 
 theorem callback_frame_nonvacuity (w : World) : CallbackFrame w w := by
@@ -292,10 +370,10 @@ theorem locked_land_and_save_reject (w : World) (i : LandInput) (x : ExternalOut
 
 /-- Compose the two local collision assumptions with actual model serialization.
 The byte hash is the same primitive on both calls. Context/height/etc equality is
-recovered only for the eighteen encoded fields, while the inner theorem also
+recovered only for the twenty encoded fields, while the inner theorem also
 recovers the complete ordered nonzero prefixes, including their lengths. -/
 theorem composed_statement_blob_binding
-    (outerHash : Vector Byte 576 → Word256)
+    (outerHash : Vector Byte 640 → Word256)
     (w₁ w₂ : World) (i₁ i₂ : LandInput) (x₁ x₂ : ExternalOutcomes)
     (samePrimitive : x₁.keccakBlobBytes = x₂.keccakBlobBytes)
     (innerSeparation : LocalInnerHashSeparation x₁.keccakBlobBytes
@@ -316,5 +394,123 @@ theorem composed_statement_blob_binding
       x₂.keccakBlobBytes (serializeBlobPrefix (actualBlobs x₂.environment)) := Fin.ext hashEqual
   rw [← samePrimitive] at hashEqual'
   exact inner_hash_binding _ _ _ innerSeparation hashEqual'
+
+/-- The committed checkpoint is the proven endpoint. -/
+theorem committed_checkpoint (w : World) (i : LandInput) (x : ExternalOutcomes)
+    (accepted : (execLandSteps w i x).error = none) :
+    (runTransaction w (execLandSteps w i x)).world.checkpoint = ⟨i.lastHeight.val, i.lastBlockHash⟩ := by
+  rw [(landing_success w i x accepted).2.2.2.2]
+  simp only [paymentEffect, recordReward, preVerifier]
+  split_ifs <;> rfl
+
+/-- LAND-09: a successful landing found its reward slot empty and committed exactly one
+commitment, at the batch id of the receipt built from the parent read before landing, the
+stored generation, both chain ids, the executing proxy and the proven outputs. -/
+theorem reward_recorded_exact (w : World) (i : LandInput) (x : ExternalOutcomes)
+    (accepted : (execLandSteps w i x).error = none) :
+    w.rewardCommitments (rewardId w i x) = 0 ∧
+    (runTransaction w (execLandSteps w i x)).world.rewardCommitments =
+      Function.update w.rewardCommitments (rewardId w i x) (rewardCommitment w i x) ∧
+    receiptOf w i = ⟨w.l1ChainId, w.l2ChainId, w.inbox, w.generation, w.checkpoint.height,
+      w.checkpoint.blockHash, i.lastHeight.val, i.lastBlockHash, i.rewardRecipient, i.baseFeeAmount⟩ := by
+  have success := landing_success w i x accepted
+  refine ⟨(checked_success w i x success.2.2.1).2.2.2.2.1, ?_, rfl⟩
+  rw [success.2.2.2.2]
+  simp only [paymentEffect, recordReward, preVerifier]
+  split_ifs <;> rfl
+
+/-- The verified statement carries every receipt field: a sound proof binds the recorded
+recipient and amount, not only the endpoints. -/
+theorem receipt_statement_words (w : World) (i : LandInput) (x : ExternalOutcomes) :
+    (computedStatement w i x).l1ChainId = natWord (receiptOf w i).l1ChainId.val ∧
+    (computedStatement w i x).l2ChainId = natWord (receiptOf w i).l2ChainId.val ∧
+    (computedStatement w i x).inbox = natWord (receiptOf w i).inbox.val ∧
+    (computedStatement w i x).generation = natWord (receiptOf w i).generation.val ∧
+    (computedStatement w i x).parentHeight = natWord (receiptOf w i).parentHeight ∧
+    (computedStatement w i x).parentHash = natWord (receiptOf w i).parentHash.val ∧
+    (computedStatement w i x).lastHeight = natWord (receiptOf w i).lastHeight ∧
+    (computedStatement w i x).lastBlockHash = natWord (receiptOf w i).lastBlockHash.val ∧
+    (computedStatement w i x).rewardRecipient = natWord (receiptOf w i).recipient.val ∧
+    (computedStatement w i x).baseFeeAmount = natWord (receiptOf w i).amount.val :=
+  ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+
+/-- Successful landings under one fixed Keccak primitive, with their receipts in order. -/
+inductive RewardTrace (keccak : List Byte → Word256) : World → List Receipt → World → Prop where
+  | nil (w : World) : RewardTrace keccak w [] w
+  | cons {w : World} {rest : List Receipt} {final : World} (i : LandInput) (x : ExternalOutcomes)
+      (primitive : x.keccakRewardBytes = keccak)
+      (accepted : (execLandSteps w i x).error = none)
+      (tail : RewardTrace keccak (runTransaction w (execLandSteps w i x)).world rest final) :
+      RewardTrace keccak w (receiptOf w i :: rest) final
+
+/-- Trace invariants: heights only grow, every receipt's parent lies in the traversed range,
+receipt endpoints are uint64, and every changed slot belongs to a recorded receipt. -/
+theorem reward_trace_facts {keccak : List Byte → Word256} {w : World} {rs : List Receipt} {final : World}
+    (trace : RewardTrace keccak w rs final) (start : w.checkpoint.height < 2 ^ 64) :
+    w.checkpoint.height ≤ final.checkpoint.height ∧ final.checkpoint.height < 2 ^ 64 ∧
+    (∀ r ∈ rs, w.checkpoint.height ≤ r.parentHeight ∧ r.parentHeight < final.checkpoint.height ∧
+      r.lastHeight < 2 ^ 64) ∧
+    (∀ id, final.rewardCommitments id ≠ w.rewardCommitments id → ∃ r ∈ rs, batchId keccak r = id) ∧
+    rs.Pairwise (fun a b => a.parentHeight < b.parentHeight) := by
+  induction trace with
+  | nil => exact ⟨le_rfl, start, by simp, by simp, List.Pairwise.nil⟩
+  | @cons w rest final i x primitive accepted tail ih =>
+    have cp := committed_checkpoint w i x accepted
+    have progress : w.checkpoint.height < i.lastHeight.val := (bounds_preserved w i x accepted).1
+    have last := i.lastHeight.isLt
+    obtain ⟨mono, top, members, changed, ordered⟩ := ih (by rw [cp]; exact last)
+    simp only [cp] at mono members
+    refine ⟨by omega, top, ?_, ?_, ?_⟩
+    · intro r member
+      rcases List.mem_cons.mp member with rfl | member
+      · refine ⟨le_rfl, ?_, ?_⟩
+        · show w.checkpoint.height < final.checkpoint.height; omega
+        · show i.lastHeight.val < 2 ^ 64; exact last
+      · have := members r member; exact ⟨by omega, this.2.1, this.2.2⟩
+    · intro id different
+      have record := (reward_recorded_exact w i x accepted).2.1
+      by_cases fresh : id = rewardId w i x
+      · exact ⟨receiptOf w i, List.mem_cons_self .., by rw [fresh, rewardId, primitive]⟩
+      · have same : (runTransaction w (execLandSteps w i x)).world.rewardCommitments id = w.rewardCommitments id := by
+          rw [record, Function.update_of_ne fresh]
+        rw [← same] at different
+        obtain ⟨r, member, hr⟩ := changed id different
+        exact ⟨r, List.mem_cons_of_mem _ member, hr⟩
+    · refine List.Pairwise.cons ?_ ordered
+      intro r member
+      have := (members r member).1
+      show w.checkpoint.height < r.parentHeight; omega
+
+/-- LAND-10: from an empty ledger, `RewardAlreadyRecorded` is unreachable. The next landing's
+slot is empty whenever its batch preimage is locally separated from each earlier receipt's. -/
+theorem reward_slot_fresh {keccak : List Byte → Word256} {w : World} {rs : List Receipt} {final : World}
+    (trace : RewardTrace keccak w rs final) (empty : ∀ id, w.rewardCommitments id = 0)
+    (start : w.checkpoint.height < 2 ^ 64) (i : LandInput) (x : ExternalOutcomes)
+    (primitive : x.keccakRewardBytes = keccak)
+    (separation : ∀ r ∈ rs, LocalBatchSeparation keccak (receiptOf final i) r) :
+    final.rewardCommitments (rewardId final i x) = 0 := by
+  obtain ⟨_, top, members, changed, _⟩ := reward_trace_facts trace start
+  by_contra occupied
+  obtain ⟨r, member, hr⟩ := changed _ (by rw [empty]; exact occupied)
+  have range := members r member
+  have last := i.lastHeight.isLt
+  apply batch_id_distinct keccak (receiptOf final i) r
+    (show final.checkpoint.height < 2 ^ 256 by omega) (by omega)
+    (show i.lastHeight.val < 2 ^ 256 by omega) (by omega) (separation r member)
+    (show final.checkpoint.height ≠ r.parentHeight by omega)
+  rw [hr, rewardId, primitive]
+
+/-- Every receipt of a landing trace has a distinct batch id under pairwise local separation. -/
+theorem reward_ids_distinct {keccak : List Byte → Word256} {w : World} {rs : List Receipt} {final : World}
+    (trace : RewardTrace keccak w rs final) (start : w.checkpoint.height < 2 ^ 64)
+    (separation : rs.Pairwise (LocalBatchSeparation keccak)) :
+    rs.Pairwise (fun a b => batchId keccak a ≠ batchId keccak b) := by
+  obtain ⟨_, top, members, _, ordered⟩ := reward_trace_facts trace start
+  have both := List.Pairwise.and ordered separation
+  refine List.Pairwise.imp_of_mem ?_ both
+  intro a b ma mb ⟨lt, sep⟩
+  have ra := members a ma
+  have rb := members b mb
+  exact batch_id_distinct keccak a b (by omega) (by omega) (by omega) (by omega) sep (by omega)
 
 end Etna.Landing

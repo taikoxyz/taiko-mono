@@ -26,23 +26,26 @@ class CoverageTests(unittest.TestCase):
         # these policy unit tests independent of a developer-specific dependency path.
         ledger=copy.deepcopy(self.ledger if ledger is None else ledger)
         entries=copy.deepcopy(self.entries if entries is None else entries)
-        by_path={Path('/paired')/s['path']:s for r in ledger['obligations'] for s in r['source_symbols']
-                 if s['path'].startswith('packages/protocol/')}
+        by_path={}
+        for r in ledger['obligations']:
+            for s in r['source_symbols']:
+                if s['path'].startswith('packages/protocol/'):
+                    by_path.setdefault(Path('/paired')/s['path'],[]).append(s)
         original_read=Path.read_text
         original_sha=coverage.sha
         def read(path,*args,**kwargs):
             if path in by_path:
-                return by_path[path]['symbol']
+                return '\n'.join(s['symbol'] for s in by_path[path])
             return original_read(path,*args,**kwargs)
         def digest(path):
-            return by_path[path]['sha256'] if path in by_path else original_sha(path)
+            return by_path[path][-1]['sha256'] if path in by_path else original_sha(path)
         with patch.object(Path,'read_text',read),patch.object(coverage,'sha',digest):
             return coverage.check_ledger(ledger,entries,Path('/paired'))
 
-    def test_current_ledger_covers_all_204_theorems_and_17_exact_functions(self):
+    def test_current_ledger_covers_all_261_theorems_and_21_exact_functions(self):
         result=self.check()
-        self.assertEqual(result['theorems'],204)
-        self.assertEqual(result['exact_rust_functions'],17)
+        self.assertEqual(result['theorems'],261)
+        self.assertEqual(result['exact_rust_functions'],21)
         self.assertEqual(len(result['pending']),3)
 
     def test_delete_id_from_both_manifest_and_ledger_fails(self):

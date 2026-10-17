@@ -1,54 +1,138 @@
-[
-  {
-    "mutant": "recipient-omission",
-    "exit": 1,
-    "seconds": 2.9572737216949463,
-    "failures": [
-      "[FAIL: normal: real statement bytes: 0x5441494b4f5f45544e415f4c414e445f563600000000000000000000000000000000000000000000000000000000000000000000000000000000000000007a690000000000000000000000000000000000000000000000000000000000028c590000000000000000000",
-      "[FAIL: normal: real statement bytes: 0x5441494b4f5f45544e415f4c414e445f563600000000000000000000000000000000000000000000000000000000000000000000000000000000000000007a690000000000000000000000000000000000000000000000000000000000028c590000000000000000000"
-    ],
-    "runner": "{\"command\": [\"forge\", \"test\", \"--match-path\", \"test/layer1/etna/EtnaInboxLeanConformance.t.sol\", \"-vvv\"], \"cwd\": \"/Users/davidcai/.codex/worktrees/etna-protocol-dependency/taiko-mono/packages/protocol\", \"log\": \"/private/tmp/etna-landing-solidity-full.log\", \"exit\": 1, \"durationSeconds\": 2.899590253829956, \"head\": \"27777e9d7147e7b1d3543711f4d7370a0377fa53\", \"cases\": 56}\nSTAGED_SOURCE_RESTORATION_OK\n",
-    "source": "contracts/layer1/etna/impl/EtnaInbox.sol",
-    "old": "statement.feeRecipient = _input.feeRecipient;",
-    "new": "statement.feeRecipient = address(0);"
-  },
-  {
-    "mutant": "head-tail-bound",
-    "exit": 1,
-    "seconds": 3.23675799369812,
-    "failures": [
-      "[FAIL: successful head tail bound: 6 > 5] test_land_LeanCorpus() (gas: 679933)",
-      "[FAIL: successful head tail bound: 6 > 5] test_land_LeanCorpus() (gas: 679933)"
-    ],
-    "runner": "{\"command\": [\"forge\", \"test\", \"--match-path\", \"test/layer1/etna/EtnaInboxLeanConformance.t.sol\", \"-vvv\"], \"cwd\": \"/Users/davidcai/.codex/worktrees/etna-protocol-dependency/taiko-mono/packages/protocol\", \"log\": \"/private/tmp/etna-landing-solidity-full.log\", \"exit\": 1, \"durationSeconds\": 3.1779539585113525, \"head\": \"27777e9d7147e7b1d3543711f4d7370a0377fa53\", \"cases\": 56}\nSTAGED_SOURCE_RESTORATION_OK\n",
-    "source": "contracts/layer1/etna/impl/EtnaInbox.sol",
-    "old": "headBefore <= headAfter && headAfter <= _forcedInclusionStorage.tail",
-    "new": "headBefore <= headAfter"
-  },
-  {
-    "mutant": "fee-interval",
-    "exit": 1,
-    "seconds": 2.8179781436920166,
-    "failures": [
-      "[FAIL: actual consumed interval/fee: 0x00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000028fa6ae00 != 0x0000000000000",
-      "[FAIL: actual consumed interval/fee: 0x00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000028fa6ae00 != 0x0000000000000"
-    ],
-    "runner": "{\"command\": [\"forge\", \"test\", \"--match-path\", \"test/layer1/etna/EtnaInboxLeanConformance.t.sol\", \"-vvv\"], \"cwd\": \"/Users/davidcai/.codex/worktrees/etna-protocol-dependency/taiko-mono/packages/protocol\", \"log\": \"/private/tmp/etna-landing-solidity-full.log\", \"exit\": 1, \"durationSeconds\": 2.763561964035034, \"head\": \"27777e9d7147e7b1d3543711f4d7370a0377fa53\", \"cases\": 56}\nSTAGED_SOURCE_RESTORATION_OK\n",
-    "source": "contracts/layer1/etna/libs/LibEtnaForcedInclusion.sol",
-    "old": "for (uint256 i = $.head; i < _newHead; ++i)",
-    "new": "for (uint256 i = uint256($.head) + 1; i < _newHead; ++i)"
-  },
-  {
-    "mutant": "verifier-bypass",
-    "exit": 1,
-    "seconds": 4.079122066497803,
-    "failures": [
-      "[FAIL: successful land requires normal verifier return] test_land_LeanCorpus() (gas: 1856367)",
-      "[FAIL: successful land requires normal verifier return] test_land_LeanCorpus() (gas: 1856367)"
-    ],
-    "runner": "{\"command\": [\"forge\", \"test\", \"--match-path\", \"test/layer1/etna/EtnaInboxLeanConformance.t.sol\", \"-vvv\"], \"cwd\": \"/Users/davidcai/.codex/worktrees/etna-protocol-dependency/taiko-mono/packages/protocol\", \"log\": \"/private/tmp/etna-landing-solidity-full.log\", \"exit\": 1, \"durationSeconds\": 4.021565914154053, \"head\": \"27777e9d7147e7b1d3543711f4d7370a0377fa53\", \"cases\": 56}\nSTAGED_SOURCE_RESTORATION_OK\n",
-    "source": "contracts/layer1/etna/impl/EtnaInbox.sol",
-    "old": "_proofVerifier.verifyProof(0, statementHash, _proof);",
-    "new": "address(_proofVerifier).staticcall(abi.encodeCall(IProofVerifier.verifyProof, (uint256(0), statementHash, _proof)));"
-  }
-]
+{
+  "protocol": "cf4095818050bd670d7d6b8b9f742d55c01e49f0",
+  "mutations": [
+    {
+      "mutation": "recipient-omission",
+      "obligation": "LAND-03",
+      "expected_failure": "[FAIL: normal: real statement bytes:",
+      "command": [
+        "forge",
+        "test",
+        "--no-cache",
+        "--extra-output",
+        "storageLayout",
+        "--match-path",
+        "test/layer1/etna/EtnaInboxLeanConformance.t.sol",
+        "--match-test",
+        "test_land_LeanCorpus",
+        "-vvv"
+      ],
+      "exit": 1,
+      "source_sha256": "ddb032033a2042a3c5ddc370f3b79d6b9cbd6f616dbb6e7fdc6d87db390f95df",
+      "log_sha256": "c1f2474c9aeea1f000096f03de1604fc8e385cc84f97df741b4cb2347146b500",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "head-tail-bound",
+      "obligation": "LAND-01",
+      "expected_failure": "[FAIL: successful head tail bound: 6 > 5]",
+      "command": [
+        "forge",
+        "test",
+        "--no-cache",
+        "--extra-output",
+        "storageLayout",
+        "--match-path",
+        "test/layer1/etna/EtnaInboxLeanConformance.t.sol",
+        "--match-test",
+        "test_land_LeanCorpus",
+        "-vvv"
+      ],
+      "exit": 1,
+      "source_sha256": "e3421169c715b3f218750b585d7d06211fb2c9a7eede95389c797270b90e2878",
+      "log_sha256": "b1526d465a86ff2f7cbfa0168e29ba9f797c169b7d40df7614f7f10cfa322a3f",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "fee-interval",
+      "obligation": "LAND-02",
+      "expected_failure": "[FAIL: actual consumed interval/fee:",
+      "command": [
+        "forge",
+        "test",
+        "--no-cache",
+        "--extra-output",
+        "storageLayout",
+        "--match-path",
+        "test/layer1/etna/EtnaInboxLeanConformance.t.sol",
+        "--match-test",
+        "test_land_LeanCorpus",
+        "-vvv"
+      ],
+      "exit": 1,
+      "source_sha256": "9c7e858ef73fc4481c6d723a06a30dd59b500b82cc954b0fd2ea9c6003a82f40",
+      "log_sha256": "4eaedee74f95a07e38504338205586f844cacad84d54fbfb689587c36113089c",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "verifier-bypass",
+      "obligation": "LAND-04",
+      "expected_failure": "[FAIL: successful land requires normal verifier return]",
+      "command": [
+        "forge",
+        "test",
+        "--no-cache",
+        "--extra-output",
+        "storageLayout",
+        "--match-path",
+        "test/layer1/etna/EtnaInboxLeanConformance.t.sol",
+        "--match-test",
+        "test_land_LeanCorpus",
+        "-vvv"
+      ],
+      "exit": 1,
+      "source_sha256": "0257a95b61c0e53af9710b816f13f7b628600a031c991a375e192b0ac725966b",
+      "log_sha256": "4fe93e02f4403b8bc71677cafa4e880f504575537b38d14f575b54c176d80c26",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "reward-commitment",
+      "obligation": "LAND-09",
+      "expected_failure": "[FAIL: actual committed reward commitment:",
+      "command": [
+        "forge",
+        "test",
+        "--no-cache",
+        "--extra-output",
+        "storageLayout",
+        "--match-path",
+        "test/layer1/etna/EtnaInboxLeanConformance.t.sol",
+        "--match-test",
+        "test_land_LeanCorpus",
+        "-vvv"
+      ],
+      "exit": 1,
+      "source_sha256": "0afc0f898e4eecfa74dfb517d4b4982172734730a6e4ebea2c3d56a3d969973d",
+      "log_sha256": "9b32b721c2af428d9667221390ea5a44bab8102ae1b9f36882f2f13a6ef00332",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "reward-slot-check",
+      "obligation": "LAND-10",
+      "expected_failure": "[FAIL: successful land requires an empty reward slot:",
+      "command": [
+        "forge",
+        "test",
+        "--no-cache",
+        "--extra-output",
+        "storageLayout",
+        "--match-path",
+        "test/layer1/etna/EtnaInboxLeanConformance.t.sol",
+        "--match-test",
+        "test_land_LeanCorpus",
+        "-vvv"
+      ],
+      "exit": 1,
+      "source_sha256": "a7e603defe91f8b07d4b73a3e4a88d7eb7fcd5e890a275504aea18376375121a",
+      "log_sha256": "a5db7f20a7c7e293addd8be81d281f4901bc3e1c047a0e2c831421d1a00bdcac",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    }
+  ],
+  "canonical_artifacts_restored": true
+}

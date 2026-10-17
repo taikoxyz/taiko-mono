@@ -1,10 +1,10 @@
 module
 public import Etna.Common.Words
 public import Etna.Landing.Statement
+public import Etna.Landing.Reward
 public import Mathlib.Tactic
 public section
 namespace Etna.Landing
-abbrev Address := Fin (2 ^ 160)
 structure Checkpoint where
   height : Nat
   blockHash : Word256
@@ -18,6 +18,8 @@ inductive Event where
   | checkpointSaved (checkpoint : SignalCheckpoint)
   | batchLanded (first last : Nat) (blockHash stateRoot : Word256) (reference : Nat) (caller : Address)
   | consumed (before after wei : Nat) (recipient : Address)
+  | rewardRecorded (id : Word256) (recipient : Address) (amount : Nat) (generation parentHeight : Nat)
+      (parentHash : Word256) (lastHeight : Nat) (lastBlockHash : Word256)
   deriving DecidableEq, Repr
 structure Transfer where
   recipient : Address
@@ -41,6 +43,8 @@ structure World where
   fee : Nat → Word64
   signal : List SignalCheckpoint
   inboxBalance : Nat
+  /-- Slot 283: `rewardCommitments[batchId]`; zero means unrecorded. -/
+  rewardCommitments : Word256 → Word256 := fun _ => 0
   transfers : List Transfer
   logs : List Event
   guard : Bool
@@ -51,12 +55,14 @@ structure LandInput where
   reference : Word64
   headAfter : Word48
   recipient : Address
+  rewardRecipient : Address
+  baseFeeAmount : Word256
   caller : Address
   deriving DecidableEq, Repr
 inductive Error where
-  | reentrant | inactive | noProgress | batchTooLarge | heightOverflow | zeroRecipient
+  | reentrant | inactive | noProgress | batchTooLarge | heightOverflow | zeroRecipient | zeroRewardRecipient
   | invalidHead | anchorUnavailable | blobsRequired | environmentError
-  | signalUnauthorized | signalInvalid | verifier | payment
+  | signalUnauthorized | signalInvalid | verifier | rewardAlreadyRecorded | payment
   deriving DecidableEq, Repr
 /-- Concrete environment read results. Authenticity is a named EVM/environment assumption;
 branch selection and length/nonzero checks are executable, not assumptions. -/
@@ -96,6 +102,7 @@ an unordered combined classification instead of inventing source-level evaluatio
   else if i.lastHeight.val - w.checkpoint.height > w.maxBatchBlocks then some .batchTooLarge
   else if i.lastHeight.val ≥ 2 ^ 48 then some .heightOverflow
   else if i.recipient = 0 then some .zeroRecipient
+  else if i.rewardRecipient = 0 then some .zeroRewardRecipient
   else if w.head.val > i.headAfter.val || i.headAfter.val > w.tail.val ||
       i.headAfter.val - w.head.val > i.lastHeight.val - w.checkpoint.height then some .invalidHead
   else none
@@ -115,6 +122,8 @@ structure ExternalOutcomes where
   /-- Cryptographic primitive over the canonical byte serialization of the actual ordered transaction prefix. Authenticity of this
   primitive is an explicit EVM crypto boundary, not a proof of collision freedom. -/
   keccakBlobBytes : List Byte → Word256 := fun _ => 0
+  /-- The same named Keccak boundary, applied to the reward batch/commitment preimages. -/
+  keccakRewardBytes : List Byte → Word256 := fun _ => 0
 
 
 /-- Exact source statement builder. Proxy identity is `w.inbox`; caller is deliberately absent. -/
@@ -125,12 +134,25 @@ structure ExternalOutcomes where
    natWord w.checkpoint.blockHash.val, natWord w.config.val, natWord i.lastHeight.val,
    natWord i.lastBlockHash.val, natWord i.lastStateRoot.val, natWord i.reference.val,
    natWord reference.val, natWord blobCommitment.val, natWord w.head.val,
-   natWord i.headAfter.val, natWord i.recipient.val⟩
+   natWord i.headAfter.val, natWord i.recipient.val, natWord i.rewardRecipient.val,
+   natWord i.baseFeeAmount.val⟩
 
 @[expose] def computedStatement (w : World) (i : LandInput) (x : ExternalOutcomes) : LandStatement :=
   makeStatement w i
     (match referenceHash x.environment i.reference with | .ok (_, hash) => hash | .error _ => 0)
     (x.keccakBlobBytes (serializeBlobPrefix (actualBlobs x.environment)))
+
+/-- `_recordReward`'s receipt: the parent read before landing, the stored generation, the
+executing proxy and both chain ids, with the proven endpoint, recipient and amount. -/
+@[expose] def receiptOf (w : World) (i : LandInput) : Receipt :=
+  ⟨w.l1ChainId, w.l2ChainId, w.inbox, w.generation, w.checkpoint.height, w.checkpoint.blockHash,
+   i.lastHeight.val, i.lastBlockHash, i.rewardRecipient, i.baseFeeAmount⟩
+
+@[expose] def rewardId (w : World) (i : LandInput) (x : ExternalOutcomes) : Word256 :=
+  batchId x.keccakRewardBytes (receiptOf w i)
+
+@[expose] def rewardCommitment (w : World) (i : LandInput) (x : ExternalOutcomes) : Word256 :=
+  commitment x.keccakRewardBytes (receiptOf w i)
 
 /-- Generic nested EVM business-state journal. `write` retains its parent frame: undoing an
 external call also undoes its nested checkpoint/log/transfer effects, not merely Inbox storage.
@@ -142,8 +164,8 @@ inductive Journal (α : Type) where
 @[expose] def Journal.rollback : Journal α → α | .begin w => w | .write parent _ => parent.rollback
 @[expose] def Journal.update (j : Journal α) (f : α → α) : Journal α := .write j (f j.current)
 inductive Stage where
-  | entry | checked | statement | head | checkpoint | signal | batchEvent | verifier | payment
-  | consumed | unlock
+  | entry | checked | statement | head | checkpoint | signal | batchEvent | verifier | reward
+  | payment | consumed | unlock
   deriving DecidableEq, Repr
 structure TentativeResult where
   journal : Journal World
@@ -165,13 +187,61 @@ structure TransactionResult where
 @[expose] def finish (j : Journal World) (e : Option Error) (s : Stage) (trace : List Stage) (statement : Option LandStatement := none) : TentativeResult :=
   ⟨j, e, s, trace, statement⟩
 
+/-- Business effects that survive to the verifier call: guard, head, checkpoint, Signal
+checkpoint and the two logs. Error branches before the verifier never reach these writes. -/
+@[expose] def preVerifier (w : World) (i : LandInput) : World :=
+  let cp : SignalCheckpoint := ⟨i.lastHeight.val, i.lastBlockHash, i.lastStateRoot⟩
+  { w with
+    guard := true, head := i.headAfter, checkpoint := ⟨i.lastHeight.val, i.lastBlockHash⟩,
+    signal := w.signal ++ [cp],
+    logs := w.logs ++ [.checkpointSaved cp,
+      .batchLanded (w.checkpoint.height + 1) i.lastHeight.val i.lastBlockHash i.lastStateRoot i.reference.val i.caller] }
+
+/-- `_recordReward`: one receipt commitment at its batch id and its event. -/
+@[expose] def recordReward (w : World) (i : LandInput) (x : ExternalOutcomes) (s : World) : World :=
+  { s with
+    rewardCommitments := Function.update s.rewardCommitments (rewardId w i x) (rewardCommitment w i x),
+    logs := s.logs ++ [.rewardRecorded (rewardId w i x) i.rewardRecipient i.baseFeeAmount.val w.generation.val
+      w.checkpoint.height w.checkpoint.blockHash i.lastHeight.val i.lastBlockHash] }
+
+@[expose] def feeWei (w : World) (i : LandInput) : Nat := fees w.fee w.head.val i.headAfter.val * 1000000000
+@[expose] def paymentFails (w : World) (i : LandInput) (x : ExternalOutcomes) : Bool :=
+  (i.headAfter != w.head) && feeWei w i > 0 && (!x.paymentReturnsNormally || w.inboxBalance < feeWei w i ||
+    x.reentry = .landUncaught || x.reentry = .saveUncaught)
+
+/-- Fee payment, the conditional consumption event and the unlock, after the reward. -/
+@[expose] def paymentEffect (w : World) (i : LandInput) (s : World) : World :=
+  let s := if (i.headAfter != w.head) && feeWei w i > 0 then
+    { s with
+      inboxBalance := s.inboxBalance - feeWei w i, transfers := s.transfers ++ [⟨i.recipient, feeWei w i⟩] }
+    else s
+  let s := if i.headAfter != w.head then
+    { s with logs := s.logs ++ [.consumed w.head.val i.headAfter.val (feeWei w i) i.recipient] } else s
+  { s with guard := false }
+
+@[expose] def paymentStages (w : World) (i : LandInput) : List Stage :=
+  (if (i.headAfter != w.head) && feeWei w i > 0 then [.payment] else []) ++
+    (if i.headAfter != w.head then [.consumed] else []) ++ [.unlock]
+
+@[expose] def execPayment (w : World) (i : LandInput) (x : ExternalOutcomes) (j : Journal World)
+    (stages : List Stage) (statement : Option LandStatement) : TentativeResult :=
+  if paymentFails w i x then finish j (some .payment) .payment (stages ++ [.payment]) statement
+  else finish (j.update (paymentEffect w i)) none .unlock (stages ++ paymentStages w i) statement
+
+/-- The reward is recorded after the verifier and before the fee transfer. An occupied slot
+reverts the whole landing with `RewardAlreadyRecorded`. -/
+@[expose] def execReward (w : World) (i : LandInput) (x : ExternalOutcomes) (j : Journal World)
+    (stages : List Stage) (statement : Option LandStatement) : TentativeResult :=
+  if w.rewardCommitments (rewardId w i x) != 0 then
+    finish j (some .rewardAlreadyRecorded) .reward (stages ++ [.reward]) statement
+  else execPayment w i x (j.update (recordReward w i x)) (stages ++ [.reward]) statement
+
 /-- Explicit late path. SignalService concretely checks authorization, root and block hash;
 verifier is a void STATICCALL and cannot directly write business state. Recipient callbacks
 may try either shared-guard entrypoint; caught errors allow the outer payment to finish. -/
 @[expose] def execChecked (w : World) (i : LandInput) (x : ExternalOutcomes) : TentativeResult := Id.run do
   let j := (Journal.begin w).update fun s => { s with guard := true }
   let statement := some (computedStatement w i x)
-  let amount := fees w.fee w.head.val i.headAfter.val * 1000000000
   let j := if i.headAfter != w.head then j.update fun s => { s with head := i.headAfter } else j
   let j := j.update fun s => { s with checkpoint := ⟨i.lastHeight.val, i.lastBlockHash⟩ }
   let stages := [Stage.entry, .checked, .statement, .head, .checkpoint]
@@ -185,17 +255,7 @@ may try either shared-guard entrypoint; caught errors allow the outer payment to
   let stages := stages ++ [.signal, .batchEvent, .verifier]
   if !x.verifierReturnsNormally then
     return finish j (some .verifier) .verifier stages statement
-  let moved := i.headAfter != w.head
-  if moved && amount > 0 && (!x.paymentReturnsNormally || w.inboxBalance < amount ||
-      x.reentry = .landUncaught || x.reentry = .saveUncaught) then
-    return finish j (some .payment) .payment (stages ++ [.payment]) statement
-  let j := if moved && amount > 0 then j.update fun s =>
-    { s with inboxBalance := s.inboxBalance - amount, transfers := s.transfers ++ [⟨i.recipient, amount⟩] } else j
-  let j := if moved then j.update fun s =>
-    { s with logs := s.logs ++ [.consumed w.head.val i.headAfter.val amount i.recipient] } else j
-  let j := j.update fun s => { s with guard := false }
-  return finish j none .unlock (stages ++ (if moved && amount > 0 then [.payment] else []) ++
-    (if moved then [.consumed] else []) ++ [.unlock]) statement
+  return execReward w i x j stages statement
 
 @[expose] def execLandSteps (w : World) (i : LandInput) (x : ExternalOutcomes) : TentativeResult :=
   match validate w i with

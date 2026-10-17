@@ -49,7 +49,7 @@ def main():
     execute(['python3',str(ROOT/'scripts/landing_conformance.py'),'--run-solidity','--protocol',str(a.protocol),
              '--observations',str(a.output/'observations.jsonl'),'--report',str(a.output/'landing.json')],a.output/'landing.log')
     result=json.loads((a.output/'landing.json').read_text())
-    if (result['cases'],result['actual_preimages'],result['rust_statement_rows'],result['cuts']['plans'],result['cuts']['intervals'],result['failures']) != (56,30,56,4,12,[]):
+    if (result['cases'],result['actual_preimages'],result['rust_statement_rows'],result['cuts']['plans'],result['cuts']['intervals'],result['failures']) != (65,36,65,4,12,[]):
         raise ValueError('incomplete paired conformance')
     (a.output/'conformance.json').write_text(json.dumps({'seed':a.seed,'fresh_execution':True,'landing':result,
         'seeded_cases_per_domain':256,'logs':{p.name:sha(p) for p in a.output.glob('*.log')}},indent=2)+'\n')

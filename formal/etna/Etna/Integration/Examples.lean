@@ -1,5 +1,6 @@
 module
 public import Etna.Integration.Composition
+public import Etna.Integration.Rewards
 public import Etna.Committee.Examples
 public import Etna.FI.Examples
 public import Etna.Landing.Examples
@@ -65,6 +66,7 @@ def auth : Integration.Authentication ctx where
   checkpoint := fun height hash => if height = 0 ∧ hash = 100 then some before else if height = 1 ∧ hash = 101 then some after else none
   decodeBlobs := fun blobs => if blobs = [1] then some [block] else if blobs = [2] then some [secondBlock] else none
   ancestor := fun anchor reference => (anchor = 800 ∨ anchor = 801) ∧ reference = 2748
+  treasuryCredit := fun hash => if hash = 101 then 5 else if hash = 102 then 3 else 0
 
 def fi : FI.ValidStep before.cursor after.cursor (some 0) where
   authentication := fiAuth 100
@@ -104,9 +106,11 @@ def joint : JointStep auth before after block (some 0) [] where
 def world : Landing.World := { Landing.exampleWorld with
   checkpoint := ⟨0,100⟩,
   head := 0, tail := 1, fee := fun _ => 1 }
-def input : Landing.LandInput := ⟨1,101,202,19999,1,48879,51966⟩
+def input : Landing.LandInput := ⟨1,101,202,19999,1,48879,57005,5,51966⟩
+/-- A content-dependent toy byte hash (byte sum), not Keccak: it separates the two receipts. -/
+def rewardHash (bytes : List Landing.Byte) : Word256 := ⟨(bytes.map Fin.val).sum % 2 ^ 256, Nat.mod_lt _ (by decide)⟩
 def external : Landing.ExternalOutcomes := { Landing.exampleExternal with
-  environment := { Landing.exampleEnvironment with blobHashes := [1] } }
+  environment := { Landing.exampleEnvironment with blobHashes := [1] }, keccakRewardBytes := rewardHash }
 def batch : BatchSummary ctx := ⟨before,after,[block],[some 0],[]⟩
 
 /-- A finite interpretation satisfies every coupled premise, consumes a real index and
@@ -131,6 +135,7 @@ theorem joint_nonvacuity :
     simp only [batch, List.mem_singleton] at member
     subst b
     exact ⟨Or.inl rfl,rfl⟩
+  · decide
   · rfl
 
 /-- Empty cuts are permitted as algebraic partitions; valid landed batches separately
@@ -177,7 +182,7 @@ def secondJoint : JointStep auth after secondState secondBlock none [] where
   stateRoot := rfl
 
 def middleWorld : Landing.World := (Landing.runTransaction world (Landing.execLandSteps world input external)).world
-def secondInput : Landing.LandInput := ⟨2,102,203,19999,1,48879,51966⟩
+def secondInput : Landing.LandInput := ⟨2,102,203,19999,1,48879,57005,3,51966⟩
 def secondExternal : Landing.ExternalOutcomes := { external with
   environment := { external.environment with blobHashes := [2] } }
 def secondBatch : BatchSummary ctx := ⟨after,secondState,[secondBlock],[none],[]⟩
@@ -200,14 +205,32 @@ theorem second_valid : ValidBatch auth middleWorld secondInput secondExternal
     simp only [secondBatch, List.mem_singleton] at member
     subst b
     exact ⟨Or.inr rfl,rfl⟩
+  · decide
   · rfl
 
 /-- Two nonempty actual model land calls, with a positive paid interval followed by an
 empty interval, share the same authenticated seed/genesis and coherent L1 history. -/
 theorem landed_multicall_nonvacuity :
-    LandedCuts auth world before [[block],[secondBlock]] [some 0,none] [] finalWorld secondState 1 := by
-  exact LandedCuts.cons input external joint_nonvacuity.1 joint_nonvacuity.2.1
-    (LandedCuts.cons secondInput secondExternal second_valid rfl (LandedCuts.nil finalWorld secondState))
+    LandedCuts auth rewardHash world before [[block],[secondBlock]] [some 0,none] [] finalWorld secondState 1
+      [Landing.receiptOf world input, Landing.receiptOf middleWorld secondInput] := by
+  exact LandedCuts.cons input external joint_nonvacuity.1 joint_nonvacuity.2.1 rfl
+    (LandedCuts.cons secondInput secondExternal second_valid (by decide +kernel) rfl (LandedCuts.nil finalWorld secondState))
+
+/-- The two receipts record the 5 + 3 credited base fees, at two different parent heights,
+under two different ids of the toy hash. -/
+theorem landed_rewards_nonvacuity :
+    ([Landing.receiptOf world input, Landing.receiptOf middleWorld secondInput].map fun r => r.amount.val).sum =
+      credits auth [block, secondBlock] ∧
+    (Landing.receiptOf world input).parentHeight = 0 ∧ (Landing.receiptOf middleWorld secondInput).parentHeight = 1 ∧
+    Landing.rewardId world input external ≠ Landing.rewardId middleWorld secondInput secondExternal :=
+  ⟨(landed_cuts_rewards landed_multicall_nonvacuity).2, rfl, rfl, by decide +kernel⟩
+
+/-- A wrong base-fee word cannot satisfy the guest relation for the decoded trace. -/
+theorem forged_base_fee_not_valid :
+    ¬ ValidBatch auth world { input with baseFeeAmount := 6 } external
+      (Landing.computedStatement world { input with baseFeeAmount := 6 } external) batch := by
+  intro valid
+  exact absurd (valid_batch_base_fee valid) (by decide)
 
 /-- A forged output head cannot satisfy the concrete guest relation for this decoded trace.
 Normal-return/dummy acceptance alone therefore cannot establish that relation. -/
@@ -217,4 +240,70 @@ theorem forged_head_not_valid :
   intro valid
   have bad := valid_batch_head valid
   norm_num [input,batch,after] at bad
+/-- The fixed vault on chain 167001 for L1 chain 1's Inbox 100. -/
+def vault : Landing.Vault := { l1ChainId := 1, chainId := 167001, inbox := 100 }
+def firstClaim : Landing.ClaimCall := ⟨Landing.receiptOf world input, true, true, true, true⟩
+def secondClaim : Landing.ClaimCall := ⟨Landing.receiptOf middleWorld secondInput, true, true, true, true⟩
+
+/-- The final L1 ledger holds both landed commitments, so both proofs can be sound. -/
+theorem final_ledger_nonvacuity :
+    Landing.ProofSound rewardHash finalWorld.rewardCommitments firstClaim ∧
+    Landing.ProofSound rewardHash finalWorld.rewardCommitments secondClaim := by
+  constructor <;> intro _ <;> decide +kernel
+
+/-- Decidable projections of a claim result; `Vault` itself carries functions. -/
+def payoutsOf : Except Landing.ClaimError Landing.Vault → Option (List Landing.Transfer)
+  | .ok v => some v.payouts | .error _ => none
+/-- Plain (recipient, wei) pairs, decidable with core instances only. -/
+def pairsOf (r : Except Landing.ClaimError Landing.Vault) : Option (List (Nat × Nat)) :=
+  (payoutsOf r).map fun ts => ts.map fun t => (t.recipient.val, t.wei)
+def errorOf : Except Landing.ClaimError Landing.Vault → Option Landing.ClaimError
+  | .error e => some e | .ok _ => none
+
+theorem payouts_ok {r : Except Landing.ClaimError Landing.Vault} {p : List Landing.Transfer}
+    (h : payoutsOf r = some p) : ∃ v, r = .ok v ∧ v.payouts = p := by
+  cases r with
+  | error e => simp [payoutsOf] at h
+  | ok v => exact ⟨v, rfl, by simpa [payoutsOf] using h⟩
+
+theorem ok_of_pairs {r : Except Landing.ClaimError Landing.Vault} {p : List (Nat × Nat)}
+    (h : pairsOf r = some p) : ∃ v, r = .ok v ∧ v.payouts.map (fun t => (t.recipient.val, t.wei)) = p := by
+  cases r with
+  | error e => simp [pairsOf, payoutsOf] at h
+  | ok v => exact ⟨v, rfl, by simpa [pairsOf, payoutsOf] using h⟩
+
+def afterFirst := Landing.claim rewardHash vault firstClaim
+def afterSecond := afterFirst.bind fun v => Landing.claim rewardHash v secondClaim
+
+/-- Both landed receipts are claimable once, paying exactly 5 and 3 to the bound recipient;
+replaying the first claim reverts. -/
+theorem claims_nonvacuity :
+    pairsOf afterFirst = some [(57005, 5)] ∧
+    pairsOf afterSecond = some [(57005, 5), (57005, 3)] ∧
+    errorOf (afterSecond.bind fun v => Landing.claim rewardHash v firstClaim) = some .alreadyClaimed := by
+  refine ⟨by decide +kernel, by decide +kernel, by decide +kernel⟩
+
+/-- A receipt for another Inbox is rejected before any proof is consulted. -/
+theorem foreign_inbox_rejected :
+    errorOf (Landing.claim rewardHash { vault with inbox := 101 } firstClaim) = some .invalidReceipt := by
+  decide +kernel
+
+/-- The end-to-end bound is satisfiable on the two-landing, two-claim history: 8 credited wei. -/
+theorem bounded_claims_nonvacuity :
+    ∃ v₂, Landing.ClaimTrace rewardHash vault [firstClaim.receipt, secondClaim.receipt] v₂ ∧
+      (v₂.payouts.map Landing.Transfer.wei).sum ≤ credits auth [block, secondBlock] := by
+  obtain ⟨v₁, first, _⟩ := ok_of_pairs claims_nonvacuity.1
+  obtain ⟨v₂, both, _⟩ := ok_of_pairs claims_nonvacuity.2.1
+  have second : Landing.claim rewardHash v₁ secondClaim = .ok v₂ := by
+    rw [afterSecond, first] at both; exact both
+  have trace : Landing.ClaimTrace rewardHash vault [firstClaim.receipt, secondClaim.receipt] v₂ :=
+    .cons firstClaim first (.cons secondClaim second (.nil v₂))
+  refine ⟨v₂, trace, ?_⟩
+  have bound := claims_bounded_by_credits landed_multicall_nonvacuity trace (by
+    intro c member
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at member
+    rcases member with rfl | rfl
+    · exact ⟨_, List.mem_cons_self, rfl, rfl⟩
+    · exact ⟨_, List.mem_cons_of_mem _ List.mem_cons_self, rfl, rfl⟩)
+  simpa [vault] using bound
 end Etna.Integration.Examples
