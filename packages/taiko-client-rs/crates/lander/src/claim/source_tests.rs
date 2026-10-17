@@ -47,7 +47,7 @@ async fn prepare_authenticates_real_proof_at_canonical_h_without_checkpoint_cove
         success: true,
         gas_used: 1,
     };
-    assert!(!source.transaction_finalized(&inclusion).await.unwrap());
+    assert!(!source.transaction_finalized(&inclusion, &mut None).await.unwrap());
 }
 
 #[tokio::test]
@@ -81,7 +81,7 @@ async fn finality_requires_proven_checkpoint_and_every_el_parent_link() {
             success: true,
             gas_used: 1,
         };
-        let result = source.unwrap().transaction_finalized(&inclusion).await;
+        let result = source.unwrap().transaction_finalized(&inclusion, &mut None).await;
         if matches!(fault, Fault::None) {
             assert!(result.unwrap());
         } else {
@@ -116,4 +116,210 @@ async fn permissionless_forwarded_landing_uses_fixed_inbox_emitter_and_storage_p
     let (source, _l1, _l2) = connect(Arc::new(Fixture::new(Fault::ForwardedLanding, false))).await;
     let proof = source.unwrap().prepare(identity().landing_tx, identity().batch_id).await.unwrap();
     assert_eq!(proof.receipt, receipt());
+}
+
+#[tokio::test]
+async fn landing_newer_than_executed_anchor_is_retryable_before_proof_then_advances() {
+    let fixture = Arc::new(Fixture::new(Fault::PendingAnchor, false));
+    let (source, _l1, _l2) = connect(fixture.clone()).await;
+    let source = source.unwrap();
+    let result = source.prepare(identity().landing_tx, identity().batch_id).await;
+    assert!(matches!(result, Err(LanderError::Unavailable(_))));
+    assert!(!fixture.requests.lock().unwrap().iter().any(|r| r["method"] == "eth_getProof"));
+    fixture.pending_anchor.store(false, std::sync::atomic::Ordering::SeqCst);
+    source.prepare(identity().landing_tx, identity().batch_id).await.unwrap();
+}
+
+fn inclusion(fixture: &Fixture) -> LandingReceipt {
+    LandingReceipt {
+        transaction_hash: B256::repeat_byte(1),
+        block_number: 8,
+        block_hash: fixture.l2[&8].hash_slow(),
+        success: true,
+        gas_used: 1,
+    }
+}
+
+#[tokio::test]
+async fn old_claim_uses_nearby_historical_landing_despite_distant_checkpoint_or_recovery_reset() {
+    for fault in [Fault::FarCheckpoint, Fault::WrongBranch] {
+        let fixture = Arc::new(Fixture::new(fault, true));
+        let receipt = inclusion(&fixture);
+        let (source, _l1, _l2) = connect(fixture.clone()).await;
+        assert!(source.unwrap().transaction_finalized(&receipt, &mut None).await.unwrap());
+        let requests = fixture.requests.lock().unwrap();
+        assert!(requests.iter().filter(|r| r["method"] == "eth_getBlockByHash").count() <= 4);
+        assert!(
+            !requests
+                .iter()
+                .any(|r| r["method"] == "eth_getProof" &&
+                    r["params"][1].as_array().unwrap().len() > 1)
+        );
+    }
+}
+
+#[tokio::test]
+async fn forged_covering_receipt_is_fatal_and_wrong_claim_branch_never_finalizes() {
+    let fixture = Arc::new(Fixture::new(Fault::ForgedCovering, true));
+    let receipt = inclusion(&fixture);
+    let (source, _l1, _l2) = connect(fixture).await;
+    assert!(matches!(
+        source.unwrap().transaction_finalized(&receipt, &mut None).await,
+        Err(LanderError::Safety(_))
+    ));
+    let mut fixture = Fixture::new(Fault::WrongBranch, true);
+    fixture.covering.truncate(1);
+    let receipt = inclusion(&fixture);
+    let (source, _l1, _l2) = connect(Arc::new(fixture)).await;
+    assert!(!source.unwrap().transaction_finalized(&receipt, &mut None).await.unwrap());
+}
+
+#[tokio::test]
+async fn paged_history_progress_survives_restart_and_omitted_logs_are_rescanned() {
+    let mut fixture = Fixture::new(Fault::None, true);
+    let root = fixture.l1[&11].state_root;
+    fixture.covering_block = 20_000;
+    fixture.l1.insert(20_000, Header { number: 20_000, state_root: root, ..Default::default() });
+    fixture.l1.insert(30_000, Header { number: 30_000, state_root: root, ..Default::default() });
+    let fixture = Arc::new(fixture);
+    let receipt = inclusion(&fixture);
+    let (source, _l1, _l2) = connect(fixture.clone()).await;
+    let source = source.unwrap();
+    let mut progress = None;
+    assert!(!source.transaction_finalized(&receipt, &mut progress).await.unwrap());
+    assert_eq!(progress.as_ref().unwrap().next, 9 + 16 * 1024);
+    assert_eq!(
+        fixture.requests.lock().unwrap().iter().filter(|r| r["method"] == "eth_getLogs").count(),
+        16
+    );
+    // Serialize exactly the untrusted hint that a journal restart would retain.
+    progress = serde_json::from_slice(&serde_json::to_vec(&progress).unwrap()).unwrap();
+    fixture.hide_logs.store(true, std::sync::atomic::Ordering::SeqCst);
+    assert!(!source.transaction_finalized(&receipt, &mut progress).await.unwrap());
+    assert_eq!(progress.as_ref().unwrap().next, 9);
+    fixture.hide_logs.store(false, std::sync::atomic::Ordering::SeqCst);
+    assert!(!source.transaction_finalized(&receipt, &mut progress).await.unwrap());
+    assert!(source.transaction_finalized(&receipt, &mut progress).await.unwrap());
+    // A corrupt inclusion binding restarts hints, never grants authority.
+    progress.as_mut().unwrap().inclusion_hash = B256::ZERO;
+    assert!(!source.transaction_finalized(&receipt, &mut progress).await.unwrap());
+    assert_eq!(progress.unwrap().next, 9 + 16 * 1024);
+}
+
+#[tokio::test]
+async fn finality_timeout_preserves_candidate_hint_but_requires_fresh_proof_on_retry() {
+    let fixture = Arc::new(Fixture::new(Fault::None, true));
+    let receipt = inclusion(&fixture);
+    let (source, _l1, _l2) = connect(fixture.clone()).await;
+    let source = source.unwrap().with_finality_timeout(Duration::from_secs(1)).unwrap();
+    fixture.hang_ancestry.store(true, std::sync::atomic::Ordering::SeqCst);
+    let mut progress = None;
+    assert!(matches!(
+        source.transaction_finalized(&receipt, &mut progress).await,
+        Err(LanderError::Temporary(_))
+    ));
+    assert!(progress.as_ref().unwrap().candidate.is_some());
+    let proofs =
+        fixture.requests.lock().unwrap().iter().filter(|r| r["method"] == "eth_getProof").count();
+    fixture.hang_ancestry.store(false, std::sync::atomic::Ordering::SeqCst);
+    assert!(source.transaction_finalized(&receipt, &mut progress).await.unwrap());
+    assert_eq!(
+        fixture.requests.lock().unwrap().iter().filter(|r| r["method"] == "eth_getProof").count(),
+        proofs + 1
+    );
+}
+
+#[tokio::test]
+async fn finality_rejects_forged_witness_slots_and_unfinalized_event_hint() {
+    let fixture = Arc::new(Fixture::new(Fault::WrongSlot, true));
+    let receipt = inclusion(&fixture);
+    let (source, _l1, _l2) = connect(fixture).await;
+    assert!(matches!(
+        source.unwrap().transaction_finalized(&receipt, &mut None).await,
+        Err(LanderError::Safety(_))
+    ));
+    let fixture = Arc::new(Fixture::new(Fault::Nonfinal, true));
+    let receipt = inclusion(&fixture);
+    let (source, _l1, _l2) = connect(fixture).await;
+    assert!(!source.unwrap().transaction_finalized(&receipt, &mut None).await.unwrap());
+}
+
+#[tokio::test]
+async fn discovery_and_ancestry_capacity_failures_are_actionable() {
+    let mut fixture = Fixture::new(Fault::None, true);
+    fixture.covering = vec![fixture.covering[0].clone(); 257];
+    let receipt = inclusion(&fixture);
+    let (source, _l1, _l2) = connect(Arc::new(fixture)).await;
+    assert!(matches!(
+        source.unwrap().transaction_finalized(&receipt, &mut None).await,
+        Err(LanderError::Capacity(_))
+    ));
+    let mut fixture = Fixture::new(Fault::None, true);
+    fixture.covering[0].lastHeight = 8 + MAX_ANCESTRY;
+    let candidate = &fixture.covering[0];
+    fixture.final_values.insert(
+        rewards::receipt_slot(rewards::batch_id(candidate)),
+        U256::from_be_bytes(rewards::commitment(candidate).0),
+    );
+    let (root, _) =
+        witness(&fixture.final_values, &[rewards::receipt_slot(rewards::batch_id(candidate))]);
+    fixture.l1.get_mut(&11).unwrap().state_root = root;
+    let receipt = inclusion(&fixture);
+    let fixture = Arc::new(fixture);
+    let (source, _l1, _l2) = connect(fixture.clone()).await;
+    assert!(matches!(
+        source.unwrap().transaction_finalized(&receipt, &mut None).await,
+        Err(LanderError::Capacity(_))
+    ));
+    assert!(!fixture.requests.lock().unwrap().iter().any(|r| r["method"] == "eth_getBlockByHash"));
+}
+
+#[tokio::test]
+async fn unavailable_old_branch_does_not_starve_later_proven_current_candidate() {
+    let mut fixture = Fixture::new(Fault::WrongBranch, true);
+    fixture.branch_headers.clear();
+    let receipt = inclusion(&fixture);
+    let fixture = Arc::new(fixture);
+    let (source, _l1, _l2) = connect(fixture.clone()).await;
+    assert!(source.unwrap().transaction_finalized(&receipt, &mut None).await.unwrap());
+    assert_eq!(
+        fixture
+            .requests
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|r| r["method"] == "eth_getBlockByHash")
+            .count(),
+        3
+    );
+}
+
+#[tokio::test]
+async fn second_unavailable_candidate_is_revisited_after_bounded_complete_pass() {
+    let mut fixture = Fixture::new(Fault::WrongBranch, true);
+    fixture.branch_headers.clear();
+    fixture.missing_hashes.lock().unwrap().push(fixture.l2[&9].hash_slow());
+    let root = fixture.l1[&11].state_root;
+    fixture.l1.insert(30_000, Header { number: 30_000, state_root: root, ..Default::default() });
+    let receipt = inclusion(&fixture);
+    let fixture = Arc::new(fixture);
+    let (source, _l1, _l2) = connect(fixture.clone()).await;
+    let source = source.unwrap();
+    let mut progress = None;
+    assert!(matches!(
+        source.transaction_finalized(&receipt, &mut progress).await,
+        Err(LanderError::Unavailable(_))
+    ));
+    assert_eq!(progress.as_ref().unwrap().next, 9 + 16 * 1024);
+    assert!(matches!(
+        source.transaction_finalized(&receipt, &mut progress).await,
+        Err(LanderError::Unavailable(_))
+    ));
+    assert_eq!(
+        progress.as_ref().unwrap().next,
+        9,
+        "complete passes revisit all omitted or unavailable hints"
+    );
+    fixture.missing_hashes.lock().unwrap().clear();
+    assert!(source.transaction_finalized(&receipt, &mut progress).await.unwrap());
 }

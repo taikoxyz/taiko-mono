@@ -1,5 +1,5 @@
 //! Independent claim journal: atomic durable writes, immutable signatures and exclusive ownership.
-use super::{ClaimIdentity, ClaimProof, tx::SignedClaim};
+use super::{ClaimIdentity, ClaimProof, discovery::DiscoveryProgress, tx::SignedClaim};
 use crate::{LanderError, Result, tx::LandingReceipt};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -39,6 +39,9 @@ pub struct ClaimJob {
     pub transaction: Option<SignedClaim>,
     /// Most recently verified canonical inclusion; absent during a reorg.
     pub inclusion: Option<LandingReceipt>,
+    /// Untrusted resumable log-discovery hints; old version-1 journals omit this field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub discovery: Option<DiscoveryProgress>,
 }
 
 /// Versioned disk record with public identities only.
@@ -117,6 +120,12 @@ impl ClaimStore {
                     (old.transaction != job.transaction || old.proof != job.proof)))
         {
             return Err(LanderError::Journal("cannot replace immutable claim job".into()));
+        }
+        if let Some(old) = self.load()? &&
+            old.state == ClaimState::Finalized &&
+            old != *job
+        {
+            return Err(LanderError::Journal("finalized claim is terminal".into()));
         }
         let bytes = serde_json::to_vec(&Journal {
             version: VERSION,

@@ -166,7 +166,15 @@ async fn real_l2_rewards_claim_and_fee_continuation() -> Result<()> {
         "executed anchor contains real receipt proof",
         DEADLINE,
         Duration::from_millis(200),
-        || async { Ok(source.prepare(landing_tx, batch_id).await.ok()) },
+        || async {
+            match source.prepare(landing_tx, batch_id).await {
+                Ok(proof) => Ok(Some(proof)),
+                Err(lander::LanderError::Temporary(_) | lander::LanderError::Unavailable(_)) => {
+                    Ok(None)
+                }
+                Err(error) => Err(error.into()),
+            }
+        },
     )
     .await?;
     assert!(!proof.account_proof.is_empty() && !proof.storage_proof.is_empty());

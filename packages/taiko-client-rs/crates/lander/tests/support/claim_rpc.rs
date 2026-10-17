@@ -127,14 +127,28 @@ pub enum Fault {
     RpcLeak,
     WrongChain,
     ZeroInbox,
+    PendingAnchor,
+    FarCheckpoint,
+    WrongBranch,
+    ForgedCovering,
 }
 pub struct Fixture {
     pub l1: BTreeMap<u64, Header>,
     pub l2: BTreeMap<u64, Header>,
     anchor_values: BTreeMap<B256, U256>,
-    final_values: BTreeMap<B256, U256>,
+    pub final_values: BTreeMap<B256, U256>,
     fault: Fault,
     pub checkpoint: bool,
+    pub covering: Vec<Receipt>,
+    pub covering_block: u64,
+    pub branch_headers: Vec<Header>,
+    pub pending_anchor: std::sync::atomic::AtomicBool,
+    pub fail_bootstrap: std::sync::atomic::AtomicBool,
+    pub hang_receipts: std::sync::atomic::AtomicBool,
+    pub hung_started: std::sync::atomic::AtomicBool,
+    pub hide_logs: std::sync::atomic::AtomicBool,
+    pub hang_ancestry: std::sync::atomic::AtomicBool,
+    pub missing_hashes: Mutex<Vec<B256>>,
     pub requests: Mutex<Vec<Value>>,
     pub sends: Mutex<Vec<Bytes>>,
     accepted: Mutex<Option<B256>>,
@@ -175,11 +189,50 @@ impl Fixture {
             ..Default::default()
         };
         let mut final_values = anchor_values.clone();
+        let mut covering = vec![];
+        let mut branch_headers = vec![];
+        if checkpoint {
+            let mut r = receipt();
+            r.parentHeight = 5;
+            r.lastHeight = 9;
+            r.lastBlockHash = h9.hash_slow();
+            r.generation = 9;
+            if matches!(fault, Fault::WrongBranch) {
+                let mut old8 = h8.clone();
+                old8.timestamp += 50;
+                let mut old9 = h9.clone();
+                old9.parent_hash = old8.hash_slow();
+                let mut old = r.clone();
+                old.generation = 4;
+                old.lastBlockHash = old9.hash_slow();
+                final_values.insert(
+                    rewards::receipt_slot(rewards::batch_id(&old)),
+                    U256::from_be_bytes(rewards::commitment(&old).0),
+                );
+                covering.push(old);
+                branch_headers.extend([old8, old9]);
+            }
+            final_values.insert(
+                rewards::receipt_slot(rewards::batch_id(&r)),
+                U256::from_be_bytes(rewards::commitment(&r).0),
+            );
+            if matches!(fault, Fault::ForgedCovering) {
+                r.baseFeeAmount += U256::from(1);
+            }
+            covering.push(r);
+        }
         if checkpoint {
             final_values.insert(inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(9));
             final_values.insert(
                 inbox::slot(inbox::LAST_CHECKPOINT_HASH),
                 U256::from_be_bytes(h9.hash_slow().0),
+            );
+        }
+        if matches!(fault, Fault::FarCheckpoint | Fault::WrongBranch) {
+            // A distant checkpoint (or recovery reset) must not determine historical discovery.
+            final_values.insert(
+                inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT),
+                U256::from(if matches!(fault, Fault::FarCheckpoint) { 999_999 } else { 0 }),
             );
         }
         if matches!(fault, Fault::NewAnchor) {
@@ -207,6 +260,19 @@ impl Fixture {
             final_values,
             fault,
             checkpoint,
+            covering,
+            branch_headers,
+            covering_block: 11,
+            pending_anchor: std::sync::atomic::AtomicBool::new(matches!(
+                fault,
+                Fault::PendingAnchor
+            )),
+            fail_bootstrap: std::sync::atomic::AtomicBool::new(false),
+            hang_receipts: std::sync::atomic::AtomicBool::new(false),
+            hung_started: std::sync::atomic::AtomicBool::new(false),
+            hide_logs: std::sync::atomic::AtomicBool::new(false),
+            hang_ancestry: std::sync::atomic::AtomicBool::new(false),
+            missing_hashes: Mutex::new(vec![]),
             requests: Mutex::new(vec![]),
             sends: Mutex::new(vec![]),
             accepted: Mutex::new(None),
@@ -227,7 +293,7 @@ impl Fixture {
                 let n = match tag {
                     "latest" => {
                         if l1 {
-                            11
+                            *self.l1.last_key_value().unwrap().0
                         } else {
                             9
                         }
@@ -236,7 +302,7 @@ impl Fixture {
                         if matches!(self.fault, Fault::Nonfinal) {
                             9
                         } else {
-                            11
+                            *self.l1.last_key_value().unwrap().0
                         }
                     }
                     _ => u64::from_str_radix(&tag[2..], 16).unwrap(),
@@ -248,10 +314,62 @@ impl Fixture {
                 {
                     h.timestamp += 1;
                 }
+                if !l1 && self.pending_anchor.load(std::sync::atomic::Ordering::SeqCst) {
+                    let mut extra = h.extra_data.to_vec();
+                    extra[12] = 8;
+                    h.extra_data = extra.into();
+                }
                 let mut value = serde_json::to_value(&h).unwrap();
                 value["hash"] = json!(h.hash_slow());
                 value["transactions"] = json!([]);
                 value
+            }
+            "eth_getBlockByHash" => {
+                let hash: B256 = serde_json::from_value(p[0].clone()).unwrap();
+                if self.missing_hashes.lock().unwrap().contains(&hash) {
+                    return Value::Null;
+                }
+                let Some(mut h) = self
+                    .l2
+                    .values()
+                    .chain(self.branch_headers.iter())
+                    .find(|h| h.hash_slow() == hash)
+                    .cloned()
+                else {
+                    return Value::Null;
+                };
+                if matches!(self.fault, Fault::Ancestry) && h.number == 8 {
+                    h.timestamp += 1;
+                }
+                let mut value = serde_json::to_value(&h).unwrap();
+                value["hash"] = json!(hash);
+                value["transactions"] = json!([]);
+                value
+            }
+            "eth_getLogs" => {
+                assert_eq!(p[0]["address"], json!(id.inbox));
+                let start = u64::from_str_radix(
+                    p[0]["fromBlock"].as_str().unwrap().trim_start_matches("0x"),
+                    16,
+                )
+                .unwrap();
+                let end = u64::from_str_radix(
+                    p[0]["toBlock"].as_str().unwrap().trim_start_matches("0x"),
+                    16,
+                )
+                .unwrap();
+                assert!(end - start < 1024);
+                if self.hide_logs.load(std::sync::atomic::Ordering::SeqCst) ||
+                    !(start..=end).contains(&self.covering_block)
+                {
+                    return json!([]);
+                }
+                json!(self.covering.iter().enumerate().map(|(i, r)| {
+                    let log = BatchRewardRecorded { batchId: rewards::batch_id(r), l2RewardRecipient: r.l2RewardRecipient, baseFeeAmount: r.baseFeeAmount,
+                        generation:r.generation, parentHeight:r.parentHeight,parentHash:r.parentHash,lastHeight:r.lastHeight,lastBlockHash:r.lastBlockHash }.encode_log_data();
+                    json!({"address":id.inbox,"topics":log.topics(),"data":log.data,"blockNumber":format!("0x{:x}",self.covering_block),"blockHash":self.l1[&self.covering_block].hash_slow(),
+                        "transactionHash":B256::repeat_byte(77),"transactionIndex":"0x0","logIndex":format!("0x{i:x}"),"removed":false})
+                }).collect::<Vec<_>>())
             }
             "debug_getRawHeader" => {
                 let hash: B256 = serde_json::from_value(p[0].clone()).unwrap();
@@ -263,7 +381,9 @@ impl Fixture {
                 let data: Bytes = serde_json::from_value(input.clone()).unwrap();
                 let to: Address = serde_json::from_value(p[0]["to"].clone()).unwrap();
                 assert_eq!(p[1]["requireCanonical"], true);
-                assert_eq!(p[1]["blockHash"], json!(self.l2[&9].hash_slow()));
+                if !self.pending_anchor.load(std::sync::atomic::Ordering::SeqCst) {
+                    assert!(self.l2.values().any(|h| p[1]["blockHash"] == json!(h.hash_slow())));
+                }
                 let output = if to == ROOTS {
                     assert_eq!(
                         data.as_ref(),
@@ -353,7 +473,10 @@ impl Fixture {
                 let state = if p[2]["blockHash"] == json!(self.l1[&10].hash_slow()) {
                     &self.anchor_values
                 } else {
-                    assert_eq!(p[2]["blockHash"], json!(self.l1[&11].hash_slow()));
+                    assert_eq!(
+                        p[2]["blockHash"],
+                        json!(self.l1.last_key_value().unwrap().1.hash_slow())
+                    );
                     &self.final_values
                 };
                 let (_, mut w) = witness(state, &slots);
@@ -415,8 +538,26 @@ pub async fn server(fixture: Arc<Fixture>, l1: bool) -> Server {
                     bytes.extend_from_slice(&buf[..n]);
                 }
                 let request: Value = serde_json::from_slice(&bytes[start..start + len]).unwrap();
-                let response = if matches!(fixture.fault, Fault::RpcLeak) {
-                    json!({"jsonrpc":"2.0","id":request["id"],"error":{"code":-32000,"message":"https://secret-user:secret-password@rpc/?token=secret-token"}})
+                if !l1 &&
+                    request["method"] == "eth_getTransactionReceipt" &&
+                    fixture.hang_receipts.load(std::sync::atomic::Ordering::SeqCst)
+                {
+                    fixture.hung_started.store(true, std::sync::atomic::Ordering::SeqCst);
+                    std::future::pending::<()>().await;
+                }
+                if !l1 &&
+                    request["method"] == "eth_getBlockByHash" &&
+                    fixture.hang_ancestry.load(std::sync::atomic::Ordering::SeqCst)
+                {
+                    std::future::pending::<()>().await;
+                }
+                let response = if fixture
+                    .fail_bootstrap
+                    .swap(false, std::sync::atomic::Ordering::SeqCst)
+                {
+                    json!({"jsonrpc":"2.0","id":request["id"],"error":{"code":-32000,"message":"secret-transient"}})
+                } else if matches!(fixture.fault, Fault::RpcLeak) {
+                    json!({"jsonrpc":"2.0","id":request["id"],"error":{"code":-32601,"message":"https://secret-user:secret-password@rpc/?token=secret-token"}})
                 } else {
                     json!({"jsonrpc":"2.0","id":request["id"],"result":fixture.response(&request,l1)})
                 };

@@ -1,6 +1,6 @@
 //! Entitlement authentication at canonical executed L2 H, and separate claim finality.
 
-use super::{ClaimIdentity, ClaimProof, Vault};
+use super::{ClaimIdentity, ClaimProof, Vault, discovery::DiscoveryProgress};
 use crate::{
     LanderError, Result,
     contracts::BatchRewardRecorded,
@@ -8,12 +8,10 @@ use crate::{
     tx::LandingReceipt,
 };
 use abci::{
-    AccountWitness, AnchorWitness, RawL1Header,
+    AccountWitness, RawL1Header,
     l1::{
-        layout::inbox,
         source::{L1Error, L1Source, RpcL1Source},
         verify_account_witness,
-        witness::verify_anchor_witness,
     },
 };
 use alloy::sol_types::{SolCall, SolEvent};
@@ -28,7 +26,26 @@ use std::time::Duration;
 /// EIP-4788 roots contract populated by intended canonical ABCI execution.
 pub const ROOTS: Address = address!("000F3df6D732807Ef1319fB7B8bB8522d0Beac02");
 /// Bound ancestry work in addition to the complete-operation wall-clock deadline.
-const MAX_ANCESTRY: u64 = 131_072;
+pub(super) const MAX_ANCESTRY: u64 = 131_072;
+
+/// Own canonical execution snapshot used to bind multi-request reconciliation.
+#[derive(Clone, Copy, Debug)]
+pub struct ExecutionSnapshot {
+    /// Canonical executed block number, never pending.
+    pub number: u64,
+    /// Independently computed header hash.
+    pub hash: B256,
+}
+
+/// A discovered entitlement retains the landing chronology needed for anchor availability.
+pub(super) struct DiscoveredReceipt {
+    /// Full receipt, still untrusted until its mapping proof is authenticated.
+    pub receipt: Receipt,
+    /// Canonical L1 landing height.
+    pub number: u64,
+    /// Canonical L1 landing hash.
+    pub hash: B256,
+}
 
 /// Read-only boundary; implementations must authenticate all returned facts.
 #[async_trait]
@@ -37,25 +54,35 @@ pub trait ClaimSource: Send + Sync {
     async fn prepare(&self, landing_tx: B256, batch_id: B256) -> Result<ClaimProof>;
     /// Read claimed under the own canonical executed head.
     async fn claimed(&self, batch_id: B256) -> Result<bool>;
+    /// Pin an own canonical execution snapshot before receipt and nonce observations.
+    async fn snapshot(&self) -> Result<ExecutionSnapshot>;
+    /// Read the bit at exactly the given canonical execution hash.
+    async fn claimed_at(&self, batch_id: B256, hash: B256) -> Result<bool>;
     /// Independently hash the current canonical execution header at this height.
     async fn canonical_hash(&self, number: u64) -> Result<B256>;
     /// Authenticate a finalized L1 checkpoint and descending EL ancestry through the claim.
-    async fn transaction_finalized(&self, receipt: &LandingReceipt) -> Result<bool>;
+    async fn transaction_finalized(
+        &self,
+        receipt: &LandingReceipt,
+        progress: &mut Option<DiscoveryProgress>,
+    ) -> Result<bool>;
 }
 
 /// Public RPC source. The own EL's executed canonical chain is a trusted input at preparation.
 #[derive(Clone)]
 pub struct RpcClaimSource {
     /// Own L1 provider used for discovery and chain identity.
-    l1: RootProvider,
+    pub(super) l1: RootProvider,
     /// Own executed L2 provider; never uses pending headers.
-    l2: RootProvider,
+    pub(super) l2: RootProvider,
     /// Existing strict raw-header/EIP-1186 adapter.
-    anchors: RpcL1Source,
+    pub(super) anchors: RpcL1Source,
     /// Fixed public identities discovered from the canonical vault.
-    identity: ClaimIdentity,
+    pub(super) identity: ClaimIdentity,
     /// Overall limit for each prepare/finality traversal, beyond HTTP call deadlines.
     deadline: Duration,
+    /// Independent budget for the whole historical discovery and ancestry operation.
+    finality_deadline: Duration,
 }
 
 impl RpcClaimSource {
@@ -98,7 +125,14 @@ impl RpcClaimSource {
             };
             identity.validate()?;
             recheck_header(&l2, &header).await?;
-            Ok(Self { anchors: RpcL1Source::new(l1.clone()), l1, l2, identity, deadline })
+            Ok(Self {
+                anchors: RpcL1Source::new(l1.clone()),
+                l1,
+                l2,
+                identity,
+                deadline,
+                finality_deadline: Duration::from_secs(300),
+            })
         })
         .await
         .map_err(|_| timeout_error())?
@@ -109,6 +143,15 @@ impl RpcClaimSource {
         &self.identity
     }
 
+    /// Configure the independent finality-operation budget without changing per-RPC deadlines.
+    pub fn with_finality_timeout(mut self, deadline: Duration) -> Result<Self> {
+        if deadline.is_zero() || deadline > Duration::from_secs(3600) {
+            return Err(LanderError::Configuration("invalid claim finality deadline".into()));
+        }
+        self.finality_deadline = deadline;
+        Ok(self)
+    }
+
     /// Authenticate an anchor by descending from the own finalized L1 header.
     async fn finalized_anchor(&self, number: u64) -> Result<RawL1Header> {
         let finalized = self.anchors.finalized_number().await.map_err(anchor_error)?;
@@ -116,9 +159,7 @@ impl RpcClaimSource {
             return Err(LanderError::Unavailable("L2 anchor is not finalized on own L1".into()));
         }
         if finalized - number > MAX_ANCESTRY {
-            return Err(LanderError::Unavailable(
-                "claim L1 ancestry exceeds bounded traversal".into(),
-            ));
+            return Err(LanderError::Capacity("claim L1 ancestry exceeds bounded traversal".into()));
         }
         let mut header = self.anchors.header_hash_pinned(finalized).await.map_err(anchor_error)?;
         while header.number() > number {
@@ -136,7 +177,7 @@ impl RpcClaimSource {
     }
 
     /// Discover one typed event from a canonical successful landing; no event alone authorizes pay.
-    async fn discover(&self) -> Result<Receipt> {
+    pub(super) async fn discover(&self) -> Result<DiscoveredReceipt> {
         let tx = self.identity.landing_tx;
         let receipt = self
             .l1
@@ -195,20 +236,27 @@ impl RpcClaimSource {
             self.identity.validate_receipt(&reward)?;
             found = Some(reward);
         }
-        found.ok_or_else(|| {
+        let receipt = found.ok_or_else(|| {
             LanderError::Safety("requested reward event not found in landing".into())
-        })
+        })?;
+        Ok(DiscoveredReceipt { receipt, number, hash })
     }
 
     /// Complete proof acquisition, including actual roots-contract read at the pinned H state.
     async fn prepare_inner(&self) -> Result<ClaimProof> {
-        let receipt = self.discover().await?;
+        let discovered = self.discover().await?;
+        let receipt = discovered.receipt;
         let header = execution_header(&self.l2, BlockNumberOrTag::Latest).await?;
         let (sharing, _, anchor_number) = abci::rules::decode_extra_data(&header.extra_data)
             .map_err(|_| LanderError::Safety("invalid Etna L2 extraData".into()))?;
         if sharing != 0 || header.number == 0 {
             return Err(LanderError::Safety(
                 "claim requires a committed Etna execution header".into(),
+            ));
+        }
+        if anchor_number < discovered.number {
+            return Err(LanderError::Unavailable(
+                "executed L2 anchor precedes reward landing".into(),
             ));
         }
         let anchor = self.finalized_anchor(anchor_number).await?;
@@ -238,60 +286,19 @@ impl RpcClaimSource {
         {
             return Err(LanderError::Unavailable("claim anchor changed before signing".into()));
         }
+        if self.anchors.canonical_hash(discovered.number).await.map_err(anchor_error)? !=
+            discovered.hash
+        {
+            return Err(LanderError::Unavailable(
+                "reward landing changed during preparation".into(),
+            ));
+        }
         Ok(ClaimProof {
             receipt,
             anchor_timestamp: header.timestamp,
             account_proof: witness.account_proof,
             storage_proof: witness.storage[0].proof.clone(),
         })
-    }
-
-    /// Prove the Inbox checkpoint under finalized L1 and walk authenticated EL parents.
-    async fn finalized_inner(&self, receipt: &LandingReceipt) -> Result<bool> {
-        let number = self.anchors.finalized_number().await.map_err(anchor_error)?;
-        let header = self.finalized_anchor(number).await?;
-        let witness = self
-            .anchors
-            .account_witness_hash_canonical(
-                self.identity.inbox,
-                &inbox::anchor_slots(),
-                header.hash(),
-            )
-            .await
-            .map_err(anchor_error)?;
-        let anchor = verify_anchor_witness(
-            &AnchorWitness { l1_header: header.clone(), inbox: witness },
-            self.identity.inbox,
-        )
-        .map_err(|_| LanderError::Safety("invalid finalized Inbox checkpoint proof".into()))?;
-        let checkpoint = anchor.inbox.last_checkpoint_height;
-        if checkpoint < receipt.block_number {
-            return Ok(false);
-        }
-        if checkpoint - receipt.block_number > MAX_ANCESTRY {
-            return Err(LanderError::Unavailable(
-                "claim EL ancestry exceeds bounded traversal".into(),
-            ));
-        }
-        let mut expected = anchor.inbox.last_checkpoint_hash;
-        for height in (receipt.block_number..=checkpoint).rev() {
-            let h = execution_header(&self.l2, BlockNumberOrTag::Number(height)).await?;
-            if h.hash_slow() != expected {
-                return Err(LanderError::Safety("finalized claim EL ancestry mismatch".into()));
-            }
-            if height == receipt.block_number && expected != receipt.block_hash {
-                return Err(LanderError::Safety(
-                    "claim block absent from finalized checkpoint ancestry".into(),
-                ));
-            }
-            expected = h.parent_hash;
-        }
-        if self.anchors.canonical_hash(header.number()).await.map_err(anchor_error)? !=
-            header.hash()
-        {
-            return Err(LanderError::Safety("finalized checkpoint changed".into()));
-        }
-        Ok(true)
     }
 }
 
@@ -319,13 +326,32 @@ impl ClaimSource for RpcClaimSource {
         recheck_header(&self.l2, &h).await?;
         Ok(result)
     }
+    /// Hash the own latest executed header before any reconciliation state reads.
+    async fn snapshot(&self) -> Result<ExecutionSnapshot> {
+        let h = execution_header(&self.l2, BlockNumberOrTag::Latest).await?;
+        Ok(ExecutionSnapshot { number: h.number, hash: h.hash_slow() })
+    }
+    /// Query the fixed vault at an exact EIP-1898 canonical hash.
+    async fn claimed_at(&self, batch_id: B256, hash: B256) -> Result<bool> {
+        call(
+            &self.l2,
+            self.identity.vault,
+            Vault::claimedCall { batchId: batch_id },
+            BlockId::hash_canonical(hash),
+        )
+        .await
+    }
     /// Return only an independently hashed canonical header.
     async fn canonical_hash(&self, number: u64) -> Result<B256> {
         Ok(execution_header(&self.l2, BlockNumberOrTag::Number(number)).await?.hash_slow())
     }
     /// Bound the full ancestry traversal, retaining the signed job on any timeout.
-    async fn transaction_finalized(&self, receipt: &LandingReceipt) -> Result<bool> {
-        tokio::time::timeout(self.deadline, self.finalized_inner(receipt))
+    async fn transaction_finalized(
+        &self,
+        receipt: &LandingReceipt,
+        progress: &mut Option<DiscoveryProgress>,
+    ) -> Result<bool> {
+        tokio::time::timeout(self.finality_deadline, self.finalized_inner(receipt, progress))
             .await
             .map_err(|_| timeout_error())?
     }
@@ -342,14 +368,16 @@ fn verify_root(output: &[u8], expected: B256) -> Result<()> {
 }
 
 /// Authenticate the fixed account and exactly one fixed slot before projecting proof calldata.
-fn verify_receipt(
+pub(super) fn verify_receipt(
     identity: &ClaimIdentity,
     receipt: &Receipt,
     root: B256,
     witness: &AccountWitness,
 ) -> Result<()> {
-    identity.validate_receipt(receipt)?;
-    let slot = rewards::receipt_slot(identity.batch_id);
+    let mut context = identity.clone();
+    context.batch_id = rewards::batch_id(receipt);
+    context.validate_receipt(receipt)?;
+    let slot = rewards::receipt_slot(context.batch_id);
     if witness.address != identity.inbox || witness.account_proof.is_empty() {
         return Err(LanderError::Safety("receipt proof has wrong or empty Inbox account".into()));
     }
@@ -382,7 +410,10 @@ async fn call<C: SolCall>(
 }
 
 /// Decode and independently hash a non-pending public EL header; never expose response bodies.
-async fn execution_header(provider: &RootProvider, tag: BlockNumberOrTag) -> Result<Header> {
+pub(super) async fn execution_header(
+    provider: &RootProvider,
+    tag: BlockNumberOrTag,
+) -> Result<Header> {
     let value: Option<serde_json::Value> = provider
         .raw_request("eth_getBlockByNumber".into(), (tag, false))
         .await
@@ -413,10 +444,25 @@ async fn recheck_header(provider: &RootProvider, header: &Header) -> Result<()> 
 
 /// Stable credential-free RPC diagnostic.
 pub(super) fn rpc_error(error: alloy::transports::TransportError) -> LanderError {
+    use alloy::transports::RpcError;
+    match &error {
+        RpcError::ErrorResp(p) if matches!(p.code, -32602..=-32600) => {
+            return LanderError::Configuration(format!(
+                "claim RPC capability or parameters rejected (code {})",
+                p.code
+            ))
+        }
+        RpcError::UnsupportedFeature(_) | RpcError::LocalUsageError(_) | RpcError::SerError(_) => {
+            return LanderError::Configuration(
+                "claim RPC capability or local request invalid".into(),
+            )
+        }
+        _ => {}
+    }
     crate::error::sanitized_rpc_error("claim RPC", error)
 }
 /// Hide every upstream L1 response string, including malformed JSON contents.
-fn anchor_error(error: L1Error) -> LanderError {
+pub(super) fn anchor_error(error: L1Error) -> LanderError {
     match error {
         L1Error::Rpc(_) | L1Error::BlockNotFound(_) => {
             LanderError::Temporary("claim L1 RPC unavailable".into())
