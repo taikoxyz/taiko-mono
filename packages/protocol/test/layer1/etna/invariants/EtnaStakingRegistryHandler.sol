@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { MockCommitteeInbox } from "../MockCommitteeInbox.sol";
 import { CommonBase } from "forge-std/src/Base.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
@@ -151,6 +152,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
     uint256 public exits;
     uint256 public exitsBeforeActivation;
     uint256 public withdrawals;
+    uint256 public unsettledWithdrawalRejections;
+    uint64 public ghostActiveCommitteeSnapshot;
     uint256 public fullRegistryRejections;
     uint256 public rejections;
 
@@ -285,6 +288,9 @@ contract EtnaStakingRegistryHandler is CommonBase {
             if (expected == 0) _recordWithdrawal(bondId, caller, balanceBefore, checkpointsBefore);
             else _violate(Property.Slots, "withdraw accepted where the model rejects it");
         } catch (bytes memory reason) {
+            if (expected == EtnaStakingRegistry.CommitteeExitNotSettled.selector) {
+                ++unsettledWithdrawalRejections;
+            }
             _checkRevert(Property.Slots, expected, reason, "withdraw");
         }
     }
@@ -327,6 +333,17 @@ contract EtnaStakingRegistryHandler is CommonBase {
             target = _min(target, _withdrawableAt(_pendingWithdrawals[i]));
         }
         if (target > block.number) vm.roll(_min(target, block.number + MAX_JUMP));
+    }
+
+    /// @notice Advances the settled active committee independently of L1 time.
+    function settleCommittee(uint256 _seed) external {
+        uint64 snapshot = uint64(block.number);
+        if (_seed % 2 != 0) {
+            snapshot = ghostActiveCommitteeSnapshot
+                + uint64((_seed >> 1) % (block.number - ghostActiveCommitteeSnapshot + 1));
+        }
+        MockCommitteeInbox(registry.inbox()).setActiveCommitteeSnapshot(snapshot);
+        ghostActiveCommitteeSnapshot = snapshot;
     }
 
     // ---------------------------------------------------------------
@@ -559,6 +576,9 @@ contract EtnaStakingRegistryHandler is CommonBase {
         if (block.number < uint256(s.entry.exitEffectiveL1) + withdrawalDelay) {
             return EtnaStakingRegistry.WithdrawalNotReady.selector;
         }
+        if (ghostActiveCommitteeSnapshot < s.entry.exitEffectiveL1) {
+            return EtnaStakingRegistry.CommitteeExitNotSettled.selector;
+        }
         return 0;
     }
 
@@ -571,6 +591,9 @@ contract EtnaStakingRegistryHandler is CommonBase {
         internal
     {
         Slot storage s = _slots[_bondId];
+        if (ghostActiveCommitteeSnapshot < s.entry.exitEffectiveL1) {
+            _violate(Property.Model, "withdraw succeeded before settled committee retirement");
+        }
         if (token.balanceOf(_caller) != _balanceBefore + s.entry.effStake) {
             _violate(Property.Model, "withdraw paid the owner another amount than the stake");
         }

@@ -15,7 +15,9 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// and L1 finality, then compute committee 0 at a past genesis cutoff. Call `deployInbox()` to
 /// deploy fresh SignalService and EtnaInbox proxies; the Inbox constructor call
 /// initializes the genesis record and saves the block-0 checkpoint atomically. No existing Inbox
-/// is required.
+/// is required. After deployment the registry owner must bind the Inbox before any stake
+/// withdrawal. The script binds automatically when the broadcast signer owns the registry;
+/// otherwise it prints the owner action, and withdrawals remain disabled until it is performed.
 ///
 /// Environment shared by both calls: PRIVATE_KEY; optional CONTRACT_OWNER (the deployer if zero).
 /// `run()`: TAIKO_TOKEN, REGISTRY_MIN_STAKE (base units), REGISTRY_ACTIVATION_DELAY,
@@ -79,6 +81,10 @@ contract DeployEtnaDevnet is Script {
             forcedInclusionFeeDoubleThreshold: _envUint64("FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD")
         });
         require(config.proofVerifier.code.length != 0, ProofVerifierHasNoCode());
+        require(
+            EtnaStakingRegistry(config.stakingRegistry).inbox() == address(0),
+            RegistryAlreadyBound()
+        );
         address remoteSignalService = vm.envAddress("REMOTE_SIGNAL_SERVICE");
         IEtnaInbox.GenesisParams memory genesis = IEtnaInbox.GenesisParams({
             genesisBlockHash: vm.envBytes32("GENESIS_BLOCK_HASH"),
@@ -110,6 +116,15 @@ contract DeployEtnaDevnet is Script {
         );
         vm.stopBroadcast();
         require(inbox_ == predictedInbox, InboxAddressMismatch());
+        EtnaStakingRegistry registry = EtnaStakingRegistry(config.stakingRegistry);
+        if (registry.owner() == deployer) {
+            vm.startBroadcast(privateKey);
+            registry.bindInbox(inbox_);
+            vm.stopBroadcast();
+        } else {
+            console2.log("Registry owner must call bindInbox(address) before withdrawals:", inbox_);
+            console2.log("Registry owner:", registry.owner());
+        }
 
         console2.log("EtnaInbox proxy:", inbox_);
         console2.log("SignalService proxy:", signalService_);
@@ -170,4 +185,5 @@ contract DeployEtnaDevnet is Script {
     error InvalidPrivateKey();
     error L1ChainIdMismatch();
     error ProofVerifierHasNoCode();
+    error RegistryAlreadyBound();
 }

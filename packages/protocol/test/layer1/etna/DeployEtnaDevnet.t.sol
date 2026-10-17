@@ -16,6 +16,10 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     DeployEtnaDevnet private _deployment;
     address private _scriptDeployer;
 
+    function _bindRegistryOnDeploy() internal pure override returns (bool) {
+        return false;
+    }
+
     function setUp() public override {
         super.setUp();
         _deployment = new DeployEtnaDevnet();
@@ -30,6 +34,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         _run_DefaultsTheRegistryOwnerToTheDeployer();
         _deployInbox_InitializesThePredictedFreshProxyAndLandsFromBlockZero();
         _deployInbox_DefaultsEveryOwnerToTheDeployer();
+        _deployInbox_RevertWhen_RegistryAlreadyBound();
         _deployInbox_RevertWhen_ExportedIdentityIsStale();
         _deployInbox_RevertWhen_ExportedIdentityIsWrong();
         _deployInbox_RevertWhen_GenesisCutoffIsNotPast();
@@ -44,8 +49,10 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     }
 
     modifier withEnvironment() {
+        uint256 snapshot = vm.snapshotState();
         _setEnvironment();
         _;
+        assertTrue(vm.revertToState(snapshot));
     }
 
     function _setEnvironment() private {
@@ -129,6 +136,10 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(deployedSignals.owner(), Bob, "signal service owner");
         assertEq(deployed.migrationState(), 3, "initialized");
         assertEq(deployed.lastCheckpoint().height, 0, "L2 block zero");
+        assertEq(registry.inbox(), address(0), "separate registry owner must bind explicitly");
+        assertEq(deployed.activeCommitteeSnapshot(), registryCheckpointBlock);
+        registry.bindInbox(deployedInbox);
+        assertEq(registry.inbox(), deployedInbox, "owner completes binding");
         assertEq(deployed.lastCheckpoint().blockHash, genesisBlockHash, "genesis parent");
         assertEq(deployed.genesisCommitteeRecordHash(), COMMITTEE_RECORD_0, "committee zero");
         assertEq(deployed.committeeConfigHash(), COMMITTEE_CONFIG_HASH, "committee config");
@@ -157,7 +168,8 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
             forcedInclusionHead: 1,
             feeRecipient: Carol,
             l2RewardRecipient: Alice,
-            baseFeeAmount: 0
+            baseFeeAmount: 0,
+            activeCommitteeSnapshot: deployed.genesisCutoff()
         });
         bytes32 l1ReferenceBlockHash = keccak256("genesis anchor");
         vm.setBlockhash(input.l1ReferenceBlockNumber, l1ReferenceBlockHash);
@@ -187,11 +199,20 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
 
     function _deployInbox_DefaultsEveryOwnerToTheDeployer() private withEnvironment {
         vm.setEnv("CONTRACT_OWNER", vm.toString(address(0)));
+        registry.transferOwnership(_scriptDeployer);
+        vm.prank(_scriptDeployer);
+        registry.acceptOwnership();
         (address deployedInbox, address deployedSignalService) = _deployment.deployInbox();
         assertEq(EtnaInbox(payable(deployedInbox)).owner(), _scriptDeployer, "default Inbox owner");
+        assertEq(registry.inbox(), deployedInbox, "deployer binds its registry automatically");
         assertEq(
             SignalService(deployedSignalService).owner(), _scriptDeployer, "default signal owner"
         );
+    }
+
+    function _deployInbox_RevertWhen_RegistryAlreadyBound() private withEnvironment {
+        registry.bindInbox(address(etnaInbox));
+        _expectIdentityRejected(DeployEtnaDevnet.RegistryAlreadyBound.selector);
     }
 
     /// @dev Rejects an exported Inbox identity after the deployer nonce advances.

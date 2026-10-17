@@ -258,10 +258,11 @@ For upgradeable contracts:
 
 ## Etna new-genesis rewards
 
-Etna uses nonpayable V8 landing statements (20 words), receipt commitments at Inbox mapping
-slot 283, and explicit proof-based claims from the immutable L2 treasury. Keep L1 queue-fee
+Etna uses nonpayable V9 landing statements (21 words), receipt commitments at Inbox mapping
+slot 283, the terminal active committee snapshot at slot 284, and explicit proof-based claims from the immutable L2 treasury. Keep L1 queue-fee
 `feeRecipient` separate from `l2RewardRecipient`; there is no L1 reward pool, DAO subsidy,
-pre-funding or participation settlement. Follow `contracts/layer1/etna/README.md` for predicted
+pre-funding or participation settlement. Registry withdrawals also require its one-time bound Inbox's
+settled active committee snapshot to cover exitEffectiveL1; elapsed L1 time alone is insufficient. Follow `contracts/layer1/etna/README.md` for predicted
 Inbox/genesis ordering, immutable registration recipients and strict format boundaries. The real
 guest is absent; dummy verifier tests establish contract/client behavior only. Preserve the
 mandatory `solidity-tester` delegation above for all Solidity test work.

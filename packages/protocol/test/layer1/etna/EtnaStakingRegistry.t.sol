@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import { LibEtnaVectors } from "./LibEtnaVectors.sol";
+import { MockCommitteeInbox } from "./MockCommitteeInbox.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
@@ -30,6 +31,7 @@ contract EtnaStakingRegistryTest is CommonTest {
 
     TaikoToken internal token;
     EtnaStakingRegistry internal registry;
+    MockCommitteeInbox internal committeeInbox;
 
     function setUpOnEthereum() internal virtual override {
         token = deployTaikoToken();
@@ -46,6 +48,7 @@ contract EtnaStakingRegistryTest is CommonTest {
     function setUp() public virtual override {
         super.setUp();
         vm.roll(START_BLOCK);
+        _bindCommitteeInbox(registry);
 
         address[3] memory stakers = [Alice, Bob, Carol];
         for (uint256 i; i < stakers.length; ++i) {
@@ -58,6 +61,77 @@ contract EtnaStakingRegistryTest is CommonTest {
     // ---------------------------------------------------------------
     // constructor and init
     // ---------------------------------------------------------------
+
+    function test_bindInbox_BindsExactlyOnceAndPinsStorage() external {
+        EtnaStakingRegistry unbound = _unboundRegistry();
+        MockCommitteeInbox source = new MockCommitteeInbox(address(unbound));
+        assertEq(unbound.inbox(), address(0));
+        unbound.bindInbox(address(source));
+        assertEq(unbound.inbox(), address(source));
+        assertEq(
+            address(
+                uint160(uint256(vm.load(address(unbound), bytes32(uint256(REGISTRY_BASE) + 12))))
+            ),
+            address(source)
+        );
+        vm.expectRevert(EtnaStakingRegistry.InboxAlreadyBound.selector);
+        unbound.bindInbox(address(source));
+    }
+
+    function test_bindInbox_RevertWhen_NotOwner() external {
+        EtnaStakingRegistry unbound = _unboundRegistry();
+        MockCommitteeInbox source = new MockCommitteeInbox(address(unbound));
+        vm.expectRevert("Ownable: caller is not the owner");
+        vm.prank(Alice);
+        unbound.bindInbox(address(source));
+    }
+
+    function test_bindInbox_RevertWhen_InvalidCounterparty() external {
+        EtnaStakingRegistry unbound = _unboundRegistry();
+        vm.expectRevert(EtnaStakingRegistry.InvalidInbox.selector);
+        unbound.bindInbox(address(0));
+        vm.expectRevert(EtnaStakingRegistry.InvalidInbox.selector);
+        unbound.bindInbox(Alice);
+        MockCommitteeInbox wrongRegistry = new MockCommitteeInbox(address(registry));
+        vm.expectRevert(EtnaStakingRegistry.InvalidInbox.selector);
+        unbound.bindInbox(address(wrongRegistry));
+        MockCommitteeInbox uninitialized = new MockCommitteeInbox(address(unbound));
+        uninitialized.setInitialized(false);
+        vm.expectRevert(EtnaStakingRegistry.InvalidInbox.selector);
+        unbound.bindInbox(address(uninitialized));
+        assertEq(unbound.inbox(), address(0));
+    }
+
+    function test_withdraw_RevertWhen_InboxIsUnbound() external {
+        registry = _unboundRegistry();
+        vm.startPrank(Alice);
+        token.approve(address(registry), MIN_STAKE);
+        registry.register(KEY_A, MIN_STAKE, Alice);
+        registry.requestExit(0);
+        vm.roll(registry.entryAt(0).exitEffectiveL1 + WITHDRAWAL_DELAY);
+        vm.expectRevert(EtnaStakingRegistry.InboxNotBound.selector);
+        registry.withdraw(0, Alice);
+        vm.stopPrank();
+        assertFalse(registry.isWithdrawn(0));
+        assertEq(token.balanceOf(address(registry)), MIN_STAKE);
+    }
+
+    function test_withdraw_RequiresSettledSnapshotAtExitEquality() external {
+        _register(Alice, KEY_A);
+        vm.prank(Alice);
+        registry.requestExit(0);
+        uint64 exit = registry.entryAt(0).exitEffectiveL1;
+        vm.roll(exit + WITHDRAWAL_DELAY);
+        committeeInbox.setActiveCommitteeSnapshot(exit - 1);
+        vm.expectRevert(EtnaStakingRegistry.CommitteeExitNotSettled.selector);
+        vm.prank(Alice);
+        registry.withdraw(0, Alice);
+        assertFalse(registry.isWithdrawn(0));
+        committeeInbox.setActiveCommitteeSnapshot(exit);
+        vm.prank(Alice);
+        registry.withdraw(0, Alice);
+        assertTrue(registry.isWithdrawn(0));
+    }
 
     function test_init_SetsOwnerAndParameters() external view {
         assertEq(registry.owner(), deployer);
@@ -150,6 +224,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         registry.requestExit(0);
         assertEq(registry.entryAt(0).rewardRecipient, Bob);
         vm.roll(registry.entryAt(0).exitEffectiveL1 + WITHDRAWAL_DELAY);
+        _settleExit(0);
         vm.prank(Alice);
         registry.withdraw(0, Alice);
         assertEq(registry.entryAt(0).rewardRecipient, Bob);
@@ -276,6 +351,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         _register(Alice, KEY_A);
         vm.startPrank(Alice);
         registry.requestExit(0);
+        _settleExit(0);
         registry.withdraw(0, Alice);
         vm.stopPrank();
         assertEq(_register(Bob, KEY_B), 0);
@@ -518,6 +594,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         IEtnaStakingRegistry.Checkpoint memory checkpoint = registry.checkpointAt(0);
 
         vm.roll(entry.exitEffectiveL1 + WITHDRAWAL_DELAY);
+        _settleExit(0);
         vm.expectEmit();
         emit IEtnaStakingRegistry.StakeWithdrawn(0, Carol, MIN_STAKE);
         vm.prank(Alice);
@@ -546,6 +623,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         registry.requestExit(0);
 
         vm.roll(registry.entryAt(0).exitEffectiveL1 + WITHDRAWAL_DELAY - 1);
+        _settleExit(0);
         vm.expectRevert(EtnaStakingRegistry.WithdrawalNotReady.selector);
         vm.prank(Alice);
         registry.withdraw(0, Alice);
@@ -564,6 +642,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         vm.prank(Alice);
         registry.requestExit(0);
         vm.roll(registry.entryAt(0).exitEffectiveL1 + WITHDRAWAL_DELAY);
+        _settleExit(0);
         vm.prank(Alice);
         registry.withdraw(0, Alice);
 
@@ -577,6 +656,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         vm.prank(Alice);
         registry.requestExit(0);
         vm.roll(registry.entryAt(0).exitEffectiveL1 + WITHDRAWAL_DELAY);
+        _settleExit(0);
 
         vm.expectRevert(EtnaStakingRegistry.NotBondOwner.selector);
         vm.prank(Bob);
@@ -594,6 +674,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         vm.prank(Alice);
         registry.requestExit(0);
         vm.roll(registry.entryAt(0).exitEffectiveL1 + WITHDRAWAL_DELAY);
+        _settleExit(0);
 
         vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
         vm.prank(Alice);
@@ -806,6 +887,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         vm.prank(Alice);
         registry.requestExit(0);
         vm.roll(registry.entryAt(0).exitEffectiveL1 + WITHDRAWAL_DELAY);
+        _settleExit(0);
         assertEq(_load(_mappingSlot(bytes32(0), 3)), 0);
 
         vm.prank(Alice);
@@ -885,6 +967,7 @@ contract EtnaStakingRegistryTest is CommonTest {
 
         registry.requestExit(7);
         vm.roll(registry.entryAt(7).exitEffectiveL1 + WITHDRAWAL_DELAY);
+        _settleExit(7);
         registry.withdraw(7, address(this));
 
         // The loop's keys cover 1..4096, so fresh keys start above them.
@@ -900,6 +983,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         vm.prank(Alice);
         registry.requestExit(0);
         vm.roll(registry.entryAt(0).exitEffectiveL1 + WITHDRAWAL_DELAY);
+        _settleExit(0);
         uint256 checkpoints = registry.checkpointCount();
 
         vm.prank(Bob);
@@ -1112,6 +1196,7 @@ contract EtnaStakingRegistryTest is CommonTest {
                 )
             )
         );
+        _bindCommitteeInbox(registry_);
         address[3] memory stakers = [Alice, Bob, Carol];
         for (uint256 i; i < stakers.length; ++i) {
             vm.prank(stakers[i]);
@@ -1125,8 +1210,36 @@ contract EtnaStakingRegistryTest is CommonTest {
         registry.requestExit(_bondId);
         uint64 withdrawable = registry.entryAt(_bondId).exitEffectiveL1 + WITHDRAWAL_DELAY;
         if (block.number < withdrawable) vm.roll(withdrawable);
+        _settleExit(_bondId);
         vm.prank(_owner);
         registry.withdraw(_bondId, _owner);
+    }
+
+    /// @dev Binds the explicit settlement model to a registry used by its isolated unit tests.
+    function _bindCommitteeInbox(EtnaStakingRegistry _registry) private {
+        committeeInbox = new MockCommitteeInbox(address(_registry));
+        vm.prank(_registry.owner());
+        _registry.bindInbox(address(committeeInbox));
+    }
+
+    /// @dev Models a settled active committee that excludes this bond.
+    function _settleExit(uint256 _bondId) private {
+        uint64 cutoff = registry.entryAt(_bondId).exitEffectiveL1;
+        if (cutoff > committeeInbox.activeCommitteeSnapshot()) {
+            committeeInbox.setActiveCommitteeSnapshot(cutoff);
+        }
+    }
+
+    /// @dev Deploys an initialized registry with no settlement authority bound.
+    function _unboundRegistry() private returns (EtnaStakingRegistry) {
+        return EtnaStakingRegistry(
+            address(
+                new ERC1967Proxy(
+                    address(_newRegistry(address(token), MIN_STAKE, HEARTBEAT_WINDOW)),
+                    abi.encodeCall(EtnaStakingRegistry.init, (address(this)))
+                )
+            )
+        );
     }
 
     function _newRegistry(

@@ -7,6 +7,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { Vm } from "forge-std/src/Vm.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
+import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
@@ -76,7 +77,189 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
     /// @dev The number of blobs `_land` attaches to the landing transaction.
     uint256 internal blobCount = 2;
 
-    function test_land_RecordsV8ReceiptWithoutFunding() external {
+    /// @dev A matured L1 timer must not refund stake while the settled chain still uses genesis.
+    function test_withdraw_RevertWhen_NoSettledCommitteeExcludesTheBond() external {
+        vm.prank(Alice);
+        registry.requestExit(0);
+        vm.roll(registry.entryAt(0).exitEffectiveL1 + registry.withdrawalDelay());
+
+        assertEq(etnaInbox.lastCheckpoint().height, 0);
+        vm.expectRevert(EtnaStakingRegistry.CommitteeExitNotSettled.selector);
+        vm.prank(Alice);
+        registry.withdraw(0, Alice);
+        assertFalse(registry.isWithdrawn(0));
+        assertEq(taikoToken.balanceOf(address(registry)), MIN_STAKE);
+    }
+
+    /// @dev A fresh anchor in the old committee's epoch is not proof that the bond retired.
+    function test_withdraw_WaitsUntilTheNewCommitteeIsActiveAndLanded() external {
+        uint64 exit = _matureExit();
+        _land(_batch(EPOCH_LEN_L2 - 1));
+        assertGt(l1ReferenceBlockNumber, exit, "anchor has passed the exit");
+        _assertWithdrawalBlocked();
+
+        // At height 10 the next committee can already be pending, but the active set is old.
+        IEtnaInbox.LandInput memory pending = _batch(EPOCH_LEN_L2);
+        pending.activeCommitteeSnapshot = exit;
+        _expectLandRevert(pending, EtnaInbox.InvalidCommitteeSnapshot.selector);
+        _land(_batch(EPOCH_LEN_L2));
+        _assertWithdrawalBlocked();
+
+        // Height 11 is the first block certified by the new active set.
+        IEtnaInbox.LandInput memory switched = _batch(EPOCH_LEN_L2 + 1);
+        switched.activeCommitteeSnapshot = exit;
+        _land(switched);
+        assertEq(etnaInbox.activeCommitteeSnapshot(), exit);
+        assertEq(_loadSlot(ACTIVE_COMMITTEE_SNAPSHOT_SLOT), exit);
+        vm.prank(Alice);
+        registry.withdraw(0, Alice);
+        assertTrue(registry.isWithdrawn(0));
+        assertEq(taikoToken.balanceOf(Alice), MIN_STAKE);
+    }
+
+    function test_withdraw_CutoffBeforeExitRemainsLockedUntilEquality() external {
+        uint64 exit = _matureExit();
+        IEtnaInbox.LandInput memory input = _batch(EPOCH_LEN_L2 + 1);
+        input.activeCommitteeSnapshot = exit - 1;
+        _land(input);
+        _assertWithdrawalBlocked();
+        input = _batch(2 * EPOCH_LEN_L2 + 1);
+        input.activeCommitteeSnapshot = exit;
+        _land(input);
+        vm.prank(Alice);
+        registry.withdraw(0, Alice);
+        assertTrue(registry.isWithdrawn(0));
+    }
+
+    function test_withdraw_SettledExitStillRequiresTheOriginalDelay() external {
+        vm.prank(Alice);
+        registry.requestExit(0);
+        uint64 exit = registry.entryAt(0).exitEffectiveL1;
+        vm.roll(exit + 1);
+        _refreshReference();
+        IEtnaInbox.LandInput memory input = _batch(EPOCH_LEN_L2 + 1);
+        input.activeCommitteeSnapshot = exit;
+        _land(input);
+        vm.expectRevert(EtnaStakingRegistry.WithdrawalNotReady.selector);
+        vm.prank(Alice);
+        registry.withdraw(0, Alice);
+        vm.roll(exit + registry.withdrawalDelay());
+        vm.prank(Alice);
+        registry.withdraw(0, Alice);
+        assertTrue(registry.isWithdrawn(0));
+    }
+
+    function test_land_FailedProofCannotUnlockAWithdrawableBond() external {
+        uint64 exit = _matureExit();
+        IEtnaInbox.LandInput memory input = _batch(EPOCH_LEN_L2 + 1);
+        input.activeCommitteeSnapshot = exit;
+        landVerifier.setRejects(true);
+        _expectLandRevert(input, MockLandProofVerifier.ProofRejected.selector);
+        assertEq(etnaInbox.activeCommitteeSnapshot(), registryCheckpointBlock);
+        _assertLastCheckpoint(0, genesisBlockHash);
+        _assertWithdrawalBlocked();
+        landVerifier.setRejects(false);
+        _land(input);
+        vm.prank(Alice);
+        registry.withdraw(0, Alice);
+        assertTrue(registry.isWithdrawn(0));
+    }
+
+    function test_land_RevertWhen_ActiveSnapshotRegressesOrExceedsReference() external {
+        IEtnaInbox.LandInput memory input = _batch(EPOCH_LEN_L2 + 1);
+        input.activeCommitteeSnapshot = registryCheckpointBlock - 1;
+        _expectLandRevert(input, EtnaInbox.InvalidCommitteeSnapshot.selector);
+        input.activeCommitteeSnapshot = l1ReferenceBlockNumber + 1;
+        _expectLandRevert(input, EtnaInbox.InvalidCommitteeSnapshot.selector);
+        input.activeCommitteeSnapshot = l1ReferenceBlockNumber;
+        _land(input);
+        input = _batch(2 * EPOCH_LEN_L2 + 1);
+        input.activeCommitteeSnapshot -= 1;
+        _expectLandRevert(input, EtnaInbox.InvalidCommitteeSnapshot.selector);
+    }
+
+    function test_land_CutoffMutationInvalidatesTheBoundProof() external {
+        IEtnaInbox.LandInput memory input = _batch(EPOCH_LEN_L2 + 1);
+        bytes32 statement = _statement(0, genesisBlockHash, input);
+        input.activeCommitteeSnapshot += 1;
+        assertNotEq(statement, _statement(0, genesisBlockHash, input));
+        _rejectStatementAndAssertRollback(input, statement);
+    }
+
+    function test_land_RevertWhen_ProofUsesTheFormerV8Statement() external {
+        IEtnaInbox.LandInput memory input = _batch(1);
+        bytes memory words = _manualPreimage(
+            address(etnaInbox),
+            address(registry),
+            0,
+            genesisBlockHash,
+            COMMITTEE_CONFIG_HASH,
+            input,
+            L1_REFERENCE_BLOCK_HASH
+        );
+        bytes32 oldTag = bytes32("TAIKO_ETNA_LAND_V8");
+        assembly {
+            mstore(add(words, 32), oldTag)
+            mstore(words, 640)
+        }
+        _rejectStatementAndAssertRollback(input, keccak256(words));
+    }
+
+    function test_land_RevertWhen_CalldataUsesTheFormerV8Selector() external {
+        IEtnaInbox.LandInput memory input = _batch(1);
+        bytes4 oldSelector = bytes4(
+            keccak256("land((uint64,bytes32,bytes32,uint64,uint48,address,address,uint256),bytes)")
+        );
+        bytes memory oldHead = abi.encode(
+            input.lastHeight,
+            input.lastBlockHash,
+            input.lastStateRoot,
+            input.l1ReferenceBlockNumber,
+            input.forcedInclusionHead,
+            input.feeRecipient,
+            input.l2RewardRecipient,
+            input.baseFeeAmount,
+            uint256(288)
+        );
+        (bool success,) = address(etnaInbox)
+            .call(
+                bytes.concat(
+                    oldSelector,
+                    oldHead,
+                    abi.encode(uint256(PROOF.length)),
+                    PROOF,
+                    new bytes(32 - PROOF.length)
+                )
+            );
+        assertFalse(success, "V8 selector is not accepted");
+        _assertLastCheckpoint(0, genesisBlockHash);
+    }
+
+    /// @dev Requests Alice's exit, passes the L1 delay and supplies a recent landing reference.
+    function _matureExit() internal returns (uint64 exit_) {
+        vm.prank(Alice);
+        registry.requestExit(0);
+        exit_ = registry.entryAt(0).exitEffectiveL1;
+        vm.roll(exit_ + registry.withdrawalDelay());
+        _refreshReference();
+    }
+
+    /// @dev Refreshes the reference after advancing L1, independently of active committee state.
+    function _refreshReference() internal {
+        l1ReferenceBlockNumber = uint64(block.number - 1);
+        vm.setBlockhash(l1ReferenceBlockNumber, L1_REFERENCE_BLOCK_HASH);
+    }
+
+    /// @dev Checks both the error and retained principal while the committee has not retired.
+    function _assertWithdrawalBlocked() internal {
+        vm.expectRevert(EtnaStakingRegistry.CommitteeExitNotSettled.selector);
+        vm.prank(Alice);
+        registry.withdraw(0, Alice);
+        assertFalse(registry.isWithdrawn(0));
+        assertEq(taikoToken.balanceOf(address(registry)), MIN_STAKE);
+    }
+
+    function test_land_RecordsV9ReceiptWithoutFunding() external {
         IEtnaInbox.LandInput memory input = _batch(1);
         input.l2RewardRecipient = Alice;
         input.baseFeeAmount = 1 ether;
@@ -119,7 +302,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         vm.setBlockhash(l1ReferenceBlockNumber, L1_REFERENCE_BLOCK_HASH);
     }
 
-    /// @dev The former nineteen-word V7 statement cannot authorize a V8 landing.
+    /// @dev The former nineteen-word V7 statement cannot authorize a V9 landing.
     function test_land_RevertWhen_ProofUsesAFormerStatement() external {
         IEtnaInbox.LandInput memory input = _batch(1);
         bytes memory words = _manualPreimage(
@@ -267,8 +450,8 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         _landExpectingConfig(input, COMMITTEE_CONFIG_HASH);
     }
 
-    /// @dev Mutates each of twenty public words with nonzero queue heads and verifies rollback.
-    function test_land_RejectsEveryMutatedV8FieldAndRollsBack() external {
+    /// @dev Mutates each of twenty-one public words with nonzero queue heads and verifies rollback.
+    function test_land_RejectsEveryMutatedV9FieldAndRollsBack() external {
         _saveForcedInclusions(3);
         _landConsuming(_batch(2), 1);
         IEtnaInbox.LandInput memory input = _batch(11);
@@ -282,15 +465,18 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
             input,
             L1_REFERENCE_BLOCK_HASH
         );
-        assertEq(words.length, 640, "twenty static words");
-        assertEq(_word(words, 0), bytes32("TAIKO_ETNA_LAND_V8"), "word 1: V8 domain");
+        assertEq(words.length, 672, "twenty-one static words");
+        assertEq(_word(words, 0), bytes32("TAIKO_ETNA_LAND_V9"), "word 1: V9 domain");
         assertEq(uint256(_word(words, 15)), 1, "word 16: head before");
         assertEq(uint256(_word(words, 16)), 3, "word 17: head after");
         assertEq(address(uint160(uint256(_word(words, 17)))), Bob, "word 18: fee recipient");
         assertEq(address(uint160(uint256(_word(words, 18)))), Alice, "word 19: L2 recipient");
         assertEq(uint256(_word(words, 19)), input.baseFeeAmount, "word 20: amount");
+        assertEq(
+            uint256(_word(words, 20)), input.activeCommitteeSnapshot, "word 21: active snapshot"
+        );
         bytes32 expected = keccak256(words);
-        for (uint256 i; i < 20; ++i) {
+        for (uint256 i; i < 21; ++i) {
             uint256 lastByte = 32 * i + 31;
             words[lastByte] = bytes1(uint8(words[lastByte]) ^ 1);
             assertNotEq(keccak256(words), expected, "every word changes the hash");
@@ -975,11 +1161,11 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         );
     }
 
-    /// @dev The configuration opening (352 bytes) and V8 statement (640 bytes) vectors of
+    /// @dev The configuration opening (352 bytes) and V9 statement (672 bytes) vectors of
     /// `testdata/etna_vectors/vectors.json`, which `cast` computes and taiko-client-rs reads too.
     /// The Inbox is etched at the vector's address with the vector's identities and
-    /// configuration hash, so `hashLandStatement` binds exactly the vector's twenty static words.
-    function test_hashLandStatement_MatchesTheV8Vector() external {
+    /// configuration hash, so `hashLandStatement` binds exactly the vector's twenty-one static words.
+    function test_hashLandStatement_MatchesTheV9Vector() external {
         string memory json = LibEtnaVectors.load();
         address vectorInbox = _etchVectorInbox(json);
         bytes32[] memory blobs =
@@ -995,8 +1181,8 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
             expected,
             "the preimage opens the statement"
         );
-        assertEq(_hashVectorStatement(json, vectorInbox, blobs), expected, "V8 statement");
-        assertEq(LibEtnaVectors.bytesAt(json, ".land_statement.preimage").length, 640);
+        assertEq(_hashVectorStatement(json, vectorInbox, blobs), expected, "V9 statement");
+        assertEq(LibEtnaVectors.bytesAt(json, ".land_statement.preimage").length, 672);
         assertEq(IEtnaInbox.land.selector, bytes4(LibEtnaVectors.bytesAt(json, ".land_selector")));
         LibEtnaRewards.Receipt memory receipt = LibEtnaVectors.rewardReceipt(json);
         bytes32 id = LibEtnaRewards.batchId(receipt);
@@ -1094,7 +1280,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
     {
         string memory p = ".land_statement.inputs.";
         IEtnaInbox.LandInput memory input = LibEtnaVectors.landInput(_json);
-        assertEq(abi.encode(input).length, 256, "eight static LandInput words");
+        assertEq(abi.encode(input).length, 288, "nine static LandInput words");
         return EtnaInbox(payable(_inbox))
             .hashLandStatement(
                 uint64(LibEtnaVectors.uintAt(_json, string.concat(p, "generation"))),
@@ -1305,7 +1491,8 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
             forcedInclusionHead: _forcedInclusionHead(),
             feeRecipient: Bob,
             l2RewardRecipient: Alice,
-            baseFeeAmount: 0
+            baseFeeAmount: 0,
+            activeCommitteeSnapshot: etnaInbox.activeCommitteeSnapshot()
         });
     }
 
@@ -1411,7 +1598,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         );
     }
 
-    /// @dev Independent flat V8 encoding, deliberately not the implementation's struct helper.
+    /// @dev Independent flat V9 encoding, deliberately not the implementation's struct helper.
     /// The head before is read from slot 281; distinct L1 and L2 recipients and amount follow.
     function _manualPreimage(
         address _inbox,
@@ -1427,7 +1614,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         returns (bytes memory)
     {
         bytes memory context = abi.encode(
-            bytes32("TAIKO_ETNA_LAND_V8"), block.chainid, L2_CHAIN_ID, _inbox, _registry
+            bytes32("TAIKO_ETNA_LAND_V9"), block.chainid, L2_CHAIN_ID, _inbox, _registry
         );
         return bytes.concat(
             context,
@@ -1441,7 +1628,9 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
                 keccak256(abi.encodePacked(_getBlobHashes(blobCount)))
             ),
             abi.encode(_forcedInclusionHead(), _input.forcedInclusionHead, _input.feeRecipient),
-            abi.encode(_input.l2RewardRecipient, _input.baseFeeAmount)
+            abi.encode(
+                _input.l2RewardRecipient, _input.baseFeeAmount, _input.activeCommitteeSnapshot
+            )
         );
     }
 
@@ -1451,6 +1640,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
     )
         internal
     {
+        uint64 snapshotBefore = etnaInbox.activeCommitteeSnapshot();
         bytes32 configBefore = etnaInbox.committeeConfigHash();
         bytes32 receiptId = keccak256(
             abi.encode(
@@ -1474,6 +1664,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         landVerifier.setExpectedStatementHash(_wrongStatement);
         _expectLandRevert(_input, MockLandProofVerifier.ProofRejected.selector);
         _assertLastCheckpoint(parent.height, parent.blockHash);
+        assertEq(etnaInbox.activeCommitteeSnapshot(), snapshotBefore, "snapshot unchanged");
         _assertForcedInclusionState(head, tail);
         assertEq(address(etnaInbox).balance, inboxBalance, "fees retained");
         assertEq(Bob.balance, landerBalance, "nothing paid");
@@ -1580,7 +1771,8 @@ contract EtnaInboxLandBeforeInitializationTest is EtnaInboxTestBase {
             forcedInclusionHead: 0,
             feeRecipient: Alice,
             l2RewardRecipient: Alice,
-            baseFeeAmount: 0
+            baseFeeAmount: 0,
+            activeCommitteeSnapshot: etnaInbox.activeCommitteeSnapshot()
         });
 
         vm.expectRevert(EtnaInbox.EtnaNotActive.selector);

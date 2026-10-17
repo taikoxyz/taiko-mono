@@ -110,6 +110,7 @@ contract EtnaInboxHandler is CommonBase {
 
     mapping(bytes32 batchId => bytes32 commitment) public ghostReceipts;
     bytes32[] public receiptIds;
+    uint64 public ghostActiveCommitteeSnapshot;
     uint48 public ghostHead;
     uint48 public ghostTail;
     mapping(uint256 index => SavedInclusion) internal _saved;
@@ -153,6 +154,7 @@ contract EtnaInboxHandler is CommonBase {
         maxBatchBlocks = _config.maxBatchBlocks;
         baseFeeInGwei = _config.forcedInclusionFeeInGwei;
         feeDoubleThreshold = _config.forcedInclusionFeeDoubleThreshold;
+        ghostActiveCommitteeSnapshot = _inbox.activeCommitteeSnapshot();
 
         for (uint256 i; i < 3; ++i) {
             _senders.push(vm.addr(0xe7a5e0 + i));
@@ -262,6 +264,17 @@ contract EtnaInboxHandler is CommonBase {
         landing.blobHashes = _blobHashes(1 + (_actorSeed >> 16) % 3, _actorSeed);
         landing.input.l2RewardRecipient = _recipients[(_actorSeed >> 20) % _recipients.length];
         landing.input.baseFeeAmount = _shapeSeed;
+        landing.input.activeCommitteeSnapshot = ghostActiveCommitteeSnapshot;
+        uint64 epochLength = inbox.activation().epochLenL2;
+        uint64 parentEpoch =
+            landing.parent.height == 0 ? 0 : (landing.parent.height - 1) / epochLength;
+        if ((landing.input.lastHeight - 1) / epochLength > parentEpoch && _shapeSeed % 2 == 0) {
+            landing.input.activeCommitteeSnapshot = ghostActiveCommitteeSnapshot
+                + uint64(
+                    (_shapeSeed >> 8)
+                        % (landing.input.l1ReferenceBlockNumber - ghostActiveCommitteeSnapshot + 1)
+                );
+        }
 
         _breakLanding(landing, _modeSeed >> 8);
         _expectStatement(landing);
@@ -433,6 +446,12 @@ contract EtnaInboxHandler is CommonBase {
         } else if (mode == REJECTED_PROOF || mode == WRONG_STATEMENT) {
             _landing.expectedError = MockLandProofVerifier.ProofRejected.selector;
         }
+        if (
+            (mode == ZERO_REFERENCE_HASH || mode == EXPIRED_REFERENCE)
+                && input.activeCommitteeSnapshot > input.l1ReferenceBlockNumber
+        ) {
+            _landing.expectedError = EtnaInbox.InvalidCommitteeSnapshot.selector;
+        }
     }
 
     /// @dev Makes the verifier accept exactly the statement the handler derives from the stored
@@ -514,6 +533,15 @@ contract EtnaInboxHandler is CommonBase {
         }
         ghostReceipts[id] = commitment;
         receiptIds.push(id);
+        if (
+            inbox.activeCommitteeSnapshot() != input.activeCommitteeSnapshot
+                || input.activeCommitteeSnapshot < ghostActiveCommitteeSnapshot
+        ) {
+            _violate(
+                Property.Checkpoint, "settled committee snapshot did not advance monotonically"
+            );
+        }
+        ghostActiveCommitteeSnapshot = input.activeCommitteeSnapshot;
         ghostHead = input.forcedInclusionHead;
         _landed.push(LandedBlock(input.lastHeight, input.lastBlockHash, input.lastStateRoot));
         paidToRecipients += fees;
@@ -532,6 +560,9 @@ contract EtnaInboxHandler is CommonBase {
                 || checkpoint.blockHash != _landing.parent.blockHash
         ) {
             _violate(Property.Checkpoint, "a failed landing moved the checkpoint");
+        }
+        if (inbox.activeCommitteeSnapshot() != ghostActiveCommitteeSnapshot) {
+            _violate(Property.Checkpoint, "a failed landing moved the active committee snapshot");
         }
         (uint48 head, uint48 tail) = inbox.getForcedInclusionState();
         if (head != _landing.head || tail != _landing.tail) {
@@ -561,6 +592,8 @@ contract EtnaInboxHandler is CommonBase {
         bool history = _seed % 4 == 0;
         uint256 age = history ? 257 + (_seed >> 2) % (8191 - 256) : 1 + (_seed >> 2) % 256;
         number_ = uint64(block.number - age);
+        if (number_ < ghostActiveCommitteeSnapshot) number_ = ghostActiveCommitteeSnapshot;
+        history = block.number - number_ > 256;
         hash_ = keccak256(abi.encode("etna l1 block", number_, _seed));
         if (history) {
             vm.etch(HISTORY_STORAGE, HISTORY_STORAGE_CODE);

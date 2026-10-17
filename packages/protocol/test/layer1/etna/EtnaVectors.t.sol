@@ -62,7 +62,10 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
         );
         bytes memory normal = LibEtnaVectors.bytesAt(vectors, ".land_statement.preimage");
         bytes memory zero = LibEtnaVectors.bytesAt(vectors, ".zero_fee.land_statement.preimage");
-        assertEq(zero.length, 640);
+        assertEq(zero.length, 672);
+        for (uint256 i = 640; i < 672; ++i) {
+            assertEq(zero[i], normal[i], "active snapshot unaffected by fees");
+        }
         for (uint256 i; i < 608; ++i) {
             assertEq(zero[i], normal[i]);
         }
@@ -251,6 +254,10 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
         _assertInboxField("activation_packed", "epoch_len_l2", _epochLenL2);
         _assertInboxField("activation_packed", "epoch_len_l1", _epochLenL1);
         _assertInboxField("genesis_cutoff", "genesis_cutoff", _genesisCutoff);
+        assertEq(_inboxSlot("active_committee_snapshot"), ACTIVE_COMMITTEE_SNAPSHOT_SLOT);
+        _assertInboxField(
+            "active_committee_snapshot", "active_committee_snapshot", _activeCommitteeSnapshot
+        );
         _assertInboxField("forced_inclusion_config", "delay", _forcedInclusionDelay);
         _assertInboxField("forced_inclusion_config", "max_anchor_age", _maxAnchorAge);
 
@@ -347,6 +354,15 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
         string memory p = ".layout.registry.";
         bytes32 base = LibEtnaVectors.bytes32At(vectors, string.concat(p, "base"));
         assertEq(_loadRegistry(base), registry.checkpointCount(), "checkpoints.length");
+        assertEq(
+            address(
+                uint160(
+                    _loadRegistry(LibEtnaVectors.bytes32At(vectors, string.concat(p, "inbox_slot")))
+                )
+            ),
+            registry.inbox(),
+            "bound Inbox slot"
+        );
         assertEq(
             _loadRegistry(
                 LibEtnaVectors.bytes32At(vectors, string.concat(p, "entries_length_slot"))
@@ -578,6 +594,10 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
     }
 
     // Getters as uniform `uint256`/`bytes32` readers for the field checks.
+
+    function _activeCommitteeSnapshot() internal view returns (uint256) {
+        return etnaInbox.activeCommitteeSnapshot();
+    }
 
     function _status() internal view returns (uint256) {
         return etnaInbox.migrationState();
