@@ -10,7 +10,6 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 /// @notice Checkpoint monotonicity, queue integrity, forced-fee conservation and single-write receipts.
 /// @dev Foundry runs a separate campaign per invariant function and asserts only that function
 /// in it, so every invariant also asserts that the handler saw no violation of any kind.
-/// forge-config: default.invariant.runs = 256
 /// forge-config: default.invariant.depth = 50
 /// forge-config: default.invariant.fail_on_revert = true
 contract EtnaInboxInvariantTest is EtnaInboxTestBase {

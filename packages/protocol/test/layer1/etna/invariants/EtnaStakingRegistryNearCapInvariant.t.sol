@@ -37,7 +37,6 @@ abstract contract EtnaStakingRegistryNearCapInvariantBase is EtnaStakingRegistry
 
 /// @title EtnaStakingRegistryNearCapInvariantTest
 /// @notice Registry invariants 2 to 6 near and at `MAX_ENTRIES`.
-/// forge-config: default.invariant.runs = 256
 /// forge-config: default.invariant.depth = 50
 /// forge-config: default.invariant.fail_on_revert = true
 contract EtnaStakingRegistryNearCapInvariantTest is EtnaStakingRegistryNearCapInvariantBase {
@@ -123,7 +122,6 @@ contract EtnaStakingRegistryNearCapInvariantTest is EtnaStakingRegistryNearCapIn
 /// @title EtnaStakingRegistryNearCapRootInvariantTest
 /// @notice Registry invariant 1 near and at `MAX_ENTRIES`, with one full recompute per run.
 /// @dev A separate contract, so only this one campaign pays for the 4096-leaf recompute.
-/// forge-config: default.invariant.runs = 256
 /// forge-config: default.invariant.depth = 50
 /// forge-config: default.invariant.fail_on_revert = true
 contract EtnaStakingRegistryNearCapRootInvariantTest is EtnaStakingRegistryNearCapInvariantBase {
