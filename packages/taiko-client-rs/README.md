@@ -921,7 +921,9 @@ just clippy     # doc lints on library code, then every target with -D warnings
 ### Tests
 
 - `just unit` runs all unit tests and the nine `lander_claim_cli` process tests, then protocol
-  tests without default features and the abci doctests. No docker needed.
+  tests without default features and the abci doctests. No docker needed. It builds only those
+  targets, and without extra arguments runs lander's library tests in one `cargo test` process,
+  which loads the KZG trusted setup once instead of once per test.
 - `just test` runs the serial Docker integration scenarios in `crates/abci/tests`,
   `crates/lander/tests`, `crates/test-harness/tests` and `bin/client/tests`. ABCI scenarios cover single validator,
   anchor finality, restart and lost-state replay, epoch switch with and without landing, back-pressure, generation
@@ -936,7 +938,10 @@ just clippy     # doc lints on library code, then every target with -D warnings
   verifier rejection, receipt reorgs, durable nonce recovery, stock CometBFT collection,
   and actual-CLI SIGTERM/SIGKILL restarts, minimum/timeout batching, and pressure/epoch flushes. Each scenario boots its own devnet through the docker CLI (anvil as L1,
   alethia-reth, CometBFT), so they run one at a time; the suite takes about ten minutes. Extra
-  arguments go to `cargo nextest run`, e.g. `just test restart` runs one scenario.
+  arguments go to `cargo nextest run`, e.g. `just test restart` runs one scenario. Pull requests
+  skip the two slowest scenarios, the L1 finality stall and the anchor finality gate, whose
+  halt-and-resume rules unit tests cover; `just test-full` runs every scenario, as CI does on
+  main, nightly and on manual dispatch.
   `tests/entrypoint.sh` pulls the images first; override them with `ANVIL_IMAGE`,
   `ALETHIA_RETH_IMAGE`, `COMETBFT_IMAGE` and `LANDER_ANVIL_IMAGE`, or set
   `PULL_POLICY=missing` to reuse local images. Existing ABCI tests retain Anvil v1.5.1;
@@ -952,7 +957,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
   rules, epoch switch, real L2 rewards claim/fee continuation, and lander CLI SIGTERM resume.
   This fixed recipe accepts no arguments. Use `just test` for targeted subsets or output options.
 - `just verify` is the complete merge gate: formatting, strict clippy, fast tests, committed
-  artifact reproduction, and all Docker scenarios. Smoke is an iteration aid and never replaces
+  artifact reproduction, and all Docker scenarios (`just test-full`). Smoke is an iteration aid and never replaces
   this gate. After each coherent code change batch, run `just fmt && just clippy-fix` and targeted
   tests; run the complete gate once on the final change batch.
 
