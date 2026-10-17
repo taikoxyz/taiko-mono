@@ -1254,6 +1254,7 @@ fn authenticates_301_members_from_registry_proof_through_comet_certificate() {
     use tendermint::block::CommitSig;
 
     const COUNT: usize = 301;
+    const CHAIN_ID: &str = "taiko-etna-167001-g0";
     let (params, seeded, keys) = committee(&[1; COUNT], 0);
     let entries = seeded.provenance.unwrap().witness.entries;
     assert_eq!(entries.len(), COUNT);
@@ -1323,15 +1324,13 @@ fn authenticates_301_members_from_registry_proof_through_comet_certificate() {
         })
         .collect::<BTreeSet<_>>();
     assert_eq!(signer_addresses.len(), COUNT);
-    verify_commit(&block.commit, &block.block.header, &authenticated, "taiko-etna-167001-g0")
-        .unwrap();
+    verify_commit(&block.commit, &block.block.header, &authenticated, CHAIN_ID).unwrap();
     // With unit power, 201/301 is just above 2/3; 200/301 is below it.
     block.commit.signatures[201..].fill(CommitSig::BlockIdFlagAbsent);
-    verify_commit(&block.commit, &block.block.header, &authenticated, "taiko-etna-167001-g0")
-        .unwrap();
+    verify_commit(&block.commit, &block.block.header, &authenticated, CHAIN_ID).unwrap();
     block.commit.signatures[200] = CommitSig::BlockIdFlagAbsent;
     assert!(matches!(
-        verify_commit(&block.commit, &block.block.header, &authenticated, "taiko-etna-167001-g0"),
+        verify_commit(&block.commit, &block.block.header, &authenticated, CHAIN_ID),
         Err(ValidationError::Certificate(message)) if message.contains("insufficient commit power 200/301")
     ));
 }
