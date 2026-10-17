@@ -86,6 +86,27 @@ class ProofAuditTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('source digest mismatch', result.stderr)
 
+    def test_rejects_truncated_roots_constants_or_declaration_kinds(self):
+        for mutation in ['empty-roots', 'missing-constant', 'constant-as-function', 'inflated-count']:
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory(dir=ROOT) as tmp:
+                path = pathlib.Path(tmp) / 'provenance.json'
+                data = json.loads((ROOT / 'Etna/Refinement/Rust/provenance.json').read_text())
+                if mutation == 'empty-roots':
+                    data['root_symbols'] = []
+                elif mutation == 'missing-constant':
+                    data['generated_definitions'] = [d for d in data['generated_definitions']
+                                                     if not d['lean_definition'].endswith('.UINT48_MAX')]
+                elif mutation == 'constant-as-function':
+                    next(d for d in data['generated_declarations'] if d['kind'] == 'constant')['kind'] = 'function'
+                else:
+                    data['counts']['production_function_roots'] = 23
+                path.write_text(json.dumps(data))
+                result = self.audit('namespace Fixture\ntheorem sound (n : Nat) : n = n := rfl\nend Fixture\n',
+                                    bridge='rust-refinement-proved',
+                                    refinement=self.refinement(provenance=str(path.relative_to(ROOT))))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('provenance', result.stderr)
+
     def test_rejects_native_decide_trust(self):
         result = self.audit('import Mathlib\nnamespace Fixture\n'
                             'theorem sound : (1 : Nat) = 1 := by native_decide\nend Fixture\n',

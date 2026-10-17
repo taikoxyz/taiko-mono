@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-ARITY = {**dict.fromkeys(['validate', 'epoch', 'first', 'last', 'l1', 'parent', 'starting', 'switch', 'next'], 5), 'quorum': 2, 'plan': 9}
+ARITY = {**dict.fromkeys(['validate', 'epoch', 'first', 'last', 'l1', 'parent', 'starting', 'switch', 'next'], 5), 'quorum': 2, 'positive-cap': 2, 'committee-size': 1, 'anchor': 7, 'urgency': 6, 'plan': 9}
 
 
 def run(args, **kwargs):

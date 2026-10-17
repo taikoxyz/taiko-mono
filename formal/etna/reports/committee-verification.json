@@ -219,5 +219,20 @@
         "sha256": "3b95093d9ba702bf408a895eb47fafd58bf3a5112b10fd96d3df9fdeba3747cd"
       }
     }
+  },
+  "latest_head_sync": {
+    "client_dependency": "98e99f03961a64016a8097636fdade939b0eed1d",
+    "scope": "Current Task A evidence; original fields above remain historical first-phase evidence",
+    "report": "reports/configuration-sync.json",
+    "mutations": "reports/configuration-mutations.json",
+    "legacy_example_ids": "preserved with explicit accepted-to-rejected declaration/type migration, not a claim that superseded accepted contracts still hold"
+  },
+  "latest_head_sync_a2": {
+    "client_dependency": "1c9243f0a3670c91aad6288c8a4638b699904c23",
+    "protocol_target": "07e36f73e7fcc81baefe834fd205035df121a5e0",
+    "scope": "Current A2 startup-bound evidence; previous report objects retain historical checks",
+    "report": "reports/configuration-sync-a2.json",
+    "exact_rust_functions": 21,
+    "global_acceptance": "pending B/C/D; not waived"
   }
 }

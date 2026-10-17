@@ -199,8 +199,26 @@ def forced.advance_cursor
       | none => ok (core.result.Result.Err forced.ForcedError.CursorOverflow)
       | some next => ok (core.result.Result.Ok next)
 
+/-- [etna_consensus_core::MAX_N_MAX]
+    Source: 'crates/etna-consensus-core/src/lib.rs', lines 11:0-11:34
+    Visibility: public -/
+@[global_simps, irreducible] def MAX_N_MAX : Std.Usize := 4096#usize
+
+/-- [etna_consensus_core::committee_size_bounded]:
+    Source: 'crates/etna-consensus-core/src/lib.rs', lines 14:0-16:1
+    Visibility: public -/
+def committee_size_bounded (n_max : Std.Usize) : Result Bool := do
+  ok (n_max <= MAX_N_MAX)
+
+/-- [etna_consensus_core::positive_unsettled_cap]:
+    Source: 'crates/etna-consensus-core/src/lib.rs', lines 19:0-21:1
+    Visibility: public -/
+def positive_unsettled_cap
+  (d_max : Std.U64) (margin : Std.U64) : Result Bool := do
+  ok (d_max > margin)
+
 /-- [etna_consensus_core::has_strict_quorum]:
-    Source: 'crates/etna-consensus-core/src/lib.rs', lines 12:0-14:1
+    Source: 'crates/etna-consensus-core/src/lib.rs', lines 25:0-27:1
     Visibility: public -/
 def has_strict_quorum
   (signed_power : Std.U128) (total_power : Std.U128) : Result Bool := do
@@ -212,8 +230,14 @@ def has_strict_quorum
   let i5 ← i1 + i4
   ok (signed_power > i5)
 
+/-- [etna_consensus_core::schedule::UINT48_MAX]
+    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 7:0-7:48
+    Visibility: public -/
+@[global_simps, irreducible]
+def schedule.UINT48_MAX : Std.U64 := 281474976710655#u64
+
 /-- [etna_consensus_core::schedule::Schedule]
-    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 8:0-17:1
+    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 11:0-20:1
     Visibility: public -/
 structure schedule.Schedule where
   l1_0 : Std.U64
@@ -222,16 +246,48 @@ structure schedule.Schedule where
   genesis_cutoff : Std.U64
 
 /-- [etna_consensus_core::schedule::ScheduleError]
-    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 21:0-28:1
+    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 24:0-35:1
     Visibility: public -/
 @[discriminant isize]
 inductive schedule.ScheduleError where
 | EpochTooShort : schedule.ScheduleError
 | EpochShorterThanCap : schedule.ScheduleError
 | ZeroEpochLenL1 : schedule.ScheduleError
+| FirstEpochBeyondHeightRange : schedule.ScheduleError
+| FirstEpochBeyondAnchorRange : schedule.ScheduleError
+
+/-- [etna_consensus_core::schedule::AnchorError]
+    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 39:0-53:1
+    Visibility: public -/
+@[discriminant isize]
+inductive schedule.AnchorError where
+| Regressed : schedule.AnchorError
+| BeforeActivation : schedule.AnchorError
+| InvalidSchedule : schedule.AnchorError
+| EpochNotOpen : Std.U64 → Std.U64 → schedule.AnchorError
+
+/-- [etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::checked_l1_first]:
+    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 161:4-166:5
+    Visibility: public -/
+def schedule.Schedule.checked_l1_first
+  (self : schedule.Schedule) (epoch : Std.U64) : Result (Option Std.U64) := do
+  let o ← lift (U64.checked_mul epoch self.epoch_len_l1)
+  match o with
+  | none => ok none
+  | some offset => ok (U64.checked_add offset self.l1_0)
+
+/-- [etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::h_first]:
+    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 141:4-146:5
+    Visibility: public -/
+def schedule.Schedule.h_first
+  (self : schedule.Schedule) (epoch : Std.U64) : Result (Option Std.U64) := do
+  let o ← lift (U64.checked_mul epoch self.epoch_len)
+  match o with
+  | none => ok none
+  | some offset => ok (U64.checked_add offset 1#u64)
 
 /-- [etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::validate]:
-    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 32:4-45:5
+    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 57:4-78:5
     Visibility: public -/
 def schedule.Schedule.validate
   (self : schedule.Schedule) (cap : Std.U64) :
@@ -251,65 +307,71 @@ def schedule.Schedule.validate
       else
         if self.epoch_len_l1 = 0#u64
         then ok (core.result.Result.Err schedule.ScheduleError.ZeroEpochLenL1)
-        else ok (core.result.Result.Ok ())
+        else
+          let o1 ← schedule.Schedule.h_first self 1#u64
+          match o1 with
+          | none =>
+            ok (core.result.Result.Err
+              schedule.ScheduleError.FirstEpochBeyondHeightRange)
+          | some first =>
+            if first <= schedule.UINT48_MAX
+            then
+              let o2 ← schedule.Schedule.checked_l1_first self 1#u64
+              match o2 with
+              | none =>
+                ok (core.result.Result.Err
+                  schedule.ScheduleError.FirstEpochBeyondAnchorRange)
+              | some first1 =>
+                if first1 <= schedule.UINT48_MAX
+                then ok (core.result.Result.Ok ())
+                else
+                  ok (core.result.Result.Err
+                    schedule.ScheduleError.FirstEpochBeyondAnchorRange)
+            else
+              ok (core.result.Result.Err
+                schedule.ScheduleError.FirstEpochBeyondHeightRange)
 
 /-- [etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::epoch_of]:
-    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 48:4-50:5
+    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 136:4-138:5
     Visibility: public -/
 def schedule.Schedule.epoch_of
   (self : schedule.Schedule) (height : Std.U64) : Result (Option Std.U64) := do
   let i ← lift (core.num.U64.saturating_sub height 1#u64)
   ok (U64.checked_div i self.epoch_len)
 
-/-- [etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::h_first]:
-    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 53:4-58:5
+/-- [etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::check_anchor_progress]:
+    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 81:4-102:5
     Visibility: public -/
-def schedule.Schedule.h_first
-  (self : schedule.Schedule) (epoch : Std.U64) : Result (Option Std.U64) := do
-  let o ← lift (U64.checked_mul epoch self.epoch_len)
-  match o with
-  | none => ok none
-  | some offset => ok (U64.checked_add offset 1#u64)
-
-/-- [etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::h_last]:
-    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 61:4-70:5
-    Visibility: public -/
-def schedule.Schedule.h_last
-  (self : schedule.Schedule) (epoch : Std.U64) : Result (Option Std.U64) := do
-  let o ← lift (U64.checked_add epoch 1#u64)
-  match o with
-  | none => ok none
-  | some value =>
-    let o1 ← schedule.Schedule.h_first self value
-    match o1 with
-    | none => ok none
-    | some first => ok (U64.checked_sub first 1#u64)
-
-/-- [etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::checked_l1_first]:
-    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 73:4-78:5
-    Visibility: public -/
-def schedule.Schedule.checked_l1_first
-  (self : schedule.Schedule) (epoch : Std.U64) : Result (Option Std.U64) := do
-  let o ← lift (U64.checked_mul epoch self.epoch_len_l1)
-  match o with
-  | none => ok none
-  | some offset => ok (U64.checked_add offset self.l1_0)
-
-/-- [etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::derivation_parent_height]:
-    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 81:4-89:5
-    Visibility: public -/
-def schedule.Schedule.derivation_parent_height
-  (self : schedule.Schedule) (epoch : Std.U64) : Result (Option Std.U64) := do
-  if epoch = 0#u64
-  then ok none
+def schedule.Schedule.check_anchor_progress
+  (self : schedule.Schedule) (parent : Std.U64) (anchor : Std.U64)
+  (height : Std.U64) :
+  Result (core.result.Result Unit schedule.AnchorError)
+  := do
+  if anchor < parent
+  then ok (core.result.Result.Err schedule.AnchorError.Regressed)
   else
-    let o ← schedule.Schedule.h_first self epoch
-    match o with
-    | none => ok none
-    | some first => ok (U64.checked_sub first 3#u64)
+    if anchor < self.l1_0
+    then ok (core.result.Result.Err schedule.AnchorError.BeforeActivation)
+    else
+      let o ← schedule.Schedule.epoch_of self height
+      match o with
+      | none =>
+        ok (core.result.Result.Err schedule.AnchorError.InvalidSchedule)
+      | some epoch =>
+        let o1 ← schedule.Schedule.checked_l1_first self epoch
+        match o1 with
+        | none =>
+          ok (core.result.Result.Err (schedule.AnchorError.EpochNotOpen epoch
+            core.num.U64.MAX))
+        | some first =>
+          if anchor >= first
+          then ok (core.result.Result.Ok ())
+          else
+            ok (core.result.Result.Err (schedule.AnchorError.EpochNotOpen epoch
+              first))
 
 /-- [etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::epoch_starting_at]:
-    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 92:4-101:5
+    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 180:4-189:5
     Visibility: public -/
 def schedule.Schedule.epoch_starting_at
   (self : schedule.Schedule) (height : Std.U64) : Result (Option Std.U64) := do
@@ -327,7 +389,7 @@ def schedule.Schedule.epoch_starting_at
       else ok none
 
 /-- [etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::switch_target]:
-    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 104:4-113:5
+    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 192:4-201:5
     Visibility: public -/
 def schedule.Schedule.switch_target
   (self : schedule.Schedule) (height : Std.U64) : Result (Option Std.U64) := do
@@ -342,8 +404,80 @@ def schedule.Schedule.switch_target
                 | 0#uscalar => ok none
                 | _ => ok o1
 
+/-- [etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::force_epoch]:
+    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 106:4-133:5
+    Visibility: public -/
+def schedule.Schedule.force_epoch
+  (self : schedule.Schedule) (tip : Std.U64) (checkpoint : Std.U64) :
+  Result (Option Bool)
+  := do
+  let o ← schedule.Schedule.epoch_of self tip
+  match o with
+  | none => ok none
+  | some epoch =>
+    let o1 ← schedule.Schedule.switch_target self tip
+    let b := core.option.Option.is_some o1
+    if b
+    then ok (some true)
+    else
+      let o2 ← lift (U64.checked_add epoch 1#u64)
+      let next ←
+        match o2 with
+        | none => ok false
+        | some next_epoch =>
+          do
+          let o3 ← schedule.Schedule.h_first self next_epoch
+          match o3 with
+          | none => ok false
+          | some first =>
+            let next1 ← lift (core.num.U64.saturating_sub first 2#u64)
+            if next1 <= tip
+            then ok (next1 > checkpoint)
+            else ok false
+      let current ←
+        if epoch > 0#u64
+        then
+          do
+          let o3 ← schedule.Schedule.h_first self epoch
+          match o3 with
+          | none => ok false
+          | some first =>
+            let i ← lift (core.num.U64.saturating_sub first 2#u64)
+            ok (i > checkpoint)
+        else ok false
+      if next
+      then ok (some true)
+      else ok (some current)
+
+/-- [etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::h_last]:
+    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 149:4-158:5
+    Visibility: public -/
+def schedule.Schedule.h_last
+  (self : schedule.Schedule) (epoch : Std.U64) : Result (Option Std.U64) := do
+  let o ← lift (U64.checked_add epoch 1#u64)
+  match o with
+  | none => ok none
+  | some value =>
+    let o1 ← schedule.Schedule.h_first self value
+    match o1 with
+    | none => ok none
+    | some first => ok (U64.checked_sub first 1#u64)
+
+/-- [etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::derivation_parent_height]:
+    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 169:4-177:5
+    Visibility: public -/
+def schedule.Schedule.derivation_parent_height
+  (self : schedule.Schedule) (epoch : Std.U64) : Result (Option Std.U64) := do
+  if epoch = 0#u64
+  then ok none
+  else
+    let o ← schedule.Schedule.h_first self epoch
+    match o with
+    | none => ok none
+    | some first => ok (U64.checked_sub first 3#u64)
+
 /-- [etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::next_switch_target]:
-    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 116:4-125:5
+    Source: 'crates/etna-consensus-core/src/schedule.rs', lines 204:4-213:5
     Visibility: public -/
 def schedule.Schedule.next_switch_target
   (self : schedule.Schedule) (height : Std.U64) : Result (Option Std.U64) := do

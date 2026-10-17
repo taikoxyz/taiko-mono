@@ -30,6 +30,42 @@ PROVENANCE_KEYS = {
 }
 
 
+# Independently reviewed producer surface. Constants must never inflate the function count.
+PRODUCTION_ROOTS = {
+    'etna_consensus_core::has_strict_quorum',
+    'etna_consensus_core::positive_unsettled_cap',
+    'etna_consensus_core::committee_size_bounded',
+    *{'etna_consensus_core::forced::'+name for name in
+      ['pending_entry', 'check_preimage', 'is_due', 'classify_forced', 'resolve_forced', 'advance_cursor']},
+    *{'etna_consensus_core::schedule::Schedule::'+name for name in
+      ['validate', 'epoch_of', 'h_first', 'h_last', 'checked_l1_first', 'derivation_parent_height',
+       'epoch_starting_at', 'switch_target', 'next_switch_target', 'check_anchor_progress', 'force_epoch']},
+    'etna_consensus_core::transition::transition_committee',
+}
+PRODUCTION_CONSTANTS = {'etna_consensus_core::forced::MAX_FORCED_TX_BYTES',
+                        'etna_consensus_core::schedule::UINT48_MAX',
+                        'etna_consensus_core::MAX_N_MAX'}
+PRODUCTION_TYPES = {
+    'forced::ForcedDecision': 'inductive', 'forced::ForcedFacts': 'structure',
+    'forced::ForcedError': 'inductive', 'forced::SingletonOutcome': 'inductive',
+    'schedule::Schedule': 'structure', 'schedule::ScheduleError': 'inductive',
+    'schedule::AnchorError': 'inductive', 'transition::DerivedRelation': 'inductive',
+    'transition::CommitteeFacts': 'structure', 'transition::SwitchPlan': 'structure',
+    'transition::CommitteePlan': 'structure', 'transition::CommitteeError': 'inductive',
+}
+PRODUCTION_COUNTS = {'production_function_roots': 21, 'transparent_constant_initializers': 3,
+                     'transparent_functions': 24,
+                     'opaque_llbc_stdlib_functions_resolved_by_backend_models': 10,
+                     'unresolved_generated_axioms': 0, 'opaque_stubs': 0}
+
+
+def producer_definition(symbol):
+    """Use the actual Charon impl-symbol spelling, not a hand-authored function alias."""
+    actual = symbol.replace('::schedule::Schedule::',
+                            '::schedule::{etna_consensus_core::schedule::Schedule}::')
+    return actual, symbol.replace('::', '.')
+
+
 def validate_producer_schema(provenance):
     if (not isinstance(provenance, dict) or set(provenance) != PROVENANCE_FIELDS or
             type(provenance.get('schema_version')) is not int or provenance['schema_version'] != 1 or
@@ -44,6 +80,31 @@ def validate_producer_schema(provenance):
                                       not re.fullmatch(r'[0-9a-f]{64}', value)
                                       for value in values.values()):
             raise ValueError(f'invalid provenance digest in {section}')
+
+    roots = provenance['root_symbols']
+    if not isinstance(roots, list) or len(roots) != 21 or set(roots) != PRODUCTION_ROOTS:
+        raise ValueError('provenance roots must contain exactly the 21 actual production functions')
+    expected_definitions = {producer_definition(symbol) for symbol in PRODUCTION_ROOTS | PRODUCTION_CONSTANTS}
+    definitions = provenance['generated_definitions']
+    if (not isinstance(definitions, list) or len(definitions) != 24 or
+            any(not isinstance(item, dict) or set(item) != {'rust_symbol', 'lean_definition'} for item in definitions) or
+            {(item['rust_symbol'], item['lean_definition']) for item in definitions} != expected_definitions):
+        raise ValueError('provenance definitions differ from 21 functions plus 3 constants')
+    expected_declarations = {(kind, *producer_definition(symbol))
+                             for kind, symbols in [('function', PRODUCTION_ROOTS), ('constant', PRODUCTION_CONSTANTS)]
+                             for symbol in symbols}
+    expected_declarations |= {(kind, 'etna_consensus_core::'+symbol,
+                               'etna_consensus_core.'+symbol.replace('::', '.'))
+                              for symbol, kind in PRODUCTION_TYPES.items()}
+    declarations = provenance['generated_declarations']
+    if (not isinstance(declarations, list) or len(declarations) != len(expected_declarations) or
+            any(not isinstance(item, dict) or set(item) != {'kind', 'rust_symbol', 'lean_definition'} for item in declarations) or
+            {(item['kind'], item['rust_symbol'], item['lean_definition']) for item in declarations} != expected_declarations):
+        raise ValueError('provenance declarations must preserve exact function/constant/type kinds')
+    counts = provenance['counts']
+    if (not isinstance(counts, dict) or counts != PRODUCTION_COUNTS or
+            any(type(value) is not int for value in counts.values())):
+        raise ValueError('provenance body counts must distinguish 21 functions and 3 constant initializers')
 
 
 def run(command):

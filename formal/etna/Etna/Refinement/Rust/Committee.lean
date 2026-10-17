@@ -64,23 +64,9 @@ theorem checked_bound {n v : Nat} (h : Etna.Committee.checked n = some v) : v < 
 
 def scheduleError : Etna.Committee.ScheduleError → etna_consensus_core.schedule.ScheduleError
   | .tooShort => .EpochTooShort | .shorterThanCap => .EpochShorterThanCap | .zeroL1 => .ZeroEpochLenL1
+  | .firstHeight => .FirstEpochBeyondHeightRange | .firstAnchor => .FirstEpochBeyondAnchorRange
 def scheduleResult : Except Etna.Committee.ScheduleError Unit → core.result.Result Unit etna_consensus_core.schedule.ScheduleError
   | .ok u => .Ok u | .error e => .Err (scheduleError e)
-
-theorem rust_validate_refines (s : etna_consensus_core.schedule.Schedule) (cap : U64) :
-    etna_consensus_core.schedule.Schedule.validate s cap = .ok (scheduleResult (Etna.Committee.validate (schedule s) cap.val)) := by
-  by_cases hshort : s.epoch_len.val < 3
-  · simp [etna_consensus_core.schedule.Schedule.validate, Etna.Committee.validate, schedule, UScalar.lt_equiv, hshort, scheduleResult, scheduleError]
-  unfold etna_consensus_core.schedule.Schedule.validate Etna.Committee.validate
-  simp only [schedule, UScalar.lt_equiv, UScalar.eq_equiv]
-  rw [checked_add]
-  cases h : Etna.Committee.add cap.val 3 with
-  | none => simp [h, lift, hshort, scheduleResult, scheduleError]
-  | some n =>
-    have hn := checked_bound h
-    have hn' : n % 18446744073709551616 = n := Nat.mod_eq_of_lt hn
-    by_cases hsmall : s.epoch_len.val < n <;> by_cases hz : s.epoch_len_l1.val = 0 <;>
-      simp [h, lift, word_val, hn', hshort, hsmall, hz, scheduleResult, scheduleError]
 
 theorem word_small {n : Nat} (h : n < 2^64) : (word n).val = n := by
   exact Nat.mod_eq_of_lt h
@@ -120,6 +106,63 @@ theorem rust_l1First_refines (s : etna_consensus_core.schedule.Schedule) (t : U6
   cases h : Etna.Committee.mul t.val s.epoch_len_l1.val with
   | none => simp [schedule, h, lift]
   | some n => simp [schedule, h, lift, checked_add, word_small (checked_bound h)]
+
+theorem l1_bound {s : Etna.Committee.Schedule} {t v : Nat}
+    (h : Etna.Committee.l1First s t = some v) : v < 2^64 := by
+  unfold Etna.Committee.l1First at h
+  cases hm : Etna.Committee.mul t s.l1Length with
+  | none => simp [hm] at h
+  | some n => simp only [hm, Option.bind_some] at h; exact checked_bound h
+
+theorem rust_validate_refines (s : etna_consensus_core.schedule.Schedule) (cap : U64) :
+    etna_consensus_core.schedule.Schedule.validate s cap = .ok (scheduleResult (Etna.Committee.validate (schedule s) cap.val)) := by
+  unfold etna_consensus_core.schedule.Schedule.validate Etna.Committee.validate
+  simp only [show (schedule s).length = s.epoch_len.val from rfl,
+    show (schedule s).l1Length = s.epoch_len_l1.val from rfl,
+    UScalar.lt_equiv, UScalar.eq_equiv, show (0#u64).val = 0 from rfl]
+  rw [checked_add]
+  cases hc : Etna.Committee.add cap.val 3 with
+  | none =>
+    by_cases short : s.epoch_len.val < 3 <;> simp [hc, lift, short, scheduleResult, scheduleError]
+  | some minimum =>
+    have hm := word_small (checked_bound hc)
+    simp only [show (3#u64).val = 3 from rfl, hc, Option.map_some, lift, bind_ok, hm]
+    by_cases short : s.epoch_len.val < 3
+    · simp [short, scheduleResult, scheduleError]
+    by_cases small : s.epoch_len.val < minimum
+    · simp [short, small, scheduleResult, scheduleError]
+    by_cases zero : s.epoch_len_l1.val = 0
+    · simp [short, small, zero, scheduleResult, scheduleError]
+    simp only [short, small, zero, ↓reduceIte, rust_first_refines, bind_ok]
+    cases hf : Etna.Committee.first (schedule s) 1 with
+    | none => simp [hf,  scheduleResult, scheduleError]
+    | some height =>
+      have hv := word_small (first_bound hf)
+      simp only [show (1#u64).val = 1 from rfl, hf, Option.map_some, UScalar.le_equiv, hv]
+      by_cases hb : height ≤ Etna.Committee.max48
+      · simp only [show etna_consensus_core.schedule.UINT48_MAX.val = Etna.Committee.max48 from by simp [etna_consensus_core.schedule.UINT48_MAX, Etna.Committee.max48],
+          hb, ↓reduceIte]
+        simp only [rust_l1First_refines, bind_ok]
+        cases ha : Etna.Committee.l1First (schedule s) 1 with
+        | none => simp [ha,   scheduleResult, scheduleError, ]
+        | some anchor =>
+          have av := word_small (l1_bound ha)
+          by_cases ab : anchor ≤ Etna.Committee.max48 <;>
+            simp [ha,  av, ab,  scheduleResult, scheduleError]
+      · simp [show etna_consensus_core.schedule.UINT48_MAX.val = Etna.Committee.max48 from by simp [etna_consensus_core.schedule.UINT48_MAX, Etna.Committee.max48],
+          hb, scheduleResult, scheduleError]
+
+/-- The real configuration guard is separate from saturated-cap arithmetic. -/
+theorem rust_positive_cap_refines (depth margin : U64) :
+    etna_consensus_core.positive_unsettled_cap depth margin = .ok (Etna.Committee.positiveCap depth.val margin.val) := by
+  simp [etna_consensus_core.positive_unsettled_cap, Etna.Committee.positiveCap, UScalar.lt_equiv]
+
+/-- Exact upper committee-size predicate, independent of the wrapper's earlier zero check. -/
+theorem rust_committee_size_refines (n : Usize) :
+    etna_consensus_core.committee_size_bounded n = .ok (Etna.Committee.committeeSizeBounded n.val) := by
+  by_cases h : n.val ≤ 4096 <;>
+    simp [etna_consensus_core.committee_size_bounded, Etna.Committee.committeeSizeBounded,
+      etna_consensus_core.MAX_N_MAX, Etna.Committee.maxCommitteeSize, UScalar.le_equiv, h]
 
 theorem rust_parent_refines (s : etna_consensus_core.schedule.Schedule) (t : U64) :
     etna_consensus_core.schedule.Schedule.derivation_parent_height s t = .ok ((Etna.Committee.parentHeight (schedule s) t.val).map word) := by
@@ -230,6 +273,98 @@ theorem rust_next_refines (s : etna_consensus_core.schedule.Schedule) (h : U64) 
     cases ht : Etna.Committee.epochOf (schedule s) n with
     | none => simp
     | some t => simp [checked_add, word_small (epoch_bound ht (checked_bound ha))]
+
+def anchorError : Etna.Committee.AnchorError → etna_consensus_core.schedule.AnchorError
+  | .regressed => .Regressed | .beforeActivation => .BeforeActivation | .invalidSchedule => .InvalidSchedule
+  | .epochNotOpen epoch minimum => .EpochNotOpen (word epoch) (word minimum)
+def anchorResult : Except Etna.Committee.AnchorError Unit → core.result.Result Unit etna_consensus_core.schedule.AnchorError
+  | .ok u => .Ok u | .error error => .Err (anchorError error)
+
+theorem rust_anchor_progress_refines (s : etna_consensus_core.schedule.Schedule) (parent anchor height : U64) :
+    etna_consensus_core.schedule.Schedule.check_anchor_progress s parent anchor height =
+      .ok (anchorResult (Etna.Committee.anchorProgress (schedule s) parent.val anchor.val height.val)) := by
+  unfold etna_consensus_core.schedule.Schedule.check_anchor_progress Etna.Committee.anchorProgress
+  simp only [show (schedule s).l1₀ = s.l1_0.val from rfl, UScalar.lt_equiv]
+  by_cases regressed : anchor.val < parent.val
+  · simp [regressed, anchorResult, anchorError]
+  by_cases early : anchor.val < s.l1_0.val
+  · simp [regressed, early, anchorResult, anchorError]
+  simp only [regressed, early, ↓reduceIte, rust_epoch_refines, bind_ok]
+  cases he : Etna.Committee.epochOf (schedule s) height.val with
+  | none => simp [ anchorResult, anchorError]
+  | some epoch =>
+    have ev := word_small (epoch_bound he height.hBounds)
+    simp only [ Option.map_some, rust_l1First_refines, ev, bind_ok]
+    cases hm : Etna.Committee.l1First (schedule s) epoch with
+    | none =>
+      simp [ anchorResult, anchorError, word, Etna.Committee.max64, core.num.U64.MAX]
+      apply UScalar.eq_of_val_eq
+      decide
+    | some minimum =>
+      have mv := word_small (l1_bound hm)
+      by_cases opened : minimum ≤ anchor.val <;>
+        simp [ UScalar.le_equiv, mv, opened, anchorResult, anchorError]
+
+theorem saturating_sub_val (a b : U64) : (core.num.U64.saturating_sub a b).val = a.val-b.val := by
+  change (max 0 (a.val-b.val)) % 2^64 = a.val-b.val
+  rw [Nat.zero_max]
+  exact Nat.mod_eq_of_lt (lt_of_le_of_lt (Nat.sub_le _ _) a.hBounds)
+
+theorem rust_force_epoch_refines (s : etna_consensus_core.schedule.Schedule) (tip checkpoint : U64) :
+    etna_consensus_core.schedule.Schedule.force_epoch s tip checkpoint =
+      .ok (Etna.Committee.forceEpoch (schedule s) tip.val checkpoint.val) := by
+  unfold etna_consensus_core.schedule.Schedule.force_epoch Etna.Committee.forceEpoch
+  rw [rust_epoch_refines]
+  cases he : Etna.Committee.epochOf (schedule s) tip.val with
+  | none => simp []
+  | some epoch =>
+    have ev := word_small (epoch_bound he tip.hBounds)
+    simp only [ Option.map_some, bind_ok,  rust_switch_refines]
+    cases hs : Etna.Committee.switchTarget (schedule s) tip.val with
+    | some target => simp [ core.option.Option.is_some]
+    | none =>
+      cases hn : Etna.Committee.add epoch 1 with
+      | none =>
+        cases hh : Etna.Committee.first (schedule s) epoch with
+        | none =>
+          by_cases positive : 0 < epoch <;>
+            simp [lift,   hn, hh, ev, positive, core.option.Option.is_some, checked_add,
+              rust_first_refines, UScalar.lt_equiv]
+        | some height =>
+          have hv := word_small (first_bound hh)
+          by_cases positive : 0 < epoch <;>
+            simp [lift,   hn, hh, ev, hv, positive, core.option.Option.is_some, checked_add,
+              rust_first_refines, UScalar.lt_equiv, saturating_sub_val]
+      | some nextEpoch =>
+        have nv := word_small (checked_bound hn)
+        cases hf : Etna.Committee.first (schedule s) nextEpoch with
+        | none =>
+          cases hh : Etna.Committee.first (schedule s) epoch with
+          | none =>
+            by_cases positive : 0 < epoch <;>
+              simp [lift,   hn, hh, hf, ev, nv, positive, core.option.Option.is_some, checked_add,
+                rust_first_refines, UScalar.lt_equiv]
+          | some height =>
+            have hv := word_small (first_bound hh)
+            by_cases positive : 0 < epoch <;>
+              simp [lift,   hn, hh, hf, ev, nv, hv, positive, core.option.Option.is_some, checked_add,
+                rust_first_refines, UScalar.lt_equiv, saturating_sub_val]
+        | some nextHeight =>
+          have fv := word_small (first_bound hf)
+          cases hh : Etna.Committee.first (schedule s) epoch with
+          | none =>
+            by_cases positive : 0 < epoch <;>
+              by_cases before : nextHeight ≤ tip.val+2 <;>
+              by_cases unlanded : checkpoint.val < nextHeight-2 <;>
+              simp [lift,   hn, hh, hf, ev, nv, fv, positive, before, unlanded, core.option.Option.is_some, checked_add,
+                rust_first_refines, UScalar.lt_equiv, UScalar.le_equiv, saturating_sub_val]
+          | some height =>
+            have hv := word_small (first_bound hh)
+            by_cases positive : 0 < epoch <;>
+              by_cases before : nextHeight ≤ tip.val+2 <;>
+              by_cases unlanded : checkpoint.val < nextHeight-2 <;>
+              simp [lift,   hn, hh, hf, ev, nv, fv, hv, positive, before, unlanded, core.option.Option.is_some, checked_add,
+                rust_first_refines, UScalar.lt_equiv, UScalar.le_equiv, saturating_sub_val]
 
 /-- Exact total output for the overflow-safe source formula, with the full u128 input domain. -/
 theorem rust_quorum_refines (signed total : U128) :

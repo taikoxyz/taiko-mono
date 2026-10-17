@@ -13,6 +13,10 @@ fn main() {
         let n = |i: usize| f[i + 2].parse::<u64>().unwrap();
         let actual = if f[1] == "quorum" {
             production::has_strict_quorum(f[2].parse().unwrap(), f[3].parse().unwrap()).to_string()
+        } else if f[1] == "committee-size" {
+            production::committee_size_bounded(n(0).try_into().expect("64-bit conformance host")).to_string()
+        } else if f[1] == "positive-cap" {
+            production::positive_unsettled_cap(n(0), n(1)).to_string()
         } else {
             let s = Schedule {
                 l1_0: n(0),
@@ -26,8 +30,18 @@ fn main() {
                     Err(ScheduleError::EpochTooShort) => "too-short",
                     Err(ScheduleError::EpochShorterThanCap) => "shorter-than-cap",
                     Err(ScheduleError::ZeroEpochLenL1) => "zero-l1",
+                    Err(ScheduleError::FirstEpochBeyondHeightRange) => "height-range",
+                    Err(ScheduleError::FirstEpochBeyondAnchorRange) => "anchor-range",
                 }
                 .into(),
+                "anchor" => match s.check_anchor_progress(n(4), n(5), n(6)) {
+                    Ok(()) => "ok".into(),
+                    Err(schedule::AnchorError::Regressed) => "regressed".into(),
+                    Err(schedule::AnchorError::BeforeActivation) => "before-activation".into(),
+                    Err(schedule::AnchorError::InvalidSchedule) => "invalid-schedule".into(),
+                    Err(schedule::AnchorError::EpochNotOpen { epoch, l1_first }) => format!("not-open:{epoch}:{l1_first}"),
+                },
+                "urgency" => s.force_epoch(n(4), n(5)).map_or("none".into(), |v| v.to_string()),
                 "epoch" => opt(s.epoch_of(n(4))),
                 "first" => opt(s.h_first(n(4))),
                 "last" => opt(s.h_last(n(4))),

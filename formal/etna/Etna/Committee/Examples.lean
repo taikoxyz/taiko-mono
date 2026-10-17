@@ -16,8 +16,25 @@ def minimal : Schedule := ⟨0,3,1,0⟩
 theorem valid_first_transition : validate ordinary 10 = .ok () ∧ first ordinary 1 = some 21 ∧
     parentHeight ordinary 1 = some 18 ∧ switchTarget ordinary 19 = some 1 ∧ l1First ordinary 1 = some 65 := ⟨rfl,rfl,rfl,rfl,rfl⟩
 
-theorem accepted_l1_overflow : validate l1Overflow 10 = .ok () ∧ l1First l1Overflow 1 = none := by repeat' constructor <;> rfl
-theorem accepted_l2_overflow : validate l2Overflow 10 = .ok () ∧ first l2Overflow 1 = none := by repeat' constructor <;> rfl
+theorem rejected_l1_overflow : validate l1Overflow 10 = .error .firstAnchor ∧ l1First l1Overflow 1 = none := by repeat' constructor <;> rfl
+theorem rejected_l2_overflow : validate l2Overflow 10 = .error .firstHeight ∧ first l2Overflow 1 = none := by repeat' constructor <;> rfl
+theorem strict_cap_boundaries : positiveCap 2 2 = false ∧ positiveCap 1 2 = false ∧ positiveCap 3 2 = true := ⟨rfl,rfl,rfl⟩
+theorem anchor_overflow_max_rejected : anchorProgress l1Overflow 64 max64 21 = .error (.epochNotOpen 1 max64) := by rfl
+theorem anchor_error_priority : anchorProgress l1Overflow 65 63 21 = .error .regressed ∧
+    anchorProgress l1Overflow 62 63 21 = .error .beforeActivation := ⟨rfl,rfl⟩
+theorem urgency_controls : forceEpoch ordinary 19 0 = some true ∧ forceEpoch ordinary 20 19 = some false ∧
+    forceEpoch l2Overflow 1 0 = some false := ⟨rfl,rfl,rfl⟩
+theorem uint48_priority : validate ⟨64,max48-1,1,63⟩ 10 = .ok () ∧
+    validate ⟨64,max48,1,63⟩ 10 = .error .firstHeight ∧
+    validate ⟨64,20,max48-64,63⟩ 10 = .ok () ∧
+    validate ⟨64,20,max48-63,63⟩ 10 = .error .firstAnchor := ⟨rfl,rfl,rfl,rfl⟩
+theorem removed_epoch_cap_boundaries : validate ⟨64,429497,1,63⟩ 10 = .ok () ∧
+    validate ⟨64,429497,max64,63⟩ 10 = .error .firstAnchor ∧
+    validate ⟨64,max48,0,63⟩ 10 = .error .zeroL1 ∧
+    validate ⟨64,max48,1,63⟩ 10 = .error .firstHeight := ⟨rfl,rfl,rfl,rfl⟩
+theorem current_committee_size_boundaries : committeeSizeBounded 0 = true ∧
+    committeeSizeBounded 4096 = true ∧ committeeSizeBounded 4097 = false := ⟨rfl,rfl,rfl⟩
+
 theorem intermediate_last_overflow : last minimal 6148914691236517204 = none ∧
     (6148914691236517204+1)*minimal.length = max64 := by repeat' constructor <;> rfl
 theorem next_is_not_representable_switch : nextSwitch minimal (max64-1) = some 6148914691236517205 ∧
@@ -29,14 +46,14 @@ def rustL2Overflow : etna_consensus_core.schedule.Schedule := ⟨64#u64,18446744
 def rustOrdinary : etna_consensus_core.schedule.Schedule := ⟨64#u64,20#u64,1#u64,63#u64⟩
 
 /-- Actual generated source counterexamples; no full synthetic-genesis integration is asserted. -/
-theorem rust_accepted_l1_overflow :
-    etna_consensus_core.schedule.Schedule.validate rustL1Overflow 10#u64 = .ok (.Ok ()) ∧
+theorem rust_rejected_l1_overflow :
+    etna_consensus_core.schedule.Schedule.validate rustL1Overflow 10#u64 = .ok (.Err .FirstEpochBeyondAnchorRange) ∧
     etna_consensus_core.schedule.Schedule.checked_l1_first rustL1Overflow 1#u64 = .ok none := by
   rw [rust_validate_refines, rust_l1First_refines]
   constructor <;> rfl
 
-theorem rust_accepted_l2_overflow :
-    etna_consensus_core.schedule.Schedule.validate rustL2Overflow 10#u64 = .ok (.Ok ()) ∧
+theorem rust_rejected_l2_overflow :
+    etna_consensus_core.schedule.Schedule.validate rustL2Overflow 10#u64 = .ok (.Err .FirstEpochBeyondHeightRange) ∧
     etna_consensus_core.schedule.Schedule.h_first rustL2Overflow 1#u64 = .ok none := by
   rw [rust_validate_refines, rust_first_refines]
   constructor <;> rfl
@@ -94,8 +111,8 @@ theorem empty_incoming_rejected : incoming emptyAuth schedule initial.anchor 5 (
 def stopped : Context := { ctx with cap := 0 }
 def firstStopped : AuthenticatedBlockFacts stopped := ⟨(block 1 (by decide)).facts,
   (block 1 (by decide)).anchorEvidence,(block 1 (by decide)).payloadEvidence⟩
-/-- Accepted zero-cap policy, authentic checkpoint zero, exact failed first step. -/
-theorem zero_cap_bootstrap : validate schedule 0 = .ok () ∧ unsettledCap 2 2 = some 0 ∧
+/-- Saturated arithmetic still admits zero; the separate production configuration guard rejects it. -/
+theorem zero_cap_bootstrap : positiveCap 2 2 = false ∧ unsettledCap 2 2 = some 0 ∧
     step stopped initial firstStopped = .error .backPressure := ⟨rfl,rfl,rfl⟩
 /-- Saturated ahead-checkpoint depth is zero; do not claim all possible zero-cap anchors fail. -/
 theorem zero_cap_ahead_checkpoint : (1 : Nat)-2 ≤ 0 := by rfl
