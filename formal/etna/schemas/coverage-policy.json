@@ -4897,6 +4897,8 @@
     "corpus/landing.jsonl",
     "tools.lock.json",
     "schemas/coverage.schema.json",
-    "schemas/coverage-policy.json"
+    "schemas/coverage-policy.json",
+    "adapters/solidity/L2FeeVaultLeanConformance.t.sol",
+    "corpus/claim.jsonl"
   ]
 }

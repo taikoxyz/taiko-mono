@@ -45,6 +45,8 @@ OWNED_STAGE_PATHS = {
     'test/layer1/etna/EtnaInboxLeanConformance.t.sol',
     'test/layer1/etna/landing-corpus.json',
     'test/layer1/etna/EtnaInboxCutsConformance.t.sol',
+    'test/layer2/core/L2FeeVaultLeanConformance.t.sol',
+    'test/layer2/core/claim-corpus.json',
 }
 # Installed packages and generated Foundry artifacts are separate, explicit trust/cache
 # boundaries. They are never deleted or confused with Git-authenticated protocol inputs.
@@ -64,10 +66,12 @@ def pinned_inputs(protocol, expected_mutant=None):
         raise ValueError('unexpected compilation environment override: '+', '.join(sorted(overrides)))
     mutation = None
     if expected_mutant is not None:
-        from landing_mutant_specs import MUTANTS, expected_bytes
-        if expected_mutant not in MUTANTS:
+        import claim_mutant_specs
+        import landing_mutant_specs
+        specs = [m for m in (landing_mutant_specs, claim_mutant_specs) if expected_mutant in m.MUTANTS]
+        if len(specs) != 1:
             raise ValueError('unknown expected mutant')
-        mutation = MUTANTS[expected_mutant]
+        mutation, expected_bytes = specs[0].MUTANTS[expected_mutant], specs[0].expected_bytes
     protocol = protocol.resolve()
     repo = Path(run(['git','rev-parse','--show-toplevel'], protocol).strip())
     relative = protocol.relative_to(repo).as_posix()
@@ -150,15 +154,25 @@ def pinned_inputs(protocol, expected_mutant=None):
 
 @contextlib.contextmanager
 def staged(protocol, corpus, expected_mutant=None):
+    """Stage the landing harnesses and corpus; see `staged_files`."""
+    files = {
+        'test/layer1/etna/EtnaInboxCutsConformance.t.sol':
+            (ROOT/'adapters/solidity/EtnaInboxCutsConformance.t.sol').read_bytes(),
+        'test/layer1/etna/EtnaInboxLeanConformance.t.sol':
+            (ROOT/'adapters/solidity/EtnaInboxLeanConformance.t.sol').read_bytes(),
+        'test/layer1/etna/landing-corpus.json': json.dumps(corpus).encode(),
+    }
+    with staged_files(protocol, files, expected_mutant) as root:
+        yield root/'test/layer1/etna/landing-corpus.json'
+
+
+@contextlib.contextmanager
+def staged_files(protocol, files, expected_mutant=None):
     """Restore exactly the previous owned adapter files, even on failure/interruption."""
     protocol = protocol.resolve()
-    targets = {
-        protocol/'test/layer1/etna/EtnaInboxCutsConformance.t.sol':
-            (ROOT/'adapters/solidity/EtnaInboxCutsConformance.t.sol').read_bytes(),
-        protocol/'test/layer1/etna/EtnaInboxLeanConformance.t.sol':
-            (ROOT/'adapters/solidity/EtnaInboxLeanConformance.t.sol').read_bytes(),
-        protocol/'test/layer1/etna/landing-corpus.json': json.dumps(corpus).encode(),
-    }
+    if not files or not set(files) <= OWNED_STAGE_PATHS:
+        raise ValueError('only owned adapter paths may be staged')
+    targets = {protocol/relative:data for relative, data in files.items()}
     pinned_inputs(protocol, expected_mutant)  # Authenticate before writing any owned staging file.
     for target in targets:
         # Reject special files before read_bytes: a FIFO would otherwise hang and a
@@ -177,7 +191,7 @@ def staged(protocol, corpus, expected_mutant=None):
         for p, data in targets.items():
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_bytes(data)
-        yield protocol/'test/layer1/etna/landing-corpus.json'
+        yield protocol
     finally:
         for p, data in saved.items():
             if data is None:

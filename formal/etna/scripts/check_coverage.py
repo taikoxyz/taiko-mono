@@ -23,7 +23,7 @@ UPSTREAM_CLIENT = '6f91f50c6185213ac512a4a46683767c75d8d831'
 FIXTURE_INPUTS = ['packages/protocol/contracts','packages/protocol/foundry.toml','pnpm-lock.yaml']
 # Frozen independently of the manifests/ledger. Deleting both copies is still rejected.
 POLICY = ROOT/'schemas/coverage-policy.json'
-POLICY_SHA256 = '2e18d74ce2873728c9ab9bc4cc4acb87183346ddf1f5b33477c80cf8b889f85d'
+POLICY_SHA256 = 'fc29a1367650ed7dea362f264a17f91741015dd956cfefb4534102c7c2b2f719'
 if hashlib.sha256(POLICY.read_bytes()).hexdigest() != POLICY_SHA256:
     raise ValueError('coverage policy changed without explicit checker review')
 _POLICY = json.loads(POLICY.read_text())
@@ -122,7 +122,8 @@ def check_ledger(ledger, entries, source_root=None):
     required_files |= {e['module'].replace('.','/')+'.lean' for e in entries}
     required_files |= {'Etna/Refinement/Rust/EtnaConsensusCore.lean','Etna/Refinement/Rust/provenance.json',
                       'tools.lock.json','corpus/landing.jsonl','adapters/solidity/EtnaInboxLeanConformance.t.sol',
-                      'adapters/solidity/EtnaInboxCutsConformance.t.sol'}
+                      'adapters/solidity/EtnaInboxCutsConformance.t.sol','corpus/claim.jsonl',
+                      'adapters/solidity/L2FeeVaultLeanConformance.t.sol'}
     if not required_files <= ledger['files'].keys():
         raise ValueError('mandatory source/generated file digest removed')
     for path, digest in ledger['files'].items():

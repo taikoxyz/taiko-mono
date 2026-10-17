@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 from prepare_pair import CLIENT,PROTOCOL,ROOT,REPO,PROJECT,run,sha,event_head,verify_event,current_heads,validate_heads
+from run_conformance import CLAIM_CASES
 
 REQUIRED=['lean-proofs','rust-refinement','conformance','coverage']
 RELEVANT=('formal/etna/','packages/protocol/','packages/taiko-client-rs/',
@@ -121,7 +122,8 @@ def main():
                 or pair['upstream_client'] != CLIENT or pair['paired_protocol'] != PROTOCOL
                 or not paired['fresh_execution'] or paired['seed'] != 20261015):
             raise ValueError('execution receipts do not bind the current pair')
-        if paired['landing']['failures'] or paired['landing']['cases'] != 65:
+        if (paired['landing']['failures'] or paired['landing']['cases'] != 65
+                or paired['claim']['failures'] or paired['claim']['cases'] != CLAIM_CASES):
             raise ValueError('paired execution receipt is incomplete')
         report.update(extraction=extraction,conformance=paired,pair_identity=pair['assembled_sha256'],
             protocol_ownership=pair['protocol_ownership'],

@@ -110,9 +110,17 @@ class CoverageTests(unittest.TestCase):
             with self.subTest(key=key),self.assertRaises(ValueError): self.check(ledger)
 
     def test_generated_or_transitive_model_digest_cannot_disappear(self):
-        for name in ['Etna/FI/Model.lean','Etna/Refinement/Rust/EtnaConsensusCore.lean']:
+        for name in ['Etna/FI/Model.lean','Etna/Refinement/Rust/EtnaConsensusCore.lean',
+                     'adapters/solidity/L2FeeVaultLeanConformance.t.sol','corpus/claim.jsonl']:
             ledger=copy.deepcopy(self.ledger);del ledger['files'][name]
             with self.subTest(name=name),self.assertRaisesRegex(ValueError,'mandatory source/generated'): self.check(ledger)
+
+    def test_claim_theorems_cite_the_actual_vault_harness(self):
+        rows={r['id']:r for r in self.ledger['obligations']}
+        for name in ['CLAIM-01','CLAIM-02','CLAIM-03','CLAIM-AUX-01','CLAIM-AUX-03','CLAIM-AUX-04']:
+            with self.subTest(name=name):
+                self.assertIn('adapters/solidity/L2FeeVaultLeanConformance.t.sol',rows[name]['tests'])
+                self.assertIn('scripts/claim_conformance.py',rows[name]['tests'])
 
     def test_all_three_unimplemented_boundaries_are_mandatory(self):
         for index in range(3):

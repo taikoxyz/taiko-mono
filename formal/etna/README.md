@@ -3,7 +3,8 @@
 This package pins Lean, Mathlib and extraction tools and checks 261 declarations:
 FI and committee specification proofs, 21 exact extracted Rust function refinements,
 Landing specification proofs for the V8 statement and its L2 reward record, a model of
-the L2 fee vault's reward claim, and conditional joint-trace/landing/reward composition.
+the L2 fee vault's reward claim (conformance-tested against the actual vault), and
+conditional joint-trace/landing/reward composition.
 `coverage.json` records exact theorem/type/source digests, named premises and tests;
 `schemas/coverage-policy.json` fixes the mandatory obligations independently of the
 manifests. Wrapper conformance and scalar-function refinement remain separate levels.
@@ -205,8 +206,8 @@ are never overwritten.
 the receipt's recipient and amount once and marks its batch id. A second claim for the
 same id reverts. Against any ledger reached by successful landings, a claim pays a
 recorded receipt: same id, recipient and amount. The account/storage proof against the
-EIP-4788 anchored root is the named `ProofSound` boundary; the vault itself has no
-Lean-compared harness here.
+EIP-4788 anchored root is the named `ProofSound` boundary. The model is compared with the
+actual vault below.
 
 ```sh
 lake build
@@ -240,6 +241,80 @@ rejects unexpected source/config inputs, compiler environment overrides and stag
 symlinks. Run `python3 -m unittest discover -s tests -p test_landing_conformance.py`
 for the 40 negative/completeness, reward-gate and temporary-Git regressions.
 
+### L2 fee-vault claim and actual contract conformance
+
+`Check/Claim.lean` runs `Etna.Landing.claim` on each row of `corpus/claim.jsonl`. The
+tester-owned harness `adapters/solidity/L2FeeVaultLeanConformance.t.sol` runs the same rows
+through the actual `L2FeeVault` at protocol `cf4095818`. Each row deploys a fresh vault and
+installs the canonical EIP-4788 runtime that the Etna genesis builder installs; the harness
+asserts its SHA-256. Roots are written through the system caller. Proofs are real
+single-leaf MPT proofs from `test/shared/EtnaRewardProof.sol`, built for the row's ledger:
+an account, a mapping slot and the receipt whose commitment it holds. The test base's
+`EtnaVaultProof` supplies the independent receipt encodings, and its `EtnaClaimReceiver`
+supplies the rejecting and re-entering recipients. The schema is in
+[`claim-schema.md`](adapters/solidity/claim-schema.md).
+
+The 41 rows cover:
+
+- valid claims, including a permissionless caller, a second batch after a claim, the full
+  balance and uint64 heights;
+- replay of the same receipt, and of another commitment for the same batch (`AlreadyClaimed`);
+- the wrong L1 chain, L2 chain or Inbox, an empty or reversed range and a zero recipient,
+  each with a valid proof of the forged receipt (`InvalidReceipt`);
+- an empty account proof against the storage root that LibTrieProof would accept;
+- a missing, expired or zero EIP-4788 root (`InvalidAnchorRoot`);
+- a different root, corrupt or empty proofs, a forged amount, recipient or generation, the
+  wrong mapping slot and another account (all LibTrieProof rejections);
+- zero amounts (no call, even to a rejecting recipient or from an empty vault), a rejecting
+  recipient, an underfunded vault and the maximum amount (`RewardTransferFailed`);
+- same-batch and cross-batch re-entry, and a locked guard;
+- six check-order rows, one for each adjacent pair of checks.
+
+The compared fields are status and error, batch id, claimed flag, committed payment, vault
+balance, the committed `RewardClaimed` event, the number of executed root queries and
+recipient calls (nested frames and failed calls included), the nested re-entry result and the
+prior claim. All 41 rows agree. The driver also checks Lean's receipt preimages against its own
+encoding, and the actual batch id against `cast keccak` of that preimage. Lean's Keccak is an
+exact-preimage oracle of those digests; a preimage it does not hold is an error.
+
+Proof acceptance is derived from the row, not observed. An intact storage proof must prove
+the claimed receipt's commitment at slot 283. Either an intact account proof must prove the
+vault's Inbox against the published root, or an empty account proof is given against the
+storage root. This is the `ProofSound` boundary; a multi-node trie or an unsound proof is
+outside it. Transfer success is a non-rejecting recipient and an amount within the balance.
+A re-entry runs the model on the locked vault. The harness also checks, from row inputs only,
+that a revert changes no flag or balance. A success needs every precondition, pays exactly
+once with one call (none for a zero amount), and sets the flag before its callback runs.
+
+`scripts/claim_mutations.py` runs six reviewed single-line `L2FeeVault` mutants:
+
+- drop the claimed flag;
+- drop the empty-account check;
+- drop the guard;
+- drop the L2 chain check;
+- accept a zero root;
+- call for a zero amount.
+
+Five fail a named harness assertion. The zero-root mutant keeps the harness green: it reverts
+with a proof error instead, and the Lean comparison catches it at `root-zero`'s error.
+`reports/claim-solidity-mutants.json` records them. The landing staging and pinned-input
+authentication cover these staged paths too, with the same exact-mutant exception.
+
+```sh
+# Read-only comparison with retained actual observations:
+python3 scripts/claim_conformance.py --observations reports/claim-solidity-observations.jsonl
+# Required Solidity tester only; reversible actual-protocol assembly:
+python3 scripts/claim_conformance.py --protocol /path/to/pinned/taiko-mono/packages/protocol \
+  --run-solidity --observations /tmp/claim-observations.jsonl
+python3 scripts/claim_mutations.py --protocol /path/to/pinned/taiko-mono/packages/protocol \
+  --output /fresh/claim-mutants
+```
+
+Run `python3 -m unittest discover -s tests -p test_claim_conformance.py` for the comparison,
+schema, staging and mutant-authentication regressions. One of them replays the committed
+observations through the real Lean checker. This is **spec-proved plus actual Solidity
+conformance-tested**; bytecode refinement of the vault remains pending.
+
 ## Joint traces, actual cuts and coverage gate
 
 `Etna/Integration/Composition.lean` couples actual FI and committee successful steps
@@ -265,8 +340,9 @@ and satisfy the bound.
 
 The durable comparison invokes actual Rust `lander::statement::preimage/hash` and
 FI `advance_cursor`, the executable Lean models, and the tester-owned actual Inbox
-proxy harness. It requires every one of 65 cases, all 36 reached 640-byte preimages,
-and four sampled cut plans with 12 intervals. Cut samples exercise real admissions,
+proxy and L2 fee-vault harnesses. It requires every one of 65 landing cases, all 36
+reached 640-byte preimages, four sampled cut plans with 12 intervals and all 41 claim
+cases. Cut samples exercise real admissions,
 including empty payment intervals, separately from the arbitrary-cut theorem.
 
 ```sh

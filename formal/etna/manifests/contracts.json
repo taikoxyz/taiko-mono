@@ -2,8 +2,8 @@
   "schema_version": 1,
   "status": {
     "spec": "LAND01-06,08-10 and CLAIM01-03 spec-proved",
-    "solidity_refinement": "pending; source-level model and actual EtnaInbox conformance only; L2FeeVault claim is spec-only",
-    "conformance": "65 actual proxy cases / 36 actual 640-byte preimages",
+    "solidity_refinement": "pending; source-level models with actual EtnaInbox and L2FeeVault conformance only",
+    "conformance": "65 actual proxy cases / 36 actual 640-byte preimages; 41 actual L2FeeVault claim cases",
     "rust_solidity_encoding": "65 production Rust rows; 36 actual Inbox 640-byte preimages matched with Lean",
     "composition": "LAND07/LAND11/CLAIM04 conditional joint-trace/cut/reward composition in integration.json; real guest soundness pending"
   },
@@ -1475,9 +1475,13 @@
         "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
         "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
       ],
-      "tests": ["Etna/Integration/Examples.lean"],
+      "tests": [
+        "Etna/Integration/Examples.lean",
+        "adapters/solidity/L2FeeVaultLeanConformance.t.sol",
+        "scripts/claim_conformance.py"
+      ],
       "boundaries": [
-        "Spec-proved model of L2FeeVault.claim; the vault has no Lean-compared harness here. Its Solidity, MPT and EIP-4788 semantics remain external and are exercised by the protocol L2FeeVault tests."
+        "Spec-proved model of L2FeeVault.claim, conformance-tested on 41 rows against the actual vault with real single-leaf MPT proofs and the canonical EIP-4788 runtime (scripts/claim_conformance.py). Proof soundness (ProofSound), general multi-node tries and the execution client's EIP-4788 writes remain external; bytecode refinement is pending."
       ]
     },
     {
@@ -1490,9 +1494,13 @@
       "production": [
         "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
       ],
-      "tests": ["Etna/Integration/Examples.lean"],
+      "tests": [
+        "Etna/Integration/Examples.lean",
+        "adapters/solidity/L2FeeVaultLeanConformance.t.sol",
+        "scripts/claim_conformance.py"
+      ],
       "boundaries": [
-        "Spec-proved model of L2FeeVault.claim; the vault has no Lean-compared harness here. Its Solidity, MPT and EIP-4788 semantics remain external and are exercised by the protocol L2FeeVault tests."
+        "Spec-proved model of L2FeeVault.claim, conformance-tested on 41 rows against the actual vault with real single-leaf MPT proofs and the canonical EIP-4788 runtime (scripts/claim_conformance.py). Proof soundness (ProofSound), general multi-node tries and the execution client's EIP-4788 writes remain external; bytecode refinement is pending."
       ]
     },
     {
@@ -1513,9 +1521,13 @@
         "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
         "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
       ],
-      "tests": ["Etna/Integration/Examples.lean"],
+      "tests": [
+        "Etna/Integration/Examples.lean",
+        "adapters/solidity/L2FeeVaultLeanConformance.t.sol",
+        "scripts/claim_conformance.py"
+      ],
       "boundaries": [
-        "Spec-proved model of L2FeeVault.claim; the vault has no Lean-compared harness here. Its Solidity, MPT and EIP-4788 semantics remain external and are exercised by the protocol L2FeeVault tests."
+        "Spec-proved model of L2FeeVault.claim, conformance-tested on 41 rows against the actual vault with real single-leaf MPT proofs and the canonical EIP-4788 runtime (scripts/claim_conformance.py). Proof soundness (ProofSound), general multi-node tries and the execution client's EIP-4788 writes remain external; bytecode refinement is pending."
       ]
     },
     {
@@ -1528,9 +1540,13 @@
       "production": [
         "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
       ],
-      "tests": ["Etna/Integration/Examples.lean"],
+      "tests": [
+        "Etna/Integration/Examples.lean",
+        "adapters/solidity/L2FeeVaultLeanConformance.t.sol",
+        "scripts/claim_conformance.py"
+      ],
       "boundaries": [
-        "Spec-proved model of L2FeeVault.claim; the vault has no Lean-compared harness here. Its Solidity, MPT and EIP-4788 semantics remain external and are exercised by the protocol L2FeeVault tests."
+        "Spec-proved model of L2FeeVault.claim, conformance-tested on 41 rows against the actual vault with real single-leaf MPT proofs and the canonical EIP-4788 runtime (scripts/claim_conformance.py). Proof soundness (ProofSound), general multi-node tries and the execution client's EIP-4788 writes remain external; bytecode refinement is pending."
       ]
     },
     {
@@ -1551,7 +1567,7 @@
         "scripts/landing_conformance.py"
       ],
       "boundaries": [
-        "Spec-proved model of L2FeeVault.claim; the vault has no Lean-compared harness here. Its Solidity, MPT and EIP-4788 semantics remain external and are exercised by the protocol L2FeeVault tests."
+        "Spec-proved model of L2FeeVault.claim, conformance-tested on 41 rows against the actual vault with real single-leaf MPT proofs and the canonical EIP-4788 runtime (scripts/claim_conformance.py). Proof soundness (ProofSound), general multi-node tries and the execution client's EIP-4788 writes remain external; bytecode refinement is pending."
       ]
     },
     {
@@ -1564,9 +1580,13 @@
       "production": [
         "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
       ],
-      "tests": ["Etna/Integration/Examples.lean"],
+      "tests": [
+        "Etna/Integration/Examples.lean",
+        "adapters/solidity/L2FeeVaultLeanConformance.t.sol",
+        "scripts/claim_conformance.py"
+      ],
       "boundaries": [
-        "Spec-proved model of L2FeeVault.claim; the vault has no Lean-compared harness here. Its Solidity, MPT and EIP-4788 semantics remain external and are exercised by the protocol L2FeeVault tests."
+        "Spec-proved model of L2FeeVault.claim, conformance-tested on 41 rows against the actual vault with real single-leaf MPT proofs and the canonical EIP-4788 runtime (scripts/claim_conformance.py). Proof soundness (ProofSound), general multi-node tries and the execution client's EIP-4788 writes remain external; bytecode refinement is pending."
       ]
     },
     {
@@ -1579,9 +1599,13 @@
       "production": [
         "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
       ],
-      "tests": ["Etna/Integration/Examples.lean"],
+      "tests": [
+        "Etna/Integration/Examples.lean",
+        "adapters/solidity/L2FeeVaultLeanConformance.t.sol",
+        "scripts/claim_conformance.py"
+      ],
       "boundaries": [
-        "Spec-proved model of L2FeeVault.claim; the vault has no Lean-compared harness here. Its Solidity, MPT and EIP-4788 semantics remain external and are exercised by the protocol L2FeeVault tests."
+        "Spec-proved model of L2FeeVault.claim, conformance-tested on 41 rows against the actual vault with real single-leaf MPT proofs and the canonical EIP-4788 runtime (scripts/claim_conformance.py). Proof soundness (ProofSound), general multi-node tries and the execution client's EIP-4788 writes remain external; bytecode refinement is pending."
       ]
     }
   ]

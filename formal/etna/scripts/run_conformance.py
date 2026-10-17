@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Fresh executable Lean/Rust/Foundry paired conformance, including seeded extra cases."""
+"""Fresh executable Lean/Rust/Foundry paired conformance (FI, committee, landing and the
+L2 fee-vault claim), including seeded extra cases."""
 import argparse
 import json
 import os
@@ -8,6 +9,9 @@ import random
 import subprocess
 import tempfile
 from prepare_pair import ROOT,REPO,sha
+
+# Actual L2FeeVault rows in corpus/claim.jsonl; a shrunken corpus fails the paired run.
+CLAIM_CASES=41
 
 
 def seeded_rows(domain, seed, count=256):
@@ -51,7 +55,12 @@ def main():
     result=json.loads((a.output/'landing.json').read_text())
     if (result['cases'],result['actual_preimages'],result['rust_statement_rows'],result['cuts']['plans'],result['cuts']['intervals'],result['failures']) != (65,36,65,4,12,[]):
         raise ValueError('incomplete paired conformance')
+    execute(['python3',str(ROOT/'scripts/claim_conformance.py'),'--run-solidity','--protocol',str(a.protocol),
+             '--observations',str(a.output/'claim-observations.jsonl'),'--report',str(a.output/'claim.json')],a.output/'claim.log')
+    claim=json.loads((a.output/'claim.json').read_text())
+    if (claim['cases'],claim['failures']) != (CLAIM_CASES,[]):
+        raise ValueError('incomplete paired claim conformance')
     (a.output/'conformance.json').write_text(json.dumps({'seed':a.seed,'fresh_execution':True,'landing':result,
-        'seeded_cases_per_domain':256,'logs':{p.name:sha(p) for p in a.output.glob('*.log')}},indent=2)+'\n')
+        'claim':claim,'seeded_cases_per_domain':256,'logs':{p.name:sha(p) for p in a.output.glob('*.log')}},indent=2)+'\n')
 
 if __name__=='__main__': main()

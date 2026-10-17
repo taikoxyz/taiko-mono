@@ -46,6 +46,7 @@ def main():
         execute(['python3',str(ROOT/'scripts/audit_proofs.py')],a.output/'restored-audit.log')
     elif a.domain=='landing':
         execute(['python3',str(ROOT/'scripts/landing_mutations.py'),'--protocol',str(a.protocol),'--output',str(a.output/'mutations')],a.output/'mutations.log')
+        execute(['python3',str(ROOT/'scripts/claim_mutations.py'),'--protocol',str(a.protocol),'--output',str(a.output/'claim-mutations')],a.output/'claim-mutations.log')
     else:
         for seed,epochs in [(20261016,12),(20261017,24),(20261018,48)]:
             execute(['python3',str(ROOT/'scripts/run_conformance.py'),'--scope','paired','--seed',str(seed),

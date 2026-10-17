@@ -5737,7 +5737,11 @@
           "sha256": "c8e121091afd0629f9da13b90d76afbbad0c8998b0da467f15ce89432c14fadc"
         }
       ],
-      "tests": ["Etna/Integration/Examples.lean"]
+      "tests": [
+        "Etna/Integration/Examples.lean",
+        "adapters/solidity/L2FeeVaultLeanConformance.t.sol",
+        "scripts/claim_conformance.py"
+      ]
     },
     {
       "id": "CLAIM-02",
@@ -5754,7 +5758,11 @@
           "sha256": "ef62ed78dc2a07daf2ce74aa66a2113e907208c31a09240e6bc97049aa971dc6"
         }
       ],
-      "tests": ["Etna/Integration/Examples.lean"]
+      "tests": [
+        "Etna/Integration/Examples.lean",
+        "adapters/solidity/L2FeeVaultLeanConformance.t.sol",
+        "scripts/claim_conformance.py"
+      ]
     },
     {
       "id": "CLAIM-03",
@@ -5789,7 +5797,11 @@
           "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
         }
       ],
-      "tests": ["Etna/Integration/Examples.lean"]
+      "tests": [
+        "Etna/Integration/Examples.lean",
+        "adapters/solidity/L2FeeVaultLeanConformance.t.sol",
+        "scripts/claim_conformance.py"
+      ]
     },
     {
       "id": "CLAIM-AUX-01",
@@ -5806,7 +5818,11 @@
           "sha256": "ef62ed78dc2a07daf2ce74aa66a2113e907208c31a09240e6bc97049aa971dc6"
         }
       ],
-      "tests": ["Etna/Integration/Examples.lean"]
+      "tests": [
+        "Etna/Integration/Examples.lean",
+        "adapters/solidity/L2FeeVaultLeanConformance.t.sol",
+        "scripts/claim_conformance.py"
+      ]
     },
     {
       "id": "CLAIM-AUX-02",
@@ -5851,7 +5867,11 @@
           "sha256": "ef62ed78dc2a07daf2ce74aa66a2113e907208c31a09240e6bc97049aa971dc6"
         }
       ],
-      "tests": ["Etna/Integration/Examples.lean"]
+      "tests": [
+        "Etna/Integration/Examples.lean",
+        "adapters/solidity/L2FeeVaultLeanConformance.t.sol",
+        "scripts/claim_conformance.py"
+      ]
     },
     {
       "id": "CLAIM-AUX-04",
@@ -5868,7 +5888,11 @@
           "sha256": "ef62ed78dc2a07daf2ce74aa66a2113e907208c31a09240e6bc97049aa971dc6"
         }
       ],
-      "tests": ["Etna/Integration/Examples.lean"]
+      "tests": [
+        "Etna/Integration/Examples.lean",
+        "adapters/solidity/L2FeeVaultLeanConformance.t.sol",
+        "scripts/claim_conformance.py"
+      ]
     },
     {
       "id": "CORE-01",
@@ -7025,7 +7049,7 @@
     {
       "id": "SOLIDITY-BYTECODE-REFINEMENT",
       "status": "pending",
-      "reason": "Source mapping, artifact provenance and finite actual-contract conformance are checked for EtnaInbox; executable EVM refinement of EtnaInbox and L2FeeVault remains unproved.",
+      "reason": "Source mapping, artifact provenance and finite actual-contract conformance are checked for EtnaInbox and L2FeeVault; executable EVM refinement of both remains unproved.",
       "source": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
       "symbol": "function land("
     }
@@ -7055,8 +7079,10 @@
     "Etna/Refinement/Rust/provenance.json": "a60c18a1e07477972ac8e3e9a2b8212a06930a33928803b29dbe0afd77affe57",
     "adapters/solidity/EtnaInboxCutsConformance.t.sol": "39868419cbe9acad0592c097fec778aa780257899221e7130dd71164bc8e7d09",
     "adapters/solidity/EtnaInboxLeanConformance.t.sol": "af893310bc53705ec1d4f8857c2edd563125948e483e3b7ff3f8fa0e72ded6c8",
+    "adapters/solidity/L2FeeVaultLeanConformance.t.sol": "c5ba0a3513d475fe9b4c39fbc9d30250d40608c200d7d52f3c92b90d55d32cbf",
+    "corpus/claim.jsonl": "6cef183f5efcd3390b93cc422cadff49b4d7d10332fc72f3a794fc874ea4e791",
     "corpus/landing.jsonl": "0146514344dbd4842c255f87ff2e672a09457dd8cd77fc6f7f73484b326bec50",
-    "schemas/coverage-policy.json": "2e18d74ce2873728c9ab9bc4cc4acb87183346ddf1f5b33477c80cf8b889f85d",
+    "schemas/coverage-policy.json": "fc29a1367650ed7dea362f264a17f91741015dd956cfefb4534102c7c2b2f719",
     "schemas/coverage.schema.json": "41ac3806d950b5823920257717b247f2625678e4e59198340f8662854a22461b",
     "tools.lock.json": "47f66b9b2d441aac44da4a08fe21ca6bb7321c4483aa2c1ca978a756bfc8cbdd"
   },

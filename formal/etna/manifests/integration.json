@@ -587,7 +587,7 @@
       ],
       "boundaries": [
         "Conditional composition: guest soundness must establish ValidBatch, including the base-fee word as the checked sum of the EL treasury credits of the batch blocks; that EL fee identity is an execution boundary.",
-        "Spec-proved model of L2FeeVault.claim; the vault has no Lean-compared harness here. Its Solidity, MPT and EIP-4788 semantics remain external and are exercised by the protocol L2FeeVault tests."
+        "Spec-proved model of L2FeeVault.claim, conformance-tested on 41 rows against the actual vault with real single-leaf MPT proofs and the canonical EIP-4788 runtime (scripts/claim_conformance.py). Proof soundness (ProofSound), general multi-node tries and the execution client's EIP-4788 writes remain external; bytecode refinement is pending."
       ]
     },
     {
@@ -602,7 +602,7 @@
       ],
       "tests": ["Etna/Integration/Examples.lean"],
       "boundaries": [
-        "Spec-proved model of L2FeeVault.claim; the vault has no Lean-compared harness here. Its Solidity, MPT and EIP-4788 semantics remain external and are exercised by the protocol L2FeeVault tests."
+        "Spec-proved model of L2FeeVault.claim, conformance-tested on 41 rows against the actual vault with real single-leaf MPT proofs and the canonical EIP-4788 runtime (scripts/claim_conformance.py). Proof soundness (ProofSound), general multi-node tries and the execution client's EIP-4788 writes remain external; bytecode refinement is pending."
       ]
     },
     {
@@ -650,7 +650,7 @@
       ],
       "tests": ["Etna/Integration/Examples.lean"],
       "boundaries": [
-        "Spec-proved model of L2FeeVault.claim; the vault has no Lean-compared harness here. Its Solidity, MPT and EIP-4788 semantics remain external and are exercised by the protocol L2FeeVault tests."
+        "Spec-proved model of L2FeeVault.claim, conformance-tested on 41 rows against the actual vault with real single-leaf MPT proofs and the canonical EIP-4788 runtime (scripts/claim_conformance.py). Proof soundness (ProofSound), general multi-node tries and the execution client's EIP-4788 writes remain external; bytecode refinement is pending."
       ]
     },
     {
@@ -665,7 +665,7 @@
       ],
       "tests": ["Etna/Integration/Examples.lean"],
       "boundaries": [
-        "Spec-proved model of L2FeeVault.claim; the vault has no Lean-compared harness here. Its Solidity, MPT and EIP-4788 semantics remain external and are exercised by the protocol L2FeeVault tests."
+        "Spec-proved model of L2FeeVault.claim, conformance-tested on 41 rows against the actual vault with real single-leaf MPT proofs and the canonical EIP-4788 runtime (scripts/claim_conformance.py). Proof soundness (ProofSound), general multi-node tries and the execution client's EIP-4788 writes remain external; bytecode refinement is pending."
       ]
     },
     {
@@ -680,7 +680,7 @@
       ],
       "tests": ["Etna/Integration/Examples.lean"],
       "boundaries": [
-        "Spec-proved model of L2FeeVault.claim; the vault has no Lean-compared harness here. Its Solidity, MPT and EIP-4788 semantics remain external and are exercised by the protocol L2FeeVault tests."
+        "Spec-proved model of L2FeeVault.claim, conformance-tested on 41 rows against the actual vault with real single-leaf MPT proofs and the canonical EIP-4788 runtime (scripts/claim_conformance.py). Proof soundness (ProofSound), general multi-node tries and the execution client's EIP-4788 writes remain external; bytecode refinement is pending."
       ]
     },
     {
@@ -697,7 +697,7 @@
       "tests": ["Etna/Integration/Examples.lean"],
       "boundaries": [
         "Conditional composition: guest soundness must establish ValidBatch, including the base-fee word as the checked sum of the EL treasury credits of the batch blocks; that EL fee identity is an execution boundary.",
-        "Spec-proved model of L2FeeVault.claim; the vault has no Lean-compared harness here. Its Solidity, MPT and EIP-4788 semantics remain external and are exercised by the protocol L2FeeVault tests."
+        "Spec-proved model of L2FeeVault.claim, conformance-tested on 41 rows against the actual vault with real single-leaf MPT proofs and the canonical EIP-4788 runtime (scripts/claim_conformance.py). Proof soundness (ProofSound), general multi-node tries and the execution client's EIP-4788 writes remain external; bytecode refinement is pending."
       ]
     }
   ]
