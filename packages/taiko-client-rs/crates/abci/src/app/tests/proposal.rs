@@ -684,7 +684,7 @@ async fn proposal_pays_certified_proposer_and_rejects_vault_beneficiary() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     let mut env = propose(&mut app).await;
-    assert_eq!(env.block.header.beneficiary, Address::repeat_byte(0x77));
+    assert_eq!(env.block.header.beneficiary, sample_entries(3)[0].reward_recipient);
     assert_eq!(env.block.header.extra_data[0], 0);
     assert_eq!(judge(&mut app, &env).await.0, response::ProcessProposal::Accept);
     env.block.header.beneficiary = fx.params.fee_vault;
@@ -708,7 +708,7 @@ async fn proposal_retained_across_rounds_keeps_original_proposer_payout() {
     req.proposer_address = original;
     let txs = prepare(&mut app, req).await;
     let env = EtnaEnvelope::decode(&txs[0]).unwrap();
-    assert_eq!(env.block.header.beneficiary, Address::repeat_byte(0x77));
+    assert_eq!(env.block.header.beneficiary, sample_entries(3)[0].reward_recipient);
     let mut req = process_req(next_height(&app), bft_time(&app), txs);
     req.proposer_address = original;
     let later_proposer = account::Id::from(
@@ -736,7 +736,11 @@ async fn proposal_retained_across_rounds_keeps_original_proposer_payout() {
 /// Even two members sharing a payout address cannot reuse one another's hot verdict.
 #[tokio::test]
 async fn proposal_changed_proposer_with_shared_recipient_forces_cold_finalize() {
-    let fx = Fixture::genesis(3);
+    let mut spec = GenesisSpec::new(3);
+    let mut entries = sample_entries(3);
+    entries[1].reward_recipient = entries[0].reward_recipient;
+    spec.entries = Some(entries);
+    let fx = Fixture::build(spec);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     let env = propose(&mut app).await;

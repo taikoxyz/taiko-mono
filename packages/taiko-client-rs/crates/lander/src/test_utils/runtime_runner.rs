@@ -48,6 +48,7 @@ struct Control {
 struct Fixture {
     directory: tempfile::TempDir,
     request: ProofRequest,
+    configured_recipient: Address,
     control: Arc<Mutex<Control>>,
 }
 impl Fixture {
@@ -81,6 +82,7 @@ impl Fixture {
         };
         Self {
             directory: tempfile::tempdir().unwrap(),
+            configured_recipient: request.batch.input.l2RewardRecipient,
             request,
             control: Arc::new(Mutex::new(control)),
         }
@@ -126,6 +128,8 @@ impl Fixture {
             proofs,
             Store::open(self.directory.path(), self.identity()).unwrap(),
             RunnerConfig {
+                l2_reward_recipient: self.configured_recipient,
+                fee_vault: crate::test_utils::consensus::parameters().fee_vault,
                 batch_policy: policy,
                 poll_interval: Duration::from_millis(10),
                 proof_timeout: Duration::from_millis(50),
@@ -1142,4 +1146,108 @@ async fn latest_snapshot_reorg_preserves_pending_journal_and_signed_nonce_then_r
     assert_eq!(control.signs, 1);
     assert_eq!(control.broadcasts.len(), 1);
     assert_eq!(control.nonce, NonceState { confirmed: 0, pending: transaction.nonce + 1 });
+}
+
+#[tokio::test]
+async fn prepared_restart_rejects_changed_recipient_before_signing() {
+    let mut fixture = Fixture::new();
+    let mut runner = fixture.runner();
+    runner.step().await.unwrap();
+    drop(runner);
+    fixture.configured_recipient = Address::repeat_byte(0x45);
+    let mut resumed = fixture.runner();
+    assert!(
+        matches!(resumed.step().await, Err(LanderError::Configuration(message)) if message.contains("recipient") && message.contains("unsigned"))
+    );
+    assert_eq!(fixture.control.lock().unwrap().signs, 0);
+    assert!(fixture.control.lock().unwrap().broadcasts.is_empty());
+    assert!(matches!(resumed.state(), JournalState::Prepared { .. }));
+}
+
+#[tokio::test]
+async fn prepared_restart_rejects_known_nonreceiver_before_signing() {
+    let mut fixture = Fixture::new();
+    fixture.request.batch.input.l2RewardRecipient =
+        crate::test_utils::consensus::parameters().fee_vault;
+    let payload =
+        crate::codec::encode(&fixture.request.batch.blocks, &crate::test_utils::runtime::limits())
+            .unwrap();
+    crate::test_utils::runtime::rebind(&mut fixture.request, &payload);
+    let mut runner = fixture.runner();
+    runner.step().await.unwrap();
+    drop(runner);
+    let mut resumed = fixture.runner();
+    assert!(matches!(resumed.step().await, Err(LanderError::Configuration(_))));
+    assert_eq!(fixture.control.lock().unwrap().signs, 0);
+    assert!(fixture.control.lock().unwrap().broadcasts.is_empty());
+}
+
+#[tokio::test]
+async fn signed_restart_keeps_original_recipient_and_bytes_for_future_config() {
+    for phase in 2..=4 {
+        let mut fixture = Fixture::new();
+        let mut runner = fixture.runner();
+        for _ in 0..phase.min(3) {
+            runner.step().await.unwrap();
+        }
+        let original = match runner.state() {
+            JournalState::Signed { transaction, .. } |
+            JournalState::Pending { transaction, .. } => transaction.clone(),
+            _ => panic!("signed phase"),
+        };
+        if phase == 4 {
+            fixture.mine(&original, true);
+            runner.step().await.unwrap();
+        }
+        drop(runner);
+        fixture.configured_recipient = Address::repeat_byte(0x45);
+        let mut resumed = fixture.runner();
+        resumed.step().await.unwrap();
+        let (job, transaction) = match resumed.state() {
+            JournalState::Pending { job, transaction } |
+            JournalState::Confirming { job, transaction, .. } => (job, transaction),
+            _ => panic!("retained signed phase"),
+        };
+        assert_eq!(
+            job.request.batch.input.l2RewardRecipient,
+            fixture.request.batch.input.l2RewardRecipient
+        );
+        assert_eq!(transaction, &original);
+        assert_eq!(fixture.control.lock().unwrap().signs, 1);
+    }
+}
+
+#[test]
+fn successful_landing_summary_uses_canonical_batch_identity_and_omits_reverts() {
+    let fixture = Fixture::new();
+    let receipt = LandingReceipt {
+        transaction_hash: B256::repeat_byte(0x45),
+        block_number: 30,
+        block_hash: B256::repeat_byte(0x30),
+        success: true,
+        gas_used: 100_000,
+    };
+    let summary = super::successful_landing(&fixture.request.batch, &receipt)
+        .expect("successful own landing reward");
+    let reward = &summary.reward;
+    let batch = &fixture.request.batch;
+    assert_eq!(summary.transaction_hash, receipt.transaction_hash);
+    assert_eq!(summary.batch_id, crate::rewards::batch_id(reward));
+    assert_eq!(reward.l1ChainId, batch.snapshot.l1_chain_id);
+    assert_eq!(reward.l2ChainId, batch.snapshot.l2_chain_id);
+    assert_eq!(reward.inbox, batch.snapshot.inbox);
+    assert_eq!(reward.generation, batch.snapshot.generation);
+    assert_eq!(reward.parentHeight, batch.snapshot.checkpoint_height);
+    assert_eq!(reward.parentHash, batch.snapshot.checkpoint_hash);
+    assert_eq!(reward.lastHeight, 2);
+    assert_eq!(reward.lastBlockHash, batch.input.lastBlockHash);
+    assert_eq!(reward.l2RewardRecipient, batch.input.l2RewardRecipient);
+    assert_eq!(reward.baseFeeAmount, batch.input.baseFeeAmount);
+    assert!(
+        super::successful_landing(
+            &fixture.request.batch,
+            &LandingReceipt { success: false, ..receipt }
+        )
+        .is_none()
+    );
 }

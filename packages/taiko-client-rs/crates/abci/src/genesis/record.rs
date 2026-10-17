@@ -278,7 +278,13 @@ mod tests {
             assert_eq!(value["pubkey"], member.pubkey.to_string());
             assert_eq!(value["eff_stake"], member.eff_stake.to_string(), "decimal, not hex");
             assert_eq!(value["power"], member.power);
-            assert_eq!(value["reward_recipient"], member.reward_recipient.to_string());
+            assert_eq!(
+                serde_json::from_value::<alloy_primitives::Address>(
+                    value["reward_recipient"].clone()
+                )
+                .unwrap(),
+                member.reward_recipient,
+            );
         }
         assert_eq!(json["proving_block"], report.proving_block);
 

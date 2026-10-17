@@ -367,7 +367,9 @@ impl Fixture {
             .into_iter()
             .enumerate()
             .map(|(index, seed)| RegistryEntry {
-                reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
+                reward_recipient: super::consensus::member_recipient(B256::from(
+                    SigningKey::from_bytes(&[seed; 32]).verifying_key().to_bytes(),
+                )),
                 pubkey: B256::from(SigningKey::from_bytes(&[seed; 32]).verifying_key().to_bytes()),
                 eff_stake: U256::from(if index == 0 { 3 } else { 1 }),
                 active_from_l1: if index == 0 { 1 } else { 10 },
@@ -450,7 +452,9 @@ impl Fixture {
             .iter()
             .enumerate()
             .map(|(index, key)| RegistryEntry {
-                reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
+                reward_recipient: super::consensus::member_recipient(B256::from(
+                    key.verifying_key().to_bytes(),
+                )),
                 pubkey: B256::from(key.verifying_key().to_bytes()),
                 eff_stake: U256::from(if index == 0 { 3 } else { 1 }),
                 active_from_l1: if index == 0 { 1 } else { 10 },
@@ -923,7 +927,7 @@ mod readiness {
                 limits,
                 mode: SidecarMode::Eip4844,
                 fee_recipient: FEE_RECIPIENT,
-                l2_reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
+                l2_reward_recipient: crate::test_utils::consensus::BATCH_RECIPIENT,
                 engine: std::sync::Arc::new(test_harness::unavailable_engine::UnavailableEngine),
                 engine_timeout: std::time::Duration::from_secs(1),
             },
@@ -1255,7 +1259,10 @@ fn authenticates_301_members_from_registry_proof_through_comet_certificate() {
     assert_eq!(entries.len(), COUNT);
     assert_eq!(keys.len(), COUNT);
     assert_eq!(entries.iter().map(|entry| entry.pubkey).collect::<BTreeSet<_>>().len(), COUNT);
-    assert!(entries.iter().all(|entry| entry.reward_recipient == Address::repeat_byte(0x77)));
+    assert_eq!(
+        entries.iter().map(|entry| entry.reward_recipient).collect::<BTreeSet<_>>().len(),
+        COUNT
+    );
     let schedule = Schedule { l1_0: 0, epoch_len: 10, epoch_len_l1: 10, genesis_cutoff: 1 };
     let snapshot = Snapshot { checkpoint_index: 0, l1_block: 1, entries: entries.clone() };
     let (record, expected_members) = derive(&snapshot, 1, 0, &schedule, &params).unwrap();

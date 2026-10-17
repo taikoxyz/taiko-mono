@@ -261,11 +261,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 "the fee recipient must be non-zero: the Inbox rejects ZeroFeeRecipient".into(),
             ));
         }
-        if l2_reward_recipient.is_zero() {
-            return Err(LanderError::Configuration(
-                "the L2 reward recipient must be non-zero".into(),
-            ));
-        }
+        crate::config::validate_batch_recipient(l2_reward_recipient, params.fee_vault)?;
         Ok(Self {
             comet,
             l1,
@@ -1136,7 +1132,7 @@ mod tests {
                     limits: limits(max_blocks),
                     mode: SidecarMode::Eip4844,
                     fee_recipient: FEE_RECIPIENT,
-                    l2_reward_recipient: Address::repeat_byte(0x77),
+                    l2_reward_recipient: crate::test_utils::consensus::BATCH_RECIPIENT,
                     engine: std::sync::Arc::new(
                         test_harness::unavailable_engine::UnavailableEngine,
                     ),
@@ -1392,7 +1388,7 @@ mod tests {
                 limits,
                 mode: SidecarMode::Eip4844,
                 fee_recipient: FEE_RECIPIENT,
-                l2_reward_recipient: Address::repeat_byte(0x77),
+                l2_reward_recipient: crate::test_utils::consensus::BATCH_RECIPIENT,
                 engine: std::sync::Arc::new(test_harness::unavailable_engine::UnavailableEngine),
                 engine_timeout: std::time::Duration::from_secs(1),
             },
@@ -1413,7 +1409,7 @@ mod tests {
                 limits: limits(3),
                 mode: SidecarMode::Eip4844,
                 fee_recipient: alloy_primitives::Address::ZERO,
-                l2_reward_recipient: Address::repeat_byte(0x77),
+                l2_reward_recipient: crate::test_utils::consensus::BATCH_RECIPIENT,
                 engine: std::sync::Arc::new(test_harness::unavailable_engine::UnavailableEngine),
                 engine_timeout: std::time::Duration::from_secs(1),
             },
@@ -1421,6 +1417,35 @@ mod tests {
         .err()
         .expect("a zero fee recipient is refused");
         assert!(matches!(&error, LanderError::Configuration(m) if m.contains("fee recipient")));
+    }
+
+    #[test]
+    fn new_rejects_known_nonreceiving_batch_recipients_only() {
+        let fixture = Arc::new(Fixture::new(0, 3));
+        let roots = alloy_primitives::address!("000F3df6D732807Ef1319fB7B8bB8522d0Beac02");
+        let history = alloy_primitives::address!("0000F90827F1C53a10cb7A02335B175320002935");
+        for recipient in
+            [Address::ZERO, fixture.params.fee_vault, roots, history, Address::repeat_byte(0x45)]
+        {
+            let result = BatchBuilder::new(
+                fixture.clone(),
+                fixture.clone(),
+                BatchBuilderConfig {
+                    params: fixture.params.clone(),
+                    limits: limits(3),
+                    mode: SidecarMode::Eip4844,
+                    fee_recipient: FEE_RECIPIENT,
+                    l2_reward_recipient: recipient,
+                    engine: Arc::new(test_harness::unavailable_engine::UnavailableEngine),
+                    engine_timeout: Duration::from_secs(1),
+                },
+            );
+            if recipient == Address::repeat_byte(0x45) {
+                assert!(result.is_ok());
+            } else {
+                assert!(matches!(result, Err(LanderError::Configuration(_))), "{recipient}");
+            }
+        }
     }
 
     #[tokio::test]

@@ -1676,9 +1676,7 @@ async fn payout_only_switch_installs_and_persists_epoch_metadata_without_native_
     assert_eq!(committee::validator_updates(&previous.members, &expected.members), vec![]);
     // The same key keeps its old payout through the last old-epoch block, then switches
     // after persistence/reopen despite no native validator changes.
-    for recipient in
-        [alloy_primitives::Address::repeat_byte(0x77), alloy_primitives::Address::repeat_byte(0x88)]
-    {
+    for recipient in [old[0].reward_recipient, new[0].reward_recipient] {
         let env = propose(&mut reopened).await;
         assert_eq!(env.block.header.beneficiary, recipient);
         let mut wrong = env.clone();
