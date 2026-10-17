@@ -4,13 +4,18 @@ use std::time::Duration;
 
 use alloy_provider::{Provider, RootProvider};
 use anyhow::{Result, ensure};
-use rpc::client::{DEFAULT_HTTP_TIMEOUT, connect_http_with_timeout};
+use rpc::client::connect_http_with_timeout;
 use url::Url;
 
 use crate::{
     docker::{DockerEnv, host_port},
     wait::wait_until,
 };
+
+/// Cold EIP-7594 verification in disposable Anvil 1.8.5 can exceed the production 12s
+/// provider default (measured 13.8s cold versus 0.1s warm). Bound this test-only provider
+/// independently so the first real blob transaction can finish initializing its verifier.
+const STANDALONE_HTTP_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// One anvil container on a privately owned Docker network.
 ///
@@ -63,7 +68,7 @@ impl StandaloneAnvil {
             )
             .await?;
         let http = Url::parse(&format!("http://127.0.0.1:{}", host_port(&name, 8545).await?))?;
-        let provider = connect_http_with_timeout(http.clone(), DEFAULT_HTTP_TIMEOUT);
+        let provider = connect_http_with_timeout(http.clone(), STANDALONE_HTTP_TIMEOUT);
         let chain_id = wait_until(
             "standalone anvil RPC",
             Duration::from_secs(90),
