@@ -45,17 +45,13 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
             with self.subTest(code=code[:20]), self.assertRaises(ValueError):
                 self.builder.build(self.base, dict(self.runtime, runtime=code), self.artifact)
 
-    def test_discards_stale_state_root(self):
-        self.base["stateRoot"] = "0x" + "aa" * 32
-        result = self.builder.build(self.base, self.runtime, self.artifact)
-        self.assertNotIn("stateRoot", result)
-
     def test_build_is_alloc_only_reproducible_and_zero_balance(self):
         self.base["stateRoot"] = "0x" + "aa" * 32
         before = json.loads(json.dumps(self.base))
         first = self.builder.build(self.base, self.runtime, self.artifact)
         second = self.builder.build(self.base, self.runtime, self.artifact)
         self.assertEqual(first, second)
+        self.assertNotIn("stateRoot", first)
         self.assertEqual(self.base, before, "builder must not mutate input")
         self.assertEqual({k: v for k, v in first.items() if k != "alloc"},
                          {k: v for k, v in before.items() if k not in ("alloc", "stateRoot")})

@@ -265,3 +265,15 @@ pre-funding or participation settlement. Follow `contracts/layer1/etna/README.md
 Inbox/genesis ordering, immutable registration recipients and strict format boundaries. The real
 guest is absent; dummy verifier tests establish contract/client behavior only. Preserve the
 mandatory `solidity-tester` delegation above for all Solidity test work.
+
+For focused local Etna L1 iteration, run:
+
+```bash
+FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/etna/*.t.sol' --no-match-path 'test/layer1/etna/invariants/*'
+```
+
+Foundry path filters are globs; the explicit exclusion keeps the invariant subdirectory out of this
+local run. Use the same filters with `--list` to inspect discovery. Run the relevant invariant
+campaign after focused checks; preserve the configured 256-run, depth-50 campaigns. The full
+protocol merge gate remains `pnpm test` (L1, L2 and shared, including all Etna invariants), plus
+`python3 -m unittest discover -s test/layer2/core -p 'test_etna_genesis.py'` after the L2 build.
