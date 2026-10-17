@@ -877,7 +877,10 @@ finality; every successful attempt requires a fresh full proof and all EL parent
 (both accept 1–3600 seconds). One discovery operation scans at most 16 pages of 1,024 L1 blocks,
 accepts at most 256 logs / 512 KiB event data and topics per page, and fetches at most 131,072 EL
 ancestry headers in total. Claim HTTP responses are capped at 2 MiB before JSON decoding, including
-chunked responses; redirects are disabled. Capacity failures are actionable errors, not infinite retries.
+chunked responses; redirects are disabled. Direct typed capacity or unsupported-capability errors can
+stop the claim. The existing `RpcL1Source` adapter erases some `eth_getProof` errors, including response-cap
+and unsupported-capability failures, into sanitized retryable unavailability. Those failures can keep
+retrying until the operator cancels and fixes the endpoint; the response allocation bound still holds.
 Required history includes fixed-Inbox logs, hash-pinned account/storage proofs, raw L1 headers and EL
 headers by hash. Missing history cannot be bypassed by trusting events or claimed state.
 
