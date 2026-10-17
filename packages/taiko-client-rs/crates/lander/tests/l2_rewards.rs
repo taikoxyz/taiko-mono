@@ -8,7 +8,7 @@ use alloy_primitives::{Address, B256, Bytes, U256};
 use alloy_provider::Provider;
 use anyhow::{Context, Result, ensure};
 use lander::{
-    ProofRequest, SidecarMode,
+    LanderError, ProofRequest, SidecarMode,
     batch::{BatchBuilder, BatchBuilderConfig, BatchSource},
     claim::{
         runner::{ClaimOutcome, step},
@@ -27,12 +27,80 @@ use support::{
     fixtures::limits,
 };
 use test_harness::{
-    ContractConsensus, ValidatorKey, dev_signer, mine_l1_blocks, send_transfer,
+    ContractConsensus, Fatal, ValidatorKey, dev_signer, mine_l1_blocks, send_transfer,
     set_interval_mining, wait_until,
 };
 sol!(Vault, "../../crates/lander/tests/fixtures/contracts/L2FeeVault.json");
 const DEADLINE: Duration = Duration::from_secs(60);
 const RECIPIENT: Address = Address::repeat_byte(0x88);
+
+// Claim polls may wait for availability, but must never hide a permanent claim failure.
+fn claim_poll<T>(result: lander::Result<T>) -> Result<Option<T>> {
+    match result {
+        Ok(value) => Ok(Some(value)),
+        Err(LanderError::Temporary(_) | LanderError::Unavailable(_)) => Ok(None),
+        Err(error) => Err(Fatal(error.into()).into()),
+    }
+}
+
+async fn assert_claim_polling_preserves_permanent_errors() -> Result<()> {
+    for permanent in [
+        LanderError::Safety("authenticated contradiction".into()),
+        LanderError::Configuration("wrong chain".into()),
+        LanderError::Journal("journal unavailable".into()),
+        LanderError::Reverted("permanent execution failure".into()),
+        LanderError::Stale("obsolete claim work".into()),
+        LanderError::Capacity("proof exceeds limit".into()),
+        LanderError::Encoding("noncanonical proof".into()),
+    ] {
+        let expected_message = permanent.to_string();
+        let expected_variant = std::mem::discriminant(&permanent);
+        let mut script = [Err(permanent), Ok(())].into_iter();
+        let mut calls = 0;
+        let error = wait_until(
+            "scripted permanent claim failure",
+            Duration::from_secs(1),
+            Duration::from_millis(1),
+            || {
+                calls += 1;
+                let result = script.next().expect("permanent failure must stop polling");
+                async move { claim_poll(result) }
+            },
+        )
+        .await
+        .expect_err("a later success must not mask a permanent claim failure");
+        assert_eq!(calls, 1, "{expected_message}");
+        let original = error
+            .downcast_ref::<Fatal>()
+            .context("permanent claim error must cross the actual wait boundary as Fatal")?
+            .0
+            .downcast_ref::<LanderError>()
+            .context("Fatal must preserve the typed original claim error")?;
+        assert_eq!(std::mem::discriminant(original), expected_variant);
+        assert_eq!(original.to_string(), expected_message);
+    }
+    let mut script = [
+        Err(LanderError::Temporary("endpoint recovering".into())),
+        Err(LanderError::Unavailable("anchor lag".into())),
+        Ok(42),
+    ]
+    .into_iter();
+    let mut calls = 0;
+    let value = wait_until(
+        "scripted claim availability recovery",
+        Duration::from_secs(1),
+        Duration::from_millis(1),
+        || {
+            calls += 1;
+            let result = script.next().expect("availability recovery takes three polls");
+            async move { claim_poll(result) }
+        },
+    )
+    .await?;
+    assert_eq!(value, 42);
+    assert_eq!(calls, 3);
+    Ok(())
+}
 
 async fn land(f: &ContractFixture, c: &ContractConsensus) -> Result<(ProofRequest, B256)> {
     let source = Arc::new(RpcLandingSource::new(
@@ -104,6 +172,7 @@ async fn fee_sum(f: &ContractFixture, from: u64, through: u64) -> Result<U256> {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
 async fn real_l2_rewards_claim_and_fee_continuation() -> Result<()> {
+    assert_claim_polling_preserves_permanent_errors().await?;
     let f = ContractFixture::deploy().await?;
     let p = &f.anvil.provider;
     let l2 = &f.l2.provider;
@@ -166,15 +235,7 @@ async fn real_l2_rewards_claim_and_fee_continuation() -> Result<()> {
         "executed anchor contains real receipt proof",
         DEADLINE,
         Duration::from_millis(200),
-        || async {
-            match source.prepare(landing_tx, batch_id).await {
-                Ok(proof) => Ok(Some(proof)),
-                Err(lander::LanderError::Temporary(_) | lander::LanderError::Unavailable(_)) => {
-                    Ok(None)
-                }
-                Err(error) => Err(error.into()),
-            }
-        },
+        || async { claim_poll(source.prepare(landing_tx, batch_id).await) },
     )
     .await?;
     assert!(!proof.account_proof.is_empty() && !proof.storage_proof.is_empty());
@@ -250,16 +311,16 @@ async fn real_l2_rewards_claim_and_fee_continuation() -> Result<()> {
         DEADLINE,
         Duration::from_millis(200),
         || async {
-            Ok((step(&store, &source, &transport, DEADLINE).await? ==
-                ClaimOutcome::State(ClaimState::Finalized))
-            .then_some(()))
+            Ok(claim_poll(step(&store, &source, &transport, DEADLINE).await)?
+                .filter(|outcome| *outcome == ClaimOutcome::State(ClaimState::Finalized))
+                .map(|_| ()))
         },
     )
     .await?;
     let refreshed =
         wait_until("new anchor receipt proof", DEADLINE, Duration::from_millis(200), || async {
-            let next = source.prepare(landing_tx, batch_id).await?;
-            Ok((next.anchor_timestamp > proof.anchor_timestamp).then_some(next))
+            Ok(claim_poll(source.prepare(landing_tx, batch_id).await)?
+                .filter(|next| next.anchor_timestamp > proof.anchor_timestamp))
         })
         .await?;
     assert!(
