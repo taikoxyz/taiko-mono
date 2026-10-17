@@ -843,11 +843,15 @@ or filter by the original entitlement generation; valid wrong-branch endpoints a
 Validated Finalized journals are terminal: runner resume preserves their original inclusion and
 signed bytes without fresh network reconciliation. Version-1 signed/finalized journals remain valid
 without migration. Optional discovery metadata is untrusted and bound to the transaction, inclusion,
-original landing and canonical finalized context. Completed pages survive retries and cached candidates
-are freshly proven. One unavailable candidate is retained and retried while bounded discovery continues
-to later candidates; a missing old-branch header cannot block a later complete proof. Completed
-unsuccessful scans restart, revisiting every delayed, omitted or temporarily unavailable candidate
-without an unbounded hint queue.
+original landing and canonical finalized context. Each operation discovers and schedules at most one
+expensive candidate, saving the next event position **before** any candidate RPC can time out. This
+optional within-page position binds the fixed page range and digest of the complete sorted log response;
+changed or legacy context restarts it. The candidate receives the remaining configured finality budget,
+with no smaller ancestry timeout. An operation timeout rotates to later candidates instead of replaying
+the same slow prefix. One retained hint is freshly retried only after a complete discovery pass, with
+the scan reset before that retry. Subsequent passes revisit every delayed, omitted or unavailable
+candidate without an unbounded hint queue. No saved position or partially traversed ancestry authorizes
+finality; every successful attempt requires a fresh full proof and all EL parent links.
 
 `--rpc.timeout` defaults to 30 seconds for individual calls and ordinary reconciliation.
 `--finality.timeout` separately defaults to 300 seconds for complete historical discovery and ancestry
