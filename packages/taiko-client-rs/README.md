@@ -935,9 +935,12 @@ just clippy     # doc lints on library code, then every target with -D warnings
   genuine L1 account/storage proofs and later-checkpoint finality, replay rejection, claim-spend
   independence in the next batch, and a forced inclusion landing that
   pays its fee, permissionless races,
-  verifier rejection, receipt reorgs, durable nonce recovery, stock CometBFT collection,
-  and actual-CLI SIGTERM/SIGKILL restarts, minimum/timeout batching, and pressure/epoch flushes. Each scenario boots its own devnet through the docker CLI (anvil as L1,
-  alethia-reth, CometBFT), so they run one at a time; the suite takes about ten minutes. Extra
+  verifier rejection, a pending L1 reference crossing the BLOCKHASH/EIP-2935 boundary, stock
+  CometBFT collection, and actual-CLI SIGKILL/SIGTERM restarts, minimum/timeout batching, and
+  pressure/epoch flushes; runner and store unit tests cover receipt reorgs and journal restarts.
+  Each scenario boots its own devnet through the docker CLI (anvil as L1, alethia-reth,
+  CometBFT), with phases that need the same history sharing one, so they run one at a time; the
+  suite takes about ten minutes. Extra
   arguments go to `cargo nextest run`, e.g. `just test restart` runs one scenario. Pull requests
   skip the two slowest scenarios, the L1 finality stall and the anchor finality gate, whose
   halt-and-resume rules unit tests cover; `just test-full` runs every scenario, as CI does on
@@ -954,7 +957,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
   cleanup fallback for SIGKILL.
 
 - `just test-smoke` runs exactly four representative Docker scenarios: single-validator header
-  rules, epoch switch, real L2 rewards claim/fee continuation, and lander CLI SIGTERM resume.
+  rules, epoch switch, real L2 rewards claim/fee continuation, and lander CLI SIGKILL/SIGTERM restarts.
   This fixed recipe accepts no arguments. Use `just test` for targeted subsets or output options.
 - `just verify` is the complete merge gate: formatting, strict clippy, fast tests, committed
   artifact reproduction, and all Docker scenarios (`just test-full`). Smoke is an iteration aid and never replaces
