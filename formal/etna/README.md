@@ -352,6 +352,8 @@ CARGO_TARGET_DIR=/path/to/reusable/target python3 scripts/landing_conformance.py
   --observations /tmp/etna-observations.jsonl --report reports/integration-conformance.json
 # Read-only actual source/ABI/layout/bytecode provenance plus full kernel audit.
 python3 scripts/check_coverage.py --protocol /path/to/paired/packages/protocol
+# In a clean checkout, first compile every fixture target in its layer1/layer2 profile:
+python3 scripts/check_coverage.py --protocol /path/to/paired/packages/protocol --build-artifacts
 ```
 
 The coverage gate checks current source bytes and actual compiled artifacts against

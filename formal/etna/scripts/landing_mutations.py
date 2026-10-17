@@ -14,7 +14,8 @@ def baseline(protocol, output):
     exact_ids(rows, 'actual baseline', exact_ids(load(ROOT/'corpus/landing.jsonl'), 'corpus'))
     if len(rows) != 65 or sum('actualPreimage' in r for r in rows) != 36:
         raise ValueError('baseline did not execute all 65 cases / 36 preimages')
-    from check_coverage import check_contract_artifacts
+    from check_coverage import build_paired_artifacts, check_contract_artifacts
+    build_paired_artifacts(protocol)
     check_contract_artifacts(protocol, json.loads((ROOT/'coverage.json').read_text())['contract_artifacts'])
 
 

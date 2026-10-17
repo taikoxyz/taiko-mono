@@ -18,7 +18,8 @@ def baseline(protocol, output):
     exact_ids(rows, 'actual baseline', exact_ids(corpus, 'corpus'))
     if compare(corpus, rows)['failures']:
         raise ValueError('baseline differs from Lean')
-    from check_coverage import check_contract_artifacts
+    from check_coverage import build_paired_artifacts, check_contract_artifacts
+    build_paired_artifacts(protocol)
     check_contract_artifacts(protocol, json.loads((ROOT/'coverage.json').read_text())['contract_artifacts'])
 
 

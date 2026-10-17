@@ -198,10 +198,7 @@ jobs:
       - name: Verify
         run: |
           bash packages/taiko-client-rs/script/check_lander_artifacts.sh
-          cd "$ETNA_PROTOCOL/packages/protocol"
-          FOUNDRY_PROFILE=layer1 forge build --force --extra-output storageLayout
-          cd "$GITHUB_WORKSPACE"
-          python3 formal/etna/scripts/check_coverage.py --protocol "$ETNA_PROTOCOL/packages/protocol" --report "$RUNNER_TEMP/etna-reports/coverage.json"
+          python3 formal/etna/scripts/check_coverage.py --protocol "$ETNA_PROTOCOL/packages/protocol" --build-artifacts --report "$RUNNER_TEMP/etna-reports/coverage.json"
       - name: Reject changed pair heads or input bytes
         run: python3 formal/etna/scripts/prepare_pair.py --protocol "$ETNA_PROTOCOL" --report "$RUNNER_TEMP/etna-reports/pair.json" --finish
       - name: Runner resource diagnostics

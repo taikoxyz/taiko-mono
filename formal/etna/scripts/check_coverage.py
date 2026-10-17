@@ -7,6 +7,7 @@ correctness. Default execution also invokes the Lean full-type/transitive-axiom 
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -133,6 +134,31 @@ def check_ledger(ledger, entries, source_root=None):
             'pending':sorted(PENDING)}
 
 
+# Extra compiler outputs check_contract_artifacts reads, per Foundry profile of a fixture.
+# `--extra-output` accepts several values, so the `=` form keeps it from swallowing the paths.
+ARTIFACT_PROFILES = {'layer1': ['--extra-output=storageLayout'], 'layer2': []}
+
+
+def build_paired_artifacts(protocol):
+    """Compile every fixture's compilation target in its own Foundry profile.
+
+    A clean paired checkout has neither out/layer1 nor out/layer2; the artifact check
+    below is read-only, so entrypoints build both profiles first. The targets come from
+    the fixture manifest, so a fixture added in another profile fails closed here.
+    """
+    manifest = json.loads((REPO/'packages/taiko-client-rs/crates/lander/tests/fixtures/contracts/manifest.json').read_text())
+    targets = {}
+    for provenance in manifest['artifacts'].values():
+        profile = Path(provenance['sourceArtifact']).parts[3]
+        targets.setdefault(profile, set()).update(provenance['settings']['compilationTarget'])
+    if set(targets) - set(ARTIFACT_PROFILES):
+        raise ValueError('fixture artifact in an unsupported Foundry profile: '+str(sorted(set(targets)-set(ARTIFACT_PROFILES))))
+    for profile, sources in sorted(targets.items()):
+        subprocess.run(['forge','build','--force',*ARTIFACT_PROFILES[profile],*sorted(sources)],
+                       cwd=protocol, env=os.environ | {'FOUNDRY_PROFILE':profile}, check=True)
+    return {profile:sorted(sources) for profile, sources in sorted(targets.items())}
+
+
 def check_contract_artifacts(protocol, expected):
     """Read actual sources, compiled ABI/layout/runtime and generator provenance; no build."""
     pinned_inputs(protocol)
@@ -214,8 +240,12 @@ def main():
     parser.add_argument('--ledger',type=Path,default=ROOT/'coverage.json')
     parser.add_argument('--static-only',action='store_true',help='explicitly omit kernel audit; not a complete release gate')
     parser.add_argument('--report',type=Path,default=ROOT/'reports/coverage-verification.json')
+    parser.add_argument('--build-artifacts',action='store_true',
+                        help='first compile the fixture targets in both Foundry profiles (clean checkouts)')
     args=parser.parse_args()
     try:
+        if args.build_artifacts:
+            build_paired_artifacts(args.protocol.resolve())
         ledger=json.loads(args.ledger.read_text())
         result=check_ledger(ledger,load_entries(),args.protocol.resolve().parents[1])
         check_contract_artifacts(args.protocol.resolve(),ledger['contract_artifacts'])
@@ -228,7 +258,7 @@ def main():
             'solidity_bridge':'specification plus finite conformance; bytecode refinement remains pending'}
         args.report.write_text(json.dumps(result,indent=2)+'\n')
         print(json.dumps(result,indent=2))
-    except (ValueError,KeyError,OSError,RuntimeError,json.JSONDecodeError) as error:
+    except (ValueError,KeyError,OSError,RuntimeError,json.JSONDecodeError,subprocess.CalledProcessError) as error:
         print('coverage check failed: '+str(error),file=sys.stderr)
         return 1
     return 0

@@ -137,4 +137,42 @@ class CoverageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'three source identities'): self.check(ledger)
 
 
+class PairedArtifactBuildTests(unittest.TestCase):
+    """A clean paired checkout has no out/ tree; every entrypoint builds both profiles."""
+    def test_builds_each_fixture_target_in_its_own_profile(self):
+        with patch.object(coverage.subprocess,'run') as run:
+            targets=coverage.build_paired_artifacts(Path('/paired/packages/protocol'))
+        self.assertEqual(set(targets),{'layer1','layer2'})
+        self.assertIn('contracts/layer1/etna/impl/EtnaInbox.sol',targets['layer1'])
+        self.assertEqual(targets['layer2'],['contracts/layer2/core/L2FeeVault.sol'])
+        calls=[(c.args[0],c.kwargs['env']['FOUNDRY_PROFILE'],c.kwargs['cwd']) for c in run.call_args_list]
+        self.assertEqual([profile for _,profile,_ in calls],['layer1','layer2'])
+        for command,profile,cwd in calls:
+            self.assertEqual(cwd,Path('/paired/packages/protocol'))
+            self.assertEqual(command[:3],['forge','build','--force'])
+            self.assertEqual('--extra-output=storageLayout' in command,profile=='layer1')
+            self.assertNotIn('--extra-output',command)
+            self.assertTrue(set(targets[profile])<=set(command))
+
+    def test_fixture_in_unsupported_profile_fails_closed(self):
+        manifest=json.loads((ROOT.parents[1]/'packages/taiko-client-rs/crates/lander/tests/fixtures/contracts/manifest.json').read_text())
+        manifest['artifacts']['L2FeeVault']['sourceArtifact']='packages/protocol/out/shared/L2FeeVault.sol/L2FeeVault.json'
+        original=Path.read_text
+        def read(path,*args,**kwargs):
+            return json.dumps(manifest) if path.name=='manifest.json' else original(path,*args,**kwargs)
+        with patch.object(Path,'read_text',read),patch.object(coverage.subprocess,'run') as run:
+            with self.assertRaisesRegex(ValueError,'unsupported Foundry profile'):
+                coverage.build_paired_artifacts(Path('/paired'))
+            run.assert_not_called()
+
+    def test_every_artifact_check_entrypoint_builds_first(self):
+        workflow=(ROOT.parents[1]/'.github/workflows/etna--formal.yml').read_text()
+        self.assertIn('scripts/check_coverage.py --protocol "$ETNA_PROTOCOL/packages/protocol" --build-artifacts',workflow)
+        self.assertNotIn('FOUNDRY_PROFILE=layer1 forge build',workflow)
+        for script in ['landing_mutations.py','claim_mutations.py']:
+            source=(ROOT/'scripts'/script).read_text()
+            self.assertLess(source.index('build_paired_artifacts(protocol)'),
+                            source.index('check_contract_artifacts(protocol'),script)
+
+
 if __name__=='__main__': unittest.main()
