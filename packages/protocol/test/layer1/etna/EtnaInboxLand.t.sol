@@ -1104,7 +1104,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
     /// @dev Eleven independent static words; the contract stores this commitment opaquely.
     function _parentAnchorConfigWords(address _registry) internal pure returns (bytes memory) {
         return abi.encode(
-            bytes32("ETNA_PARENT_ANCHOR_V2"),
+            bytes32("ETNA_PARENT_ANCHOR_V3"),
             uint256(167_001),
             _registry,
             uint256(1e9),
@@ -1112,7 +1112,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
             uint64(128),
             uint64(32),
             uint64(2),
-            uint8(1),
+            uint8(2),
             uint64(12),
             uint64(2)
         );

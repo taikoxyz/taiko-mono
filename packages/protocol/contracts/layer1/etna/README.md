@@ -14,6 +14,13 @@ base-fee claims for the batch's committed reward recipient.
 This is a new-genesis format. It has no existing-chain migration, L1 reward pool, participation
 accounting, DAO subsidy, balance sweep or automatic bridge payout. The Inbox retains L1 forced
 inclusion fees. The vault has no owner, proxy, initializer, upgrade function or privileged transfer.
+Its payout authority nevertheless depends on the immutable L1 Inbox address: the Inbox's owner
+can upgrade its UUPS implementation, and the selected verifier must soundly verify receipts.
+An Inbox upgrade or an unsound verifier can authorize arbitrary rewards and exhaust the treasury.
+An accept-all devnet verifier lets anyone create arbitrary reward receipts subject to the Inbox's
+structural range/blob/reference checks and obtaining an anchored L1 storage proof. Verifier
+behavior and any administration of that particular implementation are separate trust dependencies;
+selecting a verifier address does not by itself grant that verifier upgrade powers.
 
 ## Genesis initialization
 
@@ -30,14 +37,22 @@ genesis hash/state root. Resolve this dependency by predicting the Inbox before 
 3. Export the vault with explicit `L1_CHAIN_ID` and predicted `L1_INBOX`. It constructs
    `new L2FeeVault(l1ChainId, inbox)` in Foundry's local VM and exports `address(vault).code`.
    Compiler `deployedBytecode` with unresolved immutable placeholders is not usable runtime.
-4. Build alloc-only genesis from the canonical devnet JSON and exported runtime. Preserve every
-   non-alloc field. The treasury address follows the pinned EL's `get_treasury_address(chainId)`:
+4. Build alloc-only genesis from the canonical devnet JSON, exported runtime and trusted matching
+   compiler artifact. Preserve every non-alloc field except the derived top-level `stateRoot`,
+   which must be discarded after changing alloc; leave the canonical input fixture unchanged.
+   The treasury address follows the pinned EL's `get_treasury_address(chainId)`:
    use the decimal chain-ID text as an address prefix, zero-fill, and append `10001`. For chain
-   167001 this is `0x1670010000000000000000000000000000010001`. Set `BasefeeSharingPctg = 0`.
+   167001 this is `0x1670010000000000000000000000000000010001`. Set `BasefeeSharingPctg = 0`:
+   consensus and the future guest must enforce `extraData[0] == 0` for **every execution block**,
+   not only genesis, so the pinned EL credits all execution base fees to the treasury.
 5. With an execution client supporting Etna on this custom genesis, obtain the actual block-0
    hash and state root and verify treasury runtime/immutable reads and both system predeploys.
-   Supply those commitments, committee 0/config hashes and schedule inputs to `deployInbox()`.
-   It initializes the Inbox atomically and saves block 0 in SignalService. Compare its returned
+   Supply those commitments, committee 0/config hashes and schedule inputs to `deployInbox()`,
+   together with the **same** `L1_CHAIN_ID` and `L1_INBOX` used for export. Before broadcasting,
+   it checks the chain ID against `block.chainid` and that the current nonce still predicts that
+   Inbox. Never substitute a fresh prediction to bypass this guard; rebuild genesis if it fails.
+   This checks the declared export identity, not arbitrary runtime/genesis files. It initializes
+   the Inbox atomically and saves block 0 in SignalService. Compare its returned
    proxy address with the immutable Inbox prediction; any mismatch must abort node startup and
    require rebuilding the genesis/commitments. Never continue using a different Inbox address.
 6. Wait for the L1 initialization block to finalize, then build ABCI genesis and start the nodes.
@@ -47,6 +62,8 @@ Run the exporter from `packages/protocol`, without `--broadcast` or a private ke
 
 ```bash
 mkdir -p deployments
+# Fresh trusted artifact, with AST enabled by profile.layer2; export with the same profile.
+FOUNDRY_PROFILE=layer2 forge build --force
 L1_CHAIN_ID=1 \
 L1_INBOX=0x1111111111111111111111111111111111111111 \
 ETNA_RUNTIME_OUTPUT=deployments/etna-vault-runtime.json \
@@ -55,12 +72,26 @@ FOUNDRY_PROFILE=layer2 forge script script/layer2/ExportEtnaGenesis.s.sol:Export
 python3 script/layer2/build_etna_genesis.py \
   --base /path/to/canonical-devnet.json \
   --runtime deployments/etna-vault-runtime.json \
+  --vault-artifact out/layer2/L2FeeVault.sol/L2FeeVault.json \
   --output deployments/etna-genesis.json
 ```
 
 The example Inbox is a placeholder for the predicted proxy. The exporter rejects a zero chain or
 Inbox through the vault constructor. JSON contains explicit L1 identity and fully initialized
-runtime. The builder normalizes alloc addresses to lowercase `0x` form, rejects duplicate normalized
+runtime. `--vault-artifact` must be the trusted local compiler output from the same source and
+profile used for export, with AST and `deployedBytecode.immutableReferences`. The builder binds
+the intended source/contract, declaration IDs, names and types to every compiler-provided 32-byte
+immutable location; it rejects missing, overlapping, out-of-range or unresolved references and
+compares the **entire** reconstructed runtime, including nonimmutable bytes. Compiler zero-filled
+runtime, identity-only metadata edits and partial immutable patches are rejected before output.
+Do not obtain the trusted artifact from the untrusted runtime JSON or treat its self-attested
+metadata as authority. Reconstruction relies on the current reviewed constructor only checking
+nonzero inputs and directly assigning `l1ChainId` and `l1Inbox`; if those semantics change, update
+this validation or execute the constructor in a local EVM. It does not validate arbitrary
+constructor semantics. The client's stripped runtime artifacts are a separate interface: its
+Rust harness executes real creation bytecode and does not use this Python artifact input.
+
+The builder normalizes alloc addresses to lowercase `0x` form, rejects duplicate normalized
 addresses, and writes sorted JSON with a terminating newline. All other alloc entries are retained;
 the treasury, EIP-4788 roots and EIP-2935 history allocations are replaced with zero balance,
 nonce 1 and exact code. Existing storage at those three addresses is deliberately replaced.
@@ -73,8 +104,9 @@ It adds no Taiko hardfork JSON fields and changes no canonical genesis configura
 
 The companion [EL change](https://github.com/taikoxyz/alethia-reth/pull/251), revision
 `5d4d21ac472c024703082ba46c6eacfa3b8ec1bf`, supports `--devnet-etna-timestamp 0` for an
-alloc-only custom genesis whose non-alloc fields equal canonical devnet. It rebuilds the chain
-spec before computing block 0, including the Cancun/Prague header fields omitted by a stale
+alloc-only custom genesis whose non-alloc configuration fields equal canonical devnet. Generated
+JSON omits the stale derived `stateRoot`; the original canonical fixture is unchanged. It rebuilds
+the chain spec before computing block 0, including the Cancun/Prague header fields omitted by a stale
 pre-override header. The source of the unchanged system runtime bytes above remains pinned
 independently. Verify the actual EL block-0 hash/root and execution; a Foundry VM check alone
 cannot establish those properties. See the [companion client](https://github.com/taikoxyz/taiko-mono/pull/22280)
@@ -82,8 +114,8 @@ for real fee-routing and receipt-claim acceptance.
 
 The deployment script documents its exact environment variables. Both entry points use a
 `PRIVATE_KEY` and optional `CONTRACT_OWNER`. `run()` needs `TAIKO_TOKEN` and `REGISTRY_*`;
-`deployInbox()` needs the registry/verifier/remote service addresses, L2 identity, batch and forced
-fee parameters, genesis commitments, epoch schedule and committee hashes, forced inclusion delay
+`deployInbox()` needs the original exported L1 identity, registry/verifier/remote service addresses,
+L2 identity, batch and forced fee parameters, genesis commitments, epoch schedule and committee hashes, forced inclusion delay
 and maximum anchor age. It has no reward-pool or allocation-share inputs.
 
 `init(owner, params)` requires nonzero block-0 hash/state root and committee/config hashes,
@@ -340,10 +372,13 @@ uint64 l1ReferenceBlockNumber, uint48 forcedInclusionHead, address feeRecipient,
 address l2RewardRecipient, uint256 baseFeeAmount)`. Both recipients must be nonzero, including
 for zero fees. `feeRecipient` receives only consumed L1 forced inclusion fees. The lander selects
 `l2RewardRecipient` independently of block proposers; the V8 statement and receipt bind that
-exact address. A future guest must bind this nonzero recipient and prove
-`baseFeeAmount = sum(header.baseFeePerGas * header.gasUsed)` over `(parentHeight, lastHeight]`,
-authenticating actual execution charges and destinations by reexecution. Separately, each block's
-beneficiary must equal the registered recipient of the original proposer in its certified CometBFT
+exact address. Consensus and the future guest must enforce `extraData[0] == 0` on every execution
+block. The guest must bind this nonzero recipient and prove `baseFeeAmount` equals the actual EL
+base-fee credits to the immutable treasury over `(parentHeight, lastHeight]`, authenticating all
+charges and destinations by reexecution. Under that per-block zero-sharing invariant and the
+pinned EL rules, this equals `sum(header.baseFeePerGas * header.gasUsed)`. Fee credit is accounting
+for execution charges, not the treasury's net balance delta: exclude claims, ordinary or forced
+Ether and all other balance effects. Separately, each block's beneficiary must equal the registered recipient of the original proposer in its certified CometBFT
 header, under that height's committee, including valid blocks retained across rounds. Real EL
 regressions exercise the header fee identity; no real guest is implemented.
 
@@ -390,12 +425,16 @@ retaining the same batch ID. Existing V7 and older landing formats are incompati
 ### Permissionless L2 claims
 
 Anyone may pay gas for `claim(receipt, anchorTimestamp, accountProof, storageProof)` on the
-immutable L2 vault. The receipt fixes the L2 recipient and exact `sum(baseFeePerGas * gasUsed)`
-for the landed batch. `anchorTimestamp` is the timestamp of an executed L2 block carrying the
+immutable L2 vault. The receipt fixes the L2 recipient and actual EL base-fee credit for the
+landed batch. This equals `sum(baseFeePerGas * gasUsed)` only with `extraData[0] == 0` on every
+execution block and the pinned EL rules, excluding claims, ordinary/forced Ether and other balance
+effects from fee accounting. `anchorTimestamp` is the timestamp of an executed L2 block carrying the
 finalized L1 state root in EIP-4788, not the L1 block timestamp. The account proof authenticates
 the fixed Inbox and the storage proof authenticates its slot-283 receipt commitment. A global
-batch-id claimed bit prevents replay across later anchors and recovery generations. A zero
-amount receipt is valid and is still consumed once.
+batch-id claimed bit permanently prevents a second payout of that same ID through later anchors,
+including after recovery. A new generation creates a different batch ID and does not prevent
+re-awarding the same logical fees; recovery procedures must avoid recreating already-paid fees.
+A zero amount receipt is valid and is still consumed once.
 
 The lander's `feeRecipient` receives only consumed forced-inclusion queue fees on L1;
 `l2RewardRecipient` receives base fees on L2. They may be different addresses. Validator priority
@@ -410,6 +449,12 @@ restart; inclusion is provisional until a finalized L1 checkpoint covers the act
 and its descending EL ancestry is authenticated. No automatic bridge withdrawal is performed.
 
 ### Guest and consensus obligations
+
+Consensus already pins zero sharing; the future guest must also check `extraData[0] == 0` for
+every execution block and reexecute fee charges/destinations. The committed amount is actual EL
+base-fee credit to the immutable treasury, equal to the header sum only under this invariant and
+the pinned EL rules; other balance effects are excluded. Neither Inbox nor vault can inspect all
+L2 headers onchain, so economic correctness depends on the selected verifier and its guest.
 
 Every account proof must derive its trie path from the corresponding bound Inbox or registry
 address. Authenticate storage under that proved account root and an authenticated L1 header.
@@ -554,6 +599,15 @@ with no function selector. The account proof authenticates the fixed Inbox accou
 storage proof authenticates the exact slot-283 receipt commitment under that account's storage
 root. Empty account proof, zero root and absent/mismatched storage are rejected.
 
+Receipt membership authenticates what the Inbox recorded, not the economic correctness of that
+record. The verifier/guest must enforce per-block `extraData[0] == 0` and actual EL base-fee credit,
+excluding claims, ordinary/forced Ether and other balance effects; only then do the pinned EL
+rules imply the header fee sum. The Inbox's UUPS owner can change receipt authorization by
+upgrading it. An unsound selected verifier, including an accept-all devnet verifier, can authorize
+arbitrary recipients/amounts under the Inbox's structural checks. Anyone able to obtain the
+resulting anchored proof can claim those receipts and exhaust funds, despite the vault having no
+owner or upgrade function.
+
 After authentication the vault consumes `claimed[batchId]` and pays exactly the committed amount
 to the committed recipient. A transfer failure reverts consumption so a later attempt can retry.
 The reentrancy lock protects all claim paths, including callbacks, and repeated claims fail. A
@@ -561,8 +615,11 @@ zero amount consumes the receipt and emits `RewardClaimed` without calling the r
 or forced Ether gives no new entitlement. Insufficient balance reverts and leaves the claim
 retryable; funds are never shared by vote, swept wholesale or paid to the proof submitter.
 
-The EIP-4788 roots ring retains 8191 timestamps. Claims may use any retained later authenticated
-state root that still proves the immutable Inbox receipt; the receipt does not expire on L1.
+The EIP-4788 roots ring has 8191 timestamp-indexed modulo slots. An entry at timestamp `t` is
+overwritten when a later system write uses a timestamp congruent to `t` modulo 8191. It is neither
+a last-8191-block queue nor a fixed 8191-second expiry; without a colliding write an older entry
+can remain readable. Claims may use any retained later authenticated state root that still proves
+the immutable Inbox receipt; the receipt does not expire on L1.
 L1 proofs and sufficient treasury funding are operational dependencies; no subsidy or bridge
 keeper is introduced. Recovery must avoid recreating already-paid logical execution fees under
 a new generation. New generation IDs prevent receipt collisions but do not alone prevent
@@ -580,13 +637,15 @@ Regenerate twice and compare SHA-256. Export runtime and build genesis twice wit
 explicit inputs and compare bytes; changing either L1 immutable must change runtime, and changing
 L2 chain ID must change the treasury allocation. `EtnaGenesis.t.sol` installs the exported runtime
 and canonical system bytecode in Foundry, uses the exact privileged system caller for writes,
-reads roots/history and claims a real trie-proved receipt. The Python tests verify alloc-only
-preservation, normalization, rejected ambiguity, runtime hash and deterministic JSON. These are
-EVM/unit checks; they do not replace real EL custom-genesis activation/block execution acceptance.
+reads roots/history and claims a real trie-proved receipt. It validates genuine exporter runtimes
+for two distinct L1 identities through the Python builder. The Python tests verify preservation
+of non-alloc fields except discarded `stateRoot`, normalization, rejected ambiguity, full runtime
+binding, malformed compiler metadata and deterministic JSON. These are EVM/unit checks; they do not replace real EL custom-genesis activation/block execution acceptance.
 
 Run from `packages/protocol`:
 
 ```bash
+FOUNDRY_PROFILE=layer2 forge build
 python3 test/layer2/core/test_etna_genesis.py
 pnpm test:l1
 pnpm test:l2

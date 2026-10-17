@@ -30,6 +30,8 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         _run_DefaultsTheRegistryOwnerToTheDeployer();
         _deployInbox_InitializesThePredictedFreshProxyAndLandsFromBlockZero();
         _deployInbox_DefaultsEveryOwnerToTheDeployer();
+        _deployInbox_RevertWhen_ExportedIdentityIsStale();
+        _deployInbox_RevertWhen_ExportedIdentityIsWrong();
         _deployInbox_RevertWhen_GenesisCutoffIsNotPast();
         _deployInbox_RevertWhen_GenesisBlockHashIsZero();
         _deployInbox_RevertWhen_GenesisStateRootIsZero();
@@ -62,6 +64,11 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         vm.setEnv("ETNA_PROOF_VERIFIER", vm.toString(address(landVerifier)));
         vm.setEnv("REMOTE_SIGNAL_SERVICE", vm.toString(REMOTE_SIGNAL_SERVICE));
         vm.setEnv("L2_CHAIN_ID", vm.toString(L2_CHAIN_ID));
+        vm.setEnv("L1_CHAIN_ID", vm.toString(block.chainid));
+        vm.setEnv(
+            "L1_INBOX",
+            vm.toString(vm.computeCreateAddress(_scriptDeployer, vm.getNonce(_scriptDeployer) + 3))
+        );
         vm.setEnv("MAX_BATCH_BLOCKS", vm.toString(MAX_BATCH_BLOCKS));
         vm.setEnv("FORCED_INCLUSION_FEE_GWEI", vm.toString(FORCED_INCLUSION_FEE_GWEI));
         vm.setEnv(
@@ -185,6 +192,37 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(
             SignalService(deployedSignalService).owner(), _scriptDeployer, "default signal owner"
         );
+    }
+
+    function _deployInbox_RevertWhen_ExportedIdentityIsStale() private withEnvironment {
+        // The exported identity stays fixed while another transaction consumes the sender nonce.
+        vm.setNonce(_scriptDeployer, vm.getNonce(_scriptDeployer) + 1);
+        _expectIdentityRejected(bytes4(keccak256("InboxAddressMismatch()")));
+    }
+
+    function _deployInbox_RevertWhen_ExportedIdentityIsWrong() private {
+        _setEnvironment();
+        vm.setEnv("L1_CHAIN_ID", vm.toString(block.chainid + 1));
+        _expectIdentityRejected(bytes4(keccak256("L1ChainIdMismatch()")));
+        vm.setEnv("L1_CHAIN_ID", "0");
+        _expectIdentityRejected(bytes4(keccak256("L1ChainIdMismatch()")));
+        _setEnvironment();
+        vm.setEnv("L1_INBOX", vm.toString(Alice));
+        _expectIdentityRejected(bytes4(keccak256("InboxAddressMismatch()")));
+        vm.setEnv("L1_INBOX", vm.toString(address(0)));
+        _expectIdentityRejected(bytes4(keccak256("InboxAddressMismatch()")));
+    }
+
+    function _expectIdentityRejected(bytes4 _error) private {
+        uint64 nonce = vm.getNonce(_scriptDeployer);
+        vm.expectRevert(_error);
+        _deployment.deployInbox();
+        (VmSafe.CallerMode mode,,) = vm.readCallers();
+        assertEq(uint256(mode), uint256(VmSafe.CallerMode.None), "broadcast never started");
+        assertEq(vm.getNonce(_scriptDeployer), nonce, "rejection consumes no nonce");
+        for (uint64 i; i < 4; ++i) {
+            assertEq(vm.computeCreateAddress(_scriptDeployer, nonce + i).code.length, 0);
+        }
     }
 
     function _deployInbox_RevertWhen_GenesisCutoffIsNotPast() private withEnvironment {

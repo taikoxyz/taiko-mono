@@ -23,6 +23,7 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// REGISTRY_CHURN_WINDOW (L1 blocks; 0 disables the churn limit), REGISTRY_CHURN_BPS and
 /// REGISTRY_MIN_CHURN_PER_WINDOW (base units).
 /// `deployInbox()`: STAKING_REGISTRY, ETNA_PROOF_VERIFIER, REMOTE_SIGNAL_SERVICE (on L2),
+/// L1_CHAIN_ID and L1_INBOX (the exact identity already used for vault export),
 /// L2_CHAIN_ID, MAX_BATCH_BLOCKS, FORCED_INCLUSION_FEE_GWEI (non-zero),
 /// FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD (non-zero), GENESIS_BLOCK_HASH, GENESIS_STATE_ROOT,
 /// EPOCH_LEN_L2, EPOCH_LEN_L1, GENESIS_CUTOFF, COMMITTEE_RECORD_HASH, COMMITTEE_CONFIG_HASH,
@@ -93,6 +94,11 @@ contract DeployEtnaDevnet is Script {
         address deployer = vm.addr(privateKey);
         address predictedInbox = vm.computeCreateAddress(deployer, vm.getNonce(deployer) + 3);
 
+        // Compare against the identity used for genesis export, not a fresh replacement identity.
+        uint256 expectedChainId = vm.envUint("L1_CHAIN_ID");
+        require(expectedChainId != 0 && expectedChainId == block.chainid, L1ChainIdMismatch());
+        require(vm.envAddress("L1_INBOX") == predictedInbox, InboxAddressMismatch());
+
         vm.startBroadcast(privateKey);
         address signalImpl = address(new SignalService(predictedInbox, remoteSignalService, owner));
         signalService_ =
@@ -162,5 +168,6 @@ contract DeployEtnaDevnet is Script {
 
     error InboxAddressMismatch();
     error InvalidPrivateKey();
+    error L1ChainIdMismatch();
     error ProofVerifierHasNoCode();
 }
