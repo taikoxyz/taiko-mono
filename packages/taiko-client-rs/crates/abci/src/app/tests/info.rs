@@ -76,7 +76,7 @@ async fn only_the_first_info_after_a_start_reconciles_the_el() {
         timestamp: first.timestamp,
         ..state.parent
     };
-    Store::new(dir.path().to_path_buf()).save(&state).unwrap();
+    Store::volatile(dir.path().to_path_buf()).save(&state).unwrap();
     let mut chain = fx.el_chain.clone();
     chain.push(first.clone());
     let engine = MockEngine::with_chain(chain);
@@ -159,7 +159,7 @@ async fn info_after_the_first_block_reports_the_committed_head() {
         timestamp: first.timestamp,
         ..state.parent
     };
-    Store::new(dir.path().to_path_buf()).save(&state).unwrap();
+    Store::volatile(dir.path().to_path_buf()).save(&state).unwrap();
 
     let mut chain = fx.el_chain.clone();
     chain.push(first.clone());
@@ -248,7 +248,7 @@ fn app_new_rejects_invalid_parameters() {
         fx.l1(),
         fx.engine(),
         params,
-        Store::new(dir.path().into()),
+        Store::volatile(dir.path().into()),
         AppOptions::default(),
     )
     .expect_err("invalid parameters");
@@ -266,7 +266,7 @@ async fn app_new_rejects_a_stored_state_of_another_chain() {
         fx.l1(),
         fx.engine(),
         params,
-        Store::new(dir.path().into()),
+        Store::volatile(dir.path().into()),
         AppOptions::default(),
     )
     .expect_err("stored chain id is for another chain");
@@ -284,7 +284,7 @@ async fn app_new_rejects_a_changed_inbox_after_initialization() {
         fx.l1(),
         fx.engine(),
         params,
-        Store::new(dir.path().into()),
+        Store::volatile(dir.path().into()),
         AppOptions::default(),
     )
     .expect_err("Inbox differs from authenticated bootstrap");
@@ -303,7 +303,7 @@ async fn app_new_rejects_a_stored_schedule_violating_the_cap() {
         fx.l1(),
         fx.engine(),
         params,
-        Store::new(dir.path().into()),
+        Store::volatile(dir.path().into()),
         AppOptions::default(),
     )
     .expect_err("stored schedule violates the cap");
@@ -317,7 +317,7 @@ async fn app_new_rejects_a_stored_schedule_violating_the_cap() {
 async fn app_new_rejects_an_inconsistent_stored_state() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
-    let store = Store::new(dir.path().into());
+    let store = Store::volatile(dir.path().into());
     let good = fx.expected_state();
 
     let mut bad_generation = good.clone();
@@ -424,7 +424,7 @@ fn saved_state_rejects_old_and_unknown_protocol_versions() {
     let fx = Fixture::genesis(1);
     for version in [0, 1, 2, crate::app::APP_VERSION + 1] {
         let dir = tempfile::tempdir().unwrap();
-        let store = Store::new(dir.path().into());
+        let store = Store::volatile(dir.path().into());
         let mut state = fx.expected_state();
         state.app_version = version;
         store.save(&state).unwrap();
@@ -440,7 +440,7 @@ fn saved_state_rejects_old_and_unknown_protocol_versions() {
 fn saved_state_rejects_payout_metadata_outside_its_set_commitment() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
-    let store = Store::new(dir.path().into());
+    let store = Store::volatile(dir.path().into());
     let mut state = fx.expected_state();
     state.committees.get_mut(&0).unwrap().members[0].reward_recipient =
         alloy_primitives::Address::repeat_byte(0x88);
@@ -476,7 +476,7 @@ fn saved_state_checks_every_committees_power_and_totals() {
             "stake-overflow",
         ] {
             let dir = tempfile::tempdir().unwrap();
-            let store = Store::new(dir.path().into());
+            let store = Store::volatile(dir.path().into());
             let mut state = original.clone();
             let mut params = fx.params.clone();
             let committee = state.committees.get_mut(&epoch).unwrap();

@@ -347,7 +347,7 @@ impl Run {
             .map_err(|e| fail(format!("height {height}: cold Commit: {e}")))?;
         for (app, dir) in [(&self.hot, &self.hot_dir), (&self.cold, &self.cold_dir)] {
             prop_assert_eq!(app.state(), Some(&next), "height {}: committed state", height);
-            let stored = Store::new(dir.path().to_path_buf()).load().map_err(fail)?;
+            let stored = Store::volatile(dir.path().to_path_buf()).load().map_err(fail)?;
             prop_assert_eq!(stored.as_ref(), Some(&next), "height {}: persisted", height);
             // The decided block, never a singleton probe's result, is the EL head.
             let head = app.engine().state().chain.get(&height).map(|header| header.hash_slow());

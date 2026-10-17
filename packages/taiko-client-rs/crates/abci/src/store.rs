@@ -118,12 +118,21 @@ pub enum StoreError {
 pub struct Store {
     /// The data directory holding [`STATE_FILE`]; created on the first save.
     dir: PathBuf,
+    /// Whether saves fsync the file and its directory. Only [`Store::volatile`] clears it.
+    durable: bool,
 }
 
 impl Store {
     /// A store over `dir`. Touches nothing on disk.
     pub fn new(dir: PathBuf) -> Self {
-        Self { dir }
+        Self { dir, durable: true }
+    }
+
+    /// A store that saves the same files without fsyncing them, for unit tests that commit many
+    /// blocks without testing durability. This module's own tests keep [`Store::new`].
+    #[cfg(test)]
+    pub(crate) fn volatile(dir: PathBuf) -> Self {
+        Self { dir, durable: false }
     }
 
     /// Loads the persisted state, or `Ok(None)` when none was ever saved (no state file, or no
@@ -190,12 +199,14 @@ impl Store {
         let tmp = self.dir.join(temporary_name);
         let mut file = File::create(&tmp).map_err(|source| io_err("create", &tmp, source))?;
         file.write_all(bytes).map_err(|source| io_err("write", &tmp, source))?;
-        file.sync_all().map_err(|source| io_err("fsync", &tmp, source))?;
+        if self.durable {
+            file.sync_all().map_err(|source| io_err("fsync", &tmp, source))?;
+        }
         drop(file);
 
         let path = self.dir.join(name);
         fs::rename(&tmp, &path).map_err(|source| io_err("rename", &tmp, source))?;
-        sync_dir(&self.dir)
+        if self.durable { sync_dir(&self.dir) } else { Ok(()) }
     }
 }
 
