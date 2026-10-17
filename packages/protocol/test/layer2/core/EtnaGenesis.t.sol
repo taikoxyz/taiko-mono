@@ -53,6 +53,7 @@ contract EtnaGenesisTest is Test {
         assertEq(vm.getNonce(_HISTORY), 1);
     }
 
+    /// @notice Verifies genuine exported vault runtime for a different L1 chain and Inbox.
     function test_buildGenesis_AcceptsGenuineExportForAnotherIdentity() external {
         _build(2, address(0x2222));
         assertEq(L2FeeVault(_VAULT).l1ChainId(), 2);
