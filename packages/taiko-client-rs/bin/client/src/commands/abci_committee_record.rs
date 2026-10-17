@@ -110,7 +110,11 @@ fn render_text(report: &GenesisCommitteeRecord) -> String {
     let _ = writeln!(out, "provingBlock:        {}", report.proving_block);
     let _ = writeln!(out, "members:             {}", report.members.len());
     for member in &report.members {
-        let _ = writeln!(out, "  {} power {}", member.pubkey, member.power);
+        let _ = writeln!(
+            out,
+            "  {} power {} rewardRecipient {}",
+            member.pubkey, member.power, member.reward_recipient
+        );
     }
     let _ = writeln!(out, "totalPower:          {}", record.total_power);
     let _ = write!(out, "totalStake:          {}", record.total_stake);
@@ -231,8 +235,8 @@ mod tests {
 
     #[test]
     fn renders_the_report_one_fact_per_line() {
-        let member = |byte: &str, stake: &str, power| Member {
-            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
+        let member = |byte: &str, stake: &str, power, recipient| Member {
+            reward_recipient: alloy_primitives::Address::repeat_byte(recipient),
             pubkey: word(byte).parse().unwrap(),
             eff_stake: stake.parse().unwrap(),
             power,
@@ -250,8 +254,8 @@ mod tests {
                 encoding_version: 1,
             },
             members: vec![
-                member("11", "1000000000000000000", 1_000_000_000),
-                member("22", "2000000000000000000", 2_000_000_000),
+                member("11", "1000000000000000000", 1_000_000_000, 0x77),
+                member("22", "2000000000000000000", 2_000_000_000, 0x88),
             ],
             proving_block: 64,
         };
@@ -263,8 +267,14 @@ mod tests {
         assert_eq!(lines[3], "checkpointIndex:     2");
         assert_eq!(lines[4], "provingBlock:        64");
         assert_eq!(lines[5], "members:             2");
-        assert_eq!(lines[6], format!("  {} power 1000000000", word("11")));
-        assert_eq!(lines[7], format!("  {} power 2000000000", word("22")));
+        assert_eq!(
+            lines[6],
+            format!("  {} power 1000000000 rewardRecipient 0x{}", word("11"), "77".repeat(20))
+        );
+        assert_eq!(
+            lines[7],
+            format!("  {} power 2000000000 rewardRecipient 0x{}", word("22"), "88".repeat(20))
+        );
         assert_eq!(lines[8], "totalPower:          3000000000");
         assert_eq!(lines[9], "totalStake:          3000000000000000000");
         assert_eq!(lines.len(), 10);

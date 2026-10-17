@@ -26,7 +26,7 @@ pub const LANDING_PAYLOAD_BYTES_PER_BLOB: usize = 130_044;
 /// envelope's own [`zlib_compress`] size.
 pub const HEADER_ALLOWANCE: usize = 1_024;
 
-/// An upper bound on the bytes that precede a single block's envelope in its V3 list: the outer
+/// An upper bound on the bytes that precede a single block's envelope in its V5 list: the outer
 /// and item RLP list headers, the CometBFT header protobuf (whose variable fields are bounded:
 /// a chain id of at most 50 bytes, 32-byte hashes, a 20-byte proposer address) with its RLP
 /// string header, and the envelope's RLP string header.

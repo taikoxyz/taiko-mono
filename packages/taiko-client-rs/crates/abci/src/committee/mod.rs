@@ -5,7 +5,6 @@
 //! [`verify_snapshot`] authenticates the checkpoint, its successor and the complete entry root.
 //! [`derive`] retains the existing eligibility, heartbeat, lowest-bond-id deduplication, stake cap,
 //! set-key ordering and voting-power rules. [`committee_config_hash`] binds their configuration.
-//! [`member_bond_ids`] names each member's registry entry, from the same selection.
 //!
 //! Runtime witnesses appear only at `H(t)-2`, proven under the committed parent's anchor, whose
 //! number is the snapshot itself. A failed or empty committed snapshot has no implicit fallback;
@@ -144,6 +143,12 @@ pub enum CommitteeError {
     /// silently reuse an old committee; recovery requires a new generation.
     #[error("no eligible registry entry")]
     Empty,
+    /// A saved member's stake is below the configured eligibility floor.
+    #[error("stake of {pubkey} is below the eligibility floor")]
+    IneligibleStake {
+        /// The member's consensus public key.
+        pubkey: B256,
+    },
     /// A member's voting power `effStake / VP_UNIT` does not fit `u64`.
     #[error("voting power of {pubkey} does not fit u64")]
     PowerOverflow {
@@ -153,16 +158,12 @@ pub enum CommitteeError {
     /// The committee's total voting power exceeds [`MAX_TOTAL_POWER`].
     #[error("total voting power {total} exceeds {MAX_TOTAL_POWER}")]
     TotalPowerTooLarge {
-        /// The total voting power (saturating at `u128::MAX`).
+        /// The total voting power (saturating at `u128::MAX` on arithmetic overflow).
         total: u128,
     },
     /// The committee's total effective stake overflows `uint256`.
     #[error("total stake overflows uint256")]
     TotalStakeOverflow,
-    /// A member's `bondId`, its index in the snapshot's entries, does not fit the registry's
-    /// `uint32` bond id.
-    #[error("bond id {0} does not fit u32")]
-    BondIdOutOfRange(usize),
     /// The record the witness claims differs from the one derived from the snapshot.
     #[error("claimed committee record {claimed:?} differs from the derived {derived:?}")]
     RecordMismatch {
@@ -429,26 +430,6 @@ pub fn derive(
     Ok((record, members))
 }
 
-/// The `(bondId, activeFromL1)` of each member [`derive()`] returns for `target_epoch` at `cutoff`
-/// from a snapshot of `entries` (indexed by `bondId`), in the same set-key order.
-///
-/// Shares [`derive()`]'s selection, so it fails exactly where [`derive()`] fails, with the same
-/// error, and also with [`CommitteeError::BondIdOutOfRange`] for a member whose `bondId` exceeds
-/// `u32::MAX`.
-pub fn member_bond_ids(
-    entries: &[RegistryEntry],
-    cutoff: u64,
-    target_epoch: u64,
-    schedule: &Schedule,
-    params: &ChainParams,
-) -> Result<Vec<(u32, u64)>, CommitteeError> {
-    select(entries, cutoff, target_epoch, schedule, params)?
-        .selected
-        .into_iter()
-        .map(|(index, e)| Ok((bond_id(index)?, e.active_from_l1)))
-        .collect()
-}
-
 /// Verifies a committee witness for a target epoch after `e_0` end to end against the parent's
 /// anchor and returns the committee it proves.
 ///
@@ -528,12 +509,10 @@ pub fn validator_updates(old: &[Member], new: &[Member]) -> Vec<(B256, u64)> {
 }
 
 /// The committee [`derive()`] selects from a snapshot's entries, before its record.
-struct Selection<'a> {
+struct Selection {
     /// Set version `k = targetEpoch − e_0 + 1`.
     k: u64,
-    /// Each member's `bondId` (index in the entries) and entry, sorted by [`set_key`].
-    selected: Vec<(usize, &'a RegistryEntry)>,
-    /// The members, in the order of `selected`.
+    /// The members, sorted by set key.
     members: Vec<Member>,
     /// The members' total voting power, at most [`MAX_TOTAL_POWER`].
     total_power: u64,
@@ -542,15 +521,14 @@ struct Selection<'a> {
 }
 
 /// Selects the committee for `target_epoch` at `cutoff` from `entries` (indexed by `bondId`)
-/// under every rule and check of [`derive()`], which only adds the record. Shared by [`derive()`]
-/// and [`member_bond_ids`].
-fn select<'a>(
-    entries: &'a [RegistryEntry],
+/// under every rule and check of [`derive()`], which only adds the record.
+fn select(
+    entries: &[RegistryEntry],
     cutoff: u64,
     target_epoch: u64,
     schedule: &Schedule,
     params: &ChainParams,
-) -> Result<Selection<'a>, CommitteeError> {
+) -> Result<Selection, CommitteeError> {
     if entries.iter().any(|entry| entry.reward_recipient.is_zero()) {
         return Err(CommitteeError::ZeroRecipient);
     }
@@ -589,8 +567,7 @@ fn select<'a>(
     let members = selected
         .iter()
         .map(|(_, e)| {
-            let power = u64::try_from(e.eff_stake / params.vp_unit)
-                .map_err(|_| CommitteeError::PowerOverflow { pubkey: e.pubkey })?;
+            let power = member_power(e.pubkey, e.eff_stake, params)?;
             Ok(Member {
                 reward_recipient: e.reward_recipient,
                 pubkey: e.pubkey,
@@ -600,22 +577,41 @@ fn select<'a>(
         })
         .collect::<Result<Vec<_>, CommitteeError>>()?;
 
-    let total = members.iter().fold(0u128, |acc, m| acc.saturating_add(u128::from(m.power)));
+    let (total_power, total_stake) = member_totals(&members)?;
+    Ok(Selection { k, members, total_power, total_stake })
+}
+
+/// Computes canonical positive voting power from eligible stake, with checked narrowing.
+/// Shared by authenticated derivation and local persisted-state consistency checks.
+pub(crate) fn member_power(
+    pubkey: B256,
+    eff_stake: U256,
+    params: &ChainParams,
+) -> Result<u64, CommitteeError> {
+    if params.vp_unit.is_zero() {
+        return Err(CommitteeError::ZeroVpUnit);
+    }
+    if eff_stake < params.s_min.max(params.vp_unit) {
+        return Err(CommitteeError::IneligibleStake { pubkey });
+    }
+    u64::try_from(eff_stake / params.vp_unit).map_err(|_| CommitteeError::PowerOverflow { pubkey })
+}
+
+/// Sums member stake and power without overflow, enforcing CometBFT's total power cap.
+pub(crate) fn member_totals(members: &[Member]) -> Result<(u64, U256), CommitteeError> {
+    let total = members
+        .iter()
+        .try_fold(0u128, |acc, member| acc.checked_add(u128::from(member.power)))
+        .ok_or(CommitteeError::TotalPowerTooLarge { total: u128::MAX })?;
     let total_power = u64::try_from(total)
         .ok()
-        .filter(|t| *t <= MAX_TOTAL_POWER)
+        .filter(|total| *total <= MAX_TOTAL_POWER)
         .ok_or(CommitteeError::TotalPowerTooLarge { total })?;
     let total_stake = members
         .iter()
-        .try_fold(U256::ZERO, |acc, m| acc.checked_add(m.eff_stake))
+        .try_fold(U256::ZERO, |acc, member| acc.checked_add(member.eff_stake))
         .ok_or(CommitteeError::TotalStakeOverflow)?;
-
-    Ok(Selection { k, selected, members, total_power, total_stake })
-}
-
-/// The registry's `uint32` bond id of the entry at `index`.
-fn bond_id(index: usize) -> Result<u32, CommitteeError> {
-    u32::try_from(index).map_err(|_| CommitteeError::BondIdOutOfRange(index))
+    Ok((total_power, total_stake))
 }
 
 /// Whether `e` is eligible at `cutoff`: active, staked at least `min_stake` and, when the epoch is

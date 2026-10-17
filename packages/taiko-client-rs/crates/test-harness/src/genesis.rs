@@ -32,7 +32,7 @@ const VAULT: &str = include_str!("../../lander/tests/fixtures/contracts/L2FeeVau
 /// Actual vault runtime, canonical system predeploys, and independently computed block zero.
 #[derive(Debug, Clone)]
 pub struct EtnaGenesis {
-    /// Deterministic custom-chain JSON; all non-alloc values match canonical devnet.
+    /// Deterministic custom-chain JSON; canonical fields except alloc and derived stateRoot.
     pub json: String,
     /// The pinned devnet treasury address that receives EL base fees.
     pub vault: Address,
@@ -79,6 +79,7 @@ impl EtnaGenesis {
             alloc.insert(address, json!({"balance":"0x0", "nonce":"0x1", "code":code}));
         }
         base["alloc"] = Value::Object(alloc);
+        base.as_object_mut().context("genesis object")?.remove("stateRoot");
         let json = serde_json::to_string_pretty(&base)? + "\n";
         let genesis: Genesis = serde_json::from_str(&json)?;
         let state_root = state_root_unhashed(genesis.alloc.iter().map(|(address, account)| {
@@ -230,7 +231,7 @@ mod tests {
     use super::*;
     #[test]
     fn genesis_preserves_non_alloc_and_predeploys_change_header() {
-        let original: Value = serde_json::from_str(BASE).unwrap();
+        let mut original: Value = serde_json::from_str(BASE).unwrap();
         let a = EtnaGenesis::with_runtime(Bytes::from_static(&[0x60, 0])).unwrap();
         let b = EtnaGenesis::with_runtime(Bytes::from_static(&[0x60, 1])).unwrap();
         let mut actual: Value = serde_json::from_str(&a.json).unwrap();
@@ -240,6 +241,9 @@ mod tests {
                 assert_eq!(actual["alloc"][format!("{address:#x}")], *account);
             }
         }
+        assert!(original.get("stateRoot").is_some());
+        assert!(actual.get("stateRoot").is_none(), "alloc changes invalidate the source root");
+        original.as_object_mut().unwrap().remove("stateRoot");
         actual["alloc"] = original["alloc"].clone();
         assert_eq!(actual, original);
         assert_ne!(a.hash, b.hash);

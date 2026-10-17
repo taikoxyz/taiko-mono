@@ -40,7 +40,7 @@ const FORCED_FIELD: &str = "forced";
 /// are empty and no transaction carries blobs.
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable, RlpDecodable)]
 pub struct ExecutionBlock {
-    /// The full EL header (under alethia-reth #248 `difficulty` carries the block's zk gas).
+    /// The full EL header (under alethia-reth #251 `difficulty` carries the block's zk gas).
     pub header: Header,
     /// EIP-2718 encoded transactions, carried as opaque byte strings in block order.
     pub transactions: Vec<Bytes>,

@@ -120,7 +120,7 @@ impl ChainParams {
                 l2_chain_id,
                 inbox: address!("00000000000000000000000000000000E7A10001"),
                 registry: address!("00000000000000000000000000000000E7A10002"),
-                fee_vault: address!("1670010000000000000000000000000000010001"),
+                fee_vault: alethia_reth_primitives::addresses::get_treasury_address(l2_chain_id),
                 d_max: 12,
                 margin_v: 2,
                 vp_unit: U256::from(1_000_000_000u64),
@@ -293,6 +293,10 @@ mod tests {
         assert_eq!(p.inbox, address!("00000000000000000000000000000000E7A10001"));
         assert_eq!(p.registry, address!("00000000000000000000000000000000E7A10002"));
         assert_eq!(p.fee_vault, address!("1670010000000000000000000000000000010001"));
+        assert_eq!(
+            p.fee_vault,
+            alethia_reth_primitives::addresses::get_treasury_address(TAIKO_DEVNET_CHAIN_ID)
+        );
         assert_eq!(p.d_max, 12);
         assert_eq!(p.margin_v, 2);
         assert_eq!(p.vp_unit, U256::from(1_000_000_000u64));

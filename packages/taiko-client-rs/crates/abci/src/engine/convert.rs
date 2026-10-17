@@ -1,9 +1,9 @@
 //! Conversion between Engine API execution payloads and [`ExecutionBlock`]s. No I/O.
 //!
-//! An `engine_getPayloadV5` payload omits the header fields alethia-reth #248 fixes for every
+//! An `engine_getPayloadV5` payload omits the header fields alethia-reth #251 fixes for every
 //! Etna block, and the two it sets per block travel beside it: the zk gas (as `blockValue`, sent
 //! back to `engine_newPayloadV4` as `headerDifficulty`) and the parent beacon block root (the
-//! anchor's L1 state root). [`block_from_payload`] rebuilds the full header exactly as #248's
+//! anchor's L1 state root). [`block_from_payload`] rebuilds the full header exactly as #251's
 //! block assembler and `newPayload` validator do (`crates/block/src/assembler.rs`,
 //! `crates/rpc/src/engine/validator.rs`); [`payload_from_block`] is its inverse.
 
@@ -20,7 +20,7 @@ use crate::envelope::ExecutionBlock;
 
 /// Rebuilds the Etna block an `engine_getPayloadV5` payload describes.
 ///
-/// `zk_gas` is the payload's `blockValue` (the header `difficulty` under #248) and
+/// `zk_gas` is the payload's `blockValue` (the header `difficulty` under #251) and
 /// `parent_beacon_block_root` the root sent with the forkchoice update that started the build.
 /// The header takes every payload field (`feeRecipient` → `beneficiary`, `prevRandao` →
 /// `mix_hash`) plus the Etna constants: empty ommers, the ordered trie root of the transaction

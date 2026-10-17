@@ -321,7 +321,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// [`Schedule::validate`] for `params`' unsettled cap and equal the one derived from its
     /// genesis record, its Inbox must match the account authenticated at genesis,
     /// its `chain_id` must name `params.l2_chain_id` and its generation, and
-    /// its last height must equal its parent's number and fit a CometBFT height.
+    /// its last height must equal its parent's number and fit a CometBFT height. Every saved
+    /// committee must retain canonical stake-derived powers, checked totals and its set root.
+    /// These local consistency checks do not authenticate a coherently rewritten state file.
     ///
     /// Forced inclusion uses authenticated calldata and requires no KZG initialization.
     pub fn new(
@@ -602,6 +604,25 @@ fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), Abci
             return Err(AbciError::StoredState(format!(
                 "invalid committee metadata for epoch {epoch}"
             )));
+        }
+        // These are local consistency checks, not authentication of a coherently rewritten
+        // state file. Every retained/current/scheduled committee must obey the same math.
+        let invalid = |reason: String| {
+            AbciError::StoredState(format!("invalid committee for epoch {epoch}: {reason}"))
+        };
+        for member in members {
+            let power = crate::committee::member_power(member.pubkey, member.eff_stake, params)
+                .map_err(|err| invalid(err.to_string()))?;
+            if member.power != power {
+                return Err(invalid(format!("noncanonical power for {}", member.pubkey)));
+            }
+        }
+        let (total_power, total_stake) =
+            crate::committee::member_totals(members).map_err(|err| invalid(err.to_string()))?;
+        if total_power != committee.record.total_power ||
+            total_stake != committee.record.total_stake
+        {
+            return Err(invalid("record totals differ from members".into()));
         }
         let k = epoch
             .checked_add(1)

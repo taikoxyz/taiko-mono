@@ -116,12 +116,12 @@ a recovery-generation bootstrap or an implicit replacement set.
 Deploy the registry and register nonzero immutable L2 recipients first. Predict the Inbox proxy
 CREATE address, export a constructor-resolved `L2FeeVault` runtime bound to that Inbox/L1 chain,
 and install it at the canonical treasury with zero balance, alongside the explicit EIP-4788 roots
-and EIP-2935 history runtimes. Set `BasefeeSharingPctg = 0`. Preserve all non-alloc canonical
-devnet genesis fields. Start the custom-genesis EL and verify its actual block-0 hash/state root
+and EIP-2935 history runtimes. Set `BasefeeSharingPctg = 0`. Preserve canonical devnet genesis fields except alloc and the derived top-level
+`stateRoot`, which must be omitted after changing alloc. Start the custom-genesis EL and verify its actual block-0 hash/state root
 before initializing Inbox with those commitments. Keep the deployment wallet's nonce unchanged
 between address prediction and deployment. Only after L1 initialization finality should
 `abci-genesis` construct the CometBFT genesis. See the complete
-[protocol deployment instructions](https://github.com/taikoxyz/taiko-mono/blob/921ea2d39fee2022cd345cbe500a742c2f7a0aaa/packages/protocol/contracts/layer1/etna/README.md#genesis-initialization).
+[protocol deployment instructions](https://github.com/taikoxyz/taiko-mono/blob/2a4bfa747edcafae96c15b58159e31eea0ebe78a/packages/protocol/contracts/layer1/etna/README.md#genesis-initialization).
 
 The required [EL dependency](https://github.com/taikoxyz/alethia-reth/pull/251) is revision
 `5d4d21ac472c024703082ba46c6eacfa3b8ec1bf`, image `us-docker.pkg.dev/evmchain/images/alethia-reth:sha-5d4d21a`,
@@ -935,7 +935,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 Regenerate lander ABI/deployment fixtures with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `921ea2d39fee2022cd345cbe500a742c2f7a0aaa` (also the
+The script requires protocol HEAD `2a4bfa747edcafae96c15b58159e31eea0ebe78a` (also the
 `PROTOCOL_REVISION` in `crates/lander/src/contracts.rs`),
 installs pnpm dependencies before Foundry, builds the Inbox, registry, immutable `L2FeeVault` and
 SignalService with their test fixtures, verifies compiler source hashes,

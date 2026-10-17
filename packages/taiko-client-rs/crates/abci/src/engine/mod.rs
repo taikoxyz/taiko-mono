@@ -2,7 +2,7 @@
 //! JSON-RPC implementation [`RpcEngine`], and conversion between Engine API payloads and the
 //! [`ExecutionBlock`] a CometBFT block carries.
 //!
-//! alethia-reth #248 is driven through `engine_forkchoiceUpdatedV3`, `engine_getPayloadV5` and
+//! alethia-reth #251 is driven through `engine_forkchoiceUpdatedV3`, `engine_getPayloadV5` and
 //! `engine_newPayloadV4` only. [`convert`] maps a built payload to the full EL header
 //! the envelope carries and back.
 
@@ -116,7 +116,7 @@ pub enum EngineError {
     /// as `engine_newPayloadV4`'s `headerDifficulty`.
     #[error("difficulty (zk gas) {0} does not fit in u64")]
     DifficultyOverflow(U256),
-    /// A header field has a value alethia-reth #248 never assembles for an Etna block (or does
+    /// A header field has a value alethia-reth #251 never assembles for an Etna block (or does
     /// not match the block's transactions); the value names the field.
     #[error("header field `{0}` is not Etna-shaped")]
     NotEtnaShaped(&'static str),

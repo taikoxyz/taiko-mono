@@ -81,7 +81,7 @@ pub struct ExpectedHeader {
     pub extra_data: Bytes,
     /// The anchor's L1 state root.
     pub parent_beacon_block_root: B256,
-    /// `L2_BLOCK_GAS_LIMIT`, in gas: a chain constant (alethia-reth #248 has no parent-delta
+    /// `L2_BLOCK_GAS_LIMIT`, in gas: a chain constant (alethia-reth #251 has no parent-delta
     /// gas-limit rule).
     pub gas_limit: u64,
     /// EIP-4396 base fee per gas, in wei.
