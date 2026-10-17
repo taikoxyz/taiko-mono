@@ -1,11 +1,10 @@
-//! Entitlement authentication at canonical executed L2 H, and separate claim finality.
+//! Entitlement authentication at canonical executed L2 H.
 
-use super::{ClaimIdentity, ClaimProof, Vault, discovery::DiscoveryProgress};
+use super::{ClaimIdentity, ClaimProof, Vault};
 use crate::{
     LanderError, Result,
     contracts::BatchRewardRecorded,
     rewards::{self, Receipt},
-    tx::LandingReceipt,
 };
 use abci::{
     AccountWitness, RawL1Header,
@@ -26,7 +25,7 @@ use std::time::Duration;
 /// EIP-4788 roots contract populated by intended canonical ABCI execution.
 pub const ROOTS: Address = address!("000F3df6D732807Ef1319fB7B8bB8522d0Beac02");
 /// Bound ancestry work in addition to the complete-operation wall-clock deadline.
-pub(super) const MAX_ANCESTRY: u64 = 131_072;
+const MAX_ANCESTRY: u64 = 131_072;
 
 /// Own canonical execution snapshot used to bind multi-request reconciliation.
 #[derive(Clone, Copy, Debug)]
@@ -38,7 +37,7 @@ pub struct ExecutionSnapshot {
 }
 
 /// A discovered entitlement retains the landing chronology needed for anchor availability.
-pub(super) struct DiscoveredReceipt {
+struct DiscoveredReceipt {
     /// Full receipt, still untrusted until its mapping proof is authenticated.
     pub receipt: Receipt,
     /// Canonical L1 landing height.
@@ -60,29 +59,21 @@ pub trait ClaimSource: Send + Sync {
     async fn claimed_at(&self, batch_id: B256, hash: B256) -> Result<bool>;
     /// Independently hash the current canonical execution header at this height.
     async fn canonical_hash(&self, number: u64) -> Result<B256>;
-    /// Authenticate a finalized L1 checkpoint and descending EL ancestry through the claim.
-    async fn transaction_finalized(
-        &self,
-        receipt: &LandingReceipt,
-        progress: &mut Option<DiscoveryProgress>,
-    ) -> Result<bool>;
 }
 
 /// Public RPC source. The own EL's executed canonical chain is a trusted input at preparation.
 #[derive(Clone)]
 pub struct RpcClaimSource {
     /// Own L1 provider used for discovery and chain identity.
-    pub(super) l1: RootProvider,
+    l1: RootProvider,
     /// Own executed L2 provider; never uses pending headers.
-    pub(super) l2: RootProvider,
+    l2: RootProvider,
     /// Existing strict raw-header/EIP-1186 adapter.
-    pub(super) anchors: RpcL1Source,
+    anchors: RpcL1Source,
     /// Fixed public identities discovered from the canonical vault.
-    pub(super) identity: ClaimIdentity,
-    /// Overall limit for each prepare/finality traversal, beyond HTTP call deadlines.
+    identity: ClaimIdentity,
+    /// Overall limit for each prepare traversal, beyond HTTP call deadlines.
     deadline: Duration,
-    /// Independent budget for the whole historical discovery and ancestry operation.
-    finality_deadline: Duration,
 }
 
 impl RpcClaimSource {
@@ -125,14 +116,7 @@ impl RpcClaimSource {
             };
             identity.validate()?;
             recheck_header(&l2, &header).await?;
-            Ok(Self {
-                anchors: RpcL1Source::new(l1.clone()),
-                l1,
-                l2,
-                identity,
-                deadline,
-                finality_deadline: Duration::from_secs(300),
-            })
+            Ok(Self { anchors: RpcL1Source::new(l1.clone()), l1, l2, identity, deadline })
         })
         .await
         .map_err(|_| timeout_error())?
@@ -141,15 +125,6 @@ impl RpcClaimSource {
     /// Public identity used to bind the journal before any proof acquisition or signing.
     pub fn identity(&self) -> &ClaimIdentity {
         &self.identity
-    }
-
-    /// Configure the independent finality-operation budget without changing per-RPC deadlines.
-    pub fn with_finality_timeout(mut self, deadline: Duration) -> Result<Self> {
-        if deadline.is_zero() || deadline > Duration::from_secs(3600) {
-            return Err(LanderError::Configuration("invalid claim finality deadline".into()));
-        }
-        self.finality_deadline = deadline;
-        Ok(self)
     }
 
     /// Authenticate an anchor by descending from the own finalized L1 header.
@@ -177,7 +152,7 @@ impl RpcClaimSource {
     }
 
     /// Discover one typed event from a canonical successful landing; no event alone authorizes pay.
-    pub(super) async fn discover(&self) -> Result<DiscoveredReceipt> {
+    async fn discover(&self) -> Result<DiscoveredReceipt> {
         let tx = self.identity.landing_tx;
         let receipt = self
             .l1
@@ -345,16 +320,6 @@ impl ClaimSource for RpcClaimSource {
     async fn canonical_hash(&self, number: u64) -> Result<B256> {
         Ok(execution_header(&self.l2, BlockNumberOrTag::Number(number)).await?.hash_slow())
     }
-    /// Bound the full ancestry traversal, retaining the signed job on any timeout.
-    async fn transaction_finalized(
-        &self,
-        receipt: &LandingReceipt,
-        progress: &mut Option<DiscoveryProgress>,
-    ) -> Result<bool> {
-        tokio::time::timeout(self.finality_deadline, self.finalized_inner(receipt, progress))
-            .await
-            .map_err(|_| timeout_error())?
-    }
 }
 
 /// Check the exact raw roots return; the lookup key is H.timestamp, not the L1 timestamp.
@@ -368,7 +333,7 @@ fn verify_root(output: &[u8], expected: B256) -> Result<()> {
 }
 
 /// Authenticate the fixed account and exactly one fixed slot before projecting proof calldata.
-pub(super) fn verify_receipt(
+fn verify_receipt(
     identity: &ClaimIdentity,
     receipt: &Receipt,
     root: B256,
@@ -410,10 +375,7 @@ async fn call<C: SolCall>(
 }
 
 /// Decode and independently hash a non-pending public EL header; never expose response bodies.
-pub(super) async fn execution_header(
-    provider: &RootProvider,
-    tag: BlockNumberOrTag,
-) -> Result<Header> {
+async fn execution_header(provider: &RootProvider, tag: BlockNumberOrTag) -> Result<Header> {
     let value: Option<serde_json::Value> = provider
         .raw_request("eth_getBlockByNumber".into(), (tag, false))
         .await
@@ -462,7 +424,7 @@ pub(super) fn rpc_error(error: alloy::transports::TransportError) -> LanderError
     crate::error::sanitized_rpc_error("claim RPC", error)
 }
 /// Hide every upstream L1 response string, including malformed JSON contents.
-pub(super) fn anchor_error(error: L1Error) -> LanderError {
+fn anchor_error(error: L1Error) -> LanderError {
     match error {
         L1Error::Rpc(_) | L1Error::BlockNotFound(_) => {
             LanderError::Temporary("claim L1 RPC unavailable".into())

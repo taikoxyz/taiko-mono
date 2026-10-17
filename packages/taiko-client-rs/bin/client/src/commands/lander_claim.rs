@@ -22,7 +22,7 @@ pub struct LanderClaimSubCommand {
     pub flags: LanderClaimArgs,
 }
 impl LanderClaimSubCommand {
-    /// Retry availability failures until provisional inclusion or an actionable outcome.
+    /// Retry availability failures until inclusion or an actionable outcome.
     /// The existing one-shot signal handler drops this future, including RPCs and backoff sleeps.
     pub async fn run(&self) -> Result<()> {
         let flags = &self.flags;
@@ -49,10 +49,7 @@ impl LanderClaimSubCommand {
             )
             .await
             {
-                Ok(source) => {
-                    break source
-                        .with_finality_timeout(Duration::from_secs(flags.finality_timeout))?
-                }
+                Ok(source) => break source,
                 Err(error) => retry.wait(error).await?,
             }
         };
@@ -80,13 +77,7 @@ impl LanderClaimSubCommand {
                 }
                 Ok(ClaimOutcome::State(ClaimState::Included)) => {
                     println!(
-                        "Claim included provisionally; finalized L1 landing coverage is still pending. Signed bytes retained; rerun this command to verify finality."
-                    );
-                    return Ok(());
-                }
-                Ok(ClaimOutcome::State(ClaimState::Finalized)) => {
-                    println!(
-                        "Claim finalized through authenticated L1 landing and EL ancestry. Signed bytes retained."
+                        "Claim included in the canonical L2 chain, which is BFT-final. Signed bytes retained; after any recovery that rewinds L2, rerun this command to reconcile."
                     );
                     return Ok(());
                 }
