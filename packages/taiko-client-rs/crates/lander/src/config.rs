@@ -191,6 +191,20 @@ impl LanderConfig {
     }
 }
 
+/// Refuse recipients whose canonical runtime cannot receive the vault's empty-calldata ETH call.
+/// This policy applies only to batch rewards; proposer rewards use execution-layer balance credits.
+/// Arbitrary EOAs and payable contracts remain valid, without a generic code/precompile ban.
+pub fn validate_batch_recipient(recipient: Address, fee_vault: Address) -> Result<()> {
+    let roots = alloy_primitives::address!("000F3df6D732807Ef1319fB7B8bB8522d0Beac02");
+    let history = alloy_primitives::address!("0000F90827F1C53a10cb7A02335B175320002935");
+    if recipient.is_zero() || [fee_vault, roots, history].contains(&recipient) {
+        return Err(LanderError::Configuration(
+            "L2 batch reward recipient must be nonzero and able to receive ETH; the canonical fee vault, beacon roots and history contracts reject empty-calldata transfers".into(),
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

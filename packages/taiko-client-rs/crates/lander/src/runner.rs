@@ -11,7 +11,7 @@ use crate::{
     tx::{LandingReceipt, SignedTransaction, TransactionTransport},
     types::LandingSnapshot,
 };
-use alloy_primitives::B256;
+use alloy_primitives::{Address, B256};
 use std::{
     sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -31,6 +31,10 @@ const MAX_CONSECUTIVE_OUT_OF_GAS: u32 = 2;
 /// Runtime deadlines and confirmation policy; transport reads also retain their HTTP deadlines.
 #[derive(Clone, Copy, Debug)]
 pub struct RunnerConfig {
+    /// Desired recipient for future unsigned batches; signed jobs retain their original intent.
+    pub l2_reward_recipient: Address,
+    /// Canonical nonpayable vault from the configured execution chain parameters.
+    pub fee_vault: Address,
     /// Minimum complete-prefix size or maximum first-backlog wait before preparing a batch.
     pub batch_policy: BatchPolicy,
     /// Normal polling interval, including idle and known-pending waits.
@@ -80,6 +84,43 @@ pub enum StepOutcome {
     Rebuild,
     /// One canonical transaction settled and the next job can start from L1.
     Settled,
+}
+
+/// Claim identity for our successful canonical landing, before its journal is cleared.
+#[derive(Debug, PartialEq, Eq)]
+pub struct SuccessfulLanding {
+    /// Canonical reward batch identity, computed by the shared receipt helper.
+    pub batch_id: B256,
+    /// Our included L1 transaction; forwarded calls are identified by Inbox events.
+    pub transaction_hash: B256,
+    /// Exact immutable execution range, payout and amount from the prepared batch.
+    pub reward: crate::rewards::Receipt,
+}
+
+/// Expose claim information only for our successful landing, never a reverted competing job.
+pub fn successful_landing(
+    batch: &crate::types::PreparedBatch,
+    receipt: &LandingReceipt,
+) -> Option<SuccessfulLanding> {
+    receipt.success.then(|| {
+        let reward = crate::rewards::Receipt {
+            l1ChainId: batch.snapshot.l1_chain_id,
+            l2ChainId: batch.snapshot.l2_chain_id,
+            inbox: batch.snapshot.inbox,
+            generation: batch.snapshot.generation,
+            parentHeight: batch.snapshot.checkpoint_height,
+            parentHash: batch.snapshot.checkpoint_hash,
+            lastHeight: batch.input.lastHeight,
+            lastBlockHash: batch.input.lastBlockHash,
+            l2RewardRecipient: batch.input.l2RewardRecipient,
+            baseFeeAmount: batch.input.baseFeeAmount,
+        };
+        SuccessfulLanding {
+            batch_id: crate::rewards::batch_id(&reward),
+            transaction_hash: receipt.transaction_hash,
+            reward,
+        }
+    })
 }
 
 /// Durable backlog identity plus monotonic age, independent of arrivals and RPC retries.
@@ -185,6 +226,15 @@ impl Runner {
         } else {
             None
         };
+        if let JournalState::Signed { job, .. } |
+        JournalState::Pending { job, .. } |
+        JournalState::Confirming { job, .. } = &state &&
+            job.request.batch.input.l2RewardRecipient != config.l2_reward_recipient
+        {
+            tracing::warn!(retained_l2_reward_recipient=%job.request.batch.input.l2RewardRecipient,
+                    configured_l2_reward_recipient=%config.l2_reward_recipient,
+                    "lander resumed signed intent retains its original recipient; configured recipient applies to future batches");
+        }
         observe_state(&state);
         Ok(Self {
             batches,
@@ -321,6 +371,13 @@ impl Runner {
                 Ok(StepOutcome::Progress)
             }
             JournalState::Prepared { job } => {
+                let recipient = job.request.batch.input.l2RewardRecipient;
+                crate::config::validate_batch_recipient(recipient, self.config.fee_vault)?;
+                if recipient != self.config.l2_reward_recipient {
+                    return Err(LanderError::Configuration(
+                        "unsigned Prepared batch recipient differs from configured L2 recipient; restore the original configuration or archive only this unbroadcast unsigned job and rebuild in a fresh lander directory".into(),
+                    ));
+                }
                 if !self.unbroadcast_current(&snapshot, &job).await? {
                     return self.rebuild();
                 }
@@ -704,6 +761,13 @@ impl Runner {
                 "{} at nonce {} with unchanged checkpoint {}",
                 transaction.hash, transaction.nonce, snapshot.checkpoint_height
             )));
+        }
+        if let Some(summary) = successful_landing(&job.request.batch, &receipt) {
+            tracing::info!(batch_id=%summary.batch_id, landing_tx=%summary.transaction_hash,
+                parent_height=summary.reward.parentHeight, last_height=summary.reward.lastHeight,
+                l2_reward_recipient=%summary.reward.l2RewardRecipient,
+                base_fee_amount=%summary.reward.baseFeeAmount,
+                "lander successful landing reward recorded");
         }
         tracing::info!(transaction_hash=%transaction.hash,landed_height=snapshot.checkpoint_height,success=receipt.success,"lander canonical transaction settled");
         self.transition(JournalState::Idle)?;

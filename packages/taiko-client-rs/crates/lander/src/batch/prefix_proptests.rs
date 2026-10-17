@@ -176,7 +176,7 @@ fn builder(
         limits,
         mode: SidecarMode::Eip4844,
         fee_recipient: Address::repeat_byte(0xfe),
-        l2_reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
+        l2_reward_recipient: crate::test_utils::consensus::BATCH_RECIPIENT,
         engine: Arc::new(test_harness::unavailable_engine::UnavailableEngine),
         engine_timeout: std::time::Duration::from_secs(1),
     };

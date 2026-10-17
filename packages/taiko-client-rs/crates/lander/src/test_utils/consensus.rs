@@ -26,6 +26,9 @@ use crate::{
     validate::{block_parts, commit_hash},
 };
 
+/// Independent batch payout, deliberately distinct from every general member fixture.
+pub const BATCH_RECIPIENT: alloy_primitives::Address = alloy_primitives::Address::repeat_byte(0x77);
+
 pub fn parameters() -> ChainParams {
     let mut params = ChainParams::builtin(167001).unwrap();
     params.vp_unit = U256::from(1);
@@ -54,7 +57,7 @@ pub fn committee(
             SigningKey::from_bytes(&seed.into())
         })
         .collect::<Vec<_>>();
-    committee_with_keys(powers, epoch, keys)
+    committee_with_keys(powers, epoch, keys, false)
 }
 
 /// Reproduce the fixed one-byte seeds of the checked-in stock-Go differential vectors.
@@ -67,7 +70,7 @@ pub fn stock_go_committee(
     let keys = (1..=powers.len())
         .map(|index| SigningKey::from_bytes(&[u8::try_from(index).unwrap(); 32]))
         .collect();
-    committee_with_keys(powers, epoch, keys)
+    committee_with_keys(powers, epoch, keys, true)
 }
 
 /// Build the same authenticated member structure for either deterministic test-key convention.
@@ -75,6 +78,7 @@ fn committee_with_keys(
     powers: &[u64],
     epoch: u64,
     keys: Vec<SigningKey>,
+    stock_go: bool,
 ) -> (ChainParams, AuthenticatedCommittee, Vec<SigningKey>) {
     let mut params = parameters();
     params.n_max = params.n_max.max(powers.len());
@@ -82,7 +86,11 @@ fn committee_with_keys(
         .iter()
         .zip(powers)
         .map(|(key, power)| Member {
-            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
+            reward_recipient: if stock_go {
+                alloy_primitives::Address::repeat_byte(0x77)
+            } else {
+                member_recipient(B256::from(key.verifying_key().to_bytes()))
+            },
             pubkey: B256::from(key.verifying_key().to_bytes()),
             eff_stake: U256::from(*power),
             power: *power,
@@ -103,7 +111,11 @@ fn committee_with_keys(
         .iter()
         .zip(powers)
         .map(|(key, power)| RegistryEntry {
-            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
+            reward_recipient: if stock_go {
+                alloy_primitives::Address::repeat_byte(0x77)
+            } else {
+                member_recipient(B256::from(key.verifying_key().to_bytes()))
+            },
             pubkey: B256::from(key.verifying_key().to_bytes()),
             eff_stake: U256::from(*power),
             active_from_l1: 1,
@@ -146,6 +158,11 @@ fn committee_with_keys(
     (params, committee, keys)
 }
 
+/// Stable payout distinct for each authenticated member, independent of committee sorting.
+pub fn member_recipient(pubkey: B256) -> alloy_primitives::Address {
+    alloy_primitives::Address::from_slice(&alloy_primitives::keccak256(pubkey)[12..])
+}
+
 pub fn merkle(items: &[Vec<u8>]) -> Hash {
     Hash::Sha256(tendermint::merkle::simple_hash_from_byte_vectors::<
         tendermint::crypto::default::Sha256,
@@ -179,6 +196,11 @@ pub fn pair(
             header: Header {
                 number: height,
                 parent_hash: parent,
+                beneficiary: abci::rules::proposer_recipient(
+                    &committee.state.members,
+                    committee.validators.validators()[0].address,
+                )
+                .unwrap(),
                 base_fee_per_gas: Some(7),
                 gas_used: 21_000,
                 ..Default::default()

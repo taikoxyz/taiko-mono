@@ -330,7 +330,19 @@ path, receipt proofs and L2 payouts; they do not establish EVM validity-proof so
 Required inputs are `--l1.http`, `--l2.http`, `--l2.auth`, `--jwt.secret`, `--comet.http`, a
 `--signing-key` file containing a hex key, an exclusive `--data-dir`,
 `--max-blocks`, `--max-blobs`, all three fee caps, `--sidecar`, and a nonzero
-`--l2.reward-recipient`.
+`--l2.reward-recipient`. Mixed-case hex addresses require a valid EIP-55 checksum;
+all-lowercase and all-uppercase hex remain accepted. Batch recipients cannot be zero, the
+configured canonical L2 fee vault, EIP-4788 beacon roots, or EIP-2935 history contract: these
+canonical runtimes reject the vault's empty-calldata ETH transfer. Other EOAs and payable contracts
+remain allowed. Proposer registration is a separate policy because EL tips use balance credits.
+
+A restored unsigned `Prepared` batch must match the configured recipient. To change it, stop the
+lander, confirm the journal is exactly `Prepared` with no signature or broadcast, then archive that
+unsigned directory and rebuild in a fresh dedicated lander directory. Signed, Pending and Confirming
+jobs retain their original recipient and transaction bytes; startup reports that retained intent
+and applies the new configured recipient only to future batches. Reconcile any outstanding signed
+nonce before archiving its journal; deleting a signed directory is not a recipient-change procedure.
+
 The authenticated Engine API is required for historical singleton skip checks. Startup exchanges
 Engine capabilities before opening the journal or running the lander, so JWT/endpoint failures are
 reported before any skip is encountered. Transport failures (including HTTP authentication errors)
@@ -807,6 +819,13 @@ taiko-client lander-claim --l1.http http://l1-node:8545 --l2.http http://l2-node
   --landing-tx 0x... --batch-id 0x... --key-file /secure/l2-gas-payer.key \
   --data-dir /data/claims/batch-id
 ```
+
+A successful own landing logs `batch_id`, `landing_tx`, the covered `(parent_height, last_height]`
+range, `l2_reward_recipient` and `base_fee_amount` before clearing its journal. A reverted competing
+landing does not log a reward-ready identity. To recover the ID independently, inspect the successful
+landing transaction receipt for `BatchRewardRecorded` emitted by the fixed configured Inbox proxy;
+its indexed `batchId` is topic 1. Verify the log emitter, including when a forwarding contract sends
+the landing: the outer transaction's `to` is not the Inbox identity.
 
 The own L2 endpoint must expose the intended ABCI-produced canonical executed chain. Preparation
 pins and independently hashes an executed header H, authenticates its L1 anchor through the own

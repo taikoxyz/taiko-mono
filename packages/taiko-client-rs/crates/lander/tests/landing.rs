@@ -15,7 +15,7 @@ use anyhow::{Context, Result};
 use lander::{
     DummyProofProvider, ProofProvider, ProofRequest, SidecarMode,
     contracts::IEtnaInbox::landCall,
-    runner::ran_out_of_gas,
+    runner::{ran_out_of_gas, successful_landing},
     tx::{
         FeeCaps, RpcTransactionTransport, SignedTransaction, TransactionTransport, land_calldata,
     },
@@ -147,6 +147,19 @@ async fn assert_landed(
         .decoded_log::<lander::contracts::BatchRewardRecorded>()
         .context("BatchRewardRecorded")?;
     assert_eq!(event.data.batchId, id);
+    let summary = successful_landing(
+        batch,
+        &lander::tx::LandingReceipt {
+            transaction_hash: receipt.transaction_hash,
+            block_number: receipt.block_number.context("landing block number")?,
+            block_hash: receipt.block_hash.context("landing block hash")?,
+            success: receipt.status(),
+            gas_used: receipt.gas_used,
+        },
+    )
+    .context("successful own reward summary")?;
+    assert_eq!(summary.batch_id, event.data.batchId);
+    assert_eq!(summary.reward, reward);
     assert_eq!(event.data.l2RewardRecipient, reward.l2RewardRecipient);
     assert_eq!(event.data.baseFeeAmount, reward.baseFeeAmount);
     assert_eq!(event.data.parentHeight, reward.parentHeight);
@@ -210,7 +223,7 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     let derivation = chain.prepare(&fixture, derivation_height, SidecarMode::Eip7594).await?;
     fixture.expect_statement(derivation.batch.statement_hash).await?;
     assert_landed(&fixture, &derivation, &sign(&fixture, &derivation).await?).await?;
-    transact(
+    let exit = transact(
         &fixture.anvil.provider,
         dev_signer().address(),
         fixture.registry,
@@ -218,11 +231,26 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     )
     .await?;
     let immutable_snapshot = chain.anchors[usize::try_from(derivation_height)?].number;
+    let exit_block = exit.block_number.context("exit inclusion block")?;
+    assert!(exit_block > immutable_snapshot);
+    use abci::l1::source::{L1Source, RpcL1Source};
+    let source = RpcL1Source::new(p.clone());
+    for _ in 0..32 {
+        if source.finalized_number().await? >= exit_block {
+            break;
+        }
+        mine_l1_blocks(p, 1).await?;
+    }
+    assert!(
+        source.finalized_number().await? >= exit_block,
+        "exit must be finalized before S is constructed"
+    );
     // A later prefix crosses the epoch boundary without a reward-freeze cut.
     let h = schedule.h_first(1);
     for last in [switch_height, h + 2] {
         mine_l1_blocks(p, 3).await?;
         chain.extend(&fixture, last).await?;
+        assert!(chain.anchors[usize::try_from(switch_height)?].number >= exit_block);
         let next = chain.prepare(&fixture, last, SidecarMode::Eip7594).await?;
         assert_eq!(next.batch.input.lastHeight, last);
         let incoming = next
@@ -236,6 +264,26 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
             incoming.derivation_parent.as_ref().context("D header")?.number,
             derivation_height
         );
+        if last > switch_height {
+            assert_eq!(next.batch.snapshot.checkpoint_height, switch_height);
+            let later_anchor = &chain.anchors[usize::try_from(switch_height)?];
+            assert_eq!(incoming.anchor.number, later_anchor.number);
+            assert_eq!(incoming.anchor.hash, later_anchor.hash);
+            assert!(incoming.anchor.number > immutable_snapshot);
+            let witness = &incoming.witness;
+            assert_eq!(
+                witness.registry.storage.iter().map(|word| word.slot).collect::<Vec<_>>(),
+                abci::committee::snapshot_slots(witness.record.checkpoint_index, true),
+                "historical snapshot retains selected checkpoint and successor trace proofs"
+            );
+            let storage = &witness.registry.storage;
+            let selected_l1 = abci::l1::layout::word_u64(storage[1].value, 0);
+            let next_l1 = abci::l1::layout::word_u64(storage[3].value, 0);
+            assert!(selected_l1 <= immutable_snapshot);
+            assert!(immutable_snapshot < next_l1);
+            assert!(next_l1 <= incoming.anchor.number);
+            assert!(storage[0].value > U256::from(witness.record.checkpoint_index) + U256::from(1));
+        }
         fixture.expect_statement(next.batch.statement_hash).await?;
         assert_landed(&fixture, &next, &sign(&fixture, &next).await?).await?;
     }

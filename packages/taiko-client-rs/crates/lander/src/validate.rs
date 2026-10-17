@@ -688,7 +688,10 @@ mod tests {
             forced_inclusion_delay: fixture.snapshot.genesis.forced_inclusion_delay,
         };
         let facts = verify_envelope(envelope.clone(), context(original)).unwrap();
-        assert_eq!(facts.expected.beneficiary, alloy_primitives::Address::repeat_byte(0x77));
+        assert_eq!(
+            facts.expected.beneficiary,
+            rules::proposer_recipient(members, original).unwrap()
+        );
         assert_eq!(facts.expected.extra_data[0], 0);
         let mut wrong = envelope.clone();
         wrong.block.header.beneficiary = fixture.params.fee_vault;
@@ -718,6 +721,81 @@ mod tests {
         assert!(
             matches!(verify_envelope(envelope, context(unknown)), Err(ValidationError::Etna(m)) if m.contains("unknown certified proposer"))
         );
+    }
+
+    #[test]
+    fn asymmetric_members_keep_batch_payout_distinct_from_certified_proposer() {
+        let fixture = crate::test_utils::consensus_mpt::Fixture::new(24, 25);
+        let schedule = Schedule::from_genesis(&fixture.snapshot.genesis);
+        let committee = &fixture.committees[&schedule.epoch_of(25)];
+        let members = &committee.state.members;
+        assert_eq!(members.len(), 2);
+        assert_ne!(members[0].reward_recipient, members[1].reward_recipient);
+        let batch_recipient = crate::test_utils::consensus::BATCH_RECIPIENT;
+        assert!(members.iter().all(|m| m.reward_recipient != batch_recipient));
+        // Deliberately certify the member that is not first in set-key order, in a later round.
+        let original = committee
+            .validators
+            .validators()
+            .iter()
+            .find(|v| {
+                rules::proposer_recipient(members, v.address) == Some(members[1].reward_recipient)
+            })
+            .unwrap()
+            .address;
+        let mut certified = fixture.blocks[&25].clone();
+        certified.block.header.proposer_address = original;
+        certified.commit.round = 2u16.into();
+        let mut envelope = EtnaEnvelope::decode(&certified.block.data[0]).unwrap();
+        envelope.block.header.beneficiary = members[1].reward_recipient;
+        certified.block.data[0] = envelope.encode().to_vec();
+        let keys = vec![
+            ed25519_dalek::SigningKey::from_bytes(&[1; 32]),
+            ed25519_dalek::SigningKey::from_bytes(&[2; 32]),
+        ];
+        crate::test_utils::consensus::resign(&mut certified, committee, &keys);
+        verify_commit(
+            &certified.commit,
+            &certified.block.header,
+            committee,
+            "taiko-etna-167001-g0",
+        )
+        .unwrap();
+        let previous = &fixture.headers[&24];
+        let parent = ParentInfo {
+            number: 24,
+            hash: previous.hash_slow(),
+            timestamp: previous.timestamp,
+            gas_limit: previous.gas_limit,
+            gas_used: previous.gas_used,
+            base_fee: previous.base_fee_per_gas.unwrap(),
+            difficulty: previous.difficulty,
+            grandparent_timestamp: fixture.headers[&23].timestamp,
+        };
+        let context = || EnvelopeContext {
+            bft_time_secs: 125,
+            proposer: certified.block.header.proposer_address,
+            members,
+            parent: &parent,
+            parent_anchor: &fixture.anchors[&24],
+            generation: 0,
+            schedule: &schedule,
+            params: &fixture.params,
+            max_anchor_age: 7200,
+            forced_cursor: 0,
+            forced_inclusion_delay: fixture.snapshot.genesis.forced_inclusion_delay,
+        };
+        assert_eq!(
+            verify_envelope(envelope.clone(), context()).unwrap().expected.beneficiary,
+            members[1].reward_recipient
+        );
+        for wrong in [members[0].reward_recipient, batch_recipient] {
+            let mut changed = envelope.clone();
+            changed.block.header.beneficiary = wrong;
+            assert!(
+                matches!(verify_envelope(changed, context()), Err(ValidationError::Etna(m)) if m.contains("beneficiary"))
+            );
+        }
     }
 
     #[test]

@@ -546,7 +546,9 @@ pub(crate) fn committee_witness(
 pub(crate) fn sample_entries(n: usize) -> Vec<RegistryEntry> {
     (0..n)
         .map(|i| RegistryEntry {
-            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
+            reward_recipient: Address::from_slice(
+                &keccak256(format!("etna validator recipient {i}"))[12..],
+            ),
             pubkey: keccak256(format!("etna validator {i}")),
             eff_stake: U256::from(i + 1) * U256::from(10u64).pow(U256::from(18u64)),
             active_from_l1: 0,

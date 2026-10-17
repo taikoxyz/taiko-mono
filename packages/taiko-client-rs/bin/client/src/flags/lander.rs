@@ -155,6 +155,12 @@ impl LanderArgs {
 /// Parse the explicit nonzero address whose L2 reward the V8 statement binds.
 fn reward_recipient(value: &str) -> Result<Address, String> {
     let address = value.parse::<Address>().map_err(|e| e.to_string())?;
+    let hex = value.strip_prefix("0x").or_else(|| value.strip_prefix("0X")).unwrap_or(value);
+    let mixed =
+        hex.bytes().any(|b| b.is_ascii_lowercase()) && hex.bytes().any(|b| b.is_ascii_uppercase());
+    if mixed {
+        Address::parse_checksummed(format!("0x{hex}"), None).map_err(|e| e.to_string())?;
+    }
     if address.is_zero() {
         return Err("L2 reward recipient must be nonzero".into());
     }
@@ -280,6 +286,20 @@ mod tests {
         args[index + 1] = "0x2222222222222222222222222222222222222222";
         let command = parse(args).expect("explicit L2 recipient must parse");
         command.lander_flags.config().expect("recipient independent of signer must validate");
+    }
+
+    #[test]
+    fn reward_recipient_checks_only_mixed_case_eip55() {
+        let valid = "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed";
+        for text in [
+            valid.to_owned(),
+            valid[2..].to_owned(),
+            valid.to_lowercase(),
+            format!("0x{}", valid[2..].to_uppercase()),
+        ] {
+            assert!(reward_recipient(&text).is_ok(), "{text}");
+        }
+        assert!(reward_recipient("0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAEd").is_err());
     }
 
     #[test]

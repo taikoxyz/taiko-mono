@@ -1112,7 +1112,7 @@ async fn preparation_proposer_change_rebuilds_for_payout_and_reuses_raw_proofs()
     use super::proposal::plant_due_entry;
     use crate::test_utils::sample_entries;
     use alloy_primitives::Address;
-    for recipient in [Address::repeat_byte(0x77), Address::repeat_byte(0x88)] {
+    for recipient in [sample_entries(3)[0].reward_recipient, Address::repeat_byte(0x88)] {
         let mut spec = GenesisSpec::new(3);
         let mut entries = sample_entries(3);
         entries[1].reward_recipient = recipient;
@@ -1122,7 +1122,7 @@ async fn preparation_proposer_change_rebuilds_for_payout_and_reuses_raw_proofs()
         let mut app = mid_epoch(&fx, dir.path(), 3).await;
         plant_due_entry(&fx, app.l1(), 70, fx.inbox_with(1));
         let env = propose(&mut app).await;
-        assert_eq!(env.block.header.beneficiary, Address::repeat_byte(0x77));
+        assert_eq!(env.block.header.beneficiary, entries[0].reward_recipient);
         app.l1().state().calls.clear();
         let before = app.engine().calls().len();
         let mut req = prepare_req(next_height(&app), bft_time(&app));
@@ -1172,7 +1172,7 @@ async fn preparation_proposer_change_reuses_cancelled_authenticated_io() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 3).await;
     let old = propose(&mut app).await;
-    assert_eq!(old.block.header.beneficiary, Address::repeat_byte(0x77));
+    assert_eq!(old.block.header.beneficiary, entries[0].reward_recipient);
     plant_due_entry(&fx, app.l1(), 70, fx.inbox_with(1));
     let anchor = fx.anchor_state(app.l1(), 70);
     let entry = app.forced_entry(&anchor, 0).await.unwrap().proven;
