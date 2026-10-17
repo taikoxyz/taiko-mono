@@ -608,9 +608,8 @@ pub async fn server(fixture: Arc<Fixture>, l1: bool) -> Server {
                     };
                     height("toBlock") - height("fromBlock") >= 256
                 };
-                let response = if limited_logs && fixture.log_error.is_some() {
+                let response = if limited_logs && let Some((code, message)) = fixture.log_error {
                     fixture.requests.lock().unwrap().push(request.clone());
-                    let (code, message) = fixture.log_error.unwrap();
                     json!({"jsonrpc":"2.0","id":request["id"],"error":{"code":code,"message":message}})
                 } else if fixture.fail_bootstrap.swap(false, std::sync::atomic::Ordering::SeqCst) {
                     json!({"jsonrpc":"2.0","id":request["id"],"error":{"code":-32000,"message":"secret-transient"}})
