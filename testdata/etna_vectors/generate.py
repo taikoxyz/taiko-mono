@@ -106,9 +106,9 @@ def committee_config():
 
 
 def land_statement(config_hash, base_fee_amount=1234567890123456789):
-    """The V8 statement: twenty static words, independently encoded by cast."""
+    """The V9 statement: twenty-one static words, independently encoded by cast."""
     inputs = {
-        "tag": "TAIKO_ETNA_LAND_V8",
+        "tag": "TAIKO_ETNA_LAND_V9",
         "l1_chain_id": 1,
         "l2_chain_id": 167001,
         "inbox": "0x1111111111111111111111111111111111111111",
@@ -128,11 +128,12 @@ def land_statement(config_hash, base_fee_amount=1234567890123456789):
         "fee_recipient": "0x00000000000000000000000000000000000000aa",
         "l2_reward_recipient": "0x00000000000000000000000000000000000000bb",
         "base_fee_amount": base_fee_amount,
+        "active_committee_snapshot": 18_999_000,
     }
     blob_hashes_hash = keccak(concat(*inputs["blob_hashes"]))
     preimage = abi_encode(
         "f(bytes32,uint256,uint64,address,address,uint64,uint64,bytes32,bytes32,uint64,bytes32,"
-        "bytes32,uint64,bytes32,bytes32,uint48,uint48,address,address,uint256)",
+        "bytes32,uint64,bytes32,bytes32,uint48,uint48,address,address,uint256,uint64)",
         tag(inputs["tag"]),
         inputs["l1_chain_id"],
         inputs["l2_chain_id"],
@@ -153,6 +154,7 @@ def land_statement(config_hash, base_fee_amount=1234567890123456789):
         inputs["fee_recipient"],
         inputs["l2_reward_recipient"],
         inputs["base_fee_amount"],
+        inputs["active_committee_snapshot"],
     )
     return {
         "inputs": decimals(inputs),
@@ -351,6 +353,7 @@ def layout():
         "forced_inclusion_head_tail": 281,
         "forced_inclusion_config": 282,
         "reward_receipts": 283,
+        "active_committee_snapshot": 284,
     }
     return {
         "inbox": {
@@ -366,6 +369,7 @@ def layout():
                     "epoch_len_l1": field(192, 64),
                 },
                 "genesis_cutoff": {"genesis_cutoff": field(0, 64)},
+                "active_committee_snapshot": {"active_committee_snapshot": field(0, 64)},
                 "forced_inclusion_head_tail": {"head": field(0, 48), "tail": field(48, 48)},
                 "forced_inclusion_config": {"delay": field(0, 64), "max_anchor_age": field(64, 64)},
                 "forced_inclusion_entry_metadata": {
@@ -385,6 +389,7 @@ def layout():
             "namespace": "taiko.etna.registry",
             "base": base,
             "entries_length_slot": entries_slot,
+            "inbox_slot": word(base_int + 12),
             "packing": {
                 "checkpoint_head": {"l1_block": field(0, 64), "count": field(64, 32)},
                 "entry_packed": {
@@ -414,12 +419,12 @@ def main():
     entries = registry_entries()
     zero = land_statement(config["hash"], base_fee_amount=0)
     vectors = {
-        "schema_version": "2",
+        "schema_version": "3",
         "committee_config": config,
         "land_statement": landing,
         "reward_receipt": reward_receipt(landing),
         "land_selector": cast(
-            "sig", "land((uint64,bytes32,bytes32,uint64,uint48,address,address,uint256),bytes)"
+            "sig", "land((uint64,bytes32,bytes32,uint64,uint48,address,address,uint256,uint64),bytes)"
         ),
         "claim_selector": cast("sig", "claim((uint256,uint64,address,uint64,uint64,bytes32,uint64,bytes32,address,uint256),uint256,bytes[],bytes[])"),
         "zero_fee": {"land_statement": zero, "reward_receipt": reward_receipt(zero)},

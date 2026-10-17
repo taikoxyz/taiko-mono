@@ -93,8 +93,8 @@ height 8 anchored 1020 may select a different committee; all nodes replaying one
 The config hash binds eleven ABI words under `ETNA_PARENT_ANCHOR_V3`: L2 chain id,
 registry, `vp_unit`, `s_min`, `n_max`, `heartbeat_window`, heartbeat lookahead 2,
 recipient-bound committee encoding version 2, `d_max` and `margin_v`. The opening is exactly 352 bytes.
-The coordinated format is envelope v6, payload v5, V8 statement (20 words / 640 bytes),
-journal schema 10, committee encoding version 2 and `APP_VERSION = 3`. State files must
+The coordinated format is envelope v6, payload v5, V9 statement (21 words / 672 bytes),
+journal schema 11, committee encoding version 2 and `APP_VERSION = 3`. State files must
 carry that exact app version and all authenticated genesis, anchor and FI fields. Old formats
 are explicitly rejected; no migration or signed-journal rewrite is provided. Never delete an
 outstanding signed nonce or CometBFT history to force startup.
@@ -121,7 +121,7 @@ and EIP-2935 history runtimes. Set `BasefeeSharingPctg = 0`. Preserve canonical 
 before initializing Inbox with those commitments. Keep the deployment wallet's nonce unchanged
 between address prediction and deployment. Only after L1 initialization finality should
 `abci-genesis` construct the CometBFT genesis. See the complete
-[protocol deployment instructions](https://github.com/taikoxyz/taiko-mono/blob/2a4bfa747edcafae96c15b58159e31eea0ebe78a/packages/protocol/contracts/layer1/etna/README.md#genesis-initialization).
+[protocol deployment instructions](https://github.com/taikoxyz/taiko-mono/blob/3ff8a1c084b222752abb2eedf7362e74fb14ceda/packages/protocol/contracts/layer1/etna/README.md#genesis-initialization).
 
 The required [EL dependency](https://github.com/taikoxyz/alethia-reth/pull/251) is revision
 `5d4d21ac472c024703082ba46c6eacfa3b8ec1bf`, image `us-docker.pkg.dev/evmchain/images/alethia-reth:sha-5d4d21a`,
@@ -409,10 +409,24 @@ backlog resets it. Waiting never requests a proof or signs a transaction.
 
 The batch's L1 reference is separate from each L2 block's anchor. The reference
 authenticates an ancestor header chain covering those anchors; it never changes
-the anchor number or state root committed in an L2 header. V8 binds the Inbox, registry, both
+the anchor number or state root committed in an L2 header. V9 binds the Inbox, registry, both
 chain ids, generation, checkpoint, committee configuration, terminal block/root, blobs, FI cursor
-before/after, L1 fee recipient, L2 reward recipient and exact batch basefee amount. Committees are
+before/after, L1 fee recipient, L2 reward recipient, exact batch basefee amount and terminal active committee snapshot. Committees are
 independently derived from authenticated historical snapshots; starting-set hints are not authority.
+
+`LandInput.activeCommitteeSnapshot` names the committee active at the terminal height according to
+`schedule.epoch_of(height)`. Epoch zero uses `genesisCutoff`; every later epoch uses the L1 anchor
+in its authenticated derivation parent `D(t) = H(t) - 3`. At `S = H(t) - 2` and `S + 1`, the
+incoming committee is still pending, so those terminal blocks retain the outgoing cutoff. This
+also applies when a batch starts or ends partway through an epoch. Restore validation checks the
+cutoff against committed ancestry and retained committee provenance even if the digest is
+recomputed. Schema 10 journals are rejected intact, including their outstanding signed nonce.
+The receipt remains ten words and its batch id is unchanged.
+
+Before registry withdrawals can use the landed cutoff, its owner must call `bindInbox(address)`
+once with the initialized Inbox that names that registry. `withdraw()` requires the existing
+exit wait and `activeCommitteeSnapshot >= exitEffectiveL1`. The client never advances that
+cutoff from the reference block or a pending committee.
 
 Every block is held to the shared ABCI calldata classifier and asynchronous skip checker. Its
 witness authenticates the cursor's entry under that block's anchor. Inclusion must match the exact
@@ -804,10 +818,12 @@ immediate execution prefix and budget, verify state witnesses, independently rec
 rejection or overflow, and bind cursor advancement/output. A candidate beyond an earlier cutoff
 or under another parent context needs a suitable collection path.
 
-A future guest must bind the V8 recipient and actual executed-header basefee sum, authenticate
+A future guest must bind the V9 recipient and actual executed-header basefee sum, authenticate
 the recipient-bound committee, and verify each beneficiary against the original proposer in
 that block's certified CometBFT header under that height's committee, including retained blocks.
 The lander-selected batch recipient is independent of these per-block proposer recipients.
+It must also prove the terminal active committee snapshot from its authenticated derivation
+header (or the explicit genesis cutoff), including outgoing selection at the switch boundary.
 It must preserve certificate threshold, execution ancestry, forced-inclusion and L1 reference checks. No real guest is implemented; the dummy verifier cannot establish those claims,
 so this version is restricted to disposable development chains.
 
@@ -940,7 +956,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 Regenerate lander ABI/deployment fixtures only when their inputs change, with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `2a4bfa747edcafae96c15b58159e31eea0ebe78a` (also the
+The script requires protocol HEAD `3ff8a1c084b222752abb2eedf7362e74fb14ceda` (also the
 `PROTOCOL_REVISION` in `crates/lander/src/contracts.rs`),
 installs pnpm dependencies before Foundry, builds the Inbox, registry, immutable `L2FeeVault` and
 SignalService with their test fixtures, verifies compiler source hashes,

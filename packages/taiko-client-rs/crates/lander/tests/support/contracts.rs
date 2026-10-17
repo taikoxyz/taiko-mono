@@ -232,6 +232,13 @@ impl ContractFixture {
         )
         .await?;
         ensure!(inbox == predicted_inbox, "CREATE-predicted authorized syncer differs");
+        transact(
+            p,
+            owner,
+            registry,
+            EtnaStakingRegistry::bindInboxCall { _inbox: inbox }.abi_encode(),
+        )
+        .await?;
         let activated = view(p, inbox, EtnaInbox::activationCall {}, None).await?;
         let genesis = GenesisRecord {
             committee_config_hash: committee_config_hash(&params),
@@ -329,7 +336,7 @@ impl ContractFixture {
         Ok((saved, blob, fee))
     }
 
-    /// Require the verifier to receive this exact V8 public statement.
+    /// Require the verifier to receive this exact V9 public statement.
     pub async fn expect_statement(&self, hash: B256) -> Result<()> {
         transact(
             &self.anvil.provider,
