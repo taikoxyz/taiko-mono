@@ -1,12 +1,12 @@
-//! V3 published block payload codec, bounded before parsing or allocating messages.
+//! V5 published block payload codec, bounded before parsing or allocating messages.
 //!
 //! A batch publishes each block's canonical CometBFT header and its single Etna envelope. The
 //! header hashes to the block id the committee signed, its `data_hash` commits to the envelope and
 //! its `last_block_id` to the preceding header. Commits and signatures are not published: proofs
 //! take them as witnesses from the prepared batch. The pinned Tendermint domain adapter maps
-//! CometBFT's empty height-1 last block id to `None`; V3 publishes that canonical domain form.
+//! CometBFT's empty height-1 last block id to `None`; V5 publishes that canonical domain form.
 //!
-//! V3 is V2's RLP list compressed as one zlib stream with the codec the ABCI landing capacity
+//! V5 carries the RLP list compressed as one zlib stream with the codec the ABCI landing capacity
 //! guard uses. A single block that does not fit otherwise is compressed with a full flush before
 //! its envelope ([`zlib_compress_split`]), so the envelope deflates exactly as the guard measured
 //! it and every block the guard admits lands on its own; decoders read any flush transparently.

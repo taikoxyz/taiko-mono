@@ -95,7 +95,7 @@ impl ContractConsensus {
             Duration::from_secs(60),
             Duration::from_millis(100),
             || async {
-                anyhow::ensure!(self.app.halt().is_none(), "ABCI halted: {:?}", self.app.halt());
+                check_app_running(self.app.halt(), self.app.exited())?;
                 Ok((self.cmt.latest_height().await? >= height).then_some(()))
             },
         )
@@ -115,5 +115,31 @@ impl Drop for ContractConsensus {
             eprintln!("real consensus app halt: {:?}", self.app.halt());
             self.docker.dump_logs();
         }
+    }
+}
+
+/// Classify terminal consensus-app failure before retrying an RPC readiness probe.
+fn check_app_running(halt: Option<String>, exited: bool) -> Result<()> {
+    if let Some(reason) = halt {
+        return Err(crate::wait::Fatal(anyhow::anyhow!("ABCI halted: {reason}")).into());
+    }
+    if exited {
+        return Err(crate::wait::Fatal(anyhow::anyhow!("ABCI stopped on its own")).into());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::wait::Fatal;
+
+    #[test]
+    fn terminal_consensus_app_state_is_fatal() {
+        for (halt, exited) in [(Some("safety halt".to_owned()), false), (None, true)] {
+            let err = check_app_running(halt, exited).expect_err("terminal app failure");
+            assert!(err.is::<Fatal>(), "terminal app failures must not be retried: {err}");
+        }
+        assert!(check_app_running(None, false).is_ok());
     }
 }

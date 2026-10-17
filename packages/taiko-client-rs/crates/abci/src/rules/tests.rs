@@ -294,12 +294,17 @@ fn check_header_ignores_execution_results() {
 #[test]
 fn check_header_rejects_every_single_field_mutation() {
     type Mutation = fn(&mut Header);
-    let cases: [(&str, Mutation); 15] = [
+    let cases: [(&str, Mutation); 16] = [
         ("number", |h| h.number += 1),
         ("parent_hash", |h| h.parent_hash = B256::repeat_byte(0x99)),
         ("timestamp", |h| h.timestamp += 1),
         ("beneficiary", |h| h.beneficiary = Address::repeat_byte(0x99)),
         ("extra_data", |h| h.extra_data = encode_extra_data(GENERATION, 501).unwrap()),
+        ("extra_data", |h| {
+            let mut bytes = h.extra_data.to_vec();
+            bytes[0] = 50;
+            h.extra_data = bytes.into();
+        }),
         ("parent_beacon_block_root", |h| h.parent_beacon_block_root = None),
         ("gas_limit", |h| h.gas_limit -= 1),
         ("base_fee_per_gas", |h| h.base_fee_per_gas = h.base_fee_per_gas.map(|f| f + 1)),

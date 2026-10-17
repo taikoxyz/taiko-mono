@@ -1,4 +1,4 @@
-//! The block envelope: `0x05 || rlp([block, anchor, committee, forced])`, the one transaction of
+//! The block envelope: `0x06 || rlp([block, anchor, committee, forced])`, the one transaction of
 //! every CometBFT block, chosen by the proposer.
 
 use alloy_primitives::Bytes;
