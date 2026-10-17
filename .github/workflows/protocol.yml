@@ -4,6 +4,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
+      - ".github/workflows/protocol.yml"
       - "packages/protocol/**"
       # The Etna vectors the protocol tests read (shared with taiko-client-rs).
       - "testdata/etna_vectors/**"
@@ -90,6 +91,12 @@ jobs:
       - name: Test L2 contracts
         working-directory: ./packages/protocol
         run: pnpm test:l2 && pnpm layout:l2
+
+      - name: Test Etna genesis builder
+        working-directory: ./packages/protocol
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python3 -m unittest discover -s test/layer2/core -p 'test_etna_genesis.py' -v
 
       - name: Test L1 contracts
         working-directory: ./packages/protocol
