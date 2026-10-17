@@ -19,6 +19,14 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # regardless of the caller's working directory.
 cd "$DIR/.."
 
+# Internal selector used by the fixed `just test-smoke` recipe. Shift only this
+# leading flag so all remaining arguments retain their nextest meaning.
+filter='kind(test)'
+if [[ "${1:-}" == "--smoke" ]]; then
+    shift
+    filter='kind(test) & (test(=single_validator_produces_blocks_by_the_header_rules) | test(=epoch_switch_adds_the_joining_validator) | test(=real_l2_rewards_claim_and_fee_continuation) | test(=lander_cli_lands_blob_batches_and_resumes_after_sigterm))'
+fi
+
 # Every harness child inherits this label. Cleanup stays scoped to this invocation, including
 # lander fixtures, even when cancellation bypasses the harness's normal Drop cleanup.
 export TAIKO_CLIENT_RS_TEST_RUN=${TAIKO_CLIENT_RS_TEST_RUN:-local-$$-$RANDOM}
@@ -86,7 +94,7 @@ stop_scenarios() {
     wait "$scenario_pid" || true
     exit "$status"
 }
-cargo nextest run -p abci -p lander -p taiko-client -p test-harness --all-features --profile integration --run-ignored only -E 'kind(test)' "$@" &
+cargo nextest run -p abci -p lander -p taiko-client -p test-harness --all-features --profile integration --run-ignored only -E "$filter" "$@" &
 scenario_pid=$!
 trap 'stop_scenarios 130' INT
 trap 'stop_scenarios 143' TERM
