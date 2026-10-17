@@ -6,10 +6,20 @@ use anyhow::Context;
 use std::time::Duration;
 use test_harness::{Devnet, DevnetSpec, dev_signer, send_transfer, wait_until};
 
+/// Both phases share one devnet. The genesis phase runs first: its transfer uses the signer's
+/// nonce 0, while the fee-path phase reads nonces and measures every balance as a block delta.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
-async fn fee_routing_custom_genesis_and_transfer() -> anyhow::Result<()> {
+async fn fee_routing_on_the_custom_genesis() -> anyhow::Result<()> {
     let devnet = Devnet::start(DevnetSpec::default()).await?;
+    genesis_and_transfer(&devnet).await?;
+    fee_paths(&devnet).await?;
+    devnet.stop().await
+}
+
+/// The custom genesis is deterministic and binds the vault to this Inbox; a plain transfer pays
+/// the vault its base fee and the proposer its tip.
+async fn genesis_and_transfer(devnet: &Devnet) -> anyhow::Result<()> {
     let l2 = devnet.l2_provider(0);
     let genesis = test_harness::EtnaGenesis::build(devnet.l1(), devnet.params().inbox).await?;
     let repeat = test_harness::EtnaGenesis::build(devnet.l1(), devnet.params().inbox).await?;
@@ -79,7 +89,6 @@ async fn fee_routing_custom_genesis_and_transfer() -> anyhow::Result<()> {
         alloy_primitives::U256::from_be_slice(devnet.params().inbox.as_slice()).to_be_bytes::<32>(),
         "custom genesis must bind the actual vault to this L1 Inbox"
     );
-    devnet.stop().await?;
     Ok(())
 }
 
@@ -225,11 +234,9 @@ struct Movements {
     sent_value: U256,
 }
 
-#[tokio::test(flavor = "multi_thread")]
-#[ignore = "docker"]
-async fn fee_routing_success_revert_refund_floor_authorization_and_forced_credit()
--> anyhow::Result<()> {
-    let d = Devnet::start(DevnetSpec::default()).await?;
+/// Creation, value transfers, a revert, the SSTORE refund, the calldata floor, an EIP-7702
+/// authorization and Ether force-sent to the vault each route fees exactly.
+async fn fee_paths(d: &Devnet) -> anyhow::Result<()> {
     let l2 = d.l2_provider(0);
     let artifact: Value =
         serde_json::from_str(include_str!("../../test-harness/contracts/FeeRoutingFixture.json"))?;
@@ -241,13 +248,13 @@ async fn fee_routing_success_revert_refund_floor_authorization_and_forced_credit
     )
     .await?;
     assert!(deployed.status());
-    check_fees(&d, &deployed, Movements::default()).await?;
+    check_fees(d, &deployed, Movements::default()).await?;
     let fixture = deployed.contract_address.context("fixture address")?;
     let value = U256::from(12345);
     let recipient = Address::repeat_byte(0x92);
     let paid = send(&l2, recipient.into(), Bytes::new(), value).await?;
     assert!(paid.status());
-    check_fees(&d, &paid, Movements { sent_value: value, ..Default::default() }).await?;
+    check_fees(d, &paid, Movements { sent_value: value, ..Default::default() }).await?;
     assert_eq!(
         l2.get_balance(recipient).block_id(BlockId::number(paid.block_number.unwrap())).await?,
         value
@@ -255,7 +262,7 @@ async fn fee_routing_success_revert_refund_floor_authorization_and_forced_credit
     let proposer_paid =
         send(&l2, d.keys()[0].reward_recipient().into(), Bytes::new(), value).await?;
     check_fees(
-        &d,
+        d,
         &proposer_paid,
         Movements { sent_value: value, proposer_transfer: value, ..Default::default() },
     )
@@ -263,10 +270,10 @@ async fn fee_routing_success_revert_refund_floor_authorization_and_forced_credit
     let reverted = send(&l2, fixture.into(), selector("fail()"), U256::ZERO).await?;
     assert!(!reverted.status());
     assert!(reverted.gas_used > 21000);
-    check_fees(&d, &reverted, Movements::default()).await?;
+    check_fees(d, &reverted, Movements::default()).await?;
     let set = send(&l2, fixture.into(), selector("set()"), U256::ZERO).await?;
     assert!(set.status());
-    check_fees(&d, &set, Movements::default()).await?;
+    check_fees(d, &set, Movements::default()).await?;
     assert_eq!(
         l2.get_storage_at(fixture, U256::ZERO)
             .block_id(BlockId::number(set.block_number.unwrap()))
@@ -275,7 +282,7 @@ async fn fee_routing_success_revert_refund_floor_authorization_and_forced_credit
     );
     let clear = send(&l2, fixture.into(), selector("clear()"), U256::ZERO).await?;
     assert!(clear.status());
-    check_fees(&d, &clear, Movements::default()).await?;
+    check_fees(d, &clear, Movements::default()).await?;
     assert_eq!(
         l2.get_storage_at(fixture, U256::ZERO)
             .block_id(BlockId::number(clear.block_number.unwrap()))
@@ -292,7 +299,7 @@ async fn fee_routing_success_revert_refund_floor_authorization_and_forced_credit
     let calldata = Bytes::from(vec![0xff; 1024]);
     let floor = send(&l2, fixture.into(), calldata.clone(), U256::ZERO).await?;
     assert!(floor.status());
-    check_fees(&d, &floor, Movements::default()).await?;
+    check_fees(d, &floor, Movements::default()).await?;
     let intrinsic = 21000 + 16 * calldata.len() as u64;
     let floor_gas = 21000 + 40 * calldata.len() as u64;
     assert_eq!(floor.gas_used, floor_gas);
@@ -329,7 +336,7 @@ async fn fee_routing_success_revert_refund_floor_authorization_and_forced_credit
     let signature = dev_signer().sign_hash_sync(&tx.signature_hash())?;
     let delegated = submit(&l2, TxEnvelope::Eip7702(tx.into_signed(signature))).await?;
     assert!(delegated.status());
-    check_fees(&d, &delegated, Movements::default()).await?;
+    check_fees(d, &delegated, Movements::default()).await?;
     let mut delegation = vec![0xef, 0x01, 0x00];
     delegation.extend_from_slice(fixture.as_slice());
     assert_eq!(l2.get_code_at(authority.address()).await?.as_ref(), delegation);
@@ -345,12 +352,12 @@ async fn fee_routing_success_revert_refund_floor_authorization_and_forced_credit
     let forced = send(&l2, fixture.into(), force_input.into(), value).await?;
     assert!(forced.status());
     check_fees(
-        &d,
+        d,
         &forced,
         Movements { sent_value: value, forced_credit: value, ..Default::default() },
     )
     .await?;
-    d.stop().await
+    Ok(())
 }
 
 /// Opcode gas remaining measures actual intrinsic+execution consumption independently of
