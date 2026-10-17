@@ -29,7 +29,4 @@ pub struct LanderClaimArgs {
     /// Deadline for each RPC and ordinary reconciliation, in seconds.
     #[arg(long = "rpc.timeout", default_value = "30", value_parser = clap::value_parser!(u64).range(1..=3600))]
     pub rpc_timeout: u64,
-    /// Independent total historical discovery and EL ancestry deadline, in seconds.
-    #[arg(long = "finality.timeout", default_value = "300", value_parser = clap::value_parser!(u64).range(1..=3600))]
-    pub finality_timeout: u64,
 }

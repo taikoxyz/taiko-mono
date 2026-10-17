@@ -1,5 +1,5 @@
 //! Independent claim journal: atomic durable writes, immutable signatures and exclusive ownership.
-use super::{ClaimIdentity, ClaimProof, discovery::DiscoveryProgress, tx::SignedClaim};
+use super::{ClaimIdentity, ClaimProof, tx::SignedClaim};
 use crate::{LanderError, Result, tx::LandingReceipt};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -13,7 +13,7 @@ const VERSION: u8 = 1;
 /// Bound attacker-controlled journal allocation, including proof calldata.
 const MAX_BYTES: u64 = 8 * 1024 * 1024;
 
-/// Durable phase. Finalized retains the original signed bytes for auditing and resume checks.
+/// Durable phase. Every phase after Signed retains the original signed bytes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ClaimState {
     /// Authenticated entitlement available, no signed nonce yet.
@@ -22,10 +22,11 @@ pub enum ClaimState {
     Signed,
     /// Broadcast intent is durable, including unknown outcomes and reorgs.
     Pending,
-    /// Canonical successful receipt and claimed bit observed, still tentative.
+    /// Canonical successful receipt and claimed bit observed. This is the end state: Etna L2
+    /// blocks are BFT-final, and a rerun after a recovery reconciles it again. Journals written
+    /// before finality proofs were removed may still say `Finalized`.
+    #[serde(alias = "Finalized")]
     Included,
-    /// Authenticated finalized L1 checkpoint and EL ancestry cover the actual claim block.
-    Finalized,
 }
 
 /// One immutable entitlement and at most one signed nonce.
@@ -39,9 +40,6 @@ pub struct ClaimJob {
     pub transaction: Option<SignedClaim>,
     /// Most recently verified canonical inclusion; absent during a reorg.
     pub inclusion: Option<LandingReceipt>,
-    /// Untrusted resumable log-discovery hints; old version-1 journals omit this field.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub discovery: Option<DiscoveryProgress>,
 }
 
 /// Versioned disk record with public identities only.
@@ -121,12 +119,6 @@ impl ClaimStore {
         {
             return Err(LanderError::Journal("cannot replace immutable claim job".into()));
         }
-        if let Some(old) = self.load()? &&
-            old.state == ClaimState::Finalized &&
-            old != *job
-        {
-            return Err(LanderError::Journal("finalized claim is terminal".into()));
-        }
         let bytes = serde_json::to_vec(&Journal {
             version: VERSION,
             identity: self.identity.clone(),
@@ -159,8 +151,7 @@ impl ClaimStore {
             return Err(journal_error());
         }
         if (job.state == ClaimState::Prepared) != job.transaction.is_none() ||
-            matches!(job.state, ClaimState::Included | ClaimState::Finalized) !=
-                job.inclusion.is_some()
+            (job.state == ClaimState::Included) != job.inclusion.is_some()
         {
             return Err(journal_error());
         }

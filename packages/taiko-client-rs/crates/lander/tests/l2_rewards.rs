@@ -306,17 +306,11 @@ async fn real_l2_rewards_claim_and_fee_continuation() -> Result<()> {
         l2.get_balance(vault).block_id(BlockId::number(second.batch.input.lastHeight)).await?;
     assert_eq!(vault_end + amount, vault_start + expected);
     mine_l1_blocks(p, 3).await?;
-    wait_until(
-        "claim finalized under real later checkpoint",
-        DEADLINE,
-        Duration::from_millis(200),
-        || async {
-            Ok(claim_poll(step(&store, &source, &transport, DEADLINE).await)?
-                .filter(|outcome| *outcome == ClaimOutcome::State(ClaimState::Finalized))
-                .map(|_| ()))
-        },
-    )
-    .await?;
+    // Included is the end state: a rerun reconciles the same signed claim again.
+    assert_eq!(
+        step(&store, &source, &transport, DEADLINE).await?,
+        ClaimOutcome::State(ClaimState::Included)
+    );
     let refreshed =
         wait_until("new anchor receipt proof", DEADLINE, Duration::from_millis(200), || async {
             Ok(claim_poll(source.prepare(landing_tx, batch_id).await)?
@@ -336,7 +330,7 @@ async fn real_l2_rewards_claim_and_fee_continuation() -> Result<()> {
     assert_eq!(
         store.load()?.unwrap().transaction.unwrap(),
         signed,
-        "finality retains original signed bytes"
+        "reruns retain the original signed bytes"
     );
     // Force a fresh-nonce replay through actual execution, bypassing estimation intentionally.
     let replay = TxEip1559 {
@@ -363,7 +357,7 @@ async fn real_l2_rewards_claim_and_fee_continuation() -> Result<()> {
         "duplicate pays nothing"
     );
     eprintln!(
-        "positive payout={amount} claim={} at={claim_height} subsequent_basefee={expected} finalized=true replay_old_and_new_roots=rejected",
+        "positive payout={amount} claim={} at={claim_height} subsequent_basefee={expected} replay_old_and_new_roots=rejected",
         signed.hash
     );
     c.stop().await?;

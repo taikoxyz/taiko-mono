@@ -7,7 +7,7 @@ use super::{
 use crate::{LanderError, Result, tx::NonceState};
 use std::time::Duration;
 
-/// One step's observable outcome; Included remains provisional.
+/// One step's observable outcome.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ClaimOutcome {
     /// Canonical state shows the reward consumed; an existing signed attempt remains retained.
@@ -16,8 +16,8 @@ pub enum ClaimOutcome {
     State(ClaimState),
 }
 
-/// Bound ordinary reconciliation independently of the source's longer finality budget.
-/// Validated Finalized journals are terminal and need no network requests or rewrites.
+/// Run one bounded reconciliation step. Included is the end state: Etna L2 blocks are BFT-final,
+/// and a rerun after a recovery that rewinds L2 reconciles the retained signature again.
 pub async fn step(
     store: &ClaimStore,
     source: &dyn ClaimSource,
@@ -25,27 +25,9 @@ pub async fn step(
     deadline: Duration,
 ) -> Result<ClaimOutcome> {
     let old = store.load()?;
-    if old.as_ref().is_some_and(|job| job.state == ClaimState::Finalized) {
-        return Ok(ClaimOutcome::State(ClaimState::Finalized));
-    }
-    let result = tokio::time::timeout(deadline, step_inner(store, source, transport, old))
+    tokio::time::timeout(deadline, step_inner(store, source, transport, old))
         .await
-        .map_err(|_| timeout_error())??;
-    if result != ClaimOutcome::State(ClaimState::Included) {
-        return Ok(result);
-    }
-    let mut job = store.load()?.ok_or_else(|| LanderError::Journal("missing claim job".into()))?;
-    let inclusion =
-        job.inclusion.ok_or_else(|| LanderError::Journal("missing inclusion".into()))?;
-    // Even a timeout retains completed discovery pages and a candidate hint. These never
-    // authorize finality without a fresh proof and full ancestry authentication.
-    let finalized = source.transaction_finalized(&inclusion, &mut job.discovery).await;
-    if matches!(finalized, Ok(true)) {
-        job.state = ClaimState::Finalized;
-    }
-    store.save(&job)?;
-    finalized?;
-    Ok(ClaimOutcome::State(job.state))
+        .map_err(|_| timeout_error())?
 }
 
 /// Resume signed jobs before acquiring any fresh calldata proof or nonce.
@@ -64,13 +46,8 @@ async fn step_inner(
     }
     let proof = source.prepare(identity.landing_tx, identity.batch_id).await?;
     identity.validate_receipt(&proof.receipt)?;
-    let mut job = ClaimJob {
-        state: ClaimState::Prepared,
-        proof,
-        transaction: None,
-        inclusion: None,
-        discovery: None,
-    };
+    let mut job =
+        ClaimJob { state: ClaimState::Prepared, proof, transaction: None, inclusion: None };
     store.save(&job)?;
     let tx = match transport.sign(identity, &job.proof).await {
         Ok(tx) => tx,
@@ -166,9 +143,6 @@ async fn reconcile(
                     "successful claim receipt without canonical claimed bit".into(),
                 ));
             }
-            if job.inclusion != Some(receipt) {
-                job.discovery = None;
-            }
             job.state = ClaimState::Included;
             job.inclusion = Some(receipt);
             store.save(&job)?;
@@ -193,7 +167,6 @@ async fn reconcile(
         if job.inclusion.is_some() {
             job.state = ClaimState::Pending;
             job.inclusion = None;
-            job.discovery = None;
             store.save(&job)?;
         }
         if nonce.confirmed < tx.nonce ||
