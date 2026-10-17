@@ -254,8 +254,12 @@ clock check (PBTS-style timeliness); that remains an open, launch-blocking desig
 ## Prerequisites
 
 - Rust toolchain (1.95 or later)
-- [Just](https://github.com/casey/just) and [cargo-nextest](https://nexte.st)
+- [Just](https://github.com/casey/just) and [cargo-nextest](https://nexte.st) 0.9.145 or later
 - Docker (for the integration tests)
+
+Nextest 0.9.145 fixes a macOS capture-pipe inheritance race that can falsely report a passing
+test as `LEAK` ([upstream fix](https://github.com/nextest-rs/nextest/pull/3553)). The configuration
+retains the previous runner's 100 ms leak-detection budget for both default and integration profiles.
 
 ## Build the source
 
