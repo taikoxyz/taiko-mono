@@ -8,8 +8,15 @@ fn claim_command_exposes_required_inputs_without_recipient_redirect() {
     let output = Command::new(CLIENT).args(["lander-claim", "--help"]).output().unwrap();
     assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
     let help = String::from_utf8_lossy(&output.stdout);
-    for flag in ["--l1.http", "--l2.http", "--landing-tx", "--batch-id", "--key-file", "--data-dir"]
-    {
+    for flag in [
+        "--l1.http",
+        "--l2.http",
+        "--landing-tx",
+        "--batch-id",
+        "--key-file",
+        "--data-dir",
+        "--finality.timeout",
+    ] {
         assert!(help.contains(flag), "missing {flag}");
     }
     assert!(!help.contains("--recipient"));
@@ -92,7 +99,7 @@ async fn actual_cli_third_party_payer_claims_and_retains_signed_bytes_until_fina
 }
 
 #[tokio::test]
-async fn actual_cli_unknown_send_restart_rebroadcasts_same_bytes_before_any_new_proof() {
+async fn actual_cli_unknown_send_retries_in_process_with_same_bytes_before_any_new_proof() {
     let fixture = Arc::new(Fixture::new(Fault::None, false));
     fixture.fail_next_send.store(true, Ordering::SeqCst);
     let l1 = fixture::server(fixture.clone(), true).await;
@@ -101,28 +108,27 @@ async fn actual_cli_unknown_send_restart_rebroadcasts_same_bytes_before_any_new_
     let key = key(dir.path());
     let journal = dir.path().join("claim");
     *fixture.claim_directory.lock().unwrap() = Some(journal.clone());
-    let first = command(&l1.url, &l2.url, &key, &journal).output().await.unwrap();
-    assert!(!first.status.success());
-    let state: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(journal.join("claim-state.json")).unwrap()).unwrap();
-    assert_eq!(state["job"]["state"], "Pending");
-    let proof_reads =
-        fixture.requests.lock().unwrap().iter().filter(|r| r["method"] == "eth_getProof").count();
-    let second = tokio::time::timeout(
+    let output = tokio::time::timeout(
         Duration::from_secs(15),
         command(&l1.url, &l2.url, &key, &journal).output(),
     )
     .await
     .unwrap()
     .unwrap();
-    assert!(second.status.success(), "{}", String::from_utf8_lossy(&second.stderr));
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    let diagnostic = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        diagnostic.contains("Pending") &&
+            diagnostic.contains("nonce=3") &&
+            diagnostic.contains("transaction=")
+    );
+    assert!(String::from_utf8_lossy(&output.stderr).contains("retrying"));
     let sends = fixture.sends.lock().unwrap();
     assert_eq!(sends.len(), 2);
     assert_eq!(sends[0], sends[1]);
-    // Exactly one new proof is the finalized checkpoint; entitlement preparation must not repeat.
     assert_eq!(
         fixture.requests.lock().unwrap().iter().filter(|r| r["method"] == "eth_getProof").count(),
-        proof_reads + 1
+        1
     );
 }
 
@@ -182,5 +188,110 @@ fn actual_cli_rejects_each_missing_flag_malformed_batch_and_zero_hash_before_key
         let output = Command::new(CLIENT).args(a).output().unwrap();
         assert!(!output.status.success());
         assert!(!String::from_utf8_lossy(&output.stderr).contains("cannot read"));
+    }
+}
+
+async fn until(mut predicate: impl FnMut() -> bool) {
+    tokio::time::timeout(Duration::from_secs(8), async {
+        while !predicate() {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn actual_cli_retries_bootstrap_and_anchor_lag_in_the_same_process() {
+    let fixture = Arc::new(Fixture::new(Fault::PendingAnchor, false));
+    fixture.fail_bootstrap.store(true, Ordering::SeqCst);
+    let l1 = fixture::server(fixture.clone(), true).await;
+    let l2 = fixture::server(fixture.clone(), false).await;
+    let dir = tempfile::tempdir().unwrap();
+    let key = key(dir.path());
+    let journal = dir.path().join("claim");
+    let mut cmd = command(&l1.url, &l2.url, &key, &journal);
+    cmd.stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped());
+    let child = cmd.spawn().unwrap();
+    until(|| {
+        fixture
+            .requests
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|r| r["method"] == "eth_getBlockByNumber" && r["params"][0] == "latest")
+            .count() >=
+            2
+    })
+    .await;
+    assert!(fixture.sends.lock().unwrap().is_empty());
+    fixture.pending_anchor.store(false, Ordering::SeqCst);
+    let output = tokio::time::timeout(Duration::from_secs(15), child.wait_with_output())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    let diagnostics = String::from_utf8_lossy(&output.stderr);
+    assert!(diagnostics.contains("retrying"));
+    assert!(!diagnostics.contains("secret-"));
+    assert_eq!(fixture.sends.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn actual_cli_sigterm_cancels_backoff_or_hung_rpc_and_preserves_original_pending_bytes() {
+    for hang in [false, true] {
+        let fixture = Arc::new(Fixture::new(Fault::None, false));
+        fixture.fail_next_send.store(true, Ordering::SeqCst);
+        let l1 = fixture::server(fixture.clone(), true).await;
+        let l2 = fixture::server(fixture.clone(), false).await;
+        let dir = tempfile::tempdir().unwrap();
+        let key = key(dir.path());
+        let journal = dir.path().join("claim");
+        let mut cmd = command(&l1.url, &l2.url, &key, &journal);
+        cmd.stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped());
+        let child = cmd.spawn().unwrap();
+        until(|| !fixture.sends.lock().unwrap().is_empty()).await;
+        let original = std::fs::read(journal.join("claim-state.json")).unwrap();
+        if hang {
+            fixture.hang_receipts.store(true, Ordering::SeqCst);
+            until(|| fixture.hung_started.load(Ordering::SeqCst)).await;
+        }
+        assert!(
+            Command::new("kill")
+                .args(["-TERM", &child.id().unwrap().to_string()])
+                .status()
+                .unwrap()
+                .success()
+        );
+        let output = tokio::time::timeout(Duration::from_secs(3), child.wait_with_output())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(!output.status.success());
+        assert_eq!(std::fs::read(journal.join("claim-state.json")).unwrap(), original);
+        fixture.hang_receipts.store(false, Ordering::SeqCst);
+        let resumed = tokio::time::timeout(
+            Duration::from_secs(15),
+            command(&l1.url, &l2.url, &key, &journal).output(),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert!(resumed.status.success(), "{}", String::from_utf8_lossy(&resumed.stderr));
+        let sends = fixture.sends.lock().unwrap();
+        assert_eq!(sends.len(), 2);
+        assert_eq!(sends[0], sends[1]);
+    }
+}
+
+#[test]
+fn actual_cli_bounds_independent_finality_deadline() {
+    for value in ["0", "3601"] {
+        let output = Command::new(CLIENT)
+            .args(["lander-claim", "--finality.timeout", value])
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        assert!(String::from_utf8_lossy(&output.stderr).contains("finality.timeout"));
     }
 }

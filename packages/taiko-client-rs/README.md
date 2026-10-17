@@ -817,18 +817,60 @@ can use newer anchors and survive recovery-generation changes. Preparation does 
 subsequent L1 landing already covering H.
 
 The command estimates ordinary L2 EIP-1559 fees/gas, signs once, fsyncs the original bytes and
-broadcast intent, then submits. An ambiguous send exits with its Pending job intact. Rerun the same
-command and key to reconcile that job before requesting a new proof; unconsumed nonces replay only
-the same bytes. A consumed nonce without the matching canonical receipt requires operator review,
-and the command never automatically changes nonce, fee, proof, or recipient after signing.
+broadcast intent, then submits. Availability failures (including bootstrap, anchor lag, and ambiguous
+sends) retry in the same process with cancellable backoff capped at eight seconds. Pending output
+shows the original transaction hash and nonce; changed retry reasons are displayed without RPC
+credentials or response bodies. SIGINT/SIGTERM interrupts RPCs and sleeps while retaining signed
+bytes. Rerun the same command and key to reconcile that job; unconsumed nonces replay only the same
+bytes. A consumed nonce without the matching canonical receipt requires operator review. No nonce,
+fee, proof, or recipient is automatically changed after signing.
 
-An Included result is provisional. Rerun to check Finalized: this requires an Inbox checkpoint proven
-under finalized L1 state plus authenticated descending EL ancestry containing the actual claim block.
-A finalized entitlement root alone does not finalize a claim transaction. Signed bytes remain stored
-in both Included and Finalized states; each restart rechecks current receipt/canonical/claimed state.
-The default RPC/step deadline is 30 seconds (`--rpc.timeout`, 1–3600); ancestry traversals are also
-bounded to 131,072 headers. Expired roots can refresh before signing, while signed calldata remains
-immutable and may need operator handling if it can no longer execute.
+Reconciliation pins an own execution snapshot, reads its confirmed nonce before the receipt, then
+checks claimed at the exact successful receipt block (or snapshot when the own receipt is absent or
+reverted). It rechecks canonical hashes and refreshes a contradictory moving view once. Another
+payer can consume the reward first: authoritative canonical claimed state returns AlreadyClaimed,
+retains any original transaction, and stops broadcasting. This does not assert that our transaction
+succeeded or finalized; a revert selector alone is never sufficient authority.
+
+An Included result is provisional. Rerun to check Finalized: bounded chronological pages of the fixed
+Inbox's BatchRewardRecorded logs discover a historical landing whose range covers the actual claim
+block. Its exact receipt mapping commitment is proven under own finalized L1 state, then every EL
+parent hash is authenticated back to our actual successful inclusion. The receipt records the same
+endpoint atomically saved by Inbox land. Logs/cursors alone, a claimed-bit proof, and an entitlement
+root cannot finalize our transaction. Discovery does not assume monotonic heights across recovery
+or filter by the original entitlement generation; valid wrong-branch endpoints are skipped.
+
+Validated Finalized journals are terminal: runner resume preserves their original inclusion and
+signed bytes without fresh network reconciliation. Version-1 signed/finalized journals remain valid
+without migration. Optional discovery metadata is untrusted and bound to the transaction, inclusion,
+original landing and canonical finalized context. Completed pages survive retries and cached candidates
+are freshly proven. One unavailable candidate is retained and retried while bounded discovery continues
+to later candidates; a missing old-branch header cannot block a later complete proof. Completed
+unsuccessful scans restart, revisiting every delayed, omitted or temporarily unavailable candidate
+without an unbounded hint queue.
+
+`--rpc.timeout` defaults to 30 seconds for individual calls and ordinary reconciliation.
+`--finality.timeout` separately defaults to 300 seconds for complete historical discovery and ancestry
+(both accept 1–3600 seconds). One discovery operation scans at most 16 pages of 1,024 L1 blocks,
+accepts at most 256 logs / 512 KiB event data and topics per page, and fetches at most 131,072 EL
+ancestry headers in total. Claim HTTP responses are capped at 2 MiB before JSON decoding, including
+chunked responses; redirects are disabled. Capacity failures are actionable errors, not infinite retries.
+Required history includes fixed-Inbox logs, hash-pinned account/storage proofs, raw L1 headers and EL
+headers by hash. Missing history cannot be bypassed by trusting events or claimed state.
+
+Unsigned Prepared jobs can refresh their anchor proof before estimation. Roots validity depends on
+whether the timestamp's modulo ring slot still stores that entry, not on a fixed wall-clock expiry.
+An InvalidAnchorRoot estimate is retryable only while unsigned. After signing, retain the exact proof
+and raw bytes. Before archiving an old signed job and opening a new dedicated claim directory, establish
+its canonical outcome, check pending/confirmed nonce state, and settle or cancel any outstanding nonce
+using the operator's external transaction procedure. Never clear an ambiguous pending job or change its
+intent. A canonical reverted transaction consumes its nonce; replaying those bytes cannot repair it.
+
+RewardTransferFailed can mean insufficient vault balance **or** recipient rejection; the selector does
+not distinguish them. The vault cannot normally receive an ETH top-up through a plain transfer. Future
+basefee accrual may restore insufficient balance, but cannot repair an immutable recipient that rejects
+ETH. This receipt cannot be redirected to another recipient. Any independently approved new attempt
+requires an unclaimed reward and a separately reconciled claim job.
 
 ## Development
 

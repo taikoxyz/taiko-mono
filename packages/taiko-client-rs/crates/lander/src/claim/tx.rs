@@ -7,7 +7,7 @@ use crate::{
 use alloy::signers::{Signer, local::PrivateKeySigner};
 use alloy_consensus::{SignableTransaction, TxEip1559, TxEnvelope, transaction::SignerRecoverable};
 use alloy_eips::{
-    BlockNumberOrTag,
+    BlockId, BlockNumberOrTag,
     eip2718::{Decodable2718, Encodable2718},
 };
 use alloy_primitives::{Address, B256, Bytes, U256};
@@ -75,6 +75,8 @@ pub trait ClaimTransport: Send + Sync {
     async fn known(&self, hash: B256) -> Result<bool>;
     /// Read confirmed and pending nonces before signing or rebroadcast.
     async fn nonce(&self) -> Result<NonceState>;
+    /// Pin confirmed nonce to the canonical snapshot; pending remains advisory.
+    async fn nonce_at(&self, hash: B256) -> Result<NonceState>;
 }
 
 /// Own L2 provider and explicit gas payer; key material is neither Debug nor serialized.
@@ -105,7 +107,9 @@ impl ClaimTransport for RpcClaimTransport {
             return Err(LanderError::Safety("claim signer or L2 chain mismatch".into()));
         }
         let nonce = self.nonce().await?;
-        nonce.validate()?;
+        if nonce.pending < nonce.confirmed {
+            return Err(LanderError::Unavailable("payer nonce view changed before signing".into()));
+        }
         if nonce.pending != nonce.confirmed {
             return Err(LanderError::Unavailable(
                 "payer has an outstanding transaction; refusing a new nonce".into(),
@@ -124,7 +128,7 @@ impl ClaimTransport for RpcClaimTransport {
         };
         let mut request = TransactionRequest::from_transaction(tx.clone()).from(self.payer());
         request.gas = None;
-        let gas = self.provider.estimate_gas(request).await.map_err(rpc_error)?;
+        let gas = self.provider.estimate_gas(request).await.map_err(vault_error)?;
         if gas == 0 || gas > MAX_TX_GAS {
             return Err(LanderError::Configuration(
                 "claim gas estimate outside EIP-7825 bounds".into(),
@@ -185,6 +189,18 @@ impl ClaimTransport for RpcClaimTransport {
         }
         Ok(tx.is_some())
     }
+    /// Read confirmed nonce at the caller's exact canonical snapshot before pending state.
+    async fn nonce_at(&self, hash: B256) -> Result<NonceState> {
+        let confirmed = self
+            .provider
+            .get_transaction_count(self.payer())
+            .block_id(BlockId::hash_canonical(hash))
+            .await
+            .map_err(rpc_error)?;
+        let pending =
+            self.provider.get_transaction_count(self.payer()).pending().await.map_err(rpc_error)?;
+        Ok(NonceState { confirmed, pending })
+    }
     /// Preserve confirmed/pending disagreement for the runner's conservative decisions.
     async fn nonce(&self) -> Result<NonceState> {
         let confirmed = self
@@ -196,5 +212,117 @@ impl ClaimTransport for RpcClaimTransport {
         let pending =
             self.provider.get_transaction_count(self.payer()).pending().await.map_err(rpc_error)?;
         Ok(NonceState { confirmed, pending })
+    }
+}
+
+/// Known zero-argument vault errors; only structured revert bytes can select these labels.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum VaultFailure {
+    /// Another payer may have won; canonical claimed state is still required.
+    #[error("vault AlreadyClaimed")]
+    AlreadyClaimed,
+    /// Unsigned preparation may acquire a current root.
+    #[error("vault InvalidAnchorRoot")]
+    InvalidAnchorRoot,
+    /// Either insufficient balance or a rejecting immutable recipient needs operator review.
+    #[error("vault RewardTransferFailed; inspect vault balance and immutable recipient acceptance")]
+    RewardTransferFailed,
+    /// Unknown or malformed execution revert, intentionally opaque.
+    #[error("opaque vault execution revert")]
+    Unknown,
+}
+impl VaultFailure {
+    /// Decode only exact generated zero-argument selectors, never arbitrary message text.
+    fn decode(bytes: &[u8]) -> Self {
+        use alloy::sol_types::SolError;
+        match bytes {
+            b if b == super::Vault::AlreadyClaimed::SELECTOR => Self::AlreadyClaimed,
+            b if b == super::Vault::InvalidAnchorRoot::SELECTOR => Self::InvalidAnchorRoot,
+            b if b == super::Vault::RewardTransferFailed::SELECTOR => Self::RewardTransferFailed,
+            _ => Self::Unknown,
+        }
+    }
+    /// Recognize only our fixed adapter label at the unsigned estimation boundary.
+    pub(super) fn is_already_claimed(error: &LanderError) -> bool {
+        matches!(error, LanderError::ClaimReverted(Self::AlreadyClaimed))
+    }
+    /// Provide safe actionable diagnostics without echoing untrusted payloads.
+    fn error(self) -> LanderError {
+        match self {
+            Self::InvalidAnchorRoot => {
+                LanderError::Unavailable("vault InvalidAnchorRoot; refresh unsigned proof".into())
+            }
+            _ => LanderError::ClaimReverted(self),
+        }
+    }
+}
+/// Apply vault-specific classification only to estimate/simulation responses.
+fn vault_error(error: alloy::transports::TransportError) -> LanderError {
+    if let alloy::transports::RpcError::ErrorResp(payload) = &error &&
+        payload.code == 3
+    {
+        let bytes =
+            payload.data.as_ref().and_then(|raw| serde_json::from_str::<Bytes>(raw.get()).ok());
+        return bytes.map_or(VaultFailure::Unknown, |b| VaultFailure::decode(&b)).error();
+    }
+    rpc_error(error)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy::sol_types::SolError;
+    use serde_json::json;
+
+    fn error(data: serde_json::Value) -> alloy::transports::TransportError {
+        alloy::transports::RpcError::ErrorResp(serde_json::from_value(json!({
+            "code":3,"message":"https://secret-user:secret-password@rpc/secret-path?key=secret-token", "data":data
+        })).unwrap())
+    }
+
+    #[test]
+    fn vault_selectors_are_exact_typed_and_redacted() {
+        for (selector, label, retryable) in [
+            (super::super::Vault::AlreadyClaimed::SELECTOR, "AlreadyClaimed", false),
+            (super::super::Vault::InvalidAnchorRoot::SELECTOR, "InvalidAnchorRoot", true),
+            (super::super::Vault::RewardTransferFailed::SELECTOR, "RewardTransferFailed", false),
+        ] {
+            let result = vault_error(error(json!(Bytes::copy_from_slice(&selector))));
+            assert!(result.to_string().contains(label));
+            assert_eq!(result.is_retryable(), retryable);
+            assert!(!format!("{result:?}").contains("secret-"));
+            let mut malformed = selector.to_vec();
+            malformed.push(0);
+            assert!(
+                vault_error(error(json!(Bytes::from(malformed)))).to_string().contains("opaque")
+            );
+        }
+        for data in [
+            json!("secret-password"),
+            json!("0x12345678"),
+            json!({"message":"AlreadyClaimed secret-token"}),
+            json!(null),
+        ] {
+            let result = vault_error(error(data));
+            assert!(!VaultFailure::is_already_claimed(&result));
+            assert!(!result.is_retryable());
+            assert!(result.to_string().contains("opaque"));
+            assert!(!format!("{result:?}").contains("secret-"));
+        }
+    }
+
+    #[test]
+    fn generic_source_errors_do_not_decode_vault_selectors_and_capabilities_stop() {
+        let result = rpc_error(error(json!(Bytes::copy_from_slice(
+            &super::super::Vault::AlreadyClaimed::SELECTOR
+        ))));
+        assert!(!VaultFailure::is_already_claimed(&result));
+        for code in [-32600, -32601, -32602] {
+            let result = rpc_error(alloy::transports::RpcError::ErrorResp(
+                serde_json::from_value(json!({"code":code,"message":"secret-token"})).unwrap(),
+            ));
+            assert!(matches!(result, LanderError::Configuration(_)));
+            assert!(!result.to_string().contains("secret"));
+        }
     }
 }

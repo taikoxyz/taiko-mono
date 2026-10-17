@@ -8,6 +8,8 @@ use alloy::sol_types::{SolCall, SolValue};
 use alloy_primitives::{Address, B256, Bytes, U256};
 use serde::{Deserialize, Serialize};
 
+/// Bounded historical landing discovery and untrusted resume hints.
+pub mod discovery;
 /// Resume-first reconciliation of a single immutable transaction.
 pub mod runner;
 /// Hash-pinned proof discovery and finalized checkpoint verification.

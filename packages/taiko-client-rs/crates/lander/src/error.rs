@@ -30,6 +30,9 @@ pub enum LanderError {
     /// A transaction reverted without competing progress.
     #[error("landing transaction reverted: {0}")]
     Reverted(String),
+    /// Structured known or opaque L2 vault execution failure; no upstream text is retained.
+    #[error("claim transaction reverted: {0}")]
+    ClaimReverted(crate::claim::tx::VaultFailure),
     /// Durable state could not be read, written, or exclusively locked.
     #[error("lander journal failure: {0}")]
     Journal(String),

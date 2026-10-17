@@ -95,6 +95,7 @@ async fn signed_journal_rejects_mutation_and_preserves_original_bytes_across_reo
         proof: p,
         transaction: Some(tx.clone()),
         inclusion: None,
+        discovery: None,
     };
     store.save(&job).unwrap();
     for kind in 0..5 {
@@ -117,6 +118,10 @@ async fn signed_journal_rejects_mutation_and_preserves_original_bytes_across_reo
     assert_eq!(store.load().unwrap(), Some(job));
     let bytes = std::fs::read(dir.path().join("claim-state.json")).unwrap();
     let text = String::from_utf8(bytes).unwrap();
+    assert!(
+        !text.contains("discovery"),
+        "old version-1 Signed shape remains loadable without migration"
+    );
     assert!(!text.contains("0000000000000000000000000000000000000000000000000000000000000001\""));
     let mut bad = tx;
     bad.bytes = [bad.bytes.as_ref(), &[0]].concat().into();
