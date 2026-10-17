@@ -74,20 +74,6 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
         );
     }
 
-    /// @notice Checks that nonempty vector leaves use the epoch-derived set version.
-    function test_committeeSets_LeafVersionFollowsTargetEpoch() external view {
-        for (uint256 k = 1; k < 4; ++k) {
-            string memory p = string.concat(".committee_sets[", vm.toString(k), "].");
-            bytes memory leaf =
-                LibEtnaVectors.bytesAt(vectors, string.concat(p, "set_leaf_preimages[0]"));
-            (,, uint256 setVersion,,,,) =
-                abi.decode(leaf, (bytes32, uint256, uint256, uint256, bytes32, uint256, address));
-            uint256 targetEpoch = LibEtnaVectors.uintAt(vectors, string.concat(p, "target_epoch"));
-            assertEq(setVersion, targetEpoch + 1, "k = targetEpoch - E0 + 1; E0 = 0");
-            assertEq(setVersion, LibEtnaVectors.uintAt(vectors, string.concat(p, "set_version")));
-        }
-    }
-
     /// @notice Checks recipient binding and odd-node promotion for the five-member vector.
     function test_committeeSets_BindRecipientsAndPromoteOddNodes() external view {
         _assertCommitteeSet(3);
@@ -169,7 +155,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
         );
     }
 
-    /// @dev Checks one ordered vector member and its recipient-bound leaf against the registry.
+    /// @dev Checks one ordered vector member, its epoch-derived leaf version and recipient binding.
     /// @param _prefix The JSON path prefix of the committee-set case.
     /// @param _index The member's position in set-key order.
     /// @param _setVersion The epoch-derived set version used by the leaf.
@@ -204,12 +190,15 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
             }
         }
         bytes memory leaf = _setLeafWords(_index, entry, _setVersion);
-        assertEq(
-            leaf,
-            LibEtnaVectors.bytesAt(
-                vectors, string.concat(_prefix, "set_leaf_preimages[", vm.toString(_index), "]")
-            )
+        bytes memory vectorLeaf = LibEtnaVectors.bytesAt(
+            vectors, string.concat(_prefix, "set_leaf_preimages[", vm.toString(_index), "]")
         );
+        (,, uint256 setVersion,,,,) =
+            abi.decode(vectorLeaf, (bytes32, uint256, uint256, uint256, bytes32, uint256, address));
+        uint256 targetEpoch = LibEtnaVectors.uintAt(vectors, string.concat(_prefix, "target_epoch"));
+        assertEq(setVersion, targetEpoch + 1, "k = targetEpoch - E0 + 1; E0 = 0");
+        assertEq(setVersion, LibEtnaVectors.uintAt(vectors, string.concat(_prefix, "set_version")));
+        assertEq(leaf, vectorLeaf);
         leaf_ = keccak256(leaf);
         assertEq(
             leaf_,
