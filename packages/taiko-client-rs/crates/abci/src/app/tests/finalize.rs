@@ -441,7 +441,7 @@ async fn rpc_engine_invalid_without_a_validation_error_is_a_safety_halt() {
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     let env = propose(&mut app).await;
     let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
-    Store::new(dir.path().to_path_buf()).save(app.state().unwrap()).unwrap();
+    Store::volatile(dir.path().to_path_buf()).save(app.state().unwrap()).unwrap();
     drop(app);
 
     let (l2, auth) = (Asserter::new(), Asserter::new());
@@ -458,7 +458,7 @@ async fn rpc_engine_invalid_without_a_validation_error_is_a_safety_halt() {
         fx.l1(),
         engine,
         fx.params.clone(),
-        Store::new(dir.path().to_path_buf()),
+        Store::volatile(dir.path().to_path_buf()),
         AppOptions::default(),
     )
     .expect("the app restarts on the RPC engine");
@@ -563,7 +563,7 @@ async fn cold_finalize_of_stale_anchor_block_halts() {
 /// A decided block whose anchor witness proves an L1 block the finalizing node's own L1 does not
 /// have at that number (block sync of a forged history, its proofs consistent with the forged
 /// header alone): a safety halt before the EL moves.
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn cold_finalize_halts_on_an_anchor_off_its_own_l1_chain() {
     let fx = Fixture::genesis(1);
     let (proposer_dir, node_dir) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
@@ -951,7 +951,7 @@ async fn commit_persists_the_pending_state_and_clears_the_cache() {
 
     finalize(&mut app, finalize_req(&req)).await.expect("finalizes");
     let pending = app.pending.clone().expect("pending state");
-    let store = Store::new(dir.path().to_path_buf());
+    let store = Store::volatile(dir.path().to_path_buf());
     assert_eq!(store.load().unwrap(), Some(fx.expected_state()), "nothing persisted yet");
 
     app.halt = Some("stale".into());
@@ -1150,7 +1150,7 @@ async fn replay_validates_inclusion_without_admission_log_reads() {
     let l1 = fx.l1();
     plant_due_entry(&fx, &l1, 66, fx.inbox.clone());
     l1.state().calls.clear();
-    let store = Store::new(dir.path().to_path_buf());
+    let store = Store::volatile(dir.path().to_path_buf());
     let mut app = App::new(l1, engine, fx.params.clone(), store, AppOptions::default())
         .expect("the app restarts");
     assert_eq!(app.state(), Some(&committed));
@@ -1193,7 +1193,7 @@ async fn forced_cursor_advances_after_a_forced_block_commits() {
 
     decide(&mut app, &req).await;
     assert_eq!(app.state().unwrap().forced_cursor, 1);
-    let stored = Store::new(dir.path().to_path_buf()).load().unwrap().expect("persisted");
+    let stored = Store::volatile(dir.path().to_path_buf()).load().unwrap().expect("persisted");
     assert_eq!(stored.forced_cursor, 1);
 
     // The next block (cursor 1 == tail 1) is ordinary, carries no witness and keeps the cursor.
@@ -1546,7 +1546,7 @@ async fn cold_canonical_skip_advances_cursor_on_replay_and_persists_after_commit
         l1,
         engine,
         fx.params.clone(),
-        Store::new(dir.path().into()),
+        Store::volatile(dir.path().into()),
         AppOptions::default(),
     )
     .unwrap();
@@ -1562,7 +1562,7 @@ async fn cold_canonical_skip_advances_cursor_on_replay_and_persists_after_commit
         fx.l1(),
         replay.engine().reopen(),
         fx.params.clone(),
-        Store::new(dir.path().into()),
+        Store::volatile(dir.path().into()),
         AppOptions::default(),
     )
     .unwrap();
@@ -1619,7 +1619,7 @@ async fn hot_canonical_skip_matches_cold_replay_and_persists_after_commit() {
         fx.l1(),
         hot.engine().reopen(),
         fx.params.clone(),
-        Store::new(hot_dir.path().into()),
+        Store::volatile(hot_dir.path().into()),
         AppOptions::default(),
     )
     .unwrap();

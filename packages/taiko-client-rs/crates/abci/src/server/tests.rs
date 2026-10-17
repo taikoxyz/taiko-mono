@@ -391,7 +391,7 @@ async fn safety_halt_answers_runs_the_halt_hook_and_stops_the_worker() {
         fx.l1(),
         MockEngine::with_chain(other),
         fx.params.clone(),
-        crate::store::Store::new(dir.path().to_path_buf()),
+        crate::store::Store::volatile(dir.path().to_path_buf()),
         crate::app::AppOptions::default(),
     )
     .unwrap();

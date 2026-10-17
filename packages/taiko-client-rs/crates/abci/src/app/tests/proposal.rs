@@ -632,7 +632,7 @@ async fn restart_rejects_a_changed_committee_config_opening() {
             fx.l1(),
             fx.engine(),
             params,
-            Store::new(dir.path().to_path_buf()),
+            Store::volatile(dir.path().to_path_buf()),
             AppOptions::default()
         ),
         Err(AbciError::StoredState(_))
@@ -668,7 +668,7 @@ fn persisted_fixed_cutoff_config_is_rejected_without_migration() {
     state.genesis.committee_config_hash =
         alloy_primitives::b256!("af72a8cac328b7a82ec9c449fb39aecc89a196de580f512cc40f0e1d8a6ad2fa");
     let dir = tempfile::tempdir().unwrap();
-    let store = Store::new(dir.path().to_path_buf());
+    let store = Store::volatile(dir.path().to_path_buf());
     store.save(&state).unwrap();
     let file = dir.path().join(crate::store::STATE_FILE);
     let before = std::fs::read(&file).unwrap();

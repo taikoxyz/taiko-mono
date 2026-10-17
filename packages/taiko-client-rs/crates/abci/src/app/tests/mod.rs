@@ -35,7 +35,7 @@ fn app_with(
     dir: &Path,
     opts: AppOptions,
 ) -> App<MockL1, MockEngine> {
-    App::new(l1, engine, params, Store::new(dir.to_path_buf()), opts).expect("app starts")
+    App::new(l1, engine, params, Store::volatile(dir.to_path_buf()), opts).expect("app starts")
 }
 
 /// Sends `InitChain` through [`App::handle`].
@@ -87,5 +87,5 @@ async fn initialized(fx: &Fixture, dir: &Path) -> App<MockL1, MockEngine> {
 /// Asserts that `app` holds no state and nothing was persisted in `dir`.
 fn assert_not_initialized(app: &App<MockL1, MockEngine>, dir: &Path) {
     assert!(app.state().is_none(), "no state after a rejected InitChain");
-    assert_eq!(Store::new(dir.to_path_buf()).load().expect("store loads"), None);
+    assert_eq!(Store::volatile(dir.to_path_buf()).load().expect("store loads"), None);
 }
