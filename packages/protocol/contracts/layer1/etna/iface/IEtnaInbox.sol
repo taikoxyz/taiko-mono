@@ -347,8 +347,12 @@ interface IEtnaInbox {
     /// bound by the proof; neither is derived from a block proposer. Authenticate each block's
     /// beneficiary as the registered recipient of the original proposer in its certified CometBFT
     /// header under that height's committee, including valid blocks retained across rounds.
-    /// Reexecute transactions to authenticate actual fee charges and destinations, and prove
-    /// baseFeeAmount = sum(header.baseFeePerGas * header.gasUsed) over the landed range.
+    /// Consensus and the future guest must enforce extraData[0] == 0 on every execution block.
+    /// Reexecute transactions to prove baseFeeAmount equals actual EL base-fee credits to the
+    /// immutable treasury over the landed range, excluding claims, ordinary/forced Ether and
+    /// other balance effects. Under this zero-sharing invariant and pinned EL rules, that equals
+    /// sum(header.baseFeePerGas * header.gasUsed). Inbox/vault do not inspect every L2 header;
+    /// economic correctness relies on the selected verifier and guest.
     /// The receipt binds the lander's l2RewardRecipient and this exact amount. No expiry-derived
     /// deletion exists, but BFT time suppression can still delay inclusion and a quorum can stop
     /// settlement; these rules do not establish a wall-clock deadline.

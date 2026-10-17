@@ -34,7 +34,7 @@ contract EtnaGenesisTest is Test {
     }
 
     function test_buildGenesis_InstallsRuntimeAndCanonicalSystemContracts() external {
-        _build();
+        _build(1, _INBOX);
         assertEq(_VAULT.balance, 0);
         assertEq(_ROOTS.balance, 0);
         assertEq(_HISTORY.balance, 0);
@@ -53,8 +53,15 @@ contract EtnaGenesisTest is Test {
         assertEq(vm.getNonce(_HISTORY), 1);
     }
 
+    function test_buildGenesis_AcceptsGenuineExportForAnotherIdentity() external {
+        _build(2, address(0x2222));
+        assertEq(L2FeeVault(_VAULT).l1ChainId(), 2);
+        assertEq(L2FeeVault(_VAULT).l1Inbox(), address(0x2222));
+        assertEq(_VAULT.code, address(new L2FeeVault(2, address(0x2222))).code);
+    }
+
     function test_systemContracts_PrivilegedWriteReadAndVaultClaim() external {
-        _build();
+        _build(1, _INBOX);
         vm.chainId(167_001);
         vm.roll(2);
         vm.warp(100);
@@ -69,7 +76,12 @@ contract EtnaGenesisTest is Test {
         assertTrue(ok);
         assertEq(abi.decode(data, (bytes32)), proof.root);
         (ok,) = _ROOTS.call(abi.encode(bytes32(uint256(123))));
-        assertFalse(ok, "ordinary caller cannot write");
+        assertFalse(ok, "ordinary read of unavailable timestamp reverts");
+        (ok, data) = _ROOTS.call(abi.encode(uint256(100)));
+        assertTrue(ok, "ordinary caller can read an existing root");
+        assertEq(abi.decode(data, (bytes32)), proof.root);
+        assertEq(vm.load(_ROOTS, bytes32(uint256(100))), bytes32(uint256(100)));
+        assertEq(vm.load(_ROOTS, bytes32(uint256(100 + 8191))), proof.root);
         vm.prank(_SYSTEM);
         (ok,) = _HISTORY.call(abi.encode(bytes32(uint256(456))));
         assertTrue(ok);
@@ -96,12 +108,12 @@ contract EtnaGenesisTest is Test {
         assertEq(vm.parseJsonAddress(exported, ".l1Inbox"), _inbox);
     }
 
-    function _build() private {
-        _export(1, _INBOX);
+    function _build(uint256 _chainId, address _inbox) private {
+        _export(_chainId, _inbox);
         vm.writeFile(
             _path("base"), "{\"config\":{\"chainId\":167001},\"timestamp\":\"0x0\",\"alloc\":{}}"
         );
-        string[] memory command = new string[](8);
+        string[] memory command = new string[](10);
         command[0] = "python3";
         command[1] = "script/layer2/build_etna_genesis.py";
         command[2] = "--base";
@@ -110,6 +122,8 @@ contract EtnaGenesisTest is Test {
         command[5] = _path("runtime");
         command[6] = "--output";
         command[7] = _path("genesis");
+        command[8] = "--vault-artifact";
+        command[9] = "out/layer2/L2FeeVault.sol/L2FeeVault.json";
         vm.ffi(command);
         string memory genesis = vm.readFile(_path("genesis"));
         _install(genesis, _VAULT);

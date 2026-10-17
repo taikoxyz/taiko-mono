@@ -133,6 +133,8 @@ cache_path = "cache/layer1o"
 via_ir = true
 
 [profile.layer2]
+# Offline Etna genesis validation binds immutable reference IDs to their declarations.
+ast = true
 src = "contracts/layer2"
 test = "test/layer2"
 script = "script/layer2"
