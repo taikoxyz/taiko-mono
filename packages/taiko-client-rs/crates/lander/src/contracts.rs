@@ -20,9 +20,9 @@ sol!(
 pub use IEtnaInbox::ZeroFeeRecipient;
 
 /// Protocol revision from which the interface and contract fixtures are generated.
-pub const PROTOCOL_REVISION: &str = "2a4bfa747edcafae96c15b58159e31eea0ebe78a";
+pub const PROTOCOL_REVISION: &str = "3ff8a1c084b222752abb2eedf7362e74fb14ceda";
 
-/// Journal representation of the generated eight-field `LandInput` as canonical ABI bytes.
+/// Journal representation of the generated nine-field `LandInput` as canonical ABI bytes.
 pub(crate) mod abi_serde {
     use alloy::sol_types::{SolType, SolValue};
     use alloy_primitives::Bytes;

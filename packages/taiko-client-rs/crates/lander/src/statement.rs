@@ -1,17 +1,17 @@
-//! Exact V8 ABI encoding binding chain state, forced fees and L2 base fee rewards.
+//! Exact V9 ABI encoding binding chain state, rewards and the active committee snapshot.
 
 use crate::{contracts::IEtnaInbox::LandInput, types::LandingSnapshot};
 use alloy_primitives::{B256, U256, keccak256};
 
-/// Byte length of the static twenty-word public statement preimage.
-pub const PREIMAGE_BYTES: usize = 20 * 32;
+/// Byte length of the static twenty-one-word public statement preimage.
+pub const PREIMAGE_BYTES: usize = 21 * 32;
 
 /// Hash Solidity's packed ordered bytes32 blob list, with no array offset or length words.
 pub fn blob_hashes_hash(hashes: &[B256]) -> B256 {
     keccak256(hashes.iter().flat_map(|h| h.as_slice()).copied().collect::<Vec<_>>())
 }
 
-/// Encode the twenty static ABI words authenticated by the Inbox V8 statement.
+/// Encode the twenty-one static ABI words authenticated by the Inbox V9 statement.
 pub fn preimage(
     snapshot: &LandingSnapshot,
     input: &LandInput,
@@ -19,7 +19,7 @@ pub fn preimage(
     blob_hashes: &[B256],
 ) -> [u8; PREIMAGE_BYTES] {
     let mut tag = [0u8; 32];
-    tag[..b"TAIKO_ETNA_LAND_V8".len()].copy_from_slice(b"TAIKO_ETNA_LAND_V8");
+    tag[..b"TAIKO_ETNA_LAND_V9".len()].copy_from_slice(b"TAIKO_ETNA_LAND_V9");
     let mut inbox = [0u8; 32];
     inbox[12..].copy_from_slice(snapshot.inbox.as_slice());
     let mut registry = [0u8; 32];
@@ -49,6 +49,7 @@ pub fn preimage(
         fee_recipient,
         reward_recipient,
         input.baseFeeAmount.to_be_bytes::<32>(),
+        U256::from(input.activeCommitteeSnapshot).to_be_bytes::<32>(),
     ];
     let mut out = [0; PREIMAGE_BYTES];
     for (word, target) in words.iter().zip(out.chunks_exact_mut(32)) {
@@ -57,7 +58,7 @@ pub fn preimage(
     out
 }
 
-/// Compute the V8 job identity from coherent state, immutable outputs and ordered blobs.
+/// Compute the V9 job identity from coherent state, immutable outputs and ordered blobs.
 pub fn hash(
     snapshot: &LandingSnapshot,
     input: &LandInput,
@@ -75,7 +76,7 @@ mod tests {
 
     pub(super) fn vector() -> (LandingSnapshot, LandInput, B256, Vec<B256>) {
         let input = |name: &str| format!("/land_statement/inputs/{name}");
-        assert_eq!(vectors::str_at(&input("tag")), "TAIKO_ETNA_LAND_V8");
+        assert_eq!(vectors::str_at(&input("tag")), "TAIKO_ETNA_LAND_V9");
         let mut snapshot = request().batch.snapshot;
         snapshot.l1_chain_id = vectors::u256_at(&input("l1_chain_id"));
         snapshot.l2_chain_id = vectors::u64_at(&input("l2_chain_id"));
@@ -96,6 +97,7 @@ mod tests {
             l2RewardRecipient: vectors::address_at(&input("l2_reward_recipient")),
             baseFeeAmount: vectors::u256_at(&input("base_fee_amount")),
             feeRecipient: vectors::address_at(&input("fee_recipient")),
+            activeCommitteeSnapshot: vectors::u64_at(&input("active_committee_snapshot")),
         };
         (
             snapshot,
@@ -106,10 +108,18 @@ mod tests {
     }
 
     #[test]
-    fn v8_vector_matches_independent_cast_encoding() {
+    fn statement_has_twenty_one_words_for_active_committee_snapshot() {
+        assert_eq!(PREIMAGE_BYTES, 672);
+        let request = crate::test_utils::runtime::request();
+        let encoded = preimage(&request.batch.snapshot, &request.batch.input, B256::ZERO, &[]);
+        assert_eq!(&encoded[..18], b"TAIKO_ETNA_LAND_V9");
+    }
+
+    #[test]
+    fn v9_vector_matches_independent_cast_encoding() {
         let (snapshot, input, reference, blobs) = vector();
         let encoded = preimage(&snapshot, &input, reference, &blobs);
-        assert_eq!(encoded.len(), 640);
+        assert_eq!(encoded.len(), 672);
         assert_eq!(encoded.as_slice(), vectors::bytes_at("/land_statement/preimage").as_ref());
         assert_eq!(
             hash(&snapshot, &input, reference, &blobs),
@@ -124,15 +134,19 @@ mod tests {
         );
         assert_eq!(&encoded[18 * 32..18 * 32 + 12], &[0; 12]);
         assert_eq!(&encoded[18 * 32 + 12..19 * 32], input.l2RewardRecipient.as_slice());
-        assert_eq!(encoded[19 * 32..], input.baseFeeAmount.to_be_bytes::<32>());
+        assert_eq!(encoded[19 * 32..20 * 32], input.baseFeeAmount.to_be_bytes::<32>());
+        assert_eq!(
+            encoded[20 * 32..],
+            U256::from(input.activeCommitteeSnapshot).to_be_bytes::<32>()
+        );
     }
 
     #[test]
-    fn every_v8_word_and_reward_bit_is_bound() {
+    fn every_v9_word_and_reward_bit_is_bound() {
         let (snapshot, input, reference, blobs) = vector();
         let encoded = preimage(&snapshot, &input, reference, &blobs);
         let expected = keccak256(encoded);
-        for word in 0..20 {
+        for word in 0..21 {
             let mut changed = encoded;
             changed[word * 32 + 31] ^= 1;
             assert_ne!(keccak256(changed), expected, "word {word}");
@@ -142,8 +156,13 @@ mod tests {
             changed.baseFeeAmount ^= U256::from(1) << bit;
             assert_ne!(hash(&snapshot, &changed, reference, &blobs), expected, "amount bit {bit}");
         }
+        for bit in 0..64 {
+            let mut changed = input.clone();
+            changed.activeCommitteeSnapshot ^= 1 << bit;
+            assert_ne!(hash(&snapshot, &changed, reference, &blobs), expected, "cutoff bit {bit}");
+        }
         let mut old = encoded;
-        old[17] = b'7';
+        old[17] = b'8';
         assert_ne!(keccak256(old), expected);
     }
 
@@ -172,7 +191,7 @@ mod tests {
                 "snapshot field {field}"
             );
         }
-        for field in 0..8 {
+        for field in 0..9 {
             let mut changed = input.clone();
             match field {
                 0 => changed.lastHeight += 1,
@@ -183,6 +202,7 @@ mod tests {
                 5 => changed.feeRecipient = Address::ZERO,
                 6 => changed.l2RewardRecipient = Address::ZERO,
                 7 => changed.baseFeeAmount += U256::from(1),
+                8 => changed.activeCommitteeSnapshot += 1,
                 _ => unreachable!(),
             }
             assert_ne!(
@@ -199,19 +219,19 @@ mod tests {
     }
 
     #[test]
-    fn land_selector_matches_generated_v8_abi() {
+    fn land_selector_matches_generated_v9_abi() {
         use crate::contracts::IEtnaInbox::landCall;
         use alloy::sol_types::SolCall;
         assert_eq!(
             landCall::SIGNATURE,
-            "land((uint64,bytes32,bytes32,uint64,uint48,address,address,uint256),bytes)"
+            "land((uint64,bytes32,bytes32,uint64,uint48,address,address,uint256,uint64),bytes)"
         );
         assert_eq!(landCall::SELECTOR, vectors::bytes_at("/land_selector").as_ref());
         let (_, input, _, _) = vector();
         let call =
             landCall { _input: input.clone(), _proof: alloy_primitives::Bytes::from_static(&[0]) };
         let calldata = call.abi_encode();
-        assert_eq!(calldata.len(), 4 + 11 * 32);
+        assert_eq!(calldata.len(), 4 + 12 * 32);
         let decoded = landCall::abi_decode(&calldata).unwrap();
         assert_eq!(decoded._input, input);
         assert_eq!(decoded._proof.as_ref(), &[0]);

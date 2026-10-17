@@ -6,7 +6,8 @@ pragma solidity ^0.8.26;
 /// @dev A fresh proxy is initialized with the L2 block-0 hash and state root, epoch parameters,
 /// and the initial committee record and derivation configuration hash. The node authenticates
 /// genesis and checkpoint storage with EIP-1186 proofs. Future committees derive from the
-/// committed switch-parent anchor and are never published by landing transactions.
+/// committed switch-parent anchor. Landing authenticates the active committee snapshot for
+/// staking withdrawals without publishing the full committee.
 /// @custom:security-contact security@taiko.xyz
 interface IEtnaInbox {
     // ---------------------------------------------------------------
@@ -118,12 +119,16 @@ interface IEtnaInbox {
         /// @dev At least the stored head, at most the queue tail, and ahead of the stored head by
         /// at most the batch's block count, since each block consumes at most one entry.
         uint48 forcedInclusionHead;
-        /// @notice The non-zero L1 receiver of consumed forced-inclusion fees, bound into V8.
+        /// @notice The non-zero L1 receiver of consumed forced-inclusion fees, bound into V9.
         address feeRecipient;
-        /// @notice The non-zero L2 receiver of the proven batch's base fees, bound into V8.
+        /// @notice The non-zero L2 receiver of the proven batch's base fees, bound into V9.
         address l2RewardRecipient;
         /// @notice The proven base-fee reward in wei; may be zero.
         uint256 baseFeeAmount;
+        /// @notice The L1 snapshot selecting the committee governing `lastHeight`.
+        /// @dev Proof-bound to the active committee, not a pending validator update or the
+        /// terminal block's current anchor. Epoch zero uses the genesis cutoff.
+        uint64 activeCommitteeSnapshot;
     }
 
     // ---------------------------------------------------------------
@@ -357,6 +362,13 @@ interface IEtnaInbox {
     /// deletion exists, but BFT time suppression can still delay inclusion and a quorum can stop
     /// settlement; these rules do not establish a wall-clock deadline.
     ///
+    /// Prove activeCommitteeSnapshot is the authenticated derivation snapshot of the committee
+    /// governing lastHeight: genesisCutoff for epoch zero, otherwise the anchor of D(t)=H(t)-3.
+    /// At S(t) and S(t)+1 the outgoing committee still governs; only H(t) activates the new one.
+    /// Neither a pending committee, the terminal anchor nor the reference block substitutes for
+    /// this snapshot. Landing records it for stake withdrawals; it must never regress or change
+    /// within one active epoch.
+    ///
     /// Prove contiguous execution from the parent hash to the terminal hash/state root, every
     /// anchor and actual proving L1 root on the header chain ending at the reference hash, and
     /// block data in the bound blobs. The blobs carry payload V5: 0x05 and the zlib-compressed
@@ -366,20 +378,21 @@ interface IEtnaInbox {
     /// the rules above, not a forced blob. Landing still publishes batch blobs. Commits and
     /// signatures are proof witnesses, not blob data. A batch may start/end at any valid height
     /// without a previous batch's committee output. Envelope version 6, payload V5 and journal
-    /// schema 10 reject older formats;
-    /// never discard or replace a signed nonce. The verifier must pin a guest enforcing these V8
+    /// schema 11 reject older formats;
+    /// never discard or replace a signed nonce. The verifier must pin a guest enforcing these V9
     /// rules. Dummy proof 0x00 is for development only; no real guest exists here and the dummy
     /// verifier does not establish consensus validity or ZK soundness.
     /// @param _input The batch checkpoint, reference, queue head, L1 fee receiver and L2 reward.
-    /// @param _proof The V8 proof.
+    /// @param _proof The V9 proof.
     function land(LandInput calldata _input, bytes calldata _proof) external;
 
-    /// @notice Encodes the V8 landing statement for supplied batch public inputs.
-    /// @dev Exactly twenty static ABI words (640 bytes): bytes32("TAIKO_ETNA_LAND_V8"),
+    /// @notice Encodes the V9 landing statement for supplied batch public inputs.
+    /// @dev Exactly twenty-one static ABI words (672 bytes): bytes32("TAIKO_ETNA_LAND_V9"),
     /// block.chainid, l2ChainId, address(this), stakingRegistry, generation, parentHeight,
     /// parentHash, committeeConfigHash, lastHeight, lastBlockHash, lastStateRoot,
     /// l1ReferenceBlockNumber, l1ReferenceBlockHash, keccak256(abi.encodePacked(blobHashes)),
-    /// forcedInclusionHeadBefore, forcedInclusionHead, feeRecipient, l2RewardRecipient, baseFeeAmount.
+    /// forcedInclusionHeadBefore, forcedInclusionHead, feeRecipient, l2RewardRecipient, baseFeeAmount,
+    /// activeCommitteeSnapshot.
     /// Identities and config are read internally. land also reads the stored parent/generation/head.
     /// @param _generation The recovery generation.
     /// @param _parentHeight The parent checkpoint height.
@@ -406,6 +419,15 @@ interface IEtnaInbox {
     /// @dev The initialized checkpoint is L2 block 0.
     /// @return The latest landed checkpoint; zero before initialization.
     function lastCheckpoint() external view returns (LandedCheckpoint memory);
+
+    /// @notice Returns the snapshot selecting the latest landed block's active committee.
+    /// @dev Initialized to the genesis cutoff and advanced only by a verified landing.
+    /// @return snapshot_ The authenticated L1 snapshot block number.
+    function activeCommitteeSnapshot() external view returns (uint64 snapshot_);
+
+    /// @notice Returns the staking registry whose snapshots select this chain's committees.
+    /// @return registry_ The registry address.
+    function stakingRegistry() external view returns (address registry_);
 
     /// @notice Returns the authenticated committee derivation configuration commitment.
     /// @dev Stored at slot 269; installed once from the trusted genesis deployment input.

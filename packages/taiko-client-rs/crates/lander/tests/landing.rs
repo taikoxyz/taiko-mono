@@ -130,6 +130,10 @@ async fn assert_landed(
     assert_eq!(event.data.lastHeight, request.batch.input.lastHeight);
     assert_eq!(event.data.lander, dev_signer().address());
     let batch = &request.batch;
+    assert_eq!(
+        view(p, fixture.inbox, EtnaInbox::activeCommitteeSnapshotCall {}, None).await?,
+        batch.input.activeCommitteeSnapshot
+    );
     let reward = lander::rewards::Receipt {
         l1ChainId: batch.snapshot.l1_chain_id,
         l2ChainId: batch.snapshot.l2_chain_id,
@@ -253,6 +257,10 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
         assert!(chain.anchors[usize::try_from(switch_height)?].number >= exit_block);
         let next = chain.prepare(&fixture, last, SidecarMode::Eip7594).await?;
         assert_eq!(next.batch.input.lastHeight, last);
+        assert_eq!(
+            next.batch.input.activeCommitteeSnapshot,
+            if last < h { fixture.genesis.genesis_cutoff } else { immutable_snapshot }
+        );
         let incoming = next
             .batch
             .committee_witnesses

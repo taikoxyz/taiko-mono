@@ -279,19 +279,20 @@ pub struct PreparedBatch {
     pub committees: Vec<CommitteeState>,
     /// Registry witnesses deduplicated by epoch, with their authenticated proving roots.
     pub committee_witnesses: Vec<CommitteeContext>,
-    /// The exact eight `LandInput` fields the contract receives: the terminal height, block hash
+    /// The exact nine `LandInput` fields the contract receives: the terminal height, block hash
     /// and state root, the L1 reference block number, the forced inclusion head after the batch,
-    /// the L1 fee recipient, the L2 reward recipient and the base fee amount.
+    /// the L1 fee recipient, the L2 reward recipient, the base fee amount and active committee
+    /// snapshot.
     #[serde(with = "crate::contracts::abi_serde")]
     pub input: LandInput,
     /// Sidecar and ordered versioned blob hashes binding the V5 payload.
     pub blobs: PreparedBlobs,
-    /// Identity of this job: the exact V8 public statement hash.
+    /// Identity of this job: the exact V9 public statement hash.
     pub statement_hash: B256,
 }
 
 impl PreparedBatch {
-    /// Recompute the reward amount and V8 digest before journal restoration or signing. Headers
+    /// Recompute the reward amount and V9 digest before journal restoration or signing. Headers
     /// must already have been authenticated by batch construction; future guests must reexecute.
     pub fn validate_statement(&self) -> Result<()> {
         let headers = self
@@ -309,6 +310,7 @@ impl PreparedBatch {
                     .map(|envelope| envelope.block.header)
             })
             .collect::<Result<Vec<_>>>()?;
+        self.validate_active_committee_snapshot(&headers)?;
         if self.input.l2RewardRecipient.is_zero() ||
             self.input.feeRecipient.is_zero() ||
             crate::rewards::basefee_sum(&headers)? != self.input.baseFeeAmount
@@ -329,7 +331,101 @@ impl PreparedBatch {
                 &self.blobs.versioned_hashes,
             ) != self.statement_hash
         {
-            return Err(LanderError::Journal("job V8 statement identity mismatch".into()));
+            return Err(LanderError::Journal("job V9 statement identity mismatch".into()));
+        }
+        Ok(())
+    }
+
+    /// Recover the terminal committee cutoff from committed execution ancestry and retained
+    /// registry provenance. A recomputed digest cannot authorize a different cutoff or epoch.
+    fn validate_active_committee_snapshot(&self, headers: &[Header]) -> Result<()> {
+        let invalid =
+            || LanderError::Journal("job active committee snapshot provenance mismatch".into());
+        let schedule = abci::Schedule::from_genesis(&self.snapshot.genesis);
+        schedule.validate(0).map_err(|_| invalid())?;
+        let terminal = headers.last().ok_or_else(invalid)?;
+        if terminal.number != self.input.lastHeight ||
+            terminal.hash_slow() != self.input.lastBlockHash ||
+            terminal.state_root != self.input.lastStateRoot
+        {
+            return Err(invalid());
+        }
+        let mut parent_height = self.snapshot.checkpoint_height;
+        let mut parent_hash = self.snapshot.checkpoint_hash;
+        for header in headers {
+            if parent_height.checked_add(1) != Some(header.number) ||
+                header.parent_hash != parent_hash
+            {
+                return Err(invalid());
+            }
+            parent_height = header.number;
+            parent_hash = header.hash_slow();
+        }
+        let epoch = schedule.epoch_of(terminal.number);
+        let cutoff = if epoch == 0 {
+            schedule.genesis_cutoff
+        } else {
+            let derivation_height = schedule.derivation_parent_height(epoch).ok_or_else(invalid)?;
+            let derivation = if derivation_height <= self.snapshot.checkpoint_height {
+                crate::history::verify(
+                    crate::history::HistoryInput {
+                        height: self.snapshot.checkpoint_height,
+                        hash: self.snapshot.checkpoint_hash,
+                        generation: self.snapshot.generation,
+                        schedule: &schedule,
+                    },
+                    &self.execution_history,
+                )
+                .map_err(|_| invalid())?;
+                self.execution_history
+                    .iter()
+                    .find(|header| header.number == derivation_height)
+                    .ok_or_else(invalid)?
+            } else {
+                headers
+                    .iter()
+                    .find(|header| header.number == derivation_height)
+                    .ok_or_else(invalid)?
+            };
+            let mut contexts = self
+                .committee_witnesses
+                .iter()
+                .filter(|context| context.witness.record.target_epoch == epoch);
+            let context = contexts.next().ok_or_else(invalid)?;
+            let mut committees =
+                self.committees.iter().filter(|committee| committee.record.target_epoch == epoch);
+            let committee = committees.next().ok_or_else(invalid)?;
+            if contexts.next().is_some() ||
+                committees.next().is_some() ||
+                context.derivation_parent.as_ref() != Some(derivation) ||
+                context.witness.record != committee.record
+            {
+                return Err(invalid());
+            }
+            let cutoff = crate::history::snapshot_number(Some(derivation), &schedule)
+                .map_err(|_| invalid())?;
+            let anchors = std::iter::once(self.parent_anchor.clone())
+                .chain(self.anchors.iter().cloned())
+                .collect::<Vec<_>>();
+            let reference = self
+                .reference_headers
+                .iter()
+                .map(|raw| RawL1Header::from_raw(raw.clone()).map_err(|_| invalid()))
+                .collect::<Result<Vec<_>>>()?;
+            crate::batch::verify_reference_chain(&reference, &anchors).map_err(|_| invalid())?;
+            if context.witness.record.cutoff_l1_block != cutoff ||
+                context.anchor.number < cutoff ||
+                !anchors.contains(&context.anchor)
+            {
+                return Err(invalid());
+            }
+            cutoff
+        };
+        if cutoff != self.input.activeCommitteeSnapshot ||
+            cutoff < schedule.genesis_cutoff ||
+            cutoff > self.input.l1ReferenceBlockNumber
+        {
+            return Err(invalid());
         }
         Ok(())
     }

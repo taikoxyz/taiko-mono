@@ -227,7 +227,7 @@ pub struct BatchBuilder<C: ?Sized, L: ?Sized> {
     /// inclusions' fees to. Non-zero; the lander names its own sending address. The statement
     /// binds it, so a copy of the landing transaction cannot redirect the fees.
     fee_recipient: Address,
-    /// Nonzero L2 recipient independently bound into every V8 statement.
+    /// Nonzero L2 recipient independently bound into every V9 statement.
     l2_reward_recipient: Address,
     /// Retain at most one authenticated epoch-sized context and serialize concurrent misses.
     checkpoint_cache: Mutex<Option<CachedCheckpoint>>,
@@ -930,7 +930,24 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
         verify_reference_chain(&headers, &consumed)?;
         let reference = &headers[0];
         self.l1.validate_reference(&snapshot, reference.number(), reference.hash()).await?;
+        let active_epoch = schedule.epoch_of(last.number);
+        let active_committee = committees.get(&active_epoch).ok_or_else(|| {
+            LanderError::Safety(format!("missing active committee {active_epoch}"))
+        })?;
+        let provenance = active_committee.provenance.as_ref().ok_or_else(|| {
+            LanderError::Safety(format!("missing active committee {active_epoch} provenance"))
+        })?;
+        let active_snapshot =
+            history::snapshot_number(provenance.derivation_parent.as_ref(), &schedule)?;
+        if active_snapshot != active_committee.state.record.cutoff_l1_block ||
+            active_snapshot > reference.number()
+        {
+            return Err(LanderError::Safety(
+                "active committee snapshot contradicts authenticated provenance".into(),
+            ));
+        }
         let input = LandInput {
+            activeCommitteeSnapshot: active_snapshot,
             lastHeight: last.number,
             lastBlockHash: last.hash_slow(),
             lastStateRoot: last.state_root,
@@ -961,7 +978,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             .await?;
         if contract_hash != hash {
             return Err(LanderError::Configuration(format!(
-                "local V8 statement {hash} differs from Inbox helper {contract_hash}"
+                "local V9 statement {hash} differs from Inbox helper {contract_hash}"
             )));
         }
         Ok(Some(ProofRequest {
@@ -1449,6 +1466,110 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn terminal_active_committee_snapshot_tracks_activation_and_mid_epoch_cuts() {
+        use alloy::sol_types::SolValue;
+        for (checkpoint, tip, expected) in
+            [(8, 9, 1), (9, 10, 1), (10, 11, 11), (11, 12, 11), (11, 13, 11)]
+        {
+            let fixture = Arc::new(Fixture::with_epoch(checkpoint, tip, 0, 10));
+            let request = builder(fixture.clone(), limits((tip - checkpoint) as usize))
+                .prepare(fixture.snapshot.clone())
+                .await
+                .unwrap()
+                .unwrap();
+            let encoded = request.batch.input.abi_encode();
+            assert_eq!(
+                encoded.get(8 * 32..),
+                Some(U256::from(expected).to_be_bytes::<32>().as_slice()),
+                "checkpoint {checkpoint}, terminal {tip}: ninth ABI word must name the active committee snapshot"
+            );
+            request.batch.validate_statement().unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn later_epochs_and_partial_batches_restore_the_terminal_active_cutoff() {
+        for (checkpoint, tip, expected) in
+            [(8, 11, 11), (18, 20, 11), (18, 21, 13), (20, 22, 13), (29, 31, 15)]
+        {
+            let fixture = Arc::new(Fixture::with_progressing_epochs(checkpoint, tip));
+            let batch = builder(fixture.clone(), limits((tip - checkpoint) as usize))
+                .prepare(fixture.snapshot.clone())
+                .await
+                .unwrap()
+                .unwrap()
+                .batch;
+            assert_eq!(batch.input.activeCommitteeSnapshot, expected, "{checkpoint}..{tip}");
+            assert_eq!(batch.input.lastHeight, tip);
+            batch.validate_statement().unwrap();
+            let restored: PreparedBatch =
+                serde_json::from_slice(&serde_json::to_vec(&batch).unwrap()).unwrap();
+            restored.validate_statement().unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn durable_cutoff_rejects_rebound_digest_and_forged_committee_provenance() {
+        for checkpoint in [8, 11, 24] {
+            let fixture = Arc::new(if checkpoint == 24 {
+                Fixture::new(24, 26)
+            } else {
+                Fixture::with_epoch(checkpoint, checkpoint + 1, 0, 10)
+            });
+            let batch = builder(fixture.clone(), limits(2))
+                .prepare(fixture.snapshot.clone())
+                .await
+                .unwrap()
+                .unwrap()
+                .batch;
+            batch.validate_statement().unwrap();
+            let reference =
+                abci::RawL1Header::from_raw(batch.reference_headers[0].clone()).unwrap();
+            for bit in 0..64 {
+                let mut changed = batch.clone();
+                changed.input.activeCommitteeSnapshot ^= 1 << bit;
+                changed.statement_hash = statement::hash(
+                    &changed.snapshot,
+                    &changed.input,
+                    reference.hash(),
+                    &changed.blobs.versioned_hashes,
+                );
+                assert!(
+                    changed.validate_statement().is_err(),
+                    "checkpoint {checkpoint}, cutoff bit {bit}"
+                );
+            }
+            if checkpoint != 8 {
+                let epoch = Schedule::from_genesis(&batch.snapshot.genesis)
+                    .epoch_of(batch.input.lastHeight);
+                for mutation in 0..5 {
+                    let mut changed = batch.clone();
+                    let provenance = changed
+                        .committee_witnesses
+                        .iter_mut()
+                        .find(|context| context.witness.record.target_epoch == epoch)
+                        .unwrap();
+                    match mutation {
+                        0 => provenance.derivation_parent = None,
+                        1 => provenance.derivation_parent.as_mut().unwrap().number += 1,
+                        2 => provenance.witness.record.cutoff_l1_block += 1,
+                        3 => {
+                            provenance.derivation_parent.as_mut().unwrap().extra_data =
+                                rules::encode_extra_data(0, 12).unwrap()
+                        }
+                        4 => provenance.anchor.hash = B256::ZERO,
+                        _ => unreachable!(),
+                    }
+                    assert!(
+                        changed.validate_statement().is_err(),
+                        "checkpoint {checkpoint}, provenance mutation {mutation}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn mid_epoch_uses_derivation_parent_snapshot_after_anchor_moves() {
         let fixture = Arc::new(Fixture::new(24, 26));
         let request = builder(fixture.clone(), limits(2))
@@ -1809,7 +1930,10 @@ mod tests {
         );
         assert_eq!(&preimage[17 * 32 + 12..18 * 32], FEE_RECIPIENT.as_slice(), "word 18");
         assert_eq!(&preimage[18 * 32 + 12..19 * 32], batch.input.l2RewardRecipient.as_slice());
-        assert_eq!(&preimage[19 * 32..], batch.input.baseFeeAmount.to_be_bytes::<32>().as_slice());
+        assert_eq!(
+            &preimage[19 * 32..20 * 32],
+            batch.input.baseFeeAmount.to_be_bytes::<32>().as_slice()
+        );
         assert_eq!(batch.statement_hash, alloy_primitives::keccak256(preimage));
     }
 
@@ -1890,7 +2014,7 @@ mod tests {
             .await
             .unwrap_err();
         assert!(matches!(error, LanderError::Configuration(_)), "{error}");
-        assert!(error.to_string().contains("local V8 statement"), "{error}");
+        assert!(error.to_string().contains("local V9 statement"), "{error}");
     }
 
     #[test]
@@ -2155,7 +2279,7 @@ mod tests {
             assert_eq!(U48::from(word(16)), batch.input.forcedInclusionHead);
             assert_eq!(&preimage[17 * 32 + 12..18 * 32], FEE_RECIPIENT.as_slice(), "word 18");
             assert_eq!(
-                &preimage[19 * 32..],
+                &preimage[19 * 32..20 * 32],
                 batch.input.baseFeeAmount.to_be_bytes::<32>().as_slice()
             );
             (word(15), word(16))

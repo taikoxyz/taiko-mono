@@ -176,7 +176,7 @@ async fn lander_cli_recovers_from_sigkill_and_resumes_after_sigterm() -> Result<
                 (resumed_height, chain.headers[usize::try_from(resumed_height)?].hash_slow()),
             "resumed CLI checkpoint differs"
         );
-        // V8 lands the available cross-epoch suffix in one batch; there is no reward-freeze cut.
+        // V9 lands the available cross-epoch suffix in one batch; there is no reward-freeze cut.
         ensure!(
             fixture.anvil.provider.get_transaction_count(sender).await? == nonce + 2,
             "cross-epoch progress must use exactly one further landing nonce"
