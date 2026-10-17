@@ -194,12 +194,14 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         );
     }
 
+    /// @dev Rejects an exported Inbox identity after the deployer nonce advances.
     function _deployInbox_RevertWhen_ExportedIdentityIsStale() private withEnvironment {
         // The exported identity stays fixed while another transaction consumes the sender nonce.
         vm.setNonce(_scriptDeployer, vm.getNonce(_scriptDeployer) + 1);
         _expectIdentityRejected(bytes4(keccak256("InboxAddressMismatch()")));
     }
 
+    /// @dev Rejects zero or mismatched exported L1 chain and Inbox identities.
     function _deployInbox_RevertWhen_ExportedIdentityIsWrong() private {
         _setEnvironment();
         vm.setEnv("L1_CHAIN_ID", vm.toString(block.chainid + 1));
@@ -213,6 +215,8 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         _expectIdentityRejected(bytes4(keccak256("InboxAddressMismatch()")));
     }
 
+    /// @dev Checks identity rejection before broadcast, nonce consumption or deployment.
+    /// @param _error Expected identity validation error selector.
     function _expectIdentityRejected(bytes4 _error) private {
         uint64 nonce = vm.getNonce(_scriptDeployer);
         vm.expectRevert(_error);
