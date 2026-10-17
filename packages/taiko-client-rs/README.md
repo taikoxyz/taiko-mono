@@ -853,48 +853,22 @@ checks claimed at the exact successful receipt block (or snapshot when the own r
 reverted). It rechecks canonical hashes and refreshes a contradictory moving view once. Another
 payer can consume the reward first: authoritative canonical claimed state returns AlreadyClaimed,
 retains any original transaction, and stops broadcasting. This does not assert that our transaction
-succeeded or finalized; a revert selector alone is never sufficient authority.
+succeeded; a revert selector alone is never sufficient authority.
 
-An Included result is provisional. Rerun to check Finalized: bounded chronological pages of the fixed
-Inbox's BatchRewardRecorded logs discover a historical landing whose range covers the actual claim
-block. Its exact receipt mapping commitment is proven under own finalized L1 state, then every EL
-parent hash is authenticated back to our actual successful inclusion. The receipt records the same
-endpoint atomically saved by Inbox land. Logs/cursors alone, a claimed-bit proof, and an entitlement
-root cannot finalize our transaction. Discovery does not assume monotonic heights across recovery
-or filter by the original entitlement generation; valid wrong-branch endpoints are skipped.
+Included is the end state. Etna L2 blocks are final once CometBFT commits them, so the command
+does not wait for a later L1 landing to cover the claim block. A recovery that rewinds L2 can drop
+the claim transaction: rerun the same command and key after any recovery. It reconciles the retained
+signed bytes, reports Included again while the claim stays canonical, and otherwise rebroadcasts the
+same bytes. Journals that recorded the former `Finalized` state load as Included.
 
-Validated Finalized journals are terminal: runner resume preserves their original inclusion and
-signed bytes without fresh network reconciliation. Version-1 signed/finalized journals remain valid
-without migration. Optional discovery metadata is untrusted and bound to the transaction, inclusion,
-the independently hashed claim header's canonical L1 anchor and finalized context. The inclusive
-anchor lower bound avoids scanning history before the claim could be landed. The original entitlement
-landing identity and canonicality remain checked. Each operation discovers and schedules at most one
-expensive candidate, saving the next event position **before** any candidate RPC can time out. This
-optional within-page position binds the fixed page range and digest of the complete sorted log response;
-changed or legacy context restarts it. The candidate receives the remaining configured finality budget,
-with no smaller ancestry timeout. An operation timeout rotates to later candidates instead of replaying
-the same slow prefix. One retained hint is freshly retried only after a complete discovery pass, with
-the scan reset before that retry. Subsequent passes revisit every delayed, omitted or unavailable
-candidate without an unbounded hint queue. No saved position or partially traversed ancestry authorizes
-finality; every successful attempt requires a fresh full proof and all EL parent links.
-
-`--rpc.timeout` defaults to 30 seconds for individual calls and ordinary reconciliation.
-`--finality.timeout` separately defaults to 300 seconds for complete historical discovery and ancestry
-(both accept 1–3600 seconds). One discovery operation makes at most 16 log requests of at most
-1,024 L1 blocks. Responses exceeding 256 logs / 512 KiB event data and topics, the 2 MiB HTTP
-allocation cap, or recognized provider log-query limits halve the inclusive page range. Recognized
-limits include HTTP 413 and known -32005/-32602 result, response-size and block-range messages,
-plus -32005 `query timeout exceeded`; ambiguous rate, authentication and parameter errors retain
-their existing classification. The shortened end is saved before the next RPC so cancellation and finalized-head growth
-cannot widen it. An oversized single block returns an actionable capacity error. Each operation
-fetches at most 131,072 EL
-ancestry headers in total. Claim HTTP responses are capped at 2 MiB before JSON decoding, including
-chunked responses; redirects are disabled. Direct typed capacity or unsupported-capability errors can
-stop the claim. The existing `RpcL1Source` adapter erases some `eth_getProof` errors, including response-cap
-and unsupported-capability failures, into sanitized retryable unavailability. Those failures can keep
-retrying until the operator cancels and fixes the endpoint; the response allocation bound still holds.
-Required history includes fixed-Inbox logs, hash-pinned account/storage proofs, raw L1 headers and EL
-headers by hash. Missing history cannot be bypassed by trusting events or claimed state.
+`--rpc.timeout` (default 30 seconds, 1–3600) bounds individual calls and each reconciliation step.
+Claim HTTP responses are capped at 2 MiB before JSON decoding, including chunked responses;
+redirects are disabled. Direct typed capacity or unsupported-capability errors can stop the claim.
+The existing `RpcL1Source` adapter erases some `eth_getProof` errors, including response-cap and
+unsupported-capability failures, into sanitized retryable unavailability. Those failures can keep
+retrying until the operator cancels and fixes the endpoint; the response allocation bound still
+holds. Required history includes hash-pinned account/storage proofs and raw L1 headers. Missing
+history cannot be bypassed by trusting events or claimed state.
 
 Unsigned Prepared jobs can refresh their anchor proof before estimation. Roots validity depends on
 whether the timestamp's modulo ring slot still stores that entry, not on a fixed wall-clock expiry.
@@ -932,7 +906,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
   the source-backed unavailable-build RPC shape through a delegating Engine adapter; it does not
   actually prune Reth state. Lander scenarios cover actual Inbox blob
   transactions, cross-epoch batching without reward cutoffs, real EL/Comet basefee claims with
-  genuine L1 account/storage proofs and later-checkpoint finality, replay rejection, claim-spend
+  genuine L1 account/storage proofs, replay rejection, claim-spend
   independence in the next batch, and a forced inclusion landing that
   pays its fee, permissionless races,
   verifier rejection, a pending L1 reference crossing the BLOCKHASH/EIP-2935 boundary, stock
