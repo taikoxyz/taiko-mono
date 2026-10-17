@@ -627,3 +627,144 @@ async fn finality_rejects_invalid_own_claim_context_before_discovering_covering_
         );
     }
 }
+
+/// Retain the authenticated endpoint from the dense fixture, spreading unrelated hints
+/// over real L1 headers so only the complete first response exceeds the HTTP allocation cap.
+fn transport_dense_history(single_block: bool) -> Fixture {
+    let mut fixture = dense_history();
+    let actual = fixture.covering.last().unwrap().clone();
+    fixture.covering = vec![receipt(); 2399];
+    fixture.covering.push(actual);
+    fixture.covering_blocks =
+        (0..2399).map(|i| if single_block { 20_000 } else { 20_000 + i % 256 }).collect();
+    fixture.covering_blocks.push(if single_block { 20_000 } else { 20_016 });
+    for number in 20_001..20_256 {
+        fixture.l1.insert(number, Header { number, ..fixture.l1[&20_256].clone() });
+    }
+    fixture
+}
+
+#[tokio::test]
+async fn transport_oversized_log_pages_narrow_before_decode_and_authenticate_finality() {
+    for chunked in [false, true] {
+        for single_block in [false, true] {
+            let mut fixture = transport_dense_history(single_block);
+            fixture.chunked_logs = chunked;
+            let fixture = Arc::new(fixture);
+            let claim = inclusion(&fixture);
+            let (source, _l1, _l2) = connect(fixture.clone()).await;
+            let source = source.unwrap();
+            let mut progress = None;
+            let mut finalized = false;
+            let mut failure = None;
+            for _ in 0..4 {
+                match source.transaction_finalized(&claim, &mut progress).await {
+                    Ok(done) => {
+                        finalized = done;
+                        if done {
+                            break;
+                        }
+                    }
+                    Err(error) => {
+                        failure = Some(error);
+                        break;
+                    }
+                }
+            }
+            let wire_bytes =
+                fixture.max_log_response_bytes.load(std::sync::atomic::Ordering::SeqCst);
+            assert!(wire_bytes > CLAIM_RESPONSE_BYTES, "wire response: {wire_bytes}");
+            let ranges = log_ranges(&fixture);
+            eprintln!(
+                "chunked={chunked} single={single_block} wire_bytes={wire_bytes} ranges={ranges:?} failure={failure:?}"
+            );
+            if single_block {
+                assert!(matches!(failure, Some(LanderError::Capacity(_))), "{failure:?}");
+                assert!(!finalized);
+                assert_eq!(ranges.last(), Some(&(20_000, 20_000)));
+                assert!(ranges.len() <= 16);
+            } else {
+                assert!(failure.is_none(), "{failure:?}; progress={progress:?}");
+                assert!(finalized);
+                let requests = fixture.requests.lock().unwrap();
+                assert_eq!(requests.iter().filter(|r| r["method"] == "eth_getProof").count(), 1);
+                assert_eq!(
+                    requests.iter().filter(|r| r["method"] == "eth_getBlockByHash").count(),
+                    2
+                );
+            }
+            assert_eq!(&ranges[..2], &[(20_000, 21_023), (20_000, 20_511)]);
+        }
+    }
+}
+
+#[tokio::test]
+async fn provider_log_query_limits_narrow_but_unrelated_errors_keep_their_category() {
+    for (code, message, status, narrows, configuration) in [
+        (-32005, "query returned more than 10000 results", 200, true, false),
+        (-32005, "query timeout exceeded", 200, true, false),
+        (-32602, "Log response size exceeded", 200, true, false),
+        (-32602, "eth_getLogs is limited to a 10,000 blocks range", 200, true, false),
+        (-32005, "block range too wide", 200, true, false),
+        (-32000, "request too large", 413, true, false),
+        (-32005, "rate limit exceeded secret-token", 200, false, false),
+        (-32602, "invalid filter secret-token", 200, false, true),
+        (-32000, "network unavailable secret-token", 200, false, false),
+        (-32000, "query returned more than 10000 results secret-token", 200, false, false),
+        (-32000, "quota secret-token", 429, false, false),
+        (-32000, "authentication secret-token", 401, false, false),
+        (-32000, "authorization secret-token", 403, false, false),
+    ] {
+        let mut fixture = dense_history();
+        fixture.log_error = Some((code, message));
+        fixture.log_status = status;
+        let fixture = Arc::new(fixture);
+        let claim = inclusion(&fixture);
+        let (source, _l1, _l2) = connect(fixture.clone()).await;
+        let mut progress = None;
+        let result = source.unwrap().transaction_finalized(&claim, &mut progress).await;
+        if narrows {
+            assert!(result.unwrap(), "{code} {message} {status}");
+            assert_eq!(
+                &log_ranges(&fixture)[..3],
+                &[(20_000, 21_023), (20_000, 20_511), (20_000, 20_255)]
+            );
+        } else {
+            let error = result.unwrap_err();
+            if configuration {
+                assert!(matches!(error, LanderError::Configuration(_)));
+            } else {
+                assert!(matches!(error, LanderError::Temporary(_)));
+            }
+            assert!(!format!("{error:?}").contains("secret-token"));
+            assert_eq!(log_ranges(&fixture), vec![(20_000, 21_023)]);
+            assert!(progress.unwrap().page.is_none());
+        }
+    }
+}
+
+#[tokio::test]
+async fn oversized_http_error_bodies_do_not_narrow_log_queries() {
+    for chunked in [false, true] {
+        for status in [401, 403, 500] {
+            let mut fixture = transport_dense_history(false);
+            fixture.chunked_logs = chunked;
+            fixture.log_status = status;
+            let fixture = Arc::new(fixture);
+            let claim = inclusion(&fixture);
+            let (source, _l1, _l2) = connect(fixture.clone()).await;
+            let mut progress = None;
+            let result = source.unwrap().transaction_finalized(&claim, &mut progress).await;
+            assert!(
+                matches!(result, Err(LanderError::Configuration(_))),
+                "status={status} chunked={chunked}: {result:?}"
+            );
+            assert!(
+                fixture.max_log_response_bytes.load(std::sync::atomic::Ordering::SeqCst) >
+                    CLAIM_RESPONSE_BYTES
+            );
+            assert_eq!(log_ranges(&fixture), vec![(20_000, 21_023)]);
+            assert!(progress.unwrap().page.is_none());
+        }
+    }
+}

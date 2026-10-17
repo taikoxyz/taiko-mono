@@ -143,6 +143,10 @@ pub struct Fixture {
     pub covering_block: u64,
     pub covering_blocks: Vec<u64>,
     pub finalized_head: std::sync::atomic::AtomicU64,
+    pub chunked_logs: bool,
+    pub log_error: Option<(i64, &'static str)>,
+    pub log_status: u16,
+    pub max_log_response_bytes: std::sync::atomic::AtomicUsize,
     pub hang_logs_end: std::sync::atomic::AtomicU64,
     pub branch_headers: Vec<Header>,
     pub pending_anchor: std::sync::atomic::AtomicBool,
@@ -270,6 +274,10 @@ impl Fixture {
             covering_block: 11,
             covering_blocks: vec![],
             finalized_head: std::sync::atomic::AtomicU64::new(0),
+            chunked_logs: false,
+            log_error: None,
+            log_status: 200,
+            max_log_response_bytes: std::sync::atomic::AtomicUsize::new(0),
             hang_logs_end: std::sync::atomic::AtomicU64::new(u64::MAX),
             pending_anchor: std::sync::atomic::AtomicBool::new(matches!(
                 fault,
@@ -590,10 +598,21 @@ pub async fn server(fixture: Arc<Fixture>, l1: bool) -> Server {
                         tokio::time::sleep(fixture.hash_delay).await;
                     }
                 }
-                let response = if fixture
-                    .fail_bootstrap
-                    .swap(false, std::sync::atomic::Ordering::SeqCst)
-                {
+                let limited_logs = l1 && request["method"] == "eth_getLogs" && {
+                    let height = |name| {
+                        u64::from_str_radix(
+                            request["params"][0][name].as_str().unwrap().trim_start_matches("0x"),
+                            16,
+                        )
+                        .unwrap()
+                    };
+                    height("toBlock") - height("fromBlock") >= 256
+                };
+                let response = if limited_logs && fixture.log_error.is_some() {
+                    fixture.requests.lock().unwrap().push(request.clone());
+                    let (code, message) = fixture.log_error.unwrap();
+                    json!({"jsonrpc":"2.0","id":request["id"],"error":{"code":code,"message":message}})
+                } else if fixture.fail_bootstrap.swap(false, std::sync::atomic::Ordering::SeqCst) {
                     json!({"jsonrpc":"2.0","id":request["id"],"error":{"code":-32000,"message":"secret-transient"}})
                 } else if matches!(fixture.fault, Fault::RpcLeak) {
                     json!({"jsonrpc":"2.0","id":request["id"],"error":{"code":-32601,"message":"https://secret-user:secret-password@rpc/?token=secret-token"}})
@@ -608,25 +627,62 @@ pub async fn server(fixture: Arc<Fixture>, l1: bool) -> Server {
                     response
                 };
                 let body = serde_json::to_vec(&response).unwrap();
+                let logs = l1 && request["method"] == "eth_getLogs";
+                if logs {
+                    fixture
+                        .max_log_response_bytes
+                        .fetch_max(body.len(), std::sync::atomic::Ordering::SeqCst);
+                }
+                let status = if limited_logs { fixture.log_status } else { 200 };
+                let framing = if logs && fixture.chunked_logs {
+                    "Transfer-Encoding: chunked".to_owned()
+                } else {
+                    format!("Content-Length: {}", body.len())
+                };
                 let headers = format!(
-                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-                    body.len()
+                    "HTTP/1.1 {status} Test\r\nContent-Type: application/json\r\n{framing}\r\nConnection: close\r\n\r\n"
                 );
-                stream.write_all(headers.as_bytes()).await.unwrap();
-                stream.write_all(&body).await.unwrap();
+                let written = async {
+                    stream.write_all(headers.as_bytes()).await?;
+                    if logs && fixture.chunked_logs {
+                        for chunk in body.chunks(64 * 1024) {
+                            stream.write_all(format!("{:x}\r\n", chunk.len()).as_bytes()).await?;
+                            stream.write_all(chunk).await?;
+                            stream.write_all(b"\r\n").await?;
+                        }
+                        stream.write_all(b"0\r\n\r\n").await
+                    } else {
+                        stream.write_all(&body).await
+                    }
+                }
+                .await;
+                if let Err(error) = written {
+                    // Bounded clients deliberately close oversized responses before EOF.
+                    assert!(
+                        body.len() > CLAIM_RESPONSE_BYTES &&
+                            matches!(
+                                error.kind(),
+                                std::io::ErrorKind::BrokenPipe |
+                                    std::io::ErrorKind::ConnectionReset
+                            ),
+                        "unexpected fixture response write failure: {error}"
+                    );
+                }
             });
         }
     });
     Server { url, task }
 }
+pub const CLAIM_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
+
 pub async fn connect(fixture: Arc<Fixture>) -> (Result<RpcClaimSource>, Server, Server) {
     let l1 = server(fixture.clone(), true).await;
     let l2 = server(fixture, false).await;
     let deadline = Duration::from_secs(3);
     let id = identity();
     let source = RpcClaimSource::connect(
-        rpc::client::connect_http_with_timeout(l1.url.clone(), deadline),
-        rpc::client::connect_http_with_timeout(l2.url.clone(), deadline),
+        rpc::client::connect_http_with_limits(l1.url.clone(), deadline, CLAIM_RESPONSE_BYTES),
+        rpc::client::connect_http_with_limits(l2.url.clone(), deadline, CLAIM_RESPONSE_BYTES),
         id.landing_tx,
         id.batch_id,
         id.payer,
