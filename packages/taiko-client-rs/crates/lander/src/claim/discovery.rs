@@ -11,7 +11,10 @@ use crate::{
     tx::LandingReceipt,
 };
 use abci::{RawL1Header, l1::source::L1Source};
-use alloy::sol_types::SolEvent;
+use alloy::{
+    sol_types::SolEvent,
+    transports::{TransportError, TransportErrorKind},
+};
 use alloy_consensus::Header;
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{B256, keccak256};
@@ -27,6 +30,48 @@ const MAX_PAGES: usize = 16;
 const MAX_LOGS: usize = 256;
 /// Maximum total event data and topics accepted per page, in bytes.
 const MAX_LOG_BYTES: usize = 512 * 1024;
+
+/// Recognize only explicit getLogs resource limits; other RPC errors retain their category.
+/// Provider codes are ambiguous, so JSON-RPC limits also require a known query-specific message.
+fn log_query_limit(error: &TransportError) -> bool {
+    match error {
+        TransportError::LocalUsageError(inner) => inner.is::<rpc::client::ResponseTooLarge>(),
+        TransportError::Transport(TransportErrorKind::HttpError(error)) => error.status == 413,
+        TransportError::ErrorResp(error) if matches!(error.code, -32005 | -32602) => {
+            let message = error.message.to_ascii_lowercase();
+            (error.code == -32005 &&
+                ((message.contains("query returned more than") && message.contains("results")) ||
+                    message.contains("query timeout exceeded"))) ||
+                message.contains("log response size exceeded") ||
+                (message.contains("eth_getlogs") &&
+                    message.contains("limited") &&
+                    message.contains("block") &&
+                    message.contains("range")) ||
+                message.contains("block range too wide") ||
+                (message.contains("block range") &&
+                    message.contains("limit") &&
+                    message.contains("exceed"))
+        }
+        _ => false,
+    }
+}
+
+/// Persist a smaller inclusive query before another await, or stop at an oversized single block.
+fn narrow_page(scan: &mut DiscoveryProgress, end: u64) -> Result<()> {
+    if end == scan.next {
+        return Err(LanderError::Capacity(
+            "single L1 block exceeds claim discovery response limits; operator review required"
+                .into(),
+        ));
+    }
+    scan.page = Some(PageCursor {
+        start: scan.next,
+        end: scan.next + (end - scan.next) / 2,
+        digest: B256::ZERO,
+        next_event: 0,
+    });
+    Ok(())
+}
 
 /// Optional version-1 journal hint, never a proof or part of signed calldata.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -180,7 +225,14 @@ impl RpcClaimSource {
                 .event_signature(BatchRewardRecorded::SIGNATURE_HASH)
                 .from_block(scan.next)
                 .to_block(end);
-            let logs = self.l1.get_logs(&filter).await.map_err(rpc_error)?;
+            let logs = match self.l1.get_logs(&filter).await {
+                Ok(logs) => logs,
+                Err(error) if log_query_limit(&error) => {
+                    narrow_page(scan, end)?;
+                    continue;
+                }
+                Err(error) => return Err(rpc_error(error)),
+            };
             if logs.len() > MAX_LOGS ||
                 logs.iter()
                     .try_fold(0usize, |sum, l| {
@@ -189,19 +241,8 @@ impl RpcClaimSource {
                     })
                     .is_none_or(|bytes| bytes > MAX_LOG_BYTES)
             {
-                if end == scan.next {
-                    return Err(LanderError::Capacity(
-                        "single L1 block exceeds claim discovery response limits; operator review required".into(),
-                    ));
-                }
-                // Save BEFORE the next RPC: cancellation/restart must retain this smaller
-                // inclusive range even when the finalized head subsequently advances.
-                scan.page = Some(PageCursor {
-                    start: scan.next,
-                    end: scan.next + (end - scan.next) / 2,
-                    digest: B256::ZERO,
-                    next_event: 0,
-                });
+                // Cancellation/restart must retain this range when the finalized head grows.
+                narrow_page(scan, end)?;
                 continue;
             }
             let mut ordered = logs;
@@ -410,5 +451,22 @@ impl RpcClaimSource {
             ));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_the_typed_local_limit_is_a_log_query_limit() {
+        let unrelated =
+            TransportError::local_usage_str("RPC response exceeds configured byte limit");
+        assert!(!log_query_limit(&unrelated));
+        assert!(matches!(rpc_error(unrelated), LanderError::Configuration(_)));
+        let limit = TransportError::local_usage(rpc::client::ResponseTooLarge);
+        assert!(log_query_limit(&limit));
+        // Other methods continue using the existing local-usage category.
+        assert!(matches!(rpc_error(limit), LanderError::Configuration(_)));
     }
 }

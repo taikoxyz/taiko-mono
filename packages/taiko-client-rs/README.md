@@ -881,8 +881,11 @@ finality; every successful attempt requires a fresh full proof and all EL parent
 `--rpc.timeout` defaults to 30 seconds for individual calls and ordinary reconciliation.
 `--finality.timeout` separately defaults to 300 seconds for complete historical discovery and ancestry
 (both accept 1–3600 seconds). One discovery operation makes at most 16 log requests of at most
-1,024 L1 blocks. Responses exceeding 256 logs / 512 KiB event data and topics halve the inclusive
-page range, saving the shortened end before the next RPC so cancellation and finalized-head growth
+1,024 L1 blocks. Responses exceeding 256 logs / 512 KiB event data and topics, the 2 MiB HTTP
+allocation cap, or recognized provider log-query limits halve the inclusive page range. Recognized
+limits include HTTP 413 and known -32005/-32602 result, response-size and block-range messages,
+plus -32005 `query timeout exceeded`; ambiguous rate, authentication and parameter errors retain
+their existing classification. The shortened end is saved before the next RPC so cancellation and finalized-head growth
 cannot widen it. An oversized single block returns an actionable capacity error. Each operation
 fetches at most 131,072 EL
 ancestry headers in total. Claim HTTP responses are capped at 2 MiB before JSON decoding, including
