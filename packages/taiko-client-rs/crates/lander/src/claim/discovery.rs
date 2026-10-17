@@ -1,7 +1,9 @@
 //! Bounded chronological discovery of fixed-Inbox historical landing commitments.
 //! Logs and persisted cursors are liveness hints only. Authority is the exact receipt MPT under
 //! own finalized L1, followed by independently hashed EL parents to our successful claim block.
-use super::source::{MAX_ANCESTRY, RpcClaimSource, anchor_error, rpc_error, verify_receipt};
+use super::source::{
+    MAX_ANCESTRY, RpcClaimSource, anchor_error, execution_header, rpc_error, verify_receipt,
+};
 use crate::{
     LanderError, Result,
     contracts::BatchRewardRecorded,
@@ -11,6 +13,7 @@ use crate::{
 use abci::{RawL1Header, l1::source::L1Source};
 use alloy::sol_types::SolEvent;
 use alloy_consensus::Header;
+use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{B256, keccak256};
 use alloy_provider::Provider;
 use alloy_rpc_types::{Filter, Log};
@@ -18,7 +21,7 @@ use serde::{Deserialize, Serialize};
 
 /// Maximum L1 blocks requested by one log page.
 const PAGE_BLOCKS: u64 = 1024;
-/// Maximum pages completed during one operation, independent of total chain age.
+/// Maximum page requests, including narrowing attempts, during one operation.
 const MAX_PAGES: usize = 16;
 /// Maximum decoded log responses accepted per page.
 const MAX_LOGS: usize = 256;
@@ -34,7 +37,7 @@ pub struct DiscoveryProgress {
     pub inclusion_hash: B256,
     /// Earliest causally possible landing discovery block.
     pub start: u64,
-    /// Canonical hash of the original entitlement landing.
+    /// Canonical hash of the own claim header's L1 anchor.
     pub start_hash: B256,
     /// Next unfinished chronological L1 page.
     pub next: u64,
@@ -56,7 +59,7 @@ pub struct PageCursor {
     pub start: u64,
     /// Fixed inclusive page end, retained when the finalized head advances.
     pub end: u64,
-    /// Digest of the complete sorted typed log response, including event and block identities.
+    /// Digest of the complete sorted typed response; zero marks an unverified narrowed range.
     pub digest: B256,
     /// Next unattempted event index; advanced before any candidate RPC can time out.
     pub next_event: usize,
@@ -99,10 +102,33 @@ impl RpcClaimSource {
         let number = self.anchors.finalized_number().await.map_err(anchor_error)?;
         let finalized = self.anchors.header_hash_pinned(number).await.map_err(anchor_error)?;
         let landing = self.discover().await?;
-        if landing.number > number {
-            return Err(LanderError::Unavailable(
-                "reward landing is not finalized on own L1".into(),
+        let own =
+            execution_header(&self.l2, BlockNumberOrTag::Number(inclusion.block_number)).await?;
+        if own.hash_slow() != inclusion.block_hash {
+            return Err(LanderError::Unavailable("own claim inclusion changed branch".into()));
+        }
+        let (sharing, _, start) = abci::rules::decode_extra_data(&own.extra_data)
+            .map_err(|_| LanderError::Safety("invalid own claim Etna extraData".into()))?;
+        if sharing != 0 || own.number == 0 {
+            return Err(LanderError::Safety(
+                "claim finality requires a committed Etna execution header".into(),
             ));
+        }
+        if start > number || start < landing.number {
+            return Err(LanderError::Unavailable(
+                "own claim anchor is not finalized or precedes reward landing".into(),
+            ));
+        }
+        // This bounded canonical lookup supplies only a causal discovery hint. Candidate
+        // authority still requires a fresh finalized receipt proof and every EL hash link.
+        let anchor = self.anchors.header_hash_pinned(start).await.map_err(anchor_error)?;
+        if own.parent_beacon_block_root != Some(anchor.state_root()) {
+            return Err(LanderError::Safety(
+                "own claim anchor root differs from canonical L1".into(),
+            ));
+        }
+        if self.anchors.canonical_hash(start).await.map_err(anchor_error)? != anchor.hash() {
+            return Err(LanderError::Unavailable("own claim anchor changed branch".into()));
         }
         // Disk metadata is untrusted and may be stale. Invalid hints restart discovery;
         // they cannot strand old v1 signed jobs or change their original transaction bytes.
@@ -110,8 +136,8 @@ impl RpcClaimSource {
             Some(p)
                 if p.transaction_hash == inclusion.transaction_hash &&
                     p.inclusion_hash == inclusion.block_hash &&
-                    p.start == landing.number &&
-                    p.start_hash == landing.hash &&
+                    p.start == start &&
+                    p.start_hash == anchor.hash() &&
                     p.next >= p.start &&
                     p.next <= p.finalized_number.saturating_add(1) &&
                     p.finalized_number <= number =>
@@ -125,9 +151,9 @@ impl RpcClaimSource {
             *progress = Some(DiscoveryProgress {
                 transaction_hash: inclusion.transaction_hash,
                 inclusion_hash: inclusion.block_hash,
-                start: landing.number,
-                start_hash: landing.hash,
-                next: landing.number,
+                start,
+                start_hash: anchor.hash(),
+                next: start,
                 finalized_number: number,
                 finalized_hash: finalized.hash(),
                 candidate: None,
@@ -163,9 +189,20 @@ impl RpcClaimSource {
                     })
                     .is_none_or(|bytes| bytes > MAX_LOG_BYTES)
             {
-                return Err(LanderError::Capacity(
-                    "claim discovery log page exceeds response limits".into(),
-                ));
+                if end == scan.next {
+                    return Err(LanderError::Capacity(
+                        "single L1 block exceeds claim discovery response limits; operator review required".into(),
+                    ));
+                }
+                // Save BEFORE the next RPC: cancellation/restart must retain this smaller
+                // inclusive range even when the finalized head subsequently advances.
+                scan.page = Some(PageCursor {
+                    start: scan.next,
+                    end: scan.next + (end - scan.next) / 2,
+                    digest: B256::ZERO,
+                    next_event: 0,
+                });
+                continue;
             }
             let mut ordered = logs;
             ordered.sort_by_key(|l| (l.block_number, l.log_index));

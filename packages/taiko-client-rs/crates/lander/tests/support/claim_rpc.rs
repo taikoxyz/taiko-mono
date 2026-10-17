@@ -141,6 +141,9 @@ pub struct Fixture {
     pub checkpoint: bool,
     pub covering: Vec<Receipt>,
     pub covering_block: u64,
+    pub covering_blocks: Vec<u64>,
+    pub finalized_head: std::sync::atomic::AtomicU64,
+    pub hang_logs_end: std::sync::atomic::AtomicU64,
     pub branch_headers: Vec<Header>,
     pub pending_anchor: std::sync::atomic::AtomicBool,
     pub fail_bootstrap: std::sync::atomic::AtomicBool,
@@ -265,6 +268,9 @@ impl Fixture {
             covering,
             branch_headers,
             covering_block: 11,
+            covering_blocks: vec![],
+            finalized_head: std::sync::atomic::AtomicU64::new(0),
+            hang_logs_end: std::sync::atomic::AtomicU64::new(u64::MAX),
             pending_anchor: std::sync::atomic::AtomicBool::new(matches!(
                 fault,
                 Fault::PendingAnchor
@@ -306,7 +312,9 @@ impl Fixture {
                         if matches!(self.fault, Fault::Nonfinal) {
                             9
                         } else {
-                            *self.l1.last_key_value().unwrap().0
+                            let head =
+                                self.finalized_head.load(std::sync::atomic::Ordering::SeqCst);
+                            if head == 0 { *self.l1.last_key_value().unwrap().0 } else { head }
                         }
                     }
                     _ => u64::from_str_radix(&tag[2..], 16).unwrap(),
@@ -363,16 +371,16 @@ impl Fixture {
                 )
                 .unwrap();
                 assert!(end - start < 1024);
-                if self.hide_logs.load(std::sync::atomic::Ordering::SeqCst) ||
-                    !(start..=end).contains(&self.covering_block)
-                {
+                if self.hide_logs.load(std::sync::atomic::Ordering::SeqCst) {
                     return json!([]);
                 }
-                json!(self.covering.iter().enumerate().map(|(i, r)| {
+                json!(self.covering.iter().enumerate().filter_map(|(i, r)| {
+                    let block = self.covering_blocks.get(i).copied().unwrap_or(self.covering_block);
+                    if !(start..=end).contains(&block) { return None; }
                     let log = BatchRewardRecorded { batchId: rewards::batch_id(r), l2RewardRecipient: r.l2RewardRecipient, baseFeeAmount: r.baseFeeAmount,
                         generation:r.generation, parentHeight:r.parentHeight,parentHash:r.parentHash,lastHeight:r.lastHeight,lastBlockHash:r.lastBlockHash }.encode_log_data();
-                    json!({"address":id.inbox,"topics":log.topics(),"data":log.data,"blockNumber":format!("0x{:x}",self.covering_block),"blockHash":self.l1[&self.covering_block].hash_slow(),
-                        "transactionHash":B256::repeat_byte(77),"transactionIndex":"0x0","logIndex":format!("0x{i:x}"),"removed":false})
+                    Some(json!({"address":id.inbox,"topics":log.topics(),"data":log.data,"blockNumber":format!("0x{block:x}"),"blockHash":self.l1[&block].hash_slow(),
+                        "transactionHash":B256::repeat_byte(77),"transactionIndex":"0x0","logIndex":format!("0x{i:x}"),"removed":false}))
                 }).collect::<Vec<_>>())
             }
             "debug_getRawHeader" => {
@@ -479,7 +487,16 @@ impl Fixture {
                 } else {
                     assert_eq!(
                         p[2]["blockHash"],
-                        json!(self.l1.last_key_value().unwrap().1.hash_slow())
+                        json!(
+                            self.l1[&match self
+                                .finalized_head
+                                .load(std::sync::atomic::Ordering::SeqCst)
+                            {
+                                0 => *self.l1.last_key_value().unwrap().0,
+                                n => n,
+                            }]
+                                .hash_slow()
+                        )
                     );
                     &self.final_values
                 };
@@ -542,6 +559,17 @@ pub async fn server(fixture: Arc<Fixture>, l1: bool) -> Server {
                     bytes.extend_from_slice(&buf[..n]);
                 }
                 let request: Value = serde_json::from_slice(&bytes[start..start + len]).unwrap();
+                if l1 && request["method"] == "eth_getLogs" {
+                    let end = u64::from_str_radix(
+                        request["params"][0]["toBlock"].as_str().unwrap().trim_start_matches("0x"),
+                        16,
+                    )
+                    .unwrap();
+                    if end == fixture.hang_logs_end.load(std::sync::atomic::Ordering::SeqCst) {
+                        fixture.requests.lock().unwrap().push(request.clone());
+                        std::future::pending::<()>().await;
+                    }
+                }
                 if !l1 &&
                     request["method"] == "eth_getTransactionReceipt" &&
                     fixture.hang_receipts.load(std::sync::atomic::Ordering::SeqCst)

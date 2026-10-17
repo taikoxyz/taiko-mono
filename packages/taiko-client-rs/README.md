@@ -862,7 +862,9 @@ or filter by the original entitlement generation; valid wrong-branch endpoints a
 Validated Finalized journals are terminal: runner resume preserves their original inclusion and
 signed bytes without fresh network reconciliation. Version-1 signed/finalized journals remain valid
 without migration. Optional discovery metadata is untrusted and bound to the transaction, inclusion,
-original landing and canonical finalized context. Each operation discovers and schedules at most one
+the independently hashed claim header's canonical L1 anchor and finalized context. The inclusive
+anchor lower bound avoids scanning history before the claim could be landed. The original entitlement
+landing identity and canonicality remain checked. Each operation discovers and schedules at most one
 expensive candidate, saving the next event position **before** any candidate RPC can time out. This
 optional within-page position binds the fixed page range and digest of the complete sorted log response;
 changed or legacy context restarts it. The candidate receives the remaining configured finality budget,
@@ -874,8 +876,11 @@ finality; every successful attempt requires a fresh full proof and all EL parent
 
 `--rpc.timeout` defaults to 30 seconds for individual calls and ordinary reconciliation.
 `--finality.timeout` separately defaults to 300 seconds for complete historical discovery and ancestry
-(both accept 1–3600 seconds). One discovery operation scans at most 16 pages of 1,024 L1 blocks,
-accepts at most 256 logs / 512 KiB event data and topics per page, and fetches at most 131,072 EL
+(both accept 1–3600 seconds). One discovery operation makes at most 16 log requests of at most
+1,024 L1 blocks. Responses exceeding 256 logs / 512 KiB event data and topics halve the inclusive
+page range, saving the shortened end before the next RPC so cancellation and finalized-head growth
+cannot widen it. An oversized single block returns an actionable capacity error. Each operation
+fetches at most 131,072 EL
 ancestry headers in total. Claim HTTP responses are capped at 2 MiB before JSON decoding, including
 chunked responses; redirects are disabled. Direct typed capacity or unsupported-capability errors can
 stop the claim. The existing `RpcL1Source` adapter erases some `eth_getProof` errors, including response-cap
