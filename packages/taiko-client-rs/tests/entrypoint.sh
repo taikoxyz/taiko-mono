@@ -27,7 +27,7 @@ cd "$DIR/.."
 filter='kind(test) & !(test(=stale_l1_finality_pauses_and_resumes_l2) | test(=anchor_finality_gates_epoch_entry))'
 if [[ "${1:-}" == "--smoke" ]]; then
     shift
-    filter='kind(test) & (test(=single_validator_produces_blocks_by_the_header_rules) | test(=epoch_switch_adds_the_joining_validator) | test(=real_l2_rewards_claim_and_fee_continuation) | test(=lander_cli_lands_blob_batches_and_resumes_after_sigterm))'
+    filter='kind(test) & (test(=single_validator_produces_blocks_by_the_header_rules) | test(=epoch_switch_adds_the_joining_validator) | test(=real_l2_rewards_claim_and_fee_continuation) | test(=lander_cli_recovers_from_sigkill_and_resumes_after_sigterm))'
 elif [[ "${1:-}" == "--full" ]]; then
     shift
     filter='kind(test)'
