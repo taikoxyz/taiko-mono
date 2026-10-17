@@ -445,8 +445,9 @@ reduction has been measured, and a real guest remains unimplemented.
 
 The companion client exposes explicit `taiko-client lander-claim` with independent L1/L2 RPCs,
 landing transaction, batch id, payer key file and claim directory. It retains signed bytes across
-restart; inclusion is provisional until a finalized L1 checkpoint covers the actual claim block
-and its descending EL ancestry is authenticated. No automatic bridge withdrawal is performed.
+restart. A canonical successful claim is final, since Etna L2 blocks are BFT-final; after a
+recovery that rewinds L2, rerunning the command reconciles the same signed bytes. No automatic
+bridge withdrawal is performed.
 
 ### Guest and consensus obligations
 
