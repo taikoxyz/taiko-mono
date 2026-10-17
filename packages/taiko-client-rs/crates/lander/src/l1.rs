@@ -78,7 +78,7 @@ pub trait LandingSource: Send + Sync {
         snapshot: &LandingSnapshot,
         anchors: &[AnchorState],
     ) -> Result<Vec<RawL1Header>>;
-    /// Ask the executing Inbox proxy to hash the identical public statement.
+    /// Ask the executing Inbox proxy to hash the identical public V8 statement.
     async fn statement_hash(
         &self,
         snapshot: &LandingSnapshot,
@@ -255,7 +255,7 @@ impl LandingSource for RpcLandingSource {
             snapshot.genesis.l1_0
         } else {
             let bytes = parent.header.extra_data.as_ref();
-            if bytes.len() != 13 || bytes[0] != 100 {
+            if bytes.len() != 13 || bytes[0] != abci::rules::BASEFEE_SHARING_PCTG {
                 return Err(LanderError::Safety("EL checkpoint has invalid Etna extraData".into()));
             }
             let generation = bytes[1..7].iter().fold(0u64, |n, b| (n << 8) | u64::from(*b));

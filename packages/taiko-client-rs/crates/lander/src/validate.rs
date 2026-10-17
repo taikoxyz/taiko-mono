@@ -60,7 +60,7 @@ pub struct BlockFacts {
     pub expected: rules::ExpectedHeader,
 }
 
-/// Authenticates canonical precommits with distinct signers and strict `> 2/3` power.
+/// Authenticate canonical precommits with distinct signers and strict `> 2/3` signed power.
 ///
 /// The timestamp, round, block id, height and chain id all enter Tendermint's canonical
 /// length-delimited vote sign bytes. Nil votes are verified but contribute no block power.
@@ -292,6 +292,10 @@ pub fn verify_structure(
 pub struct EnvelopeContext<'a> {
     /// Whole seconds of the CometBFT block timestamp.
     pub bft_time_secs: u64,
+    /// Original proposer from the certified CometBFT block header.
+    pub proposer: tendermint::account::Id,
+    /// Authenticated committee for this block's epoch, including its first height.
+    pub members: &'a [abci::types::Member],
     /// Execution facts of the authenticated parent.
     pub parent: &'a ParentInfo,
     /// Exact historic anchor consumed by that parent.
@@ -321,6 +325,8 @@ pub fn verify_envelope(
 ) -> Result<BlockFacts, ValidationError> {
     let EnvelopeContext {
         bft_time_secs,
+        proposer,
+        members,
         parent,
         parent_anchor,
         generation,
@@ -375,6 +381,8 @@ pub fn verify_envelope(
         generation,
         params,
         min_base_fee: protocol::shasta::constants::min_base_fee_for_chain(params.l2_chain_id),
+        reward_recipient: rules::proposer_recipient(members, proposer)
+            .ok_or_else(|| ValidationError::Etna("unknown certified proposer".into()))?,
     })
     .map_err(|e| ValidationError::Etna(e.to_string()))?;
     rules::check_anchor_freshness(expected.timestamp, anchor.timestamp, max_anchor_age)
@@ -545,6 +553,8 @@ mod tests {
     fn weighted_quorum_absent_and_nil_votes_do_not_count() {
         let (_, committee, keys) = committee(&[3, 1], 0);
         let mut block = pair(1, B256::ZERO, &committee, &keys, None);
+        verify_commit(&block.commit, &block.block.header, &committee, "taiko-etna-167001-g0")
+            .unwrap();
         block.commit.signatures[1] = CommitSig::BlockIdFlagAbsent;
         verify_commit(&block.commit, &block.block.header, &committee, "taiko-etna-167001-g0")
             .unwrap();
@@ -643,6 +653,8 @@ mod tests {
         let envelope = EtnaEnvelope::decode(&fixture.blocks[&1].block.data[0]).unwrap();
         let context = |max_anchor_age| EnvelopeContext {
             bft_time_secs: 101,
+            proposer: fixture.blocks[&1].block.header.proposer_address,
+            members: &fixture.committees[&schedule.epoch_of(1)].state.members,
             parent: &parent,
             parent_anchor: &fixture.anchors[&0],
             generation: 0,
@@ -661,6 +673,149 @@ mod tests {
             matches!(&error, ValidationError::Etna(m) if *m == violation.to_string()),
             "{error}"
         );
+    }
+
+    /// Shared validation uses the certified header proposer and authenticated epoch payout.
+    #[test]
+    fn validate_certified_proposer_payout_and_unknown_proposer() {
+        let fixture = crate::test_utils::consensus_mpt::Fixture::new(0, 1);
+        let genesis = &fixture.headers[&0];
+        let parent = ParentInfo {
+            number: 0,
+            hash: genesis.hash_slow(),
+            timestamp: genesis.timestamp,
+            gas_limit: genesis.gas_limit,
+            gas_used: genesis.gas_used,
+            base_fee: genesis.base_fee_per_gas.unwrap(),
+            difficulty: genesis.difficulty,
+            grandparent_timestamp: 0,
+        };
+        let schedule = Schedule::from_genesis(&fixture.snapshot.genesis);
+        let envelope = EtnaEnvelope::decode(&fixture.blocks[&1].block.data[0]).unwrap();
+        let original = fixture.blocks[&1].block.header.proposer_address;
+        let members = &fixture.committees[&schedule.epoch_of(1)].state.members;
+        let context = |proposer| EnvelopeContext {
+            bft_time_secs: 101,
+            proposer,
+            members,
+            parent: &parent,
+            parent_anchor: &fixture.anchors[&0],
+            generation: 0,
+            schedule: &schedule,
+            params: &fixture.params,
+            max_anchor_age: 7200,
+            forced_cursor: 0,
+            forced_inclusion_delay: fixture.snapshot.genesis.forced_inclusion_delay,
+        };
+        let facts = verify_envelope(envelope.clone(), context(original)).unwrap();
+        assert_eq!(
+            facts.expected.beneficiary,
+            rules::proposer_recipient(members, original).unwrap()
+        );
+        assert_eq!(facts.expected.extra_data[0], 0);
+        let mut wrong = envelope.clone();
+        wrong.block.header.beneficiary = fixture.params.fee_vault;
+        assert!(
+            matches!(verify_envelope(wrong, context(original)), Err(ValidationError::Etna(m)) if m.contains("beneficiary"))
+        );
+        let mut changed = members.clone();
+        let key = changed
+            .iter_mut()
+            .find(|member| {
+                rules::proposer_recipient(std::slice::from_ref(member), original).is_some()
+            })
+            .unwrap();
+        key.reward_recipient = alloy_primitives::Address::repeat_byte(0x88);
+        assert!(
+            verify_envelope(
+                envelope.clone(),
+                EnvelopeContext { members: &changed, ..context(original) }
+            )
+            .is_err()
+        );
+        let mut updated = envelope.clone();
+        updated.block.header.beneficiary = alloy_primitives::Address::repeat_byte(0x88);
+        verify_envelope(updated, EnvelopeContext { members: &changed, ..context(original) })
+            .unwrap();
+        let unknown = tendermint::account::Id::new([0xff; 20]);
+        assert!(
+            matches!(verify_envelope(envelope, context(unknown)), Err(ValidationError::Etna(m)) if m.contains("unknown certified proposer"))
+        );
+    }
+
+    #[test]
+    fn asymmetric_members_keep_batch_payout_distinct_from_certified_proposer() {
+        let fixture = crate::test_utils::consensus_mpt::Fixture::new(24, 25);
+        let schedule = Schedule::from_genesis(&fixture.snapshot.genesis);
+        let committee = &fixture.committees[&schedule.epoch_of(25)];
+        let members = &committee.state.members;
+        assert_eq!(members.len(), 2);
+        assert_ne!(members[0].reward_recipient, members[1].reward_recipient);
+        let batch_recipient = crate::test_utils::consensus::BATCH_RECIPIENT;
+        assert!(members.iter().all(|m| m.reward_recipient != batch_recipient));
+        // Deliberately certify the member that is not first in set-key order, in a later round.
+        let original = committee
+            .validators
+            .validators()
+            .iter()
+            .find(|v| {
+                rules::proposer_recipient(members, v.address) == Some(members[1].reward_recipient)
+            })
+            .unwrap()
+            .address;
+        let mut certified = fixture.blocks[&25].clone();
+        certified.block.header.proposer_address = original;
+        certified.commit.round = 2u16.into();
+        let mut envelope = EtnaEnvelope::decode(&certified.block.data[0]).unwrap();
+        envelope.block.header.beneficiary = members[1].reward_recipient;
+        certified.block.data[0] = envelope.encode().to_vec();
+        let keys = vec![
+            ed25519_dalek::SigningKey::from_bytes(&[1; 32]),
+            ed25519_dalek::SigningKey::from_bytes(&[2; 32]),
+        ];
+        crate::test_utils::consensus::resign(&mut certified, committee, &keys);
+        verify_commit(
+            &certified.commit,
+            &certified.block.header,
+            committee,
+            "taiko-etna-167001-g0",
+        )
+        .unwrap();
+        let previous = &fixture.headers[&24];
+        let parent = ParentInfo {
+            number: 24,
+            hash: previous.hash_slow(),
+            timestamp: previous.timestamp,
+            gas_limit: previous.gas_limit,
+            gas_used: previous.gas_used,
+            base_fee: previous.base_fee_per_gas.unwrap(),
+            difficulty: previous.difficulty,
+            grandparent_timestamp: fixture.headers[&23].timestamp,
+        };
+        let context = || EnvelopeContext {
+            bft_time_secs: 125,
+            proposer: certified.block.header.proposer_address,
+            members,
+            parent: &parent,
+            parent_anchor: &fixture.anchors[&24],
+            generation: 0,
+            schedule: &schedule,
+            params: &fixture.params,
+            max_anchor_age: 7200,
+            forced_cursor: 0,
+            forced_inclusion_delay: fixture.snapshot.genesis.forced_inclusion_delay,
+        };
+        assert_eq!(
+            verify_envelope(envelope.clone(), context()).unwrap().expected.beneficiary,
+            members[1].reward_recipient
+        );
+        for wrong in [members[0].reward_recipient, batch_recipient] {
+            let mut changed = envelope.clone();
+            changed.block.header.beneficiary = wrong;
+            assert!(
+                matches!(verify_envelope(changed, context()), Err(ValidationError::Etna(m)) if m.contains("beneficiary"))
+            );
+        }
     }
 
     #[test]

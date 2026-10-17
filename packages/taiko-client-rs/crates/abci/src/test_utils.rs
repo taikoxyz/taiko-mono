@@ -491,9 +491,10 @@ impl RegistryStorage {
         let entries = self.checkpoints.last().map(|(_, entries)| entries.as_slice()).unwrap_or(&[]);
         slots.push((registry::entries_length_slot(), U256::from(entries.len())));
         for (j, entry) in entries.iter().enumerate() {
-            let [pubkey, stake, packed] = registry::entry_slots(j as u64);
+            let [pubkey, stake, packed, recipient] = registry::entry_slots(j as u64);
             slots.push((pubkey, entry.pubkey.into()));
             slots.push((stake, entry.eff_stake));
+            slots.push((recipient, U256::from_be_slice(entry.reward_recipient.as_slice())));
             slots.push((
                 packed,
                 U256::from(entry.active_from_l1) |
@@ -545,6 +546,9 @@ pub(crate) fn committee_witness(
 pub(crate) fn sample_entries(n: usize) -> Vec<RegistryEntry> {
     (0..n)
         .map(|i| RegistryEntry {
+            reward_recipient: Address::from_slice(
+                &keccak256(format!("etna validator recipient {i}"))[12..],
+            ),
             pubkey: keccak256(format!("etna validator {i}")),
             eff_stake: U256::from(i + 1) * U256::from(10u64).pow(U256::from(18u64)),
             active_from_l1: 0,
@@ -853,13 +857,17 @@ mod tests {
         let storage =
             RegistryStorage { checkpoints: vec![(5, sample_entries(5)), (9, last.clone())] };
         let slots = storage.slots();
-        assert_eq!(slots.len(), 1 + 2 * 2 + 1 + 3 * 3);
+        assert_eq!(slots.len(), 1 + 2 * 2 + 1 + 3 * 4);
         assert_eq!(word(&slots, registry::entries_length_slot()), U256::from(3));
 
         for (j, entry) in last.iter().enumerate() {
-            let [pubkey, stake, packed] = registry::entry_slots(j as u64);
+            let [pubkey, stake, packed, recipient] = registry::entry_slots(j as u64);
             assert_eq!(B256::from(word(&slots, pubkey)), entry.pubkey);
             assert_eq!(word(&slots, stake), entry.eff_stake);
+            assert_eq!(
+                word(&slots, recipient),
+                U256::from_be_slice(entry.reward_recipient.as_slice())
+            );
             let packed = word(&slots, packed);
             assert_eq!(word_u64(packed, 0), entry.active_from_l1);
             assert_eq!(word_u64(packed, 64), entry.exit_effective_l1);
@@ -882,6 +890,7 @@ mod tests {
     #[test]
     fn planters_write_the_shared_layout() {
         let entry = RegistryEntry {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
             pubkey: B256::repeat_byte(0x5a),
             eff_stake: U256::MAX - U256::from(1),
             active_from_l1: u64::MAX - 1,
@@ -901,10 +910,11 @@ mod tests {
             )
         );
         assert_eq!(vectors::u64_at("/layout/registry/entry_slots/0/index"), 0);
-        let [pubkey, stake, packed] = [0, 1, 2]
+        let [pubkey, stake, packed, recipient] = [0, 1, 2, 3]
             .map(|w| vectors::b256_at(&format!("/layout/registry/entry_slots/0/slots/{w}")));
         assert_eq!(B256::from(word(&slots, pubkey)), entry.pubkey);
         assert_eq!(word(&slots, stake), entry.eff_stake);
+        assert_eq!(word(&slots, recipient), U256::from_be_slice(entry.reward_recipient.as_slice()));
         assert_eq!(
             word(&slots, packed),
             vectors::pack(

@@ -3,8 +3,8 @@
 ## Project Structure & Module Organization
 
 - `bin/client/` hosts the CLI entry point (`abci`, `abci-genesis`, `abci-committee-record`, `lander`); keep orchestration light and delegate protocol logic to the crates.
-- `crates/abci` is the ABCI++ application of the Etna PoS chain (CometBFT + `taiko-client abci` + alethia-reth). Keep `envelope`, `rules`, `schedule`, `committee` and `forced` (the forced inclusion rule) free of I/O so they can later move unchanged into a no_std crate for the guest. The envelope is version 5; validators enforce forced inclusion and anchor freshness per block.
-- `crates/lander` constructs authenticated CometBFT batches, zlib-compressed V4 blob payloads and sidecars, binds the V6 statement (whose eighteen words include the parent-anchor committee configuration, the forced inclusion queue head before and after the batch, and the fee recipient, the lander's sending address), authenticates historical derivation parents through EL ancestry, obtains proof through a trait (dummy `0x00` in this version), and durably submits to L1. Keep the journal independent of ABCI; never replace or cancel an outstanding nonce automatically.
+- `crates/abci` is the ABCI++ application of the Etna PoS chain (CometBFT + `taiko-client abci` + alethia-reth). Keep `envelope`, `rules`, `schedule`, `committee` and `forced` (the forced inclusion rule) free of I/O so they can later move unchanged into a no_std crate for the guest. The envelope is version 6; validators enforce forced inclusion and anchor freshness per block.
+- `crates/lander` authenticates CometBFT batches and historical committee ancestry, builds V5 blobs and the twenty-word V8 statement, obtains a proof through a trait (dummy `0x00` only), and durably submits nonpayable `land(input, proof)`. The independent `lander-claim` command authenticates receipt proofs and journals one immutable L2 transaction. Never replace an outstanding nonce automatically.
 - `crates/protocol` holds shared protocol helpers (including Shasta manifest decoding for raiko2); `crates/rpc` holds the Engine API / JWT provider helpers. FI bytes are authenticated calldata from exact-block admission events. Document shared traits whenever exposing cross-crate APIs.
 - `crates/protocol` is also consumed by raiko2 (pinned by git rev); keep the `shasta` modules and `FixedKSigner` it imports.
 - `crates/bindings/` is kept only for protocol's anchor builder, which raiko2 uses. It is generated via `just gen_bindings` (Solidity sources in `../protocol`); never hand-edit or reformat files under `crates/bindings/src`.
@@ -19,8 +19,8 @@
 - Always use `just fmt` (never call `cargo fmt` directly) so the nightly toolchain and `cargo sort` stay in sync with CI.
 - `just clippy` runs two passes: library targets with doc lints, then `--all-targets` (tests and test-harness included) with `-D warnings`; reserve `just clippy-fix` for mechanical cleanups.
 - `just gen_bindings` executes `script/gen_bindings.sh` to refresh contract bindings whenever ABIs change.
-- After every code change run `just fmt && just clippy-fix` locally so the workspace stays formatted and lint-clean.
-- Before declaring work complete, run the full verification sequence `just fmt && just clippy && just unit && just test` and require it to finish without warnings or errors.
+- After each coherent batch of code changes, run `just fmt && just clippy-fix` locally so the workspace stays formatted and lint-clean. Use targeted tests while iterating.
+- Before declaring work complete, run `just verify` once on the final change batch and require it to finish without warnings or errors. It checks formatting, strict lint, fast tests, committed artifact reproduction and all Docker scenarios.
 
 ## Coding Style & Naming Conventions
 
@@ -44,26 +44,28 @@
 
 ## Testing Guidelines
 
-- `just unit` runs only the unit tests (everything outside `tests/` dirs) with no docker — use it for fast iteration. Unit tests live next to the code (`#[cfg(test)] mod tests`); abci's shared builders live in `crates/abci/src/test_utils*`.
+- `just unit` runs unit tests plus all nine `lander_claim_cli` process tests with no docker, then protocol tests without default features and abci doctests — use it for fast iteration. Unit tests live next to the code (`#[cfg(test)] mod tests`); abci's shared builders live in `crates/abci/src/test_utils*`.
 - `just test` runs the ABCI, lander and CLI Docker scenarios through `tests/entrypoint.sh`: it checks docker, pulls the anvil, alethia-reth and CometBFT images (override with `ANVIL_IMAGE`, `ALETHIA_RETH_IMAGE`, `COMETBFT_IMAGE`, `LANDER_ANVIL_IMAGE`; `PULL_POLICY=missing` reuses local images) and runs the scenarios serially with the nextest `integration` profile, since each boots its own devnet. Extra args go to nextest, e.g. `just test restart` for one scenario.
 - Name tests after observable behavior (e.g., `handles_invalid_proposal`). The harness prints every container's log tail when a scenario fails (panics, returns an error or times out waiting for a height) or its devnet fails to boot; keep that output for any failing integration case.
-- Targeted verification is fine while iterating, but completion still requires a final full `just fmt && just clippy && just unit && just test` pass with clean output.
+- `just test-smoke` runs exactly four Docker scenarios: single-validator header rules, epoch switch, real L2 rewards claim/fee continuation, and lander CLI SIGTERM resume. This fixed recipe accepts no arguments; use `just test` for targeted filters or output options. Smoke is for iteration and never replaces the full merge gate.
+- Targeted verification is fine while iterating; completion requires one final `just verify` pass with clean output. Regenerate artifacts only when their inputs change; `just verify` always checks reproduction of the committed artifacts.
 
 ## Commit & Pull Request Guidelines
 
 - Use Conventional Commit prefixes (`feat:`, `fix:`, `chore:`). Keep subject lines ≤72 characters with optional, meaningful scopes.
 - PR descriptions must summarize impact, link issues, and include command output or screenshots for operator-facing flows.
-- Confirm `just fmt && just clippy && just unit && just test` pass locally with no warnings or errors in the final verification run; call out any follow-up work explicitly.
+- Confirm `just verify` passes locally with no warnings or errors in the final verification run; call out any follow-up work explicitly.
 
 ## Security & Environment Notes
 
 - Use only the ephemeral test keys bundled in the test harness and `tests/docker`; never commit real credentials or `.env` files.
 - Docker scenarios publish ephemeral RPC ports on loopback and name resources `abci-<id>-…` or `lander-<id>-…`. The harness cleans process-owned resources on SIGINT/SIGTERM; the entrypoint and CI also clean only the `taiko-client-rs.test-run` label for their run. For manual cleanup, filter that exact run label so other devnets are preserved.
 
-- Lander real-contract fixtures pin protocol commit `27777e9d7147e7b1d3543711f4d7370a0377fa53`. Regenerate with `script/gen_lander_artifacts.sh`, which also copies the shared Etna vectors (`testdata/etna_vectors`); generated artifact and vector hashes and compiler provenance are unit-tested, and `just check-lander-artifacts` checks that regeneration reproduces the committed files. Real-contract tests use `LANDER_ANVIL_IMAGE` (Foundry v1.8.5); existing ABCI tests retain their independent Anvil pin.
+- Lander real-contract fixtures (including the immutable `L2FeeVault`) pin protocol commit `2a4bfa747edcafae96c15b58159e31eea0ebe78a`, the same as `PROTOCOL_REVISION`. Regenerate with `script/gen_lander_artifacts.sh`, which also copies the shared Etna vectors (`testdata/etna_vectors`); generated artifact and vector hashes and compiler provenance are unit-tested, and `just check-lander-artifacts` checks that regeneration reproduces the committed files. Real-contract tests use `LANDER_ANVIL_IMAGE` (Foundry v1.8.5); existing ABCI tests retain their independent Anvil pin.
 
 - FI preimages are published only for skips; ordinary and included proposals carry an empty witness tx field. Inclusion authenticates the canonical first transaction against the proven hash; due skips still authenticate even an empty preimage. Nonempty legacy preimages remain hash-checked.
 - Calldata FI requires no beacon flags, blob fetches or KZG warmup. Preserve lander batch blobs and both sidecar modes. The lander requires authenticated Engine/JWT access for historical singleton skip checks; keep canonical-header unwind disabled. Missing execution history is retryable and non-consuming where classified as unavailable; generic RPC errors do not prove pruning.
-- Wire compatibility is envelope v5 / payload v4 / journal schema 8 / ABCI APP_VERSION 2. Persisted app_version must equal 2; version 1 chains require an explicit consensus upgrade, never an automatic state rewrite. Do not migrate or rewrite signed journals. Keep the V6 eighteen-word statement and six-field LandInput unchanged.
-- Current proof handling is dummy-only. debug_executionWitnessForTxList is a future collection primitive, potentially requiring skipZkGasDifficultyCheck=true for candidates; guest authentication/re-execution is unimplemented. See README for its state and cutoff limits.
+- Wire compatibility is envelope v6 / payload v5 / journal schema 10 / ABCI APP_VERSION 3 / committee encoding 2 / `ETNA_PARENT_ANCHOR_V3`. Old formats are explicitly rejected. Never migrate or rewrite signed journals. Keep the twenty-word V8 statement, ten-field Receipt, eight-field LandInput, and `land(input, proof)` aligned with the pinned protocol.
+- Rewards never cut batches at epoch ends. L1 queue fees and L2 basefee receipts bind separate recipients. Proposer tips follow the immutable registered recipient of the original proposer in the certified block header under that height's committee, including retained blocks across rounds. Compute basefee from executed header gas, never vault balance deltas; claim spends and forced ETH credits do not change earned fees. Preserve the 301-distinct-member registry-proof/committee-witness and real-certificate regression, including payout tampering and quorum rejection. The 4096 registry/configuration cap is not production resource validation. Preserve all FI checks and ordinary gas estimation/EIP-7825 bounds.
+- The real guest is unimplemented: dummy verification does not prove consensus, execution or fee sums. No DAO funding, pre-funding, per-vote accounting, reward settlement or automatic bridge exists. Landers supply L1 working capital; proving income is not guaranteed. Do not claim measured proving-performance reductions.
 - Regenerate test-only InboxSetter and ZkGasFixture artifacts with script/gen_test_harness_artifacts.sh. Verify both generators twice for reproducibility; never hand-edit generated artifacts.

@@ -1,8 +1,9 @@
 //! Genuine deterministic Ed25519 certificates used by consensus tests.
 
 use abci::{
-    ChainParams, CommitteeRecord, CommitteeState, EtnaEnvelope, ExecutionBlock, Member,
-    committee::{mem08_key, mem08_root, record_hash},
+    AccountWitness, AnchorState, ChainParams, CommitteeRecord, CommitteeState, CommitteeWitness,
+    EtnaEnvelope, ExecutionBlock, InboxFacts, Member, RegistryEntry,
+    committee::{record_hash, set_key, set_root},
 };
 use alloy_consensus::Header;
 use alloy_primitives::{B256, U256};
@@ -25,6 +26,9 @@ use crate::{
     validate::{block_parts, commit_hash},
 };
 
+/// Independent batch payout, deliberately distinct from every general member fixture.
+pub const BATCH_RECIPIENT: alloy_primitives::Address = alloy_primitives::Address::repeat_byte(0x77);
+
 pub fn parameters() -> ChainParams {
     let mut params = ChainParams::builtin(167001).unwrap();
     params.vp_unit = U256::from(1);
@@ -34,41 +38,129 @@ pub fn parameters() -> ChainParams {
     params
 }
 
+/// A committee of one member per power, keyed by domain-separated full-width indices, with
+/// registry entries in index order (bond id = index), active from L1 block 1 and staking
+/// their power, preserving the authenticated registry stake for epoch derivation.
 pub fn committee(
     powers: &[u64],
     epoch: u64,
 ) -> (ChainParams, AuthenticatedCommittee, Vec<SigningKey>) {
-    let params = parameters();
     let keys = powers
         .iter()
         .enumerate()
-        .map(|(i, _)| SigningKey::from_bytes(&[u8::try_from(i + 1).unwrap(); 32]))
+        .map(|(i, _)| {
+            let index = u64::try_from(i).unwrap();
+            let seed = Sha256::new()
+                .chain_update(b"etna-lander-test-member")
+                .chain_update(index.to_be_bytes())
+                .finalize();
+            SigningKey::from_bytes(&seed.into())
+        })
         .collect::<Vec<_>>();
+    committee_with_keys(powers, epoch, keys, false)
+}
+
+/// Reproduce the fixed one-byte seeds of the checked-in stock-Go differential vectors.
+/// This bounded fixture convention is separate from the general full-width member builder.
+pub fn stock_go_committee(
+    powers: &[u64],
+    epoch: u64,
+) -> (ChainParams, AuthenticatedCommittee, Vec<SigningKey>) {
+    assert!(powers.len() <= usize::from(u8::MAX), "stock-Go fixture seed range");
+    let keys = (1..=powers.len())
+        .map(|index| SigningKey::from_bytes(&[u8::try_from(index).unwrap(); 32]))
+        .collect();
+    committee_with_keys(powers, epoch, keys, true)
+}
+
+/// Build the same authenticated member structure for either deterministic test-key convention.
+fn committee_with_keys(
+    powers: &[u64],
+    epoch: u64,
+    keys: Vec<SigningKey>,
+    stock_go: bool,
+) -> (ChainParams, AuthenticatedCommittee, Vec<SigningKey>) {
+    let mut params = parameters();
+    params.n_max = params.n_max.max(powers.len());
     let mut members = keys
         .iter()
         .zip(powers)
         .map(|(key, power)| Member {
+            reward_recipient: if stock_go {
+                alloy_primitives::Address::repeat_byte(0x77)
+            } else {
+                member_recipient(B256::from(key.verifying_key().to_bytes()))
+            },
             pubkey: B256::from(key.verifying_key().to_bytes()),
             eff_stake: U256::from(*power),
             power: *power,
         })
         .collect::<Vec<_>>();
-    members.sort_by_key(|member| mem08_key(params.l2_chain_id, member.pubkey));
+    members.sort_by_key(|member| set_key(params.l2_chain_id, member.pubkey));
     let record = CommitteeRecord {
         target_epoch: epoch,
         cutoff_l1_block: 1,
         checkpoint_index: 0,
-        set_root: mem08_root(params.l2_chain_id, epoch + 1, &members),
+        set_root: set_root(params.l2_chain_id, epoch + 1, &members),
         total_stake: members.iter().map(|member| member.eff_stake).sum(),
         total_power: powers.iter().sum(),
-        encoding_version: 1,
+        encoding_version: abci::committee::ENCODING_VERSION,
     };
     let hash = record_hash(params.l2_chain_id, &record);
-    (
-        params.clone(),
-        authenticate(CommitteeState { record, members }, epoch, hash, &params).unwrap(),
-        keys,
-    )
+    let entries = keys
+        .iter()
+        .zip(powers)
+        .map(|(key, power)| RegistryEntry {
+            reward_recipient: if stock_go {
+                alloy_primitives::Address::repeat_byte(0x77)
+            } else {
+                member_recipient(B256::from(key.verifying_key().to_bytes()))
+            },
+            pubkey: B256::from(key.verifying_key().to_bytes()),
+            eff_stake: U256::from(*power),
+            active_from_l1: 1,
+            exit_effective_l1: u64::MAX,
+            last_heartbeat_at: 1,
+            last_heartbeat_seq: 1,
+        })
+        .collect();
+    let registry = AccountWitness {
+        address: params.registry,
+        nonce: 0,
+        balance: U256::ZERO,
+        storage_root: B256::ZERO,
+        code_hash: B256::ZERO,
+        account_proof: vec![],
+        storage: vec![],
+    };
+    let anchor = AnchorState {
+        number: 1,
+        hash: B256::repeat_byte(1),
+        state_root: B256::repeat_byte(2),
+        timestamp: 1,
+        inbox: InboxFacts {
+            status: 3,
+            recovery_generation: 0,
+            last_checkpoint_height: 0,
+            last_checkpoint_hash: B256::ZERO,
+            forced_inclusion_head: 0,
+            forced_inclusion_tail: 0,
+        },
+    };
+    let mut committee =
+        authenticate(CommitteeState { record: record.clone(), members }, epoch, hash, &params)
+            .unwrap();
+    committee.provenance = Some(crate::types::CommitteeContext {
+        anchor,
+        derivation_parent: None,
+        witness: CommitteeWitness { record, registry, entries },
+    });
+    (params, committee, keys)
+}
+
+/// Stable payout distinct for each authenticated member, independent of committee sorting.
+pub fn member_recipient(pubkey: B256) -> alloy_primitives::Address {
+    alloy_primitives::Address::from_slice(&alloy_primitives::keccak256(pubkey)[12..])
 }
 
 pub fn merkle(items: &[Vec<u8>]) -> Hash {
@@ -101,7 +193,18 @@ pub fn pair(
 ) -> CertifiedBlock {
     let envelope = EtnaEnvelope {
         block: ExecutionBlock {
-            header: Header { number: height, parent_hash: parent, ..Default::default() },
+            header: Header {
+                number: height,
+                parent_hash: parent,
+                beneficiary: abci::rules::proposer_recipient(
+                    &committee.state.members,
+                    committee.validators.validators()[0].address,
+                )
+                .unwrap(),
+                base_fee_per_gas: Some(7),
+                gas_used: 21_000,
+                ..Default::default()
+            },
             transactions: vec![],
         },
         anchor: None,

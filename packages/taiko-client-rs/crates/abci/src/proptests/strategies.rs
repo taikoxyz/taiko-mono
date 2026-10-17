@@ -204,7 +204,7 @@ pub(super) fn committee_record() -> impl Strategy<Value = CommitteeRecord> {
 
 /// A registry entry with arbitrary fields.
 fn registry_entry() -> impl Strategy<Value = RegistryEntry> {
-    (hash(), word(), uint(), uint(), uint(), uint()).prop_map(
+    (hash(), word(), uint(), uint(), uint(), uint(), address()).prop_map(
         |(
             pubkey,
             eff_stake,
@@ -212,7 +212,9 @@ fn registry_entry() -> impl Strategy<Value = RegistryEntry> {
             exit_effective_l1,
             last_heartbeat_at,
             last_heartbeat_seq,
+            reward_recipient,
         )| RegistryEntry {
+            reward_recipient,
             pubkey,
             eff_stake,
             active_from_l1,

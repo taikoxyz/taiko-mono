@@ -4,7 +4,7 @@
 //! parent anchor. Genesis and host proof jobs may name an explicit historical snapshot.
 //! [`verify_snapshot`] authenticates the checkpoint, its successor and the complete entry root.
 //! [`derive`] retains the existing eligibility, heartbeat, lowest-bond-id deduplication, stake cap,
-//! MEM-08 ordering and voting-power rules. [`committee_config_hash`] binds their configuration.
+//! set-key ordering and voting-power rules. [`committee_config_hash`] binds their configuration.
 //!
 //! Runtime witnesses appear only at `H(t)-2`, proven under the committed parent's anchor, whose
 //! number is the snapshot itself. A failed or empty committed snapshot has no implicit fallback;
@@ -27,26 +27,26 @@ use crate::{
 };
 
 /// The committee record `encodingVersion` this crate derives.
-pub const ENCODING_VERSION: u8 = 1;
+pub const ENCODING_VERSION: u8 = 2;
 
 /// Upper bound on a committee's total voting power: CometBFT's `MaxTotalVotingPower`,
 /// `(2^63 − 1) / 8`.
 pub const MAX_TOTAL_POWER: u64 = (i64::MAX as u64) / 8;
 
-/// `LOOKAHEAD_EPOCHS` of #22262 (normative, not tunable): MEM-13 evaluates the heartbeats of
-/// epoch `e`'s committee at the start of the L1-side epoch `e − LOOKAHEAD_EPOCHS`.
+/// `LOOKAHEAD_EPOCHS` of #22262 (normative, not tunable): heartbeat eligibility for epoch
+/// `e`'s committee is evaluated at the start of the L1-side epoch `e − LOOKAHEAD_EPOCHS`.
 pub const LOOKAHEAD_EPOCHS: u64 = 2;
 
-/// `bytes32("ETNA_REG_ENTRY")`: domain tag of registry entry leaves.
-const REG_ENTRY_TAG: B256 = tag(b"ETNA_REG_ENTRY");
-/// `bytes32("ETNA_SET_KEY")`: domain tag of the MEM-08 member sort key.
+/// `bytes32("ETNA_REG_ENTRY_V2")`: domain tag of registry entry leaves.
+const REG_ENTRY_TAG: B256 = tag(b"ETNA_REG_ENTRY_V2");
+/// `bytes32("ETNA_SET_KEY")`: domain tag of the member sort key ([`set_key`]).
 const SET_KEY_TAG: B256 = tag(b"ETNA_SET_KEY");
-/// `bytes32("ETNA_SET_LEAF")`: domain tag of MEM-08 set leaves.
-const SET_LEAF_TAG: B256 = tag(b"ETNA_SET_LEAF");
-/// `bytes32("ETNA_SET_NODE")`: domain tag of MEM-08 inner nodes.
+/// `bytes32("ETNA_SET_LEAF_V2")`: domain tag of set-root leaves.
+const SET_LEAF_TAG: B256 = tag(b"ETNA_SET_LEAF_V2");
+/// `bytes32("ETNA_SET_NODE")`: domain tag of set-root inner nodes.
 const SET_NODE_TAG: B256 = tag(b"ETNA_SET_NODE");
-/// `bytes32("ETNA_COMMITTEE_V1")`: domain tag of the committee record hash.
-const RECORD_TAG: B256 = tag(b"ETNA_COMMITTEE_V1");
+/// `bytes32("ETNA_COMMITTEE_V2")`: domain tag of the committee record hash.
+const RECORD_TAG: B256 = tag(b"ETNA_COMMITTEE_V2");
 
 /// Why a committee witness, snapshot or derivation was rejected.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
@@ -129,10 +129,13 @@ pub enum CommitteeError {
     /// `VP_UNIT` is zero, so voting power is undefined.
     #[error("vp_unit must be > 0")]
     ZeroVpUnit,
+    /// A registry entry names the zero L2 payout address.
+    #[error("zero reward recipient")]
+    ZeroRecipient,
     /// `HEARTBEAT_WINDOW` is zero, so the heartbeat windows of a filtered epoch are undefined.
     #[error("heartbeat window must be >= 1")]
     ZeroHeartbeatWindow,
-    /// The target epoch has no MEM-08 `k = targetEpoch − e_0 + 1` in `u64`, or its heartbeat
+    /// The target epoch has no set version `k = targetEpoch − e_0 + 1` in `u64`, or its heartbeat
     /// evaluation block `L1_first(targetEpoch − LOOKAHEAD_EPOCHS)` overflows `u64`.
     #[error("target epoch {0} is out of range")]
     EpochOutOfRange(u64),
@@ -140,6 +143,12 @@ pub enum CommitteeError {
     /// silently reuse an old committee; recovery requires a new generation.
     #[error("no eligible registry entry")]
     Empty,
+    /// A saved member's stake is below the configured eligibility floor.
+    #[error("stake of {pubkey} is below the eligibility floor")]
+    IneligibleStake {
+        /// The member's consensus public key.
+        pubkey: B256,
+    },
     /// A member's voting power `effStake / VP_UNIT` does not fit `u64`.
     #[error("voting power of {pubkey} does not fit u64")]
     PowerOverflow {
@@ -149,7 +158,7 @@ pub enum CommitteeError {
     /// The committee's total voting power exceeds [`MAX_TOTAL_POWER`].
     #[error("total voting power {total} exceeds {MAX_TOTAL_POWER}")]
     TotalPowerTooLarge {
-        /// The total voting power (saturating at `u128::MAX`).
+        /// The total voting power (saturating at `u128::MAX` on arithmetic overflow).
         total: u128,
     },
     /// The committee's total effective stake overflows `uint256`.
@@ -178,9 +187,9 @@ pub struct Snapshot {
 
 /// The registry `entriesRoot` over `entries`.
 ///
-/// Leaf `i` = `keccak256(abi.encode(bytes32("ETNA_REG_ENTRY"), uint256(i), bytes32 pubkey,
+/// Leaf `i` = `keccak256(abi.encode(bytes32("ETNA_REG_ENTRY_V2"), uint256(i), bytes32 pubkey,
 /// uint256 effStake, uint64 activeFromL1, uint64 exitEffectiveL1, uint64 lastHeartbeatAt,
-/// uint64 lastHeartbeatSeq))`;
+/// uint64 lastHeartbeatSeq, address rewardRecipient))`;
 /// the leaves are padded with `bytes32(0)` to the next power of two and hashed pairwise
 /// (`keccak256(left ‖ right)`). One entry gives its leaf; no entries give `bytes32(0)`.
 pub fn entries_root(entries: &[RegistryEntry]) -> B256 {
@@ -195,29 +204,29 @@ pub fn entries_root(entries: &[RegistryEntry]) -> B256 {
     level[0]
 }
 
-/// The MEM-08 sort key of `pubkey`:
+/// The set key of `pubkey`, which orders committee members (set-key order):
 /// `keccak256(abi.encode(bytes32("ETNA_SET_KEY"), uint256 chainId, bytes32 pubkey))`.
 ///
 /// `l2_chain_id` is the L2 EVM chain id, which unlike the CometBFT `chain_id` does not change
 /// with the recovery generation.
-pub fn mem08_key(l2_chain_id: u64, pubkey: B256) -> B256 {
+pub fn set_key(l2_chain_id: u64, pubkey: B256) -> B256 {
     keccak256([SET_KEY_TAG, word(l2_chain_id), pubkey].concat())
 }
 
-/// The MEM-08 set root over `members` (#22262), with `chainId` = the L2 EVM chain id.
+/// The Merkle set root over `members`, with `chainId` = the L2 EVM chain id.
 ///
-/// `members` must already be sorted by [`mem08_key`] ascending (checked in debug builds). Leaf
-/// `index` = `keccak256(abi.encode(bytes32("ETNA_SET_LEAF"), uint256 chainId, uint256 k,
-/// uint256 index, bytes32 pubkey, uint256 effStake))`; inner node =
+/// `members` must already be sorted by [`set_key`] ascending (checked in debug builds). Leaf
+/// `index` = `keccak256(abi.encode(bytes32("ETNA_SET_LEAF_V2"), uint256 chainId, uint256 k,
+/// uint256 index, bytes32 pubkey, uint256 effStake, address rewardRecipient))`; inner node =
 /// `keccak256(abi.encode(bytes32("ETNA_SET_NODE"), uint256 chainId, uint256 k, bytes32 left,
 /// bytes32 right))`. Each level pairs nodes left to right and promotes an odd last node
 /// unchanged. One member gives its leaf; no members give `bytes32(0)` (never a valid committee).
-pub fn mem08_root(l2_chain_id: u64, k: u64, members: &[Member]) -> B256 {
+pub fn set_root(l2_chain_id: u64, k: u64, members: &[Member]) -> B256 {
     debug_assert!(
         members
             .windows(2)
-            .all(|w| mem08_key(l2_chain_id, w[0].pubkey) < mem08_key(l2_chain_id, w[1].pubkey)),
-        "members must be sorted by MEM-08 key without duplicates"
+            .all(|w| set_key(l2_chain_id, w[0].pubkey) < set_key(l2_chain_id, w[1].pubkey)),
+        "members must be sorted by set key without duplicates"
     );
     if members.is_empty() {
         return B256::ZERO;
@@ -238,7 +247,7 @@ pub fn mem08_root(l2_chain_id: u64, k: u64, members: &[Member]) -> B256 {
 }
 
 /// The committee record hash; only the genesis record hash is stored on L1:
-/// `keccak256(abi.encode(bytes32("ETNA_COMMITTEE_V1"), uint256 l2ChainId, uint64 targetEpoch,
+/// `keccak256(abi.encode(bytes32("ETNA_COMMITTEE_V2"), uint256 l2ChainId, uint64 targetEpoch,
 /// uint64 cutoffL1Block, uint64 checkpointIndex, bytes32 setRoot, uint256 totalStake,
 /// uint64 totalPower, uint8 encodingVersion))`.
 pub fn record_hash(l2_chain_id: u64, r: &CommitteeRecord) -> B256 {
@@ -266,7 +275,7 @@ pub fn record_hash(l2_chain_id: u64, r: &CommitteeRecord) -> B256 {
 pub fn committee_config_hash(params: &ChainParams) -> B256 {
     keccak256(
         [
-            tag(b"ETNA_PARENT_ANCHOR_V2"),
+            tag(b"ETNA_PARENT_ANCHOR_V3"),
             word(params.l2_chain_id),
             B256::from(U256::from_be_slice(params.registry.as_slice())),
             word(params.vp_unit),
@@ -348,6 +357,9 @@ pub fn verify_snapshot(
     if w.entries.len() != count as usize {
         return Err(CommitteeError::EntryCountMismatch { expected: count, got: w.entries.len() });
     }
+    if w.entries.iter().any(|entry| entry.reward_recipient.is_zero()) {
+        return Err(CommitteeError::ZeroRecipient);
+    }
     let expected = B256::from(value(slots[2]));
     let got = entries_root(&w.entries);
     if got != expected {
@@ -356,7 +368,7 @@ pub fn verify_snapshot(
     Ok(Snapshot { checkpoint_index: index, l1_block, entries: w.entries.clone() })
 }
 
-/// The existing MEM-13 heartbeat floor for the committee of `target_epoch` at `cutoff`.
+/// The existing heartbeat floor for the committee of `target_epoch` at `cutoff`.
 ///
 /// Epochs 0, 1 and 2 are exempt. Later epochs evaluate the start of the heartbeat window
 /// containing `L1_first(target_epoch-2)`, capped by the window containing the cutoff, and
@@ -385,7 +397,7 @@ pub fn heartbeat_floor(
 }
 
 /// Derives the committee for `target_epoch` from a verified `snapshot` at `cutoff` and returns its
-/// record and members (sorted by [`mem08_key`]).
+/// record and members (sorted by [`set_key`]).
 ///
 /// An entry is eligible iff `active_from_l1 <= cutoff < exit_effective_l1`,
 /// `eff_stake >= max(s_min, vp_unit)` and, when [`heartbeat_floor`] filters the epoch,
@@ -394,7 +406,7 @@ pub fn heartbeat_floor(
 /// deterministic tie-break, not registration order, since the registry reuses withdrawn slots.
 /// This is defence in depth: the registry keeps at most one entry per pubkey whose exit is not
 /// yet effective (see the module docs), so no two eligible entries share a key. If
-/// more than `n_max` remain, the first `n_max` by (`eff_stake` descending, MEM-08 key ascending)
+/// more than `n_max` remain, the first `n_max` by (`eff_stake` descending, set key ascending)
 /// are kept. Each member's power is `eff_stake / vp_unit`; the total must not exceed
 /// [`MAX_TOTAL_POWER`]. No eligible entry is [`CommitteeError::Empty`].
 pub fn derive(
@@ -404,63 +416,13 @@ pub fn derive(
     schedule: &Schedule,
     params: &ChainParams,
 ) -> Result<(CommitteeRecord, Vec<Member>), CommitteeError> {
-    if params.vp_unit.is_zero() {
-        return Err(CommitteeError::ZeroVpUnit);
-    }
-    let k = target_epoch
-        .checked_sub(Schedule::E0)
-        .and_then(|d| d.checked_add(1))
-        .ok_or(CommitteeError::EpochOutOfRange(target_epoch))?;
-    let min_stake = params.s_min.max(params.vp_unit);
-    let floor = heartbeat_floor(schedule, params.heartbeat_window, target_epoch, cutoff)?;
-
-    // `(MEM-08 key, bondId, entry)`; `bondId` is the entry's index in the snapshot.
-    let mut eligible: Vec<(B256, usize, &RegistryEntry)> = snapshot
-        .entries
-        .iter()
-        .enumerate()
-        .filter(|(_, e)| is_eligible(e, cutoff, min_stake, floor))
-        .map(|(bond_id, e)| (mem08_key(params.l2_chain_id, e.pubkey), bond_id, e))
-        .collect();
-    // Equal pubkeys have equal keys, so after the sort the entries of one pubkey are adjacent,
-    // lowest bondId first, and `dedup_by_key` keeps exactly that one.
-    eligible.sort_by_key(|(key, bond_id, _)| (*key, *bond_id));
-    eligible.dedup_by_key(|(key, _, _)| *key);
-    let mut eligible: Vec<(B256, &RegistryEntry)> =
-        eligible.into_iter().map(|(key, _, e)| (key, e)).collect();
-    if eligible.len() > params.n_max {
-        eligible.sort_by(|a, b| b.1.eff_stake.cmp(&a.1.eff_stake).then(a.0.cmp(&b.0)));
-        eligible.truncate(params.n_max);
-        eligible.sort_by_key(|(key, _)| *key);
-    }
-    if eligible.is_empty() {
-        return Err(CommitteeError::Empty);
-    }
-
-    let members = eligible
-        .iter()
-        .map(|(_, e)| {
-            let power = u64::try_from(e.eff_stake / params.vp_unit)
-                .map_err(|_| CommitteeError::PowerOverflow { pubkey: e.pubkey })?;
-            Ok(Member { pubkey: e.pubkey, eff_stake: e.eff_stake, power })
-        })
-        .collect::<Result<Vec<_>, CommitteeError>>()?;
-
-    let total = members.iter().fold(0u128, |acc, m| acc.saturating_add(u128::from(m.power)));
-    let total_power = u64::try_from(total)
-        .ok()
-        .filter(|t| *t <= MAX_TOTAL_POWER)
-        .ok_or(CommitteeError::TotalPowerTooLarge { total })?;
-    let total_stake = members
-        .iter()
-        .try_fold(U256::ZERO, |acc, m| acc.checked_add(m.eff_stake))
-        .ok_or(CommitteeError::TotalStakeOverflow)?;
-
+    let Selection { k, members, total_power, total_stake, .. } =
+        select(&snapshot.entries, cutoff, target_epoch, schedule, params)?;
     let record = CommitteeRecord {
         target_epoch,
         cutoff_l1_block: cutoff,
         checkpoint_index: snapshot.checkpoint_index,
-        set_root: mem08_root(params.l2_chain_id, k, &members),
+        set_root: set_root(params.l2_chain_id, k, &members),
         total_stake,
         total_power,
         encoding_version: ENCODING_VERSION,
@@ -531,11 +493,125 @@ pub fn verify_committee_witness_at_cutoff(
 /// The CometBFT validator updates that switch from committee `old` to committee `new`.
 ///
 /// Every pubkey of `old` absent from `new` gets power 0 and every member of `new` gets its
-/// power (unchanged members are restated). The result is sorted by pubkey without duplicates.
+/// power (unchanged members are restated when the native set changes). Identical key/power
+/// sets emit no updates, independently of their authenticated payout metadata. The result is sorted
+/// by pubkey without duplicates.
 pub fn validator_updates(old: &[Member], new: &[Member]) -> Vec<(B256, u64)> {
+    let native = |members: &[Member]| {
+        members.iter().map(|m| (m.pubkey, m.power)).collect::<BTreeMap<_, _>>()
+    };
+    if native(old) == native(new) {
+        return Vec::new();
+    }
     let mut updates: BTreeMap<B256, u64> = old.iter().map(|m| (m.pubkey, 0)).collect();
     updates.extend(new.iter().map(|m| (m.pubkey, m.power)));
     updates.into_iter().collect()
+}
+
+/// The committee [`derive()`] selects from a snapshot's entries, before its record.
+struct Selection {
+    /// Set version `k = targetEpoch − e_0 + 1`.
+    k: u64,
+    /// The members, sorted by set key.
+    members: Vec<Member>,
+    /// The members' total voting power, at most [`MAX_TOTAL_POWER`].
+    total_power: u64,
+    /// The members' total effective stake.
+    total_stake: U256,
+}
+
+/// Selects the committee for `target_epoch` at `cutoff` from `entries` (indexed by `bondId`)
+/// under every rule and check of [`derive()`], which only adds the record.
+fn select(
+    entries: &[RegistryEntry],
+    cutoff: u64,
+    target_epoch: u64,
+    schedule: &Schedule,
+    params: &ChainParams,
+) -> Result<Selection, CommitteeError> {
+    if entries.iter().any(|entry| entry.reward_recipient.is_zero()) {
+        return Err(CommitteeError::ZeroRecipient);
+    }
+    if params.vp_unit.is_zero() {
+        return Err(CommitteeError::ZeroVpUnit);
+    }
+    let k = target_epoch
+        .checked_sub(Schedule::E0)
+        .and_then(|d| d.checked_add(1))
+        .ok_or(CommitteeError::EpochOutOfRange(target_epoch))?;
+    let min_stake = params.s_min.max(params.vp_unit);
+    let floor = heartbeat_floor(schedule, params.heartbeat_window, target_epoch, cutoff)?;
+
+    // `(set key, bondId, entry)`; `bondId` is the entry's index in the snapshot.
+    let mut eligible: Vec<(B256, usize, &RegistryEntry)> = entries
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| is_eligible(e, cutoff, min_stake, floor))
+        .map(|(bond_id, e)| (set_key(params.l2_chain_id, e.pubkey), bond_id, e))
+        .collect();
+    // Equal pubkeys have equal keys, so after the sort the entries of one pubkey are adjacent,
+    // lowest bondId first, and `dedup_by_key` keeps exactly that one.
+    eligible.sort_by_key(|(key, bond_id, _)| (*key, *bond_id));
+    eligible.dedup_by_key(|(key, _, _)| *key);
+    if eligible.len() > params.n_max {
+        eligible.sort_by(|a, b| b.2.eff_stake.cmp(&a.2.eff_stake).then(a.0.cmp(&b.0)));
+        eligible.truncate(params.n_max);
+        eligible.sort_by_key(|(key, _, _)| *key);
+    }
+    if eligible.is_empty() {
+        return Err(CommitteeError::Empty);
+    }
+    let selected: Vec<(usize, &RegistryEntry)> =
+        eligible.into_iter().map(|(_, bond_id, e)| (bond_id, e)).collect();
+
+    let members = selected
+        .iter()
+        .map(|(_, e)| {
+            let power = member_power(e.pubkey, e.eff_stake, params)?;
+            Ok(Member {
+                reward_recipient: e.reward_recipient,
+                pubkey: e.pubkey,
+                eff_stake: e.eff_stake,
+                power,
+            })
+        })
+        .collect::<Result<Vec<_>, CommitteeError>>()?;
+
+    let (total_power, total_stake) = member_totals(&members)?;
+    Ok(Selection { k, members, total_power, total_stake })
+}
+
+/// Computes canonical positive voting power from eligible stake, with checked narrowing.
+/// Shared by authenticated derivation and local persisted-state consistency checks.
+pub(crate) fn member_power(
+    pubkey: B256,
+    eff_stake: U256,
+    params: &ChainParams,
+) -> Result<u64, CommitteeError> {
+    if params.vp_unit.is_zero() {
+        return Err(CommitteeError::ZeroVpUnit);
+    }
+    if eff_stake < params.s_min.max(params.vp_unit) {
+        return Err(CommitteeError::IneligibleStake { pubkey });
+    }
+    u64::try_from(eff_stake / params.vp_unit).map_err(|_| CommitteeError::PowerOverflow { pubkey })
+}
+
+/// Sums member stake and power without overflow, enforcing CometBFT's total power cap.
+pub(crate) fn member_totals(members: &[Member]) -> Result<(u64, U256), CommitteeError> {
+    let total = members
+        .iter()
+        .try_fold(0u128, |acc, member| acc.checked_add(u128::from(member.power)))
+        .ok_or(CommitteeError::TotalPowerTooLarge { total: u128::MAX })?;
+    let total_power = u64::try_from(total)
+        .ok()
+        .filter(|total| *total <= MAX_TOTAL_POWER)
+        .ok_or(CommitteeError::TotalPowerTooLarge { total })?;
+    let total_stake = members
+        .iter()
+        .try_fold(U256::ZERO, |acc, member| acc.checked_add(member.eff_stake))
+        .ok_or(CommitteeError::TotalStakeOverflow)?;
+    Ok((total_power, total_stake))
 }
 
 /// Whether `e` is eligible at `cutoff`: active, staked at least `min_stake` and, when the epoch is
@@ -559,20 +635,29 @@ fn entry_leaf(index: usize, e: &RegistryEntry) -> B256 {
             word(e.exit_effective_l1),
             word(e.last_heartbeat_at),
             word(e.last_heartbeat_seq),
+            B256::from(U256::from_be_slice(e.reward_recipient.as_slice())),
         ]
         .concat(),
     )
 }
 
-/// The MEM-08 leaf of the member at sorted position `index` (see [`mem08_root`]).
+/// The set-root leaf of the member at sorted position `index` (see [`set_root`]).
 fn set_leaf(l2_chain_id: u64, k: u64, index: usize, m: &Member) -> B256 {
     keccak256(
-        [SET_LEAF_TAG, word(l2_chain_id), word(k), word(index), m.pubkey, word(m.eff_stake)]
-            .concat(),
+        [
+            SET_LEAF_TAG,
+            word(l2_chain_id),
+            word(k),
+            word(index),
+            m.pubkey,
+            word(m.eff_stake),
+            B256::from(U256::from_be_slice(m.reward_recipient.as_slice())),
+        ]
+        .concat(),
     )
 }
 
-/// A MEM-08 inner node over `left` and `right` (see [`mem08_root`]).
+/// A set-root inner node over `left` and `right` (see [`set_root`]).
 fn set_node(l2_chain_id: u64, k: u64, left: B256, right: B256) -> B256 {
     keccak256([SET_NODE_TAG, word(l2_chain_id), word(k), left, right].concat())
 }

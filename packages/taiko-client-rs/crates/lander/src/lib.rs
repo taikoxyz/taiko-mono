@@ -12,7 +12,9 @@ pub mod contracts;
 pub mod error;
 /// Asynchronous proof-provider boundary and explicitly dummy implementation.
 pub mod proof;
-/// Exact V6 public statement encoding and hashing.
+/// Canonical L2 reward receipts and checked host base fee accounting.
+pub mod rewards;
+/// Exact V8 public statement encoding and hashing.
 pub mod statement;
 /// Immutable contexts shared by collectors, proof providers and persistence.
 pub mod types;
@@ -53,3 +55,6 @@ pub mod runner;
 
 /// Pure checkpoint-bound execution ancestry and derivation snapshots.
 pub mod history;
+
+/// Independent permissionless L2 reward claims.
+pub mod claim;

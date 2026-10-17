@@ -16,17 +16,17 @@
 
 /// The ABCI++ application: request dispatch and the per-method handlers.
 pub mod app;
-/// Committee derivation from staking-registry snapshots, MEM-08 set roots and record hashes.
+/// Committee derivation from staking-registry snapshots, set roots and record hashes.
 pub mod committee;
-/// zlib helpers shared with landing payload V4, and the capacity of one landing.
+/// zlib helpers shared with landing payload V5, and the capacity of one landing.
 pub mod compression;
 /// Chain parameters (built-in per L2 chain id, optional TOML override).
 pub mod config;
 /// Execution-layer sync to a trusted head over devp2p.
 pub mod elsync;
-/// The execution-engine adapter (Engine API) and payload conversion for alethia-reth #248.
+/// The execution-engine adapter (Engine API) and payload conversion for alethia-reth #251.
 pub mod engine;
-/// The CometBFT block envelope codec (`0x05 || rlp([block, anchor, committee, forced])`).
+/// The CometBFT block envelope codec (`0x06 || rlp([block, anchor, committee, forced])`).
 pub mod envelope;
 /// Etna calldata forced inclusion: authenticated entry proofs and per-block classification.
 pub mod forced;

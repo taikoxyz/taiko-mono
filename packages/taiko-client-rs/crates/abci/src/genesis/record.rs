@@ -29,7 +29,7 @@ pub struct GenesisCommitteeRecord {
     /// checkpoint index, set root and totals.
     #[serde(serialize_with = "serialize_record")]
     pub record: CommitteeRecord,
-    /// The members, sorted by the MEM-08 key; their powers become the genesis validator set.
+    /// The members, in set-key order; their powers become the genesis validator set.
     #[serde(serialize_with = "serialize_members")]
     pub members: Vec<Member>,
     /// The L1 block the registry snapshot was read and proven at (the proving block).
@@ -66,6 +66,8 @@ struct RecordJson {
 /// The report's JSON shape of a [`Member`]: its fields, with `eff_stake` in decimal.
 #[derive(Serialize)]
 struct MemberJson {
+    /// Authenticated L2 reward recipient.
+    reward_recipient: alloy_primitives::Address,
     /// [`Member::pubkey`].
     pubkey: B256,
     /// [`Member::eff_stake`], in TAIKO base units, as a decimal string.
@@ -92,6 +94,7 @@ fn serialize_record<S: Serializer>(record: &CommitteeRecord, s: S) -> Result<S::
 /// Serializes [`GenesisCommitteeRecord::members`] as a sequence of [`MemberJson`].
 fn serialize_members<S: Serializer>(members: &[Member], s: S) -> Result<S::Ok, S::Error> {
     s.collect_seq(members.iter().map(|m| MemberJson {
+        reward_recipient: m.reward_recipient,
         pubkey: m.pubkey,
         eff_stake: m.eff_stake,
         power: m.power,
@@ -275,6 +278,13 @@ mod tests {
             assert_eq!(value["pubkey"], member.pubkey.to_string());
             assert_eq!(value["eff_stake"], member.eff_stake.to_string(), "decimal, not hex");
             assert_eq!(value["power"], member.power);
+            assert_eq!(
+                serde_json::from_value::<alloy_primitives::Address>(
+                    value["reward_recipient"].clone()
+                )
+                .unwrap(),
+                member.reward_recipient,
+            );
         }
         assert_eq!(json["proving_block"], report.proving_block);
 
@@ -319,7 +329,12 @@ mod tests {
                 total_power: 7,
                 encoding_version: 1,
             },
-            members: vec![Member { pubkey: B256::repeat_byte(0x11), eff_stake: stake, power: 7 }],
+            members: vec![Member {
+                reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
+                pubkey: B256::repeat_byte(0x11),
+                eff_stake: stake,
+                power: 7,
+            }],
             proving_block: 64,
         };
         let json: serde_json::Value = serde_json::from_str(&report.to_json_pretty()).unwrap();
@@ -339,6 +354,7 @@ mod tests {
                     "encoding_version": 1,
                 },
                 "members": [{
+                    "reward_recipient": alloy_primitives::Address::repeat_byte(0x77).to_string(),
                     "pubkey": B256::repeat_byte(0x11).to_string(),
                     "eff_stake": decimal,
                     "power": 7,

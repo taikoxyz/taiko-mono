@@ -35,6 +35,8 @@ use crate::{
 pub struct Validated {
     /// Hash of canonical envelope bytes, binding every witness and transaction.
     pub envelope_hash: B256,
+    /// Original proposer authenticated by the candidate CometBFT block header.
+    pub proposer: tendermint::account::Id,
     /// Committed cursor against which this completed decision was evaluated.
     pub parent_cursor: u64,
     /// The execution block the envelope carries.
@@ -124,6 +126,9 @@ pub enum Rejection {
     /// A switch height needs a committee the app does not hold.
     #[error("no committee known for epoch {0}")]
     CommitteeUnknown(u64),
+    /// The certified proposer is outside the block height's authenticated committee.
+    #[error("unknown certified proposer {0}")]
+    ProposerUnknown(tendermint::account::Id),
     /// ¹ The anchor L1 header is not final and canonical in the own L1 view.
     #[error("anchor L1 block {number} is not final and canonical in the own L1 view")]
     AnchorNotFinal {
@@ -180,7 +185,7 @@ pub enum Rejection {
     /// A canonical skip failed the shared singleton check.
     #[error("forced inclusion check failed: {0}")]
     ForcedBuild(#[from] crate::engine::forced::ForcedBuildError),
-    /// The block cannot land on its own: its envelope compressed as landing payload V4 would
+    /// The block cannot land on its own: its envelope compressed as landing payload V5 would
     /// publish it, plus [`HEADER_ALLOWANCE`], exceeds [`MAX_BLOCK_LANDING_BYTES`].
     #[error("block needs {bytes} compressed landing bytes, above the {max} one landing carries")]
     LandingCapacity {
@@ -208,6 +213,7 @@ impl Rejection {
             Self::UnexpectedWitness(WitnessKind::Committee) => "unexpected_committee_witness",
             Self::NotActive(_) => "inbox_not_active",
             Self::CommitteeUnknown(_) => "committee_unknown",
+            Self::ProposerUnknown(_) => "proposer_unknown",
             Self::AnchorNotFinal { .. } => "anchor_not_final",
             Self::AnchorOffChain { .. } => "anchor_off_chain",
             Self::L1(_) => "l1_error",
@@ -246,7 +252,7 @@ impl From<FetchError> for Rejection {
 }
 
 /// The landing capacity guard: the block of the encoded `envelope` must fit one landing on its
-/// own, i.e. the envelope compressed as landing payload V4 would publish it, plus
+/// own, i.e. the envelope compressed as landing payload V5 would publish it, plus
 /// [`HEADER_ALLOWANCE`] for the published header, is at most [`MAX_BLOCK_LANDING_BYTES`].
 ///
 /// The bound holds for any envelope content: the lander's single-block fallback deflates the
@@ -302,6 +308,7 @@ pub(crate) fn validate_block(
     env: &EtnaEnvelope,
     height: u64,
     bft_secs: u64,
+    proposer: tendermint::account::Id,
 ) -> Result<Validated, Rejection> {
     let header = &env.block.header;
     if state.last_height.checked_add(1) != Some(height) {
@@ -322,7 +329,7 @@ pub(crate) fn validate_block(
         },
     )?;
 
-    let expected = expected_header(state, params, height, &facts.anchor, bft_secs)?;
+    let expected = expected_header(state, params, height, &facts.anchor, bft_secs, proposer)?;
     rules::check_anchor_freshness(
         expected.timestamp,
         facts.anchor.timestamp,
@@ -341,6 +348,7 @@ pub(crate) fn validate_block(
     )?;
     Ok(Validated {
         envelope_hash: alloy_primitives::keccak256(env.encode()),
+        proposer,
         parent_cursor: state.forced_cursor,
         block: env.block.clone(),
         anchor: facts.anchor,
@@ -353,14 +361,20 @@ pub(crate) fn validate_block(
 }
 
 /// The derived header fields of the block at `height` on top of `state` with `anchor` and BFT
-/// time `bft_secs` ([`rules::expected_header`]), with the chain's minimum base fee.
+/// time `bft_secs` ([`rules::expected_header`]), with the chain's minimum base fee and the
+/// certified `proposer` payout from the authenticated committee for this block's epoch.
 pub(crate) fn expected_header(
     state: &AppState,
     params: &ChainParams,
     height: u64,
     anchor: &AnchorState,
     bft_secs: u64,
-) -> Result<ExpectedHeader, RuleViolation> {
+    proposer: tendermint::account::Id,
+) -> Result<ExpectedHeader, Rejection> {
+    let epoch = state.schedule().epoch_of(height);
+    let committee = state.committees.get(&epoch).ok_or(Rejection::CommitteeUnknown(epoch))?;
+    let reward_recipient = rules::proposer_recipient(&committee.members, proposer)
+        .ok_or(Rejection::ProposerUnknown(proposer))?;
     rules::expected_header(&HeaderInputs {
         height,
         parent: &state.parent,
@@ -369,7 +383,9 @@ pub(crate) fn expected_header(
         generation: state.generation,
         params,
         min_base_fee: min_base_fee_for_chain(params.l2_chain_id),
+        reward_recipient,
     })
+    .map_err(Into::into)
 }
 
 /// Steps (b)–(h) of [`validate_block`] on a candidate's witnesses and `extraData` claims:

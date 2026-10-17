@@ -61,12 +61,16 @@ pub struct RegistryEntry {
     /// First L1 block number at which the entry is exited (exclusive end of activity);
     /// `u64::MAX` means no exit is scheduled.
     pub exit_effective_l1: u64,
-    /// Start L1 block of the heartbeat window the entry's last accepted heartbeat named
-    /// (MEM-13(2b) of #22262); 0 before the first heartbeat, and also after one naming window 0.
+    /// Start L1 block of the heartbeat window the entry's last accepted heartbeat named;
+    /// 0 before the first heartbeat, and also after one naming window 0.
     pub last_heartbeat_at: u64,
     /// `lastHeartbeatSeq`: the sequence of the entry's last accepted heartbeat; 0 means the entry
-    /// never sent one (MEM-13(3)'s guard, which `last_heartbeat_at` cannot give for window 0).
+    /// never sent one. Eligibility requires a nonzero sequence, a test `last_heartbeat_at` cannot
+    /// give for window 0.
     pub last_heartbeat_seq: u64,
+    /// Nonzero L2 address receiving this entry's proposer rewards; authenticated in the entry
+    /// root.
+    pub reward_recipient: Address,
 }
 
 /// The committee record for one target epoch, as deterministically derived from a fixed L1 snapshot
@@ -80,20 +84,21 @@ pub struct CommitteeRecord {
     pub cutoff_l1_block: u64,
     /// Index `i` of that registry checkpoint in `checkpoints[]`.
     pub checkpoint_index: u64,
-    /// MEM-08 set root over the members, with `chainId` = the L2 EVM chain id.
+    /// Set root ([`set_root`](crate::committee::set_root)) over the members, with `chainId` = the
+    /// L2 EVM chain id.
     pub set_root: B256,
     /// Sum of the members' effective stake, in TAIKO base units.
     pub total_stake: U256,
     /// Sum of the members' voting power; at most `(2^63 - 1) / 8` (CometBFT's total-power cap).
     pub total_power: u64,
-    /// Record encoding version; currently always 1.
+    /// Record encoding version; currently always 2.
     pub encoding_version: u8,
 }
 
 /// One committee member, derived from an eligible registry entry.
 ///
-/// Member lists are kept sorted by the MEM-08 sort key
-/// `keccak256(abi.encode("ETNA_SET_KEY", chainId, pubkey))`, ascending.
+/// Member lists are kept in set-key order: ascending by
+/// `keccak256(abi.encode("ETNA_SET_KEY", chainId, pubkey))`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Member {
     /// The member's Ed25519 consensus public key (32 raw bytes).
@@ -102,6 +107,8 @@ pub struct Member {
     pub eff_stake: U256,
     /// CometBFT voting power: `floor(eff_stake / VP_UNIT)`, always >= 1 for a member.
     pub power: u64,
+    /// Authenticated nonzero L2 payout address of the selected registry entry.
+    pub reward_recipient: Address,
 }
 
 /// Inbox facts proven by an anchor (or genesis) witness.
@@ -188,7 +195,7 @@ pub struct ParentInfo {
     pub gas_used: u64,
     /// Base fee per gas, in wei.
     pub base_fee: u64,
-    /// Header `difficulty`; under alethia-reth #248 this carries the block's zk gas.
+    /// Header `difficulty`; under alethia-reth #251 this carries the block's zk gas.
     pub difficulty: U256,
     /// Timestamp of the parent's parent, in seconds (EIP-4396 base-fee input).
     pub grandparent_timestamp: u64,
@@ -269,6 +276,7 @@ mod tests {
     #[test]
     fn registry_entry_rlp_round_trips() {
         rlp_round_trip(&RegistryEntry {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
             pubkey: b256!("aa00000000000000000000000000000000000000000000000000000000000001"),
             eff_stake: U256::from(10).pow(U256::from(24)),
             active_from_l1: 12,
@@ -345,6 +353,7 @@ mod tests {
     #[test]
     fn member_json_round_trips() {
         json_round_trip(&Member {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
             pubkey: B256::repeat_byte(0xcc),
             eff_stake: U256::from(5_000_000_000u64),
             power: 5,

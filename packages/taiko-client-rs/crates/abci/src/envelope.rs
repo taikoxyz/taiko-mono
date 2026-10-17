@@ -3,7 +3,7 @@
 //! Every CometBFT block's `Data.Txs` holds exactly one item, the envelope:
 //!
 //! ```text
-//! envelope     = 0x05 || rlp(EtnaEnvelope)
+//! envelope     = 0x06 || rlp(EtnaEnvelope)
 //! EtnaEnvelope = [ block, anchor, committee, forced ]
 //! block        = [ header, transactions ]   // EL header RLP, EIP-2718 tx bytes as opaque strings
 //! anchor       = [] | [ AnchorWitness ]     // empty list = absent
@@ -25,7 +25,7 @@ use crate::{
 };
 
 /// Leading version byte of every envelope.
-pub const ENVELOPE_VERSION: u8 = 5;
+pub const ENVELOPE_VERSION: u8 = 6;
 
 /// Name of the optional `anchor` field, as carried by [`EnvelopeError::OptionalArity`].
 const ANCHOR_FIELD: &str = "anchor";
@@ -37,10 +37,10 @@ const FORCED_FIELD: &str = "forced";
 /// The L2 execution block a CometBFT block carries.
 ///
 /// RLP: `[header, transactions]`. The block is fully determined by these two fields: withdrawals
-/// are empty and no transaction carries blobs (PRF-06).
+/// are empty and no transaction carries blobs.
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable, RlpDecodable)]
 pub struct ExecutionBlock {
-    /// The full EL header (under alethia-reth #248 `difficulty` carries the block's zk gas).
+    /// The full EL header (under alethia-reth #251 `difficulty` carries the block's zk gas).
     pub header: Header,
     /// EIP-2718 encoded transactions, carried as opaque byte strings in block order.
     pub transactions: Vec<Bytes>,
@@ -77,7 +77,7 @@ pub use crate::forced::ForcedWitness;
 
 /// The decoded block envelope: the execution block plus the optional L1 witnesses.
 ///
-/// Wire format: `0x05 || rlp([block, anchor, committee, forced])`, where each optional witness is
+/// Wire format: `0x06 || rlp([block, anchor, committee, forced])`, where each optional witness is
 /// an empty RLP list when absent and a one-element RLP list holding the witness when present.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EtnaEnvelope {
@@ -117,7 +117,7 @@ pub enum EnvelopeError {
 }
 
 impl EtnaEnvelope {
-    /// Encodes the envelope as `0x05 || rlp([block, anchor, committee, forced])`.
+    /// Encodes the envelope as `0x06 || rlp([block, anchor, committee, forced])`.
     pub fn encode(&self) -> Bytes {
         let mut out = Vec::with_capacity(1 + Encodable::length(self));
         out.push(ENVELOPE_VERSION);
@@ -340,11 +340,12 @@ mod tests {
                 set_root: B256::repeat_byte(0x44),
                 total_stake: U256::from(10).pow(U256::from(24)),
                 total_power: 2_000_000,
-                encoding_version: 1,
+                encoding_version: 2,
             },
             registry: account_witness(0xb2),
             entries: vec![
                 RegistryEntry {
+                    reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
                     pubkey: B256::repeat_byte(0x10),
                     eff_stake: U256::from(10).pow(U256::from(21)),
                     active_from_l1: 100,
@@ -353,6 +354,7 @@ mod tests {
                     last_heartbeat_seq: 7,
                 },
                 RegistryEntry {
+                    reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
                     pubkey: B256::repeat_byte(0x20),
                     eff_stake: U256::from(5) * U256::from(10).pow(U256::from(20)),
                     active_from_l1: 200,
@@ -412,7 +414,7 @@ mod tests {
     fn encode_starts_with_version_byte() {
         let env = envelope(Some(anchor()), None, Some(forced(tx())));
         let encoded = env.encode();
-        assert_eq!(encoded[0], 0x05);
+        assert_eq!(encoded[0], 0x06);
         assert_eq!(encoded.len(), 1 + alloy_rlp::encode(env).len());
     }
 
@@ -438,12 +440,12 @@ mod tests {
     }
 
     #[test]
-    fn calldata_activation_requires_envelope_v5() {
+    fn payout_activation_requires_envelope_v6() {
         let encoded = envelope(None, None, None).encode();
-        assert_eq!(encoded[0], 5);
+        assert_eq!(encoded[0], 6);
         let mut old = encoded.to_vec();
-        old[0] = 4;
-        assert_eq!(EtnaEnvelope::decode(&old), Err(EnvelopeError::Version(4)));
+        old[0] = 5;
+        assert_eq!(EtnaEnvelope::decode(&old), Err(EnvelopeError::Version(5)));
     }
 
     /// The forced inclusion witness is the RLP list `[index, entry, tx]`, an empty tx being
@@ -470,7 +472,7 @@ mod tests {
     #[test]
     fn decode_rejects_wrong_version() {
         let mut encoded = envelope(None, None, None).encode().to_vec();
-        for version in [0x00, 0x01, 0x02, 0x03, 0x04, 0xff] {
+        for version in [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0xff] {
             encoded[0] = version;
             assert_eq!(EtnaEnvelope::decode(&encoded), Err(EnvelopeError::Version(version)));
         }
@@ -508,7 +510,7 @@ mod tests {
         let body =
             rlp_list(&[block.clone(), empty.clone(), empty.clone(), empty.clone(), vec![0x01]]);
         assert!(matches!(EtnaEnvelope::decode(&versioned(body)), Err(EnvelopeError::Rlp(_))));
-        // Only three elements in the outer list: a version-3 body under the version-5 byte.
+        // Only three elements in the outer list: a version-3 body under the version-6 byte.
         let body = rlp_list(&[block, empty.clone(), empty]);
         assert!(matches!(EtnaEnvelope::decode(&versioned(body)), Err(EnvelopeError::Rlp(_))));
         // A forced witness missing its transaction bytes.
@@ -637,7 +639,7 @@ mod tests {
             forced: None,
         };
         let expected = hex!(
-            "05"       // ENVELOPE_VERSION
+            "06"       // ENVELOPE_VERSION
             "f901f7"   // envelope list
             "f901f1"   // block list
             "f901ed"   // header list (Header::default(): 15 pre-London fields)
@@ -844,7 +846,7 @@ mod tests {
                     set_root: B256::repeat_byte(0x44),
                     total_stake: U256::from(10).pow(U256::from(24)),
                     total_power: 0x0f_4240,
-                    encoding_version: 1,
+                    encoding_version: 2,
                 },
                 registry: AccountWitness {
                     address: address!("00000000000000000000000000000000e7a10002"),
@@ -860,6 +862,7 @@ mod tests {
                     }],
                 },
                 entries: vec![RegistryEntry {
+                    reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
                     pubkey: B256::repeat_byte(0x10),
                     eff_stake: U256::from(10).pow(U256::from(21)),
                     active_from_l1: 0x64,
@@ -916,7 +919,7 @@ mod tests {
             &word(0x44),                     // set_root
             &hex!("8ad3c21bcecceda1000000"), // total_stake: 10^24
             &hex!("830f4240"),               // total_power
-            &hex!("01"),                     // encoding_version
+            &hex!("02"),                     // encoding_version
         ]);
         let registry = list(&[
             &hex!("9400000000000000000000000000000000e7a10002"), // address
@@ -933,12 +936,13 @@ mod tests {
             ])]),
         ]);
         let entry = list(&[
-            &word(0x10),                   // pubkey
-            &hex!("893635c9adc5dea00000"), // eff_stake: 10^21
-            &hex!("64"),                   // active_from_l1
-            &hex!("88ffffffffffffffff"),   // exit_effective_l1: u64::MAX
-            &hex!("821f40"),               // last_heartbeat_at
-            &hex!("820102"),               // last_heartbeat_seq
+            &word(0x10),                                         // pubkey
+            &hex!("893635c9adc5dea00000"),                       // eff_stake: 10^21
+            &hex!("64"),                                         // active_from_l1
+            &hex!("88ffffffffffffffff"),                         // exit_effective_l1: u64::MAX
+            &hex!("821f40"),                                     // last_heartbeat_at
+            &hex!("820102"),                                     // last_heartbeat_seq
+            &hex!("947777777777777777777777777777777777777777"), // reward_recipient
         ]);
         let committee = list(&[
             &record,          // record

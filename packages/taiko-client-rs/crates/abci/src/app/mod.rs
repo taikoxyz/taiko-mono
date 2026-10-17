@@ -68,7 +68,7 @@ pub const APP_NAME: &str = "taiko-abci";
 
 /// The ABCI application version reported in `Info.app_version`; the genesis
 /// `consensus_params.version.app` carries the same value.
-pub const APP_VERSION: u64 = 2;
+pub const APP_VERSION: u64 = 3;
 
 /// Interval between EL polls while waiting for an EL sync to a trusted head.
 pub const ELSYNC_POLL: Duration = Duration::from_secs(1);
@@ -294,7 +294,8 @@ pub struct App<L: L1Source, E: Engine> {
     committee_prefetch: Mutex<Option<CommitteePrefetch>>,
     /// Bounded completed anchor, forced proof and authenticated transaction reads. Each successful
     /// stage survives an overall proposal timeout; root/hash keys prevent reuse for different
-    /// facts.
+    /// facts. These reads are proposer-independent; expected headers, builds and singleton
+    /// verdicts are derived anew for every request's certified proposer.
     preparation_cache: Arc<Mutex<preparation_cache::PreparationCache>>,
     /// Whether the block `FinalizeBlock` last decided was judged here (its `ProcessProposal`
     /// verdict was cached), rather than replayed or block-synced; gates `Commit`'s prefetches.
@@ -320,7 +321,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// [`Schedule::validate`] for `params`' unsettled cap and equal the one derived from its
     /// genesis record, its Inbox must match the account authenticated at genesis,
     /// its `chain_id` must name `params.l2_chain_id` and its generation, and
-    /// its last height must equal its parent's number and fit a CometBFT height.
+    /// its last height must equal its parent's number and fit a CometBFT height. Every saved
+    /// committee must retain canonical stake-derived powers, checked totals and its set root.
+    /// These local consistency checks do not authenticate a coherently rewritten state file.
     ///
     /// Forced inclusion uses authenticated calldata and requires no KZG initialization.
     pub fn new(
@@ -585,6 +588,50 @@ fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), Abci
         return Err(AbciError::StoredState(
             "committee configuration opening differs from genesis".into(),
         ));
+    }
+    for (epoch, committee) in &state.committees {
+        let members = &committee.members;
+        if committee.record.target_epoch != *epoch ||
+            committee.record.encoding_version != crate::committee::ENCODING_VERSION ||
+            members.is_empty() ||
+            members.len() > params.n_max ||
+            members.iter().any(|member| member.reward_recipient.is_zero()) ||
+            members.windows(2).any(|pair| {
+                crate::committee::set_key(params.l2_chain_id, pair[0].pubkey) >=
+                    crate::committee::set_key(params.l2_chain_id, pair[1].pubkey)
+            })
+        {
+            return Err(AbciError::StoredState(format!(
+                "invalid committee metadata for epoch {epoch}"
+            )));
+        }
+        // These are local consistency checks, not authentication of a coherently rewritten
+        // state file. Every retained/current/scheduled committee must obey the same math.
+        let invalid = |reason: String| {
+            AbciError::StoredState(format!("invalid committee for epoch {epoch}: {reason}"))
+        };
+        for member in members {
+            let power = crate::committee::member_power(member.pubkey, member.eff_stake, params)
+                .map_err(|err| invalid(err.to_string()))?;
+            if member.power != power {
+                return Err(invalid(format!("noncanonical power for {}", member.pubkey)));
+            }
+        }
+        let (total_power, total_stake) =
+            crate::committee::member_totals(members).map_err(|err| invalid(err.to_string()))?;
+        if total_power != committee.record.total_power ||
+            total_stake != committee.record.total_stake
+        {
+            return Err(invalid("record totals differ from members".into()));
+        }
+        let k = epoch
+            .checked_add(1)
+            .ok_or_else(|| AbciError::StoredState("committee epoch overflows".into()))?;
+        if crate::committee::set_root(params.l2_chain_id, k, members) != committee.record.set_root {
+            return Err(AbciError::StoredState(format!(
+                "committee members differ from the set commitment for epoch {epoch}"
+            )));
+        }
     }
     if state.parent.number != state.last_height {
         return Err(AbciError::StoredState(format!(

@@ -24,7 +24,7 @@ pub struct GenesisDoc {
     pub initial_height: String,
     /// The consensus parameters ([`GenesisConsensusParams::etna`]).
     pub consensus_params: GenesisConsensusParams,
-    /// The `e_0` committee in MEM-08 order.
+    /// The `e_0` committee in set-key order.
     pub validators: Vec<GenesisValidator>,
     /// The initial app hash; empty, as `InitChain` answers `H*`.
     pub app_hash: String,
@@ -118,8 +118,8 @@ impl GenesisConsensusParams {
 
     /// The parameters of every Etna genesis: CometBFT's default `block.max_bytes` (22,020,096,
     /// above any envelope) without a gas limit, the default evidence limits (100,000 blocks,
-    /// 48 h, 1 MiB), Ed25519 keys only, app version 0, vote extensions disabled, and no update
-    /// authority.
+    /// 48 h, 1 MiB), Ed25519 keys only, the current app version, vote extensions disabled, and no
+    /// update authority.
     pub fn etna() -> Self {
         let params = Self::abci();
         Self {
@@ -186,7 +186,7 @@ fn ed25519(pubkey: B256) -> PublicKey {
 
 impl GenesisDoc {
     /// The genesis document of a verified genesis: `w` as `app_state` (its `L1_0` timestamp as
-    /// `genesis_time`), `chain_id`, `initial_height` and the committee `members` (MEM-08 order)
+    /// `genesis_time`), `chain_id`, `initial_height` and the committee `members` (set-key order)
     /// as validators, with [`GenesisConsensusParams::etna`].
     ///
     /// Fails with [`GenesisError::GenesisTime`] when the `L1_0` timestamp is not a valid
@@ -226,7 +226,12 @@ mod tests {
     };
 
     fn member(pubkey: B256, power: u64) -> Member {
-        Member { pubkey, eff_stake: U256::from(power), power }
+        Member {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
+            pubkey,
+            eff_stake: U256::from(power),
+            power,
+        }
     }
 
     #[test]
@@ -265,7 +270,7 @@ mod tests {
                         "max_bytes": "1048576"
                     },
                     "validator": { "pub_key_types": ["ed25519"] },
-                    "version": { "app": "2" },
+                    "version": { "app": "3" },
                     "abci": { "vote_extensions_enable_height": "0" },
                     "authority": { "authority": "" }
                 },

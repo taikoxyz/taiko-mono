@@ -1,4 +1,4 @@
-//! The node's own L1 view (finality = its L1 node's `finalized` tag, SYS-02): the `finalized`
+//! The node's own L1 view (finality = its L1 node's `finalized` tag): the `finalized`
 //! block number, canonical block hashes and raw headers, EIP-1186 account proofs and raw storage
 //! reads, behind [`L1Source`] so the app can run against an in-memory L1 in tests.
 //!

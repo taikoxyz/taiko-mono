@@ -140,6 +140,7 @@ fn committee_witness() -> impl Strategy<Value = CommitteeWitness> {
     let entry = (hash(), word(), uint(), uint(), uint(), uint()).prop_map(
         |(pubkey, eff_stake, active_from_l1, exit_effective_l1, heartbeat_at, heartbeat_seq)| {
             RegistryEntry {
+                reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
                 pubkey,
                 eff_stake,
                 active_from_l1,

@@ -272,7 +272,7 @@ async fn unexpected_witnesses_are_rejected() {
     assert_eq!(rejected(&mut app, &bad).await, "unexpected_committee_witness");
 }
 
-/// HALT-03: `H − lastCheckpoint.height ≤ D_MAX − MARGIN_V`, inclusive.
+/// Back-pressure: `H − lastCheckpoint.height ≤ D_MAX − MARGIN_V`, inclusive.
 #[tokio::test]
 async fn back_pressure_boundary() {
     let fx = Fixture::genesis(1);

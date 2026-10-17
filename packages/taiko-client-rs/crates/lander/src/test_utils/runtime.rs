@@ -41,6 +41,8 @@ pub(crate) fn request() -> ProofRequest {
     request.batch.input.lastHeight = 2;
     request.batch.input.lastBlockHash = last_header.hash_slow();
     request.batch.input.lastStateRoot = last_header.state_root;
+    request.batch.input.baseFeeAmount =
+        crate::rewards::basefee_sum(&[first_header, last_header]).unwrap();
     request.batch.blocks = vec![block, second];
     request.batch.committees = vec![committee.state];
     let reference = RawL1Header::from(&Header { number: 15, ..Default::default() });

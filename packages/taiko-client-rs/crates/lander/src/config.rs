@@ -3,6 +3,7 @@
 use std::{path::PathBuf, time::Duration};
 
 use abci::compression::MAX_LANDING_BLOBS;
+use alloy_primitives::Address;
 use url::Url;
 
 use crate::{
@@ -107,6 +108,8 @@ pub struct LanderConfig {
     pub l1_http: Url,
     /// Public HTTP(S) endpoint of the operator's L2 execution node.
     pub l2_http: Url,
+    /// Nonzero L2 base fee recipient, independent of the L1 transaction signer.
+    pub l2_reward_recipient: Address,
     /// Authenticated HTTP(S) Engine API endpoint.
     pub l2_auth: Url,
     /// File containing the Engine API JWT secret.
@@ -138,6 +141,9 @@ pub struct LanderConfig {
 impl LanderConfig {
     /// Validate every local invariant before opening RPCs or reading a signing key.
     pub fn validate(&self) -> Result<()> {
+        if self.l2_reward_recipient.is_zero() {
+            return Err(LanderError::Configuration("L2 reward recipient must be nonzero".into()));
+        }
         self.limits.validate()?;
         self.batch_policy.validate()?;
         if self.batch_policy.min_blocks > self.limits.max_blocks {
@@ -185,6 +191,20 @@ impl LanderConfig {
     }
 }
 
+/// Refuse recipients whose canonical runtime cannot receive the vault's empty-calldata ETH call.
+/// This policy applies only to batch rewards; proposer rewards use execution-layer balance credits.
+/// Arbitrary EOAs and payable contracts remain valid, without a generic code/precompile ban.
+pub fn validate_batch_recipient(recipient: Address, fee_vault: Address) -> Result<()> {
+    let roots = alloy_primitives::address!("000F3df6D732807Ef1319fB7B8bB8522d0Beac02");
+    let history = alloy_primitives::address!("0000F90827F1C53a10cb7A02335B175320002935");
+    if recipient.is_zero() || [fee_vault, roots, history].contains(&recipient) {
+        return Err(LanderError::Configuration(
+            "L2 batch reward recipient must be nonzero and able to receive ETH; the canonical fee vault, beacon roots and history contracts reject empty-calldata transfers".into(),
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -192,6 +212,7 @@ mod tests {
     fn valid() -> LanderConfig {
         LanderConfig {
             l1_http: Url::parse("http://l1:8545").unwrap(),
+            l2_reward_recipient: Address::repeat_byte(0x77),
             l2_http: Url::parse("https://l2.example/rpc").unwrap(),
             l2_auth: Url::parse("http://l2:8551").unwrap(),
             jwt_secret: "jwt.hex".into(),

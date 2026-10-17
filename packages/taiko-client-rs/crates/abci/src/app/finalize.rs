@@ -41,11 +41,12 @@ use crate::{
 
 impl<L: L1Source, E: Engine> App<L, E> {
     /// Authenticates a decided envelope against the committed context and settles its payload.
-    /// A cached verdict is reused only for identical envelope bytes, expected header, parent
-    /// cursor and authenticated facts. Cold decisions confirm moved anchors and complete any
-    /// canonical skip probe before deriving the next state. The candidate executes through
-    /// `newPayload` and becomes the forkchoice head; singleton evidence never becomes the head.
-    /// State stays pending until `Commit`. Invalid decisions halt; temporary EL failures retry.
+    /// A cached verdict is reused only for identical certified proposer, envelope bytes, expected
+    /// header, parent cursor and authenticated facts. Cold decisions confirm moved anchors and
+    /// complete any canonical skip probe before deriving the next state. The candidate executes
+    /// through `newPayload` and becomes the forkchoice head; singleton evidence never becomes
+    /// the head. State stays pending until `Commit`. Invalid decisions halt; temporary EL
+    /// failures retry.
     pub(super) async fn finalize_block(
         &mut self,
         req: request::FinalizeBlock,
@@ -58,10 +59,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let bft_secs = unix_secs(req.time);
         let txs: Vec<Bytes> = req.txs.iter().cloned().map(Bytes::from).collect();
         let env = single_envelope(&txs).map_err(|e| invalid_block(height, &Rejection::from(e)))?;
-        let fresh = validate_block(state, &self.params, &env, height, bft_secs)
-            .map_err(|e| invalid_block(height, &e))?;
+        let fresh =
+            validate_block(state, &self.params, &env, height, bft_secs, req.proposer_address)
+                .map_err(|e| invalid_block(height, &e))?;
         let cached = self.verdicts.remove(&req.hash).filter(|v| {
-            v.envelope_hash == fresh.envelope_hash &&
+            v.proposer == fresh.proposer &&
+                v.envelope_hash == fresh.envelope_hash &&
                 v.parent_cursor == fresh.parent_cursor &&
                 v.expected == fresh.expected &&
                 v.anchor == fresh.anchor &&

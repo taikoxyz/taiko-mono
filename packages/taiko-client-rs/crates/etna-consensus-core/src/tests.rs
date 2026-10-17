@@ -203,3 +203,47 @@ fn strict_quorum_matches_original_bounded_multiplication_predicate() {
         }
     }
 }
+
+#[test]
+fn checked_configuration_and_runtime_boundaries() {
+    use crate::schedule::{AnchorError, ScheduleError, UINT48_MAX};
+    let s = Schedule { l1_0: 64, epoch_len: 20, epoch_len_l1: 1, genesis_cutoff: 63 };
+    assert!(!crate::positive_unsettled_cap(2, 2));
+    assert!(!crate::positive_unsettled_cap(1, 2));
+    assert!(crate::positive_unsettled_cap(3, 2));
+    assert_eq!(
+        Schedule { epoch_len: UINT48_MAX, ..s }.validate(10),
+        Err(ScheduleError::FirstEpochBeyondHeightRange)
+    );
+    assert_eq!(
+        Schedule { epoch_len_l1: u64::MAX, ..s }.validate(10),
+        Err(ScheduleError::FirstEpochBeyondAnchorRange)
+    );
+    assert_eq!(
+        Schedule { epoch_len_l1: u64::MAX, ..s }.check_anchor_progress(64, u64::MAX, 21),
+        Err(AnchorError::EpochNotOpen { epoch: 1, l1_first: u64::MAX })
+    );
+    assert_eq!(Schedule { epoch_len: 0, ..s }.force_epoch(1, 0), None);
+    assert_eq!(s.force_epoch(19, 0), Some(true));
+    assert_eq!(s.force_epoch(20, 19), Some(false));
+    assert_eq!(Schedule { epoch_len: u64::MAX, ..s }.force_epoch(1, 0), Some(false));
+}
+
+#[test]
+fn latest_startup_bounds_preserve_error_order() {
+    use crate::schedule::{ScheduleError, UINT48_MAX};
+    let s = Schedule { l1_0: 64, epoch_len: 20, epoch_len_l1: 1, genesis_cutoff: 63 };
+    assert!(crate::committee_size_bounded(0));
+    assert!(crate::committee_size_bounded(4096));
+    assert!(!crate::committee_size_bounded(4097));
+    // The removed proposer-score cap no longer bounds L.
+    assert_eq!(Schedule { epoch_len: 429_497, ..s }.validate(10), Ok(()));
+    assert_eq!(
+        Schedule { epoch_len: 429_497, epoch_len_l1: 0, ..s }.validate(10),
+        Err(ScheduleError::ZeroEpochLenL1)
+    );
+    assert_eq!(
+        Schedule { epoch_len: UINT48_MAX, ..s }.validate(10),
+        Err(ScheduleError::FirstEpochBeyondHeightRange)
+    );
+}

@@ -19,6 +19,14 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # regardless of the caller's working directory.
 cd "$DIR/.."
 
+# Internal selector used by the fixed `just test-smoke` recipe. Shift only this
+# leading flag so all remaining arguments retain their nextest meaning.
+filter='kind(test)'
+if [[ "${1:-}" == "--smoke" ]]; then
+    shift
+    filter='kind(test) & (test(=single_validator_produces_blocks_by_the_header_rules) | test(=epoch_switch_adds_the_joining_validator) | test(=real_l2_rewards_claim_and_fee_continuation) | test(=lander_cli_lands_blob_batches_and_resumes_after_sigterm))'
+fi
+
 # Every harness child inherits this label. Cleanup stays scoped to this invocation, including
 # lander fixtures, even when cancellation bypasses the harness's normal Drop cleanup.
 export TAIKO_CLIENT_RS_TEST_RUN=${TAIKO_CLIENT_RS_TEST_RUN:-local-$$-$RANDOM}
@@ -55,11 +63,10 @@ trap 'exit 143' TERM
 # Pinned to the anvil release the scenarios are verified with: a moving tag could change its
 # JSON-RPC behaviour under them (e.g. whether it serves debug_getRawHeader).
 export ANVIL_IMAGE=${ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:v1.5.1}
-# Built from taikoxyz/alethia-reth#248; switch back to `alethia-reth:main` when that
-# PR merges.
+# Reviewed taikoxyz/alethia-reth#251 supports canonical-config alloc-only Etna genesis.
 # Real contracts require canonical zero-storage proofs and modern EIP-7594 wrappers.
 export LANDER_ANVIL_IMAGE=${LANDER_ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:v1.8.5}
-export ALETHIA_RETH_IMAGE=${ALETHIA_RETH_IMAGE:-us-docker.pkg.dev/evmchain/images/alethia-reth:sha-1e25b48}
+export ALETHIA_RETH_IMAGE=${ALETHIA_RETH_IMAGE:-us-docker.pkg.dev/evmchain/images/alethia-reth:sha-5d4d21a}
 export COMETBFT_IMAGE=${COMETBFT_IMAGE:-cometbft/cometbft:v0.40.0}
 
 # Pull before the first scenario so downloads don't eat into its readiness deadlines.
@@ -87,7 +94,7 @@ stop_scenarios() {
     wait "$scenario_pid" || true
     exit "$status"
 }
-cargo nextest run -p abci -p lander -p taiko-client -p test-harness --all-features --profile integration --run-ignored only -E 'kind(test)' "$@" &
+cargo nextest run -p abci -p lander -p taiko-client -p test-harness --all-features --profile integration --run-ignored only -E "$filter" "$@" &
 scenario_pid=$!
 trap 'stop_scenarios 130' INT
 trap 'stop_scenarios 143' TERM

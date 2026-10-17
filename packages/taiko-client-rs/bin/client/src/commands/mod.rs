@@ -86,3 +86,6 @@ pub fn init_metrics(args: &ObservabilityArgs) -> Result<()> {
     info!(target: "metrics", "Prometheus metrics server started at http://{}", metrics_addr);
     Ok(())
 }
+
+/// Independent L2 reward claims.
+pub mod lander_claim;

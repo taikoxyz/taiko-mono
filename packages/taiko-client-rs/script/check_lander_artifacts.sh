@@ -4,9 +4,12 @@
 # (testdata/etna_vectors) byte for byte.
 #
 # The pinned revision is checked out in a temporary git worktree (fetched from origin when it is
-# not local). Needs the Foundry release that generated the fixtures (manifest.json
-# `foundryVersion`), pnpm and python3; `pnpm install` needs the network unless PNPM_OFFLINE=1
-# with a warm pnpm store.
+# not local; with `--depth=1` only when the repository is already shallow, so a full clone stays
+# full). Needs a Foundry build of the commit that generated the fixtures (manifest.json
+# `foundryVersion`, the `Commit SHA:` line of `forge --version`), pnpm and python3; only the
+# commit is compared, because release channels print different version lines for the same build
+# (`1.5.1-stable` from foundryup, `1.5.1-v1.5.1` from foundry-toolchain). `pnpm install` needs the
+# network unless PNPM_OFFLINE=1 with a warm pnpm store.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,9 +23,12 @@ GENERATED=(
     testdata/etna_vectors
 )
 
-# The two reviewed platform binaries differ only in their release-channel display label.
-# Authenticate actual binary bytes and the full source/build identity, never numeric version alone.
-python3 "$SCRIPT_DIR/foundry_identity.py" --manifest "$MANIFEST"
+expected_forge="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["foundryVersion"][0])' "$MANIFEST")"
+actual_forge="$(forge --version | grep '^Commit SHA:' || true)"
+if [[ "$actual_forge" != "$expected_forge" ]]; then
+    echo "the fixtures were generated with '$expected_forge'; found '$actual_forge'" >&2
+    exit 1
+fi
 if [[ -n "$(git -C "$REPO_ROOT" status --porcelain -- "${GENERATED[@]}")" ]]; then
     echo "commit or discard local changes to the generated files first:" >&2
     git -C "$REPO_ROOT" status --short -- "${GENERATED[@]}" >&2
@@ -38,7 +44,12 @@ cleanup() {
 trap cleanup EXIT
 
 if ! git -C "$REPO_ROOT" cat-file -e "$REVISION^{commit}" 2>/dev/null; then
-    git -C "$REPO_ROOT" fetch --quiet --no-tags --depth=1 origin "$REVISION"
+    # A depth limit on a full clone would write .git/shallow and make every worktree shallow.
+    FETCH_FLAGS=(--quiet --no-tags)
+    if [[ "$(git -C "$REPO_ROOT" rev-parse --is-shallow-repository)" == true ]]; then
+        FETCH_FLAGS+=(--depth=1)
+    fi
+    git -C "$REPO_ROOT" fetch "${FETCH_FLAGS[@]}" origin "$REVISION"
 fi
 git -C "$REPO_ROOT" worktree add --quiet --detach "$PROTOCOL" "$REVISION"
 "$SCRIPT_DIR/gen_lander_artifacts.sh" "$PROTOCOL"

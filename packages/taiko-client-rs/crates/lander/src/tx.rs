@@ -24,7 +24,17 @@ use crate::{
     contracts::{IEtnaInbox::landCall, ZeroFeeRecipient},
     error::{LanderError, Result, sanitized_rpc_error},
     proof::ProofRequest,
+    types::PreparedBatch,
 };
+
+/// EIP-7825's transaction gas limit cap (Osaka): a transaction whose gas limit exceeds it is
+/// invalid, so a signed landing above it could never be included and would wedge its nonce.
+pub const MAX_TX_GAS: u64 = 1 << 24;
+
+/// Exact two-argument V8 land calldata for the immutable public inputs and proof.
+pub fn land_calldata(batch: &PreparedBatch, proof: &Bytes) -> Vec<u8> {
+    landCall { _input: batch.input.clone(), _proof: proof.clone() }.abi_encode()
+}
 
 /// Explicit operator fee ceilings, all denominated in wei per gas unit.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -69,6 +79,7 @@ pub struct SignedTransaction {
 impl SignedTransaction {
     /// Decode and bind every signed input and sidecar to the journal's immutable job.
     pub fn validate(&self, request: &ProofRequest, proof: &Bytes) -> Result<()> {
+        request.batch.validate_statement()?;
         let mut remaining = self.network_bytes.as_ref();
         let envelope = TxEnvelope::decode_2718(&mut remaining)
             .map_err(|e| LanderError::Journal(format!("signed envelope: {e}")))?;
@@ -92,7 +103,7 @@ impl SignedTransaction {
         let batch = &request.batch;
         let chain_id = u64::try_from(batch.snapshot.l1_chain_id)
             .map_err(|_| LanderError::Configuration("L1 chain id exceeds signing format".into()))?;
-        let call = landCall { _input: batch.input.clone(), _proof: proof.clone() }.abi_encode();
+        let call = land_calldata(batch, proof);
         if variant.chain_id() != Some(chain_id) ||
             variant.nonce() != self.nonce ||
             variant.to() != Some(batch.snapshot.inbox) ||
@@ -115,6 +126,13 @@ impl SignedTransaction {
             .map_err(|e| LanderError::Journal(format!("signed sidecar: {e}")))?;
         Ok(())
     }
+
+    /// The signed execution gas limit, decoded from the journaled network bytes.
+    pub fn gas_limit(&self) -> Result<u64> {
+        let envelope = TxEnvelope::decode_2718(&mut self.network_bytes.as_ref())
+            .map_err(|e| LanderError::Journal(format!("signed envelope: {e}")))?;
+        Ok(envelope.gas_limit())
+    }
 }
 
 /// Minimal receipt context, always checked against the canonical block hash by the runner.
@@ -128,6 +146,10 @@ pub struct LandingReceipt {
     pub block_hash: B256,
     /// Whether execution succeeded rather than reverted.
     pub success: bool,
+    /// Execution gas the transaction used; equal to its gas limit when it ran out of gas. Zero in
+    /// a journal written before it was recorded, which matches no signed landing's limit.
+    #[serde(default)]
+    pub gas_used: u64,
 }
 
 /// Account nonce view; both values are read before deciding whether identical rebroadcast is safe.
@@ -157,8 +179,8 @@ impl NonceState {
 pub trait TransactionTransport: Send + Sync {
     /// Configured signing identity; private material is never exposed.
     fn sender(&self) -> Address;
-    /// Estimate, reserve rounded-up 20% execution gas, and sign with the pending nonce without
-    /// submitting.
+    /// Estimate, reserve rounded-up 20% execution gas, cap the limit
+    /// at [`MAX_TX_GAS`], and sign with the pending nonce without submitting.
     async fn sign(&self, request: &ProofRequest, proof: &Bytes) -> Result<SignedTransaction>;
     /// Submit the already-persisted network bytes; no filling, replacement, or signing occurs.
     async fn broadcast(&self, transaction: &SignedTransaction) -> Result<B256>;
@@ -221,10 +243,10 @@ impl TransactionTransport for RpcTransactionTransport {
             ));
         }
         let nonce = self.nonce_state().await?;
+        request.batch.validate_statement()?;
         nonce.validate()?;
         let nonce = nonce.pending;
-        let input: Bytes =
-            landCall { _input: batch.input.clone(), _proof: proof.clone() }.abi_encode().into();
+        let input: Bytes = land_calldata(batch, proof).into();
         let mut tx = TxEip4844 {
             chain_id,
             nonce,
@@ -242,7 +264,7 @@ impl TransactionTransport for RpcTransactionTransport {
         // Zero denotes the as-yet-unfilled signed limit, not a valid estimation ceiling.
         estimate.gas = None;
         let estimated = self.provider.estimate_gas(estimate).await.map_err(estimate_error)?;
-        tx.gas_limit = gas_limit_with_headroom(estimated)?;
+        tx.gas_limit = landing_gas_limit(estimated)?;
         let variant: TxEip4844Variant =
             TxEip4844WithSidecar::from_tx_and_sidecar(tx, batch.blobs.sidecar.clone()).into();
         let signature =
@@ -296,6 +318,7 @@ impl TransactionTransport for RpcTransactionTransport {
                         LanderError::Safety("mined receipt lacks block hash".into())
                     })?,
                     success: receipt.status(),
+                    gas_used: receipt.gas_used,
                 })
             })
             .transpose()
@@ -338,6 +361,17 @@ fn gas_limit_with_headroom(estimated: u64) -> Result<u64> {
     estimated.checked_add(headroom).ok_or_else(|| {
         LanderError::Safety("RPC gas estimate plus 20% headroom overflows u64".into())
     })
+}
+
+/// Reserve rounded-up 20% execution headroom, capped at the EIP-7825 transaction limit.
+/// Estimates above the cap are permanent configuration errors rejected before signing.
+fn landing_gas_limit(estimated: u64) -> Result<u64> {
+    if estimated > MAX_TX_GAS {
+        return Err(LanderError::Configuration(format!(
+            "land gas estimate {estimated} exceeds the EIP-7825 transaction gas cap {MAX_TX_GAS}; the batch can never be included"
+        )));
+    }
+    Ok(gas_limit_with_headroom(estimated)?.min(MAX_TX_GAS))
 }
 
 /// Recognize idempotent duplicate submission without treating an unknown transaction as known.
@@ -400,6 +434,8 @@ mod tests {
         let proof = Bytes::from_static(&[0]);
         let transaction = signed(&request, &proof, 4).await;
         transaction.validate(&request, &proof).unwrap();
+        let call = landCall::abi_decode(&land_calldata(&request.batch, &proof)).unwrap();
+        assert_eq!((call._input, call._proof), (request.batch.input.clone(), proof.clone()));
         assert!(transaction.validate(&request, &Bytes::new()).is_err());
         let mut other = request.clone();
         other.batch.snapshot.inbox = Address::repeat_byte(99);
@@ -410,6 +446,12 @@ mod tests {
         other = request.clone();
         other.batch.blobs.versioned_hashes[0] = B256::repeat_byte(1);
         assert!(transaction.validate(&other, &proof).is_err());
+        other = request.clone();
+        other.batch.input.baseFeeAmount ^= U256::from(1);
+        assert!(transaction.validate(&other, &proof).is_err(), "amount is signed");
+        other = request.clone();
+        other.batch.input.l2RewardRecipient = Address::repeat_byte(0x99);
+        assert!(transaction.validate(&other, &proof).is_err(), "L2 recipient is signed");
         let mut corrupted = transaction.clone();
         corrupted.nonce += 1;
         assert!(corrupted.validate(&request, &proof).is_err());
@@ -456,12 +498,28 @@ mod tests {
         assert!(matches!(gas_limit_with_headroom(u64::MAX), Err(LanderError::Safety(_))));
     }
 
+    #[test]
+    fn landing_gas_limit_reserves_only_headroom_and_caps_at_eip_7825() {
+        assert_eq!(landing_gas_limit(500_000).unwrap(), 600_000);
+        assert_eq!(landing_gas_limit(1).unwrap(), 2);
+        assert_eq!(landing_gas_limit(14_500_000).unwrap(), MAX_TX_GAS);
+        assert_eq!(landing_gas_limit(MAX_TX_GAS).unwrap(), MAX_TX_GAS);
+        assert!(matches!(landing_gas_limit(MAX_TX_GAS + 1), Err(LanderError::Configuration(_))));
+        assert!(matches!(landing_gas_limit(u64::MAX), Err(LanderError::Configuration(_))));
+        assert!(matches!(landing_gas_limit(0), Err(LanderError::Safety(_))));
+    }
+
     #[tokio::test]
     async fn rpc_signing_uses_pending_nonce_and_an_unbounded_gas_estimate_before_filling() {
         use serde_json::json;
-        for (quote, expected) in
-            [(500_000u64, Some(600_000u64)), (1, Some(2)), (0, None), (u64::MAX, None)]
-        {
+        for (quote, expected) in [
+            (500_000u64, Ok(600_000u64)),
+            (1, Ok(2)),
+            (14_500_000, Ok(MAX_TX_GAS)),
+            (0, Err("safety")),
+            (MAX_TX_GAS + 1, Err("configuration")),
+            (u64::MAX, Err("configuration")),
+        ] {
             let provider =
                 crate::l1::tests::rpc(move |request| match request["method"].as_str().unwrap() {
                     "eth_chainId" => json!("0x1"),
@@ -498,9 +556,16 @@ mod tests {
             let request = request();
             let proof = Bytes::from_static(&[0]);
             let result = transport.sign(&request, &proof).await;
-            let Some(expected) = expected else {
-                assert!(matches!(result, Err(LanderError::Safety(_))));
-                continue;
+            let expected = match expected {
+                Ok(expected) => expected,
+                Err("safety") => {
+                    assert!(matches!(result, Err(LanderError::Safety(_))), "{result:?}");
+                    continue;
+                }
+                Err(_) => {
+                    assert!(matches!(result, Err(LanderError::Configuration(_))), "{result:?}");
+                    continue;
+                }
             };
             let transaction = result.unwrap();
             assert_eq!(transaction.nonce, 7);

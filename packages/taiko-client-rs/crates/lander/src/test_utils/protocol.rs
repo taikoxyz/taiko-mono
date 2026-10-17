@@ -91,6 +91,8 @@ pub(crate) fn request() -> ProofRequest {
                 lastStateRoot: B256::repeat_byte(8),
                 l1ReferenceBlockNumber: 15,
                 forcedInclusionHead: U48::ZERO,
+                l2RewardRecipient: Address::repeat_byte(0x77),
+                baseFeeAmount: U256::ZERO,
                 feeRecipient: super::consensus_mpt::FEE_RECIPIENT,
             },
             blobs: PreparedBlobs {

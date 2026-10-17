@@ -1,12 +1,12 @@
-//! V3 published block payload codec, bounded before parsing or allocating messages.
+//! V5 published block payload codec, bounded before parsing or allocating messages.
 //!
 //! A batch publishes each block's canonical CometBFT header and its single Etna envelope. The
 //! header hashes to the block id the committee signed, its `data_hash` commits to the envelope and
 //! its `last_block_id` to the preceding header. Commits and signatures are not published: proofs
 //! take them as witnesses from the prepared batch. The pinned Tendermint domain adapter maps
-//! CometBFT's empty height-1 last block id to `None`; V3 publishes that canonical domain form.
+//! CometBFT's empty height-1 last block id to `None`; V5 publishes that canonical domain form.
 //!
-//! V3 is V2's RLP list compressed as one zlib stream with the codec the ABCI landing capacity
+//! V5 carries the RLP list compressed as one zlib stream with the codec the ABCI landing capacity
 //! guard uses. A single block that does not fit otherwise is compressed with a full flush before
 //! its envelope ([`zlib_compress_split`]), so the envelope deflates exactly as the guard measured
 //! it and every block the guard admits lands on its own; decoders read any flush transparently.
@@ -17,8 +17,8 @@ use crate::{
     validate::data_hash,
 };
 
-/// Version prefix of `0x04 || zlib(rlp([[header_proto, envelope], ...]))`.
-pub const VERSION: u8 = 4;
+/// Version prefix of `0x05 || zlib(rlp([[header_proto, envelope], ...]))`.
+pub const VERSION: u8 = 5;
 
 use abci::compression::{
     InflateError, zlib_compress, zlib_compress_best, zlib_compress_split, zlib_inflate_exact,
@@ -32,7 +32,7 @@ use tendermint_proto::v0_38::types::{Commit as RawCommit, Header as RawHeader};
 pub struct PublishedBlock {
     /// Canonical CometBFT header whose hash is the signed block id hash.
     pub header: tendermint::block::Header,
-    /// Exact envelope bytes, `0x04 || rlp([block, anchor, committee, forced])`.
+    /// Exact envelope bytes, `0x06 || rlp([block, anchor, committee, forced])`.
     pub envelope: Vec<u8>,
 }
 
@@ -106,7 +106,7 @@ fn single_envelope_offset(list: &[u8]) -> Option<usize> {
     fields.is_empty().then(|| list.len() - envelope.len())
 }
 
-/// `0x04 || zlib(list)`, bounded by `max_payload_bytes`.
+/// `0x05 || zlib(list)`, bounded by `max_payload_bytes`.
 pub(crate) fn compress(list: &[u8], limits: &Limits) -> Result<Vec<u8>> {
     compressed_payload(zlib_compress(list), limits)
 }
@@ -131,7 +131,7 @@ pub(crate) const fn payload_bound(list_len: usize) -> usize {
     list_len.saturating_add(list_len / 256).saturating_add(64)
 }
 
-/// A V4 payload's RLP list, built one validated block at a time so prefix selection checks and
+/// A V5 payload's RLP list, built one validated block at a time so prefix selection checks and
 /// encodes each block once rather than once per candidate prefix.
 pub(crate) struct PayloadList {
     /// Bounds applied to every appended block and to the whole list.
@@ -463,7 +463,7 @@ mod tests {
         bytes
     }
 
-    /// `0x04 || zlib(rlp([[header, envelope], ...]))`, assembled independently of `encode`.
+    /// `0x05 || zlib(rlp([[header, envelope], ...]))`, assembled independently of `encode`.
     fn wire(items: &[(Vec<u8>, Vec<u8>)]) -> Vec<u8> {
         frame(VERSION, &list(items))
     }
@@ -479,7 +479,7 @@ mod tests {
     fn canonical_wire_is_v038_header_protobuf_and_envelope_in_two_rlp_strings() {
         let blocks = chain(1);
         let expected = wire(&items(&blocks));
-        assert_eq!(expected[0], 4);
+        assert_eq!(expected[0], 5);
         assert_eq!(encode(&blocks, &limits()).unwrap(), expected);
         assert_eq!(decode(&expected, &limits()).unwrap(), published(&blocks));
     }
@@ -621,6 +621,10 @@ mod tests {
         assert!(
             encoding_error(decode(&frame(3, &list), &limits()))
                 .contains("unsupported batch version 3")
+        );
+        assert!(
+            encoding_error(decode(&frame(4, &list), &limits()))
+                .contains("unsupported batch version 4")
         );
         let mut v2 = vec![2];
         v2.extend_from_slice(&list);

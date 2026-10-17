@@ -46,7 +46,7 @@ async fn init_chain_persists_the_verified_genesis_state() {
     );
 }
 
-/// The `e_0` committee is the active bonded set unfiltered by heartbeats (CONS-14): a genesis
+/// The `e_0` committee is the active bonded set unfiltered by heartbeats: a genesis
 /// whose entries never sent one initializes the chain.
 #[tokio::test]
 async fn a_genesis_committee_without_heartbeats_initializes() {
@@ -95,7 +95,7 @@ async fn the_genesis_committee_is_derived_at_the_genesis_cutoff() {
     assert_eq!(e0.record.cutoff_l1_block, genesis_cutoff);
     let pubkeys: Vec<B256> = e0.members.iter().map(|m| m.pubkey).collect();
     let mut expected: Vec<B256> = fx.registry.checkpoints[0].1.iter().map(|e| e.pubkey).collect();
-    expected.sort_by_key(|pubkey| committee::mem08_key(fx.params.l2_chain_id, *pubkey));
+    expected.sort_by_key(|pubkey| committee::set_key(fx.params.l2_chain_id, *pubkey));
     assert_eq!(pubkeys, expected);
 }
 

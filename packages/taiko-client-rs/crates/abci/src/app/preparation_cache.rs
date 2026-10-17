@@ -17,6 +17,9 @@ use std::{
 use tokio::{sync::watch, task::JoinHandle};
 
 /// At most one anchor, entry proof and authenticated transaction for the pending proposal.
+/// These raw reads are proposer-independent and retain only their authenticated root/entry keys.
+/// Headers, payload builds and singleton verdicts are never cached here: every preparation derives
+/// the certified proposer's expected header and rebuilds even when payout addresses are shared.
 #[derive(Debug, Default)]
 pub(super) struct PreparationCache {
     /// Anchor proof; reuse requires a freshly matching header hash.

@@ -624,3 +624,37 @@ async fn references_older_than_blockhash_window_require_actual_history_contract_
         assert!(l1.requests.lock().unwrap().iter().any(|request| request["method"] == "eth_call"));
     }
 }
+
+#[tokio::test]
+async fn checkpoint_anchor_rejects_legacy_sharing_and_malformed_generation() {
+    let fixture = crate::test_utils::consensus_mpt::Fixture::new(20, 26);
+    let provider =
+        rpc(|_| json!({"__rpc_error":{"code":-32603,"message":"unexpected anchor lookup"}})).await;
+    let source =
+        RpcLandingSource::new(provider.provider.clone(), provider.provider.clone(), fixture.params);
+    let snapshot = fixture.snapshot;
+    let mut inputs = vec![vec![0; 12], vec![0; 14]];
+    for sharing in [1, 100, 255] {
+        let mut bytes = vec![0; 13];
+        bytes[0] = sharing;
+        inputs.push(bytes);
+    }
+    let mut wrong_generation = vec![0; 13];
+    wrong_generation[1..7].copy_from_slice(&(snapshot.generation + 1).to_be_bytes()[2..]);
+    inputs.push(wrong_generation);
+    for extra_data in inputs {
+        let parent = crate::l1::ParentContext {
+            header: Header {
+                number: 1,
+                extra_data: extra_data.clone().into(),
+                ..Default::default()
+            },
+            grandparent_timestamp: 0,
+        };
+        let error = source.parent_anchor(&snapshot, &parent).await.unwrap_err();
+        assert!(
+            matches!(error, LanderError::Safety(_)),
+            "malformed checkpoint {extra_data:?} must be rejected before RPC: {error}"
+        );
+    }
+}

@@ -95,3 +95,10 @@ regexes = ['''^[a-fA-F0-9]{64}$''']
 paths = [
   '''^packages/protocol/docs/preconfirmation-v2/.*''',
 ]
+
+[[allowlists]]
+description = "Etna vectors: public committee sort hashes"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexes = ['''^(0x)?[a-fA-F0-9]{64}$''']
+paths = ['''^testdata/etna_vectors/vectors\.json$''']

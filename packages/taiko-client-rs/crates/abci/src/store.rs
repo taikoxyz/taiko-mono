@@ -40,7 +40,7 @@ pub const COMMITTEE_WITNESS_TMP_FILE: &str = "abci-committee-witness.json.tmp";
 pub struct CommitteeState {
     /// The committee record of the epoch.
     pub record: CommitteeRecord,
-    /// The members, sorted by the MEM-08 key; their powers are the CometBFT validator set.
+    /// The members, in set-key order; their powers are the CometBFT validator set.
     pub members: Vec<Member>,
 }
 
@@ -237,6 +237,7 @@ mod tests {
             record: record(epoch),
             members: (1..=3u8)
                 .map(|i| Member {
+                    reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
                     pubkey: B256::repeat_byte(i),
                     eff_stake: U256::from(1_000_000_000_000_000_000u128),
                     power: 1_000_000_000,
@@ -399,6 +400,7 @@ mod tests {
         let current = serde_json::to_value(state()).unwrap();
         for (object, field) in [
             ("", "app_version"),
+            ("/committees/0/members/0", "reward_recipient"),
             ("", "forced_cursor"),
             ("/genesis", "forced_inclusion_delay"),
             ("/genesis", "max_anchor_age"),

@@ -71,7 +71,7 @@ struct PublishablePrefix {
     blocks: Vec<CertifiedBlock>,
     /// The selected blocks' RLP list.
     list: PayloadList,
-    /// The selected blocks' V4 payload, when sizing already compressed it; otherwise its
+    /// The selected blocks' V5 payload, when sizing already compressed it; otherwise its
     /// worst-case size fits and [`BatchBuilder::payload`] compresses it once.
     payload: Option<Vec<u8>>,
 }
@@ -194,6 +194,8 @@ pub struct BatchBuilderConfig {
     pub mode: SidecarMode,
     /// Nonzero recipient bound into the landing statement.
     pub fee_recipient: Address,
+    /// Nonzero L2 address receiving the batch base fees.
+    pub l2_reward_recipient: Address,
     /// Operator-controlled EL used to establish canonical forced-transaction skips.
     /// Leave allow-unwind-canonical-header disabled for historical canonical probes.
     pub engine: Arc<dyn Engine>,
@@ -225,6 +227,8 @@ pub struct BatchBuilder<C: ?Sized, L: ?Sized> {
     /// inclusions' fees to. Non-zero; the lander names its own sending address. The statement
     /// binds it, so a copy of the landing transaction cannot redirect the fees.
     fee_recipient: Address,
+    /// Nonzero L2 recipient independently bound into every V8 statement.
+    l2_reward_recipient: Address,
     /// Retain at most one authenticated epoch-sized context and serialize concurrent misses.
     checkpoint_cache: Mutex<Option<CachedCheckpoint>>,
 }
@@ -234,8 +238,15 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     /// `fee_recipient` as its `LandInput.feeRecipient`; a zero address is a configuration error,
     /// since the Inbox rejects it (`ZeroFeeRecipient`).
     pub fn new(comet: Arc<C>, l1: Arc<L>, config: BatchBuilderConfig) -> Result<Self> {
-        let BatchBuilderConfig { params, limits, mode, fee_recipient, engine, engine_timeout } =
-            config;
+        let BatchBuilderConfig {
+            params,
+            limits,
+            mode,
+            fee_recipient,
+            l2_reward_recipient,
+            engine,
+            engine_timeout,
+        } = config;
         if engine_timeout.is_zero() ||
             engine_timeout > Duration::from_secs(crate::config::MAX_TIMEOUT_SECS)
         {
@@ -250,6 +261,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 "the fee recipient must be non-zero: the Inbox rejects ZeroFeeRecipient".into(),
             ));
         }
+        crate::config::validate_batch_recipient(l2_reward_recipient, params.fee_vault)?;
         Ok(Self {
             comet,
             l1,
@@ -261,6 +273,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             list_budget: MAX_BATCH_LIST_BYTES,
             deflate_budget: MAX_SELECTION_DEFLATE_BYTES,
             fee_recipient,
+            l2_reward_recipient,
             checkpoint_cache: Mutex::new(None),
         })
     }
@@ -332,6 +345,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     async fn publishable_prefix(
         &self,
         snapshot: &LandingSnapshot,
+        _schedule: &Schedule,
         decided_height: u64,
     ) -> Result<PublishablePrefix> {
         let limits = self.selection_limits();
@@ -404,7 +418,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         }
     }
 
-    /// The selected prefix's V4 payload, compressing its list unless sizing already did.
+    /// The selected prefix's V5 payload, compressing its list unless sizing already did.
     async fn payload(&self, prefix: PublishablePrefix) -> Result<(Vec<CertifiedBlock>, Vec<u8>)> {
         let payload = match prefix.payload {
             Some(payload) => payload,
@@ -645,6 +659,9 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         })
     }
     /// Verify one successor using a known outgoing certificate before accepting new authorities.
+    ///
+    /// Both the carried parent certificate and the current certificate must verify before
+    /// authenticated committees or execution facts can advance.
     async fn authenticate_block(
         &self,
         snapshot: &LandingSnapshot,
@@ -677,7 +694,6 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             .map_err(|e| LanderError::Safety(e.to_string()))?;
         if let (Some(last), Some(previous)) = (&pair.block.last_commit, state.previous.as_ref()) {
             let prev_epoch = schedule.epoch_of(height - 1);
-
             verify_commit(last, &previous.block.header, &committees[&prev_epoch], &chain_id)
                 .map_err(|e| LanderError::Safety(e.to_string()))?;
         }
@@ -689,6 +705,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             envelope,
             EnvelopeContext {
                 bft_time_secs: bft_secs,
+                proposer: pair.block.header.proposer_address,
+                members: &committees[&epoch].state.members,
                 parent: &state.parent,
                 parent_anchor: &state.anchor,
                 generation: snapshot.generation,
@@ -819,8 +837,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         Ok(())
     }
 
-    /// Retain only the selected proof prefix's per-block anchors after shared verification, and
-    /// the forced inclusion cursor after its last block.
+    /// Retain only the selected proof prefix's per-block anchors after shared verification, the
+    /// forced inclusion cursor after its last block.
     async fn authenticate_blocks(
         &self,
         snapshot: &LandingSnapshot,
@@ -861,7 +879,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
                 force_epoch: false,
             });
         }
-        let prefix = self.publishable_prefix(snapshot, status.height).await?;
+        let prefix = self.publishable_prefix(snapshot, &schedule, status.height).await?;
         let mut committees = BTreeMap::new();
         let start = self.checkpoint(snapshot, &schedule, &mut committees).await?;
         let mut state = ForwardState::new(&start, snapshot)?;
@@ -875,20 +893,13 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
                 .await?;
         }
         let anchor = &state.anchor;
-        let epoch = schedule.epoch_of(status.height);
         Ok(BatchObservation {
             decided_height: status.height,
             publishable_blocks: prefix.blocks.len(),
             force_backpressure: status.height.saturating_sub(anchor.inbox.last_checkpoint_height) >=
                 self.params.unsettled_cap().saturating_sub(1),
-            // A decided switch witness can justify useful settlement even outside this prefix;
-            // publication is never permission to activate its committee.
-            force_epoch: schedule.switch_target(status.height).is_some() ||
-                schedule.h_first(epoch.saturating_add(1)).saturating_sub(2) <= status.height &&
-                    schedule.h_first(epoch.saturating_add(1)).saturating_sub(2) >
-                        snapshot.checkpoint_height ||
-                epoch > 0 &&
-                    schedule.h_first(epoch).saturating_sub(2) > snapshot.checkpoint_height,
+            // A decided switch witness justifies publication even outside this prefix.
+            force_epoch: force_epoch(&schedule, status.height, snapshot.checkpoint_height),
         })
     }
 
@@ -901,7 +912,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
         }
         let mut committees = BTreeMap::new();
         let start = self.checkpoint(&snapshot, &schedule, &mut committees).await?;
-        let prefix = self.publishable_prefix(&snapshot, status.height).await?;
+        let prefix = self.publishable_prefix(&snapshot, &schedule, status.height).await?;
         let (anchors, forced_cursor) = self
             .authenticate_blocks(&snapshot, &schedule, &start, &mut committees, &prefix.blocks)
             .await?;
@@ -935,6 +946,17 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
                 ))
             })?,
             feeRecipient: self.fee_recipient,
+            l2RewardRecipient: self.l2_reward_recipient,
+            baseFeeAmount: crate::rewards::basefee_sum(
+                &blocks
+                    .iter()
+                    .map(|pair| {
+                        abci::EtnaEnvelope::decode(&pair.block.data[0])
+                            .map(|e| e.block.header)
+                            .map_err(|e| LanderError::Safety(e.to_string()))
+                    })
+                    .collect::<Result<Vec<_>>>()?,
+            )?,
         };
         let blobs = blob::build(&payload, &self.limits, self.mode)?;
         let hash = statement::hash(&snapshot, &input, reference.hash(), &blobs.versioned_hashes);
@@ -944,7 +966,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             .await?;
         if contract_hash != hash {
             return Err(LanderError::Configuration(format!(
-                "local V6 statement {hash} differs from Inbox helper {contract_hash}"
+                "local V8 statement {hash} differs from Inbox helper {contract_hash}"
             )));
         }
         Ok(Some(ProofRequest {
@@ -971,7 +993,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
     }
 }
 
-/// Compresses `list` into a V4 payload on the blocking pool, keeping deflate off the async
+/// Compresses `list` into a V5 payload on the blocking pool, keeping deflate off the async
 /// workers.
 async fn compress(list: Vec<u8>, limits: Limits, single_block: bool) -> Result<Vec<u8>> {
     match tokio::task::spawn_blocking(move || {
@@ -1006,6 +1028,23 @@ fn parent_info(context: &ParentContext) -> Result<ParentInfo> {
             .ok_or_else(|| LanderError::Safety("EL parent has no base fee".into()))?,
         grandparent_timestamp: context.grandparent_timestamp,
     })
+}
+
+/// Whether a decided switch is still unlanded: the decided `tip` is a switch height, the next
+/// switch height lies in `(checkpoint, tip]`, or the switch into `tip`'s epoch lies above
+/// `checkpoint`. Switch heights are computed with checked arithmetic; one beyond `u64` does not
+/// exist.
+fn force_epoch(schedule: &Schedule, tip: u64, checkpoint: u64) -> bool {
+    // Preserve the adapter's height/zero-length panic contract before the total core hint.
+    schedule.epoch_of(tip);
+    etna_consensus_core::schedule::Schedule {
+        l1_0: schedule.l1_0,
+        epoch_len: schedule.epoch_len,
+        epoch_len_l1: schedule.epoch_len_l1,
+        genesis_cutoff: schedule.genesis_cutoff,
+    }
+    .force_epoch(tip, checkpoint)
+    .expect("force_epoch: epoch_len is zero")
 }
 
 /// Independently checks the exact descending header chain and every consumed anchor.
@@ -1100,6 +1139,7 @@ mod tests {
                     limits: limits(max_blocks),
                     mode: SidecarMode::Eip4844,
                     fee_recipient: FEE_RECIPIENT,
+                    l2_reward_recipient: crate::test_utils::consensus::BATCH_RECIPIENT,
                     engine: std::sync::Arc::new(
                         test_harness::unavailable_engine::UnavailableEngine,
                     ),
@@ -1185,6 +1225,7 @@ mod tests {
             &self,
             snapshot: &LandingSnapshot,
             input: &LandInput,
+
             reference_hash: alloy_primitives::B256,
             blob_hashes: &[alloy_primitives::B256],
         ) -> Result<alloy_primitives::B256> {
@@ -1354,6 +1395,7 @@ mod tests {
                 limits,
                 mode: SidecarMode::Eip4844,
                 fee_recipient: FEE_RECIPIENT,
+                l2_reward_recipient: crate::test_utils::consensus::BATCH_RECIPIENT,
                 engine: std::sync::Arc::new(test_harness::unavailable_engine::UnavailableEngine),
                 engine_timeout: std::time::Duration::from_secs(1),
             },
@@ -1374,6 +1416,7 @@ mod tests {
                 limits: limits(3),
                 mode: SidecarMode::Eip4844,
                 fee_recipient: alloy_primitives::Address::ZERO,
+                l2_reward_recipient: crate::test_utils::consensus::BATCH_RECIPIENT,
                 engine: std::sync::Arc::new(test_harness::unavailable_engine::UnavailableEngine),
                 engine_timeout: std::time::Duration::from_secs(1),
             },
@@ -1381,6 +1424,35 @@ mod tests {
         .err()
         .expect("a zero fee recipient is refused");
         assert!(matches!(&error, LanderError::Configuration(m) if m.contains("fee recipient")));
+    }
+
+    #[test]
+    fn new_rejects_known_nonreceiving_batch_recipients_only() {
+        let fixture = Arc::new(Fixture::new(0, 3));
+        let roots = alloy_primitives::address!("000F3df6D732807Ef1319fB7B8bB8522d0Beac02");
+        let history = alloy_primitives::address!("0000F90827F1C53a10cb7A02335B175320002935");
+        for recipient in
+            [Address::ZERO, fixture.params.fee_vault, roots, history, Address::repeat_byte(0x45)]
+        {
+            let result = BatchBuilder::new(
+                fixture.clone(),
+                fixture.clone(),
+                BatchBuilderConfig {
+                    params: fixture.params.clone(),
+                    limits: limits(3),
+                    mode: SidecarMode::Eip4844,
+                    fee_recipient: FEE_RECIPIENT,
+                    l2_reward_recipient: recipient,
+                    engine: Arc::new(test_harness::unavailable_engine::UnavailableEngine),
+                    engine_timeout: Duration::from_secs(1),
+                },
+            );
+            if recipient == Address::repeat_byte(0x45) {
+                assert!(result.is_ok());
+            } else {
+                assert!(matches!(result, Err(LanderError::Configuration(_))), "{recipient}");
+            }
+        }
     }
 
     #[tokio::test]
@@ -1463,6 +1535,69 @@ mod tests {
                     assert!(matches!(error, LanderError::Safety(_)), "{error}");
                 }
             }
+        }
+    }
+
+    #[test]
+    fn force_epoch_flags_unlanded_switches_without_overflowing() {
+        // L = 10: the switch heights are 9 (to epoch 1) and 19 (to epoch 2).
+        let base = Schedule { l1_0: 10, epoch_len: 10, epoch_len_l1: 1, genesis_cutoff: 1 };
+        for (tip, checkpoint, expected) in [
+            (5, 0, false),
+            (9, 0, true),
+            (10, 0, true),
+            (10, 9, false),
+            (12, 8, true),
+            (12, 9, false),
+            (19, 12, true),
+        ] {
+            assert_eq!(force_epoch(&base, tip, checkpoint), expected, "tip {tip} cp {checkpoint}");
+        }
+        // The same answer as the former unchecked expression wherever that one did not overflow.
+        for epoch_len in [3, 10, 20] {
+            let s = Schedule { epoch_len, ..base };
+            for tip in 1..100 {
+                let epoch = s.epoch_of(tip);
+                for checkpoint in 0..=tip {
+                    let former = s.switch_target(tip).is_some() ||
+                        s.h_first(epoch + 1) - 2 <= tip && s.h_first(epoch + 1) - 2 > checkpoint ||
+                        epoch > 0 && s.h_first(epoch) - 2 > checkpoint;
+                    assert_eq!(
+                        force_epoch(&s, tip, checkpoint),
+                        former,
+                        "L={epoch_len} {tip}/{checkpoint}"
+                    );
+                }
+            }
+        }
+        // Unvalidated L = u64::MAX: h_first(1) overflows, so epoch 1 has no switch height.
+        let unbounded = Schedule { epoch_len: u64::MAX, ..base };
+        for tip in [1, 2, i64::MAX as u64] {
+            assert!(!force_epoch(&unbounded, tip, 0), "tip {tip}");
+        }
+    }
+
+    /// A complete prefix may cross epoch boundaries without a reward settlement cutoff.
+    #[tokio::test]
+    async fn no_freeze_cutoff_in_complete_prefix() {
+        for checkpoint in [20, 22, 23] {
+            let fixture = Arc::new(Fixture::new(checkpoint, 26));
+            let builder = builder(fixture.clone(), limits(20));
+            let schedule = builder.schedule(&fixture.snapshot).unwrap();
+            let prefix =
+                builder.publishable_prefix(&fixture.snapshot, &schedule, 26).await.unwrap();
+            assert_eq!(prefix.blocks.len(), (26 - checkpoint) as usize, "{checkpoint}");
+        }
+    }
+
+    #[tokio::test]
+    async fn no_freeze_only_publication_urgency() {
+        for checkpoint in [22, 23] {
+            let fixture = Arc::new(Fixture::new(checkpoint, 26));
+            let observed =
+                builder(fixture.clone(), limits(20)).observe(&fixture.snapshot).await.unwrap();
+            assert!(!observed.force_epoch, "{checkpoint}");
+            assert!(!observed.force_backpressure, "{checkpoint}");
         }
     }
 
@@ -1584,6 +1719,85 @@ mod tests {
         );
     }
 
+    /// Epoch changes retain every authenticated block and bind their exact base fees.
+    #[tokio::test]
+    async fn prepared_batch_binds_fees_across_epoch_boundary() {
+        for (checkpoint, tip) in [(0, 3), (20, 26), (24, 26)] {
+            let fixture = Arc::new(Fixture::new(checkpoint, tip));
+            let batch = builder(fixture.clone(), limits(6))
+                .prepare(fixture.snapshot.clone())
+                .await
+                .unwrap()
+                .unwrap()
+                .batch;
+            assert_eq!(batch.input.lastHeight, tip);
+            assert_eq!(batch.blocks.len(), (tip - checkpoint) as usize);
+            assert_eq!(batch.input.l2RewardRecipient, Address::repeat_byte(0x77));
+            assert_eq!(batch.input.feeRecipient, FEE_RECIPIENT);
+            let expected = batch
+                .blocks
+                .iter()
+                .map(|pair| {
+                    let header =
+                        abci::EtnaEnvelope::decode(&pair.block.data[0]).unwrap().block.header;
+                    U256::from(header.base_fee_per_gas.unwrap()) * U256::from(header.gas_used)
+                })
+                .sum::<U256>();
+            assert_eq!(batch.input.baseFeeAmount, expected);
+            batch.validate_statement().unwrap();
+        }
+    }
+
+    /// CometBFT's `/commit` for a height can carry precommits that block `h + 1`'s canonical
+    /// `last_commit` lacks; both certificates must independently satisfy quorum.
+    #[tokio::test]
+    async fn canonical_last_commit_is_verified_independently_of_the_seen_commit() {
+        let mut fixture = Fixture::new(24, 26);
+        let key = ed25519_dalek::SigningKey::from_bytes(&[2; 32]);
+        let pubkey = B256::from(key.verifying_key().to_bytes());
+        let slot = fixture.committees[&1]
+            .validators
+            .validators()
+            .iter()
+            .position(|validator| validator.pub_key.to_bytes() == pubkey.as_slice())
+            .unwrap();
+        // Height 24's `/commit` has the power-1 member's precommit; block 25's `last_commit`
+        // omits it, which leaves 3 of 4 power, still a quorum.
+        let seen = &fixture.blocks[&24].commit;
+        assert!(matches!(
+            seen.signatures[slot],
+            tendermint::block::CommitSig::BlockIdFlagCommit { .. }
+        ));
+        let pair = fixture.blocks.get_mut(&25).unwrap();
+        let last_commit = pair.block.last_commit.as_mut().unwrap();
+        last_commit.signatures[slot] = tendermint::block::CommitSig::BlockIdFlagAbsent;
+        pair.block.header.last_commit_hash = Some(crate::validate::commit_hash(last_commit));
+        reseal_from(&mut fixture, 25);
+        assert!(matches!(
+            fixture.blocks[&24].commit.signatures[slot],
+            tendermint::block::CommitSig::BlockIdFlagCommit { .. }
+        ));
+
+        let fixture = Arc::new(fixture);
+        let batch = builder(fixture.clone(), limits(6))
+            .prepare(fixture.snapshot.clone())
+            .await
+            .unwrap()
+            .unwrap()
+            .batch;
+        assert_eq!(batch.input.lastHeight, 26);
+        let reference = alloy_primitives::keccak256(&batch.reference_headers[0]);
+        assert_eq!(
+            batch.statement_hash,
+            statement::hash(
+                &batch.snapshot,
+                &batch.input,
+                reference,
+                &batch.blobs.versioned_hashes
+            )
+        );
+    }
+
     #[tokio::test]
     async fn batch_input_and_statement_carry_the_stored_head_and_the_fee_recipient() {
         let fixture = Arc::new(Fixture::new(0, 3));
@@ -1600,7 +1814,9 @@ mod tests {
             (&preimage[15 * 32..16 * 32], &preimage[16 * 32..17 * 32]),
             (&three[..], &three[..])
         );
-        assert_eq!(&preimage[17 * 32 + 12..], FEE_RECIPIENT.as_slice(), "the last word");
+        assert_eq!(&preimage[17 * 32 + 12..18 * 32], FEE_RECIPIENT.as_slice(), "word 18");
+        assert_eq!(&preimage[18 * 32 + 12..19 * 32], batch.input.l2RewardRecipient.as_slice());
+        assert_eq!(&preimage[19 * 32..], batch.input.baseFeeAmount.to_be_bytes::<32>().as_slice());
         assert_eq!(batch.statement_hash, alloy_primitives::keccak256(preimage));
     }
 
@@ -1676,10 +1892,12 @@ mod tests {
         assert!(error.to_string().contains("height 22"));
         let fixture = Arc::new(Fixture::new(0, 1));
         fixture.mismatch_statement.store(true, Ordering::Relaxed);
-        assert!(matches!(
-            builder(fixture.clone(), limits(1)).prepare(fixture.snapshot.clone()).await,
-            Err(LanderError::Configuration(_))
-        ));
+        let error = builder(fixture.clone(), limits(1))
+            .prepare(fixture.snapshot.clone())
+            .await
+            .unwrap_err();
+        assert!(matches!(error, LanderError::Configuration(_)), "{error}");
+        assert!(error.to_string().contains("local V8 statement"), "{error}");
     }
 
     #[test]
@@ -1709,6 +1927,12 @@ mod tests {
         change(&mut envelope);
         pair.block.data[0] = envelope.encode().to_vec();
         pair.block.header.data_hash = Some(crate::validate::data_hash(&pair.block.data));
+        reseal_from(fixture, height);
+    }
+
+    /// Re-signs block `height` after a change to it, then relinks and re-signs every later block,
+    /// each carrying its predecessor's new `/commit` as its `last_commit`.
+    fn reseal_from(fixture: &mut Fixture, height: u64) {
         let keys = vec![
             ed25519_dalek::SigningKey::from_bytes(&[1; 32]),
             ed25519_dalek::SigningKey::from_bytes(&[2; 32]),
@@ -1796,7 +2020,10 @@ mod tests {
 
     #[tokio::test]
     async fn arbitrary_batch_cuts_rederive_starting_and_pending_committees_without_hints() {
-        for (checkpoint, tip) in [(20, 26), (22, 26), (23, 26), (24, 26), (20, 39)] {
+        // Every complete prefix crosses the epoch boundary when capacity permits.
+        for (checkpoint, tip, last) in
+            [(20, 26, 26), (22, 26, 26), (23, 26, 26), (24, 26, 26), (20, 39, 39), (24, 39, 39)]
+        {
             let mut fixture = Fixture::new(checkpoint, tip);
             fixture.reject_committee_hints = true;
             let fixture = Arc::new(fixture);
@@ -1805,7 +2032,7 @@ mod tests {
                 .await
                 .unwrap()
                 .unwrap();
-            assert_eq!(request.batch.input.lastHeight, tip);
+            assert_eq!(request.batch.input.lastHeight, last);
             let (genesis, bootstrap) = crate::l1::verify_starting_inbox(
                 &request.batch.starting_inbox_witness,
                 &request.batch.parent_anchor,
@@ -1916,8 +2143,8 @@ mod tests {
         }
 
         /// The forced inclusion heads before and after `request`'s batch, read from its statement
-        /// preimage (words 16 and 17, before the fee recipient), which must hash to the statement
-        /// and carry the input's.
+        /// preimage (words 16 and 17, before the L1 and L2 recipients), which
+        /// must hash to the statement and carry the input's.
         fn heads(request: &ProofRequest) -> (u64, u64) {
             let batch = &request.batch;
             let reference = alloy_primitives::keccak256(&batch.reference_headers[0]);
@@ -1933,7 +2160,11 @@ mod tests {
                     .to::<u64>()
             };
             assert_eq!(U48::from(word(16)), batch.input.forcedInclusionHead);
-            assert_eq!(&preimage[17 * 32 + 12..], FEE_RECIPIENT.as_slice(), "the last word");
+            assert_eq!(&preimage[17 * 32 + 12..18 * 32], FEE_RECIPIENT.as_slice(), "word 18");
+            assert_eq!(
+                &preimage[19 * 32..],
+                batch.input.baseFeeAmount.to_be_bytes::<32>().as_slice()
+            );
             (word(15), word(16))
         }
 
@@ -1993,6 +2224,7 @@ mod tests {
             let snapshot = &fixture.snapshot;
             assert_eq!((snapshot.forced_inclusion_head, snapshot.forced_inclusion_tail), (1, 2));
             let request = prepare(&fixture, 6).await;
+            // Continue through block 26 after consuming the forced entry.
             assert_eq!(request.batch.input.lastHeight, 26);
             let first = envelope(&request, 0).forced.unwrap();
             assert_eq!((first.index, first.tx.is_empty()), (1, false));

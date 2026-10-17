@@ -48,6 +48,7 @@ struct Control {
 struct Fixture {
     directory: tempfile::TempDir,
     request: ProofRequest,
+    configured_recipient: Address,
     control: Arc<Mutex<Control>>,
 }
 impl Fixture {
@@ -81,6 +82,7 @@ impl Fixture {
         };
         Self {
             directory: tempfile::tempdir().unwrap(),
+            configured_recipient: request.batch.input.l2RewardRecipient,
             request,
             control: Arc::new(Mutex::new(control)),
         }
@@ -126,6 +128,8 @@ impl Fixture {
             proofs,
             Store::open(self.directory.path(), self.identity()).unwrap(),
             RunnerConfig {
+                l2_reward_recipient: self.configured_recipient,
+                fee_vault: crate::test_utils::consensus::parameters().fee_vault,
                 batch_policy: policy,
                 poll_interval: Duration::from_millis(10),
                 proof_timeout: Duration::from_millis(50),
@@ -143,12 +147,17 @@ impl Fixture {
         control.snapshot.checkpoint_hash = B256::repeat_byte(height as u8);
     }
     fn mine(&self, transaction: &SignedTransaction, success: bool) {
+        self.mine_using(transaction, success, 100_000);
+    }
+    /// Mine `transaction` with `gas_used`; its signed limit is 500,000.
+    fn mine_using(&self, transaction: &SignedTransaction, success: bool, gas_used: u64) {
         let mut control = self.control.lock().unwrap();
         control.receipt = Some(LandingReceipt {
             transaction_hash: transaction.hash,
             block_number: 30,
             block_hash: control.canonical_receipt,
             success,
+            gas_used,
         });
         control.nonce =
             NonceState { confirmed: transaction.nonce + 1, pending: transaction.nonce + 1 };
@@ -240,6 +249,7 @@ impl LandingSource for MockL1 {
         &self,
         _: &LandingSnapshot,
         _: &LandInput,
+
         _: B256,
         _: &[B256],
     ) -> Result<B256> {
@@ -496,6 +506,106 @@ async fn unchanged_checkpoint_revert_stops_once_but_competing_revert_can_settle(
         }
         assert_eq!(fixture.control.lock().unwrap().signs, 1);
     }
+}
+
+/// A canonical revert that used at least 15/16 of its gas limit ran out of gas, so the runner
+/// persists Idle and continues: the next steps rebuild, re-estimate and sign a new job at the next
+/// nonce. A revert using less still stops.
+#[tokio::test]
+async fn unchanged_checkpoint_out_of_gas_rebuilds_but_other_reverts_stop() {
+    // An out-of-gas behind the Inbox and pool proxies refunds the gas the outer frames kept: 63/64
+    // of the limit for one proxy level, as anvil measures; then the edge of the 15/16 window and a
+    // deterministic revert well inside the limit.
+    for (gas_used, out_of_gas) in
+        [(492_188, true), (500_000, true), (468_750, true), (468_749, false), (100_000, false)]
+    {
+        let fixture = Fixture::new();
+        let mut runner = fixture.runner();
+        for _ in 0..3 {
+            runner.step().await.unwrap();
+        }
+        let tx = pending_transaction(&runner);
+        let limit = tx.gas_limit().unwrap();
+        assert_eq!(limit, 500_000);
+        assert_eq!(super::ran_out_of_gas(gas_used, limit), out_of_gas, "{gas_used}");
+        fixture.mine_using(&tx, false, gas_used);
+        assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+        assert!(matches!(runner.state(), JournalState::Confirming { .. }));
+        fixture.control.lock().unwrap().snapshot.l1_block_number = 31;
+        let outcome = runner.step().await;
+        assert!(matches!(runner.state(), JournalState::Idle));
+        let saved: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(fixture.directory.path().join("lander-state.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(saved["state"]["phase"], "idle", "persisted");
+        if !out_of_gas {
+            assert!(matches!(outcome, Err(LanderError::Reverted(_))), "{outcome:?}");
+            assert_eq!(fixture.control.lock().unwrap().signs, 1);
+            continue;
+        }
+        assert_eq!(outcome.unwrap(), StepOutcome::Rebuild);
+        // The same runner keeps going: prove, sign and broadcast a rebuilt job at nonce + 1.
+        fixture.control.lock().unwrap().receipt = None;
+        for _ in 0..3 {
+            assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+        }
+        let retry = pending_transaction(&runner);
+        assert_eq!(retry.nonce, tx.nonce + 1);
+        let control = fixture.control.lock().unwrap();
+        assert_eq!((control.signs, control.broadcasts.len()), (2, 2));
+    }
+}
+
+/// Drives the runner from Idle through a canonical out-of-gas landing on the fixture's checkpoint
+/// and returns the outcome of the step that confirms it; the runner must be Idle with no receipt.
+async fn land_out_of_gas(fixture: &Fixture, runner: &mut Runner) -> Result<StepOutcome> {
+    fixture.control.lock().unwrap().receipt = None;
+    for _ in 0..3 {
+        assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    }
+    let tx = pending_transaction(runner);
+    fixture.mine_using(&tx, false, tx.gas_limit().unwrap());
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    fixture.control.lock().unwrap().snapshot.l1_block_number = 31;
+    let outcome = runner.step().await;
+    assert!(matches!(runner.state(), JournalState::Idle));
+    outcome
+}
+
+/// The first out-of-gas landing on a checkpoint is rebuilt and lands again at the next nonce; a
+/// second in a row on the same checkpoint stops with `Reverted`, the journal already Idle, instead
+/// of rebuilding a third landing.
+#[tokio::test]
+async fn second_consecutive_out_of_gas_on_one_checkpoint_stops() {
+    let fixture = Fixture::new();
+    let mut runner = fixture.runner();
+    assert_eq!(land_out_of_gas(&fixture, &mut runner).await.unwrap(), StepOutcome::Rebuild);
+    let outcome = land_out_of_gas(&fixture, &mut runner).await;
+    assert!(matches!(outcome, Err(LanderError::Reverted(_))), "{outcome:?}");
+    drop(runner);
+    assert!(matches!(fixture.runner().state(), JournalState::Idle), "persisted");
+    let control = fixture.control.lock().unwrap();
+    assert_eq!((control.signs, control.broadcasts.len()), (2, 2));
+    assert_eq!(control.nonce.confirmed, 2, "both landings spent their nonces");
+}
+
+/// A checkpoint change between two out-of-gas landings resets the count, so the second is rebuilt
+/// too. Here the checkpoint moves away and back, so the mock can rebuild the same job.
+#[tokio::test]
+async fn out_of_gas_count_resets_when_the_checkpoint_changes() {
+    let fixture = Fixture::new();
+    let mut runner = fixture.runner();
+    assert_eq!(land_out_of_gas(&fixture, &mut runner).await.unwrap(), StepOutcome::Rebuild);
+    fixture.compete(1);
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    {
+        let mut control = fixture.control.lock().unwrap();
+        control.snapshot.checkpoint_height = fixture.request.batch.snapshot.checkpoint_height;
+        control.snapshot.checkpoint_hash = fixture.request.batch.snapshot.checkpoint_hash;
+    }
+    assert_eq!(land_out_of_gas(&fixture, &mut runner).await.unwrap(), StepOutcome::Rebuild);
+    assert_eq!(fixture.control.lock().unwrap().signs, 2);
 }
 
 #[tokio::test]
@@ -1036,4 +1146,108 @@ async fn latest_snapshot_reorg_preserves_pending_journal_and_signed_nonce_then_r
     assert_eq!(control.signs, 1);
     assert_eq!(control.broadcasts.len(), 1);
     assert_eq!(control.nonce, NonceState { confirmed: 0, pending: transaction.nonce + 1 });
+}
+
+#[tokio::test]
+async fn prepared_restart_rejects_changed_recipient_before_signing() {
+    let mut fixture = Fixture::new();
+    let mut runner = fixture.runner();
+    runner.step().await.unwrap();
+    drop(runner);
+    fixture.configured_recipient = Address::repeat_byte(0x45);
+    let mut resumed = fixture.runner();
+    assert!(
+        matches!(resumed.step().await, Err(LanderError::Configuration(message)) if message.contains("recipient") && message.contains("unsigned"))
+    );
+    assert_eq!(fixture.control.lock().unwrap().signs, 0);
+    assert!(fixture.control.lock().unwrap().broadcasts.is_empty());
+    assert!(matches!(resumed.state(), JournalState::Prepared { .. }));
+}
+
+#[tokio::test]
+async fn prepared_restart_rejects_known_nonreceiver_before_signing() {
+    let mut fixture = Fixture::new();
+    fixture.request.batch.input.l2RewardRecipient =
+        crate::test_utils::consensus::parameters().fee_vault;
+    let payload =
+        crate::codec::encode(&fixture.request.batch.blocks, &crate::test_utils::runtime::limits())
+            .unwrap();
+    crate::test_utils::runtime::rebind(&mut fixture.request, &payload);
+    let mut runner = fixture.runner();
+    runner.step().await.unwrap();
+    drop(runner);
+    let mut resumed = fixture.runner();
+    assert!(matches!(resumed.step().await, Err(LanderError::Configuration(_))));
+    assert_eq!(fixture.control.lock().unwrap().signs, 0);
+    assert!(fixture.control.lock().unwrap().broadcasts.is_empty());
+}
+
+#[tokio::test]
+async fn signed_restart_keeps_original_recipient_and_bytes_for_future_config() {
+    for phase in 2..=4 {
+        let mut fixture = Fixture::new();
+        let mut runner = fixture.runner();
+        for _ in 0..phase.min(3) {
+            runner.step().await.unwrap();
+        }
+        let original = match runner.state() {
+            JournalState::Signed { transaction, .. } |
+            JournalState::Pending { transaction, .. } => transaction.clone(),
+            _ => panic!("signed phase"),
+        };
+        if phase == 4 {
+            fixture.mine(&original, true);
+            runner.step().await.unwrap();
+        }
+        drop(runner);
+        fixture.configured_recipient = Address::repeat_byte(0x45);
+        let mut resumed = fixture.runner();
+        resumed.step().await.unwrap();
+        let (job, transaction) = match resumed.state() {
+            JournalState::Pending { job, transaction } |
+            JournalState::Confirming { job, transaction, .. } => (job, transaction),
+            _ => panic!("retained signed phase"),
+        };
+        assert_eq!(
+            job.request.batch.input.l2RewardRecipient,
+            fixture.request.batch.input.l2RewardRecipient
+        );
+        assert_eq!(transaction, &original);
+        assert_eq!(fixture.control.lock().unwrap().signs, 1);
+    }
+}
+
+#[test]
+fn successful_landing_summary_uses_canonical_batch_identity_and_omits_reverts() {
+    let fixture = Fixture::new();
+    let receipt = LandingReceipt {
+        transaction_hash: B256::repeat_byte(0x45),
+        block_number: 30,
+        block_hash: B256::repeat_byte(0x30),
+        success: true,
+        gas_used: 100_000,
+    };
+    let summary = super::successful_landing(&fixture.request.batch, &receipt)
+        .expect("successful own landing reward");
+    let reward = &summary.reward;
+    let batch = &fixture.request.batch;
+    assert_eq!(summary.transaction_hash, receipt.transaction_hash);
+    assert_eq!(summary.batch_id, crate::rewards::batch_id(reward));
+    assert_eq!(reward.l1ChainId, batch.snapshot.l1_chain_id);
+    assert_eq!(reward.l2ChainId, batch.snapshot.l2_chain_id);
+    assert_eq!(reward.inbox, batch.snapshot.inbox);
+    assert_eq!(reward.generation, batch.snapshot.generation);
+    assert_eq!(reward.parentHeight, batch.snapshot.checkpoint_height);
+    assert_eq!(reward.parentHash, batch.snapshot.checkpoint_hash);
+    assert_eq!(reward.lastHeight, 2);
+    assert_eq!(reward.lastBlockHash, batch.input.lastBlockHash);
+    assert_eq!(reward.l2RewardRecipient, batch.input.l2RewardRecipient);
+    assert_eq!(reward.baseFeeAmount, batch.input.baseFeeAmount);
+    assert!(
+        super::successful_landing(
+            &fixture.request.batch,
+            &LandingReceipt { success: false, ..receipt }
+        )
+        .is_none()
+    );
 }

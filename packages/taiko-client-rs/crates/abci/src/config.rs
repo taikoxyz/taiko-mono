@@ -4,6 +4,9 @@ use alloy_primitives::{Address, U256, address};
 use protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID;
 use serde::{Deserialize, Deserializer, de};
 
+/// The largest committee size accepted by the registry discovery and consensus bounds.
+pub const MAX_N_MAX: usize = etna_consensus_core::MAX_N_MAX;
+
 /// Per-chain constants consumed by consensus.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ChainParams {
@@ -13,21 +16,22 @@ pub struct ChainParams {
     pub inbox: Address,
     /// `ETNA_REGISTRY`: L1 address of the staking registry.
     pub registry: Address,
-    /// `L2FeeVault`: L2 coinbase and suggested fee recipient of every block.
+    /// `L2FeeVault`: canonical L2 treasury of the pinned execution layer, derived from the chain
+    /// id.
     pub fee_vault: Address,
-    /// `D_MAX`: maximum unsettled depth, in L2 blocks (HALT-03); bound by the committee
+    /// `D_MAX`: maximum unsettled depth, in L2 blocks; bound by the committee
     /// configuration hash.
     pub d_max: u64,
-    /// `MARGIN_V`: safety margin subtracted from `d_max`, in L2 blocks; `d_max >= margin_v`;
+    /// `MARGIN_V`: safety margin subtracted from `d_max`, in L2 blocks; `d_max > margin_v`;
     /// bound by the committee configuration hash.
     pub margin_v: u64,
     /// `VP_UNIT`: effective stake per unit of voting power, in TAIKO base units; `> 0`.
     pub vp_unit: U256,
     /// `S_min`: minimum effective stake of an eligible entry, in TAIKO base units; `>= vp_unit`.
     pub s_min: U256,
-    /// `N_MAX`: maximum committee size; `>= 1`.
+    /// `N_MAX`: maximum committee size; in `1..=`[`MAX_N_MAX`].
     pub n_max: usize,
-    /// `HEARTBEAT_WINDOW`: length of the L1 heartbeat windows MEM-13 eligibility is measured
+    /// `HEARTBEAT_WINDOW`: length of the L1 heartbeat windows heartbeat eligibility is measured
     /// in, in L1 blocks ([`committee::heartbeat_floor`](crate::committee::heartbeat_floor));
     /// `>= 1`.
     pub heartbeat_window: u64,
@@ -65,9 +69,10 @@ pub enum ConfigError {
         /// The consensus constant whose override differed from its built-in value.
         parameter: &'static str,
     },
-    /// `d_max < margin_v`, so the unsettled cap would be negative.
-    #[error("d_max ({d_max}) must be >= margin_v ({margin_v})")]
-    DMaxBelowMargin {
+    /// `d_max <= margin_v`, so the unsettled cap would not be positive: block 1 could never pass
+    /// back-pressure against the genesis checkpoint at height 0.
+    #[error("d_max ({d_max}) must be > margin_v ({margin_v})")]
+    DMaxNotAboveMargin {
         /// Configured `d_max`.
         d_max: u64,
         /// Configured `margin_v`.
@@ -79,6 +84,14 @@ pub enum ConfigError {
     /// `n_max == 0`.
     #[error("n_max must be >= 1")]
     ZeroNMax,
+    /// `n_max` exceeds the authenticated registry discovery capacity.
+    #[error("n_max ({n_max}) must be <= {max}")]
+    NMaxTooLarge {
+        /// Configured `n_max`.
+        n_max: usize,
+        /// The largest accepted value, [`MAX_N_MAX`].
+        max: usize,
+    },
     /// `heartbeat_window == 0`.
     #[error("heartbeat_window must be >= 1")]
     ZeroHeartbeatWindow,
@@ -107,7 +120,7 @@ impl ChainParams {
                 l2_chain_id,
                 inbox: address!("00000000000000000000000000000000E7A10001"),
                 registry: address!("00000000000000000000000000000000E7A10002"),
-                fee_vault: address!("00000000000000000000000000000000E7A10003"),
+                fee_vault: alethia_reth_primitives::addresses::get_treasury_address(l2_chain_id),
                 d_max: 12,
                 margin_v: 2,
                 vp_unit: U256::from(1_000_000_000u64),
@@ -166,25 +179,32 @@ impl ChainParams {
         Ok(self)
     }
 
-    /// The unsettled-depth cap `U = d_max - margin_v`, in L2 blocks (HALT-03).
+    /// The unsettled-depth cap `U = d_max - margin_v`, in L2 blocks.
     ///
-    /// Saturates at 0 when `d_max < margin_v`, which [`ChainParams::validate`] rejects.
+    /// At least 1 for parameters that pass [`ChainParams::validate`]; saturates at 0 when
+    /// `d_max < margin_v`.
     pub fn unsettled_cap(&self) -> u64 {
         self.d_max.saturating_sub(self.margin_v)
     }
 
-    /// Checks `d_max >= margin_v`, `vp_unit > 0`, `n_max >= 1`, `heartbeat_window >= 1`,
-    /// `block_gas_limit > 0` and `s_min >= vp_unit`, returning the first
+    /// Checks `d_max > margin_v`, `vp_unit > 0`, `1 <= n_max <= MAX_N_MAX` (4096),
+    /// `heartbeat_window >= 1`, `block_gas_limit > 0` and `s_min >= vp_unit`, returning the first
     /// violation.
     pub fn validate(&self) -> Result<(), ConfigError> {
-        if self.d_max < self.margin_v {
-            return Err(ConfigError::DMaxBelowMargin { d_max: self.d_max, margin_v: self.margin_v });
+        if !etna_consensus_core::positive_unsettled_cap(self.d_max, self.margin_v) {
+            return Err(ConfigError::DMaxNotAboveMargin {
+                d_max: self.d_max,
+                margin_v: self.margin_v,
+            });
         }
         if self.vp_unit.is_zero() {
             return Err(ConfigError::ZeroVpUnit);
         }
         if self.n_max == 0 {
             return Err(ConfigError::ZeroNMax);
+        }
+        if !etna_consensus_core::committee_size_bounded(self.n_max) {
+            return Err(ConfigError::NMaxTooLarge { n_max: self.n_max, max: MAX_N_MAX });
         }
         if self.heartbeat_window == 0 {
             return Err(ConfigError::ZeroHeartbeatWindow);
@@ -272,7 +292,11 @@ mod tests {
         assert_eq!(p.l2_chain_id, TAIKO_DEVNET_CHAIN_ID);
         assert_eq!(p.inbox, address!("00000000000000000000000000000000E7A10001"));
         assert_eq!(p.registry, address!("00000000000000000000000000000000E7A10002"));
-        assert_eq!(p.fee_vault, address!("00000000000000000000000000000000E7A10003"));
+        assert_eq!(p.fee_vault, address!("1670010000000000000000000000000000010001"));
+        assert_eq!(
+            p.fee_vault,
+            alethia_reth_primitives::addresses::get_treasury_address(TAIKO_DEVNET_CHAIN_ID)
+        );
         assert_eq!(p.d_max, 12);
         assert_eq!(p.margin_v, 2);
         assert_eq!(p.vp_unit, U256::from(1_000_000_000u64));
@@ -342,7 +366,7 @@ mod tests {
     #[test]
     fn overrides_allow_explicit_builtin_consensus_parameters() {
         let document = r#"
-            fee_vault = "0x00000000000000000000000000000000E7A10003"
+            fee_vault = "0x1670010000000000000000000000000000010001"
             block_gas_limit = 45000000
             d_max = 12
             margin_v = 2
@@ -449,13 +473,18 @@ mod tests {
     }
 
     #[test]
-    fn validate_rejects_d_max_below_margin() {
-        let p = ChainParams { d_max: 1, margin_v: 2, ..devnet() };
-        assert!(matches!(
-            p.validate().unwrap_err(),
-            ConfigError::DMaxBelowMargin { d_max: 1, margin_v: 2 }
-        ));
-        ChainParams { d_max: 2, margin_v: 2, ..devnet() }.validate().unwrap();
+    fn validate_requires_d_max_above_margin() {
+        for (d_max, margin_v) in [(1, 2), (2, 2), (0, 0)] {
+            let err = ChainParams { d_max, margin_v, ..devnet() }.validate().unwrap_err();
+            let ConfigError::DMaxNotAboveMargin { d_max: d, margin_v: m } = err else {
+                panic!("{d_max}/{margin_v}: {err:?}");
+            };
+            assert_eq!((d, m), (d_max, margin_v));
+        }
+        // An unsettled cap of 1 lets block 1 pass back-pressure against checkpoint 0.
+        let p = ChainParams { d_max: 3, margin_v: 2, ..devnet() };
+        p.validate().unwrap();
+        assert_eq!(p.unsettled_cap(), 1);
     }
 
     #[test]
@@ -468,6 +497,29 @@ mod tests {
     fn validate_rejects_zero_n_max() {
         let p = ChainParams { n_max: 0, ..devnet() };
         assert!(matches!(p.validate().unwrap_err(), ConfigError::ZeroNMax));
+    }
+
+    #[test]
+    fn validate_bounds_n_max_by_registry_capacity() {
+        assert_eq!(MAX_N_MAX, 4096);
+        for n_max in [1, 301, 4096] {
+            ChainParams { n_max, ..devnet() }.validate().unwrap();
+        }
+        let p = ChainParams { n_max: 4097, ..devnet() };
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            ConfigError::NMaxTooLarge { n_max: 4097, max: 4096 }
+        ));
+    }
+
+    #[test]
+    fn committee_upper_bound_preserves_existing_error_priority() {
+        let bad = ChainParams { n_max: MAX_N_MAX + 1, vp_unit: U256::ZERO, ..devnet() };
+        assert!(matches!(bad.validate(), Err(ConfigError::ZeroVpUnit)));
+        let bad = ChainParams { n_max: 0, heartbeat_window: 0, ..devnet() };
+        assert!(matches!(bad.validate(), Err(ConfigError::ZeroNMax)));
+        let bad = ChainParams { n_max: MAX_N_MAX + 1, heartbeat_window: 0, ..devnet() };
+        assert!(matches!(bad.validate(), Err(ConfigError::NMaxTooLarge { .. })));
     }
 
     #[test]

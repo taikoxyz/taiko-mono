@@ -60,6 +60,7 @@ fn inputs<'a>(
         generation: GENERATION,
         params,
         min_base_fee: min_base_fee_for_chain(params.l2_chain_id),
+        reward_recipient: Address::repeat_byte(0x77),
     }
 }
 
@@ -129,20 +130,20 @@ fn block_timestamp_saturates_at_u64_max() {
 #[test]
 fn extra_data_encodes_the_13_byte_layout_and_round_trips() {
     let extra = encode_extra_data(2, 123_456).expect("fits uint48");
-    assert_eq!(extra.as_ref(), hex!("6400000000000200000001e240"));
+    assert_eq!(extra.as_ref(), hex!("0000000000000200000001e240"));
     assert_eq!(decode_extra_data(&extra), Ok((BASEFEE_SHARING_PCTG, 2, 123_456)));
 
     let max = encode_extra_data(UINT48_MAX, UINT48_MAX).expect("max uint48 fits");
-    assert_eq!(max.as_ref(), hex!("64ffffffffffffffffffffffff"));
-    assert_eq!(decode_extra_data(&max), Ok((100, UINT48_MAX, UINT48_MAX)));
+    assert_eq!(max.as_ref(), hex!("00ffffffffffffffffffffffff"));
+    assert_eq!(decode_extra_data(&max), Ok((0, UINT48_MAX, UINT48_MAX)));
 
     let zero = encode_extra_data(0, 0).expect("fits uint48");
-    assert_eq!(decode_extra_data(&zero), Ok((100, 0, 0)));
+    assert_eq!(decode_extra_data(&zero), Ok((0, 0, 0)));
 }
 
 #[test]
 fn decode_extra_data_returns_the_pctg_byte_verbatim() {
-    let mut raw = hex!("6400000000000200000001e240");
+    let mut raw = hex!("0000000000000200000001e240");
     raw[0] = 50;
     assert_eq!(decode_extra_data(&raw), Ok((50, 2, 123_456)));
 }
@@ -185,8 +186,8 @@ fn expected_header_for_a_genesis_parent() {
             number: 1,
             parent_hash: p.hash,
             timestamp: BFT_SECS,
-            beneficiary: params.fee_vault,
-            extra_data: Bytes::from(hex!("640000000000020000000001f4").to_vec()),
+            beneficiary: Address::repeat_byte(0x77),
+            extra_data: Bytes::from(hex!("000000000000020000000001f4").to_vec()),
             parent_beacon_block_root: a.state_root,
             gas_limit: 45_000_000,
             // SHASTA_INITIAL_BASE_FEE: a genesis parent has no EIP-4396 history.
@@ -205,8 +206,8 @@ fn expected_header_for_a_non_genesis_parent() {
     assert_eq!(e.number, 11);
     assert_eq!(e.parent_hash, p.hash);
     assert_eq!(e.timestamp, BFT_SECS);
-    assert_eq!(e.beneficiary, params.fee_vault);
-    assert_eq!(decode_extra_data(&e.extra_data), Ok((100, GENERATION, 500)));
+    assert_eq!(e.beneficiary, Address::repeat_byte(0x77));
+    assert_eq!(decode_extra_data(&e.extra_data), Ok((0, GENERATION, 500)));
     assert_eq!(e.parent_beacon_block_root, a.state_root);
     assert_eq!(e.gas_limit, params.block_gas_limit);
     // 30M used against a 22.5M target over a 2 s block: 10_000_000 + 10_000_000·7.5M/22.5M/8.
@@ -293,12 +294,17 @@ fn check_header_ignores_execution_results() {
 #[test]
 fn check_header_rejects_every_single_field_mutation() {
     type Mutation = fn(&mut Header);
-    let cases: [(&str, Mutation); 15] = [
+    let cases: [(&str, Mutation); 16] = [
         ("number", |h| h.number += 1),
         ("parent_hash", |h| h.parent_hash = B256::repeat_byte(0x99)),
         ("timestamp", |h| h.timestamp += 1),
         ("beneficiary", |h| h.beneficiary = Address::repeat_byte(0x99)),
         ("extra_data", |h| h.extra_data = encode_extra_data(GENERATION, 501).unwrap()),
+        ("extra_data", |h| {
+            let mut bytes = h.extra_data.to_vec();
+            bytes[0] = 50;
+            h.extra_data = bytes.into();
+        }),
         ("parent_beacon_block_root", |h| h.parent_beacon_block_root = None),
         ("gas_limit", |h| h.gas_limit -= 1),
         ("base_fee_per_gas", |h| h.base_fee_per_gas = h.base_fee_per_gas.map(|f| f + 1)),
@@ -398,7 +404,7 @@ fn payload_attributes_mirror_the_expected_header() {
     assert_eq!(eth.timestamp, e.timestamp);
     assert_eq!(eth.prev_randao, e.mix_hash);
     assert_eq!(eth.suggested_fee_recipient, e.beneficiary);
-    assert_eq!(eth.suggested_fee_recipient, devnet().fee_vault);
+    assert_eq!(eth.suggested_fee_recipient, Address::repeat_byte(0x77));
     assert_eq!(eth.withdrawals, Some(vec![]));
     assert_eq!(eth.parent_beacon_block_root, Some(e.parent_beacon_block_root));
 
@@ -498,6 +504,20 @@ fn anchor_progress_rejects_an_epoch_not_yet_open_on_l1() {
     );
     // The last height of epoch 1 only needs L1_first(1) = 54.
     check_anchor_progress(55, 57, &schedule(), 40).unwrap();
+}
+
+#[test]
+fn anchor_progress_rejects_an_epoch_whose_l1_first_overflows_without_panicking() {
+    // Unvalidated: L1_first(1) = 50 + u64::MAX overflows, so no anchor opens epoch 1.
+    let s = Schedule { epoch_len_l1: u64::MAX, ..schedule() };
+    check_anchor_progress(50, 50, &s, 20).unwrap();
+    for anchor in [50, u64::MAX] {
+        assert_eq!(
+            check_anchor_progress(50, anchor, &s, 21),
+            Err(RuleViolation::EpochNotOpenOnL1 { epoch: 1, l1_first: u64::MAX }),
+            "anchor {anchor}"
+        );
+    }
 }
 
 #[test]

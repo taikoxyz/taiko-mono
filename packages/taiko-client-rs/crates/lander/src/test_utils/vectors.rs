@@ -57,12 +57,16 @@ pub(crate) fn bytes_at(pointer: &str) -> Bytes {
     str_at(pointer).parse().unwrap_or_else(|e| panic!("Etna vector {pointer}: {e}"))
 }
 
-/// The 32-byte words of the array at `pointer`.
-pub(crate) fn b256s_at(pointer: &str) -> Vec<B256> {
-    let len = vectors()
+/// The length of the array at `pointer`.
+pub(crate) fn len_at(pointer: &str) -> usize {
+    vectors()
         .pointer(pointer)
         .and_then(Value::as_array)
         .unwrap_or_else(|| panic!("no Etna vector array at {pointer}"))
-        .len();
-    (0..len).map(|i| b256_at(&format!("{pointer}/{i}"))).collect()
+        .len()
+}
+
+/// The 32-byte words of the array at `pointer`.
+pub(crate) fn b256s_at(pointer: &str) -> Vec<B256> {
+    (0..len_at(pointer)).map(|i| b256_at(&format!("{pointer}/{i}"))).collect()
 }

@@ -20,6 +20,11 @@ pub struct ValidatorKey {
 }
 
 impl ValidatorKey {
+    /// A disposable validator from an explicitly supplied test seed.
+    pub fn from_seed(seed: [u8; 32]) -> Self {
+        Self { signing: SigningKey::from_bytes(&seed) }
+    }
+
     /// The key whose seed is `sha256(label ‖ be64(index))`.
     pub fn derive(label: &str, index: u64) -> Self {
         let mut hasher = Sha256::new();
@@ -31,6 +36,11 @@ impl ValidatorKey {
     /// The 32-byte public key.
     pub fn pubkey(&self) -> B256 {
         B256::from(self.signing.verifying_key().to_bytes())
+    }
+
+    /// The deterministic nonzero L2 payout address used by the test registry planter.
+    pub fn reward_recipient(&self) -> alloy_primitives::Address {
+        alloy_primitives::Address::from_slice(&self.pubkey().as_slice()[12..])
     }
 
     /// The CometBFT validator address: upper-case hex of `sha256(pubkey)[..20]`.

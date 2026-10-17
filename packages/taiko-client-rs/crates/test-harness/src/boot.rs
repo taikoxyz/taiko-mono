@@ -33,15 +33,15 @@ use crate::{
 
 /// Default anvil image (override with `ANVIL_IMAGE`), pinned like `tests/entrypoint.sh`'s.
 const ANVIL_IMAGE: &str = "ghcr.io/foundry-rs/foundry:v1.5.1";
-/// Default alethia-reth #248 image (override with `ALETHIA_RETH_IMAGE`).
-const RETH_IMAGE: &str = "us-docker.pkg.dev/evmchain/images/alethia-reth:sha-1e25b48";
+/// Default reviewed alethia-reth #251 image (override with `ALETHIA_RETH_IMAGE`).
+pub(crate) const RETH_IMAGE: &str = "us-docker.pkg.dev/evmchain/images/alethia-reth:sha-5d4d21a";
 /// Default CometBFT image (override with `COMETBFT_IMAGE`).
 const COMETBFT_IMAGE: &str = "cometbft/cometbft:v0.40.0";
 
 /// anvil's command line after the image: 1 s blocks, `finalized = latest − 2`.
 const ANVIL_CMD: &str = "--host 0.0.0.0 --block-time 1 --slots-in-an-epoch 1 --gas-limit 200000000";
 /// alethia-reth's command line after the image: devnet with Etna from genesis, no discovery.
-const RETH_CMD: &str = "./alethia-reth node --chain devnet --devnet-etna-timestamp 0 --http \
+pub(crate) const RETH_CMD: &str = "./alethia-reth node --chain /genesis.json --devnet-etna-timestamp 0 --http \
     --http.addr 0.0.0.0 --http.api eth,net,debug --authrpc.addr 0.0.0.0 \
     --authrpc.jwtsecret /jwt.hex --disable-discovery";
 
@@ -109,20 +109,33 @@ pub(crate) async fn boot(
     let mut args = vec!["-p", "127.0.0.1::8545", "--entrypoint", "anvil", &anvil_image];
     args.extend(ANVIL_CMD.split_whitespace());
     docker.run(&anvil, &args).await?;
-    let reth_image = image("ALETHIA_RETH_IMAGE", RETH_IMAGE);
-    let jwt_mount = format!("{}:/jwt.hex:ro", jwt.display());
-    let reth_names: Vec<String> = (0..n).map(|i| format!("abci-{id}-reth-{i}")).collect();
-    for name in &reth_names {
-        let mut args =
-            vec!["-p", "127.0.0.1::8545", "-p", "127.0.0.1::8551", "-v", &jwt_mount, &reth_image];
-        args.extend(RETH_CMD.split_whitespace());
-        docker.run(name, &args).await?;
-    }
-
     let l1_http = local_url(host_port(&anvil, 8545).await?)?;
     let l1 = connect_http_with_timeout(l1_http.clone(), DEFAULT_HTTP_TIMEOUT);
     wait_until("anvil RPC", RPC_TIMEOUT, POLL, || async { Ok(Some(l1.get_block_number().await?)) })
         .await?;
+    let expected = crate::EtnaGenesis::build(&l1, ChainParams::builtin(167001)?.inbox).await?;
+    let genesis_path = tmp.join("genesis.json");
+    fs::write(&genesis_path, &expected.json)?;
+    let genesis_mount = format!("{}:/genesis.json:ro", genesis_path.display());
+    let reth_image = image("ALETHIA_RETH_IMAGE", RETH_IMAGE);
+    let jwt_mount = format!("{}:/jwt.hex:ro", jwt.display());
+    let reth_names: Vec<String> = (0..n).map(|i| format!("abci-{id}-reth-{i}")).collect();
+    for name in &reth_names {
+        let mut args = vec![
+            "-p",
+            "127.0.0.1::8545",
+            "-p",
+            "127.0.0.1::8551",
+            "-v",
+            &jwt_mount,
+            "-v",
+            &genesis_mount,
+            &reth_image,
+        ];
+        args.extend(RETH_CMD.split_whitespace());
+        docker.run(name, &args).await?;
+    }
+
     let mut reth = Vec::with_capacity(n);
     for name in &reth_names {
         let node = RethNode {
@@ -134,6 +147,9 @@ pub(crate) async fn boot(
             Ok(Some(provider.get_chain_id().await?))
         })
         .await?;
+        expected
+            .verify(&provider, l1.get_chain_id().await?, ChainParams::builtin(167001)?.inbox)
+            .await?;
         reth.push(node);
     }
 
@@ -330,13 +346,13 @@ fn image(var: &str, default: &str) -> String {
 }
 
 /// The package's test JWT secret (`tests/docker/jwt.hex`).
-fn jwt_path() -> Result<PathBuf> {
+pub(crate) fn jwt_path() -> Result<PathBuf> {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/docker/jwt.hex");
     path.canonicalize().with_context(|| format!("JWT secret {}", path.display()))
 }
 
 /// `<uid>:<gid>` of this process, so CometBFT writes its home as the host user.
-async fn host_user() -> Result<String> {
+pub(crate) async fn host_user() -> Result<String> {
     let id = |flag: &'static str| async move {
         let out = tokio::process::Command::new("id").arg(flag).output().await?;
         ensure!(out.status.success(), "id {flag} failed");
@@ -346,7 +362,7 @@ async fn host_user() -> Result<String> {
 }
 
 /// Makes every directory under `dir` (included) mode 0777 and every file 0666.
-fn make_world_writable(dir: &Path) -> Result<()> {
+pub(crate) fn make_world_writable(dir: &Path) -> Result<()> {
     fs::set_permissions(dir, fs::Permissions::from_mode(0o777))?;
     for entry in fs::read_dir(dir)? {
         let path = entry?.path();

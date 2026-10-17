@@ -422,7 +422,7 @@ async fn check_tx_rejects_every_transaction() {
 #[test]
 fn saved_state_rejects_old_and_unknown_protocol_versions() {
     let fx = Fixture::genesis(1);
-    for version in [0, 1, crate::app::APP_VERSION + 1] {
+    for version in [0, 1, 2, crate::app::APP_VERSION + 1] {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::new(dir.path().into());
         let mut state = fx.expected_state();
@@ -433,5 +433,94 @@ fn saved_state_rejects_old_and_unknown_protocol_versions() {
         assert!(
             matches!(result,Err(AbciError::StoredState(ref msg)) if msg.contains("app version"))
         );
+    }
+}
+
+#[test]
+fn saved_state_rejects_payout_metadata_outside_its_set_commitment() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::new(dir.path().into());
+    let mut state = fx.expected_state();
+    state.committees.get_mut(&0).unwrap().members[0].reward_recipient =
+        alloy_primitives::Address::repeat_byte(0x88);
+    store.save(&state).unwrap();
+    let result = App::new(fx.l1(), fx.engine(), fx.params.clone(), store, AppOptions::default());
+    assert!(matches!(result, Err(AbciError::StoredState(ref msg)) if msg.contains("committee")));
+}
+
+#[test]
+fn saved_state_checks_every_committees_power_and_totals() {
+    use alloy_primitives::U256;
+    let fx = Fixture::genesis(2);
+    let mut original = fx.expected_state();
+    for epoch in [1, 2] {
+        let mut committee = original.committees[&0].clone();
+        committee.record.target_epoch = epoch;
+        committee.record.set_root =
+            crate::committee::set_root(fx.params.l2_chain_id, epoch + 1, &committee.members);
+        original.committees.insert(epoch, committee);
+    }
+    original.last_height = original.schedule().h_first(1);
+    original.parent.number = original.last_height;
+    for epoch in [0, 1, 2] {
+        for corruption in [
+            "roundtrip",
+            "member+1",
+            "zero",
+            "total-power",
+            "total-stake",
+            "ineligible",
+            "power-overflow",
+            "power-cap",
+            "stake-overflow",
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let store = Store::new(dir.path().into());
+            let mut state = original.clone();
+            let mut params = fx.params.clone();
+            let committee = state.committees.get_mut(&epoch).unwrap();
+            match corruption {
+                "roundtrip" => {}
+                "member+1" => committee.members[0].power += 1,
+                "zero" => committee.members[0].power = 0,
+                "total-power" => committee.record.total_power += 1,
+                "total-stake" => committee.record.total_stake += U256::from(1),
+                "ineligible" => committee.members[0].eff_stake = U256::ZERO,
+                "power-overflow" => committee.members[0].eff_stake = U256::MAX,
+                "power-cap" => {
+                    let power = crate::committee::MAX_TOTAL_POWER + 1;
+                    committee.members[0].eff_stake = U256::from(power) * params.vp_unit;
+                    committee.members[0].power = power;
+                }
+                "stake-overflow" => {
+                    params.vp_unit = U256::MAX / U256::from(2);
+                    params.s_min = params.vp_unit;
+                    for member in &mut committee.members {
+                        member.eff_stake = U256::MAX;
+                        member.power = 2;
+                    }
+                }
+                _ => unreachable!(),
+            }
+            // Keep the stake/recipient commitment coherent to isolate arithmetic checks.
+            committee.record.set_root =
+                crate::committee::set_root(params.l2_chain_id, epoch + 1, &committee.members);
+            state.genesis.committee_config_hash = crate::committee::committee_config_hash(&params);
+            if corruption == "stake-overflow" {
+                // Other epochs remain canonical under the changed parameter opening.
+                state.committees.retain(|key, _| *key == epoch);
+            }
+            store.save(&state).unwrap();
+            let result = App::new(fx.l1(), fx.engine(), params, store, AppOptions::default());
+            if corruption == "roundtrip" {
+                assert!(result.is_ok(), "epoch {epoch}: exact roundtrip");
+            } else {
+                assert!(
+                    matches!(result, Err(AbciError::StoredState(ref msg)) if msg.contains(&format!("epoch {epoch}"))),
+                    "epoch {epoch}: accepted {corruption}"
+                );
+            }
+        }
     }
 }

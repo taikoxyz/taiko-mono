@@ -11,7 +11,7 @@ use crate::{
     tx::{LandingReceipt, SignedTransaction, TransactionTransport},
     types::LandingSnapshot,
 };
-use alloy_primitives::B256;
+use alloy_primitives::{Address, B256};
 use std::{
     sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -23,9 +23,18 @@ use tokio::time::{Instant, timeout};
 /// the account nonce can advance moments before the receipt becomes queryable by hash.
 const UNINDEXED_RECEIPT_GRACE: Duration = Duration::from_secs(30);
 
+/// Consecutive canonical out-of-gas landings on one checkpoint that stop the runner. The first is
+/// rebuilt and re-estimated against the state that made it costlier; a second on the same
+/// checkpoint stops with [`LanderError::Reverted`] instead of spending another landing's fees.
+const MAX_CONSECUTIVE_OUT_OF_GAS: u32 = 2;
+
 /// Runtime deadlines and confirmation policy; transport reads also retain their HTTP deadlines.
 #[derive(Clone, Copy, Debug)]
 pub struct RunnerConfig {
+    /// Desired recipient for future unsigned batches; signed jobs retain their original intent.
+    pub l2_reward_recipient: Address,
+    /// Canonical nonpayable vault from the configured execution chain parameters.
+    pub fee_vault: Address,
     /// Minimum complete-prefix size or maximum first-backlog wait before preparing a batch.
     pub batch_policy: BatchPolicy,
     /// Normal polling interval, including idle and known-pending waits.
@@ -69,10 +78,49 @@ pub enum StepOutcome {
     Waiting,
     /// Proof, signature, pending phase, or confirmation context became durable.
     Progress,
-    /// Stale unbroadcast work was discarded after a competing checkpoint or reference change.
+    /// Stale unbroadcast work was discarded after a competing checkpoint or reference change, or a
+    /// canonical landing ran out of gas without checkpoint progress for the first time in a row on
+    /// its checkpoint; the next job is re-estimated.
     Rebuild,
     /// One canonical transaction settled and the next job can start from L1.
     Settled,
+}
+
+/// Claim identity for our successful canonical landing, before its journal is cleared.
+#[derive(Debug, PartialEq, Eq)]
+pub struct SuccessfulLanding {
+    /// Canonical reward batch identity, computed by the shared receipt helper.
+    pub batch_id: B256,
+    /// Our included L1 transaction; forwarded calls are identified by Inbox events.
+    pub transaction_hash: B256,
+    /// Exact immutable execution range, payout and amount from the prepared batch.
+    pub reward: crate::rewards::Receipt,
+}
+
+/// Expose claim information only for our successful landing, never a reverted competing job.
+pub fn successful_landing(
+    batch: &crate::types::PreparedBatch,
+    receipt: &LandingReceipt,
+) -> Option<SuccessfulLanding> {
+    receipt.success.then(|| {
+        let reward = crate::rewards::Receipt {
+            l1ChainId: batch.snapshot.l1_chain_id,
+            l2ChainId: batch.snapshot.l2_chain_id,
+            inbox: batch.snapshot.inbox,
+            generation: batch.snapshot.generation,
+            parentHeight: batch.snapshot.checkpoint_height,
+            parentHash: batch.snapshot.checkpoint_hash,
+            lastHeight: batch.input.lastHeight,
+            lastBlockHash: batch.input.lastBlockHash,
+            l2RewardRecipient: batch.input.l2RewardRecipient,
+            baseFeeAmount: batch.input.baseFeeAmount,
+        };
+        SuccessfulLanding {
+            batch_id: crate::rewards::batch_id(&reward),
+            transaction_hash: receipt.transaction_hash,
+            reward,
+        }
+    })
 }
 
 /// Durable backlog identity plus monotonic age, independent of arrivals and RPC retries.
@@ -99,6 +147,29 @@ impl BatchWaiting {
     }
 }
 
+/// Consecutive canonical out-of-gas landings on one checkpoint. Kept in memory only: a restart
+/// starts a new count, as do a settled landing and a checkpoint change.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct OutOfGasStreak {
+    /// Recovery generation of the checkpoint the landings built on.
+    generation: u64,
+    /// Height of that checkpoint.
+    checkpoint_height: u64,
+    /// Hash of that checkpoint.
+    checkpoint_hash: B256,
+    /// Out-of-gas landings on it in a row.
+    count: u32,
+}
+
+impl OutOfGasStreak {
+    /// Whether `snapshot` still has the checkpoint this streak counts landings on.
+    fn matches(&self, snapshot: &LandingSnapshot) -> bool {
+        self.generation == snapshot.generation &&
+            self.checkpoint_height == snapshot.checkpoint_height &&
+            self.checkpoint_hash == snapshot.checkpoint_hash
+    }
+}
+
 /// Independently runnable lander. Dropping `run` leaves the durable phase resumable.
 pub struct Runner {
     /// I/O-free validation plus bounded collectors, behind an injectable builder interface.
@@ -117,6 +188,8 @@ pub struct Runner {
     waiting: Option<BatchWaiting>,
     /// Outstanding transaction whose nonce was first seen consumed without a receipt, and when.
     unindexed_receipt: Option<(B256, Instant)>,
+    /// Out-of-gas landings in a row on the current checkpoint; in memory only.
+    out_of_gas: Option<OutOfGasStreak>,
     /// Time and confirmation bounds.
     config: RunnerConfig,
 }
@@ -153,6 +226,15 @@ impl Runner {
         } else {
             None
         };
+        if let JournalState::Signed { job, .. } |
+        JournalState::Pending { job, .. } |
+        JournalState::Confirming { job, .. } = &state &&
+            job.request.batch.input.l2RewardRecipient != config.l2_reward_recipient
+        {
+            tracing::warn!(retained_l2_reward_recipient=%job.request.batch.input.l2RewardRecipient,
+                    configured_l2_reward_recipient=%config.l2_reward_recipient,
+                    "lander resumed signed intent retains its original recipient; configured recipient applies to future batches");
+        }
         observe_state(&state);
         Ok(Self {
             batches,
@@ -163,6 +245,7 @@ impl Runner {
             state,
             waiting,
             unindexed_receipt: None,
+            out_of_gas: None,
             config,
         })
     }
@@ -210,6 +293,9 @@ impl Runner {
         let snapshot = self.l1.snapshot().await?;
         self.validate_identity(&snapshot)?;
         self.reconcile_wait_checkpoint(&snapshot)?;
+        if self.out_of_gas.is_some_and(|streak| !streak.matches(&snapshot)) {
+            self.out_of_gas = None;
+        }
         self.batches.validate_checkpoint(&snapshot).await?;
         tracing::debug!(
             landed_height = snapshot.checkpoint_height,
@@ -285,6 +371,13 @@ impl Runner {
                 Ok(StepOutcome::Progress)
             }
             JournalState::Prepared { job } => {
+                let recipient = job.request.batch.input.l2RewardRecipient;
+                crate::config::validate_batch_recipient(recipient, self.config.fee_vault)?;
+                if recipient != self.config.l2_reward_recipient {
+                    return Err(LanderError::Configuration(
+                        "unsigned Prepared batch recipient differs from configured L2 recipient; restore the original configuration or archive only this unbroadcast unsigned job and rebuild in a fresh lander directory".into(),
+                    ));
+                }
                 if !self.unbroadcast_current(&snapshot, &job).await? {
                     return self.rebuild();
                 }
@@ -636,17 +729,49 @@ impl Runner {
             }
         } else if same_parent(&snapshot, &job.request.batch.snapshot) {
             // The revert is canonical at the confirmation depth, so its nonce is spent and
-            // nothing of this job can land any more. Persist Idle before stopping: a restart
-            // then rebuilds from the current checkpoint (a deterministic revert stops again at
-            // gas estimation, before signing) instead of re-reading this receipt forever.
+            // nothing of this job can land any more.
+            if ran_out_of_gas(receipt.gas_used, transaction.gas_limit()?) {
+                // Rebuild and re-estimate an out-of-gas landing against current state once in a
+                // row per checkpoint: a landing that keeps running out of gas stops below.
+                let count = match self.out_of_gas {
+                    Some(streak) if streak.matches(&snapshot) => streak.count + 1,
+                    _ => 1,
+                };
+                self.out_of_gas = Some(OutOfGasStreak {
+                    generation: snapshot.generation,
+                    checkpoint_height: snapshot.checkpoint_height,
+                    checkpoint_hash: snapshot.checkpoint_hash,
+                    count,
+                });
+                self.transition(JournalState::Idle)?;
+                if count < MAX_CONSECUTIVE_OUT_OF_GAS {
+                    tracing::warn!(transaction_hash=%transaction.hash,pending_nonce=transaction.nonce,gas_used=receipt.gas_used,landed_height=snapshot.checkpoint_height,"lander canonical landing ran out of gas; rebuilding");
+                    return Ok(StepOutcome::Rebuild);
+                }
+                return Err(LanderError::Reverted(format!(
+                    "{} at nonce {} ran out of gas, {count} landings in a row with unchanged checkpoint {}",
+                    transaction.hash, transaction.nonce, snapshot.checkpoint_height
+                )));
+            }
+            // Persist Idle before stopping: a restart then rebuilds from the current checkpoint
+            // (a deterministic revert stops again at gas estimation, before signing) instead of
+            // re-reading this receipt forever.
             self.transition(JournalState::Idle)?;
             return Err(LanderError::Reverted(format!(
                 "{} at nonce {} with unchanged checkpoint {}",
                 transaction.hash, transaction.nonce, snapshot.checkpoint_height
             )));
         }
+        if let Some(summary) = successful_landing(&job.request.batch, &receipt) {
+            tracing::info!(batch_id=%summary.batch_id, landing_tx=%summary.transaction_hash,
+                parent_height=summary.reward.parentHeight, last_height=summary.reward.lastHeight,
+                l2_reward_recipient=%summary.reward.l2RewardRecipient,
+                base_fee_amount=%summary.reward.baseFeeAmount,
+                "lander successful landing reward recorded");
+        }
         tracing::info!(transaction_hash=%transaction.hash,landed_height=snapshot.checkpoint_height,success=receipt.success,"lander canonical transaction settled");
         self.transition(JournalState::Idle)?;
+        self.out_of_gas = None;
         Ok(StepOutcome::Settled)
     }
 }
@@ -679,6 +804,21 @@ fn observe_state(state: &JournalState) {
     if phase == TransactionPhase::Idle {
         LanderMetrics::confirmations(0);
     }
+}
+
+/// Whether a canonical failed landing that used `gas_used` of its `gas_limit` ran out of gas.
+///
+/// An out-of-gas below the top frame does not use the whole limit. The landing calls the Inbox
+/// proxy, which delegates to its implementation and may make further external calls.
+/// EIP-150 keeps 1/64 of the remaining gas in each calling frame, and the top-level revert
+/// that the inner out-of-gas becomes refunds what the outer frames kept (measured on anvil: a
+/// direct out-of-gas uses 1,000,000 of 1,000,000, one behind a reverting delegatecall proxy
+/// 984,753 of 1,000,000 and 16,515,450 of 16,777,216). Any use of at least 15/16 of the limit
+/// therefore counts, which covers about four nested retentions. A deterministic revert this close
+/// to the limit is rebuilt once and then stops at gas estimation before any signature, or at its
+/// second consecutive out-of-gas on the same checkpoint.
+pub fn ran_out_of_gas(gas_used: u64, gas_limit: u64) -> bool {
+    gas_used >= gas_limit - gas_limit / 16
 }
 
 /// A changed generation, partial checkpoint advance, full advance, or rollback invalidates a job.

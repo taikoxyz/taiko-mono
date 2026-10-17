@@ -9,6 +9,13 @@ fn lander_artifacts_match_pinned_compiler_and_recorded_hashes() -> Result<()> {
     let manifest: serde_json::Value =
         serde_json::from_slice(&std::fs::read(root.join("manifest.json"))?)?;
     assert_eq!(manifest["protocolRevision"], crate::contracts::PROTOCOL_REVISION);
+    assert!(manifest["artifacts"]["L2FeeVault"].is_object());
+    assert!(manifest["artifacts"].get("EtnaRewardPool").is_none());
+    assert!(!root.join("EtnaRewardPool.json").exists());
+    assert_eq!(
+        manifest["artifacts"]["L2FeeVault"]["sourceArtifact"],
+        "packages/protocol/out/layer2/L2FeeVault.sol/L2FeeVault.json"
+    );
     for (name, entry) in manifest["artifacts"].as_object().context("artifact entries")? {
         assert_eq!(entry["compiler"]["version"], "0.8.30+commit.73712a01");
         assert_eq!(entry["settings"]["evmVersion"], "osaka");
@@ -77,5 +84,71 @@ fn pinned_inbox_declares_the_zero_fee_recipient_error() -> Result<()> {
         crate::contracts::ZeroFeeRecipient::SELECTOR,
         alloy_primitives::keccak256("ZeroFeeRecipient()")[..4]
     );
+    Ok(())
+}
+
+/// Only the oversized event is relocated; complete bytecode and ABI remain the source of truth.
+#[test]
+fn generated_bindings_relocate_only_the_typed_reward_event() -> Result<()> {
+    use crate::contracts::BatchRewardRecorded;
+    use alloy::sol_types::SolEvent;
+    use alloy_primitives::{Address, B256, U256, keccak256};
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let original: serde_json::Value = serde_json::from_slice(&std::fs::read(
+        root.join("tests/fixtures/contracts/EtnaInbox.json"),
+    )?)?;
+    let projection: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.join("contracts/EtnaInbox.json"))?)?;
+    let abi = original["abi"].as_array().context("real Inbox ABI")?;
+    let event = abi
+        .iter()
+        .find(|item| item["type"] == "event" && item["name"] == "BatchRewardRecorded")
+        .context("reward event")?;
+    let expected = abi.iter().filter(|item| *item != event).cloned().collect::<Vec<_>>();
+    assert_eq!(projection["abi"], serde_json::json!(expected));
+    assert!(projection.get("bytecode").is_none());
+    let inputs = event["inputs"].as_array().context("event fields")?;
+    let types = inputs
+        .iter()
+        .map(|field| field["type"].as_str().context("event type"))
+        .collect::<Result<Vec<_>>>()?;
+    assert_eq!(BatchRewardRecorded::SIGNATURE, format!("BatchRewardRecorded({})", types.join(",")));
+    assert_eq!(
+        inputs
+            .iter()
+            .filter(|field| field["indexed"] == true)
+            .map(|field| field["name"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        ["batchId", "l2RewardRecipient"]
+    );
+    let event = BatchRewardRecorded {
+        batchId: B256::repeat_byte(1),
+        l2RewardRecipient: Address::repeat_byte(2),
+        baseFeeAmount: U256::from(3),
+        generation: 4,
+        parentHeight: 5,
+        parentHash: B256::repeat_byte(6),
+        lastHeight: 7,
+        lastBlockHash: B256::repeat_byte(8),
+    };
+    let log = event.encode_log_data();
+    assert_eq!(log.topics().len(), 3);
+    assert_eq!(log.topics()[0], keccak256(BatchRewardRecorded::SIGNATURE));
+    assert_eq!(log.topics()[1], event.batchId);
+    assert_eq!(log.topics()[2], B256::from(event.l2RewardRecipient.into_word()));
+    assert_eq!(log.data.len(), 6 * 32);
+    assert_eq!(&log.data[..32], event.baseFeeAmount.to_be_bytes::<32>().as_slice());
+    let restored = BatchRewardRecorded::decode_log_data(&log)?;
+    assert_eq!(restored, event);
+    let manifest: serde_json::Value = serde_json::from_slice(&std::fs::read(
+        root.join("tests/fixtures/contracts/manifest.json"),
+    )?)?;
+    assert_eq!(manifest["bindings"]["sourceArtifact"], "EtnaInbox.json");
+    assert_eq!(manifest["bindings"]["omittedEvents"], serde_json::json!(["BatchRewardRecorded"]));
+    for name in ["projection", "standaloneEvent"] {
+        let record = &manifest["bindings"][name];
+        let bytes = std::fs::read(root.join(record["path"].as_str().context("binding path")?))?;
+        assert_eq!(alloy_primitives::hex::encode(Sha256::digest(bytes)), record["sha256"]);
+    }
     Ok(())
 }

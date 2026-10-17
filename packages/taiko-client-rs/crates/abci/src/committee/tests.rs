@@ -40,27 +40,30 @@ fn vector_entry(i: u8) -> RegistryEntry {
     vectors::registry_entry(usize::from(i))
 }
 
-/// The three MEM-08 vector members, sorted by MEM-08 key under [`CHAIN`]: that order is
+/// The three set-root vector members, sorted by set key under [`CHAIN`]: that order is
 /// `0x22.., 0x33.., 0x11..`.
 fn vector_members() -> Vec<Member> {
     let mut members = vec![
         Member {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
             pubkey: B256::repeat_byte(0x11),
             eff_stake: U256::from(3_000_000_000_000_000_000u64),
             power: 3_000_000_000,
         },
         Member {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
             pubkey: B256::repeat_byte(0x22),
             eff_stake: U256::from(1_000_000_000_000_000_007u64),
             power: 1_000_000_000,
         },
         Member {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
             pubkey: B256::repeat_byte(0x33),
             eff_stake: U256::from(2_000_000_000_000_000_000u64),
             power: 2_000_000_000,
         },
     ];
-    members.sort_by_key(|m| mem08_key(CHAIN, m.pubkey));
+    members.sort_by_key(|m| set_key(CHAIN, m.pubkey));
     members
 }
 
@@ -78,26 +81,11 @@ fn vector_record() -> CommitteeRecord {
 
 #[test]
 fn domain_tags_are_right_padded_ascii() {
-    assert_eq!(
-        REG_ENTRY_TAG,
-        b256!("45544e415f5245475f454e545259000000000000000000000000000000000000")
-    );
-    assert_eq!(
-        SET_KEY_TAG,
-        b256!("45544e415f5345545f4b45590000000000000000000000000000000000000000")
-    );
-    assert_eq!(
-        SET_LEAF_TAG,
-        b256!("45544e415f5345545f4c45414600000000000000000000000000000000000000")
-    );
-    assert_eq!(
-        SET_NODE_TAG,
-        b256!("45544e415f5345545f4e4f444500000000000000000000000000000000000000")
-    );
-    assert_eq!(
-        RECORD_TAG,
-        b256!("45544e415f434f4d4d49545445455f5631000000000000000000000000000000")
-    );
+    assert_eq!(REG_ENTRY_TAG, tag(b"ETNA_REG_ENTRY_V2"));
+    assert_eq!(SET_KEY_TAG, tag(b"ETNA_SET_KEY"));
+    assert_eq!(SET_LEAF_TAG, tag(b"ETNA_SET_LEAF_V2"));
+    assert_eq!(SET_NODE_TAG, tag(b"ETNA_SET_NODE"));
+    assert_eq!(RECORD_TAG, tag(b"ETNA_COMMITTEE_V2"));
 }
 
 /// The shared `registry_entries` vectors (`testdata/etna_vectors`, computed with `cast`; the
@@ -193,75 +181,150 @@ fn entries_root_binds_the_index_order() {
 }
 
 #[test]
-fn mem08_key_vectors() {
+fn set_key_vectors() {
     assert_eq!(
-        mem08_key(CHAIN, B256::repeat_byte(0x11)),
+        set_key(CHAIN, B256::repeat_byte(0x11)),
         b256!("a5581acd643cd20c6fd564555da0c88b0560cec720cd6973d7725141e74a114a")
     );
     assert_eq!(
-        mem08_key(CHAIN, B256::repeat_byte(0x22)),
+        set_key(CHAIN, B256::repeat_byte(0x22)),
         b256!("24206024eca4cb4247e197880a8a860b75453483aa18fe64cba043acc30b6d15")
     );
     assert_eq!(
-        mem08_key(CHAIN, B256::repeat_byte(0x33)),
+        set_key(CHAIN, B256::repeat_byte(0x33)),
         b256!("301cead8dc3a4959efdd33e3a74dc8f65abc753257831a43ea5e3ca110d47254")
     );
 }
 
 #[test]
-fn mem08_root_vectors() {
-    let members = vector_members();
-    let order: Vec<B256> = members.iter().map(|m| m.pubkey).collect();
-    assert_eq!(order, [0x22, 0x33, 0x11].map(B256::repeat_byte));
-    let cases = [
-        (1, b256!("06745b6ce2a128a529dc81bbd7ae7e2ae78ed821e0a47b20fdb7dd1d114012e9")),
-        (2, b256!("130657073f364f5178a54156feeee2e70af266897c9e356e141bd15dfd0179f1")),
-        (3, b256!("4de8033b66bb70d6cfe7d01b17e3f374d9ebdebb4b12f4af66f620b4e5293a2f")),
-    ];
-    for (n, expected) in cases {
-        assert_eq!(mem08_root(CHAIN, 1, &members[..n]), expected, "n = {n}");
+fn set_root_vectors() {
+    for i in 0..vectors::len_at("/committee_sets") {
+        let p = format!("/committee_sets/{i}");
+        let members = (0..vectors::len_at(&format!("{p}/members")))
+            .map(|j| {
+                let f = |name: &str| format!("{p}/members/{j}/{name}");
+                Member {
+                    pubkey: vectors::b256_at(&f("pubkey")),
+                    eff_stake: vectors::u256_at(&f("eff_stake")),
+                    power: vectors::u64_at(&f("power")),
+                    reward_recipient: vectors::address_at(&f("reward_recipient")),
+                }
+            })
+            .collect::<Vec<_>>();
+        let epoch = vectors::u64_at(&format!("{p}/target_epoch"));
+        let set_version = vectors::u64_at(&format!("{p}/set_version"));
+        assert_eq!(set_version, epoch - Schedule::E0 + 1);
+        assert_eq!(
+            set_root(CHAIN, set_version, &members),
+            vectors::b256_at(&format!("{p}/set_root"))
+        );
+        for (j, m) in members.iter().enumerate() {
+            assert_eq!(
+                set_leaf(CHAIN, set_version, j, m),
+                vectors::b256_at(&format!("{p}/set_leaves/{j}"))
+            );
+        }
     }
 }
 
 #[test]
-fn mem08_root_promotes_an_odd_last_node() {
+fn derive_matches_shared_committee_vectors() {
+    let params = ChainParams {
+        heartbeat_window: vectors::u64_at("/committee_config/inputs/heartbeat_window"),
+        ..devnet()
+    };
+    // At epoch 7, this schedule's L1_first(5) is 50; heartbeat window 32 yields floor 0.
+    // Prefix entries are active by cutoff 100, unexited, and carry qualifying heartbeats/stake.
+    for i in 0..vectors::len_at("/committee_sets") {
+        let p = format!("/committee_sets/{i}");
+        let f = |name: &str| format!("{p}/{name}");
+        let count = vectors::len_at(&f("members"));
+        let target_epoch = vectors::u64_at(&f("target_epoch"));
+        let cutoff = vectors::u64_at(&f("cutoff_l1_block"));
+        assert_eq!(
+            heartbeat_floor(&SCHEDULE, params.heartbeat_window, target_epoch, cutoff),
+            Ok(Some(0))
+        );
+        let snapshot = Snapshot {
+            checkpoint_index: vectors::u64_at(&f("checkpoint_index")),
+            l1_block: 90,
+            entries: vectors::registry_entries().into_iter().take(count).collect(),
+        };
+        let derived = derive(&snapshot, cutoff, target_epoch, &SCHEDULE, &params);
+        if count == 0 {
+            assert_eq!(derived, Err(CommitteeError::Empty));
+            continue;
+        }
+        let (record, members) = derived.expect("all prefix entries are eligible");
+        assert_eq!(members.len(), count);
+        assert_eq!(record.set_root, vectors::b256_at(&f("set_root")), "case {i}");
+        assert_eq!(record.total_stake, vectors::u256_at(&f("total_stake")));
+        assert_eq!(record.total_power, vectors::u64_at(&f("total_power")));
+        assert_eq!(record_hash(CHAIN, &record), vectors::b256_at(&f("record_hash")));
+        for (j, member) in members.iter().enumerate() {
+            let m = |name: &str| format!("{p}/members/{j}/{name}");
+            assert_eq!(member.pubkey, vectors::b256_at(&m("pubkey")));
+            assert_eq!(member.eff_stake, vectors::u256_at(&m("eff_stake")));
+            assert_eq!(member.power, vectors::u64_at(&m("power")));
+            assert_eq!(member.reward_recipient, vectors::address_at(&m("reward_recipient")));
+        }
+    }
+}
+
+#[test]
+fn set_root_promotes_an_odd_last_node() {
     let mut members: Vec<Member> = sample_entries(5)
         .into_iter()
-        .map(|e| Member { pubkey: e.pubkey, eff_stake: e.eff_stake, power: 1 })
+        .map(|e| Member {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
+            pubkey: e.pubkey,
+            eff_stake: e.eff_stake,
+            power: 1,
+        })
         .collect();
-    members.sort_by_key(|m| mem08_key(CHAIN, m.pubkey));
+    members.sort_by_key(|m| set_key(CHAIN, m.pubkey));
     let leaf = |i: usize| set_leaf(CHAIN, 2, i, &members[i]);
     let node = |l: B256, r: B256| set_node(CHAIN, 2, l, r);
 
-    assert_eq!(mem08_root(CHAIN, 2, &members[..1]), leaf(0));
-    assert_eq!(mem08_root(CHAIN, 2, &members[..3]), node(node(leaf(0), leaf(1)), leaf(2)));
+    assert_eq!(set_root(CHAIN, 2, &members[..1]), leaf(0));
+    assert_eq!(set_root(CHAIN, 2, &members[..3]), node(node(leaf(0), leaf(1)), leaf(2)));
     assert_eq!(
-        mem08_root(CHAIN, 2, &members),
+        set_root(CHAIN, 2, &members),
         node(node(node(leaf(0), leaf(1)), node(leaf(2), leaf(3))), leaf(4))
     );
 }
 
 #[test]
-fn mem08_root_binds_chain_id_and_k() {
+fn set_root_binds_chain_id_and_k() {
     let members = vector_members();
-    let root = mem08_root(CHAIN, 1, &members);
-    assert_ne!(mem08_root(CHAIN, 2, &members), root);
+    let root = set_root(CHAIN, 1, &members);
+    assert_ne!(set_root(CHAIN, 2, &members), root);
     let mut other_chain = members.clone();
-    other_chain.sort_by_key(|m| mem08_key(CHAIN + 1, m.pubkey));
-    assert_ne!(mem08_root(CHAIN + 1, 1, &other_chain), root);
+    other_chain.sort_by_key(|m| set_key(CHAIN + 1, m.pubkey));
+    assert_ne!(set_root(CHAIN + 1, 1, &other_chain), root);
 }
 
 #[test]
-fn mem08_root_of_no_members_is_zero() {
-    assert_eq!(mem08_root(CHAIN, 1, &[]), B256::ZERO);
+fn set_root_of_no_members_is_zero() {
+    assert_eq!(set_root(CHAIN, 1, &[]), B256::ZERO);
 }
 
 #[test]
 fn record_hash_vector() {
-    assert_eq!(
-        record_hash(CHAIN, &vector_record()),
-        b256!("07a050ff05bcfa6e1ce71cd6b9536bd68f38c23328ab34a8774fa50155ae484a")
-    );
+    for i in 0..vectors::len_at("/committee_sets") {
+        let p = format!("/committee_sets/{i}");
+        let f = |name: &str| format!("{p}/{name}");
+        let record = CommitteeRecord {
+            target_epoch: vectors::u64_at(&f("target_epoch")),
+            cutoff_l1_block: vectors::u64_at(&f("cutoff_l1_block")),
+            checkpoint_index: vectors::u64_at(&f("checkpoint_index")),
+            set_root: vectors::b256_at(&f("set_root")),
+            total_stake: vectors::u256_at(&f("total_stake")),
+            total_power: vectors::u64_at(&f("total_power")),
+            encoding_version: 2,
+        };
+        assert_eq!(record_hash(CHAIN, &record), vectors::b256_at(&f("record_hash")));
+    }
 }
 
 #[test]
@@ -515,6 +578,7 @@ fn verify_snapshot_rejects_a_bad_proof() {
 /// (sequence 1).
 fn entry(seed: u8, eff_stake: U256) -> RegistryEntry {
     RegistryEntry {
+        reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
         pubkey: B256::repeat_byte(seed),
         eff_stake,
         active_from_l1: 0,
@@ -537,9 +601,9 @@ fn derived_pubkeys(
         .map(|(_, members)| members.iter().map(|m| m.pubkey).collect())
 }
 
-/// `pubkeys` sorted by MEM-08 key under `params`' chain id.
+/// `pubkeys` sorted by set key under `params`' chain id.
 fn key_sorted(params: &ChainParams, mut pubkeys: Vec<B256>) -> Vec<B256> {
-    pubkeys.sort_by_key(|p| mem08_key(params.l2_chain_id, *p));
+    pubkeys.sort_by_key(|p| set_key(params.l2_chain_id, *p));
     pubkeys
 }
 
@@ -554,12 +618,13 @@ fn derive_builds_key_sorted_members_and_the_record() {
             .into_iter()
             .zip(&entries)
             .map(|((seed, power), e)| Member {
+                reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
                 pubkey: B256::repeat_byte(seed),
                 eff_stake: e.eff_stake,
                 power,
             })
             .collect();
-    expected.sort_by_key(|m| mem08_key(params.l2_chain_id, m.pubkey));
+    expected.sort_by_key(|m| set_key(params.l2_chain_id, m.pubkey));
     assert_eq!(members, expected);
     assert_eq!(
         record,
@@ -567,7 +632,7 @@ fn derive_builds_key_sorted_members_and_the_record() {
             target_epoch: 5,
             cutoff_l1_block: C,
             checkpoint_index: 4,
-            set_root: mem08_root(params.l2_chain_id, 6, &expected),
+            set_root: set_root(params.l2_chain_id, 6, &expected),
             total_stake: ether(6) + U256::from(7),
             total_power: 6_000_000_000,
             encoding_version: ENCODING_VERSION,
@@ -580,7 +645,7 @@ fn derive_uses_k_one_for_the_first_epoch() {
     let params = devnet();
     let (record, members) =
         derive(&snapshot(vec![entry(1, ether(1))]), C, 0, &SCHEDULE, &params).unwrap();
-    assert_eq!(record.set_root, mem08_root(params.l2_chain_id, 1, &members));
+    assert_eq!(record.set_root, set_root(params.l2_chain_id, 1, &members));
 }
 
 #[test]
@@ -605,9 +670,9 @@ fn exit_at_the_cutoff_is_ineligible() {
     assert_eq!(derived_pubkeys(vec![at, after.clone()], &devnet()), Ok(vec![after.pubkey]));
 }
 
-/// Heartbeat window of the MEM-13 tests, in L1 blocks.
+/// Heartbeat window of the heartbeat eligibility tests, in L1 blocks.
 const W: u64 = 100;
-/// Schedule of the MEM-13 tests: `L1_0 = 200` and 30 L1 blocks per epoch, so
+/// Schedule of the heartbeat eligibility tests: `L1_0 = 200` and 30 L1 blocks per epoch, so
 /// `L1_first(e) = 200 + 30·e` and the first filtered epoch 3 evaluates at
 /// `I*(3) = floor(L1_first(1) / W) · W = floor(230 / 100) · 100 = 200`.
 const HB_SCHEDULE: Schedule =
@@ -662,7 +727,7 @@ fn heartbeat_floor_is_capped_at_the_cutoff_window() {
     assert_eq!(heartbeat_eligible(vec![attested], 300, 6), Err(CommitteeError::Empty));
 }
 
-/// Epoch `e_0` (CONS-14) and the launch epochs `e_0 + 1`, `e_0 + 2` are not filtered: an entry
+/// Epoch `e_0` and the launch epochs `e_0 + 1`, `e_0 + 2` are not filtered: an entry
 /// that never sent a heartbeat is a member, so a genesis of such entries derives.
 #[test]
 fn genesis_and_launch_epochs_are_not_heartbeat_filtered() {
@@ -723,7 +788,15 @@ fn stake_below_vp_unit_is_ineligible_when_vp_unit_dominates() {
     let at = entry(2, params.vp_unit);
     let (_, members) =
         derive(&snapshot(vec![below, at.clone()]), C, 1, &SCHEDULE, &params).unwrap();
-    assert_eq!(members, vec![Member { pubkey: at.pubkey, eff_stake: at.eff_stake, power: 1 }]);
+    assert_eq!(
+        members,
+        vec![Member {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
+            pubkey: at.pubkey,
+            eff_stake: at.eff_stake,
+            power: 1
+        }]
+    );
 }
 
 /// Among eligible entries sharing a pubkey, the one with the lowest `bondId` (index) is the
@@ -783,7 +856,12 @@ fn a_duplicate_of_an_ineligible_entry_is_ignored() {
         derive(&snapshot(vec![exited, rejoined]), C, 1, &SCHEDULE, &devnet()).unwrap();
     assert_eq!(
         members,
-        vec![Member { pubkey: B256::repeat_byte(1), eff_stake: ether(2), power: 2_000_000_000 }]
+        vec![Member {
+            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
+            pubkey: B256::repeat_byte(1),
+            eff_stake: ether(2),
+            power: 2_000_000_000
+        }]
     );
 }
 
@@ -793,7 +871,7 @@ fn n_max_keeps_the_largest_stakes_breaking_ties_by_key() {
     let top = entry(1, ether(9));
     let (b, c) = (entry(2, ether(7)), entry(3, ether(7)));
     let low = entry(4, ether(3));
-    let key = |e: &RegistryEntry| mem08_key(params.l2_chain_id, e.pubkey);
+    let key = |e: &RegistryEntry| set_key(params.l2_chain_id, e.pubkey);
     let tie_winner = if key(&b) < key(&c) { b.pubkey } else { c.pubkey };
     let expected = key_sorted(&params, vec![top.pubkey, tie_winner]);
 
@@ -925,7 +1003,7 @@ fn verify_committee_witness_rejects_a_record_mismatch() {
         CommitteeRecord { total_stake: derived.total_stake + U256::from(1), ..derived.clone() },
         CommitteeRecord { target_epoch: 4, ..derived.clone() },
         CommitteeRecord { cutoff_l1_block: 23, ..derived.clone() },
-        CommitteeRecord { encoding_version: 2, ..derived.clone() },
+        CommitteeRecord { encoding_version: 1, ..derived.clone() },
     ];
     for claimed in claims {
         let w = committee_witness(&state, REGISTRY, &storage, 1, claimed.clone());
@@ -1061,7 +1139,12 @@ fn verify_committee_witness_at_cutoff_requires_the_cutoff_snapshot() {
 // ---------------------------------------------------------------------------------------------
 
 fn member(seed: u8, power: u64) -> Member {
-    Member { pubkey: B256::repeat_byte(seed), eff_stake: U256::from(power), power }
+    Member {
+        reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
+        pubkey: B256::repeat_byte(seed),
+        eff_stake: U256::from(power),
+        power,
+    }
 }
 
 #[test]
@@ -1094,18 +1177,18 @@ fn validator_updates_from_or_to_an_empty_set() {
 }
 
 #[test]
-fn validator_updates_restate_unchanged_members() {
+fn validator_updates_omit_unchanged_native_members() {
     let set = vec![member(1, 1)];
-    assert_eq!(validator_updates(&set, &set), vec![(B256::repeat_byte(1), 1)]);
+    assert!(validator_updates(&set, &set).is_empty());
 }
 
 /// The shared `committee_config` vector (`testdata/etna_vectors`, computed with `cast`; the
-/// contracts' `EtnaInboxLand` test reads it too): the eleven `ETNA_PARENT_ANCHOR_V2` inputs hash
+/// contracts' `EtnaInboxLand` test reads it too): the eleven `ETNA_PARENT_ANCHOR_V3` inputs hash
 /// to the vector's configuration hash.
 #[test]
 fn committee_config_hash_matches_the_shared_vector() {
     let input = |name: &str| format!("/committee_config/inputs/{name}");
-    assert_eq!(vectors::str_at(&input("tag")), "ETNA_PARENT_ANCHOR_V2");
+    assert_eq!(vectors::str_at(&input("tag")), "ETNA_PARENT_ANCHOR_V3");
     assert_eq!(vectors::u64_at(&input("lookahead_epochs")), LOOKAHEAD_EPOCHS);
     assert_eq!(vectors::u64_at(&input("encoding_version")), u64::from(ENCODING_VERSION));
     let params = ChainParams {
@@ -1185,4 +1268,73 @@ fn committed_parent_snapshot_changes_active_and_exit_eligibility() {
     assert!(!selected[1].contains(&sample_entries(3)[0].pubkey));
     assert!(!selected[0].contains(&sample_entries(3)[1].pubkey));
     assert!(selected[1].contains(&sample_entries(3)[1].pubkey));
+}
+
+#[test]
+fn committee_format_and_capacity_support_payout_addresses() {
+    assert_eq!(ENCODING_VERSION, 2);
+    let params = ChainParams { n_max: 301, ..devnet() };
+    params.validate().unwrap();
+    let snapshot = Snapshot { checkpoint_index: 0, l1_block: C, entries: sample_entries(301) };
+    let (_, members) = derive(&snapshot, C, 0, &SCHEDULE, &params).unwrap();
+    assert_eq!(members.len(), 301);
+}
+
+#[test]
+fn snapshot_authentication_binds_the_reward_recipient() {
+    let storage = registry_storage();
+    let state = registry_state(&storage);
+    let mut witness = witness_at(&state, &storage, 1);
+    witness.entries[0].reward_recipient = Address::repeat_byte(0x88);
+    assert!(matches!(
+        verify_snapshot(state.state_root(), REGISTRY, &witness, 25),
+        Err(CommitteeError::EntriesRootMismatch { .. })
+    ));
+}
+
+#[test]
+fn snapshot_and_derivation_reject_zero_recipients() {
+    let mut entries = sample_entries(1);
+    entries[0].reward_recipient = Address::ZERO;
+    let storage = RegistryStorage { checkpoints: vec![(10, entries.clone())] };
+    let state = registry_state(&storage);
+    let witness = witness_at(&state, &storage, 0);
+    assert_eq!(
+        verify_snapshot(state.state_root(), REGISTRY, &witness, 25),
+        Err(CommitteeError::ZeroRecipient)
+    );
+    assert_eq!(
+        derive(&snapshot(entries), C, 0, &SCHEDULE, &devnet()),
+        Err(CommitteeError::ZeroRecipient)
+    );
+}
+
+#[test]
+fn payout_only_changes_bind_commitments_but_preserve_native_validators() {
+    let old = sample_entries(3);
+    let mut new = old.clone();
+    new[0].reward_recipient = Address::repeat_byte(0x88);
+    let (old_record, old_members) =
+        derive(&snapshot(old.clone()), C, 0, &SCHEDULE, &devnet()).unwrap();
+    let (new_record, new_members) =
+        derive(&snapshot(new.clone()), C, 0, &SCHEDULE, &devnet()).unwrap();
+    assert_ne!(entries_root(&old), entries_root(&new));
+    assert_ne!(old_record.set_root, new_record.set_root);
+    assert_ne!(record_hash(CHAIN, &old_record), record_hash(CHAIN, &new_record));
+    let native_hash = |members: &[Member]| {
+        tendermint::validator::Set::without_proposer(
+            members
+                .iter()
+                .map(|m| {
+                    tendermint::validator::Info::new(
+                        tendermint::PublicKey::from_raw_ed25519(m.pubkey.as_slice()).unwrap(),
+                        m.power.try_into().unwrap(),
+                    )
+                })
+                .collect(),
+        )
+        .hash()
+    };
+    assert_eq!(native_hash(&old_members), native_hash(&new_members));
+    assert!(validator_updates(&old_members, &new_members).is_empty());
 }

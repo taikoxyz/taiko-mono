@@ -50,7 +50,7 @@ fn trie(leaves: BTreeMap<B256, Vec<u8>>, targets: Vec<Nibbles>) -> (B256, ProofN
     let root = builder.root();
     (root, builder.take_proof_nodes())
 }
-/// `len` pseudorandom nonzero calldata bytes seeded by `height`, which payload V4's zlib cannot
+/// `len` pseudorandom nonzero calldata bytes seeded by `height`, which payload V5's zlib cannot
 /// shrink, so block sizes keep counting blobs.
 fn incompressible(height: u64, len: usize) -> Bytes {
     let mut state = 0x9e37_79b9_7f4a_7c15 ^ height;
@@ -367,6 +367,9 @@ impl Fixture {
             .into_iter()
             .enumerate()
             .map(|(index, seed)| RegistryEntry {
+                reward_recipient: super::consensus::member_recipient(B256::from(
+                    SigningKey::from_bytes(&[seed; 32]).verifying_key().to_bytes(),
+                )),
                 pubkey: B256::from(SigningKey::from_bytes(&[seed; 32]).verifying_key().to_bytes()),
                 eff_stake: U256::from(if index == 0 { 3 } else { 1 }),
                 active_from_l1: if index == 0 { 1 } else { 10 },
@@ -449,6 +452,9 @@ impl Fixture {
             .iter()
             .enumerate()
             .map(|(index, key)| RegistryEntry {
+                reward_recipient: super::consensus::member_recipient(B256::from(
+                    key.verifying_key().to_bytes(),
+                )),
                 pubkey: B256::from(key.verifying_key().to_bytes()),
                 eff_stake: U256::from(if index == 0 { 3 } else { 1 }),
                 active_from_l1: if index == 0 { 1 } else { 10 },
@@ -584,6 +590,11 @@ impl Fixture {
             );
             let expected = rules::expected_header(&HeaderInputs {
                 height,
+                reward_recipient: rules::proposer_recipient(
+                    &committees[&schedule.epoch_of(height)].state.members,
+                    committees[&schedule.epoch_of(height)].validators.validators()[0].address,
+                )
+                .unwrap(),
                 parent: &parent,
                 anchor: &a,
                 bft_time_secs: if max_anchor_age < 7200 { 1261 + height } else { 100 + height },
@@ -916,6 +927,7 @@ mod readiness {
                 limits,
                 mode: SidecarMode::Eip4844,
                 fee_recipient: FEE_RECIPIENT,
+                l2_reward_recipient: crate::test_utils::consensus::BATCH_RECIPIENT,
                 engine: std::sync::Arc::new(test_harness::unavailable_engine::UnavailableEngine),
                 engine_timeout: std::time::Duration::from_secs(1),
             },
@@ -1230,4 +1242,95 @@ mod readiness {
             Err(LanderError::Safety(_))
         ));
     }
+}
+
+/// Exercises the former settlement-size boundary through real MPT and signature verifiers.
+#[test]
+fn authenticates_301_members_from_registry_proof_through_comet_certificate() {
+    use super::consensus::{committee, pair};
+    use crate::validate::{ValidationError, verify_commit};
+    use abci::committee::{CommitteeError, verify_committee_witness_at_cutoff, verify_snapshot};
+    use std::collections::BTreeSet;
+    use tendermint::block::CommitSig;
+
+    const COUNT: usize = 301;
+    const CHAIN_ID: &str = "taiko-etna-167001-g0";
+    let (params, seeded, keys) = committee(&[1; COUNT], 0);
+    let entries = seeded.provenance.unwrap().witness.entries;
+    assert_eq!(entries.len(), COUNT);
+    assert_eq!(keys.len(), COUNT);
+    assert_eq!(entries.iter().map(|entry| entry.pubkey).collect::<BTreeSet<_>>().len(), COUNT);
+    assert_eq!(
+        entries.iter().map(|entry| entry.reward_recipient).collect::<BTreeSet<_>>().len(),
+        COUNT
+    );
+    let schedule = Schedule { l1_0: 0, epoch_len: 10, epoch_len_l1: 10, genesis_cutoff: 1 };
+    let snapshot = Snapshot { checkpoint_index: 0, l1_block: 1, entries: entries.clone() };
+    let (record, expected_members) = derive(&snapshot, 1, 0, &schedule, &params).unwrap();
+    let checkpoint = registry::checkpoint_slots(0);
+    let state = State::new(vec![(
+        params.registry,
+        vec![
+            (registry::length_slot(), U256::from(1)),
+            (checkpoint[0], U256::from(1) | (U256::from(COUNT) << 64)),
+            (checkpoint[1], entries_root(&entries).into()),
+        ],
+    )]);
+    let witness = CommitteeWitness {
+        record: record.clone(),
+        registry: state.witness(params.registry, &snapshot_slots(0, false)),
+        entries,
+    };
+    assert!(!witness.registry.account_proof.is_empty());
+    assert_eq!(verify_snapshot(state.root, params.registry, &witness, 1).unwrap(), snapshot);
+    let (verified_record, members) =
+        verify_committee_witness_at_cutoff(state.root, 1, &schedule, &params, &witness, 0).unwrap();
+    assert_eq!(verified_record, record);
+    assert_eq!(members, expected_members);
+    assert_eq!(members.len(), COUNT);
+    assert_eq!(members.iter().map(|member| member.pubkey).collect::<BTreeSet<_>>().len(), COUNT);
+    let hash = record_hash(params.l2_chain_id, &verified_record);
+    let authenticated =
+        authenticate(CommitteeState { record: verified_record, members }, 0, hash, &params)
+            .unwrap();
+    assert_eq!(authenticated.validators.validators().len(), COUNT);
+    assert_eq!(authenticated.validators.total_voting_power().value(), 301);
+
+    // The member beyond the old 300-member boundary is covered by the proven payout root.
+    let mut tampered = witness.clone();
+    tampered.entries[COUNT - 1].reward_recipient = Address::repeat_byte(0x88);
+    assert!(matches!(
+        verify_committee_witness_at_cutoff(state.root, 1, &schedule, &params, &tampered, 0),
+        Err(CommitteeError::EntriesRootMismatch { .. })
+    ));
+    let mut tampered_set = authenticated.state.clone();
+    tampered_set.members[COUNT - 1].reward_recipient = Address::repeat_byte(0x88);
+    assert!(matches!(
+        authenticate(tampered_set, 0, hash, &params),
+        Err(crate::committee::CommitteeError::Invalid("member root mismatch"))
+    ));
+
+    let mut block = pair(1, B256::ZERO, &authenticated, &keys, None);
+    assert_eq!(block.commit.signatures.len(), COUNT);
+    let signer_addresses = block
+        .commit
+        .signatures
+        .iter()
+        .map(|signature| match signature {
+            CommitSig::BlockIdFlagCommit { validator_address, signature: Some(_), .. } => {
+                *validator_address
+            }
+            _ => panic!("every member must supply a real commit signature"),
+        })
+        .collect::<BTreeSet<_>>();
+    assert_eq!(signer_addresses.len(), COUNT);
+    verify_commit(&block.commit, &block.block.header, &authenticated, CHAIN_ID).unwrap();
+    // With unit power, 201/301 is just above 2/3; 200/301 is below it.
+    block.commit.signatures[201..].fill(CommitSig::BlockIdFlagAbsent);
+    verify_commit(&block.commit, &block.block.header, &authenticated, CHAIN_ID).unwrap();
+    block.commit.signatures[200] = CommitSig::BlockIdFlagAbsent;
+    assert!(matches!(
+        verify_commit(&block.commit, &block.block.header, &authenticated, CHAIN_ID),
+        Err(ValidationError::Certificate(message)) if message.contains("insufficient commit power 200/301")
+    ));
 }

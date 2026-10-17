@@ -16,7 +16,9 @@ use std::{
 
 /// Journal schema version; incompatible formats stop rather than discard outstanding nonces.
 ///
-/// Schema 8 binds calldata FI envelope v5 and payload v4; older journals are rejected intact.
+/// Schema 10 jobs bind the twenty-word V8 statement and eight-field canonical ABI input,
+/// signing `land(input, proof)`. Schema 9 participation-era journals are rejected intact.
+/// Schema 8 binds calldata FI envelope v5 and payload v4 under the V6 statement.
 /// Schema 7 journals the paired commit as a protobuf too: schema 6 kept it in the domain JSON
 /// form, which reads a Unix-epoch vote time as absent and cannot restore such a certificate.
 /// Schema 6 additionally preserves authoritative original Comet protobuf block bytes. Schema 5
@@ -24,7 +26,7 @@ use std::{
 /// over a six-field `LandInput` (forced inclusion head after the batch and fee recipient included),
 /// compressed V3 blob payloads and snapshots carrying the forced inclusion queue; schema 4 bound V5
 /// statements over uncompressed V2 payloads and schema 3 complete V1 blocks.
-const JOURNAL_VERSION: u8 = 8;
+const JOURNAL_VERSION: u8 = 10;
 /// Hard allocation bound before reading or decoding an untrusted journal.
 pub(crate) const MAX_JOURNAL_BYTES: u64 = 256 * 1024 * 1024;
 
@@ -129,6 +131,8 @@ pub struct Store {
     directory: PathBuf,
     /// The open locked file owns the OS lock until this store is dropped.
     _lock: File,
+    /// Shared directory guard prevents claim/landing marker races.
+    _directory_lock: File,
     /// Expected identities used on every load and save.
     identity: JournalIdentity,
 }
@@ -136,8 +140,7 @@ pub struct Store {
 impl Store {
     /// Lock an existing or empty lander directory; validate the journal before returning.
     pub fn open(path: impl AsRef<Path>, identity: JournalIdentity) -> Result<Self> {
-        let directory = path.as_ref().to_path_buf();
-        std::fs::create_dir_all(&directory).map_err(io_error)?;
+        let (directory, directory_lock) = lock_transaction_directory(path.as_ref(), false)?;
         let lock = OpenOptions::new()
             .read(true)
             .write(true)
@@ -148,7 +151,8 @@ impl Store {
         lock.try_lock().map_err(|e| {
             LanderError::Journal(format!("data directory already locked or cannot be locked: {e}"))
         })?;
-        let store = Self { directory, _lock: lock, identity };
+        File::open(&directory).map_err(io_error)?.sync_all().map_err(io_error)?;
+        let store = Self { directory, _lock: lock, _directory_lock: directory_lock, identity };
         store.load()?;
         Ok(store)
     }
@@ -265,22 +269,7 @@ impl Store {
             return Err(LanderError::Journal("job chain/contract identity mismatch".into()));
         }
         let batch = &job.request.batch;
-        let reference = batch
-            .reference_headers
-            .first()
-            .ok_or_else(|| LanderError::Journal("job has no L1 reference".into()))?;
-        let header = abci::l1::header::RawL1Header::from_raw(reference.clone())
-            .map_err(|e| LanderError::Journal(format!("job reference: {e}")))?;
-        if header.number() != batch.input.l1ReferenceBlockNumber ||
-            crate::statement::hash(
-                snapshot,
-                &batch.input,
-                header.hash(),
-                &batch.blobs.versioned_hashes,
-            ) != batch.statement_hash
-        {
-            return Err(LanderError::Journal("job V6 statement identity mismatch".into()));
-        }
+        batch.validate_statement()?;
         let limits = crate::types::Limits {
             max_blocks: 100_000,
             max_blobs: 128,
@@ -330,6 +319,41 @@ fn io_error(error: std::io::Error) -> LanderError {
     LanderError::Journal(error.to_string())
 }
 
+/// Claim and landing schemas remain independent, but a physical directory has one kind forever.
+/// The shared OS lock closes the check/create race; durable per-kind lock markers cover reopening
+/// in either order, including symlink aliases and directories whose state file was never written.
+pub(crate) fn lock_transaction_directory(path: &Path, claim: bool) -> Result<(PathBuf, File)> {
+    std::fs::create_dir_all(path).map_err(io_error)?;
+    let directory = std::fs::canonicalize(path).map_err(io_error)?;
+    reject_foreign_directory(&directory, claim)?;
+    let lock = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(directory.join("transaction-store.lock"))
+        .map_err(io_error)?;
+    lock.try_lock()
+        .map_err(|_| LanderError::Journal("transaction directory already locked".into()))?;
+    reject_foreign_directory(&directory, claim)?;
+    Ok((directory, lock))
+}
+
+/// Reject foreign markers both before creating a guard and after acquiring it.
+fn reject_foreign_directory(directory: &Path, claim: bool) -> Result<()> {
+    let incompatible = if claim {
+        ["lander.lock", "lander-state.json"]
+    } else {
+        ["claim.lock", "claim-state.json"]
+    };
+    if incompatible.iter().any(|name| directory.join(name).exists()) {
+        return Err(LanderError::Journal(
+            "claim and landing stores require separate directories".into(),
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -371,6 +395,7 @@ mod tests {
                     block_number: 30,
                     block_hash: alloy_primitives::B256::repeat_byte(30),
                     success: true,
+                    gas_used: 21_000,
                 },
             },
         ];
@@ -383,9 +408,23 @@ mod tests {
         assert!(store.save(&JournalState::Prepared { job: altered }).is_err());
         drop(store);
         assert!(matches!(
-            Store::open(directory.path(), identity).unwrap().load().unwrap(),
+            Store::open(directory.path(), identity.clone()).unwrap().load().unwrap(),
             JournalState::Confirming { .. }
         ));
+        // A schema-9 Confirming journal written before receipts recorded `gas_used` still loads,
+        // reading it as zero.
+        let path = directory.path().join("lander-state.json");
+        let mut journal: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        let receipt = journal["state"]["receipt"].as_object_mut().unwrap();
+        assert_eq!(receipt.remove("gas_used"), Some(serde_json::json!(21_000)));
+        std::fs::write(&path, serde_json::to_vec(&journal).unwrap()).unwrap();
+        let JournalState::Confirming { receipt, .. } =
+            Store::open(directory.path(), identity).unwrap().load().unwrap()
+        else {
+            panic!("expected the Confirming phase");
+        };
+        assert_eq!((receipt.block_number, receipt.gas_used), (30, 0));
     }
     #[test]
     fn idle_wait_roundtrip_and_phase_save_clears_the_marker() {
@@ -406,11 +445,11 @@ mod tests {
     }
 
     /// Schema 2 holds V4 statements, schema 3 complete-block V1 blob payloads and schema 4
-    /// uncompressed V2 payloads; schema 5 used lossy domain block serialization and schema 6
-    /// domain JSON commits.
+    /// uncompressed V2 payloads; schema 5 used lossy domain block serialization, schema 6
+    /// domain JSON commits and schema 8 V6 statements without participation.
     #[test]
     fn legacy_journals_are_rejected_without_modifying_their_files() {
-        for version in [2, 3, 4, 5, 6, 7] {
+        for version in [2, 3, 4, 5, 6, 7, 8, 9] {
             let directory = tempfile::tempdir().unwrap();
             let journal = serde_json::json!({
                 "version": version,
@@ -445,7 +484,7 @@ mod tests {
         };
         let state =
             JournalState::Pending { job: Box::new(ProvedJob { request, proof }), transaction };
-        for version in [2, 3, 4, 5, 6, 7] {
+        for version in [2, 3, 4, 5, 6, 7, 8, 9] {
             let directory = tempfile::tempdir().unwrap();
             let bytes = serde_json::to_vec(
                 &serde_json::json!({ "version": version, "identity": id, "state": state }),
@@ -460,6 +499,45 @@ mod tests {
             assert!(error.to_string().contains("incompatible journal schema"), "{error}");
             assert_eq!(std::fs::read(path).unwrap(), bytes);
         }
+    }
+
+    /// A schema-9 participation-era job signed at nonce 7 stays on disk byte for byte, nonce
+    /// included, and the store
+    /// refuses to open it.
+    #[tokio::test]
+    async fn journal_v9_signed_job_is_refused_intact() {
+        let request = crate::test_utils::runtime::request();
+        let proof = Bytes::from_static(&[0]);
+        let transaction = crate::test_utils::runtime::signed(&request, &proof, 7).await;
+        let id = JournalIdentity {
+            l1_chain_id: request.batch.snapshot.l1_chain_id,
+            l2_chain_id: request.batch.snapshot.l2_chain_id,
+            inbox: request.batch.snapshot.inbox,
+            registry: request.batch.snapshot.registry,
+            sender: transaction.sender,
+        };
+        let state =
+            JournalState::Signed { job: Box::new(ProvedJob { request, proof }), transaction };
+        let journal = serde_json::json!({ "version": 9, "identity": id, "state": state });
+        let bytes = serde_json::to_vec(&journal).unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("lander-state.json");
+        std::fs::write(&path, &bytes).unwrap();
+
+        let error = match Store::open(directory.path(), id.clone()) {
+            Err(e) => e,
+            Ok(_) => panic!("schema 9 must be rejected"),
+        };
+        assert!(
+            error.to_string().contains("incompatible journal schema 9 (expected 10)"),
+            "{error}"
+        );
+        assert_eq!(std::fs::read(&path).unwrap(), bytes);
+        let kept: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(kept["state"]["phase"], "signed");
+        assert_eq!(kept["state"]["transaction"]["nonce"], 7);
+        assert!(!directory.path().join("lander-state.json.tmp").exists());
     }
 
     /// The blobs must carry exactly the job's published blocks; their compressed bytes need not
@@ -501,6 +579,37 @@ mod tests {
             .unwrap_err();
         assert!(error.to_string().contains("job blocks differ"), "{error}");
         assert_eq!(store.load().unwrap(), job);
+    }
+
+    /// Even a recomputed statement cannot authorize a journal amount absent from its headers.
+    #[test]
+    fn journal_recomputes_base_fee_amount_after_statement_rebinding() {
+        use crate::test_utils::runtime::{limits, rebind, request};
+        let mut request = request();
+        let snapshot = &request.batch.snapshot;
+        let identity = JournalIdentity {
+            l1_chain_id: snapshot.l1_chain_id,
+            l2_chain_id: snapshot.l2_chain_id,
+            inbox: snapshot.inbox,
+            registry: snapshot.registry,
+            sender: Address::repeat_byte(5),
+        };
+        let directory = tempfile::tempdir().unwrap();
+        let store = Store::open(directory.path(), identity).unwrap();
+        let proof = Bytes::from_static(&[0]);
+        let valid = JournalState::Prepared {
+            job: Box::new(ProvedJob { request: request.clone(), proof: proof.clone() }),
+        };
+        store.save(&valid).unwrap();
+        let original = std::fs::read(directory.path().join("lander-state.json")).unwrap();
+        let payload = crate::codec::encode(&request.batch.blocks, &limits()).unwrap();
+        request.batch.input.baseFeeAmount ^= U256::from(1);
+        rebind(&mut request, &payload);
+        let error = store
+            .save(&JournalState::Prepared { job: Box::new(ProvedJob { request, proof }) })
+            .unwrap_err();
+        assert!(error.to_string().contains("reward amount"), "{error}");
+        assert_eq!(std::fs::read(directory.path().join("lander-state.json")).unwrap(), original);
     }
 
     /// Journaled blocks grow the journal by at most 4/3 of their published list bytes (their
@@ -546,7 +655,12 @@ mod tests {
         for height in 1..=2 {
             let envelope = abci::EtnaEnvelope {
                 block: abci::ExecutionBlock {
-                    header: alloy_consensus::Header { number: height, ..Default::default() },
+                    header: alloy_consensus::Header {
+                        number: height,
+                        base_fee_per_gas: Some(7),
+                        gas_used: 21_000,
+                        ..Default::default()
+                    },
                     transactions: vec![vec![0; 1 << 20].into()],
                 },
                 anchor: None,

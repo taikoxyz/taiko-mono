@@ -5,11 +5,10 @@
 # the committed files.
 set -euo pipefail
 
-PINNED_REVISION=27777e9d7147e7b1d3543711f4d7370a0377fa53
+PINNED_REVISION=2a4bfa747edcafae96c15b58159e31eea0ebe78a
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLIENT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROTOCOL_CHECKOUT="$(cd "${1:?usage: gen_lander_artifacts.sh <taiko-mono-checkout>}" && pwd)"
-python3 "$SCRIPT_DIR/foundry_identity.py"
 ACTUAL_REVISION="$(git -C "$PROTOCOL_CHECKOUT" rev-parse HEAD)"
 if [[ "$ACTUAL_REVISION" != "$PINNED_REVISION" ]]; then
     echo "protocol checkout must be $PINNED_REVISION (found $ACTUAL_REVISION)" >&2
@@ -26,6 +25,8 @@ if [[ "${PNPM_OFFLINE:-0}" == 1 ]]; then INSTALL_FLAGS+=(--offline); fi
     contracts/layer1/etna/impl/EtnaStakingRegistry.sol \
     contracts/shared/signal/SignalService.sol test/layer1/etna/EtnaInboxTestBase.sol \
     --build-info)
+(cd "$PROTOCOL_CHECKOUT/packages/protocol" && FOUNDRY_PROFILE=layer2 forge build \
+    contracts/layer2/core/L2FeeVault.sol --build-info)
 
 python3 - "$PROTOCOL_CHECKOUT" "$CLIENT_DIR" "$PINNED_REVISION" <<'PYTHON'
 import hashlib
@@ -35,30 +36,34 @@ import subprocess
 import sys
 
 checkout, client, revision = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]), sys.argv[3]
-sys.path.insert(0, str(client / "script"))
-from foundry_identity import checked_identity
-
 protocol = checkout / "packages/protocol"
 output = client / "crates/lander/tests/fixtures/contracts"
 output.mkdir(parents=True, exist_ok=True)
 artifacts = {
     "EtnaInbox": "EtnaInbox.sol/EtnaInbox.json",
     "EtnaStakingRegistry": "EtnaStakingRegistry.sol/EtnaStakingRegistry.json",
+    "L2FeeVault": "L2FeeVault.sol/L2FeeVault.json",
     "SignalService": "SignalService.sol/SignalService.json",
     "ERC1967Proxy": "ERC1967Proxy.sol/ERC1967Proxy.json",
     "MockLandProofVerifier": "EtnaInboxTestBase.sol/MockLandProofVerifier.json",
     "TestERC20": "TestERC20.sol/TestERC20.json",
 }
+(output / "EtnaRewardPool.json").unlink(missing_ok=True)
 manifest = {
     "protocolRevision": revision,
     "generator": "script/gen_lander_artifacts.sh",
-    # Canonical source identity only after authenticating the exact platform binary;
-    # its observed label/build identity is emitted separately by the preflight receipt.
-    "foundryVersion": checked_identity()["canonical"],
+    # The commit only: build timestamps differ between platforms' binaries, and release channels
+    # print different version lines for the same commit (`1.5.1-stable`, `1.5.1-v1.5.1`).
+    "foundryVersion": [
+        line
+        for line in subprocess.check_output(["forge", "--version"], text=True).splitlines()
+        if line.startswith("Commit SHA:")
+    ],
     "artifacts": {},
 }
 for name, relative in artifacts.items():
-    source = protocol / "out/layer1" / relative
+    profile = "layer2" if name == "L2FeeVault" else "layer1"
+    source = protocol / f"out/{profile}" / relative
     artifact = json.loads(source.read_text())
     metadata = json.loads(artifact["rawMetadata"])
     if metadata["compiler"]["version"] != "0.8.30+commit.73712a01":
@@ -88,12 +93,34 @@ for name, relative in artifacts.items():
     subprocess.run(["pnpm", "exec", "prettier", "--write", str(destination)], cwd=checkout, check=True)
     encoded = destination.read_bytes()
     manifest["artifacts"][name] = {
-        "sourceArtifact": f"packages/protocol/out/layer1/{relative}",
+        "sourceArtifact": f"packages/protocol/out/{profile}/{relative}",
         "sha256": hashlib.sha256(encoded).hexdigest(),
         "compiler": metadata["compiler"],
         "settings": settings,
         "sources": sources,
     }
+# Alloy 1.6 emits an unconditional eight-argument Events enum constructor for this event.
+# Relocate only that event into a standalone sol! declaration, retaining typed event decoding
+# and the complete, unchanged real contract artifact above. No runtime bytecode is projected.
+inbox_artifact = json.loads((output / "EtnaInbox.json").read_text())
+reward_event = next(item for item in inbox_artifact["abi"]
+                    if item.get("type") == "event" and item.get("name") == "BatchRewardRecorded")
+projected = {"abi": [item for item in inbox_artifact["abi"] if item != reward_event]}
+bindings_path = client / "crates/lander/contracts/EtnaInbox.json"
+bindings_path.write_text(json.dumps(projected, indent=2, sort_keys=True) + "\n")
+subprocess.run(["pnpm", "exec", "prettier", "--write", str(bindings_path)], cwd=checkout, check=True)
+params = ",\n    ".join(f"{item['type']}{' indexed' if item['indexed'] else ''} {item['name']}"
+                           for item in reward_event["inputs"])
+event_path = client / "crates/lander/contracts/BatchRewardRecorded.sol"
+event_path.write_text("// SPDX-License-Identifier: MIT\npragma solidity ^0.8.26;\n\n"
+                      "// Generated from the pinned EtnaInbox ABI; do not edit.\n"
+                      f"event BatchRewardRecorded(\n    {params}\n);\n")
+manifest["bindings"] = {
+    "sourceArtifact": "EtnaInbox.json",
+    "omittedEvents": ["BatchRewardRecorded"],
+    "projection": {"path": "contracts/EtnaInbox.json", "sha256": hashlib.sha256(bindings_path.read_bytes()).hexdigest()},
+    "standaloneEvent": {"path": "contracts/BatchRewardRecorded.sol", "sha256": hashlib.sha256(event_path.read_bytes()).hexdigest()},
+}
 interface_path = "contracts/layer1/etna/iface/IEtnaInbox.sol"
 interface = (protocol / interface_path).read_bytes()
 (client / "crates/lander/contracts/IEtnaInbox.sol").write_bytes(interface)

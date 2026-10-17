@@ -136,6 +136,7 @@ async fn lander_cli_lands_blob_batches_and_resumes_after_sigterm() -> Result<()>
             second.signal(libc::SIGTERM).await?.success(),
             "restarted command should stop gracefully"
         );
+        // (0, 5], then a complete prefix (5, epoch_len + 2] crossing the epoch.
         ensure!(
             fixture.anvil.provider.get_transaction_count(sender).await? == nonce + 2,
             "expected two real blob landing transactions"
@@ -211,9 +212,10 @@ async fn lander_cli_sigkill_reconciles_the_same_pending_nonce_before_progress() 
         chain.extend(&fixture, resumed_height).await?;
         rpc.replace(rpc_data(&chain)).await;
         wait_checkpoint(&fixture, &mut second, resumed_height).await?;
+        // V8 lands the available cross-epoch suffix in one batch; there is no reward-freeze cut.
         ensure!(
             fixture.anvil.provider.get_transaction_count(sender).await? == nonce + 2,
-            "continued progress did not retain one nonce per landing"
+            "cross-epoch progress must use exactly one further landing nonce"
         );
         ensure!(
             second.signal(libc::SIGTERM).await?.success(),
@@ -315,7 +317,11 @@ async fn wait_batch_marker(
     })
     .await
     .map_err(|error| {
-        anyhow::anyhow!("no durable batch wait marker: {error}\n{}", process.output())
+        let observed = std::fs::read(directory.join("lander-state.json"))
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
+            .map(|journal| json!({"phase": journal["state"]["phase"], "waiting": journal["waiting"]}));
+        anyhow::anyhow!("no durable batch wait marker: {error}; journal {observed:?}\n{}", process.output())
     })?
 }
 
@@ -336,10 +342,16 @@ async fn lander_cli_submits_at_minimum_or_timeout_and_keeps_wait_after_sigkill()
             Path::new(CLIENT),
             &args,
             directory.path().join("batch-first.log"),
-            &[("--min-blocks", "1"), ("--max-batch-wait", "30")],
+            &[
+                ("--min-blocks", "1"),
+                ("--max-batch-wait", "30"),
+                ("--rpc.timeout", "30"),
+                ("--broadcast.timeout", "30"),
+            ],
         )?;
-        // Seed the checkpoint explicitly; genesis carries no runtime publication witness.
-        wait_checkpoint_before(&fixture, &mut first, 1, Duration::from_secs(15)).await?;
+        // Seed before measuring batching policy. Cold Anvil EIP-7594 verification can exceed
+        // the ordinary five-second CLI test RPC budget; this startup uses the harness margin.
+        wait_checkpoint(&fixture, &mut first, 1).await?;
         ensure!(first.signal(libc::SIGTERM).await?.success(), "initial checkpoint exits cleanly");
         let mut first = CliProcess::spawn(
             Path::new(CLIENT),
@@ -350,7 +362,9 @@ async fn lander_cli_submits_at_minimum_or_timeout_and_keeps_wait_after_sigkill()
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;
         chain.extend(&fixture, 3).await?;
         rpc.replace(rpc_data(&chain)).await;
-        let waiting = wait_batch_marker(&mut first, &args.data).await?;
+        let waiting = wait_batch_marker(&mut first, &args.data)
+            .await
+            .context("initial checkpoint-1 backlog")?;
         ensure!(waiting["checkpoint_height"] == 1, "wait attached to wrong checkpoint");
         tokio::time::sleep(Duration::from_millis(500)).await;
         first.assert_running()?;
@@ -378,7 +392,8 @@ async fn lander_cli_submits_at_minimum_or_timeout_and_keeps_wait_after_sigkill()
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;
         chain.extend(&fixture, 5).await?;
         rpc.replace(rpc_data(&chain)).await;
-        let original_wait = wait_batch_marker(&mut first, &args.data).await?;
+        let original_wait =
+            wait_batch_marker(&mut first, &args.data).await.context("checkpoint-4 backlog")?;
         ensure!(original_wait["checkpoint_height"] == 4, "new backlog retained old checkpoint");
         ensure!(!first.signal(libc::SIGKILL).await?.success(), "SIGKILL should be abrupt");
         let mut second = CliProcess::spawn(
@@ -387,7 +402,9 @@ async fn lander_cli_submits_at_minimum_or_timeout_and_keeps_wait_after_sigkill()
             directory.path().join("batch-restarted.log"),
             &policy,
         )?;
-        let restored_wait = wait_batch_marker(&mut second, &args.data).await?;
+        let restored_wait = wait_batch_marker(&mut second, &args.data)
+            .await
+            .context("restored checkpoint-4 backlog")?;
         ensure!(restored_wait == original_wait, "restart reset the durable batching timer");
         wait_checkpoint_before(&fixture, &mut second, 5, Duration::from_secs(50)).await?;
         ensure!(

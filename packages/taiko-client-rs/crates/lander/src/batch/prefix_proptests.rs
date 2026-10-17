@@ -176,6 +176,7 @@ fn builder(
         limits,
         mode: SidecarMode::Eip4844,
         fee_recipient: Address::repeat_byte(0xfe),
+        l2_reward_recipient: crate::test_utils::consensus::BATCH_RECIPIENT,
         engine: Arc::new(test_harness::unavailable_engine::UnavailableEngine),
         engine_timeout: std::time::Duration::from_secs(1),
     };
@@ -218,7 +219,8 @@ proptest! {
         let builder = builder(chain.clone(), limits, deflate_bytes);
         let runtime = tokio::runtime::Builder::new_current_thread().build()?;
         let snapshot = protocol::request().batch.snapshot;
-        match runtime.block_on(builder.publishable_prefix(&snapshot, decided as u64)) {
+        let schedule = abci::Schedule::from_genesis(&snapshot.genesis);
+        match runtime.block_on(builder.publishable_prefix(&snapshot, &schedule, decided as u64)) {
             Ok(prefix) => {
                 let selected = prefix.blocks.len();
                 prop_assert!((1..=max_blocks.min(decided)).contains(&selected));

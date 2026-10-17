@@ -61,6 +61,7 @@ impl LanderSubCommand {
         })
         .await?;
         let params = load_chain_params(chain_id, config.chain_config.as_deref())?;
+        lander::config::validate_batch_recipient(config.l2_reward_recipient, params.fee_vault)?;
         let engine = Arc::new(abci::RpcEngine::new(
             config.l2_http.clone(),
             config.l2_auth.clone(),
@@ -122,10 +123,11 @@ impl LanderSubCommand {
             comet,
             landing.clone(),
             BatchBuilderConfig {
-                params,
+                params: params.clone(),
                 limits: config.limits,
                 mode: config.sidecar_mode,
                 fee_recipient: sender,
+                l2_reward_recipient: config.l2_reward_recipient,
                 engine,
                 engine_timeout: config.timeouts.engine,
             },
@@ -137,6 +139,8 @@ impl LanderSubCommand {
             Arc::new(DummyProofProvider),
             store,
             RunnerConfig {
+                l2_reward_recipient: config.l2_reward_recipient,
+                fee_vault: params.fee_vault,
                 batch_policy: config.batch_policy,
                 poll_interval: config.poll_interval,
                 proof_timeout: config.timeouts.proof,

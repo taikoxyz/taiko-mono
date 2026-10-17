@@ -4,7 +4,7 @@
 //! the committed parent, the block's L1 anchor, the BFT time, the recovery generation and the
 //! chain constants. `PrepareProposal` builds with [`payload_attributes`] of that header;
 //! `ProcessProposal` and `FinalizeBlock` recompute it and compare with [`check_header`]. The
-//! remaining predicates cover anchor progress, anchor freshness, back-pressure (HALT-03), the
+//! remaining predicates cover anchor progress, anchor freshness, back-pressure, the
 //! generation triple and the CometBFT `chain_id`.
 //!
 //! Execution results (state root, receipts root, transactions root, gas used and the zk gas in
@@ -31,10 +31,8 @@ use crate::{
     types::{AnchorState, ParentInfo},
 };
 
-/// `basefeeSharingPctg` of every Etna PoS block: 100 routes the whole base fee to the coinbase
-/// (the fee vault) under alethia-reth #248. Consensus pins it to exactly 100, as #248 does not
-/// bound it and would credit the coinbase more than the base fee for a pctg above 100.
-pub const BASEFEE_SHARING_PCTG: u8 = 100;
+/// Zero base-fee sharing keeps base fees in the EL treasury; the certified proposer receives tips.
+pub const BASEFEE_SHARING_PCTG: u8 = 0;
 
 /// Length of an Etna `extraData`: `[pctg(1) | generation(6) | anchorNumber(6)]`.
 pub const EXTRA_DATA_LEN: usize = 13;
@@ -59,7 +57,9 @@ pub struct HeaderInputs<'a> {
     pub bft_time_secs: u64,
     /// Recovery generation of the running chain (the `chain_id` suffix).
     pub generation: u64,
-    /// Chain constants (fee vault, block gas limit).
+    /// Authenticated payout address of this block header's original CometBFT proposer.
+    pub reward_recipient: Address,
+    /// Chain constants (block gas limit).
     pub params: &'a ChainParams,
     /// EIP-4396 minimum base fee clamp of the L2 chain, in wei
     /// (`protocol::shasta::constants::min_base_fee_for_chain`).
@@ -75,13 +75,13 @@ pub struct ExpectedHeader {
     pub parent_hash: B256,
     /// Block timestamp in seconds: `max(parent.timestamp + 1, floor(time_H), anchor.timestamp)`.
     pub timestamp: u64,
-    /// Coinbase and suggested fee recipient: the chain's `L2FeeVault` (ECON-02, CONS-01).
+    /// Coinbase and suggested fee recipient: the certified proposer's authenticated payout.
     pub beneficiary: Address,
-    /// The 13-byte `[100 | generation | anchorNumber]` `extraData` ([`encode_extra_data`]).
+    /// The 13-byte `[0 | generation | anchorNumber]` `extraData` ([`encode_extra_data`]).
     pub extra_data: Bytes,
     /// The anchor's L1 state root.
     pub parent_beacon_block_root: B256,
-    /// `L2_BLOCK_GAS_LIMIT`, in gas: a chain constant (alethia-reth #248 has no parent-delta
+    /// `L2_BLOCK_GAS_LIMIT`, in gas: a chain constant (alethia-reth #251 has no parent-delta
     /// gas-limit rule).
     pub gas_limit: u64,
     /// EIP-4396 base fee per gas, in wei.
@@ -163,7 +163,7 @@ pub enum RuleViolation {
         /// The parent's block number.
         parent: u64,
     },
-    /// The anchor L1 block is older than the parent's anchor (SYS-02(c)).
+    /// The anchor L1 block is older than the parent's anchor.
     #[error("anchor {anchor} is below the parent's anchor {parent}")]
     AnchorRegressed {
         /// The parent's anchor L1 block number.
@@ -179,12 +179,13 @@ pub enum RuleViolation {
         /// `L1_0`.
         l1_0: u64,
     },
-    /// The anchor L1 block is below the block's epoch minimum `L1_first(epoch)` (CONS-13(2)).
+    /// The anchor L1 block is below the block's epoch minimum `L1_first(epoch)`.
     #[error("epoch {epoch} is not open on L1: the anchor must be >= {l1_first}")]
     EpochNotOpenOnL1 {
         /// The epoch of the block's height.
         epoch: u64,
-        /// `L1_first(epoch)`, the minimum anchor L1 block number of that epoch.
+        /// `L1_first(epoch)`, the minimum anchor L1 block number of that epoch; `u64::MAX` when
+        /// it overflows `u64`, as no anchor opens such an epoch.
         l1_first: u64,
     },
     /// The block is more than the genesis `maxAnchorAge` younger than its anchor L1 block.
@@ -195,7 +196,7 @@ pub enum RuleViolation {
         /// The genesis `maxAnchorAge`, in seconds.
         max: u64,
     },
-    /// The unsettled depth `H - lastCheckpoint.height` exceeds `D_MAX - MARGIN_V` (HALT-03).
+    /// The unsettled depth `H - lastCheckpoint.height` exceeds `D_MAX - MARGIN_V`.
     #[error("unsettled depth {depth} exceeds the cap {cap}")]
     BackPressure {
         /// `H - lastCheckpoint.height`, in L2 blocks (0 when the checkpoint is not behind).
@@ -267,7 +268,7 @@ pub fn block_timestamp(parent_ts: u64, bft_secs: u64, anchor_ts: u64) -> u64 {
     parent_ts.saturating_add(1).max(bft_secs).max(anchor_ts)
 }
 
-/// Encodes the 13-byte Etna `extraData` `[100 | generation u48 BE | anchor u48 BE]`: the
+/// Encodes the 13-byte Etna `extraData` `[0 | generation u48 BE | anchor u48 BE]`: the
 /// unused proposal-id slot carries the recovery generation, so the EL block hash an L1
 /// checkpoint pins commits to it.
 ///
@@ -299,6 +300,18 @@ fn uint48_be(bytes: &[u8]) -> u64 {
     u64::from_be_bytes(word)
 }
 
+/// Looks up the certified header proposer's authenticated committee payout address.
+/// Unknown proposers and malformed Ed25519 keys never acquire a default payout.
+pub fn proposer_recipient(
+    members: &[crate::types::Member],
+    proposer: tendermint::account::Id,
+) -> Option<Address> {
+    members.iter().find_map(|member| {
+        let key = tendermint::PublicKey::from_raw_ed25519(member.pubkey.as_slice())?;
+        (tendermint::account::Id::from(key) == proposer).then_some(member.reward_recipient)
+    })
+}
+
 /// Derives the consensus-chosen header fields of height `i.height`.
 ///
 /// Fails when the height does not follow the parent ([`RuleViolation::HeightMismatch`]), when the
@@ -324,7 +337,7 @@ pub fn expected_header(i: &HeaderInputs<'_>) -> Result<ExpectedHeader, RuleViola
         number: i.height,
         parent_hash: parent.hash,
         timestamp: block_timestamp(parent.timestamp, i.bft_time_secs, i.anchor.timestamp),
-        beneficiary: i.params.fee_vault,
+        beneficiary: i.reward_recipient,
         extra_data: encode_extra_data(i.generation, i.anchor.number)?,
         parent_beacon_block_root: i.anchor.state_root,
         gas_limit: i.params.block_gas_limit,
@@ -458,30 +471,39 @@ pub fn payload_attributes(
 ///
 /// In order: `anchor >= parent_anchor` ([`RuleViolation::AnchorRegressed`]), `anchor >= L1_0`
 /// ([`RuleViolation::AnchorBeforeActivation`]) and `anchor >= L1_first(epoch_of(height))`
-/// ([`RuleViolation::EpochNotOpenOnL1`]). `height` must be `>= H_0`.
+/// ([`RuleViolation::EpochNotOpenOnL1`]). `height` must be `>= H_0`. An `L1_first` overflowing
+/// `u64` is checked, not computed: no anchor opens that epoch.
 ///
 /// # Panics
 ///
-/// As [`Schedule::epoch_of`] and [`Schedule::l1_first`] (a schedule that failed
-/// [`Schedule::validate`], or an L1 block number overflowing `u64`).
+/// As [`Schedule::epoch_of`] (a zero epoch length, which [`Schedule::validate`] rejects).
 pub fn check_anchor_progress(
     parent_anchor: u64,
     anchor: u64,
     schedule: &Schedule,
     height: u64,
 ) -> Result<(), RuleViolation> {
-    if anchor < parent_anchor {
-        return Err(RuleViolation::AnchorRegressed { parent: parent_anchor, anchor });
+    use etna_consensus_core::schedule::AnchorError;
+    // Preserve the wrapper's height/zero-length panic after the two earlier error guards.
+    if anchor >= parent_anchor && anchor >= schedule.l1_0 {
+        schedule.epoch_of(height);
     }
-    if anchor < schedule.l1_0 {
-        return Err(RuleViolation::AnchorBeforeActivation { anchor, l1_0: schedule.l1_0 });
-    }
-    let epoch = schedule.epoch_of(height);
-    let l1_first = schedule.l1_first(epoch);
-    if anchor < l1_first {
-        return Err(RuleViolation::EpochNotOpenOnL1 { epoch, l1_first });
-    }
-    Ok(())
+    schedule.core().check_anchor_progress(parent_anchor, anchor, height).map_err(
+        |error| match error {
+            AnchorError::Regressed => {
+                RuleViolation::AnchorRegressed { parent: parent_anchor, anchor }
+            }
+            AnchorError::BeforeActivation => {
+                RuleViolation::AnchorBeforeActivation { anchor, l1_0: schedule.l1_0 }
+            }
+            AnchorError::InvalidSchedule => {
+                unreachable!("epoch_of preserves the invalid-schedule panic")
+            }
+            AnchorError::EpochNotOpen { epoch, l1_first } => {
+                RuleViolation::EpochNotOpenOnL1 { epoch, l1_first }
+            }
+        },
+    )
 }
 
 /// Anchor freshness: `block_timestamp - anchor_timestamp <= max_anchor_age`, all in seconds,
@@ -503,7 +525,7 @@ pub fn check_anchor_freshness(
     Ok(())
 }
 
-/// HALT-03 back-pressure: `height - last_checkpoint_height <= cap`, with the depth saturating at
+/// Back-pressure: `height - last_checkpoint_height <= cap`, with the depth saturating at
 /// 0 when the checkpoint is not behind `height`. `cap` is `D_MAX - MARGIN_V`.
 pub fn check_back_pressure(
     height: u64,

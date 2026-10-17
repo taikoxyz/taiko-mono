@@ -172,6 +172,8 @@ impl CliInputs {
             self.rpc.to_string(),
             "--jwt.secret".into(),
             self.key.with_file_name("jwt.hex").display().to_string(),
+            "--l2.reward-recipient".into(),
+            "0x7777777777777777777777777777777777777777".into(),
             "--l2.http".into(),
             self.rpc.to_string(),
             "--comet.http".into(),

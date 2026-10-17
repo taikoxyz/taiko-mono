@@ -1475,7 +1475,7 @@ async fn switch_replay_survives_crashes_before_and_after_commit() {
             switches.push(target);
             assert!(!committed.committees.contains_key(&target));
             assert!(pending.committees.contains_key(&target));
-            assert!(!response.validator_updates.is_empty());
+            assert_eq!(response.validator_updates.is_empty(), target != 2);
             if target == 2 {
                 assert_eq!(pending.committees[&target].members.len(), 4);
                 assert_eq!(committed.committees[&(target - 1)].members.len(), 3);
@@ -1708,5 +1708,73 @@ async fn canonical_skip_cache_misses_when_checked_context_fields_change() {
         );
         assert_eq!(app.pending.as_ref().unwrap().forced_cursor, 1, "{changed}");
         assert_eq!(app.state().unwrap().forced_cursor, 0, "{changed}");
+    }
+}
+
+/// Payout metadata is installed for its epoch even when the CometBFT set stays identical.
+#[tokio::test]
+async fn payout_only_switch_installs_and_persists_epoch_metadata_without_native_updates() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    let schedule = fx.schedule();
+    let switch = schedule.h_first(4) - 2;
+    let old = sample_entries(3);
+    let mut new = old.clone();
+    new[0].reward_recipient = alloy_primitives::Address::repeat_byte(0x88);
+    let derive = |entries, epoch, cutoff, checkpoint| {
+        let snapshot = Snapshot { checkpoint_index: checkpoint, l1_block: cutoff, entries };
+        let (record, members) =
+            committee::derive(&snapshot, cutoff, epoch, &schedule, &fx.params).unwrap();
+        CommitteeState { record, members }
+    };
+    let previous = derive(old.clone(), 3, 64, 0);
+    let expected = derive(new.clone(), 4, 76, 1);
+    let landed = fx.inbox_with(switch - 5);
+    let changed = RegistryStorage { checkpoints: vec![(63, old.clone()), (71, new.clone())] };
+    fx.advance_l1(app.l1(), 76, &landed, &changed);
+    let anchor = fx.anchor_state(app.l1(), 76);
+    jump(&mut app, switch - 1, anchor, &[(3, previous.clone())]);
+    let env = propose(&mut app).await;
+    let (resp, req) = judge(&mut app, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept);
+    let out = finalize(&mut app, finalize_req(&req)).await.unwrap();
+    assert!(out.validator_updates.is_empty());
+    assert_eq!(app.pending.as_ref().unwrap().committees[&4], expected);
+    commit(&mut app).await.unwrap();
+    let mut reopened = fx.app(dir.path());
+    let state = reopened.state().unwrap();
+    let recipient_at = |height| {
+        state.committees[&schedule.epoch_of(height)]
+            .members
+            .iter()
+            .find(|m| m.pubkey == old[0].pubkey)
+            .unwrap()
+            .reward_recipient
+    };
+    assert_eq!(recipient_at(schedule.h_first(4) - 1), old[0].reward_recipient);
+    assert_eq!(recipient_at(schedule.h_first(4)), new[0].reward_recipient);
+    assert_eq!(state.committees[&4], expected);
+    fx.advance_l1(reopened.l1(), schedule.l1_first(4), &landed, &changed);
+    assert_eq!(committee::validator_updates(&previous.members, &expected.members), vec![]);
+    // The same key keeps its old payout through the last old-epoch block, then switches
+    // after persistence/reopen despite no native validator changes.
+    for recipient in [old[0].reward_recipient, new[0].reward_recipient] {
+        let env = propose(&mut reopened).await;
+        assert_eq!(env.block.header.beneficiary, recipient);
+        let mut wrong = env.clone();
+        wrong.block.header.beneficiary = if recipient == old[0].reward_recipient {
+            new[0].reward_recipient
+        } else {
+            old[0].reward_recipient
+        };
+        assert_eq!(judge(&mut reopened, &wrong).await.0, response::ProcessProposal::Reject);
+        let (resp, req) = judge(&mut reopened, &env).await;
+        assert_eq!(resp, response::ProcessProposal::Accept);
+        // Exercise the cold path's epoch lookup independently of its hot verdict.
+        reopened.verdicts.clear();
+        finalize(&mut reopened, finalize_req(&req)).await.unwrap();
+        assert!(!reopened.decided_live);
+        commit(&mut reopened).await.unwrap();
     }
 }
