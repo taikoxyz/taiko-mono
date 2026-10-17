@@ -84,7 +84,6 @@ contract EtnaVaultHandler is Test {
     }
 }
 
-/// forge-config: default.invariant.runs = 256
 /// forge-config: default.invariant.depth = 50
 /// forge-config: default.invariant.fail_on_revert = true
 contract L2FeeVaultInvariantTest is StdInvariant, EtnaVaultTestBase {

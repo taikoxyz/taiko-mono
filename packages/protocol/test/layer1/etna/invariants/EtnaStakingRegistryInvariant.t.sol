@@ -335,7 +335,6 @@ abstract contract EtnaStakingRegistryInvariantBase is CommonTest {
 /// @title EtnaStakingRegistryInvariantTest
 /// @notice Registry invariants over four stakers sharing eight pubkeys, recomputing every
 /// entry after every call.
-/// forge-config: default.invariant.runs = 256
 /// forge-config: default.invariant.depth = 50
 /// forge-config: default.invariant.fail_on_revert = true
 contract EtnaStakingRegistryInvariantTest is EtnaStakingRegistryInvariantBase {
