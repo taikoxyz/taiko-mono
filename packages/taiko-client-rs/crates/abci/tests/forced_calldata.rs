@@ -299,11 +299,21 @@ async fn forced_invalid_skip_keeps_mempool() -> Result<()> {
         false,
     ));
     cases.push(("empty", Bytes::new(), false));
+    // Plant every case, then wait once for the last entry to be anchored and due. Each block
+    // consumes exactly the next queue entry, so the cases still run one per block, in order.
+    let mut planted = Vec::with_capacity(cases.len());
     for (name, raw, canonical) in cases {
-        eprintln!("real EL invalidity case: {name}");
         assert_eq!(forced::decode_canonical(&raw).is_some(), canonical, "{name}");
         let e = d.planter().plant_forced_transaction(raw.clone()).await?;
-        anchor_ready(&d, e.l1_block, e.timestamp + 2).await?;
+        planted.push((name, raw, canonical, e));
+    }
+    let (last_block, last_timestamp) = {
+        let last = &planted.last().context("planted cases")?.3;
+        (last.l1_block, last.timestamp)
+    };
+    anchor_ready(&d, last_block, last_timestamp + 2).await?;
+    for (name, raw, canonical, e) in planted {
+        eprintln!("real EL invalidity case: {name}");
         let pool = pool_signer();
         let pn = l2.get_transaction_count(pool.address()).await?;
         let tail = send_transfer(&l2, &pool, TAIL_RECIPIENT, U256::from(99), pn).await?;
