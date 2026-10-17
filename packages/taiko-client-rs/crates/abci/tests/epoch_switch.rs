@@ -1,4 +1,5 @@
-//! Docker scenarios for autonomous parent-anchor epoch activation.
+//! Docker scenario for autonomous parent-anchor epoch activation with a joining validator. The
+//! single-validator activation checks share the restart scenario's devnet (`restart.rs`).
 
 use std::{
     collections::BTreeSet,
@@ -152,48 +153,5 @@ async fn epoch_switch_adds_the_joining_validator() -> anyhow::Result<()> {
 
     devnet.stop().await?;
     eprintln!("epoch-switch scenario done after {:?}", started.elapsed());
-    Ok(())
-}
-
-#[tokio::test(flavor = "multi_thread")]
-#[ignore = "docker"]
-async fn epoch_switch_activates_without_committee_publication() -> anyhow::Result<()> {
-    let devnet = Devnet::start(DevnetSpec::default()).await?;
-    let schedule = devnet.schedule();
-    let h = schedule.h_first(1);
-    devnet.wait_for_height(0, h + 2, Duration::from_secs(90)).await?;
-    let committee = devnet.cmt(0).committee(1).await?.expect("switch derives committee 1");
-    let parent = devnet
-        .l2_provider(0)
-        .get_block_by_number(alloy_eips::BlockNumberOrTag::Number(
-            schedule.derivation_parent_height(1).unwrap(),
-        ))
-        .await?
-        .expect("committed derivation parent");
-    let anchor = abci::rules::decode_extra_data(&parent.header.inner.extra_data)?;
-    assert_eq!(committee.record.cutoff_l1_block, anchor.2);
-    assert_eq!(validator_set(&devnet, h).await?.len(), 1);
-    // Slot 278 remains the immutable genesis hash; no epoch mapping exists or is written.
-    let bootstrap = devnet
-        .planter()
-        .inbox_word(abci::l1::layout::inbox::slot(abci::l1::layout::inbox::GENESIS_COMMITTEE_HASH))
-        .await?;
-    let initial =
-        devnet.cmt(0).committee(0).await?.expect("genesis committee retained across first switch");
-    assert_eq!(
-        B256::from(bootstrap),
-        abci::committee::record_hash(devnet.params().l2_chain_id, &initial.record)
-    );
-    for epoch in [1, 2, 3] {
-        let legacy_mapping_slot = alloy_primitives::keccak256(
-            [abci::l1::layout::inbox::slot(epoch), abci::l1::layout::inbox::slot(278)].concat(),
-        );
-        assert!(
-            devnet.planter().inbox_word(legacy_mapping_slot).await?.is_zero(),
-            "no future committee mapping output for epoch {epoch}"
-        );
-    }
-    assert_eq!(devnet.app_halt(0), None);
-    devnet.stop().await?;
     Ok(())
 }
