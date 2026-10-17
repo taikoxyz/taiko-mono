@@ -202,7 +202,7 @@ async fn paged_history_progress_survives_restart_and_omitted_logs_are_rescanned(
     let source = source.unwrap();
     let mut progress = None;
     assert!(!source.transaction_finalized(&receipt, &mut progress).await.unwrap());
-    assert_eq!(progress.as_ref().unwrap().next, 9 + 16 * 1024);
+    assert_eq!(progress.as_ref().unwrap().next, 10 + 16 * 1024);
     assert_eq!(
         fixture.requests.lock().unwrap().iter().filter(|r| r["method"] == "eth_getLogs").count(),
         16
@@ -211,14 +211,14 @@ async fn paged_history_progress_survives_restart_and_omitted_logs_are_rescanned(
     progress = serde_json::from_slice(&serde_json::to_vec(&progress).unwrap()).unwrap();
     fixture.hide_logs.store(true, std::sync::atomic::Ordering::SeqCst);
     assert!(!source.transaction_finalized(&receipt, &mut progress).await.unwrap());
-    assert_eq!(progress.as_ref().unwrap().next, 9);
+    assert_eq!(progress.as_ref().unwrap().next, 10);
     fixture.hide_logs.store(false, std::sync::atomic::Ordering::SeqCst);
     assert!(!source.transaction_finalized(&receipt, &mut progress).await.unwrap());
     assert!(source.transaction_finalized(&receipt, &mut progress).await.unwrap());
     // A corrupt inclusion binding restarts hints, never grants authority.
     progress.as_mut().unwrap().inclusion_hash = B256::ZERO;
     assert!(!source.transaction_finalized(&receipt, &mut progress).await.unwrap());
-    assert_eq!(progress.unwrap().next, 9 + 16 * 1024);
+    assert_eq!(progress.unwrap().next, 10 + 16 * 1024);
 }
 
 #[tokio::test]
@@ -256,7 +256,10 @@ async fn finality_rejects_forged_witness_slots_and_unfinalized_event_hint() {
     let fixture = Arc::new(Fixture::new(Fault::Nonfinal, true));
     let receipt = inclusion(&fixture);
     let (source, _l1, _l2) = connect(fixture).await;
-    assert!(!source.unwrap().transaction_finalized(&receipt, &mut None).await.unwrap());
+    assert!(matches!(
+        source.unwrap().transaction_finalized(&receipt, &mut None).await,
+        Err(LanderError::Unavailable(_))
+    ));
 }
 
 #[tokio::test]
@@ -264,11 +267,15 @@ async fn discovery_and_ancestry_capacity_failures_are_actionable() {
     let mut fixture = Fixture::new(Fault::None, true);
     fixture.covering = vec![fixture.covering[0].clone(); 257];
     let receipt = inclusion(&fixture);
-    let (source, _l1, _l2) = connect(Arc::new(fixture)).await;
+    let fixture = Arc::new(fixture);
+    let (source, _l1, _l2) = connect(fixture.clone()).await;
     assert!(matches!(
         source.unwrap().transaction_finalized(&receipt, &mut None).await,
         Err(LanderError::Capacity(_))
     ));
+    let ranges = log_ranges(&fixture);
+    assert_eq!(ranges.last(), Some(&(11, 11)));
+    assert!(ranges.len() <= 16, "single-block overflow must terminate within the operation budget");
     let mut fixture = Fixture::new(Fault::None, true);
     fixture.covering[0].lastHeight = 8 + MAX_ANCESTRY;
     let candidate = &fixture.covering[0];
@@ -335,14 +342,14 @@ async fn second_unavailable_candidate_is_revisited_after_bounded_complete_pass()
         assert_eq!(progress.as_ref().unwrap().page.as_ref().unwrap().next_event, index);
     }
     assert!(!source.transaction_finalized(&receipt, &mut progress).await.unwrap());
-    assert_eq!(progress.as_ref().unwrap().next, 9 + 16 * 1024);
+    assert_eq!(progress.as_ref().unwrap().next, 10 + 16 * 1024);
     assert!(matches!(
         source.transaction_finalized(&receipt, &mut progress).await,
         Err(LanderError::Unavailable(_))
     ));
     assert_eq!(
         progress.as_ref().unwrap().next,
-        9,
+        10,
         "complete pass resets before retained hint retry"
     );
     assert!(progress.as_ref().unwrap().page.is_none());
@@ -464,5 +471,159 @@ async fn legacy_or_changed_page_context_restarts_untrusted_position_without_losi
         ));
         assert_eq!(progress.as_ref().unwrap().page.as_ref().unwrap().next_event, 1);
         assert!(source.transaction_finalized(&claim, &mut progress).await.unwrap());
+    }
+}
+
+fn dense_history() -> Fixture {
+    let mut fixture = Fixture::new(Fault::None, true);
+    let anchor_root = fixture.l1[&10].state_root;
+    let final_root = fixture.l1[&11].state_root;
+    // The claim happened long after its entitlement landing. The own-header anchor
+    // bounds useful discovery even when the finalized chain has a sparse old history.
+    fixture
+        .l1
+        .insert(20_000, Header { number: 20_000, state_root: anchor_root, ..Default::default() });
+    for number in [20_256, 20_257, 21_023, 22_000] {
+        fixture.l1.insert(number, Header { number, state_root: final_root, ..Default::default() });
+    }
+    let own = fixture.l2.get_mut(&8).unwrap();
+    let mut extra = own.extra_data.to_vec();
+    extra[7..13].copy_from_slice(&20_000u64.to_be_bytes()[2..]);
+    own.extra_data = extra.into();
+    let own_hash = own.hash_slow();
+    let endpoint = fixture.l2.get_mut(&9).unwrap();
+    endpoint.parent_hash = own_hash;
+    let actual = &mut fixture.covering[0];
+    actual.lastBlockHash = endpoint.hash_slow();
+    fixture.final_values.insert(
+        rewards::receipt_slot(rewards::batch_id(actual)),
+        U256::from_be_bytes(rewards::commitment(actual).0),
+    );
+    let (root, _) =
+        witness(&fixture.final_values, &[rewards::receipt_slot(rewards::batch_id(actual))]);
+    for number in [20_256, 20_257, 21_023, 22_000] {
+        fixture.l1.get_mut(&number).unwrap().state_root = root;
+    }
+    let actual = actual.clone();
+    fixture.covering = vec![receipt(); 256];
+    fixture.covering.push(actual);
+    fixture.covering_blocks = vec![20_000; 128];
+    fixture.covering_blocks.extend([20_256; 128]);
+    fixture.covering_blocks.push(20_257);
+    fixture.finalized_head.store(21_023, std::sync::atomic::Ordering::SeqCst);
+    fixture
+}
+
+fn log_ranges(fixture: &Fixture) -> Vec<(u64, u64)> {
+    fixture
+        .requests
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|r| r["method"] == "eth_getLogs")
+        .map(|r| {
+            let height = |field| {
+                u64::from_str_radix(
+                    r["params"][0][field].as_str().unwrap().trim_start_matches("0x"),
+                    16,
+                )
+                .unwrap()
+            };
+            (height("fromBlock"), height("toBlock"))
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn dense_pages_finalize_with_proof_and_ancestry_from_own_claim_anchor() {
+    let fixture = Arc::new(dense_history());
+    let claim = inclusion(&fixture);
+    let (source, _l1, _l2) = connect(fixture.clone()).await;
+    let mut progress = None;
+    let source = source.unwrap();
+    let mut finalized = false;
+    for _ in 0..2 {
+        finalized = source.transaction_finalized(&claim, &mut progress).await.unwrap();
+        if finalized {
+            break;
+        }
+    }
+    assert!(finalized);
+    assert_eq!(
+        log_ranges(&fixture),
+        vec![(20_000, 21_023), (20_000, 20_511), (20_000, 20_255), (20_256, 21_023)]
+    );
+    let progress = progress.unwrap();
+    assert_eq!(progress.start, 20_000);
+    assert_eq!(progress.start_hash, fixture.l1[&20_000].hash_slow());
+    let requests = fixture.requests.lock().unwrap();
+    assert_eq!(requests.iter().filter(|r| r["method"] == "eth_getProof").count(), 1);
+    assert_eq!(requests.iter().filter(|r| r["method"] == "eth_getBlockByHash").count(), 2);
+}
+
+#[tokio::test]
+async fn narrowed_page_end_survives_cancellation_restart_and_finalized_growth() {
+    let fixture = Arc::new(dense_history());
+    fixture.hang_logs_end.store(20_511, std::sync::atomic::Ordering::SeqCst);
+    let claim = inclusion(&fixture);
+    let (source, _l1, _l2) = connect(fixture.clone()).await;
+    let source = source.unwrap().with_finality_timeout(Duration::from_millis(300)).unwrap();
+    let mut progress = None;
+    assert!(matches!(
+        source.transaction_finalized(&claim, &mut progress).await,
+        Err(LanderError::Temporary(_))
+    ));
+    let page = progress.as_ref().unwrap().page.as_ref().unwrap();
+    assert_eq!(
+        (page.start, page.end, page.digest, page.next_event),
+        (20_000, 20_511, B256::ZERO, 0)
+    );
+    progress = serde_json::from_slice(&serde_json::to_vec(&progress).unwrap()).unwrap();
+    fixture.hang_logs_end.store(u64::MAX, std::sync::atomic::Ordering::SeqCst);
+    fixture.finalized_head.store(22_000, std::sync::atomic::Ordering::SeqCst);
+    // Reconnect as a restarted process, retaining only serialized journal hints.
+    let (source, _restart_l1, _restart_l2) = connect(fixture.clone()).await;
+    assert!(source.unwrap().transaction_finalized(&claim, &mut progress).await.unwrap());
+    let ranges = log_ranges(&fixture);
+    assert_eq!(&ranges[..3], &[(20_000, 21_023), (20_000, 20_511), (20_000, 20_511)]);
+    assert_eq!(ranges[3], (20_000, 20_255));
+    assert_eq!(ranges[4], (20_256, 21_279));
+}
+
+#[tokio::test]
+async fn finality_rejects_invalid_own_claim_context_before_discovering_covering_logs() {
+    for case in 0..4 {
+        let mut fixture = Fixture::new(Fault::None, true);
+        let own = fixture.l2.get_mut(&8).unwrap();
+        match case {
+            0 => own.extra_data = Bytes::new(),
+            1 => {
+                let mut extra = own.extra_data.to_vec();
+                extra[0] = 1;
+                own.extra_data = extra.into();
+            }
+            2 => own.parent_beacon_block_root = Some(B256::ZERO),
+            _ => {}
+        }
+        let mut claim = inclusion(&fixture);
+        if case == 3 {
+            claim.block_hash = B256::repeat_byte(99);
+        }
+        let fixture = Arc::new(fixture);
+        let (source, _l1, _l2) = connect(fixture.clone()).await;
+        let result = source.unwrap().transaction_finalized(&claim, &mut None).await;
+        if case == 3 {
+            assert!(matches!(result, Err(LanderError::Unavailable(_))));
+        } else {
+            assert!(matches!(result, Err(LanderError::Safety(_))));
+        }
+        assert!(
+            !fixture
+                .requests
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|r| matches!(r["method"].as_str(), Some("eth_getLogs" | "eth_getProof")))
+        );
     }
 }
