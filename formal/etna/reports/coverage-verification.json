@@ -1,0 +1,17 @@
+{
+  "theorems": 261,
+  "exact_rust_functions": 21,
+  "pending": [
+    "GUEST-SOUNDNESS",
+    "SOLIDITY-BYTECODE-REFINEMENT",
+    "TIME-RULE-REFINEMENT"
+  ],
+  "schema_version": 1,
+  "kernel_audit": true,
+  "upstream_client": "6f91f50c6185213ac512a4a46683767c75d8d831",
+  "paired_protocol": "cf4095818050bd670d7d6b8b9f742d55c01e49f0",
+  "verification_overlay": "fbacac38591f44f81955f0f26566c4ac2465869d",
+  "ledger_sha256": "43ed5d5035cac0e43211e32b6a0de303572eddf3e7ea5150bf59aaaaee15c50d",
+  "contract_sources_abi_layout_bytecode": "verified against actual paired artifacts",
+  "solidity_bridge": "specification plus finite conformance; bytecode refinement remains pending"
+}

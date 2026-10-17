@@ -148,7 +148,7 @@ pub fn verify_commit(
         }
     }
     let total = u128::from(committee.state.record.total_power);
-    if signed_power * 3 <= total * 2 {
+    if !etna_consensus_core::has_strict_quorum(signed_power, total) {
         return Err(ValidationError::Certificate(format!(
             "insufficient commit power {signed_power}/{total}; require strictly more than 2/3"
         )));
@@ -490,6 +490,26 @@ mod tests {
         block.commit.signatures[2] = CommitSig::BlockIdFlagAbsent;
         assert!(
             verify_commit(&block.commit, &block.block.header, &committee, "taiko-etna-167001-g0")
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn certificate_for_a_different_block_is_rejected() {
+        let (_, committee, keys) = committee(&[1, 1, 1], 0);
+        let original = pair(1, B256::ZERO, &committee, &keys, None);
+        verify_commit(&original.commit, &original.block.header, &committee, "taiko-etna-167001-g0")
+            .unwrap();
+        let mut wrong_block = original.commit.clone();
+        wrong_block.block_id.hash = Hash::Sha256([0x71; 32]);
+        let error =
+            verify_commit(&wrong_block, &original.block.header, &committee, "taiko-etna-167001-g0")
+                .unwrap_err();
+        assert!(matches!(error, ValidationError::Certificate(_)));
+        let mut wrong_parts = original.commit.clone();
+        wrong_parts.block_id.part_set_header.hash = Hash::Sha256([0x72; 32]);
+        assert!(
+            verify_commit(&wrong_parts, &original.block.header, &committee, "taiko-etna-167001-g0")
                 .is_err()
         );
     }

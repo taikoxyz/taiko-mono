@@ -18,6 +18,7 @@ dependencies = [
  "alloy-trie",
  "anyhow",
  "async-trait",
+ "etna-consensus-core",
  "flate2",
  "futures",
  "libz-sys",
@@ -2484,6 +2485,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "etna-consensus-core"
+version = "2.3.0"
+
+[[package]]
 name = "eyre"
 version = "0.6.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3611,6 +3616,7 @@ dependencies = [
  "curve25519-dalek",
  "ed25519-consensus",
  "ed25519-dalek",
+ "etna-consensus-core",
  "flate2",
  "futures",
  "prometheus",

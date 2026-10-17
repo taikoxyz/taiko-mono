@@ -408,3 +408,159 @@ fn matching_hash_does_not_turn_noncanonical_first_bytes_into_inclusion() {
         Err(ForcedError::TxHashMismatch { .. })
     ));
 }
+
+/// Golden decisions captured against the original authenticated production classifier.
+#[test]
+fn original_behavior_corpus() {
+    let mut rows = String::from("kind,bytes,omitted,first,delta,outcome\n");
+    for (name, bytes) in [
+        ("canonical", canonical_tx()),
+        ("empty", Bytes::new()),
+        ("invalid", Bytes::from_static(&[0xff])),
+        ("8192", vec![0; 8192].into()),
+        ("8193", vec![0; 8193].into()),
+    ] {
+        for omitted in [false, true] {
+            for first in [false, true] {
+                for delta in [-1i64, 0, 1] {
+                    let (mut anchor, mut witness) = fixture(bytes.clone());
+                    anchor.timestamp = (T0 + DELAY).checked_add_signed(delta).unwrap();
+                    if omitted {
+                        witness.tx = Bytes::new();
+                    }
+                    let result =
+                        check(context(&anchor), Some(&witness), first.then_some(bytes.as_ref()));
+                    let outcome = match result {
+                        Ok(ForcedDecision::Ordinary) => "ordinary",
+                        Ok(ForcedDecision::Included(INDEX)) => "included:7",
+                        Ok(ForcedDecision::SkippedInvalid(INDEX)) => "invalid:7",
+                        Ok(ForcedDecision::NeedsSkip { index: INDEX, .. }) => "needs:7",
+                        Err(ForcedError::TxTooLarge { .. }) => "too-large",
+                        Err(ForcedError::TxHashMismatch { .. }) => "hash-mismatch",
+                        other => panic!("unexpected corpus outcome {other:?}"),
+                    };
+                    rows.push_str(&format!("FI,{name},{omitted},{first},{delta},{outcome}\n"));
+                }
+            }
+        }
+    }
+
+    assert_eq!(rows, include_str!("behavior-corpus.csv"));
+}
+
+/// Completed original engine outcomes and cursor changes, captured before the shared-core rewrite.
+#[tokio::test(start_paused = true)]
+async fn original_resolution_and_cursor_corpus() {
+    use crate::{
+        engine::{
+            EngineError,
+            forced::{ForcedBuildContext, ForcedBuildError, verify_forced},
+        },
+        rules::{self, ExpectedHeader},
+        test_utils::{MockEngine, simple_block},
+    };
+    use std::time::Duration;
+    let expected = ExpectedHeader {
+        number: 42,
+        parent_hash: B256::repeat_byte(0x11),
+        timestamp: 1000,
+        beneficiary: Address::repeat_byte(0x22),
+        extra_data: rules::encode_extra_data(7, 80).unwrap(),
+        parent_beacon_block_root: B256::repeat_byte(0x33),
+        gas_limit: 30_000_000,
+        base_fee: 123,
+        mix_hash: B256::repeat_byte(0x44),
+    };
+    let context = ForcedBuildContext { expected: &expected, anchor_hash: B256::repeat_byte(0x55) };
+    let mut rows = String::from("decision,singleton,result,cursor\n");
+    for (name, decision) in [
+        ("ordinary", ForcedDecision::Ordinary),
+        ("included", ForcedDecision::Included(INDEX)),
+        ("invalid", ForcedDecision::SkippedInvalid(INDEX)),
+        ("needs", ForcedDecision::NeedsSkip { index: INDEX, tx: canonical_tx() }),
+    ] {
+        for outcome in ["empty", "retained", "engine-error", "header-error", "timeout"] {
+            let engine = MockEngine::new();
+            let attrs = rules::payload_attributes(
+                &expected,
+                context.anchor_hash,
+                Some(protocol::shasta::encode_transactions(&[])),
+            );
+            let mut block = simple_block(expected.parent_hash, &attrs);
+            if outcome == "retained" {
+                block.transactions.push(canonical_tx());
+            }
+            if outcome == "header-error" {
+                block.header.timestamp += 1;
+            }
+            engine.state().build_script.push_back(if outcome == "engine-error" {
+                Err(EngineError::Transport("corpus".into()))
+            } else {
+                Ok(block)
+            });
+            if outcome == "timeout" {
+                engine.state().delay = Some(Duration::from_secs(2));
+            }
+            let result = tokio::time::timeout(
+                Duration::from_secs(1),
+                verify_forced(&engine, context, &decision),
+            )
+            .await;
+            let (result, consumed) = match result {
+                Ok(Ok(None)) => ("none", None),
+                Ok(Ok(Some(INDEX))) => ("consumed:7", Some(INDEX)),
+                Ok(Err(ForcedBuildError::Retained)) => ("retained", None),
+                Ok(Err(ForcedBuildError::Engine(_))) => ("engine-error", None),
+                Ok(Err(ForcedBuildError::Header(_))) => ("header-error", None),
+                Err(_) => ("timeout", None),
+                other => panic!("{other:?}"),
+            };
+            // Original next_state increments only on completed consumption; errors retain durable
+            // state.
+            let cursor = if consumed.is_some() { INDEX + 1 } else { INDEX };
+            rows.push_str(&format!("{name},{outcome},{result},{cursor}\n"));
+        }
+    }
+    assert_eq!(rows, include_str!("resolution-corpus.csv"));
+}
+
+#[test]
+fn nonempty_legacy_preimages_decode_only_when_a_skip_needs_them() {
+    let (mut anchor, witness) = fixture(canonical_tx());
+    assert!(!witness.tx.is_empty());
+
+    anchor.timestamp = T0 + DELAY - 1;
+    CANONICAL_DECODE_CALLS.with(|calls| calls.set(0));
+    assert_eq!(check(context(&anchor), Some(&witness), None), Ok(ForcedDecision::Ordinary));
+    assert_eq!(
+        CANONICAL_DECODE_CALLS.with(|calls| calls.get()),
+        0,
+        "ordinary legacy preimage needs no decoding"
+    );
+
+    for timestamp in [T0 + DELAY - 1, T0 + DELAY] {
+        anchor.timestamp = timestamp;
+        CANONICAL_DECODE_CALLS.with(|calls| calls.set(0));
+        assert_eq!(
+            check(context(&anchor), Some(&witness), Some(&witness.tx)),
+            Ok(ForcedDecision::Included(INDEX))
+        );
+        assert_eq!(
+            CANONICAL_DECODE_CALLS.with(|calls| calls.get()),
+            1,
+            "only the matching first transaction needs decoding"
+        );
+    }
+
+    anchor.timestamp = T0 + DELAY;
+    CANONICAL_DECODE_CALLS.with(|calls| calls.set(0));
+    assert_eq!(
+        check(context(&anchor), Some(&witness), None),
+        Ok(ForcedDecision::NeedsSkip { index: INDEX, tx: witness.tx.clone() })
+    );
+    assert_eq!(
+        CANONICAL_DECODE_CALLS.with(|calls| calls.get()),
+        1,
+        "due skip must still decode its preimage"
+    );
+}

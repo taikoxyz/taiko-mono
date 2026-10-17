@@ -48,22 +48,29 @@ pub async fn verify_forced<E: Engine + ?Sized>(
     context: ForcedBuildContext<'_>,
     decision: &ForcedDecision,
 ) -> Result<Option<u64>, ForcedBuildError> {
-    match decision {
-        ForcedDecision::Ordinary => Ok(None),
-        ForcedDecision::Included(index) | ForcedDecision::SkippedInvalid(index) => Ok(Some(*index)),
-        ForcedDecision::NeedsSkip { index, tx } => {
-            let transaction = decode_canonical(tx).ok_or(ForcedBuildError::InvalidDecision)?;
-            let tx_list = protocol::shasta::encode_transactions(&[transaction]);
-            let attrs =
-                rules::payload_attributes(context.expected, context.anchor_hash, Some(tx_list));
-            let rebuilt = engine.build_block(context.expected.parent_hash, attrs).await?;
-            rules::check_header(&rebuilt.header, context.expected)?;
-            if !rebuilt.transactions.is_empty() {
-                return Err(ForcedBuildError::Retained);
-            }
-            Ok(Some(*index))
-        }
+    use etna_consensus_core::forced::{ForcedError, SingletonOutcome, resolve_forced};
+    match resolve_forced(decision.scalar(), SingletonOutcome::NotBuilt) {
+        Ok(consumed) => return Ok(consumed),
+        Err(ForcedError::NeedsSingleton) => (),
+        Err(_) => unreachable!("unbuilt singleton only requires a build"),
     }
+    let ForcedDecision::NeedsSkip { tx, .. } = decision else {
+        unreachable!("scalar decision preserves variant")
+    };
+    let transaction = decode_canonical(tx).ok_or(ForcedBuildError::InvalidDecision)?;
+    let tx_list = protocol::shasta::encode_transactions(&[transaction]);
+    let attrs = rules::payload_attributes(context.expected, context.anchor_hash, Some(tx_list));
+    let rebuilt = engine.build_block(context.expected.parent_hash, attrs).await?;
+    rules::check_header(&rebuilt.header, context.expected)?;
+    let outcome = if rebuilt.transactions.is_empty() {
+        SingletonOutcome::Empty
+    } else {
+        SingletonOutcome::Retained
+    };
+    resolve_forced(decision.scalar(), outcome).map_err(|error| match error {
+        ForcedError::Retained => ForcedBuildError::Retained,
+        _ => unreachable!("completed singleton only rejects retained transactions"),
+    })
 }
 
 #[cfg(test)]

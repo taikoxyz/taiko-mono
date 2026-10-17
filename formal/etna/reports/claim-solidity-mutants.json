@@ -1,0 +1,86 @@
+{
+  "protocol": "cf4095818050bd670d7d6b8b9f742d55c01e49f0",
+  "mutations": [
+    {
+      "mutation": "claim-flag-dropped",
+      "obligation": "CLAIM-02",
+      "kill": "assert",
+      "expected_failure": "[FAIL: successful claim marks its batch",
+      "exit": 1,
+      "source_sha256": "af32e07e356bfe723b437a144afc5b88993fa56e2700be18d7de9de182901b4a",
+      "log_sha256": "70dcc3c6b3673caa75d5aa8a8443168e1a3d8c8011f80b90b37de0698caca95c",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "empty-account-check",
+      "obligation": "CLAIM-01",
+      "kill": "assert",
+      "expected_failure": "[FAIL: successful claim requires a nonempty account proof",
+      "exit": 1,
+      "source_sha256": "355dbc143da627ddd1408ae39f858d476b3d4fc274d2ea474dbeeecda5ff1aa5",
+      "log_sha256": "c36acac3bb484548489cfbd4275c743988db90220d5dd31c7d6f2364214d6c53",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "reentrancy-guard",
+      "obligation": "CLAIM-01",
+      "kill": "assert",
+      "expected_failure": "[FAIL: nested claim hits the guard",
+      "exit": 1,
+      "source_sha256": "954bf584eb70eef8885727bc084f45e8fad2fc1e537f2d3cbeff600b149583dc",
+      "log_sha256": "36d9c1e167d3d33eb83d0b2f7d204bb7713ba8cee4b5f2b08cfe7c6153acad67",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "receipt-l2-chain",
+      "obligation": "CLAIM-01",
+      "kill": "assert",
+      "expected_failure": "[FAIL: successful claim requires the configured receipt identity",
+      "exit": 1,
+      "source_sha256": "4dcbda2e3dc811565dba3110d83819d73e5cb1a2a0810cf7839038c45542a770",
+      "log_sha256": "df4db67df2b8a7da3ac166502f3252ef30c9fbad128d9480b4053810ad86a0c6",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "zero-root-accepted",
+      "obligation": "CLAIM-01",
+      "kill": "lean",
+      "expected_failure": "root-zero:error",
+      "lean_failures": [
+        {
+          "id": "root-zero",
+          "field": "error",
+          "lean": "invalid-anchor-root",
+          "solidity": "proof"
+        },
+        {
+          "id": "root-precedes-proof",
+          "field": "error",
+          "lean": "invalid-anchor-root",
+          "solidity": "proof"
+        }
+      ],
+      "exit": 0,
+      "source_sha256": "f2f596dd0efe4feb61670f5974cffbac11dd6f84464bf7d270cd438f56b43dee",
+      "log_sha256": "73ade49896da671d9108e7ae079e02dfb077c2171b2f241b6dbf15205ce64613",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "zero-amount-call",
+      "obligation": "CLAIM-AUX-04",
+      "kill": "assert",
+      "expected_failure": "[FAIL: one recipient call, none for a zero amount",
+      "exit": 1,
+      "source_sha256": "84be7e75e79970f1356855b2b18068ddfe419a71361970b05ca7f08c7f103f0e",
+      "log_sha256": "9c3ae96e89a8280dcb9760fbab0550a3b5972c850901cf57cf526b937ddb5496",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    }
+  ],
+  "canonical_artifacts_restored": true
+}

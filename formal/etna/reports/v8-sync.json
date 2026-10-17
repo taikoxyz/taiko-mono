@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "scope": "Refresh to the V8 protocol (L2-claimed base-fee rewards) and the current ABCI/lander head",
+  "upstream_client": "6f91f50c6185213ac512a4a46683767c75d8d831",
+  "paired_protocol": "cf4095818050bd670d7d6b8b9f742d55c01e49f0",
+  "lander_fixture_protocol": "2a4bfa747edcafae96c15b58159e31eea0ebe78a",
+  "fixture_identity": "contracts, foundry.toml and pnpm-lock.yaml are byte-identical between the fixture revision and the paired protocol; check_coverage.py enforces it",
+  "previous_pair": {
+    "client": "2af0f30485b9990eae87074037bede11c59e8883",
+    "protocol": "27777e9d7147e7b1d3543711f4d7370a0377fa53"
+  },
+  "production_core": {
+    "removed": [
+      "schedule::MAX_EPOCH_LEN",
+      "ScheduleError::EpochTooLong",
+      "Schedule::epoch_end_block"
+    ],
+    "changed": {
+      "MAX_N_MAX": "300 -> 4096"
+    },
+    "counts": {
+      "production_function_roots": 21,
+      "transparent_constant_initializers": 3,
+      "transparent_functions": 24,
+      "opaque_llbc_stdlib_functions_resolved_by_backend_models": 10,
+      "unresolved_generated_axioms": 0,
+      "opaque_stubs": 0
+    },
+    "source_sha256": {
+      "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs": "e9484871ddad7baf70454c8223e175d8117e6366792535728d6e467c0045db7e",
+      "packages/taiko-client-rs/crates/etna-consensus-core/src/lib.rs": "0895cf545062957cd578aab72337b62367de589e570d35ff036178b662e328e6",
+      "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs": "040975b52a0786b1e0769fe37eff18a7b305813feadecdc89405d61ebfdf6b7b",
+      "packages/taiko-client-rs/crates/etna-consensus-core/src/transition.rs": "29314c8522f1bfb669ed33c5c0c9cfe108dc1f803c1172a2dc9f78fa494f7223"
+    },
+    "generated_sha256": {
+      "EtnaConsensusCore.lean": "b8226cac41c44cd89d50e0cdc3857d27495179a163c357e352331d8407c23716"
+    },
+    "fresh_extraction": "byte-identical generated Lean and provenance (scripts/check_provenance.py)"
+  },
+  "theorems": {
+    "total": 261,
+    "exact_rust_functions": 21,
+    "removed_ids": [
+      "COM-validate_epoch_cap",
+      "COM-validate_proposer_score_budget",
+      "COM-epoch_end_source_formula",
+      "COM-epoch_end_some",
+      "COM-epoch_end_advances",
+      "COM-epoch_end_positive_source",
+      "COM-publish_stop_epoch_bound",
+      "COM-ends_epoch_iff",
+      "COM-ends_epoch_forces_urgency",
+      "COM-epoch_end_commit_interval",
+      "COM-epoch_end_last_commit",
+      "COM-rust_epoch_end_refines",
+      "COM-epoch_end_controls",
+      "COM-current_epoch_cap_boundaries"
+    ],
+    "renamed": {
+      "COM-current_epoch_cap_boundaries": "COM-removed_epoch_cap_boundaries",
+      "COM-uint48_controls": "binds uint48_priority (L=max48-1 accepted again)"
+    },
+    "new_spec_ids": {
+      "LAND-09": "reward_recorded_exact",
+      "LAND-10": "reward_slot_fresh",
+      "LAND-11": "landed_cuts_rewards",
+      "CLAIM-01": "claim_success",
+      "CLAIM-02": "claim_once",
+      "CLAIM-03": "claim_pays_recorded",
+      "CLAIM-04": "claims_bounded_by_credits"
+    },
+    "axioms": ["propext", "Classical.choice", "Quot.sound"]
+  },
+  "landing_conformance": {
+    "cases": 65,
+    "actual_preimages": 36,
+    "rust_statement_rows": 65,
+    "corpus_sha256": "0146514344dbd4842c255f87ff2e672a09457dd8cd77fc6f7f73484b326bec50",
+    "observations_sha256": "8130ff85762b0b45321728c306a0447c8113cccffc2741dc8ebe588bf72472e0",
+    "cuts": {
+      "plans": 4,
+      "intervals": 12
+    },
+    "failures": 0
+  },
+  "committee_conformance_cases": 988,
+  "fi_conformance_cases": 94,
+  "core_mutants": [
+    {
+      "mutation": "quorum-inclusive",
+      "corpus_exit": 1,
+      "refinement_exit": 1,
+      "restored": true
+    },
+    {
+      "mutation": "committee-size-cap-relaxed",
+      "corpus_exit": 1,
+      "refinement_exit": 1,
+      "restored": true
+    }
+  ],
+  "historical": "ci-acceptance.md, ci-verification.json, hosted-ci-38800416662.json, pair-refresh.json, landing-coverage.json, landing-verification.json, landing-portable-conformance.json and the landing mutant reports describe the earlier V6 pair and are retained as historical evidence",
+  "landing_mutants": [
+    {
+      "mutation": "recipient-omission",
+      "obligation": "LAND-03",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "head-tail-bound",
+      "obligation": "LAND-01",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "fee-interval",
+      "obligation": "LAND-02",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "verifier-bypass",
+      "obligation": "LAND-04",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "reward-commitment",
+      "obligation": "LAND-09",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "reward-slot-check",
+      "obligation": "LAND-10",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    }
+  ],
+  "landing_mutants_artifacts_restored": true
+}

@@ -1,0 +1,274 @@
+{
+  "schema_version": 1,
+  "scope": "Current upstream-pair integration and identity verification; no COM/Landing/CI domain implementation",
+  "upstream_dependencies": {
+    "client_revision": "2af0f30485b9990eae87074037bede11c59e8883",
+    "protocol_revision": "27777e9d7147e7b1d3543711f4d7370a0377fa53"
+  },
+  "verification_overlay": {
+    "reviewed_start_revision": "44afbca320dfd9f23fdb6ea46ad641cb1b51a01e",
+    "merge_revision": "bf1529ed75f15ae548c51bb48834e887d4673f87",
+    "merge_parents": [
+      "44afbca320dfd9f23fdb6ea46ad641cb1b51a01e",
+      "2af0f30485b9990eae87074037bede11c59e8883"
+    ],
+    "identity": "The client dependency is the upstream base, not this verification branch. Exact current production/core/Cargo/generated content is bound by provenance digests; follow-up evidence commit recorded in the task report."
+  },
+  "historical_evidence": {
+    "original_protocol_revision": "41241d5e6440c2ab244ccfdf572d1af8016f70c6",
+    "original_client_revision": "2d00eb054d767093742af6af6a061d30a3d2d118",
+    "inventory_git_revision": "44afbca320dfd9f23fdb6ea46ad641cb1b51a01e",
+    "inventory_path": "formal/etna/reports/solidity-inventory.json",
+    "inventory_sha256": "78beb214e8d79c50e23f0d9e465aa8c45503ae92bfcc00cfb6761e26caf05069",
+    "behavior_baseline": "reports/rust-behavior-baseline.json",
+    "task3_verification": "reports/fi-verification.json",
+    "relabelled_as_current": false
+  },
+  "extraction": {
+    "runs": 2,
+    "generated_and_provenance_byte_identical": true,
+    "counts": {
+      "production_function_roots": 17,
+      "transparent_constant_initializers": 1,
+      "transparent_functions": 18,
+      "opaque_llbc_stdlib_functions_resolved_by_backend_models": 8,
+      "unresolved_generated_axioms": 0,
+      "opaque_stubs": 0
+    },
+    "source_sha256": {
+      "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs": "e9484871ddad7baf70454c8223e175d8117e6366792535728d6e467c0045db7e",
+      "packages/taiko-client-rs/crates/etna-consensus-core/src/lib.rs": "ee2db741ba5d0e625900c63a58cf75213fe8740083f9f97751d2238018ab4b35",
+      "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs": "b96055637f7ec5aae5d52f0a20c086b317a1e1871eb02f6e6c115695998aadb8",
+      "packages/taiko-client-rs/crates/etna-consensus-core/src/transition.rs": "29314c8522f1bfb669ed33c5c0c9cfe108dc1f803c1172a2dc9f78fa494f7223"
+    },
+    "source_identical_to_reviewed_start": true,
+    "cargo_sha256_before": {
+      "packages/taiko-client-rs/Cargo.toml": "12117b4dae8d2bb39aadc7ade0da7a784a301e032906e35f52a6c3eb221f83db",
+      "packages/taiko-client-rs/Cargo.lock": "98a7e32e7323f4dba0859a5013bb4eb9a6aaff7d77f2d418c14b524020219d32",
+      "packages/taiko-client-rs/crates/etna-consensus-core/Cargo.toml": "9a6d61ba3821dbae3278460421f2bbb8b6d65bec7d60f319227f00bf635267e5"
+    },
+    "cargo_sha256_current": {
+      "packages/taiko-client-rs/Cargo.toml": "a14a4f63cb36eafee3f299ad44ec1373efa218bb46141f0ddd060613ecd236b0",
+      "packages/taiko-client-rs/Cargo.lock": "7049832ca66c07f7eff1e61719c54b38f4046c9ff3d28679aa43049b0afa8763",
+      "packages/taiko-client-rs/crates/etna-consensus-core/Cargo.toml": "9a6d61ba3821dbae3278460421f2bbb8b6d65bec7d60f319227f00bf635267e5"
+    },
+    "generated_sha256": {
+      "EtnaConsensusCore.lean": "de74fbf200f60c99a050a40f9fa76f7ab6285bdbac55591e59a3aafd3e187096"
+    },
+    "generated_identical_to_reviewed_start": true,
+    "tools": {
+      "charon": "a5276d59516b6e7dc519441e244399ab8d429107",
+      "aeneas": "673f9e30e1e2a81b355df9a9550168e672a10d4e",
+      "extractor_rust": "nightly-2026-09-17",
+      "production_rust": "1.95",
+      "lean": "leanprover/lean4:v4.35.0-rc4",
+      "mathlib": "1f414401f69059aa7eead47b53ee40bd38455eeb"
+    },
+    "tool_binaries_sha256": {
+      "aeneas": "332d9a6213558a788dc0731db56dde711d68b020487aa7fa44470dccfb12eb48",
+      "charon": "6d1814f199db53c5b3211483b17dc43f13520589c3566fee12e49ec2c1eaf0d9"
+    },
+    "compilation": "Actual generated module compiled by cached root lake build; initial redundant scratch dependency fetch stopped before compilation, not counted as a pass"
+  },
+  "runtime_identity": {
+    "production_sha256": {
+      "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs": "e9484871ddad7baf70454c8223e175d8117e6366792535728d6e467c0045db7e",
+      "packages/taiko-client-rs/crates/abci/src/forced.rs": "0eafa1b6448ca5eb7b5b938101592cb35f44bd36e062c55e8cd609f19197978d",
+      "packages/taiko-client-rs/crates/abci/src/engine/forced.rs": "a47dc5cc261d9aed5286b3240ce971755bdc9c5bbb33db1f61aae02636cf6fa8",
+      "packages/taiko-client-rs/crates/abci/src/app/finalize.rs": "5446426dc9c1b6e19ff2e33d70ac9ada7d6a22b7b110b08825c3dc8320a4cafb"
+    },
+    "modified_rs_production_checks": [
+      {
+        "path": "packages/taiko-client-rs/crates/abci/src/l1/layout.rs",
+        "comparison": "production prefix before cfg(test), byte-identical",
+        "sha256": "e676d10d091382f2fd6b9365b486f77bf936e5a1f596256be1759c0ab19be906"
+      },
+      {
+        "path": "packages/taiko-client-rs/crates/abci/src/l1/witness.rs",
+        "comparison": "production prefix before cfg(test), byte-identical",
+        "sha256": "5907cabf9f282e72ebdaf6a9e7a0e34c92568b1cdf5c33afa2212fcb86cac4f0"
+      },
+      {
+        "path": "packages/taiko-client-rs/crates/lander/src/statement.rs",
+        "comparison": "production prefix before cfg(test), byte-identical",
+        "sha256": "0aaa6ce0737c549f9fd9efc8464fdf02dfe646feefc28f61c212b9cbdc075286"
+      },
+      {
+        "path": "packages/taiko-client-rs/crates/lander/src/batch.rs",
+        "comparison": "production prefix before cfg(test), byte-identical",
+        "sha256": "6e5b8cd6366f70698395d7235b975346b11ebd8e03f8e1a511436bf0a5830f95"
+      },
+      {
+        "path": "packages/taiko-client-rs/crates/abci/src/lib.rs",
+        "comparison": "only added cfg(test) proptests module"
+      },
+      {
+        "path": "packages/taiko-client-rs/crates/lander/src/lib.rs",
+        "comparison": "only added cfg(test) proptests module"
+      },
+      {
+        "path": "packages/taiko-client-rs/crates/lander/src/contracts.rs",
+        "comparison": "only protocol source provenance constant changed"
+      }
+    ],
+    "protocol_contract_tree_before": "3206c97d3e147ad013dd6daae3e1c410f3b7a13c",
+    "protocol_contract_tree_current": "3206c97d3e147ad013dd6daae3e1c410f3b7a13c",
+    "cargo_delta": "Only adds proptest dev dependency and its two root dependency edges; no resolved dependency versions changed",
+    "fixture_payload_sha256": {
+      "packages/taiko-client-rs/crates/lander/tests/fixtures/contracts/ERC1967Proxy.json": "44a06ff32f8733e863fb6e86fb544aac4efa908216f43fee2bfeae434184eeef",
+      "packages/taiko-client-rs/crates/lander/tests/fixtures/contracts/EtnaInbox.json": "dc774501786b57b01910e4b59fcfda898f278e97e59d7f51316c6cc7c64612c0",
+      "packages/taiko-client-rs/crates/lander/tests/fixtures/contracts/EtnaStakingRegistry.json": "b72ecb49d664dab4e0f5fc1a47a08285866e0cf5b04c9ff19578abe0c628f891",
+      "packages/taiko-client-rs/crates/lander/tests/fixtures/contracts/MockLandProofVerifier.json": "1b49ae6af7be6ceeba249bc91c14a0eab6fa77ebd540e508f2d8e5649352f286",
+      "packages/taiko-client-rs/crates/lander/tests/fixtures/contracts/SignalService.json": "e91c0f740a1e2a747d79075435d4c977c2ff7d44a4836f6fa2ef3110af685fe5",
+      "packages/taiko-client-rs/crates/lander/tests/fixtures/contracts/TestERC20.json": "8ff3bdeb253a7ac0bf67e0391fdb98e25178deeddacedd2244836d771655044e"
+    },
+    "fixture_payloads_identical_to_reviewed_start": true,
+    "fixture_generation_runs": 2,
+    "fixture_manifest_interface_vectors_byte_reproducible": true,
+    "standalone_vector_generation_runs": 2
+  },
+  "current_solidity_inventory": {
+    "path": "reports/solidity-inventory.json",
+    "sha256": "4a2f1066ef06cce55fdff11a83ce84804daee983a9dacba59f53ab1c6a0df7f9",
+    "only_changed_field_from_historical_inventory": "source_revision",
+    "runtime_sha256": "1aea2ee9f5541502b1a5253a40aea8e16267cc58c1d94fa1283512cbb99480b3",
+    "runtime_bytes": 12630,
+    "executable_prefix_bytes": 12577,
+    "raw_metadata_sha256": "6efa8c528ad32f40e4bd0294fc878c0079c369c0d2764480875145ab623a8bc9",
+    "compiler": {
+      "version": "0.8.30+commit.73712a01"
+    },
+    "evm_version": "osaka",
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "via_ir": false,
+    "all_sources_settings_layout_instructions_capability_sources_identical": true
+  },
+  "fresh_checks": {
+    "fmt": "passed",
+    "clippy_fix": "passed",
+    "strict_clippy": "passed",
+    "workspace_unit": {
+      "passed": 971,
+      "skipped": 0,
+      "run_id": "e6ef2ad2-d67f-4eeb-81b8-0550ef9d3fff",
+      "seconds": 30.923,
+      "leak_annotation": "app::tests::info::app_new_reloads_the_persisted_state passed with LEAK in concurrent full run"
+    },
+    "focused_leak_followup": {
+      "test": "app::tests::info::app_new_reloads_the_persisted_state",
+      "passed": 1,
+      "skipped": 660,
+      "run_id": "9aadefc3-5b2c-43db-9043-33381be03551",
+      "leak_annotation": false,
+      "reason": "Explicit focused verification of concurrent full-run resource annotation; not an automatic retry or replacement for full run"
+    },
+    "protocol_no_default_unit": {
+      "passed": 60,
+      "skipped": 0,
+      "run_id": "3d655fe7-7d39-4c92-8b51-35f70647a669"
+    },
+    "abci_doctests": 2,
+    "new_hot_cold_property": "app::tests::hot_cold::hot_and_cold_finalize_agree_on_forced_inclusion_runs passed in full unit",
+    "new_property_vector_fixture_tests": "All executed in full unit with upstream default bounded proptest cases",
+    "root_lean_build_jobs": 3449,
+    "type_and_axiom_audit": {
+      "theorems": 45,
+      "rust_fi_refinements": 6,
+      "allowed_axioms": ["propext", "Classical.choice", "Quot.sound"]
+    },
+    "fi_corpus": {
+      "cases": 94,
+      "sha256": "3b95093d9ba702bf408a895eb47fafd58bf3a5112b10fd96d3df9fdeba3747cd",
+      "lean": "passed",
+      "production_rust": "passed"
+    },
+    "python_tests": {
+      "status": "passed",
+      "methods": 26,
+      "seconds": 130.139,
+      "exit_code": 0
+    },
+    "protocol_etna": {
+      "revision": "27777e9d7147e7b1d3543711f4d7370a0377fa53",
+      "passed": 204,
+      "failed": 0,
+      "skipped": 0,
+      "suites": 13,
+      "invariants": 17,
+      "invariant_runs": 256,
+      "invariant_depth": 50,
+      "calls_per_invariant": 12800,
+      "reverts": 0,
+      "tester_report": "/private/tmp/etna-protocol-refreshed-test-report.md"
+    }
+  },
+  "reused_checks": {
+    "docker": {
+      "status": "passed",
+      "run_id": "d860a505-0362-4c40-bf50-536253777ab3",
+      "log": "/private/tmp/etna-fi-final-test.log",
+      "tests": 36,
+      "passed": 36,
+      "seconds": 620.33,
+      "exit_code": 0,
+      "implementation_revision": "d0d0dda8274eb14f8f0da939eb88e9478fdcf5df"
+    },
+    "mutations": [
+      {
+        "mutation": "due-strict",
+        "corpus_exit": 1,
+        "refinement_exit": 1,
+        "gate": "actual regenerated source refinement and corpus",
+        "restored": true
+      },
+      {
+        "mutation": "unfinished-consumes",
+        "corpus_exit": 1,
+        "refinement_exit": 1,
+        "gate": "actual regenerated source refinement and corpus",
+        "restored": true
+      },
+      {
+        "mutation": "error-as-empty",
+        "test": "engine::forced::tests::engine_failures_and_incomplete_results_do_not_authorize_consumption",
+        "exit": 101,
+        "gate": "actual async adapter assertion",
+        "restored": true
+      },
+      {
+        "mutation": "hot-consumption-removed",
+        "test": "app::tests::finalize::hot_canonical_skip_matches_cold_replay_and_persists_after_commit",
+        "exit": 101,
+        "gate": "actual async adapter assertion",
+        "restored": true
+      },
+      {
+        "mutation": "cold-consumption-removed",
+        "test": "app::tests::finalize::hot_canonical_skip_matches_cold_replay_and_persists_after_commit",
+        "exit": 101,
+        "gate": "actual async adapter assertion",
+        "restored": true
+      }
+    ],
+    "mutation_logs": "/private/tmp/etna-fi-mutations/{core,adapters}.json",
+    "justification": "Reviewed production reducers/adapters and all fixture payloads are byte-identical; upstream code changes affect tests and protocol provenance only. Fresh unit, property, vector, fixture, extraction, Lean and audit checks cover new changes. Historical Docker/mutation runs retain their actual revision and are not relabelled as refreshed runs."
+  },
+  "limitations": [
+    "Protocol fmt check reports pre-existing trailing spaces in generated EtnaStakingRegistry_Layout.sol; production source preserved.",
+    "First standalone vector invocation failed missing prettier PATH; two explicit corrected runs with documented workspace PATH passed.",
+    "First inventory attempt after fixture regeneration lacked storageLayout; a real forge build with extra-output storageLayout regenerated a complete artifact before successful inventory.",
+    "Runtime source identity and conformance do not establish full async Rust or Solidity bytecode refinement.",
+    "COM/Landing/CI implementation remains pending."
+  ],
+  "logs": {
+    "rust": "/private/tmp/etna-pair-{fmt,clippy-fix,clippy,unit,leak-check}.log",
+    "formal": "/private/tmp/etna-pair-{extraction-r1,extraction-r2,lean,audit,conformance,python-tests}.log",
+    "fixtures": "/private/tmp/etna-pair-artifacts-{r1,r2}.log",
+    "vectors": "/private/tmp/etna-pair-vectors-{r1,corrected-r1,corrected-r2}.log",
+    "inventory": "/private/tmp/etna-pair-{inventory,layout-build,inventory-corrected}.log",
+    "protocol": "/private/tmp/etna-protocol-refreshed-{list,test,fmt}.log"
+  }
+}

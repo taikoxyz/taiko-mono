@@ -1,0 +1,267 @@
+#!/usr/bin/env python3
+"""Fail closed on missing obligations, changed source/type bytes and bridge downgrades.
+
+This ledger does not upgrade conformance or a refined scalar function to whole-program
+correctness. Default execution also invokes the Lean full-type/transitive-axiom audit.
+"""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+from audit_proofs import audit, validate_refinement
+from landing_conformance import PIN, pinned_inputs
+
+ROOT = Path(__file__).resolve().parents[1]
+REPO = ROOT.parents[1]
+UPSTREAM_CLIENT = '6f91f50c6185213ac512a4a46683767c75d8d831'
+# The client's lander fixtures name the protocol revision they were generated at. It may
+# precede the tested pin only when every compiler input below is byte-identical.
+FIXTURE_INPUTS = ['packages/protocol/contracts','packages/protocol/foundry.toml','pnpm-lock.yaml']
+# Frozen independently of the manifests/ledger. Deleting both copies is still rejected.
+POLICY = ROOT/'schemas/coverage-policy.json'
+POLICY_SHA256 = 'fc29a1367650ed7dea362f264a17f91741015dd956cfefb4534102c7c2b2f719'
+if hashlib.sha256(POLICY.read_bytes()).hexdigest() != POLICY_SHA256:
+    raise ValueError('coverage policy changed without explicit checker review')
+_POLICY = json.loads(POLICY.read_text())
+# Per-ID tuple: declaration, bridge, source mappings, prose-premise digest, full-type digest.
+REQUIRED = _POLICY['required']
+REQUIRED_FILES = _POLICY['required_files']
+PENDING = {'GUEST-SOUNDNESS', 'TIME-RULE-REFINEMENT', 'SOLIDITY-BYTECODE-REFINEMENT'}
+LEVELS = {'spec-proved', 'rust-refinement-proved'}
+
+
+def sha(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def canonical(value):
+    return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+
+
+def inside(root, relative):
+    path = (root/relative).resolve()
+    if not path.is_relative_to(root.resolve()):
+        raise ValueError('ledger path escapes root')
+    return path
+
+
+def load_entries():
+    entries = []
+    for path in sorted((ROOT/'manifests').glob('*.json')):
+        entries += json.loads(path.read_text())['theorems']
+    return entries
+
+
+def check_ledger(ledger, entries, source_root=None):
+    if set(ledger) != {'schema_version','identities','obligations','pending','files','contract_artifacts'} or type(ledger['schema_version']) is not int or ledger['schema_version'] != 1:
+        raise ValueError('invalid coverage schema')
+    identities = ledger['identities']
+    if identities != {'upstream_client':UPSTREAM_CLIENT,'paired_protocol':PIN,
+                      'verification_overlay':'current Git HEAD plus checked working-tree digests'}:
+        raise ValueError('three source identities must remain explicit')
+    ids = [e['id'] for e in entries]
+    if len(ids) != len(set(ids)) or set(ids) != set(REQUIRED):
+        raise ValueError('mandatory theorem IDs missing, duplicated or unexpected')
+    obligations = ledger['obligations']
+    if len(obligations) != len(REQUIRED) or {e['id'] for e in obligations} != set(REQUIRED):
+        raise ValueError('mandatory ledger IDs missing or duplicated')
+    index = {e['id']:e for e in entries}
+    for row in obligations:
+        if set(row) != {'id','declaration','module','type_sha256','bridge_level','premises','source_symbols','tests'}:
+            raise ValueError('invalid obligation schema')
+        entry = index[row['id']]
+        required = REQUIRED[row['id']]
+        # The independently reviewed policy pins the complete expected contract,
+        # not only mutable manifest/ledger agreement or prose premise labels.
+        if (len(required) != 5 or row['type_sha256'] != required[4] or
+                canonical(entry['type']) != required[4]):
+            raise ValueError('mandatory full theorem contract changed: '+row['id'])
+        if [entry['declaration'],entry['bridge_level']] != required[:2] or [row['declaration'],row['bridge_level']] != required[:2]:
+            raise ValueError('mandatory declaration/bridge changed or downgraded: '+row['id'])
+        if [[v['path'],v['symbol'],v['relation']] for v in row['source_symbols']] != required[2]:
+            raise ValueError('mandatory source symbol bridge removed or changed')
+        if canonical(row['premises']) != required[3]:
+            raise ValueError('mandatory named premises removed or changed')
+        if row['module'] != entry['module'] or row['type_sha256'] != canonical(entry['type']):
+            raise ValueError('theorem type/module digest mismatch: '+row['id'])
+        if row['premises'] != entry['assumptions'] or row['tests'] != entry['tests'] or not row['tests']:
+            raise ValueError('premise/test coverage differs: '+row['id'])
+        module = inside(ROOT, entry['module'].replace('.','/')+'.lean')
+        if not module.is_file() or not re.search(r'\btheorem\s+'+re.escape(entry['declaration'].split('.')[-1])+r'\b',module.read_text()):
+            raise ValueError('declared theorem source missing: '+row['id'])
+        if entry['bridge_level'] == 'rust-refinement-proved':
+            validate_refinement(entry)
+        for test in row['tests']:
+            if not inside(ROOT,test).is_file():
+                raise ValueError('declared test missing: '+test)
+        for source in row['source_symbols']:
+            if set(source) != {'path','symbol','sha256','relation'} or source['relation'] not in {'source-mapped-spec','exact-extracted-function'}:
+                raise ValueError('invalid source-symbol bridge')
+            if source['relation'] == 'exact-extracted-function' and entry['bridge_level'] != 'rust-refinement-proved':
+                raise ValueError('scalar refinement cannot upgrade wrapper/model theorem')
+            base = source_root if source['path'].startswith('packages/protocol/') else REPO
+            if base is None:
+                raise ValueError('--protocol is required for actual contract source verification')
+            path = inside(base,source['path'])
+            if sha(path) != source['sha256'] or source['symbol'] not in path.read_text():
+                raise ValueError('source symbol/digest mismatch: '+source['path'])
+    pending = ledger['pending']
+    if len(pending) != len(PENDING) or {p['id'] for p in pending} != PENDING:
+        raise ValueError('mandatory pending external boundary missing')
+    for item in pending:
+        if set(item) != {'id','status','reason','source','symbol'} or item['status'] != 'pending' or not item['reason']:
+            raise ValueError('unproved boundary was hidden or upgraded')
+        base = source_root if item['source'].startswith('packages/protocol/') else REPO
+        if base is None or item['symbol'] not in inside(base,item['source']).read_text():
+            raise ValueError('pending source symbol missing')
+    required_files = set(REQUIRED_FILES)
+    required_files |= {e['module'].replace('.','/')+'.lean' for e in entries}
+    required_files |= {'Etna/Refinement/Rust/EtnaConsensusCore.lean','Etna/Refinement/Rust/provenance.json',
+                      'tools.lock.json','corpus/landing.jsonl','adapters/solidity/EtnaInboxLeanConformance.t.sol',
+                      'adapters/solidity/EtnaInboxCutsConformance.t.sol','corpus/claim.jsonl',
+                      'adapters/solidity/L2FeeVaultLeanConformance.t.sol'}
+    if not required_files <= ledger['files'].keys():
+        raise ValueError('mandatory source/generated file digest removed')
+    for path, digest in ledger['files'].items():
+        if sha(inside(ROOT,path)) != digest:
+            raise ValueError('stale generated/model/adapter digest: '+path)
+    return {'theorems':len(entries),'exact_rust_functions':sum(e['bridge_level']=='rust-refinement-proved' for e in entries),
+            'pending':sorted(PENDING)}
+
+
+# Extra compiler outputs check_contract_artifacts reads, per Foundry profile of a fixture.
+# `--extra-output` accepts several values, so the `=` form keeps it from swallowing the paths.
+ARTIFACT_PROFILES = {'layer1': ['--extra-output=storageLayout'], 'layer2': []}
+
+
+def build_paired_artifacts(protocol):
+    """Compile every fixture's compilation target in its own Foundry profile.
+
+    A clean paired checkout has neither out/layer1 nor out/layer2; the artifact check
+    below is read-only, so entrypoints build both profiles first. The targets come from
+    the fixture manifest, so a fixture added in another profile fails closed here.
+    """
+    manifest = json.loads((REPO/'packages/taiko-client-rs/crates/lander/tests/fixtures/contracts/manifest.json').read_text())
+    targets = {}
+    for provenance in manifest['artifacts'].values():
+        profile = Path(provenance['sourceArtifact']).parts[3]
+        targets.setdefault(profile, set()).update(provenance['settings']['compilationTarget'])
+    if set(targets) - set(ARTIFACT_PROFILES):
+        raise ValueError('fixture artifact in an unsupported Foundry profile: '+str(sorted(set(targets)-set(ARTIFACT_PROFILES))))
+    for profile, sources in sorted(targets.items()):
+        subprocess.run(['forge','build','--force',*ARTIFACT_PROFILES[profile],*sorted(sources)],
+                       cwd=protocol, env=os.environ | {'FOUNDRY_PROFILE':profile}, check=True)
+    return {profile:sorted(sources) for profile, sources in sorted(targets.items())}
+
+
+def check_contract_artifacts(protocol, expected):
+    """Read actual sources, compiled ABI/layout/runtime and generator provenance; no build."""
+    pinned_inputs(protocol)
+    fixture_dir = REPO/'packages/taiko-client-rs/crates/lander/tests/fixtures/contracts'
+    manifest = json.loads((fixture_dir/'manifest.json').read_text())
+    if sha(fixture_dir/'manifest.json') != expected['manifest_sha256']:
+        raise ValueError('contract artifact provenance digest mismatch')
+    if manifest['protocolRevision'] != PIN and subprocess.run(
+            ['git','diff','--quiet',manifest['protocolRevision'],PIN,'--',*FIXTURE_INPUTS],
+            cwd=protocol.parents[1]).returncode != 0:
+        raise ValueError('fixture protocol revision has different compiler inputs from the tested pin')
+    for name, provenance in manifest['artifacts'].items():
+        fixture = fixture_dir/(name+'.json')
+        if sha(fixture) != provenance['sha256']:
+            raise ValueError('generated artifact changed: '+name)
+        for source, digest in provenance['sources'].items():
+            # Installed pnpm packages may be symlinks outside this checkout. Their
+            # exact compiler-input bytes are authenticated by generator provenance.
+            relative = Path(source)
+            if relative.is_absolute() or '..' in relative.parts:
+                raise ValueError('unsafe compiler source path')
+            source_path = protocol/relative if source.startswith('node_modules/') else inside(protocol,source)
+            if sha(source_path) != digest['sha256']:
+                raise ValueError('actual compiler source differs: '+source)
+        actual = json.loads(inside(protocol.parents[1],provenance['sourceArtifact']).read_text())
+        generated = json.loads(fixture.read_text())
+        if actual['abi'] != generated['abi']:
+            raise ValueError('actual compiled ABI differs: '+name)
+        for field in ['bytecode','deployedBytecode']:
+            if actual[field]['object'] != generated[field]['object']:
+                raise ValueError('actual executable bytecode differs: '+name)
+        raw_metadata = json.loads(actual['rawMetadata'])
+        if set(raw_metadata['sources']) != set(provenance['sources']) or any(
+                raw_metadata['sources'][source]['keccak256'] != digest['keccak256']
+                for source,digest in provenance['sources'].items()):
+            raise ValueError('actual compiler source metadata differs: '+name)
+        for key in ['compiler','settings']:
+            if raw_metadata[key] != provenance[key]:
+                raise ValueError('actual compiler provenance differs: '+name)
+    actual = json.loads((protocol/'out/layer1/EtnaInbox.sol/EtnaInbox.json').read_text())
+    inventory=json.loads((ROOT/'reports/solidity-inventory.json').read_text())['storage_layout']
+    if canonical(inventory) != expected['inbox_layout_sha256']:
+        raise ValueError('reviewed inventory storage layout digest differs')
+    if semantic_layout(actual['storageLayout']) != semantic_layout(inventory):
+        raise ValueError('actual Inbox semantic storage layout differs')
+    if sha(protocol/'contracts/layer1/etna/iface/IEtnaInbox.sol') != manifest['interface']['sha256']:
+        raise ValueError('generated interface source stale')
+    for path, digest in manifest['vectors']['files'].items():
+        if sha(REPO/manifest['vectors']['source']/path) != digest:
+            raise ValueError('generated vector stale')
+
+
+def semantic_layout(layout):
+    """Discard compiler-local AST node IDs only; preserve all storage semantics.
+
+    Struct/enum/contract type identifiers embed AST IDs. Array lengths, integers,
+    labels, contract identity, encoding, offsets, slots and byte widths remain exact.
+    """
+    def name(value):
+        return re.sub(r'(t_(?:struct|enum|contract)\([^)]*\))\d+', r'\1', value)
+    def normalize(value, field=None):
+        if isinstance(value, dict):
+            result={}
+            for key,item in value.items():
+                if key == 'astId': continue
+                normalized=name(key)
+                if normalized in result: raise ValueError('ambiguous normalized storage type')
+                result[normalized]=normalize(item,key)
+            return result
+        if isinstance(value,list): return [normalize(item,field) for item in value]
+        if isinstance(value,str) and field in {"type","base","key","value"}: return name(value)
+        return value
+    if set(layout) != {'storage','types'}: raise ValueError('invalid storage layout')
+    return normalize(layout)
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--protocol',type=Path,required=True)
+    parser.add_argument('--ledger',type=Path,default=ROOT/'coverage.json')
+    parser.add_argument('--static-only',action='store_true',help='explicitly omit kernel audit; not a complete release gate')
+    parser.add_argument('--report',type=Path,default=ROOT/'reports/coverage-verification.json')
+    parser.add_argument('--build-artifacts',action='store_true',
+                        help='first compile the fixture targets in both Foundry profiles (clean checkouts)')
+    args=parser.parse_args()
+    try:
+        if args.build_artifacts:
+            build_paired_artifacts(args.protocol.resolve())
+        ledger=json.loads(args.ledger.read_text())
+        result=check_ledger(ledger,load_entries(),args.protocol.resolve().parents[1])
+        check_contract_artifacts(args.protocol.resolve(),ledger['contract_artifacts'])
+        if not args.static_only:
+            audit(sorted((ROOT/'manifests').glob('*.json')),ROOT/'Audit.lean')
+        result |= {'schema_version':1,'kernel_audit':not args.static_only,
+            'upstream_client':UPSTREAM_CLIENT,'paired_protocol':PIN,
+            'verification_overlay':subprocess.check_output(['git','rev-parse','HEAD'],cwd=REPO,text=True).strip(),
+            'ledger_sha256':sha(args.ledger),'contract_sources_abi_layout_bytecode':'verified against actual paired artifacts',
+            'solidity_bridge':'specification plus finite conformance; bytecode refinement remains pending'}
+        args.report.write_text(json.dumps(result,indent=2)+'\n')
+        print(json.dumps(result,indent=2))
+    except (ValueError,KeyError,OSError,RuntimeError,json.JSONDecodeError,subprocess.CalledProcessError) as error:
+        print('coverage check failed: '+str(error),file=sys.stderr)
+        return 1
+    return 0
+
+if __name__=='__main__':
+    raise SystemExit(main())

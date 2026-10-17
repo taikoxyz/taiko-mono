@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "status": "spec-proved+actual-solidity-conformance-tested",
+  "landing_theorems": 71,
+  "total_audited_theorems": 183,
+  "preserved_prior_theorems": 112,
+  "preserved_actual_rust_function_refinements": 17,
+  "allowed_axioms": ["propext", "Classical.choice", "Quot.sound"],
+  "lean_root_build_jobs": 3458,
+  "lean_version": "4.35.0-rc4",
+  "solidity_tests": {
+    "passed": 205,
+    "failed": 0,
+    "skipped": 0,
+    "suites": 14,
+    "invariants": 17,
+    "invariant_runs": 256,
+    "invariant_depth": 50
+  },
+  "conformance": {
+    "schema_version": 1,
+    "cases": 56,
+    "actual_preimages": 30,
+    "failures": [],
+    "specification": "Lean executable staged model",
+    "bridge": "actual production Inbox/proxy conformance; bytecode refinement pending",
+    "crypto": "cast Keccak oracle; local hash separation required for binding proofs",
+    "observations": "committed business state plus separately recorded tentative effects",
+    "corpus_sha256": "b92877e89a4c5fc69a177499e5d97f5ddf0c83fbb80e2bd9b657df959247b72c",
+    "observations_sha256": "9622994a975b5c98287dad57b0a7f705de82a342e9f455f5bbe5496d9aa4e5ca"
+  },
+  "production_mutants_killed": 4,
+  "production_restored": {
+    "head": "27777e9d7147e7b1d3543711f4d7370a0377fa53",
+    "runtimeEqualBaseline": true,
+    "layoutEqualBaseline": true,
+    "abiEqualBaseline": true,
+    "runtimeSHA256": "1aea2ee9f5541502b1a5253a40aea8e16267cc58c1d94fa1283512cbb99480b3",
+    "inboxSourceSHA256": "9473e949f1b2fa6dc4a87448fbe9b2af945e0a438d609e0ba6479dee87cc5001",
+    "artifactPath": "/Users/davidcai/.codex/worktrees/etna-protocol-dependency/taiko-mono/packages/protocol/out/layer1/EtnaInbox.sol/EtnaInbox.json",
+    "productionDiff": ""
+  },
+  "pending": [
+    "LAND07 composition",
+    "Rust third encoding conformance leg Task6",
+    "Solidity implementation bytecode proof"
+  ],
+  "artifacts_sha256": {
+    "corpus/landing.jsonl": "b92877e89a4c5fc69a177499e5d97f5ddf0c83fbb80e2bd9b657df959247b72c",
+    "adapters/solidity/EtnaInboxLeanConformance.t.sol": "a23a2a0bdb7c44391ba251c3c7fbcd3880b0be973adbe98f32eb097bfc7b750d",
+    "reports/landing-solidity-observations.jsonl": "9622994a975b5c98287dad57b0a7f705de82a342e9f455f5bbe5496d9aa4e5ca",
+    "reports/landing-solidity-mutants.json": "abc3930d95b8450bd0743b539151f445a5fae606a4dd8735f5176e9dcc6d0661",
+    "scripts/landing_conformance.py": "a3d72ed1fdf7eb549915c2f9f9048e0bdc9d85eac2430895040ec26869433830",
+    "tests/test_landing_conformance.py": "166d869f4d9e424217273bffb8acaa04938a081e9d3d08986c04ca23cba13185",
+    "Etna/Landing/Statement.lean": "715463b6337a313d8d95e0f78be4eb554fb7740fda08967a016d0bd251ba31c9",
+    "Etna/Landing/Model.lean": "0c700fa38f32a33e3f48bc0d13e48a969767165086fbbac032adb7312f4ce2f5",
+    "Etna/Landing/Proofs.lean": "573bff76790bf98c1d449671aa6919fa29e85a2754bccb075af3c845caede84c",
+    "Etna/Landing/Examples.lean": "ebe5faaeb7aeae84ab3be312a47033752eb8034f9754d10958b021917675b297"
+  },
+  "portable_adapter": {
+    "exit_code": 0,
+    "result": {
+      "schema_version": 1,
+      "cases": 56,
+      "actual_preimages": 30,
+      "failures": [],
+      "specification": "Lean executable staged model",
+      "bridge": "actual production Inbox/proxy conformance; bytecode refinement pending",
+      "crypto": "cast Keccak oracle; local hash separation required for binding proofs",
+      "observations": "committed business state plus separately recorded tentative effects",
+      "corpus_sha256": "b92877e89a4c5fc69a177499e5d97f5ddf0c83fbb80e2bd9b657df959247b72c",
+      "observations_sha256": "965b811c016d240140f176c526d0eb0030485debf5714088c1cb2209715200e8"
+    },
+    "staged_files_restored": true,
+    "protocol_head_unchanged": true,
+    "production_runtime_abi_restored": true,
+    "cache_bypass": "forge test --no-cache: avoids ABI-only artifact left by forge lint",
+    "initial_failure": "Forge exited0 No tests found; exact nonempty ID gate rejected; finally restored owned staging"
+  },
+  "review_fix_round1": {
+    "base_commit": "458bc09d98c9a0250f6ae20239b39c51bd8b70c2",
+    "findings_addressed": [
+      "composed canonical inner+outer hash binding for arbitrary prefix lengths",
+      "exact nonempty unique output IDs and reached-preimage completeness",
+      "Git-pinned source/config/index authentication before staging"
+    ],
+    "new_audited_declarations": 11,
+    "previous_declarations_preserved": 172,
+    "regression_tests": 24,
+    "regression_failures": 0,
+    "pinned_git_inputs_authenticated": 421,
+    "installed_dependencies": "Ignored node_modules remain explicit package/toolchain trust boundary; not claimed authenticated by Git",
+    "initial_preflight_result": "RED: rejected legitimate pinned AGENTS.md symlink before staging; corrected to authenticate link text and direct pinned regular target",
+    "final_portable_result": {
+      "schema_version": 1,
+      "cases": 56,
+      "actual_preimages": 30,
+      "failures": [],
+      "specification": "Lean executable staged model",
+      "bridge": "actual production Inbox/proxy conformance; bytecode refinement pending",
+      "crypto": "cast Keccak oracle; local hash separation required for binding proofs",
+      "observations": "committed business state plus separately recorded tentative effects",
+      "corpus_sha256": "b92877e89a4c5fc69a177499e5d97f5ddf0c83fbb80e2bd9b657df959247b72c",
+      "observations_sha256": "965b811c016d240140f176c526d0eb0030485debf5714088c1cb2209715200e8"
+    },
+    "production_restoration": "Required tester confirmed HEAD27777 clean; both staged files restored; source/runtime/ABI canonical; no Solidity edits or205suite rerun",
+    "logs": {
+      "red_regressions": "/private/tmp/etna-landing-fix1-red.log",
+      "green_regressions": "/private/tmp/etna-landing-fix1-green.log",
+      "build": "/private/tmp/etna-landing-fix1-build.log",
+      "audit": "/private/tmp/etna-landing-fix1-audit.log",
+      "preflight_red": "/private/tmp/etna-landing-fix1-portable-preflight-symlink-failure.log",
+      "portable_green": "/private/tmp/etna-landing-fix1-portable-command.log"
+    }
+  }
+}

@@ -1,0 +1,138 @@
+{
+  "protocol": "cf4095818050bd670d7d6b8b9f742d55c01e49f0",
+  "mutations": [
+    {
+      "mutation": "recipient-omission",
+      "obligation": "LAND-03",
+      "expected_failure": "[FAIL: normal: real statement bytes:",
+      "command": [
+        "forge",
+        "test",
+        "--no-cache",
+        "--extra-output",
+        "storageLayout",
+        "--match-path",
+        "test/layer1/etna/EtnaInboxLeanConformance.t.sol",
+        "--match-test",
+        "test_land_LeanCorpus",
+        "-vvv"
+      ],
+      "exit": 1,
+      "source_sha256": "ddb032033a2042a3c5ddc370f3b79d6b9cbd6f616dbb6e7fdc6d87db390f95df",
+      "log_sha256": "c1f2474c9aeea1f000096f03de1604fc8e385cc84f97df741b4cb2347146b500",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "head-tail-bound",
+      "obligation": "LAND-01",
+      "expected_failure": "[FAIL: successful head tail bound: 6 > 5]",
+      "command": [
+        "forge",
+        "test",
+        "--no-cache",
+        "--extra-output",
+        "storageLayout",
+        "--match-path",
+        "test/layer1/etna/EtnaInboxLeanConformance.t.sol",
+        "--match-test",
+        "test_land_LeanCorpus",
+        "-vvv"
+      ],
+      "exit": 1,
+      "source_sha256": "e3421169c715b3f218750b585d7d06211fb2c9a7eede95389c797270b90e2878",
+      "log_sha256": "b1526d465a86ff2f7cbfa0168e29ba9f797c169b7d40df7614f7f10cfa322a3f",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "fee-interval",
+      "obligation": "LAND-02",
+      "expected_failure": "[FAIL: actual consumed interval/fee:",
+      "command": [
+        "forge",
+        "test",
+        "--no-cache",
+        "--extra-output",
+        "storageLayout",
+        "--match-path",
+        "test/layer1/etna/EtnaInboxLeanConformance.t.sol",
+        "--match-test",
+        "test_land_LeanCorpus",
+        "-vvv"
+      ],
+      "exit": 1,
+      "source_sha256": "9c7e858ef73fc4481c6d723a06a30dd59b500b82cc954b0fd2ea9c6003a82f40",
+      "log_sha256": "4eaedee74f95a07e38504338205586f844cacad84d54fbfb689587c36113089c",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "verifier-bypass",
+      "obligation": "LAND-04",
+      "expected_failure": "[FAIL: successful land requires normal verifier return]",
+      "command": [
+        "forge",
+        "test",
+        "--no-cache",
+        "--extra-output",
+        "storageLayout",
+        "--match-path",
+        "test/layer1/etna/EtnaInboxLeanConformance.t.sol",
+        "--match-test",
+        "test_land_LeanCorpus",
+        "-vvv"
+      ],
+      "exit": 1,
+      "source_sha256": "0257a95b61c0e53af9710b816f13f7b628600a031c991a375e192b0ac725966b",
+      "log_sha256": "4fe93e02f4403b8bc71677cafa4e880f504575537b38d14f575b54c176d80c26",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "reward-commitment",
+      "obligation": "LAND-09",
+      "expected_failure": "[FAIL: actual committed reward commitment:",
+      "command": [
+        "forge",
+        "test",
+        "--no-cache",
+        "--extra-output",
+        "storageLayout",
+        "--match-path",
+        "test/layer1/etna/EtnaInboxLeanConformance.t.sol",
+        "--match-test",
+        "test_land_LeanCorpus",
+        "-vvv"
+      ],
+      "exit": 1,
+      "source_sha256": "0afc0f898e4eecfa74dfb517d4b4982172734730a6e4ebea2c3d56a3d969973d",
+      "log_sha256": "9b32b721c2af428d9667221390ea5a44bab8102ae1b9f36882f2f13a6ef00332",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "reward-slot-check",
+      "obligation": "LAND-10",
+      "expected_failure": "[FAIL: successful land requires an empty reward slot:",
+      "command": [
+        "forge",
+        "test",
+        "--no-cache",
+        "--extra-output",
+        "storageLayout",
+        "--match-path",
+        "test/layer1/etna/EtnaInboxLeanConformance.t.sol",
+        "--match-test",
+        "test_land_LeanCorpus",
+        "-vvv"
+      ],
+      "exit": 1,
+      "source_sha256": "a7e603defe91f8b07d4b73a3e4a88d7eb7fcd5e890a275504aea18376375121a",
+      "log_sha256": "a5db7f20a7c7e293addd8be81d281f4901bc3e1c047a0e2c831421d1a00bdcac",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    }
+  ],
+  "canonical_artifacts_restored": true
+}

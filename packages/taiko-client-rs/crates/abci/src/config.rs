@@ -5,7 +5,7 @@ use protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID;
 use serde::{Deserialize, Deserializer, de};
 
 /// The largest committee size accepted by the registry discovery and consensus bounds.
-pub const MAX_N_MAX: usize = 4096;
+pub const MAX_N_MAX: usize = etna_consensus_core::MAX_N_MAX;
 
 /// Per-chain constants consumed by consensus.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -191,7 +191,7 @@ impl ChainParams {
     /// `heartbeat_window >= 1`, `block_gas_limit > 0` and `s_min >= vp_unit`, returning the first
     /// violation.
     pub fn validate(&self) -> Result<(), ConfigError> {
-        if self.d_max <= self.margin_v {
+        if !etna_consensus_core::positive_unsettled_cap(self.d_max, self.margin_v) {
             return Err(ConfigError::DMaxNotAboveMargin {
                 d_max: self.d_max,
                 margin_v: self.margin_v,
@@ -203,7 +203,7 @@ impl ChainParams {
         if self.n_max == 0 {
             return Err(ConfigError::ZeroNMax);
         }
-        if self.n_max > MAX_N_MAX {
+        if !etna_consensus_core::committee_size_bounded(self.n_max) {
             return Err(ConfigError::NMaxTooLarge { n_max: self.n_max, max: MAX_N_MAX });
         }
         if self.heartbeat_window == 0 {
@@ -510,6 +510,16 @@ mod tests {
             p.validate().unwrap_err(),
             ConfigError::NMaxTooLarge { n_max: 4097, max: 4096 }
         ));
+    }
+
+    #[test]
+    fn committee_upper_bound_preserves_existing_error_priority() {
+        let bad = ChainParams { n_max: MAX_N_MAX + 1, vp_unit: U256::ZERO, ..devnet() };
+        assert!(matches!(bad.validate(), Err(ConfigError::ZeroVpUnit)));
+        let bad = ChainParams { n_max: 0, heartbeat_window: 0, ..devnet() };
+        assert!(matches!(bad.validate(), Err(ConfigError::ZeroNMax)));
+        let bad = ChainParams { n_max: MAX_N_MAX + 1, heartbeat_window: 0, ..devnet() };
+        assert!(matches!(bad.validate(), Err(ConfigError::NMaxTooLarge { .. })));
     }
 
     #[test]

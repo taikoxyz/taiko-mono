@@ -483,19 +483,27 @@ pub fn check_anchor_progress(
     schedule: &Schedule,
     height: u64,
 ) -> Result<(), RuleViolation> {
-    if anchor < parent_anchor {
-        return Err(RuleViolation::AnchorRegressed { parent: parent_anchor, anchor });
+    use etna_consensus_core::schedule::AnchorError;
+    // Preserve the wrapper's height/zero-length panic after the two earlier error guards.
+    if anchor >= parent_anchor && anchor >= schedule.l1_0 {
+        schedule.epoch_of(height);
     }
-    if anchor < schedule.l1_0 {
-        return Err(RuleViolation::AnchorBeforeActivation { anchor, l1_0: schedule.l1_0 });
-    }
-    let epoch = schedule.epoch_of(height);
-    match schedule.checked_l1_first(epoch) {
-        Some(l1_first) if anchor >= l1_first => Ok(()),
-        l1_first => {
-            Err(RuleViolation::EpochNotOpenOnL1 { epoch, l1_first: l1_first.unwrap_or(u64::MAX) })
-        }
-    }
+    schedule.core().check_anchor_progress(parent_anchor, anchor, height).map_err(
+        |error| match error {
+            AnchorError::Regressed => {
+                RuleViolation::AnchorRegressed { parent: parent_anchor, anchor }
+            }
+            AnchorError::BeforeActivation => {
+                RuleViolation::AnchorBeforeActivation { anchor, l1_0: schedule.l1_0 }
+            }
+            AnchorError::InvalidSchedule => {
+                unreachable!("epoch_of preserves the invalid-schedule panic")
+            }
+            AnchorError::EpochNotOpen { epoch, l1_first } => {
+                RuleViolation::EpochNotOpenOnL1 { epoch, l1_first }
+            }
+        },
+    )
 }
 
 /// Anchor freshness: `block_timestamp - anchor_timestamp <= max_anchor_age`, all in seconds,

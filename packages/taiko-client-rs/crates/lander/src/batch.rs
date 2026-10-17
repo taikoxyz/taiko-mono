@@ -784,14 +784,19 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 probe_context()
             )),
         })?;
-        let forced_cursor = if consumed.is_some() {
-            state
-                .forced_cursor
-                .checked_add(1)
-                .ok_or_else(|| LanderError::Safety("forced inclusion cursor overflow".into()))?
-        } else {
-            state.forced_cursor
-        };
+        let forced_cursor =
+            etna_consensus_core::forced::advance_cursor(state.forced_cursor, consumed).map_err(
+                |error| {
+                    LanderError::Safety(match error {
+                        etna_consensus_core::forced::ForcedError::CursorOverflow => {
+                            "forced inclusion cursor overflow".into()
+                        }
+                        other => format!(
+                            "forced inclusion consumed index disagrees with cursor: {other:?}"
+                        ),
+                    })
+                },
+            )?;
         if let Some(derived) = facts.derived {
             let epoch = derived.record.target_epoch;
             let hash = record_hash(snapshot.l2_chain_id, &derived.record);
@@ -1030,14 +1035,16 @@ fn parent_info(context: &ParentContext) -> Result<ParentInfo> {
 /// `checkpoint`. Switch heights are computed with checked arithmetic; one beyond `u64` does not
 /// exist.
 fn force_epoch(schedule: &Schedule, tip: u64, checkpoint: u64) -> bool {
-    let switch_height = |epoch: u64| schedule.checked_h_first(epoch).map(|h| h.saturating_sub(2));
-    let epoch = schedule.epoch_of(tip);
-    schedule.switch_target(tip).is_some() ||
-        epoch
-            .checked_add(1)
-            .and_then(switch_height)
-            .is_some_and(|next| next <= tip && next > checkpoint) ||
-        epoch > 0 && switch_height(epoch).is_some_and(|current| current > checkpoint)
+    // Preserve the adapter's height/zero-length panic contract before the total core hint.
+    schedule.epoch_of(tip);
+    etna_consensus_core::schedule::Schedule {
+        l1_0: schedule.l1_0,
+        epoch_len: schedule.epoch_len,
+        epoch_len_l1: schedule.epoch_len_l1,
+        genesis_cutoff: schedule.genesis_cutoff,
+    }
+    .force_epoch(tip, checkpoint)
+    .expect("force_epoch: epoch_len is zero")
 }
 
 /// Independently checks the exact descending header chain and every consumed anchor.
