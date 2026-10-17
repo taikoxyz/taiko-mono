@@ -108,6 +108,8 @@ library LibEtnaVectors {
         input_.feeRecipient = addressAt(_json, string.concat(p, "fee_recipient"));
         input_.l2RewardRecipient = addressAt(_json, string.concat(p, "l2_reward_recipient"));
         input_.baseFeeAmount = uintAt(_json, string.concat(p, "base_fee_amount"));
+        input_.activeCommitteeSnapshot =
+            uint64(uintAt(_json, string.concat(p, "active_committee_snapshot")));
     }
 
     /// @dev The number of elements of the array at `_key`.

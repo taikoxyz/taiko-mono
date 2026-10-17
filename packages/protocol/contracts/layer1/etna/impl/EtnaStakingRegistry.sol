@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { IEtnaInbox } from "../iface/IEtnaInbox.sol";
 import { IEtnaStakingRegistry } from "../iface/IEtnaStakingRegistry.sol";
 import { LibEntriesTree } from "../libs/LibEntriesTree.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -62,6 +63,8 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         Churn activationChurn;
         /// @dev Slots `R + 10` and `R + 11`.
         Churn exitChurn;
+        /// @dev Slot `R + 12`: the one-time bound Inbox that authenticates committee turnover.
+        address inbox;
     }
 
     // ---------------------------------------------------------------
@@ -275,6 +278,25 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     }
 
     /// @inheritdoc IEtnaStakingRegistry
+    function bindInbox(address _inbox) external onlyOwner {
+        RegistryStorage storage $ = _registryStorage();
+        require($.inbox == address(0), InboxAlreadyBound());
+        require(_inbox.code.length != 0, InvalidInbox());
+        IEtnaInbox target = IEtnaInbox(_inbox);
+        require(
+            target.stakingRegistry() == address(this) && target.lastCheckpoint().blockHash != 0,
+            InvalidInbox()
+        );
+        $.inbox = _inbox;
+        emit InboxBound(_inbox);
+    }
+
+    /// @inheritdoc IEtnaStakingRegistry
+    function inbox() external view returns (address inbox_) {
+        return _registryStorage().inbox;
+    }
+
+    /// @inheritdoc IEtnaStakingRegistry
     function withdraw(uint256 _bondId, address _to) external nonReentrant nonZeroAddr(_to) {
         RegistryStorage storage $ = _registryStorage();
         _checkBondOwner($, _bondId);
@@ -284,6 +306,11 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         uint64 exitEffectiveL1 = entry.exitEffectiveL1;
         require(exitEffectiveL1 != _NO_EXIT, ExitNotRequested());
         require(block.number >= uint256(exitEffectiveL1) + withdrawalDelay, WithdrawalNotReady());
+        require($.inbox != address(0), InboxNotBound());
+        require(
+            IEtnaInbox($.inbox).activeCommitteeSnapshot() >= exitEffectiveL1,
+            CommitteeExitNotSettled()
+        );
 
         $.withdrawn[_bondId] = true;
         $.freeSlots.push(_bondId);
@@ -466,5 +493,9 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     error UnknownBond();
     error UnknownCheckpoint();
     error WithdrawalNotReady();
+    error InboxAlreadyBound();
+    error InvalidInbox();
+    error InboxNotBound();
+    error CommitteeExitNotSettled();
     error ZeroPubkey();
 }

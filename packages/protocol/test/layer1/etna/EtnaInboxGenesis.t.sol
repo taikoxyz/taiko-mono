@@ -56,6 +56,8 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         assertEq(etnaInbox.migrationState(), 3, "active status");
         assertEq(etnaInbox.recoveryGeneration(), 0, "recovery generation");
         assertEq(etnaInbox.genesisCutoff(), registryCheckpointBlock, "genesis cutoff");
+        assertEq(etnaInbox.activeCommitteeSnapshot(), registryCheckpointBlock, "active snapshot");
+        assertEq(etnaInbox.stakingRegistry(), address(registry), "registry identity");
         assertEq(etnaInbox.genesisCommitteeRecordHash(), COMMITTEE_RECORD_0, "committee 0");
         assertEq(etnaInbox.committeeConfigHash(), COMMITTEE_CONFIG_HASH, "committee config");
 
@@ -139,8 +141,10 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         for (uint256 slot = 275; slot <= 277; ++slot) {
             assertEq(_loadSlot(slot), 0, "275-277");
         }
-        for (uint256 slot = 283; slot <= 300; ++slot) {
-            assertEq(_loadSlot(slot), 0, "283-300");
+        assertEq(_loadSlot(283), 0, "283: empty receipts mapping");
+        assertEq(_loadSlot(284), registryCheckpointBlock, "284: genesis active snapshot");
+        for (uint256 slot = 285; slot <= 300; ++slot) {
+            assertEq(_loadSlot(slot), 0, "285-300");
         }
     }
 

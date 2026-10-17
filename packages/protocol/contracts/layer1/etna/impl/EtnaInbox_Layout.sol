@@ -31,4 +31,5 @@ pragma solidity ^0.8.26;
 //   _forcedInclusionStorage        | struct LibEtnaForcedInclusion.Storage              | Slot: 280  | Offset: 0    | Bytes: 64
 //   _forcedInclusionConfig         | struct EtnaInbox.ForcedInclusionConfig             | Slot: 282  | Offset: 0    | Bytes: 32
 //   rewardCommitments              | mapping(bytes32 => bytes32)                        | Slot: 283  | Offset: 0    | Bytes: 32
-//   __gap                          | uint256[17]                                        | Slot: 284  | Offset: 0    | Bytes: 544
+//   _activeCommitteeSnapshot       | uint64                                             | Slot: 284  | Offset: 0    | Bytes: 8
+//   __gap                          | uint256[16]                                        | Slot: 285  | Offset: 0    | Bytes: 512

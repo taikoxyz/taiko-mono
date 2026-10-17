@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 /// @title IEtnaStakingRegistry
 /// @notice The TAIKO staking registry the Etna PoS node derives its committees from.
 /// @dev Validators register an Ed25519 consensus key with a TAIKO stake, heartbeat once per
-/// heartbeat window, request an exit and withdraw after the withdrawal delay. Entries are
+/// heartbeat window, request an exit and withdraw after the delay and settled committee turnover. Entries are
 /// indexed by bond id, which names a slot: a withdrawn bond's slot is reused by a later
 /// registration, so a bond id names its current holder only. Every L1 block that changes an
 /// entry ends with one checkpoint holding the entry count (the slots used so far) and the
@@ -60,6 +60,10 @@ interface IEtnaStakingRegistry {
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
+
+    /// @notice Emitted when the owner permanently binds the withdrawal-gating Inbox.
+    /// @param inbox The initialized Inbox for this registry.
+    event InboxBound(address indexed inbox);
 
     /// @notice Emitted when a validator registers.
     /// @param bondId The new entry's bond id.
@@ -156,9 +160,21 @@ interface IEtnaStakingRegistry {
     /// @param _bondId The entry's bond id.
     function requestExit(uint256 _bondId) external;
 
+    /// @notice Binds this registry to its initialized Etna Inbox exactly once.
+    /// @dev Only the registry owner may bind an Inbox. The Inbox must identify this registry.
+    /// Withdrawals fail closed until binding; binding never changes committee snapshot entries.
+    /// @param _inbox The deployed, initialized Etna Inbox proxy.
+    function bindInbox(address _inbox) external;
+
+    /// @notice Returns the Inbox authenticating committee turnover for withdrawals.
+    /// @return inbox_ The bound Inbox, or zero before binding.
+    function inbox() external view returns (address inbox_);
+
     /// @notice Transfers the stake of `_bondId` to `_to`.
     /// @dev Only the bond owner, once, and only from `exitEffectiveL1 + withdrawalDelay` on. The
-    /// entry itself is left unchanged, so no checkpoint is written, and its slot is freed for
+    /// bound Inbox must also have settled a block governed by a committee selected at a snapshot
+    /// at or after `exitEffectiveL1`. A mature time delay alone never authorizes withdrawal.
+    /// The entry itself is left unchanged, so no checkpoint is written, and its slot is freed for
     /// the next registration, which overwrites the entry and takes over the bond id.
     /// @param _bondId The entry's bond id.
     /// @param _to The recipient of the stake.

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { MockCommitteeInbox } from "../MockCommitteeInbox.sol";
 import { EtnaStakingRegistryHandler } from "./EtnaStakingRegistryHandler.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
@@ -66,6 +67,10 @@ abstract contract EtnaStakingRegistryInvariantBase is CommonTest {
             )
         );
 
+        MockCommitteeInbox committeeInbox = new MockCommitteeInbox(address(registry));
+        vm.prank(registry.owner());
+        registry.bindInbox(address(committeeInbox));
+
         address[] memory stakers = new address[](4);
         (stakers[0], stakers[1], stakers[2], stakers[3]) = (Alice, Bob, Carol, David);
         for (uint256 i; i < stakers.length; ++i) {
@@ -81,15 +86,32 @@ abstract contract EtnaStakingRegistryInvariantBase is CommonTest {
             registry, token, stakers, pubkeys, _keepSnapshotLeaves()
         );
 
-        bytes4[] memory selectors = new bytes4[](6);
+        bytes4[] memory selectors = new bytes4[](7);
         selectors[0] = EtnaStakingRegistryHandler.register.selector;
         selectors[1] = EtnaStakingRegistryHandler.heartbeat.selector;
         selectors[2] = EtnaStakingRegistryHandler.requestExit.selector;
         selectors[3] = EtnaStakingRegistryHandler.withdraw.selector;
         selectors[4] = EtnaStakingRegistryHandler.advanceBlocks.selector;
         selectors[5] = EtnaStakingRegistryHandler.advanceToWithdrawal.selector;
+        selectors[6] = EtnaStakingRegistryHandler.settleCommittee.selector;
         targetContract(address(handler));
         targetSelector(FuzzSelector({ addr: address(handler), selectors: selectors }));
+    }
+
+    /// @notice Exercises blocked withdrawal, settled withdrawal, and slot reuse in the model.
+    function test_handler_SettlementEnablesWithdrawalAndReuse() external {
+        handler.register(0, 33, 1);
+        handler.requestExit(1, 1);
+        handler.advanceToWithdrawal(0);
+        handler.withdraw(1, 1);
+        assertEq(handler.unsettledWithdrawalRejections(), 1);
+        assertEq(handler.withdrawals(), 0);
+        handler.settleCommittee(0);
+        handler.withdraw(1, 1);
+        assertEq(handler.withdrawals(), 1);
+        handler.register(0, 65, 1);
+        assertEq(handler.reuses(), 1);
+        _assertModelHeld();
     }
 
     /// @dev Whether the handler keeps every snapshot's leaves, which only pays off with few slots.
@@ -259,6 +281,11 @@ abstract contract EtnaStakingRegistryInvariantBase is CommonTest {
     /// @dev Asserts that the handler recorded no broken property and no call whose outcome
     /// (success, bond id or custom error) differed from the model's prediction.
     function _assertModelHeld() internal view {
+        assertEq(
+            MockCommitteeInbox(registry.inbox()).activeCommitteeSnapshot(),
+            handler.ghostActiveCommitteeSnapshot(),
+            "independent settled snapshot model"
+        );
         for (uint8 p; p <= uint8(type(EtnaStakingRegistryHandler.Property).max); ++p) {
             EtnaStakingRegistryHandler.Property property = EtnaStakingRegistryHandler.Property(p);
             assertEq(handler.violations(property), 0, handler.firstViolation(property));

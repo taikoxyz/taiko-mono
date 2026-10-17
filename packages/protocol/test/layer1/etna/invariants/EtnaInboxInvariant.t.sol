@@ -46,6 +46,12 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
         EtnaInboxHandler.LandedBlock[] memory landed = handler.landedBlocks();
         IEtnaInbox.LandedCheckpoint memory checkpoint = etnaInbox.lastCheckpoint();
         EtnaInboxHandler.LandedBlock memory latest = landed[landed.length - 1];
+        assertEq(
+            etnaInbox.activeCommitteeSnapshot(),
+            handler.ghostActiveCommitteeSnapshot(),
+            "active committee follows successful landings only"
+        );
+        assertEq(_loadSlot(ACTIVE_COMMITTEE_SNAPSHOT_SLOT), handler.ghostActiveCommitteeSnapshot());
         assertEq(checkpoint.height, latest.height, "checkpoint height");
         assertEq(checkpoint.blockHash, latest.blockHash, "checkpoint block hash");
         assertEq(_loadSlot(LAST_CHECKPOINT_SLOT), checkpoint.height, "slot 270");

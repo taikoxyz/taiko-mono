@@ -31,8 +31,8 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     // Structs
     // ---------------------------------------------------------------
 
-    /// @dev The V8 statement in wire order. All fields are static, so abi.encode of this
-    /// memory-only struct is the same twenty-word encoding as the flat field list. Building
+    /// @dev The V9 statement in wire order. All fields are static, so abi.encode of this
+    /// memory-only struct is the same twenty-one-word encoding as the flat field list. Building
     /// it one field at a time keeps the non-IR compiler within its stack limit.
     struct LandStatement {
         bytes32 domain;
@@ -55,6 +55,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         address feeRecipient;
         address l2RewardRecipient;
         uint256 baseFeeAmount;
+        uint64 activeCommitteeSnapshot;
     }
 
     /// @dev The genesis forced inclusion parameters, packed into one storage word.
@@ -83,7 +84,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     uint64 private constant _MIN_MAX_ANCHOR_AGE = 3 * _L1_EPOCH_DURATION;
 
     /// @dev The domain tag of the landing statement.
-    bytes32 private constant _LAND_STATEMENT_TAG = bytes32("TAIKO_ETNA_LAND_V8");
+    bytes32 private constant _LAND_STATEMENT_TAG = bytes32("TAIKO_ETNA_LAND_V9");
 
     /// @dev The number of most recent L1 blocks whose hash `blockhash` returns.
     uint256 private constant _BLOCKHASH_WINDOW = 256;
@@ -165,7 +166,10 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @inheritdoc IEtnaInbox
     mapping(bytes32 batchId => bytes32 commitment) public override rewardCommitments;
 
-    uint256[17] private __gap;
+    /// @dev Slot 284: the snapshot selecting the latest landed block's active committee.
+    uint64 private _activeCommitteeSnapshot;
+
+    uint256[16] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -224,6 +228,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             genesisStateRoot: _params.genesisStateRoot
         });
         _genesisCutoff = _params.genesisCutoff;
+        _activeCommitteeSnapshot = _params.genesisCutoff;
         _genesisCommitteeRecordHash = _params.committeeRecordHash;
         _committeeConfigHash = _params.committeeConfigHash;
         _forcedInclusionConfig = ForcedInclusionConfig({
@@ -260,6 +265,19 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         require(lastHeight <= type(uint48).max, HeightOverflow());
         require(_input.feeRecipient != address(0), ZeroFeeRecipient());
         require(_input.l2RewardRecipient != address(0), ZeroRewardRecipient());
+        require(
+            _input.activeCommitteeSnapshot >= _activeCommitteeSnapshot
+                && _input.activeCommitteeSnapshot <= _input.l1ReferenceBlockNumber,
+            InvalidCommitteeSnapshot()
+        );
+        // A pending validator update does not change the committee authorizing this epoch.
+        uint64 parentEpoch = parent.height == 0 ? 0 : (parent.height - 1) / _activation.epochLenL2;
+        if ((lastHeight - 1) / _activation.epochLenL2 == parentEpoch) {
+            require(
+                _input.activeCommitteeSnapshot == _activeCommitteeSnapshot,
+                InvalidCommitteeSnapshot()
+            );
+        }
 
         uint48 headBefore = _forcedInclusionStorage.head;
         uint48 headAfter = _input.forcedInclusionHead;
@@ -332,6 +350,16 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         _forcedInclusionStorage.tail = index + 1;
         emit ForcedInclusionSaved(index, _tx);
         msg.sender.sendEtherAndVerify(msg.value - requiredFee);
+    }
+
+    /// @inheritdoc IEtnaInbox
+    function activeCommitteeSnapshot() external view returns (uint64 snapshot_) {
+        return _activeCommitteeSnapshot;
+    }
+
+    /// @inheritdoc IEtnaInbox
+    function stakingRegistry() external view returns (address registry_) {
+        return address(_stakingRegistry);
     }
 
     /// @inheritdoc IEtnaInbox
@@ -453,6 +481,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         statement.feeRecipient = _input.feeRecipient;
         statement.l2RewardRecipient = _input.l2RewardRecipient;
         statement.baseFeeAmount = _input.baseFeeAmount;
+        statement.activeCommitteeSnapshot = _input.activeCommitteeSnapshot;
         return keccak256(abi.encode(statement));
     }
 
@@ -501,6 +530,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     {
         uint64 lastHeight = _input.lastHeight;
         _lastCheckpoint = LandedCheckpoint({ height: lastHeight, blockHash: _input.lastBlockHash });
+        _activeCommitteeSnapshot = _input.activeCommitteeSnapshot;
         _signalService.saveCheckpoint(
             ICheckpointStore.Checkpoint({
                 blockNumber: uint48(lastHeight),
@@ -620,6 +650,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     error InvalidMaxAnchorAge();
     error RewardAlreadyRecorded();
     error NoProgress();
+    error InvalidCommitteeSnapshot();
     error ZeroRewardRecipient();
     error ZeroCommitteeRecord();
     error ZeroCommitteeConfigHash();

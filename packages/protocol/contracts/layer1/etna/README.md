@@ -6,7 +6,7 @@ base-fee claims for the batch's committed reward recipient.
 
 | Contract                           | Role                                                                          |
 | ---------------------------------- | ----------------------------------------------------------------------------- |
-| `impl/EtnaInbox.sol`               | Fresh L1 UUPS proxy; lands V8 batches, saves checkpoints and reward receipts. |
+| `impl/EtnaInbox.sol`               | Fresh L1 UUPS proxy; lands V9 batches, saves checkpoints and reward receipts. |
 | `impl/EtnaStakingRegistry.sol`     | Stakes, immutable L2 reward addresses, heartbeats, exits and checkpoints.     |
 | `libs/LibEntriesTree.sol`          | Recipient-bound registry entries tree.                                        |
 | `../../layer2/core/L2FeeVault.sol` | Plain immutable L2 treasury predeploy; pays proved receipt claims once.       |
@@ -55,7 +55,11 @@ genesis hash/state root. Resolve this dependency by predicting the Inbox before 
    the Inbox atomically and saves block 0 in SignalService. Compare its returned
    proxy address with the immutable Inbox prediction; any mismatch must abort node startup and
    require rebuilding the genesis/commitments. Never continue using a different Inbox address.
-6. Wait for the L1 initialization block to finalize, then build ABCI genesis and start the nodes.
+6. Bind the registry to the initialized Inbox with owner-only `bindInbox(inbox)`. `deployInbox()`
+   does this automatically if the broadcast signer owns the registry; otherwise the registry owner
+   must perform the printed action. Binding is one-time, checks the Inbox's registry identity and
+   initialized checkpoint, and cannot be changed. Withdrawals fail closed until it is complete.
+7. Wait for the L1 initialization block to finalize, then build ABCI genesis and start the nodes.
    The first consensus block is L2 block 1. Verify canonical root/history writes after that block.
 
 Run the exporter from `packages/protocol`, without `--broadcast` or a private key:
@@ -132,7 +136,7 @@ Validate the vault address against the EL treasury derivation rather than a free
 fee-vault address. Ordinary gas estimation, EIP-7825 transaction caps, priority fees and blob fees
 retain their existing semantics; only base fees committed for the landed execution range pay here.
 
-The coordinated format is envelope 6, blob payload 5, journal schema 10, APP_VERSION 3,
+The coordinated format is envelope 6, blob payload 5, journal schema 11, APP_VERSION 3,
 committee encoding version 2 and config domain `ETNA_PARENT_ANCHOR_V3`. Reject old persisted
 or signed jobs explicitly. Do not rewrite an old signed journal or discard its transaction nonce
 to make it appear current. No real Etna guest is included: dummy/accept-all proofs are explicit
@@ -168,6 +172,7 @@ interface stable; they do not contain Shasta state.
 | 281     | forced inclusion `head`, `tail`                        | `uint48` bits 0–47, `uint48` bits 48–95            |
 | 282     | `forcedInclusionDelay`, `maxAnchorAge`                 | `uint64` bits 0–63, `uint64` bits 64–127 (seconds) |
 | 283     | `rewardCommitments` mapping                            | `bytes32 batchId => bytes32 commitment`            |
+| 284     | `activeCommitteeSnapshot`                              | `uint64`; latest landed active committee cutoff    |
 | 284–300 | `__gap`                                                | —                                                  |
 
 Forced inclusion entry `i` starts at `base = keccak256(abi.encode(i, 280))`: `txHash`
@@ -218,6 +223,7 @@ All state lives in the ERC-7201 namespace `taiko.etna.registry`, at base slot
 | `R + 9`  | activation churn: the latest scheduled window's remaining capacity (contract-internal)  |
 | `R + 10` | exit churn: one past the latest scheduled window (contract-internal)                    |
 | `R + 11` | exit churn: the latest scheduled window's remaining capacity (contract-internal)        |
+| `R + 12` | `inbox`: one-time bound Inbox address authenticating stake withdrawal eligibility       |
 
 | Word                        | Content                                                                  | Packing                                      |
 | --------------------------- | ------------------------------------------------------------------------ | -------------------------------------------- |
@@ -325,7 +331,29 @@ The set becomes certain only after `D(t)` commits and offers less guaranteed adv
 fixed cutoffs. Different valid L2 anchor histories may select different sets; replaying the same
 committed parent derives the same set. An empty set at that immutable snapshot halts at `S(t)`;
 later registry updates cannot repair that parent and no advancing-snapshot/old-set fallback exists.
-Outgoing-quorum, old-key/stake-retention/withdrawal and recovery-bootstrap limits remain.
+Outgoing-quorum and recovery-bootstrap limits remain. Stake retention is enforced by the
+settled active committee cutoff below; historical certificates remain verifiable.
+
+## Stake withdrawals and settled committee turnover
+
+`requestExit()` keeps its existing schedule and eligibility behavior. `withdraw()` requires both
+`block.number >= exitEffectiveL1 + withdrawalDelay` and the bound Inbox's
+`activeCommitteeSnapshot >= exitEffectiveL1`. The second condition proves that the exited bond
+is absent from the committee governing an already-landed block; later anchored snapshots cannot
+select that bond again. Slot reuse creates a different bond incarnation and leaves historical
+registry checkpoints intact.
+
+The Inbox initializes its cutoff to `genesisCutoff`. V9 binds the snapshot of the committee that
+actually authorizes the terminal block: for runtime epoch `t`, the anchor of `D(t)=H(t)-3`.
+At switch `S(t)` and `S(t)+1`, the outgoing set still authorizes blocks, so its cutoff remains
+unchanged. Only a landing reaching `H(t)` can publish the incoming set's cutoff. A fresh terminal
+anchor, a recent proving reference, or an already-derived pending committee cannot unlock stake.
+The Inbox rejects cutoff regression, cutoff beyond the L1 reference, and changes within the same
+active epoch. The proof validates exact provenance; no real guest is implemented in this PR.
+
+Settlement stalls intentionally delay refunds even after the L1 wait matures. There is no owner
+bypass or rebind function, and no new slashing/recovery mechanism. Both the existing proxy upgrade
+trust and verifier soundness remain relevant: a malicious replacement could defeat these checks.
 
 ## Heartbeats
 
@@ -371,7 +399,7 @@ function land(LandInput calldata input, bytes calldata proof) external;
 uint64 l1ReferenceBlockNumber, uint48 forcedInclusionHead, address feeRecipient,
 address l2RewardRecipient, uint256 baseFeeAmount)`. Both recipients must be nonzero, including
 for zero fees. `feeRecipient` receives only consumed L1 forced inclusion fees. The lander selects
-`l2RewardRecipient` independently of block proposers; the V8 statement and receipt bind that
+`l2RewardRecipient` independently of block proposers; the V9 statement and receipt bind that
 exact address. Consensus and the future guest must enforce `extraData[0] == 0` on every execution
 block. The guest must bind this nonzero recipient and prove `baseFeeAmount` equals the actual EL
 base-fee credits to the immutable treasury over `(parentHeight, lastHeight]`, authenticating all
@@ -385,25 +413,25 @@ regressions exercise the header fee identity; no real guest is implemented.
 Landing requires active status, `parentHeight < lastHeight <= parentHeight + maxBatchBlocks`,
 `lastHeight <= type(uint48).max`, ordered queue progress within the tail, at most one consumed
 entry per new block, a past reference with an available block hash, and at least one blob. The
-V8 statement contains exactly twenty ABI words / 640 bytes:
+V9 statement contains exactly twenty-one ABI words / 672 bytes:
 
 ```solidity
 keccak256(abi.encode(
-    bytes32("TAIKO_ETNA_LAND_V8"),
+    bytes32("TAIKO_ETNA_LAND_V9"),
     block.chainid, l2ChainId, address(this), address(stakingRegistry),
     recoveryGeneration, parentHeight, parentHash, committeeConfigHash,
     lastHeight, lastBlockHash, lastStateRoot,
     l1ReferenceBlockNumber, l1ReferenceBlockHash,
     keccak256(abi.encodePacked(blobHashes)),
     forcedInclusionHeadBefore, forcedInclusionHeadAfter, feeRecipient,
-    l2RewardRecipient, baseFeeAmount
+    l2RewardRecipient, baseFeeAmount, activeCommitteeSnapshot
 ))
 ```
 
 Identities, generation, config, stored parent and queue head before come from the Inbox;
 reference hash and ordered blobs come from L1 execution. `hashLandStatement` is an encoder,
 so call through the proxy to bind that proxy's address; it does not authenticate arbitrary inputs.
-After verification the Inbox atomically records the checkpoint, receipt and queue progress,
+After verification the Inbox atomically records the checkpoint, active committee cutoff, receipt and queue progress,
 saves the SignalService checkpoint, and transfers consumed forced inclusion fees to `feeRecipient`.
 Any failure rolls back all state. The recipient cannot reenter `land` or `saveForcedInclusion`.
 No participation arrays, settlement lists, payable donation or L1 prover reward ledger remain.
@@ -419,8 +447,8 @@ receiptSlot = keccak256(abi.encode(batchId, uint256(283)));
 ```
 
 A zero-fee batch still records a nonzero commitment. Copying a proof cannot redirect either
-recipient. Changed reward recipient or amount changes the V8 statement and commitment while
-retaining the same batch ID. Existing V7 and older landing formats are incompatible.
+recipient. Changed reward recipient or amount changes the V9 statement and commitment while
+retaining the same batch ID. Existing V8 and older landing formats are incompatible. The ten-word receipt and batch ID are unchanged.
 
 ### Permissionless L2 claims
 
@@ -630,8 +658,8 @@ cross-generation economic double payment; recovery coordination remains outside 
 
 `testdata/etna_vectors/generate.py` uses independent `cast` ABI/hash/slot commands. Its schema-2
 JSON pins the V3 eleven-word config, recipient-bound registry leaves/four-word storage, V2 set
-leaves and committee records, complete twenty-word V8 preimages, batch identity, commitment,
-slot-283 location, exact land/claim selectors, and a zero-fee batch. Integers are decimal strings.
+leaves and committee records, complete twenty-one-word V9 preimages, batch identity, commitment,
+slot-283 location, slot-284 cutoff, exact land/claim selectors, and a zero-fee batch. Integers are decimal strings.
 Set cases cover empty rejection input, singleton, odd-width and five-member trees.
 
 Regenerate twice and compare SHA-256. Export runtime and build genesis twice with identical

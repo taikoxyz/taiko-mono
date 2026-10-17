@@ -58,6 +58,7 @@ abstract contract EtnaInboxTestBase is CommonTest {
     uint256 internal constant FORCED_INCLUSION_HEAD_TAIL_SLOT = 281;
     uint256 internal constant FORCED_INCLUSION_CONFIG_SLOT = 282;
     uint256 internal constant REWARD_COMMITMENTS_SLOT = 283;
+    uint256 internal constant ACTIVE_COMMITTEE_SNAPSHOT_SLOT = 284;
 
     uint64 internal constant L2_CHAIN_ID = 167_001;
     uint64 internal constant MAX_BATCH_BLOCKS = 1000;
@@ -102,6 +103,13 @@ abstract contract EtnaInboxTestBase is CommonTest {
         _advanceBlock();
         landVerifier = new MockLandProofVerifier();
         _deployFreshInbox(_initializeOnDeploy());
+        if (_initializeOnDeploy() && _bindRegistryOnDeploy()) {
+            registry.bindInbox(address(etnaInbox));
+        }
+    }
+
+    function _bindRegistryOnDeploy() internal pure virtual returns (bool) {
+        return true;
     }
 
     function _initializeOnDeploy() internal pure virtual returns (bool) {
