@@ -1,4 +1,10 @@
-//! Bounded blob construction sharing the existing protocol coder.
+//! Canonical V6 blob construction and decoding using the shared Kona-v0 field coder.
+//!
+//! Ordered batches contain one to six blobs. Each chunk has 1..=130044 bytes; every nonfinal
+//! chunk is full, and all unused bytes/bits are zero. Every field element has its top two bits
+//! clear, including the first. Version/24-bit length, decoded-tail padding and untouched blob
+//! padding are checked before concatenation. Compression validity is checked by codec::decode;
+//! authenticated checkpoint coverage is checked by codec::decode_landed.
 use alloy_eips::eip7594::BlobTransactionSidecarVariant;
 use alloy_primitives::B256;
 use serde::{Deserialize, Serialize};
@@ -35,7 +41,7 @@ pub const fn required_blobs(payload_bytes: usize) -> usize {
 pub fn build(payload: &[u8], limits: &Limits, mode: SidecarMode) -> Result<PreparedBlobs> {
     use alloy_eips::eip4844::builder::SidecarBuilder;
     use protocol::shasta::BlobCoder;
-    limits.validate()?;
+    let limits = crate::codec::bounded_limits(limits)?;
     let count = required_blobs(payload.len());
     if count == 0 || count > limits.max_blobs || payload.len() > limits.max_payload_bytes {
         return Err(LanderError::Capacity(format!(
@@ -67,7 +73,7 @@ pub fn build(payload: &[u8], limits: &Limits, mode: SidecarMode) -> Result<Prepa
 /// Decode canonical Kona chunks in transaction order, bounded before allocating payload bytes.
 pub fn decode(blobs: &[Blob], limits: &Limits) -> Result<Vec<u8>> {
     use protocol::shasta::BlobCoder;
-    limits.validate()?;
+    let limits = crate::codec::bounded_limits(limits)?;
     if blobs.is_empty() || blobs.len() > limits.max_blobs {
         return Err(LanderError::Capacity(
             "blob collection is empty or exceeds configured limit".into(),
@@ -75,6 +81,13 @@ pub fn decode(blobs: &[Blob], limits: &Limits) -> Result<Vec<u8>> {
     }
     let mut payload = Vec::new();
     for (index, blob) in blobs.iter().enumerate() {
+        // The shared Shasta decoder checks later field elements; V6 also forbids the first
+        // field element's reserved top bits rather than silently masking them.
+        if blob[0] & 0xc0 != 0 {
+            return Err(LanderError::Encoding(format!(
+                "invalid first field element at index {index}"
+            )));
+        }
         let chunk = BlobCoder::decode_blob(blob)
             .ok_or_else(|| LanderError::Encoding(format!("invalid Kona blob at index {index}")))?;
         if chunk.is_empty() || (index + 1 < blobs.len() && chunk.len() != PAYLOAD_BYTES_PER_BLOB) {
@@ -108,6 +121,22 @@ mod tests {
             max_message_bytes: PAYLOAD_BYTES_PER_BLOB * blobs,
             max_decompressed_bytes: PAYLOAD_BYTES_PER_BLOB * blobs,
         }
+    }
+
+    #[test]
+    fn v6_rejects_reserved_bits_in_the_first_field_element() {
+        let prepared = build(&[6, 1, 2, 3], &limits(1), SidecarMode::Eip4844).unwrap();
+        let mut blob = prepared.sidecar.blobs()[0];
+        blob[0] |= 0x40;
+        assert!(decode(&[blob], &limits(1)).is_err());
+    }
+
+    #[test]
+    fn protocol_blob_limit_cannot_be_raised_by_operator_configuration() {
+        let prepared =
+            build(&vec![0; PAYLOAD_BYTES_PER_BLOB], &limits(1), SidecarMode::Eip4844).unwrap();
+        let blobs = vec![prepared.sidecar.blobs()[0]; 7];
+        assert!(decode(&blobs, &limits(7)).is_err());
     }
 
     #[test]

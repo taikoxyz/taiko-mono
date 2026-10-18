@@ -39,7 +39,7 @@ use crate::{
 /// Bounds public DA independently from retained private protobuf witnesses. PayloadList also
 /// reserves at most one quarter of the journal limit for complete block/commit protobufs;
 /// base64 expansion and additional proving contexts remain subject to the final journal bound.
-pub const MAX_BATCH_LIST_BYTES: usize = 64 * 1024 * 1024;
+pub const MAX_BATCH_LIST_BYTES: usize = codec::MAX_DECOMPRESSED_BYTES;
 
 /// Uncompressed bytes prefix selection may deflate while sizing longer prefixes in one call.
 ///

@@ -6,6 +6,16 @@
 //! authenticated envelope to this exact projection. Landed EL recovery trusts a finalized L1
 //! checkpoint and archived DA; it does not recover stock CometBFT state or old signatures.
 //!
+//! Published headers use canonical tendermint-proto v0_38 domain-normalized protobuf. At height
+//! one, last_block_id is absent: Go's present empty BlockID (2a 02 12 00) is retained in PRIVATE
+//! raw_block witnesses, but is rejected in published headers. Unknown/duplicate protobuf fields,
+//! noncanonical RLP, extra pair fields and trailing list bytes are rejected.
+//!
+//! Exactly one complete RFC1950 zlib stream follows 0x06: no preset dictionary, truncated data,
+//! concatenated streams or trailing bytes. Inflation is capped at 64 MiB and each published
+//! message at 22,020,096 bytes regardless of operator settings. decode_landed additionally binds
+//! the exact parentHeight+1..lastHeight interval and EL boundary hashes/state root before import.
+//!
 //! One zlib stream compresses the batch. A single-block full-flush fallback makes the execution
 //! block deflate exactly as the ABCI landing-capacity guard measured it.
 
@@ -18,12 +28,30 @@ use crate::{
 /// Version prefix of `0x06 || zlib(rlp([[header_proto, execution], ...]))`.
 pub const VERSION: u8 = 6;
 
+/// Protocol ceiling on the complete inflated V6 RLP list, independent of operator CLI limits.
+pub const MAX_DECOMPRESSED_BYTES: usize = 64 * 1024 * 1024;
+
 use abci::compression::{
     InflateError, zlib_compress, zlib_compress_best, zlib_compress_split, zlib_inflate_exact,
 };
 use alloy_rlp::{Decodable, Encodable, Header};
 use prost::Message;
 use tendermint_proto::v0_38::types::{Commit as RawCommit, Header as RawHeader};
+
+/// Apply fixed public DA ceilings before parsing/allocation; lower operator budgets may refuse
+/// work for capacity but cannot redefine guest validity.
+pub(crate) fn bounded_limits(limits: &Limits) -> Result<Limits> {
+    limits.validate()?;
+    Ok(Limits {
+        max_blobs: limits.max_blobs.min(abci::compression::MAX_LANDING_BLOBS),
+        max_payload_bytes: limits
+            .max_payload_bytes
+            .min(abci::compression::MAX_LANDING_BLOBS * crate::blob::PAYLOAD_BYTES_PER_BLOB),
+        max_message_bytes: limits.max_message_bytes.min(crate::config::COMET_BLOCK_MAX_BYTES),
+        max_decompressed_bytes: limits.max_decompressed_bytes.min(MAX_DECOMPRESSED_BYTES),
+        ..*limits
+    })
+}
 
 /// One published block: its complete CometBFT header and execution-only DA projection.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -49,18 +77,18 @@ impl TryFrom<&CertifiedBlock> for PublishedBlock {
 /// The RLP list is bounded by `max_decompressed_bytes` before it is allocated; the compressed
 /// payload, version byte included, by `max_payload_bytes`.
 pub fn encode(blocks: &[CertifiedBlock], limits: &Limits) -> Result<Vec<u8>> {
-    limits.validate()?;
+    let limits = bounded_limits(limits)?;
     if blocks.is_empty() || blocks.len() > limits.max_blocks {
         return Err(LanderError::Capacity("batch is empty or exceeds block limit".into()));
     }
-    let mut list = PayloadList::new(limits)?;
+    let mut list = PayloadList::new(&limits)?;
     for pair in blocks {
         list.push(pair)?;
     }
     if blocks.len() == 1 {
-        compress_single(&list.to_list(), limits)
+        compress_single(&list.to_list(), &limits)
     } else {
-        compress(&list.to_list(), limits)
+        compress(&list.to_list(), &limits)
     }
 }
 
@@ -148,9 +176,9 @@ pub(crate) struct PayloadList {
 impl PayloadList {
     /// An empty list under `limits`.
     pub(crate) fn new(limits: &Limits) -> Result<Self> {
-        limits.validate()?;
+        let limits = bounded_limits(limits)?;
         Ok(Self {
-            limits: *limits,
+            limits,
             items: Vec::new(),
             ends: Vec::new(),
             private_ends: Vec::new(),
@@ -252,7 +280,7 @@ pub(crate) fn check_message_limits(pair: &CertifiedBlock, limits: &Limits) -> Re
 /// Decode one complete zlib stream of at most `max_decompressed_bytes`, then bounded, canonical RLP
 /// and canonical v0_38 protobuf headers with their execution blocks.
 pub fn decode(payload: &[u8], limits: &Limits) -> Result<Vec<PublishedBlock>> {
-    limits.validate()?;
+    let limits = bounded_limits(limits)?;
     if payload.len() > limits.max_payload_bytes {
         return Err(LanderError::Capacity("batch exceeds payload limit".into()));
     }
@@ -317,6 +345,61 @@ pub fn decode(payload: &[u8], limits: &Limits) -> Result<Vec<PublishedBlock>> {
     }
     if blocks.is_empty() {
         return Err(LanderError::Encoding("empty batch list".into()));
+    }
+    Ok(blocks)
+}
+
+/// Public L1 checkpoint interval whose entire execution DA is being recovered.
+/// The caller authenticates these fields and the ordered blob hashes on finalized canonical L1.
+#[derive(Clone, Copy, Debug)]
+pub struct LandedRange {
+    /// Height immediately before this landing; not an operator-selected start.
+    pub parent_height: u64,
+    /// Authenticated EL hash at parent_height.
+    pub parent_hash: alloy_primitives::B256,
+    /// Terminal height accepted by this landing.
+    pub last_height: u64,
+    /// Authenticated terminal EL block hash.
+    pub last_block_hash: alloy_primitives::B256,
+    /// Authenticated terminal EL state root.
+    pub last_state_root: alloy_primitives::B256,
+}
+
+/// Decode execution DA for exactly one authenticated L1 landing interval.
+/// Blob/hash authentication and L1 finality remain the caller's responsibility.
+pub fn decode_landed(payload: &[u8], range: &LandedRange) -> Result<Vec<PublishedBlock>> {
+    let count = range
+        .last_height
+        .checked_sub(range.parent_height)
+        .filter(|count| *count > 0)
+        .ok_or_else(|| LanderError::Encoding("invalid landed checkpoint interval".into()))?;
+    let max_blocks = usize::try_from(count)
+        .map_err(|_| LanderError::Capacity("landed checkpoint interval exceeds usize".into()))?;
+    // The authenticated L1 landing already enforces count <= deployed maxBatchBlocks.
+    // Recovery uses fixed protocol ceilings, not a source node's operator max-blocks.
+    let limits = Limits {
+        max_blocks,
+        max_blobs: abci::compression::MAX_LANDING_BLOBS,
+        max_payload_bytes: abci::compression::MAX_LANDING_BLOBS *
+            crate::blob::PAYLOAD_BYTES_PER_BLOB,
+        max_message_bytes: crate::config::COMET_BLOCK_MAX_BYTES,
+        max_decompressed_bytes: MAX_DECOMPRESSED_BYTES,
+    };
+    let blocks = decode(payload, &limits)?;
+    let (first, last) = blocks
+        .first()
+        .zip(blocks.last())
+        .ok_or_else(|| LanderError::Encoding("empty landed checkpoint interval".into()))?;
+    if blocks.len() != max_blocks ||
+        first.header.height.value() != range.parent_height + 1 ||
+        first.block.header.parent_hash != range.parent_hash ||
+        last.header.height.value() != range.last_height ||
+        last.block.header.hash_slow() != range.last_block_hash ||
+        last.block.header.state_root != range.last_state_root
+    {
+        return Err(LanderError::Encoding(
+            "DA does not match exact landed checkpoint interval".into(),
+        ));
     }
     Ok(blocks)
 }
@@ -599,6 +682,63 @@ mod tests {
             current.len(),
             old_count,
             new_count
+        );
+    }
+
+    fn landed_range(blocks: &[CertifiedBlock]) -> LandedRange {
+        let first = abci::EtnaEnvelope::decode(&blocks[0].block.data[0]).unwrap().block;
+        let last = abci::EtnaEnvelope::decode(&blocks.last().unwrap().block.data[0]).unwrap().block;
+        LandedRange {
+            parent_height: first.header.number - 1,
+            parent_hash: first.header.parent_hash,
+            last_height: last.header.number,
+            last_block_hash: last.header.hash_slow(),
+            last_state_root: last.header.state_root,
+        }
+    }
+
+    #[test]
+    fn landed_decode_rejects_extra_prefix_and_suffix_pairs_before_import() {
+        let blocks = chain(3);
+        let payload = encode(&blocks, &limits()).unwrap();
+        assert!(decode(&payload, &limits()).is_ok(), "structural decoding alone lacks L1 context");
+        assert!(decode_landed(&payload, &landed_range(&blocks)).is_ok());
+        for required in [&blocks[1..], &blocks[..2]] {
+            assert!(
+                decode_landed(&payload, &landed_range(required)).is_err(),
+                "all pairs must belong to this landing"
+            );
+        }
+        for partial in [&blocks[1..], &blocks[..2]] {
+            let partial = encode(partial, &limits()).unwrap();
+            assert!(decode_landed(&partial, &landed_range(&blocks)).is_err());
+        }
+    }
+
+    #[test]
+    fn landed_decode_binds_first_parent_and_terminal_checkpoint_fields() {
+        let blocks = chain(2);
+        let payload = encode(&blocks, &limits()).unwrap();
+        let expected = landed_range(&blocks);
+        for changed in [
+            LandedRange { parent_hash: B256::repeat_byte(0xee), ..expected },
+            LandedRange { last_block_hash: B256::repeat_byte(0xee), ..expected },
+            LandedRange { last_state_root: B256::repeat_byte(0xee), ..expected },
+            LandedRange { last_height: expected.parent_height, ..expected },
+            LandedRange { parent_height: u64::MAX, ..expected },
+        ] {
+            assert!(decode_landed(&payload, &changed).is_err());
+        }
+    }
+
+    #[test]
+    fn protocol_inflate_limit_cannot_be_raised_by_operator_configuration() {
+        let oversized = vec![0xc0; 64 * 1024 * 1024 + 1];
+        let payload = frame(VERSION, &oversized);
+        let local = Limits { max_decompressed_bytes: oversized.len(), ..limits() };
+        assert!(
+            matches!(decode(&payload, &local), Err(LanderError::Capacity(_))),
+            "protocol inflation ceiling must apply before RLP parsing"
         );
     }
 

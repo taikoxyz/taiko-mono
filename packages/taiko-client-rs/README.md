@@ -121,7 +121,7 @@ and EIP-2935 history runtimes. Set `BasefeeSharingPctg = 0`. Preserve canonical 
 before initializing Inbox with those commitments. Keep the deployment wallet's nonce unchanged
 between address prediction and deployment. Only after L1 initialization finality should
 `abci-genesis` construct the CometBFT genesis. See the complete
-[protocol deployment instructions](https://github.com/taikoxyz/taiko-mono/blob/8b5f8f4ff26178ca6bbc21d55cf01297a1820e6e/packages/protocol/contracts/layer1/etna/README.md#genesis-initialization).
+[protocol deployment instructions](https://github.com/taikoxyz/taiko-mono/blob/980f5c03816e6324ed30620ad88b32c5a7b371f7/packages/protocol/contracts/layer1/etna/README.md#genesis-initialization).
 
 The required [EL dependency](https://github.com/taikoxyz/alethia-reth/pull/251) is revision
 `5d4d21ac472c024703082ba46c6eacfa3b8ec1bf`, image `us-docker.pkg.dev/evmchain/images/alethia-reth:sha-5d4d21a`,
@@ -478,6 +478,24 @@ input; it cannot replace a proof under an older reference chain.
 Blob payload V6 is 0x06 followed by one zlib stream of
 RLP([[comet_header_proto_bytes, execution_block_rlp_bytes], ...]). Each second item is an
 opaque byte string containing canonical RLP [full EL header, ordered EIP-2718 transactions].
+V6 acceptance is fixed by the companion Inbox NatSpec/README, not by operator CLI values:
+
+1. One to six ordered Kona-v0 blobs; chunks contain 1..130044 bytes, every nonfinal chunk is
+   full, every field element's top two bits are clear, and all unused bits/bytes are zero.
+2. Exactly one complete RFC1950 zlib stream after 0x06, without a preset dictionary,
+   truncation, concatenated streams or trailing bytes. The inflated RLP list is at most
+   67,108,864 bytes; each header/EL message byte string is at most 22,020,096 bytes.
+3. Canonical exact RLP/protobuf/domain encoding. At height 1, the PUBLISHED Comet header omits
+   last_block_id; Go's present empty BlockID (2a 02 12 00) is valid only in private raw_block.
+4. Exactly N=lastHeight-parentHeight pairs, with 0<N<=the deployed Inbox maxBatchBlocks:
+   both height sequences cover parentHeight+1..lastHeight, internal Comet and EL links match,
+   the first EL parent is parentHash, and the terminal EL hash/root are lastBlockHash/lastStateRoot.
+   Public recovery uses codec::decode_landed with an authenticated L1 range BEFORE importing
+   any block. codec::decode alone supplies structural checks, without checkpoint authentication.
+   Lower local max-blocks or memory budgets may refuse work for operational capacity; they cannot
+   relax these guest validity rules. Recovery uses fixed protocol limits and the landed range,
+   independently of the source node's collection settings.
+
 Complete canonical CometBFT v0_38 headers remain published. Original envelope v6 bytes,
 anchor/committee/forced witnesses, registry entries, skip preimages, evidence, commits and
 signatures stay private proof inputs. Public decoding checks canonical framing and consecutive
@@ -958,7 +976,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 Regenerate lander ABI/deployment fixtures only when their inputs change, with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `8b5f8f4ff26178ca6bbc21d55cf01297a1820e6e` (also the
+The script requires protocol HEAD `980f5c03816e6324ed30620ad88b32c5a7b371f7` (also the
 `PROTOCOL_REVISION` in `crates/lander/src/contracts.rs`),
 installs pnpm dependencies before Foundry, builds the Inbox, registry, immutable `L2FeeVault` and
 SignalService with their test fixtures, verifies compiler source hashes,
