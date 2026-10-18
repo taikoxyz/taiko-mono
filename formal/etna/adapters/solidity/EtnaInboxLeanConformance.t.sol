@@ -155,6 +155,8 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
         address rewardRecipient;
         uint256 baseFeeAmount;
         bytes32 rewardSeed;
+        uint64 snapshotBefore;
+        uint64 activeSnapshot;
         address caller;
         uint64 referenceBlock;
         uint256 currentBlock;
@@ -198,6 +200,8 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
         uint64 statementDepth;
         uint256 verifierCalls;
         bytes32 rewardSlot;
+        uint64 committeeSnapshot;
+        uint64 tentativeCommitteeSnapshot;
         bytes32 rewardCommitment;
         bytes32 tentativeRewardCommitment;
         bytes32 actualRewardId;
@@ -259,6 +263,8 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
         row_.rewardRecipient = vm.parseJsonAddress(_json, string.concat(_key, ".l2RewardRecipient"));
         row_.baseFeeAmount = _uint(_json, _key, "baseFeeAmount");
         row_.rewardSeed = vm.parseJsonBytes32(_json, string.concat(_key, ".rewardSeed"));
+        row_.snapshotBefore = uint64(_uint(_json, _key, "committeeSnapshotBefore"));
+        row_.activeSnapshot = uint64(_uint(_json, _key, "activeCommitteeSnapshot"));
         row_.caller = vm.parseJsonAddress(_json, string.concat(_key, ".caller"));
         row_.referenceBlock = uint64(_uint(_json, _key, "reference"));
         row_.currentBlock = _uint(_json, _key, "currentBlock");
@@ -338,6 +344,11 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
             vm.store(address(etnaInbox), bytes32(uint256(slot) + 1), bytes32(_row.fees[i] << 112));
         }
         vm.deal(address(etnaInbox), _row.balance);
+        vm.store(
+            address(etnaInbox),
+            bytes32(ACTIVE_COMMITTEE_SNAPSHOT_SLOT),
+            bytes32(uint256(_row.snapshotBefore))
+        );
         if (_row.rewardSeed != bytes32(0)) {
             vm.store(address(etnaInbox), _rewardSlot(_row), _row.rewardSeed);
         }
@@ -393,7 +404,8 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
             forcedInclusionHead: _row.afterHead,
             feeRecipient: _row.recipient,
             l2RewardRecipient: _row.rewardRecipient,
-            baseFeeAmount: _row.baseFeeAmount
+            baseFeeAmount: _row.baseFeeAmount,
+            activeCommitteeSnapshot: _row.activeSnapshot
         });
         vm.recordLogs();
         vm.startStateDiffRecording();
@@ -418,6 +430,7 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
         (o.signalPresent, o.signal) = _signal(_row.lastHeight);
         o.rewardSlot = _rewardSlot(_row);
         o.rewardCommitment = vm.load(address(etnaInbox), o.rewardSlot);
+        o.committeeSnapshot = etnaInbox.activeCommitteeSnapshot();
         _trace(_row, o, steps, accesses, logs);
         _assertBusiness(_row, o);
         _print(_row, o);
@@ -444,7 +457,7 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
             Vm.DebugStep memory step = _steps[i];
             if (
                 step.contractAddr == address(etnaInbox) && step.opcode == 0x20
-                    && step.memoryInput.length == 640
+                    && step.memoryInput.length == 672
             ) {
                 ++statementCount;
                 _observation.preimage = step.memoryInput;
@@ -458,7 +471,7 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
                 _observation.nestedError = bytes4(step.memoryInput);
             }
         }
-        require(statementCount <= 1, "unique real Inbox 640-byte SHA3");
+        require(statementCount <= 1, "unique real Inbox 672-byte SHA3");
         if (statementCount == 1) {
             bytes32[] memory words = _statementWords(_row);
             assertEq(
@@ -469,6 +482,7 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
         }
         _observation.tentativeHead = _row.beforeHead;
         _observation.tentativeHeight = _row.parentHeight;
+        _observation.tentativeCommitteeSnapshot = _row.snapshotBefore;
         for (uint256 i; i < _accesses.length; ++i) {
             Vm.AccountAccess memory access = _accesses[i];
             if (
@@ -500,6 +514,9 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
                 if (write.slot == bytes32(LAST_CHECKPOINT_SLOT)) {
                     _observation.checkpointWrite = true;
                     _observation.tentativeHeight = uint64(uint256(write.newValue));
+                }
+                if (write.slot == bytes32(ACTIVE_COMMITTEE_SNAPSHOT_SLOT)) {
+                    _observation.tentativeCommitteeSnapshot = uint64(uint256(write.newValue));
                 }
                 if (write.slot == _observation.rewardSlot) {
                     _observation.tentativeRewardCommitment = write.newValue;
@@ -623,10 +640,35 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
                 _row.rewardSeed,
                 string.concat(_row.id, ": rollback reward slot")
             );
+            assertEq(
+                _observation.committeeSnapshot,
+                _row.snapshotBefore,
+                string.concat(_row.id, ": rollback committee snapshot")
+            );
             return;
         }
         assertTrue(_row.verifierAccepts, "successful land requires normal verifier return");
         assertEq(_row.rewardSeed, bytes32(0), "successful land requires an empty reward slot");
+        assertGe(
+            _row.activeSnapshot,
+            _row.snapshotBefore,
+            "successful land never regresses the committee snapshot"
+        );
+        assertLe(
+            _row.activeSnapshot, _row.referenceBlock, "successful snapshot within the reference"
+        );
+        if (_sameEpoch(_row)) {
+            assertEq(
+                _row.activeSnapshot,
+                _row.snapshotBefore,
+                "successful same-epoch land keeps the committee snapshot"
+            );
+        }
+        assertEq(
+            _observation.committeeSnapshot,
+            _row.activeSnapshot,
+            "actual committed committee snapshot"
+        );
         assertGt(_row.lastHeight, _row.parentHeight, "successful strict progress");
         assertLe(
             uint256(_row.lastHeight) - _row.parentHeight, _row.maxBatch, "successful batch bound"
@@ -657,7 +699,7 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
             _observation.paidWei == 0 ? address(0) : _row.recipient,
             "actual committed CALL target"
         );
-        assertEq(_observation.preimage.length, 640, "actual successful statement captured");
+        assertEq(_observation.preimage.length, 672, "actual successful statement captured");
         assertTrue(_observation.rewardEvent, "committed reward event under journal rule");
         assertEq(
             _observation.actualRewardId,
@@ -725,14 +767,23 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
         }
     }
 
-    /// @dev Independently forms twenty field words; actual byte observation comes only from trace.
+    /// @dev Whether the batch ends in its parent's epoch, from the actual activation length.
+    /// @param _row The original fixture inputs.
+    /// @return same_ Whether parent and last heights share an epoch.
+    function _sameEpoch(Row memory _row) private view returns (bool same_) {
+        uint64 length = etnaInbox.activation().epochLenL2;
+        uint64 parentEpoch = _row.parentHeight == 0 ? 0 : (_row.parentHeight - 1) / length;
+        return (_row.lastHeight - 1) / length == parentEpoch;
+    }
+
+    /// @dev Independently forms twenty-one field words; actual byte observation comes only from trace.
     /// @param _row The original inputs supplying the statement fields.
-    /// @return words_ The twenty canonical words in production wire order.
+    /// @return words_ The twenty-one canonical words in production wire order.
     function _statementWords(Row memory _row) private view returns (bytes32[] memory words_) {
-        words_ = new bytes32[](20);
+        words_ = new bytes32[](21);
         // The 18-byte ASCII domain fits in 32 bytes; zero right-padding is the wire format.
         // forge-lint: disable-next-line(unsafe-typecast)
-        words_[0] = bytes32("TAIKO_ETNA_LAND_V8");
+        words_[0] = bytes32("TAIKO_ETNA_LAND_V9");
         words_[1] = bytes32(block.chainid);
         words_[2] = bytes32(uint256(L2_CHAIN_ID));
         words_[3] = bytes32(uint256(uint160(address(etnaInbox))));
@@ -758,6 +809,7 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
         words_[17] = bytes32(uint256(uint160(_row.recipient)));
         words_[18] = bytes32(uint256(uint160(_row.rewardRecipient)));
         words_[19] = bytes32(_row.baseFeeAmount);
+        words_[20] = bytes32(uint256(_row.activeSnapshot));
     }
 
     /// @dev Fees are relative to the seeded pre-head; missing queue entries have zero fee.
@@ -783,6 +835,9 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
         if (_selector == EtnaInbox.HeightOverflow.selector) return "height-overflow";
         if (_selector == EtnaInbox.ZeroFeeRecipient.selector) return "zero-recipient";
         if (_selector == EtnaInbox.ZeroRewardRecipient.selector) return "zero-reward-recipient";
+        if (_selector == EtnaInbox.InvalidCommitteeSnapshot.selector) {
+            return "invalid-committee-snapshot";
+        }
         if (_selector == EtnaInbox.RewardAlreadyRecorded.selector) {
             return "reward-already-recorded";
         }
@@ -819,6 +874,8 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
         vm.serializeString(k, "paidWei", vm.toString(_observation.paidWei));
         vm.serializeBool(k, "batchEvent", _observation.batch);
         vm.serializeBool(k, "consumedEvent", _observation.consumed);
+        vm.serializeUint(k, "committeeSnapshot", _observation.committeeSnapshot);
+        vm.serializeUint(k, "tentativeCommitteeSnapshot", _observation.tentativeCommitteeSnapshot);
         vm.serializeBool(k, "rewardEvent", _observation.rewardEvent);
         vm.serializeBytes32(k, "rewardCommitment", _observation.rewardCommitment);
         vm.serializeBytes32(k, "tentativeRewardCommitment", _observation.tentativeRewardCommitment);
@@ -855,6 +912,7 @@ contract EtnaInboxLeanConformanceTest is EtnaInboxTestBase {
             );
             vm.serializeBytes32(contextKey, "parentHash", genesisBlockHash);
             vm.serializeBytes32(contextKey, "config", COMMITTEE_CONFIG_HASH);
+            vm.serializeUint(contextKey, "epochLenL2", etnaInbox.activation().epochLenL2);
             contextJson = vm.serializeAddress(contextKey, "recipient", _row.recipient);
         }
         string memory output = vm.serializeString(

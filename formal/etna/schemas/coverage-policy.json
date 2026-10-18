@@ -2778,7 +2778,7 @@
         ]
       ],
       "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-      "e84e45510f9052e3e161a7ab0f0ecf4943618d199c78f96d3897540b17dee268"
+      "b4efe5d290f6960fa1e694686941ac20234ef45a97a46859d5fc441878ca2bba"
     ],
     "LAND-AUX-02": [
       "Etna.Landing.decode_encode",
@@ -2856,7 +2856,7 @@
         ]
       ],
       "9e74718c9cdd8221aa073f8991d42d03562ec4da326004cdd6f21e55eeff3b8a",
-      "217c5b1f70ef29f411dbf8106a95ccaf305f51c06a1855cbc68236adb51bd27d"
+      "1304e2d314696c219da160342ea1dc87301f6754b312cb23be1c99e36745610d"
     ],
     "LAND-AUX-08": [
       "Etna.Landing.encoding_conformance",
@@ -2869,7 +2869,7 @@
         ]
       ],
       "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-      "217479561ffafe1eaeca94422c71470e4663b9d137e9e08801064111ea8b229c"
+      "1dce21d1b484ac6b37f8a3b5b668db244e62fd239ed61330ffb788120d4f55d9"
     ],
     "LAND-AUX-09": [
       "Etna.Landing.natWord_injective",
@@ -2921,7 +2921,7 @@
         ]
       ],
       "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-      "e6951a56f6c824c11ecc8e8f4aa6371247bdbb1ed04a0d56c7e0a1c6634d08cc"
+      "81bd39c097deaa284576c3ee19163d5b89ae198b9f6a19b03ee30c39e40bb714"
     ],
     "LAND-AUX-13": [
       "Etna.Landing.validate_bounds",
@@ -3220,7 +3220,7 @@
         ]
       ],
       "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-      "9be13a2b1eaaf9df38d8d9a8d5be0038fab119649c0ade79053e40c79101962d"
+      "fbbc70f1f96e433104aee3aa99c48fc11e6f921636099af7bf87db0daffe1e43"
     ],
     "LAND-AUX-36": [
       "Etna.Landing.every_word_independent",
@@ -3233,7 +3233,7 @@
         ]
       ],
       "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-      "1bb58cef8c3fcb7b1c03d8b31d408afcc74ad90813df6b28f19caf1e3b817abc"
+      "6c37ed13db19c71bfe774d97023b1d0a412d55e0d16aa30b1b117a94cd893043"
     ],
     "LAND-AUX-37": [
       "Etna.Landing.authenticated_reference_content",
@@ -3649,7 +3649,7 @@
         ]
       ],
       "815c1e4a2ca554b101a90dd620bbe357ed6e402be18bcfd8d830cafc2f4f6381",
-      "81ef46fc5f3317aed24120a7ae90f61788773c2d5b51e06f5534127b40acc1a5"
+      "b0e0820111ac34a21ebc428e5ffff91b3879ad718741c105bcbb57714ecacc87"
     ],
     "LAND-BIND-09": [
       "Etna.Landing.composed_unequal_length_nonvacuity",
@@ -4080,6 +4080,97 @@
       ],
       "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
       "9f104309fb7bc088555519530da2eaffeb6d99a989df138993e03866d34b87e8"
+    ],
+    "LAND-12": [
+      "Etna.Landing.committee_snapshot_rule",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "3c82ed6a6d38db7bceae636b8f9a3e06551a772caf74f501d24631c77bcd4c99"
+    ],
+    "LAND-SNP-01": [
+      "Etna.Landing.snapshot_trace_monotone",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "2b6e9b0c66645265689f6d574e808c02a8c070a5d7c6857ea875b3de852fd4fc"
+    ],
+    "LAND-SNP-02": [
+      "Etna.Landing.active_snapshot_word",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "0f5a47861cc1423519fb422d3b7b6bb5819b988a000a7051c16eec138bac221f"
+    ],
+    "LAND-SNP-03": [
+      "Etna.Landing.cross_epoch_snapshot_advances",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "ead7a86a0538df2ec8102c70baed60dd26fae3c70032e23d2128d92df1123a41"
+    ],
+    "LAND-SNP-04": [
+      "Etna.Landing.snapshot_regress_rejected",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "08bc2c0c4ece3205d4b9f6f39fdd013c462a7278c01c0cf6c13243ae6e5d440c"
+    ],
+    "LAND-SNP-05": [
+      "Etna.Landing.snapshot_above_reference_rejected",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "9ed2e1a2843dca9570436bbad639d3a0aa1e75580492f2208320054cc20e78e9"
+    ],
+    "LAND-SNP-06": [
+      "Etna.Landing.same_epoch_snapshot_fixed",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "b65b20e0e1ab023731b684880ae2f920ae4c24dfdbc18765b0199e1da7caae45"
     ],
     "CORE-01": [
       "Etna.checkedWord_some_iff",
@@ -4681,7 +4772,7 @@
         ]
       ],
       "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-      "226346114a33b4e564570adba542c134eb4912f318bf617e8eab827779e367d6"
+      "2caf26abd939224d58a6108ff189d5514de440325aa4517dcf134838f3c1c6c3"
     ],
     "LAND-11": [
       "Etna.Integration.landed_cuts_rewards",
@@ -4870,6 +4961,83 @@
       ],
       "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
       "a6537136ce746314cd0fdacffe01acb5b8f2ddab6a7551f5dbe0100b14a64807"
+    ],
+    "INT-valid-batch-active-snapshot": [
+      "Etna.Integration.valid_batch_active_snapshot",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "let active_snapshot =",
+          "source-mapped-spec"
+        ]
+      ],
+      "c2ea10f1989e6213f4241e1ece93b2028e227b3a53cf25c41bb274592d6d21cf",
+      "ef6b156b316e7e83711f26dafbecf2de9dc1cfe0a925d0cd55de5f02b0cd0ed0"
+    ],
+    "INT-landed-snapshot-is-active-cutoff": [
+      "Etna.Integration.landed_snapshot_is_active_cutoff",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "let active_snapshot =",
+          "source-mapped-spec"
+        ]
+      ],
+      "fbbc46e86a6bce3bebd369c38944275490d4604be8867503bd463b948d58e2ea",
+      "b58ddb8730fa756c946e0ea98b748c62be0fc23fa58eb8bb6857a832c32368c0"
+    ],
+    "WITHDRAW-01": [
+      "Etna.Integration.withdrawal_after_settled_turnover",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaStakingRegistry.sol",
+          "function withdraw(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "let active_snapshot =",
+          "source-mapped-spec"
+        ]
+      ],
+      "fbbc46e86a6bce3bebd369c38944275490d4604be8867503bd463b948d58e2ea",
+      "6a6c1d319a999542468acb7bc651aed0a81f262a4b4210a0bf475d88395f7a7d"
+    ],
+    "INT-landed-snapshot-nonvacuity": [
+      "Etna.Integration.Examples.landed_snapshot_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "let active_snapshot =",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "2e5b627ba67ca1a9cc978de396591d12ca60c1cc1d0308688e91b91e80ca0a08"
     ]
   },
   "required_files": [

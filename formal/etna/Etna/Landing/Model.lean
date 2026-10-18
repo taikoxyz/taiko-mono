@@ -45,6 +45,10 @@ structure World where
   inboxBalance : Nat
   /-- Slot 283: `rewardCommitments[batchId]`; zero means unrecorded. -/
   rewardCommitments : Word256 → Word256 := fun _ => 0
+  /-- Slot 284: the L1 snapshot selecting the latest landed block's active committee. -/
+  committeeSnapshot : Nat := 0
+  /-- `_activation.epochLenL2`; initialization requires at least three. -/
+  epochLen : Nat := 10
   transfers : List Transfer
   logs : List Event
   guard : Bool
@@ -57,12 +61,13 @@ structure LandInput where
   recipient : Address
   rewardRecipient : Address
   baseFeeAmount : Word256
+  activeSnapshot : Word64
   caller : Address
   deriving DecidableEq, Repr
 inductive Error where
   | reentrant | inactive | noProgress | batchTooLarge | heightOverflow | zeroRecipient | zeroRewardRecipient
   | invalidHead | anchorUnavailable | blobsRequired | environmentError
-  | signalUnauthorized | signalInvalid | verifier | rewardAlreadyRecorded | payment
+  | invalidCommitteeSnapshot | signalUnauthorized | signalInvalid | verifier | rewardAlreadyRecorded | payment
   deriving DecidableEq, Repr
 /-- Concrete environment read results. Authenticity is a named EVM/environment assumption;
 branch selection and length/nonzero checks are executable, not assumptions. -/
@@ -94,6 +99,11 @@ an unordered combined classification instead of inventing source-level evaluatio
   | .ok _, [] => some .blobsRequired
   | .ok _, _ => none
 
+/-- The batch ends in its parent's epoch: `(last - 1) / L == (parent == 0 ? 0 : (parent - 1) / L)`.
+Natural subtraction saturates at zero exactly like the parent-zero branch. -/
+@[expose] def sameEpoch (w : World) (i : LandInput) : Bool :=
+  (i.lastHeight.val - 1) / w.epochLen == (w.checkpoint.height - 1) / w.epochLen
+
 /-- Checks in exactly the source order. Typed ABI widths are the dispatcher boundary. -/
 @[expose] def validate (w : World) (i : LandInput) : Option Error :=
   if w.guard then some .reentrant
@@ -103,6 +113,9 @@ an unordered combined classification instead of inventing source-level evaluatio
   else if i.lastHeight.val ≥ 2 ^ 48 then some .heightOverflow
   else if i.recipient = 0 then some .zeroRecipient
   else if i.rewardRecipient = 0 then some .zeroRewardRecipient
+  else if i.activeSnapshot.val < w.committeeSnapshot || i.activeSnapshot.val > i.reference.val then
+    some .invalidCommitteeSnapshot
+  else if sameEpoch w i && i.activeSnapshot.val != w.committeeSnapshot then some .invalidCommitteeSnapshot
   else if w.head.val > i.headAfter.val || i.headAfter.val > w.tail.val ||
       i.headAfter.val - w.head.val > i.lastHeight.val - w.checkpoint.height then some .invalidHead
   else none
@@ -135,7 +148,7 @@ structure ExternalOutcomes where
    natWord i.lastBlockHash.val, natWord i.lastStateRoot.val, natWord i.reference.val,
    natWord reference.val, natWord blobCommitment.val, natWord w.head.val,
    natWord i.headAfter.val, natWord i.recipient.val, natWord i.rewardRecipient.val,
-   natWord i.baseFeeAmount.val⟩
+   natWord i.baseFeeAmount.val, natWord i.activeSnapshot.val⟩
 
 @[expose] def computedStatement (w : World) (i : LandInput) (x : ExternalOutcomes) : LandStatement :=
   makeStatement w i
@@ -193,7 +206,7 @@ checkpoint and the two logs. Error branches before the verifier never reach thes
   let cp : SignalCheckpoint := ⟨i.lastHeight.val, i.lastBlockHash, i.lastStateRoot⟩
   { w with
     guard := true, head := i.headAfter, checkpoint := ⟨i.lastHeight.val, i.lastBlockHash⟩,
-    signal := w.signal ++ [cp],
+    committeeSnapshot := i.activeSnapshot.val, signal := w.signal ++ [cp],
     logs := w.logs ++ [.checkpointSaved cp,
       .batchLanded (w.checkpoint.height + 1) i.lastHeight.val i.lastBlockHash i.lastStateRoot i.reference.val i.caller] }
 
@@ -243,7 +256,8 @@ may try either shared-guard entrypoint; caught errors allow the outer payment to
   let j := (Journal.begin w).update fun s => { s with guard := true }
   let statement := some (computedStatement w i x)
   let j := if i.headAfter != w.head then j.update fun s => { s with head := i.headAfter } else j
-  let j := j.update fun s => { s with checkpoint := ⟨i.lastHeight.val, i.lastBlockHash⟩ }
+  let j := j.update fun s =>
+    { s with checkpoint := ⟨i.lastHeight.val, i.lastBlockHash⟩, committeeSnapshot := i.activeSnapshot.val }
   let stages := [Stage.entry, .checked, .statement, .head, .checkpoint]
   if !x.signalAuthorized then return finish j (some .signalUnauthorized) .signal (stages ++ [.signal]) statement
   if i.lastStateRoot = 0 || i.lastBlockHash = 0 then

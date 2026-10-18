@@ -12,12 +12,13 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-PIN = 'cf4095818050bd670d7d6b8b9f742d55c01e49f0'
+PIN = '3ff8a1c084b222752abb2eedf7362e74fb14ceda'
 FIELDS = ['schemaVersion','id','status','error','head','tail','checkpointHeight',
           'checkpointHash','signalPresent','signalHeight','signalHash','signalRoot',
           'paidTo','paidWei','batchEvent','consumedEvent','tentativeHead',
           'tentativeCheckpointHeight','tentativeSignalPresent','tentativeBatchEvent',
-          'rewardEvent','rewardCommitment','tentativeRewardCommitment']
+          'rewardEvent','rewardCommitment','tentativeRewardCommitment',
+          'committeeSnapshot','tentativeCommitteeSnapshot']
 REWARD_STAGE = {'none','payment','reward-already-recorded'}
 
 
@@ -333,10 +334,10 @@ def compare(corpus, observations, rust_rows=None):
             failures.append({'id':expected['id'],'field':'preimage-presence'})
             continue
         if expected_encoding:
-            if (not isinstance(expected['expectedPreimage'],str) or len(expected['expectedPreimage']) != 1282 or
-                    not isinstance(obs['actualPreimage'],str) or len(obs['actualPreimage']) != 1282 or
+            if (not isinstance(expected['expectedPreimage'],str) or len(expected['expectedPreimage']) != 1346 or
+                    not isinstance(obs['actualPreimage'],str) or len(obs['actualPreimage']) != 1346 or
                     not isinstance(obs['actualDigest'],str) or len(obs['actualDigest']) != 66 or
-                    not isinstance(obs['statementWords'],list) or len(obs['statementWords']) != 20):
+                    not isinstance(obs['statementWords'],list) or len(obs['statementWords']) != 21):
                 failures.append({'id':expected['id'],'field':'preimage-shape'})
                 continue
             encoded += 1
@@ -350,7 +351,7 @@ def compare(corpus, observations, rust_rows=None):
                 failures.append({'id':expected['id'],'field':'actualPreimage'})
             if keccak(preimage) != obs['actualDigest'].lower():
                 failures.append({'id':expected['id'],'field':'actualDigest'})
-            if ['0x'+preimage[2+i*64:2+(i+1)*64] for i in range(20)] != [s.lower() for s in obs['statementWords']]:
+            if ['0x'+preimage[2+i*64:2+(i+1)*64] for i in range(21)] != [s.lower() for s in obs['statementWords']]:
                 failures.append({'id':expected['id'],'field':'statementWords'})
     return {'schema_version':1,'cases':len(corpus),'actual_preimages':encoded,
             'failures':failures,'specification':'Lean executable staged model',

@@ -1,5 +1,5 @@
 {
-  "protocol": "cf4095818050bd670d7d6b8b9f742d55c01e49f0",
+  "protocol": "3ff8a1c084b222752abb2eedf7362e74fb14ceda",
   "mutations": [
     {
       "mutation": "recipient-omission",
@@ -18,8 +18,8 @@
         "-vvv"
       ],
       "exit": 1,
-      "source_sha256": "ddb032033a2042a3c5ddc370f3b79d6b9cbd6f616dbb6e7fdc6d87db390f95df",
-      "log_sha256": "c1f2474c9aeea1f000096f03de1604fc8e385cc84f97df741b4cb2347146b500",
+      "source_sha256": "306f49fcd5e6c42140216948cce8e98f95efa5ac811d75701097da08ab4ca4d3",
+      "log_sha256": "a3b9298e9017a3c5460e3b13acbdb3bc1fa889c8e965cbb91ba8122d8794d17f",
       "outcome": "semantic-kill",
       "source_restored": true
     },
@@ -40,8 +40,8 @@
         "-vvv"
       ],
       "exit": 1,
-      "source_sha256": "e3421169c715b3f218750b585d7d06211fb2c9a7eede95389c797270b90e2878",
-      "log_sha256": "b1526d465a86ff2f7cbfa0168e29ba9f797c169b7d40df7614f7f10cfa322a3f",
+      "source_sha256": "9f66ca515b2c770cc55221ad3f9637825f18f61503b9b0b491c313038495f1e9",
+      "log_sha256": "12d37e3c918b7bf8aa1e7d76afe0607ee3ca36251786ff2a3d9bfcc42343cd27",
       "outcome": "semantic-kill",
       "source_restored": true
     },
@@ -63,7 +63,7 @@
       ],
       "exit": 1,
       "source_sha256": "9c7e858ef73fc4481c6d723a06a30dd59b500b82cc954b0fd2ea9c6003a82f40",
-      "log_sha256": "4eaedee74f95a07e38504338205586f844cacad84d54fbfb689587c36113089c",
+      "log_sha256": "d642a8d61691c71b223e008524465d75cf009af6c03f1e1f3dcfa1612f865474",
       "outcome": "semantic-kill",
       "source_restored": true
     },
@@ -84,8 +84,8 @@
         "-vvv"
       ],
       "exit": 1,
-      "source_sha256": "0257a95b61c0e53af9710b816f13f7b628600a031c991a375e192b0ac725966b",
-      "log_sha256": "4fe93e02f4403b8bc71677cafa4e880f504575537b38d14f575b54c176d80c26",
+      "source_sha256": "6109fcde6c10211ae35b2fe1214f35c935e994252fa9a2bb107e0e6049152a1c",
+      "log_sha256": "7ae8765ddaaad096bbdbcfafae673746f44b6d3a1aefffcdc9ea5ffabd91a9e8",
       "outcome": "semantic-kill",
       "source_restored": true
     },
@@ -106,8 +106,8 @@
         "-vvv"
       ],
       "exit": 1,
-      "source_sha256": "0afc0f898e4eecfa74dfb517d4b4982172734730a6e4ebea2c3d56a3d969973d",
-      "log_sha256": "9b32b721c2af428d9667221390ea5a44bab8102ae1b9f36882f2f13a6ef00332",
+      "source_sha256": "b06b7954467d32e7735c6da7f1a9fbe7b7a874c10c760c8169a859545b242c51",
+      "log_sha256": "d4adc6df12d962804b65ab86289f25afebe6188c36c2d4431364bd6aec336917",
       "outcome": "semantic-kill",
       "source_restored": true
     },
@@ -128,8 +128,74 @@
         "-vvv"
       ],
       "exit": 1,
-      "source_sha256": "a7e603defe91f8b07d4b73a3e4a88d7eb7fcd5e890a275504aea18376375121a",
-      "log_sha256": "a5db7f20a7c7e293addd8be81d281f4901bc3e1c047a0e2c831421d1a00bdcac",
+      "source_sha256": "2b2abd2cd5c0ac885d8a061a8411e3314d543935849a81937207eb22017f6a9e",
+      "log_sha256": "793ddffddc92b4a4c91d06e43490cfd904f8dedbc3239ff2b41c86eb70c144bd",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "snapshot-regress",
+      "obligation": "LAND-12",
+      "expected_failure": "[FAIL: successful land never regresses the committee snapshot:",
+      "command": [
+        "forge",
+        "test",
+        "--no-cache",
+        "--extra-output",
+        "storageLayout",
+        "--match-path",
+        "test/layer1/etna/EtnaInboxLeanConformance.t.sol",
+        "--match-test",
+        "test_land_LeanCorpus",
+        "-vvv"
+      ],
+      "exit": 1,
+      "source_sha256": "b8d44a7a9b5aba1fc434e39c9993a83c5239617e1ab047a5b06d2bbc715b9a7f",
+      "log_sha256": "9a07842395d2752e0cb3cc46670517340c641c961e26794e0e40d1541d42e198",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "snapshot-epoch-stability",
+      "obligation": "LAND-12",
+      "expected_failure": "[FAIL: successful same-epoch land keeps the committee snapshot:",
+      "command": [
+        "forge",
+        "test",
+        "--no-cache",
+        "--extra-output",
+        "storageLayout",
+        "--match-path",
+        "test/layer1/etna/EtnaInboxLeanConformance.t.sol",
+        "--match-test",
+        "test_land_LeanCorpus",
+        "-vvv"
+      ],
+      "exit": 1,
+      "source_sha256": "d8a7be5655628c4a36eb7f56d741d4ee1cd9a65f655d5cac58799f55635a65b4",
+      "log_sha256": "1ee6b0e26de09e2525f4e24123dcd1185a18a4f61427f077132953e5a06d2223",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "snapshot-not-stored",
+      "obligation": "LAND-12",
+      "expected_failure": "[FAIL: actual committed committee snapshot:",
+      "command": [
+        "forge",
+        "test",
+        "--no-cache",
+        "--extra-output",
+        "storageLayout",
+        "--match-path",
+        "test/layer1/etna/EtnaInboxLeanConformance.t.sol",
+        "--match-test",
+        "test_land_LeanCorpus",
+        "-vvv"
+      ],
+      "exit": 1,
+      "source_sha256": "22b4a0688e5a2f59419de8506efc6f223b730342f11c59061dfcbdd099e2930a",
+      "log_sha256": "0203b70cd99b7395307811cb4e242ba64b5bab8559cfc9d5df9e3e89e293e709",
       "outcome": "semantic-kill",
       "source_restored": true
     }

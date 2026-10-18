@@ -194,7 +194,8 @@ def summaryStatement (base : Landing.LandStatement) (batch : BatchSummary ctx) (
 /-- Real guest validity must establish this concrete relation. Initial checkpoint/committee
 history, canonical payload/blob decoding and L1 ancestry are explicit authentication gaps.
 The public statement's other twelve words are fixed by the actual captured Landing context;
-the base-fee word is the checked uint256 sum of the batch's treasury credits.
+the base-fee word is the checked uint256 sum of the batch's treasury credits, and the snapshot
+word is the governing committee record's cutoff.
 No Dummy provider, True guest relation or global Keccak injectivity is an instance here. -/
 structure ValidBatch {ctx : Committee.Context} (a : Authentication ctx)
     (w : Landing.World) (i : Landing.LandInput) (x : Landing.ExternalOutcomes)
@@ -212,6 +213,10 @@ structure ValidBatch {ctx : Committee.Context} (a : Authentication ctx)
   ancestry : ∀ block ∈ batch.blocks, a.ancestor block.committee.facts.anchor.blockHash
     (match Landing.referenceHash x.environment i.reference with | .ok (_, hash) => hash.val | .error _ => 0)
   baseFeeBound : credits a batch.blocks < 2 ^ 256
+  /-- V9: the snapshot word is the cutoff of the committee record governing the terminal height
+  in the replayed committee state: the genesis cutoff in epoch zero, else D(t)'s anchor. -/
+  activeSnapshot : ∃ r, Committee.authority ctx.schedule batch.terminal.committee batch.terminal.committee.height = some r ∧
+    r.cutoff < 2 ^ 64 ∧ statement.activeSnapshot = Landing.natWord r.cutoff
   statement : statement = summaryStatement (Landing.computedStatement w i x) batch (credits a batch.blocks)
 
 /-- A specialized soundness premise, binding acceptance of the actual statement to ValidBatch.
@@ -268,7 +273,7 @@ theorem compose_trace_landing {ctx : Committee.Context} (a : Authentication ctx)
     rw [height]
     simpa [BatchSummary.blockCount, valid.parentHeight] using trace_height valid.trace
 
-/-- Recover the bounded reducer cursor from the actual twenty-word public statement. -/
+/-- Recover the bounded reducer cursor from the actual twenty-one-word public statement. -/
 theorem valid_batch_head {ctx : Committee.Context} {a : Authentication ctx}
     {w : Landing.World} {i : Landing.LandInput} {x : Landing.ExternalOutcomes}
     {batch : BatchSummary ctx} (valid : ValidBatch a w i x (Landing.computedStatement w i x) batch) :
@@ -299,6 +304,50 @@ theorem compose_trace_reward {ctx : Committee.Context} (a : Authentication ctx)
         Function.update w.rewardCommitments (Landing.rewardId w i x) (Landing.rewardCommitment w i x) := by
   obtain ⟨batch, valid⟩ := guest.sound (successful_verifier w i x accepted)
   exact ⟨batch, valid, valid_batch_base_fee valid, (Landing.reward_recorded_exact w i x accepted).2.1⟩
+
+/-- The proven snapshot is the cutoff of the record governing the landed terminal height. -/
+theorem valid_batch_active_snapshot {ctx : Committee.Context} {a : Authentication ctx}
+    {w : Landing.World} {i : Landing.LandInput} {x : Landing.ExternalOutcomes}
+    {batch : BatchSummary ctx} (valid : ValidBatch a w i x (Landing.computedStatement w i x) batch) :
+    ∃ r, Committee.authority ctx.schedule batch.terminal.committee batch.terminal.committee.height = some r ∧
+      i.activeSnapshot.val = r.cutoff := by
+  obtain ⟨r, governing, bound, word⟩ := valid.activeSnapshot
+  exact ⟨r, governing, Landing.natWord_injective _ _ (by have := i.activeSnapshot.isLt; omega) (by omega) word⟩
+
+/-- LAND-12 composed: after a guest-sound landing, the Inbox's stored snapshot is the cutoff of
+the committee record governing the landed terminal height in the replayed committee history. -/
+theorem landed_snapshot_is_active_cutoff {ctx : Committee.Context} (a : Authentication ctx)
+    (w : Landing.World) (i : Landing.LandInput) (x : Landing.ExternalOutcomes)
+    (guest : GuestSoundness a w i x)
+    (accepted : (Landing.execLandSteps w i x).error = none) :
+    ∃ batch r, ValidBatch a w i x (Landing.computedStatement w i x) batch ∧
+      Committee.authority ctx.schedule batch.terminal.committee batch.terminal.committee.height = some r ∧
+      (Landing.runTransaction w (Landing.execLandSteps w i x)).world.committeeSnapshot = r.cutoff := by
+  obtain ⟨batch, valid⟩ := guest.sound (successful_verifier w i x accepted)
+  obtain ⟨r, governing, snapshot⟩ := valid_batch_active_snapshot valid
+  exact ⟨batch, r, valid, governing, by rw [(Landing.committee_snapshot_rule w i x accepted).1, snapshot]⟩
+
+/-- `EtnaStakingRegistry.withdraw` after its exit/delay checks: the Inbox must be bound and its
+stored active-committee snapshot must have reached the bond's exit block. -/
+def withdrawalGate (inboxBound : Bool) (inboxSnapshot exitEffective blockNumber delay : Nat) : Bool :=
+  inboxBound && decide (exitEffective + delay ≤ blockNumber) && decide (exitEffective ≤ inboxSnapshot)
+
+/-- WITHDRAW-01: a withdrawal accepted against the Inbox state left by a guest-sound landing
+means the committee governing the latest landed height was derived from a snapshot at or after
+the bond's exit, so the exited stake no longer backs the active committee. -/
+theorem withdrawal_after_settled_turnover {ctx : Committee.Context} (a : Authentication ctx)
+    (w : Landing.World) (i : Landing.LandInput) (x : Landing.ExternalOutcomes)
+    (guest : GuestSoundness a w i x)
+    (accepted : (Landing.execLandSteps w i x).error = none)
+    (exitEffective blockNumber delay : Nat)
+    (allowed : withdrawalGate true (Landing.runTransaction w (Landing.execLandSteps w i x)).world.committeeSnapshot
+      exitEffective blockNumber delay = true) :
+    ∃ batch r, ValidBatch a w i x (Landing.computedStatement w i x) batch ∧
+      Committee.authority ctx.schedule batch.terminal.committee batch.terminal.committee.height = some r ∧
+      exitEffective ≤ r.cutoff := by
+  obtain ⟨batch, r, valid, governing, stored⟩ := landed_snapshot_is_active_cutoff a w i x guest accepted
+  simp only [withdrawalGate, Bool.true_and, Bool.and_eq_true, decide_eq_true_eq] at allowed
+  exact ⟨batch, r, valid, governing, stored ▸ allowed.2⟩
 
 /-- Cut-independent fee arithmetic uses the same authenticated immutable retained entries. -/
 inductive FeeCuts (fee : Nat → Word64) : Nat → List Nat → Nat → Nat → Prop where

@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "identities": {
-    "upstream_client": "6f91f50c6185213ac512a4a46683767c75d8d831",
-    "paired_protocol": "cf4095818050bd670d7d6b8b9f742d55c01e49f0",
+    "upstream_client": "cfcc70973f109779d0f6a8617191c789b72d759a",
+    "paired_protocol": "3ff8a1c084b222752abb2eedf7362e74fb14ceda",
     "verification_overlay": "current Git HEAD plus checked working-tree digests"
   },
   "obligations": [
@@ -3596,7 +3596,7 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/batch.rs",
           "symbol": "fn force_epoch(",
-          "sha256": "42ef26422d1c71380c23635e5b5049138cc8085cffcec2426c357da4c82dc458",
+          "sha256": "eb688fc7664203451540c352b43e1f67c435851c7dbcd36ff289bffceef58d60",
           "relation": "source-mapped-spec"
         }
       ],
@@ -3740,7 +3740,7 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/batch.rs",
           "symbol": "fn force_epoch(",
-          "sha256": "42ef26422d1c71380c23635e5b5049138cc8085cffcec2426c357da4c82dc458",
+          "sha256": "eb688fc7664203451540c352b43e1f67c435851c7dbcd36ff289bffceef58d60",
           "relation": "source-mapped-spec"
         }
       ],
@@ -3857,14 +3857,14 @@
       "id": "LAND-AUX-01",
       "declaration": "Etna.Landing.wordAt_encode",
       "module": "Etna.Landing.Statement",
-      "type_sha256": "e84e45510f9052e3e161a7ab0f0ecf4943618d199c78f96d3897540b17dee268",
+      "type_sha256": "b4efe5d290f6960fa1e694686941ac20234ef45a97a46859d5fc441878ca2bba",
       "bridge_level": "spec-proved",
       "premises": [],
       "source_symbols": [
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -3884,7 +3884,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -3904,7 +3904,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -3924,7 +3924,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -3944,7 +3944,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -3964,7 +3964,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -3977,7 +3977,7 @@
       "id": "LAND-AUX-07",
       "declaration": "Etna.Landing.hash_binding",
       "module": "Etna.Landing.Statement",
-      "type_sha256": "217c5b1f70ef29f411dbf8106a95ccaf305f51c06a1855cbc68236adb51bd27d",
+      "type_sha256": "1304e2d314696c219da160342ea1dc87301f6754b312cb23be1c99e36745610d",
       "bridge_level": "spec-proved",
       "premises": [
         "Trace-local collision separation for the two compared576-byte preimages; no global Keccak injectivity"
@@ -3986,7 +3986,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -3999,14 +3999,14 @@
       "id": "LAND-AUX-08",
       "declaration": "Etna.Landing.encoding_conformance",
       "module": "Etna.Landing.Statement",
-      "type_sha256": "217479561ffafe1eaeca94422c71470e4663b9d137e9e08801064111ea8b229c",
+      "type_sha256": "1dce21d1b484ac6b37f8a3b5b668db244e62fd239ed61330ffb788120d4f55d9",
       "bridge_level": "spec-proved",
       "premises": [],
       "source_symbols": [
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4026,7 +4026,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4046,7 +4046,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4066,7 +4066,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4079,14 +4079,14 @@
       "id": "LAND-06",
       "declaration": "Etna.Landing.encoding_byte",
       "module": "Etna.Landing.Statement",
-      "type_sha256": "e6951a56f6c824c11ecc8e8f4aa6371247bdbb1ed04a0d56c7e0a1c6634d08cc",
+      "type_sha256": "81bd39c097deaa284576c3ee19163d5b89ae198b9f6a19b03ee30c39e40bb714",
       "bridge_level": "spec-proved",
       "premises": [],
       "source_symbols": [
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4106,7 +4106,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4126,7 +4126,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4146,7 +4146,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4166,7 +4166,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4186,7 +4186,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4206,7 +4206,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4226,7 +4226,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4246,7 +4246,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4266,7 +4266,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4286,7 +4286,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4306,7 +4306,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4326,7 +4326,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4346,7 +4346,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4366,7 +4366,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4386,7 +4386,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4406,7 +4406,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4426,7 +4426,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4446,7 +4446,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4466,7 +4466,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4486,7 +4486,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4506,7 +4506,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4526,7 +4526,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4539,14 +4539,14 @@
       "id": "LAND-AUX-35",
       "declaration": "Etna.Landing.statement_copied_caller",
       "module": "Etna.Landing.Proofs",
-      "type_sha256": "9be13a2b1eaaf9df38d8d9a8d5be0038fab119649c0ade79053e40c79101962d",
+      "type_sha256": "fbbc70f1f96e433104aee3aa99c48fc11e6f921636099af7bf87db0daffe1e43",
       "bridge_level": "spec-proved",
       "premises": [],
       "source_symbols": [
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4559,14 +4559,14 @@
       "id": "LAND-AUX-36",
       "declaration": "Etna.Landing.every_word_independent",
       "module": "Etna.Landing.Proofs",
-      "type_sha256": "1bb58cef8c3fcb7b1c03d8b31d408afcc74ad90813df6b28f19caf1e3b817abc",
+      "type_sha256": "6c37ed13db19c71bfe774d97023b1d0a412d55e0d16aa30b1b117a94cd893043",
       "bridge_level": "spec-proved",
       "premises": [],
       "source_symbols": [
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4588,7 +4588,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4610,7 +4610,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4630,7 +4630,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4650,7 +4650,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4670,7 +4670,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4692,7 +4692,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4712,7 +4712,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4732,7 +4732,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4754,7 +4754,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4774,7 +4774,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4794,7 +4794,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4814,7 +4814,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4834,7 +4834,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4854,7 +4854,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4874,7 +4874,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4894,7 +4894,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4914,7 +4914,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4934,7 +4934,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4954,7 +4954,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4974,7 +4974,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -4994,7 +4994,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -5014,7 +5014,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -5034,7 +5034,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -5054,7 +5054,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -5074,7 +5074,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -5091,7 +5091,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -5108,7 +5108,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -5125,7 +5125,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -5144,7 +5144,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -5161,7 +5161,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -5178,7 +5178,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -5188,7 +5188,7 @@
       "id": "LAND-BIND-08",
       "declaration": "Etna.Landing.composed_statement_blob_binding",
       "module": "Etna.Landing.Proofs",
-      "type_sha256": "81ef46fc5f3317aed24120a7ae90f61788773c2d5b51e06f5534127b40acc1a5",
+      "type_sha256": "b0e0820111ac34a21ebc428e5ffff91b3879ad718741c105bcbb57714ecacc87",
       "bridge_level": "spec-proved",
       "premises": [
         "Same actual inner byte-hash primitive in both executions",
@@ -5199,7 +5199,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -5216,7 +5216,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -5233,7 +5233,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -5250,7 +5250,7 @@
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -5268,7 +5268,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function _recordReward(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         },
         {
           "path": "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol",
@@ -5298,7 +5298,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function _recordReward(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         },
         {
           "path": "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol",
@@ -5327,7 +5327,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function _recordReward(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         },
         {
           "path": "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol",
@@ -5356,7 +5356,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function _recordReward(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         }
       ],
       "tests": [
@@ -5381,7 +5381,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function _recordReward(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         },
         {
           "path": "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol",
@@ -5407,7 +5407,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function _recordReward(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         }
       ],
       "tests": [
@@ -5428,7 +5428,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function _recordReward(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         }
       ],
       "tests": [
@@ -5449,7 +5449,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function _recordReward(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         }
       ],
       "tests": [
@@ -5470,7 +5470,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function _recordReward(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         }
       ],
       "tests": [
@@ -5491,7 +5491,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function _recordReward(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         }
       ],
       "tests": [
@@ -5600,7 +5600,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function _recordReward(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         }
       ],
       "tests": [
@@ -5621,7 +5621,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function _recordReward(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         }
       ],
       "tests": [
@@ -5642,7 +5642,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function _recordReward(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         }
       ],
       "tests": [
@@ -5663,7 +5663,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function _recordReward(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         }
       ],
       "tests": [
@@ -5684,7 +5684,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function _recordReward(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         }
       ],
       "tests": [
@@ -5705,7 +5705,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function _recordReward(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         }
       ],
       "tests": [
@@ -5794,7 +5794,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         }
       ],
       "tests": [
@@ -5838,7 +5838,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function _recordReward(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         },
         {
           "path": "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol",
@@ -5895,6 +5895,153 @@
       ]
     },
     {
+      "id": "LAND-12",
+      "declaration": "Etna.Landing.committee_snapshot_rule",
+      "module": "Etna.Landing.Proofs",
+      "type_sha256": "3c82ed6a6d38db7bceae636b8f9a3e06551a772caf74f501d24631c77bcd4c99",
+      "bridge_level": "spec-proved",
+      "premises": [],
+      "source_symbols": [
+        {
+          "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "symbol": "function land(",
+          "relation": "source-mapped-spec",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
+        }
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ]
+    },
+    {
+      "id": "LAND-SNP-01",
+      "declaration": "Etna.Landing.snapshot_trace_monotone",
+      "module": "Etna.Landing.Proofs",
+      "type_sha256": "2b6e9b0c66645265689f6d574e808c02a8c070a5d7c6857ea875b3de852fd4fc",
+      "bridge_level": "spec-proved",
+      "premises": [],
+      "source_symbols": [
+        {
+          "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "symbol": "function land(",
+          "relation": "source-mapped-spec",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
+        }
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ]
+    },
+    {
+      "id": "LAND-SNP-02",
+      "declaration": "Etna.Landing.active_snapshot_word",
+      "module": "Etna.Landing.Statement",
+      "type_sha256": "0f5a47861cc1423519fb422d3b7b6bb5819b988a000a7051c16eec138bac221f",
+      "bridge_level": "spec-proved",
+      "premises": [],
+      "source_symbols": [
+        {
+          "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "symbol": "function land(",
+          "relation": "source-mapped-spec",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
+        }
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ]
+    },
+    {
+      "id": "LAND-SNP-03",
+      "declaration": "Etna.Landing.cross_epoch_snapshot_advances",
+      "module": "Etna.Landing.Examples",
+      "type_sha256": "ead7a86a0538df2ec8102c70baed60dd26fae3c70032e23d2128d92df1123a41",
+      "bridge_level": "spec-proved",
+      "premises": [],
+      "source_symbols": [
+        {
+          "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "symbol": "function land(",
+          "relation": "source-mapped-spec",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
+        }
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ]
+    },
+    {
+      "id": "LAND-SNP-04",
+      "declaration": "Etna.Landing.snapshot_regress_rejected",
+      "module": "Etna.Landing.Examples",
+      "type_sha256": "08bc2c0c4ece3205d4b9f6f39fdd013c462a7278c01c0cf6c13243ae6e5d440c",
+      "bridge_level": "spec-proved",
+      "premises": [],
+      "source_symbols": [
+        {
+          "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "symbol": "function land(",
+          "relation": "source-mapped-spec",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
+        }
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ]
+    },
+    {
+      "id": "LAND-SNP-05",
+      "declaration": "Etna.Landing.snapshot_above_reference_rejected",
+      "module": "Etna.Landing.Examples",
+      "type_sha256": "9ed2e1a2843dca9570436bbad639d3a0aa1e75580492f2208320054cc20e78e9",
+      "bridge_level": "spec-proved",
+      "premises": [],
+      "source_symbols": [
+        {
+          "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "symbol": "function land(",
+          "relation": "source-mapped-spec",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
+        }
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ]
+    },
+    {
+      "id": "LAND-SNP-06",
+      "declaration": "Etna.Landing.same_epoch_snapshot_fixed",
+      "module": "Etna.Landing.Examples",
+      "type_sha256": "b65b20e0e1ab023731b684880ae2f920ae4c24dfdbc18765b0199e1da7caae45",
+      "bridge_level": "spec-proved",
+      "premises": [],
+      "source_symbols": [
+        {
+          "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "symbol": "function land(",
+          "relation": "source-mapped-spec",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
+        }
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ]
+    },
+    {
       "id": "CORE-01",
       "declaration": "Etna.checkedWord_some_iff",
       "module": "Etna.Common.Words",
@@ -5933,19 +6080,19 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/statement.rs",
           "symbol": "pub fn preimage(",
-          "sha256": "be720e6c008282643c6aa8cbbd315878c72b00865ad4cdd07d8b1c6b518299e8",
+          "sha256": "e60b8947c4f6a9f7dce38fec937f9102b7282de2d17c8a9d1ddeeee0b5a92b25",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/proof.rs",
           "symbol": "pub struct DummyProofProvider",
-          "sha256": "9751f528321a867a1a494d6e16e1e83f7129ba24ae173d06336a815f86fa6052",
+          "sha256": "39f02b77f932a7da3759c3eaeb6799a76e7210ee84953f95d341f048c883e52d",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -5974,19 +6121,19 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/statement.rs",
           "symbol": "pub fn preimage(",
-          "sha256": "be720e6c008282643c6aa8cbbd315878c72b00865ad4cdd07d8b1c6b518299e8",
+          "sha256": "e60b8947c4f6a9f7dce38fec937f9102b7282de2d17c8a9d1ddeeee0b5a92b25",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/proof.rs",
           "symbol": "pub struct DummyProofProvider",
-          "sha256": "9751f528321a867a1a494d6e16e1e83f7129ba24ae173d06336a815f86fa6052",
+          "sha256": "39f02b77f932a7da3759c3eaeb6799a76e7210ee84953f95d341f048c883e52d",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -6015,19 +6162,19 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/statement.rs",
           "symbol": "pub fn preimage(",
-          "sha256": "be720e6c008282643c6aa8cbbd315878c72b00865ad4cdd07d8b1c6b518299e8",
+          "sha256": "e60b8947c4f6a9f7dce38fec937f9102b7282de2d17c8a9d1ddeeee0b5a92b25",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/proof.rs",
           "symbol": "pub struct DummyProofProvider",
-          "sha256": "9751f528321a867a1a494d6e16e1e83f7129ba24ae173d06336a815f86fa6052",
+          "sha256": "39f02b77f932a7da3759c3eaeb6799a76e7210ee84953f95d341f048c883e52d",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -6056,19 +6203,19 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/statement.rs",
           "symbol": "pub fn preimage(",
-          "sha256": "be720e6c008282643c6aa8cbbd315878c72b00865ad4cdd07d8b1c6b518299e8",
+          "sha256": "e60b8947c4f6a9f7dce38fec937f9102b7282de2d17c8a9d1ddeeee0b5a92b25",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/proof.rs",
           "symbol": "pub struct DummyProofProvider",
-          "sha256": "9751f528321a867a1a494d6e16e1e83f7129ba24ae173d06336a815f86fa6052",
+          "sha256": "39f02b77f932a7da3759c3eaeb6799a76e7210ee84953f95d341f048c883e52d",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -6097,19 +6244,19 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/statement.rs",
           "symbol": "pub fn preimage(",
-          "sha256": "be720e6c008282643c6aa8cbbd315878c72b00865ad4cdd07d8b1c6b518299e8",
+          "sha256": "e60b8947c4f6a9f7dce38fec937f9102b7282de2d17c8a9d1ddeeee0b5a92b25",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/proof.rs",
           "symbol": "pub struct DummyProofProvider",
-          "sha256": "9751f528321a867a1a494d6e16e1e83f7129ba24ae173d06336a815f86fa6052",
+          "sha256": "39f02b77f932a7da3759c3eaeb6799a76e7210ee84953f95d341f048c883e52d",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -6138,19 +6285,19 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/statement.rs",
           "symbol": "pub fn preimage(",
-          "sha256": "be720e6c008282643c6aa8cbbd315878c72b00865ad4cdd07d8b1c6b518299e8",
+          "sha256": "e60b8947c4f6a9f7dce38fec937f9102b7282de2d17c8a9d1ddeeee0b5a92b25",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/proof.rs",
           "symbol": "pub struct DummyProofProvider",
-          "sha256": "9751f528321a867a1a494d6e16e1e83f7129ba24ae173d06336a815f86fa6052",
+          "sha256": "39f02b77f932a7da3759c3eaeb6799a76e7210ee84953f95d341f048c883e52d",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -6179,19 +6326,19 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/statement.rs",
           "symbol": "pub fn preimage(",
-          "sha256": "be720e6c008282643c6aa8cbbd315878c72b00865ad4cdd07d8b1c6b518299e8",
+          "sha256": "e60b8947c4f6a9f7dce38fec937f9102b7282de2d17c8a9d1ddeeee0b5a92b25",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/proof.rs",
           "symbol": "pub struct DummyProofProvider",
-          "sha256": "9751f528321a867a1a494d6e16e1e83f7129ba24ae173d06336a815f86fa6052",
+          "sha256": "39f02b77f932a7da3759c3eaeb6799a76e7210ee84953f95d341f048c883e52d",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -6220,19 +6367,19 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/statement.rs",
           "symbol": "pub fn preimage(",
-          "sha256": "be720e6c008282643c6aa8cbbd315878c72b00865ad4cdd07d8b1c6b518299e8",
+          "sha256": "e60b8947c4f6a9f7dce38fec937f9102b7282de2d17c8a9d1ddeeee0b5a92b25",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/proof.rs",
           "symbol": "pub struct DummyProofProvider",
-          "sha256": "9751f528321a867a1a494d6e16e1e83f7129ba24ae173d06336a815f86fa6052",
+          "sha256": "39f02b77f932a7da3759c3eaeb6799a76e7210ee84953f95d341f048c883e52d",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -6261,19 +6408,19 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/statement.rs",
           "symbol": "pub fn preimage(",
-          "sha256": "be720e6c008282643c6aa8cbbd315878c72b00865ad4cdd07d8b1c6b518299e8",
+          "sha256": "e60b8947c4f6a9f7dce38fec937f9102b7282de2d17c8a9d1ddeeee0b5a92b25",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/proof.rs",
           "symbol": "pub struct DummyProofProvider",
-          "sha256": "9751f528321a867a1a494d6e16e1e83f7129ba24ae173d06336a815f86fa6052",
+          "sha256": "39f02b77f932a7da3759c3eaeb6799a76e7210ee84953f95d341f048c883e52d",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -6302,19 +6449,19 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/statement.rs",
           "symbol": "pub fn preimage(",
-          "sha256": "be720e6c008282643c6aa8cbbd315878c72b00865ad4cdd07d8b1c6b518299e8",
+          "sha256": "e60b8947c4f6a9f7dce38fec937f9102b7282de2d17c8a9d1ddeeee0b5a92b25",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/proof.rs",
           "symbol": "pub struct DummyProofProvider",
-          "sha256": "9751f528321a867a1a494d6e16e1e83f7129ba24ae173d06336a815f86fa6052",
+          "sha256": "39f02b77f932a7da3759c3eaeb6799a76e7210ee84953f95d341f048c883e52d",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -6345,19 +6492,19 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/statement.rs",
           "symbol": "pub fn preimage(",
-          "sha256": "be720e6c008282643c6aa8cbbd315878c72b00865ad4cdd07d8b1c6b518299e8",
+          "sha256": "e60b8947c4f6a9f7dce38fec937f9102b7282de2d17c8a9d1ddeeee0b5a92b25",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/proof.rs",
           "symbol": "pub struct DummyProofProvider",
-          "sha256": "9751f528321a867a1a494d6e16e1e83f7129ba24ae173d06336a815f86fa6052",
+          "sha256": "39f02b77f932a7da3759c3eaeb6799a76e7210ee84953f95d341f048c883e52d",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -6387,19 +6534,19 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/statement.rs",
           "symbol": "pub fn preimage(",
-          "sha256": "be720e6c008282643c6aa8cbbd315878c72b00865ad4cdd07d8b1c6b518299e8",
+          "sha256": "e60b8947c4f6a9f7dce38fec937f9102b7282de2d17c8a9d1ddeeee0b5a92b25",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/proof.rs",
           "symbol": "pub struct DummyProofProvider",
-          "sha256": "9751f528321a867a1a494d6e16e1e83f7129ba24ae173d06336a815f86fa6052",
+          "sha256": "39f02b77f932a7da3759c3eaeb6799a76e7210ee84953f95d341f048c883e52d",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -6428,19 +6575,19 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/statement.rs",
           "symbol": "pub fn preimage(",
-          "sha256": "be720e6c008282643c6aa8cbbd315878c72b00865ad4cdd07d8b1c6b518299e8",
+          "sha256": "e60b8947c4f6a9f7dce38fec937f9102b7282de2d17c8a9d1ddeeee0b5a92b25",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/proof.rs",
           "symbol": "pub struct DummyProofProvider",
-          "sha256": "9751f528321a867a1a494d6e16e1e83f7129ba24ae173d06336a815f86fa6052",
+          "sha256": "39f02b77f932a7da3759c3eaeb6799a76e7210ee84953f95d341f048c883e52d",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -6469,19 +6616,19 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/statement.rs",
           "symbol": "pub fn preimage(",
-          "sha256": "be720e6c008282643c6aa8cbbd315878c72b00865ad4cdd07d8b1c6b518299e8",
+          "sha256": "e60b8947c4f6a9f7dce38fec937f9102b7282de2d17c8a9d1ddeeee0b5a92b25",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/proof.rs",
           "symbol": "pub struct DummyProofProvider",
-          "sha256": "9751f528321a867a1a494d6e16e1e83f7129ba24ae173d06336a815f86fa6052",
+          "sha256": "39f02b77f932a7da3759c3eaeb6799a76e7210ee84953f95d341f048c883e52d",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -6511,19 +6658,19 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/statement.rs",
           "symbol": "pub fn preimage(",
-          "sha256": "be720e6c008282643c6aa8cbbd315878c72b00865ad4cdd07d8b1c6b518299e8",
+          "sha256": "e60b8947c4f6a9f7dce38fec937f9102b7282de2d17c8a9d1ddeeee0b5a92b25",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/proof.rs",
           "symbol": "pub struct DummyProofProvider",
-          "sha256": "9751f528321a867a1a494d6e16e1e83f7129ba24ae173d06336a815f86fa6052",
+          "sha256": "39f02b77f932a7da3759c3eaeb6799a76e7210ee84953f95d341f048c883e52d",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -6550,19 +6697,19 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/statement.rs",
           "symbol": "pub fn preimage(",
-          "sha256": "be720e6c008282643c6aa8cbbd315878c72b00865ad4cdd07d8b1c6b518299e8",
+          "sha256": "e60b8947c4f6a9f7dce38fec937f9102b7282de2d17c8a9d1ddeeee0b5a92b25",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/proof.rs",
           "symbol": "pub struct DummyProofProvider",
-          "sha256": "9751f528321a867a1a494d6e16e1e83f7129ba24ae173d06336a815f86fa6052",
+          "sha256": "39f02b77f932a7da3759c3eaeb6799a76e7210ee84953f95d341f048c883e52d",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -6589,19 +6736,19 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/statement.rs",
           "symbol": "pub fn preimage(",
-          "sha256": "be720e6c008282643c6aa8cbbd315878c72b00865ad4cdd07d8b1c6b518299e8",
+          "sha256": "e60b8947c4f6a9f7dce38fec937f9102b7282de2d17c8a9d1ddeeee0b5a92b25",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/proof.rs",
           "symbol": "pub struct DummyProofProvider",
-          "sha256": "9751f528321a867a1a494d6e16e1e83f7129ba24ae173d06336a815f86fa6052",
+          "sha256": "39f02b77f932a7da3759c3eaeb6799a76e7210ee84953f95d341f048c883e52d",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -6628,19 +6775,19 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/statement.rs",
           "symbol": "pub fn preimage(",
-          "sha256": "be720e6c008282643c6aa8cbbd315878c72b00865ad4cdd07d8b1c6b518299e8",
+          "sha256": "e60b8947c4f6a9f7dce38fec937f9102b7282de2d17c8a9d1ddeeee0b5a92b25",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/proof.rs",
           "symbol": "pub struct DummyProofProvider",
-          "sha256": "9751f528321a867a1a494d6e16e1e83f7129ba24ae173d06336a815f86fa6052",
+          "sha256": "39f02b77f932a7da3759c3eaeb6799a76e7210ee84953f95d341f048c883e52d",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -6667,19 +6814,19 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/statement.rs",
           "symbol": "pub fn preimage(",
-          "sha256": "be720e6c008282643c6aa8cbbd315878c72b00865ad4cdd07d8b1c6b518299e8",
+          "sha256": "e60b8947c4f6a9f7dce38fec937f9102b7282de2d17c8a9d1ddeeee0b5a92b25",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/proof.rs",
           "symbol": "pub struct DummyProofProvider",
-          "sha256": "9751f528321a867a1a494d6e16e1e83f7129ba24ae173d06336a815f86fa6052",
+          "sha256": "39f02b77f932a7da3759c3eaeb6799a76e7210ee84953f95d341f048c883e52d",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -6706,19 +6853,19 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/statement.rs",
           "symbol": "pub fn preimage(",
-          "sha256": "be720e6c008282643c6aa8cbbd315878c72b00865ad4cdd07d8b1c6b518299e8",
+          "sha256": "e60b8947c4f6a9f7dce38fec937f9102b7282de2d17c8a9d1ddeeee0b5a92b25",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/proof.rs",
           "symbol": "pub struct DummyProofProvider",
-          "sha256": "9751f528321a867a1a494d6e16e1e83f7129ba24ae173d06336a815f86fa6052",
+          "sha256": "39f02b77f932a7da3759c3eaeb6799a76e7210ee84953f95d341f048c883e52d",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -6732,7 +6879,7 @@
       "id": "INT-forged-head-not-valid",
       "declaration": "Etna.Integration.Examples.forged_head_not_valid",
       "module": "Etna.Integration.Examples",
-      "type_sha256": "226346114a33b4e564570adba542c134eb4912f318bf617e8eab827779e367d6",
+      "type_sha256": "2caf26abd939224d58a6108ff189d5514de440325aa4517dcf134838f3c1c6c3",
       "bridge_level": "spec-proved",
       "premises": [],
       "source_symbols": [
@@ -6745,19 +6892,19 @@
         {
           "path": "packages/taiko-client-rs/crates/lander/src/statement.rs",
           "symbol": "pub fn preimage(",
-          "sha256": "be720e6c008282643c6aa8cbbd315878c72b00865ad4cdd07d8b1c6b518299e8",
+          "sha256": "e60b8947c4f6a9f7dce38fec937f9102b7282de2d17c8a9d1ddeeee0b5a92b25",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/proof.rs",
           "symbol": "pub struct DummyProofProvider",
-          "sha256": "9751f528321a867a1a494d6e16e1e83f7129ba24ae173d06336a815f86fa6052",
+          "sha256": "39f02b77f932a7da3759c3eaeb6799a76e7210ee84953f95d341f048c883e52d",
           "relation": "source-mapped-spec"
         },
         {
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18",
           "relation": "source-mapped-spec"
         }
       ],
@@ -6781,7 +6928,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function _recordReward(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/rewards.rs",
@@ -6809,7 +6956,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function _recordReward(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/rewards.rs",
@@ -6837,7 +6984,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function _recordReward(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/rewards.rs",
@@ -6872,7 +7019,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/rewards.rs",
@@ -6916,7 +7063,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/rewards.rs",
@@ -6939,7 +7086,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         },
         {
           "path": "packages/taiko-client-rs/crates/lander/src/rewards.rs",
@@ -6962,7 +7109,7 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
         },
         {
           "path": "packages/protocol/contracts/layer2/core/L2FeeVault.sol",
@@ -7025,7 +7172,123 @@
           "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
           "symbol": "function land(",
           "relation": "source-mapped-spec",
-          "sha256": "5ca27e10bea480d47310944a50ebf5ae4da3f852306bfbb8a0c46766d322dfe4"
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
+        }
+      ],
+      "tests": ["Etna/Integration/Examples.lean"]
+    },
+    {
+      "id": "INT-valid-batch-active-snapshot",
+      "declaration": "Etna.Integration.valid_batch_active_snapshot",
+      "module": "Etna.Integration.Composition",
+      "type_sha256": "ef6b156b316e7e83711f26dafbecf2de9dc1cfe0a925d0cd55de5f02b0cd0ed0",
+      "bridge_level": "spec-proved",
+      "premises": [
+        "ValidBatch binds the snapshot word to the governing committee record cutoff"
+      ],
+      "source_symbols": [
+        {
+          "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "symbol": "function land(",
+          "relation": "source-mapped-spec",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
+        },
+        {
+          "path": "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "symbol": "let active_snapshot =",
+          "relation": "source-mapped-spec",
+          "sha256": "eb688fc7664203451540c352b43e1f67c435851c7dbcd36ff289bffceef58d60"
+        }
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ]
+    },
+    {
+      "id": "INT-landed-snapshot-is-active-cutoff",
+      "declaration": "Etna.Integration.landed_snapshot_is_active_cutoff",
+      "module": "Etna.Integration.Composition",
+      "type_sha256": "b58ddb8730fa756c946e0ea98b748c62be0fc23fa58eb8bb6857a832c32368c0",
+      "bridge_level": "spec-proved",
+      "premises": [
+        "GuestSoundness: an accepted proof yields the concrete ValidBatch relation, including the governing committee cutoff"
+      ],
+      "source_symbols": [
+        {
+          "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "symbol": "function land(",
+          "relation": "source-mapped-spec",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
+        },
+        {
+          "path": "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "symbol": "let active_snapshot =",
+          "relation": "source-mapped-spec",
+          "sha256": "eb688fc7664203451540c352b43e1f67c435851c7dbcd36ff289bffceef58d60"
+        }
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ]
+    },
+    {
+      "id": "WITHDRAW-01",
+      "declaration": "Etna.Integration.withdrawal_after_settled_turnover",
+      "module": "Etna.Integration.Composition",
+      "type_sha256": "6a6c1d319a999542468acb7bc651aed0a81f262a4b4210a0bf475d88395f7a7d",
+      "bridge_level": "spec-proved",
+      "premises": [
+        "GuestSoundness: an accepted proof yields the concrete ValidBatch relation, including the governing committee cutoff"
+      ],
+      "source_symbols": [
+        {
+          "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "symbol": "function land(",
+          "relation": "source-mapped-spec",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
+        },
+        {
+          "path": "packages/protocol/contracts/layer1/etna/impl/EtnaStakingRegistry.sol",
+          "symbol": "function withdraw(",
+          "relation": "source-mapped-spec",
+          "sha256": "20f74ba3a79d94693da5417fe550b57008643d3eb3190fe4bdb0543ffb6cd932"
+        },
+        {
+          "path": "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "symbol": "let active_snapshot =",
+          "relation": "source-mapped-spec",
+          "sha256": "eb688fc7664203451540c352b43e1f67c435851c7dbcd36ff289bffceef58d60"
+        }
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ]
+    },
+    {
+      "id": "INT-landed-snapshot-nonvacuity",
+      "declaration": "Etna.Integration.Examples.landed_snapshot_nonvacuity",
+      "module": "Etna.Integration.Examples",
+      "type_sha256": "2e5b627ba67ca1a9cc978de396591d12ca60c1cc1d0308688e91b91e80ca0a08",
+      "bridge_level": "spec-proved",
+      "premises": [],
+      "source_symbols": [
+        {
+          "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "symbol": "function land(",
+          "relation": "source-mapped-spec",
+          "sha256": "12bd8e828deeaa28cb7384030d18bdda916475e6f1dd99ec89f75d74d48a2f18"
+        },
+        {
+          "path": "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "symbol": "let active_snapshot =",
+          "relation": "source-mapped-spec",
+          "sha256": "eb688fc7664203451540c352b43e1f67c435851c7dbcd36ff289bffceef58d60"
         }
       ],
       "tests": ["Etna/Integration/Examples.lean"]
@@ -7064,30 +7327,30 @@
     "Etna/FI/Examples.lean": "e65dd12936f119696d93061e9e91d5a99f8c12f6744a4f617e38cf9ae88b08d5",
     "Etna/FI/Model.lean": "dc20ac6aae1f11343e3796a1693027305e8b95c40ed5dd975a36e724ddaf7456",
     "Etna/FI/Proofs.lean": "1485afc498d92902ebc040c68b10547fb76536a2b33608bef7be7b9615745f9f",
-    "Etna/Integration/Composition.lean": "a7094531ab3f4c8d2401c14b8830e7f53f3e6a84ef80f7f2134046567e9d7030",
-    "Etna/Integration/Examples.lean": "5171769f233766d4406fee29fc936727ceb34f818ae5465da080bf6392438168",
+    "Etna/Integration/Composition.lean": "7f2e8e674baf25558098207e422913effcadcb850fc907a3b3f68b6cce523fc9",
+    "Etna/Integration/Examples.lean": "1718cd7ccd6db28bdb7d80db9fce4cc3cd79be84dd8df2c81a485dfb4f1ebf4d",
     "Etna/Integration/Rewards.lean": "36c51c22ed968a16217478e155efadcc2a28c9f0231ac676d7d2dba2dff888fe",
     "Etna/Landing/Claim.lean": "cab0609af6d20198a0d3665fea5fa0240e4832f61ee9ee52a24fcd2319948daf",
-    "Etna/Landing/Examples.lean": "ee0c1dcd0b693c75316016f73b8b38a55fbb2cf50db791e2ed5c807b286572e8",
-    "Etna/Landing/Model.lean": "003f07d67b98ecbb2e8f5bf15a908ee7f3501ce906106d775c19d20b2863c465",
-    "Etna/Landing/Proofs.lean": "9c5bb1c64df19b9320ab5432c180193acad946674b434f762833260a5559a867",
+    "Etna/Landing/Examples.lean": "93bd9caf6746482711f29ec993da7a54f25cca9b7002ecd8423b4250b0d1fce2",
+    "Etna/Landing/Model.lean": "376346cd64fad380a72aebaf65ced0d7d63d627f73639ce85623bb23f002661f",
+    "Etna/Landing/Proofs.lean": "f7f9de935aacc5515e3f7caff813319d1b3c1132fdc2e4902497341257858107",
     "Etna/Landing/Reward.lean": "845920b83336d4fc82b909f1b8eb5b2bf7372375f056a1cc9c00d2c547723de1",
-    "Etna/Landing/Statement.lean": "98b35dbaa7bb535ff2e577df7daa556ba9fa8f45488fa55a5518c604f6595b13",
+    "Etna/Landing/Statement.lean": "ccac11891fe81f9bc9a2f9de8e74d6d6a4e49a69db67b2f16d2b4bff8b8964eb",
     "Etna/Refinement/Rust/Committee.lean": "8f9a62fa2b6003a1ad43926974ff572a90021decac5caa4f0238958f02fd902f",
     "Etna/Refinement/Rust/EtnaConsensusCore.lean": "b8226cac41c44cd89d50e0cdc3857d27495179a163c357e352331d8407c23716",
     "Etna/Refinement/Rust/Forced.lean": "db9745886678e8ad8eba296464a873014a57a1952dd8da8da6c081df5b908417",
-    "Etna/Refinement/Rust/provenance.json": "a60c18a1e07477972ac8e3e9a2b8212a06930a33928803b29dbe0afd77affe57",
-    "adapters/solidity/EtnaInboxCutsConformance.t.sol": "39868419cbe9acad0592c097fec778aa780257899221e7130dd71164bc8e7d09",
-    "adapters/solidity/EtnaInboxLeanConformance.t.sol": "af893310bc53705ec1d4f8857c2edd563125948e483e3b7ff3f8fa0e72ded6c8",
+    "Etna/Refinement/Rust/provenance.json": "5d9c9e3901a7d41d359c731d46bec0dd30cf576dcebf4116eeff6f6d3ceeb0f6",
+    "adapters/solidity/EtnaInboxCutsConformance.t.sol": "ea848005e71ec710e890758da0dc7622d90f38c3c9ee11cdd39492a1dc717913",
+    "adapters/solidity/EtnaInboxLeanConformance.t.sol": "9f34972f946b353e7d215971914fa5bd310018696c2766d48c51bff7ce4c8319",
     "adapters/solidity/L2FeeVaultLeanConformance.t.sol": "c5ba0a3513d475fe9b4c39fbc9d30250d40608c200d7d52f3c92b90d55d32cbf",
     "corpus/claim.jsonl": "6cef183f5efcd3390b93cc422cadff49b4d7d10332fc72f3a794fc874ea4e791",
-    "corpus/landing.jsonl": "0146514344dbd4842c255f87ff2e672a09457dd8cd77fc6f7f73484b326bec50",
-    "schemas/coverage-policy.json": "fc29a1367650ed7dea362f264a17f91741015dd956cfefb4534102c7c2b2f719",
+    "corpus/landing.jsonl": "b16e74836619b6390bffa5c3eb98b90b0d603bc8283116a0cf7f725b9442ac1c",
+    "schemas/coverage-policy.json": "ff7d3254e27a31eb2d2b542441bbdd7a1ece52d3b660ee68df0c9e69ea783448",
     "schemas/coverage.schema.json": "41ac3806d950b5823920257717b247f2625678e4e59198340f8662854a22461b",
     "tools.lock.json": "47f66b9b2d441aac44da4a08fe21ca6bb7321c4483aa2c1ca978a756bfc8cbdd"
   },
   "contract_artifacts": {
-    "manifest_sha256": "afd39233db4bc4be71d1287b022925c78120d4b36805f1ed9037f68b098415dc",
-    "inbox_layout_sha256": "1b9875d77f8e2cf011be808ccecdb7bc328b4b7005b4ea206110e1c7e3a6d34f"
+    "manifest_sha256": "5623afd9094044bab66bb92ecc217da298f87accb5c1ec002d56028e0441dd20",
+    "inbox_layout_sha256": "4acee23e718bd6cf9d2c7c9f8fc0feb4c93bc74b7820949188394ccea94f8414"
   }
 }

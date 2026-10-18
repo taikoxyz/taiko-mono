@@ -16,7 +16,8 @@ def exampleWorld : World := {
   transfers := []
   logs := []
   guard := false }
-def exampleInput : LandInput := ⟨13, 291, 1110, 19999, 4, 48879, 57005, 123456, 51966⟩
+/-- Checkpoint 10 is in epoch 0 and height 13 in epoch 1 (L = 10), so the snapshot may advance. -/
+def exampleInput : LandInput := ⟨13, 291, 1110, 19999, 4, 48879, 57005, 123456, 11, 51966⟩
 def exampleEnvironment : Environment := ⟨20000, 2748, true, 32, 2748, [1,2]⟩
 /-- A constant toy reward hash, not Keccak; it makes every recorded commitment nonzero. -/
 def exampleExternal : ExternalOutcomes := ⟨exampleEnvironment, true, true, true, .none, fun _ => 0, fun _ => 7⟩
@@ -67,6 +68,26 @@ theorem zero_base_fee_recorded :
     let r := execLandSteps exampleWorld { exampleInput with baseFeeAmount := 0 } exampleExternal
     r.error = none ∧ r.journal.current.rewardCommitments 7 = 7 := by decide
 
+/-- A cross-epoch landing stores its proven snapshot. -/
+theorem cross_epoch_snapshot_advances :
+    (runTransaction exampleWorld (execLandSteps exampleWorld exampleInput exampleExternal)).world.committeeSnapshot = 11 := by
+  decide
+
+theorem snapshot_regress_rejected :
+    (execLandSteps { exampleWorld with committeeSnapshot := 12 } exampleInput exampleExternal).error =
+      some .invalidCommitteeSnapshot := by decide
+
+theorem snapshot_above_reference_rejected :
+    (execLandSteps exampleWorld { exampleInput with activeSnapshot := 20000 } exampleExternal).error =
+      some .invalidCommitteeSnapshot := by decide
+
+/-- From checkpoint 11 (epoch 1) to height 13 (epoch 1) the active committee cannot change:
+only the stored snapshot is accepted, even though 11 would pass the range check. -/
+theorem same_epoch_snapshot_fixed :
+    let w := { exampleWorld with checkpoint := ⟨11, 1000⟩, committeeSnapshot := 5 }
+    (execLandSteps w exampleInput exampleExternal).error = some .invalidCommitteeSnapshot ∧
+    (execLandSteps w { exampleInput with activeSnapshot := 5 } exampleExternal).error = none := by decide
+
 theorem zero_fee_skips_callback :
     (execLandSteps { exampleWorld with fee := fun _ => 0 } exampleInput
       { exampleExternal with paymentReturnsNormally := false, reentry := .landUncaught }).error = none := by decide
@@ -110,7 +131,7 @@ def withBlobPrefix (x : ExternalOutcomes) (blobs : List Word256) : ExternalOutco
 /-- Both local assumptions are satisfiable together on different-length actual prefixes,
 and the resulting outer hashes differ. The conclusion is derived, not an assumed blob equality. -/
 theorem composed_unequal_length_nonvacuity (w : World) (i : LandInput) (x : ExternalOutcomes) :
-    ∃ outerHash : Vector Byte 640 → Word256,
+    ∃ outerHash : Vector Byte 672 → Word256,
       LocalInnerHashSeparation exampleInnerHash
         (actualBlobs (withBlobPrefix x [1]).environment)
         (actualBlobs (withBlobPrefix x [1,2]).environment) ∧

@@ -10,7 +10,8 @@ def Bounds (w : World) (i : LandInput) : Prop :=
   i.lastHeight.val - w.checkpoint.height ≤ w.maxBatchBlocks ∧ i.lastHeight.val < 2 ^ 48 ∧
   w.head.val ≤ i.headAfter.val ∧ i.headAfter.val ≤ w.tail.val ∧
   i.headAfter.val - w.head.val ≤ i.lastHeight.val - w.checkpoint.height ∧ i.recipient ≠ 0 ∧
-  i.rewardRecipient ≠ 0
+  i.rewardRecipient ≠ 0 ∧ w.committeeSnapshot ≤ i.activeSnapshot.val ∧ i.activeSnapshot.val ≤ i.reference.val ∧
+  (sameEpoch w i = true → i.activeSnapshot.val = w.committeeSnapshot)
 
 theorem validate_bounds (w : World) (i : LandInput) (h : validate w i = none) : Bounds w i := by
   unfold validate at h
@@ -232,7 +233,7 @@ theorem statement_recipient_from_input (w : World) (i : LandInput) (x : External
 theorem statement_copied_caller (w : World) (i : LandInput) (x : ExternalOutcomes) (caller : Address) :
     computedStatement w { i with caller := caller } x = computedStatement w i x := rfl
 
-theorem every_word_independent (a b : LandStatement) (field : Fin 20)
+theorem every_word_independent (a b : LandStatement) (field : Fin 21)
     (changed : (words a)[field.val] ≠ (words b)[field.val]) :
     encodeStatement a ≠ encodeStatement b := by
   intro same
@@ -334,12 +335,13 @@ def CallbackFrame (before after : World) : Prop :=
   before.generation = after.generation ∧ before.config = after.config ∧
   before.maxBatchBlocks = after.maxBatchBlocks ∧ before.checkpoint = after.checkpoint ∧
   before.head = after.head ∧ before.tail = after.tail ∧ before.fee = after.fee ∧ before.guard = after.guard ∧
-  before.rewardCommitments = after.rewardCommitments
+  before.rewardCommitments = after.rewardCommitments ∧ before.committeeSnapshot = after.committeeSnapshot ∧
+  before.epochLen = after.epochLen
 
 theorem callback_frame_preserves_bounds (before after : World) (i : LandInput)
     (frame : CallbackFrame before after) (bounds : Bounds before i) : Bounds after i := by
-  rcases frame with ⟨_, _, _, _, _, _, hmax, hcp, hhead, htail, _, _, _⟩
-  simpa [Bounds, ← hmax, ← hcp, ← hhead, ← htail] using bounds
+  rcases frame with ⟨_, _, _, _, _, _, hmax, hcp, hhead, htail, _, _, _, hsnap, hlen⟩
+  simpa [Bounds, sameEpoch, ← hmax, ← hcp, ← hhead, ← htail, ← hsnap, ← hlen] using bounds
 
 theorem callback_frame_nonvacuity (w : World) : CallbackFrame w w := by
   simp [CallbackFrame]
@@ -370,10 +372,10 @@ theorem locked_land_and_save_reject (w : World) (i : LandInput) (x : ExternalOut
 
 /-- Compose the two local collision assumptions with actual model serialization.
 The byte hash is the same primitive on both calls. Context/height/etc equality is
-recovered only for the twenty encoded fields, while the inner theorem also
+recovered only for the twenty-one encoded fields, while the inner theorem also
 recovers the complete ordered nonzero prefixes, including their lengths. -/
 theorem composed_statement_blob_binding
-    (outerHash : Vector Byte 640 → Word256)
+    (outerHash : Vector Byte 672 → Word256)
     (w₁ w₂ : World) (i₁ i₂ : LandInput) (x₁ x₂ : ExternalOutcomes)
     (samePrimitive : x₁.keccakBlobBytes = x₂.keccakBlobBytes)
     (innerSeparation : LocalInnerHashSeparation x₁.keccakBlobBytes
@@ -512,5 +514,31 @@ theorem reward_ids_distinct {keccak : List Byte → Word256} {w : World} {rs : L
   have ra := members a ma
   have rb := members b mb
   exact batch_id_distinct keccak a b (by omega) (by omega) (by omega) (by omega) sep (by omega)
+
+/-- LAND-12: a successful landing stores the proven active-committee snapshot. It never
+regresses, never exceeds the bound reference block, and is unchanged when the batch ends in
+its parent's epoch, so a pending validator update cannot move it. -/
+theorem committee_snapshot_rule (w : World) (i : LandInput) (x : ExternalOutcomes)
+    (accepted : (execLandSteps w i x).error = none) :
+    (runTransaction w (execLandSteps w i x)).world.committeeSnapshot = i.activeSnapshot.val ∧
+    w.committeeSnapshot ≤ i.activeSnapshot.val ∧ i.activeSnapshot.val ≤ i.reference.val ∧
+    (sameEpoch w i = true → i.activeSnapshot.val = w.committeeSnapshot) ∧
+    (computedStatement w i x).activeSnapshot = natWord i.activeSnapshot.val := by
+  have bounds := bounds_preserved w i x accepted
+  refine ⟨?_, bounds.2.2.2.2.2.2.2.2.1, bounds.2.2.2.2.2.2.2.2.2.1, bounds.2.2.2.2.2.2.2.2.2.2, rfl⟩
+  rw [(landing_success w i x accepted).2.2.2.2]
+  simp only [paymentEffect, recordReward, preVerifier]
+  split_ifs <;> rfl
+
+/-- Along any sequence of successful landings the stored snapshot only grows, and each
+landing's snapshot is at least every earlier one. -/
+theorem snapshot_trace_monotone {keccak : List Byte → Word256} {w : World} {rs : List Receipt} {final : World}
+    (trace : RewardTrace keccak w rs final) : w.committeeSnapshot ≤ final.committeeSnapshot := by
+  induction trace with
+  | nil => exact le_rfl
+  | @cons w rest final i x primitive accepted tail ih =>
+    have rule := committee_snapshot_rule w i x accepted
+    rw [rule.1] at ih
+    exact le_trans rule.2.1 ih
 
 end Etna.Landing

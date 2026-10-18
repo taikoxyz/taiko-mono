@@ -9,8 +9,8 @@ abbrev Byte := Fin 256
 abbrev AbiWord := Vector Byte 32
 /-- ASCII bytes32 tag: vector length checks the right padding without modular truncation. -/
 @[expose] def landDomain : AbiWord :=
-  #v[84, 65, 73, 75, 79, 95, 69, 84, 78, 65, 95, 76, 65, 78, 68, 95, 86, 56, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-/-- The twenty normalized V8 ABI words, including the blob commitment, not raw blobs. -/
+  #v[84, 65, 73, 75, 79, 95, 69, 84, 78, 65, 95, 76, 65, 78, 68, 95, 86, 57, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+/-- The twenty-one normalized V9 ABI words, including the blob commitment, not raw blobs. -/
 structure LandStatement where
   domain : AbiWord
   l1ChainId : AbiWord
@@ -32,26 +32,27 @@ structure LandStatement where
   recipient : AbiWord
   rewardRecipient : AbiWord
   baseFeeAmount : AbiWord
+  activeSnapshot : AbiWord
   deriving DecidableEq, Repr
 
-@[expose] def words (s : LandStatement) : Vector AbiWord 20 :=
+@[expose] def words (s : LandStatement) : Vector AbiWord 21 :=
   #v[s.domain, s.l1ChainId, s.l2ChainId, s.inbox, s.registry, s.generation,
      s.parentHeight, s.parentHash, s.config, s.lastHeight, s.lastBlockHash,
      s.lastStateRoot, s.referenceNumber, s.referenceHash, s.blobCommitment,
-     s.headBefore, s.headAfter, s.recipient, s.rewardRecipient, s.baseFeeAmount]
+     s.headBefore, s.headAfter, s.recipient, s.rewardRecipient, s.baseFeeAmount, s.activeSnapshot]
 
-@[expose] def encodeStatement (s : LandStatement) : Vector Byte 640 := (words s).flatten
+@[expose] def encodeStatement (s : LandStatement) : Vector Byte 672 := (words s).flatten
 
-@[expose] def wordAt (b : Vector Byte 640) (i : Fin 20) : AbiWord :=
+@[expose] def wordAt (b : Vector Byte 672) (i : Fin 21) : AbiWord :=
   Vector.ofFn fun j => b[i.val * 32 + j.val]'(by omega)
 
-@[expose] def decodeStatement (b : Vector Byte 640) : LandStatement :=
+@[expose] def decodeStatement (b : Vector Byte 672) : LandStatement :=
   ⟨wordAt b 0, wordAt b 1, wordAt b 2, wordAt b 3, wordAt b 4, wordAt b 5,
    wordAt b 6, wordAt b 7, wordAt b 8, wordAt b 9, wordAt b 10, wordAt b 11,
    wordAt b 12, wordAt b 13, wordAt b 14, wordAt b 15, wordAt b 16, wordAt b 17,
-   wordAt b 18, wordAt b 19⟩
+   wordAt b 18, wordAt b 19, wordAt b 20⟩
 
-theorem wordAt_encode (s : LandStatement) (i : Fin 20) :
+theorem wordAt_encode (s : LandStatement) (i : Fin 21) :
     wordAt (encodeStatement s) i = (words s)[i.val] := by
   apply Vector.ext
   intro j hj
@@ -81,6 +82,9 @@ theorem reward_recipient_word (s : LandStatement) :
 theorem base_fee_word (s : LandStatement) :
     wordAt (encodeStatement s) 19 = s.baseFeeAmount := by rw [wordAt_encode]; rfl
 
+theorem active_snapshot_word (s : LandStatement) :
+    wordAt (encodeStatement s) 20 = s.activeSnapshot := by rw [wordAt_encode]; rfl
+
 /-- Independent byte-level ABI normalizer: zero-left-padded, big-endian. -/
 @[expose] def natWord (n : Nat) : AbiWord :=
   Vector.ofFn fun i => ⟨n / 256 ^ (31 - i.val) % 256, Nat.mod_lt _ (by decide)⟩
@@ -96,10 +100,10 @@ theorem address_padding (n : Nat) (h : n < 2 ^ 160) (i : Fin 32) (hi : i.val < 1
   simp [Nat.div_eq_of_lt hn]
 
 /-- Separation for the two actually compared preimages, never global Keccak injectivity. -/
-@[expose] def LocalHashSeparation (hash : Vector Byte 640 → Word256) (a b : LandStatement) : Prop :=
+@[expose] def LocalHashSeparation (hash : Vector Byte 672 → Word256) (a b : LandStatement) : Prop :=
   encodeStatement a ≠ encodeStatement b → hash (encodeStatement a) ≠ hash (encodeStatement b)
 
-theorem hash_binding (hash : Vector Byte 640 → Word256) (a b : LandStatement)
+theorem hash_binding (hash : Vector Byte 672 → Word256) (a b : LandStatement)
     (separation : LocalHashSeparation hash a b)
     (matched : hash (encodeStatement a) = hash (encodeStatement b)) : a = b := by
   apply (statement_complete a b).mp
@@ -107,7 +111,7 @@ theorem hash_binding (hash : Vector Byte 640 → Word256) (a b : LandStatement)
   exact separation h matched
 
 /-- Structural LAND-06; runtime conformance instantiates the word equality. -/
-theorem encoding_conformance (s : LandStatement) (observedWords : Vector AbiWord 20)
+theorem encoding_conformance (s : LandStatement) (observedWords : Vector AbiWord 21)
     (sameFields : observedWords = words s) : observedWords.flatten = encodeStatement s := by
   subst observedWords
   rfl
@@ -150,7 +154,7 @@ theorem blob_encoding_injective {n : Nat} (a b : Vector AbiWord n) :
 /-- Non-identical pairs have a satisfiable finite local separation relation. This is an
 existence witness for the premise shape, not an implementation of Keccak. -/
 theorem local_separation_distinct_nonvacuity (a b : LandStatement) (different : a ≠ b) :
-    ∃ hash : Vector Byte 640 → Word256, LocalHashSeparation hash a b := by
+    ∃ hash : Vector Byte 672 → Word256, LocalHashSeparation hash a b := by
   refine ⟨fun bytes => if bytes = encodeStatement a then 0 else 1, ?_⟩
   intro _
   have h : encodeStatement b ≠ encodeStatement a := by
@@ -160,7 +164,7 @@ theorem local_separation_distinct_nonvacuity (a b : LandStatement) (different : 
 
 /-- Every output byte is exactly its row-major ABI word byte; this is the unconditional
 structural encoding obligation underlying cross-language conformance. -/
-theorem encoding_byte (s : LandStatement) (index : Fin 640) :
+theorem encoding_byte (s : LandStatement) (index : Fin 672) :
     (encodeStatement s)[index.val] =
       ((words s)[index.val / 32]'(by omega))[index.val % 32]'(by omega) := by
   exact Vector.getElem_flatten index.isLt

@@ -42,9 +42,9 @@ class CoverageTests(unittest.TestCase):
         with patch.object(Path,'read_text',read),patch.object(coverage,'sha',digest):
             return coverage.check_ledger(ledger,entries,Path('/paired'))
 
-    def test_current_ledger_covers_all_261_theorems_and_21_exact_functions(self):
+    def test_current_ledger_covers_all_272_theorems_and_21_exact_functions(self):
         result=self.check()
-        self.assertEqual(result['theorems'],261)
+        self.assertEqual(result['theorems'],272)
         self.assertEqual(result['exact_rust_functions'],21)
         self.assertEqual(len(result['pending']),3)
 

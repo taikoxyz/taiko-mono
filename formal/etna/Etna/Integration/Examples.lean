@@ -103,10 +103,11 @@ def joint : JointStep auth before after block (some 0) [] where
   authenticatedTail := rfl
   stateRoot := rfl
 
+/-- Epoch zero's committee is the genesis record with cutoff 49 (L = 6). -/
 def world : Landing.World := { Landing.exampleWorld with
   checkpoint := ⟨0,100⟩,
-  head := 0, tail := 1, fee := fun _ => 1 }
-def input : Landing.LandInput := ⟨1,101,202,19999,1,48879,57005,5,51966⟩
+  head := 0, tail := 1, fee := fun _ => 1, committeeSnapshot := 49, epochLen := 6 }
+def input : Landing.LandInput := ⟨1,101,202,19999,1,48879,57005,5,49,51966⟩
 /-- A content-dependent toy byte hash (byte sum), not Keccak: it separates the two receipts. -/
 def rewardHash (bytes : List Landing.Byte) : Word256 := ⟨(bytes.map Fin.val).sum % 2 ^ 256, Nat.mod_lt _ (by decide)⟩
 def external : Landing.ExternalOutcomes := { Landing.exampleExternal with
@@ -136,6 +137,7 @@ theorem joint_nonvacuity :
     subst b
     exact ⟨Or.inl rfl,rfl⟩
   · decide
+  · exact ⟨outgoingRecord, rfl, by decide, rfl⟩
   · rfl
 
 /-- Empty cuts are permitted as algebraic partitions; valid landed batches separately
@@ -182,7 +184,7 @@ def secondJoint : JointStep auth after secondState secondBlock none [] where
   stateRoot := rfl
 
 def middleWorld : Landing.World := (Landing.runTransaction world (Landing.execLandSteps world input external)).world
-def secondInput : Landing.LandInput := ⟨2,102,203,19999,1,48879,57005,3,51966⟩
+def secondInput : Landing.LandInput := ⟨2,102,203,19999,1,48879,57005,3,49,51966⟩
 def secondExternal : Landing.ExternalOutcomes := { external with
   environment := { external.environment with blobHashes := [2] } }
 def secondBatch : BatchSummary ctx := ⟨after,secondState,[secondBlock],[none],[]⟩
@@ -206,6 +208,7 @@ theorem second_valid : ValidBatch auth middleWorld secondInput secondExternal
     subst b
     exact ⟨Or.inr rfl,rfl⟩
   · decide
+  · exact ⟨outgoingRecord, rfl, by decide, rfl⟩
   · rfl
 
 /-- Two nonempty actual model land calls, with a positive paid interval followed by an
@@ -224,6 +227,22 @@ theorem landed_rewards_nonvacuity :
     (Landing.receiptOf world input).parentHeight = 0 ∧ (Landing.receiptOf middleWorld secondInput).parentHeight = 1 ∧
     Landing.rewardId world input external ≠ Landing.rewardId middleWorld secondInput secondExternal :=
   ⟨(landed_cuts_rewards landed_multicall_nonvacuity).2, rfl, rfl, by decide +kernel⟩
+
+/-- The landed snapshot is epoch zero's genesis cutoff, and a snapshot naming another
+committee cannot satisfy the guest relation even though the Inbox range check would pass. -/
+theorem landed_snapshot_nonvacuity :
+    finalWorld.committeeSnapshot = outgoingRecord.cutoff ∧
+    ¬ ValidBatch auth world { input with activeSnapshot := 50 } external
+      (Landing.computedStatement world { input with activeSnapshot := 50 } external) batch := by
+  refine ⟨by decide +kernel, ?_⟩
+  intro valid
+  obtain ⟨r, governing, snapshot⟩ := valid_batch_active_snapshot valid
+  have : r = outgoingRecord := by
+    have h : Committee.authority ctx.schedule batch.terminal.committee batch.terminal.committee.height =
+      some outgoingRecord := rfl
+    rw [h] at governing; exact (Option.some.inj governing).symm
+  subst this
+  exact absurd snapshot (by decide)
 
 /-- A wrong base-fee word cannot satisfy the guest relation for the decoded trace. -/
 theorem forged_base_fee_not_valid :

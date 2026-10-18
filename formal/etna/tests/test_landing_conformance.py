@@ -98,7 +98,7 @@ def fake_keccak(hex_bytes):
 
 
 class RewardGateTests(unittest.TestCase):
-    """V8 statement shape and the three-way receipt check (Lean, Python, actual event)."""
+    """V9 statement shape, the committee snapshot and the three-way receipt check."""
 
     @classmethod
     def setUpClass(cls):
@@ -125,22 +125,26 @@ class RewardGateTests(unittest.TestCase):
             with patch.object(landing, 'run', return_value=json.dumps(lean)):
                 return {f['field'] for f in landing.compare([row], [obs])['failures']}
 
-    def test_v8_statement_shape_is_twenty_words(self):
-        self.assertEqual(len(self.observed['normal']['actualPreimage']), 2+640*2)
-        self.assertEqual(len(self.observed['normal']['statementWords']), 20)
-        self.assertEqual(self.observed['normal']['statementWords'][0],
-                         '0x'+b'TAIKO_ETNA_LAND_V8'.hex().ljust(64,'0'))
+    def test_v9_statement_shape_is_twenty_one_words(self):
+        words = self.observed['normal']['statementWords']
+        self.assertEqual(len(self.observed['normal']['actualPreimage']), 2+672*2)
+        self.assertEqual(len(words), 21)
+        self.assertEqual(words[0], '0x'+b'TAIKO_ETNA_LAND_V9'.hex().ljust(64,'0'))
+        # Word 20 is the landed active committee snapshot.
+        self.assertEqual(int(words[20],16), self.rows['normal']['activeCommitteeSnapshot'])
 
-    def test_v6_shaped_statement_is_rejected(self):
+    def test_v8_shaped_statement_is_rejected(self):
         def mutate(c, o, l):
             for side, key in [(l,'expectedPreimage'), (o,'actualPreimage')]:
-                side[key] = side[key][:2+576*2]
-            o['statementWords'] = o['statementWords'][:18]
+                side[key] = side[key][:2+640*2]
+            o['statementWords'] = o['statementWords'][:20]
         self.assertIn('preimage-shape', self.check('normal', mutate))
 
     def test_consistent_reward_rows_are_accepted(self):
         for case in ['normal','reward-max-amount','reward-before-payment-failure',
-                     'reward-occupied-slot','reward-zero-recipient','verifier-revert']:
+                     'reward-occupied-slot','reward-zero-recipient','verifier-revert',
+                     'snapshot-regress','snapshot-epoch-boundary-advance',
+                     'snapshot-parent-zero-same-epoch']:
             with self.subTest(case=case):
                 self.assertEqual(self.check(case), set())
 
@@ -181,6 +185,16 @@ class RewardGateTests(unittest.TestCase):
                 l[field] = (not l[field]) if isinstance(l[field], bool) else '0x'+'22'*32
             with self.subTest(field=field):
                 self.assertIn(field, self.check('reward-before-payment-failure', mutate))
+
+    def test_committee_snapshot_observations_are_compared(self):
+        # Committed and tentative snapshots differ only after a late revert (7 written, 3 kept).
+        for case, field in [('normal','committeeSnapshot'), ('verifier-revert','tentativeCommitteeSnapshot'),
+                            ('verifier-revert','committeeSnapshot'),
+                            ('snapshot-same-epoch-change','committeeSnapshot')]:
+            def mutate(c, o, l, field=field):
+                l[field] += 1
+            with self.subTest(case=case, field=field):
+                self.assertIn(field, self.check(case, mutate))
 
 
 class PinnedInputTests(unittest.TestCase):

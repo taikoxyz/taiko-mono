@@ -11,8 +11,8 @@ import subprocess
 
 ROOT=Path(__file__).resolve().parents[1]
 REPO=ROOT.parents[1]
-CLIENT='6f91f50c6185213ac512a4a46683767c75d8d831'
-PROTOCOL='cf4095818050bd670d7d6b8b9f742d55c01e49f0'
+CLIENT='cfcc70973f109779d0f6a8617191c789b72d759a'
+PROTOCOL='3ff8a1c084b222752abb2eedf7362e74fb14ceda'
 PROJECT='taikoxyz/taiko-mono'
 # Deliberate premerge exception, tied to the immutable declared client base.
 # Updating either branch/pin or this scope requires explicit pairing/proof review.

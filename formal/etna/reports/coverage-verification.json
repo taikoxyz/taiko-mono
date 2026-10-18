@@ -1,5 +1,5 @@
 {
-  "theorems": 261,
+  "theorems": 272,
   "exact_rust_functions": 21,
   "pending": [
     "GUEST-SOUNDNESS",
@@ -8,10 +8,10 @@
   ],
   "schema_version": 1,
   "kernel_audit": true,
-  "upstream_client": "6f91f50c6185213ac512a4a46683767c75d8d831",
-  "paired_protocol": "cf4095818050bd670d7d6b8b9f742d55c01e49f0",
-  "verification_overlay": "fbacac38591f44f81955f0f26566c4ac2465869d",
-  "ledger_sha256": "43ed5d5035cac0e43211e32b6a0de303572eddf3e7ea5150bf59aaaaee15c50d",
+  "upstream_client": "cfcc70973f109779d0f6a8617191c789b72d759a",
+  "paired_protocol": "3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+  "verification_overlay": "36e7bc97f549193a36c4404c60f3aa16fe4c4d89",
+  "ledger_sha256": "1b3aa716bee551f5d4ac3207a66bd18a166141ed71b3c79f73050b439f1d5e4f",
   "contract_sources_abi_layout_bytecode": "verified against actual paired artifacts",
   "solidity_bridge": "specification plus finite conformance; bytecode refinement remains pending"
 }

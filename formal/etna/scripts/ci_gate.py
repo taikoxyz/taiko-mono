@@ -111,7 +111,7 @@ def main():
         validate_heads(current_heads()); verify_event(revision)
         coverage=json.loads(a.coverage.read_text())
         if (coverage.get('verification_overlay') != revision or not coverage.get('kernel_audit')
-                or coverage.get('theorems') != 261 or coverage.get('exact_rust_functions') != 21):
+                or coverage.get('theorems') != 272 or coverage.get('exact_rust_functions') != 21):
             raise ValueError('coverage report lacks exact current SHA/kernel audit')
         ledger=json.loads((ROOT/'coverage.json').read_text())
         if coverage['ledger_sha256'] != sha(ROOT/'coverage.json'): raise ValueError('stale coverage ledger')
@@ -122,7 +122,7 @@ def main():
                 or pair['upstream_client'] != CLIENT or pair['paired_protocol'] != PROTOCOL
                 or not paired['fresh_execution'] or paired['seed'] != 20261015):
             raise ValueError('execution receipts do not bind the current pair')
-        if (paired['landing']['failures'] or paired['landing']['cases'] != 65
+        if (paired['landing']['failures'] or paired['landing']['cases'] != 74
                 or paired['claim']['failures'] or paired['claim']['cases'] != CLAIM_CASES):
             raise ValueError('paired execution receipt is incomplete')
         report.update(extraction=extraction,conformance=paired,pair_identity=pair['assembled_sha256'],

@@ -28,6 +28,7 @@ private def errorName : Error → String
   | .batchTooLarge => "batch-too-large" | .heightOverflow => "height-overflow"
   | .zeroRecipient => "zero-recipient" | .zeroRewardRecipient => "zero-reward-recipient"
   | .invalidHead => "invalid-head" | .rewardAlreadyRecorded => "reward-already-recorded"
+  | .invalidCommitteeSnapshot => "invalid-committee-snapshot"
   | .anchorUnavailable => "anchor-unavailable" | .blobsRequired => "blobs-required"
   | .environmentError => "environment-error" | .signalUnauthorized => "signal-unauthorized"
   | .signalInvalid => "signal-invalid" | .verifier => "verifier" | .payment => "payment"
@@ -73,6 +74,7 @@ private def runCase (j : Json) : Except String Json := do
     signal := []
     inboxBalance := ← dec "inboxBalanceWei"
     rewardCommitments := fun id => if id = rewardId then rewardSeed else 0
+    committeeSnapshot := ← n "committeeSnapshotBefore"
     transfers := []
     logs := []
     guard := ← b "guardLocked" }
@@ -85,12 +87,13 @@ private def runCase (j : Json) : Except String Json := do
       l2ChainId := ← word 64 (← cn "l2chainid")
       registry := ← word 160 (← ch "registry")
       generation := ← word 64 (← cn "generation")
-      config := ← word 256 (← ch "config") }
+      config := ← word 256 (← ch "config")
+      epochLen := ← cn "epochLenL2" }
     else pure w
   let i : LandInput := ⟨← word 64 (← n "lastHeight"), ← word 256 (← h "lastBlockHash"),
     ← word 256 (← h "lastStateRoot"), ← word 64 (← n "reference"), ← word 48 (← n "headAfter"),
     ← word 160 (← h "recipient"), ← word 160 (← h "l2RewardRecipient"), ← word 256 (← dec "baseFeeAmount"),
-    ← word 160 (← h "caller")⟩
+    ← word 64 (← n "activeCommitteeSnapshot"), ← word 160 (← h "caller")⟩
   let mut blobs := []
   for v in (← j.getObjValAs? (Array String) "blobs") do
     blobs := blobs ++ [← word 256 (← parseHex v)]
@@ -124,6 +127,8 @@ private def runCase (j : Json) : Except String Json := do
     ("tentativeCheckpointHeight", jn tentative.journal.current.checkpoint.height),
     ("tentativeSignalPresent", jb (!tentative.journal.current.signal.isEmpty)),
     ("tentativeBatchEvent", jb (tentative.journal.current.logs.any fun e => match e with | .batchLanded .. => true | _ => false)),
+    ("committeeSnapshot", jn post.committeeSnapshot),
+    ("tentativeCommitteeSnapshot", jn tentative.journal.current.committeeSnapshot),
     ("rewardEvent", jb (ok && post.logs.any fun e => match e with | .rewardRecorded .. => true | _ => false)),
     ("rewardCommitment", js (hexNat (post.rewardCommitments rewardId).val 64)),
     ("tentativeRewardCommitment", js (hexNat (if tentative.trace.contains .reward && tentative.stage != .reward

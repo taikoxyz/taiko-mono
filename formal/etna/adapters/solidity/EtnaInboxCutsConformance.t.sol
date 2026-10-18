@@ -218,7 +218,9 @@ contract EtnaInboxCutsConformanceTest is EtnaInboxTestBase {
             forcedInclusionHead: _after,
             feeRecipient: _RECIPIENT,
             l2RewardRecipient: _REWARD_RECIPIENT,
-            baseFeeAmount: _receipt(parentHeight, _height).baseFeeAmount
+            baseFeeAmount: _receipt(parentHeight, _height).baseFeeAmount,
+            // The six-block trace stays in epoch zero, so the genesis snapshot stays active.
+            activeCommitteeSnapshot: etnaInbox.activeCommitteeSnapshot()
         });
         vm.recordLogs();
         vm.startStateDiffRecording();

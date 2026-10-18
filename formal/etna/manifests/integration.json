@@ -484,7 +484,7 @@
       "id": "INT-forged-head-not-valid",
       "module": "Etna.Integration.Examples",
       "declaration": "Etna.Integration.Examples.forged_head_not_valid",
-      "type": "¬Etna.Integration.ValidBatch\n    Etna.Integration.Examples.auth Etna.Integration.Examples.world\n    (have __src := Etna.Integration.Examples.input;\n    { lastHeight := __src.lastHeight, lastBlockHash := __src.lastBlockHash, lastStateRoot := __src.lastStateRoot,\n      reference := __src.reference, headAfter := 0, recipient := __src.recipient,\n      rewardRecipient := __src.rewardRecipient, baseFeeAmount := __src.baseFeeAmount, caller := __src.caller })\n    Etna.Integration.Examples.external\n    (Etna.Landing.computedStatement Etna.Integration.Examples.world\n      (have __src := Etna.Integration.Examples.input;\n      { lastHeight := __src.lastHeight, lastBlockHash := __src.lastBlockHash, lastStateRoot := __src.lastStateRoot,\n        reference := __src.reference, headAfter := 0, recipient := __src.recipient,\n        rewardRecipient := __src.rewardRecipient, baseFeeAmount := __src.baseFeeAmount, caller := __src.caller })\n      Etna.Integration.Examples.external)\n    Etna.Integration.Examples.batch",
+      "type": "¬ Etna.Integration.ValidBatch Etna.Integration.Examples.auth Etna.Integration.Examples.world { Etna.Integration.Examples.input with headAfter := 0 } Etna.Integration.Examples.external (Etna.Landing.computedStatement Etna.Integration.Examples.world { Etna.Integration.Examples.input with headAfter := 0 } Etna.Integration.Examples.external) Etna.Integration.Examples.batch",
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
@@ -512,7 +512,7 @@
       ],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
         "packages/taiko-client-rs/crates/lander/src/rewards.rs"
       ],
       "tests": [
@@ -533,7 +533,7 @@
       ],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
         "packages/taiko-client-rs/crates/lander/src/rewards.rs"
       ],
       "tests": [
@@ -554,7 +554,7 @@
       ],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
         "packages/taiko-client-rs/crates/lander/src/rewards.rs"
       ],
       "tests": [
@@ -576,8 +576,8 @@
       ],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
         "packages/taiko-client-rs/crates/lander/src/rewards.rs"
       ],
       "tests": [
@@ -598,7 +598,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": ["Etna/Integration/Examples.lean"],
       "boundaries": [
@@ -613,7 +613,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
         "packages/taiko-client-rs/crates/lander/src/rewards.rs"
       ],
       "tests": ["Etna/Integration/Examples.lean"],
@@ -629,7 +629,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
         "packages/taiko-client-rs/crates/lander/src/rewards.rs"
       ],
       "tests": ["Etna/Integration/Examples.lean"],
@@ -645,8 +645,8 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
-        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": ["Etna/Integration/Examples.lean"],
       "boundaries": [
@@ -661,7 +661,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": ["Etna/Integration/Examples.lean"],
       "boundaries": [
@@ -676,7 +676,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": ["Etna/Integration/Examples.lean"],
       "boundaries": [
@@ -691,13 +691,97 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": ["Etna/Integration/Examples.lean"],
       "boundaries": [
         "Conditional composition: guest soundness must establish ValidBatch, including the base-fee word as the checked sum of the EL treasury credits of the batch blocks; that EL fee identity is an execution boundary.",
         "Spec-proved model of L2FeeVault.claim, conformance-tested on 41 rows against the actual vault with real single-leaf MPT proofs and the canonical EIP-4788 runtime (scripts/claim_conformance.py). Proof soundness (ProofSound), general multi-node tries and the execution client's EIP-4788 writes remain external; bytecode refinement is pending."
+      ]
+    },
+    {
+      "id": "INT-valid-batch-active-snapshot",
+      "module": "Etna.Integration.Composition",
+      "declaration": "Etna.Integration.valid_batch_active_snapshot",
+      "type": "∀ {ctx : Etna.Committee.Context} {a : Etna.Integration.Authentication ctx} {w : Etna.Landing.World}\n  {i : Etna.Landing.LandInput} {x : Etna.Landing.ExternalOutcomes} {batch : Etna.Integration.BatchSummary ctx},\n  @Etna.Integration.ValidBatch ctx a w i x (Etna.Landing.computedStatement w i x) batch →\n    ∃ r,\n      And\n        (@Eq (Option Etna.Committee.Record)\n          (Etna.Committee.authority ctx.schedule (@Etna.Integration.BatchSummary.terminal ctx batch).committee\n            (@Etna.Integration.BatchSummary.terminal ctx batch).committee.height)\n          (@Option.some Etna.Committee.Record r))\n        (@Eq Nat\n          (@Fin.val\n            (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n              (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n              (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))\n            i.activeSnapshot)\n          r.cutoff)",
+      "assumptions": [
+        "ValidBatch binds the snapshot word to the governing committee record cutoff"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/taiko-client-rs/crates/lander/src/batch.rs"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Conditional composition: guest soundness must bind the snapshot word to the cutoff of the committee record governing the terminal height (genesis cutoff in epoch zero, else the anchor of D(t))."
+      ]
+    },
+    {
+      "id": "INT-landed-snapshot-is-active-cutoff",
+      "module": "Etna.Integration.Composition",
+      "declaration": "Etna.Integration.landed_snapshot_is_active_cutoff",
+      "type": "∀ {ctx : Etna.Committee.Context} (a : Etna.Integration.Authentication ctx) (w : Etna.Landing.World)\n  (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes),\n  @Etna.Integration.GuestSoundness ctx a w i x →\n    @Eq (Option Etna.Landing.Error) (Etna.Landing.execLandSteps w i x).error (@Option.none Etna.Landing.Error) →\n      ∃ batch r,\n        And (@Etna.Integration.ValidBatch ctx a w i x (Etna.Landing.computedStatement w i x) batch)\n          (And\n            (@Eq (Option Etna.Committee.Record)\n              (Etna.Committee.authority ctx.schedule (@Etna.Integration.BatchSummary.terminal ctx batch).committee\n                (@Etna.Integration.BatchSummary.terminal ctx batch).committee.height)\n              (@Option.some Etna.Committee.Record r))\n            (@Eq Nat (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.committeeSnapshot\n              r.cutoff))",
+      "assumptions": [
+        "GuestSoundness: an accepted proof yields the concrete ValidBatch relation, including the governing committee cutoff"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/taiko-client-rs/crates/lander/src/batch.rs"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Conditional composition: guest soundness must bind the snapshot word to the cutoff of the committee record governing the terminal height (genesis cutoff in epoch zero, else the anchor of D(t))."
+      ]
+    },
+    {
+      "id": "WITHDRAW-01",
+      "module": "Etna.Integration.Composition",
+      "declaration": "Etna.Integration.withdrawal_after_settled_turnover",
+      "type": "∀ {ctx : Etna.Committee.Context} (a : Etna.Integration.Authentication ctx) (w : Etna.Landing.World)\n  (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes),\n  @Etna.Integration.GuestSoundness ctx a w i x →\n    @Eq (Option Etna.Landing.Error) (Etna.Landing.execLandSteps w i x).error (@Option.none Etna.Landing.Error) →\n      ∀ (exitEffective blockNumber delay : Nat),\n        @Eq Bool\n            (Etna.Integration.withdrawalGate Bool.true\n              (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.committeeSnapshot exitEffective\n              blockNumber delay)\n            Bool.true →\n          ∃ batch r,\n            And (@Etna.Integration.ValidBatch ctx a w i x (Etna.Landing.computedStatement w i x) batch)\n              (And\n                (@Eq (Option Etna.Committee.Record)\n                  (Etna.Committee.authority ctx.schedule (@Etna.Integration.BatchSummary.terminal ctx batch).committee\n                    (@Etna.Integration.BatchSummary.terminal ctx batch).committee.height)\n                  (@Option.some Etna.Committee.Record r))\n                (@LE.le Nat instLENat exitEffective r.cutoff))",
+      "assumptions": [
+        "GuestSoundness: an accepted proof yields the concrete ValidBatch relation, including the governing committee cutoff"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaStakingRegistry.sol:300-330@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/taiko-client-rs/crates/lander/src/batch.rs"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Conditional composition: guest soundness must bind the snapshot word to the cutoff of the committee record governing the terminal height (genesis cutoff in epoch zero, else the anchor of D(t)).",
+        "The registry withdrawal gate is modelled as its two V9 conditions after the exit/delay checks; registry storage, ERC20 transfer and the one-time Inbox binding are external."
+      ]
+    },
+    {
+      "id": "INT-landed-snapshot-nonvacuity",
+      "module": "Etna.Integration.Examples",
+      "declaration": "Etna.Integration.Examples.landed_snapshot_nonvacuity",
+      "type": "Etna.Integration.Examples.finalWorld.committeeSnapshot = Etna.Committee.Examples.outgoingRecord.cutoff ∧ ¬ Etna.Integration.ValidBatch Etna.Integration.Examples.auth Etna.Integration.Examples.world { Etna.Integration.Examples.input with activeSnapshot := 50 } Etna.Integration.Examples.external (Etna.Landing.computedStatement Etna.Integration.Examples.world { Etna.Integration.Examples.input with activeSnapshot := 50 } Etna.Integration.Examples.external) Etna.Integration.Examples.batch",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/taiko-client-rs/crates/lander/src/batch.rs"
+      ],
+      "tests": ["Etna/Integration/Examples.lean"],
+      "boundaries": [
+        "Conditional composition: guest soundness must bind the snapshot word to the cutoff of the committee record governing the terminal height (genesis cutoff in epoch zero, else the anchor of D(t))."
       ]
     }
   ]

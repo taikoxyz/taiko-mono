@@ -18,13 +18,13 @@ from landing_conformance import PIN, pinned_inputs
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = ROOT.parents[1]
-UPSTREAM_CLIENT = '6f91f50c6185213ac512a4a46683767c75d8d831'
+UPSTREAM_CLIENT = 'cfcc70973f109779d0f6a8617191c789b72d759a'
 # The client's lander fixtures name the protocol revision they were generated at. It may
 # precede the tested pin only when every compiler input below is byte-identical.
 FIXTURE_INPUTS = ['packages/protocol/contracts','packages/protocol/foundry.toml','pnpm-lock.yaml']
 # Frozen independently of the manifests/ledger. Deleting both copies is still rejected.
 POLICY = ROOT/'schemas/coverage-policy.json'
-POLICY_SHA256 = 'fc29a1367650ed7dea362f264a17f91741015dd956cfefb4534102c7c2b2f719'
+POLICY_SHA256 = 'ff7d3254e27a31eb2d2b542441bbdd7a1ece52d3b660ee68df0c9e69ea783448'
 if hashlib.sha256(POLICY.read_bytes()).hexdigest() != POLICY_SHA256:
     raise ValueError('coverage policy changed without explicit checker review')
 _POLICY = json.loads(POLICY.read_text())

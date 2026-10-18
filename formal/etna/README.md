@@ -1,8 +1,9 @@
 # Etna proof foundation
 
-This package pins Lean, Mathlib and extraction tools and checks 261 declarations:
+This package pins Lean, Mathlib and extraction tools and checks 272 declarations:
 FI and committee specification proofs, 21 exact extracted Rust function refinements,
-Landing specification proofs for the V8 statement and its L2 reward record, a model of
+Landing specification proofs for the V9 statement, its L2 reward record and the active
+committee snapshot that gates staking withdrawals, a model of
 the L2 fee vault's reward claim (conformance-tested against the actual vault), and
 conditional joint-trace/landing/reward composition.
 `coverage.json` records exact theorem/type/source digests, named premises and tests;
@@ -10,15 +11,16 @@ conditional joint-trace/landing/reward composition.
 manifests. Wrapper conformance and scalar-function refinement remain separate levels.
 Real guest soundness, execution header/time rules and Solidity bytecode refinement
 are mandatory pending ledger entries.
-Current upstream dependencies are client `6f91f50c6185213ac512a4a46683767c75d8d831`
-(#22280) and protocol `cf4095818050bd670d7d6b8b9f742d55c01e49f0` (#22286). The client's
-lander fixtures were generated at protocol `2a4bfa747edcafae96c15b58159e31eea0ebe78a`,
-whose contracts, `foundry.toml` and lockfile are byte-identical to the tested pin; the
-coverage gate checks that identity before accepting the fixtures. The client pin names
+Current upstream dependencies are client `cfcc70973f109779d0f6a8617191c789b72d759a`
+(#22280) and protocol `3ff8a1c084b222752abb2eedf7362e74fb14ceda` (#22286). The client's
+lander fixtures name their protocol revision; if it differs from the tested pin, the
+coverage gate first requires its contracts, `foundry.toml` and lockfile to be
+byte-identical. The client pin names
 the upstream base; this verification branch adds the production core, adapter wiring
 and FI proofs. Exact current source/Cargo/generated digests are recorded in
-`Etna/Refinement/Rust/provenance.json`; `reports/v8-sync.json` records this refresh's
-pins, removed and new obligations, conformance counts and mutants. `reports/pair-refresh.json`
+`Etna/Refinement/Rust/provenance.json`; `reports/v9-sync.json` records the latest
+refresh and `reports/v8-sync.json` the previous one: pins, removed and new obligations,
+conformance counts and mutants. `reports/pair-refresh.json`
 is the earlier pair's merge-overlay record. Original
 source baselines remain historical; the original contract inventory is retained
 in Git at `44afbca320dfd9f23fdb6ea46ad641cb1b51a01e` and identified by digest
@@ -110,7 +112,7 @@ Regenerate from an actual Foundry artifact. The generator validates raw solc com
 ```sh
 python3 scripts/solidity_inventory.py /path/to/EtnaInbox.json \
   --source-checkout /path/to/exact/taiko-mono/packages/protocol \
-  --source-revision cf4095818050bd670d7d6b8b9f742d55c01e49f0 \
+  --source-revision 3ff8a1c084b222752abb2eedf7362e74fb14ceda \
   --evmyul-root /path/to/pinned/EVMYulLean --clear-root /path/to/pinned/Clear \
   --output reports/solidity-inventory.json
 ```
@@ -173,9 +175,13 @@ first transition; see [configuration evidence](reports/configuration-boundaries.
 
 ### Landing operation and actual contract conformance
 
-`Etna/Landing` models V8 `land(input, proof)` at protocol `cf4095818`. `LandInput` has
-eight ABI fields; V8 adds `l2RewardRecipient` (checked nonzero right after the FI fee
-recipient) and `baseFeeAmount`. Caller is recorded in the batch event and is not a
+`Etna/Landing` models V9 `land(input, proof)` at protocol `3ff8a1c08`. `LandInput` has
+nine ABI fields. V8 added `l2RewardRecipient` (checked nonzero right after the FI fee
+recipient) and `baseFeeAmount`. V9 adds `activeCommitteeSnapshot`, the L1 snapshot of the
+committee governing the batch's last height. Right after the recipient checks, it must be
+at least the stored snapshot (slot 284) and at most the reference block. When the batch
+ends in its parent's epoch it must equal the stored snapshot, so a pending validator update
+cannot move it. Landing stores it together with the checkpoint. Caller is recorded in the batch event and is not a
 statement word. The staged World includes Inbox identity/configuration/checkpoint, queue
 head/tail and retained uint64 fee entries, SignalService checkpoint effects, the
 `rewardCommitments` ledger (slot 283), protocol logs, Inbox-issued transfer instructions
@@ -183,9 +189,9 @@ and the transient guard. A persistent journal retains tentative writes and unwin
 under the named generic EVM journal law. It excludes sender nonce/gas and unrelated
 recipient account effects. The callback frame also protects the reward ledger.
 
-The exact twenty-word encoder returns 640 bytes and has a proved decoder/left inverse;
+The exact twenty-one-word encoder returns 672 bytes and has a proved decoder/left inverse;
 all bounded uint256 encodings are injective, and addresses have 12 zero prefix bytes.
-The domain is the length-checked ASCII tag `TAIKO_ETNA_LAND_V8`. Ordered fixed-width
+The domain is the length-checked ASCII tag `TAIKO_ETNA_LAND_V9`. Ordered fixed-width
 blob concatenation is injective before hashing. Actual Keccak and trace-local
 collision separation are distinct assumptions; global Keccak injectivity is never
 assumed.
@@ -221,11 +227,18 @@ python3 scripts/landing_conformance.py \
   --observations /tmp/landing-observations.jsonl
 ```
 
-`corpus/landing.jsonl` keeps the 56 earlier cases and adds nine reward cases. The
+`committee_snapshot_rule` proves the three Inbox snapshot rules and that the committed
+snapshot is the proven one, and `snapshot_trace_monotone` that it only grows along any
+landing sequence.
+
+`corpus/landing.jsonl` keeps the 56 earlier cases, adds nine reward cases and nine
+committee-snapshot cases. The snapshot cases cover regress, above-reference and
+equal-reference, same-epoch change and keep, the epoch-boundary advance, a genesis
+parent, and the check order against the queue head and the reward recipient. The
 added cases cover a zero reward recipient and its check order, an occupied slot, the
 verifier preceding that check, zero and maximum amounts, and a payment failure after
-the reward write. All 65 rows agree on every field between Lean, the actual Inbox proxy
-and, for the 36 rows that reach statement hashing, the production Rust preimage/digest.
+the reward write. All 74 rows agree on every field between Lean, the actual Inbox proxy
+and, for the 39 rows that reach statement hashing, the production Rust preimage/digest.
 The reward ledger is checked three ways: the Lean receipt preimages, an independent
 Python preimage and the actual event id and slot value. Both Keccak values come from
 `cast`. The cut harness lands four partitions of one six-block trace with per-block
@@ -245,7 +258,7 @@ for the 40 negative/completeness, reward-gate and temporary-Git regressions.
 
 `Check/Claim.lean` runs `Etna.Landing.claim` on each row of `corpus/claim.jsonl`. The
 tester-owned harness `adapters/solidity/L2FeeVaultLeanConformance.t.sol` runs the same rows
-through the actual `L2FeeVault` at protocol `cf4095818`. Each row deploys a fresh vault and
+through the actual `L2FeeVault` at protocol `3ff8a1c08` (unchanged since `cf4095818`). Each row deploys a fresh vault and
 installs the canonical EIP-4788 runtime that the Etna genesis builder installs; the harness
 asserts its SHA-256. Roots are written through the system caller. Proofs are real
 single-leaf MPT proofs from `test/shared/EtnaRewardProof.sol`, built for the row's ledger:
@@ -338,10 +351,20 @@ So the fee vault cannot be asked for more than it was credited. The examples lan
 batches (5 + 3 credited), claim both once, reject the replay and a forged base-fee word,
 and satisfy the bound.
 
+V9 adds a committee-snapshot leg. `ValidBatch` requires the snapshot word to be the cutoff
+of the committee record governing the terminal height in the replayed committee history
+(the genesis cutoff in epoch zero, otherwise the anchor of D(t)). After a guest-sound
+landing, the Inbox's stored snapshot is that cutoff (`landed_snapshot_is_active_cutoff`).
+`EtnaStakingRegistry.withdraw` now also needs a bound Inbox whose stored snapshot has
+reached the bond's exit block. So an accepted withdrawal implies that the committee
+governing the latest landed height was derived at or after the exit
+(`withdrawal_after_settled_turnover`). That the derivation excludes entries exited by its
+cutoff remains the committee derivation boundary.
+
 The durable comparison invokes actual Rust `lander::statement::preimage/hash` and
 FI `advance_cursor`, the executable Lean models, and the tester-owned actual Inbox
-proxy and L2 fee-vault harnesses. It requires every one of 65 landing cases, all 36
-reached 640-byte preimages, four sampled cut plans with 12 intervals and all 41 claim
+proxy and L2 fee-vault harnesses. It requires every one of 74 landing cases, all 39
+reached 672-byte preimages, four sampled cut plans with 12 intervals and all 41 claim
 cases. Cut samples exercise real admissions,
 including empty payment intervals, separately from the arbitrary-cut theorem.
 

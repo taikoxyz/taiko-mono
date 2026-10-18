@@ -20,11 +20,11 @@
       "id": "LAND-AUX-01",
       "module": "Etna.Landing.Statement",
       "declaration": "Etna.Landing.wordAt_encode",
-      "type": "∀ (s : Etna.Landing.LandStatement) (i : Fin 20), Etna.Landing.wordAt (Etna.Landing.encodeStatement s) i = (Etna.Landing.words s)[↑i]",
+      "type": "∀ (s : Etna.Landing.LandStatement) (i : Fin 21), Etna.Landing.wordAt (Etna.Landing.encodeStatement s) i = (Etna.Landing.words s)[↑i]",
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -39,7 +39,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -54,7 +54,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -69,7 +69,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -84,7 +84,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -99,7 +99,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -110,13 +110,13 @@
       "id": "LAND-AUX-07",
       "module": "Etna.Landing.Statement",
       "declaration": "Etna.Landing.hash_binding",
-      "type": "∀ (hash : Vector Etna.Landing.Byte 640 → Etna.Word256) (a b : Etna.Landing.LandStatement), Etna.Landing.LocalHashSeparation hash a b → hash (Etna.Landing.encodeStatement a) = hash (Etna.Landing.encodeStatement b) → a = b",
+      "type": "∀ (hash : Vector Etna.Landing.Byte 672 → Etna.Word256) (a b : Etna.Landing.LandStatement), Etna.Landing.LocalHashSeparation hash a b → hash (Etna.Landing.encodeStatement a) = hash (Etna.Landing.encodeStatement b) → a = b",
       "assumptions": [
         "Trace-local collision separation for the two compared576-byte preimages; no global Keccak injectivity"
       ],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -127,11 +127,11 @@
       "id": "LAND-AUX-08",
       "module": "Etna.Landing.Statement",
       "declaration": "Etna.Landing.encoding_conformance",
-      "type": "∀ (s : Etna.Landing.LandStatement) (observedWords : Vector Etna.Landing.AbiWord 20), observedWords = Etna.Landing.words s → observedWords.flatten = Etna.Landing.encodeStatement s",
+      "type": "∀ (s : Etna.Landing.LandStatement) (observedWords : Vector Etna.Landing.AbiWord 21), observedWords = Etna.Landing.words s → observedWords.flatten = Etna.Landing.encodeStatement s",
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -146,7 +146,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -161,7 +161,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -176,7 +176,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -187,11 +187,11 @@
       "id": "LAND-06",
       "module": "Etna.Landing.Statement",
       "declaration": "Etna.Landing.encoding_byte",
-      "type": "∀ (s : Etna.Landing.LandStatement) (index : Fin 640), (Etna.Landing.encodeStatement s)[↑index] = (Etna.Landing.words s)[↑index / 32][↑index % 32]",
+      "type": "∀ (s : Etna.Landing.LandStatement) (index : Fin 672), (Etna.Landing.encodeStatement s)[↑index] = (Etna.Landing.words s)[↑index / 32][↑index % 32]",
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -206,7 +206,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -221,7 +221,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -236,7 +236,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -251,7 +251,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -266,7 +266,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -281,7 +281,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -296,7 +296,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -311,7 +311,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -326,7 +326,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -341,7 +341,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -356,7 +356,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -371,7 +371,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -386,7 +386,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -401,7 +401,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -416,7 +416,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -431,7 +431,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -446,7 +446,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -461,7 +461,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -476,7 +476,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -491,7 +491,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -506,7 +506,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -521,7 +521,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -532,11 +532,11 @@
       "id": "LAND-AUX-35",
       "module": "Etna.Landing.Proofs",
       "declaration": "Etna.Landing.statement_copied_caller",
-      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes)\n  (caller : Etna.Landing.Address),\n  @Eq Etna.Landing.LandStatement\n    (Etna.Landing.computedStatement w\n      { lastHeight := i.lastHeight, lastBlockHash := i.lastBlockHash, lastStateRoot := i.lastStateRoot,\n        reference := i.reference, headAfter := i.headAfter, recipient := i.recipient,\n        rewardRecipient := i.rewardRecipient, baseFeeAmount := i.baseFeeAmount, caller := caller }\n      x)\n    (Etna.Landing.computedStatement w i x)",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes) (caller : Etna.Landing.Address), Etna.Landing.computedStatement w { i with caller := caller } x = Etna.Landing.computedStatement w i x",
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -547,11 +547,11 @@
       "id": "LAND-AUX-36",
       "module": "Etna.Landing.Proofs",
       "declaration": "Etna.Landing.every_word_independent",
-      "type": "∀ (a b : Etna.Landing.LandStatement) (field : Fin 20), (Etna.Landing.words a)[↑field] ≠ (Etna.Landing.words b)[↑field] → Etna.Landing.encodeStatement a ≠ Etna.Landing.encodeStatement b",
+      "type": "∀ (a b : Etna.Landing.LandStatement) (field : Fin 21), (Etna.Landing.words a)[↑field] ≠ (Etna.Landing.words b)[↑field] → Etna.Landing.encodeStatement a ≠ Etna.Landing.encodeStatement b",
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -568,7 +568,7 @@
       ],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -585,7 +585,7 @@
       ],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -600,7 +600,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -615,7 +615,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -630,7 +630,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -647,7 +647,7 @@
       ],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -662,7 +662,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -677,7 +677,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -694,7 +694,7 @@
       ],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -709,7 +709,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -724,7 +724,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -739,7 +739,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -754,7 +754,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -769,7 +769,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -784,7 +784,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -799,7 +799,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -814,7 +814,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -829,7 +829,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -844,7 +844,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -859,7 +859,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -874,7 +874,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -889,7 +889,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -904,7 +904,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -919,7 +919,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -934,7 +934,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:422-468,558-594@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:450-497,588-624@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
     },
@@ -946,7 +946,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:422-468,558-594@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:450-497,588-624@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
     },
@@ -958,7 +958,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:422-468,558-594@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:450-497,588-624@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
     },
@@ -970,7 +970,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:422-468,558-594@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:450-497,588-624@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
     },
@@ -984,7 +984,7 @@
       ],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:422-468,558-594@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:450-497,588-624@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
     },
@@ -996,7 +996,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:422-468,558-594@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:450-497,588-624@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
     },
@@ -1008,7 +1008,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:422-468,558-594@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:450-497,588-624@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
     },
@@ -1016,7 +1016,7 @@
       "id": "LAND-BIND-08",
       "module": "Etna.Landing.Proofs",
       "declaration": "Etna.Landing.composed_statement_blob_binding",
-      "type": "∀ (outerHash : Vector Etna.Landing.Byte 640 → Etna.Word256) (w₁ w₂ : Etna.Landing.World) (i₁ i₂ : Etna.Landing.LandInput) (x₁ x₂ : Etna.Landing.ExternalOutcomes), x₁.keccakBlobBytes = x₂.keccakBlobBytes → Etna.Landing.LocalInnerHashSeparation x₁.keccakBlobBytes (Etna.Landing.actualBlobs x₁.environment) (Etna.Landing.actualBlobs x₂.environment) → Etna.Landing.LocalHashSeparation outerHash (Etna.Landing.computedStatement w₁ i₁ x₁) (Etna.Landing.computedStatement w₂ i₂ x₂) → outerHash (Etna.Landing.encodeStatement (Etna.Landing.computedStatement w₁ i₁ x₁)) = outerHash (Etna.Landing.encodeStatement (Etna.Landing.computedStatement w₂ i₂ x₂)) → Etna.Landing.computedStatement w₁ i₁ x₁ = Etna.Landing.computedStatement w₂ i₂ x₂ ∧ Etna.Landing.actualBlobs x₁.environment = Etna.Landing.actualBlobs x₂.environment",
+      "type": "∀ (outerHash : Vector Etna.Landing.Byte 672 → Etna.Word256) (w₁ w₂ : Etna.Landing.World) (i₁ i₂ : Etna.Landing.LandInput) (x₁ x₂ : Etna.Landing.ExternalOutcomes), x₁.keccakBlobBytes = x₂.keccakBlobBytes → Etna.Landing.LocalInnerHashSeparation x₁.keccakBlobBytes (Etna.Landing.actualBlobs x₁.environment) (Etna.Landing.actualBlobs x₂.environment) → Etna.Landing.LocalHashSeparation outerHash (Etna.Landing.computedStatement w₁ i₁ x₁) (Etna.Landing.computedStatement w₂ i₂ x₂) → outerHash (Etna.Landing.encodeStatement (Etna.Landing.computedStatement w₁ i₁ x₁)) = outerHash (Etna.Landing.encodeStatement (Etna.Landing.computedStatement w₂ i₂ x₂)) → Etna.Landing.computedStatement w₁ i₁ x₁ = Etna.Landing.computedStatement w₂ i₂ x₂ ∧ Etna.Landing.actualBlobs x₁.environment = Etna.Landing.actualBlobs x₂.environment",
       "assumptions": [
         "Same actual inner byte-hash primitive in both executions",
         "Trace-local inner separation on canonical serialized actual prefixes, with no equal-length restriction",
@@ -1024,7 +1024,7 @@
       ],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:422-468,558-594@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:450-497,588-624@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
     },
@@ -1036,7 +1036,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:422-468,558-594@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:450-497,588-624@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
     },
@@ -1048,7 +1048,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:422-468,558-594@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:450-497,588-624@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
     },
@@ -1060,7 +1060,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:422-468,558-594@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:450-497,588-624@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
     },
@@ -1072,8 +1072,8 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
-        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -1095,8 +1095,8 @@
       ],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
-        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -1117,8 +1117,8 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
-        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -1139,7 +1139,7 @@
       ],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -1162,8 +1162,8 @@
       ],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
-        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "adapters/solidity/EtnaInboxCutsConformance.t.sol",
@@ -1181,7 +1181,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -1200,7 +1200,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -1219,7 +1219,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -1238,7 +1238,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -1257,7 +1257,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -1276,7 +1276,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -1297,7 +1297,7 @@
       ],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -1318,7 +1318,7 @@
       ],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -1337,7 +1337,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -1356,7 +1356,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -1375,7 +1375,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -1394,7 +1394,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -1413,7 +1413,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -1432,7 +1432,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -1451,7 +1451,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "corpus/landing.jsonl",
@@ -1472,8 +1472,8 @@
       ],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
-        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "Etna/Integration/Examples.lean",
@@ -1492,7 +1492,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "Etna/Integration/Examples.lean",
@@ -1517,9 +1517,9 @@
       ],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
-        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "Etna/Integration/Examples.lean",
@@ -1538,7 +1538,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "Etna/Integration/Examples.lean",
@@ -1559,8 +1559,8 @@
       ],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:253-289,470-551@cf4095818050bd670d7d6b8b9f742d55c01e49f0",
-        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "adapters/solidity/EtnaInboxCutsConformance.t.sol",
@@ -1578,7 +1578,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "Etna/Integration/Examples.lean",
@@ -1597,7 +1597,7 @@
       "assumptions": [],
       "bridge_level": "spec-proved",
       "production": [
-        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
       ],
       "tests": [
         "Etna/Integration/Examples.lean",
@@ -1606,6 +1606,139 @@
       ],
       "boundaries": [
         "Spec-proved model of L2FeeVault.claim, conformance-tested on 41 rows against the actual vault with real single-leaf MPT proofs and the canonical EIP-4788 runtime (scripts/claim_conformance.py). Proof soundness (ProofSound), general multi-node tries and the execution client's EIP-4788 writes remain external; bytecode refinement is pending."
+      ]
+    },
+    {
+      "id": "LAND-12",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.committee_snapshot_rule",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes),\n  @Eq (Option Etna.Landing.Error) (Etna.Landing.execLandSteps w i x).error (@Option.none Etna.Landing.Error) →\n    And\n      (@Eq Nat (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.committeeSnapshot\n        (@Fin.val\n          (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n            (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n            (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))\n          i.activeSnapshot))\n      (And\n        (@LE.le Nat instLENat w.committeeSnapshot\n          (@Fin.val\n            (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n              (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n              (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))\n            i.activeSnapshot))\n        (And\n          (@LE.le Nat instLENat\n            (@Fin.val\n              (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))\n              i.activeSnapshot)\n            (@Fin.val\n              (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))\n              i.reference))\n          (And\n            (@Eq Bool (Etna.Landing.sameEpoch w i) Bool.true →\n              @Eq Nat\n                (@Fin.val\n                  (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                    (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                    (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))\n                  i.activeSnapshot)\n                w.committeeSnapshot)\n            (@Eq Etna.Landing.AbiWord (Etna.Landing.computedStatement w i x).activeSnapshot\n              (Etna.Landing.natWord\n                (@Fin.val\n                  (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                    (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                    (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))\n                  i.activeSnapshot))))))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the stored snapshot, its range and same-epoch checks, and their revert order per row."
+      ]
+    },
+    {
+      "id": "LAND-SNP-01",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.snapshot_trace_monotone",
+      "type": "∀ {keccak : List Etna.Landing.Byte → Etna.Word256} {w : Etna.Landing.World} {rs : List Etna.Landing.Receipt}\n  {final : Etna.Landing.World},\n  Etna.Landing.RewardTrace keccak w rs final → @LE.le Nat instLENat w.committeeSnapshot final.committeeSnapshot",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the stored snapshot, its range and same-epoch checks, and their revert order per row."
+      ]
+    },
+    {
+      "id": "LAND-SNP-02",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.active_snapshot_word",
+      "type": "∀ (s : Etna.Landing.LandStatement), Etna.Landing.wordAt (Etna.Landing.encodeStatement s) 20 = s.activeSnapshot",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the stored snapshot, its range and same-epoch checks, and their revert order per row."
+      ]
+    },
+    {
+      "id": "LAND-SNP-03",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.cross_epoch_snapshot_advances",
+      "type": "@Eq Nat\n  (Etna.Landing.runTransaction Etna.Landing.exampleWorld\n        (Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput\n          Etna.Landing.exampleExternal)).world.committeeSnapshot\n  (@OfNat.ofNat Nat (nat_lit 11) (instOfNatNat (nat_lit 11)))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the stored snapshot, its range and same-epoch checks, and their revert order per row."
+      ]
+    },
+    {
+      "id": "LAND-SNP-04",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.snapshot_regress_rejected",
+      "type": "(Etna.Landing.execLandSteps { Etna.Landing.exampleWorld with committeeSnapshot := 12 } Etna.Landing.exampleInput Etna.Landing.exampleExternal).error = some .invalidCommitteeSnapshot",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the stored snapshot, its range and same-epoch checks, and their revert order per row."
+      ]
+    },
+    {
+      "id": "LAND-SNP-05",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.snapshot_above_reference_rejected",
+      "type": "(Etna.Landing.execLandSteps Etna.Landing.exampleWorld { Etna.Landing.exampleInput with activeSnapshot := 20000 } Etna.Landing.exampleExternal).error = some .invalidCommitteeSnapshot",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the stored snapshot, its range and same-epoch checks, and their revert order per row."
+      ]
+    },
+    {
+      "id": "LAND-SNP-06",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.same_epoch_snapshot_fixed",
+      "type": "let w := { Etna.Landing.exampleWorld with checkpoint := ⟨11, 1000⟩, committeeSnapshot := 5 }; (Etna.Landing.execLandSteps w Etna.Landing.exampleInput Etna.Landing.exampleExternal).error = some .invalidCommitteeSnapshot ∧ (Etna.Landing.execLandSteps w { Etna.Landing.exampleInput with activeSnapshot := 5 } Etna.Landing.exampleExternal).error = none",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the stored snapshot, its range and same-epoch checks, and their revert order per row."
       ]
     }
   ]
