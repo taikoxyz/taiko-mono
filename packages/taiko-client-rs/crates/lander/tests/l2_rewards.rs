@@ -209,6 +209,7 @@ async fn fee_sum(f: &ContractFixture, from: u64, through: u64) -> Result<U256> {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
 async fn real_l2_rewards_claim_and_fee_continuation() -> Result<()> {
+    test_harness::init_tracing();
     assert_claim_polling_preserves_permanent_errors().await?;
     let f = ContractFixture::deploy().await?;
     let p = &f.anvil.provider;
@@ -269,7 +270,6 @@ async fn real_l2_rewards_claim_and_fee_continuation() -> Result<()> {
         last_block_hash: first.batch.input.lastBlockHash,
         last_state_root: first.batch.input.lastStateRoot,
     };
-    recover_landed_execution(&f, first.batch.blobs.sidecar.blobs(), &recovery).await?;
     let source = RpcClaimSource::connect(
         p.clone(),
         l2.clone(),
@@ -409,6 +409,9 @@ async fn real_l2_rewards_claim_and_fee_continuation() -> Result<()> {
         signed.hash
     );
     c.stop().await?;
+    // Fresh-node DA replay is independent of claiming. Run it after consensus stops so this
+    // fixture, which has no background lander, cannot exhaust its unsettled cap during replay.
+    recover_landed_execution(&f, first.batch.blobs.sidecar.blobs(), &recovery).await?;
     f.l2.stop().await?;
     f.anvil.stop().await
 }
