@@ -55,12 +55,19 @@ genesis hash/state root. Resolve this dependency by predicting the Inbox before 
    the Inbox atomically and saves block 0 in SignalService. Compare its returned
    proxy address with the immutable Inbox prediction; any mismatch must abort node startup and
    require rebuilding the genesis/commitments. Never continue using a different Inbox address.
-6. Bind the registry to the initialized Inbox with owner-only `bindInbox(inbox)`. `deployInbox()`
-   does this automatically if the broadcast signer owns the registry; otherwise the registry owner
-   must perform the printed action. Binding is one-time, checks the Inbox's registry identity and
-   initialized checkpoint, and cannot be changed. Withdrawals fail closed until it is complete.
-7. Wait for the L1 initialization block to finalize, then build ABCI genesis and start the nodes.
-   The first consensus block is L2 block 1. Verify canonical root/history writes after that block.
+6. Wait for the L1 initialization block to finalize. Verify `abci-genesis`, authenticated config
+   and EL genesis match the intended deployment, then start the nodes successfully. The first
+   consensus block is L2 block 1; verify canonical root/history writes after it. Where practical,
+   confirm a first successful finalized landing as public evidence before binding. An accept-all
+   dummy proof provides integration evidence, not proof of semantic startup correctness.
+7. Only after those checks, the registry owner explicitly calls `bindInbox(inbox)` once.
+   `deployInbox()` always prints this deferred action and never binds, even for an owner-deployer.
+   The call checks reciprocal registry identity and an initialized checkpoint, not node config,
+   EL genesis or semantic startup correctness. Binding cannot be undone or redirected. Before
+   binding, an unverified/wrong candidate may be discarded and redeployed; repeat the prediction,
+   vault export and genesis checks for the replacement identity. Withdrawals fail closed while
+   unbound; registration, consensus and landing continue without binding. No per-epoch binding
+   action is needed.
 
 Run the exporter from `packages/protocol`, without `--broadcast` or a private key:
 

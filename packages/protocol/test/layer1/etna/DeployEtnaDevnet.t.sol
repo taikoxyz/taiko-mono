@@ -34,6 +34,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         _run_DefaultsTheRegistryOwnerToTheDeployer();
         _deployInbox_InitializesThePredictedFreshProxyAndLandsFromBlockZero();
         _deployInbox_DefaultsEveryOwnerToTheDeployer();
+        _deployInbox_ReplacesAnUnverifiedCandidateBeforeExplicitBinding();
         _deployInbox_RevertWhen_RegistryAlreadyBound();
         _deployInbox_RevertWhen_ExportedIdentityIsStale();
         _deployInbox_RevertWhen_ExportedIdentityIsWrong();
@@ -138,8 +139,6 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(deployed.lastCheckpoint().height, 0, "L2 block zero");
         assertEq(registry.inbox(), address(0), "separate registry owner must bind explicitly");
         assertEq(deployed.activeCommitteeSnapshot(), registryCheckpointBlock);
-        registry.bindInbox(deployedInbox);
-        assertEq(registry.inbox(), deployedInbox, "owner completes binding");
         assertEq(deployed.lastCheckpoint().blockHash, genesisBlockHash, "genesis parent");
         assertEq(deployed.genesisCommitteeRecordHash(), COMMITTEE_RECORD_0, "committee zero");
         assertEq(deployed.committeeConfigHash(), COMMITTEE_CONFIG_HASH, "committee config");
@@ -155,10 +154,25 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(checkpoint.blockHash, genesisBlockHash, "checkpoint zero hash");
         assertEq(checkpoint.stateRoot, genesisStateRoot, "checkpoint zero root");
 
+        _landFirstBlock(deployed, deployedSignals, genesisBlockHash);
+        assertEq(registry.inbox(), address(0), "landing does not require binding");
+        registry.bindInbox(deployedInbox);
+        assertEq(registry.inbox(), deployedInbox, "owner binds after validating startup");
+    }
+
+    /// @dev Exercises first landing while the registry remains unbound. The mock proof checks
+    /// plumbing only; production startup validation requires a real guest and finalized landing.
+    function _landFirstBlock(
+        EtnaInbox _inbox,
+        SignalService _signals,
+        bytes32 _genesisHash
+    )
+        private
+    {
         vm.deal(Alice, 1 ether);
         vm.blobhashes(_getBlobHashes(1));
         vm.prank(Alice);
-        deployed.saveForcedInclusion{ value: uint256(FORCED_INCLUSION_FEE_GWEI) * 1 gwei }(hex"c0");
+        _inbox.saveForcedInclusion{ value: uint256(FORCED_INCLUSION_FEE_GWEI) * 1 gwei }(hex"c0");
 
         IEtnaInbox.LandInput memory input = IEtnaInbox.LandInput({
             lastHeight: 1,
@@ -169,26 +183,24 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
             feeRecipient: Carol,
             l2RewardRecipient: Alice,
             baseFeeAmount: 0,
-            activeCommitteeSnapshot: deployed.genesisCutoff()
+            activeCommitteeSnapshot: _inbox.genesisCutoff()
         });
         bytes32 l1ReferenceBlockHash = keccak256("genesis anchor");
         vm.setBlockhash(input.l1ReferenceBlockNumber, l1ReferenceBlockHash);
         bytes32[] memory blobHashes = _getBlobHashes(1);
         vm.blobhashes(blobHashes);
-        bytes32 statement = deployed.hashLandStatement(
-            0, 0, genesisBlockHash, 0, input, l1ReferenceBlockHash, blobHashes
+        bytes32 statement = _inbox.hashLandStatement(
+            0, 0, _genesisHash, 0, input, l1ReferenceBlockHash, blobHashes
         );
         vm.expectCall(
             address(landVerifier),
             abi.encodeCall(IProofVerifier.verifyProof, (0, statement, bytes("proof")))
         );
         uint256 recipientBefore = Carol.balance;
-        deployed.land(input, "proof");
-        assertEq(deployed.lastCheckpoint().height, 1, "first landed block");
-        assertEq(
-            deployedSignals.getCheckpoint(1).blockHash, input.lastBlockHash, "new syncer authorized"
-        );
-        (uint48 head,) = deployed.getForcedInclusionState();
+        _inbox.land(input, "proof");
+        assertEq(_inbox.lastCheckpoint().height, 1, "first landed block");
+        assertEq(_signals.getCheckpoint(1).blockHash, input.lastBlockHash, "new syncer authorized");
+        (uint48 head,) = _inbox.getForcedInclusionState();
         assertEq(head, 1, "forced inclusion consumed");
         assertEq(
             Carol.balance - recipientBefore,
@@ -202,12 +214,70 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         registry.transferOwnership(_scriptDeployer);
         vm.prank(_scriptDeployer);
         registry.acceptOwnership();
+        uint64 nonce = vm.getNonce(_scriptDeployer);
         (address deployedInbox, address deployedSignalService) = _deployment.deployInbox();
         assertEq(EtnaInbox(payable(deployedInbox)).owner(), _scriptDeployer, "default Inbox owner");
-        assertEq(registry.inbox(), deployedInbox, "deployer binds its registry automatically");
+        assertEq(
+            registry.inbox(), address(0), "owner-deployer must bind explicitly after validation"
+        );
+        assertEq(vm.getNonce(_scriptDeployer), nonce + 4, "only four CREATEs, no binding call");
         assertEq(
             SignalService(deployedSignalService).owner(), _scriptDeployer, "default signal owner"
         );
+    }
+
+    /// @dev A syntactically initialized candidate can have the wrong node config. The operator
+    /// can discard it, rebuild genesis for the new prediction and verify the intended deployment
+    /// before making the one-time withdrawal binding. This models the operator's choice;
+    /// actual semantic startup validation belongs to the client integration checks.
+    function _deployInbox_ReplacesAnUnverifiedCandidateBeforeExplicitBinding()
+        private
+        withEnvironment
+    {
+        vm.setEnv("CONTRACT_OWNER", vm.toString(address(0)));
+        registry.transferOwnership(_scriptDeployer);
+        vm.prank(_scriptDeployer);
+        registry.acceptOwnership();
+        vm.setEnv("COMMITTEE_CONFIG_HASH", vm.toString(keccak256("unverified config opening")));
+        (address abandonedInbox,) = _deployment.deployInbox();
+        assertNotEq(EtnaInbox(payable(abandonedInbox)).committeeConfigHash(), COMMITTEE_CONFIG_HASH);
+        assertEq(registry.inbox(), address(0), "unverified deployment does not lock the registry");
+
+        taikoToken.mint(Bob, MIN_STAKE);
+        vm.startPrank(Bob);
+        taikoToken.approve(address(registry), MIN_STAKE);
+        uint256 bond = registry.register(bytes32(uint256(0xb2)), MIN_STAKE, Bob);
+        registry.requestExit(bond);
+        vm.stopPrank();
+        vm.roll(registry.entryAt(bond).exitEffectiveL1 + registry.withdrawalDelay());
+        vm.prank(Bob);
+        vm.expectRevert(EtnaStakingRegistry.InboxNotBound.selector);
+        registry.withdraw(bond, Bob);
+
+        uint64 nonce = vm.getNonce(_scriptDeployer);
+        address predictedInbox = vm.computeCreateAddress(_scriptDeployer, nonce + 3);
+        bytes32 rebuiltGenesisHash = keccak256("rebuilt genesis for intended Inbox");
+        vm.setEnv("L1_INBOX", vm.toString(predictedInbox));
+        vm.setEnv("GENESIS_BLOCK_HASH", vm.toString(rebuiltGenesisHash));
+        vm.setEnv("GENESIS_STATE_ROOT", vm.toString(keccak256("rebuilt genesis state")));
+        vm.setEnv("COMMITTEE_CONFIG_HASH", vm.toString(COMMITTEE_CONFIG_HASH));
+        (address intendedInbox, address intendedSignals) = _deployment.deployInbox();
+        assertNotEq(intendedInbox, abandonedInbox, "fresh candidate");
+        assertEq(intendedInbox, predictedInbox, "rebuilt genesis identity");
+        assertEq(vm.getNonce(_scriptDeployer), nonce + 4, "four CREATEs remain consecutive");
+        EtnaInbox intended = EtnaInbox(payable(intendedInbox));
+        assertEq(intended.lastCheckpoint().blockHash, rebuiltGenesisHash);
+        assertEq(intended.committeeConfigHash(), COMMITTEE_CONFIG_HASH);
+        assertEq(registry.inbox(), address(0), "redeployment still requires explicit approval");
+        _landFirstBlock(intended, SignalService(intendedSignals), rebuiltGenesisHash);
+        assertEq(registry.inbox(), address(0), "landing succeeds before withdrawal binding");
+
+        vm.prank(_scriptDeployer);
+        registry.bindInbox(intendedInbox);
+        assertEq(registry.inbox(), intendedInbox, "bind intended deployment once");
+        vm.prank(_scriptDeployer);
+        vm.expectRevert(EtnaStakingRegistry.InboxAlreadyBound.selector);
+        registry.bindInbox(abandonedInbox);
     }
 
     function _deployInbox_RevertWhen_RegistryAlreadyBound() private withEnvironment {
