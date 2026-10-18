@@ -16,6 +16,7 @@ use std::{
 
 /// Journal schema version; incompatible formats stop rather than discard outstanding nonces.
 ///
+/// Schema 12 binds V10 execution-only DA; old signed jobs remain untouched on rejection.
 /// Schema 11 adds the proof-bound active committee snapshot in the twenty-one-word V9 statement
 /// and nine-field canonical ABI input. Schema 10 signed jobs are rejected without migration.
 /// Schema 10 jobs bind the twenty-word V8 statement and eight-field canonical ABI input,
@@ -28,7 +29,7 @@ use std::{
 /// over a six-field `LandInput` (forced inclusion head after the batch and fee recipient included),
 /// compressed V3 blob payloads and snapshots carrying the forced inclusion queue; schema 4 bound V5
 /// statements over uncompressed V2 payloads and schema 3 complete V1 blocks.
-const JOURNAL_VERSION: u8 = 11;
+const JOURNAL_VERSION: u8 = 12;
 /// Hard allocation bound before reading or decoding an untrusted journal.
 pub(crate) const MAX_JOURNAL_BYTES: u64 = 256 * 1024 * 1024;
 
@@ -288,9 +289,9 @@ impl Store {
         // Compressed bytes are not canonical, so compare the blocks the payload carries.
         let published = codec::decode(&payload, &limits)
             .map_err(|e| LanderError::Journal(format!("job block codec: {e}")))?;
-        if payload.len() != batch.blobs.payload_bytes ||
-            !published.into_iter().eq(batch.blocks.iter().map(PublishedBlock::from))
-        {
+        let expected =
+            batch.blocks.iter().map(PublishedBlock::try_from).collect::<Result<Vec<_>>>()?;
+        if payload.len() != batch.blobs.payload_bytes || published != expected {
             return Err(LanderError::Journal("job blocks differ from bound blob payload".into()));
         }
         batch
@@ -451,7 +452,7 @@ mod tests {
     /// domain JSON commits and schema 8 V6 statements without participation.
     #[test]
     fn legacy_journals_are_rejected_without_modifying_their_files() {
-        for version in [2, 3, 4, 5, 6, 7, 8, 9, 10] {
+        for version in [2, 3, 4, 5, 6, 7, 8, 9, 10, 11] {
             let directory = tempfile::tempdir().unwrap();
             let journal = serde_json::json!({
                 "version": version,
@@ -470,6 +471,43 @@ mod tests {
                 journal.to_string()
             );
         }
+    }
+
+    #[test]
+    fn restored_job_authenticates_private_witness_even_when_public_da_is_unchanged() {
+        let mut request = crate::test_utils::runtime::request();
+        let witness = request.batch.starting_inbox_witness.clone();
+        let pair = &mut request.batch.blocks[0];
+        let mut envelope = abci::EtnaEnvelope::decode(&pair.block.data[0]).unwrap();
+        let original_execution = envelope.block.clone();
+        envelope.anchor.get_or_insert(witness).inbox.balance += U256::from(1);
+        assert_eq!(envelope.block, original_execution);
+        pair.block.data[0] = envelope.encode().to_vec();
+        *pair = crate::types::CertifiedBlock::from_raw(
+            crate::test_utils::consensus::raw_block(&pair.block),
+            pair.commit.clone(),
+        )
+        .unwrap();
+        let id = JournalIdentity {
+            l1_chain_id: request.batch.snapshot.l1_chain_id,
+            l2_chain_id: request.batch.snapshot.l2_chain_id,
+            inbox: request.batch.snapshot.inbox,
+            registry: request.batch.snapshot.registry,
+            sender: Address::repeat_byte(5),
+        };
+        let state = JournalState::Prepared {
+            job: Box::new(ProvedJob { request, proof: Bytes::from_static(&[0]) }),
+        };
+        let bytes = serde_json::to_vec(&serde_json::json!({
+            "version": JOURNAL_VERSION, "identity": id, "state": state,
+        }))
+        .unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("lander-state.json");
+        std::fs::write(&path, &bytes).unwrap();
+        let error = Store::open(directory.path(), id).err().expect("private envelope rejected");
+        assert!(error.to_string().contains("data hash"), "{error}");
+        assert_eq!(std::fs::read(path).unwrap(), bytes);
     }
 
     #[test]
@@ -520,7 +558,7 @@ mod tests {
         };
         let state =
             JournalState::Pending { job: Box::new(ProvedJob { request, proof }), transaction };
-        for version in [2, 3, 4, 5, 6, 7, 8, 9, 10] {
+        for version in [2, 3, 4, 5, 6, 7, 8, 9, 10, 11] {
             let directory = tempfile::tempdir().unwrap();
             let bytes = serde_json::to_vec(
                 &serde_json::json!({ "version": version, "identity": id, "state": state }),
@@ -565,7 +603,7 @@ mod tests {
             Ok(_) => panic!("schema 10 must be rejected"),
         };
         assert!(
-            error.to_string().contains("incompatible journal schema 10 (expected 11)"),
+            error.to_string().contains("incompatible journal schema 10 (expected 12)"),
             "{error}"
         );
         assert_eq!(std::fs::read(&path).unwrap(), bytes);
@@ -648,10 +686,11 @@ mod tests {
         assert_eq!(std::fs::read(directory.path().join("lander-state.json")).unwrap(), original);
     }
 
-    /// Journaled blocks grow the journal by at most 4/3 of their published list bytes (their
-    /// transactions are base64), the factor `batch::MAX_BATCH_LIST_BYTES` is sized by.
+    /// Journaled blocks grow by at most 4/3 of their private protobuf bytes (base64),
+    /// independently of how small their public execution DA is. The factor
+    /// `batch::MAX_BATCH_LIST_BYTES` is sized by.
     #[test]
-    fn journaled_blocks_cost_at_most_four_thirds_of_their_list_bytes() {
+    fn journaled_blocks_cost_at_most_four_thirds_of_private_protobuf_bytes() {
         use crate::test_utils::{
             consensus,
             runtime::{rebind, request},
@@ -664,11 +703,17 @@ mod tests {
             max_decompressed_bytes: 8 << 20,
         };
         let list_len = |request: &ProofRequest| {
-            let mut list = codec::PayloadList::new(&cap).unwrap();
-            for pair in &request.batch.blocks {
-                list.push(pair).unwrap();
-            }
-            list.list_len()
+            use prost::Message;
+            request
+                .batch
+                .blocks
+                .iter()
+                .map(|pair| {
+                    pair.raw_block.len() +
+                        tendermint_proto::v0_38::types::Commit::from(pair.commit.clone())
+                            .encoded_len()
+                })
+                .sum::<usize>()
         };
         let journal_len = |request: &ProofRequest| {
             let snapshot = &request.batch.snapshot;

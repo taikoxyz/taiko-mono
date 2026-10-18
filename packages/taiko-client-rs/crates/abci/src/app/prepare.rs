@@ -266,12 +266,13 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
 
         let committee = committee.map(|(_, w)| w);
-        let envelope = EtnaEnvelope { block, anchor, committee, forced }.encode();
-        if !i64::try_from(envelope.len()).is_ok_and(|len| len <= req.max_tx_bytes) {
-            return Err(Rejection::Oversize { len: envelope.len(), max: req.max_tx_bytes });
+        let envelope = EtnaEnvelope { block, anchor, committee, forced };
+        let encoded = envelope.encode();
+        if !i64::try_from(encoded.len()).is_ok_and(|len| len <= req.max_tx_bytes) {
+            return Err(Rejection::Oversize { len: encoded.len(), max: req.max_tx_bytes });
         }
-        check_landing_capacity(&envelope)?;
-        Ok(envelope)
+        check_landing_capacity(&envelope.block)?;
+        Ok(encoded)
     }
 
     /// The committee witness of `target_epoch` against `state`'s fixed parent anchor: a

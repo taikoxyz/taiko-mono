@@ -154,6 +154,43 @@ async fn land(f: &ContractFixture, c: &ContractConsensus) -> Result<(ProofReques
     Ok((request, tx.hash))
 }
 
+/// Reconstruct a landed EL prefix on a fresh node using only archived blobs and public L1
+/// checkpoint fields. Dummy contract verification tests the data plumbing, not ZK soundness.
+async fn recover_landed_execution(
+    fixture: &ContractFixture,
+    archived: &[alloy_eips::eip4844::Blob],
+    checkpoint: &lander::contracts::IEtnaInbox::LandInput,
+) -> Result<()> {
+    use abci::{Engine, PayloadVerdict};
+    let recovered =
+        test_harness::StandaloneReth::start(&fixture.anvil.provider, fixture.inbox).await?;
+    assert_eq!(recovered.genesis.hash, fixture.genesis.genesis_hash);
+    assert!(recovered.provider.get_block_by_number(1.into()).await?.is_none());
+    let limits = lander::Limits {
+        max_blocks: 100,
+        max_blobs: 6,
+        max_payload_bytes: 6 * lander::blob::PAYLOAD_BYTES_PER_BLOB,
+        max_message_bytes: 22_020_096,
+        max_decompressed_bytes: 64 << 20,
+    };
+    let payload = lander::blob::decode(archived, &limits)?;
+    let blocks = lander::codec::decode(&payload, &limits)?;
+    let engine = recovered.engine()?;
+    for published in &blocks {
+        assert_eq!(engine.new_payload(&published.block).await?, PayloadVerdict::Valid);
+        let hash = published.block.header.hash_slow();
+        assert_eq!(engine.forkchoice(hash, hash, B256::ZERO).await?, PayloadVerdict::Valid);
+    }
+    let terminal =
+        engine.header_by_number(checkpoint.lastHeight).await?.context("recovered EL head")?;
+    assert_eq!(terminal.hash_slow(), checkpoint.lastBlockHash);
+    assert_eq!(terminal.state_root, checkpoint.lastStateRoot);
+    let mut tampered = blocks.last().context("published block")?.block.clone();
+    tampered.header.state_root = B256::repeat_byte(0xee);
+    assert_ne!(engine.new_payload(&tampered).await?, PayloadVerdict::Valid);
+    recovered.stop().await
+}
+
 async fn fee_sum(f: &ContractFixture, from: u64, through: u64) -> Result<U256> {
     let mut sum = U256::ZERO;
     for h in from..=through {
@@ -222,6 +259,10 @@ async fn real_l2_rewards_claim_and_fee_continuation() -> Result<()> {
     let batch_id =
         landing.decoded_log::<lander::contracts::BatchRewardRecorded>().unwrap().data.batchId;
     mine_l1_blocks(p, 3).await?;
+    let finalized =
+        p.get_block_by_number(BlockNumberOrTag::Finalized).await?.context("finalized L1")?;
+    assert!(finalized.header.number >= landing.block_number.context("landing height")?);
+    recover_landed_execution(&f, first.batch.blobs.sidecar.blobs(), &first.batch.input).await?;
     let source = RpcClaimSource::connect(
         p.clone(),
         l2.clone(),

@@ -5,13 +5,13 @@ byte. Both sides read this one file instead of carrying their own copies of the 
 
 - `committee_config`: the `ETNA_PARENT_ANCHOR_V3` configuration opening that `EtnaInbox` stores as
   `committeeConfigHash` (slot 269): its eleven input words, the 352-byte preimage and the hash.
-- `land_statement`: the `TAIKO_ETNA_LAND_V9` twenty-one-word (672-byte) landing statement,
+- `land_statement`: the `TAIKO_ETNA_LAND_V10` twenty-one-word (672-byte) landing statement,
   including ordered blob hashes, distinct L1 fee and L2 reward recipients, the base-fee amount, and the terminal active committee snapshot.
 - `reward_receipt`: independent cast preimages and hashes for the batch ID, receipt commitment,
   and slot-283 mapping storage location. Chain identity and the parent come from the landing vector.
-- `land_selector`: the exact nonpayable two-argument V9 ABI selector.
+- `land_selector`: the exact nonpayable two-argument V10 ABI selector.
 - `claim_selector`: the exact immutable vault claim ABI selector.
-- `zero_fee`: a complete twenty-one-word V9 statement and receipt for the same batch identity with
+- `zero_fee`: a complete twenty-one-word V10 statement and receipt for the same batch identity with
   amount zero; the receipt is still nonzero and consumable exactly once.
 - `committee_sets`: empty (invalid committee), singleton, three- and five-member set-key-ordered
   cases. Each pins recipient-bound `ETNA_SET_LEAF_V2` preimages/leaves, odd-node promotion,
@@ -46,11 +46,11 @@ is computed by `cast`, independently of the contracts and of the node. Regenerat
 - Contracts (`packages/protocol`, profile `layer1`; `foundry.toml` grants read access to this
   directory): `test/layer1/etna/LibEtnaVectors.sol` loads the file for `EtnaVectors.t.sol` (the
   layout against a deployed Inbox and registry, selectors, zero fees and V2 set/record encodings), `EtnaInboxLand.t.sol` (configuration opening and
-  V9 statement, reward receipt and selector), `LibEntriesTree.t.sol` (leaves and roots) and `EtnaStakingRegistry.t.sol` (registry slots).
+  V10 statement, reward receipt and selector), `LibEntriesTree.t.sol` (leaves and roots) and `EtnaStakingRegistry.t.sol` (registry slots).
 - Etna node (`packages/taiko-client-rs`, through `include_str!`): the `abci` crate's committee
   tests (configuration hash, leaves and roots, snapshot slots and checkpoint packing), storage
   layout tests, Inbox witness decoding test and fixture planter test, and the `lander` crate's
-  V9 statement, receipt and committee set/record tests.
+  V10 statement, receipt and committee set/record tests.
 
 taiko-client-rs keeps a byte-identical copy of this directory taken from the protocol revision its
 lander fixtures pin: `packages/taiko-client-rs/script/gen_lander_artifacts.sh` copies it and

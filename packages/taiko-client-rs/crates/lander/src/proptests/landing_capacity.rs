@@ -32,13 +32,18 @@ use crate::{
 /// there; `process_rejects_a_block_that_cannot_fit_one_landing` in `abci/src/app/tests/process.rs`
 /// pins the guard to exactly this formula.
 pub(crate) fn guard_measure(envelope: &[u8]) -> usize {
-    zlib_compress(envelope).len() + HEADER_ALLOWANCE
+    zlib_compress(&alloy_rlp::encode(&abci::EtnaEnvelope::decode(envelope).unwrap().block)).len() +
+        HEADER_ALLOWANCE
 }
 
 /// A certified block whose header has `fields` and whose one transaction is `envelope`, with no
 /// last commit and an unsigned commit naming it: the codec checks that a commit names its block,
 /// not its signatures.
 fn certified(fields: &HeaderFields, envelope: Vec<u8>) -> CertifiedBlock {
+    let header = fields.header(&envelope);
+    let mut decoded = abci::EtnaEnvelope::decode(&envelope).unwrap();
+    decoded.block.header.number = header.height.value();
+    let envelope = decoded.encode().to_vec();
     let header = fields.header(&envelope);
     let block = tendermint::Block::new(header, vec![envelope], Default::default(), None);
     let raw = consensus::raw_block(&block);
@@ -83,7 +88,10 @@ fn land_alone(
     let payload = codec::encode(std::slice::from_ref(block), &limits)
         .map_err(|error| TestCaseError::fail(format!("measure {measure}: {error}")))?;
     prop_assert!(payload.len() <= measure, "{} > {measure}", payload.len());
-    prop_assert_eq!(codec::decode(&payload, &limits)?, vec![PublishedBlock::from(block)]);
+    prop_assert_eq!(
+        codec::decode(&payload, &limits)?,
+        vec![PublishedBlock::try_from(block).unwrap()]
+    );
     Ok(payload)
 }
 

@@ -33,13 +33,13 @@ pub struct Limits {
     pub max_blocks: usize,
     /// Maximum blobs in one transaction, bounded by the target L1 fork.
     pub max_blobs: usize,
-    /// Maximum encoded V5 payload bytes (the version byte and the compressed list), the bytes
+    /// Maximum encoded V6 payload bytes (the version byte and the compressed list), the bytes
     /// blob coding carries.
     pub max_payload_bytes: usize,
     /// Maximum bytes of one protobuf block or commit witness, and of one published header or
     /// envelope.
     pub max_message_bytes: usize,
-    /// Maximum bytes of the V5 payload's RLP list after decompression.
+    /// Maximum bytes of the V6 payload's RLP list after decompression.
     pub max_decompressed_bytes: usize,
 }
 
@@ -268,8 +268,8 @@ pub struct PreparedBatch {
     /// ancestry.
     #[serde(with = "rlp_serde")]
     pub starting_inbox_witness: AnchorWitness,
-    /// Exact complete block/commit pairs in increasing height order. Only their headers and
-    /// envelopes are published; commits and signatures reach the proof only as witnesses.
+    /// Exact complete block/commit pairs in increasing height order. Only their Comet headers and
+    /// execution blocks are published; commits and signatures reach the proof only as witnesses.
     pub blocks: Vec<CertifiedBlock>,
     /// Each block's own authenticated L1 anchor, in matching block order.
     pub anchors: Vec<AnchorState>,
@@ -285,14 +285,14 @@ pub struct PreparedBatch {
     /// snapshot.
     #[serde(with = "crate::contracts::abi_serde")]
     pub input: LandInput,
-    /// Sidecar and ordered versioned blob hashes binding the V5 payload.
+    /// Sidecar and ordered versioned blob hashes binding the V6 payload.
     pub blobs: PreparedBlobs,
-    /// Identity of this job: the exact V9 public statement hash.
+    /// Identity of this job: the exact V10 public statement hash.
     pub statement_hash: B256,
 }
 
 impl PreparedBatch {
-    /// Recompute the reward amount and V9 digest before journal restoration or signing. Headers
+    /// Recompute the reward amount and V10 digest before journal restoration or signing. Headers
     /// must already have been authenticated by batch construction; future guests must reexecute.
     pub fn validate_statement(&self) -> Result<()> {
         let headers = self
@@ -331,7 +331,7 @@ impl PreparedBatch {
                 &self.blobs.versioned_hashes,
             ) != self.statement_hash
         {
-            return Err(LanderError::Journal("job V9 statement identity mismatch".into()));
+            return Err(LanderError::Journal("job V10 statement identity mismatch".into()));
         }
         Ok(())
     }

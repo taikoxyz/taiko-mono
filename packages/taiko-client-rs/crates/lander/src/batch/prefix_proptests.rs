@@ -126,6 +126,14 @@ fn decided_chain() -> impl Strategy<Value = Vec<CertifiedBlock>> {
         let mut chain: Vec<CertifiedBlock> = Vec::new();
         for (height, (mut envelope, payload)) in (1..).zip(blocks) {
             envelope.block.header.number = height;
+            if let Some(previous) = chain.last() {
+                envelope.block.header.parent_hash =
+                    abci::EtnaEnvelope::decode(&previous.block.data[0])
+                        .unwrap()
+                        .block
+                        .header
+                        .hash_slow();
+            }
             payload.fill(&mut envelope);
             chain.push(consensus::pair_with_envelope(envelope, &committee, &keys, chain.last()));
         }
@@ -229,7 +237,7 @@ proptest! {
                 prop_assert!(payload.len() <= limits.max_payload_bytes);
                 prop_assert!(blob::required_blobs(payload.len()) <= limits.max_blobs);
                 let published: Vec<PublishedBlock> =
-                    blocks.iter().map(PublishedBlock::from).collect();
+                    blocks.iter().map(|pair| PublishedBlock::try_from(pair).unwrap()).collect();
                 prop_assert_eq!(codec::decode(&payload, &limits)?, published);
             }
             Err(LanderError::Capacity(reason)) => {

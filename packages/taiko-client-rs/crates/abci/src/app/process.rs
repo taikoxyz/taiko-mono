@@ -96,7 +96,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if let (Some((target_epoch, _)), Some(witness)) = (&validated.derived, &env.committee) {
             self.cache_committee_witness(state, *target_epoch, witness)?;
         }
-        check_landing_capacity(&txs[0])?;
+        check_landing_capacity(&env.block)?;
         if let Some(w) = &env.anchor {
             self.check_anchor_final(w).await?;
         }

@@ -1,4 +1,4 @@
-//! The V4 payload codec, `0x04 || zlib(rlp([[header_proto, envelope], ...]))`, whose decoder reads
+//! The V6 payload codec, `0x06 || zlib(rlp([[header_proto, execution], ...]))`, whose decoder reads
 //! blob data anyone can post.
 
 use std::sync::LazyLock;
@@ -41,6 +41,10 @@ fn chain(envelopes: Vec<EtnaEnvelope>) -> Vec<CertifiedBlock> {
     let mut blocks: Vec<CertifiedBlock> = Vec::new();
     for (height, mut envelope) in (1..).zip(envelopes) {
         envelope.block.header.number = height;
+        if let Some(previous) = blocks.last() {
+            envelope.block.header.parent_hash =
+                EtnaEnvelope::decode(&previous.block.data[0]).unwrap().block.header.hash_slow();
+        }
         blocks.push(consensus::pair_with_envelope(envelope, &committee, &keys, blocks.last()));
     }
     blocks
@@ -48,20 +52,20 @@ fn chain(envelopes: Vec<EtnaEnvelope>) -> Vec<CertifiedBlock> {
 
 /// What a payload of `blocks` publishes.
 fn published(blocks: &[CertifiedBlock]) -> Vec<PublishedBlock> {
-    blocks.iter().map(PublishedBlock::from).collect()
+    blocks.iter().map(|pair| PublishedBlock::try_from(pair).unwrap()).collect()
 }
 
-/// The published items of `blocks`: each header's canonical protobuf and its envelope.
+/// The published items of `blocks`: each header's canonical protobuf and its execution block.
 fn items(blocks: &[PublishedBlock]) -> Vec<(Vec<u8>, Vec<u8>)> {
     blocks
         .iter()
         .map(|block| {
-            (RawHeader::from(block.header.clone()).encode_to_vec(), block.envelope.clone())
+            (RawHeader::from(block.header.clone()).encode_to_vec(), alloy_rlp::encode(&block.block))
         })
         .collect()
 }
 
-/// `rlp([[header, envelope], ...])` of `items`, assembled independently of the codec.
+/// `rlp([[header, execution], ...])` of `items`, assembled independently of the codec.
 fn list(items: &[(Vec<u8>, Vec<u8>)]) -> Vec<u8> {
     let mut body = Vec::new();
     for (header, envelope) in items {
@@ -76,7 +80,7 @@ fn list(items: &[(Vec<u8>, Vec<u8>)]) -> Vec<u8> {
     out
 }
 
-/// `0x04 || zlib(list)`.
+/// `0x06 || zlib(list)`.
 fn frame(list: &[u8]) -> Vec<u8> {
     [vec![VERSION], zlib_compress(list)].concat()
 }
@@ -86,7 +90,12 @@ static REAL_ITEMS: LazyLock<Vec<(Vec<u8>, Vec<u8>)>> = LazyLock::new(|| {
     let (_, committee, keys) = consensus::committee(&[1], 0);
     let mut blocks: Vec<CertifiedBlock> = Vec::new();
     for height in 1..=3u8 {
-        let parent = B256::repeat_byte(height);
+        let parent = blocks
+            .last()
+            .map(|p: &CertifiedBlock| {
+                EtnaEnvelope::decode(&p.block.data[0]).unwrap().block.header.hash_slow()
+            })
+            .unwrap_or(B256::repeat_byte(height));
         let previous = blocks.last();
         blocks.push(consensus::pair(height.into(), parent, &committee, &keys, previous));
     }
@@ -136,7 +145,7 @@ fn edited(bytes: &[u8], edits: &[Edit]) -> Vec<u8> {
     bytes
 }
 
-/// Lists of header/envelope items: arbitrary byte pairs, or a prefix of a real chain's items,
+/// Lists of header/execution items: arbitrary byte pairs, or a prefix of a real chain's items,
 /// each with up to three [`Edit`]s.
 fn item_lists() -> impl Strategy<Value = Vec<(Vec<u8>, Vec<u8>)>> {
     prop_oneof![
@@ -171,7 +180,7 @@ fn assert_canonical_decode(payload: &[u8]) -> Result<(), TestCaseError> {
 proptest! {
     #![proptest_config(ProptestConfig { cases: 2048, ..ProptestConfig::default() })]
 
-    /// Arbitrary payloads, with or without the V4 version byte, never panic the decoder.
+    /// Arbitrary payloads, with or without the V6 version byte, never panic the decoder.
     #[test]
     fn decode_never_panics_on_arbitrary_payloads(
         payload in prop_oneof![bytes(2_000), bytes(2_000).prop_map(|b| [vec![VERSION], b].concat())],
@@ -179,17 +188,17 @@ proptest! {
         assert_canonical_decode(&payload)?;
     }
 
-    /// `0x04 || zlib(bytes)` never panics the decoder, whatever the bytes.
+    /// `0x06 || zlib(bytes)` never panics the decoder, whatever the bytes.
     #[test]
     fn decode_never_panics_on_compressed_arbitrary_bytes(bytes in bytes(2_000)) {
         assert_canonical_decode(&frame(&bytes))?;
     }
 
-    /// `0x04 || zlib(rlp([[header, envelope], ...]))` never panics the decoder, whether the
+    /// `0x06 || zlib(rlp([[header, execution], ...]))` never panics the decoder, whether the
     /// items are arbitrary bytes or a real chain's header protobufs and envelopes with a few
     /// bytes edited, and any payload it accepts is canonical.
     #[test]
-    fn decode_accepts_only_canonical_header_envelope_lists(items in item_lists()) {
+    fn decode_accepts_only_canonical_header_execution_lists(items in item_lists()) {
         assert_canonical_decode(&frame(&list(&items)))?;
     }
 }

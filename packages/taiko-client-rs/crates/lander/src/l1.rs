@@ -78,7 +78,7 @@ pub trait LandingSource: Send + Sync {
         snapshot: &LandingSnapshot,
         anchors: &[AnchorState],
     ) -> Result<Vec<RawL1Header>>;
-    /// Ask the executing Inbox proxy to hash the identical public V9 statement.
+    /// Ask the executing Inbox proxy to hash the identical public V10 statement.
     async fn statement_hash(
         &self,
         snapshot: &LandingSnapshot,

@@ -34,12 +34,11 @@ use crate::{
     validate::{EnvelopeContext, verify_body, verify_commit, verify_envelope, verify_structure},
 };
 
-/// Uncompressed published bytes (the V3 RLP list) prefix selection admits into one batch.
+/// Uncompressed published execution DA bytes prefix selection admits into one batch.
 ///
-/// The journal keeps a prepared batch's complete blocks as JSON, transactions in base64 (4/3 of
-/// their bytes), and refuses a journal above [`MAX_JOURNAL_BYTES`]; this keeps the blocks within
-/// half of it, so a selected batch can always be journaled. A maximal CometBFT block still fits on
-/// its own.
+/// Bounds public DA independently from retained private protobuf witnesses. PayloadList also
+/// reserves at most one quarter of the journal limit for complete block/commit protobufs;
+/// base64 expansion and additional proving contexts remain subject to the final journal bound.
 pub const MAX_BATCH_LIST_BYTES: usize = 64 * 1024 * 1024;
 
 /// Uncompressed bytes prefix selection may deflate while sizing longer prefixes in one call.
@@ -71,7 +70,7 @@ struct PublishablePrefix {
     blocks: Vec<CertifiedBlock>,
     /// The selected blocks' RLP list.
     list: PayloadList,
-    /// The selected blocks' V5 payload, when sizing already compressed it; otherwise its
+    /// The selected blocks' V6 payload, when sizing already compressed it; otherwise its
     /// worst-case size fits and [`BatchBuilder::payload`] compresses it once.
     payload: Option<Vec<u8>>,
 }
@@ -227,7 +226,7 @@ pub struct BatchBuilder<C: ?Sized, L: ?Sized> {
     /// inclusions' fees to. Non-zero; the lander names its own sending address. The statement
     /// binds it, so a copy of the landing transaction cannot redirect the fees.
     fee_recipient: Address,
-    /// Nonzero L2 recipient independently bound into every V9 statement.
+    /// Nonzero L2 recipient independently bound into every V10 statement.
     l2_reward_recipient: Address,
     /// Retain at most one authenticated epoch-sized context and serialize concurrent misses.
     checkpoint_cache: Mutex<Option<CachedCheckpoint>>,
@@ -341,7 +340,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     /// This shared preview performs no signature/MPT validation, reference reads or KZG work.
     /// Each block is validated and encoded once. A prefix whose worst-case compressed size fits
     /// is accepted without deflating it; otherwise it is deflated off the async workers, within
-    /// the deflate budget. The list budget keeps the selected batch journalable.
+    /// the deflate budget. DA and private block/commit budgets are independent.
     async fn publishable_prefix(
         &self,
         snapshot: &LandingSnapshot,
@@ -418,7 +417,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         }
     }
 
-    /// The selected prefix's V5 payload, compressing its list unless sizing already did.
+    /// The selected prefix's V6 payload, compressing its list unless sizing already did.
     async fn payload(&self, prefix: PublishablePrefix) -> Result<(Vec<CertifiedBlock>, Vec<u8>)> {
         let payload = match prefix.payload {
             Some(payload) => payload,
@@ -978,7 +977,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             .await?;
         if contract_hash != hash {
             return Err(LanderError::Configuration(format!(
-                "local V9 statement {hash} differs from Inbox helper {contract_hash}"
+                "local V10 statement {hash} differs from Inbox helper {contract_hash}"
             )));
         }
         Ok(Some(ProofRequest {
@@ -1005,7 +1004,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
     }
 }
 
-/// Compresses `list` into a V5 payload on the blocking pool, keeping deflate off the async
+/// Compresses `list` into a V6 payload on the blocking pool, keeping deflate off the async
 /// workers.
 async fn compress(list: Vec<u8>, limits: Limits, single_block: bool) -> Result<Vec<u8>> {
     match tokio::task::spawn_blocking(move || {
@@ -1829,7 +1828,12 @@ mod tests {
                 &limits(3)
             )
             .unwrap(),
-            request.batch.blocks.iter().map(codec::PublishedBlock::from).collect::<Vec<_>>()
+            request
+                .batch
+                .blocks
+                .iter()
+                .map(|pair| codec::PublishedBlock::try_from(pair).unwrap())
+                .collect::<Vec<_>>()
         );
     }
 
@@ -2014,7 +2018,7 @@ mod tests {
             .await
             .unwrap_err();
         assert!(matches!(error, LanderError::Configuration(_)), "{error}");
-        assert!(error.to_string().contains("local V9 statement"), "{error}");
+        assert!(error.to_string().contains("local V10 statement"), "{error}");
     }
 
     #[test]

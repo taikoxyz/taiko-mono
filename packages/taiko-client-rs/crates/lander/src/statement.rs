@@ -1,4 +1,4 @@
-//! Exact V9 ABI encoding binding chain state, rewards and the active committee snapshot.
+//! Exact V10 ABI encoding binding chain state, rewards and the active committee snapshot.
 
 use crate::{contracts::IEtnaInbox::LandInput, types::LandingSnapshot};
 use alloy_primitives::{B256, U256, keccak256};
@@ -11,7 +11,7 @@ pub fn blob_hashes_hash(hashes: &[B256]) -> B256 {
     keccak256(hashes.iter().flat_map(|h| h.as_slice()).copied().collect::<Vec<_>>())
 }
 
-/// Encode the twenty-one static ABI words authenticated by the Inbox V9 statement.
+/// Encode the twenty-one static ABI words authenticated by the Inbox V10 statement.
 pub fn preimage(
     snapshot: &LandingSnapshot,
     input: &LandInput,
@@ -19,7 +19,7 @@ pub fn preimage(
     blob_hashes: &[B256],
 ) -> [u8; PREIMAGE_BYTES] {
     let mut tag = [0u8; 32];
-    tag[..b"TAIKO_ETNA_LAND_V9".len()].copy_from_slice(b"TAIKO_ETNA_LAND_V9");
+    tag[..b"TAIKO_ETNA_LAND_V10".len()].copy_from_slice(b"TAIKO_ETNA_LAND_V10");
     let mut inbox = [0u8; 32];
     inbox[12..].copy_from_slice(snapshot.inbox.as_slice());
     let mut registry = [0u8; 32];
@@ -58,7 +58,7 @@ pub fn preimage(
     out
 }
 
-/// Compute the V9 job identity from coherent state, immutable outputs and ordered blobs.
+/// Compute the V10 job identity from coherent state, immutable outputs and ordered blobs.
 pub fn hash(
     snapshot: &LandingSnapshot,
     input: &LandInput,
@@ -76,7 +76,7 @@ mod tests {
 
     pub(super) fn vector() -> (LandingSnapshot, LandInput, B256, Vec<B256>) {
         let input = |name: &str| format!("/land_statement/inputs/{name}");
-        assert_eq!(vectors::str_at(&input("tag")), "TAIKO_ETNA_LAND_V9");
+        assert_eq!(vectors::str_at(&input("tag")), "TAIKO_ETNA_LAND_V10");
         let mut snapshot = request().batch.snapshot;
         snapshot.l1_chain_id = vectors::u256_at(&input("l1_chain_id"));
         snapshot.l2_chain_id = vectors::u64_at(&input("l2_chain_id"));
@@ -112,11 +112,11 @@ mod tests {
         assert_eq!(PREIMAGE_BYTES, 672);
         let request = crate::test_utils::runtime::request();
         let encoded = preimage(&request.batch.snapshot, &request.batch.input, B256::ZERO, &[]);
-        assert_eq!(&encoded[..18], b"TAIKO_ETNA_LAND_V9");
+        assert_eq!(&encoded[..b"TAIKO_ETNA_LAND_V10".len()], b"TAIKO_ETNA_LAND_V10");
     }
 
     #[test]
-    fn v9_vector_matches_independent_cast_encoding() {
+    fn v10_vector_matches_independent_cast_encoding() {
         let (snapshot, input, reference, blobs) = vector();
         let encoded = preimage(&snapshot, &input, reference, &blobs);
         assert_eq!(encoded.len(), 672);
@@ -142,7 +142,7 @@ mod tests {
     }
 
     #[test]
-    fn every_v9_word_and_reward_bit_is_bound() {
+    fn every_v10_word_and_reward_bit_is_bound() {
         let (snapshot, input, reference, blobs) = vector();
         let encoded = preimage(&snapshot, &input, reference, &blobs);
         let expected = keccak256(encoded);
@@ -219,7 +219,7 @@ mod tests {
     }
 
     #[test]
-    fn land_selector_matches_generated_v9_abi() {
+    fn land_selector_matches_generated_v10_abi() {
         use crate::contracts::IEtnaInbox::landCall;
         use alloy::sol_types::SolCall;
         assert_eq!(

@@ -445,9 +445,9 @@ async fn process_rejects_a_block_that_cannot_fit_one_landing() {
     let encoded = env.encode();
     assert!(i64::try_from(encoded.len()).unwrap() < MAX_TX_BYTES, "fits CometBFT's tx limit");
     assert_eq!(
-        check_landing_capacity(&encoded),
+        check_landing_capacity(&env.block),
         Err(Rejection::LandingCapacity {
-            bytes: zlib_compress(&encoded).len() + HEADER_ALLOWANCE,
+            bytes: zlib_compress(&alloy_rlp::encode(&env.block)).len() + HEADER_ALLOWANCE,
             max: MAX_BLOCK_LANDING_BYTES,
         })
     );

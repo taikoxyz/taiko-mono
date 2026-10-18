@@ -106,9 +106,9 @@ def committee_config():
 
 
 def land_statement(config_hash, base_fee_amount=1234567890123456789):
-    """The V9 statement: twenty-one static words, independently encoded by cast."""
+    """The V10 statement: twenty-one static words, independently encoded by cast."""
     inputs = {
-        "tag": "TAIKO_ETNA_LAND_V9",
+        "tag": "TAIKO_ETNA_LAND_V10",
         "l1_chain_id": 1,
         "l2_chain_id": 167001,
         "inbox": "0x1111111111111111111111111111111111111111",
