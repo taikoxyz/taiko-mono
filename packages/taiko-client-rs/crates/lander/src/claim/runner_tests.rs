@@ -37,6 +37,11 @@ struct Chain {
     mined_receipt: Mutex<Option<LandingReceipt>>,
     reorg_on_bit: std::sync::atomic::AtomicBool,
     sign_error: Mutex<Option<LanderError>>,
+    simulation_fault: Mutex<Option<crate::claim::tx::VaultFailure>>,
+    simulation_hangs: std::sync::atomic::AtomicBool,
+    simulation_reorgs: std::sync::atomic::AtomicBool,
+    simulation_claims: std::sync::atomic::AtomicBool,
+    simulations: Mutex<Vec<(B256, Bytes)>>,
 }
 impl Chain {
     fn new(path: &std::path::Path) -> Self {
@@ -60,6 +65,11 @@ impl Chain {
             reorg_on_bit: std::sync::atomic::AtomicBool::new(false),
             mined_receipt: Mutex::new(None),
             sign_error: Mutex::new(None),
+            simulation_fault: Mutex::new(None),
+            simulation_hangs: std::sync::atomic::AtomicBool::new(false),
+            simulation_reorgs: std::sync::atomic::AtomicBool::new(false),
+            simulation_claims: std::sync::atomic::AtomicBool::new(false),
+            simulations: Mutex::new(vec![]),
         }
     }
 }
@@ -101,6 +111,26 @@ impl ClaimTransport for Chain {
             return Err(error);
         }
         Ok(signed(id, p).await)
+    }
+    async fn simulate(&self, tx: &SignedClaim, hash: B256) -> Result<()> {
+        self.simulations.lock().unwrap().push((hash, tx.bytes.clone()));
+        if self.simulation_hangs.load(Ordering::SeqCst) {
+            std::future::pending::<()>().await;
+        }
+        if self.simulation_reorgs.swap(false, Ordering::SeqCst) {
+            *self.canonical.lock().unwrap() = B256::repeat_byte(13);
+        }
+        if self.simulation_claims.swap(false, Ordering::SeqCst) {
+            *self.claimed.lock().unwrap() = true;
+            *self.canonical.lock().unwrap() = B256::repeat_byte(13);
+        }
+        match *self.simulation_fault.lock().unwrap() {
+            Some(crate::claim::tx::VaultFailure::InvalidAnchorRoot) => {
+                Err(LanderError::Unavailable("vault InvalidAnchorRoot".into()))
+            }
+            Some(fault) => Err(LanderError::ClaimReverted(fault)),
+            None => Ok(()),
+        }
     }
     async fn broadcast(&self, tx: &SignedClaim) -> Result<()> {
         let record: serde_json::Value = serde_json::from_slice(
@@ -412,4 +442,92 @@ async fn already_claimed_selector_without_canonical_bit_cannot_authorize_success
     assert!(matches!(step(&s, &chain, &chain, DEADLINE).await, Err(LanderError::ClaimReverted(_))));
     assert_eq!(s.load().unwrap().unwrap().state, ClaimState::Prepared);
     assert!(chain.sends.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn simulation_blocks_expired_signed_proof_then_reuses_original_bytes() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = Chain::new(dir.path());
+    let s = store(dir.path());
+    step(&s, &chain, &chain, DEADLINE).await.unwrap();
+    let original = s.load().unwrap().unwrap();
+    let bytes = std::fs::read(dir.path().join("claim-state.json")).unwrap();
+    *chain.simulation_fault.lock().unwrap() =
+        Some(crate::claim::tx::VaultFailure::InvalidAnchorRoot);
+    assert!(matches!(step(&s, &chain, &chain, DEADLINE).await, Err(LanderError::Unavailable(_))));
+    assert_eq!(chain.sends.lock().unwrap().len(), 1);
+    assert_eq!(std::fs::read(dir.path().join("claim-state.json")).unwrap(), bytes);
+    *chain.simulation_fault.lock().unwrap() = None;
+    step(&s, &chain, &chain, DEADLINE).await.unwrap();
+    assert_eq!(chain.prepares.load(Ordering::SeqCst), 1);
+    assert_eq!(s.load().unwrap().unwrap().transaction, original.transaction);
+    let sends = chain.sends.lock().unwrap();
+    assert_eq!(sends.len(), 2);
+    assert_eq!(sends[0], sends[1]);
+}
+
+#[tokio::test]
+async fn simulation_revert_preserves_fresh_signature_without_first_broadcast() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = Chain::new(dir.path());
+    let s = store(dir.path());
+    *chain.simulation_fault.lock().unwrap() =
+        Some(crate::claim::tx::VaultFailure::RewardTransferFailed);
+    assert!(matches!(step(&s, &chain, &chain, DEADLINE).await, Err(LanderError::ClaimReverted(_))));
+    let job = s.load().unwrap().unwrap();
+    assert_eq!(job.state, ClaimState::Signed);
+    assert!(job.transaction.is_some());
+    assert!(chain.sends.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn simulation_rechecks_canonicality_before_rebroadcast() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = Chain::new(dir.path());
+    let s = store(dir.path());
+    step(&s, &chain, &chain, DEADLINE).await.unwrap();
+    chain.simulations.lock().unwrap().clear();
+    chain.simulation_reorgs.store(true, Ordering::SeqCst);
+    step(&s, &chain, &chain, DEADLINE).await.unwrap();
+    let calls = chain.simulations.lock().unwrap();
+    assert_eq!(calls.len(), 2);
+    assert_eq!(calls[0].0, B256::repeat_byte(12));
+    assert_eq!(calls[1].0, B256::repeat_byte(13));
+    assert_eq!(calls[0].1, calls[1].1);
+    assert_eq!(chain.sends.lock().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn simulation_already_claimed_requires_a_fresh_canonical_bit() {
+    for canonical_claim in [false, true] {
+        let dir = tempfile::tempdir().unwrap();
+        let chain = Chain::new(dir.path());
+        let s = store(dir.path());
+        step(&s, &chain, &chain, DEADLINE).await.unwrap();
+        let original = std::fs::read(dir.path().join("claim-state.json")).unwrap();
+        *chain.simulation_fault.lock().unwrap() =
+            Some(crate::claim::tx::VaultFailure::AlreadyClaimed);
+        chain.simulation_claims.store(canonical_claim, Ordering::SeqCst);
+        let result = step(&s, &chain, &chain, DEADLINE).await;
+        if canonical_claim {
+            assert_eq!(result.unwrap(), ClaimOutcome::AlreadyClaimed);
+        } else {
+            assert!(matches!(result, Err(LanderError::ClaimReverted(_))));
+        }
+        assert_eq!(chain.sends.lock().unwrap().len(), 1);
+        assert_eq!(std::fs::read(dir.path().join("claim-state.json")).unwrap(), original);
+    }
+}
+
+#[tokio::test]
+async fn simulation_timeout_preserves_pending_bytes_without_rebroadcast() {
+    let dir = tempfile::tempdir().unwrap();
+    let chain = Chain::new(dir.path());
+    let s = store(dir.path());
+    step(&s, &chain, &chain, DEADLINE).await.unwrap();
+    let bytes = std::fs::read(dir.path().join("claim-state.json")).unwrap();
+    chain.simulation_hangs.store(true, Ordering::SeqCst);
+    assert!(step(&s, &chain, &chain, Duration::from_millis(20)).await.is_err());
+    assert_eq!(chain.sends.lock().unwrap().len(), 1);
+    assert_eq!(std::fs::read(dir.path().join("claim-state.json")).unwrap(), bytes);
 }

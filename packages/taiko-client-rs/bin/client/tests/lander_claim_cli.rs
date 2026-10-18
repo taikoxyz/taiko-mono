@@ -89,6 +89,30 @@ async fn actual_cli_third_party_payer_claims_and_retains_signed_bytes() {
     let call = lander::claim::Vault::claimCall::abi_decode(envelope.input()).unwrap();
     assert_eq!(call._receipt.l2RewardRecipient, fixture::receipt().l2RewardRecipient);
     assert_eq!(call._receipt.baseFeeAmount, alloy_primitives::U256::from(11));
+    let requests = fixture.requests.lock().unwrap();
+    let simulations: Vec<_> = requests
+        .iter()
+        .filter(|r| {
+            r["method"] == "eth_call" &&
+                r["params"][0]["input"] == serde_json::json!(envelope.input())
+        })
+        .collect();
+    assert_eq!(simulations.len(), 1);
+    let simulated: alloy::rpc::types::TransactionRequest =
+        serde_json::from_value(simulations[0]["params"][0].clone()).unwrap();
+    assert_eq!(simulated.from, Some(payer));
+    assert_eq!(simulated.to, Some(envelope.kind()));
+    assert_eq!(simulated.nonce, Some(envelope.nonce()));
+    assert_eq!(simulated.gas, Some(envelope.gas_limit()));
+    assert_eq!(simulated.max_fee_per_gas, Some(envelope.max_fee_per_gas()));
+    assert_eq!(simulated.max_priority_fee_per_gas, envelope.max_priority_fee_per_gas());
+    assert_eq!(simulated.chain_id, envelope.chain_id());
+    assert_eq!(simulated.value, Some(envelope.value()));
+    assert_eq!(
+        simulations[0]["params"][1]["blockHash"],
+        serde_json::json!(fixture.l2[&9].hash_slow())
+    );
+    assert_eq!(simulations[0]["params"][1]["requireCanonical"], true);
 }
 
 #[tokio::test]
@@ -119,10 +143,14 @@ async fn actual_cli_unknown_send_retries_in_process_with_same_bytes_before_any_n
     let sends = fixture.sends.lock().unwrap();
     assert_eq!(sends.len(), 2);
     assert_eq!(sends[0], sends[1]);
-    assert_eq!(
-        fixture.requests.lock().unwrap().iter().filter(|r| r["method"] == "eth_getProof").count(),
-        1
-    );
+    let requests = fixture.requests.lock().unwrap();
+    let simulations: Vec<_> = requests
+        .iter()
+        .filter(|r| r["method"] == "eth_call" && r["params"][0].get("from").is_some())
+        .collect();
+    assert_eq!(simulations.len(), 2, "each send must simulate the retained signed transaction");
+    assert_eq!(simulations[0]["params"], simulations[1]["params"]);
+    assert_eq!(requests.iter().filter(|r| r["method"] == "eth_getProof").count(), 1);
 }
 
 #[tokio::test]
