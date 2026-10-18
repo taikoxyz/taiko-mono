@@ -15,9 +15,11 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// and L1 finality, then compute committee 0 at a past genesis cutoff. Call `deployInbox()` to
 /// deploy fresh SignalService and EtnaInbox proxies; the Inbox constructor call
 /// initializes the genesis record and saves the block-0 checkpoint atomically. No existing Inbox
-/// is required. After deployment the registry owner must bind the Inbox before any stake
-/// withdrawal. The script binds automatically when the broadcast signer owns the registry;
-/// otherwise it prints the owner action, and withdrawals remain disabled until it is performed.
+/// is required. Deployment always leaves the registry unbound, including for an owner-deployer.
+/// Wait for finality, verify abci-genesis/config and EL genesis, and confirm intended node startup
+/// before the registry owner explicitly binds the Inbox once. Prefer a first finalized landing
+/// as public evidence where practical. The script prints this deferred action; stake withdrawals
+/// remain disabled until binding. Registration, consensus and landing do not require binding.
 ///
 /// Environment shared by both calls: PRIVATE_KEY; optional CONTRACT_OWNER (the deployer if zero).
 /// `run()`: TAIKO_TOKEN, REGISTRY_MIN_STAKE (base units), REGISTRY_ACTIVATION_DELAY,
@@ -117,14 +119,11 @@ contract DeployEtnaDevnet is Script {
         vm.stopBroadcast();
         require(inbox_ == predictedInbox, InboxAddressMismatch());
         EtnaStakingRegistry registry = EtnaStakingRegistry(config.stakingRegistry);
-        if (registry.owner() == deployer) {
-            vm.startBroadcast(privateKey);
-            registry.bindInbox(inbox_);
-            vm.stopBroadcast();
-        } else {
-            console2.log("Registry owner must call bindInbox(address) before withdrawals:", inbox_);
-            console2.log("Registry owner:", registry.owner());
-        }
+        console2.log(
+            "After finality and intended startup validation, owner calls bindInbox(address):",
+            inbox_
+        );
+        console2.log("Registry owner:", registry.owner());
 
         console2.log("EtnaInbox proxy:", inbox_);
         console2.log("SignalService proxy:", signalService_);

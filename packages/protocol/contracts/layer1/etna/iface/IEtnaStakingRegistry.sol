@@ -162,7 +162,10 @@ interface IEtnaStakingRegistry {
 
     /// @notice Binds this registry to its initialized Etna Inbox exactly once.
     /// @dev Only the registry owner may bind an Inbox. The Inbox must identify this registry.
-    /// Withdrawals fail closed until binding; binding never changes committee snapshot entries.
+    /// This checks reciprocal identity and initialization, not semantic startup correctness;
+    /// the owner must validate the intended deployment before binding. Withdrawals fail closed
+    /// until binding; registration, consensus and landing do not require binding. Binding never
+    /// changes committee snapshot entries and cannot be undone or redirected.
     /// @param _inbox The deployed, initialized Etna Inbox proxy.
     function bindInbox(address _inbox) external;
 
