@@ -1205,7 +1205,12 @@ mod readiness {
         let payload = blob::decode(request.batch.blobs.sidecar.blobs(), &bound).unwrap();
         assert_eq!(
             codec::decode(&payload, &bound).unwrap(),
-            request.batch.blocks.iter().map(codec::PublishedBlock::from).collect::<Vec<_>>()
+            request
+                .batch
+                .blocks
+                .iter()
+                .map(|pair| codec::PublishedBlock::try_from(pair).unwrap())
+                .collect::<Vec<_>>()
         );
     }
 

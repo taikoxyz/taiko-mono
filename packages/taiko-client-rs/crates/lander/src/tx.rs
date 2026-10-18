@@ -31,7 +31,7 @@ use crate::{
 /// invalid, so a signed landing above it could never be included and would wedge its nonce.
 pub const MAX_TX_GAS: u64 = 1 << 24;
 
-/// Exact two-argument V9 land calldata for the immutable public inputs and proof.
+/// Exact two-argument V10 land calldata for the immutable public inputs and proof.
 pub fn land_calldata(batch: &PreparedBatch, proof: &Bytes) -> Vec<u8> {
     landCall { _input: batch.input.clone(), _proof: proof.clone() }.abi_encode()
 }

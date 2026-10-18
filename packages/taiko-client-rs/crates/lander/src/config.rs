@@ -15,7 +15,7 @@ use crate::{
 pub const MAX_TIMEOUT_SECS: u64 = 3600;
 
 /// CometBFT `block.max_bytes` in every Etna genesis, bounding one block's protobuf and so each
-/// published header and envelope.
+/// published header and execution block.
 pub const COMET_BLOCK_MAX_BYTES: usize = 22_020_096;
 
 /// Explicit transaction fee ceilings supplied by the operator, in wei.

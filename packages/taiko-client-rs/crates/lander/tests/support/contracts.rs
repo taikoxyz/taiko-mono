@@ -336,7 +336,7 @@ impl ContractFixture {
         Ok((saved, blob, fee))
     }
 
-    /// Require the verifier to receive this exact V9 public statement.
+    /// Require the verifier to receive this exact V10 public statement.
     pub async fn expect_statement(&self, hash: B256) -> Result<()> {
         transact(
             &self.anvil.provider,

@@ -93,8 +93,8 @@ height 8 anchored 1020 may select a different committee; all nodes replaying one
 The config hash binds eleven ABI words under `ETNA_PARENT_ANCHOR_V3`: L2 chain id,
 registry, `vp_unit`, `s_min`, `n_max`, `heartbeat_window`, heartbeat lookahead 2,
 recipient-bound committee encoding version 2, `d_max` and `margin_v`. The opening is exactly 352 bytes.
-The coordinated format is envelope v6, payload v5, V9 statement (21 words / 672 bytes),
-journal schema 11, committee encoding version 2 and `APP_VERSION = 3`. State files must
+The coordinated format is envelope v6, payload v6, V10 statement (21 words / 672 bytes),
+journal schema 12, committee encoding version 2 and `APP_VERSION = 3`. State files must
 carry that exact app version and all authenticated genesis, anchor and FI fields. Old formats
 are explicitly rejected; no migration or signed-journal rewrite is provided. Never delete an
 outstanding signed nonce or CometBFT history to force startup.
@@ -121,7 +121,7 @@ and EIP-2935 history runtimes. Set `BasefeeSharingPctg = 0`. Preserve canonical 
 before initializing Inbox with those commitments. Keep the deployment wallet's nonce unchanged
 between address prediction and deployment. Only after L1 initialization finality should
 `abci-genesis` construct the CometBFT genesis. See the complete
-[protocol deployment instructions](https://github.com/taikoxyz/taiko-mono/blob/3ff8a1c084b222752abb2eedf7362e74fb14ceda/packages/protocol/contracts/layer1/etna/README.md#genesis-initialization).
+[protocol deployment instructions](https://github.com/taikoxyz/taiko-mono/blob/8b5f8f4ff26178ca6bbc21d55cf01297a1820e6e/packages/protocol/contracts/layer1/etna/README.md#genesis-initialization).
 
 The required [EL dependency](https://github.com/taikoxyz/alethia-reth/pull/251) is revision
 `5d4d21ac472c024703082ba46c6eacfa3b8ec1bf`, image `us-docker.pkg.dev/evmchain/images/alethia-reth:sha-5d4d21a`,
@@ -311,12 +311,12 @@ inclusion event unavailable, superseded generation) keep the process running and
 rounding; the ABCI query `/status` reports the head, epoch, generation and halt reason.
 
 `PrepareProposal` and `ProcessProposal` also refuse a block that could not land on its own: one
-whose envelope, zlib-compressed as payload V5 compresses it, plus a 1,024-byte header allowance
+whose execution block, zlib-compressed as payload V6 compresses it, plus a 1,024-byte header allowance
 exceeds 776,168 bytes (six landing blobs less 4 KiB of payload framing). This landing capacity
 guard keeps every decided block landable; it is a liveness guard, not a validity rule, so
 `FinalizeBlock` does not re-check it. The allowance covers the published header prefix (at most
-768 bytes) and the framing of the lander's single-block fallback, which compresses the envelope
-exactly as the guard does (see payload V5 below).
+768 bytes) and the framing of the lander's single-block fallback, which compresses the execution block
+exactly as the guard does (see payload V6 below).
 
 ### `lander`
 
@@ -409,7 +409,7 @@ backlog resets it. Waiting never requests a proof or signs a transaction.
 
 The batch's L1 reference is separate from each L2 block's anchor. The reference
 authenticates an ancestor header chain covering those anchors; it never changes
-the anchor number or state root committed in an L2 header. V9 binds the Inbox, registry, both
+the anchor number or state root committed in an L2 header. V10 binds the Inbox, registry, both
 chain ids, generation, checkpoint, committee configuration, terminal block/root, blobs, FI cursor
 before/after, L1 fee recipient, L2 reward recipient, exact batch basefee amount and terminal active committee snapshot. Committees are
 independently derived from authenticated historical snapshots; starting-set hints are not authority.
@@ -437,8 +437,9 @@ in `LandInput` is the cursor after the batch's last block.
 `LandInput.feeRecipient` is the lander's sending address: `land` pays consumed fees to it and emits
 `ForcedInclusionsConsumed`. The statement binding prevents copied landing transactions from
 redirecting fees. The Inbox rejects a zero recipient (`ZeroFeeRecipient`); the lander treats that
-revert as a configuration error. Envelope v6 carries at most 8192 FI transaction bytes, which the
-lander republishes in payload V5 alongside the exact signed consensus data.
+revert as a configuration error. Envelope v6 carries at most 8192 FI skip-preimage bytes as private proving input.
+Included transactions are published once in the execution block; omitted and skipped admissions
+are not execution DA.
 
 Priority fees go to the block proposer's immutable registered L2 reward address. Both proposal
 preparation and validation bind the beneficiary to the original proposer in the certified
@@ -474,32 +475,33 @@ required derivation parent is at most `epochLenL2 + 2` links behind the checkpoi
 The latest Inbox snapshot used to collect a coherent checkpoint is a separate operational
 input; it cannot replace a proof under an older reference chain.
 
-Blob payload V5 is `0x05 || zlib(rlp([[comet_header_proto, envelope], ...]))`: an RLP list of
-the canonical `tendermint-proto` v0_38 header and the exact envelope bytes of each block's single
-transaction, compressed as one zlib stream with the same codec as the ABCI landing capacity
-guard. Each header hashes to the block id its committee signed, its `data_hash` commits
-to the envelope and its `last_block_id` links it to the preceding header; decoding rejects any
-item that breaks these links. Decoding also rejects bytes after the zlib stream and a list that
-inflates beyond `--max-blocks` times CometBFT's `block.max_bytes` (22,020,096). Batch sizing
-counts compressed bytes, so `--max-blobs` must equal 6: the guard admits a block needing all six,
-and Fusaka permits at most six blobs in one transaction. Compression statically links the
-locked stock zlib (libz-sys 1.1.28, zlib 1.3.2), so host library versions cannot change sizing.
-If a single-block payload exceeds the byte bound at the default level, the lander retries it
-at the best level, then with a zlib full flush between the published prefix and the envelope:
-the flush closes the deflate block and resets the match state, so the envelope deflates exactly
-as the guard measured it and the payload is at most the guard's figure plus the prefix and 16
-bytes. Joint compression has no such bound, since the prefix shifts the envelope's deflate block
-boundaries; crafted calldata can turn that into kilobytes and a block the guard admitted could
-otherwise never land. The flushed stream is an ordinary zlib stream to every decoder. Larger
-prefixes keep the default level and bounded sizing work. Prefix selection also caps a batch at 64 MiB of
-uncompressed list, so its journal stays within 256 MiB, and deflates at most 32 MiB per selection
-to size candidate prefixes (a prefix whose worst-case compressed size fits is not deflated; the
-first block is always sized). A prefix past either budget waits for a later batch. Commits, last
-commits, evidence and signatures are not published: the proof provider receives the complete
-blocks and commits in `PreparedBatch.blocks`, and a guest must verify their signatures against the
-published header hashes using CometBFT's ZIP215 Ed25519 rules, including valid torsion components.
-Existing `BlobCoder` handles multi-blob field encoding of the compressed
-payload.
+Blob payload V6 is 0x06 followed by one zlib stream of
+RLP([[comet_header_proto_bytes, execution_block_rlp_bytes], ...]). Each second item is an
+opaque byte string containing canonical RLP [full EL header, ordered EIP-2718 transactions].
+Complete canonical CometBFT v0_38 headers remain published. Original envelope v6 bytes,
+anchor/committee/forced witnesses, registry entries, skip preimages, evidence, commits and
+signatures stay private proof inputs. Public decoding checks canonical framing and consecutive
+Comet/EL links, not the omitted envelope against data_hash. Before publication and journal
+restoration, the lander authenticates the original envelope's data_hash and matches its exact
+execution projection. A real guest must additionally verify every certificate (ZIP215 Ed25519),
+all original witness/committee/FI rules, execution, and the projection against the bound blobs.
+
+Recovery assumes a sound real ZK landing proof, a finalized canonical L1 checkpoint and archived
+blob bytes plus genesis/execution context. Those suffice to reconstruct the landed EL chain and
+check its terminal hash/state root without historical original witnesses/signatures. Blob
+commitments alone cannot recover unavailable data. This is not L1-only stock CometBFT state
+bootstrap; unlanded blocks keep their full consensus/proving requirements. Dummy proofs do not
+establish these soundness guarantees.
+
+Batch sizing counts compressed execution DA; max-blobs remains six. Compression uses pinned
+stock C zlib 1.3.2. A single-block fallback retries best compression, then full-flushes before
+execution bytes so the capacity guard's bound holds independently of prefix alignment.
+Larger prefixes retain bounded default-level work. Published decompressed DA and retained
+private block/commit protobufs have separate 64 MiB budgets, alongside per-message limits,
+the 32 MiB selection deflate budget and the final 256 MiB journal bound. Prefix selection stops
+before either DA or private input budgets overflow; smaller DA cannot make private inputs
+unbounded. Existing back-pressure, generation and contract maxBatchBlocks are unchanged.
+The existing BlobCoder handles field-element encoding and multi-blob chunking.
 `eip4844` and `eip7594` select different sidecar wrappers/proofs for the same payload and
 commitments. Choose the mode supported by the L1 fork.
 `CertifiedBlock.raw_block` retains the original canonical block protobuf from `/block`, including
@@ -818,7 +820,7 @@ immediate execution prefix and budget, verify state witnesses, independently rec
 rejection or overflow, and bind cursor advancement/output. A candidate beyond an earlier cutoff
 or under another parent context needs a suitable collection path.
 
-A future guest must bind the V9 recipient and actual executed-header basefee sum, authenticate
+A future guest must bind the V10 recipient and actual executed-header basefee sum, authenticate
 the recipient-bound committee, and verify each beneficiary against the original proposer in
 that block's certified CometBFT header under that height's committee, including retained blocks.
 The lander-selected batch recipient is independent of these per-block proposer recipients.
@@ -956,7 +958,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 Regenerate lander ABI/deployment fixtures only when their inputs change, with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `3ff8a1c084b222752abb2eedf7362e74fb14ceda` (also the
+The script requires protocol HEAD `8b5f8f4ff26178ca6bbc21d55cf01297a1820e6e` (also the
 `PROTOCOL_REVISION` in `crates/lander/src/contracts.rs`),
 installs pnpm dependencies before Foundry, builds the Inbox, registry, immutable `L2FeeVault` and
 SignalService with their test fixtures, verifies compiler source hashes,

@@ -20,7 +20,7 @@ sol!(
 pub use IEtnaInbox::ZeroFeeRecipient;
 
 /// Protocol revision from which the interface and contract fixtures are generated.
-pub const PROTOCOL_REVISION: &str = "3ff8a1c084b222752abb2eedf7362e74fb14ceda";
+pub const PROTOCOL_REVISION: &str = "8b5f8f4ff26178ca6bbc21d55cf01297a1820e6e";
 
 /// Journal representation of the generated nine-field `LandInput` as canonical ABI bytes.
 pub(crate) mod abi_serde {

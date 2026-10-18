@@ -251,8 +251,8 @@ impl From<FetchError> for Rejection {
     }
 }
 
-/// The landing capacity guard: the block of the encoded `envelope` must fit one landing on its
-/// own, i.e. the envelope compressed as landing payload V5 would publish it, plus
+/// The landing capacity guard: the execution block of the `envelope` must fit one landing on its
+/// own, i.e. the execution block compressed as landing payload V6 would publish it, plus
 /// [`HEADER_ALLOWANCE`] for the published header, is at most [`MAX_BLOCK_LANDING_BYTES`].
 ///
 /// The bound holds for any envelope content: the lander's single-block fallback deflates the
@@ -261,8 +261,8 @@ impl From<FetchError> for Rejection {
 ///
 /// A liveness guard, not a validity rule: `ProcessProposal` and `PrepareProposal` run it,
 /// `FinalizeBlock` and the guest never do, so a decided block always commits.
-pub(crate) fn check_landing_capacity(envelope: &[u8]) -> Result<(), Rejection> {
-    let bytes = zlib_compress(envelope).len() + HEADER_ALLOWANCE;
+pub(crate) fn check_landing_capacity(block: &crate::ExecutionBlock) -> Result<(), Rejection> {
+    let bytes = zlib_compress(&alloy_rlp::encode(block)).len() + HEADER_ALLOWANCE;
     if bytes > MAX_BLOCK_LANDING_BYTES {
         return Err(Rejection::LandingCapacity { bytes, max: MAX_BLOCK_LANDING_BYTES });
     }

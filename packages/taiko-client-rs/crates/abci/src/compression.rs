@@ -1,10 +1,10 @@
-//! zlib helpers shared by landing payload V5 (`0x05 || zlib(rlp(...))`) and the landing capacity
+//! zlib helpers shared by landing payload V6 (`0x06 || zlib(rlp(...))`) and the landing capacity
 //! guard, and the capacity of one landing.
 //!
 //! The lander depends on this crate, so both sides compress with the same codec: `flate2` over
 //! the locked, statically linked stock C zlib at [`Compression::default`]. A single landing
 //! may retry [`Compression::best`] if the default output exceeds its payload bound, and finally
-//! [`zlib_compress_split`], whose size the guard bounds whatever the envelope holds.
+//! [`zlib_compress_split`], whose size the guard bounds whatever the execution block holds.
 
 use std::io::Write;
 
@@ -20,16 +20,16 @@ pub const MAX_LANDING_BLOBS: usize = 6;
 /// (`BYTES_PER_BLOB * 127 / 128 - 4`).
 pub const LANDING_PAYLOAD_BYTES_PER_BLOB: usize = 130_044;
 
-/// The room reserved for a published block's header next to its compressed envelope: the
+/// The room reserved for a published block's header next to its compressed execution block: the
 /// published header with its RLP framing (at most [`MAX_PUBLISHED_PREFIX_BYTES`]) plus
 /// [`SPLIT_OVERHEAD`] and the payload version byte, which [`zlib_compress_split`] adds to the
-/// envelope's own [`zlib_compress`] size.
+/// execution block's own [`zlib_compress`] size.
 pub const HEADER_ALLOWANCE: usize = 1_024;
 
-/// An upper bound on the bytes that precede a single block's envelope in its V5 list: the outer
-/// and item RLP list headers, the CometBFT header protobuf (whose variable fields are bounded:
-/// a chain id of at most 50 bytes, 32-byte hashes, a 20-byte proposer address) with its RLP
-/// string header, and the envelope's RLP string header.
+/// An upper bound on the bytes that precede a single block's execution block in its V5 list: the
+/// outer and item RLP list headers, the CometBFT header protobuf (whose variable fields are
+/// bounded: a chain id of at most 50 bytes, 32-byte hashes, a 20-byte proposer address) with its
+/// RLP string header, and the execution block's RLP string header.
 pub const MAX_PUBLISHED_PREFIX_BYTES: usize = 768;
 
 /// The bytes [`zlib_compress_split`] may add to `prefix.len()` and to [`zlib_compress`]`(tail)`:
