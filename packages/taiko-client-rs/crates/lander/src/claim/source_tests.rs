@@ -98,3 +98,40 @@ async fn landing_newer_than_executed_anchor_is_retryable_before_proof_then_advan
     fixture.pending_anchor.store(false, std::sync::atomic::Ordering::SeqCst);
     source.prepare(identity().landing_tx, identity().batch_id).await.unwrap();
 }
+
+#[tokio::test]
+async fn genesis_head_waits_before_decoding_extra_data_then_prepares_after_sync() {
+    for extra in [Bytes::new(), Bytes::from(vec![0; 13])] {
+        let mut fixture = Fixture::new(Fault::None);
+        fixture.l2.get_mut(&0).unwrap().extra_data = extra;
+        let fixture = Arc::new(fixture);
+        fixture.at_genesis.store(true, std::sync::atomic::Ordering::SeqCst);
+        let (source, _l1, _l2) = connect(fixture.clone()).await;
+        let source = source.unwrap();
+        assert!(!source.claimed(identity().batch_id).await.unwrap());
+        let error = source.prepare(identity().landing_tx, identity().batch_id).await.unwrap_err();
+        assert!(matches!(error, LanderError::Unavailable(_)), "{error:?}");
+        assert!(error.is_retryable());
+        assert!(!fixture.requests.lock().unwrap().iter().any(|r| r["method"] == "eth_getProof"));
+        assert!(fixture.sends.lock().unwrap().is_empty());
+        fixture.at_genesis.store(false, std::sync::atomic::Ordering::SeqCst);
+        let proof = source.prepare(identity().landing_tx, identity().batch_id).await.unwrap();
+        assert_eq!(proof.receipt, receipt());
+    }
+}
+
+#[tokio::test]
+async fn nonzero_head_with_malformed_extra_data_or_fee_sharing_remains_fatal() {
+    for extra in [Bytes::new(), Bytes::from(vec![1; 13])] {
+        let mut fixture = Fixture::new(Fault::None);
+        fixture.l2.get_mut(&9).unwrap().extra_data = extra;
+        let fixture = Arc::new(fixture);
+        let (source, _l1, _l2) = connect(fixture.clone()).await;
+        let error =
+            source.unwrap().prepare(identity().landing_tx, identity().batch_id).await.unwrap_err();
+        assert!(matches!(error, LanderError::Safety(_)), "{error:?}");
+        assert!(!error.is_retryable());
+        assert!(!fixture.requests.lock().unwrap().iter().any(|r| r["method"] == "eth_getProof"));
+        assert!(fixture.sends.lock().unwrap().is_empty());
+    }
+}

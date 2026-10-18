@@ -872,7 +872,9 @@ landing transaction receipt for `BatchRewardRecorded` emitted by the fixed confi
 its indexed `batchId` is topic 1. Verify the log emitter, including when a forwarding contract sends
 the landing: the outer transaction's `to` is not the Inbox identity.
 
-The own L2 endpoint must expose the intended ABCI-produced canonical executed chain. Preparation
+The own L2 endpoint must expose the intended ABCI-produced canonical executed chain. While the
+EL remains at genesis, the command waits for its first committed execution block before decoding
+Etna `extraData` or acquiring a receipt proof. Malformed nonzero execution headers remain fatal. Preparation
 pins and independently hashes an executed header H, authenticates its L1 anchor through the own
 L1 node's finalized ancestry, verifies the fixed Inbox account and receipt mapping proof, and
 checks the actual EIP-4788 roots lookup at H using H's timestamp. The vault's immutable configuration

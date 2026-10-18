@@ -222,9 +222,14 @@ impl RpcClaimSource {
         let discovered = self.discover().await?;
         let receipt = discovered.receipt;
         let header = execution_header(&self.l2, BlockNumberOrTag::Latest).await?;
+        if header.number == 0 {
+            return Err(LanderError::Unavailable(
+                "claim is waiting for the first committed Etna execution block".into(),
+            ));
+        }
         let (sharing, _, anchor_number) = abci::rules::decode_extra_data(&header.extra_data)
             .map_err(|_| LanderError::Safety("invalid Etna L2 extraData".into()))?;
-        if sharing != 0 || header.number == 0 {
+        if sharing != 0 {
             return Err(LanderError::Safety(
                 "claim requires a committed Etna execution header".into(),
             ));

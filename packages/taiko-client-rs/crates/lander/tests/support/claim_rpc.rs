@@ -135,6 +135,7 @@ pub struct Fixture {
     pub final_values: BTreeMap<B256, U256>,
     fault: Fault,
     pub pending_anchor: std::sync::atomic::AtomicBool,
+    pub at_genesis: std::sync::atomic::AtomicBool,
     pub fail_bootstrap: std::sync::atomic::AtomicBool,
     pub hang_receipts: std::sync::atomic::AtomicBool,
     pub hung_started: std::sync::atomic::AtomicBool,
@@ -198,7 +199,11 @@ impl Fixture {
         };
         Self {
             l1: BTreeMap::from([(9, landing), (10, anchor), (11, finalized)]),
-            l2: BTreeMap::from([(8, h8), (9, h9)]),
+            l2: BTreeMap::from([
+                (0, Header { base_fee_per_gas: Some(7), timestamp: 999, ..Default::default() }),
+                (8, h8),
+                (9, h9),
+            ]),
             anchor_values,
             final_values,
             fault,
@@ -206,6 +211,7 @@ impl Fixture {
                 fault,
                 Fault::PendingAnchor
             )),
+            at_genesis: std::sync::atomic::AtomicBool::new(false),
             fail_bootstrap: std::sync::atomic::AtomicBool::new(false),
             hang_receipts: std::sync::atomic::AtomicBool::new(false),
             hung_started: std::sync::atomic::AtomicBool::new(false),
@@ -230,6 +236,8 @@ impl Fixture {
                     "latest" => {
                         if l1 {
                             *self.l1.last_key_value().unwrap().0
+                        } else if self.at_genesis.load(std::sync::atomic::Ordering::SeqCst) {
+                            0
                         } else {
                             9
                         }

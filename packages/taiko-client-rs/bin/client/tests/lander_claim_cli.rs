@@ -304,3 +304,46 @@ async fn actual_cli_sigterm_cancels_backoff_or_hung_rpc_and_preserves_original_p
         assert_eq!(sends[0], sends[1]);
     }
 }
+
+#[tokio::test]
+async fn actual_cli_waits_at_genesis_then_claims_after_sync_in_the_same_process() {
+    let fixture = Arc::new(Fixture::new(Fault::None));
+    fixture.at_genesis.store(true, Ordering::SeqCst);
+    let l1 = fixture::server(fixture.clone(), true).await;
+    let l2 = fixture::server(fixture.clone(), false).await;
+    let dir = tempfile::tempdir().unwrap();
+    let key = key(dir.path());
+    let journal = dir.path().join("claim");
+    *fixture.claim_directory.lock().unwrap() = Some(journal.clone());
+    let mut cmd = command(&l1.url, &l2.url, &key, &journal);
+    cmd.kill_on_drop(true)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    let child = cmd.spawn().unwrap();
+    until(|| {
+        fixture
+            .requests
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|r| r["method"] == "eth_getBlockByNumber" && r["params"][0] == "latest")
+            .count() >=
+            3
+    })
+    .await;
+    assert!(fixture.sends.lock().unwrap().is_empty());
+    assert!(!journal.join("claim-state.json").exists(), "genesis must not prepare or sign a job");
+    fixture.at_genesis.store(false, Ordering::SeqCst);
+    let output = tokio::time::timeout(Duration::from_secs(15), child.wait_with_output())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    let diagnostics = String::from_utf8_lossy(&output.stderr);
+    assert!(diagnostics.contains("first committed Etna execution block"));
+    assert!(diagnostics.contains("retrying"));
+    assert_eq!(fixture.sends.lock().unwrap().len(), 1);
+    let state: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(journal.join("claim-state.json")).unwrap()).unwrap();
+    assert_eq!(state["job"]["state"], "Included");
+}
