@@ -67,6 +67,8 @@ impl SignedClaim {
 pub trait ClaimTransport: Send + Sync {
     /// Estimate and sign locally; never submit here.
     async fn sign(&self, identity: &ClaimIdentity, proof: &ClaimProof) -> Result<SignedClaim>;
+    /// Execute the original signed inputs at an exact canonical snapshot without sending.
+    async fn simulate(&self, tx: &SignedClaim, hash: B256) -> Result<()>;
     /// Send only the original persisted bytes.
     async fn broadcast(&self, tx: &SignedClaim) -> Result<()>;
     /// Return the exact transaction's mined receipt, if currently indexed.
@@ -148,6 +150,34 @@ impl ClaimTransport for RpcClaimTransport {
         };
         result.validate(identity, proof)?;
         Ok(result)
+    }
+    /// Preserve the signed sender, calldata, gas, nonce and fees in a hash-pinned eth_call.
+    async fn simulate(&self, tx: &SignedClaim, hash: B256) -> Result<()> {
+        let mut remaining = tx.bytes.as_ref();
+        let envelope = TxEnvelope::decode_2718(&mut remaining)
+            .map_err(|_| LanderError::Journal("invalid signed claim envelope".into()))?;
+        if !remaining.is_empty() ||
+            envelope.tx_hash() != &tx.hash ||
+            envelope
+                .recover_signer()
+                .map_err(|_| LanderError::Journal("invalid claim signature".into()))? !=
+                self.payer()
+        {
+            return Err(LanderError::Journal(
+                "claim simulation signature/hash/encoding mismatch".into(),
+            ));
+        }
+        let request = TransactionRequest::from_transaction(envelope).from(self.payer());
+        let output = self
+            .provider
+            .call(request)
+            .block(BlockId::hash_canonical(hash))
+            .await
+            .map_err(vault_error)?;
+        if !output.is_empty() {
+            return Err(LanderError::Safety("claim simulation returned unexpected data".into()));
+        }
+        Ok(())
     }
     /// An ambiguous send is reported without replacing the original nonce or bytes.
     async fn broadcast(&self, tx: &SignedClaim) -> Result<()> {
@@ -242,16 +272,16 @@ impl VaultFailure {
             _ => Self::Unknown,
         }
     }
-    /// Recognize only our fixed adapter label at the unsigned estimation boundary.
+    /// Recognize only our typed adapter label from estimation or simulation.
     pub(super) fn is_already_claimed(error: &LanderError) -> bool {
         matches!(error, LanderError::ClaimReverted(Self::AlreadyClaimed))
     }
     /// Provide safe actionable diagnostics without echoing untrusted payloads.
     fn error(self) -> LanderError {
         match self {
-            Self::InvalidAnchorRoot => {
-                LanderError::Unavailable("vault InvalidAnchorRoot; refresh unsigned proof".into())
-            }
+            Self::InvalidAnchorRoot => LanderError::Unavailable(
+                "vault InvalidAnchorRoot; anchor root is unavailable or expired".into(),
+            ),
             _ => LanderError::ClaimReverted(self),
         }
     }

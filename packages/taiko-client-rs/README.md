@@ -120,8 +120,13 @@ and EIP-2935 history runtimes. Set `BasefeeSharingPctg = 0`. Preserve canonical 
 `stateRoot`, which must be omitted after changing alloc. Start the custom-genesis EL and verify its actual block-0 hash/state root
 before initializing Inbox with those commitments. Keep the deployment wallet's nonce unchanged
 between address prediction and deployment. Only after L1 initialization finality should
-`abci-genesis` construct the CometBFT genesis. See the complete
-[protocol deployment instructions](https://github.com/taikoxyz/taiko-mono/blob/980f5c03816e6324ed30620ad88b32c5a7b371f7/packages/protocol/contracts/layer1/etna/README.md#genesis-initialization).
+`abci-genesis` construct the CometBFT genesis. The deploy script always leaves the registry
+unbound. Verify the authenticated config, EL genesis and intended node startup (prefer a first
+finalized landing where practical), then have the registry owner explicitly call `bindInbox(inbox)`
+once. This binding cannot be redirected; an unverified candidate can be replaced before binding
+by repeating address prediction and genesis setup. Withdrawals fail closed until bound; registration,
+consensus and landing can proceed. See the complete
+[protocol deployment instructions](https://github.com/taikoxyz/taiko-mono/blob/f2d801e69151b4151ed9dcdc81d0b90fc37e8405/packages/protocol/contracts/layer1/etna/README.md#genesis-initialization).
 
 The required [EL dependency](https://github.com/taikoxyz/alethia-reth/pull/251) is revision
 `5d4d21ac472c024703082ba46c6eacfa3b8ec1bf`, image `us-docker.pkg.dev/evmchain/images/alethia-reth:sha-5d4d21a`,
@@ -886,7 +891,11 @@ fee, proof, or recipient is automatically changed after signing.
 
 Reconciliation pins an own execution snapshot, reads its confirmed nonce before the receipt, then
 checks claimed at the exact successful receipt block (or snapshot when the own receipt is absent or
-reverted). It rechecks canonical hashes and refreshes a contradictory moving view once. Another
+reverted). Before each actual send or rebroadcast, it simulates the original signed transaction
+with its sender, calldata, gas, nonce and fees at that canonical snapshot and rechecks its hash.
+A failed or timed-out simulation retains the journal without sending or replacing the transaction.
+Simulation cannot guarantee success against state changes after the check. It refreshes a
+contradictory moving view once. Another
 payer can consume the reward first: authoritative canonical claimed state returns AlreadyClaimed,
 retains any original transaction, and stops broadcasting. This does not assert that our transaction
 succeeded; a revert selector alone is never sufficient authority.
@@ -908,8 +917,9 @@ history cannot be bypassed by trusting events or claimed state.
 
 Unsigned Prepared jobs can refresh their anchor proof before estimation. Roots validity depends on
 whether the timestamp's modulo ring slot still stores that entry, not on a fixed wall-clock expiry.
-An InvalidAnchorRoot estimate is retryable only while unsigned. After signing, retain the exact proof
-and raw bytes. Before archiving an old signed job and opening a new dedicated claim directory, establish
+Unsigned InvalidAnchorRoot estimates can refresh the proof. After signing, an InvalidAnchorRoot
+simulation retries only the retained transaction, without broadcasting or refreshing its proof.
+Retain the exact proof and raw bytes. Before archiving an old signed job and opening a new dedicated claim directory, establish
 its canonical outcome, check pending/confirmed nonce state, and settle or cancel any outstanding nonce
 using the operator's external transaction procedure. Never clear an ambiguous pending job or change its
 intent. A canonical reverted transaction consumes its nonce; replaying those bytes cannot repair it.
@@ -976,7 +986,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 Regenerate lander ABI/deployment fixtures only when their inputs change, with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `980f5c03816e6324ed30620ad88b32c5a7b371f7` (also the
+The script requires protocol HEAD `f2d801e69151b4151ed9dcdc81d0b90fc37e8405` (also the
 `PROTOCOL_REVISION` in `crates/lander/src/contracts.rs`),
 installs pnpm dependencies before Foundry, builds the Inbox, registry, immutable `L2FeeVault` and
 SignalService with their test fixtures, verifies compiler source hashes,

@@ -293,6 +293,8 @@ impl Fixture {
                     U256::from(1).abi_encode().into()
                 } else if data.as_ref() == (Vault::ROOTSCall {}).abi_encode() {
                     ROOTS.abi_encode().into()
+                } else if data.starts_with(&Vault::claimCall::SELECTOR) {
+                    Bytes::new()
                 } else {
                     self.accepted.lock().unwrap().is_some().abi_encode().into()
                 };

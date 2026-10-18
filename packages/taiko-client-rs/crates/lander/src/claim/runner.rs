@@ -1,6 +1,6 @@
 //! Reconcile one immutable signature against coherent canonical snapshots before replaying it.
 use super::{
-    source::{ClaimSource, timeout_error},
+    source::{ClaimSource, ExecutionSnapshot, timeout_error},
     store::{ClaimJob, ClaimState, ClaimStore},
     tx::{ClaimTransport, VaultFailure},
 };
@@ -68,6 +68,8 @@ async fn step_inner(
 
 /// Facts acquired around one hash-pinned canonical snapshot.
 struct Observation {
+    /// State used for nonce, claimed bit and any subsequent execution simulation.
+    snapshot: ExecutionSnapshot,
     /// Confirmed nonce at the snapshot and advisory pending nonce.
     nonce: NonceState,
     /// Canonical own receipt, if any, no newer than the chosen snapshot.
@@ -108,7 +110,7 @@ async fn observe(
     if source.canonical_hash(snapshot.number).await? != snapshot.hash {
         return Err(LanderError::Unavailable("claim snapshot changed during reconciliation".into()));
     }
-    Ok(Observation { nonce, receipt, claimed })
+    Ok(Observation { snapshot, nonce, receipt, claimed })
 }
 
 /// Retry one contradictory acquisition before reporting a stable nonce/receipt conflict.
@@ -124,7 +126,7 @@ async fn reconcile(
         .ok_or_else(|| LanderError::Journal("missing signed claim".into()))?;
     for attempt in 0..2 {
         let observation = observe(source, transport, store.identity().batch_id, tx.hash).await;
-        let Observation { nonce, receipt, claimed } = match observation {
+        let Observation { snapshot, nonce, receipt, claimed } = match observation {
             Err(LanderError::Unavailable(_)) if attempt == 0 => continue,
             other => other?,
         };
@@ -174,6 +176,17 @@ async fn reconcile(
             transport.known(tx.hash).await?
         {
             return Ok(ClaimOutcome::State(job.state));
+        }
+        let simulation = transport.simulate(&tx, snapshot.hash).await;
+        if source.canonical_hash(snapshot.number).await? != snapshot.hash {
+            if attempt == 0 {
+                continue;
+            }
+            return Err(LanderError::Unavailable("claim snapshot changed during simulation".into()));
+        }
+        match simulation {
+            Err(error) if VaultFailure::is_already_claimed(&error) && attempt == 0 => continue,
+            other => other?,
         }
         job.state = ClaimState::Pending;
         store.save(&job)?;
