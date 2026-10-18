@@ -95,7 +95,6 @@ async fn signed_journal_rejects_mutation_and_preserves_original_bytes_across_reo
         proof: p,
         transaction: Some(tx.clone()),
         inclusion: None,
-        discovery: None,
     };
     store.save(&job).unwrap();
     for kind in 0..5 {
@@ -118,14 +117,40 @@ async fn signed_journal_rejects_mutation_and_preserves_original_bytes_across_reo
     assert_eq!(store.load().unwrap(), Some(job));
     let bytes = std::fs::read(dir.path().join("claim-state.json")).unwrap();
     let text = String::from_utf8(bytes).unwrap();
-    assert!(
-        !text.contains("discovery"),
-        "old version-1 Signed shape remains loadable without migration"
-    );
     assert!(!text.contains("0000000000000000000000000000000000000000000000000000000000000001\""));
     let mut bad = tx;
     bad.bytes = [bad.bytes.as_ref(), &[0]].concat().into();
     assert!(bad.validate(store.identity(), &proof()).is_err());
+}
+
+#[tokio::test]
+async fn journal_recorded_as_finalized_loads_as_included() {
+    use store::{ClaimJob, ClaimState, ClaimStore};
+    let dir = tempfile::tempdir().unwrap();
+    let mut id = identity();
+    id.payer = signer().address();
+    let p = proof();
+    let tx = signed(&id, &p).await;
+    let inclusion = crate::tx::LandingReceipt {
+        transaction_hash: tx.hash,
+        block_number: 9,
+        block_hash: B256::repeat_byte(9),
+        success: true,
+        gas_used: 1,
+    };
+    let job = ClaimJob {
+        state: ClaimState::Included,
+        proof: p,
+        transaction: Some(tx),
+        inclusion: Some(inclusion),
+    };
+    ClaimStore::open(dir.path(), id.clone()).unwrap().save(&job).unwrap();
+    // Journals from before finality proofs were removed say `Finalized`.
+    let file = dir.path().join("claim-state.json");
+    let text = std::fs::read_to_string(&file).unwrap();
+    assert_eq!(text.matches("\"Included\"").count(), 1);
+    std::fs::write(&file, text.replace("\"Included\"", "\"Finalized\"")).unwrap();
+    assert_eq!(ClaimStore::open(dir.path(), id).unwrap().load().unwrap(), Some(job));
 }
 
 #[test]

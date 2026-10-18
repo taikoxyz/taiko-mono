@@ -18,6 +18,10 @@ on:
       - "packages/taiko-client-rs/**"
       - ".github/workflows/taiko-client-rs--test.yml"
       - "!**/*.md"
+  # The full docker suite, including the slow scenarios pull requests skip.
+  schedule:
+    - cron: "30 19 * * *"
+  workflow_dispatch:
 
 concurrency:
   group: taiko-client-rs-test-${{ github.ref }}
@@ -341,7 +345,8 @@ jobs:
       # devnet through the docker CLI, one scenario at a time.
       - name: Run docker scenarios
         working-directory: packages/taiko-client-rs
-        run: just test
+        # Pull requests skip the two slowest scenarios; main, nightly and manual runs cover all.
+        run: just ${{ github.event_name == 'pull_request' && 'test' || 'test-full' }}
 
       # Each scenario removes its devnet when it ends, but a job cancellation or
       # timeout can skip that; remove this run's labeled ABCI and lander resources so

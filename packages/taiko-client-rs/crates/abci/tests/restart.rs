@@ -1,25 +1,78 @@
-//! Docker scenario: stopping the `abci` app mid-chain and starting it again over the same store
-//! recovers through the CometBFT handshake; the L2 chain below the old head is unchanged.
+//! Docker scenario on one single-validator devnet, whose phases each need a history past the first
+//! epoch switch:
+//!
+//! 1. the switch activated committee 1 from the committed parent anchor, with no committee
+//!    publication on L1;
+//! 2. stopping the `abci` app mid-chain and starting it again over the same store recovers through
+//!    the CometBFT handshake, leaving the L2 chain below the old head unchanged;
+//! 3. missing app state is reconstructed from the intact CometBFT history, including committees.
 //!
 //! The "restart before the first block" path (a re-sent `InitChain` over a persisted genesis
 //! state) is not driven here: stopping the app between genesis and the first commit is racy
 //! against a 1 s cadence, and the unit test `init_chain_is_idempotent_at_genesis` covers it.
 
-use std::time::{Duration, Instant};
+use std::{
+    collections::BTreeSet,
+    time::{Duration, Instant},
+};
 
 use alloy_eips::BlockNumberOrTag;
+use alloy_primitives::B256;
 use alloy_provider::Provider;
 use anyhow::Context;
 use test_harness::{Devnet, DevnetSpec, wait_until};
 
+/// CometBFT node 0's validator set at `height` as `(pubkey, power)` pairs.
+async fn validator_set(devnet: &Devnet, height: u64) -> anyhow::Result<BTreeSet<(B256, u64)>> {
+    let set = devnet.cmt(0).validators(Some(height)).await?;
+    Ok(set.into_iter().map(|v| (v.pubkey, v.power)).collect())
+}
+
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
-async fn restart_recovers_through_the_handshake() -> anyhow::Result<()> {
+async fn first_switch_restart_and_state_loss_recover_on_one_devnet() -> anyhow::Result<()> {
     let started = Instant::now();
     let mut devnet = Devnet::start(DevnetSpec::default()).await?;
-    // Include an autonomous switch in the persisted history before the crash.
-    devnet.wait_for_height(0, devnet.schedule().h_first(1) + 5, Duration::from_secs(90)).await?;
+    let schedule = devnet.schedule();
+    let h = schedule.h_first(1);
+    // Include an autonomous switch in the persisted history before any crash.
+    devnet.wait_for_height(0, (h + 5).max(26), Duration::from_secs(90)).await?;
 
+    // 1. The first switch derived committee 1 at the committed parent's anchor.
+    let committee = devnet.cmt(0).committee(1).await?.expect("switch derives committee 1");
+    let parent = devnet
+        .l2_provider(0)
+        .get_block_by_number(BlockNumberOrTag::Number(
+            schedule.derivation_parent_height(1).unwrap(),
+        ))
+        .await?
+        .expect("committed derivation parent");
+    let anchor = abci::rules::decode_extra_data(&parent.header.inner.extra_data)?;
+    assert_eq!(committee.record.cutoff_l1_block, anchor.2);
+    assert_eq!(validator_set(&devnet, h).await?.len(), 1);
+    // Slot 278 remains the immutable genesis hash; no epoch mapping exists or is written.
+    let bootstrap = devnet
+        .planter()
+        .inbox_word(abci::l1::layout::inbox::slot(abci::l1::layout::inbox::GENESIS_COMMITTEE_HASH))
+        .await?;
+    let initial =
+        devnet.cmt(0).committee(0).await?.expect("genesis committee retained across first switch");
+    assert_eq!(
+        B256::from(bootstrap),
+        abci::committee::record_hash(devnet.params().l2_chain_id, &initial.record)
+    );
+    for epoch in [1, 2, 3] {
+        let legacy_mapping_slot = alloy_primitives::keccak256(
+            [abci::l1::layout::inbox::slot(epoch), abci::l1::layout::inbox::slot(278)].concat(),
+        );
+        assert!(
+            devnet.planter().inbox_word(legacy_mapping_slot).await?.is_zero(),
+            "no future committee mapping output for epoch {epoch}"
+        );
+    }
+    assert_eq!(devnet.app_halt(0), None);
+
+    // 2. Stop the app mid-chain and recover through the handshake.
     devnet.app_stop(0).await;
     assert!(!devnet.app_running(0));
     let l2 = devnet.l2_provider(0);
@@ -58,17 +111,7 @@ async fn restart_recovers_through_the_handshake() -> anyhow::Result<()> {
     assert_eq!(devnet.app_halt(0), None);
     eprintln!("CometBFT height {height}, app head {} after {:?}", status.head, started.elapsed());
 
-    devnet.stop().await?;
-    Ok(())
-}
-
-/// Missing app state is reconstructed from the intact CometBFT history, including committees.
-#[tokio::test(flavor = "multi_thread")]
-#[ignore = "docker"]
-async fn replay_recovers_after_app_state_is_lost() -> anyhow::Result<()> {
-    let mut devnet = Devnet::start(DevnetSpec::default()).await?;
-    // Cross an epoch so recovery must reconstruct more than the genesis committee.
-    devnet.wait_for_height(0, 26, Duration::from_secs(90)).await?;
+    // 3. Lose the app state; replay reconstructs it, committees included.
     let finalized = devnet
         .l2_provider(0)
         .get_block_by_number(BlockNumberOrTag::Finalized)
@@ -82,6 +125,8 @@ async fn replay_recovers_after_app_state_is_lost() -> anyhow::Result<()> {
     assert_eq!(restored.committees, before.committees);
     assert_eq!(restored.generation, before.generation);
     assert_eq!(devnet.app_halt(0), None);
+    eprintln!("state-loss replay done after {:?}", started.elapsed());
+
     devnet.stop().await?;
     Ok(())
 }

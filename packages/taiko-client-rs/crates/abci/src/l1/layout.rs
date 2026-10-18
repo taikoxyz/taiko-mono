@@ -49,6 +49,8 @@ pub mod inbox {
     /// Genesis forced inclusion configuration: `forcedInclusionDelay` (`uint64` seconds, bits
     /// 0–63) and `maxAnchorAge` (`uint64` seconds, bits 64–127).
     pub const FORCED_INCLUSION_CONFIG: u64 = 282;
+    /// Proof-bound active committee snapshot: `uint64` L1 block number, bits 0–63.
+    pub const ACTIVE_COMMITTEE_SNAPSHOT: u64 = 284;
     /// Inbox status after genesis initialization.
     pub const ETNA_ACTIVE: u8 = 3;
 
@@ -224,7 +226,7 @@ mod tests {
     #[test]
     fn inbox_slots_match_the_shared_vectors() {
         let slots = vectors::at("/layout/inbox/slots").as_object().expect("named slots");
-        assert_eq!(slots.len(), 14);
+        assert_eq!(slots.len(), 15);
         for name in slots.keys() {
             let constant = match name.as_str() {
                 "status" => inbox::STATUS,
@@ -241,6 +243,7 @@ mod tests {
                 "forced_inclusion_head_tail" => inbox::FORCED_INCLUSION_HEAD_TAIL,
                 "forced_inclusion_config" => inbox::FORCED_INCLUSION_CONFIG,
                 "reward_receipts" => 283,
+                "active_committee_snapshot" => inbox::ACTIVE_COMMITTEE_SNAPSHOT,
                 other => panic!("the node reads no Inbox slot named {other}"),
             };
             assert_eq!(constant, vectors::u64_at(&format!("/layout/inbox/slots/{name}")), "{name}");

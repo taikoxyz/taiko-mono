@@ -21,7 +21,6 @@ struct Chain {
     claimed: Mutex<bool>,
     receipt: Mutex<Option<LandingReceipt>>,
     canonical: Mutex<B256>,
-    finalized: Mutex<bool>,
     nonce: Mutex<NonceState>,
     known: Mutex<bool>,
     broadcast_fails: Mutex<bool>,
@@ -37,7 +36,6 @@ struct Chain {
     mine_after_receipt: std::sync::atomic::AtomicBool,
     mined_receipt: Mutex<Option<LandingReceipt>>,
     reorg_on_bit: std::sync::atomic::AtomicBool,
-    finality_delay: Mutex<Duration>,
     sign_error: Mutex<Option<LanderError>>,
 }
 impl Chain {
@@ -46,7 +44,6 @@ impl Chain {
             claimed: Mutex::new(false),
             receipt: Mutex::new(None),
             canonical: Mutex::new(B256::repeat_byte(12)),
-            finalized: Mutex::new(false),
             nonce: Mutex::new(NonceState { confirmed: 3, pending: 3 }),
             known: Mutex::new(false),
             broadcast_fails: Mutex::new(false),
@@ -62,7 +59,6 @@ impl Chain {
             mine_after_receipt: std::sync::atomic::AtomicBool::new(false),
             reorg_on_bit: std::sync::atomic::AtomicBool::new(false),
             mined_receipt: Mutex::new(None),
-            finality_delay: Mutex::new(Duration::ZERO),
             sign_error: Mutex::new(None),
         }
     }
@@ -96,15 +92,6 @@ impl ClaimSource for Chain {
     }
     async fn canonical_hash(&self, _: u64) -> Result<B256> {
         Ok(*self.canonical.lock().unwrap())
-    }
-    async fn transaction_finalized(
-        &self,
-        _: &LandingReceipt,
-        _: &mut Option<crate::claim::discovery::DiscoveryProgress>,
-    ) -> Result<bool> {
-        let delay = *self.finality_delay.lock().unwrap();
-        tokio::time::sleep(delay).await;
-        Ok(*self.finalized.lock().unwrap())
     }
 }
 #[async_trait]
@@ -193,7 +180,7 @@ async fn unknown_send_restart_replays_same_bytes_without_fresh_proof_or_nonce() 
 }
 
 #[tokio::test]
-async fn reorg_retains_signed_bytes_then_finality_requires_checkpoint_verdict() {
+async fn reorg_retains_signed_bytes_and_reinclusion_is_included_again() {
     let dir = tempfile::tempdir().unwrap();
     let chain = Chain::new(dir.path());
     let s = store(dir.path());
@@ -222,22 +209,12 @@ async fn reorg_retains_signed_bytes_then_finality_requires_checkpoint_verdict() 
     assert_eq!(chain.prepares.load(Ordering::SeqCst), 1);
     *chain.canonical.lock().unwrap() = receipt.block_hash;
     *chain.claimed.lock().unwrap() = true;
-    *chain.finalized.lock().unwrap() = true;
     assert_eq!(
         step(&s, &chain, &chain, DEADLINE).await.unwrap(),
-        ClaimOutcome::State(ClaimState::Finalized)
+        ClaimOutcome::State(ClaimState::Included)
     );
     assert_eq!(s.load().unwrap().unwrap().transaction, Some(tx));
-    drop(s);
-    let s = store(dir.path());
-    let disk = std::fs::read(dir.path().join("claim-state.json")).unwrap();
-    let requests = chain.observations.lock().unwrap().len();
-    *chain.receipt.lock().unwrap() = None;
-    *chain.claimed.lock().unwrap() = false;
-    step(&s, &chain, &chain, DEADLINE).await.unwrap();
-    assert_eq!(s.load().unwrap().unwrap().state, ClaimState::Finalized);
-    assert_eq!(chain.observations.lock().unwrap().len(), requests);
-    assert_eq!(std::fs::read(dir.path().join("claim-state.json")).unwrap(), disk);
+    assert_eq!(chain.prepares.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test]
@@ -277,7 +254,6 @@ async fn already_claimed_never_signs_and_unsigned_prepared_can_refresh_expired_r
         proof: old,
         transaction: None,
         inclusion: None,
-        discovery: None,
     })
     .unwrap();
     step(&s, &chain, &chain, DEADLINE).await.unwrap();
@@ -407,22 +383,6 @@ async fn changed_canonical_snapshot_retries_and_preserves_signed_intent() {
     step(&s, &chain, &chain, DEADLINE).await.unwrap();
     assert_eq!(chain.observations.lock().unwrap().iter().filter(|&&c| c == "snapshot").count(), 2);
     assert_eq!(s.load().unwrap().unwrap().transaction, original);
-}
-
-#[tokio::test]
-async fn finality_budget_is_not_truncated_by_ordinary_rpc_step_deadline() {
-    let dir = tempfile::tempdir().unwrap();
-    let chain = Chain::new(dir.path());
-    let s = store(dir.path());
-    let r = pending_job(&s, &chain).await;
-    *chain.receipt.lock().unwrap() = Some(r);
-    *chain.claimed.lock().unwrap() = true;
-    *chain.finalized.lock().unwrap() = true;
-    *chain.finality_delay.lock().unwrap() = Duration::from_millis(300);
-    assert_eq!(
-        step(&s, &chain, &chain, Duration::from_millis(200)).await.unwrap(),
-        ClaimOutcome::State(ClaimState::Finalized)
-    );
 }
 
 #[tokio::test]

@@ -152,7 +152,7 @@ impl LanderArgs {
     }
 }
 
-/// Parse the explicit nonzero address whose L2 reward the V8 statement binds.
+/// Parse the explicit nonzero address whose L2 reward the V9 statement binds.
 fn reward_recipient(value: &str) -> Result<Address, String> {
     let address = value.parse::<Address>().map_err(|e| e.to_string())?;
     let hex = value.strip_prefix("0x").or_else(|| value.strip_prefix("0X")).unwrap_or(value);

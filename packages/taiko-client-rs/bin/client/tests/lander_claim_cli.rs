@@ -8,15 +8,8 @@ fn claim_command_exposes_required_inputs_without_recipient_redirect() {
     let output = Command::new(CLIENT).args(["lander-claim", "--help"]).output().unwrap();
     assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
     let help = String::from_utf8_lossy(&output.stdout);
-    for flag in [
-        "--l1.http",
-        "--l2.http",
-        "--landing-tx",
-        "--batch-id",
-        "--key-file",
-        "--data-dir",
-        "--finality.timeout",
-    ] {
+    for flag in ["--l1.http", "--l2.http", "--landing-tx", "--batch-id", "--key-file", "--data-dir"]
+    {
         assert!(help.contains(flag), "missing {flag}");
     }
     assert!(!help.contains("--recipient"));
@@ -64,8 +57,8 @@ fn key(dir: &Path) -> std::path::PathBuf {
 }
 
 #[tokio::test]
-async fn actual_cli_third_party_payer_claims_and_retains_signed_bytes_until_finality() {
-    let fixture = Arc::new(Fixture::new(Fault::None, false));
+async fn actual_cli_third_party_payer_claims_and_retains_signed_bytes() {
+    let fixture = Arc::new(Fixture::new(Fault::None));
     let l1 = fixture::server(fixture.clone(), true).await;
     let l2 = fixture::server(fixture.clone(), false).await;
     let dir = tempfile::tempdir().unwrap();
@@ -80,7 +73,7 @@ async fn actual_cli_third_party_payer_claims_and_retains_signed_bytes_until_fina
     .unwrap()
     .unwrap();
     assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
-    assert!(String::from_utf8_lossy(&output.stdout).contains("provisionally"));
+    assert!(String::from_utf8_lossy(&output.stdout).contains("BFT-final"));
     let state: serde_json::Value =
         serde_json::from_slice(&std::fs::read(journal.join("claim-state.json")).unwrap()).unwrap();
     assert_eq!(state["job"]["state"], "Included");
@@ -100,7 +93,7 @@ async fn actual_cli_third_party_payer_claims_and_retains_signed_bytes_until_fina
 
 #[tokio::test]
 async fn actual_cli_unknown_send_retries_in_process_with_same_bytes_before_any_new_proof() {
-    let fixture = Arc::new(Fixture::new(Fault::None, false));
+    let fixture = Arc::new(Fixture::new(Fault::None));
     fixture.fail_next_send.store(true, Ordering::SeqCst);
     let l1 = fixture::server(fixture.clone(), true).await;
     let l2 = fixture::server(fixture.clone(), false).await;
@@ -135,7 +128,7 @@ async fn actual_cli_unknown_send_retries_in_process_with_same_bytes_before_any_n
 #[tokio::test]
 async fn actual_cli_invalid_chain_zero_inbox_and_rpc_errors_do_not_leak_credentials() {
     for fault in [Fault::WrongChain, Fault::ZeroInbox, Fault::RpcLeak] {
-        let fixture = Arc::new(Fixture::new(fault, false));
+        let fixture = Arc::new(Fixture::new(fault));
         let l1 = fixture::server(fixture.clone(), true).await;
         let l2 = fixture::server(fixture.clone(), false).await;
         let dir = tempfile::tempdir().unwrap();
@@ -203,7 +196,7 @@ async fn until(mut predicate: impl FnMut() -> bool) {
 
 #[tokio::test]
 async fn actual_cli_retries_bootstrap_and_anchor_lag_in_the_same_process() {
-    let fixture = Arc::new(Fixture::new(Fault::PendingAnchor, false));
+    let fixture = Arc::new(Fixture::new(Fault::PendingAnchor));
     fixture.fail_bootstrap.store(true, Ordering::SeqCst);
     let l1 = fixture::server(fixture.clone(), true).await;
     let l2 = fixture::server(fixture.clone(), false).await;
@@ -240,7 +233,7 @@ async fn actual_cli_retries_bootstrap_and_anchor_lag_in_the_same_process() {
 #[tokio::test]
 async fn actual_cli_sigterm_cancels_backoff_or_hung_rpc_and_preserves_original_pending_bytes() {
     for hang in [false, true] {
-        let fixture = Arc::new(Fixture::new(Fault::None, false));
+        let fixture = Arc::new(Fixture::new(Fault::None));
         fixture.fail_next_send.store(true, Ordering::SeqCst);
         let l1 = fixture::server(fixture.clone(), true).await;
         let l2 = fixture::server(fixture.clone(), false).await;
@@ -281,17 +274,5 @@ async fn actual_cli_sigterm_cancels_backoff_or_hung_rpc_and_preserves_original_p
         let sends = fixture.sends.lock().unwrap();
         assert_eq!(sends.len(), 2);
         assert_eq!(sends[0], sends[1]);
-    }
-}
-
-#[test]
-fn actual_cli_bounds_independent_finality_deadline() {
-    for value in ["0", "3601"] {
-        let output = Command::new(CLIENT)
-            .args(["lander-claim", "--finality.timeout", value])
-            .output()
-            .unwrap();
-        assert!(!output.status.success());
-        assert!(String::from_utf8_lossy(&output.stderr).contains("finality.timeout"));
     }
 }

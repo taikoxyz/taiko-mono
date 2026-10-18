@@ -330,6 +330,12 @@ fn anchor(raw: &RawL1Header, height: u64, hash: B256, queue: &Queue) -> AnchorSt
     }
 }
 
+/// Optional anchor/checkpoint progress for genuinely authenticated multi-epoch batches.
+struct EpochFixture {
+    length: u64,
+    advances: bool,
+}
+
 impl Fixture {
     /// The landing snapshot re-planted with the genesis record `genesis` and the forced
     /// inclusion queue's `(head, tail)` at slot 281: the same checkpoint in a fresh snapshot block
@@ -390,25 +396,70 @@ impl Fixture {
     /// As [`Fixture::with_calldata`], with all-zero calldata that payload V4 compresses to almost
     /// nothing.
     fn with_zero_calldata(checkpoint: u64, tip: u64, bytes: usize) -> Self {
-        Self::build(checkpoint, tip, bytes, true, 23, 7_200, &ForcedPlan::default())
+        Self::build(
+            checkpoint,
+            tip,
+            bytes,
+            true,
+            EpochFixture { length: 23, advances: false },
+            7_200,
+            &ForcedPlan::default(),
+        )
     }
 
     pub fn with_epoch(checkpoint: u64, tip: u64, bytes: usize, epoch_len: u64) -> Self {
-        Self::build(checkpoint, tip, bytes, false, epoch_len, 7_200, &ForcedPlan::default())
+        Self::build(
+            checkpoint,
+            tip,
+            bytes,
+            false,
+            EpochFixture { length: epoch_len, advances: false },
+            7_200,
+            &ForcedPlan::default(),
+        )
+    }
+
+    /// Advances authenticated anchor checkpoints often enough to cross multiple active epochs.
+    pub fn with_progressing_epochs(checkpoint: u64, tip: u64) -> Self {
+        Self::build(
+            checkpoint,
+            tip,
+            0,
+            false,
+            EpochFixture { length: 10, advances: true },
+            7_200,
+            &ForcedPlan::default(),
+        )
     }
 
     /// As [`Fixture::new`], with the forced inclusion entries and blocks of `plan`. Anchor `n` is
     /// at `n` s: L1 10 anchors every block of a genesis checkpoint; otherwise block 1 uses 10,
     /// blocks 2 to 21 use 11 and blocks 22 (the switch height of epoch 1) onwards use 12.
     pub fn with_forced(checkpoint: u64, tip: u64, plan: ForcedPlan) -> Self {
-        Self::build(checkpoint, tip, 0, false, 23, 7_200, &plan)
+        Self::build(
+            checkpoint,
+            tip,
+            0,
+            false,
+            EpochFixture { length: 23, advances: false },
+            7_200,
+            &plan,
+        )
     }
 
     /// As [`Fixture::new`], with the genesis `maxAnchorAge` set to `max_anchor_age` seconds.
     /// Block `h` is at `100 + h` s and anchor `n` at `n` s, so the blocks of a genesis
     /// checkpoint (all anchored at 10) are `90 + h` s younger than their anchor.
     pub fn with_max_anchor_age(checkpoint: u64, tip: u64, max_anchor_age: u64) -> Self {
-        Self::build(checkpoint, tip, 0, false, 23, max_anchor_age, &ForcedPlan::default())
+        Self::build(
+            checkpoint,
+            tip,
+            0,
+            false,
+            EpochFixture { length: 23, advances: false },
+            max_anchor_age,
+            &ForcedPlan::default(),
+        )
     }
 
     /// Builds the decided chain up to `tip` over the genesis `maxAnchorAge` `max_anchor_age` and
@@ -419,11 +470,23 @@ impl Fixture {
         tip: u64,
         bytes: usize,
         zeros: bool,
-        epoch_len: u64,
+        epochs: EpochFixture,
         max_anchor_age: u64,
         plan: &ForcedPlan,
     ) -> Self {
+        let epoch_len = epochs.length;
         assert!(checkpoint == 0 || checkpoint >= epoch_len - 3);
+        let anchor_number = |height: u64| {
+            if height <= 1 || (checkpoint == 0 && !epochs.advances) {
+                10
+            } else if height < epoch_len - 1 {
+                11
+            } else if epochs.advances {
+                12 + (height - (epoch_len - 1)) / (epoch_len - 4)
+            } else {
+                12
+            }
+        };
         let mut params = parameters();
         params.d_max = epoch_len - 3;
         let genesis_header = Header {
@@ -465,9 +528,11 @@ impl Fixture {
             .collect::<Vec<_>>();
         let snapshot = Snapshot { checkpoint_index: 0, l1_block: 1, entries: entries.clone() };
         let mut committees = BTreeMap::new();
-        for epoch in 0..=3 {
+        for epoch in 0..=schedule.epoch_of(tip + 1).max(3) {
             let cutoff = if epoch == 0 {
                 genesis.genesis_cutoff
+            } else if epochs.advances {
+                anchor_number(schedule.derivation_parent_height(epoch).unwrap())
             } else if epoch == 1 {
                 11
             } else {
@@ -509,48 +574,30 @@ impl Fixture {
             grandparent_timestamp: 0,
         };
         for height in 1..=tip {
-            if checkpoint > 0 && height == 2 {
-                let s = state_with_queue(
-                    &params,
-                    &entries,
-                    1,
-                    parent.hash,
-                    &committees,
-                    &genesis,
-                    &plan.queue(&planted, 11, 1),
-                );
-                let raw = l1_header(11, &s, l1_headers[&10].hash());
-                states.insert(11, s);
-                l1_headers.insert(11, raw);
-            }
-            if checkpoint > 0 && height == epoch_len - 1 {
-                let s = state_with_queue(
-                    &params,
-                    &entries,
-                    epoch_len - 3,
-                    headers[&(epoch_len - 3)].hash_slow(),
-                    &committees,
-                    &genesis,
-                    &plan.queue(&planted, 12, epoch_len - 3),
-                );
-                let raw = l1_header(12, &s, l1_headers[&11].hash());
-                states.insert(12, s);
-                l1_headers.insert(12, raw);
-            }
-            let number = if checkpoint == 0 || height == 1 {
-                10
-            } else if height < epoch_len - 1 {
-                11
-            } else {
-                12
-            };
+            let number = anchor_number(height);
             let cp = if number == 10 {
                 0
             } else if number == 11 {
                 1
+            } else if epochs.advances {
+                epoch_len - 3 + (number - 12) * (epoch_len - 4)
             } else {
                 epoch_len - 3
             };
+            if !l1_headers.contains_key(&number) {
+                let state = state_with_queue(
+                    &params,
+                    &entries,
+                    cp,
+                    headers[&cp].hash_slow(),
+                    &committees,
+                    &genesis,
+                    &plan.queue(&planted, number, cp),
+                );
+                let raw = l1_header(number, &state, l1_headers[&(number - 1)].hash());
+                states.insert(number, state);
+                l1_headers.insert(number, raw);
+            }
             let cp_hash = headers[&cp].hash_slow();
             let forced = height == 1;
             let changing = anchors[&(height - 1)].number != number;
@@ -685,11 +732,12 @@ impl Fixture {
         }
         let last = *l1_headers.last_key_value().unwrap().0;
         let root_state = states[&last].clone();
-        for number in last + 1..=15 {
+        let snapshot_number = last.max(12) + 3;
+        for number in last + 1..=snapshot_number {
             let raw = l1_header(number, &root_state, l1_headers[&(number - 1)].hash());
             l1_headers.insert(number, raw);
         }
-        let snapshot_queue = plan.queue(&planted, 15, checkpoint);
+        let snapshot_queue = plan.queue(&planted, snapshot_number, checkpoint);
         let snapshot_state = state_with_queue(
             &params,
             &entries,
@@ -699,11 +747,12 @@ impl Fixture {
             &genesis,
             &snapshot_queue,
         );
-        let snapshot_header = l1_header(15, &snapshot_state, l1_headers[&14].hash());
-        l1_headers.insert(15, snapshot_header.clone());
+        let snapshot_header =
+            l1_header(snapshot_number, &snapshot_state, l1_headers[&(snapshot_number - 1)].hash());
+        l1_headers.insert(snapshot_number, snapshot_header.clone());
         let landing = LandingSnapshot {
             l1_block_hash: snapshot_header.hash(),
-            l1_block_number: 15,
+            l1_block_number: snapshot_number,
             l1_chain_id: U256::from(1),
             l2_chain_id: params.l2_chain_id,
             inbox: params.inbox,
@@ -863,8 +912,10 @@ impl LandingSource for Fixture {
         anchors: &[AnchorState],
     ) -> Result<Vec<RawL1Header>> {
         let min = anchors.iter().map(|anchor| anchor.number).min().unwrap();
-        let headers =
-            (min..=14).rev().map(|number| self.l1_headers[&number].clone()).collect::<Vec<_>>();
+        let headers = (min..self.snapshot.l1_block_number)
+            .rev()
+            .map(|number| self.l1_headers[&number].clone())
+            .collect::<Vec<_>>();
         verify_reference_chain(&headers, anchors)?;
         Ok(headers)
     }

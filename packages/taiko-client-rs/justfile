@@ -35,21 +35,39 @@ udeps:
   rustup toolchain install {{udeps_toolchain}} --profile minimal && \
   cargo +{{udeps_toolchain}} udeps --all-targets
 
-# The abci docker scenarios (`crates/abci/tests`, `#[ignore = "docker"]`), one at
-# a time; each boots its own anvil + alethia-reth + CometBFT devnet. Needs a
-# running docker daemon. Extra args are forwarded to nextest (e.g.
+# The docker scenarios (`#[ignore = "docker"]`), one at a time; each boots its own
+# anvil + alethia-reth + CometBFT devnet. Needs a running docker daemon. This is the
+# pull-request tier: it leaves the two slowest scenarios (L1 finality stall, anchor
+# finality gate) to `test-full`. Extra args are forwarded to nextest (e.g.
 # `just test restart` runs one scenario).
 test *ARGS:
   ./tests/entrypoint.sh "$@"
 
-# Fast tests: unit tests plus the lander_claim_cli process tests, with no docker. The protocol pass also compiles and runs its
-# tests without default features so test-only feature leaks stay covered in CI;
-# it has no filterset, so it also runs protocol's (docker-free) integration
-# binary. nextest skips doctests, so abci's (e.g. its `compile_fail` checks)
-# run in a last `cargo test --doc` pass. Extra args are forwarded to nextest.
+# Every docker scenario, including the two slow ones `test` skips. CI runs it on main,
+# nightly and on manual dispatch; `verify` runs it locally. Extra args go to nextest.
+test-full *ARGS:
+  ./tests/entrypoint.sh --full "$@"
+
+# Fast tests: unit tests plus the lander_claim_cli process tests, with no docker. Only those
+# targets are built, so the docker-only integration binaries stay out of this lane. Without
+# extra args, lander's lib tests run in one `cargo test` process instead of one process per
+# test: each process would otherwise rebuild the KZG trusted setup, which dominates their
+# time. The protocol pass also compiles and runs its tests without default features so
+# test-only feature leaks stay covered in CI; it has no filterset, so it also runs protocol's
+# (docker-free) integration binary. nextest skips doctests, so abci's (e.g. its
+# `compile_fail` checks) run in a last `cargo test --doc` pass. Extra args are forwarded to
+# nextest, which then runs lander's lib tests too.
 unit *ARGS:
-  cargo nextest run --workspace --exclude bindings --all-features -E '!kind(test) | binary(lander_claim_cli)' "$@" && \
-  cargo nextest run -p protocol --no-default-features "$@" && \
+  #!/usr/bin/env bash
+  set -euo pipefail
+  targets=(--workspace --exclude bindings --all-features --lib --bins --test lander_claim_cli)
+  if [[ $# -eq 0 ]]; then
+    cargo nextest run "${targets[@]}" -E '!(package(lander) & kind(lib))'
+    cargo test -p lander --all-features --lib
+  else
+    cargo nextest run "${targets[@]}" "$@"
+  fi
+  cargo nextest run -p protocol --no-default-features "$@"
   cargo test -p abci --doc
 
 # Four representative Docker scenarios for local iteration. Use `test` for subsets
@@ -59,7 +77,7 @@ test-smoke:
 
 # Complete merge gate; smoke never substitutes for the full Docker suite.
 verify:
-  just fmt-check && just clippy && just unit && just check-lander-artifacts && just test
+  just fmt-check && just clippy && just unit && just check-lander-artifacts && just test-full
 
 gen_bindings:
   ./script/gen_bindings.sh

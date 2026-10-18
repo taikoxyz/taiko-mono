@@ -30,21 +30,6 @@ use hyper_util::{
 use reqwest::{Client as ReqwestClient, Url};
 use tower::{Service, ServiceBuilder, timeout::TimeoutLayer};
 
-/// A bounded HTTP response exceeded its allocation limit before JSON decoding.
-#[derive(Debug, thiserror::Error)]
-#[error("RPC response exceeds configured byte limit")]
-pub struct ResponseTooLarge;
-
-/// Preserve non-query HTTP failures when their bodies exceed the allocation cap.
-/// Only success and explicit HTTP 413 expose the typed marker used for query narrowing.
-fn response_limit_error(status: reqwest::StatusCode) -> TransportError {
-    if status.is_success() || status == reqwest::StatusCode::PAYLOAD_TOO_LARGE {
-        TransportError::local_usage(ResponseTooLarge)
-    } else {
-        TransportError::local_usage_str(&ResponseTooLarge.to_string())
-    }
-}
-
 /// Default HTTP request timeout, for callers without a deadline of their own.
 pub const DEFAULT_HTTP_TIMEOUT: Duration = Duration::from_secs(12);
 
@@ -126,7 +111,9 @@ impl Service<RequestPacket> for PrivateHttp {
             let status = response.status();
             let body = if let Some(limit) = transport.max_bytes {
                 if response.content_length().is_some_and(|n| n > limit as u64) {
-                    return Err(response_limit_error(status));
+                    return Err(TransportError::local_usage_str(
+                        "RPC response exceeds configured byte limit",
+                    ));
                 }
                 let mut body = Vec::new();
                 while let Some(chunk) = response
@@ -135,7 +122,9 @@ impl Service<RequestPacket> for PrivateHttp {
                     .map_err(|error| TransportErrorKind::custom(error.without_url()))?
                 {
                     if chunk.len() > limit.saturating_sub(body.len()) {
-                        return Err(response_limit_error(status));
+                        return Err(TransportError::local_usage_str(
+                            "RPC response exceeds configured byte limit",
+                        ));
                     }
                     body.extend_from_slice(&chunk);
                 }
@@ -406,9 +395,7 @@ mod tests {
                 .get_chain_id()
                 .await
                 .unwrap_err();
-            assert!(
-                matches!(&error, TransportError::LocalUsageError(inner) if inner.is::<ResponseTooLarge>())
-            );
+            assert!(matches!(error, TransportError::LocalUsageError(_)));
             assert_eq!(
                 error.to_string(),
                 "local usage error: RPC response exceeds configured byte limit"

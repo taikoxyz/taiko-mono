@@ -246,7 +246,7 @@ impl Fixture {
             self.l1(),
             self.engine(),
             self.params.clone(),
-            Store::new(dir.to_path_buf()),
+            Store::volatile(dir.to_path_buf()),
             AppOptions::default(),
         )
         .expect("the fixture app starts")

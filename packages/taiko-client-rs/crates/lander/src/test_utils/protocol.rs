@@ -93,6 +93,7 @@ pub(crate) fn request() -> ProofRequest {
                 forcedInclusionHead: U48::ZERO,
                 l2RewardRecipient: Address::repeat_byte(0x77),
                 baseFeeAmount: U256::ZERO,
+                activeCommitteeSnapshot: 9,
                 feeRecipient: super::consensus_mpt::FEE_RECIPIENT,
             },
             blobs: PreparedBlobs {

@@ -93,8 +93,8 @@ height 8 anchored 1020 may select a different committee; all nodes replaying one
 The config hash binds eleven ABI words under `ETNA_PARENT_ANCHOR_V3`: L2 chain id,
 registry, `vp_unit`, `s_min`, `n_max`, `heartbeat_window`, heartbeat lookahead 2,
 recipient-bound committee encoding version 2, `d_max` and `margin_v`. The opening is exactly 352 bytes.
-The coordinated format is envelope v6, payload v5, V8 statement (20 words / 640 bytes),
-journal schema 10, committee encoding version 2 and `APP_VERSION = 3`. State files must
+The coordinated format is envelope v6, payload v5, V9 statement (21 words / 672 bytes),
+journal schema 11, committee encoding version 2 and `APP_VERSION = 3`. State files must
 carry that exact app version and all authenticated genesis, anchor and FI fields. Old formats
 are explicitly rejected; no migration or signed-journal rewrite is provided. Never delete an
 outstanding signed nonce or CometBFT history to force startup.
@@ -121,7 +121,7 @@ and EIP-2935 history runtimes. Set `BasefeeSharingPctg = 0`. Preserve canonical 
 before initializing Inbox with those commitments. Keep the deployment wallet's nonce unchanged
 between address prediction and deployment. Only after L1 initialization finality should
 `abci-genesis` construct the CometBFT genesis. See the complete
-[protocol deployment instructions](https://github.com/taikoxyz/taiko-mono/blob/2a4bfa747edcafae96c15b58159e31eea0ebe78a/packages/protocol/contracts/layer1/etna/README.md#genesis-initialization).
+[protocol deployment instructions](https://github.com/taikoxyz/taiko-mono/blob/3ff8a1c084b222752abb2eedf7362e74fb14ceda/packages/protocol/contracts/layer1/etna/README.md#genesis-initialization).
 
 The required [EL dependency](https://github.com/taikoxyz/alethia-reth/pull/251) is revision
 `5d4d21ac472c024703082ba46c6eacfa3b8ec1bf`, image `us-docker.pkg.dev/evmchain/images/alethia-reth:sha-5d4d21a`,
@@ -409,10 +409,24 @@ backlog resets it. Waiting never requests a proof or signs a transaction.
 
 The batch's L1 reference is separate from each L2 block's anchor. The reference
 authenticates an ancestor header chain covering those anchors; it never changes
-the anchor number or state root committed in an L2 header. V8 binds the Inbox, registry, both
+the anchor number or state root committed in an L2 header. V9 binds the Inbox, registry, both
 chain ids, generation, checkpoint, committee configuration, terminal block/root, blobs, FI cursor
-before/after, L1 fee recipient, L2 reward recipient and exact batch basefee amount. Committees are
+before/after, L1 fee recipient, L2 reward recipient, exact batch basefee amount and terminal active committee snapshot. Committees are
 independently derived from authenticated historical snapshots; starting-set hints are not authority.
+
+`LandInput.activeCommitteeSnapshot` names the committee active at the terminal height according to
+`schedule.epoch_of(height)`. Epoch zero uses `genesisCutoff`; every later epoch uses the L1 anchor
+in its authenticated derivation parent `D(t) = H(t) - 3`. At `S = H(t) - 2` and `S + 1`, the
+incoming committee is still pending, so those terminal blocks retain the outgoing cutoff. This
+also applies when a batch starts or ends partway through an epoch. Restore validation checks the
+cutoff against committed ancestry and retained committee provenance even if the digest is
+recomputed. Schema 10 journals are rejected intact, including their outstanding signed nonce.
+The receipt remains ten words and its batch id is unchanged.
+
+Before registry withdrawals can use the landed cutoff, its owner must call `bindInbox(address)`
+once with the initialized Inbox that names that registry. `withdraw()` requires the existing
+exit wait and `activeCommitteeSnapshot >= exitEffectiveL1`. The client never advances that
+cutoff from the reference block or a pending committee.
 
 Every block is held to the shared ABCI calldata classifier and asynchronous skip checker. Its
 witness authenticates the cursor's entry under that block's anchor. Inclusion must match the exact
@@ -804,10 +818,12 @@ immediate execution prefix and budget, verify state witnesses, independently rec
 rejection or overflow, and bind cursor advancement/output. A candidate beyond an earlier cutoff
 or under another parent context needs a suitable collection path.
 
-A future guest must bind the V8 recipient and actual executed-header basefee sum, authenticate
+A future guest must bind the V9 recipient and actual executed-header basefee sum, authenticate
 the recipient-bound committee, and verify each beneficiary against the original proposer in
 that block's certified CometBFT header under that height's committee, including retained blocks.
 The lander-selected batch recipient is independent of these per-block proposer recipients.
+It must also prove the terminal active committee snapshot from its authenticated derivation
+header (or the explicit genesis cutoff), including outgoing selection at the switch boundary.
 It must preserve certificate threshold, execution ancestry, forced-inclusion and L1 reference checks. No real guest is implemented; the dummy verifier cannot establish those claims,
 so this version is restricted to disposable development chains.
 
@@ -853,48 +869,22 @@ checks claimed at the exact successful receipt block (or snapshot when the own r
 reverted). It rechecks canonical hashes and refreshes a contradictory moving view once. Another
 payer can consume the reward first: authoritative canonical claimed state returns AlreadyClaimed,
 retains any original transaction, and stops broadcasting. This does not assert that our transaction
-succeeded or finalized; a revert selector alone is never sufficient authority.
+succeeded; a revert selector alone is never sufficient authority.
 
-An Included result is provisional. Rerun to check Finalized: bounded chronological pages of the fixed
-Inbox's BatchRewardRecorded logs discover a historical landing whose range covers the actual claim
-block. Its exact receipt mapping commitment is proven under own finalized L1 state, then every EL
-parent hash is authenticated back to our actual successful inclusion. The receipt records the same
-endpoint atomically saved by Inbox land. Logs/cursors alone, a claimed-bit proof, and an entitlement
-root cannot finalize our transaction. Discovery does not assume monotonic heights across recovery
-or filter by the original entitlement generation; valid wrong-branch endpoints are skipped.
+Included is the end state. Etna L2 blocks are final once CometBFT commits them, so the command
+does not wait for a later L1 landing to cover the claim block. A recovery that rewinds L2 can drop
+the claim transaction: rerun the same command and key after any recovery. It reconciles the retained
+signed bytes, reports Included again while the claim stays canonical, and otherwise rebroadcasts the
+same bytes. Journals that recorded the former `Finalized` state load as Included.
 
-Validated Finalized journals are terminal: runner resume preserves their original inclusion and
-signed bytes without fresh network reconciliation. Version-1 signed/finalized journals remain valid
-without migration. Optional discovery metadata is untrusted and bound to the transaction, inclusion,
-the independently hashed claim header's canonical L1 anchor and finalized context. The inclusive
-anchor lower bound avoids scanning history before the claim could be landed. The original entitlement
-landing identity and canonicality remain checked. Each operation discovers and schedules at most one
-expensive candidate, saving the next event position **before** any candidate RPC can time out. This
-optional within-page position binds the fixed page range and digest of the complete sorted log response;
-changed or legacy context restarts it. The candidate receives the remaining configured finality budget,
-with no smaller ancestry timeout. An operation timeout rotates to later candidates instead of replaying
-the same slow prefix. One retained hint is freshly retried only after a complete discovery pass, with
-the scan reset before that retry. Subsequent passes revisit every delayed, omitted or unavailable
-candidate without an unbounded hint queue. No saved position or partially traversed ancestry authorizes
-finality; every successful attempt requires a fresh full proof and all EL parent links.
-
-`--rpc.timeout` defaults to 30 seconds for individual calls and ordinary reconciliation.
-`--finality.timeout` separately defaults to 300 seconds for complete historical discovery and ancestry
-(both accept 1–3600 seconds). One discovery operation makes at most 16 log requests of at most
-1,024 L1 blocks. Responses exceeding 256 logs / 512 KiB event data and topics, the 2 MiB HTTP
-allocation cap, or recognized provider log-query limits halve the inclusive page range. Recognized
-limits include HTTP 413 and known -32005/-32602 result, response-size and block-range messages,
-plus -32005 `query timeout exceeded`; ambiguous rate, authentication and parameter errors retain
-their existing classification. The shortened end is saved before the next RPC so cancellation and finalized-head growth
-cannot widen it. An oversized single block returns an actionable capacity error. Each operation
-fetches at most 131,072 EL
-ancestry headers in total. Claim HTTP responses are capped at 2 MiB before JSON decoding, including
-chunked responses; redirects are disabled. Direct typed capacity or unsupported-capability errors can
-stop the claim. The existing `RpcL1Source` adapter erases some `eth_getProof` errors, including response-cap
-and unsupported-capability failures, into sanitized retryable unavailability. Those failures can keep
-retrying until the operator cancels and fixes the endpoint; the response allocation bound still holds.
-Required history includes fixed-Inbox logs, hash-pinned account/storage proofs, raw L1 headers and EL
-headers by hash. Missing history cannot be bypassed by trusting events or claimed state.
+`--rpc.timeout` (default 30 seconds, 1–3600) bounds individual calls and each reconciliation step.
+Claim HTTP responses are capped at 2 MiB before JSON decoding, including chunked responses;
+redirects are disabled. Direct typed capacity or unsupported-capability errors can stop the claim.
+The existing `RpcL1Source` adapter erases some `eth_getProof` errors, including response-cap and
+unsupported-capability failures, into sanitized retryable unavailability. Those failures can keep
+retrying until the operator cancels and fixes the endpoint; the response allocation bound still
+holds. Required history includes hash-pinned account/storage proofs and raw L1 headers. Missing
+history cannot be bypassed by trusting events or claimed state.
 
 Unsigned Prepared jobs can refresh their anchor proof before estimation. Roots validity depends on
 whether the timestamp's modulo ring slot still stores that entry, not on a fixed wall-clock expiry.
@@ -921,7 +911,9 @@ just clippy     # doc lints on library code, then every target with -D warnings
 ### Tests
 
 - `just unit` runs all unit tests and the nine `lander_claim_cli` process tests, then protocol
-  tests without default features and the abci doctests. No docker needed.
+  tests without default features and the abci doctests. No docker needed. It builds only those
+  targets, and without extra arguments runs lander's library tests in one `cargo test` process,
+  which loads the KZG trusted setup once instead of once per test.
 - `just test` runs the serial Docker integration scenarios in `crates/abci/tests`,
   `crates/lander/tests`, `crates/test-harness/tests` and `bin/client/tests`. ABCI scenarios cover single validator,
   anchor finality, restart and lost-state replay, epoch switch with and without landing, back-pressure, generation
@@ -930,13 +922,19 @@ just clippy     # doc lints on library code, then every target with -D warnings
   the source-backed unavailable-build RPC shape through a delegating Engine adapter; it does not
   actually prune Reth state. Lander scenarios cover actual Inbox blob
   transactions, cross-epoch batching without reward cutoffs, real EL/Comet basefee claims with
-  genuine L1 account/storage proofs and later-checkpoint finality, replay rejection, claim-spend
+  genuine L1 account/storage proofs, replay rejection, claim-spend
   independence in the next batch, and a forced inclusion landing that
   pays its fee, permissionless races,
-  verifier rejection, receipt reorgs, durable nonce recovery, stock CometBFT collection,
-  and actual-CLI SIGTERM/SIGKILL restarts, minimum/timeout batching, and pressure/epoch flushes. Each scenario boots its own devnet through the docker CLI (anvil as L1,
-  alethia-reth, CometBFT), so they run one at a time; the suite takes about ten minutes. Extra
-  arguments go to `cargo nextest run`, e.g. `just test restart` runs one scenario.
+  verifier rejection, a pending L1 reference crossing the BLOCKHASH/EIP-2935 boundary, stock
+  CometBFT collection, and actual-CLI SIGKILL/SIGTERM restarts, minimum/timeout batching, and
+  pressure/epoch flushes; runner and store unit tests cover receipt reorgs and journal restarts.
+  Each scenario boots its own devnet through the docker CLI (anvil as L1, alethia-reth,
+  CometBFT), with phases that need the same history sharing one, so they run one at a time; the
+  suite takes about ten minutes. Extra
+  arguments go to `cargo nextest run`, e.g. `just test restart` runs one scenario. Pull requests
+  skip the two slowest scenarios, the L1 finality stall and the anchor finality gate, whose
+  halt-and-resume rules unit tests cover; `just test-full` runs every scenario, as CI does on
+  main, nightly and on manual dispatch.
   `tests/entrypoint.sh` pulls the images first; override them with `ANVIL_IMAGE`,
   `ALETHIA_RETH_IMAGE`, `COMETBFT_IMAGE` and `LANDER_ANVIL_IMAGE`, or set
   `PULL_POLICY=missing` to reuse local images. Existing ABCI tests retain Anvil v1.5.1;
@@ -949,16 +947,16 @@ just clippy     # doc lints on library code, then every target with -D warnings
   cleanup fallback for SIGKILL.
 
 - `just test-smoke` runs exactly four representative Docker scenarios: single-validator header
-  rules, epoch switch, real L2 rewards claim/fee continuation, and lander CLI SIGTERM resume.
+  rules, epoch switch, real L2 rewards claim/fee continuation, and lander CLI SIGKILL/SIGTERM restarts.
   This fixed recipe accepts no arguments. Use `just test` for targeted subsets or output options.
 - `just verify` is the complete merge gate: formatting, strict clippy, fast tests, committed
-  artifact reproduction, and all Docker scenarios. Smoke is an iteration aid and never replaces
+  artifact reproduction, and all Docker scenarios (`just test-full`). Smoke is an iteration aid and never replaces
   this gate. After each coherent code change batch, run `just fmt && just clippy-fix` and targeted
   tests; run the complete gate once on the final change batch.
 
 Regenerate lander ABI/deployment fixtures only when their inputs change, with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `2a4bfa747edcafae96c15b58159e31eea0ebe78a` (also the
+The script requires protocol HEAD `3ff8a1c084b222752abb2eedf7362e74fb14ceda` (also the
 `PROTOCOL_REVISION` in `crates/lander/src/contracts.rs`),
 installs pnpm dependencies before Foundry, builds the Inbox, registry, immutable `L2FeeVault` and
 SignalService with their test fixtures, verifies compiler source hashes,

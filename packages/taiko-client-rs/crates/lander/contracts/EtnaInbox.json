@@ -115,6 +115,19 @@
     },
     {
       "inputs": [],
+      "name": "activeCommitteeSnapshot",
+      "outputs": [
+        {
+          "internalType": "uint64",
+          "name": "snapshot_",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "committeeConfigHash",
       "outputs": [
         {
@@ -305,6 +318,11 @@
               "internalType": "uint256",
               "name": "baseFeeAmount",
               "type": "uint256"
+            },
+            {
+              "internalType": "uint64",
+              "name": "activeCommitteeSnapshot",
+              "type": "uint64"
             }
           ],
           "internalType": "struct IEtnaInbox.LandInput",
@@ -467,6 +485,11 @@
               "internalType": "uint256",
               "name": "baseFeeAmount",
               "type": "uint256"
+            },
+            {
+              "internalType": "uint64",
+              "name": "activeCommitteeSnapshot",
+              "type": "uint64"
             }
           ],
           "internalType": "struct IEtnaInbox.LandInput",
@@ -657,6 +680,19 @@
       "name": "saveForcedInclusion",
       "outputs": [],
       "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "stakingRegistry",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "registry_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
       "type": "function"
     },
     {
@@ -1043,6 +1079,11 @@
     {
       "inputs": [],
       "name": "InsufficientFee",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidCommitteeSnapshot",
       "type": "error"
     },
     {

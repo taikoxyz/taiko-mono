@@ -1,4 +1,5 @@
-//! Independent L2 reward claims. Entitlement roots and claim-transaction finality are distinct.
+//! Independent L2 reward claims. A canonical successful claim is final: Etna L2 blocks are
+//! BFT-final, and a rerun after any recovery that rewinds L2 reconciles the retained signature.
 
 use crate::{
     LanderError, Result,
@@ -8,11 +9,9 @@ use alloy::sol_types::{SolCall, SolValue};
 use alloy_primitives::{Address, B256, Bytes, U256};
 use serde::{Deserialize, Serialize};
 
-/// Bounded historical landing discovery and untrusted resume hints.
-pub mod discovery;
 /// Resume-first reconciliation of a single immutable transaction.
 pub mod runner;
-/// Hash-pinned proof discovery and finalized checkpoint verification.
+/// Hash-pinned receipt proofs under the own finalized L1 anchor.
 pub mod source;
 /// Claim-only durable journal and directory lock.
 pub mod store;

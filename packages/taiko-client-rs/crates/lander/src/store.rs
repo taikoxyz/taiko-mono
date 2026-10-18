@@ -16,6 +16,8 @@ use std::{
 
 /// Journal schema version; incompatible formats stop rather than discard outstanding nonces.
 ///
+/// Schema 11 adds the proof-bound active committee snapshot in the twenty-one-word V9 statement
+/// and nine-field canonical ABI input. Schema 10 signed jobs are rejected without migration.
 /// Schema 10 jobs bind the twenty-word V8 statement and eight-field canonical ABI input,
 /// signing `land(input, proof)`. Schema 9 participation-era journals are rejected intact.
 /// Schema 8 binds calldata FI envelope v5 and payload v4 under the V6 statement.
@@ -26,7 +28,7 @@ use std::{
 /// over a six-field `LandInput` (forced inclusion head after the batch and fee recipient included),
 /// compressed V3 blob payloads and snapshots carrying the forced inclusion queue; schema 4 bound V5
 /// statements over uncompressed V2 payloads and schema 3 complete V1 blocks.
-const JOURNAL_VERSION: u8 = 10;
+const JOURNAL_VERSION: u8 = 11;
 /// Hard allocation bound before reading or decoding an untrusted journal.
 pub(crate) const MAX_JOURNAL_BYTES: u64 = 256 * 1024 * 1024;
 
@@ -449,7 +451,7 @@ mod tests {
     /// domain JSON commits and schema 8 V6 statements without participation.
     #[test]
     fn legacy_journals_are_rejected_without_modifying_their_files() {
-        for version in [2, 3, 4, 5, 6, 7, 8, 9] {
+        for version in [2, 3, 4, 5, 6, 7, 8, 9, 10] {
             let directory = tempfile::tempdir().unwrap();
             let journal = serde_json::json!({
                 "version": version,
@@ -470,6 +472,40 @@ mod tests {
         }
     }
 
+    #[test]
+    fn restored_job_rejects_cutoff_tampering_even_with_recomputed_digest() {
+        let mut request = crate::test_utils::runtime::request();
+        request.batch.input.activeCommitteeSnapshot += 1;
+        let reference =
+            abci::RawL1Header::from_raw(request.batch.reference_headers[0].clone()).unwrap();
+        request.batch.statement_hash = crate::statement::hash(
+            &request.batch.snapshot,
+            &request.batch.input,
+            reference.hash(),
+            &request.batch.blobs.versioned_hashes,
+        );
+        let id = JournalIdentity {
+            l1_chain_id: request.batch.snapshot.l1_chain_id,
+            l2_chain_id: request.batch.snapshot.l2_chain_id,
+            inbox: request.batch.snapshot.inbox,
+            registry: request.batch.snapshot.registry,
+            sender: Address::repeat_byte(5),
+        };
+        let state = JournalState::Prepared {
+            job: Box::new(ProvedJob { request, proof: Bytes::from_static(&[0]) }),
+        };
+        let bytes = serde_json::to_vec(
+            &serde_json::json!({ "version": JOURNAL_VERSION, "identity": id, "state": state }),
+        )
+        .unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("lander-state.json");
+        std::fs::write(&path, &bytes).unwrap();
+        let error = Store::open(directory.path(), id).err().expect("altered cutoff rejected");
+        assert!(error.to_string().contains("active committee snapshot"), "{error}");
+        assert_eq!(std::fs::read(path).unwrap(), bytes);
+    }
+
     #[tokio::test]
     async fn legacy_pending_journal_retains_exact_signed_bytes_and_nonce_on_rejection() {
         let request = crate::test_utils::runtime::request();
@@ -484,7 +520,7 @@ mod tests {
         };
         let state =
             JournalState::Pending { job: Box::new(ProvedJob { request, proof }), transaction };
-        for version in [2, 3, 4, 5, 6, 7, 8, 9] {
+        for version in [2, 3, 4, 5, 6, 7, 8, 9, 10] {
             let directory = tempfile::tempdir().unwrap();
             let bytes = serde_json::to_vec(
                 &serde_json::json!({ "version": version, "identity": id, "state": state }),
@@ -501,11 +537,11 @@ mod tests {
         }
     }
 
-    /// A schema-9 participation-era job signed at nonce 7 stays on disk byte for byte, nonce
+    /// A schema-10 V8 job signed at nonce 7 stays on disk byte for byte, nonce
     /// included, and the store
     /// refuses to open it.
     #[tokio::test]
-    async fn journal_v9_signed_job_is_refused_intact() {
+    async fn journal_v10_signed_job_is_refused_intact() {
         let request = crate::test_utils::runtime::request();
         let proof = Bytes::from_static(&[0]);
         let transaction = crate::test_utils::runtime::signed(&request, &proof, 7).await;
@@ -518,7 +554,7 @@ mod tests {
         };
         let state =
             JournalState::Signed { job: Box::new(ProvedJob { request, proof }), transaction };
-        let journal = serde_json::json!({ "version": 9, "identity": id, "state": state });
+        let journal = serde_json::json!({ "version": 10, "identity": id, "state": state });
         let bytes = serde_json::to_vec(&journal).unwrap();
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("lander-state.json");
@@ -526,10 +562,10 @@ mod tests {
 
         let error = match Store::open(directory.path(), id.clone()) {
             Err(e) => e,
-            Ok(_) => panic!("schema 9 must be rejected"),
+            Ok(_) => panic!("schema 10 must be rejected"),
         };
         assert!(
-            error.to_string().contains("incompatible journal schema 9 (expected 10)"),
+            error.to_string().contains("incompatible journal schema 10 (expected 11)"),
             "{error}"
         );
         assert_eq!(std::fs::read(&path).unwrap(), bytes);
@@ -652,11 +688,14 @@ mod tests {
         let small = request();
         let (_, committee, keys) = consensus::committee(&[3, 3, 3], 0);
         let mut blocks: Vec<crate::CertifiedBlock> = Vec::new();
+        let mut parent_hash = small.batch.snapshot.checkpoint_hash;
         for height in 1..=2 {
             let envelope = abci::EtnaEnvelope {
                 block: abci::ExecutionBlock {
                     header: alloy_consensus::Header {
                         number: height,
+                        parent_hash,
+                        state_root: B256::ZERO,
                         base_fee_per_gas: Some(7),
                         gas_used: 21_000,
                         ..Default::default()
@@ -667,10 +706,13 @@ mod tests {
                 committee: None,
                 forced: None,
             };
+            parent_hash = envelope.block.header.hash_slow();
             blocks.push(consensus::pair_with_envelope(envelope, &committee, &keys, blocks.last()));
         }
         let mut large = small.clone();
         large.batch.blocks = blocks;
+        large.batch.input.lastBlockHash = parent_hash;
+        large.batch.input.lastStateRoot = B256::ZERO;
         let payload = codec::encode(&large.batch.blocks, &cap).unwrap();
         rebind(&mut large, &payload);
         let list_growth = list_len(&large) - list_len(&small);

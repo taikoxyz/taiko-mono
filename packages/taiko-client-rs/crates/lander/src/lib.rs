@@ -14,7 +14,7 @@ pub mod error;
 pub mod proof;
 /// Canonical L2 reward receipts and checked host base fee accounting.
 pub mod rewards;
-/// Exact V8 public statement encoding and hashing.
+/// Exact V9 public statement encoding and hashing.
 pub mod statement;
 /// Immutable contexts shared by collectors, proof providers and persistence.
 pub mod types;

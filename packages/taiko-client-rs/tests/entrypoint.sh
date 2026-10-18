@@ -19,12 +19,18 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # regardless of the caller's working directory.
 cd "$DIR/.."
 
-# Internal selector used by the fixed `just test-smoke` recipe. Shift only this
-# leading flag so all remaining arguments retain their nextest meaning.
-filter='kind(test)'
+# Internal selectors used by the fixed `just test-smoke` and `just test-full` recipes. Shift only
+# this leading flag so all remaining arguments retain their nextest meaning. By default the two
+# slowest scenarios are left to the full run (main, nightly, `just verify`): the L1 finality
+# stall needs about 1,150 L2 blocks to age past the 1152 s anchor floor, and the anchor
+# finality gate waits for L1 to finalize epoch 1. Unit tests cover both halt-and-resume rules.
+filter='kind(test) & !(test(=stale_l1_finality_pauses_and_resumes_l2) | test(=anchor_finality_gates_epoch_entry))'
 if [[ "${1:-}" == "--smoke" ]]; then
     shift
-    filter='kind(test) & (test(=single_validator_produces_blocks_by_the_header_rules) | test(=epoch_switch_adds_the_joining_validator) | test(=real_l2_rewards_claim_and_fee_continuation) | test(=lander_cli_lands_blob_batches_and_resumes_after_sigterm))'
+    filter='kind(test) & (test(=single_validator_produces_blocks_by_the_header_rules) | test(=epoch_switch_adds_the_joining_validator) | test(=real_l2_rewards_claim_and_fee_continuation) | test(=lander_cli_recovers_from_sigkill_and_resumes_after_sigterm))'
+elif [[ "${1:-}" == "--full" ]]; then
+    shift
+    filter='kind(test)'
 fi
 
 # Every harness child inherits this label. Cleanup stays scoped to this invocation, including

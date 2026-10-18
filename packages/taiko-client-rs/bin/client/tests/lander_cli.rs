@@ -99,61 +99,12 @@ fn assert_key_absent(process: &CliProcess) {
     assert!(!output.contains(key.trim_start_matches("0x")), "CLI output exposed raw key bytes");
 }
 
+/// One devnet covers both restart kinds: SIGKILL while a landing is pending resumes the same signed
+/// bytes and nonce, and SIGTERM after a landing exits cleanly and the next process resumes the
+/// cross-epoch suffix in one further landing.
 #[tokio::test]
 #[ignore = "docker"]
-async fn lander_cli_lands_blob_batches_and_resumes_after_sigterm() -> Result<()> {
-    let fixture = ContractFixture::deploy().await?;
-    let result = async {
-        let mut chain = FixtureChain::new(&fixture).await?;
-        chain.extend(&fixture, 5).await?;
-        let rpc = FixtureRpc::start(rpc_data(&chain)).await?;
-        let directory = TempDir::new()?;
-        let args = inputs(&fixture, &rpc, &directory)?;
-        let sender = dev_signer().address();
-        let nonce = fixture.anvil.provider.get_transaction_count(sender).await?;
-        let mut first =
-            CliProcess::spawn(Path::new(CLIENT), &args, directory.path().join("first.log"), &[])?;
-        wait_checkpoint(&fixture, &mut first, 5).await?;
-        ensure!(
-            fixture.checkpoint().await? == (5, chain.headers[5].hash_slow()),
-            "first CLI checkpoint differs from genuine decided chain"
-        );
-        ensure!(first.signal(libc::SIGTERM).await?.success(), "SIGTERM should exit cleanly");
-        assert_key_absent(&first);
-        mine_l1_blocks(&fixture.anvil.provider, 3).await?;
-        let resumed_height = fixture.genesis.epoch_len + 2;
-        chain.extend(&fixture, resumed_height).await?;
-        rpc.replace(rpc_data(&chain)).await;
-        let mut second =
-            CliProcess::spawn(Path::new(CLIENT), &args, directory.path().join("second.log"), &[])?;
-        wait_checkpoint(&fixture, &mut second, resumed_height).await?;
-        ensure!(
-            fixture.checkpoint().await? ==
-                (resumed_height, chain.headers[usize::try_from(resumed_height)?].hash_slow()),
-            "resumed CLI checkpoint differs"
-        );
-        ensure!(
-            second.signal(libc::SIGTERM).await?.success(),
-            "restarted command should stop gracefully"
-        );
-        // (0, 5], then a complete prefix (5, epoch_len + 2] crossing the epoch.
-        ensure!(
-            fixture.anvil.provider.get_transaction_count(sender).await? == nonce + 2,
-            "expected two real blob landing transactions"
-        );
-        assert_key_absent(&second);
-        Ok(())
-    }
-    .await;
-    if result.is_err() {
-        fixture.anvil.dump_logs();
-    }
-    result
-}
-
-#[tokio::test]
-#[ignore = "docker"]
-async fn lander_cli_sigkill_reconciles_the_same_pending_nonce_before_progress() -> Result<()> {
+async fn lander_cli_recovers_from_sigkill_and_resumes_after_sigterm() -> Result<()> {
     let fixture = ContractFixture::deploy().await?;
     let result = async {
         let mut chain = FixtureChain::new(&fixture).await?;
@@ -204,24 +155,37 @@ async fn lander_cli_sigkill_reconciles_the_same_pending_nonce_before_progress() 
         mine_l1_blocks(&fixture.anvil.provider, 1).await?;
         wait_checkpoint(&fixture, &mut second, 5).await?;
         ensure!(
+            fixture.checkpoint().await? == (5, chain.headers[5].hash_slow()),
+            "recovered CLI checkpoint differs from genuine decided chain"
+        );
+        ensure!(
             fixture.anvil.provider.get_transaction_count(sender).await? == nonce + 1,
             "restart consumed an extra nonce"
         );
+        ensure!(second.signal(libc::SIGTERM).await?.success(), "SIGTERM should exit cleanly");
+        assert_key_absent(&second);
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;
         let resumed_height = fixture.genesis.epoch_len + 2;
         chain.extend(&fixture, resumed_height).await?;
         rpc.replace(rpc_data(&chain)).await;
-        wait_checkpoint(&fixture, &mut second, resumed_height).await?;
-        // V8 lands the available cross-epoch suffix in one batch; there is no reward-freeze cut.
+        let mut third =
+            CliProcess::spawn(Path::new(CLIENT), &args, directory.path().join("third.log"), &[])?;
+        wait_checkpoint(&fixture, &mut third, resumed_height).await?;
+        ensure!(
+            fixture.checkpoint().await? ==
+                (resumed_height, chain.headers[usize::try_from(resumed_height)?].hash_slow()),
+            "resumed CLI checkpoint differs"
+        );
+        // V9 lands the available cross-epoch suffix in one batch; there is no reward-freeze cut.
         ensure!(
             fixture.anvil.provider.get_transaction_count(sender).await? == nonce + 2,
             "cross-epoch progress must use exactly one further landing nonce"
         );
         ensure!(
-            second.signal(libc::SIGTERM).await?.success(),
+            third.signal(libc::SIGTERM).await?.success(),
             "restarted command should stop gracefully"
         );
-        assert_key_absent(&second);
+        assert_key_absent(&third);
         Ok(())
     }
     .await;
@@ -335,7 +299,7 @@ async fn lander_cli_submits_at_minimum_or_timeout_and_keeps_wait_after_sigkill()
         let rpc = FixtureRpc::start(rpc_data(&chain)).await?;
         let directory = TempDir::new()?;
         let args = inputs(&fixture, &rpc, &directory)?;
-        let policy = [("--min-blocks", "3"), ("--max-batch-wait", "30")];
+        let policy = [("--min-blocks", "3"), ("--max-batch-wait", "20")];
         let sender = dev_signer().address();
         let nonce = fixture.anvil.provider.get_transaction_count(sender).await?;
         let mut first = CliProcess::spawn(
@@ -375,7 +339,7 @@ async fn lander_cli_submits_at_minimum_or_timeout_and_keeps_wait_after_sigkill()
         );
         chain.extend(&fixture, 4).await?;
         rpc.replace(rpc_data(&chain)).await;
-        // Three publishable blocks trigger before the thirty-second timer.
+        // Three publishable blocks trigger before the twenty-second timer.
         // The fifteen-second observation window includes real signing and inclusion overhead.
         wait_checkpoint_before(&fixture, &mut first, 4, Duration::from_secs(15)).await?;
         let first_seen = waiting["first_seen_unix_ms"]
@@ -386,7 +350,7 @@ async fn lander_cli_submits_at_minimum_or_timeout_and_keeps_wait_after_sigkill()
             .as_millis()
             .saturating_sub(u128::from(first_seen));
         ensure!(
-            age_ms < 30_000,
+            age_ms < 20_000,
             "minimum test reached the timer deadline instead of the count gate"
         );
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;

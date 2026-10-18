@@ -34,7 +34,7 @@ async fn init_chain_persists_the_verified_genesis_state() {
 
     let expected = fx.expected_state();
     assert_eq!(app.state(), Some(&expected));
-    assert_eq!(Store::new(dir.path().to_path_buf()).load().unwrap(), Some(expected));
+    assert_eq!(Store::volatile(dir.path().to_path_buf()).load().unwrap(), Some(expected));
 
     // L1: only the finality check (finalized number and the canonical header at L1_0).
     assert_eq!(app.l1().calls(), [L1Call::Finalized, L1Call::CanonicalHash(fx.genesis.l1_0)]);
@@ -165,7 +165,10 @@ async fn init_chain_is_idempotent_at_genesis() {
     let restarted = init_chain(&mut app, fx.request.clone()).await.expect("after a restart");
     assert_eq!(restarted, first);
     assert_eq!(app.state(), Some(&fx.expected_state()));
-    assert_eq!(Store::new(dir.path().to_path_buf()).load().unwrap(), Some(fx.expected_state()));
+    assert_eq!(
+        Store::volatile(dir.path().to_path_buf()).load().unwrap(),
+        Some(fx.expected_state())
+    );
     assert!(app.l1().calls().contains(&L1Call::CanonicalHash(fx.genesis.l1_0)), "re-verified");
 
     // The validators are echoed in the request's order, as on the first InitChain.
@@ -193,7 +196,10 @@ async fn init_chain_with_another_genesis_is_rejected() {
     let err = init_chain(&mut app, other.request.clone()).await.expect_err("another genesis");
     assert!(matches!(err, AbciError::AlreadyInitialized), "{err:?}");
     assert_eq!(app.state(), Some(&fx.expected_state()));
-    assert_eq!(Store::new(dir.path().to_path_buf()).load().unwrap(), Some(fx.expected_state()));
+    assert_eq!(
+        Store::volatile(dir.path().to_path_buf()).load().unwrap(),
+        Some(fx.expected_state())
+    );
 }
 
 #[tokio::test]
@@ -203,7 +209,7 @@ async fn init_chain_after_the_first_block_is_rejected() {
     let mut state = fx.expected_state();
     state.last_height += 1;
     state.parent.number += 1;
-    Store::new(dir.path().to_path_buf()).save(&state).unwrap();
+    Store::volatile(dir.path().to_path_buf()).save(&state).unwrap();
 
     let mut app = fx.app(dir.path());
     let err = init_chain(&mut app, fx.request.clone()).await.expect_err("past genesis");
@@ -692,7 +698,7 @@ async fn genesis_and_restart_authenticate_chain_specific_backpressure_parameters
             wrong.l1(),
             wrong.engine(),
             wrong.params,
-            Store::new(dir.path().into()),
+            Store::volatile(dir.path().into()),
             AppOptions::default(),
         )
         .expect_err("wrong back-pressure configuration opened stored state");

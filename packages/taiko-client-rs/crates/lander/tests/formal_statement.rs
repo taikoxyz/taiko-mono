@@ -35,7 +35,7 @@ fn observe(row: &Value) -> Value {
         forced_inclusion_head: number(row, "headBefore"),
         forced_inclusion_tail: number(row, "tail"),
         committee_config_hash: parse(context, "config"),
-        // These fields are outside the twenty-word statement projection. This fixture
+        // These fields are outside the twenty-one-word statement projection. This fixture
         // does not purport to authenticate a snapshot or execute the production guest.
         genesis: GenesisRecord {
             committee_config_hash: B256::ZERO,
@@ -70,6 +70,7 @@ fn observe(row: &Value) -> Value {
         feeRecipient: parse(row, "recipient"),
         l2RewardRecipient: parse(row, "l2RewardRecipient"),
         baseFeeAmount: parse(row, "baseFeeAmount"),
+        activeCommitteeSnapshot: number(row, "activeCommitteeSnapshot"),
     };
     let blobs = row["blobs"]
         .as_array()
@@ -81,7 +82,7 @@ fn observe(row: &Value) -> Value {
     let reference = parse(row, "referenceHash");
     let bytes = statement::preimage(&snapshot, &input, reference, &blobs);
     assert_eq!(bytes.len(), statement::PREIMAGE_BYTES);
-    assert_eq!(bytes.len(), 640);
+    assert_eq!(bytes.len(), 672);
     json!({"id":row["id"], "rustPreimage":format!("0x{}",hex::encode(bytes)),
         "rustDigest":format!("{:#x}",statement::hash(&snapshot,&input,reference,&blobs)),
         "rustBlobCommitment":format!("{:#x}",statement::blob_hashes_hash(&blobs))})
