@@ -258,7 +258,7 @@ For upgradeable contracts:
 
 ## Etna new-genesis rewards
 
-Etna uses nonpayable V9 landing statements (21 words), receipt commitments at Inbox mapping
+Etna uses nonpayable V10 landing statements (21 words), receipt commitments at Inbox mapping
 slot 283, the terminal active committee snapshot at slot 284, and explicit proof-based claims from the immutable L2 treasury. Keep L1 queue-fee
 `feeRecipient` separate from `l2RewardRecipient`; there is no L1 reward pool, DAO subsidy,
 pre-funding or participation settlement. Registry withdrawals also require its one-time bound Inbox's

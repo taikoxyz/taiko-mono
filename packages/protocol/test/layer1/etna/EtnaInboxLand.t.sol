@@ -186,6 +186,26 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         _rejectStatementAndAssertRollback(input, statement);
     }
 
+    /// @dev The former full-envelope DA domain cannot authorize execution-only DA.
+    function test_land_RevertWhen_ProofUsesTheFormerV9Statement() external {
+        IEtnaInbox.LandInput memory input = _batch(1);
+        bytes memory words = _manualPreimage(
+            address(etnaInbox),
+            address(registry),
+            0,
+            genesisBlockHash,
+            COMMITTEE_CONFIG_HASH,
+            input,
+            L1_REFERENCE_BLOCK_HASH
+        );
+        assertEq(words.length, 672, "unchanged statement layout");
+        bytes32 oldTag = bytes32("TAIKO_ETNA_LAND_V9");
+        assembly {
+            mstore(add(words, 32), oldTag)
+        }
+        _rejectStatementAndAssertRollback(input, keccak256(words));
+    }
+
     function test_land_RevertWhen_ProofUsesTheFormerV8Statement() external {
         IEtnaInbox.LandInput memory input = _batch(1);
         bytes memory words = _manualPreimage(
@@ -259,7 +279,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         assertEq(taikoToken.balanceOf(address(registry)), MIN_STAKE);
     }
 
-    function test_land_RecordsV9ReceiptWithoutFunding() external {
+    function test_land_RecordsV10ReceiptWithoutFunding() external {
         IEtnaInbox.LandInput memory input = _batch(1);
         input.l2RewardRecipient = Alice;
         input.baseFeeAmount = 1 ether;
@@ -302,7 +322,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         vm.setBlockhash(l1ReferenceBlockNumber, L1_REFERENCE_BLOCK_HASH);
     }
 
-    /// @dev The former nineteen-word V7 statement cannot authorize a V9 landing.
+    /// @dev The former nineteen-word V7 statement cannot authorize a V10 landing.
     function test_land_RevertWhen_ProofUsesAFormerStatement() external {
         IEtnaInbox.LandInput memory input = _batch(1);
         bytes memory words = _manualPreimage(
@@ -451,7 +471,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
     }
 
     /// @dev Mutates each of twenty-one public words with nonzero queue heads and verifies rollback.
-    function test_land_RejectsEveryMutatedV9FieldAndRollsBack() external {
+    function test_land_RejectsEveryMutatedV10FieldAndRollsBack() external {
         _saveForcedInclusions(3);
         _landConsuming(_batch(2), 1);
         IEtnaInbox.LandInput memory input = _batch(11);
@@ -466,7 +486,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
             L1_REFERENCE_BLOCK_HASH
         );
         assertEq(words.length, 672, "twenty-one static words");
-        assertEq(_word(words, 0), bytes32("TAIKO_ETNA_LAND_V9"), "word 1: V9 domain");
+        assertEq(_word(words, 0), bytes32("TAIKO_ETNA_LAND_V10"), "word 1: V10 domain");
         assertEq(uint256(_word(words, 15)), 1, "word 16: head before");
         assertEq(uint256(_word(words, 16)), 3, "word 17: head after");
         assertEq(address(uint160(uint256(_word(words, 17)))), Bob, "word 18: fee recipient");
@@ -1161,11 +1181,11 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         );
     }
 
-    /// @dev The configuration opening (352 bytes) and V9 statement (672 bytes) vectors of
+    /// @dev The configuration opening (352 bytes) and V10 statement (672 bytes) vectors of
     /// `testdata/etna_vectors/vectors.json`, which `cast` computes and taiko-client-rs reads too.
     /// The Inbox is etched at the vector's address with the vector's identities and
     /// configuration hash, so `hashLandStatement` binds exactly the vector's twenty-one static words.
-    function test_hashLandStatement_MatchesTheV9Vector() external {
+    function test_hashLandStatement_MatchesTheV10Vector() external {
         string memory json = LibEtnaVectors.load();
         address vectorInbox = _etchVectorInbox(json);
         bytes32[] memory blobs =
@@ -1181,7 +1201,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
             expected,
             "the preimage opens the statement"
         );
-        assertEq(_hashVectorStatement(json, vectorInbox, blobs), expected, "V9 statement");
+        assertEq(_hashVectorStatement(json, vectorInbox, blobs), expected, "V10 statement");
         assertEq(LibEtnaVectors.bytesAt(json, ".land_statement.preimage").length, 672);
         assertEq(IEtnaInbox.land.selector, bytes4(LibEtnaVectors.bytesAt(json, ".land_selector")));
         LibEtnaRewards.Receipt memory receipt = LibEtnaVectors.rewardReceipt(json);
@@ -1598,7 +1618,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         );
     }
 
-    /// @dev Independent flat V9 encoding, deliberately not the implementation's struct helper.
+    /// @dev Independent flat V10 encoding, deliberately not the implementation's struct helper.
     /// The head before is read from slot 281; distinct L1 and L2 recipients and amount follow.
     function _manualPreimage(
         address _inbox,
@@ -1614,7 +1634,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         returns (bytes memory)
     {
         bytes memory context = abi.encode(
-            bytes32("TAIKO_ETNA_LAND_V9"), block.chainid, L2_CHAIN_ID, _inbox, _registry
+            bytes32("TAIKO_ETNA_LAND_V10"), block.chainid, L2_CHAIN_ID, _inbox, _registry
         );
         return bytes.concat(
             context,

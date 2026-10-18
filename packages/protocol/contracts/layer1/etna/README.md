@@ -4,12 +4,12 @@ Etna starts a new proof-of-stake L2 chain at block 0. A committee of TAIKO stake
 signs blocks with CometBFT. Anyone can land proven batches on L1 and submit authenticated L2
 base-fee claims for the batch's committed reward recipient.
 
-| Contract                           | Role                                                                          |
-| ---------------------------------- | ----------------------------------------------------------------------------- |
-| `impl/EtnaInbox.sol`               | Fresh L1 UUPS proxy; lands V9 batches, saves checkpoints and reward receipts. |
-| `impl/EtnaStakingRegistry.sol`     | Stakes, immutable L2 reward addresses, heartbeats, exits and checkpoints.     |
-| `libs/LibEntriesTree.sol`          | Recipient-bound registry entries tree.                                        |
-| `../../layer2/core/L2FeeVault.sol` | Plain immutable L2 treasury predeploy; pays proved receipt claims once.       |
+| Contract                           | Role                                                                           |
+| ---------------------------------- | ------------------------------------------------------------------------------ |
+| `impl/EtnaInbox.sol`               | Fresh L1 UUPS proxy; lands V10 batches, saves checkpoints and reward receipts. |
+| `impl/EtnaStakingRegistry.sol`     | Stakes, immutable L2 reward addresses, heartbeats, exits and checkpoints.      |
+| `libs/LibEntriesTree.sol`          | Recipient-bound registry entries tree.                                         |
+| `../../layer2/core/L2FeeVault.sol` | Plain immutable L2 treasury predeploy; pays proved receipt claims once.        |
 
 This is a new-genesis format. It has no existing-chain migration, L1 reward pool, participation
 accounting, DAO subsidy, balance sweep or automatic bridge payout. The Inbox retains L1 forced
@@ -136,7 +136,7 @@ Validate the vault address against the EL treasury derivation rather than a free
 fee-vault address. Ordinary gas estimation, EIP-7825 transaction caps, priority fees and blob fees
 retain their existing semantics; only base fees committed for the landed execution range pay here.
 
-The coordinated format is envelope 6, blob payload 5, journal schema 11, APP_VERSION 3,
+The coordinated format is landing statement V10, envelope 6, blob payload 6, journal schema 12, APP_VERSION 3,
 committee encoding version 2 and config domain `ETNA_PARENT_ANCHOR_V3`. Reject old persisted
 or signed jobs explicitly. Do not rewrite an old signed journal or discard its transaction nonce
 to make it appear current. No real Etna guest is included: dummy/accept-all proofs are explicit
@@ -343,7 +343,7 @@ is absent from the committee governing an already-landed block; later anchored s
 select that bond again. Slot reuse creates a different bond incarnation and leaves historical
 registry checkpoints intact.
 
-The Inbox initializes its cutoff to `genesisCutoff`. V9 binds the snapshot of the committee that
+The Inbox initializes its cutoff to `genesisCutoff`. V10 binds the snapshot of the committee that
 actually authorizes the terminal block: for runtime epoch `t`, the anchor of `D(t)=H(t)-3`.
 At switch `S(t)` and `S(t)+1`, the outgoing set still authorizes blocks, so its cutoff remains
 unchanged. Only a landing reaching `H(t)` can publish the incoming set's cutoff. A fresh terminal
@@ -399,7 +399,7 @@ function land(LandInput calldata input, bytes calldata proof) external;
 uint64 l1ReferenceBlockNumber, uint48 forcedInclusionHead, address feeRecipient,
 address l2RewardRecipient, uint256 baseFeeAmount)`. Both recipients must be nonzero, including
 for zero fees. `feeRecipient` receives only consumed L1 forced inclusion fees. The lander selects
-`l2RewardRecipient` independently of block proposers; the V9 statement and receipt bind that
+`l2RewardRecipient` independently of block proposers; the V10 statement and receipt bind that
 exact address. Consensus and the future guest must enforce `extraData[0] == 0` on every execution
 block. The guest must bind this nonzero recipient and prove `baseFeeAmount` equals the actual EL
 base-fee credits to the immutable treasury over `(parentHeight, lastHeight]`, authenticating all
@@ -413,11 +413,11 @@ regressions exercise the header fee identity; no real guest is implemented.
 Landing requires active status, `parentHeight < lastHeight <= parentHeight + maxBatchBlocks`,
 `lastHeight <= type(uint48).max`, ordered queue progress within the tail, at most one consumed
 entry per new block, a past reference with an available block hash, and at least one blob. The
-V9 statement contains exactly twenty-one ABI words / 672 bytes:
+V10 statement contains exactly twenty-one ABI words / 672 bytes:
 
 ```solidity
 keccak256(abi.encode(
-    bytes32("TAIKO_ETNA_LAND_V9"),
+    bytes32("TAIKO_ETNA_LAND_V10"),
     block.chainid, l2ChainId, address(this), address(stakingRegistry),
     recoveryGeneration, parentHeight, parentHash, committeeConfigHash,
     lastHeight, lastBlockHash, lastStateRoot,
@@ -447,8 +447,8 @@ receiptSlot = keccak256(abi.encode(batchId, uint256(283)));
 ```
 
 A zero-fee batch still records a nonzero commitment. Copying a proof cannot redirect either
-recipient. Changed reward recipient or amount changes the V9 statement and commitment while
-retaining the same batch ID. Existing V8 and older landing formats are incompatible. The ten-word receipt and batch ID are unchanged.
+recipient. Changed reward recipient or amount changes the V10 statement and commitment while
+retaining the same batch ID. Existing V9 and older landing formats are incompatible. The ten-word receipt and batch ID are unchanged.
 
 ### Permissionless L2 claims
 
@@ -527,17 +527,36 @@ the actual embedded committed parent's exact root and snapshot number.
 Verify the parent certificate and every current/pending certificate, current validator hash and
 `nextValidatorHash` across `S/S+1/H` and arbitrary cuts. Require strictly more than two-thirds voting
 power from distinct signers under `taiko-etna-<l2ChainId>-g<generation>`. Prove execution ancestry
-from the stored parent to terminal hash/state root and blob data. The bound blobs carry payload
-V5, `0x05 || zlib(rlp([[header_proto, envelope], ...]))` in the existing blob coding, with each
-block's canonical CometBFT header and Etna envelope: header hashes are the certified block ids,
-`data_hash` commits to the envelope and `last_block_id` links the batch. Envelope v6 carries a
-forced witness `[index, entryProof, tx]` when the anchor proves a pending entry. Proposers leave
-`tx` empty for ordinary and included blocks and carry the separate preimage only for skips.
-Landing still publishes batch blobs; forced transaction admission uses calldata bytes.
-Commits and signatures are proof witnesses, not blob data.
-Every anchor and actual proving L1 root belongs to the header chain ending at the reference hash.
-Reference headers may be recent even for old batches. Arbitrary batch cuts never depend on an
-earlier batch's committee output.
+from the stored parent to terminal hash/state root and exact blob data. The bound blobs carry
+payload V6, `0x06 || zlib(rlp([[comet_header_proto_bytes, execution_block_rlp_bytes], ...]))`, in
+the existing blob coding. Both items in each pair are byte strings: the full canonical CometBFT
+header protobuf, followed by the canonical RLP encoding of `[full EL header, ordered EIP-2718
+transactions]`. The execution block has no envelope version or consensus witnesses. Batches decode
+independently, with canonical framing and linked CometBFT/execution heights and parent hashes.
+
+The full original envelope v6, anchor/committee/forced witnesses, evidence, commits and signatures
+remain private consensus/proving inputs. Authenticate original envelopes against each certified
+header's `data_hash`, verify their witness rules and execution, and prove their execution blocks
+match the published projection exactly. Public DA decoding alone cannot recompute the original
+`data_hash` or verify certificates. The lander checks this binding before publication and after
+restoring persisted jobs. Envelope v6 still carries forced witness `[index, entryProof, tx]` when
+the anchor proves a pending entry; ordinary/included blocks omit the separate preimage and skips
+carry it. Forced transaction admission still uses calldata bytes, and landing still publishes blobs.
+
+Under a sound real ZK landing proof and a finalized canonical L1 checkpoint binding the ordered
+blob hashes, archived blob bytes plus the required genesis/execution context suffice to reconstruct
+the landed EL chain and check its terminal hash/state root without original consensus witnesses or
+signatures. Commitments alone cannot recover unavailable blob bytes. Exact historical envelopes
+and stock CometBFT validator bootstrap are separate capabilities; L1-only CometBFT state bootstrap
+is not implemented. Unlanded blocks retain their consensus/proving inputs. The development dummy
+proof does not establish this soundness assumption.
+
+Capacity checks measure the execution DA actually published, with conservative framing allowance
+and existing compression-work limits. Independently bound retained private inputs and journal size;
+smaller DA must not admit a job that cannot be durably recorded. Keep six blobs and `maxBatchBlocks`,
+back-pressure and generation unchanged. Every anchor and actual proving L1 root belongs to the
+header chain ending at the reference hash. Reference headers may be recent even for old batches.
+Arbitrary batch cuts never depend on an earlier batch's committee output.
 
 ### Forced inclusion obligations
 
@@ -656,9 +675,9 @@ cross-generation economic double payment; recovery coordination remains outside 
 
 ## Shared vectors and verification
 
-`testdata/etna_vectors/generate.py` uses independent `cast` ABI/hash/slot commands. Its schema-2
+`testdata/etna_vectors/generate.py` uses independent `cast` ABI/hash/slot commands. Its schema-3
 JSON pins the V3 eleven-word config, recipient-bound registry leaves/four-word storage, V2 set
-leaves and committee records, complete twenty-one-word V9 preimages, batch identity, commitment,
+leaves and committee records, complete twenty-one-word V10 preimages, batch identity, commitment,
 slot-283 location, slot-284 cutoff, exact land/claim selectors, and a zero-fee batch. Integers are decimal strings.
 Set cases cover empty rejection input, singleton, odd-width and five-member trees.
 

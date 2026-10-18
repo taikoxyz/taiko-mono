@@ -119,9 +119,9 @@ interface IEtnaInbox {
         /// @dev At least the stored head, at most the queue tail, and ahead of the stored head by
         /// at most the batch's block count, since each block consumes at most one entry.
         uint48 forcedInclusionHead;
-        /// @notice The non-zero L1 receiver of consumed forced-inclusion fees, bound into V9.
+        /// @notice The non-zero L1 receiver of consumed forced-inclusion fees, bound into V10.
         address feeRecipient;
-        /// @notice The non-zero L2 receiver of the proven batch's base fees, bound into V9.
+        /// @notice The non-zero L2 receiver of the proven batch's base fees, bound into V10.
         address l2RewardRecipient;
         /// @notice The proven base-fee reward in wei; may be zero.
         uint256 baseFeeAmount;
@@ -371,23 +371,31 @@ interface IEtnaInbox {
     ///
     /// Prove contiguous execution from the parent hash to the terminal hash/state root, every
     /// anchor and actual proving L1 root on the header chain ending at the reference hash, and
-    /// block data in the bound blobs. The blobs carry payload V5: 0x05 and the zlib-compressed
-    /// RLP list of each block's canonical CometBFT header and Etna envelope, where every header
-    /// hashes to a certified block id, its data hash commits to the envelope and its last block
-    /// id links the batch. Envelope v6's forced witness carries optional transaction bytes for
-    /// the rules above, not a forced blob. Landing still publishes batch blobs. Commits and
-    /// signatures are proof witnesses, not blob data. A batch may start/end at any valid height
-    /// without a previous batch's committee output. Envelope version 6, payload V5 and journal
-    /// schema 11 reject older formats;
-    /// never discard or replace a signed nonce. The verifier must pin a guest enforcing these V9
+    /// exact execution data in the bound blobs. Payload V6 is
+    /// 0x06 || zlib(rlp([[cometHeaderProtoBytes, executionBlockRlpBytes], ...])). Both list
+    /// members are byte strings: canonical CometBFT header protobuf and canonical RLP of
+    /// [full execution header, ordered EIP-2718 transactions]. Every CometBFT header hashes
+    /// to a certified block id and its last block id links the batch. Authenticate each original
+    /// envelope v6 against data_hash, verify its witnesses and prove its execution block equals
+    /// the public projection exactly. data_hash cannot be recomputed from that projection alone.
+    /// Original envelopes, anchor/committee/forced witnesses, evidence, commits and signatures
+    /// are private proof inputs, not blob data. A batch may start/end at any valid height without
+    /// a previous batch's committee output. Under a sound real proof and a finalized canonical
+    /// L1 checkpoint binding the ordered blob hashes, archived blobs plus genesis/execution
+    /// context suffice to reconstruct the landed EL chain and check its terminal hash/state root
+    /// without original witnesses/signatures. Blob commitments do not restore unavailable bytes;
+    /// exact consensus history and L1-only stock CometBFT bootstrap are separate capabilities,
+    /// and that bootstrap is not implemented. Unlanded history retains its proving inputs.
+    /// Envelope version 6, payload V6 and journal schema 12 reject incompatible formats;
+    /// never discard or replace a signed nonce. The verifier must pin a guest enforcing these V10
     /// rules. Dummy proof 0x00 is for development only; no real guest exists here and the dummy
     /// verifier does not establish consensus validity or ZK soundness.
     /// @param _input The batch checkpoint, reference, queue head, L1 fee receiver and L2 reward.
-    /// @param _proof The V9 proof.
+    /// @param _proof The V10 proof.
     function land(LandInput calldata _input, bytes calldata _proof) external;
 
-    /// @notice Encodes the V9 landing statement for supplied batch public inputs.
-    /// @dev Exactly twenty-one static ABI words (672 bytes): bytes32("TAIKO_ETNA_LAND_V9"),
+    /// @notice Encodes the V10 landing statement for supplied batch public inputs.
+    /// @dev Exactly twenty-one static ABI words (672 bytes): bytes32("TAIKO_ETNA_LAND_V10"),
     /// block.chainid, l2ChainId, address(this), stakingRegistry, generation, parentHeight,
     /// parentHash, committeeConfigHash, lastHeight, lastBlockHash, lastStateRoot,
     /// l1ReferenceBlockNumber, l1ReferenceBlockHash, keccak256(abi.encodePacked(blobHashes)),
