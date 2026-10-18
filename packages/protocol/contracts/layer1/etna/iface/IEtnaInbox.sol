@@ -374,8 +374,25 @@ interface IEtnaInbox {
     /// exact execution data in the bound blobs. Payload V6 is
     /// 0x06 || zlib(rlp([[cometHeaderProtoBytes, executionBlockRlpBytes], ...])). Both list
     /// members are byte strings: canonical CometBFT header protobuf and canonical RLP of
-    /// [full execution header, ordered EIP-2718 transactions]. Every CometBFT header hashes
-    /// to a certified block id and its last block id links the batch. Authenticate each original
+    /// [full execution header, ordered EIP-2718 transactions]. Require 1..6 ordered Kona-v0
+    /// blobs, each decoding at most 130044 bytes: every nonfinal chunk is full and the final
+    /// chunk is nonempty. Every 32-byte field element starts with two zero high bits; require
+    /// zero unused/reserved bits and padding. Concatenate decoded chunks before parsing.
+    /// The payload is exactly 0x06 followed by one complete RFC1950 zlib stream, with no
+    /// preset dictionary, truncation, trailing bytes or
+    /// concatenated streams. The inflated RLP list is at most 64 * 1024 * 1024 bytes; each
+    /// header-protobuf or execution-RLP byte string is at most 22020096 bytes. These are fixed
+    /// protocol ceilings independent of CLI settings. Require canonical RLP, exactly two byte
+    /// strings per pair, and no extra fields or trailing bytes in any encoding. Published headers
+    /// use v0_38 protobuf and must equal both protobuf re-encoding and domain-normalize/re-encode;
+    /// height 1 omits last_block_id. Go's empty BlockID encoding 0x2a021200 is accepted only in
+    /// private raw blocks, never a published header. Require exactly N = lastHeight-parentHeight
+    /// pairs, 0 < N <= authenticated deployed maxBatchBlocks. Both CometBFT and EL heights are
+    /// parentHeight+1..lastHeight. Require internal CometBFT last_block_id and EL parentHash
+    /// links, the first EL parentHash equal to parentHash, and terminal EL hash/stateRoot equal
+    /// to lastBlockHash/lastStateRoot. Lower operator max-blocks/budgets constrain capacity only;
+    /// they do not change guest validity. Every CometBFT header hashes to a certified block id.
+    /// Public decoding does not authenticate certificates or data_hash. Authenticate each original
     /// envelope v6 against data_hash, verify its witnesses and prove its execution block equals
     /// the public projection exactly. data_hash cannot be recomputed from that projection alone.
     /// Original envelopes, anchor/committee/forced witnesses, evidence, commits and signatures

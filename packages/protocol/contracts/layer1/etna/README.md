@@ -532,7 +532,31 @@ payload V6, `0x06 || zlib(rlp([[comet_header_proto_bytes, execution_block_rlp_by
 the existing blob coding. Both items in each pair are byte strings: the full canonical CometBFT
 header protobuf, followed by the canonical RLP encoding of `[full EL header, ordered EIP-2718
 transactions]`. The execution block has no envelope version or consensus witnesses. Batches decode
-independently, with canonical framing and linked CometBFT/execution heights and parent hashes.
+independently, with the following fixed acceptance rules:
+
+- Decode 1..6 blobs in transaction order using Kona encoding version 0. Each decoded chunk is at
+  most 130044 bytes; every nonfinal chunk is full and the final chunk is nonempty. Every 32-byte
+  field element starts with two zero high bits; require zero unused/reserved bits and padding.
+  Concatenate the chunks before parsing.
+- Require exactly `0x06` followed by one complete RFC1950 zlib stream, with no preset dictionary,
+  truncation, trailing bytes or concatenated streams. The entire inflated RLP list is at most
+  `64 * 1024 * 1024` bytes. Each published header-protobuf or ExecutionBlock-RLP byte string is
+  at most `22020096` bytes. These protocol ceilings are independent of CLI settings.
+- Require canonical RLP: one outer list, each pair a list of exactly two byte strings, and no
+  extra fields or trailing bytes. Decode execution bytes completely and require identical canonical
+  re-encoding. Header bytes use `tendermint_proto::v0_38::types::Header` and must equal both their
+  protobuf re-encoding and their CometBFT domain-normalize/re-encoding. At height 1, omit
+  `last_block_id`; Go's explicit empty BlockID field `0x2a021200` is accepted in private raw blocks
+  but forbidden in published headers.
+- Require exactly `N = lastHeight - parentHeight > 0` pairs, with `N` at most the authenticated
+  deployed `maxBatchBlocks`. Both CometBFT and EL heights must equal `parentHeight+1..lastHeight`.
+  Require internal CometBFT `last_block_id` and EL `parentHash` links; the first EL `parentHash`
+  must equal the checkpoint `parentHash`, and the terminal EL hash/state root must equal
+  `lastBlockHash`/`lastStateRoot`.
+
+Lower operator `max-blocks` and byte budgets constrain operational capacity; they are not
+alternative guest validity rules. Public decoding checks framing and links, not certificates or
+original envelope `data_hash` authentication.
 
 The full original envelope v6, anchor/committee/forced witnesses, evidence, commits and signatures
 remain private consensus/proving inputs. Authenticate original envelopes against each certified
