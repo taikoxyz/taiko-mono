@@ -26,7 +26,7 @@ pub enum SidecarMode {
     Eip7594,
 }
 
-/// Operator-enforced allocation and batch limits.
+/// Operator capacity budgets, additionally clamped by fixed V6 protocol ceilings.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Limits {
     /// Maximum complete blocks in one batch, bounded by the deployed Inbox.
@@ -37,7 +37,7 @@ pub struct Limits {
     /// blob coding carries.
     pub max_payload_bytes: usize,
     /// Maximum bytes of one protobuf block or commit witness, and of one published header or
-    /// envelope.
+    /// execution block.
     pub max_message_bytes: usize,
     /// Maximum bytes of the V6 payload's RLP list after decompression.
     pub max_decompressed_bytes: usize,

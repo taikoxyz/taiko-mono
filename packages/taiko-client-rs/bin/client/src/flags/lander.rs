@@ -98,18 +98,21 @@ impl LanderArgs {
     /// Build and validate the shared runtime configuration before accessing any endpoint.
     ///
     /// The compressed payload fills at most `--max-blobs` blobs; each message is bounded by the
-    /// CometBFT block size, and the decompressed list by that size times `--max-blocks`.
+    /// CometBFT block size, and the decompressed list by the lesser of the fixed 64 MiB protocol
+    /// ceiling and that size times `--max-blocks`.
     pub fn config(&self) -> lander::Result<LanderConfig> {
         let max_payload_bytes =
             self.max_blobs.checked_mul(PAYLOAD_BYTES_PER_BLOB).ok_or_else(|| {
                 lander::LanderError::Configuration("blob payload capacity overflows usize".into())
             })?;
-        let max_decompressed_bytes =
-            COMET_BLOCK_MAX_BYTES.checked_mul(self.max_blocks).ok_or_else(|| {
+        let max_decompressed_bytes = COMET_BLOCK_MAX_BYTES
+            .checked_mul(self.max_blocks)
+            .ok_or_else(|| {
                 lander::LanderError::Configuration(
                     "decompressed batch capacity overflows usize".into(),
                 )
-            })?;
+            })?
+            .min(lander::codec::MAX_DECOMPRESSED_BYTES);
         let config = LanderConfig {
             l1_http: self.l1_http_endpoint.clone(),
             l2_http: self.l2_http_endpoint.clone(),
@@ -361,7 +364,12 @@ mod tests {
         let c = parse(argv()).unwrap().lander_flags.config().unwrap();
         assert_eq!(c.limits.max_payload_bytes, 6 * 130_044);
         assert_eq!(c.limits.max_message_bytes, 22_020_096);
-        assert_eq!(c.limits.max_decompressed_bytes, 16 * 22_020_096);
+        assert_eq!(c.limits.max_decompressed_bytes, lander::codec::MAX_DECOMPRESSED_BYTES);
+        let mut args = argv();
+        let i = args.iter().position(|v| *v == "--max-blocks").unwrap();
+        args[i + 1] = "1";
+        let smaller = parse(args).unwrap().lander_flags.config().unwrap();
+        assert_eq!(smaller.limits.max_decompressed_bytes, 22_020_096);
     }
 
     #[test]

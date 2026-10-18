@@ -159,7 +159,7 @@ async fn land(f: &ContractFixture, c: &ContractConsensus) -> Result<(ProofReques
 async fn recover_landed_execution(
     fixture: &ContractFixture,
     archived: &[alloy_eips::eip4844::Blob],
-    checkpoint: &lander::contracts::IEtnaInbox::LandInput,
+    checkpoint: &lander::codec::LandedRange,
 ) -> Result<()> {
     use abci::{Engine, PayloadVerdict};
     let recovered =
@@ -174,7 +174,7 @@ async fn recover_landed_execution(
         max_decompressed_bytes: 64 << 20,
     };
     let payload = lander::blob::decode(archived, &limits)?;
-    let blocks = lander::codec::decode(&payload, &limits)?;
+    let blocks = lander::codec::decode_landed(&payload, checkpoint)?;
     let engine = recovered.engine()?;
     for published in &blocks {
         assert_eq!(engine.new_payload(&published.block).await?, PayloadVerdict::Valid);
@@ -182,9 +182,9 @@ async fn recover_landed_execution(
         assert_eq!(engine.forkchoice(hash, hash, B256::ZERO).await?, PayloadVerdict::Valid);
     }
     let terminal =
-        engine.header_by_number(checkpoint.lastHeight).await?.context("recovered EL head")?;
-    assert_eq!(terminal.hash_slow(), checkpoint.lastBlockHash);
-    assert_eq!(terminal.state_root, checkpoint.lastStateRoot);
+        engine.header_by_number(checkpoint.last_height).await?.context("recovered EL head")?;
+    assert_eq!(terminal.hash_slow(), checkpoint.last_block_hash);
+    assert_eq!(terminal.state_root, checkpoint.last_state_root);
     let mut tampered = blocks.last().context("published block")?.block.clone();
     tampered.header.state_root = B256::repeat_byte(0xee);
     assert_ne!(engine.new_payload(&tampered).await?, PayloadVerdict::Valid);
@@ -262,7 +262,14 @@ async fn real_l2_rewards_claim_and_fee_continuation() -> Result<()> {
     let finalized =
         p.get_block_by_number(BlockNumberOrTag::Finalized).await?.context("finalized L1")?;
     assert!(finalized.header.number >= landing.block_number.context("landing height")?);
-    recover_landed_execution(&f, first.batch.blobs.sidecar.blobs(), &first.batch.input).await?;
+    let recovery = lander::codec::LandedRange {
+        parent_height: first.batch.snapshot.checkpoint_height,
+        parent_hash: first.batch.snapshot.checkpoint_hash,
+        last_height: first.batch.input.lastHeight,
+        last_block_hash: first.batch.input.lastBlockHash,
+        last_state_root: first.batch.input.lastStateRoot,
+    };
+    recover_landed_execution(&f, first.batch.blobs.sidecar.blobs(), &recovery).await?;
     let source = RpcClaimSource::connect(
         p.clone(),
         l2.clone(),

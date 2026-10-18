@@ -287,7 +287,14 @@ impl Store {
                 .map_err(|e| LanderError::Journal(format!("job block pair: {e}")))?;
         }
         // Compressed bytes are not canonical, so compare the blocks the payload carries.
-        let published = codec::decode(&payload, &limits)
+        let range = codec::LandedRange {
+            parent_height: snapshot.checkpoint_height,
+            parent_hash: snapshot.checkpoint_hash,
+            last_height: batch.input.lastHeight,
+            last_block_hash: batch.input.lastBlockHash,
+            last_state_root: batch.input.lastStateRoot,
+        };
+        let published = codec::decode_landed(&payload, &range)
             .map_err(|e| LanderError::Journal(format!("job block codec: {e}")))?;
         let expected =
             batch.blocks.iter().map(PublishedBlock::try_from).collect::<Result<Vec<_>>>()?;
@@ -651,7 +658,7 @@ mod tests {
         let error = store
             .save(&JournalState::Prepared { job: Box::new(ProvedJob { request, proof }) })
             .unwrap_err();
-        assert!(error.to_string().contains("job blocks differ"), "{error}");
+        assert!(error.to_string().contains("exact landed checkpoint interval"), "{error}");
         assert_eq!(store.load().unwrap(), job);
     }
 
