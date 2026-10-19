@@ -510,3 +510,117 @@ async fn wrong_account_and_slot_set_in_latest_checkpoint_proofs_halt() {
         assert!(!app.trust.snapshot().trust_ready);
     }
 }
+
+#[tokio::test]
+async fn typed_l1_adapter_integrity_errors_latch_halt_across_recovery_and_reconnect() {
+    use crate::l1::header::L1HeaderError;
+    let hash = B256::repeat_byte(9);
+    let cases = [
+        L1Error::ProofAddressMismatch {
+            requested: alloy_primitives::Address::ZERO,
+            got: alloy_primitives::Address::repeat_byte(1),
+        },
+        L1Error::ProofSlotMismatch { requested: vec![B256::ZERO], got: vec![hash] },
+        L1Error::HeaderHashMismatch { number: 100, reported: hash, computed: B256::ZERO },
+        L1Error::HeaderNumberMismatch { requested: 100, got: 99 },
+        L1Error::MalformedHeader { number: 100, error: L1HeaderError::TooFewFields { got: 0 } },
+        L1Error::MalformedResponse("header lacks number".into()),
+    ];
+    for error in cases {
+        let fx = Fixture::genesis(1);
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = initialized(&fx, dir.path()).await;
+        target(&app, &fx, 0, fx.genesis_hash());
+        if matches!(error, L1Error::ProofAddressMismatch { .. } | L1Error::ProofSlotMismatch { .. })
+        {
+            app.l1().state().proof_fail = Some(error.clone());
+        } else {
+            app.l1().state().header_fail = Some(error.clone());
+        }
+        let result = app.refresh_trust().await;
+        assert!(
+            matches!(result, Err(AbciError::SafetyHalt(_))),
+            "typed integrity failure must halt: {error}; got {result:?}"
+        );
+        assert_eq!(app.trust.snapshot().phase, TrustPhase::Halted);
+        let reason = app.trust.snapshot().reason;
+        app.l1().state().proof_fail = None;
+        app.l1().state().header_fail = None;
+        app.trust.begin_session();
+        app.refresh_trust().await.unwrap();
+        assert!(!app.trust.snapshot().trust_ready);
+        assert_eq!(app.trust.snapshot().reason, reason, "first integrity failure remains sticky");
+    }
+}
+
+#[tokio::test]
+async fn typed_engine_header_integrity_errors_latch_halt() {
+    use crate::engine::EngineError;
+    for error in [
+        EngineError::HeaderHashMismatch {
+            number: 0,
+            reported: B256::ZERO,
+            computed: B256::repeat_byte(1),
+        },
+        EngineError::HeaderNumberMismatch { requested: 0, got: 1 },
+        EngineError::BadReply("header is the wrong shape".into()),
+    ] {
+        let fx = Fixture::genesis(1);
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = initialized(&fx, dir.path()).await;
+        target(&app, &fx, 0, fx.genesis_hash());
+        app.engine().state().header_script.push_back(Err(error));
+        assert!(matches!(app.refresh_trust().await, Err(AbciError::SafetyHalt(_))));
+        app.trust.begin_session();
+        app.refresh_trust().await.unwrap();
+        assert_eq!(app.trust.snapshot().phase, TrustPhase::Halted);
+    }
+}
+
+#[tokio::test]
+async fn typed_source_unavailability_and_capability_errors_remain_retryable() {
+    for error in [
+        L1Error::Rpc("getProof unavailable".into()),
+        L1Error::BlockNotFound(alloy_eips::BlockNumberOrTag::Number(100)),
+        L1Error::UnknownHeaderFields { number: 100, fields: vec!["futureHeaderField".into()] },
+    ] {
+        let fx = Fixture::genesis(1);
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = initialized(&fx, dir.path()).await;
+        target(&app, &fx, 0, fx.genesis_hash());
+        app.l1().state().header_fail = Some(error);
+        app.refresh_trust().await.unwrap();
+        assert!(!app.trust.snapshot().trust_ready);
+        assert_ne!(app.trust.snapshot().phase, TrustPhase::Halted);
+        app.l1().state().header_fail = None;
+        app.refresh_trust().await.unwrap();
+        assert!(app.trust.snapshot().trust_ready);
+    }
+}
+
+#[tokio::test]
+async fn stale_adapter_integrity_failure_does_not_stop_new_session_recovery() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    target(&app, &fx, 0, fx.genesis_hash());
+    app.l1().state().header_fail = Some(L1Error::HeaderNumberMismatch { requested: 100, got: 99 });
+    app.l1().state().delay = Some(Duration::from_millis(20));
+    let l1 = app.l1.clone();
+    let handle = app.trust_handle();
+    let (result, current) = tokio::join!(app.refresh_trust(), async {
+        // Wait until the old verification has definitely started, then allocate the new session
+        // while that acquisition is suspended in its own-L1 call.
+        while l1.state().in_flight == 0 {
+            tokio::task::yield_now().await;
+        }
+        handle.begin_session()
+    });
+    result.expect("a stale fatal result must not terminate the app worker");
+    assert_eq!(handle.snapshot().session_id, current.session_id);
+    assert_eq!(handle.snapshot().phase, TrustPhase::Acquiring);
+    app.l1().state().header_fail = None;
+    app.l1().state().delay = None;
+    app.refresh_trust().await.unwrap();
+    assert!(handle.check_session(&current.session_id).trust_ready);
+}
