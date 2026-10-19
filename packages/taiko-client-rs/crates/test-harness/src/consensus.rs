@@ -5,6 +5,7 @@ use crate::{
     boot::{RethNode, host_user, jwt_path, local_url, make_world_writable},
     cometbft::{HomeConfig, write_home},
     docker::{DockerEnv, host_port},
+    signer::SignerNode,
     wait_until,
 };
 use abci::{ChainParams, RpcL1Source, build_genesis};
@@ -18,6 +19,7 @@ pub struct ContractConsensus {
     /// Live stock CometBFT endpoint.
     pub cmt: CmtClient,
     app: AppNode,
+    signer: SignerNode,
     docker: DockerEnv,
     _tmp: TempDir,
     stopped: bool,
@@ -30,12 +32,13 @@ impl ContractConsensus {
         params: ChainParams,
         validator: ValidatorKey,
     ) -> Result<Self> {
-        let tmp = tempfile::Builder::new().prefix("real-consensus-").tempdir()?;
+        let tmp = tempfile::Builder::new().prefix("real-consensus-").tempdir_in("/tmp")?;
         let name = tmp.path().file_name().unwrap().to_string_lossy().into_owned();
         let mut docker = DockerEnv::create(format!("{name}-net")).await?;
         let provider =
             rpc::client::connect_http_with_timeout(l1_http.clone(), Duration::from_secs(10));
-        let genesis = build_genesis(&RpcL1Source::new(provider), &params).await?.to_json_pretty();
+        let genesis_doc = build_genesis(&RpcL1Source::new(provider), &params).await?;
+        let genesis = genesis_doc.to_json_pretty();
         let app = AppNode::start(AppConfig {
             index: 0,
             reth: RethNode { http: l2.http.clone(), auth: l2.auth.clone() },
@@ -55,9 +58,15 @@ impl ContractConsensus {
                 timeout_commit_ms: 1000,
                 persistent_peers: "",
                 genesis_json: &genesis,
-                validator: &validator,
+                signer_addr: "tcp://0.0.0.0:26659",
                 node: &ValidatorKey::derive("real-node", 0),
             },
+        )?;
+        let signer = SignerNode::ephemeral(
+            tmp.path().join("signer"),
+            tmp.path().join("app/checkpoint-trust.sock"),
+            genesis_doc.chain_id.clone(),
+            &validator,
         )?;
         make_world_writable(&home)?;
         let mount = format!("{}:/cometbft", home.display());
@@ -74,6 +83,8 @@ impl ContractConsensus {
                     &user,
                     "-p",
                     "127.0.0.1::26657",
+                    "-p",
+                    "127.0.0.1::26659",
                     "-v",
                     &mount,
                     "--entrypoint",
@@ -83,8 +94,9 @@ impl ContractConsensus {
                 ],
             )
             .await?;
+        signer.start(host_port(&name, 26659).await?)?;
         let cmt = CmtClient::new(local_url(host_port(&name, 26657).await?)?);
-        let this = Self { cmt, app, docker, _tmp: tmp, stopped: false };
+        let this = Self { cmt, app, signer, docker, _tmp: tmp, stopped: false };
         this.wait_for_height(1).await?;
         Ok(this)
     }
@@ -104,6 +116,7 @@ impl ContractConsensus {
     /// Stop Comet before joining the ABCI runtime and deleting its store.
     pub async fn stop(mut self) -> Result<()> {
         self.docker.cleanup().await?;
+        self.signer.stop();
         self.app.stop().await;
         self.stopped = true;
         Ok(())
@@ -113,8 +126,11 @@ impl Drop for ContractConsensus {
     fn drop(&mut self) {
         if !self.stopped {
             eprintln!("real consensus app halt: {:?}", self.app.halt());
+            self.signer.dump_logs();
             self.docker.dump_logs();
         }
+        self.docker.cleanup_blocking();
+        self.signer.stop();
     }
 }
 

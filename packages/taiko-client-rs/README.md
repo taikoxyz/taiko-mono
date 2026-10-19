@@ -662,21 +662,26 @@ or config opening differs.
    Build `genesis.json` with the release that runs the chain: `InitChain` refuses an
    `app_state` it cannot decode.
 
-2. **Initialize the CometBFT home** and install the genesis and the registered key.
-   `cometbft init` writes a fresh `config/priv_validator_key.json` that the staking registry does
-   not hold, so replace it with the consensus key whose public key the registry holds (the one
-   the genesis committee of step 1 was derived from):
+2. **Initialize the CometBFT home** and install the genesis:
 
    ```sh
    cometbft init --home ./cmt
    cp ./genesis.json ./cmt/config/genesis.json
-   cp /path/to/registered/priv_validator_key.json ./cmt/config/priv_validator_key.json
    ```
+
+   Keep the registered validator's existing `priv_validator_key.json` and its existing
+   `priv_validator_state.json` together in a private signer directory outside the Comet home
+   and outside every Comet container mount. Preserve the state across every restart; never
+   initialize, reset or replace it to recover consensus. The local key created by `cometbft init`
+   is an unused random identity: do not replace it with the registered key. Only `etna-signer`
+   may access the registered private key and signing state. Use separate users or container
+   mounts so the Comet process cannot read that private signer directory.
 
 3. **Configure CometBFT** in `./cmt/config/config.toml`:
 
    ```toml
    proxy_app = "tcp://127.0.0.1:26658"   # taiko-client abci's --abci.addr
+   priv_validator_laddr = "unix:///absolute/path/run/comet-sign.sock" # mandatory for validators
 
    [mempool]
    type = "nop"                          # user transactions travel over the EL's devp2p
@@ -697,8 +702,7 @@ or config opening differs.
      --http --http.api eth,net --authrpc.addr 127.0.0.1 --authrpc.jwtsecret ./jwt.hex
    ```
 
-5. **Start the app**, then **CometBFT** in another terminal (the app runs in the foreground and
-   must listen before CometBFT connects):
+5. **Start the app**, then the **guarded signer and CometBFT**. The app must listen first:
 
    ```sh
    taiko-client abci --l1.http http://l1-node:8545 \
@@ -707,11 +711,50 @@ or config opening differs.
    ```
 
    ```sh
-   # in another terminal
-   cometbft start --home ./cmt
+   # Build the host helper with Go 1.27.2 (also packaged as /app/etna-signer in the image).
+   just signer
+   # In another terminal, supervise the signer and stock Comet together.
+   ETNA_COMET_HOME="$PWD/cmt" ETNA_APP_STORE="$PWD/abci-data" \
+     ETNA_PRIV_KEY=/private/validator/priv_validator_key.json \
+     ETNA_PRIV_STATE=/private/validator/priv_validator_state.json \
+     ETNA_CHAIN_ID="$(jq -r .chain_id genesis.json)" \
+     bash script/start_etna_validator.sh
    ```
 
-   On restart, CometBFT's handshake replays any blocks the app has not committed yet.
+   The host supervisor requires Bash and Python 3.11+ (`tomllib`); the production image
+   packages the two binaries and uses the app entrypoint. The supervisor requires
+   `priv_validator_laddr`, existing signing files outside the Comet
+   home, and matching genesis chain ID. UNIX is preferred; `tcp://` uses CometBFT's official
+   encrypted SecretConnection, never raw signer protobuf over TCP. A nonvalidator full node
+   may run stock Comet without the helper, using an unregistered local identity.
+
+   Every Comet signer transport opens a new local trust session through the app's private
+   mode-0600 `<data-dir>/checkpoint-trust.sock`. PubKey and Ping work while closed so the ABCI
+   handshake can proceed. Each proposal, prevote or precommit (including nil votes, locked
+   blocks, retained proposals and already signed retries) needs a fresh bounded CheckSession
+   response with the exact opaque session and verified chain ID, Ready and committed checkpoint
+   evidence. Unavailable/malformed control, proof/history failure or a stale session denies
+   signing without touching FilePV. The helper locks the existing state against a second
+   helper process. No local signing fallback exists in the validator startup recipe.
+
+   On restart, CometBFT replays missing app commits while signing stays closed until the app
+   authenticates its own latest finalized-L1 checkpoint and links it to durable committed
+   state. A Comet-only restart/reconnect rearms trust. An app-only restart changes the session;
+   the first stale signing request is denied and rearms a new closed session. Keep WAL,
+   blockstore, app state and FilePV state intact. Shutdown stops and reaps Comet before the
+   signer; keep the app available until Comet has stopped. A signature already authorized by
+   a fresh check can finish after a concurrent app crash; there is no cross-process atomic
+   revocation guarantee.
+
+   Read app `/trust` or `/status` through `abci_query` for Etna readiness. Stock Comet
+   `catching_up=false`, Pod Ready and a moving EL head do not establish checkpoint trust.
+   Keep a responsive observer peer with intact Comet history available for catch-up. On the
+   pinned binary, a peer blocked waiting for an unavailable signer can also block consensus
+   history gossip. An explicit signing-key handoff can restart that retained-history peer as
+   an unregistered observer while preserving its Comet home/WAL and the real signing files.
+
+   Public Comet/EL RPCs need a separate readiness-enforcing gateway if trusted output must be
+   withheld before Ready; the signer controls signatures, not those public endpoints.
 
 ## Operations
 

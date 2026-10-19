@@ -19,6 +19,9 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # regardless of the caller's working directory.
 cd "$DIR/.."
 
+bash ./script/build_etna_signer.sh
+export ETNA_SIGNER_BIN="$PWD/target/etna-signer/etna-signer"
+
 # Internal selectors used by the fixed `just test-smoke` and `just test-full` recipes. Shift only
 # this leading flag so all remaining arguments retain their nextest meaning. By default the two
 # slowest scenarios are left to the full run (main, nightly, `just verify`): the L1 finality

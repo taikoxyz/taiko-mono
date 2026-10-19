@@ -76,6 +76,12 @@ pub(crate) fn install() -> Result<()> {
                                         eprintln!("signal cleanup: {error:#}");
                                     }
                                 }
+                                for (_, mut child) in
+                                    std::mem::take(&mut *crate::signer::processes().lock().unwrap())
+                                {
+                                    let _ = child.kill();
+                                    let _ = child.wait();
+                                }
                                 std::process::exit(exit_code);
                             }
                             Err(error) => {

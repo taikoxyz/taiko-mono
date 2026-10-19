@@ -34,6 +34,7 @@ mod l1;
 mod l2;
 mod lander;
 mod planter;
+mod signer;
 mod wait;
 
 pub use anvil::StandaloneAnvil;
