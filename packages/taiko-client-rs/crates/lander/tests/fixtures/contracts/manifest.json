@@ -127,16 +127,16 @@
           ":urc/=node_modules/urc/"
         ]
       },
-      "sha256": "ec80926905b8fa33f3800aad7a905a5f3bb1bda40114961229e9b2703ee9fe78",
+      "sha256": "dfc8b68e1c9fdbf20792edd3b22d24490e362e2fdb1a20da38a2ccc68e125b9d",
       "sourceArtifact": "packages/protocol/out/layer1/EtnaInbox.sol/EtnaInbox.json",
       "sources": {
         "contracts/layer1/etna/iface/IEtnaInbox.sol": {
-          "keccak256": "0xbba3bcd142c3ddbb2cda882f085d694d256387603db6d0ed0292f25194f01ad3",
-          "sha256": "e2c7c0c71869b4152991b2e8ce6262f7bbee52c39cce9968af2b5e6322df4079"
+          "keccak256": "0xd5db3fdebb0640b69476c5657bd6cbf8ed62acfdbe46c57da31116e7b870705f",
+          "sha256": "11575b9be51f0832eb08888a45f110b15d7b6a0aa573728df57f4a12b9dc0d27"
         },
         "contracts/layer1/etna/iface/IEtnaStakingRegistry.sol": {
-          "keccak256": "0x3d8619dd219271755cc0b2c6b9119af4dcf6213cbadcc54fa4aed6cb92649432",
-          "sha256": "b434e04605f2b154e6d2cdae7a4a6a3bb7c7d607f585aa699d072cd377f815b1"
+          "keccak256": "0xe7871b58ad3264c0c9bea507e800786600c2af2cc5cbecd5b80050f03ab7db2d",
+          "sha256": "d2cec389562a4904ded5ff35ab7d23e22f1b1d77495b0e7fc90e79a9545dd965"
         },
         "contracts/layer1/etna/impl/EtnaInbox.sol": {
           "keccak256": "0xc13a2e995ea278fce7114455204215b326f16e632a1f0abdf5ca5de79bee8233",
@@ -281,20 +281,20 @@
           ":urc/=node_modules/urc/"
         ]
       },
-      "sha256": "325235b104c5f89cccc6a66befa5de546e88720435406508b5aafe168220184c",
+      "sha256": "9fa8831f59f220bd9ede3e34a92c0c74c81b1eafa6d475ea6864f33e29b1bdd8",
       "sourceArtifact": "packages/protocol/out/layer1/EtnaStakingRegistry.sol/EtnaStakingRegistry.json",
       "sources": {
         "contracts/layer1/etna/iface/IEtnaInbox.sol": {
-          "keccak256": "0xbba3bcd142c3ddbb2cda882f085d694d256387603db6d0ed0292f25194f01ad3",
-          "sha256": "e2c7c0c71869b4152991b2e8ce6262f7bbee52c39cce9968af2b5e6322df4079"
+          "keccak256": "0xd5db3fdebb0640b69476c5657bd6cbf8ed62acfdbe46c57da31116e7b870705f",
+          "sha256": "11575b9be51f0832eb08888a45f110b15d7b6a0aa573728df57f4a12b9dc0d27"
         },
         "contracts/layer1/etna/iface/IEtnaStakingRegistry.sol": {
-          "keccak256": "0x3d8619dd219271755cc0b2c6b9119af4dcf6213cbadcc54fa4aed6cb92649432",
-          "sha256": "b434e04605f2b154e6d2cdae7a4a6a3bb7c7d607f585aa699d072cd377f815b1"
+          "keccak256": "0xe7871b58ad3264c0c9bea507e800786600c2af2cc5cbecd5b80050f03ab7db2d",
+          "sha256": "d2cec389562a4904ded5ff35ab7d23e22f1b1d77495b0e7fc90e79a9545dd965"
         },
         "contracts/layer1/etna/impl/EtnaStakingRegistry.sol": {
-          "keccak256": "0x73f3b1de79892ed944227e6b0c805d3c5145342b61af69d338f2d9efbb379c4d",
-          "sha256": "20f74ba3a79d94693da5417fe550b57008643d3eb3190fe4bdb0543ffb6cd932"
+          "keccak256": "0xa66199d239745290feed91e8b220e43076c1ed216198302f92759a6929e13ea4",
+          "sha256": "3b0771051635fec989f9c0f4a3481ed6f85b6e3ba6e607ad1eb613d4b92082ea"
         },
         "contracts/layer1/etna/impl/EtnaStakingRegistry_Layout.sol": {
           "keccak256": "0x35354a47df90f8cfdd8c4c1e9cba3de543aa0b895a7b296aa381d0915ae0101f",
@@ -303,6 +303,10 @@
         "contracts/layer1/etna/libs/LibEntriesTree.sol": {
           "keccak256": "0x2cdd988eb7124b79d6f142c71e7471036c57846e0beba49a24b2f3b86f93332f",
           "sha256": "377266bc034416ffdafe6f3637197fe03fd60e7b1c07647c3b16f80602d1d9eb"
+        },
+        "contracts/layer1/etna/libs/LibStakeSchedule.sol": {
+          "keccak256": "0xc3cd1734f0b28d99ee05a5bd15f7c6136bd793a433858917a17c38043f121af4",
+          "sha256": "df457ad22049b5a346e2c08fa9e91c15d8fbb843a89d8457fccfbbdbe50d2e5d"
         },
         "contracts/shared/common/EssentialContract.sol": {
           "keccak256": "0x5e1a130be6a89b167b9d7bc2df23edc752a6cc804c721f23eac90fd08e166e45",
@@ -371,6 +375,10 @@
         "node_modules/@openzeppelin/contracts/utils/StorageSlot.sol": {
           "keccak256": "0xf09e68aa0dc6722a25bc46490e8d48ed864466d17313b8a0b254c36b54e49899",
           "sha256": "51c993d87ee6096af06f8701d8497272751c8cc9c9c2b31e67a3087d5f2302df"
+        },
+        "node_modules/@openzeppelin/contracts/utils/math/Math.sol": {
+          "keccak256": "0xe4455ac1eb7fc497bb7402579e7b4d64d928b846fce7d2b6fde06d366f21c2b3",
+          "sha256": "85a2caf3bd06579fb55236398c1321e15fd524a8fe140dff748c0f73d7a52345"
         },
         "node_modules/@openzeppelin/contracts/utils/math/SafeCast.sol": {
           "keccak256": "0x52a8cfb0f5239d11b457dcdd1b326992ef672714ca8da71a157255bddd13f3ad",
@@ -509,16 +517,16 @@
           ":urc/=node_modules/urc/"
         ]
       },
-      "sha256": "d7bbf9f2de54fc5a5ed8b1d44753dc1507a1b258496f4dacabb54a2a94c01faa",
+      "sha256": "c7f82d1de5787bc59a9c76b8b50337e6cd231ce0baccabe8a82df20c1d117b64",
       "sourceArtifact": "packages/protocol/out/layer1/EtnaInboxTestBase.sol/MockLandProofVerifier.json",
       "sources": {
         "contracts/layer1/etna/iface/IEtnaInbox.sol": {
-          "keccak256": "0xbba3bcd142c3ddbb2cda882f085d694d256387603db6d0ed0292f25194f01ad3",
-          "sha256": "e2c7c0c71869b4152991b2e8ce6262f7bbee52c39cce9968af2b5e6322df4079"
+          "keccak256": "0xd5db3fdebb0640b69476c5657bd6cbf8ed62acfdbe46c57da31116e7b870705f",
+          "sha256": "11575b9be51f0832eb08888a45f110b15d7b6a0aa573728df57f4a12b9dc0d27"
         },
         "contracts/layer1/etna/iface/IEtnaStakingRegistry.sol": {
-          "keccak256": "0x3d8619dd219271755cc0b2c6b9119af4dcf6213cbadcc54fa4aed6cb92649432",
-          "sha256": "b434e04605f2b154e6d2cdae7a4a6a3bb7c7d607f585aa699d072cd377f815b1"
+          "keccak256": "0xe7871b58ad3264c0c9bea507e800786600c2af2cc5cbecd5b80050f03ab7db2d",
+          "sha256": "d2cec389562a4904ded5ff35ab7d23e22f1b1d77495b0e7fc90e79a9545dd965"
         },
         "contracts/layer1/etna/impl/EtnaInbox.sol": {
           "keccak256": "0xc13a2e995ea278fce7114455204215b326f16e632a1f0abdf5ca5de79bee8233",
@@ -529,8 +537,8 @@
           "sha256": "5b7274797fb17240d78659d483252a6f84846926de4831769e6283f089f7ae37"
         },
         "contracts/layer1/etna/impl/EtnaStakingRegistry.sol": {
-          "keccak256": "0x73f3b1de79892ed944227e6b0c805d3c5145342b61af69d338f2d9efbb379c4d",
-          "sha256": "20f74ba3a79d94693da5417fe550b57008643d3eb3190fe4bdb0543ffb6cd932"
+          "keccak256": "0xa66199d239745290feed91e8b220e43076c1ed216198302f92759a6929e13ea4",
+          "sha256": "3b0771051635fec989f9c0f4a3481ed6f85b6e3ba6e607ad1eb613d4b92082ea"
         },
         "contracts/layer1/etna/impl/EtnaStakingRegistry_Layout.sol": {
           "keccak256": "0x35354a47df90f8cfdd8c4c1e9cba3de543aa0b895a7b296aa381d0915ae0101f",
@@ -543,6 +551,10 @@
         "contracts/layer1/etna/libs/LibEtnaForcedInclusion.sol": {
           "keccak256": "0xa1d9848f03077a44909c69c9536bb5cb9b10d1dec4488bb5062af0c867f78f89",
           "sha256": "2231fb07d833d221fb28202218d03a5bab7132fff181c8fb365ebf1de6670fe3"
+        },
+        "contracts/layer1/etna/libs/LibStakeSchedule.sol": {
+          "keccak256": "0xc3cd1734f0b28d99ee05a5bd15f7c6136bd793a433858917a17c38043f121af4",
+          "sha256": "df457ad22049b5a346e2c08fa9e91c15d8fbb843a89d8457fccfbbdbe50d2e5d"
         },
         "contracts/layer1/mainnet/TaikoToken.sol": {
           "keccak256": "0x6828fe236c27ef890cd9b6bacfbdc992a77bf7a3e1da0b080e423e68d23f5c21",
@@ -1346,15 +1358,15 @@
   "foundryVersion": ["Commit SHA: b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2"],
   "generator": "script/gen_lander_artifacts.sh",
   "interface": {
-    "sha256": "e2c7c0c71869b4152991b2e8ce6262f7bbee52c39cce9968af2b5e6322df4079",
+    "sha256": "11575b9be51f0832eb08888a45f110b15d7b6a0aa573728df57f4a12b9dc0d27",
     "source": "packages/protocol/contracts/layer1/etna/iface/IEtnaInbox.sol"
   },
-  "protocolRevision": "e2ebc10a86a279096eb754100d5ed7ec51fbae43",
+  "protocolRevision": "d9493c0c05260dd34573c951138bc95695450b84",
   "vectors": {
     "files": {
-      "README.md": "a93edb90aae2cb1829ee020724b65ad4864b0e69d09ba8a153bd64138de9cfcb",
-      "generate.py": "cef553dc734b42191ff7789a1ff198723d46b283e69c41fc730b8460890ac52e",
-      "vectors.json": "872ccbe9bf358c63df009880b17a4224b205cd7b957e45f0e61a7c472659a65e"
+      "README.md": "37d96226471b64d8cec2abac1ae7cdb8f2c240f76f5c59108631c49d365a5e0c",
+      "generate.py": "60c7b02d87464a324e1d7ee9e400a1f7e8152b7e1e2f044ce8dcba846a279dcc",
+      "vectors.json": "55b0b6acfe7e40af19f72bb9a048d5ee3a97ab3809585e217c540225c128fa64"
     },
     "source": "testdata/etna_vectors"
   }
