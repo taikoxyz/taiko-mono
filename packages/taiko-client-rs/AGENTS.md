@@ -9,11 +9,13 @@
 - `crates/protocol` is also consumed by raiko2 (pinned by git rev); keep the `shasta` modules and `FixedKSigner` it imports.
 - `crates/bindings/` is kept only for protocol's anchor builder, which raiko2 uses. It is generated via `just gen_bindings` (Solidity sources in `../protocol`); never hand-edit or reformat files under `crates/bindings/src`.
 - `crates/test-harness` boots docker devnets (anvil as L1, alethia-reth, CometBFT) through the docker CLI, with calldata admission fixtures. The Docker scenarios live in `crates/abci/tests/`, `crates/lander/tests/` and `bin/client/tests/` and are marked `#[ignore = "docker"]`.
+- `tools/etna-signer` is a standalone Go 1.27.2 module pinned to stock CometBFT v0.40.0. It owns FilePV signing files outside Comet mounts and gates every signature with a fresh session-bound private trust query; PubKey/Ping remain ungated. Never implement signing cryptography, reset existing signing state or add a local validator fallback.
 - `tests/` holds `tests/entrypoint.sh` (run by `just test`) and the test JWT secret `tests/docker/jwt.hex`.
 - `script/` keeps repeatable maintenance scripts; extend them instead of duplicating ad-hoc helpers.
 
 ## Build, Test, and Development Commands
 
+- `just signer` builds the host guarded signer; `just signer-test` runs its race tests. Docker test entrypoints build the helper before starting devnets. Production images package `/app/etna-signer`; use `script/start_etna_validator.sh` with existing external key/state paths for validators.
 - `cargo build --workspace` (add `--release` for production binaries).
 - `just fmt` installs toolchain `nightly-2025-09-27`, runs `cargo +nightly fmt`, then `cargo sort --workspace --grouped`. Use `just fmt-check` for CI parity.
 - Always use `just fmt` (never call `cargo fmt` directly) so the nightly toolchain and `cargo sort` stay in sync with CI.
@@ -69,3 +71,13 @@
 - Rewards never cut batches at epoch ends. L1 queue fees and L2 basefee receipts bind separate recipients. Proposer tips follow the immutable registered recipient of the original proposer in the certified block header under that height's committee, including retained blocks across rounds. Compute basefee from executed header gas, never vault balance deltas; claim spends and forced ETH credits do not change earned fees. Preserve the 301-distinct-member registry-proof/committee-witness and real-certificate regression, including payout tampering and quorum rejection. The 4096 registry/configuration cap is not production resource validation. Preserve all FI checks and ordinary gas estimation/EIP-7825 bounds.
 - The real guest is unimplemented: dummy verification does not prove consensus, execution or fee sums. No DAO funding, pre-funding, per-vote accounting, reward settlement or automatic bridge exists. Landers supply L1 working capital; proving income is not guaranteed. Do not claim measured proving-performance reductions.
 - Regenerate test-only InboxSetter and ZkGasFixture artifacts with script/gen_test_harness_artifacts.sh. Verify both generators twice for reproducibility; never hand-edit generated artifacts.
+
+- Every validator harness/runtime startup must set `priv_validator_laddr` and use the guarded
+  signer with the actual private key outside the Comet home/mount. Preserve FilePV state and
+  Comet WAL on restart; only ephemeral test initialization creates signing files. Every new
+  Comet transport begins a closed opaque trust session; app-only restart invalidates it.
+  Unavailable trust control denies signatures and leaves signing state unchanged. Stop/reap
+  Comet before stopping the signer and app. Full nodes use an unregistered local identity.
+- Etna readiness is app `/trust` or `/status`, distinct from stock Comet `catching_up` and raw
+  EL/Comet progress. Public RPC output needs its own readiness gate; do not claim an atomic
+  cross-process revocation for a signing request authorized just before an app crash.

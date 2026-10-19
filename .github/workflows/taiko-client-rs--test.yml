@@ -138,6 +138,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Install guarded signer Go toolchain
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.27.2"
+          cache-dependency-path: packages/taiko-client-rs/tools/etna-signer/go.sum
+
       - name: Ensure native build tools
         shell: bash
         run: |
@@ -210,6 +216,10 @@ jobs:
         with:
           tool: cargo-nextest@0.9.145
 
+      - name: Run guarded signer race tests
+        working-directory: packages/taiko-client-rs
+        run: just signer-test
+
       - name: Run unit tests
         working-directory: packages/taiko-client-rs
         run: just unit
@@ -265,6 +275,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+
+      - name: Install guarded signer Go toolchain
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.27.2"
+          cache-dependency-path: packages/taiko-client-rs/tools/etna-signer/go.sum
 
       - name: Ensure native build tools
         shell: bash

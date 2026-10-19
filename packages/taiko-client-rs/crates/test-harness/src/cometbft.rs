@@ -9,7 +9,7 @@ use std::{
 
 use abci::{CommitteeState, EtnaEnvelope, Status, single_envelope};
 use alloy_primitives::{B256, Bytes};
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, bail, ensure};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use serde_json::Value;
 use url::Url;
@@ -29,15 +29,16 @@ pub(crate) struct HomeConfig<'a> {
     pub persistent_peers: &'a str,
     /// The genesis document.
     pub genesis_json: &'a str,
-    /// The validator key (`priv_validator_key.json`).
-    pub validator: &'a ValidatorKey,
+    /// Mandatory remote guarded signer listener; the real key is outside this home.
+    pub signer_addr: &'a str,
     /// The node key (`node_key.json`).
     pub node: &'a ValidatorKey,
 }
 
 /// Writes a CometBFT home into `dir`: a minimal `config/config.toml`, `config/genesis.json`,
-/// the key files and `data/priv_validator_state.json`.
+/// the node key, and a mandatory remote signer listener. The real FilePV files live elsewhere.
 pub(crate) fn write_home(dir: &Path, c: &HomeConfig<'_>) -> Result<()> {
+    ensure!(!c.signer_addr.is_empty(), "validator harness requires priv_validator_laddr");
     let config = dir.join("config");
     let data = dir.join("data");
     fs::create_dir_all(&config)?;
@@ -45,6 +46,7 @@ pub(crate) fn write_home(dir: &Path, c: &HomeConfig<'_>) -> Result<()> {
     let toml = format!(
         r#"proxy_app = "{proxy_app}"
 moniker = "{moniker}"
+priv_validator_laddr = "{signer_addr}"
 
 [rpc]
 laddr = "tcp://0.0.0.0:26657"
@@ -63,20 +65,16 @@ timeout_commit = "{timeout_commit}ms"
 "#,
         proxy_app = c.proxy_app,
         moniker = c.moniker,
+        signer_addr = c.signer_addr,
         peers = c.persistent_peers,
         timeout_commit = c.timeout_commit_ms,
     );
     fs::write(config.join("config.toml"), toml)?;
     fs::write(config.join("genesis.json"), c.genesis_json)?;
     fs::write(
-        config.join("priv_validator_key.json"),
-        serde_json::to_string_pretty(&c.validator.priv_validator_key_json())?,
-    )?;
-    fs::write(
         config.join("node_key.json"),
         serde_json::to_string_pretty(&c.node.node_key_json())?,
     )?;
-    fs::write(data.join("priv_validator_state.json"), r#"{"height": "0", "round": 0, "step": 0}"#)?;
     Ok(())
 }
 
@@ -193,6 +191,12 @@ impl CmtClient {
         }
         let value = response["value"].as_str().unwrap_or_default();
         Ok(Some(STANDARD.decode(value)?))
+    }
+
+    /// Etna's local checkpoint-trust snapshot, separate from stock Comet syncing status.
+    pub async fn trust_status(&self) -> Result<Value> {
+        let bytes = self.abci_query("/trust").await?.context("the app rejected /trust")?;
+        Ok(serde_json::from_slice(&bytes)?)
     }
 
     /// The app's `/status`.

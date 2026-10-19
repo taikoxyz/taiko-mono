@@ -161,7 +161,7 @@ impl DockerEnv {
     }
 
     /// Blocking [`DockerEnv::cleanup`]; failures are printed.
-    fn cleanup_blocking(&mut self) {
+    pub(crate) fn cleanup_blocking(&mut self) {
         if let Err(error) = self.cleanup_owned() {
             eprintln!("devnet cleanup: {error:#}");
         }

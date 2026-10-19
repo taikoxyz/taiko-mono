@@ -29,6 +29,7 @@ use crate::{
     l1::set_interval_mining,
     lander::Lander,
     planter::{Planter, registry_entry},
+    signer::SignerNode,
     wait::{Fatal, wait_until},
 };
 
@@ -107,6 +108,8 @@ pub struct Devnet {
     lander: Lander,
     /// The apps, by validator index.
     apps: Vec<AppNode>,
+    /// The guarded FilePV helpers and their separately owned signing files.
+    signers: Vec<SignerNode>,
     /// The CometBFT RPC clients, by validator index.
     cmt: Vec<CmtClient>,
     /// The alethia-reth nodes, by validator index.
@@ -137,7 +140,7 @@ impl Devnet {
         init_tracing();
         spec.validate()?;
         let id = unique_id();
-        let tmp = tempfile::Builder::new().prefix(&format!("abci-{id}-")).tempdir()?;
+        let tmp = tempfile::Builder::new().prefix(&format!("abci-{id}-")).tempdir_in("/tmp")?;
         let mut docker = DockerEnv::create(format!("abci-{id}")).await?;
         match boot(&id, &spec, &mut docker, tmp.path()).await {
             Ok(b) => {
@@ -146,6 +149,7 @@ impl Devnet {
                     id,
                     lander: b.lander,
                     apps: b.apps,
+                    signers: b.signers,
                     cmt: b.cmt,
                     reth: b.reth,
                     l1: b.l1,
@@ -268,6 +272,7 @@ impl Devnet {
     pub async fn node_stop(&mut self, i: usize) -> Result<()> {
         let name = self.cmt_container(i);
         let stopped = docker(&["stop", "--time", "10", &name]).await;
+        self.signers[i].stop();
         self.app_stop(i).await;
         stopped?;
         let exit = docker(&["inspect", "--format", "{{.State.ExitCode}}", &name]).await?;
@@ -282,16 +287,63 @@ impl Devnet {
     /// i.e. until its handshake with the app (and any block replay) is done. The published RPC
     /// port changes on restart; every clone of [`Devnet::cmt`]`(i)` follows it.
     pub async fn cmt_restart(&self, i: usize) -> Result<()> {
+        self.cmt_restart_begin(i).await?;
         let name = self.cmt_container(i);
-        docker(&["restart", "-t", "10", &name]).await?;
-        let url = local_url(host_port(&name, 26657).await?)?;
-        self.cmt[i].set_url(url);
         let client = &self.cmt[i];
         wait_until(&format!("{name} RPC after restart"), RPC_TIMEOUT, POLL, || async move {
             Ok(Some(client.latest_height().await?))
         })
         .await
         .map(drop)
+    }
+
+    /// Starts a Comet/helper restart without waiting for handshake completion. Failure-path
+    /// tests can observe an app safety halt instead of waiting for an RPC that cannot start.
+    pub async fn cmt_restart_begin(&self, i: usize) -> Result<()> {
+        let name = self.cmt_container(i);
+        docker(&["restart", "-t", "10", &name]).await?;
+        self.signers[i].start(host_port(&name, 26659).await?)?;
+        self.cmt[i].set_url(local_url(host_port(&name, 26657).await?)?);
+        Ok(())
+    }
+
+    /// The actual FilePV anti-double-sign state outside the Comet-mounted home.
+    pub fn signer_state(&self, i: usize) -> Result<serde_json::Value> {
+        self.signers[i].state()
+    }
+
+    /// Stops a signing helper while leaving Comet alive to serve retained history.
+    pub fn signer_stop(&self, i: usize) {
+        self.signers[i].stop();
+    }
+
+    /// Swaps existing test identities between Comet peers without replacing either node's
+    /// WAL or the real FilePV state. The previous helper is stopped before the new one starts.
+    pub fn signer_swap_identity(&self, destination: usize, source: usize) {
+        assert_ne!(destination, source);
+        self.signers[destination].swap_identity(&self.signers[source]);
+    }
+
+    /// Number of requests delegated to FilePV after a fresh Ready check.
+    pub fn signer_authorizations(&self, i: usize) -> Result<usize> {
+        self.signers[i].authorizations()
+    }
+
+    /// Current checkpoint trust through the private control socket; never starts a session.
+    pub async fn trust_control(&self, i: usize, session: &str) -> Result<serde_json::Value> {
+        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        let socket = self.app_data_dir(i).join("checkpoint-trust.sock");
+        tokio::time::timeout(Duration::from_secs(2), async {
+            let mut stream = tokio::net::UnixStream::connect(socket).await?;
+            let request =
+                serde_json::json!({"schema_version":1,"op":"check_session","session_id":session});
+            stream.write_all(format!("{request}\n").as_bytes()).await?;
+            let mut line = String::new();
+            BufReader::new(stream).read_line(&mut line).await?;
+            Ok::<_, anyhow::Error>(serde_json::from_str(&line)?)
+        })
+        .await
+        .context("trust control timed out")?
     }
 
     /// The RPC client of CometBFT node `i`.
@@ -379,6 +431,17 @@ impl Devnet {
         Ok((before, restored))
     }
 
+    /// Suspends only this fixture's L1 process, retaining container ports and state while
+    /// proof/header HTTP requests time out. This differs from merely pausing block mining.
+    pub async fn l1_rpc_pause(&self) -> Result<()> {
+        docker(&["pause", &format!("abci-{}-anvil", self.id)]).await.map(drop)
+    }
+
+    /// Resumes the same L1 process/listener so existing providers recover without reconfiguration.
+    pub async fn l1_rpc_resume(&self) -> Result<()> {
+        docker(&["unpause", &format!("abci-{}-anvil", self.id)]).await.map(drop)
+    }
+
     /// Pauses anvil's interval mining: no L1 block (hence no new `finalized`) until
     /// [`Devnet::l1_resume`]. Planting with [`Planter::next_block`] resumes it on commit.
     pub async fn l1_pause(&self) -> Result<()> {
@@ -447,6 +510,9 @@ impl Devnet {
 
     /// Prints each app's halt reason (best effort, for failure diagnostics).
     fn print_statuses(&self) {
+        for signer in &self.signers {
+            signer.dump_logs();
+        }
         for (i, app) in self.apps.iter().enumerate() {
             if let Some(reason) = app.halt() {
                 eprintln!("app {i} safety halt: {reason}");
@@ -468,6 +534,10 @@ impl Drop for Devnet {
             eprintln!("devnet {} dropped without a successful stop()", self.id);
             self.print_statuses();
             self.docker.dump_logs();
+        }
+        self.docker.cleanup_blocking();
+        for signer in &self.signers {
+            signer.stop();
         }
     }
 }

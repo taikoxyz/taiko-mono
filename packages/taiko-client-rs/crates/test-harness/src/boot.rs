@@ -28,6 +28,7 @@ use crate::{
     l1::finalized_number,
     lander::{Lander, LanderCtx},
     planter::{InboxValues, Planter, registry_entry},
+    signer::SignerNode,
     wait::wait_until,
 };
 
@@ -68,6 +69,8 @@ pub(crate) struct Booted {
     pub lander: Lander,
     /// The apps, by validator index.
     pub apps: Vec<AppNode>,
+    /// Guarded signers, whose private files are outside every Comet mount.
+    pub signers: Vec<SignerNode>,
     /// The CometBFT RPC clients, by validator index.
     pub cmt: Vec<CmtClient>,
     /// The alethia-reth nodes, by validator index.
@@ -217,6 +220,7 @@ pub(crate) async fn boot(
     let cmt_image = image("COMETBFT_IMAGE", COMETBFT_IMAGE);
     let user = host_user().await?;
     let cmt_names: Vec<String> = (0..n).map(|i| format!("abci-{id}-cmt-{i}")).collect();
+    let mut signers = Vec::with_capacity(n);
     for i in 0..n {
         let home = tmp.join(format!("cmt-{i}"));
         let peers = (0..n)
@@ -232,9 +236,15 @@ pub(crate) async fn boot(
                 timeout_commit_ms: spec.timeout_commit_ms,
                 persistent_peers: &peers,
                 genesis_json: &genesis_json,
-                validator: &keys[i],
+                signer_addr: "tcp://0.0.0.0:26659",
                 node: &node_keys[i],
             },
+        )?;
+        let signer = SignerNode::ephemeral(
+            tmp.join(format!("signer-{i}")),
+            tmp.join(format!("app-{i}/checkpoint-trust.sock")),
+            genesis_doc.chain_id.clone(),
+            &keys[i],
         )?;
         make_world_writable(&home)?;
         let mount = format!("{}:/cometbft", home.display());
@@ -245,6 +255,8 @@ pub(crate) async fn boot(
             &user,
             "-p",
             "127.0.0.1::26657",
+            "-p",
+            "127.0.0.1::26659",
             "-v",
             &mount,
             "--entrypoint",
@@ -253,6 +265,9 @@ pub(crate) async fn boot(
             "start",
         ];
         docker.run(&cmt_names[i], &args).await?;
+        // Comet owns the listener and waits for PubKey before its ABCI handshake.
+        signer.start(host_port(&cmt_names[i], 26659).await?)?;
+        signers.push(signer);
     }
     let mut cmt = Vec::with_capacity(n);
     for name in &cmt_names {
@@ -267,7 +282,7 @@ pub(crate) async fn boot(
     // 7. The fake lander.
     let lander = Lander::spawn(LanderCtx { planter: planter.clone(), l2 });
 
-    Ok(Booted { lander, apps, cmt, reth, l1, keys, params, genesis, planter })
+    Ok(Booted { lander, apps, signers, cmt, reth, l1, keys, params, genesis, planter })
 }
 
 /// The hash and state root of block 0 of the EL behind `l2`.
