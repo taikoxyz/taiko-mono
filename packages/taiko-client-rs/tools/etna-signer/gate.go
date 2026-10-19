@@ -206,7 +206,7 @@ func (g *gate) dialer(base privval.SocketDialer) privval.SocketDialer {
 			conn.Close()
 			return nil, err
 		}
-		return conn, nil
+		return &reconnectingConn{Conn: conn}, nil
 	}
 }
 func (g *gate) handle(signer types.PrivValidator, req pv.Message, chain string) (pv.Message, error) {

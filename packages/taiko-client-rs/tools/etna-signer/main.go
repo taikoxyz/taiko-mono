@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -18,13 +19,37 @@ import (
 	"github.com/cometbft/cometbft/privval"
 )
 
-func existingFile(path string) error {
+// Resolve directory and file symlinks before both owner locking and FilePV loading.
+// FilePV atomically replaces the state path, so loading via an alias would fork HRS.
+func existingFile(path string) (string, error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	canonical, err := filepath.EvalSymlinks(absolute)
+	if err != nil {
+		return "", err
+	}
+	info, err := os.Stat(canonical)
+	if err != nil {
+		return "", err
+	}
+	if !info.Mode().IsRegular() {
+		return "", errors.New("signing file must be regular")
+	}
+	return canonical, nil
+}
+
+// Hard links cannot be canonicalized to a unique pathname and FilePV's atomic
+// replacement would split them. Refuse this configuration without changing it.
+func singleLinkState(path string) error {
 	info, err := os.Stat(path)
 	if err != nil {
 		return err
 	}
-	if !info.Mode().IsRegular() {
-		return errors.New("signing file must be regular")
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || stat.Nlink != 1 {
+		return errors.New("signing state must have exactly one filesystem link")
 	}
 	return nil
 }
@@ -39,10 +64,15 @@ func run() error {
 	if *addr == "" || *control == "" || *chain == "" || *key == "" || *state == "" || *timeout <= 0 || *timeout > 10*time.Second {
 		return errors.New("all addresses, chain ID and existing key/state paths are required; timeout must be in (0,10s]")
 	}
-	for _, path := range []string{*key, *state} {
-		if err := existingFile(path); err != nil {
-			return fmt.Errorf("existing signing file %s: %w", path, err)
+	for _, path := range []*string{key, state} {
+		canonical, err := existingFile(*path)
+		if err != nil {
+			return fmt.Errorf("existing signing file %s: %w", *path, err)
 		}
+		*path = canonical
+	}
+	if err := singleLinkState(*state); err != nil {
+		return err
 	}
 	lock, err := os.OpenFile(*state+".lock", os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
