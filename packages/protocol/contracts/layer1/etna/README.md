@@ -12,8 +12,9 @@ base-fee claims for the batch's committed reward recipient.
 | `../../layer2/core/L2FeeVault.sol` | Plain immutable L2 treasury predeploy; pays proved receipt claims once.        |
 
 This is a new-genesis format. It has no existing-chain migration, L1 reward pool, participation
-accounting, DAO subsidy, balance sweep or automatic bridge payout. The Inbox retains L1 forced
-inclusion fees. The vault has no owner, proxy, initializer, upgrade function or privileged transfer.
+accounting, DAO subsidy, balance sweep or automatic bridge payout. The Inbox holds each L1 forced
+inclusion fee until a landing consumes its entry, then pays it to that landing's `feeRecipient`.
+The vault has no owner, proxy, initializer, upgrade function or privileged transfer.
 Its payout authority nevertheless depends on the immutable L1 Inbox address: the Inbox's owner
 can upgrade its UUPS implementation, and the selected verifier must soundly verify receipts.
 An Inbox upgrade or an unsound verifier can authorize arbitrary rewards and exhaust the treasury.
@@ -180,7 +181,7 @@ interface stable; they do not contain Shasta state.
 | 282     | `forcedInclusionDelay`, `maxAnchorAge`                 | `uint64` bits 0–63, `uint64` bits 64–127 (seconds) |
 | 283     | `rewardCommitments` mapping                            | `bytes32 batchId => bytes32 commitment`            |
 | 284     | `activeCommitteeSnapshot`                              | `uint64`; latest landed active committee cutoff    |
-| 284–300 | `__gap`                                                | —                                                  |
+| 285–300 | `__gap`                                                | —                                                  |
 
 Forced inclusion entry `i` starts at `base = keccak256(abi.encode(i, 280))`: `txHash`
 (`bytes32`) occupies `base`; `timestamp` (`uint48`, bits 0–47), `l1Block` (`uint64`, bits 48–111)
@@ -252,7 +253,7 @@ one entry gives leaf 0 and no entry gives `bytes32(0)`. At most 4096 slots exist
 names a slot: after a bond is withdrawn, the next registration overwrites its entry, takes over
 its id and keeps `count` unchanged. Snapshots read entries at a historical L1 block and verify them
 against that checkpoint's root, so slot reuse is invisible to committee derivation. The node reads
-only `R` through `R + 5`.
+only `checkpoints` at `R` and `entries` at `R + 1`.
 
 `bondOwnerOf(bondId)` names the slot's current holder and controls its bond permissions.
 Historical committee membership and payout addresses are authenticated by the historical
@@ -411,11 +412,12 @@ function land(LandInput calldata input, bytes calldata proof) external;
 
 `LandInput` is `(uint64 lastHeight, bytes32 lastBlockHash, bytes32 lastStateRoot,
 uint64 l1ReferenceBlockNumber, uint48 forcedInclusionHead, address feeRecipient,
-address l2RewardRecipient, uint256 baseFeeAmount)`. Both recipients must be nonzero, including
-for zero fees. `feeRecipient` receives only consumed L1 forced inclusion fees. The lander selects
-`l2RewardRecipient` independently of block proposers; the V10 statement and receipt bind that
-exact address. Consensus and the future guest must enforce `extraData[0] == 0` on every execution
-block. The guest must bind this nonzero recipient and prove `baseFeeAmount` equals the actual EL
+address l2RewardRecipient, uint256 baseFeeAmount, uint64 activeCommitteeSnapshot)`. Both
+recipients must be nonzero, including for zero fees. `feeRecipient` receives only consumed L1
+forced inclusion fees. The lander selects `l2RewardRecipient` independently of block proposers;
+the V10 statement and receipt bind that exact address. `activeCommitteeSnapshot` is the selection
+snapshot of the committee governing `lastHeight`; the proof must authenticate it. Consensus and
+the future guest must enforce `extraData[0] == 0` on every execution block. The guest must bind this nonzero recipient and prove `baseFeeAmount` equals the actual EL
 base-fee credits to the immutable treasury over `(parentHeight, lastHeight]`, authenticating all
 charges and destinations by reexecution. Under that per-block zero-sharing invariant and the
 pinned EL rules, this equals `sum(header.baseFeePerGas * header.gasUsed)`. Fee credit is accounting
@@ -426,8 +428,9 @@ regressions exercise the header fee identity; no real guest is implemented.
 
 Landing requires active status, `parentHeight < lastHeight <= parentHeight + maxBatchBlocks`,
 `lastHeight <= type(uint48).max`, ordered queue progress within the tail, at most one consumed
-entry per new block, a past reference with an available block hash, and at least one blob. The
-V10 statement contains exactly twenty-one ABI words / 672 bytes:
+entry per new block, a past reference with an available block hash, an `activeCommitteeSnapshot`
+that neither regresses nor exceeds `l1ReferenceBlockNumber`, and at least one blob. The V10
+statement contains exactly twenty-one ABI words / 672 bytes:
 
 ```solidity
 keccak256(abi.encode(
