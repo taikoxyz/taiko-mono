@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Etna PoS + ZK — engineer&rsquo;s course</title><link rel="stylesheet" href="course.css"></head><body>
+<div class="layout">
+<aside class="side">
+<span class="brand">Etna PoS + ZK</span>
+<span class="sub">engineer&rsquo;s course</span>
+<div class="grp">Lessons</div>
+<ol>
+<li><a href="index.html" class="active">Contents</a></li>
+<li><a href="01-what-is-etna.html">1. What Etna PoS + ZK is</a></li>
+<li><a href="02-life-of-a-transaction.html">2. Life of a transaction</a></li>
+<li><a href="03-consensus.html">3. How the chain agrees</a></li>
+<li><a href="04-staking-and-epochs.html">4. Stake, validators, epochs</a></li>
+<li><a href="05-the-proof.html">5. What the proof proves</a></li>
+<li><a href="06-data-and-proof-together.html">6. Data first, proof binds</a></li>
+<li><a href="07-timing.html">7. Two seconds, thirty minutes</a></li>
+<li><a href="08-when-things-go-wrong.html">8. When things go wrong</a></li>
+<li><a href="09-censorship-and-the-bridge.html">9. Censorship and the bridge</a></li>
+<li><a href="10-economics.html">10. Who pays, who earns</a></li>
+<li><a href="11-forced-inclusion.html">11. Forced inclusion</a></li>
+</ol>
+<div class="grp">Reference</div>
+<ol>
+<li><a href="glossary.html">Glossary</a></li>
+<li><a href="limitations.html">Limitations</a></li>
+</ol>
+<div class="grp">Authoritative</div>
+<ol>
+<li><a class="ext" href="../spec/index.html">Specification &rarr;</a></li>
+</ol>
+</aside>
+<div class="content">
+<main>
+<h1>Etna PoS + ZK — an engineer&rsquo;s course</h1>
+<p class="muted">A layer-2 chain whose ordering is decided by its own permissionless proof-of-stake validators, whose
+blocks are settled on Ethereum by zero-knowledge proofs, and whose batch data is published to Ethereum and bound to its proof.
+Eleven lessons and two reference pages, written for people who have to build, operate or integrate against
+it and arranged to be read in order.</p>
+
+<div class="note assume">
+<p><strong>This is a design, not a running system.</strong> Nothing described here is deployed, audited or measured.
+Where a number is not yet measured it is labelled <em>unmeasured</em>; where it follows from arithmetic it is labelled
+<em>derived</em>; where it comes from a specification or a published standard it is labelled <em>sourced</em>. The
+authoritative rules — with identifiers, edge cases and exact encodings — are in the
+<a href="../spec/index.html">specification</a>; this course explains the same design in plain language.</p>
+</div>
+
+<h2>The design in five sentences</h2>
+<ol>
+<li><strong>Validators order the chain.</strong> Anyone who bonds the TAIKO token on Ethereum can join the validator
+set, the set for each epoch is fixed on Ethereum before the epoch starts, and staying selectable for future
+versions is renewed by a periodic L1 heartbeat.</li>
+<li><strong>Blocks come every two seconds</strong> and are PoS-certified once more than two thirds of the epoch&rsquo;s
+voting power has voted for them — normally a few rounds later. That confirmation stays <em>provisional</em> until the batch
+is accepted on Ethereum.</li>
+<li><strong>A batch lands on Ethereum only with its proof.</strong> One Ethereum transaction carries a zero-knowledge
+proof of both the consensus certificate and correct execution, together with the batch data or a reference to a
+publication that already holds it, or the batch is not accepted at all.</li>
+<li><strong>Proving takes minutes, not seconds.</strong> Up to about thirty minutes is normal, so the chain keeps
+producing and certifying while proofs catch up.</li>
+<li><strong>A settled checkpoint is never rewritten</strong>, and everything above it is provisional. The one rule that acts on the provisional range is the stall resolution: the DAO may queue a single entry during a settlement stall, and after its stored deadline anyone may execute it once to resume settlement without erasing that range &mdash; it invalidates a superseded certificate only as a batch&rsquo;s head evidence, and the range stays valid history that a later batch can extend, while its signals must be resubmitted. Nothing obliges governance to act, so a stall it does not act on halts the chain; value at or below the last accepted checkpoint still exits on Ethereum alone through a withdrawal root of <code>k</code> distinct-family attestations (funded proving work over data that is still retrievable).</li>
+</ol>
+<p class="small">Every duration, rate and size above is a design input or a planning envelope, not a measurement; the
+pages below label what is derived and what is unmeasured.</p>
+
+<h2>How to read this course</h2>
+<p>The pages are written to be read one after another. Each one states what it establishes, uses only terms the
+pages before it have already introduced, and stands on its own if you stop there.</p>
+<ol>
+<li><strong><a href="01-what-is-etna.html">What Etna PoS + ZK is</a></strong> &mdash; the shape of the system: who
+does what, what Ethereum still provides, and the five questions people mix up. It gives you the picture the rest
+of the course uses.</li>
+<li><strong><a href="02-life-of-a-transaction.html">The life of a transaction</a></strong> &mdash; one
+transaction end to end, and the eight statuses you will see in tooling &mdash; including the provisional
+PoS-certified status &mdash; with what each status actually guarantees and what it does not.</li>
+<li><strong><a href="03-consensus.html">How the chain agrees</a></strong> &mdash; proposals, votes, the
+two-thirds quorum, locks, commit certificates, proposer selection and view changes: how an L2 block becomes
+certified in the first place.</li>
+<li><strong><a href="04-staking-and-epochs.html">Stake, validators and epochs</a></strong> &mdash; bonding
+TAIKO, joining an epoch&rsquo;s validator set, the L1 heartbeat that renews eligibility, how voting power is
+counted, exits, and how a new node starts safely.</li>
+<li><strong><a href="05-the-proof.html">What the proof proves</a></strong> &mdash; the zero-knowledge statement:
+the consensus certificate, execution, the data binding, the configuration it binds and the signed recovery
+generation that scopes certificates &mdash; and what it deliberately does not prove.</li>
+<li><strong><a href="06-data-and-proof-together.html">Data first, proof binds</a></strong> &mdash; one accepting
+transaction binds the data and the proof: the data carried or a live publication record referenced, the calldata
+and blob paths, the blob binding, the per-epoch configuration registry, and what a failed verification does.</li>
+<li><strong><a href="07-timing.html">Two seconds and thirty minutes</a></strong> &mdash; block cadence,
+certification, proving, L1 acceptance, Ethereum finality and withdrawals on one timeline, including the data
+bound on batch length and the proofs in flight it implies.</li>
+<li><strong><a href="08-when-things-go-wrong.html">When things go wrong</a></strong> &mdash; withholding, missing
+certificates, offline validators, lost data and settlement stalls: how a stall halts the chain safely, keeps
+every accepted checkpoint untouched, leaves the range above it as valid history whose signals must be
+resubmitted, and how the timelocked, resume-only stall resolution clears it when governance acts.</li>
+<li><strong><a href="09-censorship-and-the-bridge.html">Censorship and the bridge</a></strong> &mdash; what
+censorship resistance this design does and does not provide: statistical resistance for unpublished data, no
+remedy against isolation and no general inclusion list, plus how bridge messages are authenticated and what a
+withdrawal root requires.</li>
+<li><strong><a href="10-economics.html">Who pays, who earns, who loses</a></strong> &mdash; validator costs and
+rewards, what a slashable offence needs, penalties, unbonding, and how minimum stake is derived.</li>
+<li><strong><a href="11-forced-inclusion.html">Forced inclusion</a></strong> &mdash; the one inclusion
+obligation: a frontier that must advance past the oldest pending publication, resolving it dead first, then on
+the live-only void grounds, then by walking its transactions in their own order and running or setting aside each
+at its turn; enforcement inside the proof and never at the door; and the honest bound, exclusion per unit of the
+censor&rsquo;s L1 spending rather than a latency guarantee.</li>
+<li><strong><a href="glossary.html">Glossary</a></strong> &mdash; every term the course uses, in one table, with
+the meaning the design fixes for it. It is a reference: open it whenever a word needs pinning down, and each
+entry stands alone.</li>
+<li><strong><a href="limitations.html">What this design does not promise</a></strong> &mdash; the honest edge of
+the whole course: a design and not an implementation, provisional confirmations, unbounded off-chain loss, a
+stall that halts safely and is cleared only by the timelocked stall resolution when governance acts, no
+protocol-level liveness guarantee and no permissionless recovery, and the guarantees the design deliberately
+does not make.</li>
+</ol>
+
+<div class="card">
+<p><strong>A note on honesty.</strong> Every lesson states what the design guarantees and, just as carefully, what it
+does not. Where a guarantee rests on an assumption — most rest on fewer than a third of stake being malicious, on
+enough validators being online, and on somebody keeping the data until the proof lands — the lesson says so in an
+<em>Assumptions</em> box. If this course ever claims more than the specification does,
+treat that as a bug in the course.</p>
+</div>
+
+</main>
+<footer class="site"><p>Etna PoS + ZK engineer&rsquo;s course · the authoritative rules are in the <a href="../spec/index.html">specification</a>.</p></footer>
+</div><!-- /content -->
+</div><!-- /layout -->
+</body></html>
