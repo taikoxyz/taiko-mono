@@ -270,14 +270,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
                 && _input.activeCommitteeSnapshot <= _input.l1ReferenceBlockNumber,
             InvalidCommitteeSnapshot()
         );
-        // A pending validator update does not change the committee authorizing this epoch.
-        uint64 parentEpoch = parent.height == 0 ? 0 : (parent.height - 1) / _activation.epochLenL2;
-        if ((lastHeight - 1) / _activation.epochLenL2 == parentEpoch) {
-            require(
-                _input.activeCommitteeSnapshot == _activeCommitteeSnapshot,
-                InvalidCommitteeSnapshot()
-            );
-        }
 
         uint48 headBefore = _forcedInclusionStorage.head;
         uint48 headAfter = _input.forcedInclusionHead;

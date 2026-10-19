@@ -350,13 +350,18 @@ is absent from the committee governing an already-landed block; later anchored s
 select that bond again. Slot reuse creates a different bond incarnation and leaves historical
 registry checkpoints intact.
 
-The Inbox initializes its cutoff to `genesisCutoff`. V10 binds the snapshot of the committee that
-actually authorizes the terminal block: for runtime epoch `t`, the anchor of `D(t)=H(t)-3`.
+The Inbox initializes its cutoff to `genesisCutoff`. V10 binds the authenticated cutoff of the
+committee actually signing the terminal block. Under the implemented normal genesis-only schedule,
+epoch zero uses `genesisCutoff` and runtime epoch `t` uses the anchor of `D(t)=H(t)-3`.
 At switch `S(t)` and `S(t)+1`, the outgoing set still authorizes blocks, so its cutoff remains
-unchanged. Only a landing reaching `H(t)` can publish the incoming set's cutoff. A fresh terminal
-anchor, a recent proving reference, or an already-derived pending committee cannot unlock stake.
-The Inbox rejects cutoff regression, cutoff beyond the L1 reference, and changes within the same
-active epoch. The proof validates exact provenance; no real guest is implemented in this PR.
+unchanged; `H(t)` activates the incoming set. A future authenticated recovery schedule may replace
+this normal provenance, including within the same numeric epoch. Recovery remains unimplemented.
+A fresh terminal anchor, a recent proving reference, or an already-derived pending committee
+cannot substitute for the actual signing committee's cutoff or unlock stake.
+The Inbox rejects cutoff regression and cutoff beyond the L1 reference. It relies on the bound
+proof for exact committee provenance, including a cutoff advance within one numeric epoch. No real
+guest is implemented in this PR; statement-bound verifier fixtures test contract acceptance and
+atomic rollback, not guest proof soundness.
 
 Settlement stalls intentionally delay refunds even after the L1 wait matures. There is no owner
 bypass or rebind function, and no new slashing/recovery mechanism. Both the existing proxy upgrade
@@ -523,6 +528,14 @@ from unbounded caller input. EL RPC and Comet envelopes are both usable sources 
 links authenticate the headers. Missing history reports the required height; transient RPC failures
 remain retryable, while broken links/height/generation/anchor/config/record/entries reject.
 
+Planned recovery has an explicit schedule exception; it is not implemented by this genesis-only
+change. If the recovery checkpoint is `c = S(t)`, bootstrap the outgoing committee `t-1` and the
+authenticated, already-derived pending committee `t` from the original `D(t)`. Re-emit that pending
+validator update in FinalizeBlock at `S(t)+1 = H(t)-1`. With CometBFT H+2 timing the outgoing set
+signs `H(t)` and the incoming set starts at `H(t)+1`. Proofs must accept independent batch cuts
+ending at either `H(t)` or `H(t)+1`, authenticating the actual signer and corresponding cutoff in
+each case. Recovery must not derive a replacement pending set from a newer anchor.
+
 A starting committee may use a later authenticated checkpoint-parent proving root whose L1 number
 covers its derived snapshot. Under that root prove the last immutable registry checkpoint at/before
 the snapshot, its successor after it when present, array length and complete historical entries/root.
@@ -613,8 +626,9 @@ days. Canonical means exactly one complete EIP-2718 transaction envelope, includ
 transactions, whose decoding consumes all input and whose re-encoding reproduces the exact bytes.
 Use the codec compatible with the pinned EL. Empty, undecodable or failed-round-trip bytes are
 invalid forced input; do not duplicate signature, nonce, balance, gas or fee validation.
-At or after due, a block that neither includes nor legally skips the entry is invalid; it cannot
-retain the cursor. Log acquisition failure or an unavailable singleton verdict does not relax this
+At or after due, a block that neither includes nor legally skips the current queue-head entry is
+invalid; it cannot retain the cursor. This implication applies only to entry `c`, not every due
+entry behind it. Log acquisition failure or an unavailable singleton verdict does not relax this
 rule.
 
 | Condition                                                                        | Action                                                                                                |
@@ -643,9 +657,14 @@ solely because that combined build stopped.
 
 The whole candidate still passes normal header and EL payload validation. Every block requires
 `block.timestamp - A.timestamp <= M` and the existing anchor, generation, back-pressure and
-committee rules. A proposer with no finalized anchor fresh enough for `M` proposes nothing, so
-a longer L1 finality stall pauses L2. ProcessProposal, hot/cold FinalizeBlock, proposer final-block
-checking and lander validation must agree on the classification and completed singleton verdict.
+committee rules. The age check uses the candidate's fixed timestamp and authenticated anchor;
+a proposal does not expire merely because a node's local finalized L1 head later advances. There
+is no moving `K_FRESH` acceptance limit. A proposer with no finalized anchor fresh enough for `M`
+proposes nothing, so a longer L1 finality stall pauses L2. Timing arguments assume less than
+one-third Byzantine voting power, reasonable clocks and continued L1/L2/landing progress. Block
+time and the due rule do not promise a wall-clock inclusion deadline for an arbitrary queue entry.
+ProcessProposal, hot/cold FinalizeBlock, proposer final-block checking and lander validation must
+agree on the classification and completed singleton verdict.
 Canonical skips need parent state; unavailable cold rebuilding remains an actionable
 `forced_rebuild_unavailable` failure.
 
