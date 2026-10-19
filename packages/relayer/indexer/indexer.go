@@ -143,6 +143,10 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		return errors.New("maxNumGoroutines must be greater than zero")
 	}
 
+	if cfg.BlockBatchSize == 0 {
+		return errors.New("blockBatchSize must be greater than zero")
+	}
+
 	db, err := cfg.OpenDBFunc()
 	if err != nil {
 		return err

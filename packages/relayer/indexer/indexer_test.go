@@ -160,7 +160,8 @@ func TestHandleMessageProcessedEventSkipsIgnoredMessageHash(t *testing.T) {
 // database connection or dials RPC.
 func TestInitFromConfigRejectsZeroNumGoroutines(t *testing.T) {
 	err := InitFromConfig(context.Background(), new(Indexer), &Config{
-		NumGoroutines: 0,
+		BlockBatchSize: 10,
+		NumGoroutines:  0,
 		OpenDBFunc: func() (db.DB, error) {
 			t.Fatal("InitFromConfig opened the database despite the invalid config")
 
@@ -170,4 +171,18 @@ func TestInitFromConfigRejectsZeroNumGoroutines(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "maxNumGoroutines must be greater than zero")
+}
+
+func TestInitFromConfigRejectsZeroBlockBatchSize(t *testing.T) {
+	err := InitFromConfig(context.Background(), new(Indexer), &Config{
+		BlockBatchSize: 0,
+		NumGoroutines:  1,
+		OpenDBFunc: func() (db.DB, error) {
+			t.Fatal("InitFromConfig opened the database despite the invalid config")
+
+			return nil, nil
+		},
+	})
+
+	require.EqualError(t, err, "blockBatchSize must be greater than zero")
 }
