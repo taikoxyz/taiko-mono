@@ -70,9 +70,9 @@ def decimals(value):
 
 
 def committee_config():
-    """The `ETNA_PARENT_ANCHOR_V3` configuration opening: eleven static words (352 bytes)."""
+    """The `ETNA_PARENT_ANCHOR_V4` configuration opening: eleven static words (352 bytes)."""
     inputs = {
-        "tag": "ETNA_PARENT_ANCHOR_V3",
+        "tag": "ETNA_PARENT_ANCHOR_V4",
         "l2_chain_id": 167001,
         "registry": "0x2222222222222222222222222222222222222222",
         "vp_unit": 10**9,

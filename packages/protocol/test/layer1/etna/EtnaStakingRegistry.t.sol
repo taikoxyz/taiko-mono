@@ -9,6 +9,7 @@ import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.so
 import { LibEntriesTree } from "src/layer1/etna/libs/LibEntriesTree.sol";
 import { TaikoToken } from "src/layer1/mainnet/TaikoToken.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { TestERC20 } from "test/mocks/TestERC20.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
 contract EtnaStakingRegistryTest is CommonTest {
@@ -1094,7 +1095,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         assertEq(registry.entryAt(1).activeFromL1, 13 * CHURN_WINDOW);
     }
 
-    function test_register_ScalesTheChurnWithTheBondedStake() external {
+    function test_register_ScalesTheChurnWithTheActiveStake() external {
         registry = _newChurnRegistry(CHURN_WINDOW, 10_000, MIN_STAKE);
         vm.prank(Alice);
         registry.register(KEY_A, 4 * MIN_STAKE, Alice);
@@ -1104,9 +1105,35 @@ contract EtnaStakingRegistryTest is CommonTest {
         vm.roll(2001);
         vm.prank(Bob);
         registry.register(KEY_B, 4 * MIN_STAKE, Alice);
-        // 100% of the 4 bonded stakes fits in window 20 at once.
+        // 100% of the 4 active stakes fits in window 20 at once.
         assertEq(registry.entryAt(1).activeFromL1, 2001 + ACTIVATION_DELAY);
         assertEq(registry.bondedStake(), 8 * MIN_STAKE);
+    }
+
+    function test_register_PendingStakeDoesNotRaiseChurnCapacity() external {
+        registry = _newChurnRegistry(CHURN_WINDOW, 10_000, MIN_STAKE);
+        vm.prank(Alice);
+        registry.register(KEY_A, 4 * MIN_STAKE, Alice);
+        vm.prank(Bob);
+        registry.register(KEY_B, 4 * MIN_STAKE, Alice);
+        // Both are still pending: the second request also consumes four floor windows.
+        assertEq(registry.entryAt(0).activeFromL1, 1300);
+        assertEq(registry.entryAt(1).activeFromL1, 1700);
+    }
+
+    function test_requestExit_PendingExitRemainsInChurnBase() external {
+        registry = _newChurnRegistry(CHURN_WINDOW, 5000, MIN_STAKE);
+        vm.prank(Alice);
+        registry.register(KEY_A, 4 * MIN_STAKE, Alice);
+        vm.prank(Bob);
+        registry.register(KEY_B, 4 * MIN_STAKE, Alice);
+        vm.roll(2001);
+        vm.prank(Alice);
+        registry.requestExit(0);
+        vm.roll(2010);
+        vm.prank(Bob);
+        registry.requestExit(1);
+        assertEq(registry.entryAt(1).exitEffectiveL1, 2100);
     }
 
     function test_requestExit_DefersExitsBeyondTheChurnLimit() external {
@@ -1145,6 +1172,168 @@ contract EtnaStakingRegistryTest is CommonTest {
         vm.prank(Alice);
         registry.requestExit(0);
         assertEq(registry.entryAt(0).exitEffectiveL1, START_BLOCK + CHURN_WINDOW + EXIT_DELAY);
+    }
+
+    function test_storage_ChurnQueuesAndAppendedSchedules() external {
+        registry = _newChurnRegistry(CHURN_WINDOW, 0, MIN_STAKE);
+        _register(Alice, KEY_A);
+        assertEq(_load(bytes32(uint256(REGISTRY_BASE) + 8)), 11);
+        assertEq(_load(bytes32(uint256(REGISTRY_BASE) + 9)), 0);
+        assertEq(_load(bytes32(uint256(REGISTRY_BASE) + 10)), 0);
+        assertEq(_load(bytes32(uint256(REGISTRY_BASE) + 11)), 0);
+        assertEq(_load(_mappingSlot(bytes32(uint256(1) << 64), 13)), MIN_STAKE);
+        assertEq(_load(_mappingSlot(bytes32(uint256(1) << 64), 14)), 0);
+        vm.prank(Alice);
+        registry.requestExit(0);
+        assertEq(_load(bytes32(uint256(REGISTRY_BASE) + 10)), 11);
+        assertEq(_load(bytes32(uint256(REGISTRY_BASE) + 11)), 0);
+        assertEq(_load(_mappingSlot(bytes32(uint256(1) << 64), 14)), MIN_STAKE);
+    }
+
+    function test_activeStake_TransitionsWithoutTransactionsAndIgnoresDonations() external {
+        _register(Alice, KEY_A);
+        assertEq(registry.activeStake(), 0);
+        vm.roll(START_BLOCK + ACTIVATION_DELAY - 1);
+        assertEq(registry.activeStake(), 0);
+        vm.roll(START_BLOCK + ACTIVATION_DELAY);
+        assertEq(registry.activeStake(), MIN_STAKE);
+        token.transfer(address(registry), MIN_STAKE);
+        assertEq(registry.activeStake(), MIN_STAKE);
+        vm.prank(Alice);
+        registry.requestExit(0);
+        assertEq(registry.bondedStake(), 0, "legacy subtraction remains at request");
+        assertEq(registry.activeStake(), MIN_STAKE);
+        uint64 exitBlock = registry.entryAt(0).exitEffectiveL1;
+        vm.roll(exitBlock - 1);
+        assertEq(registry.activeStake(), MIN_STAKE);
+        vm.roll(exitBlock);
+        assertEq(registry.activeStake(), 0);
+        vm.roll(NO_EXIT);
+        assertEq(registry.activeStake(), 0);
+        vm.roll(uint256(NO_EXIT) + 1);
+        assertEq(registry.activeStake(), 0);
+    }
+
+    function test_activeStake_PreActivationExitUsesFinalEffectiveCoordinate() external {
+        registry = _newChurnRegistry(CHURN_WINDOW, 1000, MIN_STAKE);
+        _register(Alice, KEY_A);
+        vm.prank(Bob);
+        registry.register(KEY_B, 50 * MIN_STAKE, Alice);
+        _register(Carol, KEY_C);
+        vm.prank(Carol);
+        registry.requestExit(2);
+        assertEq(registry.activeStake(), 0);
+        vm.roll(START_BLOCK + CHURN_WINDOW);
+        vm.prank(Alice);
+        registry.requestExit(0);
+        assertEq(registry.entryAt(0).exitEffectiveL1, START_BLOCK + CHURN_WINDOW + EXIT_DELAY);
+        uint64 activation = registry.entryAt(2).activeFromL1;
+        vm.roll(activation);
+        assertEq(registry.activeStake(), 51 * MIN_STAKE);
+        vm.roll(registry.entryAt(2).exitEffectiveL1);
+        assertEq(registry.activeStake(), 50 * MIN_STAKE);
+    }
+
+    function test_activeStake_SameBlockLifecycleCleansTreesBeforeSlotReuse() external {
+        registry = _newApprovedProxy(
+            new EtnaStakingRegistry(address(token), MIN_STAKE, 0, 0, 0, HEARTBEAT_WINDOW, 0, 0, 0)
+        );
+        for (uint256 i; i < 3; ++i) {
+            address staker = i % 2 == 0 ? Alice : Bob;
+            uint256 amount = (i + 1) * MIN_STAKE;
+            vm.prank(staker);
+            assertEq(registry.register(bytes32(i + 1), amount, Alice), 0);
+            assertEq(registry.activeStake(), amount);
+            assertEq(_load(_mappingSlot(bytes32(uint256(1) << 64), 13)), amount);
+            vm.prank(staker);
+            registry.requestExit(0);
+            assertEq(registry.activeStake(), 0);
+            assertEq(_load(_mappingSlot(bytes32(uint256(1) << 64), 14)), amount);
+            _settleExit(0);
+            bytes32 root = registry.entriesRoot();
+            vm.prank(staker);
+            registry.withdraw(0, staker);
+            assertEq(registry.activeStake(), 0);
+            assertEq(registry.entriesRoot(), root, "withdrawal preserves node entries");
+            assertEq(_load(_mappingSlot(bytes32(uint256(1) << 64), 13)), 0);
+            assertEq(_load(_mappingSlot(bytes32(uint256(1) << 64), 14)), 0);
+        }
+        assertEq(registry.checkpointCount(), 1, "same block overwrite preserved");
+    }
+
+    function test_register_FullWidthChurnMultiplication() external {
+        TestERC20 wide = new TestERC20("wide", "W");
+        uint256 amount = uint256(1) << 255;
+        EtnaStakingRegistry r = _wideRegistry(wide, 10_000, amount);
+        wide.mint(address(this), amount + 1);
+        wide.approve(address(r), type(uint256).max);
+        r.register(KEY_A, amount, Alice);
+        vm.roll(r.entryAt(0).activeFromL1);
+        r.register(KEY_B, 1, Alice);
+        assertEq(r.activeStake(), amount);
+        assertEq(r.entryAt(1).activeFromL1, 1100, "existing exhausted queue capacity is preserved");
+    }
+
+    function test_register_FullWidthRoundedCapacityDoesNotOverflow() external {
+        TestERC20 wide = new TestERC20("wide", "W");
+        uint256 capacity = (uint256(1) << 255) + 5;
+        EtnaStakingRegistry r = _wideRegistry(wide, 0, capacity);
+        wide.mint(address(this), type(uint256).max - 1);
+        wide.approve(address(r), type(uint256).max);
+        r.register(KEY_A, type(uint256).max - 1, Alice);
+        assertEq(r.entryAt(0).activeFromL1, 1100);
+        assertEq(uint256(vm.load(address(r), bytes32(uint256(REGISTRY_BASE) + 9))), 12);
+    }
+
+    function test_register_RejectsSentinelAndTruncatingCoordinates() external {
+        vm.roll(uint256(NO_EXIT) - ACTIVATION_DELAY);
+        vm.expectRevert(EtnaStakingRegistry.InvalidChurn.selector);
+        _register(Alice, KEY_A);
+        vm.roll(uint256(NO_EXIT) + 1);
+        vm.expectRevert();
+        _register(Alice, KEY_A);
+        assertEq(registry.entryCount(), 0);
+    }
+
+    function test_requestExit_RejectsSentinelWithoutChangingAccounting() external {
+        _register(Alice, KEY_A);
+        vm.roll(uint256(NO_EXIT) - EXIT_DELAY);
+        vm.expectRevert(EtnaStakingRegistry.InvalidChurn.selector);
+        vm.prank(Alice);
+        registry.requestExit(0);
+        assertEq(registry.entryAt(0).exitEffectiveL1, NO_EXIT);
+        assertEq(registry.activeStake(), MIN_STAKE);
+        assertEq(registry.bondedStake(), MIN_STAKE);
+    }
+
+    function _wideRegistry(
+        TestERC20 _token,
+        uint16 _bps,
+        uint256 _floor
+    )
+        private
+        returns (EtnaStakingRegistry)
+    {
+        return EtnaStakingRegistry(
+            address(
+                new ERC1967Proxy(
+                    address(
+                        new EtnaStakingRegistry(
+                            address(_token),
+                            1,
+                            ACTIVATION_DELAY,
+                            EXIT_DELAY,
+                            0,
+                            HEARTBEAT_WINDOW,
+                            CHURN_WINDOW,
+                            _bps,
+                            _floor
+                        )
+                    ),
+                    abi.encodeCall(EtnaStakingRegistry.init, (address(this)))
+                )
+            )
+        );
     }
 
     // ---------------------------------------------------------------

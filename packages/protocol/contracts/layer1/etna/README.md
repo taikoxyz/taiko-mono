@@ -143,8 +143,8 @@ Validate the vault address against the EL treasury derivation rather than a free
 fee-vault address. Ordinary gas estimation, EIP-7825 transaction caps, priority fees and blob fees
 retain their existing semantics; only base fees committed for the landed execution range pay here.
 
-The coordinated format is landing statement V10, envelope 6, blob payload 6, journal schema 12, APP_VERSION 3,
-committee encoding version 2 and config domain `ETNA_PARENT_ANCHOR_V3`. Reject old persisted
+The coordinated format is landing statement V10, envelope 6, blob payload 6, journal schema 12, APP_VERSION 4,
+committee encoding version 2 and config domain `ETNA_PARENT_ANCHOR_V4`. Reject old persisted
 or signed jobs explicitly. Do not rewrite an old signed journal or discard its transaction nonce
 to make it appear current. No real Etna guest is included: dummy/accept-all proofs are explicit
 local-devnet scaffolding and cannot establish consensus, execution or fee-sum soundness.
@@ -231,6 +231,8 @@ All state lives in the ERC-7201 namespace `taiko.etna.registry`, at base slot
 | `R + 10` | exit churn: one past the latest scheduled window (contract-internal)                    |
 | `R + 11` | exit churn: the latest scheduled window's remaining capacity (contract-internal)        |
 | `R + 12` | `inbox`: one-time bound Inbox address authenticating stake withdrawal eligibility       |
+| `R + 13` | `activationStake`: unsigned block-indexed Fenwick tree (contract-internal)              |
+| `R + 14` | `exitStake`: unsigned block-indexed Fenwick tree (contract-internal)                    |
 
 | Word                        | Content                                                                  | Packing                                      |
 | --------------------------- | ------------------------------------------------------------------------ | -------------------------------------------- |
@@ -281,7 +283,7 @@ activation, exit and withdrawal delays permit it; the reused slot may have a new
   bounds entries holding stake at once. A withdrawn entry stays in its slot, exit effective, until
   it is overwritten.
 - With a non-zero `churnWindow`, each window has an activation capacity and a separate exit
-  capacity of `max(minChurnPerWindow, bondedStake · churnBps / 10000)`, scheduled as in EIP-7251:
+  capacity of `max(minChurnPerWindow, activeStake · churnBps / 10000)`, scheduled as in EIP-7251:
   a request consumes capacity from the latest scheduled window on and takes effect at the start of
   the window where it is fully absorbed. A request larger than one window takes effect in full at
   once, so the limit bounds the average rate, not each window. Exits queue from
@@ -297,7 +299,7 @@ The canonical commitment is the eleven-word encoding (352 bytes):
 
 ```solidity
 committeeConfigHash = keccak256(abi.encode(
-    bytes32("ETNA_PARENT_ANCHOR_V3"), uint256(l2ChainId), address(stakingRegistry),
+    bytes32("ETNA_PARENT_ANCHOR_V4"), uint256(l2ChainId), address(stakingRegistry),
     uint256(vpUnit), uint256(sMin), uint64(nMax),
     uint64(heartbeatWindow), uint64(2), uint8(2),
     uint64(dMax), uint64(marginV)
@@ -726,7 +728,7 @@ cross-generation economic double payment; recovery coordination remains outside 
 ## Shared vectors and verification
 
 `testdata/etna_vectors/generate.py` uses independent `cast` ABI/hash/slot commands. Its schema-3
-JSON pins the V3 eleven-word config, recipient-bound registry leaves/four-word storage, V2 set
+JSON pins the V4 eleven-word config, recipient-bound registry leaves/four-word storage, V2 set
 leaves and committee records, complete twenty-one-word V10 preimages, batch identity, commitment,
 slot-283 location, slot-284 cutoff, exact land/claim selectors, and a zero-fee batch. Integers are decimal strings.
 Set cases cover empty rejection input, singleton, odd-width and five-member trees.
@@ -749,3 +751,19 @@ pnpm test:l1
 pnpm test:l2
 pnpm test:shared
 ```
+
+`activeStake()` is the exact current sum of unwithdrawn entries with
+`activeFromL1 <= block.number < exitEffectiveL1`, including requested exits until effective
+and excluding pending activations. Each request reads it before inserting its own event;
+existing queue capacity is retained. Heartbeats, committee ranking and token donations do
+not change this denominator. Both trees use full uint256 amounts and uint64 block coordinates:
+a write visits at most 65 cells and a prefix reads at most 64, with no keeper, sweep or
+occupancy-dependent scan. Withdrawal cancels both matured events after the unchanged delay
+and settled-committee checks; reuse adds only the new generation. Cancellation makes historical
+active-stake queries unsupported. The no-exit sentinel is reserved: mutation cannot schedule
+an event at uint64.max, and the current getter returns zero at or beyond it.
+
+This accounting is for a fresh new-genesis registry. A populated proxy upgrade needs a separate
+backfill protocol; append-only layout alone does not initialize existing intervals. Node-facing
+entry/checkpoint encodings, old namespace offsets and the legacy `bondedStake` balance remain
+unchanged. No populated-state migration is implemented here.
