@@ -2,10 +2,11 @@
 //!
 //! Each pending entry commits to at most 8192 bytes of one transaction. A canonical transaction
 //! consumes its entry only at position zero, including before its delay elapses. At or after the
-//! delay, invalid bytes consume the entry directly; canonical bytes absent from position zero
-//! require the caller to validate a skip. This rule has no expiry and never consults the EL.
+//! delay, invalid or low-fee-cap bytes consume the entry directly; eligible canonical bytes
+//! absent from position zero require the caller to validate a skip. This rule has no expiry
+//! and never consults the EL.
 
-use alloy_consensus::TxEnvelope;
+use alloy_consensus::{Transaction, TxEnvelope};
 use alloy_eips::eip2718::{Decodable2718, Encodable2718};
 use alloy_primitives::{Address, B256, Bytes, U256, keccak256};
 use alloy_rlp::{Decodable, RlpEncodable};
@@ -20,6 +21,10 @@ use crate::{
 
 /// Maximum byte length of a forced transaction committed by the Inbox.
 pub const MAX_FORCED_TX_BYTES: usize = 8192;
+
+/// Minimum execution fee cap, in wei, for a due canonical transaction to require an EL skip
+/// check. This genesis-bound protocol floor equals the hard base-fee cap; it is not a local flag.
+pub const FI_MIN_EXEC_FEE_CAP: u128 = 1_000_000_000;
 
 /// One authenticated calldata queue entry decoded from two Inbox storage words.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -79,9 +84,9 @@ pub enum ForcedDecision {
     Ordinary,
     /// The canonical transaction at position zero consumes this queue index.
     Included(u64),
-    /// Due bytes are not a canonical transaction, so this queue index is consumed directly.
+    /// Due bytes are malformed or below the execution fee floor, consuming the index directly.
     SkippedInvalid(u64),
-    /// A due canonical transaction needs a separate authenticated skip decision.
+    /// A due canonical transaction meeting the fee floor needs an authenticated skip decision.
     NeedsSkip {
         /// Pending queue index; this classification alone does not authorize consumption.
         index: u64,
@@ -125,6 +130,13 @@ pub fn decode_canonical(bytes: &[u8]) -> Option<TxEnvelope> {
     (remaining.is_empty() && tx.encoded_2718().as_slice() == bytes).then_some(tx)
 }
 
+/// Whether a canonical transaction requires singleton validation before a due skip.
+/// Legacy/type-1 gas price and typed execution max-fee caps use the same immutable wei floor.
+/// This predicate never restricts matching transaction-zero inclusion or pre-due blocks.
+pub fn requires_singleton_skip(tx: &TxEnvelope) -> bool {
+    tx.max_fee_per_gas() >= FI_MIN_EXEC_FEE_CAP
+}
+
 /// Authenticates `index` at `inbox` under `state_root` and decodes the two storage words.
 ///
 /// Returns [`ForcedError::Entry`] for another account, a non-exact slot set or an invalid MPT
@@ -166,9 +178,10 @@ pub(crate) fn is_due(timestamp: u64, delay: u64, anchor_timestamp: u64) -> bool 
 /// An exhausted queue forbids a witness; a pending entry requires its two-slot proof. A canonical
 /// `first_tx` within the byte cap whose hash matches the entry consumes it without a duplicate
 /// preimage. Before due, an omitted preimage permits an ordinary block. A due skip requires the
-/// exact preimage: canonical bytes return [`ForcedDecision::NeedsSkip`] for further validation,
-/// while invalid bytes consume directly. Nonempty redundant preimages remain hash-checked for
-/// historical envelope compatibility. Invalid bytes cannot be skipped early; there is no expiry.
+/// exact preimage: canonical bytes meeting [`FI_MIN_EXEC_FEE_CAP`] return
+/// [`ForcedDecision::NeedsSkip`] for further validation; malformed or lower-cap bytes consume
+/// directly. Nonempty redundant preimages remain hash-checked for historical envelope
+/// compatibility. Neither malformed nor low-cap bytes can be skipped early; there is no expiry.
 pub fn check(
     context: ForcedContext<'_>,
     witness: Option<&ForcedWitness>,
@@ -207,7 +220,7 @@ pub fn check(
     if got != entry.tx_hash {
         return Err(ForcedError::TxHashMismatch { expected: entry.tx_hash, got });
     }
-    Ok(if decode_canonical(&w.tx).is_some() {
+    Ok(if decode_canonical(&w.tx).as_ref().is_some_and(requires_singleton_skip) {
         ForcedDecision::NeedsSkip { index: context.cursor, tx: w.tx.clone() }
     } else {
         ForcedDecision::SkippedInvalid(context.cursor)

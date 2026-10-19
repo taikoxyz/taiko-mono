@@ -890,6 +890,60 @@ fn n_max_applies_after_eligibility() {
 }
 
 #[test]
+fn missing_heartbeat_does_not_backfill_the_only_reserved_seat() {
+    let params = ChainParams { n_max: 1, ..devnet() };
+    let absent = RegistryEntry { last_heartbeat_seq: 0, ..entry(1, ether(9)) };
+    let waiting = entry(2, ether(1));
+    assert_eq!(
+        derive(&snapshot(vec![absent, waiting]), C, 3, &SCHEDULE, &params),
+        Err(CommitteeError::Empty)
+    );
+}
+
+#[test]
+fn missing_heartbeat_leaves_partial_seats_empty_and_preserves_record_totals() {
+    let params = ChainParams { n_max: 2, ..devnet() };
+    let absent = RegistryEntry { last_heartbeat_seq: 0, ..entry(1, ether(9)) };
+    let live = entry(2, ether(7));
+    let waiting = entry(3, ether(6));
+    let (record, members) =
+        derive(&snapshot(vec![absent, live.clone(), waiting]), C, 3, &SCHEDULE, &params)
+            .unwrap();
+    let expected = vec![Member {
+        reward_recipient: live.reward_recipient,
+        pubkey: live.pubkey,
+        eff_stake: live.eff_stake,
+        power: 7_000_000_000,
+    }];
+    assert_eq!(members, expected);
+    assert_eq!(record.set_root, set_root(params.l2_chain_id, 4, &members));
+    assert_eq!(record.total_power, 7_000_000_000);
+    assert_eq!(record.total_stake, ether(7));
+}
+
+#[test]
+fn lowest_base_eligible_duplicate_holds_the_seat_before_heartbeat_filtering() {
+    let absent = RegistryEntry { last_heartbeat_seq: 0, ..entry(1, ether(9)) };
+    let later_live = entry(1, ether(10));
+    assert_eq!(
+        derive(&snapshot(vec![absent, later_live]), C, 3, &SCHEDULE, &devnet()),
+        Err(CommitteeError::Empty)
+    );
+}
+
+#[test]
+fn equal_stake_seat_cutoff_precedes_heartbeat_filtering() {
+    let params = ChainParams { n_max: 1, ..devnet() };
+    let mut entries = vec![entry(1, ether(7)), entry(2, ether(7))];
+    entries.sort_by_key(|e| set_key(params.l2_chain_id, e.pubkey));
+    entries[0].last_heartbeat_seq = 0;
+    assert_eq!(
+        derive(&snapshot(entries), C, 3, &SCHEDULE, &params),
+        Err(CommitteeError::Empty)
+    );
+}
+
+#[test]
 fn n_max_equal_to_the_eligible_count_keeps_everyone() {
     let params = ChainParams { n_max: 3, ..devnet() };
     let entries = vec![entry(1, ether(1)), entry(2, ether(2)), entry(3, ether(3))];
@@ -1183,12 +1237,12 @@ fn validator_updates_omit_unchanged_native_members() {
 }
 
 /// The shared `committee_config` vector (`testdata/etna_vectors`, computed with `cast`; the
-/// contracts' `EtnaInboxLand` test reads it too): the eleven `ETNA_PARENT_ANCHOR_V3` inputs hash
+/// contracts' `EtnaInboxLand` test reads it too): the eleven `ETNA_PARENT_ANCHOR_V4` inputs hash
 /// to the vector's configuration hash.
 #[test]
 fn committee_config_hash_matches_the_shared_vector() {
     let input = |name: &str| format!("/committee_config/inputs/{name}");
-    assert_eq!(vectors::str_at(&input("tag")), "ETNA_PARENT_ANCHOR_V3");
+    assert_eq!(vectors::str_at(&input("tag")), "ETNA_PARENT_ANCHOR_V4");
     assert_eq!(vectors::u64_at(&input("lookahead_epochs")), LOOKAHEAD_EPOCHS);
     assert_eq!(vectors::u64_at(&input("encoding_version")), u64::from(ENCODING_VERSION));
     let params = ChainParams {

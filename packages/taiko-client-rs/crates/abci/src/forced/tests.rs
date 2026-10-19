@@ -4,7 +4,10 @@ use crate::{
     test_utils::{TestState, sample_transactions},
     types::{AnchorState, InboxFacts},
 };
-use alloy_consensus::{SignableTransaction, TxEnvelope, TxLegacy};
+use alloy_consensus::{
+    SignableTransaction, TxEip1559, TxEip2930, TxEip4844, TxEip4844Variant, TxEip7702,
+    TxEnvelope, TxLegacy,
+};
 use alloy_eips::eip2718::Encodable2718;
 use alloy_primitives::{Address, B256, Bytes, TxKind, U256, address, keccak256};
 use alloy_rlp::Decodable;
@@ -48,6 +51,100 @@ fn context(anchor: &AnchorState) -> ForcedContext<'_> {
 
 fn canonical_tx() -> Bytes {
     sample_transactions()[0].encoded_2718().into()
+}
+
+fn fee_cap_transactions(fee_cap: u128) -> Vec<Bytes> {
+    let signer = protocol::FixedKSigner::golden_touch().unwrap();
+    let legacy = TxLegacy {
+        gas_price: fee_cap,
+        gas_limit: 21_000,
+        to: TxKind::Call(INBOX),
+        ..Default::default()
+    };
+    let access_list = TxEip2930 {
+        gas_price: fee_cap,
+        gas_limit: 21_000,
+        to: TxKind::Call(INBOX),
+        ..Default::default()
+    };
+    let dynamic = TxEip1559 {
+        max_fee_per_gas: fee_cap,
+        gas_limit: 21_000,
+        to: TxKind::Call(INBOX),
+        ..Default::default()
+    };
+    let blob = TxEip4844Variant::TxEip4844(TxEip4844 {
+        max_fee_per_gas: fee_cap,
+        max_fee_per_blob_gas: u128::MAX,
+        gas_limit: 21_000,
+        to: INBOX,
+        ..Default::default()
+    });
+    let authorization = TxEip7702 {
+        max_fee_per_gas: fee_cap,
+        gas_limit: 21_000,
+        to: INBOX,
+        ..Default::default()
+    };
+    let signature = |hash: B256| signer.sign_with_predefined_k(&hash.0).unwrap().signature;
+    vec![
+        TxEnvelope::Legacy(legacy.clone().into_signed(signature(legacy.signature_hash()))),
+        TxEnvelope::Eip2930(
+            access_list.clone().into_signed(signature(access_list.signature_hash())),
+        ),
+        TxEnvelope::Eip1559(dynamic.clone().into_signed(signature(dynamic.signature_hash()))),
+        TxEnvelope::Eip4844(blob.clone().into_signed(signature(blob.signature_hash()))),
+        TxEnvelope::Eip7702(
+            authorization.clone().into_signed(signature(authorization.signature_hash())),
+        ),
+    ]
+    .into_iter()
+    .map(|tx| tx.encoded_2718().into())
+    .collect()
+}
+
+#[test]
+fn due_low_fee_cap_transactions_skip_without_singleton_validation() {
+    for raw in fee_cap_transactions(999_999_999) {
+        assert!(decode_canonical(&raw).is_some(), "fee eligibility never narrows decoding");
+        let (anchor, witness) = fixture(raw);
+        assert_eq!(
+            check(context(&anchor), Some(&witness), None),
+            Ok(ForcedDecision::SkippedInvalid(INDEX))
+        );
+    }
+}
+
+#[test]
+fn fee_cap_at_one_gwei_requires_singleton_validation() {
+    for raw in fee_cap_transactions(1_000_000_000) {
+        let (anchor, witness) = fixture(raw.clone());
+        assert_eq!(
+            check(context(&anchor), Some(&witness), None),
+            Ok(ForcedDecision::NeedsSkip { index: INDEX, tx: raw })
+        );
+    }
+}
+
+#[test]
+fn low_fee_caps_never_skip_before_due_and_matching_tx_zero_still_includes() {
+    for raw in fee_cap_transactions(0) {
+        let (mut anchor, witness) = fixture(raw.clone());
+        anchor.timestamp -= 1;
+        assert_eq!(
+            check(context(&anchor), Some(&witness), None),
+            Ok(ForcedDecision::Ordinary)
+        );
+        for timestamp in [anchor.timestamp, T0 + DELAY, u64::MAX] {
+            anchor.timestamp = timestamp;
+            let mut omitted = witness.clone();
+            omitted.tx = Bytes::new();
+            assert_eq!(
+                check(context(&anchor), Some(&omitted), Some(&raw)),
+                Ok(ForcedDecision::Included(INDEX))
+            );
+        }
+    }
 }
 
 #[test]
@@ -266,12 +363,12 @@ fn rule_requires_skip_for_due_canonical_tx_absent_from_position_zero() {
 fn rule_does_not_count_same_nonce_replacement_or_later_transaction_as_inclusion() {
     let original = TxLegacy {
         nonce: 3,
-        gas_price: 10,
+        gas_price: 1_000_000_000,
         gas_limit: 21_000,
         to: TxKind::Call(INBOX),
         ..Default::default()
     };
-    let replacement = TxLegacy { gas_price: 11, ..original.clone() };
+    let replacement = TxLegacy { gas_price: 1_000_000_001, ..original.clone() };
     let signer = protocol::FixedKSigner::golden_touch().unwrap();
     let sign = |tx: TxLegacy| -> TxEnvelope {
         let signature = signer.sign_with_predefined_k(&tx.signature_hash().0).unwrap().signature;

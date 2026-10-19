@@ -399,6 +399,42 @@ async fn ordinary_block_skipping_a_due_entry_is_rejected() {
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
 }
 
+#[tokio::test]
+async fn due_low_fee_cap_skip_is_accepted_without_a_singleton_build() {
+    use alloy_consensus::{SignableTransaction, TxEnvelope, TxLegacy};
+    let tx = TxEnvelope::Legacy(
+        TxLegacy { gas_price: 999_999_999, gas_limit: 21_000, ..Default::default() }
+            .into_signed(alloy_primitives::Signature::new(U256::from(1), U256::from(1), false)),
+    );
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let due = Fixture::l1_timestamp(66) - fx.genesis.forced_inclusion_delay;
+    let raw = super::proposal::plant_entries(
+        &fx,
+        app.l1(),
+        66,
+        fx.inbox.clone(),
+        vec![(due, vec![tx])],
+    )
+    .remove(0);
+    let witness = fx.forced_witness(app.l1(), 66, 0, raw);
+    let env = hand_forced_envelope(
+        &app,
+        Some(fx.anchor_witness(app.l1(), 66)),
+        None,
+        witness,
+        protocol::shasta::encode_transactions(&[]),
+    );
+    assert_eq!(
+        validate(&app, &env).unwrap().decision,
+        crate::forced::ForcedDecision::SkippedInvalid(0)
+    );
+    let before = app.engine().calls().len();
+    assert_eq!(judge(&mut app, &env).await.0, response::ProcessProposal::Accept);
+    assert!(matches!(&app.engine().calls()[before..], [EngineCall::NewPayload(_)]));
+}
+
 /// A mid-epoch app whose own L1 finalized block 66 holding one due entry, and the forced block
 /// an honest proposer builds consuming it, anchored at 66.
 async fn forced_block(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, EtnaEnvelope) {
@@ -630,8 +666,8 @@ async fn same_sender_nonce_replacement_and_later_position_cannot_skip_retained_f
         let signature = signer.sign_with_predefined_k(&tx.signature_hash().0).unwrap().signature;
         TxEnvelope::Legacy(tx.into_signed(signature))
     };
-    let forced = signed(100);
-    let replacement = signed(200);
+    let forced = signed(1_000_000_000);
+    let replacement = signed(2_000_000_000);
     for later in [false, true] {
         let fx = Fixture::genesis(1);
         let dir = tempfile::tempdir().unwrap();

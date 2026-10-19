@@ -3,8 +3,9 @@
 //! Runtime epochs select the last registry checkpoint at or before the committed derivation
 //! parent anchor. Genesis and host proof jobs may name an explicit historical snapshot.
 //! [`verify_snapshot`] authenticates the checkpoint, its successor and the complete entry root.
-//! [`derive`] retains the existing eligibility, heartbeat, lowest-bond-id deduplication, stake cap,
-//! set-key ordering and voting-power rules. [`committee_config_hash`] binds their configuration.
+//! [`derive`] reserves the top seats after base eligibility and lowest-bond-id deduplication,
+//! then removes missing heartbeats without backfilling. [`committee_config_hash`] binds the
+//! configuration, including stake caps, set-key ordering and voting-power rules.
 //!
 //! Runtime witnesses appear only at `H(t)-2`, proven under the committed parent's anchor, whose
 //! number is the snapshot itself. A failed or empty committed snapshot has no implicit fallback;
@@ -275,7 +276,7 @@ pub fn record_hash(l2_chain_id: u64, r: &CommitteeRecord) -> B256 {
 pub fn committee_config_hash(params: &ChainParams) -> B256 {
     keccak256(
         [
-            tag(b"ETNA_PARENT_ANCHOR_V3"),
+            tag(b"ETNA_PARENT_ANCHOR_V4"),
             word(params.l2_chain_id),
             B256::from(U256::from_be_slice(params.registry.as_slice())),
             word(params.vp_unit),
@@ -399,16 +400,17 @@ pub fn heartbeat_floor(
 /// Derives the committee for `target_epoch` from a verified `snapshot` at `cutoff` and returns its
 /// record and members (sorted by [`set_key`]).
 ///
-/// An entry is eligible iff `active_from_l1 <= cutoff < exit_effective_l1`,
-/// `eff_stake >= max(s_min, vp_unit)` and, when [`heartbeat_floor`] filters the epoch,
-/// `last_heartbeat_seq > 0` and `last_heartbeat_at >=` the floor. Among eligible entries that
-/// share a pubkey only the one with the lowest `bondId` (index in the snapshot) is kept: a
+/// An entry is base eligible iff `active_from_l1 <= cutoff < exit_effective_l1` and
+/// `eff_stake >= max(s_min, vp_unit)`. Among base-eligible entries that share a pubkey only
+/// the one with the lowest `bondId` (index in the snapshot) is kept: a
 /// deterministic tie-break, not registration order, since the registry reuses withdrawn slots.
 /// This is defence in depth: the registry keeps at most one entry per pubkey whose exit is not
 /// yet effective (see the module docs), so no two eligible entries share a key. If
 /// more than `n_max` remain, the first `n_max` by (`eff_stake` descending, set key ascending)
-/// are kept. Each member's power is `eff_stake / vp_unit`; the total must not exceed
-/// [`MAX_TOTAL_POWER`]. No eligible entry is [`CommitteeError::Empty`].
+/// reserve seats. When [`heartbeat_floor`] filters the epoch, only holders with
+/// `last_heartbeat_seq > 0` and `last_heartbeat_at >=` the floor remain; removed holders are
+/// never replaced. Each member's power is `eff_stake / vp_unit`; the total must not exceed
+/// [`MAX_TOTAL_POWER`]. An empty result returns [`CommitteeError::Empty`].
 pub fn derive(
     snapshot: &Snapshot,
     cutoff: u64,
@@ -546,7 +548,7 @@ fn select(
     let mut eligible: Vec<(B256, usize, &RegistryEntry)> = entries
         .iter()
         .enumerate()
-        .filter(|(_, e)| is_eligible(e, cutoff, min_stake, floor))
+        .filter(|(_, e)| is_base_eligible(e, cutoff, min_stake))
         .map(|(bond_id, e)| (set_key(params.l2_chain_id, e.pubkey), bond_id, e))
         .collect();
     // Equal pubkeys have equal keys, so after the sort the entries of one pubkey are adjacent,
@@ -558,6 +560,11 @@ fn select(
         eligible.truncate(params.n_max);
         eligible.sort_by_key(|(key, _, _)| *key);
     }
+    // Top-N holders reserve their seats even if a missing heartbeat removes them. A lower
+    // ranked candidate must never backfill the hole or shadow the lowest eligible bond id.
+    eligible.retain(|(_, _, e)| {
+        floor.is_none_or(|floor| e.last_heartbeat_seq > 0 && e.last_heartbeat_at >= floor)
+    });
     if eligible.is_empty() {
         return Err(CommitteeError::Empty);
     }
@@ -614,13 +621,10 @@ pub(crate) fn member_totals(members: &[Member]) -> Result<(u64, U256), Committee
     Ok((total_power, total_stake))
 }
 
-/// Whether `e` is eligible at `cutoff`: active, staked at least `min_stake` and, when the epoch is
-/// filtered (`floor` from [`heartbeat_floor`]), with a heartbeat at or after the floor.
-fn is_eligible(e: &RegistryEntry, cutoff: u64, min_stake: U256, floor: Option<u64>) -> bool {
-    e.active_from_l1 <= cutoff &&
-        cutoff < e.exit_effective_l1 &&
-        e.eff_stake >= min_stake &&
-        floor.is_none_or(|floor| e.last_heartbeat_seq > 0 && e.last_heartbeat_at >= floor)
+/// Whether `e` can hold a seat at `cutoff`: active and staked at least `min_stake`.
+/// Heartbeat eligibility is checked only after deduplication and top-N seat reservation.
+fn is_base_eligible(e: &RegistryEntry, cutoff: u64, min_stake: U256) -> bool {
+    e.active_from_l1 <= cutoff && cutoff < e.exit_effective_l1 && e.eff_stake >= min_stake
 }
 
 /// The registry leaf of entry `index` (see [`entries_root`]).
