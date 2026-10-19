@@ -13,7 +13,7 @@ import { CommonTest } from "test/shared/CommonTest.sol";
 /// @title EtnaStakingRegistryInvariantBase
 /// @notice Deploys a churn-limited registry behind a proxy, funds four stakers and targets the
 /// handler's actions; holds the checks the registry campaigns share.
-/// @dev Churn windows of 100 blocks with a capacity of max(10% of the bonded stake, one minimum
+/// @dev Churn windows of 100 blocks with a capacity of max(10% of the current active stake, one minimum
 /// stake) defer most activations and exits, and the 12-block heartbeat window rolls over many
 /// times within a run. Foundry runs a separate campaign per invariant function and asserts only
 /// that function in it, so every invariant also asserts that the handler saw no violation of
@@ -281,6 +281,18 @@ abstract contract EtnaStakingRegistryInvariantBase is CommonTest {
     /// @dev Asserts that the handler recorded no broken property and no call whose outcome
     /// (success, bond id or custom error) differed from the model's prediction.
     function _assertModelHeld() internal view {
+        assertEq(registry.activeStake(), handler.activeStake(), "independent active interval sum");
+        uint256 root = uint256(1) << 64;
+        assertEq(
+            _load(uint256(keccak256(abi.encode(root, REGISTRY_BASE + 13)))),
+            handler.stakedBalance(),
+            "activation root is all unwithdrawn stake"
+        );
+        assertEq(
+            _load(uint256(keccak256(abi.encode(root, REGISTRY_BASE + 14)))),
+            handler.stakedBalance() - handler.bondedStake(),
+            "exit root is requested unwithdrawn stake"
+        );
         assertEq(
             MockCommitteeInbox(registry.inbox()).activeCommitteeSnapshot(),
             handler.ghostActiveCommitteeSnapshot(),
@@ -313,15 +325,20 @@ abstract contract EtnaStakingRegistryInvariantBase is CommonTest {
         return level[0];
     }
 
-    /// @notice Returns one registry entry leaf for the naive recomputation.
+    /// @notice Returns one registry entry leaf and its current active stake contribution.
     /// @dev A separate call frame bounds temporary Entry/ABI allocations per leaf. Otherwise
     /// the near-cap recompute retains thousands of those allocations and pays quadratic memory
     /// expansion costs before reducing the tree, exceeding the test block's gas limit.
     /// @param _index The entry index.
-    /// @return The leaf hash.
-    function entryLeafAt(uint256 _index) external view returns (bytes32) {
+    /// @return leaf_ The independently encoded leaf hash.
+    /// @return active_ The independently derived current interval contribution.
+    function entryLeafAt(uint256 _index) external view returns (bytes32 leaf_, uint256 active_) {
         IEtnaStakingRegistry.Entry memory entry = registry.entryAt(_index);
-        return keccak256(
+        // A withdrawn entry has already exited, so the interval alone excludes it.
+        if (entry.activeFromL1 <= block.number && block.number < entry.exitEffectiveL1) {
+            active_ = entry.effStake;
+        }
+        leaf_ = keccak256(
             abi.encode(
                 bytes32("ETNA_REG_ENTRY_V2"),
                 _index,
@@ -336,14 +353,23 @@ abstract contract EtnaStakingRegistryInvariantBase is CommonTest {
         );
     }
 
-    /// @dev The naive root over independently encoded V2 entry leaves for every slot.
-    function _naiveRootOfEntries() internal view returns (bytes32) {
+    /// @dev Independently recomputes both invariants over every slot in one bounded-memory
+    /// pass. Re-reading all model entries separately would exceed the existing 80M test block
+    /// budget when combined with the 4096-leaf root and the fuzzed actions.
+    function _naiveRootAndActiveStake() internal view returns (bytes32 root_, uint256 active_) {
         uint256 count = registry.entryCount();
         bytes32[] memory leaves = new bytes32[](count);
         for (uint256 i; i < count; ++i) {
-            leaves[i] = this.entryLeafAt(i);
+            uint256 contribution;
+            (leaves[i], contribution) = this.entryLeafAt(i);
+            active_ += contribution;
         }
-        return _naiveRoot(leaves);
+        root_ = _naiveRoot(leaves);
+    }
+
+    /// @dev The naive root over independently encoded V2 entry leaves for every slot.
+    function _naiveRootOfEntries() internal view returns (bytes32 root_) {
+        (root_,) = _naiveRootAndActiveStake();
     }
 
     function _load(uint256 _slot) internal view returns (uint256) {
@@ -458,6 +484,7 @@ contract EtnaStakingRegistryInvariantTest is EtnaStakingRegistryInvariantBase {
     /// near-cap campaign checks the root against, is the naive tree over the modelled entries.
     function invariant_entriesAndStakeMatchTheModel() external view {
         _assertModelHeld();
+        assertEq(handler.activeStake(), handler.naiveActiveStake(), "naive model interval sum");
         uint256 count = registry.entryCount();
         bytes32[] memory leaves = new bytes32[](count);
         for (uint256 i; i < count; ++i) {

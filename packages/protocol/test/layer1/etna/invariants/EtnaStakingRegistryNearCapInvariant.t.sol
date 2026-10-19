@@ -125,6 +125,41 @@ contract EtnaStakingRegistryNearCapInvariantTest is EtnaStakingRegistryNearCapIn
 /// forge-config: default.invariant.depth = 50
 /// forge-config: default.invariant.fail_on_revert = true
 contract EtnaStakingRegistryNearCapRootInvariantTest is EtnaStakingRegistryNearCapInvariantBase {
+    function test_afterInvariant_RecomputesShrunkActiveStakeSequence() external {
+        // Exact shrunk sequence from the active-stake full L1 campaign. Separate all-slot
+        // model sums plus the root used to exhaust the unchanged 80M test block budget.
+        handler.register(
+            15,
+            807,
+            30_584_289_561_776_583_941_746_202_149_392_733_863_213_593_424_061_743_603_444_173_643_665_275
+        );
+        handler.requestExit(470_511_122_643_028_811, 10_174_662_948_016_785_898_493_330_045);
+        handler.advanceToWithdrawal(278);
+        handler.advanceToWithdrawal(6_537_125);
+        handler.register(
+            42_074_452_920_338_049_047_454_362_924_523,
+            1_417_999_511_838_388_177_736_846,
+            10_112_886_773_944_299_088_360_885_301_773_434_294_761_410_734_445_998_197_093_458_047_207_225_175_761
+        );
+        handler.advanceToWithdrawal(7_088_922_887);
+        handler.advanceToWithdrawal(
+            35_764_698_360_094_278_603_359_650_114_301_029_149_450_104_599_126_940_763_648_699_185_560_379_923_514
+        );
+        handler.register(
+            462,
+            53_570_214_247_414_036_950_511,
+            375_456_856_308_074_133_127_107_487_055_625_362_537_783_880_987_133_921_535_883_070
+        );
+        handler.advanceBlocks(5639);
+        handler.advanceToWithdrawal(
+            68_934_948_763_163_461_588_092_822_426_762_078_374_572_717_053_448_644_877_002_161_169_584_035_944_111
+        );
+        handler.advanceBlocks(
+            115_792_089_237_316_195_423_570_985_008_687_907_853_269_984_665_640_564_039_457_584_007_913_129_639_935
+        );
+        this.afterInvariant();
+    }
+
     function test_afterInvariant_RecomputesAfterWithdrawalAdvance() external {
         // The shrunk sequence from the original full L1 MemoryOOG failure.
         handler.advanceToWithdrawal(
@@ -156,7 +191,9 @@ contract EtnaStakingRegistryNearCapRootInvariantTest is EtnaStakingRegistryNearC
     /// @notice 1. Once per run, the naive root over `entryAt` of every slot equals
     /// `entriesRoot()` and the modelled root, so no entry, touched or not, left the model.
     function afterInvariant() external view {
-        bytes32 root = _naiveRootOfEntries();
+        (bytes32 root, uint256 active) = _naiveRootAndActiveStake();
+        assertEq(registry.activeStake(), active, "all-slot active recompute");
+        assertEq(handler.activeStake(), active, "prefill model matches naive");
         assertEq(registry.entriesRoot(), root, "entriesRoot is the naive root");
         assertEq(handler.ghostRoot(), root, "every entry matches the model");
     }

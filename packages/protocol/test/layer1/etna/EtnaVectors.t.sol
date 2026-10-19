@@ -24,10 +24,10 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
         vectors = LibEtnaVectors.load();
     }
 
-    function test_config_UsesV3AndEncodingTwo() external view {
+    function test_config_UsesV4AndEncodingTwo() external view {
         assertEq(
             LibEtnaVectors.tagAt(vectors, ".committee_config.inputs.tag"),
-            bytes32("ETNA_PARENT_ANCHOR_V3")
+            bytes32("ETNA_PARENT_ANCHOR_V4")
         );
         assertEq(LibEtnaVectors.uintAt(vectors, ".committee_config.inputs.encoding_version"), 2);
         assertFalse(vm.keyExistsJson(vectors, ".committee_hashes"));

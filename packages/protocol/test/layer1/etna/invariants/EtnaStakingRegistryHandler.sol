@@ -136,6 +136,9 @@ contract EtnaStakingRegistryHandler is CommonBase {
     bytes32[] internal _touchedKeys;
     mapping(bytes32 pubkey => bool) internal _isTouchedKey;
     bool internal _prefilling;
+    // The setup-only prefill is monotone, equal-sized, never exits, and precedes fuzz actions.
+    // Binary search counts untouched originals; touched generations use the naive interval sum.
+    uint64[] internal _prefillActivations;
 
     mapping(Property => uint256) public violations;
     mapping(Property => string) public firstViolation;
@@ -280,11 +283,15 @@ contract EtnaStakingRegistryHandler is CommonBase {
             (bondId, caller) = _pickBond(_bondSeed, _stakerSeed);
         }
         bytes4 expected = _expectWithdraw(bondId, caller);
+        uint256 activeBefore = registry.activeStake();
         uint256 balanceBefore = token.balanceOf(caller);
         uint256 checkpointsBefore = registry.checkpointCount();
 
         vm.prank(caller);
         try registry.withdraw(bondId, caller) {
+            if (registry.activeStake() != activeBefore) {
+                _violate(Property.Model, "withdrawal changed current active stake");
+            }
             if (expected == 0) _recordWithdrawal(bondId, caller, balanceBefore, checkpointsBefore);
             else _violate(Property.Slots, "withdraw accepted where the model rejects it");
         } catch (bytes memory reason) {
@@ -357,6 +364,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         _prefilling = true;
         for (uint256 i; i < _count; ++i) {
             _register(_stakers[i % _stakers.length], bytes32(_firstKey + i), minStake);
+            _prefillActivations.push(_slots[slotCount - 1].entry.activeFromL1);
         }
         _prefilling = false;
     }
@@ -364,6 +372,40 @@ contract EtnaStakingRegistryHandler is CommonBase {
     // ---------------------------------------------------------------
     // Views for the invariants
     // ---------------------------------------------------------------
+
+    /// @notice Independent interval sum over all modelled slots, including untouched prefill.
+    function activeStake() public view returns (uint256 stake_) {
+        if (_prefilling) return 0; // setup has positive activation delay and never rolls time
+        uint256 low;
+        uint256 high = _prefillActivations.length;
+        while (low < high) {
+            uint256 mid = (low + high) / 2;
+            if (_prefillActivations[mid] <= block.number) low = mid + 1;
+            else high = mid;
+        }
+        stake_ = low * minStake;
+        for (uint256 i; i < _touchedSlots.length; ++i) {
+            uint256 id = _touchedSlots[i];
+            if (id < low) stake_ -= minStake;
+            Slot storage s = _slots[id];
+            if (
+                !s.withdrawn && s.entry.activeFromL1 <= block.number
+                    && block.number < s.entry.exitEffectiveL1
+            ) stake_ += s.entry.effStake;
+        }
+    }
+
+    /// @notice Slow independent model sum for the small campaigns. Near-cap campaigns reuse
+    /// the bounded-frame all-entry root pass for their independent full interval sum.
+    function naiveActiveStake() external view returns (uint256 stake_) {
+        for (uint256 i; i < slotCount; ++i) {
+            Slot storage s = _slots[i];
+            if (
+                !s.withdrawn && s.entry.activeFromL1 <= block.number
+                    && block.number < s.entry.exitEffectiveL1
+            ) stake_ += s.entry.effStake;
+        }
+    }
 
     function slotAt(uint256 _bondId) external view returns (Slot memory) {
         return _slots[_bondId];
@@ -630,11 +672,11 @@ contract EtnaStakingRegistryHandler is CommonBase {
     /// @dev Folds a request of `_amount` that would take effect at `_earliest` without a churn
     /// limit into the queue model, checks where the registry put the queue and returns the
     /// block the request should take effect at: the start of the queue's latest window, or
-    /// `_earliest` if later. Call it before the model's `bondedStake` takes in the request.
+    /// `_earliest` if later. Call it before changing the model's active interval.
     ///
     /// A busy period starts at the earliest window of a request that finds the queue behind it
     /// and opens one window, and later requests continue it while the queue reaches their
-    /// earliest window. Every window a request opens holds `max(bonded * churnBps / 10_000,
+    /// earliest window. Every window a request opens holds `max(active * churnBps / 10_000,
     /// minChurnPerWindow)`, and a request opens a further window only while the stake scheduled
     /// in the period exceeds the windows opened so far. Hence, exactly:
     /// - rate: the stored `remaining` is the capacity of the windows the period opened minus its
@@ -664,7 +706,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
             return _earliest;
         }
 
-        uint256 perWindow = _max(bondedStake * churnBps / 10_000, minChurnPerWindow);
+        uint256 perWindow = _max(activeStake() * churnBps / 10_000, minChurnPerWindow);
         if (previous > earliestWindow) {
             _queue.busyAmount += _amount;
             _queue.busyCapacity += (next - previous) * perWindow;
