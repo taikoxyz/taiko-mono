@@ -109,7 +109,9 @@ The incoming set becomes certain only after its derivation parent commits. Valid
 anchor choices can affect membership, so guaranteed advance notice is shorter. Once an empty
 parent snapshot is committed, later L1 registry changes cannot repair that switch. Stake
 retention, withdrawal timing and restart trust assumptions remain; this change does not add
-a recovery-generation bootstrap or an implicit replacement set.
+a recovery-generation bootstrap or an implicit replacement set. Governance recovery and the
+recovery-generation bootstrap remain unimplemented; the supported deployment path is
+new-genesis-only.
 
 ## New-genesis deployment order
 
@@ -237,24 +239,29 @@ parameter the genesis record reads from Inbox slot 282, next to the delay. The p
 initializer requires `maxAnchorAge >= 1152` seconds and a positive `forcedInclusionDelay`. There is no expiry bound. ABCI uses that authenticated value
 for its block rule. The block timestamp is the derived `max(parent + 1, floor(BFT time), anchor.timestamp)`.
 
-What freshness guarantees: a block's anchor never trails that derived timestamp by more than
-`maxAnchorAge`, so the pending entry is due at any block whose timestamp has reached
-`entry.timestamp + D + maxAnchorAge`. A proposer whose newest usable anchor (L1 `finalized`
-less `l1_finality_extra_depth`) is too old proposes nothing and records the halt reason
-`anchor_too_old`, so an L1 finality stall longer than `maxAnchorAge` pauses L2 until finality
-resumes; nothing is lost.
+Proposal selection prefers the newest usable finalized anchor (L1 `finalized` less
+`l1_finality_extra_depth`, never below the committed parent anchor). Acceptance checks the
+proposal's fixed derived block timestamp instead. A moved anchor must still be canonical and
+final in the validator's own L1 view, but there is no `K_FRESH` distance from its current finalized
+head. Advancing that head alone cannot expire an accepted proposal, including for a validator
+receiving it for the first time or replaying it without an acceptance cache.
 
-What it does not guarantee: that block timestamps keep up with real time. Etna enables no
-proposer-based timestamps (PBTS), so BFT time is the voting-power-weighted median of the
-precommit timestamps a proposer includes in its block's last commit. A coalition with more
-than 1/2 of the voting power sets that median outright. A coalition with more than 1/3 can too:
-it withholds its votes from honest proposals, so only its own proposals are decided, and
-includes in them only enough honest precommits to clear 2/3, which gives its own timestamps the
-majority of the median weight (the exact threshold lies between 1/3 and 1/2, depending on how
-finely stake is divided). Either coalition can hold block timestamps back and, while satisfying
-the freshness rule, keep anchors stale and delay forced inclusions; each block still advances
-the timestamp by at least one second. A delayed entry never expires. Bounding this delay in wall-clock time would need a validator-local
-clock check (PBTS-style timeliness); that remains an open, launch-blocking design decision.
+For the current authenticated queue head, a block timestamp at or beyond
+`entry.timestamp + D + maxAnchorAge` implies that the entry is due at the block's anchor.
+The FI rules then require inclusion or an authenticated skip; they process at most one queue
+head per block. Later queued entries are processed only after they become the head.
+A proposer whose newest usable anchor is too old relative to the derived block
+timestamp proposes nothing and records `anchor_too_old`. Finality must resume before a proposer
+can use a sufficiently recent anchor; a delayed entry never expires.
+
+This is a bound in block time, with no promised fixed wall-clock FI deadline. Etna does not enable
+proposer-based timestamps (PBTS): BFT time is the voting-power-weighted median of the precommit
+timestamps included in the block's last commit. The normal liveness assumption is less than one
+third Byzantine voting power, reasonably synchronized honest clocks and continued L1 finality,
+L2 consensus, execution and settlement progress. The age rule alone does not guarantee that
+block timestamps track wall-clock time; a coalition above the normal Byzantine threshold can
+manipulate the commit's median time. Neither the deterministic age bound nor continuing block
+production establishes a wall-clock inclusion guarantee against every coalition below two thirds.
 
 ## Prerequisites
 
@@ -420,10 +427,17 @@ before/after, L1 fee recipient, L2 reward recipient, exact batch basefee amount 
 independently derived from authenticated historical snapshots; starting-set hints are not authority.
 
 `LandInput.activeCommitteeSnapshot` names the committee active at the terminal height according to
-`schedule.epoch_of(height)`. Epoch zero uses `genesisCutoff`; every later epoch uses the L1 anchor
-in its authenticated derivation parent `D(t) = H(t) - 3`. At `S = H(t) - 2` and `S + 1`, the
-incoming committee is still pending, so those terminal blocks retain the outgoing cutoff. This
-also applies when a batch starts or ends partway through an epoch. Restore validation checks the
+`schedule.epoch_of(height)` in the implemented normal schedule. Epoch zero uses `genesisCutoff`;
+every later epoch uses the L1 anchor in its authenticated derivation parent `D(t) = H(t) - 3`.
+At `S = H(t) - 2` and `S + 1`, the incoming committee is still pending, so those terminal blocks
+retain the outgoing cutoff. This also applies when a batch starts or ends partway through an
+epoch. A batch ending at `H(t)` or
+`H(t) + 1` uses the incoming committee's cutoff; the epoch number alone does not freeze that
+cutoff across successive landings. The validity proof must authenticate the actual terminal
+signing committee's provenance; neither the reference block, terminal anchor nor pending
+committee can substitute for it. A future governance recovery that replaces a signing committee
+within an epoch must prove the replacement's provenance and specify its re-emission schedule; that
+recovery path and its bootstrap are unimplemented. Restore validation checks the
 cutoff against committed ancestry and retained committee provenance even if the digest is
 recomputed. Schema 10 journals are rejected intact, including their outstanding signed nonce.
 The receipt remains ten words and its batch id is unchanged.

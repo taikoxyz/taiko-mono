@@ -168,6 +168,34 @@ async fn finalize_without_process_revalidates_and_executes() {
     assert_eq!(proposer.pending, validator.pending, "same next state");
 }
 
+/// A later local finalized head must not turn an accepted block into a different replay
+/// result. The cold node has no verdict, so it independently validates the original anchor.
+#[tokio::test]
+async fn finalized_head_advance_keeps_hot_and_cold_finalization_identical() {
+    let fx = Fixture::genesis(2);
+    let (hot_dir, cold_dir) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let mut hot = anchor_moving(&fx, hot_dir.path()).await;
+    let env = propose(&mut hot).await;
+    assert_eq!(env.anchor.as_ref().unwrap().l1_header.number(), 66);
+    let (resp, req) = judge(&mut hot, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept);
+    let mut cold = anchor_moving(&fx, cold_dir.path()).await;
+    assert_eq!(hot.state(), cold.state());
+    assert!(cold.verdicts.is_empty());
+
+    fx.advance_l1(hot.l1(), 10_066, &fx.inbox, &fx.registry);
+    fx.advance_l1(cold.l1(), 10_066, &fx.inbox, &fx.registry);
+    let out = finalize(&mut hot, finalize_req(&req)).await.expect("hot finalizes");
+    assert_eq!(finalize(&mut cold, finalize_req(&req)).await.expect("cold finalizes"), out);
+    assert_eq!(hot.pending, cold.pending, "independent replay derives the same next state");
+    assert_eq!(hot.pending.as_ref().unwrap().anchor.number, 66, "the fixed anchor is retained");
+
+    commit(&mut hot).await.expect("hot commits");
+    commit(&mut cold).await.expect("cold commits");
+    assert_eq!(hot.state(), cold.state(), "identical state is committed");
+    assert_eq!(hot.state().unwrap().parent.hash, env.block.header.hash_slow());
+}
+
 #[tokio::test]
 async fn finalize_updates_parent_anchor_and_committees() {
     let fx = Fixture::genesis(3);
