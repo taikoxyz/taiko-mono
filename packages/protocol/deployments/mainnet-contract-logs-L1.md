@@ -344,7 +344,7 @@
 ### mainnet_verifier
 
 - impl : `0x7284aaC05555Ae6559bdAd8B4221eC9584254Eec`
-- sub-verifier addresses (unchanged since Proposal0017; Proposal0019, Proposal0021 and Proposal0026 rotate their trusted image IDs, program vkeys and MRENCLAVEs and delete both SGX instances — see the sections above):
+- sub-verifier addresses (unchanged since Proposal0017; their trust rotations and SGX instance changes are logged in the sections above):
   - sgx_geth: `0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee`
   - sgx_reth: `0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8`
   - risc0_reth: `0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b`
