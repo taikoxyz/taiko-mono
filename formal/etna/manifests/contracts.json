@@ -1,0 +1,1745 @@
+{
+  "schema_version": 1,
+  "status": {
+    "spec": "LAND01-06,08-10 and CLAIM01-03 spec-proved",
+    "solidity_refinement": "pending; source-level models with actual EtnaInbox and L2FeeVault conformance only",
+    "conformance": "65 actual proxy cases / 36 actual 640-byte preimages; 41 actual L2FeeVault claim cases",
+    "rust_solidity_encoding": "65 production Rust rows; 36 actual Inbox 640-byte preimages matched with Lean",
+    "composition": "LAND07/LAND11/CLAIM04 conditional joint-trace/cut/reward composition in integration.json; real guest soundness pending"
+  },
+  "assumption_boundary": {
+    "typed_abi": "Well-formed typed calldata/nonpayable dispatcher; source flag active means status==3",
+    "environment": "Authentic/stable EVM block/chain/BLOCKHASH/history/BLOBHASH; finite zero-terminated blob prefix",
+    "crypto": "Canonical arbitrary-length typed blob-prefix serialization is injective; actual model hashes its bytes. composed_statement_blob_binding recovers18fields and the ordered prefix under distinct trace-local inner/outer separation and the same inner primitive; no global injectivity.",
+    "external": "Pinned concrete SignalService; void verifier STATICCALL; normal externalcall outcome; protected callback frame/no authorizedmaliciousupgrade",
+    "evm": "Proxy address(this)/storage/transientguard and generic EvmJournalLaw; gas/nonce excluded",
+    "projection": "Inbox-issued transfers/protocol logs; unrelated recipient storage/logs/transfers outside projected World"
+  },
+  "theorems": [
+    {
+      "id": "LAND-AUX-01",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.wordAt_encode",
+      "type": "∀ (s : Etna.Landing.LandStatement) (i : Fin 21), Etna.Landing.wordAt (Etna.Landing.encodeStatement s) i = (Etna.Landing.words s)[↑i]",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-02",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.decode_encode",
+      "type": "∀ (s : Etna.Landing.LandStatement), Etna.Landing.decodeStatement (Etna.Landing.encodeStatement s) = s",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-05",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.statement_complete",
+      "type": "∀ (a b : Etna.Landing.LandStatement), Etna.Landing.encodeStatement a = Etna.Landing.encodeStatement b ↔ a = b",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-04",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.recipient_word",
+      "type": "∀ (s : Etna.Landing.LandStatement), Etna.Landing.wordAt (Etna.Landing.encodeStatement s) 17 = s.recipient",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-05",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.natWord_byte",
+      "type": "∀ (n : Nat) (i : Fin 32), ((Etna.Landing.natWord n)[i.val]).val = n / 256 ^ (31 - i.val) % 256",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-06",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.address_padding",
+      "type": "∀ (n : Nat), n < 2 ^ 160 → ∀ (i : Fin 32), i.val < 12 → ((Etna.Landing.natWord n)[i.val]).val = 0",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-07",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.hash_binding",
+      "type": "∀ (hash : Vector Etna.Landing.Byte 672 → Etna.Word256) (a b : Etna.Landing.LandStatement), Etna.Landing.LocalHashSeparation hash a b → hash (Etna.Landing.encodeStatement a) = hash (Etna.Landing.encodeStatement b) → a = b",
+      "assumptions": [
+        "Trace-local collision separation for the two compared576-byte preimages; no global Keccak injectivity"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-08",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.encoding_conformance",
+      "type": "∀ (s : Etna.Landing.LandStatement) (observedWords : Vector Etna.Landing.AbiWord 21), observedWords = Etna.Landing.words s → observedWords.flatten = Etna.Landing.encodeStatement s",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-09",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.natWord_injective",
+      "type": "∀ (a b : ℕ), a < 2 ^ 256 → b < 2 ^ 256 → Etna.Landing.natWord a = Etna.Landing.natWord b → a = b",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-10",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.blob_encoding_injective",
+      "type": "∀ {n : ℕ} (a b : Vector Etna.Landing.AbiWord n), a.flatten = b.flatten ↔ a = b",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-11",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.local_separation_distinct_nonvacuity",
+      "type": "∀ (a b : Etna.Landing.LandStatement), a ≠ b → ∃ hash, Etna.Landing.LocalHashSeparation hash a b",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-06",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.encoding_byte",
+      "type": "∀ (s : Etna.Landing.LandStatement) (index : Fin 672), (Etna.Landing.encodeStatement s)[↑index] = (Etna.Landing.words s)[↑index / 32][↑index % 32]",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-13",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.validate_bounds",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput), Etna.Landing.validate w i = Option.none → Etna.Landing.Bounds w i",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-14",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.successful_checks",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execLandSteps w i x).error = Option.none → Etna.Landing.validate w i = Option.none ∧ Etna.Landing.environmentCheck x.environment i = Option.none",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-01",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.bounds_preserved",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execLandSteps w i x).error = Option.none → Etna.Landing.Bounds w i",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-16",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.fee_sum_bound",
+      "type": "∀ (fee : ℕ → Etna.Word64) (before after : ℕ), Etna.Landing.fees fee before after ≤ (after - before) * (2 ^ 64 - 1)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-17",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.fees_uint256",
+      "type": "∀ (fee : ℕ → Etna.Word64) (before after : Etna.Word48), Etna.Landing.fees fee ↑before ↑after < 2 ^ 112 ∧ Etna.Landing.fees fee ↑before ↑after * 1000000000 < 2 ^ 142 ∧ Etna.Landing.fees fee ↑before ↑after * 1000000000 < 2 ^ 256",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-18",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.intervals_disjoint",
+      "type": "∀ (a b c index : ℕ), a ≤ b → b ≤ c → a ≤ index ∧ index < b → ¬(b ≤ index ∧ index < c)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-19",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.journal_rollback_write",
+      "type": "∀ {α : Type} (j : Etna.Landing.Journal α) (next : α), (j.write next).rollback = j.rollback",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-20",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.checked_journal_root",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execChecked w i x).journal.rollback = w",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-21",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.execution_journal_root",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execLandSteps w i x).journal.rollback = w",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-22",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.rollback_atomic",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes) (e : Etna.Landing.Error), (Etna.Landing.execLandSteps w i x).error = Option.some e → (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world = w",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-23",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.same_inbox_reentry",
+      "type": "∀ (w : Etna.Landing.World), w.guard = Bool.true → Etna.Landing.nestedGuard w.inbox w = Option.some Etna.Landing.Error.reentrant",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-24",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.other_inbox_not_locked",
+      "type": "∀ (w : Etna.Landing.World) (other : Etna.Landing.Address), other ≠ w.inbox → Etna.Landing.nestedGuard other w = Option.none",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-08",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.reference_and_blobs",
+      "type": "∀ (e : Etna.Landing.Environment) (r : Etna.Word64) (route : Etna.Landing.ReferenceRoute) (hash : Etna.Word256), Etna.Landing.referenceHash e r = Except.ok (route, hash) → ↑r < e.blockNumber ∧ e.blockNumber - ↑r ≤ 8191 ∧ hash ≠ 0 ∧ (route = Etna.Landing.ReferenceRoute.blockhash → e.blockNumber - ↑r ≤ 256 ∧ hash = e.blockHash) ∧ (route = Etna.Landing.ReferenceRoute.history → 256 < e.blockNumber - ↑r ∧ e.historySuccess = Bool.true ∧ e.historyLength = 32 ∧ hash = e.historyHash)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-26",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.blobs_from_environment",
+      "type": "∀ (e : Etna.Landing.Environment), Etna.Landing.actualBlobs e = List.takeWhile (fun x => x != 0) e.blobHashes",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-27",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.environment_success_nonempty",
+      "type": "∀ (e : Etna.Landing.Environment) (i : Etna.Landing.LandInput), Etna.Landing.environmentCheck e i = Option.none → Etna.Landing.actualBlobs e ≠ []",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-28",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.successful_poststate",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execChecked w i x).error = Option.none → (Etna.Landing.execChecked w i x).journal.current.head = i.headAfter ∧ (Etna.Landing.execChecked w i x).journal.current.checkpoint = { height := ↑i.lastHeight, blockHash := i.lastBlockHash } ∧ (Etna.Landing.execChecked w i x).journal.current.guard = Bool.false ∧ (Etna.Landing.execChecked w i x).journal.current.transfers = w.transfers ++ if i.headAfter ≠ w.head ∧ 0 < Etna.Landing.fees w.fee ↑w.head ↑i.headAfter * 1000000000 then [{ recipient := i.recipient, wei := Etna.Landing.fees w.fee ↑w.head ↑i.headAfter * 1000000000 }] else []",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-03",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.recipient_bound",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execLandSteps w i x).error = Option.none → i.recipient ≠ 0 ∧ (Etna.Landing.execLandSteps w i x).journal.current.transfers = w.transfers ++ if i.headAfter ≠ w.head ∧ 0 < Etna.Landing.fees w.fee ↑w.head ↑i.headAfter * 1000000000 then [{ recipient := i.recipient, wei := Etna.Landing.fees w.fee ↑w.head ↑i.headAfter * 1000000000 }] else []",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-30",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.committed_head",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execLandSteps w i x).error = Option.none → (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.head = i.headAfter",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-31",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.successive_no_double_consumption",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes) (j : Etna.Landing.LandInput) (y : Etna.Landing.ExternalOutcomes), (Etna.Landing.execLandSteps w i x).error = Option.none → (Etna.Landing.execLandSteps (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world j y).error = Option.none → ∀ (index : ℕ), ↑w.head ≤ index ∧ index < ↑i.headAfter → ¬(↑(Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.head ≤ index ∧ index < ↑j.headAfter)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-32",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.copied_calldata_recipient",
+      "type": "∀ (i : Etna.Landing.LandInput) (caller : Etna.Landing.Address), ({ i with caller := caller } : Etna.Landing.LandInput).recipient = i.recipient",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-33",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.statement_is_constructed",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), Etna.Landing.validate w i = Option.none → Etna.Landing.environmentCheck x.environment i = Option.none → (Etna.Landing.execLandSteps w i x).statement = Option.some (Etna.Landing.computedStatement w i x)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-34",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.statement_recipient_from_input",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.computedStatement w i x).recipient = Etna.Landing.natWord ↑i.recipient",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-35",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.statement_copied_caller",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes) (caller : Etna.Landing.Address), Etna.Landing.computedStatement w { i with caller := caller } x = Etna.Landing.computedStatement w i x",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-36",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.every_word_independent",
+      "type": "∀ (a b : Etna.Landing.LandStatement) (field : Fin 21), (Etna.Landing.words a)[↑field] ≠ (Etna.Landing.words b)[↑field] → Etna.Landing.encodeStatement a ≠ Etna.Landing.encodeStatement b",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-37",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.authenticated_reference_content",
+      "type": "∀ (e : Etna.Landing.Environment) (r : Etna.Word64) (currentBlock : ℕ) (canonicalBlockHash : ℕ → Etna.Word256) (transactionBlobs : List Etna.Word256), Etna.Landing.AuthenticEnvironment e r currentBlock canonicalBlockHash transactionBlobs → ∀ (route : Etna.Landing.ReferenceRoute) (hash : Etna.Word256), Etna.Landing.referenceHash e r = Except.ok (route, hash) → hash = canonicalBlockHash ↑r",
+      "assumptions": [
+        "AuthenticEnvironment: explicit currentblock/canonicalhash/transactionblob equalities and successful32byte history content"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-38",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.authenticated_blob_prefix",
+      "type": "∀ (e : Etna.Landing.Environment) (r : Etna.Word64) (currentBlock : ℕ) (canonicalBlockHash : ℕ → Etna.Word256) (transactionBlobs : List Etna.Word256), Etna.Landing.AuthenticEnvironment e r currentBlock canonicalBlockHash transactionBlobs → Etna.Landing.actualBlobs e = List.takeWhile (fun x => x != 0) transactionBlobs",
+      "assumptions": [
+        "AuthenticEnvironment: explicit currentblock/canonicalhash/transactionblob equalities and successful32byte history content"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-39",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.successful_signal_checkpoint",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execChecked w i x).error = Option.none → (Etna.Landing.execChecked w i x).journal.current.signal = w.signal ++ [{ height := ↑i.lastHeight, blockHash := i.lastBlockHash, stateRoot := i.lastStateRoot }]",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-40",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.fee_interval_add",
+      "type": "∀ (fee : ℕ → Etna.Word64) (a b c : ℕ), a ≤ b → b ≤ c → Etna.Landing.fees fee a c = Etna.Landing.fees fee a b + Etna.Landing.fees fee b c",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-41",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.blob_prefix_nonzero",
+      "type": "∀ (e : Etna.Landing.Environment), ∀ hash ∈ Etna.Landing.actualBlobs e, hash ≠ 0",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-04",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.rollback_atomic_evm",
+      "type": "∀ (materialize : Etna.Landing.Journal Etna.Landing.World → Bool → Etna.Landing.World), Etna.Landing.EvmJournalLaw materialize → ∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes) (e : Etna.Landing.Error), (Etna.Landing.execLandSteps w i x).error = Option.some e → materialize (Etna.Landing.execLandSteps w i x).journal (Etna.Landing.execLandSteps w i x).error.isNone = w",
+      "assumptions": [
+        "EvmJournalLaw: generic commit/abort materialization for arbitrary journals, independent of Landing; nonce/gas excluded"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-43",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.evm_journal_nonvacuity",
+      "type": "Etna.Landing.EvmJournalLaw fun journal committed => if committed = Bool.true then journal.current else journal.rollback",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-44",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.consumption_event_exact",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes),\n  @Eq (Option Etna.Landing.Error) (Etna.Landing.execChecked w i x).error (@Option.none Etna.Landing.Error) →\n    @Eq (List Etna.Landing.Event)\n      (@Etna.Landing.Journal.current Etna.Landing.World (Etna.Landing.execChecked w i x).journal).logs\n      (@HAppend.hAppend (List Etna.Landing.Event) (List Etna.Landing.Event) (List Etna.Landing.Event)\n        (@instHAppendOfAppend (List Etna.Landing.Event) (@List.instAppend Etna.Landing.Event))\n        (@HAppend.hAppend (List Etna.Landing.Event) (List Etna.Landing.Event) (List Etna.Landing.Event)\n          (@instHAppendOfAppend (List Etna.Landing.Event) (@List.instAppend Etna.Landing.Event)) w.logs\n          (@List.cons Etna.Landing.Event\n            (Etna.Landing.Event.checkpointSaved\n              {\n                height :=\n                  @Fin.val\n                    (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                      (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                      (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))\n                    i.lastHeight,\n                blockHash := i.lastBlockHash, stateRoot := i.lastStateRoot })\n            (@List.cons Etna.Landing.Event\n              (Etna.Landing.Event.batchLanded\n                (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) w.checkpoint.height\n                  (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))\n                (@Fin.val\n                  (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                    (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                    (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))\n                  i.lastHeight)\n                i.lastBlockHash i.lastStateRoot\n                (@Fin.val\n                  (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                    (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                    (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))\n                  i.reference)\n                i.caller)\n              (@List.cons Etna.Landing.Event\n                (Etna.Landing.Event.rewardRecorded (Etna.Landing.rewardId w i x) i.rewardRecipient\n                  (@Fin.val\n                    (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                      (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                      (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256))))\n                    i.baseFeeAmount)\n                  (@Fin.val\n                    (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                      (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                      (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))\n                    w.generation)\n                  w.checkpoint.height w.checkpoint.blockHash\n                  (@Fin.val\n                    (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                      (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                      (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))\n                    i.lastHeight)\n                  i.lastBlockHash)\n                (@List.nil Etna.Landing.Event)))))\n        (@ite (List Etna.Landing.Event) (@Ne Etna.Word48 i.headAfter w.head)\n          (@instDecidableNot (@Eq Etna.Word48 i.headAfter w.head)\n            (instDecidableEqFin\n              (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                (@OfNat.ofNat Nat (nat_lit 48) (instOfNatNat (nat_lit 48))))\n              i.headAfter w.head))\n          (@List.cons Etna.Landing.Event\n            (Etna.Landing.Event.consumed\n              (@Fin.val\n                (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                  (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                  (@OfNat.ofNat Nat (nat_lit 48) (instOfNatNat (nat_lit 48))))\n                w.head)\n              (@Fin.val\n                (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                  (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                  (@OfNat.ofNat Nat (nat_lit 48) (instOfNatNat (nat_lit 48))))\n                i.headAfter)\n              (@HMul.hMul Nat Nat Nat (@instHMul Nat instMulNat)\n                (Etna.Landing.fees w.fee\n                  (@Fin.val\n                    (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                      (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                      (@OfNat.ofNat Nat (nat_lit 48) (instOfNatNat (nat_lit 48))))\n                    w.head)\n                  (@Fin.val\n                    (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                      (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                      (@OfNat.ofNat Nat (nat_lit 48) (instOfNatNat (nat_lit 48))))\n                    i.headAfter))\n                (@OfNat.ofNat Nat (nat_lit 1000000000) (instOfNatNat (nat_lit 1000000000))))\n              i.recipient)\n            (@List.nil Etna.Landing.Event))\n          (@List.nil Etna.Landing.Event)))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-45",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.callback_frame_preserves_bounds",
+      "type": "∀ (before after : Etna.Landing.World) (i : Etna.Landing.LandInput), Etna.Landing.CallbackFrame before after → Etna.Landing.Bounds before i → Etna.Landing.Bounds after i",
+      "assumptions": [
+        "CallbackFrame: concrete protected Inbox/config/queue equality; forbids authorized malicious upgrade during callback"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-46",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.callback_frame_nonvacuity",
+      "type": "∀ (w : Etna.Landing.World), Etna.Landing.CallbackFrame w w",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-02",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.fees_exact_once",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execLandSteps w i x).error = Option.none → (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.head = i.headAfter ∧ ↑w.head ≤ ↑i.headAfter ∧ ((Etna.Landing.execLandSteps w i x).journal.current.transfers = w.transfers ++ if i.headAfter ≠ w.head ∧ 0 < Etna.Landing.fees w.fee ↑w.head ↑i.headAfter * 1000000000 then [{ recipient := i.recipient, wei := Etna.Landing.fees w.fee ↑w.head ↑i.headAfter * 1000000000 }] else []) ∧ Etna.Landing.fees w.fee ↑w.head ↑i.headAfter < 2 ^ 112 ∧ Etna.Landing.fees w.fee ↑w.head ↑i.headAfter * 1000000000 < 2 ^ 256",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-48",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.locked_land_and_save_reject",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), w.guard = Bool.true → (Etna.Landing.execLandSteps w i x).error = Option.some Etna.Landing.Error.reentrant ∧ (Etna.Landing.execLandSteps w i x).journal.current = w ∧ Etna.Landing.nestedGuard w.inbox w = Option.some Etna.Landing.Error.reentrant",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-49",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.normal_nonvacuity",
+      "type": "(Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput Etna.Landing.exampleExternal).error = Option.none",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-50",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.nonzero_payment_nonvacuity",
+      "type": "(Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput Etna.Landing.exampleExternal).journal.current.transfers = [{ recipient := 48879, wei := 18000000000 }]",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-51",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.verifier_failure_after_writes",
+      "type": "let r := Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput { Etna.Landing.exampleExternal with verifierReturnsNormally := false }; r.error = some .verifier ∧ r.journal.current.head.val = 4 ∧ r.journal.current.checkpoint.height = 13 ∧ r.journal.current.signal.length = 1 ∧ r.journal.current.logs.length = 2",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-52",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.signal_failure_after_writes",
+      "type": "let r := Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput { Etna.Landing.exampleExternal with signalAuthorized := false }; r.error = some .signalUnauthorized ∧ r.journal.current.head.val = 4 ∧ r.journal.current.checkpoint.height = 13 ∧ r.journal.current.signal = []",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-53",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.payment_failure_after_verifier",
+      "type": "let r := Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput { Etna.Landing.exampleExternal with paymentReturnsNormally := false }; r.error = some .payment ∧ r.journal.current.head.val = 4 ∧ r.journal.current.signal.length = 1 ∧ r.journal.current.logs.length = 3 ∧ r.journal.current.rewardCommitments 7 = 7 ∧ r.journal.rollback.rewardCommitments 7 = 0",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-54",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.zero_fee_skips_callback",
+      "type": "(Etna.Landing.execLandSteps (have __src := Etna.Landing.exampleWorld; { inbox := __src.inbox, l1ChainId := __src.l1ChainId, l2ChainId := __src.l2ChainId, registry := __src.registry, generation := __src.generation, config := __src.config, active := __src.active, maxBatchBlocks := __src.maxBatchBlocks, checkpoint := __src.checkpoint, head := __src.head, tail := __src.tail, fee := fun x => 0, signal := __src.signal, inboxBalance := __src.inboxBalance, transfers := __src.transfers, logs := __src.logs, guard := __src.guard }) Etna.Landing.exampleInput (have __src := Etna.Landing.exampleExternal; { environment := __src.environment, signalAuthorized := __src.signalAuthorized, verifierReturnsNormally := __src.verifierReturnsNormally, paymentReturnsNormally := Bool.false, reentry := Etna.Landing.ReentryMode.landUncaught, keccakBlobBytes := __src.keccakBlobBytes })).error = Option.none",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-55",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.caught_reentry_nonvacuity",
+      "type": "(Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput (have __src := Etna.Landing.exampleExternal; { environment := __src.environment, signalAuthorized := __src.signalAuthorized, verifierReturnsNormally := __src.verifierReturnsNormally, paymentReturnsNormally := __src.paymentReturnsNormally, reentry := Etna.Landing.ReentryMode.landCaught, keccakBlobBytes := __src.keccakBlobBytes })).error = Option.none ∧ Etna.Landing.nestedGuard Etna.Landing.exampleWorld.inbox (have __src := Etna.Landing.exampleWorld; { inbox := __src.inbox, l1ChainId := __src.l1ChainId, l2ChainId := __src.l2ChainId, registry := __src.registry, generation := __src.generation, config := __src.config, active := __src.active, maxBatchBlocks := __src.maxBatchBlocks, checkpoint := __src.checkpoint, head := __src.head, tail := __src.tail, fee := __src.fee, signal := __src.signal, inboxBalance := __src.inboxBalance, transfers := __src.transfers, logs := __src.logs, guard := Bool.true }) = Option.some Etna.Landing.Error.reentrant",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-56",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.static_verifier_guard_nonvacuity",
+      "type": "(Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput (have __src := Etna.Landing.exampleExternal; { environment := __src.environment, signalAuthorized := __src.signalAuthorized, verifierReturnsNormally := __src.verifierReturnsNormally, paymentReturnsNormally := __src.paymentReturnsNormally, reentry := Etna.Landing.ReentryMode.verifierLand, keccakBlobBytes := __src.keccakBlobBytes })).error = Option.none",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-57",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.reference_boundaries_nonvacuity",
+      "type": "Etna.Landing.referenceHash Etna.Landing.exampleEnvironment 19744 = Except.ok (Etna.Landing.ReferenceRoute.blockhash, 2748) ∧ Etna.Landing.referenceHash Etna.Landing.exampleEnvironment 19743 = Except.ok (Etna.Landing.ReferenceRoute.history, 2748) ∧ Etna.Landing.referenceHash Etna.Landing.exampleEnvironment 11809 = Except.ok (Etna.Landing.ReferenceRoute.history, 2748) ∧ Etna.Landing.referenceHash Etna.Landing.exampleEnvironment 11808 = Except.error Etna.Landing.Error.anchorUnavailable ∧ Etna.Landing.referenceHash Etna.Landing.exampleEnvironment 20000 = Except.error Etna.Landing.Error.anchorUnavailable ∧ Etna.Landing.referenceHash Etna.Landing.exampleEnvironment 20001 = Except.error Etna.Landing.Error.anchorUnavailable",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-58",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.malformed_history_nonvacuity",
+      "type": "Etna.Landing.referenceHash (have __src := Etna.Landing.exampleEnvironment; { blockNumber := __src.blockNumber, blockHash := __src.blockHash, historySuccess := __src.historySuccess, historyLength := 31, historyHash := __src.historyHash, blobHashes := __src.blobHashes }) 19743 = Except.error Etna.Landing.Error.anchorUnavailable ∧ Etna.Landing.referenceHash (have __src := Etna.Landing.exampleEnvironment; { blockNumber := __src.blockNumber, blockHash := __src.blockHash, historySuccess := __src.historySuccess, historyLength := 33, historyHash := __src.historyHash, blobHashes := __src.blobHashes }) 19743 = Except.error Etna.Landing.Error.anchorUnavailable ∧ Etna.Landing.referenceHash (have __src := Etna.Landing.exampleEnvironment; { blockNumber := __src.blockNumber, blockHash := __src.blockHash, historySuccess := __src.historySuccess, historyLength := 0, historyHash := __src.historyHash, blobHashes := __src.blobHashes }) 19743 = Except.error Etna.Landing.Error.anchorUnavailable",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-59",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.ordered_blobs_nonvacuity",
+      "type": "Etna.Landing.actualBlobs Etna.Landing.exampleEnvironment = [1, 2] ∧ Etna.Landing.actualBlobs (have __src := Etna.Landing.exampleEnvironment; { blockNumber := __src.blockNumber, blockHash := __src.blockHash, historySuccess := __src.historySuccess, historyLength := __src.historyLength, historyHash := __src.historyHash, blobHashes := [2, 1] }) = [2, 1] ∧ Etna.Landing.actualBlobs (have __src := Etna.Landing.exampleEnvironment; { blockNumber := __src.blockNumber, blockHash := __src.blockHash, historySuccess := __src.historySuccess, historyLength := __src.historyLength, historyHash := __src.historyHash, blobHashes := [1, 0, 2] }) = [1] ∧ Etna.Landing.environmentCheck (have __src := Etna.Landing.exampleEnvironment; { blockNumber := __src.blockNumber, blockHash := __src.blockHash, historySuccess := __src.historySuccess, historyLength := __src.historyLength, historyHash := __src.historyHash, blobHashes := [] }) Etna.Landing.exampleInput = Option.some Etna.Landing.Error.blobsRequired",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-AUX-60",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.local_separation_nonvacuity",
+      "type": "∀ (s : Etna.Landing.LandStatement), Etna.Landing.LocalHashSeparation (fun x => 0) s s",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol"
+      ]
+    },
+    {
+      "id": "LAND-BIND-01",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.serializeBlobPrefix_length",
+      "type": "∀ (blobs : List Etna.Word256), (Etna.Landing.serializeBlobPrefix blobs).length = blobs.length * 32",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:450-497,588-624@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
+    },
+    {
+      "id": "LAND-BIND-02",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.serializeBlobPrefix_take",
+      "type": "∀ (hash : Etna.Word256) (tail : List Etna.Word256), List.take 32 (Etna.Landing.serializeBlobPrefix (hash :: tail)) = Vector.toList (Etna.Landing.natWord ↑hash)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:450-497,588-624@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
+    },
+    {
+      "id": "LAND-BIND-03",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.serializeBlobPrefix_drop",
+      "type": "∀ (hash : Etna.Word256) (tail : List Etna.Word256), List.drop 32 (Etna.Landing.serializeBlobPrefix (hash :: tail)) = Etna.Landing.serializeBlobPrefix tail",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:450-497,588-624@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
+    },
+    {
+      "id": "LAND-BIND-04",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.serializeBlobPrefix_injective",
+      "type": "∀ (a b : List Etna.Word256), Etna.Landing.serializeBlobPrefix a = Etna.Landing.serializeBlobPrefix b ↔ a = b",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:450-497,588-624@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
+    },
+    {
+      "id": "LAND-BIND-05",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.inner_hash_binding",
+      "type": "∀ (hash : List Etna.Landing.Byte → Etna.Word256) (a b : List Etna.Word256), Etna.Landing.LocalInnerHashSeparation hash a b → hash (Etna.Landing.serializeBlobPrefix a) = hash (Etna.Landing.serializeBlobPrefix b) → a = b",
+      "assumptions": [
+        "Trace-local separation of the two canonical byte serializations under the actual inner byte-hash primitive; matching inner digest"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:450-497,588-624@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
+    },
+    {
+      "id": "LAND-BIND-06",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.inner_separation_nonvacuity",
+      "type": "∀ (a b : List Etna.Word256), ∃ hash, Etna.Landing.LocalInnerHashSeparation hash a b",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:450-497,588-624@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
+    },
+    {
+      "id": "LAND-BIND-07",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.unequal_length_inner_nonvacuity",
+      "type": "let hash : List Etna.Landing.Byte → Etna.Word256 := fun bytes => if bytes.length = 32 then 1 else 2; Etna.Landing.LocalInnerHashSeparation hash [1] [1,2] ∧ hash (Etna.Landing.serializeBlobPrefix [1]) ≠ hash (Etna.Landing.serializeBlobPrefix [1,2])",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:450-497,588-624@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
+    },
+    {
+      "id": "LAND-BIND-08",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.composed_statement_blob_binding",
+      "type": "∀ (outerHash : Vector Etna.Landing.Byte 672 → Etna.Word256) (w₁ w₂ : Etna.Landing.World) (i₁ i₂ : Etna.Landing.LandInput) (x₁ x₂ : Etna.Landing.ExternalOutcomes), x₁.keccakBlobBytes = x₂.keccakBlobBytes → Etna.Landing.LocalInnerHashSeparation x₁.keccakBlobBytes (Etna.Landing.actualBlobs x₁.environment) (Etna.Landing.actualBlobs x₂.environment) → Etna.Landing.LocalHashSeparation outerHash (Etna.Landing.computedStatement w₁ i₁ x₁) (Etna.Landing.computedStatement w₂ i₂ x₂) → outerHash (Etna.Landing.encodeStatement (Etna.Landing.computedStatement w₁ i₁ x₁)) = outerHash (Etna.Landing.encodeStatement (Etna.Landing.computedStatement w₂ i₂ x₂)) → Etna.Landing.computedStatement w₁ i₁ x₁ = Etna.Landing.computedStatement w₂ i₂ x₂ ∧ Etna.Landing.actualBlobs x₁.environment = Etna.Landing.actualBlobs x₂.environment",
+      "assumptions": [
+        "Same actual inner byte-hash primitive in both executions",
+        "Trace-local inner separation on canonical serialized actual prefixes, with no equal-length restriction",
+        "Trace-local outer separation on the two actual576-byte statements and matching outer digest"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:450-497,588-624@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
+    },
+    {
+      "id": "LAND-BIND-09",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.composed_unequal_length_nonvacuity",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), ∃ outerHash, Etna.Landing.LocalInnerHashSeparation Etna.Landing.exampleInnerHash (Etna.Landing.actualBlobs (Etna.Landing.withBlobPrefix x [1]).environment) (Etna.Landing.actualBlobs (Etna.Landing.withBlobPrefix x [1, 2]).environment) ∧ Etna.Landing.LocalHashSeparation outerHash (Etna.Landing.computedStatement w i (Etna.Landing.withBlobPrefix x [1])) (Etna.Landing.computedStatement w i (Etna.Landing.withBlobPrefix x [1, 2])) ∧ outerHash (Etna.Landing.encodeStatement (Etna.Landing.computedStatement w i (Etna.Landing.withBlobPrefix x [1]))) ≠ outerHash (Etna.Landing.encodeStatement (Etna.Landing.computedStatement w i (Etna.Landing.withBlobPrefix x [1, 2])))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:450-497,588-624@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
+    },
+    {
+      "id": "LAND-BIND-10",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.constant_inner_hash_not_separated",
+      "type": "¬Etna.Landing.LocalInnerHashSeparation (fun x => 0) [1] [1, 2]",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:450-497,588-624@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
+    },
+    {
+      "id": "LAND-BIND-11",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.composed_binding_success_nonvacuity",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), Etna.Landing.computedStatement w i (Etna.Landing.withBlobPrefix x [1, 2]) = Etna.Landing.computedStatement w i (Etna.Landing.withBlobPrefix x [1, 2, 0, 3]) ∧ Etna.Landing.actualBlobs (Etna.Landing.withBlobPrefix x [1, 2]).environment = Etna.Landing.actualBlobs (Etna.Landing.withBlobPrefix x [1, 2, 0, 3]).environment",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:450-497,588-624@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": ["corpus/landing.jsonl", "Etna/Landing/Examples.lean"]
+    },
+    {
+      "id": "LAND-09",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.reward_recorded_exact",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execLandSteps w i x).error = none → w.rewardCommitments (Etna.Landing.rewardId w i x) = 0 ∧ (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.rewardCommitments = Function.update w.rewardCommitments (Etna.Landing.rewardId w i x) (Etna.Landing.rewardCommitment w i x) ∧ Etna.Landing.receiptOf w i = ⟨w.l1ChainId, w.l2ChainId, w.inbox, w.generation, w.checkpoint.height, w.checkpoint.blockHash, i.lastHeight.val, i.lastBlockHash, i.rewardRecipient, i.baseFeeAmount⟩",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the recorded commitment, event and ordering per row."
+      ]
+    },
+    {
+      "id": "LAND-10",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.reward_slot_fresh",
+      "type": "∀ {keccak : List Etna.Landing.Byte → Etna.Word256} {w : Etna.Landing.World} {rs : List Etna.Landing.Receipt} {final : Etna.Landing.World}, Etna.Landing.RewardTrace keccak w rs final → (∀ id, w.rewardCommitments id = 0) → w.checkpoint.height < 2 ^ 64 → ∀ (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), x.keccakRewardBytes = keccak → (∀ r ∈ rs, Etna.Landing.LocalBatchSeparation keccak (Etna.Landing.receiptOf final i) r) → final.rewardCommitments (Etna.Landing.rewardId final i x) = 0",
+      "assumptions": [
+        "The trace starts from an empty reward ledger at a uint64 checkpoint height, as EtnaInbox.init leaves it",
+        "Trace-local batch-id preimage separation between compared receipts; no global Keccak injectivity"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py",
+        "adapters/solidity/EtnaInboxCutsConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the recorded commitment, event and ordering per row. RewardAlreadyRecorded is unreachable only for this trace shape; a future recovery that rewrites checkpoints must re-establish it."
+      ]
+    },
+    {
+      "id": "LAND-RWD-01",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.receipt_statement_words",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes),\n  And\n    (@Eq Etna.Landing.AbiWord (Etna.Landing.computedStatement w i x).l1ChainId\n      (Etna.Landing.natWord\n        (@Fin.val\n          (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n            (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n            (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256))))\n          (Etna.Landing.receiptOf w i).l1ChainId)))\n    (And\n      (@Eq Etna.Landing.AbiWord (Etna.Landing.computedStatement w i x).l2ChainId\n        (Etna.Landing.natWord\n          (@Fin.val\n            (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n              (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n              (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))\n            (Etna.Landing.receiptOf w i).l2ChainId)))\n      (And\n        (@Eq Etna.Landing.AbiWord (Etna.Landing.computedStatement w i x).inbox\n          (Etna.Landing.natWord\n            (@Fin.val\n              (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n                (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                (@OfNat.ofNat Nat (nat_lit 160) (instOfNatNat (nat_lit 160))))\n              (Etna.Landing.receiptOf w i).inbox)))\n        (And\n          (@Eq Etna.Landing.AbiWord (Etna.Landing.computedStatement w i x).generation\n            (Etna.Landing.natWord\n              (@Fin.val\n                (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                  (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                  (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))\n                (Etna.Landing.receiptOf w i).generation)))\n          (And\n            (@Eq Etna.Landing.AbiWord (Etna.Landing.computedStatement w i x).parentHeight\n              (Etna.Landing.natWord (Etna.Landing.receiptOf w i).parentHeight))\n            (And\n              (@Eq Etna.Landing.AbiWord (Etna.Landing.computedStatement w i x).parentHash\n                (Etna.Landing.natWord\n                  (@Fin.val\n                    (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                      (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                      (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256))))\n                    (Etna.Landing.receiptOf w i).parentHash)))\n              (And\n                (@Eq Etna.Landing.AbiWord (Etna.Landing.computedStatement w i x).lastHeight\n                  (Etna.Landing.natWord (Etna.Landing.receiptOf w i).lastHeight))\n                (And\n                  (@Eq Etna.Landing.AbiWord (Etna.Landing.computedStatement w i x).lastBlockHash\n                    (Etna.Landing.natWord\n                      (@Fin.val\n                        (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                          (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                          (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256))))\n                        (Etna.Landing.receiptOf w i).lastBlockHash)))\n                  (And\n                    (@Eq Etna.Landing.AbiWord (Etna.Landing.computedStatement w i x).rewardRecipient\n                      (Etna.Landing.natWord\n                        (@Fin.val\n                          (@HPow.hPow Nat Nat Nat\n                            (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n                            (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                            (@OfNat.ofNat Nat (nat_lit 160) (instOfNatNat (nat_lit 160))))\n                          (Etna.Landing.receiptOf w i).recipient)))\n                    (@Eq Etna.Landing.AbiWord (Etna.Landing.computedStatement w i x).baseFeeAmount\n                      (Etna.Landing.natWord\n                        (@Fin.val\n                          (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                            (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                            (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256))))\n                          (Etna.Landing.receiptOf w i).amount)))))))))))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the recorded commitment, event and ordering per row."
+      ]
+    },
+    {
+      "id": "LAND-RWD-02",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.reward_trace_facts",
+      "type": "∀ {keccak : List Etna.Landing.Byte → Etna.Word256} {w : Etna.Landing.World} {rs : List Etna.Landing.Receipt}\n  {final : Etna.Landing.World},\n  Etna.Landing.RewardTrace keccak w rs final →\n    @LT.lt Nat instLTNat w.checkpoint.height\n        (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n          (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n          (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64)))) →\n      And (@LE.le Nat instLENat w.checkpoint.height final.checkpoint.height)\n        (And\n          (@LT.lt Nat instLTNat final.checkpoint.height\n            (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n              (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n              (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64)))))\n          (And\n            (∀ (r : Etna.Landing.Receipt),\n              @Membership.mem Etna.Landing.Receipt (List Etna.Landing.Receipt)\n                  (@List.instMembership Etna.Landing.Receipt) rs r →\n                And (@LE.le Nat instLENat w.checkpoint.height r.parentHeight)\n                  (And (@LT.lt Nat instLTNat r.parentHeight final.checkpoint.height)\n                    (@LT.lt Nat instLTNat r.lastHeight\n                      (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n                        (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                        (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64)))))))\n            (And\n              (∀ (id : Etna.Word256),\n                @Ne Etna.Word256 (final.rewardCommitments id) (w.rewardCommitments id) →\n                  ∃ r,\n                    And\n                      (@Membership.mem Etna.Landing.Receipt (List Etna.Landing.Receipt)\n                        (@List.instMembership Etna.Landing.Receipt) rs r)\n                      (@Eq Etna.Word256 (Etna.Landing.batchId keccak r) id))\n              (@List.Pairwise Etna.Landing.Receipt (fun a b => @LT.lt Nat instLTNat a.parentHeight b.parentHeight)\n                rs))))",
+      "assumptions": [
+        "The trace starts from an empty reward ledger at a uint64 checkpoint height, as EtnaInbox.init leaves it"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py",
+        "adapters/solidity/EtnaInboxCutsConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the recorded commitment, event and ordering per row."
+      ]
+    },
+    {
+      "id": "LAND-RWD-03",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.reward_ids_distinct",
+      "type": "∀ {keccak : List Etna.Landing.Byte → Etna.Word256} {w : Etna.Landing.World} {rs : List Etna.Landing.Receipt}\n  {final : Etna.Landing.World},\n  Etna.Landing.RewardTrace keccak w rs final →\n    @LT.lt Nat instLTNat w.checkpoint.height\n        (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n          (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n          (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64)))) →\n      @List.Pairwise Etna.Landing.Receipt (Etna.Landing.LocalBatchSeparation keccak) rs →\n        @List.Pairwise Etna.Landing.Receipt\n          (fun a b => @Ne Etna.Word256 (Etna.Landing.batchId keccak a) (Etna.Landing.batchId keccak b)) rs",
+      "assumptions": [
+        "Trace-local batch-id preimage separation between compared receipts; no global Keccak injectivity"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "adapters/solidity/EtnaInboxCutsConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the recorded commitment, event and ordering per row."
+      ]
+    },
+    {
+      "id": "LAND-RWD-04",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.committed_checkpoint",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes),\n  @Eq (Option Etna.Landing.Error) (Etna.Landing.execLandSteps w i x).error (@Option.none Etna.Landing.Error) →\n    @Eq Etna.Landing.Checkpoint (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.checkpoint\n      {\n        height :=\n          @Fin.val\n            (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n              (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n              (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))\n            i.lastHeight,\n        blockHash := i.lastBlockHash }",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the recorded commitment, event and ordering per row."
+      ]
+    },
+    {
+      "id": "LAND-RWD-05",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.checked_success",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes), (Etna.Landing.execChecked w i x).error = none → x.signalAuthorized = true ∧ i.lastStateRoot ≠ 0 ∧ i.lastBlockHash ≠ 0 ∧ x.verifierReturnsNormally = true ∧ w.rewardCommitments (Etna.Landing.rewardId w i x) = 0 ∧ Etna.Landing.paymentFails w i x = false ∧ (Etna.Landing.execChecked w i x).journal.current = Etna.Landing.paymentEffect w i (Etna.Landing.recordReward w i x (Etna.Landing.preVerifier w i))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the recorded commitment, event and ordering per row."
+      ]
+    },
+    {
+      "id": "LAND-RWD-06",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.landing_success",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes),\n  @Eq (Option Etna.Landing.Error) (Etna.Landing.execLandSteps w i x).error (@Option.none Etna.Landing.Error) →\n    And (@Eq (Option Etna.Landing.Error) (Etna.Landing.validate w i) (@Option.none Etna.Landing.Error))\n      (And\n        (@Eq (Option Etna.Landing.Error) (Etna.Landing.environmentCheck x.environment i)\n          (@Option.none Etna.Landing.Error))\n        (And (@Eq (Option Etna.Landing.Error) (Etna.Landing.execChecked w i x).error (@Option.none Etna.Landing.Error))\n          (And\n            (@Eq Etna.Landing.World\n              (@Etna.Landing.Journal.current Etna.Landing.World (Etna.Landing.execLandSteps w i x).journal)\n              (Etna.Landing.paymentEffect w i (Etna.Landing.recordReward w i x (Etna.Landing.preVerifier w i))))\n            (@Eq Etna.Landing.World (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world\n              (Etna.Landing.paymentEffect w i (Etna.Landing.recordReward w i x (Etna.Landing.preVerifier w i)))))))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the recorded commitment, event and ordering per row."
+      ]
+    },
+    {
+      "id": "LAND-RWD-07",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.execReward_success",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes) (j : Etna.Landing.Journal Etna.Landing.World) (st : List Etna.Landing.Stage) (s : Option Etna.Landing.LandStatement), (Etna.Landing.execReward w i x j st s).error = none → w.rewardCommitments (Etna.Landing.rewardId w i x) = 0 ∧ Etna.Landing.paymentFails w i x = false ∧ (Etna.Landing.execReward w i x j st s).journal.current = Etna.Landing.paymentEffect w i (Etna.Landing.recordReward w i x j.current)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the recorded commitment, event and ordering per row."
+      ]
+    },
+    {
+      "id": "LAND-RWD-08",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.execReward_root",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes)\n  (j : Etna.Landing.Journal Etna.Landing.World) (st : List Etna.Landing.Stage) (s : Option Etna.Landing.LandStatement),\n  @Eq Etna.Landing.World\n    (@Etna.Landing.Journal.rollback Etna.Landing.World (Etna.Landing.execReward w i x j st s).journal)\n    (@Etna.Landing.Journal.rollback Etna.Landing.World j)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the recorded commitment, event and ordering per row."
+      ]
+    },
+    {
+      "id": "LAND-RWD-09",
+      "module": "Etna.Landing.Reward",
+      "declaration": "Etna.Landing.batch_words_injective",
+      "type": "∀ (a b : Etna.Landing.Receipt),\n  @LT.lt Nat instLTNat a.parentHeight\n      (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n        (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n        (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256)))) →\n    @LT.lt Nat instLTNat b.parentHeight\n        (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n          (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n          (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256)))) →\n      @LT.lt Nat instLTNat a.lastHeight\n          (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n            (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n            (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256)))) →\n        @LT.lt Nat instLTNat b.lastHeight\n            (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n              (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n              (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256)))) →\n          @Eq (List Etna.Landing.Byte)\n              (@Vector.toList Etna.Landing.Byte\n                (@HMul.hMul Nat Nat Nat (@instHMul Nat instMulNat)\n                  (@OfNat.ofNat Nat (nat_lit 9) (instOfNatNat (nat_lit 9)))\n                  (@OfNat.ofNat Nat (nat_lit 32) (instOfNatNat (nat_lit 32))))\n                (@Vector.flatten Etna.Landing.Byte (@OfNat.ofNat Nat (nat_lit 32) (instOfNatNat (nat_lit 32)))\n                  (@OfNat.ofNat Nat (nat_lit 9) (instOfNatNat (nat_lit 9))) (Etna.Landing.batchIdWords a)))\n              (@Vector.toList Etna.Landing.Byte\n                (@HMul.hMul Nat Nat Nat (@instHMul Nat instMulNat)\n                  (@OfNat.ofNat Nat (nat_lit 9) (instOfNatNat (nat_lit 9)))\n                  (@OfNat.ofNat Nat (nat_lit 32) (instOfNatNat (nat_lit 32))))\n                (@Vector.flatten Etna.Landing.Byte (@OfNat.ofNat Nat (nat_lit 32) (instOfNatNat (nat_lit 32)))\n                  (@OfNat.ofNat Nat (nat_lit 9) (instOfNatNat (nat_lit 9))) (Etna.Landing.batchIdWords b))) →\n            @Eq\n              (Prod Etna.Word256\n                (Prod Etna.Word64\n                  (Prod Etna.Landing.Address\n                    (Prod Etna.Word64 (Prod Nat (Prod Etna.Word256 (Prod Nat Etna.Word256)))))))\n              a.identity b.identity",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the recorded commitment, event and ordering per row."
+      ]
+    },
+    {
+      "id": "LAND-RWD-10",
+      "module": "Etna.Landing.Reward",
+      "declaration": "Etna.Landing.batch_id_distinct",
+      "type": "∀ (keccak : List Etna.Landing.Byte → Etna.Word256) (a b : Etna.Landing.Receipt),\n  @LT.lt Nat instLTNat a.parentHeight\n      (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n        (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n        (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256)))) →\n    @LT.lt Nat instLTNat b.parentHeight\n        (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n          (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n          (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256)))) →\n      @LT.lt Nat instLTNat a.lastHeight\n          (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n            (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n            (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256)))) →\n        @LT.lt Nat instLTNat b.lastHeight\n            (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n              (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n              (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256)))) →\n          Etna.Landing.LocalBatchSeparation keccak a b →\n            @Ne Nat a.parentHeight b.parentHeight →\n              @Ne Etna.Word256 (Etna.Landing.batchId keccak a) (Etna.Landing.batchId keccak b)",
+      "assumptions": [
+        "Trace-local batch-id preimage separation between compared receipts; no global Keccak injectivity"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the recorded commitment, event and ordering per row."
+      ]
+    },
+    {
+      "id": "LAND-RWD-11",
+      "module": "Etna.Landing.Reward",
+      "declaration": "Etna.Landing.commitment_binding",
+      "type": "∀ (keccak : List Etna.Landing.Byte → Etna.Word256) (a b : Etna.Landing.Receipt),\n  Etna.Landing.LocalCommitmentSeparation keccak a b →\n    @Eq Etna.Word256 (Etna.Landing.commitment keccak a) (Etna.Landing.commitment keccak b) →\n      And (@Eq Etna.Word256 (Etna.Landing.batchId keccak a) (Etna.Landing.batchId keccak b))\n        (And (@Eq Etna.Landing.Address a.recipient b.recipient) (@Eq Etna.Word256 a.amount b.amount))",
+      "assumptions": [
+        "Trace-local commitment preimage separation between the claimed and recorded receipts; no global Keccak injectivity"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the recorded commitment, event and ordering per row."
+      ]
+    },
+    {
+      "id": "LAND-RWD-12",
+      "module": "Etna.Landing.Reward",
+      "declaration": "Etna.Landing.batch_separation_nonvacuity",
+      "type": "∀ (a b : Etna.Landing.Receipt), ∃ keccak, Etna.Landing.LocalBatchSeparation keccak a b",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the recorded commitment, event and ordering per row."
+      ]
+    },
+    {
+      "id": "LAND-RWD-13",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.reward_recipient_word",
+      "type": "∀ (s : Etna.Landing.LandStatement), Etna.Landing.wordAt (Etna.Landing.encodeStatement s) 18 = s.rewardRecipient",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the recorded commitment, event and ordering per row."
+      ]
+    },
+    {
+      "id": "LAND-RWD-14",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.base_fee_word",
+      "type": "∀ (s : Etna.Landing.LandStatement), Etna.Landing.wordAt (Etna.Landing.encodeStatement s) 19 = s.baseFeeAmount",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the recorded commitment, event and ordering per row."
+      ]
+    },
+    {
+      "id": "LAND-RWD-15",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.reward_recorded_nonvacuity",
+      "type": "let r := Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput Etna.Landing.exampleExternal; r.error = none ∧ r.journal.current.rewardCommitments 7 = 7 ∧ r.journal.current.logs.length = 4 ∧ r.trace = [.entry, .checked, .statement, .head, .checkpoint, .signal, .batchEvent, .verifier, .reward, .payment, .consumed, .unlock]",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the recorded commitment, event and ordering per row."
+      ]
+    },
+    {
+      "id": "LAND-RWD-16",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.occupied_reward_slot_reverts",
+      "type": "let w := { Etna.Landing.exampleWorld with rewardCommitments := fun _ => 1 }; let r := Etna.Landing.execLandSteps w Etna.Landing.exampleInput Etna.Landing.exampleExternal; r.error = some .rewardAlreadyRecorded ∧ r.stage = .reward ∧ r.journal.current.transfers = [] ∧ (Etna.Landing.runTransaction w r).world.head = w.head",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the recorded commitment, event and ordering per row."
+      ]
+    },
+    {
+      "id": "LAND-RWD-17",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.zero_reward_recipient_rejected",
+      "type": "(Etna.Landing.execLandSteps Etna.Landing.exampleWorld { Etna.Landing.exampleInput with rewardRecipient := 0 } Etna.Landing.exampleExternal).error = some .zeroRewardRecipient",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the recorded commitment, event and ordering per row."
+      ]
+    },
+    {
+      "id": "LAND-RWD-18",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.zero_base_fee_recorded",
+      "type": "let r := Etna.Landing.execLandSteps Etna.Landing.exampleWorld { Etna.Landing.exampleInput with baseFeeAmount := 0 } Etna.Landing.exampleExternal; r.error = none ∧ r.journal.current.rewardCommitments 7 = 7",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the recorded commitment, event and ordering per row."
+      ]
+    },
+    {
+      "id": "CLAIM-01",
+      "module": "Etna.Landing.Claim",
+      "declaration": "Etna.Landing.claim_success",
+      "type": "∀ (keccak : List Etna.Landing.Byte → Etna.Word256) (storage : Etna.Word256 → Etna.Word256) (v v' : Etna.Landing.Vault)\n  (c : Etna.Landing.ClaimCall),\n  Etna.Landing.ProofSound keccak storage c →\n    @Eq (Except Etna.Landing.ClaimError Etna.Landing.Vault) (Etna.Landing.claim keccak v c)\n        (@Except.ok Etna.Landing.ClaimError Etna.Landing.Vault v') →\n      And (@Eq Bool (v.claimed (Etna.Landing.batchId keccak c.receipt)) Bool.false)\n        (And (@Eq Bool (Etna.Landing.receiptValid v c.receipt) Bool.true)\n          (And\n            (@Eq Etna.Word256 (storage (Etna.Landing.batchId keccak c.receipt))\n              (Etna.Landing.commitment keccak c.receipt))\n            (And\n              (@Eq (Etna.Word256 → Bool) v'.claimed\n                (@Function.update Etna.Word256 (fun a => Bool)\n                  (instDecidableEqFin\n                    (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                      (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                      (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256)))))\n                  v.claimed (Etna.Landing.batchId keccak c.receipt) Bool.true))\n              (And\n                (@Eq (List Etna.Landing.Transfer) v'.payouts\n                  (@HAppend.hAppend (List Etna.Landing.Transfer) (List Etna.Landing.Transfer)\n                    (List Etna.Landing.Transfer)\n                    (@instHAppendOfAppend (List Etna.Landing.Transfer) (@List.instAppend Etna.Landing.Transfer))\n                    v.payouts\n                    (@ite (List Etna.Landing.Transfer)\n                      (@Ne Nat\n                        (@Fin.val\n                          (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                            (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                            (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256))))\n                          c.receipt.amount)\n                        (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))))\n                      (@instDecidableNot\n                        (@Eq Nat\n                          (@Fin.val\n                            (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                              (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                              (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256))))\n                            c.receipt.amount)\n                          (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0))))\n                        (instDecidableEqNat\n                          (@Fin.val\n                            (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                              (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                              (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256))))\n                            c.receipt.amount)\n                          (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0)))))\n                      (@List.cons Etna.Landing.Transfer\n                        { recipient := c.receipt.recipient,\n                          wei :=\n                            @Fin.val\n                              (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                                (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                                (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256))))\n                              c.receipt.amount }\n                        (@List.nil Etna.Landing.Transfer))\n                      (@List.nil Etna.Landing.Transfer))))\n                (And (@Eq Bool v'.entered v.entered)\n                  (And (@Eq Etna.Landing.Address v'.inbox v.inbox)\n                    (And (@Eq Etna.Word64 v'.chainId v.chainId) (@Eq Etna.Word256 v'.l1ChainId v.l1ChainId))))))))",
+      "assumptions": [
+        "ProofSound: an accepted LibTrieProof account/storage proof against the EIP-4788 anchored root shows the fixed L1 Inbox holds the receipt commitment at rewardCommitments[batchId]; MPT, RLP and mapping-slot hashing are external"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "Etna/Integration/Examples.lean",
+        "adapters/solidity/L2FeeVaultLeanConformance.t.sol",
+        "scripts/claim_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved model of L2FeeVault.claim, conformance-tested on 41 rows against the actual vault with real single-leaf MPT proofs and the canonical EIP-4788 runtime (scripts/claim_conformance.py). Proof soundness (ProofSound), general multi-node tries and the execution client's EIP-4788 writes remain external; bytecode refinement is pending."
+      ]
+    },
+    {
+      "id": "CLAIM-02",
+      "module": "Etna.Landing.Claim",
+      "declaration": "Etna.Landing.claim_once",
+      "type": "∀ (keccak : List Etna.Landing.Byte → Etna.Word256) (v : Etna.Landing.Vault) (c : Etna.Landing.ClaimCall),\n  @Eq Bool (v.claimed (Etna.Landing.batchId keccak c.receipt)) Bool.true →\n    ∃ e,\n      @Eq (Except Etna.Landing.ClaimError Etna.Landing.Vault) (Etna.Landing.claim keccak v c)\n        (@Except.error Etna.Landing.ClaimError Etna.Landing.Vault e)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "Etna/Integration/Examples.lean",
+        "adapters/solidity/L2FeeVaultLeanConformance.t.sol",
+        "scripts/claim_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved model of L2FeeVault.claim, conformance-tested on 41 rows against the actual vault with real single-leaf MPT proofs and the canonical EIP-4788 runtime (scripts/claim_conformance.py). Proof soundness (ProofSound), general multi-node tries and the execution client's EIP-4788 writes remain external; bytecode refinement is pending."
+      ]
+    },
+    {
+      "id": "CLAIM-03",
+      "module": "Etna.Landing.Claim",
+      "declaration": "Etna.Landing.claim_pays_recorded",
+      "type": "∀ {keccak : List Etna.Landing.Byte → Etna.Word256} {w : Etna.Landing.World} {rs : List Etna.Landing.Receipt} {final : Etna.Landing.World}, Etna.Landing.RewardTrace keccak w rs final → (∀ id, w.rewardCommitments id = 0) → w.checkpoint.height < 2 ^ 64 → rs.Pairwise (Etna.Landing.LocalBatchSeparation keccak) → ∀ (v v' : Etna.Landing.Vault) (c : Etna.Landing.ClaimCall), Etna.Landing.ProofSound keccak final.rewardCommitments c → Etna.Landing.commitment keccak c.receipt ≠ 0 → (∀ r ∈ rs, Etna.Landing.LocalCommitmentSeparation keccak c.receipt r) → Etna.Landing.claim keccak v c = .ok v' → ∃ r ∈ rs, Etna.Landing.batchId keccak r = Etna.Landing.batchId keccak c.receipt ∧ r.recipient = c.receipt.recipient ∧ r.amount = c.receipt.amount",
+      "assumptions": [
+        "The trace starts from an empty reward ledger at a uint64 checkpoint height, as EtnaInbox.init leaves it",
+        "Trace-local batch-id preimage separation between compared receipts; no global Keccak injectivity",
+        "ProofSound: an accepted LibTrieProof account/storage proof against the EIP-4788 anchored root shows the fixed L1 Inbox holds the receipt commitment at rewardCommitments[batchId]; MPT, RLP and mapping-slot hashing are external",
+        "The claimed receipt commitment is nonzero (a zero Keccak output would need no landing)",
+        "Trace-local commitment preimage separation between the claimed and recorded receipts; no global Keccak injectivity"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "Etna/Integration/Examples.lean",
+        "adapters/solidity/L2FeeVaultLeanConformance.t.sol",
+        "scripts/claim_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved model of L2FeeVault.claim, conformance-tested on 41 rows against the actual vault with real single-leaf MPT proofs and the canonical EIP-4788 runtime (scripts/claim_conformance.py). Proof soundness (ProofSound), general multi-node tries and the execution client's EIP-4788 writes remain external; bytecode refinement is pending."
+      ]
+    },
+    {
+      "id": "CLAIM-AUX-01",
+      "module": "Etna.Landing.Claim",
+      "declaration": "Etna.Landing.claim_frame",
+      "type": "∀ (keccak : List Etna.Landing.Byte → Etna.Word256) (v v' : Etna.Landing.Vault) (c : Etna.Landing.ClaimCall),\n  @Eq (Except Etna.Landing.ClaimError Etna.Landing.Vault) (Etna.Landing.claim keccak v c)\n      (@Except.ok Etna.Landing.ClaimError Etna.Landing.Vault v') →\n    And (@Eq Bool v'.entered v.entered)\n      (And (@Eq Etna.Landing.Address v'.inbox v.inbox)\n        (And (@Eq Etna.Word64 v'.chainId v.chainId)\n          (And (@Eq Etna.Word256 v'.l1ChainId v.l1ChainId)\n            (∀ (id : Etna.Word256), @Eq Bool (v.claimed id) Bool.true → @Eq Bool (v'.claimed id) Bool.true))))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "Etna/Integration/Examples.lean",
+        "adapters/solidity/L2FeeVaultLeanConformance.t.sol",
+        "scripts/claim_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved model of L2FeeVault.claim, conformance-tested on 41 rows against the actual vault with real single-leaf MPT proofs and the canonical EIP-4788 runtime (scripts/claim_conformance.py). Proof soundness (ProofSound), general multi-node tries and the execution client's EIP-4788 writes remain external; bytecode refinement is pending."
+      ]
+    },
+    {
+      "id": "CLAIM-AUX-02",
+      "module": "Etna.Landing.Claim",
+      "declaration": "Etna.Landing.reward_trace_storage",
+      "type": "∀ {keccak : List Etna.Landing.Byte → Etna.Word256} {w : Etna.Landing.World} {rs : List Etna.Landing.Receipt}\n  {final : Etna.Landing.World},\n  Etna.Landing.RewardTrace keccak w rs final →\n    @LT.lt Nat instLTNat w.checkpoint.height\n        (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@NPow.toPow Nat (@Monoid.toNPow Nat Nat.instMonoid)))\n          (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n          (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64)))) →\n      @List.Pairwise Etna.Landing.Receipt (Etna.Landing.LocalBatchSeparation keccak) rs →\n        ∀ (r : Etna.Landing.Receipt),\n          @Membership.mem Etna.Landing.Receipt (List Etna.Landing.Receipt) (@List.instMembership Etna.Landing.Receipt)\n              rs r →\n            @Eq Etna.Word256 (final.rewardCommitments (Etna.Landing.batchId keccak r))\n              (Etna.Landing.commitment keccak r)",
+      "assumptions": [
+        "Trace-local batch-id preimage separation between compared receipts; no global Keccak injectivity"
+      ],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+        "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "adapters/solidity/EtnaInboxCutsConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved model of L2FeeVault.claim, conformance-tested on 41 rows against the actual vault with real single-leaf MPT proofs and the canonical EIP-4788 runtime (scripts/claim_conformance.py). Proof soundness (ProofSound), general multi-node tries and the execution client's EIP-4788 writes remain external; bytecode refinement is pending."
+      ]
+    },
+    {
+      "id": "CLAIM-AUX-03",
+      "module": "Etna.Landing.Claim",
+      "declaration": "Etna.Landing.claim_trace_ids_distinct",
+      "type": "∀ {keccak : List Etna.Landing.Byte → Etna.Word256} {v : Etna.Landing.Vault} {cs : List Etna.Landing.Receipt}\n  {final : Etna.Landing.Vault},\n  Etna.Landing.ClaimTrace keccak v cs final →\n    And\n      (@List.Pairwise Etna.Landing.Receipt\n        (fun a b => @Ne Etna.Word256 (Etna.Landing.batchId keccak a) (Etna.Landing.batchId keccak b)) cs)\n      (∀ (r : Etna.Landing.Receipt),\n        @Membership.mem Etna.Landing.Receipt (List Etna.Landing.Receipt) (@List.instMembership Etna.Landing.Receipt) cs\n            r →\n          @Eq Bool (final.claimed (Etna.Landing.batchId keccak r)) Bool.true)",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "Etna/Integration/Examples.lean",
+        "adapters/solidity/L2FeeVaultLeanConformance.t.sol",
+        "scripts/claim_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved model of L2FeeVault.claim, conformance-tested on 41 rows against the actual vault with real single-leaf MPT proofs and the canonical EIP-4788 runtime (scripts/claim_conformance.py). Proof soundness (ProofSound), general multi-node tries and the execution client's EIP-4788 writes remain external; bytecode refinement is pending."
+      ]
+    },
+    {
+      "id": "CLAIM-AUX-04",
+      "module": "Etna.Landing.Claim",
+      "declaration": "Etna.Landing.claim_trace_payouts",
+      "type": "∀ {keccak : List Etna.Landing.Byte → Etna.Word256} {v : Etna.Landing.Vault} {cs : List Etna.Landing.Receipt}\n  {final : Etna.Landing.Vault},\n  Etna.Landing.ClaimTrace keccak v cs final →\n    @Eq Nat\n      (@List.sum Nat instAddNat (@MulZeroClass.toZero Nat Nat.instMulZeroClass)\n        (@List.map Etna.Landing.Transfer Nat Etna.Landing.Transfer.wei final.payouts))\n      (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat)\n        (@List.sum Nat instAddNat (@MulZeroClass.toZero Nat Nat.instMulZeroClass)\n          (@List.map Etna.Landing.Transfer Nat Etna.Landing.Transfer.wei v.payouts))\n        (@List.sum Nat instAddNat (@MulZeroClass.toZero Nat Nat.instMulZeroClass)\n          (@List.map Etna.Landing.Receipt Nat\n            (fun r =>\n              @Fin.val\n                (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                  (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                  (@OfNat.ofNat Nat (nat_lit 256) (instOfNatNat (nat_lit 256))))\n                r.amount)\n            cs)))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer2/core/L2FeeVault.sol:55-96@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "Etna/Integration/Examples.lean",
+        "adapters/solidity/L2FeeVaultLeanConformance.t.sol",
+        "scripts/claim_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved model of L2FeeVault.claim, conformance-tested on 41 rows against the actual vault with real single-leaf MPT proofs and the canonical EIP-4788 runtime (scripts/claim_conformance.py). Proof soundness (ProofSound), general multi-node tries and the execution client's EIP-4788 writes remain external; bytecode refinement is pending."
+      ]
+    },
+    {
+      "id": "LAND-12",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.committee_snapshot_rule",
+      "type": "∀ (w : Etna.Landing.World) (i : Etna.Landing.LandInput) (x : Etna.Landing.ExternalOutcomes),\n  @Eq (Option Etna.Landing.Error) (Etna.Landing.execLandSteps w i x).error (@Option.none Etna.Landing.Error) →\n    And\n      (@Eq Nat (Etna.Landing.runTransaction w (Etna.Landing.execLandSteps w i x)).world.committeeSnapshot\n        (@Fin.val\n          (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n            (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n            (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))\n          i.activeSnapshot))\n      (And\n        (@LE.le Nat instLENat w.committeeSnapshot\n          (@Fin.val\n            (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n              (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n              (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))\n            i.activeSnapshot))\n        (And\n          (@LE.le Nat instLENat\n            (@Fin.val\n              (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))\n              i.activeSnapshot)\n            (@Fin.val\n              (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))\n              i.reference))\n          (And\n            (@Eq Bool (Etna.Landing.sameEpoch w i) Bool.true →\n              @Eq Nat\n                (@Fin.val\n                  (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                    (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                    (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))\n                  i.activeSnapshot)\n                w.committeeSnapshot)\n            (@Eq Etna.Landing.AbiWord (Etna.Landing.computedStatement w i x).activeSnapshot\n              (Etna.Landing.natWord\n                (@Fin.val\n                  (@HPow.hPow Nat Nat Nat (@instHPow Nat Nat (@instPowNat Nat instNatPowNat))\n                    (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2)))\n                    (@OfNat.ofNat Nat (nat_lit 64) (instOfNatNat (nat_lit 64))))\n                  i.activeSnapshot))))))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the stored snapshot, its range and same-epoch checks, and their revert order per row."
+      ]
+    },
+    {
+      "id": "LAND-SNP-01",
+      "module": "Etna.Landing.Proofs",
+      "declaration": "Etna.Landing.snapshot_trace_monotone",
+      "type": "∀ {keccak : List Etna.Landing.Byte → Etna.Word256} {w : Etna.Landing.World} {rs : List Etna.Landing.Receipt}\n  {final : Etna.Landing.World},\n  Etna.Landing.RewardTrace keccak w rs final → @LE.le Nat instLENat w.committeeSnapshot final.committeeSnapshot",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the stored snapshot, its range and same-epoch checks, and their revert order per row."
+      ]
+    },
+    {
+      "id": "LAND-SNP-02",
+      "module": "Etna.Landing.Statement",
+      "declaration": "Etna.Landing.active_snapshot_word",
+      "type": "∀ (s : Etna.Landing.LandStatement), Etna.Landing.wordAt (Etna.Landing.encodeStatement s) 20 = s.activeSnapshot",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the stored snapshot, its range and same-epoch checks, and their revert order per row."
+      ]
+    },
+    {
+      "id": "LAND-SNP-03",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.cross_epoch_snapshot_advances",
+      "type": "@Eq Nat\n  (Etna.Landing.runTransaction Etna.Landing.exampleWorld\n        (Etna.Landing.execLandSteps Etna.Landing.exampleWorld Etna.Landing.exampleInput\n          Etna.Landing.exampleExternal)).world.committeeSnapshot\n  (@OfNat.ofNat Nat (nat_lit 11) (instOfNatNat (nat_lit 11)))",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the stored snapshot, its range and same-epoch checks, and their revert order per row."
+      ]
+    },
+    {
+      "id": "LAND-SNP-04",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.snapshot_regress_rejected",
+      "type": "(Etna.Landing.execLandSteps { Etna.Landing.exampleWorld with committeeSnapshot := 12 } Etna.Landing.exampleInput Etna.Landing.exampleExternal).error = some .invalidCommitteeSnapshot",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the stored snapshot, its range and same-epoch checks, and their revert order per row."
+      ]
+    },
+    {
+      "id": "LAND-SNP-05",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.snapshot_above_reference_rejected",
+      "type": "(Etna.Landing.execLandSteps Etna.Landing.exampleWorld { Etna.Landing.exampleInput with activeSnapshot := 20000 } Etna.Landing.exampleExternal).error = some .invalidCommitteeSnapshot",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the stored snapshot, its range and same-epoch checks, and their revert order per row."
+      ]
+    },
+    {
+      "id": "LAND-SNP-06",
+      "module": "Etna.Landing.Examples",
+      "declaration": "Etna.Landing.same_epoch_snapshot_fixed",
+      "type": "let w := { Etna.Landing.exampleWorld with checkpoint := ⟨11, 1000⟩, committeeSnapshot := 5 }; (Etna.Landing.execLandSteps w Etna.Landing.exampleInput Etna.Landing.exampleExternal).error = some .invalidCommitteeSnapshot ∧ (Etna.Landing.execLandSteps w { Etna.Landing.exampleInput with activeSnapshot := 5 } Etna.Landing.exampleExternal).error = none",
+      "assumptions": [],
+      "bridge_level": "spec-proved",
+      "production": [
+        "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol:258-307,499-581@3ff8a1c084b222752abb2eedf7362e74fb14ceda"
+      ],
+      "tests": [
+        "corpus/landing.jsonl",
+        "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+        "scripts/landing_conformance.py"
+      ],
+      "boundaries": [
+        "Spec-proved over the source-mapped model; Solidity bytecode refinement is pending. Actual-contract conformance covers the stored snapshot, its range and same-epoch checks, and their revert order per row."
+      ]
+    }
+  ]
+}

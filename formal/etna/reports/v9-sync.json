@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "scope": "Refresh to the V9 protocol (active committee snapshot bound into landings; staking withdrawals gated on settled committee turnover)",
+  "upstream_client": "cfcc70973f109779d0f6a8617191c789b72d759a",
+  "paired_protocol": "3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+  "lander_fixture_protocol": "3ff8a1c084b222752abb2eedf7362e74fb14ceda",
+  "previous_pair": {
+    "client": "6f91f50c6185213ac512a4a46683767c75d8d831",
+    "protocol": "cf4095818050bd670d7d6b8b9f742d55c01e49f0"
+  },
+  "production_core": {
+    "changed": "none; workspace Cargo.toml dev-profile change refreshed its provenance digest only",
+    "counts": {
+      "production_function_roots": 21,
+      "transparent_constant_initializers": 3,
+      "transparent_functions": 24,
+      "opaque_llbc_stdlib_functions_resolved_by_backend_models": 10,
+      "unresolved_generated_axioms": 0,
+      "opaque_stubs": 0
+    },
+    "generated_sha256": {
+      "EtnaConsensusCore.lean": "b8226cac41c44cd89d50e0cdc3857d27495179a163c357e352331d8407c23716"
+    },
+    "fresh_extraction": "byte-identical generated Lean and provenance (scripts/check_provenance.py)"
+  },
+  "statement": {
+    "words": 21,
+    "bytes": 672,
+    "tag": "TAIKO_ETNA_LAND_V9",
+    "new_word": "activeCommitteeSnapshot (uint64)"
+  },
+  "theorems": {
+    "total": 272,
+    "exact_rust_functions": 21,
+    "new_spec_ids": {
+      "LAND-12": "committee_snapshot_rule",
+      "WITHDRAW-01": "withdrawal_after_settled_turnover"
+    },
+    "new_ids": [
+      "LAND-12",
+      "LAND-SNP-01",
+      "LAND-SNP-02",
+      "LAND-SNP-03",
+      "LAND-SNP-04",
+      "LAND-SNP-05",
+      "LAND-SNP-06",
+      "INT-valid-batch-active-snapshot",
+      "INT-landed-snapshot-is-active-cutoff",
+      "WITHDRAW-01",
+      "INT-landed-snapshot-nonvacuity"
+    ],
+    "axioms": ["propext", "Classical.choice", "Quot.sound"]
+  },
+  "landing_conformance": {
+    "cases": 74,
+    "actual_preimages": 39,
+    "rust_statement_rows": 74,
+    "corpus_sha256": "b16e74836619b6390bffa5c3eb98b90b0d603bc8283116a0cf7f725b9442ac1c",
+    "observations_sha256": "dfb7049b2331495d9f8792564568bcebe3ea5881e4dd87bda6f04585c9496765",
+    "cuts": {
+      "plans": 4,
+      "intervals": 12
+    },
+    "failures": 0
+  },
+  "claim_conformance": {
+    "cases": 41,
+    "failures": 0
+  },
+  "landing_mutants": [
+    {
+      "mutation": "recipient-omission",
+      "obligation": "LAND-03",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "head-tail-bound",
+      "obligation": "LAND-01",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "fee-interval",
+      "obligation": "LAND-02",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "verifier-bypass",
+      "obligation": "LAND-04",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "reward-commitment",
+      "obligation": "LAND-09",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "reward-slot-check",
+      "obligation": "LAND-10",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "snapshot-regress",
+      "obligation": "LAND-12",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "snapshot-epoch-stability",
+      "obligation": "LAND-12",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    },
+    {
+      "mutation": "snapshot-not-stored",
+      "obligation": "LAND-12",
+      "outcome": "semantic-kill",
+      "source_restored": true
+    }
+  ],
+  "landing_mutants_artifacts_restored": true,
+  "boundary": "withdrawal_after_settled_turnover gives cutoff >= exit for the record governing the latest landed height; that derivation excludes bonds exited by its cutoff remains the committee-derivation boundary."
+}

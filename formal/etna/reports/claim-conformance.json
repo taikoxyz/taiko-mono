@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "cases": 41,
+  "failures": [],
+  "specification": "Lean executable Etna.Landing.claim",
+  "bridge": "actual production L2FeeVault with real single-leaf MPT proofs and the canonical EIP-4788 runtime; bytecode refinement pending",
+  "crypto": "cast Keccak oracle keyed by exact preimage; the account/storage proof is the ProofSound boundary",
+  "observations": "committed business state plus executed STATICCALL/CALL counts of the observed call",
+  "corpus_sha256": "6cef183f5efcd3390b93cc422cadff49b4d7d10332fc72f3a794fc874ea4e791",
+  "observations_sha256": "b4de7d1a04796c9eb7cf47741638d90ef087d39ec369ab4d9ff448f4011be397"
+}

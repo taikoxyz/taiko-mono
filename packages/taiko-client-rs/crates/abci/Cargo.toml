@@ -10,6 +10,7 @@ rust-version.workspace = true
 [dependencies]
 # async
 async-trait = { workspace = true }
+etna-consensus-core = { path = "../etna-consensus-core" }
 futures = { workspace = true }
 tokio = { workspace = true }
 

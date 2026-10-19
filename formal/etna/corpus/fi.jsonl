@@ -1,0 +1,94 @@
+{"args":[7,100,20,119,1,true,true,false],"expected":"ordinary","id":"FI-001","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,120,1,true,true,false],"expected":"needs:7","id":"FI-002","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,121,1,true,true,false],"expected":"needs:7","id":"FI-003","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,119,1,true,true,true],"expected":"included:7","id":"FI-004","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,120,1,true,true,true],"expected":"included:7","id":"FI-005","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,121,1,true,true,true],"expected":"included:7","id":"FI-006","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,119,0,false,false,false],"expected":"ordinary","id":"FI-007","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,120,0,false,false,false],"expected":"hash-mismatch","id":"FI-008","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,121,0,false,false,false],"expected":"hash-mismatch","id":"FI-009","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,119,0,false,false,true],"expected":"included:7","id":"FI-010","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,120,0,false,false,true],"expected":"included:7","id":"FI-011","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,121,0,false,false,true],"expected":"included:7","id":"FI-012","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,119,0,true,false,false],"expected":"ordinary","id":"FI-013","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,120,0,true,false,false],"expected":"invalid:7","id":"FI-014","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,121,0,true,false,false],"expected":"invalid:7","id":"FI-015","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,119,0,true,false,false],"expected":"ordinary","id":"FI-016","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,120,0,true,false,false],"expected":"invalid:7","id":"FI-017","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,121,0,true,false,false],"expected":"invalid:7","id":"FI-018","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,119,0,true,false,false],"expected":"ordinary","id":"FI-019","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,120,0,true,false,false],"expected":"invalid:7","id":"FI-020","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,121,0,true,false,false],"expected":"invalid:7","id":"FI-021","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,119,0,true,false,false],"expected":"ordinary","id":"FI-022","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,120,0,true,false,false],"expected":"invalid:7","id":"FI-023","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,121,0,true,false,false],"expected":"invalid:7","id":"FI-024","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,119,1,true,false,false],"expected":"ordinary","id":"FI-025","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,120,1,true,false,false],"expected":"invalid:7","id":"FI-026","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,121,1,true,false,false],"expected":"invalid:7","id":"FI-027","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,119,1,true,false,false],"expected":"ordinary","id":"FI-028","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,120,1,true,false,false],"expected":"invalid:7","id":"FI-029","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,121,1,true,false,false],"expected":"invalid:7","id":"FI-030","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,119,0,false,false,false],"expected":"ordinary","id":"FI-031","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,120,0,false,false,false],"expected":"hash-mismatch","id":"FI-032","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,121,0,false,false,false],"expected":"hash-mismatch","id":"FI-033","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,119,0,false,false,false],"expected":"ordinary","id":"FI-034","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,120,0,false,false,false],"expected":"hash-mismatch","id":"FI-035","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,121,0,false,false,false],"expected":"hash-mismatch","id":"FI-036","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,119,8192,true,false,false],"expected":"ordinary","id":"FI-037","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,120,8192,true,false,false],"expected":"invalid:7","id":"FI-038","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,121,8192,true,false,false],"expected":"invalid:7","id":"FI-039","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,119,8192,true,false,false],"expected":"ordinary","id":"FI-040","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,120,8192,true,false,false],"expected":"invalid:7","id":"FI-041","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,121,8192,true,false,false],"expected":"invalid:7","id":"FI-042","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,119,0,false,false,false],"expected":"ordinary","id":"FI-043","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,120,0,false,false,false],"expected":"hash-mismatch","id":"FI-044","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,121,0,false,false,false],"expected":"hash-mismatch","id":"FI-045","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,119,0,false,false,false],"expected":"ordinary","id":"FI-046","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,120,0,false,false,false],"expected":"hash-mismatch","id":"FI-047","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,121,0,false,false,false],"expected":"hash-mismatch","id":"FI-048","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,119,8193,true,false,false],"expected":"too-large:8193","id":"FI-049","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,120,8193,true,false,false],"expected":"too-large:8193","id":"FI-050","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,121,8193,true,false,false],"expected":"too-large:8193","id":"FI-051","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,119,8193,true,false,false],"expected":"too-large:8193","id":"FI-052","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,120,8193,true,false,false],"expected":"too-large:8193","id":"FI-053","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,121,8193,true,false,false],"expected":"too-large:8193","id":"FI-054","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,119,0,false,false,false],"expected":"ordinary","id":"FI-055","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,120,0,false,false,false],"expected":"hash-mismatch","id":"FI-056","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,121,0,false,false,false],"expected":"hash-mismatch","id":"FI-057","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,119,0,false,false,false],"expected":"ordinary","id":"FI-058","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,120,0,false,false,false],"expected":"hash-mismatch","id":"FI-059","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":[7,100,20,121,0,false,false,false],"expected":"hash-mismatch","id":"FI-060","op":"classify","origin":"original authenticated classifier baseline 34b8775"}
+{"args":["ordinary",7,"empty"],"expected":"none","id":"FI-061","op":"resolve","origin":"explicit boundary golden"}
+{"args":["ordinary",7,"retained"],"expected":"none","id":"FI-062","op":"resolve","origin":"explicit boundary golden"}
+{"args":["ordinary",7,"unavailable"],"expected":"none","id":"FI-063","op":"resolve","origin":"explicit boundary golden"}
+{"args":["included",7,"empty"],"expected":"consumed:7","id":"FI-064","op":"resolve","origin":"explicit boundary golden"}
+{"args":["included",7,"retained"],"expected":"consumed:7","id":"FI-065","op":"resolve","origin":"explicit boundary golden"}
+{"args":["included",7,"unavailable"],"expected":"consumed:7","id":"FI-066","op":"resolve","origin":"explicit boundary golden"}
+{"args":["invalid",7,"empty"],"expected":"consumed:7","id":"FI-067","op":"resolve","origin":"explicit boundary golden"}
+{"args":["invalid",7,"retained"],"expected":"consumed:7","id":"FI-068","op":"resolve","origin":"explicit boundary golden"}
+{"args":["invalid",7,"unavailable"],"expected":"consumed:7","id":"FI-069","op":"resolve","origin":"explicit boundary golden"}
+{"args":["needs",7,"empty"],"expected":"consumed:7","id":"FI-070","op":"resolve","origin":"explicit boundary golden"}
+{"args":["needs",7,"retained"],"expected":"retained","id":"FI-071","op":"resolve","origin":"explicit boundary golden"}
+{"args":["needs",7,"unavailable"],"expected":"needs-singleton","id":"FI-072","op":"resolve","origin":"explicit boundary golden"}
+{"args":[7,8,null],"expected":"missing-witness:7","id":"FI-073","op":"pending","origin":"explicit boundary golden"}
+{"args":[7,7,null],"expected":"false","id":"FI-074","op":"pending","origin":"explicit boundary golden"}
+{"args":[7,8,7],"expected":"true","id":"FI-075","op":"pending","origin":"explicit boundary golden"}
+{"args":[7,8,8],"expected":"wrong-index:7:8","id":"FI-076","op":"pending","origin":"explicit boundary golden"}
+{"args":[7,7,7],"expected":"unexpected-witness","id":"FI-077","op":"pending","origin":"explicit boundary golden"}
+{"args":[0,false],"expected":"ok","id":"FI-078","op":"preimage","origin":"explicit boundary golden"}
+{"args":[1,false],"expected":"hash-mismatch","id":"FI-079","op":"preimage","origin":"explicit boundary golden"}
+{"args":[8192,true],"expected":"ok","id":"FI-080","op":"preimage","origin":"explicit boundary golden"}
+{"args":[8193,true],"expected":"too-large:8193","id":"FI-081","op":"preimage","origin":"explicit boundary golden"}
+{"args":[18446744073709551615,false],"expected":"too-large:18446744073709551615","id":"FI-082","op":"preimage","origin":"explicit boundary golden"}
+{"args":[10,10,19],"expected":"false","id":"FI-083","op":"due","origin":"explicit boundary golden"}
+{"args":[10,10,20],"expected":"true","id":"FI-084","op":"due","origin":"explicit boundary golden"}
+{"args":[10,10,21],"expected":"true","id":"FI-085","op":"due","origin":"explicit boundary golden"}
+{"args":[18446744073709551615,0,18446744073709551615],"expected":"true","id":"FI-086","op":"due","origin":"explicit boundary golden"}
+{"args":[18446744073709551615,1,18446744073709551615],"expected":"false","id":"FI-087","op":"due","origin":"explicit boundary golden"}
+{"args":[18446744073709551615,18446744073709551615,18446744073709551615],"expected":"false","id":"FI-088","op":"due","origin":"explicit boundary golden"}
+{"args":[7,null],"expected":"7","id":"FI-089","op":"advance","origin":"explicit boundary golden"}
+{"args":[7,7],"expected":"8","id":"FI-090","op":"advance","origin":"explicit boundary golden"}
+{"args":[7,8],"expected":"wrong-index:7:8","id":"FI-091","op":"advance","origin":"explicit boundary golden"}
+{"args":[18446744073709551615,18446744073709551615],"expected":"cursor-overflow","id":"FI-092","op":"advance","origin":"explicit boundary golden"}
+{"args":[18446744073709551615,null],"expected":"18446744073709551615","id":"FI-093","op":"advance","origin":"explicit boundary golden"}
+{"args":[281474976710654,281474976710654],"expected":"281474976710655","id":"FI-094","op":"advance","origin":"explicit boundary golden"}

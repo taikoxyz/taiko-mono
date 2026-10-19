@@ -1,0 +1,80 @@
+{
+  "baseline_revision": "34b877501724b044086bdcbaa9e8004f4e34ed91",
+  "source_sha256": {
+    "packages/taiko-client-rs/crates/abci/src/forced.rs": "53682cc35ed64b4dd1b51cd8abe38912e7448dac9685c9da5de777980301fdd6",
+    "packages/taiko-client-rs/crates/abci/src/engine/forced.rs": "3a0c353a3fcb79e3c3763aa797a462be71fd8c84fd1e56c7feca51ed49dffd26",
+    "packages/taiko-client-rs/crates/abci/src/schedule.rs": "682f10a1ff4fd4d49df8c58bbbb9c08546a90249988ff89fac2c3b9fad62c9a7",
+    "packages/taiko-client-rs/crates/abci/src/app/finalize.rs": "1e65d255498332a2606cbea096409d32b8367f89b76f14e8c6a8226fbf638624",
+    "packages/taiko-client-rs/crates/lander/src/validate.rs": "cb9d06c4d4fa8b64663e38143e4361e953217bb930b372e1a09e224b8df0f575"
+  },
+  "datasets": {
+    "packages/taiko-client-rs/crates/abci/src/forced/behavior-corpus.csv": {
+      "sha256": "379673fa58097d5d7b4782f2b5901050bcec012fbdd0cff390b94f07bfb7a012",
+      "rows": 60,
+      "coverage": ["FI-01", "FI-03", "FI-04", "FI-05", "FI-09"]
+    },
+    "packages/taiko-client-rs/crates/abci/src/forced/resolution-corpus.csv": {
+      "sha256": "4b8ee456483679bc3e5fb06fe605ebff2cd8bb186ca1c1690b66cc82a5a16e64",
+      "rows": 20,
+      "coverage": ["FI-05", "FI-06", "FI-07"]
+    },
+    "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule-corpus.csv": {
+      "sha256": "a0fb77e01f9bbc5196e3cfba0384536aabcf01c6d061ab87c36f5c7ce975384d",
+      "rows": 132,
+      "coverage": ["COM-01"]
+    }
+  },
+  "unchanged_original_fixture_goldens": {
+    "FI-02": [
+      "forced::tests::rule_rejects_wrong_account_and_state_root",
+      "forced::tests::rule_rejects_wrong_slot_set_or_tampered_proofs"
+    ],
+    "FI-08": [
+      "app::tests::finalize::hot_canonical_skip_matches_cold_replay_and_persists_after_commit",
+      "app::tests::finalize::cold_canonical_skip_advances_cursor_on_replay_and_persists_after_commit",
+      "app::tests::finalize::forced_cursor_survives_restart"
+    ],
+    "FI-09": [
+      "forced::tests::rule_includes_canonical_first_transaction_early_due_and_without_expiry",
+      "forced::tests::rule_requires_skip_for_due_canonical_tx_absent_from_position_zero"
+    ],
+    "COM-04": [
+      "validate::tests::real_canonical_ed25519_commits_require_strictly_more_than_two_thirds",
+      "validate::tests::weighted_quorum_absent_and_nil_votes_do_not_count"
+    ],
+    "COM-07": [
+      "schedule::tests::validate_accepts_minimal_and_test_schedules",
+      "schedule::tests::validate_rejects_epochs_shorter_than_cap_plus_three"
+    ],
+    "committee_updates": {
+      "test": "app::tests::finalize::switch_height_emits_the_exact_updates_and_prunes",
+      "updates": [
+        {
+          "fixture_member": "sample_entries(4)[0]",
+          "power": 0
+        },
+        {
+          "fixture_member": "sample_entries(4)[1]",
+          "power": 10000000000
+        },
+        {
+          "fixture_member": "sample_entries(4)[2]",
+          "power": 3000000000
+        },
+        {
+          "fixture_member": "sample_entries(4)[3]",
+          "power": 4000000000
+        }
+      ],
+      "order": "B256 key ascending",
+      "retained_epochs": [3, 4]
+    }
+  },
+  "capture_notes": [
+    "FI classification: added a fixture-only capture test and ran the unchanged original authenticated classifier before refactoring;60 fixed rows.",
+    "Resolution: ran the unchanged original forced.rs and engine/forced.rs from baseline (automatically restored afterward);20 original completed engine outcomes with cursor changes. Failed operations retain durable state.",
+    "Schedule: compiled exact original schedule arithmetic from Git; removed serde/thiserror attributes/imports and supplied only the four GenesisRecord fields to avoid dependency builds.132 rows retain original debug assertions and overflow panics.",
+    "Existing fixed-fixture tests supply proof authentication, hot/cold/restart, validator update and quorum coverage. These passed in the complete original baseline and remain unchanged; they do not use the new core as the expected oracle.",
+    "This artifact records behavior conformance, not a Lean refinement theorem."
+  ]
+}

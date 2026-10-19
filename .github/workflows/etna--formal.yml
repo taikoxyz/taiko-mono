@@ -1,0 +1,341 @@
+name: Etna formal
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  pull_request_review:
+    types: [submitted, dismissed]
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
+  release:
+    types: [published]
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+concurrency:
+  group: etna-formal-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+env:
+  GH_TOKEN: ${{ github.token }}
+  ETNA_PROTOCOL: ${{ github.workspace }}/../etna-protocol
+  CARGO_TARGET_DIR: ${{ github.workspace }}/../etna-cargo
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  RUSTUP_TOOLCHAIN: "1.95"
+jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      relevant: ${{ steps.changes.outputs.relevant }}
+      proof_review: ${{ steps.changes.outputs.proof_review }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - id: changes
+        run: python3 formal/etna/scripts/ci_gate.py changes
+  lean-proofs:
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "20.19.0"
+      - name: Resolve immutable pair and source ownership
+        run: python3 formal/etna/scripts/prepare_pair.py --protocol "$ETNA_PROTOCOL" --report "$RUNNER_TEMP/etna-reports/pair.json"
+      - name: Bootstrap lean
+        run: bash formal/etna/scripts/bootstrap_ci.sh lean
+      - name: Bootstrap cast for provenance regressions
+        run: bash formal/etna/scripts/bootstrap_ci.sh cast
+      - name: Python verifier regressions
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/etna-reports"
+          cd formal/etna
+          python3 -m unittest discover -s tests -v 2>&1 | tee "$RUNNER_TEMP/etna-reports/python-regressions.log"
+      - name: Verify
+        run: |
+          cd formal/etna
+          lake build
+          python3 scripts/audit_proofs.py
+          lake env lean Audit.lean
+      - name: Reject changed pair heads or input bytes
+        run: python3 formal/etna/scripts/prepare_pair.py --protocol "$ETNA_PROTOCOL" --report "$RUNNER_TEMP/etna-reports/pair.json" --finish
+      - name: Runner resource diagnostics
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/etna-reports"
+          { date -u; uname -a; df -h; free -h; du -sh "$RUNNER_TEMP/etna-tools" "$CARGO_TARGET_DIR" formal/etna/.lake 2>/dev/null || true; } | tee "$RUNNER_TEMP/etna-reports/resources.txt"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: etna-lean-proofs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/etna-reports
+            !${{ runner.temp }}/etna-reports/**/target/**
+            !${{ runner.temp }}/etna-reports/**/.lake/**
+          retention-days: 14
+          if-no-files-found: error
+  rust-refinement:
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "20.19.0"
+      - name: Resolve immutable pair and source ownership
+        run: python3 formal/etna/scripts/prepare_pair.py --protocol "$ETNA_PROTOCOL" --report "$RUNNER_TEMP/etna-reports/pair.json"
+      - name: Bootstrap extract
+        run: bash formal/etna/scripts/bootstrap_ci.sh extract
+      - name: Verify
+        run: |
+          python3 formal/etna/scripts/check_provenance.py --output "$RUNNER_TEMP/etna-reports/extraction"
+          cd formal/etna
+          lake build
+          python3 scripts/audit_proofs.py
+          lake env lean Audit.lean
+      - name: Reject changed pair heads or input bytes
+        run: python3 formal/etna/scripts/prepare_pair.py --protocol "$ETNA_PROTOCOL" --report "$RUNNER_TEMP/etna-reports/pair.json" --finish
+      - name: Runner resource diagnostics
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/etna-reports"
+          { date -u; uname -a; df -h; free -h; du -sh "$RUNNER_TEMP/etna-tools" "$CARGO_TARGET_DIR" formal/etna/.lake 2>/dev/null || true; } | tee "$RUNNER_TEMP/etna-reports/resources.txt"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: etna-rust-refinement-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/etna-reports
+            !${{ runner.temp }}/etna-reports/**/target/**
+            !${{ runner.temp }}/etna-reports/**/.lake/**
+          retention-days: 14
+          if-no-files-found: error
+  conformance:
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "20.19.0"
+      - name: Resolve immutable pair and source ownership
+        run: python3 formal/etna/scripts/prepare_pair.py --protocol "$ETNA_PROTOCOL" --report "$RUNNER_TEMP/etna-reports/pair.json"
+      - name: Bootstrap lean
+        run: bash formal/etna/scripts/bootstrap_ci.sh lean
+      - name: Bootstrap native
+        run: bash formal/etna/scripts/bootstrap_ci.sh native
+      - name: Bootstrap protocol
+        run: bash formal/etna/scripts/bootstrap_ci.sh protocol
+      - name: Verify
+        run: |
+          python3 formal/etna/scripts/run_conformance.py --scope paired --seed 20261015 --output "$RUNNER_TEMP/etna-reports/conformance"
+      - name: Reject changed pair heads or input bytes
+        run: python3 formal/etna/scripts/prepare_pair.py --protocol "$ETNA_PROTOCOL" --report "$RUNNER_TEMP/etna-reports/pair.json" --finish
+      - name: Runner resource diagnostics
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/etna-reports"
+          { date -u; uname -a; df -h; free -h; du -sh "$RUNNER_TEMP/etna-tools" "$CARGO_TARGET_DIR" formal/etna/.lake 2>/dev/null || true; } | tee "$RUNNER_TEMP/etna-reports/resources.txt"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: etna-conformance-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/etna-reports
+            !${{ runner.temp }}/etna-reports/**/target/**
+            !${{ runner.temp }}/etna-reports/**/.lake/**
+          retention-days: 14
+          if-no-files-found: error
+  coverage:
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "20.19.0"
+      - name: Resolve immutable pair and source ownership
+        run: python3 formal/etna/scripts/prepare_pair.py --protocol "$ETNA_PROTOCOL" --report "$RUNNER_TEMP/etna-reports/pair.json"
+      - name: Bootstrap lean
+        run: bash formal/etna/scripts/bootstrap_ci.sh lean
+      - name: Bootstrap protocol
+        run: bash formal/etna/scripts/bootstrap_ci.sh protocol
+      - name: Verify
+        run: |
+          bash packages/taiko-client-rs/script/check_lander_artifacts.sh
+          python3 formal/etna/scripts/check_coverage.py --protocol "$ETNA_PROTOCOL/packages/protocol" --build-artifacts --report "$RUNNER_TEMP/etna-reports/coverage.json"
+      - name: Reject changed pair heads or input bytes
+        run: python3 formal/etna/scripts/prepare_pair.py --protocol "$ETNA_PROTOCOL" --report "$RUNNER_TEMP/etna-reports/pair.json" --finish
+      - name: Runner resource diagnostics
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/etna-reports"
+          { date -u; uname -a; df -h; free -h; du -sh "$RUNNER_TEMP/etna-tools" "$CARGO_TARGET_DIR" formal/etna/.lake 2>/dev/null || true; } | tee "$RUNNER_TEMP/etna-reports/resources.txt"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: etna-coverage-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/etna-reports
+            !${{ runner.temp }}/etna-reports/**/target/**
+            !${{ runner.temp }}/etna-reports/**/.lake/**
+          retention-days: 14
+          if-no-files-found: error
+  nightly:
+    needs: [changes, lean-proofs, rust-refinement, conformance, coverage]
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        domain: [fi, committee, landing, traces]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "20.19.0"
+      - run: python3 formal/etna/scripts/prepare_pair.py --protocol "$ETNA_PROTOCOL" --report "$RUNNER_TEMP/etna-reports/pair.json"
+      - run: bash formal/etna/scripts/bootstrap_ci.sh lean
+      - run: bash formal/etna/scripts/bootstrap_ci.sh native
+      - run: bash formal/etna/scripts/bootstrap_ci.sh protocol
+      - if: matrix.domain == 'fi' || matrix.domain == 'committee'
+        run: bash formal/etna/scripts/bootstrap_ci.sh extract
+      - name: Fresh nightly traces and mutants
+        env:
+          ETNA_DOMAIN: ${{ matrix.domain }}
+        run: python3 formal/etna/scripts/nightly.py --domain "$ETNA_DOMAIN" --protocol "$ETNA_PROTOCOL/packages/protocol" --output "$RUNNER_TEMP/etna-reports/nightly"
+      - run: python3 formal/etna/scripts/prepare_pair.py --protocol "$ETNA_PROTOCOL" --report "$RUNNER_TEMP/etna-reports/pair.json" --finish
+      - if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/etna-reports"
+          { date -u; df -h; free -h; } | tee "$RUNNER_TEMP/etna-reports/resources.txt"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: etna-nightly-${{ matrix.domain }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/etna-reports
+            !${{ runner.temp }}/etna-reports/**/target/**
+            !${{ runner.temp }}/etna-reports/**/.lake/**
+          retention-days: 14
+          if-no-files-found: error
+  gate:
+    name: Etna formal gate
+    needs:
+      [changes, lean-proofs, rust-refinement, conformance, coverage, nightly]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - id: receipts
+        if: needs.changes.outputs.relevant == 'true' && needs.coverage.result == 'success' && needs.rust-refinement.result == 'success' && needs.conformance.result == 'success'
+        run: python3 formal/etna/scripts/ci_gate.py artifacts
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: steps.receipts.outcome == 'success'
+        with:
+          merge-multiple: true
+          artifact-ids: ${{ steps.receipts.outputs.coverage }}
+          path: ${{ runner.temp }}/coverage
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: steps.receipts.outcome == 'success'
+        with:
+          merge-multiple: true
+          artifact-ids: ${{ steps.receipts.outputs.rust-refinement }}
+          path: ${{ runner.temp }}/rust-refinement
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: steps.receipts.outcome == 'success'
+        with:
+          merge-multiple: true
+          artifact-ids: ${{ steps.receipts.outputs.conformance }}
+          path: ${{ runner.temp }}/conformance
+      - name: Strict aggregation and exact-head proof review
+        env:
+          ETNA_RESULTS: ${{ toJSON(needs) }}
+          ETNA_RELEVANT: ${{ needs.changes.outputs.relevant }}
+          ETNA_REVIEW: ${{ needs.changes.outputs.proof_review }}
+        run: |
+          python3 - <<'PYCODE'
+          import json,os,subprocess
+          needs=json.loads(os.environ['ETNA_RESULTS'])
+          results={k:v['result'] for k,v in needs.items()}
+          if os.environ['GITHUB_EVENT_NAME'] in {'schedule','workflow_dispatch'} and results['nightly'] != 'success':
+              raise SystemExit('nightly must actually succeed')
+          subprocess.run(['python3','formal/etna/scripts/ci_gate.py','aggregate','--results',json.dumps(results),
+              '--relevant',os.environ['ETNA_RELEVANT'],'--proof-review',os.environ['ETNA_REVIEW'],
+              '--coverage',os.environ['RUNNER_TEMP']+'/coverage/coverage.json',
+              '--extraction',os.environ['RUNNER_TEMP']+'/rust-refinement/extraction/provenance-check.json',
+              '--conformance',os.environ['RUNNER_TEMP']+'/conformance/conformance/conformance.json',
+              '--pair',os.environ['RUNNER_TEMP']+'/conformance/pair.json',
+              '--report',os.environ['RUNNER_TEMP']+'/etna-run.json'],check=True)
+          PYCODE
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: etna-run-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/etna-run.json
+          if-no-files-found: error
+  release-boundary:
+    name: Etna funds release boundary
+    needs: gate
+    if: github.event_name == 'release'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - id: receipt
+        run: python3 formal/etna/scripts/ci_gate.py artifacts --job run
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          merge-multiple: true
+          artifact-ids: ${{ steps.receipt.outputs.run }}
+          path: ${{ runner.temp }}
+      - name: Exact release SHA and artifact obligations
+        run: python3 formal/etna/scripts/ci_gate.py release --report "$RUNNER_TEMP/etna-run.json"

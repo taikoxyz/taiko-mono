@@ -1,0 +1,348 @@
+{
+  "schema_version": 1,
+  "status": "actual-production-source-extracted; refinement-theorems-pending",
+  "crate": "packages/taiko-client-rs/crates/etna-consensus-core",
+  "tools": {
+    "charon": "a5276d59516b6e7dc519441e244399ab8d429107",
+    "aeneas": "673f9e30e1e2a81b355df9a9550168e672a10d4e",
+    "extractor_rust": "nightly-2026-09-17",
+    "production_rust": "1.95",
+    "lean": "leanprover/lean4:v4.35.0-rc4",
+    "mathlib": "1f414401f69059aa7eead47b53ee40bd38455eeb"
+  },
+  "source_sha256": {
+    "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs": "e9484871ddad7baf70454c8223e175d8117e6366792535728d6e467c0045db7e",
+    "packages/taiko-client-rs/crates/etna-consensus-core/src/lib.rs": "0895cf545062957cd578aab72337b62367de589e570d35ff036178b662e328e6",
+    "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs": "040975b52a0786b1e0769fe37eff18a7b305813feadecdc89405d61ebfdf6b7b",
+    "packages/taiko-client-rs/crates/etna-consensus-core/src/transition.rs": "29314c8522f1bfb669ed33c5c0c9cfe108dc1f803c1172a2dc9f78fa494f7223"
+  },
+  "cargo_sha256": {
+    "packages/taiko-client-rs/Cargo.toml": "20ebf97577e19a0cbe8b464ac0b4af69c955377c2ba6186b862d2953571c8b0e",
+    "packages/taiko-client-rs/Cargo.lock": "d4bfb7c5c304a4aa3178fd826d972e364642aec9df4b409346e69317deeacf53",
+    "packages/taiko-client-rs/crates/etna-consensus-core/Cargo.toml": "9a6d61ba3821dbae3278460421f2bbb8b6d65bec7d60f319227f00bf635267e5"
+  },
+  "generated_sha256": {
+    "EtnaConsensusCore.lean": "b8226cac41c44cd89d50e0cdc3857d27495179a163c357e352331d8407c23716"
+  },
+  "generated_definitions": [
+    {
+      "rust_symbol": "etna_consensus_core::forced::MAX_FORCED_TX_BYTES",
+      "lean_definition": "etna_consensus_core.forced.MAX_FORCED_TX_BYTES"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::forced::pending_entry",
+      "lean_definition": "etna_consensus_core.forced.pending_entry"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::forced::check_preimage",
+      "lean_definition": "etna_consensus_core.forced.check_preimage"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::forced::is_due",
+      "lean_definition": "etna_consensus_core.forced.is_due"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::forced::classify_forced",
+      "lean_definition": "etna_consensus_core.forced.classify_forced"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::forced::resolve_forced",
+      "lean_definition": "etna_consensus_core.forced.resolve_forced"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::forced::advance_cursor",
+      "lean_definition": "etna_consensus_core.forced.advance_cursor"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::MAX_N_MAX",
+      "lean_definition": "etna_consensus_core.MAX_N_MAX"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::committee_size_bounded",
+      "lean_definition": "etna_consensus_core.committee_size_bounded"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::positive_unsettled_cap",
+      "lean_definition": "etna_consensus_core.positive_unsettled_cap"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::has_strict_quorum",
+      "lean_definition": "etna_consensus_core.has_strict_quorum"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::schedule::UINT48_MAX",
+      "lean_definition": "etna_consensus_core.schedule.UINT48_MAX"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::checked_l1_first",
+      "lean_definition": "etna_consensus_core.schedule.Schedule.checked_l1_first"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::h_first",
+      "lean_definition": "etna_consensus_core.schedule.Schedule.h_first"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::validate",
+      "lean_definition": "etna_consensus_core.schedule.Schedule.validate"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::epoch_of",
+      "lean_definition": "etna_consensus_core.schedule.Schedule.epoch_of"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::check_anchor_progress",
+      "lean_definition": "etna_consensus_core.schedule.Schedule.check_anchor_progress"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::epoch_starting_at",
+      "lean_definition": "etna_consensus_core.schedule.Schedule.epoch_starting_at"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::switch_target",
+      "lean_definition": "etna_consensus_core.schedule.Schedule.switch_target"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::force_epoch",
+      "lean_definition": "etna_consensus_core.schedule.Schedule.force_epoch"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::h_last",
+      "lean_definition": "etna_consensus_core.schedule.Schedule.h_last"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::derivation_parent_height",
+      "lean_definition": "etna_consensus_core.schedule.Schedule.derivation_parent_height"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::next_switch_target",
+      "lean_definition": "etna_consensus_core.schedule.Schedule.next_switch_target"
+    },
+    {
+      "rust_symbol": "etna_consensus_core::transition::transition_committee",
+      "lean_definition": "etna_consensus_core.transition.transition_committee"
+    }
+  ],
+  "generated_declarations": [
+    {
+      "kind": "function",
+      "rust_symbol": "etna_consensus_core::forced::pending_entry",
+      "lean_definition": "etna_consensus_core.forced.pending_entry"
+    },
+    {
+      "kind": "function",
+      "rust_symbol": "etna_consensus_core::forced::check_preimage",
+      "lean_definition": "etna_consensus_core.forced.check_preimage"
+    },
+    {
+      "kind": "function",
+      "rust_symbol": "etna_consensus_core::forced::is_due",
+      "lean_definition": "etna_consensus_core.forced.is_due"
+    },
+    {
+      "kind": "function",
+      "rust_symbol": "etna_consensus_core::forced::classify_forced",
+      "lean_definition": "etna_consensus_core.forced.classify_forced"
+    },
+    {
+      "kind": "function",
+      "rust_symbol": "etna_consensus_core::forced::resolve_forced",
+      "lean_definition": "etna_consensus_core.forced.resolve_forced"
+    },
+    {
+      "kind": "function",
+      "rust_symbol": "etna_consensus_core::forced::advance_cursor",
+      "lean_definition": "etna_consensus_core.forced.advance_cursor"
+    },
+    {
+      "kind": "function",
+      "rust_symbol": "etna_consensus_core::committee_size_bounded",
+      "lean_definition": "etna_consensus_core.committee_size_bounded"
+    },
+    {
+      "kind": "function",
+      "rust_symbol": "etna_consensus_core::positive_unsettled_cap",
+      "lean_definition": "etna_consensus_core.positive_unsettled_cap"
+    },
+    {
+      "kind": "function",
+      "rust_symbol": "etna_consensus_core::has_strict_quorum",
+      "lean_definition": "etna_consensus_core.has_strict_quorum"
+    },
+    {
+      "kind": "function",
+      "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::checked_l1_first",
+      "lean_definition": "etna_consensus_core.schedule.Schedule.checked_l1_first"
+    },
+    {
+      "kind": "function",
+      "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::h_first",
+      "lean_definition": "etna_consensus_core.schedule.Schedule.h_first"
+    },
+    {
+      "kind": "function",
+      "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::validate",
+      "lean_definition": "etna_consensus_core.schedule.Schedule.validate"
+    },
+    {
+      "kind": "function",
+      "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::epoch_of",
+      "lean_definition": "etna_consensus_core.schedule.Schedule.epoch_of"
+    },
+    {
+      "kind": "function",
+      "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::check_anchor_progress",
+      "lean_definition": "etna_consensus_core.schedule.Schedule.check_anchor_progress"
+    },
+    {
+      "kind": "function",
+      "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::epoch_starting_at",
+      "lean_definition": "etna_consensus_core.schedule.Schedule.epoch_starting_at"
+    },
+    {
+      "kind": "function",
+      "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::switch_target",
+      "lean_definition": "etna_consensus_core.schedule.Schedule.switch_target"
+    },
+    {
+      "kind": "function",
+      "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::force_epoch",
+      "lean_definition": "etna_consensus_core.schedule.Schedule.force_epoch"
+    },
+    {
+      "kind": "function",
+      "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::h_last",
+      "lean_definition": "etna_consensus_core.schedule.Schedule.h_last"
+    },
+    {
+      "kind": "function",
+      "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::derivation_parent_height",
+      "lean_definition": "etna_consensus_core.schedule.Schedule.derivation_parent_height"
+    },
+    {
+      "kind": "function",
+      "rust_symbol": "etna_consensus_core::schedule::{etna_consensus_core::schedule::Schedule}::next_switch_target",
+      "lean_definition": "etna_consensus_core.schedule.Schedule.next_switch_target"
+    },
+    {
+      "kind": "function",
+      "rust_symbol": "etna_consensus_core::transition::transition_committee",
+      "lean_definition": "etna_consensus_core.transition.transition_committee"
+    },
+    {
+      "kind": "constant",
+      "rust_symbol": "etna_consensus_core::forced::MAX_FORCED_TX_BYTES",
+      "lean_definition": "etna_consensus_core.forced.MAX_FORCED_TX_BYTES"
+    },
+    {
+      "kind": "constant",
+      "rust_symbol": "etna_consensus_core::schedule::UINT48_MAX",
+      "lean_definition": "etna_consensus_core.schedule.UINT48_MAX"
+    },
+    {
+      "kind": "constant",
+      "rust_symbol": "etna_consensus_core::MAX_N_MAX",
+      "lean_definition": "etna_consensus_core.MAX_N_MAX"
+    },
+    {
+      "kind": "inductive",
+      "rust_symbol": "etna_consensus_core::forced::ForcedDecision",
+      "lean_definition": "etna_consensus_core.forced.ForcedDecision"
+    },
+    {
+      "kind": "structure",
+      "rust_symbol": "etna_consensus_core::forced::ForcedFacts",
+      "lean_definition": "etna_consensus_core.forced.ForcedFacts"
+    },
+    {
+      "kind": "inductive",
+      "rust_symbol": "etna_consensus_core::forced::ForcedError",
+      "lean_definition": "etna_consensus_core.forced.ForcedError"
+    },
+    {
+      "kind": "inductive",
+      "rust_symbol": "etna_consensus_core::forced::SingletonOutcome",
+      "lean_definition": "etna_consensus_core.forced.SingletonOutcome"
+    },
+    {
+      "kind": "structure",
+      "rust_symbol": "etna_consensus_core::schedule::Schedule",
+      "lean_definition": "etna_consensus_core.schedule.Schedule"
+    },
+    {
+      "kind": "inductive",
+      "rust_symbol": "etna_consensus_core::schedule::ScheduleError",
+      "lean_definition": "etna_consensus_core.schedule.ScheduleError"
+    },
+    {
+      "kind": "inductive",
+      "rust_symbol": "etna_consensus_core::schedule::AnchorError",
+      "lean_definition": "etna_consensus_core.schedule.AnchorError"
+    },
+    {
+      "kind": "inductive",
+      "rust_symbol": "etna_consensus_core::transition::DerivedRelation",
+      "lean_definition": "etna_consensus_core.transition.DerivedRelation"
+    },
+    {
+      "kind": "structure",
+      "rust_symbol": "etna_consensus_core::transition::CommitteeFacts",
+      "lean_definition": "etna_consensus_core.transition.CommitteeFacts"
+    },
+    {
+      "kind": "structure",
+      "rust_symbol": "etna_consensus_core::transition::SwitchPlan",
+      "lean_definition": "etna_consensus_core.transition.SwitchPlan"
+    },
+    {
+      "kind": "structure",
+      "rust_symbol": "etna_consensus_core::transition::CommitteePlan",
+      "lean_definition": "etna_consensus_core.transition.CommitteePlan"
+    },
+    {
+      "kind": "inductive",
+      "rust_symbol": "etna_consensus_core::transition::CommitteeError",
+      "lean_definition": "etna_consensus_core.transition.CommitteeError"
+    }
+  ],
+  "charon_llbc_version": "0.1.290",
+  "root_symbols": [
+    "etna_consensus_core::has_strict_quorum",
+    "etna_consensus_core::positive_unsettled_cap",
+    "etna_consensus_core::committee_size_bounded",
+    "etna_consensus_core::forced::pending_entry",
+    "etna_consensus_core::forced::check_preimage",
+    "etna_consensus_core::forced::is_due",
+    "etna_consensus_core::forced::classify_forced",
+    "etna_consensus_core::forced::resolve_forced",
+    "etna_consensus_core::forced::advance_cursor",
+    "etna_consensus_core::schedule::Schedule::validate",
+    "etna_consensus_core::schedule::Schedule::epoch_of",
+    "etna_consensus_core::schedule::Schedule::h_first",
+    "etna_consensus_core::schedule::Schedule::h_last",
+    "etna_consensus_core::schedule::Schedule::checked_l1_first",
+    "etna_consensus_core::schedule::Schedule::derivation_parent_height",
+    "etna_consensus_core::schedule::Schedule::epoch_starting_at",
+    "etna_consensus_core::schedule::Schedule::switch_target",
+    "etna_consensus_core::schedule::Schedule::next_switch_target",
+    "etna_consensus_core::schedule::Schedule::check_anchor_progress",
+    "etna_consensus_core::schedule::Schedule::force_epoch",
+    "etna_consensus_core::transition::transition_committee"
+  ],
+  "counts": {
+    "production_function_roots": 21,
+    "transparent_constant_initializers": 3,
+    "transparent_functions": 24,
+    "opaque_llbc_stdlib_functions_resolved_by_backend_models": 10,
+    "unresolved_generated_axioms": 0,
+    "opaque_stubs": 0
+  },
+  "source_normalization": "none; generated bytes are copied unchanged",
+  "authentication_boundary": {
+    "forced": "ABCI checks presence/index via core before exact MPT proof; adapter authenticates entry and computes size/hash/canonical-first facts. Preimage canonicality is required/computed only after inclusion fails for a due hash-matching entry; its unused input is false. NeedsSkip retains rich bytes in runtime cache equality.",
+    "singleton": "Engine adapter only supplies Empty/Retained after canonical tx decoding, exact committed-parent singleton build completion and all existing expected-header checks. Transport, timeout and history failures never supply Empty.",
+    "committee": "ABCI establishes DerivedRelation with full CommitteeState equality; pre-insertion presence comes from the complete map. Core overlays derived epoch and checks conflict/outgoing/incoming order. Adapter retains sorted validator union and pruning.",
+    "quorum": "Lander verifies ordered distinct committee addresses, ZIP215 signatures and authenticated bounded member powers before applying shared strict quorum arithmetic.",
+    "schedule": "ABCI retains all four serialized fields and panic diagnostics; arithmetic and checked overflow decisions delegate to core."
+  },
+  "trust_boundary": "Pinned compiler/Charon/Aeneas translation and Aeneas standard scalar/Result library models; adapter-established authentication facts; no generated-source refinement theorem is claimed by extraction alone."
+}

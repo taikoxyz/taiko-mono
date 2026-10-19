@@ -1,0 +1,17 @@
+name = "etna"
+version = "0.1.0"
+defaultTargets = ["Etna"]
+
+[[require]]
+name = "mathlib"
+git = "https://github.com/leanprover-community/mathlib4.git"
+rev = "1f414401f69059aa7eead47b53ee40bd38455eeb"
+
+[[lean_lib]]
+name = "Etna"
+
+[[require]]
+name = "aeneas"
+git = "https://github.com/AeneasVerif/aeneas.git"
+rev = "673f9e30e1e2a81b355df9a9550168e672a10d4e"
+subDir = "backends/lean"

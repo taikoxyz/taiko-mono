@@ -1,0 +1,177 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "identities",
+    "obligations",
+    "pending",
+    "files",
+    "contract_artifacts"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "identities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "upstream_client",
+        "paired_protocol",
+        "verification_overlay"
+      ],
+      "properties": {
+        "upstream_client": {
+          "type": "string",
+          "minLength": 1
+        },
+        "paired_protocol": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verification_overlay": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "obligations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "declaration",
+          "module",
+          "type_sha256",
+          "bridge_level",
+          "premises",
+          "source_symbols",
+          "tests"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "declaration": {
+            "type": "string",
+            "minLength": 1
+          },
+          "module": {
+            "type": "string",
+            "minLength": 1
+          },
+          "type_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "bridge_level": {
+            "enum": ["spec-proved", "rust-refinement-proved"]
+          },
+          "premises": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "source_symbols": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "symbol", "sha256", "relation"],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "symbol": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "relation": {
+                  "enum": ["source-mapped-spec", "exact-extracted-function"]
+                }
+              }
+            }
+          },
+          "tests": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          }
+        }
+      },
+      "minItems": 1
+    },
+    "pending": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "reason", "source", "symbol"],
+        "properties": {
+          "id": {
+            "enum": [
+              "GUEST-SOUNDNESS",
+              "TIME-RULE-REFINEMENT",
+              "SOLIDITY-BYTECODE-REFINEMENT"
+            ]
+          },
+          "status": {
+            "const": "pending"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "symbol": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "files": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    },
+    "contract_artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest_sha256", "inbox_layout_sha256"],
+      "properties": {
+        "manifest_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "inbox_layout_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Etna proof coverage ledger"
+}

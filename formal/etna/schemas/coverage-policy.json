@@ -1,0 +1,5072 @@
+{
+  "required": {
+    "FI-01": [
+      "Etna.FI.fi01_due",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "ef5bd8e16c7f3854d56c59a3fc53597ba5f993937b310b437125b0ce7c10e4dd"
+    ],
+    "FI-fi01-sum-bound": [
+      "Etna.FI.fi01_sum_bound",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "7d8fc2171d75bc00dddffe96abbb1e3e83c718a03b0e32678b6227f9a61b2552"
+    ],
+    "FI-02": [
+      "Etna.FI.fi02_pending",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "3a4c8eae55d209e6e1ffba78c5741e079e607d31643ef9b5f67f821ce6848c0e"
+    ],
+    "FI-fi02-authenticated": [
+      "Etna.FI.fi02_authenticated",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "f523626071d847a8122e5f17c9a5a87727b7d6f29c8fc55f602236a7ee6449fd",
+      "7f88d093588ee4262f7a39d393f42f04ef4bb2d3de0dcf1300622492081bc5ca"
+    ],
+    "FI-fi02-bad-proof-rejects": [
+      "Etna.FI.fi02_bad_proof_rejects",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "f523626071d847a8122e5f17c9a5a87727b7d6f29c8fc55f602236a7ee6449fd",
+      "1e0086b70bafa0bf2944ef0aa891b032fe17e839ee67fa816d3964fb37b8b22b"
+    ],
+    "FI-fi02-evaluate-authenticated": [
+      "Etna.FI.fi02_evaluate_authenticated",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "f523626071d847a8122e5f17c9a5a87727b7d6f29c8fc55f602236a7ee6449fd",
+      "1bce581f570cac2a050bfc22cbc7e0af687dc7a8139b31fc6365fd15052d15ed"
+    ],
+    "FI-03": [
+      "Etna.FI.fi03_included_iff",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "ee864abbbee41fbb8b5bb91df66eae86c773c947307295e69d5b7627279e1d87"
+    ],
+    "FI-fi03-head-binding": [
+      "Etna.FI.fi03_head_binding",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "7840233f9cb2dc02a2abb91e63adfa2c27da891039b81d19de93a5f85489c478"
+    ],
+    "FI-fi03-authenticated-inclusion": [
+      "Etna.FI.fi03_authenticated_inclusion",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "f523626071d847a8122e5f17c9a5a87727b7d6f29c8fc55f602236a7ee6449fd",
+      "c10b858b904c67c8de4ce762fab0bcaca32ecaaf51e3811b157e4e3c1423f5f6"
+    ],
+    "FI-fi03-exact-bytes": [
+      "Etna.FI.fi03_exact_bytes",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "c65db27e3ed406e1f6d135844b75650c4e53ffa6f50e917a6b099dd823cde838",
+      "eeadd59ff646cf53ae7f95489c435c545aebc7cd4717114d4eef302559f335a5"
+    ],
+    "FI-classify-branches": [
+      "Etna.FI.classify_branches",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "bbe6512612e4606d509be63fae365c02c37985768f31367e6008ce80c3cb0a44"
+    ],
+    "FI-04": [
+      "Etna.FI.fi04_predue",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "27e9c48489406819086479799e39fdf6db570a0f427b381c3700385eaf70dfa4"
+    ],
+    "FI-05": [
+      "Etna.FI.fi05_due_skip",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "8525306c51dafd8686974b6e3d5089da5b13295bc39f6593d8306554bb64c9e4"
+    ],
+    "FI-06": [
+      "Etna.FI.fi06_resolve",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "8598af456abdeea51f06c6a471f0efc3d417ca14cc58b05a3224b58a4f2cc8ab"
+    ],
+    "FI-fi06-completed-context": [
+      "Etna.FI.fi06_completed_context",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "bf96a6eedb2eda60c2ac2ae2e3e41ccbf719208be7eb4162843db15b56e24f84"
+    ],
+    "FI-fi06-execution-evidence": [
+      "Etna.FI.fi06_execution_evidence",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "10daaa16f6819535e2069a602f24cbb212ebc3d4903c1f2a9dcb9d3eb6388482",
+      "ce211c9c487cad4a5bd9905413c18d4e2fa84e40b4f645d428a982b63f79b1b8"
+    ],
+    "FI-fi07-advance": [
+      "Etna.FI.fi07_advance",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "416a0fa63e81332099857f14aae4e538842dfb88629b29e9ed31914e5286b008"
+    ],
+    "FI-valid-step-count": [
+      "Etna.FI.valid_step_count",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "a94d530a7e6512086bb7b84608751a48f8ae5c96fc2d2aa3fae4571bdbdc0dc3",
+      "2e916323c1e90297f183f44a3dc3c5558961201b095befc9f7c0e5973a6eb06e"
+    ],
+    "FI-07": [
+      "Etna.FI.fi07_trace_count",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "a94d530a7e6512086bb7b84608751a48f8ae5c96fc2d2aa3fae4571bdbdc0dc3",
+      "3688c91d33244197c1e5321910228b5549f0b0c5fecaa72d1800fab2d3bd6950"
+    ],
+    "FI-fi07-consumed-index": [
+      "Etna.FI.fi07_consumed_index",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "01ab4e2b87722b770939c5124362d772d9f9830a100feaa385a74705dd34b5e1"
+    ],
+    "FI-fi07-evaluated-consumption": [
+      "Etna.FI.fi07_evaluated_consumption",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "f523626071d847a8122e5f17c9a5a87727b7d6f29c8fc55f602236a7ee6449fd",
+      "6ee251a42e9bbb324a851335239d4ee852b62df37f9d4f48583491e9439a030c"
+    ],
+    "FI-valid-step-consumption": [
+      "Etna.FI.valid_step_consumption",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "a94d530a7e6512086bb7b84608751a48f8ae5c96fc2d2aa3fae4571bdbdc0dc3",
+      "340427f5fa152246dff6efc53b4e46e7e8a54ff19ac7ab6322906e668e0ab701"
+    ],
+    "FI-fi07-trace-bound": [
+      "Etna.FI.fi07_trace_bound",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "a94d530a7e6512086bb7b84608751a48f8ae5c96fc2d2aa3fae4571bdbdc0dc3",
+      "c94bbeba77054c98a63a4a84ec66b810d0ad89dd6e8ad40fee8f2f653498e430"
+    ],
+    "FI-fi07-count-le-blocks": [
+      "Etna.FI.fi07_count_le_blocks",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "4daa47a3b135e7e3cfaf6bafd992873a5858da79d7b2a9b8c0fe0077d6ea22ab"
+    ],
+    "FI-08": [
+      "Etna.FI.fi08_success_equivalence",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "bab50072381e1e5bc75a15ec96642b4d6987288c1ef94c43103782606463026a",
+      "61a9c0b7edb8d3be87069ff967ea137aff1b7e56b70ff4eafb885519c73c48f2"
+    ],
+    "FI-fi08-commit-reopen": [
+      "Etna.FI.fi08_commit_reopen",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "9988e57438b895781c0d269328d2615221a026412f639eaae89763c3db19d6d7",
+      "3128e413f1fb8df7ab6b916d086b4ebb19927c38d76e9c99d222e2beac85ba3b"
+    ],
+    "FI-fi08-cache-context": [
+      "Etna.FI.fi08_cache_context",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "e1f50d0321c7d7c4ab6f6e2e6ccb3c13d84bff25ea83c426f700fc8435d0366c"
+    ],
+    "FI-09": [
+      "Etna.FI.fi09_no_expiry",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "ddefaf2f7fc875079ab6b03485731e28ffce5aaa03184472f31f7cf12f40b98f"
+    ],
+    "FI-ordinary-example": [
+      "Etna.FI.ordinary_example",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "efc1e2d60a5b246210b45613926792b8b42d193dcc4883f45a5aff213658b5f8"
+    ],
+    "FI-predue-include-example": [
+      "Etna.FI.predue_include_example",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "13343a3784b661a7de8fd04f6afa9629319717ada42924d74059aae538a26766"
+    ],
+    "FI-due-invalid-example": [
+      "Etna.FI.due_invalid_example",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "539b8da931d77216c0c1138c87325ddf00fee65ccc41bba03272bfb783cf5547"
+    ],
+    "FI-due-empty-example": [
+      "Etna.FI.due_empty_example",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "009d18596353ad83d706b956e6bcbcf4a9525ac459239590b1de90654d8df6c2"
+    ],
+    "FI-authenticated-ordinary-example": [
+      "Etna.FI.authenticated_ordinary_example",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "f523626071d847a8122e5f17c9a5a87727b7d6f29c8fc55f602236a7ee6449fd",
+      "1b7b29bf9680ea3c8aa5c914f251cc6fad3dc6c2fd30ebe76a03c2e09e2d79b2"
+    ],
+    "FI-authenticated-predue-include-example": [
+      "Etna.FI.authenticated_predue_include_example",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "f523626071d847a8122e5f17c9a5a87727b7d6f29c8fc55f602236a7ee6449fd",
+      "c2b97610d8adc3dce1a61b1aebd6fc28853a398a9038757f7386d2c898426caf"
+    ],
+    "FI-authenticated-due-invalid-example": [
+      "Etna.FI.authenticated_due_invalid_example",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "f523626071d847a8122e5f17c9a5a87727b7d6f29c8fc55f602236a7ee6449fd",
+      "9aed49ce358130bc6debdb1a84e0e0e594970a97818ea3cb7bd7844c4bdc2206"
+    ],
+    "FI-authenticated-due-empty-example": [
+      "Etna.FI.authenticated_due_empty_example",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "dc503a5571d46a3da59b84b64d2312896d8f0042841cc3a91a2ef3670bbacc88",
+      "66a4aff3add31e4b6f174523cff0cf0a52f38819e5e6f91ddbd8e035833904ac"
+    ],
+    "FI-authenticated-cache-example": [
+      "Etna.FI.authenticated_cache_example",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/abci/src/forced.rs",
+          "pub fn check(",
+          "source-mapped-spec"
+        ]
+      ],
+      "bab50072381e1e5bc75a15ec96642b4d6987288c1ef94c43103782606463026a",
+      "5b2b20a0e3ca5a8c512efbed6a76fe8e05fe90a94823e6094a6e71cfe05a9231"
+    ],
+    "FI-rust-pending-refines": [
+      "Etna.Refinement.Rust.rust_pending_refines",
+      "rust-refinement-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs",
+          "fn pending_entry(",
+          "exact-extracted-function"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "7ea5a5392762d47e32c1425b77286a6441aaa29d7355fc15b9bf76ac01f77ea9"
+    ],
+    "FI-rust-preimage-refines": [
+      "Etna.Refinement.Rust.rust_preimage_refines",
+      "rust-refinement-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs",
+          "fn check_preimage(",
+          "exact-extracted-function"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "0efaa7e950a71bf4376525fcb1a8b87052fc57652ce00f14a1be5d6b68bfa4f5"
+    ],
+    "FI-rust-is-due-refines": [
+      "Etna.Refinement.Rust.rust_is_due_refines",
+      "rust-refinement-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs",
+          "fn is_due(",
+          "exact-extracted-function"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "5497ca6e3a7c41bceaa537f9389a034ff5e9b129e6ca1f4b8ea8c007ac86e554"
+    ],
+    "FI-rust-classify-refines": [
+      "Etna.Refinement.Rust.rust_classify_refines",
+      "rust-refinement-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs",
+          "fn classify_forced(",
+          "exact-extracted-function"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "2ad71467e1b6dbbe2a2ba6c85a7b55649f447e2d494bd06eb1c1be99d63839e4"
+    ],
+    "FI-rust-resolve-refines": [
+      "Etna.Refinement.Rust.rust_resolve_refines",
+      "rust-refinement-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs",
+          "fn resolve_forced(",
+          "exact-extracted-function"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "6b61fe4d6c3c46ed932c4cdb60316653a21cc7d87cacfaead7e53fc13b41fc92"
+    ],
+    "FI-rust-advance-refines": [
+      "Etna.Refinement.Rust.rust_advance_refines",
+      "rust-refinement-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/forced.rs",
+          "fn advance_cursor(",
+          "exact-extracted-function"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "d873206cc515b34a97ba76c8a4933aec4c564a85a905c671055f6ea207de5358"
+    ],
+    "COM-checked_some": [
+      "Etna.Committee.checked_some",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "d558d02631128044a3f142c1728c9fda23b4287bdf4e6705be067c09a35971ec"
+    ],
+    "COM-switch_positive": [
+      "Etna.Committee.switch_positive",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "be2e4943433b8cc26bea691ee026d0a10bd35bbf33f4857a476fa11890a2b4a4"
+    ],
+    "COM-starting_iff": [
+      "Etna.Committee.starting_iff",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "a83c4741382dae781f43e168031dd4ee00ddb9bf76f049482e86f97adf80df43"
+    ],
+    "COM-switch_iff": [
+      "Etna.Committee.switch_iff",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "a80ee1498ef016b8cfce39e00e355001e0f8a960bb139b01c590622234f7afc3"
+    ],
+    "COM-01": [
+      "Etna.Committee.schedule_exact",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "e66ec38412fbcdde591db1226c3d04c360996ebd77f25f4726654105d7f8ddd6"
+    ],
+    "COM-epoch_range": [
+      "Etna.Committee.epoch_range",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "1be3067c197721c7ac49b568f1cdf489525197a5b5442d45bfb5f432d88ef2a4"
+    ],
+    "COM-03": [
+      "Etna.Committee.activation_exact",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "7f6b6a31319ca9f1be1d43e6276b5d6206fa71a03fa2a21739b31cc9b41c03e8"
+    ],
+    "COM-missing_pending": [
+      "Etna.Committee.missing_pending",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "8e236ce6a6939661459fdf975be151ad1cb3c2cc1d86dba1cbd337d863891482"
+    ],
+    "COM-02": [
+      "Etna.Committee.parent_anchor_unique",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "bf4a5acb995838e9009accdad9faa74afc7bc63e2080910c954d1476b13eb889",
+      "6f3fded36f17508da0404bc7be9f4eec79e0d38ddcbef9d6d63e7895eb9ef5d0"
+    ],
+    "COM-nonswitch_witness_rejected": [
+      "Etna.Committee.nonswitch_witness_rejected",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "fb8c9930f257a5fe2e97274a75a2d5f9661ae9f7c3b520c37cff0ecdd5ff2c5a"
+    ],
+    "COM-different_snapshot_rejected": [
+      "Etna.Committee.different_snapshot_rejected",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "bf4a5acb995838e9009accdad9faa74afc7bc63e2080910c954d1476b13eb889",
+      "1252cb0762b8017b63c4a09c6cb3fe2f71700b4baf76136752f2e71521a965be"
+    ],
+    "COM-04": [
+      "Etna.Committee.certificate_authority",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "52f514925feb19196c9a5b49f798fff678d8f67a9fc04d0121f578e938625dc3"
+    ],
+    "COM-nil_absent_zero": [
+      "Etna.Committee.nil_absent_zero",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "da5580dea1982b08d6b9b598ad1887ec2a91caf54fac1aec87f0e786a0bfcd19"
+    ],
+    "COM-counted_signature": [
+      "Etna.Committee.counted_signature",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "b98ffd37a6e7a147551c0532082d271e23bc2995bbead0d195d9e089e0106ab9"
+    ],
+    "COM-equal_two_thirds_rejected": [
+      "Etna.Committee.equal_two_thirds_rejected",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "148c68f445380f3dbdc900535a45a614c501b8659dfa740b2c7e8867ab04c931"
+    ],
+    "COM-05": [
+      "Etna.Committee.batch_cut_equivalent",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "0ea4e550f3efd2f79fe8d7b4fbff80350f5cb2a777d49a8d8e4c3f50e173e4f1",
+      "053dbb10d03294e68a364ec9ce89d1a87bc6e58c54e6102e11207a5ff3a0b1cb"
+    ],
+    "COM-06": [
+      "Etna.Committee.replay_deterministic",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "0ea4e550f3efd2f79fe8d7b4fbff80350f5cb2a777d49a8d8e4c3f50e173e4f1",
+      "3bd03b9df4a621e08083a0e9d2e1b73dc8f0ea415a0eb48752497c0b42638386"
+    ],
+    "COM-07": [
+      "Etna.Committee.backpressure_switch_bound",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "7cc9faba8c78d829ac3cdfbabee9f8dc6924e8d05bc72f3c4f4cd0b0018b8e4d"
+    ],
+    "COM-invalid_difference_rejected": [
+      "Etna.Committee.invalid_difference_rejected",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "99db2bc8d90082b44ad10fd2d816cb75783c012031a2c055eceefb35e8477456"
+    ],
+    "COM-cap_overflow_rejected": [
+      "Etna.Committee.cap_overflow_rejected",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "ad10921b990030dedba76e59a08e684e5b08e8467cc5e7f15122d129545ef932"
+    ],
+    "COM-counted_signature_genuine": [
+      "Etna.Committee.counted_signature_genuine",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "1217e0072ee30eecc2f05c62f0baf7764fa547f59b1387a352205b172020f5be",
+      "c27728b9b0375fa1b52828311a48505981d76cac57acd740bb08c609f81feb86"
+    ],
+    "COM-derivation_parent_is_D": [
+      "Etna.Committee.derivation_parent_is_D",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "b6c24eacc6b0c9578ee219ed76aad2f804e9f0c64482f9c141c4d76a145af419"
+    ],
+    "COM-step_backpressure": [
+      "Etna.Committee.step_backpressure",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "0ea4e550f3efd2f79fe8d7b4fbff80350f5cb2a777d49a8d8e4c3f50e173e4f1",
+      "144a914982e3b001435781acbb31a7fb32fba0f7ea5cfc5cdd710f5dea29ad5c"
+    ],
+    "COM-conflict_rejected": [
+      "Etna.Committee.conflict_rejected",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "f4dec8267ff492268be0fd99db978cb40b36ec4a8c1b722f93c3dc9c576614dd"
+    ],
+    "COM-no_nonswitch_updates": [
+      "Etna.Committee.no_nonswitch_updates",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "f4addb9d3d25a30fdcd9d7b13ebb91a957e4bb8505ac20a94029a96b644f8540"
+    ],
+    "COM-checked_schedule_domain": [
+      "Etna.Committee.checked_schedule_domain",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "55ebd2173295922b7573415377ac61d02da7bd3d97c88a22c3528ef793aa4d17"
+    ],
+    "COM-activation_boundary": [
+      "Etna.Committee.activation_boundary",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "933ae9bf6336e79fdc09439905e7ed08e418eca3cfa80ad0ff418f0cb580654e"
+    ],
+    "COM-step_missing_authority": [
+      "Etna.Committee.step_missing_authority",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "0ea4e550f3efd2f79fe8d7b4fbff80350f5cb2a777d49a8d8e4c3f50e173e4f1",
+      "a118ea209a2f7bb4fff89e554457be8e43e8ace470f477560a9ae939c552c91a"
+    ],
+    "COM-comet_activation_exact": [
+      "Etna.Committee.comet_activation_exact",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "38d223db50a2cebd8597afa53cb5925a3a61011d96405b678fe5382a4b18da7f",
+      "51786e15ccdbb882a3037098615f5e757214ddf0bf63713e18503c7ca05b1e60"
+    ],
+    "COM-valid_first_transition": [
+      "Etna.Committee.Examples.valid_first_transition",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "76c7490a8a186410d2163fb3dc39eaa14199166349e3cd1fa446715294203cf0",
+      "19e61d14e34a7f9f6aa020c07f34d36517b16973ee27419170bd3a4953fee6c9"
+    ],
+    "COM-accepted_l1_overflow": [
+      "Etna.Committee.Examples.rejected_l1_overflow",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "76c7490a8a186410d2163fb3dc39eaa14199166349e3cd1fa446715294203cf0",
+      "a82801fb10ea2d10703a5f0a7f7c8d52517c5e8e66361c55f337b8b6c7fe8f13"
+    ],
+    "COM-accepted_l2_overflow": [
+      "Etna.Committee.Examples.rejected_l2_overflow",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "76c7490a8a186410d2163fb3dc39eaa14199166349e3cd1fa446715294203cf0",
+      "38e48c2efd7171f9b8de2f817260c406d55b5dbadcb44a4c7066c936b5ba154a"
+    ],
+    "COM-intermediate_last_overflow": [
+      "Etna.Committee.Examples.intermediate_last_overflow",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "76c7490a8a186410d2163fb3dc39eaa14199166349e3cd1fa446715294203cf0",
+      "8b069f85f4f0eb3880ef806e26a94caa8264082729b88fe7f825fdfa257c4e39"
+    ],
+    "COM-next_is_not_representable_switch": [
+      "Etna.Committee.Examples.next_is_not_representable_switch",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "76c7490a8a186410d2163fb3dc39eaa14199166349e3cd1fa446715294203cf0",
+      "bd273686ee62f07e50775226dace161ad0062ad4ced97db244d9f769b44aa753"
+    ],
+    "COM-epoch_zero_special": [
+      "Etna.Committee.Examples.epoch_zero_special",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "76c7490a8a186410d2163fb3dc39eaa14199166349e3cd1fa446715294203cf0",
+      "3585a757b3168f69882fd21b2f086ffbdc3cb0335d7a679fccb995ecb44b4b5d"
+    ],
+    "COM-rust_accepted_l1_overflow": [
+      "Etna.Committee.Examples.rust_rejected_l1_overflow",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "76c7490a8a186410d2163fb3dc39eaa14199166349e3cd1fa446715294203cf0",
+      "249937ab167995fd2f0a29916fed932667be4ac62f06dc0c1a30726598dcccb3"
+    ],
+    "COM-rust_accepted_l2_overflow": [
+      "Etna.Committee.Examples.rust_rejected_l2_overflow",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "76c7490a8a186410d2163fb3dc39eaa14199166349e3cd1fa446715294203cf0",
+      "ef910b759276d283402ab881efbb286524d04d2a6d8e7e7c0a01d914fe254e72"
+    ],
+    "COM-rust_valid_first_transition": [
+      "Etna.Committee.Examples.rust_valid_first_transition",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "76c7490a8a186410d2163fb3dc39eaa14199166349e3cd1fa446715294203cf0",
+      "ca131930c16c537e15e72102af55cebe3e3ab1938e5282dcf0966c840d5d04a9"
+    ],
+    "COM-nonempty_switch_replay": [
+      "Etna.Committee.Examples.nonempty_switch_replay",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "76c7490a8a186410d2163fb3dc39eaa14199166349e3cd1fa446715294203cf0",
+      "e8d3e3fb5439d319a06b838993a4b8c1caa681dc525cb7b3b874e96a90ce1f1b"
+    ],
+    "COM-missing_pending_scalar": [
+      "Etna.Committee.Examples.missing_pending_scalar",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "76c7490a8a186410d2163fb3dc39eaa14199166349e3cd1fa446715294203cf0",
+      "64d040a22a3b2fdeb45e8c593e76197a784d2aa101b4b47b084559c3fec9d52c"
+    ],
+    "COM-empty_incoming_rejected": [
+      "Etna.Committee.Examples.empty_incoming_rejected",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "76c7490a8a186410d2163fb3dc39eaa14199166349e3cd1fa446715294203cf0",
+      "af92144372b3c1bd474193e92a8de32253c33736c3b37550fb503b3f134086f5"
+    ],
+    "COM-zero_cap_bootstrap": [
+      "Etna.Committee.Examples.zero_cap_bootstrap",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "76c7490a8a186410d2163fb3dc39eaa14199166349e3cd1fa446715294203cf0",
+      "7408792a17edd04b6e6a6985fcfde8a006ec8598cd5d5da59e628bd79af9071d"
+    ],
+    "COM-zero_cap_ahead_checkpoint": [
+      "Etna.Committee.Examples.zero_cap_ahead_checkpoint",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "76c7490a8a186410d2163fb3dc39eaa14199166349e3cd1fa446715294203cf0",
+      "9d5fa4846804c3935b0cb48beacd495a50ecf0ee9f5c32094b0c24e50aa69093"
+    ],
+    "COM-nonempty_activation_pair": [
+      "Etna.Committee.Examples.nonempty_activation_pair",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "76c7490a8a186410d2163fb3dc39eaa14199166349e3cd1fa446715294203cf0",
+      "a56c92e27ca26c66cf03bbe40e8401ac60af206a81d461b2dad192b8f4a8a2bf"
+    ],
+    "COM-checked_add": [
+      "Etna.Refinement.Rust.Committee.checked_add",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "98e29088cfc26799a1d0dd847e386553880835d71e6a342b8b771261aee09c20"
+    ],
+    "COM-checked_mul": [
+      "Etna.Refinement.Rust.Committee.checked_mul",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "b7eaac2e20717fd5d1d31d3948c76f49306247bf3e3a596d3c2efdb1a813469d"
+    ],
+    "COM-checked_sub": [
+      "Etna.Refinement.Rust.Committee.checked_sub",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "feaa1e6eb548ff12e3a6961c3490c83a2fe49c8f7361844ff7484fa4eff8dc6a"
+    ],
+    "COM-checked_div": [
+      "Etna.Refinement.Rust.Committee.checked_div",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "3f01d4c9439de4bcc46e07013f239aabd79354927525d4de3a36864f595e1962"
+    ],
+    "COM-checked_bound": [
+      "Etna.Refinement.Rust.Committee.checked_bound",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "26bada73f4ba73b2652b62ec9135ad96e1ccf656890d74989c24abf4e1f8498c"
+    ],
+    "COM-rust_validate_refines": [
+      "Etna.Refinement.Rust.Committee.rust_validate_refines",
+      "rust-refinement-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "fn validate(",
+          "exact-extracted-function"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "6809409d9894fad52b35a6f59b6b04122d9d4e311258e274aee4331f924fc2d6"
+    ],
+    "COM-word_small": [
+      "Etna.Refinement.Rust.Committee.word_small",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "eee5dac54719545d7f7f63b96253114cd6cb6e6ec92328392683fbcfc6336851"
+    ],
+    "COM-rust_first_refines": [
+      "Etna.Refinement.Rust.Committee.rust_first_refines",
+      "rust-refinement-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "fn h_first(",
+          "exact-extracted-function"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "aeb9d4ab758f8fd52206b0c86eb82ce483f079d44ab650709f2017a5c113c0e8"
+    ],
+    "COM-first_bound": [
+      "Etna.Refinement.Rust.Committee.first_bound",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "1ccabc9cc9a9a876bb4f2913d1fc984e0af2be5b5a607fea3e284ba97c0256bf"
+    ],
+    "COM-rust_last_refines": [
+      "Etna.Refinement.Rust.Committee.rust_last_refines",
+      "rust-refinement-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "fn h_last(",
+          "exact-extracted-function"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "faee8f51fb3fc22597e36f9532bf3ea120e9ffcdee08fb693bb8bdfbd5420171"
+    ],
+    "COM-rust_l1First_refines": [
+      "Etna.Refinement.Rust.Committee.rust_l1First_refines",
+      "rust-refinement-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "fn checked_l1_first(",
+          "exact-extracted-function"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "d3305ee85fa024ae80e031b4093b3ca41716d6d161ff74819026f019a3a9ab78"
+    ],
+    "COM-rust_parent_refines": [
+      "Etna.Refinement.Rust.Committee.rust_parent_refines",
+      "rust-refinement-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "fn derivation_parent_height(",
+          "exact-extracted-function"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "909ab921955cb0c7a154400a965d1280e0a6deb476c73f715413844800e887b6"
+    ],
+    "COM-saturating_val": [
+      "Etna.Refinement.Rust.Committee.saturating_val",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "66211cb909bbc91a654d103292792bb1c1b53314b6926d95b785a42724cc2cb9"
+    ],
+    "COM-rust_epoch_refines": [
+      "Etna.Refinement.Rust.Committee.rust_epoch_refines",
+      "rust-refinement-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "fn epoch_of(",
+          "exact-extracted-function"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "8698c833608b3bc4829722efdfd51c9e613b055ff1e93ad428d41f1e3f5f6993"
+    ],
+    "COM-sub_bound": [
+      "Etna.Refinement.Rust.Committee.sub_bound",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "dbf5bcd9c888482868520f588408c98ea953074f14f43afaf03bfc99bcceeb27"
+    ],
+    "COM-rust_starting_refines": [
+      "Etna.Refinement.Rust.Committee.rust_starting_refines",
+      "rust-refinement-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "fn epoch_starting_at(",
+          "exact-extracted-function"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "5e9455ccc270488029e504718eab4fd5d76a201f2ce16b459974627c3c3ce79b"
+    ],
+    "COM-starting_bound": [
+      "Etna.Refinement.Rust.Committee.starting_bound",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "9b94764eb2a0d8cc78ff59640231e5fcea54f599f5b1ce281da4071c8a1dcc39"
+    ],
+    "COM-rust_switch_refines": [
+      "Etna.Refinement.Rust.Committee.rust_switch_refines",
+      "rust-refinement-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "fn switch_target(",
+          "exact-extracted-function"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "726cbc64c852c397c7a713a8df9ccd1f32fa4dec79503f2a0b221f51920ca55c"
+    ],
+    "COM-epoch_bound": [
+      "Etna.Refinement.Rust.Committee.epoch_bound",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "b44bcf93b530b04ebca9657c6740cb5ce4fe913738727236399043f70d8e108c"
+    ],
+    "COM-rust_next_refines": [
+      "Etna.Refinement.Rust.Committee.rust_next_refines",
+      "rust-refinement-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "fn next_switch_target(",
+          "exact-extracted-function"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "4a045c9a123b879283dd7c83a41464145612a86e43f5f80f4f1e5a8f199b7676"
+    ],
+    "COM-rust_quorum_refines": [
+      "Etna.Refinement.Rust.Committee.rust_quorum_refines",
+      "rust-refinement-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "d9e66ee0e27e3d00518c494ac4f5323c06f34cba56878bf6fa8e7270fe49887f"
+    ],
+    "COM-switch_bound": [
+      "Etna.Refinement.Rust.Committee.switch_bound",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "9c47aeafc3964b3f711bf216c50a9d77d9092b128e8906128acf89ba02921e98"
+    ],
+    "COM-rust_transition_refines": [
+      "Etna.Refinement.Rust.Committee.rust_transition_refines",
+      "rust-refinement-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/validate.rs",
+          "pub(crate) fn validate_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/app/finalize.rs",
+          "pub(super) async fn finalize_block(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "805b6e529218bc7896bdf317c5e497e07c68f059b280b5ac82f40795318ddd21"
+    ],
+    "COM-validate_first_ranges": [
+      "Etna.Committee.validate_first_ranges",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub fn validate(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/schedule.rs",
+          "pub fn validate(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "e73e8c79138bbd223cd5ba771f11b0341636fe518307c9873ba7511d4aecb1f6"
+    ],
+    "COM-validate_lengths": [
+      "Etna.Committee.validate_lengths",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub fn validate(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/schedule.rs",
+          "pub fn validate(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "f1e76e66bc94c0a0c42625da34d4ad00c488b370e7e1226edfa7849915d51906"
+    ],
+    "COM-anchor_progress_success": [
+      "Etna.Committee.anchor_progress_success",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub fn check_anchor_progress(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/rules/mod.rs",
+          "pub fn check_anchor_progress(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "417649c1d5a628c54b298928766e70551f6511b4617fdc15dd2bcd0287baa5ab"
+    ],
+    "COM-positive_cap_iff": [
+      "Etna.Committee.positive_cap_iff",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/lib.rs",
+          "pub fn positive_unsettled_cap(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/config.rs",
+          "pub fn validate(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "b8bb04c8d91555f960e7f2322aba667177450d63a46842e8cc25660a0d4cac1b"
+    ],
+    "COM-positive_cap_difference": [
+      "Etna.Committee.positive_cap_difference",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/lib.rs",
+          "pub fn positive_unsettled_cap(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/config.rs",
+          "pub fn validate(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "358839e0342e3820b7d816c0b6816a9ee9bfe49a9a7bcf17c0603880a4649e3a"
+    ],
+    "COM-strict_cap_boundaries": [
+      "Etna.Committee.Examples.strict_cap_boundaries",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/lib.rs",
+          "pub fn positive_unsettled_cap(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/config.rs",
+          "pub fn validate(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "d3fdd1676a1c9c7ff484f48d888bbde62e7a5a0f3e7a1a71b40c4f1cd687510e"
+    ],
+    "COM-anchor_overflow_max_rejected": [
+      "Etna.Committee.Examples.anchor_overflow_max_rejected",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub fn check_anchor_progress(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/rules/mod.rs",
+          "pub fn check_anchor_progress(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "121116dd72f43f42a4cb2b85e3b85cf2ba31075edb074ee741da6b1d7aa26029"
+    ],
+    "COM-anchor_error_priority": [
+      "Etna.Committee.Examples.anchor_error_priority",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub fn check_anchor_progress(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/rules/mod.rs",
+          "pub fn check_anchor_progress(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "43300296fa219a280cce2ffe8409560fbfa7db6693d93e6d6b2cfb94be5b595b"
+    ],
+    "COM-urgency_controls": [
+      "Etna.Committee.Examples.urgency_controls",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub fn force_epoch(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "fn force_epoch(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "5ed79c088a51fa925743658367c4fa71a3a2169b48b44d9b49879c1bc9b13e81"
+    ],
+    "COM-uint48_controls": [
+      "Etna.Committee.Examples.uint48_priority",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub fn validate(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/schedule.rs",
+          "pub fn validate(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "973fe4b43938fe08a15f4c45708a905f1c191249f312e5487b8fbfce85a9beb9"
+    ],
+    "COM-l1_bound": [
+      "Etna.Refinement.Rust.Committee.l1_bound",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "cd0106afd72ecbc6b93839450efa50d79c1076fd88b24a65dc1da490be741785"
+    ],
+    "COM-rust_positive_cap_refines": [
+      "Etna.Refinement.Rust.Committee.rust_positive_cap_refines",
+      "rust-refinement-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/lib.rs",
+          "fn positive_unsettled_cap(",
+          "exact-extracted-function"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/config.rs",
+          "pub fn validate(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "a541217ea6cbde2b7c59ad07fea44c451c3fa709d71e79da2a176208edc1bfab"
+    ],
+    "COM-rust_anchor_progress_refines": [
+      "Etna.Refinement.Rust.Committee.rust_anchor_progress_refines",
+      "rust-refinement-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "fn check_anchor_progress(",
+          "exact-extracted-function"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/rules/mod.rs",
+          "pub fn check_anchor_progress(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "716773b3cb1d0fb2c2bc3257ff3ba711260974542e9358fa5677187c2b3bb836"
+    ],
+    "COM-saturating_sub_val": [
+      "Etna.Refinement.Rust.Committee.saturating_sub_val",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub struct Schedule",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "6758b981775c3c1b233a48ee1a4ce3c8460fc85eec9b3e1277546d71465e9b1e"
+    ],
+    "COM-rust_force_epoch_refines": [
+      "Etna.Refinement.Rust.Committee.rust_force_epoch_refines",
+      "rust-refinement-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "fn force_epoch(",
+          "exact-extracted-function"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "fn force_epoch(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "8db0f7deb3a8fa63053d16c23c3adebf044bdfa2dc148787a3de112d6780de9a"
+    ],
+    "COM-committee_size_bounded_iff": [
+      "Etna.Committee.committee_size_bounded_iff",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/lib.rs",
+          "pub fn committee_size_bounded(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/config.rs",
+          "pub fn validate(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "ff8347410ce20f7d8ab49e73d6fede0530b806537265f87d79025dfc14ea0d04"
+    ],
+    "COM-removed_epoch_cap_boundaries": [
+      "Etna.Committee.Examples.removed_epoch_cap_boundaries",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/schedule.rs",
+          "pub fn validate(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/schedule.rs",
+          "pub fn validate(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "da24d15b4995ed1999746dc643ba5e35b434f24499d7324e1f191a9a93f1f6cb"
+    ],
+    "COM-current_committee_size_boundaries": [
+      "Etna.Committee.Examples.current_committee_size_boundaries",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/lib.rs",
+          "pub fn committee_size_bounded(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/config.rs",
+          "pub fn validate(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "17537071e24eea417a4d809116e28b6b86f8cfa27483920d3bca7365ffea6e0e"
+    ],
+    "COM-rust_committee_size_refines": [
+      "Etna.Refinement.Rust.Committee.rust_committee_size_refines",
+      "rust-refinement-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/etna-consensus-core/src/lib.rs",
+          "pub fn committee_size_bounded(",
+          "exact-extracted-function"
+        ],
+        [
+          "packages/taiko-client-rs/crates/abci/src/config.rs",
+          "pub fn validate(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "186d343c103946bf8fcbec35715fc4623459feeb97d5a3a97d4c8eacf9583e68"
+    ],
+    "LAND-AUX-01": [
+      "Etna.Landing.wordAt_encode",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "b4efe5d290f6960fa1e694686941ac20234ef45a97a46859d5fc441878ca2bba"
+    ],
+    "LAND-AUX-02": [
+      "Etna.Landing.decode_encode",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "4b7af958335f0764782b80eafe73ff624f401c864d18db485882dc92d02a49c3"
+    ],
+    "LAND-05": [
+      "Etna.Landing.statement_complete",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "811729ed5e209f75abc50857057543eabf164920366672b149967d841e263de7"
+    ],
+    "LAND-AUX-04": [
+      "Etna.Landing.recipient_word",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "bffb90e256af47d7fec032c532fe00d17972cc26853ba342c3e381b8d6a81570"
+    ],
+    "LAND-AUX-05": [
+      "Etna.Landing.natWord_byte",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "7f0d894166c042194636910a4af16963e807dadfd5272c224a6299ec451e5f75"
+    ],
+    "LAND-AUX-06": [
+      "Etna.Landing.address_padding",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "85b2a49a6adabce141d711164ee6580eb732bdd55006f647e74d85c439f78cbe"
+    ],
+    "LAND-AUX-07": [
+      "Etna.Landing.hash_binding",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "9e74718c9cdd8221aa073f8991d42d03562ec4da326004cdd6f21e55eeff3b8a",
+      "1304e2d314696c219da160342ea1dc87301f6754b312cb23be1c99e36745610d"
+    ],
+    "LAND-AUX-08": [
+      "Etna.Landing.encoding_conformance",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "1dce21d1b484ac6b37f8a3b5b668db244e62fd239ed61330ffb788120d4f55d9"
+    ],
+    "LAND-AUX-09": [
+      "Etna.Landing.natWord_injective",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "2b958c394a1e810364bea86ba9e232e97bfcbcf322590f79cbc16b8f69005239"
+    ],
+    "LAND-AUX-10": [
+      "Etna.Landing.blob_encoding_injective",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "a1e2c587711b32b209457f9f98f4b60defb8bf7f4d5c9ccd043b2fe3b6a8e6b4"
+    ],
+    "LAND-AUX-11": [
+      "Etna.Landing.local_separation_distinct_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "81ffee790c4a3c1e7d119f8c32e46ffa65a7259ce54db6dfa5e4c95b57ec4718"
+    ],
+    "LAND-06": [
+      "Etna.Landing.encoding_byte",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "81bd39c097deaa284576c3ee19163d5b89ae198b9f6a19b03ee30c39e40bb714"
+    ],
+    "LAND-AUX-13": [
+      "Etna.Landing.validate_bounds",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "b7ca559cb1c07092ea21559a4b7b3b8ddfcf9f6ff69268478f4ca6f9cf754823"
+    ],
+    "LAND-AUX-14": [
+      "Etna.Landing.successful_checks",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "d13a43a6ba5aba342b63bea9690d4aac253c5a8d1ca4c9023e563aeb8d7f1827"
+    ],
+    "LAND-01": [
+      "Etna.Landing.bounds_preserved",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "cc40132878442f5ab55c8f4712b88fe6732782a571cb57f2fca736c3b25597e2"
+    ],
+    "LAND-AUX-16": [
+      "Etna.Landing.fee_sum_bound",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "779314b9d3ae6e58d7e2b886dd2cc1ecc7f23c4aa36133ceceeeaa9fcf4859f8"
+    ],
+    "LAND-AUX-17": [
+      "Etna.Landing.fees_uint256",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "b1edc8feec87baf72e5848d9d85cfecca42c721c1ff783791b0d1dbbad61dae0"
+    ],
+    "LAND-AUX-18": [
+      "Etna.Landing.intervals_disjoint",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "f8cdff6eb29853b7cc895e4206cd9e1d532304802ba035e06c09b87af798cfbf"
+    ],
+    "LAND-AUX-19": [
+      "Etna.Landing.journal_rollback_write",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "904346f38ef5b35286e1ec2a5b5f91e6dfd0ca0e183c6c1bc45935809d608036"
+    ],
+    "LAND-AUX-20": [
+      "Etna.Landing.checked_journal_root",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "30f8dc2b31673ed9cac398599b28bde1f77fb3f9a6522ca4b0a7f44a5e09ffbc"
+    ],
+    "LAND-AUX-21": [
+      "Etna.Landing.execution_journal_root",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "4f3b65d19431754913ac1f6f74972603664e6d8f954bcdf7d71bfb148fe0328a"
+    ],
+    "LAND-AUX-22": [
+      "Etna.Landing.rollback_atomic",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "36be673774203591031ad1a8402c43b8dc9cadef0792a654893e4a55cdf984dd"
+    ],
+    "LAND-AUX-23": [
+      "Etna.Landing.same_inbox_reentry",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "0ac4e3536b4f2a7e8de623ec169809fa53ee63dd294ff1a6a9143fa693255668"
+    ],
+    "LAND-AUX-24": [
+      "Etna.Landing.other_inbox_not_locked",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "2de9675c5c5021c72291ec39707446d6996d2f16eefa1fc192c03c2bfc0f0fa0"
+    ],
+    "LAND-08": [
+      "Etna.Landing.reference_and_blobs",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "6b764540bfebe6df70cc75ae625b3fd1ae8be37ca75eb2a180674698516e0791"
+    ],
+    "LAND-AUX-26": [
+      "Etna.Landing.blobs_from_environment",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "5c83a4acf8bb8a4595da457f3cbe0517413d58241b830fc008e7d553f306f333"
+    ],
+    "LAND-AUX-27": [
+      "Etna.Landing.environment_success_nonempty",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "752d72581e24b66d72f0c7d5ee4f2b50f3833ad8d02a59b2702369e83a24c166"
+    ],
+    "LAND-AUX-28": [
+      "Etna.Landing.successful_poststate",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "885febe3e476ab285d3b43bef4a4634f09167802157775fc69c68cabfa297c07"
+    ],
+    "LAND-03": [
+      "Etna.Landing.recipient_bound",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "125533ad068ff4565ed70c66d276bd31182e9e2f8f2a5b63be4502b393b4e6bd"
+    ],
+    "LAND-AUX-30": [
+      "Etna.Landing.committed_head",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "24ca53e93e2a80cd76b9f0013d04f7ad85e1fa47a76620205ac2b2c11a7a2299"
+    ],
+    "LAND-AUX-31": [
+      "Etna.Landing.successive_no_double_consumption",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "499e3fff1b4c700fee798ed51db0c078dae90d77c96334de97752abafac9d836"
+    ],
+    "LAND-AUX-32": [
+      "Etna.Landing.copied_calldata_recipient",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "3d0ef58e7444a50864d7735563ce2a5970dda03e822b08a99b0a7c8466c9f2be"
+    ],
+    "LAND-AUX-33": [
+      "Etna.Landing.statement_is_constructed",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "fd19dc27421846f18afa2226da9ee622845b86e03810048966cb0e469e1006b9"
+    ],
+    "LAND-AUX-34": [
+      "Etna.Landing.statement_recipient_from_input",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "faa197b0160b702954a5c60d66e69fb0c4b3c4bc5ca1928bfa743a64f3559b4a"
+    ],
+    "LAND-AUX-35": [
+      "Etna.Landing.statement_copied_caller",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "fbbc70f1f96e433104aee3aa99c48fc11e6f921636099af7bf87db0daffe1e43"
+    ],
+    "LAND-AUX-36": [
+      "Etna.Landing.every_word_independent",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "6c37ed13db19c71bfe774d97023b1d0a412d55e0d16aa30b1b117a94cd893043"
+    ],
+    "LAND-AUX-37": [
+      "Etna.Landing.authenticated_reference_content",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "f06f857ebfcbe315cf8c500ecad8ed1fbeed98c1ca8e413ec99c1046fa67ec43",
+      "dbec9dae04c916ddd41448e6f550910b442af05e617af79d0ca0e9c128e61e8e"
+    ],
+    "LAND-AUX-38": [
+      "Etna.Landing.authenticated_blob_prefix",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "f06f857ebfcbe315cf8c500ecad8ed1fbeed98c1ca8e413ec99c1046fa67ec43",
+      "32d668f3cb8f14d93295a1ae6bc433e0fbb53f5c6eaaa7aa4f02d837e6fb7e72"
+    ],
+    "LAND-AUX-39": [
+      "Etna.Landing.successful_signal_checkpoint",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "8ea59786c3b5769382693a5b1955cffcf2116c0ba1c9f5827d972a69637bf6d1"
+    ],
+    "LAND-AUX-40": [
+      "Etna.Landing.fee_interval_add",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "7c6b6b44f0790cefd9b44b065fd3191fa68044fbc624dbdfd7826d7f5b007f81"
+    ],
+    "LAND-AUX-41": [
+      "Etna.Landing.blob_prefix_nonzero",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "0c9338968ec69b59cb4a84d339e66d66b0144b2796a971550b352f8251955b8b"
+    ],
+    "LAND-04": [
+      "Etna.Landing.rollback_atomic_evm",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "81e86c08a4ea2c13f3481ecd86d68542ffe354614cb3cd2aa47f91df1c67a6ff",
+      "b53d6898a273ce2e3d16b9bd1f9238cb28fadd4b323d3653243b35c4d1fb7771"
+    ],
+    "LAND-AUX-43": [
+      "Etna.Landing.evm_journal_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "23c5b74d6674801cfbc635bdf7133fa2cd1a350c9b0ac843a2aa8ea542b759a7"
+    ],
+    "LAND-AUX-44": [
+      "Etna.Landing.consumption_event_exact",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "845c1e18fbc6368129bb525ef453c66fed8a30800da4360fdc5365793f9a2ef4"
+    ],
+    "LAND-AUX-45": [
+      "Etna.Landing.callback_frame_preserves_bounds",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "2701ffa770dd4996cf24bf7c35bc762a094639298e5bff8db5c39c6086190332",
+      "7c3fc3ace3d7fb210fb91397a63d43f8d74b1892754a6d05c85918ed13b1cc02"
+    ],
+    "LAND-AUX-46": [
+      "Etna.Landing.callback_frame_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "88631ed45dbd2a759ea515f474af5e8a19b6bfc1c055b9e3255ea96c64191df5"
+    ],
+    "LAND-02": [
+      "Etna.Landing.fees_exact_once",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "2edeed89773adf2af4fe8233de748426a8381ea59bdefeb7580e0d1a2449cbe3"
+    ],
+    "LAND-AUX-48": [
+      "Etna.Landing.locked_land_and_save_reject",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "32540ca80f3fbf168cb84234c0a8f68d8cae238964c194b223eb912241b92239"
+    ],
+    "LAND-AUX-49": [
+      "Etna.Landing.normal_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "5dac975f27f1f3b8a18e882fc88d7c1be0fa22ef22da4d5df572302aa6438cf0"
+    ],
+    "LAND-AUX-50": [
+      "Etna.Landing.nonzero_payment_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "57f99f059a0ebbf3ce56b6124db9c9ce950775f88b7c9835311d1e716d389a8d"
+    ],
+    "LAND-AUX-51": [
+      "Etna.Landing.verifier_failure_after_writes",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "f1deb382d89855166182fed06998ae6154d5c41a1c0dc96aac9498fd7fd7841b"
+    ],
+    "LAND-AUX-52": [
+      "Etna.Landing.signal_failure_after_writes",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "adaecbe0f52b03c259e13ed860dadd4ec8e664094c4d7c3f7079ea4ed49adb7b"
+    ],
+    "LAND-AUX-53": [
+      "Etna.Landing.payment_failure_after_verifier",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "f9da61257704ab159a203ae1b64eafbd5b8b34d3a31e7b75fdcb1065405e426f"
+    ],
+    "LAND-AUX-54": [
+      "Etna.Landing.zero_fee_skips_callback",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "90dd27ad853d779442cbde551953deabf953c3054c035e1ef14968cf44e29058"
+    ],
+    "LAND-AUX-55": [
+      "Etna.Landing.caught_reentry_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "fdfef1d86188a3e923778dc2d97e16a4c6bee616569d4a2d6200eb619928be07"
+    ],
+    "LAND-AUX-56": [
+      "Etna.Landing.static_verifier_guard_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "4f6054877ff832fabb84162f74889aea9fed0e474b01b9638a322f1617ae6185"
+    ],
+    "LAND-AUX-57": [
+      "Etna.Landing.reference_boundaries_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "f1a8009cc9e404b07c26b0427b7ba45c9926280fe180ecb498f0bfb10371ec7a"
+    ],
+    "LAND-AUX-58": [
+      "Etna.Landing.malformed_history_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "97708db34138ea1b1e4c05ca7ab24fdd6ac91974c22baab2b0bd2420f047f0c4"
+    ],
+    "LAND-AUX-59": [
+      "Etna.Landing.ordered_blobs_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "12161dcc4357af272f8bf53e27e3540d61f29c6d1a83929c22becdaa53db930c"
+    ],
+    "LAND-AUX-60": [
+      "Etna.Landing.local_separation_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "a07b53cd49512fd1123374718241b9e3d07800c5960d7a929a16a0e8a399314f"
+    ],
+    "LAND-BIND-01": [
+      "Etna.Landing.serializeBlobPrefix_length",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "8576b12107679ccfc96fc8bdc5e1b2a1fe9ad635cad6e5d7c12a2b36f68ecfc4"
+    ],
+    "LAND-BIND-02": [
+      "Etna.Landing.serializeBlobPrefix_take",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "e13865f38db7db0c90362e58a332b73dbb61e5c1d534309a19e71ff14a846d20"
+    ],
+    "LAND-BIND-03": [
+      "Etna.Landing.serializeBlobPrefix_drop",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "639a5b0439194ad404e107dde538b48ade87a577849f7be86101ca9fac204639"
+    ],
+    "LAND-BIND-04": [
+      "Etna.Landing.serializeBlobPrefix_injective",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "b6f17194a2bbbee536890c6e6fe3c5c053d9140ea3baf5a5289ae544735e99b5"
+    ],
+    "LAND-BIND-05": [
+      "Etna.Landing.inner_hash_binding",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "0d228dd2d9978c364cf60f89c0d1f3d444c06f5afda4f5cb2a758a955e3bc827",
+      "4241313923605d6541f0747b69014f484e2fbd4ebcb8bc3a15ecac40a21df963"
+    ],
+    "LAND-BIND-06": [
+      "Etna.Landing.inner_separation_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "8263573a16c02ce79e2e3c9e791feeaf4923dbac4f5d1513e6033b17c3ff2710"
+    ],
+    "LAND-BIND-07": [
+      "Etna.Landing.unequal_length_inner_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "c50192d11534abc088941d0a355dfe434613b550e88ff3e8f786aa804071b50f"
+    ],
+    "LAND-BIND-08": [
+      "Etna.Landing.composed_statement_blob_binding",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "815c1e4a2ca554b101a90dd620bbe357ed6e402be18bcfd8d830cafc2f4f6381",
+      "b0e0820111ac34a21ebc428e5ffff91b3879ad718741c105bcbb57714ecacc87"
+    ],
+    "LAND-BIND-09": [
+      "Etna.Landing.composed_unequal_length_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "ef760b6917eac82e03ddd274c90621147ff064c536292cc7da0c4aac32a18d5a"
+    ],
+    "LAND-BIND-10": [
+      "Etna.Landing.constant_inner_hash_not_separated",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "498d86d9a9a00f3eb7c5e6a8cfe6471541cda72a77fe2b477abbef4dd85d7de0"
+    ],
+    "LAND-BIND-11": [
+      "Etna.Landing.composed_binding_success_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "d0f9a19c1461e0af77eb50e4d727cb56449dcb55f4ec7ce961c8d2d8cb5b1310"
+    ],
+    "LAND-09": [
+      "Etna.Landing.reward_recorded_exact",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function _recordReward(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol",
+          "function commitment(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "b015e9246931ff6df53020b1dcd0b389e8e04855327dde1957772cbb6a4ae0a9"
+    ],
+    "LAND-10": [
+      "Etna.Landing.reward_slot_fresh",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function _recordReward(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol",
+          "function commitment(",
+          "source-mapped-spec"
+        ]
+      ],
+      "8ecef93f69bbb071c9cc25e418ec58187fea1b81fc20d2cf021c766e65f4f7a2",
+      "4bc55e6aa8f637b61dffa3b7b8cacf28cdeda2173d2a5c6a68eb34e34df8e149"
+    ],
+    "LAND-RWD-01": [
+      "Etna.Landing.receipt_statement_words",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function _recordReward(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol",
+          "function commitment(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "f17f4b543c38814cce5c43b5c45caea4e70286b605c2cc1ae0631e1b26754028"
+    ],
+    "LAND-RWD-02": [
+      "Etna.Landing.reward_trace_facts",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function _recordReward(",
+          "source-mapped-spec"
+        ]
+      ],
+      "8901e66fc768d1fe2edb78559c75ff049b4df15d5e5ac7c3e99041ee9f899a7e",
+      "db41c1c13f7d3473172bb8941c0d303e9de5895c84ccc201cb72d55e67738a0d"
+    ],
+    "LAND-RWD-03": [
+      "Etna.Landing.reward_ids_distinct",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function _recordReward(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol",
+          "function commitment(",
+          "source-mapped-spec"
+        ]
+      ],
+      "0296dd87b5c6caf0dee7a390fb1f50761e293ed4ffbc5e725b0d7837f9db496e",
+      "98ed4e5badb10a3ae812ef6ad886710bc81e11aa57cc1aedd9a0208426bc5eb6"
+    ],
+    "LAND-RWD-04": [
+      "Etna.Landing.committed_checkpoint",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function _recordReward(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "71ca32c5ab78a76eb210879b267b2b0a9e7f2223972bc9f999a7d3a5317454d6"
+    ],
+    "LAND-RWD-05": [
+      "Etna.Landing.checked_success",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function _recordReward(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "559adccf12a6ac1477b457dce51a5a870301f9f3ae739904583ec1ef69735b2c"
+    ],
+    "LAND-RWD-06": [
+      "Etna.Landing.landing_success",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function _recordReward(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "743594b01f1747dbe42fec51760a261b727f35dc5d18435424f5b46d021932b5"
+    ],
+    "LAND-RWD-07": [
+      "Etna.Landing.execReward_success",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function _recordReward(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "076295d5f67ac069fcc38a03e9a6b31bda0301fe2053c6adca0e7e73373a87d9"
+    ],
+    "LAND-RWD-08": [
+      "Etna.Landing.execReward_root",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function _recordReward(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "7f761c55eba579fdaa622bf16e23ed68d5556f157f4642c6fdb3e5fc0f6e8bb0"
+    ],
+    "LAND-RWD-09": [
+      "Etna.Landing.batch_words_injective",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol",
+          "function commitment(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "d35b95a940ec6da1db9a9927f66dabc002531d5162f6c56397e6bc1996082c4f"
+    ],
+    "LAND-RWD-10": [
+      "Etna.Landing.batch_id_distinct",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol",
+          "function commitment(",
+          "source-mapped-spec"
+        ]
+      ],
+      "0296dd87b5c6caf0dee7a390fb1f50761e293ed4ffbc5e725b0d7837f9db496e",
+      "c0f37248aa1a37bca857efdc0d45363d33bbb4beb96f4feeb3658135e31f7085"
+    ],
+    "LAND-RWD-11": [
+      "Etna.Landing.commitment_binding",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol",
+          "function commitment(",
+          "source-mapped-spec"
+        ]
+      ],
+      "b77d3a2840fea951c01ba7533c0630bb44e616c2d7765163d77bde0957c65632",
+      "728cfe6b38701672589cd5f083ff1d66e2139b192b622e03fe2343a2fcb0052f"
+    ],
+    "LAND-RWD-12": [
+      "Etna.Landing.batch_separation_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol",
+          "function commitment(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "88c87e2f3fa947f5d55f2e338cae37b25447914bbc5494e44302c39dd1e10137"
+    ],
+    "LAND-RWD-13": [
+      "Etna.Landing.reward_recipient_word",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function _recordReward(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "f77debe139d7b3c4bc622d93350765932fbb87a14f6c0d912979591812a3cf9e"
+    ],
+    "LAND-RWD-14": [
+      "Etna.Landing.base_fee_word",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function _recordReward(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "da9528d4d9b77ac78ef25d74c1ea55d295f9b30670528c0cb57651ab34a5c300"
+    ],
+    "LAND-RWD-15": [
+      "Etna.Landing.reward_recorded_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function _recordReward(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "e46d26f0804a3b9503188aeae22b7c6f87e1c138ac88852784fd968bc0eb7844"
+    ],
+    "LAND-RWD-16": [
+      "Etna.Landing.occupied_reward_slot_reverts",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function _recordReward(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "b13099dfa1d24d2e00c9367eba12d8f1cbeba0cd0cab847ac433722813500d9a"
+    ],
+    "LAND-RWD-17": [
+      "Etna.Landing.zero_reward_recipient_rejected",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function _recordReward(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "682a62f600f2bd3f281c8af45e30460da3824e37496295e05e88a051b28abe8f"
+    ],
+    "LAND-RWD-18": [
+      "Etna.Landing.zero_base_fee_recorded",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function _recordReward(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "4e637d046269961ceee8e3ad1d6efdc3f1eab01120c52ed449c36a551762a548"
+    ],
+    "CLAIM-01": [
+      "Etna.Landing.claim_success",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer2/core/L2FeeVault.sol",
+          "function claim(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol",
+          "function commitment(",
+          "source-mapped-spec"
+        ]
+      ],
+      "a5991700ccaca89a97295fc6b2be43709ee200ecd14325d348f712fd648fcee4",
+      "62d752b4837805da89c014de009cd3ef7c2a537bbe0a65c3dca216cb41cd9c30"
+    ],
+    "CLAIM-02": [
+      "Etna.Landing.claim_once",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer2/core/L2FeeVault.sol",
+          "function claim(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "36381c32e2a3ef70991351b0b9a2f7a4251f218a001d527128bf21b76768aec2"
+    ],
+    "CLAIM-03": [
+      "Etna.Landing.claim_pays_recorded",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer2/core/L2FeeVault.sol",
+          "function claim(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol",
+          "function commitment(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "8870db5629f127c5e938f5ce53998b8295f08989cd8abb860c2dcab0699b46f6",
+      "5135fdecc02b9ea5b45e77b9ce43ca26bf0a97cf4f1a34ee4c9dce073ffd405c"
+    ],
+    "CLAIM-AUX-01": [
+      "Etna.Landing.claim_frame",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer2/core/L2FeeVault.sol",
+          "function claim(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "724a41af3580bf6cda24de16493e0c10c5ddd7f5720f0f5f375df06c06dd977c"
+    ],
+    "CLAIM-AUX-02": [
+      "Etna.Landing.reward_trace_storage",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function _recordReward(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/shared/libs/LibEtnaRewards.sol",
+          "function commitment(",
+          "source-mapped-spec"
+        ]
+      ],
+      "0296dd87b5c6caf0dee7a390fb1f50761e293ed4ffbc5e725b0d7837f9db496e",
+      "253cbb4e4a9b6f0584ac57d5de79b6b668913013fc4a162d7bac8c0e88dcacc4"
+    ],
+    "CLAIM-AUX-03": [
+      "Etna.Landing.claim_trace_ids_distinct",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer2/core/L2FeeVault.sol",
+          "function claim(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "22cc9982af228b26835ba6c5b4bddabdd8fde48eb6bf49cf90b12941d727d045"
+    ],
+    "CLAIM-AUX-04": [
+      "Etna.Landing.claim_trace_payouts",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer2/core/L2FeeVault.sol",
+          "function claim(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "9f104309fb7bc088555519530da2eaffeb6d99a989df138993e03866d34b87e8"
+    ],
+    "LAND-12": [
+      "Etna.Landing.committee_snapshot_rule",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "3c82ed6a6d38db7bceae636b8f9a3e06551a772caf74f501d24631c77bcd4c99"
+    ],
+    "LAND-SNP-01": [
+      "Etna.Landing.snapshot_trace_monotone",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "2b6e9b0c66645265689f6d574e808c02a8c070a5d7c6857ea875b3de852fd4fc"
+    ],
+    "LAND-SNP-02": [
+      "Etna.Landing.active_snapshot_word",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "0f5a47861cc1423519fb422d3b7b6bb5819b988a000a7051c16eec138bac221f"
+    ],
+    "LAND-SNP-03": [
+      "Etna.Landing.cross_epoch_snapshot_advances",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "ead7a86a0538df2ec8102c70baed60dd26fae3c70032e23d2128d92df1123a41"
+    ],
+    "LAND-SNP-04": [
+      "Etna.Landing.snapshot_regress_rejected",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "08bc2c0c4ece3205d4b9f6f39fdd013c462a7278c01c0cf6c13243ae6e5d440c"
+    ],
+    "LAND-SNP-05": [
+      "Etna.Landing.snapshot_above_reference_rejected",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "9ed2e1a2843dca9570436bbad639d3a0aa1e75580492f2208320054cc20e78e9"
+    ],
+    "LAND-SNP-06": [
+      "Etna.Landing.same_epoch_snapshot_fixed",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "b65b20e0e1ab023731b684880ae2f920ae4c24dfdbc18765b0199e1da7caae45"
+    ],
+    "CORE-01": [
+      "Etna.checkedWord_some_iff",
+      "spec-proved",
+      [],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "3fc13d2b75d02fcf798ebebe360cfc8e1523fa0492a1b6df4ae4789ad84b38fa"
+    ],
+    "CORE-02": [
+      "Etna.word64_add_fits128",
+      "spec-proved",
+      [],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "a9a7b139468194e7cc18c228a82a4f0876f956c27ce84a9bbffc3d43b3bd81cf"
+    ],
+    "INT-fi-projection": [
+      "Etna.Integration.fi_projection",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/statement.rs",
+          "pub fn preimage(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/proof.rs",
+          "pub struct DummyProofProvider",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "f6bdb0dd1ac08a2838621fc4cb2dd7d2af757ef6d4b7e426ec005b68c549db0d",
+      "74633961844d30d06097141af36409f9abed8d20412702c61227971405c9fbe0"
+    ],
+    "INT-committee-projection": [
+      "Etna.Integration.committee_projection",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/statement.rs",
+          "pub fn preimage(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/proof.rs",
+          "pub struct DummyProofProvider",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "f6bdb0dd1ac08a2838621fc4cb2dd7d2af757ef6d4b7e426ec005b68c549db0d",
+      "2f617cf78b9b86a367af1a95220e7f087cdc5e930f813856a0e0b713485eb466"
+    ],
+    "INT-trace-lengths": [
+      "Etna.Integration.trace_lengths",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/statement.rs",
+          "pub fn preimage(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/proof.rs",
+          "pub struct DummyProofProvider",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "f6bdb0dd1ac08a2838621fc4cb2dd7d2af757ef6d4b7e426ec005b68c549db0d",
+      "b8ca30b58244ccaa2013caef0b580647e549ca922dd6e586984ed289a7917bb7"
+    ],
+    "INT-step-height": [
+      "Etna.Integration.step_height",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/statement.rs",
+          "pub fn preimage(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/proof.rs",
+          "pub struct DummyProofProvider",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "1f298051ff34c1297485f95da24120aece2e1dfc3405f6789e1514e4a24ac133",
+      "91e17162c1e6d41072919f82f865ba14266c7a52fcf0b3501350029c2bd0180c"
+    ],
+    "INT-trace-height": [
+      "Etna.Integration.trace_height",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/statement.rs",
+          "pub fn preimage(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/proof.rs",
+          "pub struct DummyProofProvider",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "f6bdb0dd1ac08a2838621fc4cb2dd7d2af757ef6d4b7e426ec005b68c549db0d",
+      "91cb1852c4c23255445ac22b725c124b8543a3912ecbb8777256810f41b51b7a"
+    ],
+    "INT-trace-height-bound": [
+      "Etna.Integration.trace_height_bound",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/statement.rs",
+          "pub fn preimage(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/proof.rs",
+          "pub struct DummyProofProvider",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "f6bdb0dd1ac08a2838621fc4cb2dd7d2af757ef6d4b7e426ec005b68c549db0d",
+      "ff61667f79ce7affaeb7a4ee483d2e311d4aeeef2992758e96b61dd2912af8fb"
+    ],
+    "INT-trace-count": [
+      "Etna.Integration.trace_count",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/statement.rs",
+          "pub fn preimage(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/proof.rs",
+          "pub struct DummyProofProvider",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "f6bdb0dd1ac08a2838621fc4cb2dd7d2af757ef6d4b7e426ec005b68c549db0d",
+      "c64921666475742c88b95d07bb31e03d7235bb458c651658b7e118e7ee527343"
+    ],
+    "INT-trace-append": [
+      "Etna.Integration.trace_append",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/statement.rs",
+          "pub fn preimage(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/proof.rs",
+          "pub struct DummyProofProvider",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "f6bdb0dd1ac08a2838621fc4cb2dd7d2af757ef6d4b7e426ec005b68c549db0d",
+      "eab64895a15dda8cda11aeedd54f0897cc6e08e7fdfaa43c6c4d57d96829f3e5"
+    ],
+    "INT-arbitrary-cuts": [
+      "Etna.Integration.arbitrary_cuts",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/statement.rs",
+          "pub fn preimage(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/proof.rs",
+          "pub struct DummyProofProvider",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "f6bdb0dd1ac08a2838621fc4cb2dd7d2af757ef6d4b7e426ec005b68c549db0d",
+      "0ec97bc20c9a1aa3c728f68af70a82f26e6aba330fd43f691b09262505a7bf09"
+    ],
+    "INT-successful-verifier": [
+      "Etna.Integration.successful_verifier",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/statement.rs",
+          "pub fn preimage(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/proof.rs",
+          "pub struct DummyProofProvider",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "d143294e0821d63dfede9096b5145f31110fea94985c684e400e6bf2be2826e6",
+      "3917d7b77de189ebab6b33e6b4dec4cd3bb693b9ef118d587ee68571c887b7cd"
+    ],
+    "LAND-07": [
+      "Etna.Integration.compose_trace_landing",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/statement.rs",
+          "pub fn preimage(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/proof.rs",
+          "pub struct DummyProofProvider",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "c5ab177a7268084b85f08e1d25267284bafa58a1842afb3dff09896ea36e3244",
+      "f68317f40af1688342999610c8565e4005ed4cfc986e27265187b028fef61cc9"
+    ],
+    "INT-valid-batch-head": [
+      "Etna.Integration.valid_batch_head",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/statement.rs",
+          "pub fn preimage(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/proof.rs",
+          "pub struct DummyProofProvider",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4c75acaa21bc8c7c78180d076bdec70d44c549fc16900ef20d05c9f0b2d44e11",
+      "9640a1e2e57e93ce6bc105af21f123bdae28793a425641aba1543641ac2916c4"
+    ],
+    "INT-fee-cuts-exact": [
+      "Etna.Integration.fee_cuts_exact",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/statement.rs",
+          "pub fn preimage(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/proof.rs",
+          "pub struct DummyProofProvider",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "f3e8005982a7df3c06a6e910ecfe2102986b8f44b297df538a2e30c8dfcb85c9",
+      "11b1d949ae48c075b6b9d9e914ddff4839b273d98157a82e1a2691902b50de29"
+    ],
+    "INT-landing-fee-frame": [
+      "Etna.Integration.landing_fee_frame",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/statement.rs",
+          "pub fn preimage(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/proof.rs",
+          "pub struct DummyProofProvider",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "d143294e0821d63dfede9096b5145f31110fea94985c684e400e6bf2be2826e6",
+      "52b0253ef1ba2e0b0ad380b4e97d22fa9a9339e97c59e5ff395fdb8c3c8ade6d"
+    ],
+    "INT-landed-cuts-compose": [
+      "Etna.Integration.landed_cuts_compose",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/statement.rs",
+          "pub fn preimage(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/proof.rs",
+          "pub struct DummyProofProvider",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4c75acaa21bc8c7c78180d076bdec70d44c549fc16900ef20d05c9f0b2d44e11",
+      "d14eb532ba1f14accce756da9058608ae816fb0d0091c21cce59ab27f9c70f19"
+    ],
+    "INT-joint-nonvacuity": [
+      "Etna.Integration.Examples.joint_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/statement.rs",
+          "pub fn preimage(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/proof.rs",
+          "pub struct DummyProofProvider",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "2d3d28817167149e000a65aac8b1ee23d55a0e5eccf8c9dbcf5dfc52db7237bf"
+    ],
+    "INT-two-cuts-nonvacuity": [
+      "Etna.Integration.Examples.two_cuts_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/statement.rs",
+          "pub fn preimage(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/proof.rs",
+          "pub struct DummyProofProvider",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "41007360c9d8ac32073f18c1f7f31c10af68ed1f10b9fb3cd5750f602240bde9"
+    ],
+    "INT-fees-nonvacuity": [
+      "Etna.Integration.Examples.fees_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/statement.rs",
+          "pub fn preimage(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/proof.rs",
+          "pub struct DummyProofProvider",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "6b686f835b136f17d8c283949a05bdd144440f2206d6c11655072d5763eadfd4"
+    ],
+    "INT-second-valid": [
+      "Etna.Integration.Examples.second_valid",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/statement.rs",
+          "pub fn preimage(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/proof.rs",
+          "pub struct DummyProofProvider",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "ba9645e0766aefd42011466e70805f293516e3142daac055e3ed34cbe117c85c"
+    ],
+    "INT-landed-multicall-nonvacuity": [
+      "Etna.Integration.Examples.landed_multicall_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/statement.rs",
+          "pub fn preimage(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/proof.rs",
+          "pub struct DummyProofProvider",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "a2d3632803a3428c41e93123f27bfb6a57bd7570d2a4aa5e29bde05262718d35"
+    ],
+    "INT-forged-head-not-valid": [
+      "Etna.Integration.Examples.forged_head_not_valid",
+      "spec-proved",
+      [
+        [
+          "packages/taiko-client-rs/crates/lander/src/validate.rs",
+          "pub fn verify_commit(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/statement.rs",
+          "pub fn preimage(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/proof.rs",
+          "pub struct DummyProofProvider",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "2caf26abd939224d58a6108ff189d5514de440325aa4517dcf134838f3c1c6c3"
+    ],
+    "LAND-11": [
+      "Etna.Integration.landed_cuts_rewards",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function _recordReward(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/rewards.rs",
+          "pub fn basefee_sum(",
+          "source-mapped-spec"
+        ]
+      ],
+      "07d8478bd3531de3ed308053f6af6df255f487e384b4efc4b2884c0fb7edfdb9",
+      "674acf267d50b941d37b945e9faa2f0004ca28bc2551c1a17947740d1a779992"
+    ],
+    "INT-valid-batch-base-fee": [
+      "Etna.Integration.valid_batch_base_fee",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function _recordReward(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/rewards.rs",
+          "pub fn basefee_sum(",
+          "source-mapped-spec"
+        ]
+      ],
+      "615ac62fcbf0a22b98deb19a507228ae5e98ed4ee8664019873c5b98f374cce1",
+      "5b25b9106489b8b9a651ccf65ac40f5e79c9d66021143384a6c15eb17710b2c3"
+    ],
+    "INT-compose-trace-reward": [
+      "Etna.Integration.compose_trace_reward",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function _recordReward(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/rewards.rs",
+          "pub fn basefee_sum(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4485f07b0df449220f1e8954a6c931336d44834103cd97ad997e399de162c3e6",
+      "ad31e8cefeb98cf101bd7522431561ad55330cdb828cef97d76310d3d0906d12"
+    ],
+    "CLAIM-04": [
+      "Etna.Integration.claims_bounded_by_credits",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer2/core/L2FeeVault.sol",
+          "function claim(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/rewards.rs",
+          "pub fn basefee_sum(",
+          "source-mapped-spec"
+        ]
+      ],
+      "bd3990fa3dc455ca597979ef4a06f40daaff183e564b109cf853048dbc617055",
+      "6a7498ea2a87222d56dc9add30c049a6baafbf97f1fcb42786e02bd0695c8ce0"
+    ],
+    "INT-matched-sum-le": [
+      "Etna.Integration.matched_sum_le",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer2/core/L2FeeVault.sol",
+          "function claim(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "c9818c8361c18c4dc3f15bdede6b5756664cc5b032ff4a7e8e017ff0676366f6"
+    ],
+    "INT-landed-rewards-nonvacuity": [
+      "Etna.Integration.Examples.landed_rewards_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/rewards.rs",
+          "pub fn basefee_sum(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "6d76c64f9a38c732683aa9d3cc057340d0e86e9797a6e15a8c825be5c87c447b"
+    ],
+    "INT-forged-base-fee-not-valid": [
+      "Etna.Integration.Examples.forged_base_fee_not_valid",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/rewards.rs",
+          "pub fn basefee_sum(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "1f652644c778c1f5e3549ca508d351370ea19a9645415a5e5775840d0fd8f306"
+    ],
+    "INT-final-ledger-nonvacuity": [
+      "Etna.Integration.Examples.final_ledger_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer2/core/L2FeeVault.sol",
+          "function claim(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "22481c075c105c69ee8b9186c50a2190d72e4ff7115af4efef66e3618481fbcc"
+    ],
+    "INT-claims-nonvacuity": [
+      "Etna.Integration.Examples.claims_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer2/core/L2FeeVault.sol",
+          "function claim(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "acac0972d9e109e119842beb8b062739a06fe18729dcc58e4616b302c3c83c90"
+    ],
+    "INT-foreign-inbox-rejected": [
+      "Etna.Integration.Examples.foreign_inbox_rejected",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer2/core/L2FeeVault.sol",
+          "function claim(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "2d19f2e045687b8a96ef6fdf3f49feea29b4abeebb1f105e91cbd338479286ff"
+    ],
+    "INT-bounded-claims-nonvacuity": [
+      "Etna.Integration.Examples.bounded_claims_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer2/core/L2FeeVault.sol",
+          "function claim(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "a6537136ce746314cd0fdacffe01acb5b8f2ddab6a7551f5dbe0100b14a64807"
+    ],
+    "INT-valid-batch-active-snapshot": [
+      "Etna.Integration.valid_batch_active_snapshot",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "let active_snapshot =",
+          "source-mapped-spec"
+        ]
+      ],
+      "c2ea10f1989e6213f4241e1ece93b2028e227b3a53cf25c41bb274592d6d21cf",
+      "ef6b156b316e7e83711f26dafbecf2de9dc1cfe0a925d0cd55de5f02b0cd0ed0"
+    ],
+    "INT-landed-snapshot-is-active-cutoff": [
+      "Etna.Integration.landed_snapshot_is_active_cutoff",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "let active_snapshot =",
+          "source-mapped-spec"
+        ]
+      ],
+      "fbbc46e86a6bce3bebd369c38944275490d4604be8867503bd463b948d58e2ea",
+      "b58ddb8730fa756c946e0ea98b748c62be0fc23fa58eb8bb6857a832c32368c0"
+    ],
+    "WITHDRAW-01": [
+      "Etna.Integration.withdrawal_after_settled_turnover",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaStakingRegistry.sol",
+          "function withdraw(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "let active_snapshot =",
+          "source-mapped-spec"
+        ]
+      ],
+      "fbbc46e86a6bce3bebd369c38944275490d4604be8867503bd463b948d58e2ea",
+      "6a6c1d319a999542468acb7bc651aed0a81f262a4b4210a0bf475d88395f7a7d"
+    ],
+    "INT-landed-snapshot-nonvacuity": [
+      "Etna.Integration.Examples.landed_snapshot_nonvacuity",
+      "spec-proved",
+      [
+        [
+          "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+          "function land(",
+          "source-mapped-spec"
+        ],
+        [
+          "packages/taiko-client-rs/crates/lander/src/batch.rs",
+          "let active_snapshot =",
+          "source-mapped-spec"
+        ]
+      ],
+      "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "2e5b627ba67ca1a9cc978de396591d12ca60c1cc1d0308688e91b91e80ca0a08"
+    ]
+  },
+  "required_files": [
+    "Etna/Committee/Examples.lean",
+    "Etna/Committee/Proofs.lean",
+    "Etna/Committee/Schedule.lean",
+    "Etna/Committee/Transition.lean",
+    "Etna/Common/Assumptions.lean",
+    "Etna/Common/Words.lean",
+    "Etna/FI/Examples.lean",
+    "Etna/FI/Model.lean",
+    "Etna/FI/Proofs.lean",
+    "Etna/Integration/Composition.lean",
+    "Etna/Integration/Examples.lean",
+    "Etna/Landing/Examples.lean",
+    "Etna/Landing/Model.lean",
+    "Etna/Landing/Proofs.lean",
+    "Etna/Landing/Statement.lean",
+    "Etna/Refinement/Rust/Committee.lean",
+    "Etna/Refinement/Rust/EtnaConsensusCore.lean",
+    "Etna/Refinement/Rust/Forced.lean",
+    "Etna/Refinement/Rust/provenance.json",
+    "adapters/solidity/EtnaInboxCutsConformance.t.sol",
+    "adapters/solidity/EtnaInboxLeanConformance.t.sol",
+    "corpus/landing.jsonl",
+    "tools.lock.json",
+    "schemas/coverage.schema.json",
+    "schemas/coverage-policy.json",
+    "adapters/solidity/L2FeeVaultLeanConformance.t.sol",
+    "corpus/claim.jsonl"
+  ]
+}

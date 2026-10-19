@@ -1,0 +1,3 @@
+# The #[path] module is pinned production input, not owned by this standalone harness.
+skip_children = true
+edition = "2024"

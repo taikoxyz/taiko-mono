@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "cases": 74,
+  "actual_preimages": 39,
+  "failures": [],
+  "specification": "Lean executable staged model",
+  "bridge": "actual production Inbox/proxy conformance; bytecode refinement pending",
+  "crypto": "cast Keccak oracle; local hash separation required for binding proofs",
+  "observations": "committed business state plus separately recorded tentative effects",
+  "rust_statement_rows": 74,
+  "cuts": {
+    "plans": 4,
+    "intervals": 12,
+    "failures": [],
+    "boundary": "finite actual contract samples; arbitrary-cut theorem is separate; accepting verifier is not guest soundness"
+  },
+  "corpus_sha256": "b16e74836619b6390bffa5c3eb98b90b0d603bc8283116a0cf7f725b9442ac1c",
+  "observations_sha256": "dfb7049b2331495d9f8792564568bcebe3ea5881e4dd87bda6f04585c9496765"
+}
