@@ -240,13 +240,15 @@ async fn forced_invalid_skip_keeps_mempool() -> Result<()> {
         value: U256::from(4242),
         ..Default::default()
     };
-    let mut cases: Vec<(&str, Bytes, bool)> = Vec::new();
+    // Canonical decoding and fee eligibility are independent: the zero-fee transaction is
+    // canonical, but only the other canonical cases require a real singleton skip check.
+    let mut cases: Vec<(&str, Bytes, bool, bool)> = Vec::new();
     let mut tx = base.clone();
     tx.nonce += 10;
-    cases.push(("nonce_too_high", sign_tx(tx)?.encoded_2718().into(), true));
+    cases.push(("nonce_too_high", sign_tx(tx)?.encoded_2718().into(), true, true));
     let mut tx = base.clone();
     tx.value = U256::MAX;
-    cases.push(("insufficient_balance", sign_tx(tx)?.encoded_2718().into(), true));
+    cases.push(("insufficient_balance", sign_tx(tx)?.encoded_2718().into(), true, true));
     cases.push((
         "zero_signature",
         TxEnvelope::Eip1559(base.clone().into_signed(Signature::new(
@@ -257,14 +259,15 @@ async fn forced_invalid_skip_keeps_mempool() -> Result<()> {
         .encoded_2718()
         .into(),
         true,
+        true,
     ));
     let mut tx = base.clone();
     tx.max_fee_per_gas = 0;
     tx.max_priority_fee_per_gas = 0;
-    cases.push(("fee_below_base", sign_tx(tx)?.encoded_2718().into(), true));
+    cases.push(("fee_below_base", sign_tx(tx)?.encoded_2718().into(), true, false));
     let mut tx = base.clone();
     tx.gas_limit = d.params().block_gas_limit + 1;
-    cases.push(("declared_gas_above_block", sign_tx(tx)?.encoded_2718().into(), true));
+    cases.push(("declared_gas_above_block", sign_tx(tx)?.encoded_2718().into(), true, true));
     let blob = alloy::consensus::TxEip4844 {
         chain_id: base.chain_id,
         nonce,
@@ -281,38 +284,40 @@ async fn forced_invalid_skip_keeps_mempool() -> Result<()> {
         "unsupported_blob_envelope",
         TxEnvelope::from(blob.into_signed(sig)).encoded_2718().into(),
         true,
+        true,
     ));
     let mut tx = base.clone();
     tx.to = TxKind::Call(fixture);
     tx.value = U256::ZERO;
     tx.gas_limit = 300_000;
     tx.input = Bytes::copy_from_slice(&keccak256("consumeZkGas()")[..4]);
-    cases.push(("zk_gas_above_block", sign_tx(tx)?.encoded_2718().into(), true));
-    cases.push(("malformed", Bytes::from_static(&[0xff]), false));
+    cases.push(("zk_gas_above_block", sign_tx(tx)?.encoded_2718().into(), true, true));
+    cases.push(("malformed", Bytes::from_static(&[0xff]), false, false));
     let canonical = sign_tx(base.clone())?.encoded_2718();
     let mut trailing = canonical.clone();
     trailing.push(0);
-    cases.push(("trailing", trailing.into(), false));
+    cases.push(("trailing", trailing.into(), false, false));
     cases.push((
         "noncanonical_network_wrapper",
         alloy_rlp::encode(canonical.as_slice()).into(),
         false,
+        false,
     ));
-    cases.push(("empty", Bytes::new(), false));
+    cases.push(("empty", Bytes::new(), false, false));
     // Plant every case, then wait once for the last entry to be anchored and due. Each block
     // consumes exactly the next queue entry, so the cases still run one per block, in order.
     let mut planted = Vec::with_capacity(cases.len());
-    for (name, raw, canonical) in cases {
+    for (name, raw, canonical, requires_singleton) in cases {
         assert_eq!(forced::decode_canonical(&raw).is_some(), canonical, "{name}");
         let e = d.planter().plant_forced_transaction(raw.clone()).await?;
-        planted.push((name, raw, canonical, e));
+        planted.push((name, raw, canonical, requires_singleton, e));
     }
     let (last_block, last_timestamp) = {
-        let last = &planted.last().context("planted cases")?.3;
+        let last = &planted.last().context("planted cases")?.4;
         (last.l1_block, last.timestamp)
     };
     anchor_ready(&d, last_block, last_timestamp + 2).await?;
-    for (name, raw, canonical, e) in planted {
+    for (name, raw, canonical, requires_singleton, e) in planted {
         eprintln!("real EL invalidity case: {name}");
         let pool = pool_signer();
         let pn = l2.get_transaction_count(pool.address()).await?;
@@ -341,25 +346,32 @@ async fn forced_invalid_skip_keeps_mempool() -> Result<()> {
             None
         };
         if canonical {
-            assert!(
-                evidence.iter().any(|b| b.list == singleton && b.count == 0),
-                "{name}: real empty singleton evidence"
+            assert_eq!(
+                evidence.iter().any(|b| b.list == singleton),
+                requires_singleton,
+                "{name}: singleton build presence matches fee eligibility"
             );
+            if requires_singleton {
+                assert!(
+                    evidence.iter().any(|b| b.list == singleton && b.count == 0),
+                    "{name}: real empty singleton evidence"
+                );
+            }
         } else {
             assert!(
                 evidence.iter().all(|b| b.list.is_none()),
                 "{name}: malformed bytes never reach an explicit EL build"
             );
         }
-        // Cold canonical replay needs retained parent state. Emulate the pinned getPayload
-        // error while unavailable, then release the same real engine and verify recovery.
+        // Only fee-eligible canonical skips need retained parent state during cold replay.
+        // Emulate the pinned getPayload error, then release the real engine and verify recovery.
         let (_cold_dir, cold_store) = saved_store(&parent)?;
         let engine = ObservedEngine::new(d.rpc_engine(0)?);
         let attempts = engine.attempts.clone();
         let unavailable = engine.unavailable.clone();
         unavailable.store(true, Ordering::SeqCst);
         let mut cold = d.detached_app(0, cold_store.clone(), engine)?;
-        if canonical {
+        if requires_singleton {
             let request = finalize_request(&env, time);
             use tracing::instrument::WithSubscriber;
             let logs = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
@@ -411,8 +423,12 @@ async fn forced_invalid_skip_keeps_mempool() -> Result<()> {
         }
         cold.handle(finalize_request(&env, time)).await?;
         cold.handle(Request::Commit).await?;
-        if !canonical {
-            assert_eq!(attempts.load(Ordering::SeqCst), 0, "invalid bytes need no singleton");
+        if !requires_singleton {
+            assert_eq!(
+                attempts.load(Ordering::SeqCst),
+                0,
+                "{name}: malformed or low-fee bytes need no singleton"
+            );
         }
         assert_eq!(cold.state(), app.state());
         assert_eq!(
