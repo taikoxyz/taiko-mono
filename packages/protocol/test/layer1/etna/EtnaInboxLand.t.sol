@@ -100,21 +100,48 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
 
         // At height 10 the next committee can already be pending, but the active set is old.
         IEtnaInbox.LandInput memory pending = _batch(EPOCH_LEN_L2);
+        bytes32 activeStatement =
+            _statement(EPOCH_LEN_L2 - 1, etnaInbox.lastCheckpoint().blockHash, pending);
         pending.activeCommitteeSnapshot = exit;
-        _expectLandRevert(pending, EtnaInbox.InvalidCommitteeSnapshot.selector);
+        // Bind the verifier fixture to the outgoing set's statement. The contract must forward
+        // the mutated cutoff for proof rejection; this does not implement guest provenance.
+        _rejectStatementAndAssertRollback(pending, activeStatement);
+        _assertWithdrawalBlocked();
         _land(_batch(EPOCH_LEN_L2));
         _assertWithdrawalBlocked();
 
         // Height 11 is the first block certified by the new active set.
         IEtnaInbox.LandInput memory switched = _batch(EPOCH_LEN_L2 + 1);
         switched.activeCommitteeSnapshot = exit;
-        _land(switched);
+        _landExpectingConfig(switched, COMMITTEE_CONFIG_HASH);
         assertEq(etnaInbox.activeCommitteeSnapshot(), exit);
         assertEq(_loadSlot(ACTIVE_COMMITTEE_SNAPSHOT_SLOT), exit);
         vm.prank(Alice);
         registry.withdraw(0, Alice);
         assertTrue(registry.isWithdrawn(0));
         assertEq(taikoToken.balanceOf(Alice), MIN_STAKE);
+    }
+
+    /// @dev The contract defers same-numeric-epoch committee provenance to the bound proof.
+    /// This verifier fixture exercises landing and withdrawal gates, not real guest semantics.
+    function test_land_ProofAuthorizedSnapshotAdvancesWithinTheSameNumericEpoch() external {
+        uint64 exit = _matureExit();
+        _land(_batch(EPOCH_LEN_L2 + 1));
+        _assertWithdrawalBlocked();
+
+        IEtnaInbox.LandInput memory input = _batch(EPOCH_LEN_L2 + 2);
+        input.activeCommitteeSnapshot = exit;
+        _landExpectingConfig(input, COMMITTEE_CONFIG_HASH);
+
+        _assertLastCheckpoint(EPOCH_LEN_L2 + 2, input.lastBlockHash);
+        assertEq(etnaInbox.activeCommitteeSnapshot(), exit);
+        assertEq(_loadSlot(ACTIVE_COMMITTEE_SNAPSHOT_SLOT), exit);
+        _assertSignalCheckpoint(input);
+        vm.prank(Alice);
+        registry.withdraw(0, Alice);
+        assertTrue(registry.isWithdrawn(0));
+        assertEq(taikoToken.balanceOf(Alice), MIN_STAKE);
+        assertEq(taikoToken.balanceOf(address(registry)), 0);
     }
 
     function test_withdraw_CutoffBeforeExitRemainsLockedUntilEquality() external {

@@ -127,7 +127,8 @@ interface IEtnaInbox {
         uint256 baseFeeAmount;
         /// @notice The L1 snapshot selecting the committee governing `lastHeight`.
         /// @dev Proof-bound to the active committee, not a pending validator update or the
-        /// terminal block's current anchor. Epoch zero uses the genesis cutoff.
+        /// terminal block's current anchor. The normal genesis-only schedule uses the genesis
+        /// cutoff for epoch zero and the committed derivation-parent anchor thereafter.
         uint64 activeCommitteeSnapshot;
     }
 
@@ -293,6 +294,12 @@ interface IEtnaInbox {
     /// At nonzero checkpoint heights also authenticate the preceding EL header for the base-fee
     /// grandparent timestamp. Current/next starting epochs differ by at most one; checked
     /// history bounds require at most epochLenL2 + 2 links, without replaying old transactions.
+    /// Planned recovery at c=S(t) must bootstrap outgoing t-1 and authenticated already-derived
+    /// pending t from the original D(t), re-emitting that update at S(t)+1=H(t)-1. H+2 timing then
+    /// leaves the outgoing set signing H(t), with the incoming set from H(t)+1. Independent batch
+    /// cuts ending at either height must prove the actual signer and its cutoff. This is a future
+    /// recovery obligation, not an implemented recovery path or a new committee derivation.
+    ///
     /// A later authenticated proving root whose number covers the snapshot may prove the last
     /// immutable registry checkpoint at/before it, the successor after it (when present), array
     /// length and complete entries/root. Recompute all parent/current/pending sets. In-batch
@@ -335,7 +342,8 @@ interface IEtnaInbox {
     /// semantic failures after due. Inclusion may share a block with later mempool transactions
     /// and may revert in EVM execution; receipt success is not required. The candidate still
     /// requires normal header and EL payload validation, including
-    /// block.timestamp - A.timestamp <= maxAnchorAge. An allowed skip rebuilds an ordinary mempool
+    /// block.timestamp - A.timestamp <= maxAnchorAge, using the fixed candidate timestamp rather
+    /// than a moving local finalized-head freshness limit. An allowed skip rebuilds an ordinary mempool
     /// block with its full budget when the combined build stopped at the forced transaction.
     ///
     /// Before due, a proposer may attempt bounded opportunistic preimage log reads to preserve
@@ -359,15 +367,19 @@ interface IEtnaInbox {
     /// sum(header.baseFeePerGas * header.gasUsed). Inbox/vault do not inspect every L2 header;
     /// economic correctness relies on the selected verifier and guest.
     /// The receipt binds the lander's l2RewardRecipient and this exact amount. No expiry-derived
-    /// deletion exists, but BFT time suppression can still delay inclusion and a quorum can stop
-    /// settlement; these rules do not establish a wall-clock deadline.
+    /// deletion exists. Timing claims require less than one-third Byzantine voting power,
+    /// reasonable clocks and continued L1/L2/landing progress; these rules do not establish a
+    /// wall-clock deadline for an arbitrary queued entry. The due obligation applies to cursor c.
     ///
-    /// Prove activeCommitteeSnapshot is the authenticated derivation snapshot of the committee
-    /// governing lastHeight: genesisCutoff for epoch zero, otherwise the anchor of D(t)=H(t)-3.
-    /// At S(t) and S(t)+1 the outgoing committee still governs; only H(t) activates the new one.
+    /// Prove activeCommitteeSnapshot is the authenticated cutoff of the committee actually
+    /// signing lastHeight. Under the normal genesis-only schedule this is genesisCutoff for
+    /// epoch zero, otherwise the anchor of D(t)=H(t)-3. At S(t) and S(t)+1 the outgoing committee
+    /// still governs; only H(t) activates the new one. A future authenticated recovery schedule
+    /// may replace that provenance; recovery and the real guest are not implemented here.
     /// Neither a pending committee, the terminal anchor nor the reference block substitutes for
-    /// this snapshot. Landing records it for stake withdrawals; it must never regress or change
-    /// within one active epoch.
+    /// the actual signing committee's cutoff. Landing records it for stake withdrawals, enforces
+    /// no regression and the L1 reference upper bound, and relies on the proof for exact
+    /// provenance even when the numeric epoch is unchanged.
     ///
     /// Prove contiguous execution from the parent hash to the terminal hash/state root, every
     /// anchor and actual proving L1 root on the header chain ending at the reference hash, and
