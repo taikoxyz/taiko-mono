@@ -87,6 +87,21 @@ pub struct TrustSnapshot {
 }
 
 impl TrustSnapshot {
+    /// Latches the first fatal reason and revokes this snapshot. Callers hold the state mutex.
+    /// Returns false when an earlier fatal failure already revoked authorization.
+    fn halt(&mut self, reason: String) -> bool {
+        if self.phase == TrustPhase::Halted {
+            return false;
+        }
+        self.trust_ready = false;
+        self.syncing = true;
+        self.phase = TrustPhase::Halted;
+        self.trusted_consensus_head = None;
+        self.reason = Some(bounded_reason(reason));
+        self.publish_metrics();
+        true
+    }
+
     /// Reports only bounded numeric readiness metadata; detailed failure reasons stay in status.
     fn publish_metrics(&self) {
         use crate::metrics::{AbciMetrics, set_u64};
@@ -228,15 +243,15 @@ impl TrustHandle {
     /// Permanently revokes authorization before a fatal error, shutdown or worker drop.
     pub(crate) fn revoke(&self, reason: impl Into<String>) {
         let mut state = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
-        if state.snapshot.phase == TrustPhase::Halted {
-            return;
-        }
-        state.snapshot.trust_ready = false;
-        state.snapshot.syncing = true;
-        state.snapshot.phase = TrustPhase::Halted;
-        state.snapshot.trusted_consensus_head = None;
-        state.snapshot.reason = Some(bounded_reason(reason.into()));
-        state.snapshot.publish_metrics();
+        state.snapshot.halt(reason.into());
+    }
+
+    /// Atomically checks the verification session and latches its fatal failure under the same
+    /// mutex. A reconnect cannot interleave between authorization to revoke and the revocation.
+    /// Returns true only when this error actually halted the current session.
+    fn revoke_if_session(&self, session: &str, reason: String) -> bool {
+        let mut state = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
+        state.snapshot.session_id == session && state.snapshot.halt(reason)
     }
 
     /// Remembers authenticated evidence without allowing reconnects to lower an unreached
@@ -315,12 +330,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if matches!(snapshot.phase, TrustPhase::Ready | TrustPhase::Halted) {
             return Ok(());
         }
-        match self.try_trust(&mut snapshot).await {
+        match self.try_trust(&mut snapshot).await.map_err(classify_trust_error) {
             Ok(()) => self.trust.publish(snapshot),
             Err(error @ AbciError::SafetyHalt(_)) => {
                 // A stale result cannot halt or authorize a newer session.
-                if self.trust.snapshot().session_id == snapshot.session_id {
-                    self.trust.revoke(error.to_string());
+                if self.trust.revoke_if_session(&snapshot.session_id, error.to_string()) {
                     return Err(error);
                 }
             }
@@ -548,4 +562,63 @@ impl Drop for TrustLifetime {
 /// Bounds status/control diagnostics so external RPC error text cannot exceed the wire budget.
 fn bounded_reason(reason: String) -> String {
     reason.chars().take(512).collect()
+}
+
+/// Adapter integrity failures must have the same fatal boundary as successful-but-invalid
+/// proof/header values. Transport, missing history and unsupported-header capabilities remain
+/// retryable: lack of data cannot prove a contradiction. Keep this local to startup trust.
+fn classify_trust_error(error: AbciError) -> AbciError {
+    use crate::{engine::EngineError, l1::L1Error};
+    let integrity = matches!(
+        &error,
+        AbciError::L1(
+            L1Error::MalformedResponse(_) |
+                L1Error::MalformedHeader { .. } |
+                L1Error::HeaderHashMismatch { .. } |
+                L1Error::HeaderNumberMismatch { .. } |
+                L1Error::ProofAddressMismatch { .. } |
+                L1Error::ProofSlotMismatch { .. }
+        ) | AbciError::Engine(
+            EngineError::HeaderHashMismatch { .. } |
+                EngineError::HeaderNumberMismatch { .. } |
+                EngineError::BadReply(_)
+        )
+    );
+    if integrity {
+        AbciError::SafetyHalt(format!("checkpoint source integrity failure: {error}"))
+    } else {
+        error
+    }
+}
+
+#[cfg(test)]
+mod session_tests {
+    use super::*;
+
+    #[test]
+    fn delayed_fatal_result_cannot_revoke_rearmed_session() {
+        let trust = TrustHandle::new(None).unwrap();
+        let old_session = trust.snapshot().session_id;
+        let old_worker = trust.clone();
+        let (error_ready, error_captured) = std::sync::mpsc::channel();
+        let (apply_error, error_allowed) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            // The old worker already owns its failed verification result. Deliberately finish
+            // BeginSession before allowing that result to reach conditional revocation.
+            error_ready.send(()).unwrap();
+            error_allowed.recv().unwrap();
+            old_worker.revoke_if_session(&old_session, "old fatal proof result".into())
+        });
+        error_captured.recv().unwrap();
+        let current = trust.begin_session();
+        apply_error.send(()).unwrap();
+        assert!(!worker.join().unwrap(), "stale failure must not report a current fatal halt");
+        assert_eq!(trust.snapshot().session_id, current.session_id);
+        assert_eq!(trust.snapshot().phase, TrustPhase::Acquiring);
+        assert!(trust.snapshot().reason.is_none());
+        assert!(trust.revoke_if_session(&current.session_id, "current fatal proof result".into()));
+        assert!(!trust.revoke_if_session(&current.session_id, "later fatal result".into()));
+        assert_eq!(trust.snapshot().reason.as_deref(), Some("current fatal proof result"));
+        assert_eq!(trust.begin_session().phase, TrustPhase::Halted);
+    }
 }

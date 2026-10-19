@@ -58,6 +58,8 @@ pub(crate) struct MockL1State {
     /// Canonical raw headers by number (`header` and `canonical_hash` fail with
     /// `BlockNotFound` for others).
     pub(crate) headers: BTreeMap<u64, RawL1Header>,
+    /// Typed adapter failure specifically returned by the raw-header reader.
+    pub(crate) header_fail: Option<L1Error>,
     /// Scripted `canonical_hash` answers, popped one per call before falling back to `headers`.
     pub(crate) canonical_script: VecDeque<Result<B256, L1Error>>,
     /// L1 state per block number, serving `account_witness` and `storage_at`.
@@ -207,6 +209,9 @@ impl L1Source for MockL1 {
         let _call = InFlight::new(self);
         self.pause().await;
         let state = self.record(L1Call::Header(number))?;
+        if let Some(error) = &state.header_fail {
+            return Err(error.clone());
+        }
         state
             .headers
             .get(&number)
