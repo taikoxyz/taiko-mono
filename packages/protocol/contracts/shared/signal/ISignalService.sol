@@ -25,24 +25,18 @@ interface ISignalService is ICheckpointStore {
         /// @notice This hop's destination chain ID. If there is a next hop, this ID is the next
         /// hop's source chain ID.
         uint64 chainId;
-        /// @notice The ID of a source chain block whose state root has been synced to the hop's
-        /// destination chain.
-        /// Note that this block ID must be greater than or equal to the block ID where the signal
-        /// was sent on the source chain.
+        /// @notice Source block number for checkpoint proofs, or L2 timestamp for Etna L2 proofs.
+        /// @dev Checkpoint proofs use a block at or after the signal was sent. Etna L2 proofs use
+        /// the timestamp of the L2 block that recorded the L1 anchor state root.
         uint64 blockId;
-        /// @notice The state root or signal root of the source chain at the above blockId. This
-        /// value has been synced to the destination chain.
-        /// @dev To get both the blockId and the rootHash, apps should subscribe to the
-        /// ChainDataSynced event or query `topBlockId` first using the source chain's ID and
-        /// LibStrings.H_STATE_ROOT to get the most recent block ID synced, then call
-        /// `getSyncedChainData` to read the synchronized data.
+        /// @notice The source-chain state root authenticated by the checkpoint or L2 oracle.
+        /// @dev Must match the root resolved for blockId.
         bytes32 rootHash;
         /// @notice Options to cache either the state roots or signal roots of middle-hops to the
         /// current chain.
         /// @dev DEPRECATED - this value will be ignored
         CacheOption cacheOption;
-        /// @notice The signal service's account proof. If this value is empty, then `rootHash` will
-        /// be used as the signal root, otherwise, `rootHash` will be used as the state root.
+        /// @notice The remote signal service's nonempty account proof against rootHash.
         bytes[] accountProof;
         /// @notice The signal service's storage proof.
         bytes[] storageProof;
