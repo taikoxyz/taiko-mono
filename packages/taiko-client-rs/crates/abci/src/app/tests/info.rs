@@ -358,6 +358,12 @@ async fn status_query_reports_the_committed_head() {
             anchor: fx.genesis.l1_0,
             halt_reason: None,
             superseded: false,
+            trust_ready: false,
+            syncing: true,
+            trust_phase: crate::app::trust::TrustPhase::Acquiring,
+            trust_target: None,
+            trusted_consensus_head: None,
+            trust_reason: None,
         }
     );
     assert_eq!(app.status(), Some(status));

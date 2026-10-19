@@ -77,7 +77,7 @@ async fn finalize_after_process_uses_the_cached_verdict() {
     let checkpoint = fx.inbox_with(fx.genesis.genesis_height + 3).last_checkpoint_hash;
     assert_eq!(
         engine_calls_since(&app, before),
-        [EngineCall::Forkchoice { head: hash, safe: hash, finalized: checkpoint }],
+        [EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized: checkpoint }],
         "the cached verdict was executed already: no second newPayload"
     );
     assert!(app.l1().calls().is_empty(), "a cached verdict needs no L1 call");
@@ -124,7 +124,7 @@ async fn the_verdict_cache_is_bounded_and_an_evicted_block_still_finalizes() {
         engine_calls_since(&app, before),
         [
             EngineCall::NewPayload(hash),
-            EngineCall::Forkchoice { head: hash, safe: hash, finalized: checkpoint },
+            EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized: checkpoint },
         ],
         "re-validated and executed, as on a cold start"
     );
@@ -153,7 +153,7 @@ async fn finalize_without_process_revalidates_and_executes() {
         engine_calls_since(&validator, before),
         [
             EngineCall::NewPayload(hash),
-            EngineCall::Forkchoice { head: hash, safe: hash, finalized: checkpoint },
+            EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized: checkpoint },
         ]
     );
     assert_eq!(
@@ -313,7 +313,7 @@ async fn forkchoice_finalizes_the_anchored_checkpoint() {
     let before = app.engine().calls().len();
     let env = step(&mut app).await;
     let hash = env.block.header.hash_slow();
-    let fcu = EngineCall::Forkchoice { head: hash, safe: hash, finalized: fx.genesis_hash() };
+    let fcu = EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized: fx.genesis_hash() };
     assert_eq!(engine_calls_since(&app, before).last(), Some(&fcu));
 
     // An Inbox with no checkpoint hash keeps `finalized` at zero.
@@ -323,7 +323,7 @@ async fn forkchoice_finalizes_the_anchored_checkpoint() {
     let before = app.engine().calls().len();
     let env = step(&mut app).await;
     let hash = env.block.header.hash_slow();
-    let fcu = EngineCall::Forkchoice { head: hash, safe: hash, finalized: B256::ZERO };
+    let fcu = EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized: B256::ZERO };
     assert_eq!(engine_calls_since(&app, before).last(), Some(&fcu));
 }
 
@@ -439,7 +439,7 @@ async fn transient_el_error_replies_are_retried_until_the_block_finalizes() {
     // after the failed forkchoice updates.
     assert_eq!(start.elapsed(), Duration::from_millis(100 + 200 + 400 + 800));
     let hash = env.block.header.hash_slow();
-    let fcu = EngineCall::Forkchoice { head: hash, safe: hash, finalized: fx.genesis_hash() };
+    let fcu = EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized: fx.genesis_hash() };
     assert_eq!(
         engine_calls_since(&app, before),
         [
@@ -522,7 +522,7 @@ async fn forkchoice_syncing_after_a_cached_verdict_resends_the_payload() {
         .await
         .expect("the re-sent payload lets the forkchoice through")
         .expect("finalizes once the EL has the block");
-    let fcu = EngineCall::Forkchoice { head: hash, safe: hash, finalized: fx.genesis_hash() };
+    let fcu = EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized: fx.genesis_hash() };
     assert_eq!(
         engine_calls_since(&app, before),
         [fcu.clone(), EngineCall::NewPayload(hash), fcu],
@@ -882,7 +882,7 @@ async fn a_syncing_payload_is_followed_by_a_forkchoice_nudge() {
     let env = propose(&mut app).await;
     let hash = env.block.header.hash_slow();
     let finalized = app.state().unwrap().anchor.inbox.last_checkpoint_hash;
-    let fcu = EngineCall::Forkchoice { head: hash, safe: hash, finalized };
+    let fcu = EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized };
     let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
 
     // An EL without the block (this node built it, so drop it from the mock EL's blocks):
@@ -1628,7 +1628,7 @@ async fn hot_canonical_skip_matches_cold_replay_and_persists_after_commit() {
         engine_calls_since(&hot, before),
         [EngineCall::Forkchoice {
             head: hash,
-            safe: hash,
+            safe: B256::ZERO,
             finalized: fx.inbox.last_checkpoint_hash,
         }],
         "hot Finalize must use ProcessProposal's cached consumption without rebuilding"

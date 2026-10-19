@@ -44,6 +44,10 @@ use crate::{
     metrics::AbciMetrics,
 };
 
+/// Independent private Unix session control.
+#[cfg(unix)]
+mod trust_control;
+
 /// The process exit code after a safety halt.
 pub const SAFETY_HALT_EXIT_CODE: i32 = 2;
 
@@ -144,6 +148,16 @@ impl<F: Fn(&str) + Send + 'static> HaltHook for F {
 
 /// Something that answers ABCI requests one at a time: the [`App`], or a test double.
 pub trait AbciHandler: Send + 'static {
+    /// Optional checkpoint control handle/path; test handlers need not expose trust.
+    fn checkpoint_control(&self) -> Option<(crate::app::trust::TrustHandle, PathBuf)> {
+        None
+    }
+
+    /// Performs one bounded local checkpoint retry between consensus requests.
+    fn retry_checkpoint(&mut self) -> impl Future<Output = Result<(), AbciError>> + Send {
+        async { Ok(()) }
+    }
+
     /// Answers `req`.
     fn handle_request(
         &mut self,
@@ -152,6 +166,16 @@ pub trait AbciHandler: Send + 'static {
 }
 
 impl<L: L1Source, E: Engine> AbciHandler for App<L, E> {
+    /// Shares the private control capability without sharing mutable consensus state.
+    fn checkpoint_control(&self) -> Option<(crate::app::trust::TrustHandle, PathBuf)> {
+        Some((self.trust_handle(), self.trust_control_path()))
+    }
+
+    /// Retries authentication even when a closed signer cannot produce any new blocks.
+    fn retry_checkpoint(&mut self) -> impl Future<Output = Result<(), AbciError>> + Send {
+        self.refresh_trust()
+    }
+
     /// Forwards to [`App::handle`].
     fn handle_request(
         &mut self,
@@ -231,7 +255,30 @@ pub async fn serve_with<H: AbciHandler, K: HaltHook>(
     if let ListenAddr::Unix(path) = &listen_addr {
         remove_stale_socket(addr, path).await?;
     }
+    let control = handler.checkpoint_control();
+    #[cfg(unix)]
+    let control_task = if let Some((trust, path)) = &control {
+        let listener = trust_control::bind(path).await?;
+        let trust = trust.clone();
+        Some(tokio::spawn(async move {
+            let result = trust_control::run(listener, trust.clone()).await;
+            trust.revoke("checkpoint control listener stopped");
+            result
+        }))
+    } else {
+        None
+    };
+    #[cfg(not(unix))]
+    if control.is_some() {
+        return Err(ServerError::WorkerStopped("checkpoint control requires Unix sockets".into()));
+    }
     let (service, worker) = AppService::spawn(handler, halt);
+    let mut tasks = vec![worker.abort_handle()];
+    #[cfg(unix)]
+    if let Some(task) = &control_task {
+        tasks.push(task.abort_handle());
+    }
+    let _lifecycle = ServerTasks { tasks, trust: control.map(|(trust, _)| trust) };
     let (consensus, mempool, snapshot, info) = split::service(service, SPLIT_BOUND);
     let server = Server::builder()
         .consensus(consensus)
@@ -249,7 +296,19 @@ pub async fn serve_with<H: AbciHandler, K: HaltHook>(
             ListenAddr::Unix(_) => Err("unix sockets need a unix platform".into()),
         }
     };
+    #[cfg(unix)]
+    let control_watch = async move {
+        match control_task {
+            Some(task) => {
+                let _ = task.await;
+            }
+            None => std::future::pending::<()>().await,
+        }
+    };
+    #[cfg(not(unix))]
+    let control_watch = std::future::pending::<()>();
     tokio::select! {
+        _ = control_watch => Err(ServerError::WorkerStopped("checkpoint control listener stopped".into())),
         result = listen => Err(ServerError::Listen {
             addr: addr.to_string(),
             source: result.err().unwrap_or_else(|| "the listener returned".into()),
@@ -257,6 +316,26 @@ pub async fn serve_with<H: AbciHandler, K: HaltHook>(
         stopped = worker => Err(ServerError::WorkerStopped(
             stopped.unwrap_or_else(|e| format!("the worker task failed: {e}")),
         )),
+    }
+}
+
+/// Cancels child tasks and revokes authorization when the server future is dropped.
+struct ServerTasks {
+    /// Children owned exclusively by this server invocation.
+    tasks: Vec<tokio::task::AbortHandle>,
+    /// Local readiness shared with outstanding signer connections.
+    trust: Option<crate::app::trust::TrustHandle>,
+}
+
+impl Drop for ServerTasks {
+    /// Revoke synchronously before cancellation can leave any detached worker running.
+    fn drop(&mut self) {
+        if let Some(trust) = &self.trust {
+            trust.revoke("ABCI server stopped");
+        }
+        for task in &self.tasks {
+            task.abort();
+        }
     }
 }
 
@@ -322,7 +401,32 @@ async fn run_worker<H: AbciHandler, K: HaltHook>(
     mut queue: mpsc::UnboundedReceiver<Job>,
     halt: K,
 ) -> String {
-    while let Some((req, reply)) = queue.recv().await {
+    let control = handler.checkpoint_control().map(|(trust, _)| trust);
+    let mut retry = tokio::time::interval(std::time::Duration::from_secs(1));
+    retry.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    loop {
+        let job = tokio::select! {
+            job = queue.recv() => job,
+            _ = retry.tick(), if control.is_some() => {
+                if let Err(error) = handler.retry_checkpoint().await {
+                    if let Some(trust) = &control { trust.revoke(error.to_string()); }
+                    let message = format!("checkpoint trust failed: {error}");
+                    halt.halt(&message);
+                    return message;
+                }
+                continue;
+            }
+            _ = async { if let Some(trust) = &control { trust.notified().await; } }, if control.is_some() => {
+                if let Err(error) = handler.retry_checkpoint().await {
+                    if let Some(trust) = &control { trust.revoke(error.to_string()); }
+                    let message = format!("checkpoint trust failed: {error}");
+                    halt.halt(&message);
+                    return message;
+                }
+                continue;
+            }
+        };
+        let Some((req, reply)) = job else { break };
         let method = method_name(&req);
         // A dropped `reply` means the connection is gone: there is nobody to answer.
         match handler.handle_request(req).await {

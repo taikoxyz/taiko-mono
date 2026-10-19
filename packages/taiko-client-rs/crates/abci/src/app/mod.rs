@@ -52,6 +52,8 @@ mod preparation_cache;
 mod prepare;
 /// The `ProcessProposal` handler.
 mod process;
+/// Node-local startup checkpoint authentication and signing readiness.
+pub mod trust;
 /// Deterministic block validation shared by `ProcessProposal` and `FinalizeBlock`.
 mod validate;
 
@@ -68,7 +70,7 @@ pub const APP_NAME: &str = "taiko-abci";
 
 /// The ABCI application version reported in `Info.app_version`; the genesis
 /// `consensus_params.version.app` carries the same value.
-pub const APP_VERSION: u64 = 3;
+pub const APP_VERSION: u64 = 4;
 
 /// Interval between EL polls while waiting for an EL sync to a trusted head.
 pub const ELSYNC_POLL: Duration = Duration::from_secs(1);
@@ -142,11 +144,26 @@ pub struct Status {
     pub halt_reason: Option<String>,
     /// Whether L1 records a larger recovery generation than the running chain's.
     pub superseded: bool,
+    /// True only after checkpoint trust has been established for this session.
+    pub trust_ready: bool,
+    /// Whether the node is withholding signing pending checkpoint authentication.
+    pub syncing: bool,
+    /// Node-local checkpoint phase, separate from the proposal liveness halt.
+    pub trust_phase: trust::TrustPhase,
+    /// Own-finalized checkpoint pinned for this startup attempt.
+    pub trust_target: Option<trust::CheckpointTarget>,
+    /// Durable trusted head; absent while closed.
+    pub trusted_consensus_head: Option<trust::BlockRef>,
+    /// Local checkpoint acquisition or ancestry retry reason.
+    pub trust_reason: Option<String>,
 }
 
 /// Why an ABCI request failed. Every variant is fatal to the request; see the module docs.
 #[derive(Debug, thiserror::Error)]
 pub enum AbciError {
+    /// Local checkpoint control or acquisition failed without authenticating a contradiction.
+    #[error("checkpoint trust: {0}")]
+    TrustControl(String),
     /// A committed block or the EL contradicts the app's verified state: the process must exit
     /// and an operator must investigate.
     #[error("safety halt: {0}")]
@@ -307,11 +324,14 @@ pub struct App<L: L1Source, E: Engine> {
     /// Whether L1 records a larger recovery generation than the running chain's.
     superseded: bool,
     /// Whether this process already made sure the EL serves the committed head: set by the
-    /// first successful `Info` reconcile (CometBFT's handshake) or a successful `InitChain`,
-    /// never cleared, so a CometBFT restart under a running app is not re-checked (see
-    /// [`App::info`]). Later `Info` calls (CometBFT also sends one per RPC `/abci_info`) then
-    /// answer from the committed state without EL I/O.
+    /// first successful `Info` reconcile or successful `InitChain`. Later ordinary Info calls
+    /// answer without EL I/O. Independent signer sessions separately recheck the durable head
+    /// and ancestry through the checkpoint trust worker.
     el_reconciled: bool,
+    /// Process-local trust and session state, never serialized into AppState.
+    trust: trust::TrustHandle,
+    /// Revokes shared authorization on worker destruction, including panic/cancellation.
+    _trust_lifetime: trust::TrustLifetime,
 }
 
 impl<L: L1Source, E: Engine> App<L, E> {
@@ -339,6 +359,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             check_stored_state(state, &params)?;
         }
         let committee_cache = load_cached_committee(&store, state.as_ref(), &params);
+        let trust = trust::TrustHandle::new(state.as_ref())?;
         let app = Self {
             l1: Arc::new(l1),
             engine,
@@ -356,6 +377,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
             halt: None,
             superseded: false,
             el_reconciled: false,
+            _trust_lifetime: trust::TrustLifetime(trust.clone()),
+            trust,
         };
         app.publish_state_metrics();
         Ok(app)
@@ -385,6 +408,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     pub fn status(&self) -> Option<Status> {
         let state = self.state.as_ref()?;
         let schedule = &state.schedule();
+        let trust = self.trust.snapshot();
         Some(Status {
             head: state.last_height,
             epoch: schedule.epoch_of(state.last_height.max(schedule.h0())),
@@ -393,6 +417,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
             anchor: state.anchor.number,
             halt_reason: self.halt.clone(),
             superseded: self.superseded,
+            trust_ready: trust.trust_ready,
+            syncing: trust.syncing,
+            trust_phase: trust.phase,
+            trust_target: trust.target,
+            trusted_consensus_head: trust.trusted_consensus_head,
+            trust_reason: trust.reason,
         })
     }
 
@@ -402,6 +432,21 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// extensions are empty and accepted (disabled), and the snapshot methods answer empty
     /// defaults (state sync is disabled).
     pub async fn handle(&mut self, req: Request) -> Result<Response, AbciError> {
+        let result = self.dispatch(req).await;
+        if let Err(error) = &result {
+            if matches!(error, AbciError::SafetyHalt(_) | AbciError::Store(_)) {
+                self.trust.revoke(error.to_string());
+            } else {
+                // Network/initialization failures close authorization but must allow a later
+                // successful handshake to recover without requiring a signed block.
+                self.trust.begin_session();
+            }
+        }
+        result
+    }
+
+    /// Dispatches sequential consensus requests; the outer handler revokes trust on failure.
+    async fn dispatch(&mut self, req: Request) -> Result<Response, AbciError> {
         Ok(match req {
             Request::Echo(r) => Response::Echo(response::Echo { message: r.message }),
             Request::Flush => Response::Flush,
@@ -446,6 +491,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
         if matches!(rejection, Rejection::Superseded { .. }) {
             self.superseded = true;
+            self.trust.revoke("authenticated higher recovery generation");
         }
         if matches!(rejection, Rejection::EmptyProposal) && self.halt.is_some() {
             return;

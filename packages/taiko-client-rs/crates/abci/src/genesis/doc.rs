@@ -270,7 +270,7 @@ mod tests {
                         "max_bytes": "1048576"
                     },
                     "validator": { "pub_key_types": ["ed25519"] },
-                    "version": { "app": "3" },
+                    "version": { "app": "4" },
                     "abci": { "vote_extensions_enable_height": "0" },
                     "authority": { "authority": "" }
                 },

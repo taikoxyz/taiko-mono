@@ -89,6 +89,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             .collect::<Result<Vec<_>, _>>()?;
 
         let hash = next.parent.hash;
+        self.check_trust_candidate(height, hash)?;
         let finalized = next.anchor.inbox.last_checkpoint_hash;
         self.settle(height, &validated, finalized).await?;
         self.decided_live = !cold;
@@ -141,12 +142,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
         self.clear_halt();
         self.publish_state_metrics();
+        self.trust.committed(self.state.as_ref().expect("committed state"));
         Ok(response::Commit { data: Default::default(), retain_height: Height::from(0u32) })
     }
 
     /// Makes the EL execute the decided block of `v` at `height` (unless `v.executed`: the
-    /// `ProcessProposal` verdict already did) and adopt it as `head = safe =` the block with
-    /// `finalized`, for as long as it takes: `FinalizeBlock` must not answer before the EL holds
+    /// `ProcessProposal` verdict already did) and adopt it as head with the historical anchor's
+    /// `finalized` fence. Safe equals head only for a ready trust session, otherwise unknown.
+    /// It retries for as long as it takes: `FinalizeBlock` must not answer before the EL holds
     /// the block.
     ///
     /// Each call runs within the engine deadline ([`App::el_call`]). `SYNCING`/`ACCEPTED`, a
@@ -156,7 +159,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// hold the block (e.g. it restarted since executing it), so the payload is re-sent before
     /// the next forkchoice attempt. A payload answered `SYNCING` means the EL lacks the block's
     /// ancestry (e.g. it lost its tail), which it only backfills once a forkchoice update points
-    /// it at a head, so the block is sent as `head = safe` right away (with `finalized`) before
+    /// it at a head, so the block is sent as head right away (with trust-aware safe and the
+    /// historical `finalized` fence) before
     /// the payload is retried; a `VALID` answer to that nudge settles the block, and a nudge that
     /// fails (a retryable error, its deadline) is logged with its own error. `INVALID` and
     /// every other engine error (an Engine API error code, a malformed call, a reply of the
@@ -169,7 +173,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
             let (method, reason) = if executed {
                 let method = FCU;
                 match self
-                    .el_call(height, method, self.engine.forkchoice(hash, hash, finalized))
+                    .el_call(
+                        height,
+                        method,
+                        self.engine.forkchoice(hash, self.trusted_safe(hash), finalized),
+                    )
                     .await?
                 {
                     Settled::Valid => return Ok(()),
@@ -187,7 +195,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
                         continue;
                     }
                     Settled::Syncing => {
-                        let nudge = self.engine.forkchoice(hash, hash, finalized);
+                        let nudge =
+                            self.engine.forkchoice(hash, self.trusted_safe(hash), finalized);
                         let reason = match self.el_call(height, FCU, nudge).await? {
                             Settled::Valid => return Ok(()),
                             Settled::Syncing => {
@@ -205,6 +214,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
             };
             backoff.wait(method, &reason).await;
         }
+    }
+
+    /// Closed startup sessions never label an untrusted candidate safe. Zero means unknown;
+    /// the historical anchor-derived finalized ancestry fence is passed independently.
+    fn trusted_safe(&self, hash: B256) -> B256 {
+        if self.trust.snapshot().trust_ready { hash } else { B256::ZERO }
     }
 
     /// Confirms, for the decided block at `height` this node never judged, that its anchor

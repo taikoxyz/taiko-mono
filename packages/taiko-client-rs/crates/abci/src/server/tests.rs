@@ -396,6 +396,10 @@ async fn safety_halt_answers_runs_the_halt_hook_and_stops_the_worker() {
     )
     .unwrap();
 
+    // Keep the independent startup proof retry pending so this test specifically exercises
+    // Info's existing EL-conflict path, rather than the background trust check racing it.
+    app.l1().state().proof_fail =
+        Some(crate::l1::L1Error::Rpc("proof temporarily unavailable".into()));
     let (hook, mut halts) = recording_hook();
     let (server, mut stream) = start(app, hook).await;
     let mut buf = Vec::new();

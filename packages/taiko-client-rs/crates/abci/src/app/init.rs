@@ -67,6 +67,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             self.publish_state_metrics();
         }
         self.el_reconciled = true;
+        self.trust.committed(self.state.as_ref().expect("initialized state"));
 
         Ok(response::InitChain {
             consensus_params: None,

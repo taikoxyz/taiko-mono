@@ -31,13 +31,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// same sequential worker as consensus, and an EL hiccup there must neither delay consensus
     /// nor fail the connection.
     ///
-    /// Limitation: the reconcile runs once per app process, not once per CometBFT handshake. A
-    /// CometBFT restarting under a running app sends a handshake `Info` with the same fields as
-    /// an RPC `/abci_info` one, and tower-abci offers no hook for a new connection (its accept
-    /// loop, connection loop and codec are private), so that handshake is not re-checked. An EL
-    /// that restarted or crashed while the app kept running may come back without its last
-    /// blocks; operators restart the app then (README, "Operations"), and until they do,
-    /// `FinalizeBlock` keeps retrying a block the EL cannot execute.
+    /// Independent Comet restarts rearm the private signer session. Its bounded background
+    /// trust check rechecks the durable EL head and checkpoint ancestry; ordinary Info calls
+    /// retain this fast once-per-process reconciliation behavior and never wait for a future
+    /// checkpoint height. Missing ancestry keeps signing closed while replay can continue.
     pub(super) async fn info(&mut self, _req: request::Info) -> Result<response::Info, AbciError> {
         let (last_block_height, last_block_app_hash) = match &self.state {
             None => (Height::from(0u32), AppHash::default()),
@@ -109,6 +106,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// The JSON answer to the query `path`, or the reason it has none.
     fn query_value(&self, path: &str) -> Result<Vec<u8>, String> {
+        if path == "/trust" {
+            return serde_json::to_vec(&self.trust.snapshot()).map_err(|e| e.to_string());
+        }
         let state = self.state.as_ref().ok_or("the app is not initialized")?;
         if path == "/status" {
             let status = self.status().ok_or("the app is not initialized")?;
