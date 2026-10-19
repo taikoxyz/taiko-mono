@@ -1,0 +1,55 @@
+name: "Formal Spec CI"
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/formal-spec/**"
+      - "testdata/derivation_vectors/**"
+      - ".github/workflows/formal-spec--test.yml"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "packages/formal-spec/**"
+      - "testdata/derivation_vectors/**"
+      - ".github/workflows/formal-spec--test.yml"
+
+concurrency:
+  group: formal-spec-test-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  check:
+    # Also runs on draft PRs: the job is short and uses a GitHub-hosted runner.
+    name: Build, prove and run vectors
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: packages/formal-spec
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Reject proof escape hatches
+        run: bash scripts/gate.sh
+
+      - name: Build the spec, proofs and tests, and replay the spec in Lean's kernel
+        # SECURITY: pinned to a released tag, like the repo's other third-party actions.
+        uses: leanprover/lean-action@v1
+        with:
+          lake-package-directory: packages/formal-spec
+          use-mathlib-cache: false
+          leanchecker: true
+          leanchecker-args: TaikoSpec
+
+      - name: Check that proofs use only Lean's standard axioms
+        run: lake exe checkaxioms
+
+      - name: Run the shared derivation vectors
+        run: lake exe vectors ../../testdata/derivation_vectors/manifest_cases.json
