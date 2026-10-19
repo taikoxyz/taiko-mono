@@ -504,7 +504,9 @@ pub fn check_anchor_progress(
 /// `block_timestamp` is the derived [`block_timestamp`] of the block and `max_anchor_age` the
 /// genesis `maxAnchorAge`. Anchor progress alone does not bound how old an anchor gets, as
 /// `L1_first` follows L2 height, not time; this rule does, so the L1 state a block reads (such
-/// as the forced inclusion queue) lags its timestamp by at most `maxAnchorAge`.
+/// as the forced inclusion queue) lags its timestamp by at most `maxAnchorAge`. The inputs are
+/// fixed by the proposal and its committed parent; advancing a validator's local finalized head
+/// cannot change this age. This bounds block time, not elapsed wall-clock inclusion time.
 pub fn check_anchor_freshness(
     block_timestamp: u64,
     anchor_timestamp: u64,

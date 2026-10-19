@@ -319,7 +319,49 @@ async fn stale_anchor_proposal_is_rejected() {
         validate(&app, &env).map(|_| ()),
         Err(Rejection::Rule(RuleViolation::AnchorTooOld { age: max + 1, max }))
     );
-    assert_eq!(rejected(&mut app, &env).await, "anchor_too_old");
+    let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+    assert_eq!(process(&mut app, req.clone()).await, response::ProcessProposal::Reject);
+    assert_eq!(app.halt.as_deref(), Some("anchor_too_old"));
+    fx.advance_l1(app.l1(), 10_066, &fx.inbox, &fx.registry);
+    assert_eq!(process(&mut app, req).await, response::ProcessProposal::Reject);
+    assert_eq!(app.halt.as_deref(), Some("anchor_too_old"));
+}
+
+/// A dynamic finalized-head freshness guard would make a retained proposal expire. Both an
+/// inherited anchor and a newly witnessed anchor stay valid for the same parent and BFT time,
+/// including on a validator that first receives the proposal after finality advances.
+#[tokio::test]
+async fn finalized_head_advance_does_not_expire_proposal_or_require_cached_acceptance() {
+    let fx = Fixture::genesis(1);
+    for moves_anchor in [false, true] {
+        let (hot_dir, fresh_dir) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let mut hot = mid_epoch(&fx, hot_dir.path(), 5).await;
+        if moves_anchor {
+            fx.advance_l1(hot.l1(), 66, &fx.inbox, &fx.registry);
+        }
+        let env = propose(&mut hot).await;
+        assert_eq!(env.anchor.is_some(), moves_anchor);
+        let parent = hot.state().unwrap().clone();
+        let req = process_req(next_height(&hot), bft_time(&hot), vec![env.encode()]);
+        assert_eq!(process(&mut hot, req.clone()).await, response::ProcessProposal::Accept);
+
+        // Keep the entire request, parent and anchor fixed while finalized L1 advances by
+        // 10,000 blocks (120,000 seconds), far beyond the genesis maxAnchorAge of 7,200 s.
+        fx.advance_l1(hot.l1(), 10_066, &fx.inbox, &fx.registry);
+        assert_eq!(process(&mut hot, req.clone()).await, response::ProcessProposal::Accept);
+        assert_eq!(hot.state(), Some(&parent), "processing never commits a new parent");
+
+        let mut fresh = mid_epoch(&fx, fresh_dir.path(), 5).await;
+        if moves_anchor {
+            fx.plant_l1_block(fresh.l1(), 66, &fx.inbox, &fx.registry);
+        }
+        fx.advance_l1(fresh.l1(), 10_066, &fx.inbox, &fx.registry);
+        assert_eq!(fresh.state(), Some(&parent));
+        assert!(fresh.verdicts.is_empty(), "no prior acceptance can authorize this vote");
+        assert_eq!(process(&mut fresh, req).await, response::ProcessProposal::Accept);
+        assert_eq!(fresh.halt, None);
+        assert_eq!(fresh.state(), Some(&parent));
+    }
 }
 
 /// A due canonical entry requires a witness. If absent from position zero, its authenticated

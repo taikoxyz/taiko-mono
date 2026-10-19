@@ -67,6 +67,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// and canonical, since a forged header could claim a later generation. Verified committee
     /// witnesses are cached at their switch height even if a later node-local check refuses the
     /// block; their proofs depend only on the committed parent's authenticated anchor.
+    ///
+    /// Anchor age is measured against the fixed derived block timestamp in [`validate_block`],
+    /// never against a moving local finalized head. Once final and canonical, an anchor does not
+    /// expire merely because more L1 blocks finalize, including on a node without a cached verdict.
     async fn judge(
         &self,
         state: &AppState,
