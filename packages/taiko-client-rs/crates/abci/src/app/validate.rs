@@ -185,8 +185,8 @@ pub enum Rejection {
     /// A canonical skip failed the shared singleton check.
     #[error("forced inclusion check failed: {0}")]
     ForcedBuild(#[from] crate::engine::forced::ForcedBuildError),
-    /// The block cannot land on its own: its envelope compressed as landing payload V5 would
-    /// publish it, plus [`HEADER_ALLOWANCE`], exceeds [`MAX_BLOCK_LANDING_BYTES`].
+    /// The block cannot land on its own: its execution block compressed as landing payload V6
+    /// would publish it, plus [`HEADER_ALLOWANCE`], exceeds [`MAX_BLOCK_LANDING_BYTES`].
     #[error("block needs {bytes} compressed landing bytes, above the {max} one landing carries")]
     LandingCapacity {
         /// The compressed envelope length plus [`HEADER_ALLOWANCE`], in bytes.

@@ -15,7 +15,10 @@ maintenance releases require a separate workflow change.
 
 ## Architecture
 
-Every validator and every full node runs three processes:
+Every validator and every full node runs the three processes below. A validator also runs
+`etna-signer`, the guarded external FilePV signer: it dials CometBFT's `priv_validator_laddr` and
+asks the app's private control socket before every signature (see
+[Run a validator](#run-a-validator)).
 
 ```
              CometBFT v0.40.x (stock, own process)
@@ -328,8 +331,12 @@ header whose hash and state root match H* and S*.
 A safety halt (a committed block or the execution engine contradicting the app state) exits the
 process with status 2; investigate before restarting. Liveness halts (anchor not final, anchor
 older than `maxAnchorAge`, back-pressure, committee discovery unavailable, a due forced
-inclusion event unavailable, superseded generation) keep the process running and CometBFT
-rounding; the ABCI query `/status` reports the head, epoch, generation and halt reason.
+inclusion event unavailable) keep the process running and CometBFT rounding; the ABCI query
+`/status` reports the head, epoch, generation and halt reason. A superseded generation is
+permanent. A proposal whose anchor shows a higher Inbox `recoveryGeneration` is refused and trust
+is revoked while the process keeps running. A decided block carrying such an anchor, or a startup
+or signer-session trust check finding a different generation, is a safety halt. Restart only
+under the new generation.
 
 `PrepareProposal` and `ProcessProposal` also refuse a block that could not land on its own: one
 whose execution block, zlib-compressed as payload V6 compresses it, plus a 1,024-byte header allowance
@@ -846,9 +853,10 @@ or config opening differs.
   the pair; allow the supervisor to send SIGKILL when its graceful stop expires. Preserve the
   CometBFT home, validator signing state and ABCI store so the normal handshake can recover.
   This is a CometBFT process-lifecycle limitation, not a request to edit or discard chain state.
-- The app checks alethia-reth against its committed head once per process, at CometBFT's first
-  handshake `Info`, and syncs alethia-reth to that head if it lacks it. A CometBFT restart under a
-  running app is not re-checked.
+- The app checks alethia-reth against its committed head at CometBFT's first handshake `Info`
+  (once per process) and syncs alethia-reth to that head if it lacks it. A later CometBFT restart
+  under a running app does not repeat that `Info` check. On a validator it reconnects
+  `etna-signer`, and every new trust session re-checks the committed head before signing reopens.
 - If alethia-reth restarted or crashed while the app kept running, it may come back without its
   last blocks: restart the app and CometBFT so the next handshake re-checks it. Until then
   `FinalizeBlock` keeps retrying a block alethia-reth cannot execute, logging at ERROR after a
