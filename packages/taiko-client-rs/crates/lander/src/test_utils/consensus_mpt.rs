@@ -304,7 +304,12 @@ fn forced_transaction(index: u64) -> (Bytes, B256) {
     use alloy_consensus::{SignableTransaction, TxEnvelope, TxLegacy};
     use alloy_eips::eip2718::Encodable2718;
     let tx: Bytes = TxEnvelope::Legacy(
-        TxLegacy { nonce: index, gas_limit: 21_000, ..Default::default() }
+        TxLegacy {
+            nonce: index,
+            gas_limit: 21_000,
+            gas_price: abci::forced::FI_MIN_EXEC_FEE_CAP,
+            ..Default::default()
+        }
             .into_signed(alloy_primitives::Signature::new(U256::from(1), U256::from(1), false)),
     )
     .encoded_2718()
