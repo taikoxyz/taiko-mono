@@ -68,7 +68,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-chainspec"
 version = "1.4.1"
-source = "git+https://github.com/taikoxyz/alethia-reth?rev=0fb47d966f290c032e0ce88bdc8877121768d253#0fb47d966f290c032e0ce88bdc8877121768d253"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=53d2cd81eb7dd271ef4eec693a14afc1a35ac12b#53d2cd81eb7dd271ef4eec693a14afc1a35ac12b"
 dependencies = [
  "alloy-chains",
  "alloy-consensus 2.2.0",
@@ -82,7 +82,6 @@ dependencies = [
  "reth-ethereum-primitives",
  "reth-evm",
  "reth-network-peers",
- "reth-primitives-traits",
  "reth-revm",
  "serde_json",
 ]
@@ -90,7 +89,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-consensus"
 version = "1.4.1"
-source = "git+https://github.com/taikoxyz/alethia-reth?rev=0fb47d966f290c032e0ce88bdc8877121768d253#0fb47d966f290c032e0ce88bdc8877121768d253"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=53d2cd81eb7dd271ef4eec693a14afc1a35ac12b#53d2cd81eb7dd271ef4eec693a14afc1a35ac12b"
 dependencies = [
  "alethia-reth-primitives",
  "alloy-consensus 2.2.0",
@@ -102,7 +101,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-primitives"
 version = "1.4.1"
-source = "git+https://github.com/taikoxyz/alethia-reth?rev=0fb47d966f290c032e0ce88bdc8877121768d253#0fb47d966f290c032e0ce88bdc8877121768d253"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=53d2cd81eb7dd271ef4eec693a14afc1a35ac12b#53d2cd81eb7dd271ef4eec693a14afc1a35ac12b"
 dependencies = [
  "alloy-consensus 2.2.0",
  "alloy-primitives",
@@ -118,6 +117,7 @@ dependencies = [
  "reth-payload-primitives",
  "reth-primitives-traits",
  "serde",
+ "serde_json",
  "serde_with",
  "sha2",
  "tracing",
@@ -126,7 +126,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-rpc-types"
 version = "1.4.1"
-source = "git+https://github.com/taikoxyz/alethia-reth?rev=0fb47d966f290c032e0ce88bdc8877121768d253#0fb47d966f290c032e0ce88bdc8877121768d253"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=53d2cd81eb7dd271ef4eec693a14afc1a35ac12b#53d2cd81eb7dd271ef4eec693a14afc1a35ac12b"
 dependencies = [
  "alloy-primitives",
  "serde",

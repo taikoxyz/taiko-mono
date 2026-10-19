@@ -25,25 +25,49 @@ fn request_execution_payload(data: &ExecutableData, prev_randao: B256) -> Execut
     }
 }
 
-impl WhitelistApiService {
-    /// Build driver payload attributes from the requested executable data.
-    pub(super) fn driver_payload_from_request(
-        &self,
-        data: &ExecutableData,
-        is_forced_inclusion: Option<bool>,
-        prev_randao: B256,
-        signature: [u8; 65],
-    ) -> Result<TaikoPayloadAttributes> {
-        let tx_list = decompress_tx_list(data.transactions.as_ref())?;
-        Ok(crate::payload::build_driver_payload(
-            &request_execution_payload(data, prev_randao),
-            tx_list,
-            None,
-            is_forced_inclusion.unwrap_or(false),
-            signature,
-        ))
-    }
+/// Build the envelope gossiped for a block this node inserted from a REST request.
+///
+/// The envelope carries the request's compressed transaction list and `parentBeaconBlockRoot`
+/// (a zero root is carried as `None`; both encode as the same 32 zero bytes on the wire), the
+/// inserted header's fields, and the header difficulty only when it is nonzero. The base fee
+/// falls back to the request's when the header has none.
+pub(super) fn published_envelope(
+    data: &ExecutableData,
+    inserted_header: &RpcHeader,
+    end_of_sequencing: Option<bool>,
+    is_forced_inclusion: Option<bool>,
+    signature: [u8; 65],
+) -> WhitelistExecutionPayloadEnvelope {
+    crate::payload::signed_envelope_from_header(
+        inserted_header,
+        inserted_header.base_fee_per_gas.unwrap_or(data.base_fee_per_gas),
+        data.transactions.clone(),
+        data.parent_beacon_block_root,
+        end_of_sequencing,
+        is_forced_inclusion,
+        signature,
+    )
+}
 
+/// Build driver payload attributes from the requested executable data, including its
+/// `parentBeaconBlockRoot` (an absent one is sent as the zero root).
+pub(super) fn driver_payload_from_request(
+    data: &ExecutableData,
+    is_forced_inclusion: Option<bool>,
+    prev_randao: B256,
+    signature: [u8; 65],
+) -> Result<TaikoPayloadAttributes> {
+    let tx_list = decompress_tx_list(data.transactions.as_ref())?;
+    Ok(crate::payload::build_driver_payload(
+        &request_execution_payload(data, prev_randao),
+        tx_list,
+        data.parent_beacon_block_root,
+        is_forced_inclusion.unwrap_or(false),
+        signature,
+    ))
+}
+
+impl WhitelistApiService {
     /// Build a 65-byte signature from a digest.
     pub(super) fn sign_digest(&self, digest: B256) -> Result<[u8; 65]> {
         let signature = self
@@ -84,7 +108,8 @@ impl WhitelistApiService {
         Ok(calculate_shasta_mix_hash(parent_mix_hash, block_number))
     }
 
-    /// Validate request payload shape before expensive insertion and signing operations.
+    /// Validate request payload shape, under the fork rules of its timestamp, before expensive
+    /// insertion and signing operations.
     pub(super) fn validate_request_payload(
         &self,
         data: &ExecutableData,
@@ -92,6 +117,8 @@ impl WhitelistApiService {
     ) -> Result<()> {
         validate_execution_payload_for_preconf(
             &request_execution_payload(data, prev_randao),
+            data.parent_beacon_block_root,
+            self.etna_fork_timestamp,
             self.chain_id,
             *self.rpc.shasta.anchor.address(),
         )

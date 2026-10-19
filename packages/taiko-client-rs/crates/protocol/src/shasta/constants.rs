@@ -7,12 +7,15 @@ use alethia_reth_chainspec::hardfork::{
     TAIKO_DEVNET_HARDFORKS, TAIKO_HOODI_HARDFORKS, TAIKO_MAINNET_HARDFORKS, TaikoHardfork,
 };
 pub use alethia_reth_chainspec::{
-    TAIKO_DEVNET_CHAIN_ID, TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID,
+    TAIKO_DEVNET_CHAIN_ID, TAIKO_DEVNET_GENESIS_HASH, TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID,
 };
-use alethia_reth_consensus::eip4396::{
-    BASE_FEE_MAX_CHANGE_DENOMINATOR, BLOCK_TIME_TARGET, ELASTICITY_MULTIPLIER,
-    MAINNET_MIN_BASE_FEE, MAX_BASE_FEE, MAX_GAS_TARGET_PERCENT, MIN_BASE_FEE,
-    SHASTA_INITIAL_BASE_FEE,
+use alethia_reth_consensus::{
+    anchor_constants::ANCHOR_V3_V4_GAS_LIMIT,
+    eip4396::{
+        BASE_FEE_MAX_CHANGE_DENOMINATOR, BLOCK_TIME_TARGET, ELASTICITY_MULTIPLIER,
+        MAINNET_MIN_BASE_FEE, MAX_BASE_FEE, MAX_GAS_TARGET_PERCENT, MIN_BASE_FEE,
+        SHASTA_INITIAL_BASE_FEE,
+    },
 };
 use alloy_eips::eip4844::BYTES_PER_BLOB;
 use alloy_hardforks::ForkCondition;
@@ -62,21 +65,28 @@ pub const PROPOSAL_MAX_BLOB_BYTES: usize = BYTES_PER_BLOB;
 /// Maximum number of forced inclusions processed per proposal.
 pub const MAX_FORCED_INCLUSIONS_PER_PROPOSAL: u16 = 10;
 
-/// Process-global override for the devnet Unzen activation timestamp.
+/// Process-global override for the devnet Etna activation timestamp.
 ///
-/// Set once at startup (typically from a CLI flag mirroring alethia-reth's
-/// `--devnet-unzen-timestamp`) so client and node agree on devnet fork timing.
+/// Set once at startup from the CLI flag mirroring alethia-reth's `--devnet-etna-timestamp` so
+/// client and node agree on devnet fork timing. There is no implicit default: without an
+/// override the devnet keeps the chainspec's `ForkCondition::Never`, exactly like alethia-reth.
 /// Only the first call takes effect; subsequent calls are silently ignored.
-static DEVNET_UNZEN_OVERRIDE: OnceLock<u64> = OnceLock::new();
+static DEVNET_ETNA_OVERRIDE: OnceLock<u64> = OnceLock::new();
 
-/// Set the devnet Unzen activation timestamp override. Must be called before
-/// any fork-condition lookup runs for the internal devnet. Subsequent calls
-/// after the first are ignored. Logs the applied value on the first
-/// successful set so operators see confirmation at startup.
-pub fn set_devnet_unzen_override(timestamp: u64) {
-    if DEVNET_UNZEN_OVERRIDE.set(timestamp).is_ok() {
-        tracing::info!(timestamp, "applied devnet Unzen activation time override");
-    }
+/// Set the devnet Etna activation timestamp override (`0` activates Etna at genesis). Must be
+/// called before any fork-condition lookup runs for the internal devnet. Subsequent calls after
+/// the first are ignored.
+///
+/// The override takes effect only on the devnet chain id; whether it applies to the connected
+/// chain is reported once the chain is known (see `rpc::Client::check_devnet_etna_override`).
+pub fn set_devnet_etna_override(timestamp: u64) {
+    let _ = DEVNET_ETNA_OVERRIDE.set(timestamp);
+}
+
+/// Returns the devnet Etna activation timestamp installed by [`set_devnet_etna_override`], if
+/// any.
+pub fn devnet_etna_override() -> Option<u64> {
+    DEVNET_ETNA_OVERRIDE.get().copied()
 }
 
 /// Returns the maximum anchor block offset for a Taiko chain.
@@ -196,17 +206,10 @@ pub fn shasta_fork_condition_for_chain(chain_id: u64) -> ForkConfigResult<ForkCo
 
 /// Returns the configured Unzen fork condition for a given Taiko L2 chain ID.
 ///
-/// For the internal devnet, honors any override installed via
-/// `set_devnet_unzen_override`; falls back to the chainspec schedule otherwise.
+/// Every chain reads the chainspec schedule; the internal devnet activates Unzen at genesis,
+/// exactly as alethia-reth does.
 pub fn unzen_fork_condition_for_chain(chain_id: u64) -> ForkConfigResult<ForkCondition> {
-    match chain_id {
-        TAIKO_DEVNET_CHAIN_ID => Ok(DEVNET_UNZEN_OVERRIDE
-            .get()
-            .copied()
-            .map(ForkCondition::Timestamp)
-            .unwrap_or(fork_condition_for_chain(chain_id, TaikoHardfork::Unzen)?)),
-        _ => fork_condition_for_chain(chain_id, TaikoHardfork::Unzen),
-    }
+    fork_condition_for_chain(chain_id, TaikoHardfork::Unzen)
 }
 
 /// Returns the Shasta fork activation timestamp for a Taiko chain.
@@ -240,6 +243,71 @@ pub fn unzen_active_for_chain_timestamp(chain_id: u64, timestamp: u64) -> ForkCo
     }
 }
 
+/// Returns the configured Etna fork condition for a given Taiko L2 chain ID.
+///
+/// For the internal devnet, honors any override installed via [`set_devnet_etna_override`];
+/// every other case reads the chainspec schedule, which leaves Etna at `ForkCondition::Never` on
+/// every built-in chain.
+pub fn etna_fork_condition_for_chain(chain_id: u64) -> ForkConfigResult<ForkCondition> {
+    let condition = fork_condition_for_chain(chain_id, TaikoHardfork::Etna)?;
+    match (chain_id, DEVNET_ETNA_OVERRIDE.get()) {
+        (TAIKO_DEVNET_CHAIN_ID, Some(&timestamp)) => Ok(ForkCondition::Timestamp(timestamp)),
+        _ => Ok(condition),
+    }
+}
+
+/// Returns the Etna activation timestamp for a Taiko chain, or `None` while Etna is not
+/// scheduled.
+///
+/// Components resolve this once and decide individual blocks with [`is_etna_at`].
+pub fn etna_fork_timestamp_for_chain(chain_id: u64) -> ForkConfigResult<Option<u64>> {
+    match etna_fork_condition_for_chain(chain_id)? {
+        ForkCondition::Timestamp(timestamp) => Ok(Some(timestamp)),
+        ForkCondition::Never => Ok(None),
+        _ => Err(ForkConfigError::UnsupportedActivation),
+    }
+}
+
+/// Returns whether a block at `timestamp` follows the Etna rules, given an already-resolved
+/// activation timestamp (`None` means Etna is not scheduled).
+pub const fn is_etna_at(etna_fork_timestamp: Option<u64>, timestamp: u64) -> bool {
+    match etna_fork_timestamp {
+        Some(fork_timestamp) => timestamp >= fork_timestamp,
+        None => false,
+    }
+}
+
+/// Returns whether Etna is active for a Taiko chain at the provided block timestamp.
+pub fn etna_active_for_chain_timestamp(chain_id: u64, timestamp: u64) -> ForkConfigResult<bool> {
+    Ok(is_etna_at(etna_fork_timestamp_for_chain(chain_id)?, timestamp))
+}
+
+/// Returns the gas reserved for the anchor transaction of a block: an Etna block has no anchor
+/// transaction and reserves nothing, every earlier block reserves [`ANCHOR_V3_V4_GAS_LIMIT`].
+///
+/// A built block's header gas limit is its manifest gas limit plus this reserve, keyed on the
+/// block's own fork.
+pub const fn anchor_gas_reserve(is_etna: bool) -> u64 {
+    if is_etna { 0 } else { ANCHOR_V3_V4_GAS_LIMIT }
+}
+
+/// Returns the manifest gas limit implied by a parent header: its header gas limit minus the
+/// parent's anchor reserve, except for the genesis parent, which carries none.
+///
+/// The child's own fork never matters here: the first Etna block's parent still carries the
+/// reserve, and an Etna child's manifest budget is measured against it.
+pub const fn parent_manifest_gas_limit(
+    parent_number: u64,
+    parent_gas_limit: u64,
+    parent_is_etna: bool,
+) -> u64 {
+    if parent_number == 0 {
+        parent_gas_limit
+    } else {
+        parent_gas_limit.saturating_sub(anchor_gas_reserve(parent_is_etna))
+    }
+}
+
 /// Returns the per-source derivation block limit for a proposal timestamp.
 pub fn derivation_source_max_blocks_for_chain_timestamp(
     chain_id: u64,
@@ -255,11 +323,14 @@ pub fn derivation_source_max_blocks_for_chain_timestamp(
 mod tests {
     use super::{
         DERIVATION_SOURCE_MAX_BLOCKS, ForkConfigError, MAX_ANCHOR_OFFSET,
-        MAX_ANCHOR_OFFSET_MAINNET, TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID,
-        TIMESTAMP_MAX_OFFSET, TIMESTAMP_MAX_OFFSET_MAINNET, max_anchor_offset_for_chain,
-        shasta_fork_condition_for_chain, timestamp_max_offset_for_chain,
-        unzen_fork_condition_for_chain,
+        MAX_ANCHOR_OFFSET_MAINNET, TAIKO_DEVNET_CHAIN_ID, TAIKO_HOODI_CHAIN_ID,
+        TAIKO_MAINNET_CHAIN_ID, TIMESTAMP_MAX_OFFSET, TIMESTAMP_MAX_OFFSET_MAINNET,
+        anchor_gas_reserve, etna_active_for_chain_timestamp, etna_fork_condition_for_chain,
+        etna_fork_timestamp_for_chain, is_etna_at, max_anchor_offset_for_chain,
+        parent_manifest_gas_limit, shasta_fork_condition_for_chain, timestamp_max_offset_for_chain,
+        unzen_active_for_chain_timestamp, unzen_fork_condition_for_chain,
     };
+    use alloy_hardforks::ForkCondition;
 
     #[test]
     fn offsets_are_chain_aware() {
@@ -288,11 +359,75 @@ mod tests {
         }
     }
 
+    /// The devnet chainspec activates Unzen at genesis, matching alethia-reth, which no longer
+    /// has a devnet Unzen override.
+    #[test]
+    fn devnet_unzen_is_active_from_genesis() {
+        assert_eq!(
+            unzen_fork_condition_for_chain(TAIKO_DEVNET_CHAIN_ID).expect("devnet condition"),
+            ForkCondition::Timestamp(0)
+        );
+        assert!(
+            unzen_active_for_chain_timestamp(TAIKO_DEVNET_CHAIN_ID, 0).expect("devnet active"),
+            "devnet Unzen must be active at genesis"
+        );
+    }
+
     #[test]
     fn derivation_source_max_blocks_falls_back_for_unsupported_chains() {
         assert_eq!(
             super::derivation_source_max_blocks_for_chain_timestamp(u64::MAX, u64::MAX),
             DERIVATION_SOURCE_MAX_BLOCKS
         );
+    }
+
+    /// No built-in schedule (mainnet, Hoodi, or the devnet without an override) activates Etna,
+    /// exactly as alethia-reth's chainspec tables.
+    #[test]
+    fn built_in_chains_never_activate_etna_without_override() {
+        for chain_id in [TAIKO_MAINNET_CHAIN_ID, TAIKO_HOODI_CHAIN_ID, TAIKO_DEVNET_CHAIN_ID] {
+            assert_eq!(etna_fork_condition_for_chain(chain_id).unwrap(), ForkCondition::Never);
+            assert_eq!(etna_fork_timestamp_for_chain(chain_id).unwrap(), None);
+            assert!(!etna_active_for_chain_timestamp(chain_id, u64::MAX).unwrap());
+        }
+    }
+
+    #[test]
+    fn unsupported_chain_ids_error_on_etna_lookup() {
+        for chain_id in [u64::MAX, 167_011] {
+            assert!(matches!(
+                etna_fork_condition_for_chain(chain_id),
+                Err(ForkConfigError::UnsupportedChainId(error_chain_id))
+                    if error_chain_id == chain_id
+            ));
+            assert!(etna_fork_timestamp_for_chain(chain_id).is_err());
+            assert!(etna_active_for_chain_timestamp(chain_id, 0).is_err());
+        }
+    }
+
+    #[test]
+    fn is_etna_at_compares_against_the_resolved_activation() {
+        assert!(!is_etna_at(None, 0));
+        assert!(!is_etna_at(None, u64::MAX));
+        assert!(!is_etna_at(Some(100), 99));
+        assert!(is_etna_at(Some(100), 100));
+        assert!(is_etna_at(Some(100), 101));
+        assert!(is_etna_at(Some(0), 0));
+    }
+
+    #[test]
+    fn anchor_gas_reserve_is_zero_only_for_etna_blocks() {
+        assert_eq!(anchor_gas_reserve(false), 1_000_000);
+        assert_eq!(anchor_gas_reserve(true), 0);
+    }
+
+    /// Etna at 100: a 30M genesis parent, a 31M pre-Etna parent (#5 at 99) and a 30M Etna parent
+    /// (#6 at 100) all yield a 30M manifest gas limit.
+    #[test]
+    fn parent_manifest_gas_limit_strips_the_reserve_only_from_pre_etna_parents() {
+        let etna = Some(100);
+        assert_eq!(parent_manifest_gas_limit(0, 30_000_000, is_etna_at(etna, 0)), 30_000_000);
+        assert_eq!(parent_manifest_gas_limit(5, 31_000_000, is_etna_at(etna, 99)), 30_000_000);
+        assert_eq!(parent_manifest_gas_limit(6, 30_000_000, is_etna_at(etna, 100)), 30_000_000);
     }
 }

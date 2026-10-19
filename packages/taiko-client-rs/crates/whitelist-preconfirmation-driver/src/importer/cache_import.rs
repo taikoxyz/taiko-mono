@@ -14,8 +14,9 @@ use crate::{
 
 use super::WhitelistPreconfirmationImporter;
 
-/// Build the driver payload from a whitelist envelope.
-fn driver_payload_from_envelope(
+/// Build the driver payload from a whitelist envelope, including its `parentBeaconBlockRoot`
+/// (an envelope's zero root decodes to `None` and is sent as the zero root).
+pub(super) fn driver_payload_from_envelope(
     envelope: &WhitelistExecutionPayloadEnvelope,
 ) -> Result<TaikoPayloadAttributes> {
     let compressed_tx_list = envelope.execution_payload.transactions.first().ok_or_else(|| {
@@ -268,7 +269,11 @@ pub(super) fn classify_cached_import_error(
 /// Classify a driver-layer error observed while importing a cached envelope.
 ///
 /// Envelope-scoped rejections drop the envelope, sync-related conditions defer it, and
-/// anything else aborts the drain loop.
+/// anything else aborts the drain loop. The engine layer's payload fork guards (a pre-Unzen
+/// target, a root that breaks the fork's `parentBeaconBlockRoot` rule) reject the envelope before
+/// any engine call and would reject it again on every retry, so they drop it instead of wedging
+/// the drain loop on it. An unresolvable Etna schedule is a fault of this node's configuration,
+/// not of the envelope, so it propagates instead of silently dropping valid envelopes.
 fn classify_cached_driver_error(err: &driver::DriverError) -> CachedImportDisposition {
     use driver::sync::error::EngineSubmissionError;
 
@@ -280,7 +285,12 @@ fn classify_cached_driver_error(err: &driver::DriverError) -> CachedImportDispos
         driver::DriverError::PreconfEnqueueTimeout { .. } |
         driver::DriverError::PreconfResponseTimeout { .. } => CachedImportDisposition::Defer,
         driver::DriverError::PreconfInjectionFailed { source, .. } => match source {
-            EngineSubmissionError::InvalidBlock(_, _) => CachedImportDisposition::Drop,
+            EngineSubmissionError::InvalidBlock(_, _) |
+            EngineSubmissionError::PreUnzenTarget { .. } |
+            EngineSubmissionError::EtnaTargetWithoutBeaconRoot { .. } |
+            EngineSubmissionError::PreEtnaTargetWithBeaconRoot { .. } => {
+                CachedImportDisposition::Drop
+            }
             EngineSubmissionError::EngineSyncing(_) |
             EngineSubmissionError::MissingPayloadId |
             EngineSubmissionError::MissingInsertedBlock(_) => CachedImportDisposition::Defer,

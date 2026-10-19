@@ -16,9 +16,10 @@ fn main() {
         unsafe { std::env::set_var("RUST_BACKTRACE", "1") };
     }
 
-    // Run the subcommand.
+    // Run the subcommand. Print the message chain, not `Debug`: the messages carry the
+    // operator hints.
     if let Err(err) = cli::Cli::parse().run() {
-        eprintln!("Error: {err:?}");
+        eprintln!("Error: {}", err.report());
         std::process::exit(1);
     }
 }

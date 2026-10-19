@@ -6,9 +6,9 @@ use std::{
     time::Duration,
 };
 
-use alethia_reth_primitives::addresses::get_treasury_address;
+use alethia_reth_primitives::{ETNA_EXTRA_DATA_LEN, addresses::get_treasury_address};
 use alloy::{rpc::client::RpcClient, transports::http::reqwest::Url};
-use alloy_eips::{BlockId, eip1898::RpcBlockHash};
+use alloy_eips::{BlockId, BlockNumberOrTag, eip1898::RpcBlockHash};
 use alloy_primitives::{Address, B256};
 use alloy_provider::{
     Provider, ProviderBuilder, RootProvider, WsConnect, fillers::FillProvider,
@@ -23,9 +23,14 @@ use hyper_util::{
     client::legacy::{Client as HyperService, connect::HttpConnector},
     rt::TokioExecutor,
 };
+use protocol::shasta::{
+    constants::{TAIKO_DEVNET_CHAIN_ID, TAIKO_DEVNET_GENESIS_HASH},
+    devnet_etna_override, etna_fork_timestamp_for_chain, is_etna_at,
+    unzen_active_for_chain_timestamp,
+};
 use reqwest::Client as ReqwestClient;
 use tower::{ServiceBuilder, timeout::TimeoutLayer};
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::{
     SubscriptionSource,
@@ -133,6 +138,141 @@ impl Client {
 
         Ok(block_state.anchorBlockNumber.to::<u64>())
     }
+
+    /// Refuse an execution engine this client cannot drive: one without the Osaka Engine API
+    /// methods ([`Client::check_engine_capabilities`]), a chain the devnet Etna override cannot
+    /// apply to ([`Client::check_devnet_etna_override`]), or an L2 head that contradicts the
+    /// client's Etna fork schedule ([`Client::check_etna_schedule`]).
+    pub async fn check_execution_engine(&self) -> Result<()> {
+        self.check_engine_capabilities().await?;
+        self.check_devnet_etna_override().await?;
+        self.check_etna_schedule().await
+    }
+
+    /// Report whether the devnet Etna override ([`devnet_etna_override`]) applies to this chain.
+    ///
+    /// The client keys the override on the devnet chain id, while alethia-reth applies its own
+    /// `--devnet-etna-timestamp` only to the canonical devnet genesis and ignores it elsewhere.
+    /// On another chain id the override is ignored, and logged as such. On the devnet chain id,
+    /// the L2 genesis must be the canonical one ([`check_devnet_etna_genesis`]): otherwise the
+    /// engine would keep Etna unscheduled while the client applies the override.
+    pub async fn check_devnet_etna_override(&self) -> Result<()> {
+        let Some(timestamp) = devnet_etna_override() else {
+            return Ok(());
+        };
+        if self.chain_id != TAIKO_DEVNET_CHAIN_ID {
+            warn!(
+                timestamp,
+                chain_id = self.chain_id,
+                "ignoring the devnet Etna activation time override: it applies only to the \
+                 internal devnet"
+            );
+            return Ok(());
+        }
+
+        let genesis = self
+            .l2_provider
+            .get_block_by_number(BlockNumberOrTag::Number(0))
+            .await?
+            .ok_or_else(|| RpcClientError::Provider("missing L2 genesis block".to_string()))?;
+        check_devnet_etna_genesis(genesis.header.hash)?;
+        info!(timestamp, "applied the devnet Etna activation time override");
+        Ok(())
+    }
+
+    /// Verify that the L2 `latest` head agrees with the client's Etna fork schedule.
+    ///
+    /// The execution engine gives every non-genesis Etna block a nonzero `parentBeaconBlockRoot`
+    /// and 13-byte `extraData`, and no earlier block both, so a client whose Etna activation time
+    /// differs from the engine's fails here once the head has passed either time (see
+    /// [`check_etna_schedule_for_head`]). A mismatch the head has not reached yet goes unseen.
+    pub async fn check_etna_schedule(&self) -> Result<()> {
+        let chain_id = self.chain_id;
+        let etna_fork_timestamp = etna_fork_timestamp_for_chain(chain_id)
+            .map_err(|source| RpcClientError::EtnaScheduleUnresolved { chain_id, source })?;
+        let head = self
+            .l2_provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await?
+            .ok_or_else(|| RpcClientError::Provider("missing L2 latest block".to_string()))?;
+
+        check_etna_schedule_for_head(
+            chain_id,
+            etna_fork_timestamp,
+            EtnaScheduleHead {
+                number: head.header.number,
+                timestamp: head.header.timestamp,
+                parent_beacon_block_root: head.header.parent_beacon_block_root,
+                extra_data_len: head.header.extra_data.len(),
+            },
+        )
+    }
+}
+
+/// Refuse a devnet-chain-id L2 genesis other than alethia-reth's canonical devnet genesis, the
+/// only chain its `--devnet-etna-timestamp` applies to.
+pub fn check_devnet_etna_genesis(genesis_hash: B256) -> Result<()> {
+    if genesis_hash == TAIKO_DEVNET_GENESIS_HASH {
+        Ok(())
+    } else {
+        Err(RpcClientError::DevnetEtnaOverrideOnForeignGenesis { genesis_hash })
+    }
+}
+
+/// L2 head fields inspected by [`check_etna_schedule_for_head`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EtnaScheduleHead {
+    /// L2 head block number.
+    pub number: u64,
+    /// L2 head block timestamp, in seconds.
+    pub timestamp: u64,
+    /// L2 head `parentBeaconBlockRoot`: absent before Unzen, zero on Unzen blocks, nonzero on
+    /// Etna blocks.
+    pub parent_beacon_block_root: Option<B256>,
+    /// Length in bytes of the L2 head's `extraData`.
+    pub extra_data_len: usize,
+}
+
+impl EtnaScheduleHead {
+    /// Whether the head has an Etna header: a nonzero `parentBeaconBlockRoot` and 13-byte
+    /// `extraData`.
+    pub fn is_etna_block(&self) -> bool {
+        self.parent_beacon_block_root.is_some_and(|root| !root.is_zero()) &&
+            self.extra_data_len == ETNA_EXTRA_DATA_LEN
+    }
+}
+
+/// Compare an L2 head with the client's Etna fork schedule for `chain_id`, whose Etna activation
+/// time is `etna_fork_timestamp` (`None` = never).
+///
+/// The genesis head always passes. Any other head must be an Etna block
+/// ([`EtnaScheduleHead::is_etna_block`]) exactly when the schedule makes its timestamp Etna;
+/// otherwise this returns [`RpcClientError::EtnaScheduleMismatch`] naming the head, the fork the
+/// client expects there, and how to fix the schedule.
+pub fn check_etna_schedule_for_head(
+    chain_id: u64,
+    etna_fork_timestamp: Option<u64>,
+    head: EtnaScheduleHead,
+) -> Result<()> {
+    if head.number == 0 {
+        return Ok(());
+    }
+
+    let expects_etna = is_etna_at(etna_fork_timestamp, head.timestamp);
+    if head.is_etna_block() == expects_etna {
+        return Ok(());
+    }
+
+    let expected_fork = if expects_etna {
+        "Etna"
+    } else {
+        match unzen_active_for_chain_timestamp(chain_id, head.timestamp) {
+            Ok(true) => "Unzen",
+            Ok(false) => "Shasta",
+            Err(_) => "a pre-Etna fork",
+        }
+    };
+    Err(RpcClientError::EtnaScheduleMismatch { head, expected_fork })
 }
 
 /// Build a reqwest HTTP client with a bounded timeout.
@@ -189,6 +329,7 @@ pub fn read_jwt_secret(path: &Path) -> Option<JwtSecret> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID;
 
     #[test]
     fn test_read_jwt_secret() {
@@ -218,5 +359,149 @@ mod tests {
         let url = Url::parse("ftp://localhost:1234").expect("invalid test URL");
         let err = connect_provider_with_timeout(url).await.unwrap_err();
         assert!(err.to_string().contains("unsupported RPC scheme"));
+    }
+
+    /// Etna activation time used by the schedule-check tests.
+    const ETNA_TIMESTAMP: u64 = 1_000;
+
+    /// Non-genesis L2 head at `timestamp` with the given root and `extraData` length.
+    fn schedule_head(
+        timestamp: u64,
+        parent_beacon_block_root: Option<B256>,
+        extra_data_len: usize,
+    ) -> EtnaScheduleHead {
+        EtnaScheduleHead { number: 5, timestamp, parent_beacon_block_root, extra_data_len }
+    }
+
+    /// Run the schedule check for the devnet chain, whose Unzen fork is active from genesis.
+    fn check(etna_fork_timestamp: Option<u64>, head: EtnaScheduleHead) -> Result<()> {
+        check_etna_schedule_for_head(TAIKO_DEVNET_CHAIN_ID, etna_fork_timestamp, head)
+    }
+
+    #[test]
+    fn devnet_etna_override_requires_the_canonical_devnet_genesis() {
+        assert!(check_devnet_etna_genesis(TAIKO_DEVNET_GENESIS_HASH).is_ok());
+
+        let foreign = B256::with_last_byte(1);
+        let err = check_devnet_etna_genesis(foreign).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                RpcClientError::DevnetEtnaOverrideOnForeignGenesis { genesis_hash }
+                    if genesis_hash == foreign
+            ),
+            "unexpected error: {err:?}"
+        );
+        assert!(err.to_string().contains("--devnet-etna-timestamp"), "{err}");
+    }
+
+    #[test]
+    fn etna_schedule_check_matrix() {
+        let etna_root = Some(B256::with_last_byte(1));
+        let etna = Some(ETNA_TIMESTAMP);
+        // (case, Etna activation time, head, whether the check passes).
+        let cases = [
+            (
+                "genesis passes whatever its shape",
+                etna,
+                EtnaScheduleHead { number: 0, ..schedule_head(ETNA_TIMESTAMP, None, 0) },
+                true,
+            ),
+            (
+                "Etna head with a nonzero root and 13 bytes",
+                etna,
+                schedule_head(ETNA_TIMESTAMP, etna_root, 13),
+                true,
+            ),
+            (
+                "Etna-scheduled head with a zero root",
+                etna,
+                schedule_head(ETNA_TIMESTAMP, Some(B256::ZERO), 13),
+                false,
+            ),
+            (
+                "Etna-scheduled head without a root",
+                etna,
+                schedule_head(ETNA_TIMESTAMP, None, 13),
+                false,
+            ),
+            (
+                "Etna-scheduled head with 7-byte extraData",
+                etna,
+                schedule_head(ETNA_TIMESTAMP, etna_root, 7),
+                false,
+            ),
+            (
+                "pre-Etna head with a nonzero root",
+                etna,
+                schedule_head(ETNA_TIMESTAMP - 1, etna_root, 13),
+                false,
+            ),
+            (
+                "pre-Etna head with a zero root and 7 bytes",
+                etna,
+                schedule_head(ETNA_TIMESTAMP - 1, Some(B256::ZERO), 7),
+                true,
+            ),
+            (
+                "Etna never and a zero-root 7-byte head",
+                None,
+                schedule_head(ETNA_TIMESTAMP, Some(B256::ZERO), 7),
+                true,
+            ),
+            (
+                "Etna never and a 13-byte nonzero-root head",
+                None,
+                schedule_head(ETNA_TIMESTAMP, etna_root, 13),
+                false,
+            ),
+        ];
+
+        for (case, etna_fork_timestamp, head, passes) in cases {
+            let result = check(etna_fork_timestamp, head);
+            assert_eq!(result.is_ok(), passes, "{case}: {result:?}");
+            if !passes {
+                assert!(
+                    matches!(result, Err(RpcClientError::EtnaScheduleMismatch { .. })),
+                    "{case}: {result:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn etna_schedule_mismatch_names_the_head_the_expected_fork_and_the_hint() {
+        let err =
+            check(Some(ETNA_TIMESTAMP), schedule_head(ETNA_TIMESTAMP + 1, Some(B256::ZERO), 7))
+                .unwrap_err()
+                .to_string();
+        assert_eq!(
+            err,
+            format!(
+                "L2 head block 5 (timestamp {}, parentBeaconBlockRoot {}, extraData length 7) is \
+                 a pre-Etna block, but the client's fork schedule expects Etna at that timestamp: \
+                 the client's Etna activation time must match the execution engine's (on a \
+                 devnet, set --devnet-etna-timestamp to the execution engine's Etna time)",
+                ETNA_TIMESTAMP + 1,
+                B256::ZERO
+            )
+        );
+
+        let root = B256::with_last_byte(1);
+        let err =
+            check(None, schedule_head(ETNA_TIMESTAMP, Some(root), 13)).unwrap_err().to_string();
+        assert!(
+            err.contains(&format!(
+                "(timestamp {ETNA_TIMESTAMP}, parentBeaconBlockRoot {root}, extraData length 13) \
+                 is an Etna block, but the client's fork schedule expects Unzen at that timestamp"
+            )),
+            "{err}"
+        );
+        assert!(err.contains("set --devnet-etna-timestamp"), "{err}");
+
+        let err = check(Some(ETNA_TIMESTAMP), schedule_head(ETNA_TIMESTAMP, None, 0))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("parentBeaconBlockRoot none, extraData length 0"), "{err}");
     }
 }

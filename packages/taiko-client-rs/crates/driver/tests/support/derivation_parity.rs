@@ -1,11 +1,10 @@
 //! Local cross-client regression using the existing two-node reth harness.
 
-use super::*;
-use alloy::{
-    consensus::SidecarBuilder,
-    network::TransactionBuilder4844,
-    rpc::types::{TransactionInput, TransactionRequest},
+use super::{
+    raw_proposal::{submit_raw_proposal, with_blob_payload},
+    *,
 };
+use alloy::rpc::types::{TransactionInput, TransactionRequest};
 use alloy_consensus::TxEnvelope;
 use alloy_eips::{eip2718::Encodable2718, eip7594::BlobTransactionSidecarVariant};
 use alloy_primitives::hex;
@@ -17,6 +16,7 @@ use std::{
     path::PathBuf,
     process::{Child, Command, Stdio},
 };
+use test_harness::advance_l1_time;
 
 struct GoDriverProcess {
     child: Child,
@@ -143,39 +143,7 @@ fn proposal_variant(
     payload[31] = 1;
     payload[32..64].copy_from_slice(&U256::from(compressed.len()).to_be_bytes::<32>());
     payload.extend_from_slice(&compressed);
-    let sidecar: alloy_consensus::BlobTransactionSidecar =
-        SidecarBuilder::<BlobCoder>::from_slice(&payload).build()?;
-    ensure!(sidecar.blobs.len() == original.blobs.len(), "template blob reference changed");
-    let original_request = base.to_transaction_request();
-    let request = TransactionRequest {
-        to: original_request.to,
-        input: TransactionInput::both(
-            original_request.input.into_input().context("missing proposal calldata")?,
-        ),
-        value: Some(U256::ZERO),
-        ..Default::default()
-    }
-    .with_blob_sidecar(sidecar.clone());
-    Ok((request, BlobTransactionSidecarVariant::Eip4844(sidecar)))
-}
-
-async fn submit_raw_proposal(
-    env: &ShastaEnv,
-    request: TransactionRequest,
-) -> Result<(u64, alloy_primitives::Address)> {
-    let wallet = env
-        .client_config
-        .l1_provider_source
-        .to_provider_with_wallet(env.l1_proposer_private_key)
-        .await?;
-    let receipt = wallet.send_transaction(request).await?.get_receipt().await?;
-    ensure!(receipt.status(), "proposal reverted");
-    let log = receipt
-        .logs()
-        .iter()
-        .find(|log| log.address() == env.inbox_address)
-        .context("missing proposal event")?;
-    Ok((decode_proposal_id(log)?, receipt.from))
+    with_blob_payload(&base, &payload)
 }
 
 async fn enqueue_invalid_forced_source(
@@ -360,23 +328,13 @@ async fn derivation_split_parity(env: &mut ShastaEnv) -> Result<()> {
     let (mut syncer, rust_client) = start_event_syncer(env, &beacon).await?;
     let result: Result<()> = async {
         for case in cases {
-            let _: serde_json::Value =
-                rust_client.l1_provider.raw_request("evm_increaseTime".into(), [3u64]).await?;
-            let _: serde_json::Value = rust_client
-                .l1_provider
-                .raw_request("evm_mine".into(), Vec::<String>::new())
-                .await?;
+            advance_l1_time(&rust_client, 3).await?;
 
             if case == "forced_type2_parity_2" {
                 enqueue_invalid_forced_source(env, &proposer, &beacon).await?;
                 // Keep the following source above the inherited forced block timestamp and
                 // in a distinct beacon slot, whose default sidecar is the ordinary source.
-                let _: serde_json::Value =
-                    rust_client.l1_provider.raw_request("evm_increaseTime".into(), [12u64]).await?;
-                let _: serde_json::Value = rust_client
-                    .l1_provider
-                    .raw_request("evm_mine".into(), Vec::<String>::new())
-                    .await?;
+                advance_l1_time(&rust_client, 12).await?;
             }
             let before = rust_client.l2_provider.get_block_number().await?;
             let baseline = batch_row_baseline(&rust_client).await?;

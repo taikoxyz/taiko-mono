@@ -1,6 +1,5 @@
 //! Transaction builder for constructing proposal transactions.
 
-use alethia_reth_consensus::validation::ANCHOR_V3_V4_GAS_LIMIT;
 use alloy::{
     consensus::{BlobTransactionSidecar, BlobTransactionSidecarVariant, SidecarBuilder},
     network::TransactionBuilder4844,
@@ -15,6 +14,7 @@ use protocol::shasta::{
     BlobCoder,
     constants::DERIVATION_SOURCE_MAX_BLOCKS,
     manifest::{BlockManifest, DerivationSourceManifest},
+    parent_manifest_gas_limit,
 };
 use rpc::client::Client;
 use tracing::info;
@@ -105,7 +105,7 @@ impl ShastaProposalTransactionBuilder {
     ) -> Result<BuiltProposalTx> {
         let anchor_block_number = ctx.anchor_block_number;
         let timestamp = ctx.timestamp;
-        let gas_limit = manifest_gas_limit(ctx.parent_block_number, ctx.gas_limit);
+        let gas_limit = manifest_gas_limit(&ctx);
 
         // Proposer intentionally keeps the stricter Shasta cap. It is below the
         // Unzen derivation-source cap, so proposals that pass here are safe there.
@@ -183,16 +183,13 @@ fn build_propose_input(num_blobs: u16) -> ProposeInput {
     }
 }
 
-/// Derive the manifest gas limit from the parent block, applying the anchor-gas discount.
+/// Derive the manifest gas limit from the build context's parent, as derivation does: the
+/// parent's header gas limit minus its anchor reserve.
 ///
-/// The genesis parent (block number 0) keeps its gas limit unchanged; all later parents apply the
-/// anchor-gas discount expected by the driver-side validation.
-pub(crate) fn manifest_gas_limit(parent_block_number: u64, gas_limit: u64) -> u64 {
-    if parent_block_number == 0 {
-        gas_limit
-    } else {
-        gas_limit.saturating_sub(ANCHOR_V3_V4_GAS_LIMIT)
-    }
+/// The genesis parent and an Etna parent carry no reserve and keep their gas limit; every other
+/// parent sheds the 1,000,000 anchor reserve. The parent's fork decides, never the target's.
+pub(crate) fn manifest_gas_limit(ctx: &EngineBuildContext) -> u64 {
+    parent_manifest_gas_limit(ctx.parent_block_number, ctx.gas_limit, ctx.parent_is_etna)
 }
 
 #[cfg(test)]
@@ -343,14 +340,35 @@ mod tests {
         Client { chain_id: 0, l1_provider, l2_provider, l2_auth_provider, shasta }
     }
 
-    #[test]
-    fn manifest_gas_limit_applies_anchor_discount_for_non_genesis_parent() {
-        assert_eq!(manifest_gas_limit(42, 45_000_000), 44_000_000);
+    /// Build context over a parent with the given number, fork and header gas limit.
+    fn sample_ctx(
+        parent_block_number: u64,
+        parent_is_etna: bool,
+        gas_limit: u64,
+    ) -> EngineBuildContext {
+        EngineBuildContext {
+            anchor_block_number: 77,
+            parent_block_number,
+            parent_is_etna,
+            timestamp: 1_000,
+            gas_limit,
+        }
     }
 
     #[test]
     fn manifest_gas_limit_keeps_genesis_parent_limit() {
-        assert_eq!(manifest_gas_limit(0, 45_000_000), 45_000_000);
+        assert_eq!(manifest_gas_limit(&sample_ctx(0, false, 45_000_000)), 45_000_000);
+    }
+
+    #[test]
+    fn manifest_gas_limit_strips_the_anchor_reserve_from_a_pre_etna_parent() {
+        assert_eq!(manifest_gas_limit(&sample_ctx(42, false, 45_000_000)), 44_000_000);
+    }
+
+    #[test]
+    fn manifest_gas_limit_keeps_etna_parent_limit() {
+        // An Etna parent's header gas limit carries no anchor reserve.
+        assert_eq!(manifest_gas_limit(&sample_ctx(42, true, 45_000_000)), 45_000_000);
     }
 
     #[test]
@@ -372,12 +390,7 @@ mod tests {
             test_rpc_client(call_result),
             Address::repeat_byte(0x11),
         );
-        let ctx = EngineBuildContext {
-            anchor_block_number: 77,
-            parent_block_number: 42,
-            timestamp: 1_000,
-            gas_limit: 46_000_000,
-        };
+        let ctx = sample_ctx(42, false, 46_000_000);
 
         let built_tx = builder.build(vec![vec![]], ctx).await?;
         let manifest = decode_built_manifest(&built_tx);
@@ -390,18 +403,29 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn build_keeps_the_etna_parent_gas_limit() -> crate::error::Result<()> {
+        let call_result = Bytes::from(Bytes::from_static(b"proposal-encoded-bytes").abi_encode());
+        let builder = ShastaProposalTransactionBuilder::new(
+            test_rpc_client(call_result),
+            Address::repeat_byte(0x11),
+        );
+
+        let built_tx = builder.build(vec![vec![]], sample_ctx(42, true, 46_000_000)).await?;
+        let manifest = decode_built_manifest(&built_tx);
+
+        assert_eq!(manifest.blocks[0].gas_limit, 46_000_000);
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn build_stamps_context_timestamp_and_staggers_blocks() -> crate::error::Result<()> {
         let call_result = Bytes::from(Bytes::from_static(b"proposal-encoded-bytes").abi_encode());
         let builder = ShastaProposalTransactionBuilder::new(
             test_rpc_client(call_result),
             Address::repeat_byte(0x11),
         );
-        let ctx = EngineBuildContext {
-            anchor_block_number: 77,
-            parent_block_number: 42,
-            timestamp: 1_234_567,
-            gas_limit: 46_000_000,
-        };
+        let ctx = EngineBuildContext { timestamp: 1_234_567, ..sample_ctx(42, false, 46_000_000) };
 
         // Two tx lists: driver validation requires strictly increasing timestamps across the
         // manifest blocks, so identical stamps would void the whole proposal.

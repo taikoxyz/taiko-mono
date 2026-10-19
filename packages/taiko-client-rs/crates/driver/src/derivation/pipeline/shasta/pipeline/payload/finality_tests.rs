@@ -65,6 +65,7 @@ async fn finality_fixture() -> CanonicalRefreshFixture {
         shasta_fork_timestamp: 0,
         min_base_fee_to_clamp: 0,
         chain_id: 0,
+        etna_fork_timestamp: None,
         initial_proposal_id: U256::ZERO,
     };
     let meta = BundleMeta {
@@ -128,7 +129,7 @@ impl CanonicalRefreshFixture {
                 .lock()
                 .unwrap()
                 .iter()
-                .all(|(method, _)| method != "engine_forkchoiceUpdatedV2")
+                .all(|(method, _)| method != "engine_forkchoiceUpdatedV3")
         );
         assert!(self.engine.read_q().is_empty());
         assert!(self.l2.read_q().is_empty());
@@ -151,7 +152,7 @@ async fn canonical_origin_refresh_advances_finality_without_rewinding_unsafe_hea
 
     let requests = fixture.requests.lock().unwrap();
     let (method, params) = requests.last().unwrap();
-    assert_eq!(method, "engine_forkchoiceUpdatedV2");
+    assert_eq!(method, "engine_forkchoiceUpdatedV3");
     let state: ForkchoiceState = serde_json::from_value(params[0].clone()).unwrap();
     assert_eq!(state.head_block_hash, block_at(30).hash());
     assert_eq!(state.safe_block_hash, block_at(10).hash());
@@ -221,7 +222,7 @@ async fn canonical_origin_refresh_handles_first_finality() {
             .unwrap();
         assert_eq!(
             fixture.requests.lock().unwrap().last().unwrap().0,
-            "engine_forkchoiceUpdatedV2"
+            "engine_forkchoiceUpdatedV3"
         );
         assert!(fixture.engine.read_q().is_empty());
         assert!(fixture.l2.read_q().is_empty());
@@ -293,7 +294,7 @@ async fn canonical_origin_refresh_retries_checkpoint_rpc_errors() {
             .unwrap();
         assert_eq!(
             fixture.requests.lock().unwrap().last().unwrap().0,
-            "engine_forkchoiceUpdatedV2"
+            "engine_forkchoiceUpdatedV3"
         );
         assert!(fixture.engine.read_q().is_empty());
         assert!(fixture.l2.read_q().is_empty());
@@ -312,6 +313,7 @@ async fn payload_building_tolerates_checkpoint_rpc_errors() {
             shasta_fork_timestamp: 0,
             min_base_fee_to_clamp: 0,
             chain_id: 0,
+            etna_fork_timestamp: None,
         };
         let result = fixture
             .pipeline

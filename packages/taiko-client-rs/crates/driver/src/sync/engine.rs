@@ -1,23 +1,18 @@
 //! Helpers for materialising payload attributes into execution engine blocks.
 
-use alethia_reth_primitives::{
-    engine::types::TaikoExecutionDataSidecar, payload::attributes::TaikoPayloadAttributes,
-};
+use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy::{eips::BlockNumberOrTag, primitives::B256, providers::Provider};
-use alloy_consensus::{
-    TxEnvelope,
-    proofs::{calculate_withdrawals_root, ordered_trie_root_with_encoder},
-};
-use alloy_primitives::{U256, bytes::BufMut};
+use alloy_consensus::TxEnvelope;
+use alloy_primitives::U256;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
-#[cfg(test)]
-use alloy_rpc_types_engine::ExecutionPayloadV1;
 use alloy_rpc_types_engine::{
-    ExecutionPayloadEnvelopeV2, ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState,
-    ForkchoiceUpdated, PayloadId, PayloadStatus, PayloadStatusEnum,
+    ExecutionPayloadEnvelopeV5, ExecutionPayloadV3, ForkchoiceState, ForkchoiceUpdated, PayloadId,
+    PayloadStatus, PayloadStatusEnum,
 };
 use async_trait::async_trait;
-use protocol::shasta::unzen_active_for_chain_timestamp;
+use protocol::shasta::{
+    etna_fork_timestamp_for_chain, is_etna_at, unzen_active_for_chain_timestamp,
+};
 use rpc::client::Client;
 use tracing::{debug, info, instrument, warn};
 
@@ -80,27 +75,32 @@ impl PayloadApplier for Client {
 /// the submission orchestration be exercised against a scripted engine in tests.
 #[async_trait]
 trait EnginePayloadRpc: Sync {
-    /// Chain id used to normalise Unzen payload envelopes.
+    /// Chain id used to resolve the fork schedule of a target block.
     fn chain_id(&self) -> u64;
 
-    /// Send `engine_forkchoiceUpdatedV2`, optionally carrying payload attributes.
-    async fn forkchoice_updated_v2(
+    /// Etna activation time of the chain (`None` while Etna is not scheduled), used to decide
+    /// the beacon-root rule of a target block.
+    fn etna_fork_timestamp(&self) -> Result<Option<u64>, EngineSubmissionError>;
+
+    /// Send `engine_forkchoiceUpdatedV3`, optionally carrying payload attributes.
+    async fn forkchoice_updated_v3(
         &self,
         state: ForkchoiceState,
         attrs: Option<TaikoPayloadAttributes>,
     ) -> Result<ForkchoiceUpdated, EngineSubmissionError>;
 
-    /// Fetch a built payload envelope via `engine_getPayloadV2`.
-    async fn get_payload_v2(
+    /// Fetch a built payload envelope via `engine_getPayloadV5`.
+    async fn get_payload_v5(
         &self,
         payload_id: PayloadId,
-    ) -> Result<ExecutionPayloadEnvelopeV2, EngineSubmissionError>;
+    ) -> Result<ExecutionPayloadEnvelopeV5, EngineSubmissionError>;
 
-    /// Submit an execution payload via `engine_newPayloadV2`.
-    async fn new_payload_v2(
+    /// Submit an execution payload via `engine_newPayloadV4`.
+    async fn new_payload_v4(
         &self,
-        payload: &ExecutionPayloadInputV2,
-        sidecar: &TaikoExecutionDataSidecar,
+        payload: &ExecutionPayloadV3,
+        header_difficulty: u64,
+        parent_beacon_block_root: B256,
     ) -> Result<PayloadStatus, EngineSubmissionError>;
 
     /// Fetch a block by number from the execution client's public RPC.
@@ -117,33 +117,42 @@ impl EnginePayloadRpc for Client {
         self.chain_id
     }
 
-    /// Delegate to `engine_forkchoiceUpdatedV2` on the authenticated engine endpoint,
+    /// Resolve the Etna activation time of the client's chain, mapping an unresolvable schedule
+    /// into [`EngineSubmissionError::EtnaScheduleUnresolved`].
+    fn etna_fork_timestamp(&self) -> Result<Option<u64>, EngineSubmissionError> {
+        etna_fork_timestamp_for_chain(self.chain_id).map_err(|source| {
+            EngineSubmissionError::EtnaScheduleUnresolved { chain_id: self.chain_id, source }
+        })
+    }
+
+    /// Delegate to `engine_forkchoiceUpdatedV3` on the authenticated engine endpoint,
     /// mapping RPC/transport failures into [`EngineSubmissionError::Rpc`].
-    async fn forkchoice_updated_v2(
+    async fn forkchoice_updated_v3(
         &self,
         state: ForkchoiceState,
         attrs: Option<TaikoPayloadAttributes>,
     ) -> Result<ForkchoiceUpdated, EngineSubmissionError> {
-        Ok(self.engine_forkchoice_updated_v2(state, attrs).await?)
+        Ok(self.engine_forkchoice_updated_v3(state, attrs).await?)
     }
 
-    /// Delegate to `engine_getPayloadV2` on the authenticated engine endpoint, mapping
+    /// Delegate to `engine_getPayloadV5` on the authenticated engine endpoint, mapping
     /// RPC/transport failures into [`EngineSubmissionError::Rpc`].
-    async fn get_payload_v2(
+    async fn get_payload_v5(
         &self,
         payload_id: PayloadId,
-    ) -> Result<ExecutionPayloadEnvelopeV2, EngineSubmissionError> {
-        Ok(self.engine_get_payload_v2(payload_id).await?)
+    ) -> Result<ExecutionPayloadEnvelopeV5, EngineSubmissionError> {
+        Ok(self.engine_get_payload_v5(payload_id).await?)
     }
 
-    /// Delegate to `engine_newPayloadV2` on the authenticated engine endpoint, mapping
+    /// Delegate to `engine_newPayloadV4` on the authenticated engine endpoint, mapping
     /// RPC/transport failures into [`EngineSubmissionError::Rpc`].
-    async fn new_payload_v2(
+    async fn new_payload_v4(
         &self,
-        payload: &ExecutionPayloadInputV2,
-        sidecar: &TaikoExecutionDataSidecar,
+        payload: &ExecutionPayloadV3,
+        header_difficulty: u64,
+        parent_beacon_block_root: B256,
     ) -> Result<PayloadStatus, EngineSubmissionError> {
-        Ok(self.engine_new_payload_v2(payload, sidecar).await?)
+        Ok(self.engine_new_payload_v4(payload, header_difficulty, parent_beacon_block_root).await?)
     }
 
     /// Fetch the block at the given height from the public L2 provider, converting its
@@ -164,6 +173,10 @@ impl EnginePayloadRpc for Client {
 
 /// Submit the provided payload attributes to the execution engine, building canonical L2
 /// blocks.
+///
+/// Every fork takes the same Osaka path: `engine_forkchoiceUpdatedV3` with the attributes,
+/// `engine_getPayloadV5`, `engine_newPayloadV4` with the root the attributes carried, then a
+/// promotion `engine_forkchoiceUpdatedV3` without attributes.
 #[instrument(skip(rpc, payload), fields(payload_id = tracing::field::Empty))]
 async fn apply_payload_internal<R: EnginePayloadRpc>(
     rpc: &R,
@@ -171,17 +184,25 @@ async fn apply_payload_internal<R: EnginePayloadRpc>(
     parent_hash: B256,
     finalized_block_hash: Option<B256>,
 ) -> Result<EngineBlockOutcome, EngineSubmissionError> {
+    let block_number = payload.l1_origin.block_id.to::<u64>();
+    let timestamp = payload.payload_attributes.timestamp;
+    ensure_unzen_target(rpc.chain_id(), block_number, timestamp)?;
+    // `newPayloadV4` must carry the root sent with the forkchoice update that started the build.
+    let parent_beacon_block_root = ensure_fork_beacon_root(
+        rpc.etna_fork_timestamp()?,
+        block_number,
+        timestamp,
+        payload.payload_attributes.parent_beacon_block_root,
+    )?;
+
     // Advertise the next payload attributes so the execution engine can build the block body.
     let forkchoice_state = ForkchoiceState {
         head_block_hash: parent_hash,
         safe_block_hash: parent_hash,
         finalized_block_hash: B256::ZERO,
     };
-    let fc_response = rpc.forkchoice_updated_v2(forkchoice_state, Some(payload.clone())).await?;
-    ensure_valid_forkchoice_status(
-        payload.l1_origin.block_id.to::<u64>(),
-        fc_response.payload_status.status,
-    )?;
+    let fc_response = rpc.forkchoice_updated_v3(forkchoice_state, Some(payload.clone())).await?;
+    ensure_valid_forkchoice_status(block_number, fc_response.payload_status.status)?;
 
     let payload_id = fc_response.payload_id.ok_or(EngineSubmissionError::MissingPayloadId)?;
     tracing::Span::current().record("payload_id", format_args!("{payload_id}"));
@@ -195,24 +216,27 @@ async fn apply_payload_internal<R: EnginePayloadRpc>(
         );
     }
 
-    // Fetch the constructed payload and normalise it into the `engine_newPayloadV2` input shape.
-    let envelope = rpc.get_payload_v2(payload_id).await?;
-    let (payload_input, sidecar, block_hash, block_number) =
-        envelope_into_submission(rpc.chain_id(), envelope);
+    // Fetch the constructed payload; Taiko's `blockValue` carries the block's zk gas, which
+    // `newPayloadV4` takes back as the header difficulty.
+    let envelope = rpc.get_payload_v5(payload_id).await?;
+    let execution_payload = envelope.execution_payload;
+    let block_hash = execution_payload.payload_inner.payload_inner.block_hash;
+    let block_number = execution_payload.payload_inner.payload_inner.block_number;
+    let header_difficulty = header_difficulty_from_block_value(block_number, envelope.block_value)?;
 
     debug!(
         block_number,
         block_hash = ?block_hash,
+        header_difficulty,
         payload_id = %payload_id,
         "engine accepted execution payload"
     );
 
     let outcome = submit_payload_to_engine(
         rpc,
-        &payload_input,
-        &sidecar,
-        block_hash,
-        block_number,
+        &execution_payload,
+        header_difficulty,
+        parent_beacon_block_root,
         finalized_block_hash,
         payload_id,
     )
@@ -228,62 +252,64 @@ async fn apply_payload_internal<R: EnginePayloadRpc>(
     Ok(outcome)
 }
 
-/// Derive the Taiko-specific execution data sidecar from the provided execution payload.
-fn derive_payload_sidecar(
-    payload: &ExecutionPayloadInputV2,
-    header_difficulty: Option<U256>,
-) -> TaikoExecutionDataSidecar {
-    let tx_hash =
-        ordered_trie_root_with_encoder(&payload.execution_payload.transactions, |tx, buf| {
-            buf.put_slice(tx)
-        });
-    let withdrawals_hash =
-        payload.withdrawals.as_ref().map(|withdrawals| calculate_withdrawals_root(withdrawals));
-
-    TaikoExecutionDataSidecar {
-        tx_hash,
-        withdrawals_hash,
-        header_difficulty,
-        taiko_block: Some(true),
-        block_access_list: None,
-        slot_number: None,
+/// Reject a target before Unzen, before any engine call.
+///
+/// The Osaka Engine API methods build and import only Unzen and later blocks, so pre-Unzen
+/// history can only come from P2P sync or a snapshot. A fork schedule that cannot be resolved for
+/// the chain is rejected the same way.
+fn ensure_unzen_target(
+    chain_id: u64,
+    block_number: u64,
+    timestamp: u64,
+) -> Result<(), EngineSubmissionError> {
+    match unzen_active_for_chain_timestamp(chain_id, timestamp) {
+        Ok(true) => Ok(()),
+        Ok(false) | Err(_) => {
+            Err(EngineSubmissionError::PreUnzenTarget { block_number, timestamp, chain_id })
+        }
     }
 }
 
-/// Restore the hash-relevant header difficulty from a Taiko engine envelope when Unzen is active.
-fn unzen_header_difficulty(chain_id: u64, timestamp: u64, block_value: U256) -> Option<U256> {
-    unzen_active_for_chain_timestamp(chain_id, timestamp).unwrap_or(false).then_some(block_value)
-}
-
-/// Convert an execution payload envelope into the submission format expected by the engine.
-fn envelope_into_submission(
-    chain_id: u64,
-    envelope: ExecutionPayloadEnvelopeV2,
-) -> (ExecutionPayloadInputV2, TaikoExecutionDataSidecar, B256, u64) {
-    let block_value = envelope.block_value;
-    let (execution_payload, withdrawals) = match envelope.execution_payload {
-        // Taiko chains are always post-Shanghai so withdrawals must be non-nil even when the
-        // engine returns a V1 envelope (which omits the withdrawals field).
-        ExecutionPayloadFieldV2::V1(payload) => (payload, Vec::new()),
-        ExecutionPayloadFieldV2::V2(payload) => (payload.payload_inner, payload.withdrawals),
+/// Enforce the fork's beacon-root rule before any engine call, returning the root that
+/// `engine_newPayloadV4` must repeat.
+///
+/// Every `engine_forkchoiceUpdatedV3` with attributes needs a root, so a missing one is refused
+/// for every fork. An Etna target must carry a nonzero root (the L1 state root of its anchor
+/// block); a target before Etna must carry exactly the zero root. The execution engine rejects
+/// each mismatch, so refusing it here keeps a wrong root from ever reaching it.
+fn ensure_fork_beacon_root(
+    etna_fork_timestamp: Option<u64>,
+    block_number: u64,
+    timestamp: u64,
+    parent_beacon_block_root: Option<B256>,
+) -> Result<B256, EngineSubmissionError> {
+    let Some(root) = parent_beacon_block_root else {
+        return Err(EngineSubmissionError::MissingBeaconRoot { block_number, timestamp });
     };
-
-    let block_hash = execution_payload.block_hash;
-    let block_number = execution_payload.block_number;
-    // Taiko Unzen reuses `getPayloadV2.blockValue` to transport the original
-    // `header.difficulty` back into `newPayloadV2.headerDifficulty` so the
-    // getPayload/newPayload round trip stays hash-stable without adding a new wire field.
-    let header_difficulty =
-        unzen_header_difficulty(chain_id, execution_payload.timestamp, block_value);
-
-    let payload_input =
-        ExecutionPayloadInputV2 { execution_payload, withdrawals: Some(withdrawals) };
-    let sidecar = derive_payload_sidecar(&payload_input, header_difficulty);
-
-    (payload_input, sidecar, block_hash, block_number)
+    match (is_etna_at(etna_fork_timestamp, timestamp), root.is_zero()) {
+        (true, true) => {
+            Err(EngineSubmissionError::EtnaTargetWithoutBeaconRoot { block_number, timestamp })
+        }
+        (false, false) => Err(EngineSubmissionError::PreEtnaTargetWithBeaconRoot {
+            block_number,
+            timestamp,
+            root,
+        }),
+        _ => Ok(root),
+    }
 }
 
-/// Map `engine_newPayloadV2` status into submission errors, accepting only VALID.
+/// Convert `engine_getPayloadV5`'s `blockValue`, which Taiko uses for the block's finalized zk
+/// gas, into the u64 `headerDifficulty` of the matching `engine_newPayloadV4` call.
+fn header_difficulty_from_block_value(
+    block_number: u64,
+    block_value: U256,
+) -> Result<u64, EngineSubmissionError> {
+    u64::try_from(block_value)
+        .map_err(|_| EngineSubmissionError::HeaderDifficultyOverflow { block_number, block_value })
+}
+
+/// Map `engine_newPayloadV4` status into submission errors, accepting only VALID.
 ///
 /// ACCEPTED means the engine stored the block on a side chain without executing it, so treating
 /// it as success would let the driver advance on a lineage the engine never validated. Only this
@@ -307,7 +333,7 @@ fn ensure_valid_payload_status(
     }
 }
 
-/// Map `engine_forkchoiceUpdatedV2` status into submission errors, accepting only VALID.
+/// Map `engine_forkchoiceUpdatedV3` status into submission errors, accepting only VALID.
 ///
 /// Unlike [`ensure_valid_payload_status`], a non-VALID forkchoice status never maps to
 /// [`EngineSubmissionError::InvalidBlock`]: forkchoice INVALID reflects the engine's view of the
@@ -377,18 +403,21 @@ async fn fetch_block_by_number<R: EnginePayloadRpc>(
 /// Common flow to submit a payload to the engine, promote forkchoice, and read back the block.
 async fn submit_payload_to_engine<R: EnginePayloadRpc>(
     rpc: &R,
-    payload_input: &ExecutionPayloadInputV2,
-    sidecar: &TaikoExecutionDataSidecar,
-    block_hash: B256,
-    block_number: u64,
+    execution_payload: &ExecutionPayloadV3,
+    header_difficulty: u64,
+    parent_beacon_block_root: B256,
     finalized_block_hash: Option<B256>,
     payload_id: PayloadId,
 ) -> Result<EngineBlockOutcome, EngineSubmissionError> {
-    let status = rpc.new_payload_v2(payload_input, sidecar).await?;
+    let block_hash = execution_payload.payload_inner.payload_inner.block_hash;
+    let block_number = execution_payload.payload_inner.payload_inner.block_number;
+
+    let status =
+        rpc.new_payload_v4(execution_payload, header_difficulty, parent_beacon_block_root).await?;
     ensure_valid_payload_status(block_number, status.status)?;
 
     let promoted_state = promotion_forkchoice_state(block_hash, finalized_block_hash);
-    let promotion = rpc.forkchoice_updated_v2(promoted_state, None).await?;
+    let promotion = rpc.forkchoice_updated_v3(promoted_state, None).await?;
     ensure_valid_forkchoice_status(block_number, promotion.payload_status.status)?;
 
     let block = fetch_block_by_number(rpc, block_number).await?;
@@ -401,121 +430,53 @@ async fn submit_payload_to_engine<R: EnginePayloadRpc>(
 mod tests {
     use super::*;
     use alloy::primitives::{Address, B256, Bloom, Bytes, U256};
-    use alloy_consensus::proofs::{calculate_withdrawals_root, ordered_trie_root_with_encoder};
-    use alloy_eips::eip4895::Withdrawal;
-    use alloy_primitives::bytes::BufMut;
-    use alloy_rpc_types_engine::ExecutionPayloadV2;
+    use alloy_eips::eip7685::Requests;
+    use alloy_rpc_types_engine::{BlobsBundleV2, ExecutionPayloadV1, ExecutionPayloadV2};
+    use alloy_transport::mock::Asserter;
     use protocol::shasta::{
         PayloadAttributesInput, build_payload_attributes,
         constants::{TAIKO_DEVNET_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID},
     };
 
-    fn sample_payload(timestamp: u64) -> ExecutionPayloadV1 {
-        ExecutionPayloadV1 {
-            parent_hash: B256::from(U256::from(10u64)),
-            fee_recipient: Address::from([1u8; 20]),
-            state_root: B256::from(U256::from(2u64)),
-            receipts_root: B256::from(U256::from(3u64)),
-            logs_bloom: Bloom::default(),
-            prev_randao: B256::from(U256::from(4u64)),
-            block_number: 7,
-            gas_limit: 30_000_000,
-            gas_used: 0,
-            timestamp,
-            extra_data: Bytes::new(),
-            base_fee_per_gas: U256::from(1u64),
-            block_hash: B256::from(U256::from(42u64)),
-            transactions: vec![Bytes::from_static(&[0x01, 0x23])],
-        }
-    }
+    use crate::test_support::mock_client_with_l1_asserter;
 
-    fn sample_envelope_v1(timestamp: u64, block_value: U256) -> ExecutionPayloadEnvelopeV2 {
-        ExecutionPayloadEnvelopeV2 {
-            execution_payload: ExecutionPayloadFieldV2::V1(sample_payload(timestamp)),
-            block_value,
-        }
-    }
+    /// zk gas the scripted engine reports through `getPayloadV5.blockValue`.
+    const SAMPLE_ZK_GAS: u64 = 1234;
 
-    fn sample_envelope_v2(timestamp: u64, block_value: U256) -> ExecutionPayloadEnvelopeV2 {
-        ExecutionPayloadEnvelopeV2 {
-            execution_payload: ExecutionPayloadFieldV2::V2(ExecutionPayloadV2 {
-                payload_inner: sample_payload(timestamp),
+    fn sample_payload(timestamp: u64) -> ExecutionPayloadV3 {
+        ExecutionPayloadV3 {
+            payload_inner: ExecutionPayloadV2 {
+                payload_inner: ExecutionPayloadV1 {
+                    parent_hash: B256::from(U256::from(10u64)),
+                    fee_recipient: Address::from([1u8; 20]),
+                    state_root: B256::from(U256::from(2u64)),
+                    receipts_root: B256::from(U256::from(3u64)),
+                    logs_bloom: Bloom::default(),
+                    prev_randao: B256::from(U256::from(4u64)),
+                    block_number: 7,
+                    gas_limit: 30_000_000,
+                    gas_used: 0,
+                    timestamp,
+                    extra_data: Bytes::new(),
+                    base_fee_per_gas: U256::from(1u64),
+                    block_hash: B256::from(U256::from(42u64)),
+                    transactions: vec![Bytes::from_static(&[0x01, 0x23])],
+                },
                 withdrawals: vec![],
-            }),
-            block_value,
+            },
+            blob_gas_used: 0,
+            excess_blob_gas: 0,
         }
     }
 
-    #[test]
-    fn derive_payload_sidecar_matches_roots() {
-        let transactions =
-            vec![Bytes::from_static(&[0x01, 0x23]), Bytes::from_static(&[0x45, 0x67])];
-        let withdrawals = vec![Withdrawal {
-            index: 0,
-            validator_index: 1,
-            address: Address::from([2u8; 20]),
-            amount: 3,
-        }];
-
-        let payload_v1 = ExecutionPayloadV1 {
-            parent_hash: B256::from(U256::from(10u64)),
-            fee_recipient: Address::from([1u8; 20]),
-            state_root: B256::from(U256::from(2u64)),
-            receipts_root: B256::from(U256::from(3u64)),
-            logs_bloom: Bloom::default(),
-            prev_randao: B256::from(U256::from(4u64)),
-            block_number: 7,
-            gas_limit: 30_000_000,
-            gas_used: 0,
-            timestamp: 123,
-            extra_data: Bytes::new(),
-            base_fee_per_gas: U256::from(1u64),
-            block_hash: B256::from(U256::from(42u64)),
-            transactions: transactions.clone(),
-        };
-
-        let payload_input = ExecutionPayloadInputV2 {
-            execution_payload: payload_v1,
-            withdrawals: Some(withdrawals.clone()),
-        };
-
-        let sidecar = derive_payload_sidecar(&payload_input, None);
-
-        let expected_tx_root =
-            ordered_trie_root_with_encoder(&transactions, |item, buf| buf.put_slice(item));
-        assert_eq!(sidecar.tx_hash, expected_tx_root);
-
-        let expected_withdrawals_root = calculate_withdrawals_root(&withdrawals);
-        assert_eq!(sidecar.withdrawals_hash, Some(expected_withdrawals_root));
-        assert_eq!(sidecar.header_difficulty, None);
-        assert_eq!(sidecar.taiko_block, Some(true));
-    }
-
-    #[test]
-    fn unzen_block_value_becomes_header_difficulty() {
-        let envelope = sample_envelope_v1(0, U256::from(42u64));
-
-        let (_, sidecar, _, _) = envelope_into_submission(TAIKO_DEVNET_CHAIN_ID, envelope);
-
-        assert_eq!(sidecar.header_difficulty, Some(U256::from(42u64)));
-    }
-
-    #[test]
-    fn pre_unzen_block_value_is_not_reused_as_header_difficulty() {
-        let envelope = sample_envelope_v1(0, U256::from(42u64));
-
-        let (_, sidecar, _, _) = envelope_into_submission(TAIKO_MAINNET_CHAIN_ID, envelope);
-
-        assert_eq!(sidecar.header_difficulty, None);
-    }
-
-    #[test]
-    fn unzen_block_value_becomes_header_difficulty_for_v2_envelope() {
-        let envelope = sample_envelope_v2(0, U256::from(42u64));
-
-        let (_, sidecar, _, _) = envelope_into_submission(TAIKO_DEVNET_CHAIN_ID, envelope);
-
-        assert_eq!(sidecar.header_difficulty, Some(U256::from(42u64)));
+    fn sample_envelope(block_value: U256) -> ExecutionPayloadEnvelopeV5 {
+        ExecutionPayloadEnvelopeV5 {
+            execution_payload: sample_payload(1),
+            block_value,
+            blobs_bundle: BlobsBundleV2::default(),
+            should_override_builder: false,
+            execution_requests: Requests::default(),
+        }
     }
 
     #[test]
@@ -588,6 +549,7 @@ mod tests {
             finalized: B256,
             attrs_block_number: u64,
             attrs_payload_id: [u8; 8],
+            attrs_parent_beacon_block_root: Option<B256>,
         },
         GetPayload {
             payload_id: PayloadId,
@@ -595,10 +557,8 @@ mod tests {
         NewPayload {
             block_hash: B256,
             block_number: u64,
-            tx_hash: B256,
-            withdrawals_hash: Option<B256>,
-            header_difficulty: Option<U256>,
-            taiko_block: Option<bool>,
+            header_difficulty: u64,
+            parent_beacon_block_root: B256,
         },
         PromotionForkchoice {
             head: B256,
@@ -616,8 +576,13 @@ mod tests {
     #[derive(Default)]
     struct ScriptedEngine {
         calls: std::sync::Mutex<Vec<EngineCall>>,
+        /// Chain id reported to the fork checks; `None` means the internal devnet, whose Unzen
+        /// fork is active from genesis.
+        chain_id: Option<u64>,
+        /// Etna activation time reported to the root guard; `None` leaves Etna unscheduled.
+        etna_fork_timestamp: Option<u64>,
         attributes_forkchoice: Option<ForkchoiceUpdated>,
-        envelope: Option<ExecutionPayloadEnvelopeV2>,
+        envelope: Option<ExecutionPayloadEnvelopeV5>,
         new_payload: Option<PayloadStatus>,
         promotion_forkchoice: Option<ForkchoiceUpdated>,
         readback_block: Option<RpcBlock<TxEnvelope>>,
@@ -640,10 +605,14 @@ mod tests {
     #[async_trait]
     impl EnginePayloadRpc for ScriptedEngine {
         fn chain_id(&self) -> u64 {
-            TAIKO_DEVNET_CHAIN_ID
+            self.chain_id.unwrap_or(TAIKO_DEVNET_CHAIN_ID)
         }
 
-        async fn forkchoice_updated_v2(
+        fn etna_fork_timestamp(&self) -> Result<Option<u64>, EngineSubmissionError> {
+            Ok(self.etna_fork_timestamp)
+        }
+
+        async fn forkchoice_updated_v3(
             &self,
             state: ForkchoiceState,
             attrs: Option<TaikoPayloadAttributes>,
@@ -655,6 +624,9 @@ mod tests {
                     finalized: state.finalized_block_hash,
                     attrs_block_number: attrs.l1_origin.block_id.to::<u64>(),
                     attrs_payload_id: attrs.l1_origin.build_payload_args_id,
+                    attrs_parent_beacon_block_root: attrs
+                        .payload_attributes
+                        .parent_beacon_block_root,
                 });
                 self.attributes_forkchoice
                     .clone()
@@ -671,26 +643,25 @@ mod tests {
             }
         }
 
-        async fn get_payload_v2(
+        async fn get_payload_v5(
             &self,
             payload_id: PayloadId,
-        ) -> Result<ExecutionPayloadEnvelopeV2, EngineSubmissionError> {
+        ) -> Result<ExecutionPayloadEnvelopeV5, EngineSubmissionError> {
             self.record(EngineCall::GetPayload { payload_id });
             self.envelope.clone().ok_or_else(|| Self::unscripted("getPayload"))
         }
 
-        async fn new_payload_v2(
+        async fn new_payload_v4(
             &self,
-            payload: &ExecutionPayloadInputV2,
-            sidecar: &TaikoExecutionDataSidecar,
+            payload: &ExecutionPayloadV3,
+            header_difficulty: u64,
+            parent_beacon_block_root: B256,
         ) -> Result<PayloadStatus, EngineSubmissionError> {
             self.record(EngineCall::NewPayload {
-                block_hash: payload.execution_payload.block_hash,
-                block_number: payload.execution_payload.block_number,
-                tx_hash: sidecar.tx_hash,
-                withdrawals_hash: sidecar.withdrawals_hash,
-                header_difficulty: sidecar.header_difficulty,
-                taiko_block: sidecar.taiko_block,
+                block_hash: payload.payload_inner.payload_inner.block_hash,
+                block_number: payload.payload_inner.payload_inner.block_number,
+                header_difficulty,
+                parent_beacon_block_root,
             });
             self.new_payload.clone().ok_or_else(|| Self::unscripted("newPayload"))
         }
@@ -704,11 +675,20 @@ mod tests {
         }
     }
 
-    /// Payload attributes for block 7, matching [`sample_envelope_v1`]'s block number.
-    fn sample_attributes() -> TaikoPayloadAttributes {
+    /// Unzen payload attributes for block 7 at `timestamp`, matching [`sample_payload`]'s block
+    /// number and carrying the zero root every pre-Etna build sends.
+    fn sample_attributes_at(timestamp: u64) -> TaikoPayloadAttributes {
+        sample_attributes_with_root(timestamp, Some(B256::ZERO))
+    }
+
+    /// Payload attributes for block 7 at `timestamp` carrying `parent_beacon_block_root`.
+    fn sample_attributes_with_root(
+        timestamp: u64,
+        parent_beacon_block_root: Option<B256>,
+    ) -> TaikoPayloadAttributes {
         let mut attributes = build_payload_attributes(PayloadAttributesInput {
             beneficiary: Address::from([1u8; 20]),
-            timestamp: 1,
+            timestamp,
             mix_hash: B256::ZERO,
             gas_limit: 30_000_000,
             tx_list: Some(Bytes::new()),
@@ -719,11 +699,16 @@ mod tests {
             l1_block_hash: Some(B256::ZERO),
             is_forced_inclusion: false,
             signature: [0; 65],
-            parent_beacon_block_root: None,
+            parent_beacon_block_root,
             anchor_transaction: None,
         });
         attributes.l1_origin.build_payload_args_id = *expected_payload_id().0;
         attributes
+    }
+
+    /// Devnet Unzen payload attributes for block 7.
+    fn sample_attributes() -> TaikoPayloadAttributes {
+        sample_attributes_at(1)
     }
 
     fn forkchoice_response(
@@ -773,6 +758,7 @@ mod tests {
             finalized: B256::ZERO,
             attrs_block_number: 7,
             attrs_payload_id: *expected_payload_id().0,
+            attrs_parent_beacon_block_root: Some(B256::ZERO),
         }
     }
 
@@ -781,17 +767,14 @@ mod tests {
         EngineCall::GetPayload { payload_id: engine_payload_id() }
     }
 
-    /// Expected newPayload log entry: the block hash advertised by getPayload.
+    /// Expected newPayload log entry: the block advertised by getPayload, its `blockValue` as
+    /// the header difficulty, and the zero root the Unzen attributes carried.
     fn new_payload_call() -> EngineCall {
-        let (_, sidecar, block_hash, block_number) =
-            envelope_into_submission(TAIKO_DEVNET_CHAIN_ID, sample_envelope_v1(0, U256::ZERO));
         EngineCall::NewPayload {
-            block_hash,
-            block_number,
-            tx_hash: sidecar.tx_hash,
-            withdrawals_hash: sidecar.withdrawals_hash,
-            header_difficulty: sidecar.header_difficulty,
-            taiko_block: sidecar.taiko_block,
+            block_hash: sample_block_hash(),
+            block_number: 7,
+            header_difficulty: SAMPLE_ZK_GAS,
+            parent_beacon_block_root: B256::ZERO,
         }
     }
 
@@ -816,7 +799,7 @@ mod tests {
                 PayloadStatusEnum::Valid,
                 Some(engine_payload_id()),
             )),
-            envelope: Some(sample_envelope_v1(0, U256::ZERO)),
+            envelope: Some(sample_envelope(U256::from(SAMPLE_ZK_GAS))),
             new_payload: Some(PayloadStatus::from_status(PayloadStatusEnum::Valid)),
             promotion_forkchoice: Some(forkchoice_response(PayloadStatusEnum::Valid, None)),
             readback_block: Some(sample_readback_block(sample_block_hash())),
@@ -950,16 +933,287 @@ mod tests {
         assert_eq!(outcome.block_hash(), sample_block_hash());
         assert_eq!(outcome.block_number(), 7);
         assert_eq!(outcome.payload_id, engine_payload_id());
+    }
+
+    /// An Unzen target goes through FCUv3 with its attributes, getPayloadV5, newPayloadV4 with
+    /// the zero root those attributes carried and `blockValue` as the difficulty, then a
+    /// promotion FCUv3 without attributes.
+    #[tokio::test]
+    async fn apply_payload_drives_unzen_target_through_osaka_methods() {
+        let engine = scripted_happy_engine();
+
+        apply_payload_internal(
+            &engine,
+            &sample_attributes(),
+            sample_parent_hash(),
+            Some(sample_finalized_hash()),
+        )
+        .await
+        .expect("valid Unzen sequence must succeed");
+
         assert_eq!(
             engine.calls(),
             vec![
-                attrs_call(),
-                get_payload_call(),
-                new_payload_call(),
-                promotion_call(),
+                EngineCall::ForkchoiceWithAttributes {
+                    head: sample_parent_hash(),
+                    safe: sample_parent_hash(),
+                    finalized: B256::ZERO,
+                    attrs_block_number: 7,
+                    attrs_payload_id: *expected_payload_id().0,
+                    attrs_parent_beacon_block_root: Some(B256::ZERO),
+                },
+                EngineCall::GetPayload { payload_id: engine_payload_id() },
+                EngineCall::NewPayload {
+                    block_hash: sample_block_hash(),
+                    block_number: 7,
+                    header_difficulty: SAMPLE_ZK_GAS,
+                    parent_beacon_block_root: B256::ZERO,
+                },
+                EngineCall::PromotionForkchoice {
+                    head: sample_block_hash(),
+                    safe: sample_finalized_hash(),
+                    finalized: sample_finalized_hash(),
+                },
                 readback_call(),
             ]
         );
+    }
+
+    #[tokio::test]
+    async fn apply_payload_rejects_block_value_beyond_u64_before_new_payload() {
+        let block_value = U256::from(u64::MAX) + U256::from(1u64);
+        let engine = ScriptedEngine {
+            envelope: Some(sample_envelope(block_value)),
+            ..scripted_happy_engine()
+        };
+
+        let err = apply_payload_internal(
+            &engine,
+            &sample_attributes(),
+            sample_parent_hash(),
+            Some(sample_finalized_hash()),
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(
+            err,
+            EngineSubmissionError::HeaderDifficultyOverflow { block_number: 7, block_value: value }
+                if value == block_value
+        ));
+        assert_eq!(
+            engine.calls(),
+            vec![attrs_call(), get_payload_call()],
+            "no newPayload may be sent with a truncated header difficulty"
+        );
+    }
+
+    /// The Osaka methods reject targets before Unzen, so the driver refuses them before any
+    /// engine call; an unresolvable fork schedule is refused the same way.
+    #[tokio::test]
+    async fn apply_payload_rejects_pre_unzen_target_without_engine_calls() {
+        let mainnet_unzen =
+            protocol::shasta::unzen_fork_timestamp_for_chain(TAIKO_MAINNET_CHAIN_ID)
+                .expect("mainnet schedules Unzen");
+        for (chain_id, timestamp) in [(TAIKO_MAINNET_CHAIN_ID, mainnet_unzen - 1), (u64::MAX, 1)] {
+            let engine = ScriptedEngine { chain_id: Some(chain_id), ..scripted_happy_engine() };
+
+            let err = apply_payload_internal(
+                &engine,
+                &sample_attributes_at(timestamp),
+                sample_parent_hash(),
+                Some(sample_finalized_hash()),
+            )
+            .await
+            .unwrap_err();
+
+            assert!(
+                matches!(
+                    err,
+                    EngineSubmissionError::PreUnzenTarget { block_number: 7, timestamp: t, .. }
+                        if t == timestamp
+                ),
+                "chain {chain_id}: unexpected error {err:?}"
+            );
+            assert!(engine.calls().is_empty(), "chain {chain_id}: no engine call may be made");
+        }
+    }
+
+    /// Etna activation used by the root-guard tests (the devnet activates Unzen at genesis).
+    const SAMPLE_ETNA_TIMESTAMP: u64 = 100;
+
+    /// Nonzero root an Etna target carries: the L1 state root of its anchor block.
+    fn sample_etna_root() -> B256 {
+        B256::with_last_byte(0xaa)
+    }
+
+    /// An Etna target takes the same Osaka path, and `newPayloadV4` carries the exact nonzero
+    /// root its attributes carried and `blockValue` as the difficulty, including the zero zk gas
+    /// of an empty Etna block.
+    #[tokio::test]
+    async fn apply_payload_drives_etna_target_with_its_root_through_osaka_methods() {
+        for zk_gas in [0, SAMPLE_ZK_GAS] {
+            let engine = ScriptedEngine {
+                etna_fork_timestamp: Some(SAMPLE_ETNA_TIMESTAMP),
+                envelope: Some(sample_envelope(U256::from(zk_gas))),
+                ..scripted_happy_engine()
+            };
+
+            apply_payload_internal(
+                &engine,
+                &sample_attributes_with_root(SAMPLE_ETNA_TIMESTAMP, Some(sample_etna_root())),
+                sample_parent_hash(),
+                Some(sample_finalized_hash()),
+            )
+            .await
+            .expect("valid Etna sequence must succeed");
+
+            assert_eq!(
+                engine.calls(),
+                vec![
+                    EngineCall::ForkchoiceWithAttributes {
+                        head: sample_parent_hash(),
+                        safe: sample_parent_hash(),
+                        finalized: B256::ZERO,
+                        attrs_block_number: 7,
+                        attrs_payload_id: *expected_payload_id().0,
+                        attrs_parent_beacon_block_root: Some(sample_etna_root()),
+                    },
+                    EngineCall::GetPayload { payload_id: engine_payload_id() },
+                    EngineCall::NewPayload {
+                        block_hash: sample_block_hash(),
+                        block_number: 7,
+                        header_difficulty: zk_gas,
+                        parent_beacon_block_root: sample_etna_root(),
+                    },
+                    promotion_call(),
+                    readback_call(),
+                ],
+                "zk gas {zk_gas}"
+            );
+        }
+    }
+
+    /// An Etna target without a nonzero root is refused before any engine call: a zero root
+    /// breaks the Etna rule and a missing root breaks every fork's rule.
+    #[tokio::test]
+    async fn apply_payload_rejects_etna_target_without_root_before_engine_calls() {
+        for root in [None, Some(B256::ZERO)] {
+            let engine = ScriptedEngine {
+                etna_fork_timestamp: Some(SAMPLE_ETNA_TIMESTAMP),
+                ..scripted_happy_engine()
+            };
+
+            let err = apply_payload_internal(
+                &engine,
+                &sample_attributes_with_root(SAMPLE_ETNA_TIMESTAMP, root),
+                sample_parent_hash(),
+                Some(sample_finalized_hash()),
+            )
+            .await
+            .unwrap_err();
+
+            let expected = if root.is_some() {
+                matches!(
+                    err,
+                    EngineSubmissionError::EtnaTargetWithoutBeaconRoot {
+                        block_number: 7,
+                        timestamp: SAMPLE_ETNA_TIMESTAMP,
+                    }
+                )
+            } else {
+                matches!(
+                    err,
+                    EngineSubmissionError::MissingBeaconRoot {
+                        block_number: 7,
+                        timestamp: SAMPLE_ETNA_TIMESTAMP,
+                    }
+                )
+            };
+            assert!(expected, "root {root:?}: unexpected error {err:?}");
+            assert!(engine.calls().is_empty(), "root {root:?}: no engine call may be made");
+        }
+    }
+
+    /// A pre-Etna target without a root is refused before any engine call, whether Etna is
+    /// unscheduled or scheduled later: `forkchoiceUpdatedV3` needs the explicit zero root.
+    #[tokio::test]
+    async fn apply_payload_rejects_unzen_target_without_root_before_engine_calls() {
+        for etna_fork_timestamp in [None, Some(SAMPLE_ETNA_TIMESTAMP)] {
+            let engine = ScriptedEngine { etna_fork_timestamp, ..scripted_happy_engine() };
+            let timestamp = SAMPLE_ETNA_TIMESTAMP - 1;
+
+            let err = apply_payload_internal(
+                &engine,
+                &sample_attributes_with_root(timestamp, None),
+                sample_parent_hash(),
+                Some(sample_finalized_hash()),
+            )
+            .await
+            .unwrap_err();
+
+            assert!(
+                matches!(
+                    err,
+                    EngineSubmissionError::MissingBeaconRoot { block_number: 7, timestamp: t }
+                        if t == timestamp
+                ),
+                "Etna at {etna_fork_timestamp:?}: unexpected error {err:?}"
+            );
+            assert!(
+                engine.calls().is_empty(),
+                "Etna at {etna_fork_timestamp:?}: no engine call may be made"
+            );
+        }
+    }
+
+    /// A pre-Etna target with a nonzero root is refused before any engine call, whether Etna is
+    /// unscheduled or scheduled later.
+    #[tokio::test]
+    async fn apply_payload_rejects_unzen_target_with_root_before_engine_calls() {
+        for etna_fork_timestamp in [None, Some(SAMPLE_ETNA_TIMESTAMP)] {
+            let engine = ScriptedEngine { etna_fork_timestamp, ..scripted_happy_engine() };
+            let timestamp = SAMPLE_ETNA_TIMESTAMP - 1;
+
+            let err = apply_payload_internal(
+                &engine,
+                &sample_attributes_with_root(timestamp, Some(sample_etna_root())),
+                sample_parent_hash(),
+                Some(sample_finalized_hash()),
+            )
+            .await
+            .unwrap_err();
+
+            assert!(
+                matches!(
+                    err,
+                    EngineSubmissionError::PreEtnaTargetWithBeaconRoot {
+                        block_number: 7,
+                        timestamp: t,
+                        root,
+                    } if t == timestamp && root == sample_etna_root()
+                ),
+                "Etna at {etna_fork_timestamp:?}: unexpected error {err:?}"
+            );
+            assert!(
+                engine.calls().is_empty(),
+                "Etna at {etna_fork_timestamp:?}: no engine call may be made"
+            );
+        }
+    }
+
+    /// The client resolves the Etna time from its chain id; a chain without a fork schedule is
+    /// refused instead of being treated as pre-Etna.
+    #[test]
+    fn client_etna_fork_timestamp_follows_the_chain_schedule() {
+        let mut client = mock_client_with_l1_asserter(Asserter::new());
+        assert!(matches!(
+            EnginePayloadRpc::etna_fork_timestamp(&client),
+            Err(EngineSubmissionError::EtnaScheduleUnresolved { chain_id: 0, .. })
+        ));
+
+        client.chain_id = TAIKO_MAINNET_CHAIN_ID;
+        assert_eq!(EnginePayloadRpc::etna_fork_timestamp(&client).unwrap(), None);
     }
 
     #[test]

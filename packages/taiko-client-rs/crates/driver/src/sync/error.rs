@@ -1,7 +1,8 @@
 //! Synchronization error types.
 
-use alloy::primitives::B256;
+use alloy::primitives::{B256, U256};
 use anyhow::Error as AnyhowError;
+use protocol::shasta::error::{ForkConfigError, ProtocolError};
 use rpc::RpcClientError;
 use thiserror::Error;
 
@@ -46,6 +47,16 @@ pub enum SyncError {
         block_number: u64,
         /// Reason anchor extraction failed.
         reason: &'static str,
+    },
+
+    /// Event sync: the Etna resume target's `extraData` does not carry its anchor block number.
+    #[error("invalid Etna extraData in l2 block {block_number}")]
+    InvalidEtnaExtraData {
+        /// L2 block number whose `extraData` was decoded.
+        block_number: u64,
+        /// Decoding failure.
+        #[source]
+        source: ProtocolError,
     },
 
     /// Event sync: failed to decode a proposal log from the inbox contract.
@@ -116,6 +127,83 @@ pub enum EngineSubmissionError {
     /// Execution engine failed to return the inserted block via RPC.
     #[error("inserted block {0} not found via rpc provider")]
     MissingInsertedBlock(u64),
+    /// The target block is before Unzen (or its fork schedule cannot be resolved): the Osaka
+    /// Engine API methods neither build nor import pre-Unzen blocks.
+    #[error(
+        "cannot build block {block_number} (timestamp {timestamp}, chain {chain_id}) through the \
+         Engine API: it is before Unzen; pre-Unzen history can only come from P2P sync or a \
+         snapshot"
+    )]
+    PreUnzenTarget {
+        /// Number of the rejected target block.
+        block_number: u64,
+        /// Timestamp of the rejected target block.
+        timestamp: u64,
+        /// Chain id whose fork schedule was consulted.
+        chain_id: u64,
+    },
+    /// The Etna activation time of the client's chain cannot be resolved, so the beacon-root
+    /// rule of a target cannot be decided.
+    #[error("cannot resolve the Etna fork schedule of chain {chain_id}")]
+    EtnaScheduleUnresolved {
+        /// Chain id whose fork schedule was consulted.
+        chain_id: u64,
+        /// Underlying fork-configuration error.
+        #[source]
+        source: ForkConfigError,
+    },
+    /// The payload attributes carry no `parentBeaconBlockRoot`. Every
+    /// `engine_forkchoiceUpdatedV3` with attributes needs one, whatever the target's fork: zero
+    /// before Etna, the nonzero L1 state root of the anchor block for Etna.
+    #[error(
+        "payload attributes for block {block_number} (timestamp {timestamp}) carry no \
+         parentBeaconBlockRoot; every build needs one (zero before Etna, the L1 state root of the \
+         anchor block for Etna)"
+    )]
+    MissingBeaconRoot {
+        /// Number of the rejected target block.
+        block_number: u64,
+        /// Timestamp of the rejected target block.
+        timestamp: u64,
+    },
+    /// An Etna target carries a zero `parentBeaconBlockRoot`; every non-genesis Etna block must
+    /// carry the nonzero L1 state root of its anchor block.
+    #[error(
+        "Etna block {block_number} (timestamp {timestamp}) has a zero parentBeaconBlockRoot; an \
+         Etna block must carry the nonzero L1 state root of its anchor block"
+    )]
+    EtnaTargetWithoutBeaconRoot {
+        /// Number of the rejected target block.
+        block_number: u64,
+        /// Timestamp of the rejected target block.
+        timestamp: u64,
+    },
+    /// A target before Etna carries a nonzero `parentBeaconBlockRoot`; pre-Etna blocks use
+    /// exactly the zero root.
+    #[error(
+        "pre-Etna block {block_number} (timestamp {timestamp}) carries parentBeaconBlockRoot \
+         {root}; blocks before Etna must use a zero root"
+    )]
+    PreEtnaTargetWithBeaconRoot {
+        /// Number of the rejected target block.
+        block_number: u64,
+        /// Timestamp of the rejected target block.
+        timestamp: u64,
+        /// Nonzero root the target carried.
+        root: B256,
+    },
+    /// `engine_getPayloadV5` returned a `blockValue` (the block's zk gas) that does not fit the
+    /// u64 `headerDifficulty` of `engine_newPayloadV4`.
+    #[error(
+        "getPayloadV5 blockValue {block_value} of block {block_number} exceeds the u64 header \
+         difficulty range"
+    )]
+    HeaderDifficultyOverflow {
+        /// Number of the built block.
+        block_number: u64,
+        /// `blockValue` returned by the engine.
+        block_value: U256,
+    },
     /// The canonical block read back after promotion does not match the submitted payload.
     #[error("inserted block {block_number} hash mismatch: expected {expected}, got {actual}")]
     InsertedBlockHashMismatch {

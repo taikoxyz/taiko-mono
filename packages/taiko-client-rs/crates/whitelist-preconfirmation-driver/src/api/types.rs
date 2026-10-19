@@ -36,6 +36,10 @@ pub struct ExecutableData {
     pub extra_data: Bytes,
     /// Base fee per gas.
     pub base_fee_per_gas: u64,
+    /// Parent beacon block root of the block. Etna blocks require the nonzero L1 state root of
+    /// their anchor block; pre-Etna blocks omit it or send zero.
+    #[serde(default)]
+    pub parent_beacon_block_root: Option<B256>,
 }
 
 /// Response body returned by `POST /preconfBlocks`.
@@ -86,6 +90,7 @@ mod tests {
                 transactions: Bytes::from(vec![0x01]),
                 extra_data: Bytes::default(),
                 base_fee_per_gas: 1_000_000_000,
+                parent_beacon_block_root: Some(B256::repeat_byte(0x5a)),
             }),
             end_of_sequencing: Some(true),
             is_forced_inclusion: None,
@@ -98,7 +103,51 @@ mod tests {
         assert!(json.contains("blockNumber"));
         assert!(json.contains("gasLimit"));
         assert!(json.contains("baseFeePerGas"));
+        assert!(json.contains("parentBeaconBlockRoot"));
         assert!(json.contains("endOfSequencing"));
+    }
+
+    /// Build the JSON `executableData` a sequencer sends, with `root` as its
+    /// `parentBeaconBlockRoot` value (`None` omits the key, as pre-Etna requests do today).
+    fn executable_data_json(root: Option<&str>) -> serde_json::Value {
+        let mut data = serde_json::json!({
+            "parentHash": B256::ZERO,
+            "feeRecipient": Address::ZERO,
+            "blockNumber": 1,
+            "gasLimit": 30_000_000,
+            "timestamp": 1_735_000_000,
+            "transactions": "0x01",
+            "extraData": "0x",
+            "baseFeePerGas": 1_000_000_000,
+        });
+        if let Some(root) = root {
+            data["parentBeaconBlockRoot"] = serde_json::Value::from(root);
+        }
+        data
+    }
+
+    #[test]
+    fn executable_data_root_is_none_when_the_field_is_absent() {
+        let data: ExecutableData =
+            serde_json::from_value(executable_data_json(None)).expect("pre-Etna request parses");
+        assert_eq!(data.parent_beacon_block_root, None);
+    }
+
+    #[test]
+    fn executable_data_root_parses_a_zero_root() {
+        let zero = B256::ZERO.to_string();
+        let data: ExecutableData =
+            serde_json::from_value(executable_data_json(Some(&zero))).expect("zero root parses");
+        assert_eq!(data.parent_beacon_block_root, Some(B256::ZERO));
+    }
+
+    #[test]
+    fn executable_data_root_parses_a_nonzero_root() {
+        let root = B256::repeat_byte(0x5a);
+        let data: ExecutableData =
+            serde_json::from_value(executable_data_json(Some(&root.to_string())))
+                .expect("Etna root parses");
+        assert_eq!(data.parent_beacon_block_root, Some(root));
     }
 
     #[test]
