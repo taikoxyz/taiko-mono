@@ -221,7 +221,7 @@
 ### inbox
 
 - proxy : `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f`
-- impl : `0x5253D4C91e80b880DdB54B78E74082Abe066F6b9`
+- impl : `0xA18431d42C8dF9778905fBEa912aCF1881b49D2e`
 - logs:
   - implementation deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x8a7c1e426b8fb8d7c00c7ffd9d1c41e3ce907f57f696f18fe3718abcd234a6de`
   - proxy deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x7576f1179250453948b37648a748aaade28c40b33e358fa0cbe21be6b0368601`
@@ -229,6 +229,7 @@
   - Unzen implementation deployed on Jul 10, 2026 @commit`907827890` @tx`0xa02d9efd2c2543727e801516d9c3184b2b2da0050ab948f3cb85bdefc5c1749e`
   - upgraded to `0x5253D4C91e80b880DdB54B78E74082Abe066F6b9` on Aug 3, 2026 @commit`907827890` @tx`0x64875b5b84b41b520551854696c0ce408fb3e0aa2ede604cc95a5919b6140ea7` (Proposal0019 — Unzen)
   - called `init3()` in the same bundle @commit`907827890` @tx`0x64875b5b84b41b520551854696c0ce408fb3e0aa2ede604cc95a5919b6140ea7`
+  - upgraded to `0xA18431d42C8dF9778905fBEa912aCF1881b49D2e` on Oct 19, 2026 @commit`9deb5b590` @tx`0x3f8f55e6651184d5794e4362661ebe709ae3a33df2424f664dc2bf235465859f` (Proposal0026)
 
 #### automata_dcap_attestation
 
@@ -251,6 +252,9 @@
   - rotated the trusted MRENCLAVEs to raiko2 v0.8.0-rc1 on Sep 21, 2026 @commit`5738ba13f` @tx`0x4a761524f4fe9377a63233971eb3ce7b2101832371f19e1f5e0cf126bae0bf7d` (Proposal0021). The trusted MRSIGNER allowlist is unchanged.
     - untrusted: `0x90c79e65d6d0f83d658ff96cd0ef1204438f20b406c93cf1d4fafa0cff29842e` (non-EDMM), `0x041cadb0541bf8249c368482172d218608f3693975b65f74beb2ed6f0044f951` (EDMM)
     - trusted: `0x3564b6a30089fcb3e2f69c19b22d23f84ce148387cd7a15f5c1df165b2ae5847` (non-EDMM), `0xae2c7b92b2a71238226cb624ecd1171b66bf943cc372314affca0e6748ccecdf` (EDMM)
+  - rotated the trusted MRENCLAVEs to raiko2 v0.9.0 on Oct 19, 2026 @commit`6d1d62741` @tx`0x3f8f55e6651184d5794e4362661ebe709ae3a33df2424f664dc2bf235465859f` (Proposal0026). The trusted MRSIGNER allowlist is unchanged.
+    - untrusted: `0x3564b6a30089fcb3e2f69c19b22d23f84ce148387cd7a15f5c1df165b2ae5847` (non-EDMM), `0xae2c7b92b2a71238226cb624ecd1171b66bf943cc372314affca0e6748ccecdf` (EDMM)
+    - trusted: `0xfeabd725eb5bb621b5c6a5071d1702bcbe06a643b42a0db8f381d5bc07dd81bf` (non-EDMM), `0x6f3c8c55ec62fe48b83e57463e8717aa9f8594418203c9520f0f80e6f4fc4d87` (EDMM)
 
 #### sgx_geth_automata
 
@@ -265,6 +269,9 @@
   - rotated the trusted MRENCLAVE to raiko2 v0.8.0-rc1 on Sep 21, 2026 @commit`5738ba13f` @tx`0x4a761524f4fe9377a63233971eb3ce7b2101832371f19e1f5e0cf126bae0bf7d` (Proposal0021). The trusted MRSIGNER allowlist is unchanged.
     - untrusted: `0x2d2216efbe9d8e80ba24b86606ccd5ce9faf11033d31ad9e5d3c5c89965c8a57`
     - trusted: `0x5f7da556f3b75dcc71465030e1b7274e82df9e9120c0b3eaf5bb76246a514005`
+  - rotated the trusted MRENCLAVE to raiko2 v0.9.0 on Oct 19, 2026 @commit`6d1d62741` @tx`0x3f8f55e6651184d5794e4362661ebe709ae3a33df2424f664dc2bf235465859f` (Proposal0026). The trusted MRSIGNER allowlist is unchanged.
+    - untrusted: `0x5f7da556f3b75dcc71465030e1b7274e82df9e9120c0b3eaf5bb76246a514005`
+    - trusted: `0x8c23c79045b9b6bb827eab208e0fe58d7446a57a55f3dfc825c90e904953105b`
 
 ### token_unlock
 
@@ -284,6 +291,8 @@
   - registered the raiko2 v0.6.0 replacement instance on Aug 3, 2026 @tx`0x47d1568c2a3577b1f7204144ed98940c87363f61c68b476ed70eccec28d2ab67` — instance ID `1`, signer `0xcad44B58dc58c825b107F8C772C3D2aedd9f2153`, attesting the non-EDMM MRENCLAVE.
   - deleted instance ID `1` on Sep 21, 2026 @commit`5738ba13f` @tx`0x4a761524f4fe9377a63233971eb3ce7b2101832371f19e1f5e0cf126bae0bf7d` (Proposal0021) — removed the sole registered instance, signer `0xcad44B58dc58c825b107F8C772C3D2aedd9f2153`.
   - registered the raiko2 v0.8.0-rc1 replacement instance on Sep 21, 2026 @tx`0x448987a9cd34dadf7fffbaa6cec9934aaf73a6dcfbcaad440fe8da9916c7b87e` — instance ID `2`, signer `0x3f35EF8639dca43d9c03a7Ab3737161F75EDE069`, attesting the non-EDMM MRENCLAVE.
+  - deleted instance ID `2` on Oct 19, 2026 @commit`6d1d62741` @tx`0x3f8f55e6651184d5794e4362661ebe709ae3a33df2424f664dc2bf235465859f` (Proposal0026) — removed the sole registered instance, signer `0x3f35EF8639dca43d9c03a7Ab3737161F75EDE069`.
+  - registered the raiko2 v0.9.0 replacement instance on Oct 19, 2026 @tx`0xa77469188a70c255cf8bad84f3248eef7b67ed0e03db763b0f008d4410278bf9` — instance ID `3`, signer `0x538432c550cC507d429C84Aa05c2D63b0CA5fE55`, attesting the non-EDMM MRENCLAVE.
 
 ### sgx_verifier_geth
 
@@ -295,6 +304,8 @@
   - registered the raiko2 v0.6.0 replacement instance on Aug 3, 2026 @tx`0x47d1568c2a3577b1f7204144ed98940c87363f61c68b476ed70eccec28d2ab67` — instance ID `1`, signer `0x38652b8e4cDF1BE4F86bAeBB145db1269e758479`.
   - deleted instance ID `1` on Sep 21, 2026 @commit`5738ba13f` @tx`0x4a761524f4fe9377a63233971eb3ce7b2101832371f19e1f5e0cf126bae0bf7d` (Proposal0021) — removed the sole registered instance, signer `0x38652b8e4cDF1BE4F86bAeBB145db1269e758479`.
   - registered the raiko2 v0.8.0-rc1 replacement instance on Sep 21, 2026 @tx`0x448987a9cd34dadf7fffbaa6cec9934aaf73a6dcfbcaad440fe8da9916c7b87e` — instance ID `2`, signer `0x51901a17b3D2b546C0AD816090215Ea35DBE7E7D`.
+  - deleted instance ID `2` on Oct 19, 2026 @commit`6d1d62741` @tx`0x3f8f55e6651184d5794e4362661ebe709ae3a33df2424f664dc2bf235465859f` (Proposal0026) — removed the sole registered instance, signer `0x51901a17b3D2b546C0AD816090215Ea35DBE7E7D`.
+  - registered the raiko2 v0.9.0 replacement instance on Oct 19, 2026 @tx`0xa77469188a70c255cf8bad84f3248eef7b67ed0e03db763b0f008d4410278bf9` — instance ID `3`, signer `0x4671851681a276f8beb88d998F10be21b8E5ac95`.
 
 ### risc0_verifier
 
@@ -309,6 +320,9 @@
   - rotated the trusted image IDs to raiko2 v0.8.0-rc1 on Sep 21, 2026 @commit`5738ba13f` @tx`0x4a761524f4fe9377a63233971eb3ce7b2101832371f19e1f5e0cf126bae0bf7d` (Proposal0021)
     - untrusted (raiko2 v0.6.0): proposal `0x5a818b4c7dc80e9ba85d55492c20c263c67238724e3982f76d15a158e501210b`, aggregation `0x9cfcc1b34a98853c3c5873a4d456726e528246f7f03a4ea35f27c2543aa6e7f0`
     - trusted (raiko2 v0.8.0-rc1): proposal `0xd6ab71c22201c23ef512b706f2e2d720f6da1b559fb76834aa9d4e35276f6e10`, aggregation `0xdd9b8abff96c409ae2418edfb51d893ea2bd10f4873a0226f17a6998c1afc1b7`
+  - rotated the trusted image IDs to raiko2 v0.9.0 on Oct 19, 2026 @commit`6d1d62741` @tx`0x3f8f55e6651184d5794e4362661ebe709ae3a33df2424f664dc2bf235465859f` (Proposal0026)
+    - untrusted (raiko2 v0.8.0-rc1): proposal `0xd6ab71c22201c23ef512b706f2e2d720f6da1b559fb76834aa9d4e35276f6e10`, aggregation `0xdd9b8abff96c409ae2418edfb51d893ea2bd10f4873a0226f17a6998c1afc1b7`
+    - trusted (raiko2 v0.9.0): proposal `0x88712dad7dc78126ee7bb592282d3102569c706f1b9db80580a582e5ffd1dfb0`, aggregation `0x04480b22e244d60165f3d0898bc61ea084d9c76221464a8a3c3343c74889040a`
 
 ### sp1_verifier
 
@@ -323,11 +337,14 @@
   - rotated the trusted program vkeys to raiko2 v0.8.0-rc1 on Sep 21, 2026 @commit`5738ba13f` @tx`0x4a761524f4fe9377a63233971eb3ce7b2101832371f19e1f5e0cf126bae0bf7d` (Proposal0021)
     - untrusted (raiko2 v0.6.0): proposal bn256 `0x00ad090221a8fa0f09e1be7a53feb67be010f01310d4b2314a69d10152ee1ce0`, proposal hash-bytes `0x568481106a3e83c23c37cf4a3feb67be008780984352c8c514d3a20252ee1ce0`, aggregation bn256 `0x000b11691352e55fcf64f62620cefaa700161600093f2751032fe71ea912264d`, aggregation hash-bytes `0x0588b48954b957f36c9ec4c40cefaa7000b0b00024fc9d44065fce3d2912264d`
     - trusted (raiko2 v0.8.0-rc1): proposal bn256 `0x0025425c22e827507428a3d9c7b0f89635be5462f34bb6780563e3d6086be7c7`, proposal hash-bytes `0x12a12e113a09d41d05147b387b0f89632df2a3174d2ed9e00ac7c7ac086be7c7`, aggregation bn256 `0x0051ac1d9e8cfd4196e37f9cfefd08e9b0f7ce653bad4634cd1ee84b71ca3be6`, aggregation hash-bytes `0x28d60ecf233f50655c6ff39f6fd08e9b07be73296eb518d31a3dd09671ca3be6`
+  - rotated the trusted program vkeys to raiko2 v0.9.0 on Oct 19, 2026 @commit`6d1d62741` @tx`0x3f8f55e6651184d5794e4362661ebe709ae3a33df2424f664dc2bf235465859f` (Proposal0026)
+    - untrusted (raiko2 v0.8.0-rc1): proposal bn256 `0x0025425c22e827507428a3d9c7b0f89635be5462f34bb6780563e3d6086be7c7`, proposal hash-bytes `0x12a12e113a09d41d05147b387b0f89632df2a3174d2ed9e00ac7c7ac086be7c7`, aggregation bn256 `0x0051ac1d9e8cfd4196e37f9cfefd08e9b0f7ce653bad4634cd1ee84b71ca3be6`, aggregation hash-bytes `0x28d60ecf233f50655c6ff39f6fd08e9b07be73296eb518d31a3dd09671ca3be6`
+    - trusted (raiko2 v0.9.0): proposal bn256 `0x0012b97234e59f2319d44202c7b093fed9c9a51b2068e38d26625c139d668c97`, proposal hash-bytes `0x095cb91a3967c8c63a8840587b093fed4e4d28d901a38e344cc4b8271d668c97`, aggregation bn256 `0x0017912dfd72308e2e2cd4211b05ed73a97eb7f576816adec2606a37507de51e`, aggregation hash-bytes `0x0bc896fe5c8c238b459a8423305ed73a4bf5bfab5a05ab7b04c0d46e507de51e`
 
 ### mainnet_verifier
 
 - impl : `0x7284aaC05555Ae6559bdAd8B4221eC9584254Eec`
-- sub-verifier addresses (unchanged since Proposal0017; Proposal0019 and Proposal0021 rotate their trusted image IDs, program vkeys and MRENCLAVEs and delete both SGX instances — see the sections above):
+- sub-verifier addresses (unchanged since Proposal0017; Proposal0019, Proposal0021 and Proposal0026 rotate their trusted image IDs, program vkeys and MRENCLAVEs and delete both SGX instances — see the sections above):
   - sgx_geth: `0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee`
   - sgx_reth: `0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8`
   - risc0_reth: `0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b`
