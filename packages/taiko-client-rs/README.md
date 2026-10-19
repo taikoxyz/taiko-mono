@@ -220,8 +220,9 @@ singleton build. `ProcessProposal`, cold `FinalizeBlock` and the lander share th
 skip checker. Prepare reclassifies its final candidate after an ordinary fallback, reusing a
 successful singleton confirmation only when the decision and its build context are unchanged.
 Host Engine checks establish current dummy-proof behavior; an independent validity proof guest
-remains future work. `land` pays consumed fees, with the landing reward, to the statement-bound
-`feeRecipient`, the lander's sending address.
+remains future work. `land` pays the consumed L1 forced-inclusion fees to the statement-bound
+`feeRecipient`, the lander's sending address. The batch's base-fee reward is recorded in a receipt
+and paid separately on L2 through `L2FeeVault.claim` to `l2RewardRecipient`.
 
 Proposers retrieve admission bytes with `eth_getLogs` for the exact proven submission block,
 Inbox address and event identity, then recheck the transaction hash. Before due, this lookup is
