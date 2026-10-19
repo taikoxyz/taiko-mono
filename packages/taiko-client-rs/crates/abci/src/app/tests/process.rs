@@ -410,14 +410,9 @@ async fn due_low_fee_cap_skip_is_accepted_without_a_singleton_build() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     let due = Fixture::l1_timestamp(66) - fx.genesis.forced_inclusion_delay;
-    let raw = super::proposal::plant_entries(
-        &fx,
-        app.l1(),
-        66,
-        fx.inbox.clone(),
-        vec![(due, vec![tx])],
-    )
-    .remove(0);
+    let raw =
+        super::proposal::plant_entries(&fx, app.l1(), 66, fx.inbox.clone(), vec![(due, vec![tx])])
+            .remove(0);
     let witness = fx.forced_witness(app.l1(), 66, 0, raw);
     let env = hand_forced_envelope(
         &app,

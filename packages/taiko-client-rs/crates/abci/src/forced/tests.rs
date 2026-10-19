@@ -5,8 +5,8 @@ use crate::{
     types::{AnchorState, InboxFacts},
 };
 use alloy_consensus::{
-    SignableTransaction, TxEip1559, TxEip2930, TxEip4844, TxEip4844Variant, TxEip7702,
-    TxEnvelope, TxLegacy,
+    SignableTransaction, TxEip1559, TxEip2930, TxEip4844, TxEip4844Variant, TxEip7702, TxEnvelope,
+    TxLegacy,
 };
 use alloy_eips::eip2718::Encodable2718;
 use alloy_primitives::{Address, B256, Bytes, TxKind, U256, address, keccak256};
@@ -80,12 +80,8 @@ fn fee_cap_transactions(fee_cap: u128) -> Vec<Bytes> {
         to: INBOX,
         ..Default::default()
     });
-    let authorization = TxEip7702 {
-        max_fee_per_gas: fee_cap,
-        gas_limit: 21_000,
-        to: INBOX,
-        ..Default::default()
-    };
+    let authorization =
+        TxEip7702 { max_fee_per_gas: fee_cap, gas_limit: 21_000, to: INBOX, ..Default::default() };
     let signature = |hash: B256| signer.sign_with_predefined_k(&hash.0).unwrap().signature;
     vec![
         TxEnvelope::Legacy(legacy.clone().into_signed(signature(legacy.signature_hash()))),
@@ -131,10 +127,7 @@ fn low_fee_caps_never_skip_before_due_and_matching_tx_zero_still_includes() {
     for raw in fee_cap_transactions(0) {
         let (mut anchor, witness) = fixture(raw.clone());
         anchor.timestamp -= 1;
-        assert_eq!(
-            check(context(&anchor), Some(&witness), None),
-            Ok(ForcedDecision::Ordinary)
-        );
+        assert_eq!(check(context(&anchor), Some(&witness), None), Ok(ForcedDecision::Ordinary));
         for timestamp in [anchor.timestamp, T0 + DELAY, u64::MAX] {
             anchor.timestamp = timestamp;
             let mut omitted = witness.clone();

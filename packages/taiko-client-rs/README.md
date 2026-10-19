@@ -38,7 +38,7 @@ Every validator and every full node runs three processes:
   canonical and final. `FinalizeBlock`, replay and block sync read no L1 state or admission logs;
   for a block the node never judged, they confirm its anchor header (see Restarts). Canonical
   forced transactions omitted at position zero require Engine checks against the authenticated
-  parent; valid inclusion and invalid-byte skips need no singleton build. At each switch height the
+  parent; valid inclusion and ineligible-byte skips need no singleton build. At each switch height the
   app derives the target committee from the committed parent anchor and hands CometBFT the
   validator updates, effective two heights later. Its state is persisted atomically at every
   `Commit`. The genesis record includes the authenticated committee config hash, and the epoch
@@ -74,9 +74,13 @@ snapshot(t) = anchor.number in committed EL block derivationParent(t)
 
 At the switch, nodes prove the latest registry checkpoint at or before that snapshot under
 the committed parent's exact L1 state root. Eligibility is evaluated at the snapshot number,
-even when the last registry mutation is older. Snapshot entries are fully verified before eligibility, heartbeat,
-pubkey deduplication, size cap and voting power are derived. Committees 0, 1 and 2 retain their
-launch heartbeat exemption; later committees use the existing target-epoch window predicate.
+even when the last registry mutation is older. Snapshot entries are fully verified before base eligibility and lowest-bond-id pubkey
+deduplication. The top `n_max` seats are then selected by stake before heartbeat filtering;
+missing heartbeats leave those seats empty without backfilling from lower-ranked entries.
+Committees 0, 1 and 2 retain their launch heartbeat exemption; later committees use the
+target-epoch window predicate. Registry churn uses current `activeStake()`: pending
+activations are excluded, and requested exits remain included until effective. Existing
+queue reservations are retained. This accounting supports fresh registry initialization only.
 
 At `H(t) - 2`, the envelope carries committee `t`'s witness and `FinalizeBlock` returns the
 validator updates. CometBFT activates them at `H(t)`. Epoch-first blocks no longer publish a
@@ -90,12 +94,12 @@ committed anchor and activates at height 11. If height 8 anchored L1 block 1010,
 1030 proposed at height 9 cannot change that selection. A different decided history whose
 height 8 anchored 1020 may select a different committee; all nodes replaying one history agree.
 
-The config hash binds eleven ABI words under `ETNA_PARENT_ANCHOR_V3`: L2 chain id,
+The config hash binds eleven ABI words under `ETNA_PARENT_ANCHOR_V4`: L2 chain id,
 registry, `vp_unit`, `s_min`, `n_max`, `heartbeat_window`, heartbeat lookahead 2,
 recipient-bound committee encoding version 2, `d_max` and `margin_v`. The opening is exactly 352 bytes.
 The coordinated format is envelope v6, payload v6, V10 statement (21 words / 672 bytes),
-journal schema 12, committee encoding version 2 and `APP_VERSION = 3`. State files must
-carry that exact app version and all authenticated genesis, anchor and FI fields. Old formats
+journal schema 12, committee encoding version 2 and `APP_VERSION = 4`. State files must
+carry that exact app version and all authenticated genesis, anchor and FI fields. Old app/config versions and structural formats
 are explicitly rejected; no migration or signed-journal rewrite is provided. Never delete an
 outstanding signed nonce or CometBFT history to force startup.
 
@@ -128,7 +132,7 @@ finalized landing where practical), then have the registry owner explicitly call
 once. This binding cannot be redirected; an unverified candidate can be replaced before binding
 by repeating address prediction and genesis setup. Withdrawals fail closed until bound; registration,
 consensus and landing can proceed. See the complete
-[protocol deployment instructions](https://github.com/taikoxyz/taiko-mono/blob/e2ebc10a86a279096eb754100d5ed7ec51fbae43/packages/protocol/contracts/layer1/etna/README.md#genesis-initialization).
+[protocol deployment instructions](https://github.com/taikoxyz/taiko-mono/blob/d9493c0c05260dd34573c951138bc95695450b84/packages/protocol/contracts/layer1/etna/README.md#genesis-initialization).
 
 The required [EL dependency](https://github.com/taikoxyz/alethia-reth/pull/251) is revision
 `5d4d21ac472c024703082ba46c6eacfa3b8ec1bf`, image `us-docker.pkg.dev/evmchain/images/alethia-reth:sha-5d4d21a`,
@@ -189,14 +193,18 @@ there is no expiry or expiry-derived upper bound.
   empty byte string and is distinguished by the proven hash and due time.
 - A canonical transaction at position zero whose hash matches the proven entry consumes it,
   even early, without duplicating its bytes in the witness. It must fit the 8192-byte admission
-  cap. Ordinary transactions may follow; matching a later transaction is insufficient.
+  cap. Matching canonical low-fee-cap transactions may also be included. Ordinary transactions
+  may follow; matching a later transaction is insufficient.
 - Nonempty witness bytes always match the proven hash and byte limit, including historical
   envelopes that redundantly carry them. RLP decoding bounds the bytes before copying them.
   A due entry absent from position zero must authenticate its preimage before any skip decision;
   omitted bytes cannot authorize skipping a nonempty admission.
-- An entry absent from position zero cannot be consumed early. Once due, empty, malformed or
-  noncanonical transaction bytes consume the entry directly as an invalid-byte skip.
-- Due canonical bytes absent from position zero require the shared Engine skip checker. It
+- An entry absent from position zero cannot be consumed early. Once due, empty, malformed,
+  noncanonical or low-fee-cap bytes consume the entry directly as an ineligible-byte skip.
+  The declared execution fee cap must reach `FI_MIN_EXEC_FEE_CAP = 1 gwei` (`gasPrice` for
+  types 0/1, `maxFeePerGas` otherwise) to require a singleton check. This classification
+  does not depend on the live base fee or reject a matching canonical inclusion.
+- Due eligible bytes absent from position zero require the shared Engine skip checker. It
   builds the singleton on the supplied authenticated parent and requires the result to preserve
   the consensus-derived header and retain no transaction. ABCI supplies its committed-parent
   context; the lander additionally checks that parent's numeric canonical hash before probing.
@@ -207,7 +215,7 @@ there is no expiry or expiry-derived upper bound.
 At or after due, a block that neither includes the entry nor completes an authenticated valid
 skip is invalid; it cannot retain the cursor.
 
-At most one queue entry is consumed per block. Included and invalid-byte cases require no
+At most one queue entry is consumed per block. Included and ineligible-byte cases require no
 singleton build. `ProcessProposal`, cold `FinalizeBlock` and the lander share the classifier and
 skip checker. Prepare reclassifies its final candidate after an ordinary fallback, reusing a
 successful singleton confirmation only when the decision and its build context are unchanged.
@@ -860,10 +868,10 @@ or config opening differs.
 
 ### Execution layer state history
 
-- Cold replay judges each decided block from its authenticated parent. Inclusion and invalid-byte
-  skips need no singleton build. A due canonical entry absent from position zero requires a
+- Cold replay judges each decided block from its authenticated parent. Inclusion and ineligible-byte
+  skips need no singleton build. A due eligible entry absent from position zero requires a
   historical singleton and therefore the parent's execution state. Landers need the same history
-  when authenticating canonical skips in decided batches.
+  when authenticating eligible-transaction skips in decided batches.
 - Keep the pinned alethia-reth behavior that processes payload attributes on historical canonical
   parents (`TaikoChainSpec::is_optimism() == true`). Leave
   `--engine.allow-unwind-canonical-header` disabled (the default): enabling it can rewind the shared
@@ -1045,7 +1053,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 Regenerate lander ABI/deployment fixtures only when their inputs change, with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `e2ebc10a86a279096eb754100d5ed7ec51fbae43` (also the
+The script requires protocol HEAD `d9493c0c05260dd34573c951138bc95695450b84` (also the
 `PROTOCOL_REVISION` in `crates/lander/src/contracts.rs`),
 installs pnpm dependencies before Foundry, builds the Inbox, registry, immutable `L2FeeVault` and
 SignalService with their test fixtures, verifies compiler source hashes,

@@ -310,7 +310,7 @@ fn forced_transaction(index: u64) -> (Bytes, B256) {
             gas_price: abci::forced::FI_MIN_EXEC_FEE_CAP,
             ..Default::default()
         }
-            .into_signed(alloy_primitives::Signature::new(U256::from(1), U256::from(1), false)),
+        .into_signed(alloy_primitives::Signature::new(U256::from(1), U256::from(1), false)),
     )
     .encoded_2718()
     .into();

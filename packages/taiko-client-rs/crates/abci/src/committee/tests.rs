@@ -907,8 +907,7 @@ fn missing_heartbeat_leaves_partial_seats_empty_and_preserves_record_totals() {
     let live = entry(2, ether(7));
     let waiting = entry(3, ether(6));
     let (record, members) =
-        derive(&snapshot(vec![absent, live.clone(), waiting]), C, 3, &SCHEDULE, &params)
-            .unwrap();
+        derive(&snapshot(vec![absent, live.clone(), waiting]), C, 3, &SCHEDULE, &params).unwrap();
     let expected = vec![Member {
         reward_recipient: live.reward_recipient,
         pubkey: live.pubkey,
@@ -937,10 +936,7 @@ fn equal_stake_seat_cutoff_precedes_heartbeat_filtering() {
     let mut entries = vec![entry(1, ether(7)), entry(2, ether(7))];
     entries.sort_by_key(|e| set_key(params.l2_chain_id, e.pubkey));
     entries[0].last_heartbeat_seq = 0;
-    assert_eq!(
-        derive(&snapshot(entries), C, 3, &SCHEDULE, &params),
-        Err(CommitteeError::Empty)
-    );
+    assert_eq!(derive(&snapshot(entries), C, 3, &SCHEDULE, &params), Err(CommitteeError::Empty));
 }
 
 #[test]
