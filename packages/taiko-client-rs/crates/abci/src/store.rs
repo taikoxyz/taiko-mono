@@ -135,6 +135,11 @@ impl Store {
         Self { dir, durable: false }
     }
 
+    /// Directory for node-local sidecars and private checkpoint control.
+    pub fn directory(&self) -> &Path {
+        &self.dir
+    }
+
     /// Loads the persisted state, or `Ok(None)` when none was ever saved (no state file, or no
     /// data directory).
     ///

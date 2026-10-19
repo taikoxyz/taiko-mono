@@ -22,7 +22,7 @@ use std::{fmt::Display, future::Future, time::Duration};
 
 use alloy_consensus::{SignableTransaction, TxEip1559, TxEnvelope, TxLegacy};
 use alloy_eips::eip2718::Encodable2718;
-use alloy_primitives::{Address, Bytes, Signature, TxKind, U256, keccak256};
+use alloy_primitives::{Address, B256, Bytes, Signature, TxKind, U256, keccak256};
 use proptest::prelude::*;
 use tempfile::TempDir;
 
@@ -290,7 +290,7 @@ impl Run {
         let calls = self.hot.engine().calls();
         prop_assert_eq!(
             &calls[before..],
-            &[EngineCall::Forkchoice { head: hash, safe: hash, finalized }][..],
+            &[EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized }][..],
             "height {}: hot FinalizeBlock neither probes nor executes",
             height
         );

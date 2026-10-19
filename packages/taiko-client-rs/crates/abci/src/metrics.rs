@@ -81,6 +81,31 @@ impl AbciMetrics {
         &METRICS.l1_finality_lag
     }
 
+    /// `abci_checkpoint_trust_ready`: one only for a verified current session.
+    pub fn checkpoint_trust_ready() -> &'static IntGauge {
+        &METRICS.checkpoint_trust_ready
+    }
+
+    /// `abci_checkpoint_trust_phase`: acquiring=0, catching_up=1, ready=2, halted=3.
+    pub fn checkpoint_trust_phase() -> &'static IntGauge {
+        &METRICS.checkpoint_trust_phase
+    }
+
+    /// `abci_checkpoint_target_l1`: finalized proof snapshot number, or zero before acquisition.
+    pub fn checkpoint_target_l1() -> &'static IntGauge {
+        &METRICS.checkpoint_target_l1
+    }
+
+    /// `abci_checkpoint_target_l2`: pinned L2 checkpoint height, or zero before acquisition.
+    pub fn checkpoint_target_l2() -> &'static IntGauge {
+        &METRICS.checkpoint_target_l2
+    }
+
+    /// `abci_checkpoint_distance`: target height minus committed height, saturating at zero.
+    pub fn checkpoint_distance() -> &'static IntGauge {
+        &METRICS.checkpoint_distance
+    }
+
     /// `abci_halted`: 1 while the app refuses to make progress (the last proposal was refused,
     /// reason in `/status`, or a safety halt stopped it), 0 otherwise.
     pub fn halted() -> &'static IntGauge {
@@ -117,6 +142,16 @@ struct Metrics {
     unsettled_depth: IntGauge,
     /// See [`AbciMetrics::l1_finality_lag`].
     l1_finality_lag: IntGauge,
+    /// See [`AbciMetrics::checkpoint_trust_ready`].
+    checkpoint_trust_ready: IntGauge,
+    /// See [`AbciMetrics::checkpoint_trust_phase`].
+    checkpoint_trust_phase: IntGauge,
+    /// See [`AbciMetrics::checkpoint_target_l1`].
+    checkpoint_target_l1: IntGauge,
+    /// See [`AbciMetrics::checkpoint_target_l2`].
+    checkpoint_target_l2: IntGauge,
+    /// See [`AbciMetrics::checkpoint_distance`].
+    checkpoint_distance: IntGauge,
     /// See [`AbciMetrics::halted`].
     halted: IntGauge,
 }
@@ -151,6 +186,20 @@ static METRICS: Lazy<Metrics> = Lazy::new(|| Metrics {
     l1_finality_lag: gauge(
         "abci_l1_finality_lag",
         "Own L1 finalized block minus the committed anchor block, in L1 blocks",
+    ),
+    checkpoint_trust_ready: gauge(
+        "abci_checkpoint_trust_ready",
+        "Current checkpoint session is ready",
+    ),
+    checkpoint_trust_phase: gauge(
+        "abci_checkpoint_trust_phase",
+        "Acquiring=0 catching_up=1 ready=2 halted=3",
+    ),
+    checkpoint_target_l1: gauge("abci_checkpoint_target_l1", "Finalized L1 checkpoint proof block"),
+    checkpoint_target_l2: gauge("abci_checkpoint_target_l2", "Pinned L2 checkpoint height"),
+    checkpoint_distance: gauge(
+        "abci_checkpoint_distance",
+        "Pinned checkpoint height minus committed height",
     ),
     halted: gauge("abci_halted", "1 while the app refuses to make progress, 0 otherwise"),
 });

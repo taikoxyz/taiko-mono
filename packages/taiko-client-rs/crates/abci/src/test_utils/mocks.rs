@@ -71,6 +71,8 @@ pub(crate) struct MockL1State {
     /// When set, every proof read (`account_witness`) fails with this error, as an L1 node
     /// refusing or rate-limiting `eth_getProof` answers.
     pub(crate) proof_fail: Option<L1Error>,
+    /// Overrides a proof response to exercise wrong-account and wrong-slot validation.
+    pub(crate) proof_override: Option<AccountWitness>,
     /// Every call, in order.
     pub(crate) calls: Vec<L1Call>,
     /// Calls currently in progress (started, not yet answered or dropped).
@@ -228,6 +230,9 @@ impl L1Source for MockL1 {
             self.record(L1Call::AccountWitness { address, slots: slots.to_vec(), block })?;
         if let Some(err) = &state.proof_fail {
             return Err(err.clone());
+        }
+        if let Some(proof) = &state.proof_override {
+            return Ok(proof.clone());
         }
         Ok(Self::state_at(&state, address, block)?.witness(address, slots))
     }

@@ -89,3 +89,5 @@ fn assert_not_initialized(app: &App<MockL1, MockEngine>, dir: &Path) {
     assert!(app.state().is_none(), "no state after a rejected InitChain");
     assert_eq!(Store::volatile(dir.to_path_buf()).load().expect("store loads"), None);
 }
+
+mod trust;
