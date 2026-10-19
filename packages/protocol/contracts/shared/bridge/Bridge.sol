@@ -487,11 +487,14 @@ contract Bridge is EssentialResolverContract, IBridge {
         );
     }
 
-    /// @notice Checks if a msgHash has been received on its source chain.
-    /// This is the 'readonly' version of proveMessageReceived.
+    /// @notice Checks on the destination chain whether the source-chain message signal can be
+    /// verified.
+    /// @dev Verifies the signal proof without caching cross-chain data. This does not check
+    /// whether the message has been executed on the destination chain.
     /// @param _message The message.
     /// @param _proof The merkle inclusion proof.
-    /// @return true if the message has been received, false otherwise.
+    /// @return true if the source-chain message signal is verified on the destination chain,
+    /// false otherwise.
     function isMessageReceived(
         Message calldata _message,
         bytes calldata _proof

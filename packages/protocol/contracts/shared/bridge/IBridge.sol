@@ -106,15 +106,15 @@ interface IBridge {
         external
         returns (Status, StatusReason);
 
-    /// @notice Retries to invoke the messageCall after releasing associated
-    /// Ether and tokens.
-    /// @dev This function can be called by any address, including the
-    /// `message.destOwner`.
-    /// It attempts to invoke the messageCall and updates the message status
-    /// accordingly.
+    /// @notice Retries a RETRIABLE message on the destination chain.
+    /// @dev The message value is released as part of a successful invocation, or refunded to
+    /// `message.destOwner` if invocation is prohibited. For invocable messages, callers other than
+    /// `message.destOwner` must use a nonzero `message.gasLimit` and `_isLastAttempt = false`.
+    /// A failed retry reverts unless `_isLastAttempt` is true and recalls are enabled, in which
+    /// case the message is marked FAILED.
     /// @param _message The message to retry.
-    /// @param _isLastAttempt Specifies if this is the last attempt to retry the
-    /// message.
+    /// @param _isLastAttempt Whether a failed retry should mark the message FAILED if recalls
+    /// are enabled.
     function retryMessage(Message calldata _message, bool _isLastAttempt) external;
 
     /// @notice Mark a message as failed if the message is currently retriable.
