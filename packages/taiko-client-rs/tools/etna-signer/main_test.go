@@ -7,6 +7,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 )
 
 func TestProductionStartupNeverCreatesSigningFilesAndLocksExistingState(t *testing.T) {
@@ -46,5 +47,84 @@ func TestProductionStartupNeverCreatesSigningFilesAndLocksExistingState(t *testi
 	after, _ := os.ReadFile(state)
 	if string(before) != string(after) {
 		t.Fatal("lock rejection changed actual signing state")
+	}
+}
+
+func TestStateSymlinkUsesCanonicalOwnerLock(t *testing.T) {
+	binary := buildSigner(t)
+	_, key, state := filePV(t)
+	alias := filepath.Join(t.TempDir(), "state-alias.json")
+	if err := os.Symlink(state, alias); err != nil {
+		t.Fatal(err)
+	}
+	lock, err := os.OpenFile(state+".lock", os.O_CREATE|os.O_RDWR, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Close()
+	if err = syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.ReadFile(state)
+	helper := exec.Command(binary, "--comet-signer-addr", "unix:///absent-comet.sock", "--trust-socket", "/absent-trust.sock", "--chain-id", chain, "--priv-key", key, "--priv-state", alias)
+	var output strings.Builder
+	helper.Stdout = &output
+	helper.Stderr = &output
+	if err = helper.Start(); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- helper.Wait() }()
+	select {
+	case err = <-done:
+		if err == nil || !strings.Contains(output.String(), "another signer owns") {
+			t.Fatalf("alias owner was accepted: %v %s", err, output.String())
+		}
+	case <-time.After(2 * time.Second):
+		helper.Process.Kill()
+		<-done
+		t.Fatal("state symlink bypassed canonical owner lock; second helper stayed alive")
+	}
+	after, _ := os.ReadFile(state)
+	if string(before) != string(after) {
+		t.Fatal("rejected alias modified actual state")
+	}
+	if info, e := os.Lstat(alias); e != nil || info.Mode()&os.ModeSymlink == 0 {
+		t.Fatal("signer replaced the state symlink")
+	}
+}
+
+func TestHardlinkedStateCannotSplitSigningHistory(t *testing.T) {
+	binary := buildSigner(t)
+	_, key, state := filePV(t)
+	alias := filepath.Join(t.TempDir(), "state-hardlink.json")
+	if err := os.Link(state, alias); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.ReadFile(state)
+	for _, path := range []string{state, alias} {
+		helper := exec.Command(binary, "--comet-signer-addr", "unix:///absent-comet.sock", "--trust-socket", "/absent-trust.sock", "--chain-id", chain, "--priv-key", key, "--priv-state", path)
+		var output strings.Builder
+		helper.Stdout = &output
+		helper.Stderr = &output
+		if err := helper.Start(); err != nil {
+			t.Fatal(err)
+		}
+		done := make(chan error, 1)
+		go func() { done <- helper.Wait() }()
+		select {
+		case err := <-done:
+			if err == nil || !strings.Contains(output.String(), "exactly one filesystem link") {
+				t.Fatalf("multiply-linked state accepted: %v %s", err, output.String())
+			}
+		case <-time.After(2 * time.Second):
+			helper.Process.Kill()
+			<-done
+			t.Fatal("multiply-linked state stayed alive")
+		}
+	}
+	after, _ := os.ReadFile(state)
+	if string(before) != string(after) {
+		t.Fatal("hardlink rejection modified signing state")
 	}
 }
