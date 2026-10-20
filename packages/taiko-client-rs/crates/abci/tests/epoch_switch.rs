@@ -25,7 +25,6 @@ async fn epoch_switch_adds_the_joining_validator() -> anyhow::Result<()> {
         validators: 4,
         initial_validators: 3,
         epoch_len: 20,
-        epoch_len_l1: 10,
         d_max: 12,
         margin_v: 2,
         ..Default::default()

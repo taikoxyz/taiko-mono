@@ -205,9 +205,7 @@ fn state_with_queue(
         (inbox::slot(inbox::COMMITTEE_CONFIG_HASH), genesis.committee_config_hash.into()),
         (
             inbox::slot(inbox::GENESIS_PACKED),
-            U256::from(genesis.l1_0) << 64 |
-                U256::from(genesis.epoch_len) << 128 |
-                U256::from(genesis.epoch_len_l1) << 192,
+            U256::from(genesis.l1_0) << 64 | U256::from(genesis.epoch_len) << 128,
         ),
         (inbox::slot(inbox::GENESIS_BLOCK_HASH), genesis.genesis_hash.into()),
         (inbox::slot(inbox::GENESIS_STATE_ROOT), genesis.genesis_state_root.into()),
@@ -507,7 +505,6 @@ impl Fixture {
             genesis_height: 0,
             l1_0: 10,
             epoch_len,
-            epoch_len_l1: 1,
             genesis_cutoff: 1,
             genesis_hash: genesis_header.hash_slow(),
             genesis_state_root: genesis_header.state_root,
@@ -543,7 +540,7 @@ impl Fixture {
             } else {
                 12
             };
-            let (record, members) = derive(&snapshot, cutoff, epoch, &schedule, &params).unwrap();
+            let (record, members) = derive(&snapshot, cutoff, epoch, &params).unwrap();
             let hash = record_hash(params.l2_chain_id, &record);
             committees.insert(
                 epoch,
@@ -891,7 +888,6 @@ impl LandingSource for Fixture {
     }
     async fn committee_witness(
         &self,
-        _: &LandingSnapshot,
         anchor: &AnchorState,
         _snapshot_number: u64,
         epoch: u64,
@@ -1325,9 +1321,8 @@ fn authenticates_301_members_from_registry_proof_through_comet_certificate() {
         entries.iter().map(|entry| entry.reward_recipient).collect::<BTreeSet<_>>().len(),
         COUNT
     );
-    let schedule = Schedule { l1_0: 0, epoch_len: 10, epoch_len_l1: 10, genesis_cutoff: 1 };
     let snapshot = Snapshot { checkpoint_index: 0, l1_block: 1, entries: entries.clone() };
-    let (record, expected_members) = derive(&snapshot, 1, 0, &schedule, &params).unwrap();
+    let (record, expected_members) = derive(&snapshot, 1, 0, &params).unwrap();
     let checkpoint = registry::checkpoint_slots(0);
     let state = State::new(vec![(
         params.registry,
@@ -1345,7 +1340,7 @@ fn authenticates_301_members_from_registry_proof_through_comet_certificate() {
     assert!(!witness.registry.account_proof.is_empty());
     assert_eq!(verify_snapshot(state.root, params.registry, &witness, 1).unwrap(), snapshot);
     let (verified_record, members) =
-        verify_committee_witness_at_cutoff(state.root, 1, &schedule, &params, &witness, 0).unwrap();
+        verify_committee_witness_at_cutoff(state.root, 1, &params, &witness, 0).unwrap();
     assert_eq!(verified_record, record);
     assert_eq!(members, expected_members);
     assert_eq!(members.len(), COUNT);
@@ -1361,7 +1356,7 @@ fn authenticates_301_members_from_registry_proof_through_comet_certificate() {
     let mut tampered = witness.clone();
     tampered.entries[COUNT - 1].reward_recipient = Address::repeat_byte(0x88);
     assert!(matches!(
-        verify_committee_witness_at_cutoff(state.root, 1, &schedule, &params, &tampered, 0),
+        verify_committee_witness_at_cutoff(state.root, 1, &params, &tampered, 0),
         Err(CommitteeError::EntriesRootMismatch { .. })
     ));
     let mut tampered_set = authenticated.state.clone();

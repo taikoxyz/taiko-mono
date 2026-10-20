@@ -23,11 +23,11 @@ bash ./script/build_etna_signer.sh
 export ETNA_SIGNER_BIN="$PWD/target/etna-signer/etna-signer"
 
 # Internal selectors used by the fixed `just test-smoke` and `just test-full` recipes. Shift only
-# this leading flag so all remaining arguments retain their nextest meaning. By default the two
-# slowest scenarios are left to the full run (main, nightly, `just verify`): the L1 finality
-# stall needs about 1,150 L2 blocks to age past the 1152 s anchor floor, and the anchor
-# finality gate waits for L1 to finalize epoch 1. Unit tests cover both halt-and-resume rules.
-filter='kind(test) & !(test(=stale_l1_finality_pauses_and_resumes_l2) | test(=anchor_finality_gates_epoch_entry))'
+# this leading flag so all remaining arguments retain their nextest meaning. By default the
+# slowest scenario is left to the full run (main, nightly, `just verify`): the L1 finality stall
+# needs about 1,150 L2 blocks to age past the 1152 s anchor floor. Unit tests cover its
+# halt-and-resume rule.
+filter='kind(test) & !test(=stale_l1_finality_pauses_and_resumes_l2)'
 if [[ "${1:-}" == "--smoke" ]]; then
     shift
     filter='kind(test) & (test(=single_validator_produces_blocks_by_the_header_rules) | test(=epoch_switch_adds_the_joining_validator) | test(=real_l2_rewards_claim_and_fee_continuation) | test(=lander_cli_recovers_from_sigkill_and_resumes_after_sigterm))'

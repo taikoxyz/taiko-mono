@@ -361,7 +361,7 @@ jobs:
       # devnet through the docker CLI, one scenario at a time.
       - name: Run docker scenarios
         working-directory: packages/taiko-client-rs
-        # Pull requests skip the two slowest scenarios; main, nightly and manual runs cover all.
+        # Pull requests skip the slowest scenario; main, nightly and manual runs cover all.
         run: just ${{ github.event_name == 'pull_request' && 'test' || 'test-full' }}
 
       # Each scenario removes its devnet when it ends, but a job cancellation or

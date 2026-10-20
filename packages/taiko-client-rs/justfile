@@ -37,13 +37,12 @@ udeps:
 
 # The docker scenarios (`#[ignore = "docker"]`), one at a time; each boots its own
 # anvil + alethia-reth + CometBFT devnet. Needs a running docker daemon. This is the
-# pull-request tier: it leaves the two slowest scenarios (L1 finality stall, anchor
-# finality gate) to `test-full`. Extra args are forwarded to nextest (e.g.
-# `just test restart` runs one scenario).
+# pull-request tier: it leaves the slowest scenario (the L1 finality stall) to `test-full`.
+# Extra args are forwarded to nextest (e.g. `just test restart` runs one scenario).
 test *ARGS:
   ./tests/entrypoint.sh "$@"
 
-# Every docker scenario, including the two slow ones `test` skips. CI runs it on main,
+# Every docker scenario, including the slow one `test` skips. CI runs it on main,
 # nightly and on manual dispatch; `verify` runs it locally. Extra args go to nextest.
 test-full *ARGS:
   ./tests/entrypoint.sh --full "$@"

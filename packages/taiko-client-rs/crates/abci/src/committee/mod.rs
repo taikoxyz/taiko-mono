@@ -34,9 +34,9 @@ pub const ENCODING_VERSION: u8 = 2;
 /// `(2^63 − 1) / 8`.
 pub const MAX_TOTAL_POWER: u64 = (i64::MAX as u64) / 8;
 
-/// `LOOKAHEAD_EPOCHS` of #22262 (normative, not tunable): heartbeat eligibility for epoch
-/// `e`'s committee is evaluated at the start of the L1-side epoch `e − LOOKAHEAD_EPOCHS`.
-pub const LOOKAHEAD_EPOCHS: u64 = 2;
+/// The first target epoch whose committee requires recent heartbeats; the launch committees of
+/// epochs 0, 1 and 2 are exempt ([`heartbeat_floor`]).
+pub const FIRST_HEARTBEAT_EPOCH: u64 = Schedule::E0 + 3;
 
 /// `bytes32("ETNA_REG_ENTRY_V2")`: domain tag of registry entry leaves.
 const REG_ENTRY_TAG: B256 = tag(b"ETNA_REG_ENTRY_V2");
@@ -136,8 +136,7 @@ pub enum CommitteeError {
     /// `HEARTBEAT_WINDOW` is zero, so the heartbeat windows of a filtered epoch are undefined.
     #[error("heartbeat window must be >= 1")]
     ZeroHeartbeatWindow,
-    /// The target epoch has no set version `k = targetEpoch − e_0 + 1` in `u64`, or its heartbeat
-    /// evaluation block `L1_first(targetEpoch − LOOKAHEAD_EPOCHS)` overflows `u64`.
+    /// The target epoch has no set version `k = targetEpoch − e_0 + 1` in `u64`.
     #[error("target epoch {0} is out of range")]
     EpochOutOfRange(u64),
     /// No entry is eligible at the immutable snapshot. Activation cannot advance its cutoff or
@@ -268,22 +267,20 @@ pub fn record_hash(l2_chain_id: u64, r: &CommitteeRecord) -> B256 {
     )
 }
 
-/// The authenticated derivation configuration: eleven static Solidity ABI words.
+/// The authenticated derivation configuration: ten static Solidity ABI words.
 ///
-/// Binds the L2 chain, registry, stake/power rules, heartbeat window,
-/// two-epoch heartbeat lookahead, committee-record encoding version and the back-pressure
-/// parameters `d_max` and `margin_v`.
+/// Binds the L2 chain, registry, stake/power rules, heartbeat window, committee-record encoding
+/// version and the back-pressure parameters `d_max` and `margin_v`.
 pub fn committee_config_hash(params: &ChainParams) -> B256 {
     keccak256(
         [
-            tag(b"ETNA_PARENT_ANCHOR_V4"),
+            tag(b"ETNA_PARENT_ANCHOR_V5"),
             word(params.l2_chain_id),
             B256::from(U256::from_be_slice(params.registry.as_slice())),
             word(params.vp_unit),
             word(params.s_min),
             word(params.n_max),
             word(params.heartbeat_window),
-            word(LOOKAHEAD_EPOCHS),
             word(ENCODING_VERSION),
             word(params.d_max),
             word(params.margin_v),
@@ -369,32 +366,26 @@ pub fn verify_snapshot(
     Ok(Snapshot { checkpoint_index: index, l1_block, entries: w.entries.clone() })
 }
 
-/// The existing heartbeat floor for the committee of `target_epoch` at `cutoff`.
+/// The heartbeat floor for the committee of `target_epoch` selected at `cutoff`.
 ///
-/// Epochs 0, 1 and 2 are exempt. Later epochs evaluate the start of the heartbeat window
-/// containing `L1_first(target_epoch-2)`, capped by the window containing the cutoff, and
-/// subtract one window with saturation. Eligibility also requires a nonzero heartbeat sequence.
-/// Rejects a zero heartbeat window for filtered epochs or an overflowing L1 schedule.
+/// Epochs before [`FIRST_HEARTBEAT_EPOCH`] are exempt (`None`). Later epochs take the start of
+/// the heartbeat window containing the cutoff, `cutoff − cutoff % heartbeat_window`, and
+/// subtract one window with saturation: a seat holder must have sent a heartbeat in the window
+/// containing the snapshot or the one before it. Eligibility also requires a nonzero heartbeat
+/// sequence. Rejects a zero heartbeat window for filtered epochs.
 pub fn heartbeat_floor(
-    schedule: &Schedule,
     heartbeat_window: u64,
     target_epoch: u64,
     cutoff: u64,
 ) -> Result<Option<u64>, CommitteeError> {
-    let Some(instant_epoch) =
-        target_epoch.checked_sub(LOOKAHEAD_EPOCHS).filter(|e| *e > Schedule::E0)
-    else {
+    if target_epoch < FIRST_HEARTBEAT_EPOCH {
         return Ok(None);
-    };
+    }
     if heartbeat_window == 0 {
         return Err(CommitteeError::ZeroHeartbeatWindow);
     }
-    let l1_first = schedule
-        .checked_l1_first(instant_epoch)
-        .ok_or(CommitteeError::EpochOutOfRange(target_epoch))?;
-    let window_start = |n: u64| n - n % heartbeat_window;
-    let instant = window_start(l1_first).min(window_start(cutoff));
-    Ok(Some(instant.saturating_sub(heartbeat_window)))
+    let window_start = cutoff - cutoff % heartbeat_window;
+    Ok(Some(window_start.saturating_sub(heartbeat_window)))
 }
 
 /// Derives the committee for `target_epoch` from a verified `snapshot` at `cutoff` and returns its
@@ -415,11 +406,10 @@ pub fn derive(
     snapshot: &Snapshot,
     cutoff: u64,
     target_epoch: u64,
-    schedule: &Schedule,
     params: &ChainParams,
 ) -> Result<(CommitteeRecord, Vec<Member>), CommitteeError> {
     let Selection { k, members, total_power, total_stake, .. } =
-        select(&snapshot.entries, cutoff, target_epoch, schedule, params)?;
+        select(&snapshot.entries, cutoff, target_epoch, params)?;
     let record = CommitteeRecord {
         target_epoch,
         cutoff_l1_block: cutoff,
@@ -440,7 +430,6 @@ pub fn derive(
 /// last registry mutation checkpoint is older. Candidate anchors never select this snapshot.
 pub fn verify_committee_witness(
     parent_anchor: &AnchorState,
-    schedule: &Schedule,
     params: &ChainParams,
     w: &CommitteeWitness,
     target_epoch: u64,
@@ -448,7 +437,6 @@ pub fn verify_committee_witness(
     verify_committee_witness_at_cutoff(
         parent_anchor.state_root,
         parent_anchor.number,
-        schedule,
         params,
         w,
         target_epoch,
@@ -459,8 +447,8 @@ pub fn verify_committee_witness(
 /// against the L1 `state_root`, and returns the committee it proves.
 ///
 /// The snapshot proofs verify against `state_root` and `params.registry` ([`verify_snapshot`]
-/// with `cutoff` as is: no lag, no grid). Then derives the committee for `target_epoch` under
-/// `schedule` at `cutoff` ([`derive`], so the record's `cutoff_l1_block` is `cutoff`) and
+/// with `cutoff` as is: no lag, no grid). Then derives the committee for `target_epoch` at
+/// `cutoff` ([`derive`], so the record's `cutoff_l1_block` is `cutoff`) and
 /// requires the derived record to equal `w.record` ([`CommitteeError::RecordMismatch`]
 /// otherwise).
 ///
@@ -476,13 +464,12 @@ pub fn verify_committee_witness(
 pub fn verify_committee_witness_at_cutoff(
     state_root: B256,
     cutoff: u64,
-    schedule: &Schedule,
     params: &ChainParams,
     w: &CommitteeWitness,
     target_epoch: u64,
 ) -> Result<(CommitteeRecord, Vec<Member>), CommitteeError> {
     let snapshot = verify_snapshot(state_root, params.registry, w, cutoff)?;
-    let (record, members) = derive(&snapshot, cutoff, target_epoch, schedule, params)?;
+    let (record, members) = derive(&snapshot, cutoff, target_epoch, params)?;
     if record != w.record {
         return Err(CommitteeError::RecordMismatch {
             claimed: Box::new(w.record.clone()),
@@ -528,7 +515,6 @@ fn select(
     entries: &[RegistryEntry],
     cutoff: u64,
     target_epoch: u64,
-    schedule: &Schedule,
     params: &ChainParams,
 ) -> Result<Selection, CommitteeError> {
     if entries.iter().any(|entry| entry.reward_recipient.is_zero()) {
@@ -542,7 +528,7 @@ fn select(
         .and_then(|d| d.checked_add(1))
         .ok_or(CommitteeError::EpochOutOfRange(target_epoch))?;
     let min_stake = params.s_min.max(params.vp_unit);
-    let floor = heartbeat_floor(schedule, params.heartbeat_window, target_epoch, cutoff)?;
+    let floor = heartbeat_floor(params.heartbeat_window, target_epoch, cutoff)?;
 
     // `(set key, bondId, entry)`; `bondId` is the entry's index in the snapshot.
     let mut eligible: Vec<(B256, usize, &RegistryEntry)> = entries

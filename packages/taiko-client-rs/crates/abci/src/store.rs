@@ -273,7 +273,6 @@ mod tests {
             genesis_height: 0,
             l1_0: 1_000,
             epoch_len: 20,
-            epoch_len_l1: 4,
             genesis_hash: B256::repeat_byte(0x66),
             genesis_state_root: B256::repeat_byte(0x77),
             genesis_cutoff: 990,
@@ -400,11 +399,23 @@ mod tests {
             "genesis_height": s.genesis.genesis_height,
             "l1_0": s.genesis.l1_0,
             "epoch_len": s.genesis.epoch_len,
-            "epoch_len_l1": s.genesis.epoch_len_l1,
             "genesis_cutoff": s.genesis.genesis_cutoff,
         });
         fs::write(dir.path().join(STATE_FILE), serde_json::to_vec(&json).unwrap()).unwrap();
         assert!(matches!(store.load(), Err(StoreError::Corrupt { .. })));
+    }
+
+    /// A state saved while the genesis record still carried the L1 epoch length is refused
+    /// rather than loaded without it.
+    #[test]
+    fn load_rejects_a_state_with_an_l1_epoch_length() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().into());
+        let mut json = serde_json::to_value(state()).unwrap();
+        json["genesis"]["epoch_len_l1"] = 4.into();
+        fs::write(dir.path().join(STATE_FILE), serde_json::to_vec(&json).unwrap()).unwrap();
+        let err = store.load().expect_err("a state with the removed field must not load");
+        assert!(matches!(err, StoreError::Corrupt { .. }), "{err:?}");
     }
 
     /// A state written before forced inclusion lacks its genesis-record, anchor and cursor fields

@@ -67,7 +67,6 @@ pub trait LandingSource: Send + Sync {
     /// Discover a registry witness under the given authenticated anchor, never a committee hint.
     async fn committee_witness(
         &self,
-        snapshot: &LandingSnapshot,
         anchor: &AnchorState,
         snapshot_number: u64,
         epoch: u64,
@@ -289,7 +288,6 @@ impl LandingSource for RpcLandingSource {
     /// Historical discovery remains untrusted until the builder verifies its root and record.
     async fn committee_witness(
         &self,
-        snapshot: &LandingSnapshot,
         anchor: &AnchorState,
         snapshot_number: u64,
         epoch: u64,
@@ -297,7 +295,6 @@ impl LandingSource for RpcLandingSource {
         build_committee_witness_at_cutoff(
             &self.anchors,
             &self.params,
-            &Schedule::from_genesis(&snapshot.genesis),
             anchor.number,
             snapshot_number,
             epoch,
@@ -471,7 +468,6 @@ fn decode_snapshot(
         genesis_height: word_u64(packed, 0),
         l1_0: word_u64(packed, 64),
         epoch_len: word_u64(packed, 128),
-        epoch_len_l1: word_u64(packed, 192),
         genesis_hash: word(inbox::GENESIS_BLOCK_HASH).into(),
         genesis_state_root: word(inbox::GENESIS_STATE_ROOT).into(),
         genesis_cutoff: word_u64(word(inbox::GENESIS_CUTOFF), 0),

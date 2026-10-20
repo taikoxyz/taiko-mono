@@ -325,7 +325,6 @@ async fn plant_genesis(
         genesis_height: 0,
         l1_0,
         epoch_len: spec.epoch_len,
-        epoch_len_l1: spec.epoch_len_l1,
         genesis_hash,
         genesis_state_root,
         genesis_cutoff,
@@ -334,9 +333,7 @@ async fn plant_genesis(
     };
     let snapshot =
         Snapshot { checkpoint_index: 0, l1_block: genesis_cutoff, entries: entries.to_vec() };
-    let schedule = Schedule::from_genesis(&genesis);
-    let (record, _) =
-        committee::derive(&snapshot, genesis_cutoff, Schedule::E0, &schedule, params)?;
+    let (record, _) = committee::derive(&snapshot, genesis_cutoff, Schedule::E0, params)?;
     next.plant_inbox(&InboxValues {
         status: Some(ETNA_ACTIVE),
         recovery_generation: Some(0),

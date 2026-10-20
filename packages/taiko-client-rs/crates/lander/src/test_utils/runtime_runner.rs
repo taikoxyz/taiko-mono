@@ -235,7 +235,6 @@ impl LandingSource for MockL1 {
     }
     async fn committee_witness(
         &self,
-        _: &LandingSnapshot,
         _: &AnchorState,
         _: u64,
         _: u64,

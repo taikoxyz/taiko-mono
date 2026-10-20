@@ -133,7 +133,6 @@ pub fn verify_genesis_inbox(
         genesis_height: word_u64(packed, 0),
         l1_0: word_u64(packed, 64),
         epoch_len: word_u64(packed, 128),
-        epoch_len_l1: word_u64(packed, 192),
         genesis_hash: inbox_word(&storage, inbox::GENESIS_BLOCK_HASH).into(),
         genesis_state_root: inbox_word(&storage, inbox::GENESIS_STATE_ROOT).into(),
         genesis_cutoff: word_u64(inbox_word(&storage, inbox::GENESIS_CUTOFF), 0),
@@ -254,7 +253,6 @@ mod tests {
                     ("genesis_height", 0),
                     ("l1_block", u64::MAX - 2),
                     ("epoch_len_l2", 0x0102_0304_0506_0708),
-                    ("epoch_len_l1", u64::MAX - 3),
                 ],
             ),
             word("genesis_block_hash", 0xa1),
@@ -281,7 +279,6 @@ mod tests {
                 genesis_height: 0,
                 l1_0: u64::MAX - 2,
                 epoch_len: 0x0102_0304_0506_0708,
-                epoch_len_l1: u64::MAX - 3,
                 genesis_hash: B256::repeat_byte(0xa1),
                 genesis_state_root: B256::repeat_byte(0xa2),
                 genesis_cutoff: u64::MAX - 4,
@@ -426,7 +423,6 @@ mod tests {
             genesis_height: 0,
             l1_0: 0x0102_0304_0506_0708,
             epoch_len: 0xfedc_ba98_7654_3210,
-            epoch_len_l1: u64::MAX,
             genesis_hash: B256::repeat_byte(0xa1),
             genesis_state_root: B256::repeat_byte(0xa2),
             genesis_cutoff: 0x0102_0304_0506_0707,
@@ -459,6 +455,23 @@ mod tests {
             }
         );
         assert_eq!(record, committee_e0());
+    }
+
+    /// Bits 192–255 of the activation word are unused; the decoder does not read them.
+    #[test]
+    fn genesis_ignores_the_unused_activation_bits() {
+        let genesis = sample_genesis_record();
+        let mut words = InboxStorage::genesis(genesis.clone(), committee_e0()).slots();
+        let activation = inbox::slot(inbox::GENESIS_PACKED);
+        let (_, word) = words.iter_mut().find(|(slot, _)| *slot == activation).unwrap();
+        *word |= U256::from(u64::MAX) << 192;
+        let mut accounts = filler_accounts();
+        accounts.push((INBOX, 1, U256::ZERO, keccak256(b"etna inbox code"), words));
+        let state = TestState::new(accounts);
+
+        let w = state.witness(INBOX, &inbox::genesis_slots());
+        let (decoded, _, _) = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap();
+        assert_eq!(decoded, genesis);
     }
 
     /// A valid storage proof cannot make a non-genesis L2 height a supported bootstrap.

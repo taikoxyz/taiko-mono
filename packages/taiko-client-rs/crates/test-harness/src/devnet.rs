@@ -42,8 +42,6 @@ pub struct DevnetSpec {
     pub initial_validators: usize,
     /// `L`: epoch length in L2 blocks.
     pub epoch_len: u64,
-    /// `EPOCH_LEN_L1`: epoch length in L1 blocks.
-    pub epoch_len_l1: u64,
     /// `D_MAX`.
     pub d_max: u64,
     /// `MARGIN_V`.
@@ -57,14 +55,13 @@ pub struct DevnetSpec {
 }
 
 impl Default for DevnetSpec {
-    /// One validator, `L = 20`, `EPOCH_LEN_L1 = 10`, `D_MAX = 12`, `MARGIN_V = 2`, 1 s commits,
+    /// One validator, `L = 20`, `D_MAX = 12`, `MARGIN_V = 2`, 1 s commits,
     /// forced inclusion delay 1 h, maximum anchor age 2 h, fake lander advancing checkpoints.
     fn default() -> Self {
         Self {
             validators: 1,
             initial_validators: 1,
             epoch_len: 20,
-            epoch_len_l1: 10,
             d_max: 12,
             margin_v: 2,
             timeout_commit_ms: 1000,

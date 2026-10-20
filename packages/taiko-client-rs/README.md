@@ -80,8 +80,9 @@ the committed parent's exact L1 state root. Eligibility is evaluated at the snap
 even when the last registry mutation is older. Snapshot entries are fully verified before base eligibility and lowest-bond-id pubkey
 deduplication. The top `n_max` seats are then selected by stake before heartbeat filtering;
 missing heartbeats leave those seats empty without backfilling from lower-ranked entries.
-Committees 0, 1 and 2 retain their launch heartbeat exemption; later committees use the
-target-epoch window predicate.
+Committees 0, 1 and 2 retain their launch heartbeat exemption. A later committee keeps a seat
+holder only if its heartbeat sequence is nonzero and its last heartbeat is at or after the start
+of the heartbeat window before the one containing the snapshot.
 
 At `H(t) - 2`, the envelope carries committee `t`'s witness and `FinalizeBlock` returns the
 validator updates. CometBFT activates them at `H(t)`. Epoch-first blocks no longer publish a
@@ -95,9 +96,9 @@ committed anchor and activates at height 11. If height 8 anchored L1 block 1010,
 1030 proposed at height 9 cannot change that selection. A different decided history whose
 height 8 anchored 1020 may select a different committee; all nodes replaying one history agree.
 
-The config hash binds eleven ABI words under `ETNA_PARENT_ANCHOR_V4`: L2 chain id,
-registry, `vp_unit`, `s_min`, `n_max`, `heartbeat_window`, heartbeat lookahead 2,
-recipient-bound committee encoding version 2, `d_max` and `margin_v`. The opening is exactly 352 bytes.
+The config hash binds ten ABI words under `ETNA_PARENT_ANCHOR_V5`: L2 chain id,
+registry, `vp_unit`, `s_min`, `n_max`, `heartbeat_window`, recipient-bound committee encoding
+version 2, `d_max` and `margin_v`. The opening is exactly 320 bytes.
 The coordinated format is envelope v6, payload v6, V10 statement (21 words / 672 bytes),
 journal schema 12, committee encoding version 2 and `APP_VERSION = 4`. State files must
 carry that exact app version and all authenticated genesis, anchor and FI fields. Old app/config versions and structural formats
@@ -146,31 +147,26 @@ immutable revision appears in the artifact index below. This is new-genesis-only
 
 ## Genesis schedule bounds and pacing
 
-Inbox initialization fixes `L1_0` (the initialization block), `L = epochLenL2` and
-`E = epochLenL1`, and the configuration hash fixes the unsettled cap `U = d_max - margin_v`, so
-only a new deployment corrects a bad value. `abci`, `abci-genesis` and the lander reject:
+Inbox initialization fixes `L1_0` (the initialization block) and `L = epochLenL2`, and the
+configuration hash fixes the unsettled cap `U = d_max - margin_v`, so only a new deployment
+corrects a bad value. `abci`, `abci-genesis` and the lander reject:
 
 - `d_max <= margin_v` (`U = 0`): block 1 would already exceed the cap against the genesis
   checkpoint at height 0, so the chain could never produce it;
-- `L < 3`, `L < U + 3` or `E = 0`;
+- `L < 3` or `L < U + 3`;
 - `h_first(1) = L + 1` above `type(uint48).max`, the last height `land` accepts;
-- `L1_first(1) = L1_0 + E` above `type(uint48).max`, the last anchor number the `extraData`
-  encodes.
+- `L1_0` above `type(uint48).max`, the last anchor number the `extraData` encodes; every
+  anchor is at or above `L1_0`.
 
-Only the first transition is range-checked. At practical values the `uint48` limits lie millions
-of years ahead, and an epoch whose `L1_first` exceeds them never opens (`epoch_not_open_on_l1`)
-rather than crashing a node. The contract checks `3 <= L < type(uint48).max` and `E > 0`. `U = 0` is
-already rejected by `abci-committee-record` before deployment, but the schedule bounds are first
-checked by `abci-genesis` after initialization, so check `L + 1` and the expected `L1_0 + E` before
-deploying.
+Only the first transition is range-checked; at practical values the `uint48` limits lie millions
+of years ahead. The contract checks `3 <= L < type(uint48).max`. `U = 0` is already rejected by
+`abci-committee-record` before deployment, but the schedule bounds are first checked by
+`abci-genesis` after initialization, so check `L + 1` before deploying.
 
-Pacing is the deployer's obligation, not a validity rule. A block of epoch `e` needs an
-L1-finalized anchor at or after `L1_first(e) = L1_0 + e * E`, so L2 pauses at an epoch boundary
-(`epoch_not_open_on_l1`) whenever it produces `L` blocks faster than L1 produces `E` blocks, and
-resumes once L1 finality catches up. To avoid these pauses, keep `E` L1 slots (12 s each on
-Ethereum) no longer than `L` L2 blocks at the fastest intended block rate; every L2 block
-advances the timestamp by at least one second. Back-pressure paces settlement the same way: L2
-pauses (`back_pressure`) while `U` blocks are unlanded, so choose `U` above the number of blocks
+Pacing is the deployer's obligation, not a validity rule. Epochs place no floor on the anchor:
+a block's anchor only has to be at or after its parent's and at most `maxAnchorAge` older than
+the block, so the L2 block rate is not tied to L1's. Back-pressure paces settlement: L2 pauses
+(`back_pressure`) while `U` blocks are unlanded, so choose `U` above the number of blocks
 produced during one landing round trip (proving, `land` inclusion and the landing's L1 finality)
 unless such pauses are intended.
 
@@ -320,7 +316,7 @@ selects the built-in chain parameters. Only the internal devnet (chain id `16700
 parameters so far; on other chains `abci` refuses to start. The `--chain-config` TOML uses the
 snake_case names of `abci::ChainParams` (for example `d_max = 1024`); absent keys keep their
 built-in values. `fee_vault` and `block_gas_limit` may only repeat the built-in values, because
-the eleven-word contract configuration does not commit these fields; changing them requires a
+the ten-word contract configuration does not commit these fields; changing them requires a
 coordinated protocol/built-in update. `d_max` and `margin_v` are committed, so a chain may set
 its own; every node and lander of that chain must use the values its Inbox configuration hash
 opens with. The authenticated Inbox address
@@ -1038,9 +1034,8 @@ just clippy     # doc lints on library code, then every target with -D warnings
   CometBFT), with phases that need the same history sharing one, so they run one at a time; the
   suite takes about ten minutes. Extra
   arguments go to `cargo nextest run`, e.g. `just test restart` runs one scenario. Pull requests
-  skip the two slowest scenarios, the L1 finality stall and the anchor finality gate, whose
-  halt-and-resume rules unit tests cover; `just test-full` runs every scenario, as CI does on
-  main, nightly and on manual dispatch.
+  skip the slowest scenario, the L1 finality stall, whose halt-and-resume rule unit tests cover;
+  `just test-full` runs every scenario, as CI does on main, nightly and on manual dispatch.
   `tests/entrypoint.sh` pulls the images first; override them with `ANVIL_IMAGE`,
   `ALETHIA_RETH_IMAGE`, `COMETBFT_IMAGE` and `LANDER_ANVIL_IMAGE`, or set
   `PULL_POLICY=missing` to reuse local images. Existing ABCI tests retain Anvil v1.5.1;

@@ -253,8 +253,7 @@ impl InboxStorage {
         if let Some(a) = &self.genesis {
             let packed = U256::from(a.genesis_height) |
                 (U256::from(a.l1_0) << 64) |
-                (U256::from(a.epoch_len) << 128) |
-                (U256::from(a.epoch_len_l1) << 192);
+                (U256::from(a.epoch_len) << 128);
             slots.extend([
                 (inbox::slot(inbox::GENESIS_PACKED), packed),
                 (inbox::slot(inbox::GENESIS_BLOCK_HASH), a.genesis_hash.into()),
@@ -330,7 +329,6 @@ pub(crate) fn sample_genesis_record() -> GenesisRecord {
         genesis_height: 0,
         l1_0: 64,
         epoch_len: 20,
-        epoch_len_l1: 4,
         genesis_hash: B256::repeat_byte(0x48),
         genesis_state_root: B256::repeat_byte(0x53),
         genesis_cutoff: 63,
@@ -660,7 +658,6 @@ mod tests {
             genesis_height: u64::MAX,
             l1_0: 0x0102_0304_0506_0708,
             epoch_len: 1,
-            epoch_len_l1: u64::MAX - 1,
             genesis_hash: B256::repeat_byte(0xa1),
             genesis_state_root: B256::repeat_byte(0xa2),
             genesis_cutoff: u64::MAX - 2,
@@ -695,7 +692,7 @@ mod tests {
         assert_eq!(word_u64(packed, 0), genesis.genesis_height);
         assert_eq!(word_u64(packed, 64), genesis.l1_0);
         assert_eq!(word_u64(packed, 128), genesis.epoch_len);
-        assert_eq!(word_u64(packed, 192), genesis.epoch_len_l1);
+        assert_eq!(packed >> 192, U256::ZERO);
         assert_eq!(B256::from(at(inbox::GENESIS_BLOCK_HASH)), genesis.genesis_hash);
         assert_eq!(B256::from(at(inbox::GENESIS_STATE_ROOT)), genesis.genesis_state_root);
         assert_eq!(word_u64(at(inbox::GENESIS_CUTOFF), 0), genesis.genesis_cutoff);
@@ -725,7 +722,6 @@ mod tests {
             genesis_height: 0x11,
             l1_0: 0x2222,
             epoch_len: 0x33_3333,
-            epoch_len_l1: 0x4444_4444,
             genesis_hash: B256::repeat_byte(0x55),
             genesis_state_root: B256::repeat_byte(0x66),
             genesis_cutoff: 0x2221,
@@ -760,7 +756,7 @@ mod tests {
         );
         assert_eq!(
             at(inbox::GENESIS_PACKED),
-            b256!("0000000044444444000000000033333300000000000022220000000000000011")
+            b256!("0000000000000000000000000033333300000000000022220000000000000011")
         );
         assert_eq!(
             at(inbox::GENESIS_CUTOFF),

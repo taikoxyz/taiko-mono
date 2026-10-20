@@ -77,7 +77,6 @@ async fn the_genesis_committee_is_derived_at_the_genesis_cutoff() {
         verify_committee_witness_at_cutoff(
             fx.witness.l1_header.state_root(),
             earlier,
-            &fx.schedule(),
             &fx.params,
             &fx.witness.committee,
             Schedule::E0

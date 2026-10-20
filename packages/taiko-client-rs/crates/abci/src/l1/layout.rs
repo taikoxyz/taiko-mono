@@ -27,7 +27,7 @@ pub mod inbox {
     /// `lastCheckpoint.blockHash`: `bytes32`.
     pub const LAST_CHECKPOINT_HASH: u64 = 271;
     /// Activation record, packed: `genesisHeight` (B*, bits 0–63), `l1Block` (L1_0, bits 64–127),
-    /// `epochLenL2` (L, bits 128–191), `epochLenL1` (bits 192–255).
+    /// `epochLenL2` (L, bits 128–191); bits 192–255 are unused and not read.
     pub const GENESIS_PACKED: u64 = 272;
     /// Activation record: `genesisBlockHash` (H*), `bytes32`.
     pub const GENESIS_BLOCK_HASH: u64 = 273;

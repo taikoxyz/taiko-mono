@@ -178,9 +178,7 @@ pub(super) fn load_cached_committee(
             return None;
         }
     };
-    if let Err(error) =
-        verify_committee_witness(&state.anchor, &state.schedule(), params, &witness, target)
-    {
+    if let Err(error) = verify_committee_witness(&state.anchor, params, &witness, target) {
         tracing::warn!(%error, "ignoring unverified cached committee witness");
         return None;
     }
@@ -308,8 +306,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
         progress: Arc<DiscoveryProgress>,
         failures: u32,
     ) -> CommitteePrefetch {
-        let (l1, params, schedule, anchor) =
-            (Arc::clone(&self.l1), self.params.clone(), state.schedule(), state.anchor.clone());
+        let (l1, params, anchor) =
+            (Arc::clone(&self.l1), self.params.clone(), state.anchor.clone());
         let read_timeout = self.opts.l1_timeout;
         let (sender, result) = watch::channel(None);
         let reads = Arc::clone(&progress);
@@ -317,18 +315,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
             let discovery = build_committee_witness_within(
                 &*l1,
                 &params,
-                &schedule,
                 anchor.number,
                 target,
                 read_timeout,
                 &reads,
             );
             let outcome = match tokio::time::timeout(COMMITTEE_PREFETCH_TIMEOUT, discovery).await {
-                Ok(Ok(witness)) => {
-                    verify_committee_witness(&anchor, &schedule, &params, &witness, target)
-                        .map(|_| witness)
-                        .map_err(|error| error.to_string())
-                }
+                Ok(Ok(witness)) => verify_committee_witness(&anchor, &params, &witness, target)
+                    .map(|_| witness)
+                    .map_err(|error| error.to_string()),
                 Ok(Err(error)) => Err(error.to_string()),
                 Err(_) => Err("timed out".into()),
             };
@@ -374,13 +369,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if cache.as_ref().is_some_and(|cached| cached.key == key && cached.witness == *witness) {
             return Ok(());
         }
-        verify_committee_witness(
-            &state.anchor,
-            &state.schedule(),
-            &self.params,
-            witness,
-            target_epoch,
-        )?;
+        verify_committee_witness(&state.anchor, &self.params, witness, target_epoch)?;
         let persisted =
             PersistedCommittee { key: key.clone(), witness: alloy_rlp::encode(witness).into() };
         let bytes = serde_json::to_vec(&persisted)

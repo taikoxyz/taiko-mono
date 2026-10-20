@@ -155,7 +155,7 @@ pub fn snapshot_number(parent: Option<&Header>, schedule: &Schedule) -> Result<u
 mod tests {
     use super::*;
     fn schedule() -> Schedule {
-        Schedule { l1_0: 10, epoch_len: 10, epoch_len_l1: 1, genesis_cutoff: 1 }
+        Schedule { l1_0: 10, epoch_len: 10, genesis_cutoff: 1 }
     }
     fn headers(mutation: u8) -> Vec<Header> {
         let mut result = Vec::new();

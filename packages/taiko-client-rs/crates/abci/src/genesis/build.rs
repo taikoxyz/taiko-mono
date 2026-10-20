@@ -52,17 +52,9 @@ pub async fn build_genesis<L: L1Source + ?Sized>(
     let l1_header = header_at(l1, l1_0).await?;
     let inbox_witness = l1.account_witness(params.inbox, &inbox::genesis_slots(), l1_0).await?;
     let context = verify_context(&l1_header, &inbox_witness, params)?;
-    let schedule = Schedule::from_genesis(&context.genesis);
     let genesis_cutoff = context.genesis.genesis_cutoff;
-    let committee = build_committee_witness_at_cutoff(
-        l1,
-        params,
-        &schedule,
-        l1_0,
-        genesis_cutoff,
-        Schedule::E0,
-    )
-    .await?;
+    let committee =
+        build_committee_witness_at_cutoff(l1, params, l1_0, genesis_cutoff, Schedule::E0).await?;
     let verified = verify_committee(&context, &committee, params)?;
     let chain_id = chain_id_for(params.l2_chain_id, context.anchor.inbox.recovery_generation);
     GenesisDoc::assemble(
@@ -166,15 +158,8 @@ mod tests {
         let fx = Fixture::build(GenesisSpec::eligible_at_explicit_genesis_snapshot(2));
         assert_eq!((fx.genesis.l1_0, fx.genesis.genesis_cutoff), (64, 63));
         // At explicit snapshot 59 no entry is active yet.
-        let earlier = build_committee_witness_at_cutoff(
-            &fx.l1(),
-            &fx.params,
-            &fx.schedule(),
-            64,
-            59,
-            Schedule::E0,
-        )
-        .await;
+        let earlier =
+            build_committee_witness_at_cutoff(&fx.l1(), &fx.params, 64, 59, Schedule::E0).await;
         assert_eq!(earlier, Err(FetchError::Committee(CommitteeError::Empty)));
 
         let l1 = fx.l1();
@@ -269,12 +254,16 @@ mod tests {
         );
     }
 
+    /// Eleven-word openings under the older domains, with a heartbeat lookahead word of 2, do not
+    /// open the current ten-word configuration.
     #[tokio::test]
     async fn legacy_committee_config_domains_are_rejected_at_genesis() {
         use alloy_primitives::U256;
-        for (domain, encoding_version) in
-            [(b"ETNA_PARENT_ANCHOR_V2", 1u64), (b"ETNA_PARENT_ANCHOR_V3", 2u64)]
-        {
+        for (domain, encoding_version) in [
+            (b"ETNA_PARENT_ANCHOR_V2", 1u64),
+            (b"ETNA_PARENT_ANCHOR_V3", 2u64),
+            (b"ETNA_PARENT_ANCHOR_V4", 2u64),
+        ] {
             let fx = Fixture::genesis(1);
             let l1 = fx.l1();
             let p = &fx.params;

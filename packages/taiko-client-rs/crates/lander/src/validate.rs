@@ -353,7 +353,7 @@ pub fn verify_envelope(
         Some(w) => verify_anchor_witness(w, params.inbox)
             .map_err(|e| ValidationError::Etna(e.to_string()))?,
     };
-    rules::check_anchor_progress(parent_anchor.number, anchor.number, schedule, height)
+    rules::check_anchor_progress(parent_anchor.number, anchor.number, schedule.l1_0)
         .map_err(|e| ValidationError::Etna(e.to_string()))?;
     let generation_check =
         rules::check_generation(generation, extra_generation, anchor.inbox.recovery_generation)
@@ -366,9 +366,8 @@ pub fn verify_envelope(
     let derived = match (switch, envelope.committee.as_ref()) {
         (None, None) => None,
         (Some(target), Some(w)) => {
-            let (record, members) =
-                verify_committee_witness(parent_anchor, schedule, params, w, target)
-                    .map_err(|e| ValidationError::Etna(e.to_string()))?;
+            let (record, members) = verify_committee_witness(parent_anchor, params, w, target)
+                .map_err(|e| ValidationError::Etna(e.to_string()))?;
             Some(CommitteeState { record, members })
         }
         _ => return Err(ValidationError::Etna("committee witness presence mismatch".into())),
