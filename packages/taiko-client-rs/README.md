@@ -81,9 +81,7 @@ even when the last registry mutation is older. Snapshot entries are fully verifi
 deduplication. The top `n_max` seats are then selected by stake before heartbeat filtering;
 missing heartbeats leave those seats empty without backfilling from lower-ranked entries.
 Committees 0, 1 and 2 retain their launch heartbeat exemption; later committees use the
-target-epoch window predicate. Registry churn uses current `activeStake()`: pending
-activations are excluded, and requested exits remain included until effective. Existing
-queue reservations are retained. This accounting supports fresh registry initialization only.
+target-epoch window predicate.
 
 At `H(t) - 2`, the envelope carries committee `t`'s witness and `FinalizeBlock` returns the
 validator updates. CometBFT activates them at `H(t)`. Epoch-first blocks no longer publish a
@@ -135,7 +133,7 @@ finalized landing where practical), then have the registry owner explicitly call
 once. This binding cannot be redirected; an unverified candidate can be replaced before binding
 by repeating address prediction and genesis setup. Withdrawals fail closed until bound; registration,
 consensus and landing can proceed. See the complete
-[protocol deployment instructions](https://github.com/taikoxyz/taiko-mono/blob/d9493c0c05260dd34573c951138bc95695450b84/packages/protocol/contracts/layer1/etna/README.md#genesis-initialization).
+[protocol deployment instructions](https://github.com/taikoxyz/taiko-mono/blob/6b8b818e28a9f92330bda6c68610a1fb20963b5a/packages/protocol/contracts/layer1/etna/README.md#genesis-initialization).
 
 The required [EL dependency](https://github.com/taikoxyz/alethia-reth/pull/251) is revision
 `5d4d21ac472c024703082ba46c6eacfa3b8ec1bf`, image `us-docker.pkg.dev/evmchain/images/alethia-reth:sha-5d4d21a`,
@@ -1064,7 +1062,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 Regenerate lander ABI/deployment fixtures only when their inputs change, with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `d9493c0c05260dd34573c951138bc95695450b84` (also the
+The script requires protocol HEAD `6b8b818e28a9f92330bda6c68610a1fb20963b5a` (also the
 `PROTOCOL_REVISION` in `crates/lander/src/contracts.rs`),
 installs pnpm dependencies before Foundry, builds the Inbox, registry, immutable `L2FeeVault` and
 SignalService with their test fixtures, verifies compiler source hashes,
