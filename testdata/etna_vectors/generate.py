@@ -389,7 +389,7 @@ def layout():
             "namespace": "taiko.etna.registry",
             "base": base,
             "entries_length_slot": entries_slot,
-            "inbox_slot": word(base_int + 12),
+            "inbox_slot": word(base_int + 8),
             "packing": {
                 "checkpoint_head": {"l1_block": field(0, 64), "count": field(64, 32)},
                 "entry_packed": {

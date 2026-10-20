@@ -85,9 +85,6 @@ impl ContractFixture {
                 _exitDelay: 20,
                 _withdrawalDelay: 30,
                 _heartbeatWindow: u64::MAX / 2,
-                _churnWindow: 0,
-                _churnBps: 0,
-                _minChurnPerWindow: U256::ZERO,
             }
             .abi_encode(),
         )

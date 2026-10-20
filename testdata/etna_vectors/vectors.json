@@ -485,7 +485,7 @@
       "namespace": "taiko.etna.registry",
       "base": "0x46e4e2fea4a7d0ac18aca03baa3a1f64e1be04ec23c1ca0c7b901af7b59b8000",
       "entries_length_slot": "0x46e4e2fea4a7d0ac18aca03baa3a1f64e1be04ec23c1ca0c7b901af7b59b8001",
-      "inbox_slot": "0x46e4e2fea4a7d0ac18aca03baa3a1f64e1be04ec23c1ca0c7b901af7b59b800c",
+      "inbox_slot": "0x46e4e2fea4a7d0ac18aca03baa3a1f64e1be04ec23c1ca0c7b901af7b59b8008",
       "packing": {
         "checkpoint_head": {
           "l1_block": {
