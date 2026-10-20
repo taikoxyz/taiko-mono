@@ -24,10 +24,10 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
         vectors = LibEtnaVectors.load();
     }
 
-    function test_config_UsesV4AndEncodingTwo() external view {
+    function test_config_UsesV5AndEncodingTwo() external view {
         assertEq(
             LibEtnaVectors.tagAt(vectors, ".committee_config.inputs.tag"),
-            bytes32("ETNA_PARENT_ANCHOR_V4")
+            bytes32("ETNA_PARENT_ANCHOR_V5")
         );
         assertEq(LibEtnaVectors.uintAt(vectors, ".committee_config.inputs.encoding_version"), 2);
         assertFalse(vm.keyExistsJson(vectors, ".committee_hashes"));
@@ -252,7 +252,6 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
         _assertInboxField("activation_packed", "genesis_height", _genesisHeight);
         _assertInboxField("activation_packed", "l1_block", _activationL1Block);
         _assertInboxField("activation_packed", "epoch_len_l2", _epochLenL2);
-        _assertInboxField("activation_packed", "epoch_len_l1", _epochLenL1);
         _assertInboxField("genesis_cutoff", "genesis_cutoff", _genesisCutoff);
         assertEq(_inboxSlot("active_committee_snapshot"), ACTIVE_COMMITTEE_SNAPSHOT_SLOT);
         _assertInboxField(
@@ -625,10 +624,6 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
 
     function _epochLenL2() internal view returns (uint256) {
         return etnaInbox.activation().epochLenL2;
-    }
-
-    function _epochLenL1() internal view returns (uint256) {
-        return etnaInbox.activation().epochLenL1;
     }
 
     function _genesisBlockHash() internal view returns (bytes32) {

@@ -64,10 +64,10 @@ library LibEtnaVectors {
         return bytes32(bytes(_VM.parseJsonString(_json, _key)));
     }
 
-    /// @dev Encodes the `committee_config` inputs as the eleven-word `ETNA_PARENT_ANCHOR_V4`
+    /// @dev Encodes the `committee_config` inputs as the ten-word `ETNA_PARENT_ANCHOR_V5`
     /// opening, field by field with the Solidity types `IEtnaInbox.land` documents.
     /// @param _json The vectors document.
-    /// @return words_ The 352-byte opening.
+    /// @return words_ The 320-byte opening.
     function configWords(string memory _json) internal pure returns (bytes memory words_) {
         string memory p = ".committee_config.inputs.";
         words_ = bytes.concat(
@@ -81,7 +81,6 @@ library LibEtnaVectors {
             abi.encode(
                 uint64(uintAt(_json, string.concat(p, "n_max"))),
                 uint64(uintAt(_json, string.concat(p, "heartbeat_window"))),
-                uint64(uintAt(_json, string.concat(p, "lookahead_epochs"))),
                 uint8(uintAt(_json, string.concat(p, "encoding_version"))),
                 uint64(uintAt(_json, string.concat(p, "d_max"))),
                 uint64(uintAt(_json, string.concat(p, "margin_v")))

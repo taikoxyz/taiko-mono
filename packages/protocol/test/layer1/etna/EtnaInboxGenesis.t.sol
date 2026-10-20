@@ -69,7 +69,6 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         assertEq(record.genesisHeight, 0, "genesis height");
         assertEq(record.l1Block, initializedAtBlock, "initialization block");
         assertEq(record.epochLenL2, EPOCH_LEN_L2, "epoch length L2");
-        assertEq(record.epochLenL1, EPOCH_LEN_L1, "epoch length L1");
         assertEq(record.genesisBlockHash, genesisBlockHash, "genesis hash");
         assertEq(record.genesisStateRoot, genesisStateRoot, "genesis state root");
     }
@@ -118,8 +117,8 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         assertEq(
             bytes32(_loadSlot(LAST_CHECKPOINT_SLOT + 1)), genesisBlockHash, "271: checkpoint hash"
         );
-        uint256 activationWord = (uint256(initializedAtBlock) << 64)
-            | (uint256(EPOCH_LEN_L2) << 128) | (uint256(EPOCH_LEN_L1) << 192);
+        uint256 activationWord =
+            (uint256(initializedAtBlock) << 64) | (uint256(EPOCH_LEN_L2) << 128);
         assertEq(_loadSlot(ACTIVATION_SLOT), activationWord, "272: genesis parameters");
         assertEq(bytes32(_loadSlot(ACTIVATION_SLOT + 1)), genesisBlockHash, "273: genesis hash");
         assertEq(bytes32(_loadSlot(ACTIVATION_SLOT + 2)), genesisStateRoot, "274: state root");
@@ -193,7 +192,6 @@ contract EtnaInboxGenesisValidationTest is EtnaInboxTestBase {
             genesisStateRoot,
             uint64(block.number),
             EPOCH_LEN_L2,
-            EPOCH_LEN_L1,
             registryCheckpointBlock,
             COMMITTEE_RECORD_0
         );
@@ -205,13 +203,11 @@ contract EtnaInboxGenesisValidationTest is EtnaInboxTestBase {
     function test_init_AcceptsTheBoundaryParameters() external {
         IEtnaInbox.GenesisParams memory params = _defaultGenesisParams();
         params.epochLenL2 = 3;
-        params.epochLenL1 = 1;
         params.genesisCutoff = uint64(block.number - 1);
         params.forcedInclusionDelay = type(uint64).max;
         params.maxAnchorAge = _MIN_SUPPORTED_ANCHOR_AGE;
         etnaInbox.init(address(this), params);
         assertEq(etnaInbox.activation().epochLenL2, 3, "epoch length L2");
-        assertEq(etnaInbox.activation().epochLenL1, 1, "epoch length L1");
         assertEq(etnaInbox.genesisCutoff(), block.number - 1, "genesis cutoff");
         assertEq(etnaInbox.forcedInclusionDelay(), params.forcedInclusionDelay, "delay");
         assertEq(etnaInbox.maxAnchorAge(), _MIN_SUPPORTED_ANCHOR_AGE, "maximum anchor age");
@@ -273,12 +269,6 @@ contract EtnaInboxGenesisValidationTest is EtnaInboxTestBase {
         params.epochLenL2 = type(uint48).max - 1;
         etnaInbox.init(address(this), params);
         assertEq(etnaInbox.activation().epochLenL2, type(uint48).max - 1);
-    }
-
-    function test_init_RevertWhen_EpochLenL1IsZero() external {
-        IEtnaInbox.GenesisParams memory params = _defaultGenesisParams();
-        params.epochLenL1 = 0;
-        _expectInvalidGenesis(params, EtnaInbox.InvalidEpochLength.selector);
     }
 
     function test_init_RevertWhen_GenesisCutoffNotInThePast() external {

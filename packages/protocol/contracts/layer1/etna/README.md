@@ -127,11 +127,11 @@ for real fee-routing and receipt-claim acceptance.
 The deployment script documents its exact environment variables. Both entry points use a
 `PRIVATE_KEY` and optional `CONTRACT_OWNER`. `run()` needs `TAIKO_TOKEN` and `REGISTRY_*`;
 `deployInbox()` needs the original exported L1 identity, registry/verifier/remote service addresses,
-L2 identity, batch and forced fee parameters, genesis commitments, epoch schedule and committee hashes, forced inclusion delay
+L2 identity, batch and forced fee parameters, genesis commitments, L2 epoch length and committee hashes, forced inclusion delay
 and maximum anchor age. It has no reward-pool or allocation-share inputs.
 
 `init(owner, params)` requires nonzero block-0 hash/state root and committee/config hashes,
-`epochLenL2 >= 3`, `epochLenL2 + 1 <= type(uint48).max`, `epochLenL1 > 0`, a past cutoff at or after
+`epochLenL2 >= 3`, `epochLenL2 + 1 <= type(uint48).max`, a past cutoff at or after
 the registry's first checkpoint, a nonzero forced delay, and `maxAnchorAge >= 1152` seconds.
 The node must also enforce `d_max > margin_v`, `epochLenL2 >= d_max - margin_v + 3`, bounded
 schedule arithmetic, and `1 <= n_max <= 4096`. These parameters must agree before deployment.
@@ -145,7 +145,7 @@ fee-vault address. Ordinary gas estimation, EIP-7825 transaction caps, priority 
 retain their existing semantics; only base fees committed for the landed execution range pay here.
 
 The coordinated format is landing statement V10, envelope 6, blob payload 6, journal schema 12, APP_VERSION 4,
-committee encoding version 2 and config domain `ETNA_PARENT_ANCHOR_V4`. Reject old persisted
+committee encoding version 2 and config domain `ETNA_PARENT_ANCHOR_V5`. Reject old persisted
 or signed jobs explicitly. Do not rewrite an old signed journal or discard its transaction nonce
 to make it appear current. No real Etna guest is included: dummy/accept-all proofs are explicit
 local-devnet scaffolding and cannot establish consensus, execution or fee-sum soundness.
@@ -161,27 +161,27 @@ is the L1 proxy-initialization block. `h_first(e) = 1 + e * epochLenL2`.
 Slots 0–250 are the `EssentialContract` prefix. Other reserved slots keep the existing ABCI
 interface stable; they do not contain Shasta state.
 
-| Slot    | Content                                                | Packing                                            |
-| ------- | ------------------------------------------------------ | -------------------------------------------------- |
-| 251–257 | reserved                                               | —                                                  |
-| 258     | initialized status                                     | `uint8` bits 0–7: 3 after initialization, 0 before |
-| 259–267 | reserved                                               | —                                                  |
-| 268     | `recoveryGeneration`                                   | `uint64` bits 0–63                                 |
-| 269     | `committeeConfigHash`                                  | `bytes32`; trusted genesis config commitment       |
-| 270     | `lastCheckpoint.height`                                | `uint64` bits 0–63; initially 0                    |
-| 271     | `lastCheckpoint.blockHash`                             | `bytes32`; initially the genesis hash              |
-| 272     | `genesisHeight`, `l1Block`, `epochLenL2`, `epochLenL1` | four `uint64` values, in that order                |
-| 273     | `genesisBlockHash`                                     | `bytes32`                                          |
-| 274     | `genesisStateRoot`                                     | `bytes32`                                          |
-| 275–277 | reserved                                               | —                                                  |
-| 278     | `genesisCommitteeRecordHash`                           | `bytes32`; direct genesis committee commitment     |
-| 279     | `genesisCutoff`                                        | `uint64` bits 0–63                                 |
-| 280     | forced inclusion `queue` mapping                       | entry `i` at `keccak256(abi.encode(i, 280))`       |
-| 281     | forced inclusion `head`, `tail`                        | `uint48` bits 0–47, `uint48` bits 48–95            |
-| 282     | `forcedInclusionDelay`, `maxAnchorAge`                 | `uint64` bits 0–63, `uint64` bits 64–127 (seconds) |
-| 283     | `rewardCommitments` mapping                            | `bytes32 batchId => bytes32 commitment`            |
-| 284     | `activeCommitteeSnapshot`                              | `uint64`; latest landed active committee cutoff    |
-| 285–300 | `__gap`                                                | —                                                  |
+| Slot    | Content                                  | Packing                                                   |
+| ------- | ---------------------------------------- | --------------------------------------------------------- |
+| 251–257 | reserved                                 | —                                                         |
+| 258     | initialized status                       | `uint8` bits 0–7: 3 after initialization, 0 before        |
+| 259–267 | reserved                                 | —                                                         |
+| 268     | `recoveryGeneration`                     | `uint64` bits 0–63                                        |
+| 269     | `committeeConfigHash`                    | `bytes32`; trusted genesis config commitment              |
+| 270     | `lastCheckpoint.height`                  | `uint64` bits 0–63; initially 0                           |
+| 271     | `lastCheckpoint.blockHash`               | `bytes32`; initially the genesis hash                     |
+| 272     | `genesisHeight`, `l1Block`, `epochLenL2` | three `uint64` values, in that order; bits 192–255 unused |
+| 273     | `genesisBlockHash`                       | `bytes32`                                                 |
+| 274     | `genesisStateRoot`                       | `bytes32`                                                 |
+| 275–277 | reserved                                 | —                                                         |
+| 278     | `genesisCommitteeRecordHash`             | `bytes32`; direct genesis committee commitment            |
+| 279     | `genesisCutoff`                          | `uint64` bits 0–63                                        |
+| 280     | forced inclusion `queue` mapping         | entry `i` at `keccak256(abi.encode(i, 280))`              |
+| 281     | forced inclusion `head`, `tail`          | `uint48` bits 0–47, `uint48` bits 48–95                   |
+| 282     | `forcedInclusionDelay`, `maxAnchorAge`   | `uint64` bits 0–63, `uint64` bits 64–127 (seconds)        |
+| 283     | `rewardCommitments` mapping              | `bytes32 batchId => bytes32 commitment`                   |
+| 284     | `activeCommitteeSnapshot`                | `uint64`; latest landed active committee cutoff           |
+| 285–300 | `__gap`                                  | —                                                         |
 
 Forced inclusion entry `i` starts at `base = keccak256(abi.encode(i, 280))`: `txHash`
 (`bytes32`) occupies `base`; `timestamp` (`uint48`, bits 0–47), `l1Block` (`uint64`, bits 48–111)
@@ -285,24 +285,24 @@ activation, exit and withdrawal delays permit it; the reused slot may have a new
 
 ## Authenticated committee configuration
 
-The canonical commitment is the eleven-word encoding (352 bytes):
+The canonical commitment is the ten-word encoding (320 bytes):
 
 ```solidity
 committeeConfigHash = keccak256(abi.encode(
-    bytes32("ETNA_PARENT_ANCHOR_V4"), uint256(l2ChainId), address(stakingRegistry),
+    bytes32("ETNA_PARENT_ANCHOR_V5"), uint256(l2ChainId), address(stakingRegistry),
     uint256(vpUnit), uint256(sMin), uint64(nMax),
-    uint64(heartbeatWindow), uint64(2), uint8(2),
+    uint64(heartbeatWindow), uint8(2),
     uint64(dMax), uint64(marginV)
 ));
 ```
 
-Words 8 and 9 bind heartbeat lookahead 2 and committee record encoding version 2, which fixes the
-membership, member-order and set-root rules. The last two bind the back-pressure parameters `d_max`
+Word 8 binds committee record encoding version 2, which fixes the membership, member-order and
+set-root rules. The last two bind the back-pressure parameters `d_max`
 and `margin_v`, so every node of a chain must run the same unsettled cap; a node whose cap differs
 cannot open the stored hash.
 Supply this nonzero hash as `COMMITTEE_CONFIG_HASH` at deployment. Slot 269 remains an opaque
 commitment; the node/guest must open it against its configured parameters and persist/check it
-in authenticated genesis state. Authenticate `L1_0`, both epoch lengths and `genesisCutoff` from
+in authenticated genesis state. Authenticate `L1_0`, the L2 epoch length and `genesisCutoff` from
 Inbox storage independently. No lag or grid parameter belongs to this configuration.
 
 Committee 0 alone uses the explicit `genesisCutoff` and plain slot-278 bootstrap record; slot 279
@@ -495,9 +495,9 @@ Every account proof must derive its trie path from the corresponding bound Inbox
 address. Authenticate storage under that proved account root and an authenticated L1 header.
 Open `committeeConfigHash` exactly as above and authenticate the genesis schedule. Apply the
 existing membership, lowest eligible bond id per key, stake ranking, set-key ordering, floor power
-mapping and overflow rules at the authenticated snapshot. Keep heartbeat evaluation at the target
-schedule instant with its two-epoch lookahead, capped at the snapshot window, including the nonzero
-sequence guard and launch exemptions for epochs 0, 1 and 2. The lookahead does not select a snapshot.
+mapping and overflow rules at the authenticated snapshot. Evaluate heartbeats at that snapshot: a
+seat holder needs a nonzero heartbeat sequence and a last heartbeat at or after the start of the
+heartbeat window before the one containing the snapshot. Epochs 0, 1 and 2 are exempt.
 
 At switch `S(t)`, require exactly one committee witness for `t` under the committed parent's exact
 anchor root and number. Compare every derived record field, derive before returning validator
@@ -720,7 +720,7 @@ cross-generation economic double payment; recovery coordination remains outside 
 ## Shared vectors and verification
 
 `testdata/etna_vectors/generate.py` uses independent `cast` ABI/hash/slot commands. Its schema-3
-JSON pins the V4 eleven-word config, recipient-bound registry leaves/four-word storage, V2 set
+JSON pins the V5 ten-word config, recipient-bound registry leaves/four-word storage, V2 set
 leaves and committee records, complete twenty-one-word V10 preimages, batch identity, commitment,
 slot-283 location, slot-284 cutoff, exact land/claim selectors, and a zero-fee batch. Integers are decimal strings.
 Set cases cover empty rejection input, singleton, odd-width and five-member trees.
