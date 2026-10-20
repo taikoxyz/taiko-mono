@@ -217,23 +217,17 @@ All state lives in the ERC-7201 namespace `taiko.etna.registry`, at base slot
 `R = keccak256(abi.encode(uint256(keccak256("taiko.etna.registry")) - 1)) & ~bytes32(uint256(0xff))`
 `= 0x46e4e2fea4a7d0ac18aca03baa3a1f64e1be04ec23c1ca0c7b901af7b59b8000`.
 
-| Slot     | Content                                                                                 |
-| -------- | --------------------------------------------------------------------------------------- |
-| `R`      | `checkpoints.length`                                                                    |
-| `R + 1`  | `entries.length` (the entry index is the bond id)                                       |
-| `R + 2`  | `bondOwner`: `mapping(uint256 bondId => address)`                                       |
-| `R + 3`  | `withdrawn`: `mapping(uint256 bondId => bool)`                                          |
-| `R + 4`  | `keyHolder`: `mapping(bytes32 pubkey => uint256)`, the latest holder's bond id plus one |
-| `R + 5`  | `tree`: `mapping(uint256 node => bytes32)`, the Merkle nodes                            |
-| `R + 6`  | `freeSlots`: withdrawn bond ids awaiting reuse (contract-internal)                      |
-| `R + 7`  | `bondedStake`: stake of entries whose exit was not requested (contract-internal)        |
-| `R + 8`  | activation churn: one past the latest scheduled window (contract-internal)              |
-| `R + 9`  | activation churn: the latest scheduled window's remaining capacity (contract-internal)  |
-| `R + 10` | exit churn: one past the latest scheduled window (contract-internal)                    |
-| `R + 11` | exit churn: the latest scheduled window's remaining capacity (contract-internal)        |
-| `R + 12` | `inbox`: one-time bound Inbox address authenticating stake withdrawal eligibility       |
-| `R + 13` | `activationStake`: unsigned block-indexed Fenwick tree (contract-internal)              |
-| `R + 14` | `exitStake`: unsigned block-indexed Fenwick tree (contract-internal)                    |
+| Slot    | Content                                                                                 |
+| ------- | --------------------------------------------------------------------------------------- |
+| `R`     | `checkpoints.length`                                                                    |
+| `R + 1` | `entries.length` (the entry index is the bond id)                                       |
+| `R + 2` | `bondOwner`: `mapping(uint256 bondId => address)`                                       |
+| `R + 3` | `withdrawn`: `mapping(uint256 bondId => bool)`                                          |
+| `R + 4` | `keyHolder`: `mapping(bytes32 pubkey => uint256)`, the latest holder's bond id plus one |
+| `R + 5` | `tree`: `mapping(uint256 node => bytes32)`, the Merkle nodes                            |
+| `R + 6` | `freeSlots`: withdrawn bond ids awaiting reuse (contract-internal)                      |
+| `R + 7` | `bondedStake`: stake of entries whose exit was not requested (contract-internal)        |
+| `R + 8` | `inbox`: one-time bound Inbox address authenticating stake withdrawal eligibility       |
 
 | Word                        | Content                                                                  | Packing                                      |
 | --------------------------- | ------------------------------------------------------------------------ | -------------------------------------------- |
@@ -283,14 +277,9 @@ activation, exit and withdrawal delays permit it; the reused slot may have a new
 - Registration reuses the most recently withdrawn slot before appending, so the 4096 capacity
   bounds entries holding stake at once. A withdrawn entry stays in its slot, exit effective, until
   it is overwritten.
-- With a non-zero `churnWindow`, each window has an activation capacity and a separate exit
-  capacity of `max(minChurnPerWindow, activeStake · churnBps / 10000)`, scheduled as in EIP-7251:
-  a request consumes capacity from the latest scheduled window on and takes effect at the start of
-  the window where it is fully absorbed. A request larger than one window takes effect in full at
-  once, so the limit bounds the average rate, not each window. Exits queue from
-  `block.number + exitDelay` and never take effect before `activeFromL1 + exitDelay`. One large
-  request delays everyone queued behind it for as long as its stake stays locked. Committee
-  selection stays top `n_max` by stake.
+- An entry activates `activationDelay` blocks after registration. Its exit takes effect
+  `exitDelay` blocks after the later of the exit request and the activation. There is no
+  activation or exit rate limit; committee selection is top `n_max` by stake.
 - Future committees derive from the committed switch-parent anchor. There is no `committee(epoch)` getter,
   mapping, committee landing output or publication event. Landing is never an activation gate.
 
@@ -754,19 +743,3 @@ pnpm test:l1
 pnpm test:l2
 pnpm test:shared
 ```
-
-`activeStake()` is the exact current sum of unwithdrawn entries with
-`activeFromL1 <= block.number < exitEffectiveL1`, including requested exits until effective
-and excluding pending activations. Each request reads it before inserting its own event;
-existing queue capacity is retained. Heartbeats, committee ranking and token donations do
-not change this denominator. Both trees use full uint256 amounts and uint64 block coordinates:
-a write visits at most 65 cells and a prefix reads at most 64, with no keeper, sweep or
-occupancy-dependent scan. Withdrawal cancels both matured events after the unchanged delay
-and settled-committee checks; reuse adds only the new generation. Cancellation makes historical
-active-stake queries unsupported. The no-exit sentinel is reserved: mutation cannot schedule
-an event at uint64.max, and the current getter returns zero at or beyond it.
-
-This accounting is for a fresh new-genesis registry. A populated proxy upgrade needs a separate
-backfill protocol; append-only layout alone does not initialize existing intervals. Node-facing
-entry/checkpoint encodings, old namespace offsets and the legacy `bondedStake` balance remain
-unchanged. No populated-state migration is implemented here.

@@ -9,7 +9,6 @@ import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.so
 import { LibEntriesTree } from "src/layer1/etna/libs/LibEntriesTree.sol";
 import { TaikoToken } from "src/layer1/mainnet/TaikoToken.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
-import { TestERC20 } from "test/mocks/TestERC20.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
 contract EtnaStakingRegistryTest is CommonTest {
@@ -20,7 +19,6 @@ contract EtnaStakingRegistryTest is CommonTest {
     uint64 internal constant HEARTBEAT_WINDOW = 50;
     uint64 internal constant START_BLOCK = 1001;
     uint64 internal constant NO_EXIT = type(uint64).max;
-    uint64 internal constant CHURN_WINDOW = 100;
 
     /// @dev The ERC-7201 base slot pinned by taiko-client-rs `l1::layout::registry::base()`.
     bytes32 internal constant REGISTRY_BASE =
@@ -71,7 +69,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         assertEq(unbound.inbox(), address(source));
         assertEq(
             address(
-                uint160(uint256(vm.load(address(unbound), bytes32(uint256(REGISTRY_BASE) + 12))))
+                uint160(uint256(vm.load(address(unbound), bytes32(uint256(REGISTRY_BASE) + 8))))
             ),
             address(source)
         );
@@ -161,23 +159,6 @@ contract EtnaStakingRegistryTest is CommonTest {
     function test_constructor_RevertWhen_HeartbeatWindowIsZero() external {
         vm.expectRevert(EtnaStakingRegistry.InvalidHeartbeatWindow.selector);
         _newRegistry(address(token), MIN_STAKE, 0);
-    }
-
-    function test_constructor_RevertWhen_ChurnBpsAboveOneHundredPercent() external {
-        vm.expectRevert(EtnaStakingRegistry.InvalidChurn.selector);
-        _newChurnRegistryImpl(100, 10_001, MIN_STAKE);
-    }
-
-    function test_constructor_RevertWhen_ChurnFloorIsBelowTheMinimumStake() external {
-        vm.expectRevert(EtnaStakingRegistry.InvalidChurn.selector);
-        _newChurnRegistryImpl(100, 500, MIN_STAKE - 1);
-    }
-
-    function test_constructor_IgnoresChurnParametersWhenTheWindowIsZero() external {
-        EtnaStakingRegistry impl = _newChurnRegistryImpl(0, 10_001, 0);
-        assertEq(impl.churnWindow(), 0);
-        assertEq(impl.churnBps(), 10_001);
-        assertEq(impl.minChurnPerWindow(), 0);
     }
 
     // ---------------------------------------------------------------
@@ -347,7 +328,7 @@ contract EtnaStakingRegistryTest is CommonTest {
 
     function test_register_ReusesSlotWithinOneBlockWithoutRewardOwnerHistory() external {
         registry = _newApprovedProxy(
-            new EtnaStakingRegistry(address(token), MIN_STAKE, 0, 0, 0, HEARTBEAT_WINDOW, 0, 0, 0)
+            new EtnaStakingRegistry(address(token), MIN_STAKE, 0, 0, 0, HEARTBEAT_WINDOW)
         );
         _register(Alice, KEY_A);
         vm.startPrank(Alice);
@@ -1060,88 +1041,25 @@ contract EtnaStakingRegistryTest is CommonTest {
     }
 
     // ---------------------------------------------------------------
-    // churn
+    // activation and exit timing
     // ---------------------------------------------------------------
 
-    function test_register_ActivatesWithoutDeferralWhenChurnIsDisabled() external {
+    function test_register_DoesNotDeferSameBlockActivations() external {
         _register(Alice, KEY_A);
-        _register(Bob, KEY_B);
+        vm.prank(Bob);
+        registry.register(KEY_B, 50 * MIN_STAKE, Alice);
         _register(Carol, KEY_C);
         for (uint256 i; i < 3; ++i) {
             assertEq(registry.entryAt(i).activeFromL1, START_BLOCK + ACTIVATION_DELAY);
         }
+        assertEq(registry.bondedStake(), 52 * MIN_STAKE);
     }
 
-    function test_register_DefersActivationsBeyondTheChurnLimit() external {
-        registry = _newChurnRegistry(CHURN_WINDOW, 0, MIN_STAKE);
-        // The earliest activation, block 1011, lies in window 10, which absorbs one entry.
+    function test_requestExit_DoesNotDeferSameBlockExits() external {
         _register(Alice, KEY_A);
-        _register(Bob, KEY_B);
-        _register(Carol, KEY_C);
-
-        assertEq(registry.entryAt(0).activeFromL1, START_BLOCK + ACTIVATION_DELAY);
-        assertEq(registry.entryAt(1).activeFromL1, 11 * CHURN_WINDOW);
-        assertEq(registry.entryAt(2).activeFromL1, 12 * CHURN_WINDOW);
-    }
-
-    function test_register_DefersALargeStakeByWholeWindows() external {
-        registry = _newChurnRegistry(CHURN_WINDOW, 0, MIN_STAKE);
-        vm.prank(Alice);
-        registry.register(KEY_A, 3 * MIN_STAKE, Alice);
-        // Windows 10, 11 and 12 absorb the stake; it activates at the start of window 12.
-        assertEq(registry.entryAt(0).activeFromL1, 12 * CHURN_WINDOW);
-
-        _register(Bob, KEY_B);
-        assertEq(registry.entryAt(1).activeFromL1, 13 * CHURN_WINDOW);
-    }
-
-    function test_register_ScalesTheChurnWithTheActiveStake() external {
-        registry = _newChurnRegistry(CHURN_WINDOW, 10_000, MIN_STAKE);
-        vm.prank(Alice);
-        registry.register(KEY_A, 4 * MIN_STAKE, Alice);
-        // Nothing is bonded yet, so the floor of one minimum stake per window applies.
-        assertEq(registry.entryAt(0).activeFromL1, 13 * CHURN_WINDOW);
-
-        vm.roll(2001);
         vm.prank(Bob);
-        registry.register(KEY_B, 4 * MIN_STAKE, Alice);
-        // 100% of the 4 active stakes fits in window 20 at once.
-        assertEq(registry.entryAt(1).activeFromL1, 2001 + ACTIVATION_DELAY);
-        assertEq(registry.bondedStake(), 8 * MIN_STAKE);
-    }
-
-    function test_register_PendingStakeDoesNotRaiseChurnCapacity() external {
-        registry = _newChurnRegistry(CHURN_WINDOW, 10_000, MIN_STAKE);
-        vm.prank(Alice);
-        registry.register(KEY_A, 4 * MIN_STAKE, Alice);
-        vm.prank(Bob);
-        registry.register(KEY_B, 4 * MIN_STAKE, Alice);
-        // Both are still pending: the second request also consumes four floor windows.
-        assertEq(registry.entryAt(0).activeFromL1, 1300);
-        assertEq(registry.entryAt(1).activeFromL1, 1700);
-    }
-
-    function test_requestExit_PendingExitRemainsInChurnBase() external {
-        registry = _newChurnRegistry(CHURN_WINDOW, 5000, MIN_STAKE);
-        vm.prank(Alice);
-        registry.register(KEY_A, 4 * MIN_STAKE, Alice);
-        vm.prank(Bob);
-        registry.register(KEY_B, 4 * MIN_STAKE, Alice);
-        vm.roll(2001);
-        vm.prank(Alice);
-        registry.requestExit(0);
-        vm.roll(2010);
-        vm.prank(Bob);
-        registry.requestExit(1);
-        assertEq(registry.entryAt(1).exitEffectiveL1, 2100);
-    }
-
-    function test_requestExit_DefersExitsBeyondTheChurnLimit() external {
-        registry = _newChurnRegistry(CHURN_WINDOW, 0, MIN_STAKE);
-        _register(Alice, KEY_A);
-        vm.roll(START_BLOCK + CHURN_WINDOW);
-        _register(Bob, KEY_B);
-        assertEq(registry.bondedStake(), 2 * MIN_STAKE);
+        registry.register(KEY_B, 50 * MIN_STAKE, Alice);
+        assertEq(registry.bondedStake(), 51 * MIN_STAKE);
 
         vm.roll(2001);
         vm.prank(Alice);
@@ -1150,144 +1068,36 @@ contract EtnaStakingRegistryTest is CommonTest {
         registry.requestExit(1);
 
         assertEq(registry.entryAt(0).exitEffectiveL1, 2001 + EXIT_DELAY);
-        assertEq(registry.entryAt(1).exitEffectiveL1, 21 * CHURN_WINDOW);
+        assertEq(registry.entryAt(1).exitEffectiveL1, 2001 + EXIT_DELAY);
         assertEq(registry.bondedStake(), 0);
     }
 
-    function test_requestExit_BeforeActivationDoesNotStrandTheExitQueue() external {
-        registry = _newChurnRegistry(CHURN_WINDOW, 0, MIN_STAKE);
-        _register(Alice, KEY_A);
-        vm.prank(Bob);
-        registry.register(KEY_B, 50 * MIN_STAKE, Alice);
-        _register(Carol, KEY_C);
-        // Bob's stake fills the activation windows up to 60; Carol activates in window 61.
-        assertEq(registry.entryAt(2).activeFromL1, 61 * CHURN_WINDOW);
-
-        vm.prank(Carol);
-        registry.requestExit(2);
-        // Carol queues her exit now but leaves no earlier than `exitDelay` after activating.
-        assertEq(registry.entryAt(2).exitEffectiveL1, 61 * CHURN_WINDOW + EXIT_DELAY);
-
-        vm.roll(START_BLOCK + CHURN_WINDOW);
-        vm.prank(Alice);
-        registry.requestExit(0);
-        assertEq(registry.entryAt(0).exitEffectiveL1, START_BLOCK + CHURN_WINDOW + EXIT_DELAY);
-    }
-
-    function test_storage_ChurnQueuesAndAppendedSchedules() external {
-        registry = _newChurnRegistry(CHURN_WINDOW, 0, MIN_STAKE);
-        _register(Alice, KEY_A);
-        assertEq(_load(bytes32(uint256(REGISTRY_BASE) + 8)), 11);
-        assertEq(_load(bytes32(uint256(REGISTRY_BASE) + 9)), 0);
-        assertEq(_load(bytes32(uint256(REGISTRY_BASE) + 10)), 0);
-        assertEq(_load(bytes32(uint256(REGISTRY_BASE) + 11)), 0);
-        assertEq(_load(_mappingSlot(bytes32(uint256(1) << 64), 13)), MIN_STAKE);
-        assertEq(_load(_mappingSlot(bytes32(uint256(1) << 64), 14)), 0);
-        vm.prank(Alice);
-        registry.requestExit(0);
-        assertEq(_load(bytes32(uint256(REGISTRY_BASE) + 10)), 11);
-        assertEq(_load(bytes32(uint256(REGISTRY_BASE) + 11)), 0);
-        assertEq(_load(_mappingSlot(bytes32(uint256(1) << 64), 14)), MIN_STAKE);
-    }
-
-    function test_activeStake_TransitionsWithoutTransactionsAndIgnoresDonations() external {
-        _register(Alice, KEY_A);
-        assertEq(registry.activeStake(), 0);
-        vm.roll(START_BLOCK + ACTIVATION_DELAY - 1);
-        assertEq(registry.activeStake(), 0);
-        vm.roll(START_BLOCK + ACTIVATION_DELAY);
-        assertEq(registry.activeStake(), MIN_STAKE);
-        token.transfer(address(registry), MIN_STAKE);
-        assertEq(registry.activeStake(), MIN_STAKE);
-        vm.prank(Alice);
-        registry.requestExit(0);
-        assertEq(registry.bondedStake(), 0, "legacy subtraction remains at request");
-        assertEq(registry.activeStake(), MIN_STAKE);
-        uint64 exitBlock = registry.entryAt(0).exitEffectiveL1;
-        vm.roll(exitBlock - 1);
-        assertEq(registry.activeStake(), MIN_STAKE);
-        vm.roll(exitBlock);
-        assertEq(registry.activeStake(), 0);
-        vm.roll(NO_EXIT);
-        assertEq(registry.activeStake(), 0);
-        vm.roll(uint256(NO_EXIT) + 1);
-        assertEq(registry.activeStake(), 0);
-    }
-
-    function test_activeStake_PreActivationExitUsesFinalEffectiveCoordinate() external {
-        registry = _newChurnRegistry(CHURN_WINDOW, 1000, MIN_STAKE);
-        _register(Alice, KEY_A);
-        vm.prank(Bob);
-        registry.register(KEY_B, 50 * MIN_STAKE, Alice);
-        _register(Carol, KEY_C);
-        vm.prank(Carol);
-        registry.requestExit(2);
-        assertEq(registry.activeStake(), 0);
-        vm.roll(START_BLOCK + CHURN_WINDOW);
-        vm.prank(Alice);
-        registry.requestExit(0);
-        assertEq(registry.entryAt(0).exitEffectiveL1, START_BLOCK + CHURN_WINDOW + EXIT_DELAY);
-        uint64 activation = registry.entryAt(2).activeFromL1;
-        vm.roll(activation);
-        assertEq(registry.activeStake(), 51 * MIN_STAKE);
-        vm.roll(registry.entryAt(2).exitEffectiveL1);
-        assertEq(registry.activeStake(), 50 * MIN_STAKE);
-    }
-
-    function test_activeStake_SameBlockLifecycleCleansTreesBeforeSlotReuse() external {
+    function test_withdraw_SameBlockLifecycleWithZeroDelaysKeepsTheRoot() external {
         registry = _newApprovedProxy(
-            new EtnaStakingRegistry(address(token), MIN_STAKE, 0, 0, 0, HEARTBEAT_WINDOW, 0, 0, 0)
+            new EtnaStakingRegistry(address(token), MIN_STAKE, 0, 0, 0, HEARTBEAT_WINDOW)
         );
         for (uint256 i; i < 3; ++i) {
             address staker = i % 2 == 0 ? Alice : Bob;
             uint256 amount = (i + 1) * MIN_STAKE;
             vm.prank(staker);
             assertEq(registry.register(bytes32(i + 1), amount, Alice), 0);
-            assertEq(registry.activeStake(), amount);
-            assertEq(_load(_mappingSlot(bytes32(uint256(1) << 64), 13)), amount);
+            assertEq(registry.entryAt(0).activeFromL1, START_BLOCK);
             vm.prank(staker);
             registry.requestExit(0);
-            assertEq(registry.activeStake(), 0);
-            assertEq(_load(_mappingSlot(bytes32(uint256(1) << 64), 14)), amount);
+            assertEq(registry.entryAt(0).exitEffectiveL1, START_BLOCK);
             _settleExit(0);
             bytes32 root = registry.entriesRoot();
             vm.prank(staker);
             registry.withdraw(0, staker);
-            assertEq(registry.activeStake(), 0);
             assertEq(registry.entriesRoot(), root, "withdrawal preserves node entries");
-            assertEq(_load(_mappingSlot(bytes32(uint256(1) << 64), 13)), 0);
-            assertEq(_load(_mappingSlot(bytes32(uint256(1) << 64), 14)), 0);
         }
         assertEq(registry.checkpointCount(), 1, "same block overwrite preserved");
-    }
-
-    function test_register_FullWidthChurnMultiplication() external {
-        TestERC20 wide = new TestERC20("wide", "W");
-        uint256 amount = uint256(1) << 255;
-        EtnaStakingRegistry r = _wideRegistry(wide, 10_000, amount);
-        wide.mint(address(this), amount + 1);
-        wide.approve(address(r), type(uint256).max);
-        r.register(KEY_A, amount, Alice);
-        vm.roll(r.entryAt(0).activeFromL1);
-        r.register(KEY_B, 1, Alice);
-        assertEq(r.activeStake(), amount);
-        assertEq(r.entryAt(1).activeFromL1, 1100, "existing exhausted queue capacity is preserved");
-    }
-
-    function test_register_FullWidthRoundedCapacityDoesNotOverflow() external {
-        TestERC20 wide = new TestERC20("wide", "W");
-        uint256 capacity = (uint256(1) << 255) + 5;
-        EtnaStakingRegistry r = _wideRegistry(wide, 0, capacity);
-        wide.mint(address(this), type(uint256).max - 1);
-        wide.approve(address(r), type(uint256).max);
-        r.register(KEY_A, type(uint256).max - 1, Alice);
-        assertEq(r.entryAt(0).activeFromL1, 1100);
-        assertEq(uint256(vm.load(address(r), bytes32(uint256(REGISTRY_BASE) + 9))), 12);
+        assertEq(registry.bondedStake(), 0);
     }
 
     function test_register_RejectsSentinelAndTruncatingCoordinates() external {
         vm.roll(uint256(NO_EXIT) - ACTIVATION_DELAY);
-        vm.expectRevert(EtnaStakingRegistry.InvalidChurn.selector);
+        vm.expectRevert(EtnaStakingRegistry.InvalidEventBlock.selector);
         _register(Alice, KEY_A);
         vm.roll(uint256(NO_EXIT) + 1);
         vm.expectRevert();
@@ -1298,80 +1108,27 @@ contract EtnaStakingRegistryTest is CommonTest {
     function test_requestExit_RejectsSentinelWithoutChangingAccounting() external {
         _register(Alice, KEY_A);
         vm.roll(uint256(NO_EXIT) - EXIT_DELAY);
-        vm.expectRevert(EtnaStakingRegistry.InvalidChurn.selector);
+        vm.expectRevert(EtnaStakingRegistry.InvalidEventBlock.selector);
         vm.prank(Alice);
         registry.requestExit(0);
         assertEq(registry.entryAt(0).exitEffectiveL1, NO_EXIT);
-        assertEq(registry.activeStake(), MIN_STAKE);
         assertEq(registry.bondedStake(), MIN_STAKE);
     }
 
-    function _wideRegistry(
-        TestERC20 _token,
-        uint16 _bps,
-        uint256 _floor
-    )
-        private
-        returns (EtnaStakingRegistry)
-    {
-        return EtnaStakingRegistry(
-            address(
-                new ERC1967Proxy(
-                    address(
-                        new EtnaStakingRegistry(
-                            address(_token),
-                            1,
-                            ACTIVATION_DELAY,
-                            EXIT_DELAY,
-                            0,
-                            HEARTBEAT_WINDOW,
-                            CHURN_WINDOW,
-                            _bps,
-                            _floor
-                        )
-                    ),
-                    abi.encodeCall(EtnaStakingRegistry.init, (address(this)))
-                )
-            )
-        );
+    function test_requestExit_RejectsSentinelCountedFromThePendingActivation() external {
+        vm.roll(uint256(NO_EXIT) - EXIT_DELAY - ACTIVATION_DELAY);
+        _register(Alice, KEY_A);
+        assertEq(registry.entryAt(0).activeFromL1, NO_EXIT - EXIT_DELAY);
+        vm.expectRevert(EtnaStakingRegistry.InvalidEventBlock.selector);
+        vm.prank(Alice);
+        registry.requestExit(0);
+        assertEq(registry.entryAt(0).exitEffectiveL1, NO_EXIT);
+        assertEq(registry.bondedStake(), MIN_STAKE);
     }
 
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
-
-    function _newChurnRegistryImpl(
-        uint64 _churnWindow,
-        uint16 _churnBps,
-        uint256 _minChurnPerWindow
-    )
-        private
-        returns (EtnaStakingRegistry)
-    {
-        return new EtnaStakingRegistry(
-            address(token),
-            MIN_STAKE,
-            ACTIVATION_DELAY,
-            EXIT_DELAY,
-            WITHDRAWAL_DELAY,
-            HEARTBEAT_WINDOW,
-            _churnWindow,
-            _churnBps,
-            _minChurnPerWindow
-        );
-    }
-
-    /// @dev A churn-limited registry proxy the stakers have approved.
-    function _newChurnRegistry(
-        uint64 _churnWindow,
-        uint16 _churnBps,
-        uint256 _minChurnPerWindow
-    )
-        private
-        returns (EtnaStakingRegistry)
-    {
-        return _newApprovedProxy(_newChurnRegistryImpl(_churnWindow, _churnBps, _minChurnPerWindow));
-    }
 
     /// @dev A registry proxy over `_impl` the stakers have approved.
     function _newApprovedProxy(EtnaStakingRegistry _impl)
@@ -1440,15 +1197,7 @@ contract EtnaStakingRegistryTest is CommonTest {
         returns (EtnaStakingRegistry)
     {
         return new EtnaStakingRegistry(
-            _token,
-            _minStake,
-            ACTIVATION_DELAY,
-            EXIT_DELAY,
-            WITHDRAWAL_DELAY,
-            _heartbeatWindow,
-            0,
-            0,
-            0
+            _token, _minStake, ACTIVATION_DELAY, EXIT_DELAY, WITHDRAWAL_DELAY, _heartbeatWindow
         );
     }
 

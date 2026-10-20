@@ -118,10 +118,8 @@ interface IEtnaStakingRegistry {
     /// is zero, all `MAX_ENTRIES` slots hold unwithdrawn stake, another entry holds `_pubkey` and its
     /// exit is not yet effective. Same-block slot reuse is allowed when all delays permit it.
     /// Takes the most recently freed slot (see `withdraw`), or a new slot if none is free. The
-    /// entry becomes active `activationDelay` blocks later, or later still if the activation
-    /// churn limit defers it, and has no exit and no heartbeat (`lastHeartbeatAt = 0`,
-    /// `lastHeartbeatSeq = 0`). Writes the current block's checkpoint.
-    /// Churn capacity uses current active stake before adding this registration.
+    /// entry becomes active `activationDelay` blocks later and has no exit and no heartbeat
+    /// (`lastHeartbeatAt = 0`, `lastHeartbeatSeq = 0`). Writes the current block's checkpoint.
     /// @param _pubkey The Ed25519 consensus public key.
     /// @param _amount The TAIKO stake; the caller must have approved it.
     /// @param _rewardRecipient The nonzero L2 reward recipient, fixed until this slot is reused.
@@ -155,10 +153,8 @@ interface IEtnaStakingRegistry {
 
     /// @notice Requests the exit of `_bondId`.
     /// @dev Only the bond owner, once. The exit takes effect at
-    /// `max(block.number, activeFromL1) + exitDelay`, or later if the exit churn limit defers
-    /// `block.number + exitDelay`. Removes the stake from `bondedStake` and writes the current
-    /// block's checkpoint. Churn capacity includes this bond if currently active and all
-    /// requested exits until their effective blocks.
+    /// `max(block.number, activeFromL1) + exitDelay`. Removes the stake from `bondedStake` and
+    /// writes the current block's checkpoint.
     /// @param _bondId The entry's bond id.
     function requestExit(uint256 _bondId) external;
 
@@ -225,14 +221,7 @@ interface IEtnaStakingRegistry {
     function freeSlotCount() external view returns (uint256);
 
     /// @notice Returns the total stake of entries whose exit was not requested, pending
-    /// activations included. This legacy balance is independent of the active churn base.
+    /// activations included.
     /// @return The bonded stake.
     function bondedStake() external view returns (uint256);
-
-    /// @notice Returns current active stake: activeFromL1 <= block.number < exitEffectiveL1.
-    /// @dev Includes requested exits until effective, excludes pending activations, and is the
-    /// churn base before each request. Withdrawal prunes intervals, so historical queries are
-    /// deliberately unsupported. Independent of heartbeat, ranking and token donations.
-    /// @return stake_ The currently active stake.
-    function activeStake() external view returns (uint256 stake_);
 }

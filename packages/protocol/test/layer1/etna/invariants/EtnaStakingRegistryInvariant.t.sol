@@ -11,32 +11,27 @@ import { TestERC20 } from "test/mocks/TestERC20.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
 /// @title EtnaStakingRegistryInvariantBase
-/// @notice Deploys a churn-limited registry behind a proxy, funds four stakers and targets the
-/// handler's actions; holds the checks the registry campaigns share.
-/// @dev Churn windows of 100 blocks with a capacity of max(10% of the current active stake, one minimum
-/// stake) defer most activations and exits, and the 12-block heartbeat window rolls over many
-/// times within a run. Foundry runs a separate campaign per invariant function and asserts only
-/// that function in it, so every invariant also asserts that the handler saw no violation of
-/// any kind: each campaign enforces every per-call check.
+/// @notice Deploys a registry behind a proxy, funds four stakers and targets the handler's
+/// actions; holds the checks the registry campaigns share.
+/// @dev Activations and exits take effect a fixed delay after their request (an exit requested
+/// before its activation counts from the activation), and the 12-block heartbeat window rolls
+/// over many times within a run. Foundry runs a separate campaign per invariant function and
+/// asserts only that function in it, so every invariant also asserts that the handler saw no
+/// violation of any kind: each campaign enforces every per-call check.
 abstract contract EtnaStakingRegistryInvariantBase is CommonTest {
     uint256 internal constant MIN_STAKE = 1000 ether;
     uint64 internal constant ACTIVATION_DELAY = 10;
     uint64 internal constant EXIT_DELAY = 20;
     uint64 internal constant WITHDRAWAL_DELAY = 30;
     uint64 internal constant HEARTBEAT_WINDOW = 12;
-    uint64 internal constant CHURN_WINDOW = 100;
-    uint16 internal constant CHURN_BPS = 1000;
     uint64 internal constant START_BLOCK = 1001;
     uint64 internal constant NO_EXIT = type(uint64).max;
 
-    /// @dev The ERC-7201 base slot `R` of the registry storage and the `RegistryStorage` fields
-    /// read directly: `freeSlots` (R + 6) and the activation and exit queues' `nextWindow`
-    /// (R + 8, R + 10), each followed by its `remaining`.
+    /// @dev The ERC-7201 base slot `R` of the registry storage and the `RegistryStorage` field
+    /// read directly: `freeSlots` (R + 6).
     uint256 internal constant REGISTRY_BASE =
         0x46e4e2fea4a7d0ac18aca03baa3a1f64e1be04ec23c1ca0c7b901af7b59b8000;
     uint256 internal constant FREE_SLOTS_SLOT = REGISTRY_BASE + 6;
-    uint256 internal constant ACTIVATION_CHURN_SLOT = REGISTRY_BASE + 8;
-    uint256 internal constant EXIT_CHURN_SLOT = REGISTRY_BASE + 10;
 
     TestERC20 internal token;
     EtnaStakingRegistry internal registry;
@@ -56,10 +51,7 @@ abstract contract EtnaStakingRegistryInvariantBase is CommonTest {
                             ACTIVATION_DELAY,
                             EXIT_DELAY,
                             WITHDRAWAL_DELAY,
-                            HEARTBEAT_WINDOW,
-                            CHURN_WINDOW,
-                            CHURN_BPS,
-                            MIN_STAKE
+                            HEARTBEAT_WINDOW
                         )
                     ),
                     abi.encodeCall(EtnaStakingRegistry.init, (address(0)))
@@ -155,70 +147,26 @@ abstract contract EtnaStakingRegistryInvariantBase is CommonTest {
         }
     }
 
-    /// @dev Invariant 4, queue part: only scheduling calls moved the queue, its spare capacity is
-    /// that of the windows its busy period opened minus the period's stake, and its latest window
-    /// is bounded by that stake (tight) and by all requests so far (loose); see
-    /// `EtnaStakingRegistryHandler._schedule`.
-    function _assertQueue(
-        uint256 _slot,
-        EtnaStakingRegistryHandler.Queue memory _queue
-    )
-        internal
-        view
-    {
-        uint256 nextWindow = _load(_slot);
-        assertEq(nextWindow, _queue.nextWindow, "only register and requestExit move a queue");
-        if (nextWindow == 0) return;
-        assertLe(_queue.busyAmount, _queue.busyCapacity, "the opened windows hold the stake");
-        assertEq(
-            _load(_slot + 1),
-            _queue.busyCapacity - _queue.busyAmount,
-            "the queue's spare capacity is its opened windows' minus its stake"
-        );
-        uint256 last = nextWindow - 1;
-        uint256 floor = handler.minChurnPerWindow();
-        assertGe(last, _queue.busyStart, "the queue ends at or after its busy period's start");
-        assertLt(
-            (last - _queue.busyStart) * floor,
-            _queue.busyAmount,
-            "the queue ends within the stake of its busy period"
-        );
-        assertLe(
-            last,
-            _queue.maxEarliestWindow + _ceilDiv(_queue.totalAmount, floor),
-            "the queue ends within the latest earliest window plus all scheduled stake"
-        );
-    }
-
-    /// @dev Invariant 4, entry part: an entry activates no earlier than its delay and no later
-    /// than the activation queue's latest window allows; it exits no earlier than both exit
-    /// delays and no later than its own activation or the exit queue's latest window allows.
-    function _assertChurnBounds(
+    /// @dev Invariant 4, per entry: it activates exactly its delay after its registration and,
+    /// once its exit is requested, exits exactly the exit delay after the later of the request
+    /// and the activation.
+    function _assertTiming(
         IEtnaStakingRegistry.Entry memory _entry,
-        EtnaStakingRegistryHandler.Slot memory _slot,
-        uint256 _activationNext,
-        uint256 _exitNext
+        EtnaStakingRegistryHandler.Slot memory _slot
     )
         internal
         pure
     {
-        uint256 earliestActivation = _slot.registeredAt + ACTIVATION_DELAY;
-        assertGe(_entry.activeFromL1, earliestActivation, "activation before its delay");
-        assertLe(
+        assertEq(
             _entry.activeFromL1,
-            _max(earliestActivation, _activationNext * CHURN_WINDOW),
-            "activation beyond the activation queue"
+            _slot.registeredAt + ACTIVATION_DELAY,
+            "activation is its delay after registration"
         );
         if (_entry.exitEffectiveL1 == NO_EXIT) return;
-        uint256 afterActivation = uint256(_entry.activeFromL1) + EXIT_DELAY;
-        assertGe(
-            _entry.exitEffectiveL1, _slot.exitRequestedAt + EXIT_DELAY, "exit before its delay"
-        );
-        assertGe(_entry.exitEffectiveL1, afterActivation, "exit before the delay after activation");
-        assertLe(
+        assertEq(
             _entry.exitEffectiveL1,
-            _max(afterActivation, _exitNext * CHURN_WINDOW),
-            "exit beyond the exit queue"
+            _max(_slot.exitRequestedAt, _entry.activeFromL1) + EXIT_DELAY,
+            "exit is its delay after the later of request and activation"
         );
     }
 
@@ -281,18 +229,6 @@ abstract contract EtnaStakingRegistryInvariantBase is CommonTest {
     /// @dev Asserts that the handler recorded no broken property and no call whose outcome
     /// (success, bond id or custom error) differed from the model's prediction.
     function _assertModelHeld() internal view {
-        assertEq(registry.activeStake(), handler.activeStake(), "independent active interval sum");
-        uint256 root = uint256(1) << 64;
-        assertEq(
-            _load(uint256(keccak256(abi.encode(root, REGISTRY_BASE + 13)))),
-            handler.stakedBalance(),
-            "activation root is all unwithdrawn stake"
-        );
-        assertEq(
-            _load(uint256(keccak256(abi.encode(root, REGISTRY_BASE + 14)))),
-            handler.stakedBalance() - handler.bondedStake(),
-            "exit root is requested unwithdrawn stake"
-        );
         assertEq(
             MockCommitteeInbox(registry.inbox()).activeCommitteeSnapshot(),
             handler.ghostActiveCommitteeSnapshot(),
@@ -325,20 +261,15 @@ abstract contract EtnaStakingRegistryInvariantBase is CommonTest {
         return level[0];
     }
 
-    /// @notice Returns one registry entry leaf and its current active stake contribution.
+    /// @notice Returns one registry entry leaf for the naive recomputation.
     /// @dev A separate call frame bounds temporary Entry/ABI allocations per leaf. Otherwise
     /// the near-cap recompute retains thousands of those allocations and pays quadratic memory
     /// expansion costs before reducing the tree, exceeding the test block's gas limit.
     /// @param _index The entry index.
-    /// @return leaf_ The independently encoded leaf hash.
-    /// @return active_ The independently derived current interval contribution.
-    function entryLeafAt(uint256 _index) external view returns (bytes32 leaf_, uint256 active_) {
+    /// @return The leaf hash.
+    function entryLeafAt(uint256 _index) external view returns (bytes32) {
         IEtnaStakingRegistry.Entry memory entry = registry.entryAt(_index);
-        // A withdrawn entry has already exited, so the interval alone excludes it.
-        if (entry.activeFromL1 <= block.number && block.number < entry.exitEffectiveL1) {
-            active_ = entry.effStake;
-        }
-        leaf_ = keccak256(
+        return keccak256(
             abi.encode(
                 bytes32("ETNA_REG_ENTRY_V2"),
                 _index,
@@ -353,31 +284,18 @@ abstract contract EtnaStakingRegistryInvariantBase is CommonTest {
         );
     }
 
-    /// @dev Independently recomputes both invariants over every slot in one bounded-memory
-    /// pass. Re-reading all model entries separately would exceed the existing 80M test block
-    /// budget when combined with the 4096-leaf root and the fuzzed actions.
-    function _naiveRootAndActiveStake() internal view returns (bytes32 root_, uint256 active_) {
+    /// @dev The naive root over independently encoded V2 entry leaves for every slot.
+    function _naiveRootOfEntries() internal view returns (bytes32) {
         uint256 count = registry.entryCount();
         bytes32[] memory leaves = new bytes32[](count);
         for (uint256 i; i < count; ++i) {
-            uint256 contribution;
-            (leaves[i], contribution) = this.entryLeafAt(i);
-            active_ += contribution;
+            leaves[i] = this.entryLeafAt(i);
         }
-        root_ = _naiveRoot(leaves);
-    }
-
-    /// @dev The naive root over independently encoded V2 entry leaves for every slot.
-    function _naiveRootOfEntries() internal view returns (bytes32 root_) {
-        (root_,) = _naiveRootAndActiveStake();
+        return _naiveRoot(leaves);
     }
 
     function _load(uint256 _slot) internal view returns (uint256) {
         return uint256(vm.load(address(registry), bytes32(_slot)));
-    }
-
-    function _ceilDiv(uint256 _a, uint256 _b) internal pure returns (uint256) {
-        return _a == 0 ? 0 : (_a - 1) / _b + 1;
     }
 
     function _max(uint256 _a, uint256 _b) internal pure returns (uint256) {
@@ -431,19 +349,14 @@ contract EtnaStakingRegistryInvariantTest is EtnaStakingRegistryInvariantBase {
         }
     }
 
-    /// @notice 4. Neither churn queue strands requests: each queue ends within the stake its
-    /// current busy period scheduled (request blocks and amounts only) and never admits more
-    /// than the windows it opened hold; every entry activates and exits within its delays and
-    /// its queue's latest window.
-    function invariant_churnQueuesNeverStrand() external view {
+    /// @notice 4. Every entry activates exactly `activationDelay` after its registration, and a
+    /// requested exit takes effect exactly `exitDelay` after the later of the request and the
+    /// activation, however many requests share a block.
+    function invariant_activationsAndExitsFollowTheirDelays() external view {
         _assertModelHeld();
-        _assertQueue(ACTIVATION_CHURN_SLOT, handler.activationQueue());
-        _assertQueue(EXIT_CHURN_SLOT, handler.exitQueue());
-        uint256 activationNext = _load(ACTIVATION_CHURN_SLOT);
-        uint256 exitNext = _load(EXIT_CHURN_SLOT);
         uint256 count = registry.entryCount();
         for (uint256 i; i < count; ++i) {
-            _assertChurnBounds(registry.entryAt(i), handler.slotAt(i), activationNext, exitNext);
+            _assertTiming(registry.entryAt(i), handler.slotAt(i));
         }
     }
 
@@ -484,7 +397,6 @@ contract EtnaStakingRegistryInvariantTest is EtnaStakingRegistryInvariantBase {
     /// near-cap campaign checks the root against, is the naive tree over the modelled entries.
     function invariant_entriesAndStakeMatchTheModel() external view {
         _assertModelHeld();
-        assertEq(handler.activeStake(), handler.naiveActiveStake(), "naive model interval sum");
         uint256 count = registry.entryCount();
         bytes32[] memory leaves = new bytes32[](count);
         for (uint256 i; i < count; ++i) {
