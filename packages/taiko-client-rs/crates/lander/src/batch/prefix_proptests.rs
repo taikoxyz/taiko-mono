@@ -78,13 +78,7 @@ impl LandingSource for Decided {
         Err(unread("L1"))
     }
 
-    async fn committee_witness(
-        &self,
-        _: &LandingSnapshot,
-        _: &AnchorState,
-        _: u64,
-        _: u64,
-    ) -> Result<CommitteeWitness> {
+    async fn committee_witness(&self, _: &AnchorState, _: u64, _: u64) -> Result<CommitteeWitness> {
         Err(unread("L1"))
     }
 

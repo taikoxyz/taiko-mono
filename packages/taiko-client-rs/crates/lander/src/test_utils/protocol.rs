@@ -15,7 +15,6 @@ pub(crate) fn request() -> ProofRequest {
         genesis_height: 0,
         l1_0: 10,
         epoch_len: 20,
-        epoch_len_l1: 1,
         genesis_hash: B256::repeat_byte(1),
         genesis_state_root: B256::repeat_byte(2),
         genesis_cutoff: 9,

@@ -261,8 +261,7 @@ async fn switch_height_emits_the_exact_updates_and_prunes() {
             l1_block: if target == 4 { 71 } else { 63 },
             entries,
         };
-        let (record, members) =
-            committee::derive(&snapshot, cutoff, target, &fx.schedule(), params).unwrap();
+        let (record, members) = committee::derive(&snapshot, cutoff, target, params).unwrap();
         CommitteeState { record, members }
     };
     let all = sample_entries(4);
@@ -1669,8 +1668,7 @@ async fn payout_only_switch_installs_and_persists_epoch_metadata_without_native_
     new[0].reward_recipient = alloy_primitives::Address::repeat_byte(0x88);
     let derive = |entries, epoch, cutoff, checkpoint| {
         let snapshot = Snapshot { checkpoint_index: checkpoint, l1_block: cutoff, entries };
-        let (record, members) =
-            committee::derive(&snapshot, cutoff, epoch, &schedule, &fx.params).unwrap();
+        let (record, members) = committee::derive(&snapshot, cutoff, epoch, &fx.params).unwrap();
         CommitteeState { record, members }
     };
     let previous = derive(old.clone(), 3, 64, 0);
@@ -1700,7 +1698,6 @@ async fn payout_only_switch_installs_and_persists_epoch_metadata_without_native_
     assert_eq!(recipient_at(schedule.h_first(4) - 1), old[0].reward_recipient);
     assert_eq!(recipient_at(schedule.h_first(4)), new[0].reward_recipient);
     assert_eq!(state.committees[&4], expected);
-    fx.advance_l1(reopened.l1(), schedule.l1_first(4), &landed, &changed);
     assert_eq!(committee::validator_updates(&previous.members, &expected.members), vec![]);
     // The same key keeps its old payout through the last old-epoch block, then switches
     // after persistence/reopen despite no native validator changes.

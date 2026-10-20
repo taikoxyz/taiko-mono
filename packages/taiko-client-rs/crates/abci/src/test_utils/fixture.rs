@@ -65,8 +65,6 @@ pub(crate) struct GenesisSpec {
     pub(crate) checkpoint_l1_block: Option<u64>,
     /// `L`, the epoch length in L2 blocks.
     pub(crate) epoch_len: u64,
-    /// `EPOCH_LEN_L1`.
-    pub(crate) epoch_len_l1: u64,
     /// `forcedInclusionDelay`, in seconds.
     pub(crate) forced_inclusion_delay: u64,
     /// `maxAnchorAge`, in seconds.
@@ -81,8 +79,8 @@ pub(crate) struct GenesisSpec {
 
 impl GenesisSpec {
     /// A valid genesis with `n_validators` validators: `B* = 0`, `L1_0 = 64`, genesis cutoff
-    /// 63, `L = 20`, `EPOCH_LEN_L1 = 4`, forced inclusion delay 1 h, maximum anchor age 2 h,
-    /// generation 0, devnet parameters.
+    /// 63, `L = 20`, forced inclusion delay 1 h, maximum anchor age 2 h, generation 0, devnet
+    /// parameters.
     pub(crate) fn new(n_validators: usize) -> Self {
         Self {
             n_validators,
@@ -92,7 +90,6 @@ impl GenesisSpec {
             genesis_cutoff: 63,
             checkpoint_l1_block: None,
             epoch_len: 20,
-            epoch_len_l1: 4,
             forced_inclusion_delay: 3_600,
             max_anchor_age: 7_200,
             recovery_generation: 0,
@@ -159,7 +156,6 @@ impl Fixture {
             genesis_height: spec.genesis_height,
             l1_0: spec.l1_0,
             epoch_len: spec.epoch_len,
-            epoch_len_l1: spec.epoch_len_l1,
             genesis_hash: b_star.hash_slow(),
             genesis_state_root: b_star.state_root,
             genesis_cutoff: spec.genesis_cutoff,
@@ -170,13 +166,8 @@ impl Fixture {
         let entries = spec.entries.clone().unwrap_or_else(|| sample_entries(spec.n_validators));
         let checkpoint_l1_block = spec.checkpoint_l1_block.unwrap_or(spec.genesis_cutoff);
         let registry = RegistryStorage { checkpoints: vec![(checkpoint_l1_block, entries)] };
-        let (record, members) = genesis_committee(
-            &params,
-            &Schedule::from_genesis(&genesis),
-            &registry,
-            spec.genesis_cutoff,
-            Schedule::E0,
-        );
+        let (record, members) =
+            genesis_committee(&params, &registry, spec.genesis_cutoff, Schedule::E0);
         let committee_e0 = spec
             .committee_e0
             .unwrap_or_else(|| committee::record_hash(params.l2_chain_id, &record));
@@ -355,7 +346,7 @@ impl Fixture {
             self.genesis.l1_0
         };
         let (record, members) =
-            genesis_committee(&self.params, &self.schedule(), &self.registry, cutoff, target_epoch);
+            genesis_committee(&self.params, &self.registry, cutoff, target_epoch);
         CommitteeState { record, members }
     }
 
@@ -407,18 +398,17 @@ impl Fixture {
     }
 }
 
-/// The committee of `target_epoch` derived under `schedule` from `registry`'s first checkpoint
-/// (the genesis snapshot) at `cutoff`.
+/// The committee of `target_epoch` derived from `registry`'s first checkpoint (the genesis
+/// snapshot) at `cutoff`.
 fn genesis_committee(
     params: &ChainParams,
-    schedule: &Schedule,
     registry: &RegistryStorage,
     cutoff: u64,
     target_epoch: u64,
 ) -> (CommitteeRecord, Vec<Member>) {
     let (l1_block, entries) = registry.checkpoints[0].clone();
     let snapshot = Snapshot { checkpoint_index: 0, l1_block, entries };
-    committee::derive(&snapshot, cutoff, target_epoch, schedule, params)
+    committee::derive(&snapshot, cutoff, target_epoch, params)
         .expect("the genesis snapshot derives a committee")
 }
 
@@ -496,7 +486,6 @@ mod tests {
             verify_committee_witness_at_cutoff(
                 root,
                 fx.genesis.genesis_cutoff,
-                &fx.schedule(),
                 &fx.params,
                 &fx.witness.committee,
                 0

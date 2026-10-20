@@ -449,11 +449,10 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 "committee proving root predates authenticated derivation snapshot".into(),
             ));
         }
-        let witness = self.l1.committee_witness(snapshot, anchor, snapshot_number, epoch).await?;
+        let witness = self.l1.committee_witness(anchor, snapshot_number, epoch).await?;
         let (record, members) = verify_committee_witness_at_cutoff(
             anchor.state_root,
             snapshot_number,
-            &Schedule::from_genesis(&snapshot.genesis),
             &self.params,
             &witness,
             epoch,
@@ -1213,13 +1212,12 @@ mod tests {
 
         async fn committee_witness(
             &self,
-            snapshot: &LandingSnapshot,
             anchor: &AnchorState,
             snapshot_number: u64,
             epoch: u64,
         ) -> Result<abci::CommitteeWitness> {
             self.committee_reads.fetch_add(1, Ordering::Relaxed);
-            self.fixture().committee_witness(snapshot, anchor, snapshot_number, epoch).await
+            self.fixture().committee_witness(anchor, snapshot_number, epoch).await
         }
 
         async fn reference(
@@ -1654,7 +1652,7 @@ mod tests {
     #[test]
     fn force_epoch_flags_unlanded_switches_without_overflowing() {
         // L = 10: the switch heights are 9 (to epoch 1) and 19 (to epoch 2).
-        let base = Schedule { l1_0: 10, epoch_len: 10, epoch_len_l1: 1, genesis_cutoff: 1 };
+        let base = Schedule { l1_0: 10, epoch_len: 10, genesis_cutoff: 1 };
         for (tip, checkpoint, expected) in [
             (5, 0, false),
             (9, 0, true),
@@ -2229,7 +2227,7 @@ mod tests {
             let mut snapshot = fixture.snapshot.clone();
             match mutation {
                 0 => snapshot.committee_config_hash = alloy_primitives::B256::ZERO,
-                1 => snapshot.genesis.epoch_len_l1 += 1,
+                1 => snapshot.genesis.epoch_len += 1,
                 2 => snapshot.genesis.genesis_cutoff += 1,
                 3 => snapshot.inbox_witness.address = alloy_primitives::Address::ZERO,
                 4 => snapshot.genesis_committee_record_hash = alloy_primitives::B256::ZERO,

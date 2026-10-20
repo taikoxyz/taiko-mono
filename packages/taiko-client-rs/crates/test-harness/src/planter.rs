@@ -102,8 +102,7 @@ impl InboxValues {
         if let Some(a) = &self.genesis {
             let packed = U256::from(a.genesis_height) |
                 (U256::from(a.l1_0) << 64) |
-                (U256::from(a.epoch_len) << 128) |
-                (U256::from(a.epoch_len_l1) << 192);
+                (U256::from(a.epoch_len) << 128);
             w.push((slot(inbox::GENESIS_PACKED), packed));
             w.push((slot(inbox::GENESIS_BLOCK_HASH), a.genesis_hash.into()));
             w.push((slot(inbox::GENESIS_STATE_ROOT), a.genesis_state_root.into()));
@@ -484,7 +483,6 @@ mod tests {
             genesis_height: 1,
             l1_0: 2,
             epoch_len: 3,
-            epoch_len_l1: 4,
             genesis_hash: B256::repeat_byte(5),
             genesis_state_root: B256::repeat_byte(6),
             genesis_cutoff: 7,
@@ -496,10 +494,7 @@ mod tests {
             genesis_committee_hash: Some(B256::repeat_byte(8)),
             ..Default::default()
         };
-        let packed = U256::from(1u64) |
-            U256::from(2u64) << 64 |
-            U256::from(3u64) << 128 |
-            U256::from(4u64) << 192;
+        let packed = U256::from(1u64) | U256::from(2u64) << 64 | U256::from(3u64) << 128;
         assert_eq!(
             v.writes(),
             vec![

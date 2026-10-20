@@ -134,20 +134,19 @@ pub struct InboxFacts {
 
 /// The Etna genesis record read from the Inbox (the compatibility `activation` slots 272–274), with
 /// the genesis committee's snapshot cutoff (slot 279) and the forced inclusion configuration
-/// (slot 282).
+/// (slot 282). Unknown fields are refused, so a record saved with a removed parameter is not
+/// silently migrated.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GenesisRecord {
     /// Authenticated slot-269 derivation configuration hash; required for persisted state.
     pub committee_config_hash: B256,
     /// L2 genesis block number, always zero; retained to validate older state files.
     pub genesis_height: u64,
-    /// `L1_0`: L1 block number of initialization; epoch `e_0` starts its L1 view here.
+    /// `L1_0`: L1 block number of initialization; the minimum anchor of every block.
     pub l1_0: u64,
     /// `L`: epoch length in L2 blocks (validated `>= 3` and `>= unsettled_cap + 3`).
     pub epoch_len: u64,
-    /// `EPOCH_LEN_L1`: epoch length in L1 blocks, for the per-epoch minimum anchor (validated
-    /// `>= 1`).
-    pub epoch_len_l1: u64,
     /// `H*`: L2 block hash of `B*`.
     pub genesis_hash: B256,
     /// `S*`: L2 state root of `B*`.
@@ -316,7 +315,6 @@ mod tests {
             genesis_height: 0,
             l1_0: 100,
             epoch_len: 20,
-            epoch_len_l1: 4,
             genesis_hash: B256::repeat_byte(0x66),
             genesis_state_root: B256::repeat_byte(0x77),
             genesis_cutoff: 99,
@@ -367,10 +365,30 @@ mod committee_config_state_tests {
     #[test]
     fn old_genesis_record_without_config_hash_is_rejected() {
         let legacy = serde_json::json!({
-            "genesis_height":0,"l1_0":64,"epoch_len":20,"epoch_len_l1":4,
+            "genesis_height":0,"l1_0":64,"epoch_len":20,
             "genesis_hash":B256::repeat_byte(1),"genesis_state_root":B256::repeat_byte(2),
             "genesis_cutoff":63
         });
         assert!(serde_json::from_value::<GenesisRecord>(legacy).is_err());
+    }
+
+    #[test]
+    fn genesis_record_with_an_l1_epoch_length_is_rejected() {
+        let record = GenesisRecord {
+            committee_config_hash: B256::repeat_byte(3),
+            genesis_height: 0,
+            l1_0: 64,
+            epoch_len: 20,
+            genesis_hash: B256::repeat_byte(1),
+            genesis_state_root: B256::repeat_byte(2),
+            genesis_cutoff: 63,
+            forced_inclusion_delay: 3_600,
+            max_anchor_age: 7_200,
+        };
+        let mut legacy = serde_json::to_value(&record).unwrap();
+        assert_eq!(serde_json::from_value::<GenesisRecord>(legacy.clone()).unwrap(), record);
+        legacy["epoch_len_l1"] = 4.into();
+        let err = serde_json::from_value::<GenesisRecord>(legacy).unwrap_err();
+        assert!(err.to_string().contains("epoch_len_l1"), "{err}");
     }
 }

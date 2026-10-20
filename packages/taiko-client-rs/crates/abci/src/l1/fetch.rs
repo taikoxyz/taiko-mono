@@ -25,7 +25,6 @@ use crate::{
     committee::{self, CommitteeError, Snapshot, snapshot_slots},
     config::ChainParams,
     envelope::CommitteeWitness,
-    schedule::Schedule,
     types::RegistryEntry,
 };
 
@@ -120,12 +119,11 @@ struct Reads {
 pub async fn build_committee_witness<L: L1Source + ?Sized>(
     l1: &L,
     params: &ChainParams,
-    schedule: &Schedule,
     parent_anchor: u64,
     target_epoch: u64,
 ) -> Result<CommitteeWitness, FetchError> {
     let progress = DiscoveryProgress::default();
-    Discovery { l1, params, schedule, cutoff: None, read_timeout: None, progress: &progress }
+    Discovery { l1, params, cutoff: None, read_timeout: None, progress: &progress }
         .witness(parent_anchor, target_epoch)
         .await
 }
@@ -147,22 +145,14 @@ pub async fn build_committee_witness<L: L1Source + ?Sized>(
 pub async fn build_committee_witness_at_cutoff<L: L1Source + ?Sized>(
     l1: &L,
     params: &ChainParams,
-    schedule: &Schedule,
     block: u64,
     cutoff: u64,
     target_epoch: u64,
 ) -> Result<CommitteeWitness, FetchError> {
     let progress = DiscoveryProgress::default();
-    Discovery {
-        l1,
-        params,
-        schedule,
-        cutoff: Some(cutoff),
-        read_timeout: None,
-        progress: &progress,
-    }
-    .witness(block, target_epoch)
-    .await
+    Discovery { l1, params, cutoff: Some(cutoff), read_timeout: None, progress: &progress }
+        .witness(block, target_epoch)
+        .await
 }
 
 /// [`build_committee_witness`], bounding every single L1 read by `read_timeout`
@@ -174,13 +164,12 @@ pub async fn build_committee_witness_at_cutoff<L: L1Source + ?Sized>(
 pub(crate) async fn build_committee_witness_within<L: L1Source + ?Sized>(
     l1: &L,
     params: &ChainParams,
-    schedule: &Schedule,
     parent_anchor: u64,
     target_epoch: u64,
     read_timeout: Duration,
     progress: &DiscoveryProgress,
 ) -> Result<CommitteeWitness, FetchError> {
-    Discovery { l1, params, schedule, cutoff: None, read_timeout: Some(read_timeout), progress }
+    Discovery { l1, params, cutoff: None, read_timeout: Some(read_timeout), progress }
         .witness(parent_anchor, target_epoch)
         .await
 }
@@ -191,8 +180,6 @@ struct Discovery<'a, L: ?Sized> {
     l1: &'a L,
     /// The chain parameters (registry address and derivation parameters).
     params: &'a ChainParams,
-    /// The chain's epoch schedule for heartbeat eligibility.
-    schedule: &'a Schedule,
     /// Explicit snapshot cutoff for genesis/host jobs; `None` selects the supplied parent number.
     cutoff: Option<u64>,
     /// The deadline of each single L1 read; `None` waits indefinitely.
@@ -271,7 +258,7 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
             .read("registry proof read", self.l1.account_witness(params.registry, &slots, n_p))
             .await?;
         let snapshot = Snapshot { checkpoint_index: index, l1_block, entries };
-        let (record, _) = committee::derive(&snapshot, cutoff, target, self.schedule, params)?;
+        let (record, _) = committee::derive(&snapshot, cutoff, target, params)?;
         Ok(CommitteeWitness { record, registry: proof, entries: snapshot.entries })
     }
 
@@ -417,8 +404,7 @@ mod tests {
         words.retain(|(slot, _)| *slot != registry::entry_slots(0)[3]);
         let legacy = TestState::new(vec![(fx.params.registry, 1, U256::ZERO, B256::ZERO, words)]);
         l1.state().states.insert(fx.genesis.l1_0, legacy);
-        let result =
-            build_committee_witness(&l1, &fx.params, &fx.schedule(), fx.genesis.l1_0, 0).await;
+        let result = build_committee_witness(&l1, &fx.params, fx.genesis.l1_0, 0).await;
         assert!(matches!(result, Err(FetchError::Registry(msg)) if msg == "zero reward recipient"));
     }
 
@@ -448,9 +434,7 @@ mod tests {
         let fx = Fixture::genesis(3);
         let l1 = fx.l1();
         let n_p = fx.genesis.l1_0;
-        build_committee_witness(&l1, &fx.params, &fx.schedule(), n_p, Schedule::E0)
-            .await
-            .expect("witness");
+        build_committee_witness(&l1, &fx.params, n_p, Schedule::E0).await.expect("witness");
         let registry_address = fx.params.registry;
         assert_eq!(
             l1.calls(),
@@ -486,20 +470,14 @@ mod tests {
         let fx = Fixture::genesis(3);
         let l1 = MockL1::new(70);
         let header = fx.plant_l1_block(&l1, 70, &fx.inbox, &fx.registry);
-        let witness = build_committee_witness(&l1, &fx.params, &fx.schedule(), 70, 1)
-            .await
-            .expect("block 70 suffices");
+        let witness =
+            build_committee_witness(&l1, &fx.params, 70, 1).await.expect("block 70 suffices");
         assert_eq!(witness.record.checkpoint_index, 0);
         assert_eq!(witness.entries, sample_entries(3));
         assert!(l1.calls().iter().all(|c| block_of(c) == Some(70)), "{:?}", l1.calls());
-        let (record, _) = verify_committee_witness(
-            &anchor_at(70, header.state_root()),
-            &fx.schedule(),
-            &fx.params,
-            &witness,
-            1,
-        )
-        .expect("the witness verifies");
+        let (record, _) =
+            verify_committee_witness(&anchor_at(70, header.state_root()), &fx.params, &witness, 1)
+                .expect("the witness verifies");
         assert_eq!(record, witness.record);
     }
 
@@ -510,7 +488,6 @@ mod tests {
         let fx = Fixture::genesis(3);
         let params = fx.params.clone();
         // This explicit historical snapshot predates the fixture's `L1_0`.
-        let schedule = Schedule { l1_0: 22, genesis_cutoff: 0, ..fx.schedule() };
         let (old, new) = (sample_entries(3), sample_entries(4));
         let at_19 = RegistryStorage { checkpoints: vec![(10, old.clone())] };
         let at_22 = RegistryStorage { checkpoints: vec![(10, old.clone()), (20, new)] };
@@ -520,9 +497,8 @@ mod tests {
 
         // Explicit snapshot 17: checkpoint 0 (block 10) is the snapshot, checkpoint 1 (block 20)
         // follows it, so the entries are read at min(22, 20 - 1) = 19.
-        let witness = build_committee_witness_at_cutoff(&l1, &params, &schedule, 22, 17, 1)
-            .await
-            .expect("witness");
+        let witness =
+            build_committee_witness_at_cutoff(&l1, &params, 22, 17, 1).await.expect("witness");
         assert_eq!(witness.record.cutoff_l1_block, 17);
         assert_eq!(witness.record.checkpoint_index, 0);
         assert_eq!(witness.entries, old);
@@ -537,15 +513,8 @@ mod tests {
             }]
         );
         assert_eq!(calls.len(), at_block(19) + at_block(22), "no other block is read");
-        verify_committee_witness_at_cutoff(
-            header.state_root(),
-            17,
-            &schedule,
-            &params,
-            &witness,
-            1,
-        )
-        .expect("the witness verifies at the parent anchor");
+        verify_committee_witness_at_cutoff(header.state_root(), 17, &params, &witness, 1)
+            .expect("the witness verifies at the parent anchor");
     }
 
     /// Runtime discovery takes the actual parent number even when the genesis cutoff is older.
@@ -553,19 +522,13 @@ mod tests {
     async fn runtime_snapshot_is_the_supplied_parent_number() {
         let fx = Fixture::build(GenesisSpec::eligible_at_explicit_genesis_snapshot(2));
         let l1_0 = fx.genesis.l1_0;
-        let witness = build_committee_witness(&fx.l1(), &fx.params, &fx.schedule(), l1_0, 1)
-            .await
-            .expect("parent snapshot");
+        let witness =
+            build_committee_witness(&fx.l1(), &fx.params, l1_0, 1).await.expect("parent snapshot");
         assert_eq!(witness.record.cutoff_l1_block, 64);
         assert_ne!(witness.record.cutoff_l1_block, fx.genesis.genesis_cutoff);
-        let (_, members) = verify_committee_witness(
-            &fx.anchor_state(&fx.l1(), l1_0),
-            &fx.schedule(),
-            &fx.params,
-            &witness,
-            1,
-        )
-        .unwrap();
+        let (_, members) =
+            verify_committee_witness(&fx.anchor_state(&fx.l1(), l1_0), &fx.params, &witness, 1)
+                .unwrap();
         assert_eq!(members.len(), 2);
     }
 
@@ -585,10 +548,9 @@ mod tests {
 
         // Cutoff 61: checkpoint 0 (block 60) is the snapshot, checkpoint 1 (block 62) follows it,
         // so the entries are read at min(64, 62 - 1) = 61.
-        let witness =
-            build_committee_witness_at_cutoff(&l1, &params, &fx.schedule(), 64, 61, Schedule::E0)
-                .await
-                .expect("witness");
+        let witness = build_committee_witness_at_cutoff(&l1, &params, 64, 61, Schedule::E0)
+            .await
+            .expect("witness");
         assert_eq!(witness.record.cutoff_l1_block, 61);
         assert_eq!(witness.record.checkpoint_index, 0);
         assert_eq!(witness.entries, old);
@@ -605,7 +567,6 @@ mod tests {
         let (record, _) = verify_committee_witness_at_cutoff(
             header.state_root(),
             61,
-            &fx.schedule(),
             &params,
             &witness,
             Schedule::E0,
@@ -623,8 +584,7 @@ mod tests {
         let storage = RegistryStorage { checkpoints: vec![(64, entries.clone())] };
         let l1 = MockL1::new(64);
         fx.plant_l1_block(&l1, 64, &fx.inbox, &storage);
-        let witness =
-            build_committee_witness(&l1, &fx.params, &fx.schedule(), 64, 1).await.expect("witness");
+        let witness = build_committee_witness(&l1, &fx.params, 64, 1).await.expect("witness");
         assert_eq!(witness.entries, entries);
         let batches: Vec<Vec<B256>> = l1
             .calls()
@@ -652,7 +612,6 @@ mod tests {
         let witness = build_committee_witness_at_cutoff(
             &l1,
             &fx.params,
-            &fx.schedule(),
             l1_0,
             fx.genesis.genesis_cutoff,
             Schedule::E0,
@@ -661,7 +620,7 @@ mod tests {
         .expect("the fixture registry yields a witness");
         assert_eq!(witness, fx.witness.committee);
 
-        let anchored = build_committee_witness(&l1, &fx.params, &fx.schedule(), l1_0, Schedule::E0)
+        let anchored = build_committee_witness(&l1, &fx.params, l1_0, Schedule::E0)
             .await
             .expect("the fixture registry yields a witness");
         assert_eq!(anchored.record.cutoff_l1_block, l1_0);
@@ -672,7 +631,6 @@ mod tests {
         let within = build_committee_witness_within(
             &l1,
             &fx.params,
-            &fx.schedule(),
             l1_0,
             Schedule::E0,
             Duration::from_secs(1),
@@ -700,7 +658,6 @@ mod tests {
         let witness = build_committee_witness_within(
             &l1,
             &fx.params,
-            &fx.schedule(),
             64,
             1,
             Duration::from_secs(5),
@@ -723,7 +680,6 @@ mod tests {
         let err = build_committee_witness_within(
             &l1,
             &fx.params,
-            &fx.schedule(),
             fx.genesis.l1_0,
             Schedule::E0,
             Duration::from_secs(4),
@@ -742,16 +698,7 @@ mod tests {
         limit: Duration,
         progress: &DiscoveryProgress,
     ) -> Result<CommitteeWitness, FetchError> {
-        build_committee_witness_within(
-            l1,
-            &fx.params,
-            &fx.schedule(),
-            n_p,
-            Schedule::E0,
-            limit,
-            progress,
-        )
-        .await
+        build_committee_witness_within(l1, &fx.params, n_p, Schedule::E0, limit, progress).await
     }
 
     /// Starts a discovery against `n_p` with one read per second and drops it after 1.5 s, once
@@ -789,8 +736,7 @@ mod tests {
         let progress = DiscoveryProgress::default();
         let limit = Duration::from_secs(5);
 
-        let expected =
-            build_committee_witness(&fx.l1(), &fx.params, &fx.schedule(), n_p, Schedule::E0).await;
+        let expected = build_committee_witness(&fx.l1(), &fx.params, n_p, Schedule::E0).await;
         drop_after_the_length_read(&fx, &l1, n_p, &progress).await;
         assert_eq!(resume(&fx, &l1, n_p, limit, &progress).await, expected);
         assert_eq!(l1.calls().len(), 3, "the head, the entries and the proof: {:?}", l1.calls());
@@ -886,7 +832,7 @@ mod tests {
         for count in [MAX_REGISTRY_ENTRIES + 1, u32::MAX] {
             let l1 = fx.l1();
             l1.state().states.insert(n_p, registry_claiming(&fx, count));
-            let err = build_committee_witness(&l1, &fx.params, &fx.schedule(), n_p, 0).await;
+            let err = build_committee_witness(&l1, &fx.params, n_p, 0).await;
             assert!(
                 matches!(&err, Err(FetchError::Registry(msg)) if msg.contains(&count.to_string())),
                 "{count}: {err:?}"
@@ -908,7 +854,7 @@ mod tests {
         let n_p = fx.genesis.l1_0;
         let l1 = fx.l1();
         l1.state().states.insert(n_p, registry_claiming(&fx, MAX_REGISTRY_ENTRIES));
-        let err = build_committee_witness(&l1, &fx.params, &fx.schedule(), n_p, 0).await;
+        let err = build_committee_witness(&l1, &fx.params, n_p, 0).await;
         assert!(!matches!(err, Err(FetchError::Registry(_))), "{err:?}");
         let batches = l1
             .calls()
@@ -925,8 +871,7 @@ mod tests {
         let fx = Fixture::genesis(1);
         let l1 = fx.l1();
         l1.state().fail = Some(L1Error::Rpc("down".into()));
-        let err =
-            build_committee_witness(&l1, &fx.params, &fx.schedule(), fx.genesis.l1_0, 0).await;
+        let err = build_committee_witness(&l1, &fx.params, fx.genesis.l1_0, 0).await;
         assert_eq!(err, Err(FetchError::L1(L1Error::Rpc("down".into()))));
 
         // A registry whose checkpoints.length does not fit u64.
@@ -939,8 +884,7 @@ mod tests {
             vec![(registry::length_slot(), U256::MAX)],
         );
         l1.state().states.insert(fx.genesis.l1_0, TestState::new(vec![registry_account]));
-        let err =
-            build_committee_witness(&l1, &fx.params, &fx.schedule(), fx.genesis.l1_0, 0).await;
+        let err = build_committee_witness(&l1, &fx.params, fx.genesis.l1_0, 0).await;
         assert!(matches!(err, Err(FetchError::Registry(_))), "{err:?}");
         assert_eq!(l1.calls().len(), 1, "discovery stops at the bad length");
         assert!(matches!(l1.calls()[0], L1Call::StorageAt { .. }));

@@ -409,10 +409,8 @@ pub(crate) fn check_candidate_anchor(
     height: u64,
     c: &Candidate<'_>,
 ) -> Result<AnchorState, Rejection> {
-    let schedule = &state.schedule();
-
     let anchor = candidate_anchor(state, params, height, c)?;
-    rules::check_anchor_progress(state.anchor.number, anchor.number, schedule, height)?;
+    rules::check_anchor_progress(state.anchor.number, anchor.number, state.genesis.l1_0)?;
 
     let inbox_generation = anchor.inbox.recovery_generation;
     if rules::check_generation(state.generation, c.extra_generation, inbox_generation)? ==
@@ -494,8 +492,7 @@ fn candidate_committee(
         (None, Some(_)) => Err(Rejection::UnexpectedWitness(WitnessKind::Committee)),
         (Some(_), None) => Err(Rejection::MissingWitness(WitnessKind::Committee)),
         (Some(target), Some(w)) => {
-            let (record, members) =
-                verify_committee_witness(&state.anchor, &state.schedule(), params, w, target)?;
+            let (record, members) = verify_committee_witness(&state.anchor, params, w, target)?;
             Ok(Some((target, CommitteeState { record, members })))
         }
     }

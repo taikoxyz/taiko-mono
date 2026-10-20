@@ -484,9 +484,7 @@ async fn round_trips_through_a_plain_height_and_an_anchor_change() {
 /// Switch 4 derives at parent 70 and authenticates the latest checkpoint (69) and all entries.
 #[tokio::test]
 async fn round_trip_at_a_switch_derives_the_parent_snapshot_committee() {
-    let mut spec = GenesisSpec::new(3);
-    spec.epoch_len_l1 = 2;
-    let fx = Fixture::build(spec);
+    let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     let schedule = app.state().unwrap().schedule();

@@ -13,12 +13,9 @@ use protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID;
 const CHAIN: u64 = 167_001;
 const REGISTRY: Address = address!("00000000000000000000000000000000E7A10002");
 const OTHER: Address = address!("00000000000000000000000000000000E7A10001");
-/// Cutoff used by the `derive` tests.
+/// Cutoff used by the `derive` tests; with the devnet heartbeat window every recorded heartbeat
+/// qualifies at it.
 const C: u64 = 100;
-/// Schedule of the `derive` tests: `L1_0 = 0` and 10 L1 blocks per epoch, so with the devnet
-/// heartbeat window every heartbeat at or after L1 block 1 qualifies.
-/// Runtime snapshot numbers are independent of the heartbeat schedule.
-const SCHEDULE: Schedule = Schedule { l1_0: 0, epoch_len: 10, epoch_len_l1: 10, genesis_cutoff: 0 };
 
 fn ether(n: u64) -> U256 {
     U256::from(n) * U256::from(10u64).pow(U256::from(18u64))
@@ -229,28 +226,22 @@ fn set_root_vectors() {
 
 #[test]
 fn derive_matches_shared_committee_vectors() {
-    let params = ChainParams {
-        heartbeat_window: vectors::u64_at("/committee_config/inputs/heartbeat_window"),
-        ..devnet()
-    };
-    // At epoch 7, this schedule's L1_first(5) is 50; heartbeat window 32 yields floor 0.
+    // A heartbeat window of 64 puts cutoff 100 in the window starting at 64, so the floor is 0.
     // Prefix entries are active by cutoff 100, unexited, and carry qualifying heartbeats/stake.
+    let params = ChainParams { heartbeat_window: 64, ..devnet() };
     for i in 0..vectors::len_at("/committee_sets") {
         let p = format!("/committee_sets/{i}");
         let f = |name: &str| format!("{p}/{name}");
         let count = vectors::len_at(&f("members"));
         let target_epoch = vectors::u64_at(&f("target_epoch"));
         let cutoff = vectors::u64_at(&f("cutoff_l1_block"));
-        assert_eq!(
-            heartbeat_floor(&SCHEDULE, params.heartbeat_window, target_epoch, cutoff),
-            Ok(Some(0))
-        );
+        assert_eq!(heartbeat_floor(params.heartbeat_window, target_epoch, cutoff), Ok(Some(0)));
         let snapshot = Snapshot {
             checkpoint_index: vectors::u64_at(&f("checkpoint_index")),
             l1_block: 90,
             entries: vectors::registry_entries().into_iter().take(count).collect(),
         };
-        let derived = derive(&snapshot, cutoff, target_epoch, &SCHEDULE, &params);
+        let derived = derive(&snapshot, cutoff, target_epoch, &params);
         if count == 0 {
             assert_eq!(derived, Err(CommitteeError::Empty));
             continue;
@@ -597,7 +588,7 @@ fn derived_pubkeys(
     entries: Vec<RegistryEntry>,
     params: &ChainParams,
 ) -> Result<Vec<B256>, CommitteeError> {
-    derive(&snapshot(entries), C, 1, &SCHEDULE, params)
+    derive(&snapshot(entries), C, 1, params)
         .map(|(_, members)| members.iter().map(|m| m.pubkey).collect())
 }
 
@@ -611,7 +602,7 @@ fn key_sorted(params: &ChainParams, mut pubkeys: Vec<B256>) -> Vec<B256> {
 fn derive_builds_key_sorted_members_and_the_record() {
     let params = devnet();
     let entries = vec![entry(1, ether(3)), entry(2, ether(1) + U256::from(7)), entry(3, ether(2))];
-    let (record, members) = derive(&snapshot(entries.clone()), C, 5, &SCHEDULE, &params).unwrap();
+    let (record, members) = derive(&snapshot(entries.clone()), C, 5, &params).unwrap();
 
     let mut expected: Vec<Member> =
         [(1u8, 3_000_000_000u64), (2, 1_000_000_000), (3, 2_000_000_000)]
@@ -643,15 +634,14 @@ fn derive_builds_key_sorted_members_and_the_record() {
 #[test]
 fn derive_uses_k_one_for_the_first_epoch() {
     let params = devnet();
-    let (record, members) =
-        derive(&snapshot(vec![entry(1, ether(1))]), C, 0, &SCHEDULE, &params).unwrap();
+    let (record, members) = derive(&snapshot(vec![entry(1, ether(1))]), C, 0, &params).unwrap();
     assert_eq!(record.set_root, set_root(params.l2_chain_id, 1, &members));
 }
 
 #[test]
 fn derive_rejects_a_target_epoch_without_a_k() {
     assert_eq!(
-        derive(&snapshot(vec![entry(1, ether(1))]), C, u64::MAX, &SCHEDULE, &devnet()),
+        derive(&snapshot(vec![entry(1, ether(1))]), C, u64::MAX, &devnet()),
         Err(CommitteeError::EpochOutOfRange(u64::MAX))
     );
 }
@@ -672,59 +662,76 @@ fn exit_at_the_cutoff_is_ineligible() {
 
 /// Heartbeat window of the heartbeat eligibility tests, in L1 blocks.
 const W: u64 = 100;
-/// Schedule of the heartbeat eligibility tests: `L1_0 = 200` and 30 L1 blocks per epoch, so
-/// `L1_first(e) = 200 + 30·e` and the first filtered epoch 3 evaluates at
-/// `I*(3) = floor(L1_first(1) / W) · W = floor(230 / 100) · 100 = 200`.
-const HB_SCHEDULE: Schedule =
-    Schedule { l1_0: 200, epoch_len: 10, epoch_len_l1: 30, genesis_cutoff: 199 };
 
-/// The member pubkeys `derive` returns for `target` at `cutoff` under [`HB_SCHEDULE`] and
-/// heartbeat window [`W`].
+/// The member pubkeys `derive` returns for `target` at `cutoff` with heartbeat window [`W`].
 fn heartbeat_eligible(
     entries: Vec<RegistryEntry>,
     cutoff: u64,
     target: u64,
 ) -> Result<Vec<B256>, CommitteeError> {
     let params = ChainParams { heartbeat_window: W, ..devnet() };
-    derive(&snapshot(entries), cutoff, target, &HB_SCHEDULE, &params)
+    derive(&snapshot(entries), cutoff, target, &params)
         .map(|(_, members)| members.iter().map(|m| m.pubkey).collect())
 }
 
-/// The floor is `I*(e) − W` with `I*(e)` from the schedule and the target epoch, whatever the
-/// cutoff once it has reached `I*(e)`: an entry whose last heartbeat named the window before
-/// `I*(e)` stays eligible at a later cutoff (the review's case: `W = 100`, `I* = 200`,
-/// cutoff 285, `lastHeartbeatAt = 100`).
+/// From epoch 3 the floor is the start of the heartbeat window before the one containing the
+/// snapshot, `cutoff − cutoff % W − W`, whatever the target epoch.
 #[test]
-fn heartbeat_floor_follows_the_schedule_not_the_cutoff() {
-    for cutoff in [200, 285, 299] {
-        assert_eq!(heartbeat_floor(&HB_SCHEDULE, W, 3, cutoff), Ok(Some(100)), "{cutoff}");
+fn heartbeat_floor_is_the_window_before_the_snapshot_window() {
+    for (cutoff, floor) in [
+        (9_900, 9_800),
+        (9_999, 9_800),
+        (10_000, 9_900),
+        (10_099, 9_900),
+        (u64::MAX, u64::MAX - u64::MAX % W - W),
+    ] {
+        assert_eq!(heartbeat_floor(W, 3, cutoff), Ok(Some(floor)), "{cutoff}");
     }
-    // Epoch 5 evaluates at floor(L1_first(3) = 290) = 200, epoch 6 at floor(320) = 300.
-    assert_eq!(heartbeat_floor(&HB_SCHEDULE, W, 5, 400), Ok(Some(100)));
-    assert_eq!(heartbeat_floor(&HB_SCHEDULE, W, 6, 400), Ok(Some(200)));
+    for target in [4, 7, u64::MAX] {
+        assert_eq!(heartbeat_floor(W, target, 9_999), Ok(Some(9_800)), "{target}");
+    }
+}
 
-    let named_previous = RegistryEntry { last_heartbeat_at: 100, ..entry(1, ether(1)) };
-    let older = RegistryEntry { last_heartbeat_at: 99, ..entry(2, ether(1)) };
-    let named_later = RegistryEntry { last_heartbeat_at: 200, ..entry(3, ether(1)) };
+/// Eligibility is measured from the snapshot alone. At snapshot 9_999 the floor is 9_800: a
+/// holder whose last heartbeat window starts at 1_300, long before the snapshot, is excluded, as
+/// is one at 9_700, while 9_800 and 9_900 qualify. Once the snapshot reaches the next window,
+/// 9_800 drops out too.
+#[test]
+fn heartbeat_eligibility_is_measured_from_the_snapshot() {
     let params = ChainParams { heartbeat_window: W, ..devnet() };
+    let at = |seed: u8, window: u64| RegistryEntry {
+        last_heartbeat_at: window,
+        ..entry(seed, ether(1))
+    };
+    let (stale, older, previous, current) =
+        (at(1, 1_300), at(2, 9_700), at(3, 9_800), at(4, 9_900));
+    let entries = vec![stale, older, previous.clone(), current.clone()];
     assert_eq!(
-        heartbeat_eligible(vec![named_previous.clone(), older, named_later.clone()], 285, 3),
-        Ok(key_sorted(&params, vec![named_previous.pubkey, named_later.pubkey]))
+        heartbeat_eligible(entries.clone(), 9_999, 3),
+        Ok(key_sorted(&params, vec![previous.pubkey, current.pubkey]))
+    );
+
+    let next = at(5, 10_000);
+    let mut entries = entries;
+    entries.push(next.clone());
+    assert_eq!(
+        heartbeat_eligible(entries, 10_000, 3),
+        Ok(key_sorted(&params, vec![current.pubkey, next.pubkey]))
     );
 }
 
-/// A cutoff before `I*(e)` caps the instant at the start of its own window, as the snapshot
-/// holds no later heartbeat: the floor only drops, never below 0.
+/// Snapshots in the first two heartbeat windows saturate the floor at 0, so any recorded
+/// heartbeat qualifies.
 #[test]
-fn heartbeat_floor_is_capped_at_the_cutoff_window() {
-    // I*(6) = 300; a cutoff of 290 caps it at 200.
-    assert_eq!(heartbeat_floor(&HB_SCHEDULE, W, 6, 290), Ok(Some(100)));
-    assert_eq!(heartbeat_floor(&HB_SCHEDULE, W, 6, 300), Ok(Some(200)));
-    assert_eq!(heartbeat_floor(&HB_SCHEDULE, W, 3, 50), Ok(Some(0)));
+fn heartbeat_floor_saturates_at_zero_for_small_snapshots() {
+    for cutoff in [0, 1, 99, 100, 199] {
+        assert_eq!(heartbeat_floor(W, 3, cutoff), Ok(Some(0)), "{cutoff}");
+    }
+    assert_eq!(heartbeat_floor(W, 3, 200), Ok(Some(100)));
 
-    let attested = RegistryEntry { last_heartbeat_at: 100, ..entry(1, ether(1)) };
-    assert_eq!(heartbeat_eligible(vec![attested.clone()], 290, 6), Ok(vec![attested.pubkey]));
-    assert_eq!(heartbeat_eligible(vec![attested], 300, 6), Err(CommitteeError::Empty));
+    let window_0 = RegistryEntry { last_heartbeat_at: 0, ..entry(1, ether(1)) };
+    assert_eq!(heartbeat_eligible(vec![window_0.clone()], 199, 3), Ok(vec![window_0.pubkey]));
+    assert_eq!(heartbeat_eligible(vec![window_0], 200, 3), Err(CommitteeError::Empty));
 }
 
 /// Epoch `e_0` and the launch epochs `e_0 + 1`, `e_0 + 2` are not filtered: an entry
@@ -732,11 +739,12 @@ fn heartbeat_floor_is_capped_at_the_cutoff_window() {
 #[test]
 fn genesis_and_launch_epochs_are_not_heartbeat_filtered() {
     let never = RegistryEntry { last_heartbeat_at: 0, last_heartbeat_seq: 0, ..entry(1, ether(1)) };
-    for target in [Schedule::E0, Schedule::E0 + 1, Schedule::E0 + LOOKAHEAD_EPOCHS] {
-        assert_eq!(heartbeat_floor(&HB_SCHEDULE, W, target, C), Ok(None), "{target}");
-        assert_eq!(heartbeat_eligible(vec![never.clone()], C, target), Ok(vec![never.pubkey]));
+    assert_eq!(FIRST_HEARTBEAT_EPOCH, Schedule::E0 + 3);
+    for target in Schedule::E0..FIRST_HEARTBEAT_EPOCH {
+        assert_eq!(heartbeat_floor(W, target, 10_000), Ok(None), "{target}");
+        assert_eq!(heartbeat_eligible(vec![never.clone()], 10_000, target), Ok(vec![never.pubkey]));
     }
-    assert_eq!(heartbeat_eligible(vec![never], 300, 3), Err(CommitteeError::Empty));
+    assert_eq!(heartbeat_eligible(vec![never], 10_000, 3), Err(CommitteeError::Empty));
 }
 
 /// In a filtered epoch an entry without a heartbeat (`lastHeartbeatSeq = 0`) is ineligible even
@@ -746,30 +754,20 @@ fn genesis_and_launch_epochs_are_not_heartbeat_filtered() {
 #[test]
 fn the_heartbeat_sequence_tells_a_window_0_heartbeat_from_none() {
     let params = devnet();
-    assert_eq!(heartbeat_floor(&SCHEDULE, params.heartbeat_window, 3, C), Ok(Some(0)));
+    assert_eq!(heartbeat_floor(params.heartbeat_window, 3, C), Ok(Some(0)));
     let never = RegistryEntry { last_heartbeat_at: 0, last_heartbeat_seq: 0, ..entry(1, ether(1)) };
     let window_0 =
         RegistryEntry { last_heartbeat_at: 0, last_heartbeat_seq: 1, ..entry(2, ether(1)) };
     let (_, members) =
-        derive(&snapshot(vec![never.clone(), window_0.clone()]), C, 3, &SCHEDULE, &params)
-            .expect("derives");
+        derive(&snapshot(vec![never.clone(), window_0.clone()]), C, 3, &params).expect("derives");
     assert_eq!(members.iter().map(|m| m.pubkey).collect::<Vec<_>>(), vec![window_0.pubkey]);
-    assert_eq!(
-        derive(&snapshot(vec![never]), C, 3, &SCHEDULE, &params),
-        Err(CommitteeError::Empty)
-    );
+    assert_eq!(derive(&snapshot(vec![never]), C, 3, &params), Err(CommitteeError::Empty));
 }
 
 #[test]
 fn a_zero_heartbeat_window_is_rejected_for_filtered_epochs() {
-    assert_eq!(heartbeat_floor(&HB_SCHEDULE, 0, 2, C), Ok(None));
-    assert_eq!(heartbeat_floor(&HB_SCHEDULE, 0, 3, C), Err(CommitteeError::ZeroHeartbeatWindow));
-}
-
-#[test]
-fn a_heartbeat_instant_past_u64_is_out_of_range() {
-    let schedule = Schedule { epoch_len_l1: u64::MAX, ..HB_SCHEDULE };
-    assert_eq!(heartbeat_floor(&schedule, W, 3, C), Err(CommitteeError::EpochOutOfRange(3)));
+    assert_eq!(heartbeat_floor(0, 2, C), Ok(None));
+    assert_eq!(heartbeat_floor(0, 3, C), Err(CommitteeError::ZeroHeartbeatWindow));
 }
 
 #[test]
@@ -786,8 +784,7 @@ fn stake_below_vp_unit_is_ineligible_when_vp_unit_dominates() {
     let params = ChainParams { s_min: U256::from(1), ..devnet() };
     let below = entry(1, params.vp_unit - U256::from(1));
     let at = entry(2, params.vp_unit);
-    let (_, members) =
-        derive(&snapshot(vec![below, at.clone()]), C, 1, &SCHEDULE, &params).unwrap();
+    let (_, members) = derive(&snapshot(vec![below, at.clone()]), C, 1, &params).unwrap();
     assert_eq!(
         members,
         vec![Member {
@@ -805,7 +802,7 @@ fn stake_below_vp_unit_is_ineligible_when_vp_unit_dominates() {
 fn duplicate_eligible_pubkeys_keep_the_lowest_bond_id() {
     let params = devnet();
     let entries = vec![entry(1, ether(1)), entry(2, ether(1)), entry(1, ether(5))];
-    let (_, members) = derive(&snapshot(entries), C, 1, &SCHEDULE, &params).expect("derives");
+    let (_, members) = derive(&snapshot(entries), C, 1, &params).expect("derives");
     assert_eq!(
         members.iter().map(|m| m.pubkey).collect::<Vec<_>>(),
         key_sorted(&params, vec![B256::repeat_byte(1), B256::repeat_byte(2)])
@@ -821,16 +818,12 @@ fn duplicate_eligible_pubkeys_keep_the_lowest_bond_id() {
 fn a_squatter_copying_a_sitting_validators_key_changes_nothing() {
     let params = devnet();
     let sitting = vec![entry(1, ether(3)), entry(2, ether(1)), entry(3, ether(2))];
-    let honest = derive(&snapshot(sitting.clone()), C, 1, &SCHEDULE, &params).expect("derives");
+    let honest = derive(&snapshot(sitting.clone()), C, 1, &params).expect("derives");
 
     for copied in [1u8, 2, 3] {
         let mut squatted = sitting.clone();
         squatted.push(RegistryEntry { last_heartbeat_at: C, ..entry(copied, ether(1_000)) });
-        assert_eq!(
-            derive(&snapshot(squatted), C, 1, &SCHEDULE, &params),
-            Ok(honest.clone()),
-            "{copied}"
-        );
+        assert_eq!(derive(&snapshot(squatted), C, 1, &params), Ok(honest.clone()), "{copied}");
     }
 }
 
@@ -852,8 +845,7 @@ fn duplicates_are_dropped_before_the_n_max_cap() {
 fn a_duplicate_of_an_ineligible_entry_is_ignored() {
     let exited = RegistryEntry { exit_effective_l1: C, ..entry(1, ether(1)) };
     let rejoined = entry(1, ether(2));
-    let (_, members) =
-        derive(&snapshot(vec![exited, rejoined]), C, 1, &SCHEDULE, &devnet()).unwrap();
+    let (_, members) = derive(&snapshot(vec![exited, rejoined]), C, 1, &devnet()).unwrap();
     assert_eq!(
         members,
         vec![Member {
@@ -894,10 +886,7 @@ fn missing_heartbeat_does_not_backfill_the_only_reserved_seat() {
     let params = ChainParams { n_max: 1, ..devnet() };
     let absent = RegistryEntry { last_heartbeat_seq: 0, ..entry(1, ether(9)) };
     let waiting = entry(2, ether(1));
-    assert_eq!(
-        derive(&snapshot(vec![absent, waiting]), C, 3, &SCHEDULE, &params),
-        Err(CommitteeError::Empty)
-    );
+    assert_eq!(derive(&snapshot(vec![absent, waiting]), C, 3, &params), Err(CommitteeError::Empty));
 }
 
 #[test]
@@ -907,7 +896,7 @@ fn missing_heartbeat_leaves_partial_seats_empty_and_preserves_record_totals() {
     let live = entry(2, ether(7));
     let waiting = entry(3, ether(6));
     let (record, members) =
-        derive(&snapshot(vec![absent, live.clone(), waiting]), C, 3, &SCHEDULE, &params).unwrap();
+        derive(&snapshot(vec![absent, live.clone(), waiting]), C, 3, &params).unwrap();
     let expected = vec![Member {
         reward_recipient: live.reward_recipient,
         pubkey: live.pubkey,
@@ -925,7 +914,7 @@ fn lowest_base_eligible_duplicate_holds_the_seat_before_heartbeat_filtering() {
     let absent = RegistryEntry { last_heartbeat_seq: 0, ..entry(1, ether(9)) };
     let later_live = entry(1, ether(10));
     assert_eq!(
-        derive(&snapshot(vec![absent, later_live]), C, 3, &SCHEDULE, &devnet()),
+        derive(&snapshot(vec![absent, later_live]), C, 3, &devnet()),
         Err(CommitteeError::Empty)
     );
 }
@@ -936,7 +925,7 @@ fn equal_stake_seat_cutoff_precedes_heartbeat_filtering() {
     let mut entries = vec![entry(1, ether(7)), entry(2, ether(7))];
     entries.sort_by_key(|e| set_key(params.l2_chain_id, e.pubkey));
     entries[0].last_heartbeat_seq = 0;
-    assert_eq!(derive(&snapshot(entries), C, 3, &SCHEDULE, &params), Err(CommitteeError::Empty));
+    assert_eq!(derive(&snapshot(entries), C, 3, &params), Err(CommitteeError::Empty));
 }
 
 #[test]
@@ -968,8 +957,7 @@ fn power_that_does_not_fit_u64_is_rejected() {
 fn total_power_is_capped_at_max_total_power() {
     let params = ChainParams { vp_unit: U256::from(1), s_min: U256::from(1), ..devnet() };
     let (record, _) =
-        derive(&snapshot(vec![entry(1, U256::from(MAX_TOTAL_POWER))]), C, 1, &SCHEDULE, &params)
-            .unwrap();
+        derive(&snapshot(vec![entry(1, U256::from(MAX_TOTAL_POWER))]), C, 1, &params).unwrap();
     assert_eq!(record.total_power, MAX_TOTAL_POWER);
 
     let half = U256::from(MAX_TOTAL_POWER / 2 + 1);
@@ -1008,9 +996,6 @@ fn a_zero_vp_unit_is_rejected() {
 // verify_committee_witness, verify_committee_witness_at_cutoff
 // ---------------------------------------------------------------------------------------------
 
-/// A parent of 27 selects checkpoint 1 (L1 block 20) of [`registry_storage`].
-const WITNESS_SCHEDULE: Schedule = Schedule { l1_0: 17, ..SCHEDULE };
-
 fn witness_params() -> ChainParams {
     devnet()
 }
@@ -1018,7 +1003,7 @@ fn witness_params() -> ChainParams {
 /// The record and members derived for target epoch 3 from checkpoint 1 at parent 27.
 fn expected_committee(params: &ChainParams) -> (CommitteeRecord, Vec<Member>) {
     let snapshot = Snapshot { checkpoint_index: 1, l1_block: 20, entries: sample_entries(3) };
-    derive(&snapshot, 27, 3, &WITNESS_SCHEDULE, params).unwrap()
+    derive(&snapshot, 27, 3, params).unwrap()
 }
 
 #[test]
@@ -1030,13 +1015,7 @@ fn verify_committee_witness_accepts_the_derived_record() {
     assert_eq!(record.cutoff_l1_block, 27);
     let w = committee_witness(&state, REGISTRY, &storage, 1, record.clone());
     assert_eq!(
-        verify_committee_witness(
-            &anchor_at(27, state.state_root()),
-            &WITNESS_SCHEDULE,
-            &params,
-            &w,
-            3
-        ),
+        verify_committee_witness(&anchor_at(27, state.state_root()), &params, &w, 3),
         Ok((record, members))
     );
 }
@@ -1058,13 +1037,7 @@ fn verify_committee_witness_rejects_a_record_mismatch() {
     for claimed in claims {
         let w = committee_witness(&state, REGISTRY, &storage, 1, claimed.clone());
         assert_eq!(
-            verify_committee_witness(
-                &anchor_at(27, state.state_root()),
-                &WITNESS_SCHEDULE,
-                &params,
-                &w,
-                3
-            ),
+            verify_committee_witness(&anchor_at(27, state.state_root()), &params, &w, 3),
             Err(CommitteeError::RecordMismatch {
                 claimed: Box::new(claimed),
                 derived: Box::new(derived.clone()),
@@ -1083,26 +1056,14 @@ fn verify_committee_witness_requires_the_cutoff_snapshot() {
     let early = CommitteeRecord { checkpoint_index: 0, ..derived.clone() };
     let w = committee_witness(&state, REGISTRY, &storage, 0, early);
     assert_eq!(
-        verify_committee_witness(
-            &anchor_at(27, state.state_root()),
-            &WITNESS_SCHEDULE,
-            &params,
-            &w,
-            3
-        ),
+        verify_committee_witness(&anchor_at(27, state.state_root()), &params, &w, 3),
         Err(CommitteeError::NextCheckpointNotAfterCutoff { l1_block: 20, cutoff: 27 })
     );
 
     let late = CommitteeRecord { checkpoint_index: 2, ..derived };
     let w = committee_witness(&state, REGISTRY, &storage, 2, late);
     assert_eq!(
-        verify_committee_witness(
-            &anchor_at(27, state.state_root()),
-            &WITNESS_SCHEDULE,
-            &params,
-            &w,
-            3
-        ),
+        verify_committee_witness(&anchor_at(27, state.state_root()), &params, &w, 3),
         Err(CommitteeError::CheckpointAfterCutoff { l1_block: 30, cutoff: 27 })
     );
 }
@@ -1115,13 +1076,7 @@ fn verify_committee_witness_rejects_another_registry() {
     let (record, _) = expected_committee(&params);
     let w = committee_witness(&state, REGISTRY, &storage, 1, record);
     assert_eq!(
-        verify_committee_witness(
-            &anchor_at(27, state.state_root()),
-            &WITNESS_SCHEDULE,
-            &params,
-            &w,
-            3
-        ),
+        verify_committee_witness(&anchor_at(27, state.state_root()), &params, &w, 3),
         Err(CommitteeError::WrongContract { expected: OTHER, got: REGISTRY })
     );
 }
@@ -1133,30 +1088,17 @@ fn verify_committee_witness_at_cutoff_takes_the_cutoff_as_is() {
     let storage = registry_storage();
     let state = registry_state(&storage);
     let snapshot = Snapshot { checkpoint_index: 1, l1_block: 20, entries: sample_entries(3) };
-    let (record, members) = derive(&snapshot, 25, 3, &WITNESS_SCHEDULE, &params).unwrap();
+    let (record, members) = derive(&snapshot, 25, 3, &params).unwrap();
     assert_eq!(record.cutoff_l1_block, 25);
     let w = committee_witness(&state, REGISTRY, &storage, 1, record.clone());
     assert_eq!(
-        verify_committee_witness_at_cutoff(
-            state.state_root(),
-            25,
-            &WITNESS_SCHEDULE,
-            &params,
-            &w,
-            3
-        ),
+        verify_committee_witness_at_cutoff(state.state_root(), 25, &params, &w, 3),
         Ok((record.clone(), members))
     );
 
     let (derived, _) = expected_committee(&params);
     assert_eq!(
-        verify_committee_witness(
-            &anchor_at(27, state.state_root()),
-            &WITNESS_SCHEDULE,
-            &params,
-            &w,
-            3
-        ),
+        verify_committee_witness(&anchor_at(27, state.state_root()), &params, &w, 3),
         Err(CommitteeError::RecordMismatch {
             claimed: Box::new(record),
             derived: Box::new(derived)
@@ -1175,11 +1117,11 @@ fn verify_committee_witness_at_cutoff_requires_the_cutoff_snapshot() {
     let w = committee_witness(&state, REGISTRY, &storage, 1, record);
     let root = state.state_root();
     assert_eq!(
-        verify_committee_witness_at_cutoff(root, 19, &WITNESS_SCHEDULE, &params, &w, 3),
+        verify_committee_witness_at_cutoff(root, 19, &params, &w, 3),
         Err(CommitteeError::CheckpointAfterCutoff { l1_block: 20, cutoff: 19 })
     );
     assert_eq!(
-        verify_committee_witness_at_cutoff(root, 30, &WITNESS_SCHEDULE, &params, &w, 3),
+        verify_committee_witness_at_cutoff(root, 30, &params, &w, 3),
         Err(CommitteeError::NextCheckpointNotAfterCutoff { l1_block: 30, cutoff: 30 })
     );
 }
@@ -1233,13 +1175,14 @@ fn validator_updates_omit_unchanged_native_members() {
 }
 
 /// The shared `committee_config` vector (`testdata/etna_vectors`, computed with `cast`; the
-/// contracts' `EtnaInboxLand` test reads it too): the eleven `ETNA_PARENT_ANCHOR_V4` inputs hash
-/// to the vector's configuration hash.
+/// contracts' `EtnaInboxLand` test reads it too): the ten `ETNA_PARENT_ANCHOR_V5` inputs hash
+/// to the vector's configuration hash over a 320-byte opening.
 #[test]
 fn committee_config_hash_matches_the_shared_vector() {
     let input = |name: &str| format!("/committee_config/inputs/{name}");
-    assert_eq!(vectors::str_at(&input("tag")), "ETNA_PARENT_ANCHOR_V4");
-    assert_eq!(vectors::u64_at(&input("lookahead_epochs")), LOOKAHEAD_EPOCHS);
+    assert_eq!(vectors::at("/committee_config/inputs").as_object().map(|o| o.len()), Some(10));
+    assert_eq!(vectors::str_at("/committee_config/preimage").len(), 2 + 2 * 320);
+    assert_eq!(vectors::str_at(&input("tag")), "ETNA_PARENT_ANCHOR_V5");
     assert_eq!(vectors::u64_at(&input("encoding_version")), u64::from(ENCODING_VERSION));
     let params = ChainParams {
         l2_chain_id: vectors::u64_at(&input("l2_chain_id")),
@@ -1291,7 +1234,6 @@ fn committee_config_hash_binds_each_config_opening_field() {
 #[test]
 fn committed_parent_snapshot_changes_active_and_exit_eligibility() {
     let params = ChainParams { registry: REGISTRY, ..devnet() };
-    let schedule = Schedule { l1_0: 1000, genesis_cutoff: 980, ..SCHEDULE };
     let mut entries = sample_entries(3);
     entries[0].exit_effective_l1 = 1015;
     entries[1].active_from_l1 = 1015;
@@ -1300,15 +1242,11 @@ fn committed_parent_snapshot_changes_active_and_exit_eligibility() {
     let snapshot = Snapshot { checkpoint_index: 0, l1_block: 980, entries };
     let mut selected = Vec::new();
     for number in [1010, 1020] {
-        let (record, members) = derive(&snapshot, number, 1, &schedule, &params).unwrap();
+        let (record, members) = derive(&snapshot, number, 1, &params).unwrap();
         let w = committee_witness(&state, REGISTRY, &storage, 0, record.clone());
         let parent = anchor_at(number, state.state_root());
         assert_eq!(
-            verify_committee_witness(&parent, &schedule, &params, &w, 1),
-            Ok((record.clone(), members.clone()))
-        );
-        assert_eq!(
-            verify_committee_witness(&parent, &schedule, &params, &w, 1),
+            verify_committee_witness(&parent, &params, &w, 1),
             Ok((record, members.clone()))
         );
         selected.push(members.iter().map(|m| m.pubkey).collect::<std::collections::BTreeSet<_>>());
@@ -1326,7 +1264,7 @@ fn committee_format_and_capacity_support_payout_addresses() {
     let params = ChainParams { n_max: 301, ..devnet() };
     params.validate().unwrap();
     let snapshot = Snapshot { checkpoint_index: 0, l1_block: C, entries: sample_entries(301) };
-    let (_, members) = derive(&snapshot, C, 0, &SCHEDULE, &params).unwrap();
+    let (_, members) = derive(&snapshot, C, 0, &params).unwrap();
     assert_eq!(members.len(), 301);
 }
 
@@ -1353,10 +1291,7 @@ fn snapshot_and_derivation_reject_zero_recipients() {
         verify_snapshot(state.state_root(), REGISTRY, &witness, 25),
         Err(CommitteeError::ZeroRecipient)
     );
-    assert_eq!(
-        derive(&snapshot(entries), C, 0, &SCHEDULE, &devnet()),
-        Err(CommitteeError::ZeroRecipient)
-    );
+    assert_eq!(derive(&snapshot(entries), C, 0, &devnet()), Err(CommitteeError::ZeroRecipient));
 }
 
 #[test]
@@ -1364,10 +1299,8 @@ fn payout_only_changes_bind_commitments_but_preserve_native_validators() {
     let old = sample_entries(3);
     let mut new = old.clone();
     new[0].reward_recipient = Address::repeat_byte(0x88);
-    let (old_record, old_members) =
-        derive(&snapshot(old.clone()), C, 0, &SCHEDULE, &devnet()).unwrap();
-    let (new_record, new_members) =
-        derive(&snapshot(new.clone()), C, 0, &SCHEDULE, &devnet()).unwrap();
+    let (old_record, old_members) = derive(&snapshot(old.clone()), C, 0, &devnet()).unwrap();
+    let (new_record, new_members) = derive(&snapshot(new.clone()), C, 0, &devnet()).unwrap();
     assert_ne!(entries_root(&old), entries_root(&new));
     assert_ne!(old_record.set_root, new_record.set_root);
     assert_ne!(record_hash(CHAIN, &old_record), record_hash(CHAIN, &new_record));

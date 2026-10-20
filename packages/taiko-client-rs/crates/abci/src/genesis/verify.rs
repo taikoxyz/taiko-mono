@@ -60,7 +60,6 @@ pub(crate) fn verify_committee(
     let (record, members) = verify_committee_witness_at_cutoff(
         context.anchor.state_root,
         context.genesis.genesis_cutoff,
-        &Schedule::from_genesis(&context.genesis),
         params,
         witness,
         Schedule::E0,

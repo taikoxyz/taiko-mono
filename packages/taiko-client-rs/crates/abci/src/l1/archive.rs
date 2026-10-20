@@ -193,12 +193,9 @@ mod tests {
         );
         assert_eq!(source.finalized_number().await.unwrap(), fx.genesis.l1_0);
         assert_eq!(source.canonical_hash(fx.genesis.l1_0).await.unwrap(), anchor.hash);
-        let witness =
-            build_committee_witness(&source, &fx.params, &fx.schedule(), anchor.number, 0)
-                .await
-                .unwrap();
+        let witness = build_committee_witness(&source, &fx.params, anchor.number, 0).await.unwrap();
         assert_eq!(witness.record.cutoff_l1_block, anchor.number);
-        assert!(verify_committee_witness(&anchor, &fx.schedule(), &fx.params, &witness, 0).is_ok());
+        assert!(verify_committee_witness(&anchor, &fx.params, &witness, 0).is_ok());
         assert!(archive.calls().iter().all(|call| matches!(call,
             L1Call::StorageAt { address, .. } | L1Call::AccountWitness { address, .. }
                 if *address == fx.params.registry)));
@@ -256,13 +253,8 @@ mod tests {
             fx.params.registry,
             Duration::from_secs(3),
         );
-        let witness =
-            build_committee_witness(&source, &fx.params, &fx.schedule(), anchor.number, 0)
-                .await
-                .unwrap();
-        assert!(
-            verify_committee_witness(&anchor, &fx.schedule(), &fx.params, &witness, 0).is_err()
-        );
+        let witness = build_committee_witness(&source, &fx.params, anchor.number, 0).await.unwrap();
+        assert!(verify_committee_witness(&anchor, &fx.params, &witness, 0).is_err());
     }
 
     #[tokio::test(start_paused = true)]

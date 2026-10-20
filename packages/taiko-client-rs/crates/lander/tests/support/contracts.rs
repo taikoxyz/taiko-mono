@@ -2,7 +2,7 @@
 //! storage.
 
 use abci::{
-    ChainParams, CommitteeState, GenesisRecord, RegistryEntry, Schedule, Snapshot,
+    ChainParams, CommitteeState, GenesisRecord, RegistryEntry, Snapshot,
     committee::{committee_config_hash, derive, record_hash},
 };
 use alloy::{
@@ -195,8 +195,6 @@ impl ContractFixture {
         let params = ChainParams::builtin(L2_CHAIN_ID)?.with_overrides(&format!(
             "inbox = \"{predicted_inbox}\"\nregistry = \"{registry}\"\nd_max = 12\nmargin_v = 2\n"
         ))?;
-        let schedule =
-            Schedule { l1_0: 0, epoch_len: EPOCH_LEN, epoch_len_l1: 1, genesis_cutoff: cutoff };
         let entry = RegistryEntry {
             reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
             pubkey,
@@ -208,7 +206,7 @@ impl ContractFixture {
         };
         let snapshot =
             Snapshot { checkpoint_index: 1, l1_block: cutoff, entries: vec![entry.clone()] };
-        let (record, members) = derive(&snapshot, cutoff, 0, &schedule, &params)?;
+        let (record, members) = derive(&snapshot, cutoff, 0, &params)?;
         let committee = CommitteeState { record, members };
         let input = IEtnaInbox::GenesisParams {
             genesisBlockHash: genesis_hash,
@@ -242,7 +240,6 @@ impl ContractFixture {
             genesis_height: 0,
             l1_0: activated.l1Block,
             epoch_len: EPOCH_LEN,
-            epoch_len_l1: 1,
             genesis_hash,
             genesis_state_root: parent_header.state_root,
             genesis_cutoff: cutoff,

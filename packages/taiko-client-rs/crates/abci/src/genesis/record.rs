@@ -196,19 +196,16 @@ pub async fn build_committee_record<L: L1Source + ?Sized>(
         min_stake: params.s_min.max(params.vp_unit),
     };
 
-    let schedule = genesis_schedule(at, genesis_cutoff);
     let header = header_at(l1, at).await?;
-    let witness =
-        build_committee_witness_at_cutoff(l1, params, &schedule, at, genesis_cutoff, Schedule::E0)
-            .await
-            .map_err(|e| match e {
-                FetchError::Committee(CommitteeError::Empty) => no_eligible_entry(),
-                e => CommitteeRecordError::Fetch(Box::new(e)),
-            })?;
+    let witness = build_committee_witness_at_cutoff(l1, params, at, genesis_cutoff, Schedule::E0)
+        .await
+        .map_err(|e| match e {
+            FetchError::Committee(CommitteeError::Empty) => no_eligible_entry(),
+            e => CommitteeRecordError::Fetch(Box::new(e)),
+        })?;
     let (record, members) = verify_committee_witness_at_cutoff(
         header.state_root(),
         genesis_cutoff,
-        &schedule,
         params,
         &witness,
         Schedule::E0,
@@ -225,14 +222,6 @@ pub async fn build_committee_record<L: L1Source + ?Sized>(
         members,
         proving_block: at,
     })
-}
-
-/// The schedule `e_0`'s derivation runs under before any genesis exists: the proving block
-/// stands in for `L1_0` and the epoch lengths are zero. `e_0` applies no heartbeat filter, so
-/// [`derive`](crate::committee::derive) reads none of these fields for it, and the record does
-/// not depend on them.
-fn genesis_schedule(at: u64, genesis_cutoff: u64) -> Schedule {
-    Schedule { l1_0: at, epoch_len: 0, epoch_len_l1: 0, genesis_cutoff }
 }
 
 #[cfg(test)]

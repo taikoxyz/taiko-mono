@@ -47,10 +47,8 @@ async fn committee_discovery_errors_never_render_wrapped_rpc_credentials() {
     let source =
         RpcLandingSource::new(provider.provider.clone(), provider.provider.clone(), fixture.params);
     let proving_anchor = anchor(&fixture.snapshot.l1_header);
-    let error = source
-        .committee_witness(&fixture.snapshot, &proving_anchor, proving_anchor.number, 1)
-        .await
-        .unwrap_err();
+    let error =
+        source.committee_witness(&proving_anchor, proving_anchor.number, 1).await.unwrap_err();
     assert!(error.is_retryable());
     assert!(!provider.requests.lock().unwrap().is_empty());
     for secret in ["alice", "password", "private-key-path", "api_key", "secret"] {
@@ -186,7 +184,6 @@ fn snapshot(headers: &BTreeMap<u64, RawL1Header>) -> LandingSnapshot {
             genesis_height: 0,
             l1_0: 10,
             epoch_len: 20,
-            epoch_len_l1: 1,
             genesis_hash: B256::repeat_byte(1),
             genesis_state_root: B256::repeat_byte(2),
             genesis_cutoff: 9,

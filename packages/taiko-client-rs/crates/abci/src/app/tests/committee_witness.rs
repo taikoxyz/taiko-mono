@@ -57,18 +57,9 @@ async fn before_switch(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, An
 /// `n_p`, using that parent number and its authenticated registry state.
 async fn witness_at(app: &App<MockL1, MockEngine>, n_p: u64) -> CommitteeWitness {
     let progress = DiscoveryProgress::default();
-    let schedule = app.state().expect("initialized").schedule();
-    build_committee_witness_within(
-        app.l1(),
-        &app.params,
-        &schedule,
-        n_p,
-        2,
-        app.opts.l1_timeout,
-        &progress,
-    )
-    .await
-    .expect("the committee witness builds")
+    build_committee_witness_within(app.l1(), &app.params, n_p, 2, app.opts.l1_timeout, &progress)
+        .await
+        .expect("the committee witness builds")
 }
 
 /// (a) The honest proposer moves the anchor to [`NEW_ANCHOR`] and proves committee 2 at the
@@ -111,8 +102,7 @@ async fn committee_witness_proven_at_the_new_anchor_is_rejected() {
     assert_eq!(w.record.checkpoint_index, 1);
     assert_eq!(w.entries, sample_entries(4));
     assert_eq!(
-        verify_committee_witness(&moved, &app.state().unwrap().schedule(), &app.params, &w, 2)
-            .map(|_| ()),
+        verify_committee_witness(&moved, &app.params, &w, 2).map(|_| ()),
         Ok(()),
         "valid against the new anchor"
     );

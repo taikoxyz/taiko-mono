@@ -219,14 +219,27 @@ async fn failing_pre_checks_propose_nothing() {
     inbox.status = 2;
     fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
     assert_eq!(refused(&mut app).await, "inbox_not_active");
+}
 
-    // Epoch 1 opens on L1 only at L1_first(1) = L1_0 + EPOCH_LEN_L1.
+/// An epoch boundary places no floor on the anchor: when the own L1 has finalized nothing newer,
+/// the first block of epoch 1 keeps its parent's anchor and is accepted.
+#[tokio::test]
+async fn the_first_block_of_an_epoch_keeps_the_parent_anchor() {
+    let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     let h_first = app.state().unwrap().schedule().h_first(1);
-    let anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0);
+    fx.plant_l1_block(app.l1(), 66, &fx.inbox_with(h_first - 6), &fx.registry);
+    let anchor = fx.anchor_state(app.l1(), 66);
     jump(&mut app, h_first - 1, anchor, &[(1, fx.committee(1))]);
-    assert_eq!(refused(&mut app).await, "epoch_not_open_on_l1");
+    assert_eq!(app.l1().state().finalized, fx.genesis.l1_0, "own L1 lags behind");
+
+    let env = propose(&mut app).await;
+    assert_eq!(env.block.header.number, h_first);
+    assert!(env.anchor.is_none());
+    assert_eq!(decode_extra_data(&env.block.header.extra_data).unwrap().2, 66);
+    let (resp, _) = judge(&mut app, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
 }
 
 /// A proposer whose newest finalized anchor is more than `maxAnchorAge` older than the block
@@ -338,15 +351,9 @@ async fn a_second_round_at_a_switch_reuses_the_committee_witness() {
     app.l1().state().calls.clear();
     let env = propose(&mut app).await;
     assert_eq!(registry_reads(&app), 0, "{:?}", app.l1().calls());
-    let witness = crate::l1::build_committee_witness(
-        app.l1(),
-        &app.params,
-        &app.state().unwrap().schedule(),
-        70,
-        2,
-    )
-    .await
-    .expect("the witness builds");
+    let witness = crate::l1::build_committee_witness(app.l1(), &app.params, 70, 2)
+        .await
+        .expect("the witness builds");
     assert_eq!(env.committee, Some(witness));
 
     let (resp, req) = super::proposal::judge(&mut app, &env).await;
@@ -758,15 +765,9 @@ async fn a_discovery_cut_short_by_the_deadline_resumes_where_it_stopped() {
     let env = propose(&mut app).await;
     assert_eq!(storage_reads(&app), [], "the finished reads are not repeated");
     assert_eq!(registry_reads(&app), 2, "{:?}", app.l1().calls());
-    let witness = crate::l1::build_committee_witness(
-        app.l1(),
-        &app.params,
-        &app.state().unwrap().schedule(),
-        70,
-        2,
-    )
-    .await
-    .expect("the witness builds");
+    let witness = crate::l1::build_committee_witness(app.l1(), &app.params, 70, 2)
+        .await
+        .expect("the witness builds");
     assert_eq!(env.committee, Some(witness));
     assert!(
         finished
@@ -796,8 +797,8 @@ async fn a_cached_committee_witness_of_another_parent_anchor_is_not_reused() {
 }
 
 /// At `H(t)-2` the cheap candidate checks run before the committee discovery: a block that
-/// cannot be proposed anyway (back-pressure, anchor progress, a superseded generation, a stale
-/// anchor) costs no registry read.
+/// cannot be proposed anyway (back-pressure, a superseded generation, a stale anchor) costs no
+/// registry read.
 #[tokio::test]
 async fn failing_pre_checks_skip_the_committee_discovery() {
     let fx = Fixture::genesis(3);
@@ -812,15 +813,6 @@ async fn failing_pre_checks_skip_the_committee_discovery() {
     app.l1().state().calls.clear();
     assert_eq!(refused(&mut app).await, "back_pressure");
     assert_eq!(registry_reads(&app), 0, "back-pressure: {:?}", app.l1().calls());
-
-    // Anchor progress: epoch 1 is not open on L1 at the genesis anchor.
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = initialized(&fx, dir.path()).await;
-    let anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0);
-    jump(&mut app, h_e - 1, anchor, &[(1, fx.committee(1))]);
-    app.l1().state().calls.clear();
-    assert_eq!(refused(&mut app).await, "epoch_not_open_on_l1");
-    assert_eq!(registry_reads(&app), 0, "anchor progress: {:?}", app.l1().calls());
 
     // Generation: the new anchor proves a later recovery generation.
     let dir = tempfile::tempdir().unwrap();

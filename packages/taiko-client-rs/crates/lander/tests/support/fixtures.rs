@@ -138,14 +138,8 @@ impl FixtureChain {
             let consumed = forced.as_ref().filter(|w| !w.tx.is_empty()).map(|w| w.index);
             let committee = if let Some(target) = switch {
                 Some(
-                    build_committee_witness(
-                        &source,
-                        &fixture.params,
-                        &schedule,
-                        parent_anchor.number,
-                        target,
-                    )
-                    .await?,
+                    build_committee_witness(&source, &fixture.params, parent_anchor.number, target)
+                        .await?,
                 )
             } else {
                 None
@@ -153,7 +147,7 @@ impl FixtureChain {
             if let Some(w) = &committee {
                 let target = switch.expect("switch committee");
                 let (record, members) =
-                    verify_committee_witness(parent_anchor, &schedule, &fixture.params, w, target)?;
+                    verify_committee_witness(parent_anchor, &fixture.params, w, target)?;
                 let hash = record_hash(L2_CHAIN_ID, &record);
                 self.committees.insert(
                     target,
@@ -488,12 +482,11 @@ impl LandingSource for FixtureLanding {
     }
     async fn committee_witness(
         &self,
-        snapshot: &LandingSnapshot,
         anchor: &AnchorState,
         snapshot_number: u64,
         epoch: u64,
     ) -> lander::error::Result<abci::CommitteeWitness> {
-        self.rpc.committee_witness(snapshot, anchor, snapshot_number, epoch).await
+        self.rpc.committee_witness(anchor, snapshot_number, epoch).await
     }
     async fn reference(
         &self,

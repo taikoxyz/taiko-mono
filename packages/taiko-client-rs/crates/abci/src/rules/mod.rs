@@ -27,7 +27,6 @@ use protocol::shasta::{
 
 use crate::{
     config::ChainParams,
-    schedule::Schedule,
     types::{AnchorState, ParentInfo},
 };
 
@@ -179,15 +178,6 @@ pub enum RuleViolation {
         /// `L1_0`.
         l1_0: u64,
     },
-    /// The anchor L1 block is below the block's epoch minimum `L1_first(epoch)`.
-    #[error("epoch {epoch} is not open on L1: the anchor must be >= {l1_first}")]
-    EpochNotOpenOnL1 {
-        /// The epoch of the block's height.
-        epoch: u64,
-        /// `L1_first(epoch)`, the minimum anchor L1 block number of that epoch; `u64::MAX` when
-        /// it overflows `u64`, as no anchor opens such an epoch.
-        l1_first: u64,
-    },
     /// The block is more than the genesis `maxAnchorAge` younger than its anchor L1 block.
     #[error("anchor is {age} s older than the block, above the maximum anchor age of {max} s")]
     AnchorTooOld {
@@ -249,7 +239,6 @@ impl RuleViolation {
             Self::BaseFeeUnavailable { .. } => "base_fee_unavailable",
             Self::AnchorRegressed { .. } => "anchor_regressed",
             Self::AnchorBeforeActivation { .. } => "anchor_before_activation",
-            Self::EpochNotOpenOnL1 { .. } => "epoch_not_open_on_l1",
             Self::AnchorTooOld { .. } => "anchor_too_old",
             Self::BackPressure { .. } => "back_pressure",
             Self::GenerationMismatch { .. } => "generation_mismatch",
@@ -467,46 +456,34 @@ pub fn payload_attributes(
     )
 }
 
-/// Checks the anchor L1 block number of the block at `height`.
+/// Checks a block's anchor L1 block number.
 ///
-/// In order: `anchor >= parent_anchor` ([`RuleViolation::AnchorRegressed`]), `anchor >= L1_0`
-/// ([`RuleViolation::AnchorBeforeActivation`]) and `anchor >= L1_first(epoch_of(height))`
-/// ([`RuleViolation::EpochNotOpenOnL1`]). `height` must be `>= H_0`. An `L1_first` overflowing
-/// `u64` is checked, not computed: no anchor opens that epoch.
-///
-/// # Panics
-///
-/// As [`Schedule::epoch_of`] (a zero epoch length, which [`Schedule::validate`] rejects).
+/// In order: `anchor >= parent_anchor` ([`RuleViolation::AnchorRegressed`]) and `anchor >= L1_0`
+/// ([`RuleViolation::AnchorBeforeActivation`]). Epochs place no further floor on the anchor:
+/// how far it lags the block's time is bounded by [`check_anchor_freshness`] instead.
 pub fn check_anchor_progress(
     parent_anchor: u64,
     anchor: u64,
-    schedule: &Schedule,
-    height: u64,
+    l1_0: u64,
 ) -> Result<(), RuleViolation> {
     if anchor < parent_anchor {
         return Err(RuleViolation::AnchorRegressed { parent: parent_anchor, anchor });
     }
-    if anchor < schedule.l1_0 {
-        return Err(RuleViolation::AnchorBeforeActivation { anchor, l1_0: schedule.l1_0 });
+    if anchor < l1_0 {
+        return Err(RuleViolation::AnchorBeforeActivation { anchor, l1_0 });
     }
-    let epoch = schedule.epoch_of(height);
-    match schedule.checked_l1_first(epoch) {
-        Some(l1_first) if anchor >= l1_first => Ok(()),
-        l1_first => {
-            Err(RuleViolation::EpochNotOpenOnL1 { epoch, l1_first: l1_first.unwrap_or(u64::MAX) })
-        }
-    }
+    Ok(())
 }
 
 /// Anchor freshness: `block_timestamp - anchor_timestamp <= max_anchor_age`, all in seconds,
 /// with the age saturating at 0 when the anchor is not older than the block.
 ///
 /// `block_timestamp` is the derived [`block_timestamp`] of the block and `max_anchor_age` the
-/// genesis `maxAnchorAge`. Anchor progress alone does not bound how old an anchor gets, as
-/// `L1_first` follows L2 height, not time; this rule does, so the L1 state a block reads (such
-/// as the forced inclusion queue) lags its timestamp by at most `maxAnchorAge`. The inputs are
-/// fixed by the proposal and its committed parent; advancing a validator's local finalized head
-/// cannot change this age. This bounds block time, not elapsed wall-clock inclusion time.
+/// genesis `maxAnchorAge`. Anchor progress alone does not bound how old an anchor gets; this
+/// rule does, so the L1 state a block reads (such as the forced inclusion queue) lags its
+/// timestamp by at most `maxAnchorAge`. The inputs are fixed by the proposal and its committed
+/// parent; advancing a validator's local finalized head cannot change this age. This bounds
+/// block time, not elapsed wall-clock inclusion time.
 pub fn check_anchor_freshness(
     block_timestamp: u64,
     anchor_timestamp: u64,

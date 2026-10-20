@@ -297,7 +297,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
         Ok(build_committee_witness_within(
             self.l1(),
             &self.params,
-            &state.schedule(),
             parent_anchor,
             target_epoch,
             self.opts.l1_timeout,
