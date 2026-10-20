@@ -134,7 +134,7 @@ finalized landing where practical), then have the registry owner explicitly call
 once. This binding cannot be redirected; an unverified candidate can be replaced before binding
 by repeating address prediction and genesis setup. Withdrawals fail closed until bound; registration,
 consensus and landing can proceed. See the complete
-[protocol deployment instructions](https://github.com/taikoxyz/taiko-mono/blob/6b8b818e28a9f92330bda6c68610a1fb20963b5a/packages/protocol/contracts/layer1/etna/README.md#genesis-initialization).
+[protocol deployment instructions](https://github.com/taikoxyz/taiko-mono/blob/08bcaca2cf764a9e951a9163e302849a016f7862/packages/protocol/contracts/layer1/etna/README.md#genesis-initialization).
 
 The required [EL dependency](https://github.com/taikoxyz/alethia-reth/pull/251) is revision
 `5d4d21ac472c024703082ba46c6eacfa3b8ec1bf`, image `us-docker.pkg.dev/evmchain/images/alethia-reth:sha-5d4d21a`,
@@ -1057,7 +1057,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 Regenerate lander ABI/deployment fixtures only when their inputs change, with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `6b8b818e28a9f92330bda6c68610a1fb20963b5a` (also the
+The script requires protocol HEAD `08bcaca2cf764a9e951a9163e302849a016f7862` (also the
 `PROTOCOL_REVISION` in `crates/lander/src/contracts.rs`),
 installs pnpm dependencies before Foundry, builds the Inbox, registry, immutable `L2FeeVault` and
 SignalService with their test fixtures, verifies compiler source hashes,

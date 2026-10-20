@@ -54,8 +54,6 @@ interface IEtnaInbox {
         bytes32 genesisStateRoot;
         /// @notice The epoch length in L2 blocks.
         uint64 epochLenL2;
-        /// @notice The epoch length in L1 blocks.
-        uint64 epochLenL1;
         /// @notice A past L1 block whose registry snapshot defines committee 0.
         uint64 genesisCutoff;
         /// @notice The initial committee record hash, computed from that snapshot.
@@ -71,8 +69,8 @@ interface IEtnaInbox {
     }
 
     /// @notice The genesis record; named activation for the existing node storage interface.
-    /// @dev Three storage words: `genesisHeight` (bits 0–63), `l1Block` (bits 64–127),
-    /// `epochLenL2` (bits 128–191) and `epochLenL1` (bits 192–255), then `genesisBlockHash`, then
+    /// @dev Three storage words: `genesisHeight` (bits 0–63), `l1Block` (bits 64–127) and
+    /// `epochLenL2` (bits 128–191), with bits 192–255 unused, then `genesisBlockHash`, then
     /// `genesisStateRoot`.
     struct Activation {
         /// @notice The Etna genesis height, always 0.
@@ -81,8 +79,6 @@ interface IEtnaInbox {
         uint64 l1Block;
         /// @notice `L`: the epoch length in L2 blocks.
         uint64 epochLenL2;
-        /// @notice The epoch length in L1 blocks.
-        uint64 epochLenL1;
         /// @notice `H*`: the block hash of `B*`.
         bytes32 genesisBlockHash;
         /// @notice `S*`: the state root of `B*`.
@@ -146,7 +142,6 @@ interface IEtnaInbox {
     /// @param genesisStateRoot The state root of L2 block 0.
     /// @param l1Block The L1 initialization block.
     /// @param epochLenL2 The epoch length in L2 blocks.
-    /// @param epochLenL1 The epoch length in L1 blocks.
     /// @param genesisCutoff The initial committee's registry snapshot block.
     /// @param committeeRecordHash The initial committee record hash.
     event EtnaInitialized(
@@ -154,7 +149,6 @@ interface IEtnaInbox {
         bytes32 genesisStateRoot,
         uint64 l1Block,
         uint64 epochLenL2,
-        uint64 epochLenL1,
         uint64 genesisCutoff,
         bytes32 committeeRecordHash
     );
@@ -247,7 +241,7 @@ interface IEtnaInbox {
     /// @notice Initializes a fresh Etna proxy and its L2 block-0 checkpoint.
     /// @dev Call atomically in the proxy constructor. Requires non-zero genesis hash, state root,
     /// committee record and derivation configuration hash, 3 <= epochLenL2 < type(uint48).max
-    /// (the first epoch boundary plus one must fit uint48), epochLenL1 > 0,
+    /// (the first epoch boundary plus one must fit uint48),
     /// a past genesis cutoff at or after the registry's first checkpoint, a forced inclusion
     /// delay greater than zero and maxAnchorAge >= 1152 seconds. Choose maxAnchorAge above
     /// the expected L1 finality lag, including extra depth and RPC latency. The SignalService must
@@ -269,11 +263,11 @@ interface IEtnaInbox {
     ///
     /// A valid Etna proof must authenticate every Inbox/registry account and storage proof under
     /// the respective bound address and authenticated L1 state root. It must open the stored
-    /// committeeConfigHash using the exact eleven-word encoding (352 bytes):
-    /// abi.encode(bytes32("ETNA_PARENT_ANCHOR_V4"), uint256(l2ChainId), address(stakingRegistry),
-    /// uint256(vpUnit), uint256(sMin), uint64(nMax), uint64(heartbeatWindow), uint64(2), uint8(2),
-    /// uint64(dMax), uint64(marginV)). Words 8 and 9 bind heartbeat lookahead 2 and retained
-    /// recipient-bound membership encoding version 2; the last two bind the back-pressure cap parameters.
+    /// committeeConfigHash using the exact ten-word encoding (320 bytes):
+    /// abi.encode(bytes32("ETNA_PARENT_ANCHOR_V5"), uint256(l2ChainId), address(stakingRegistry),
+    /// uint256(vpUnit), uint256(sMin), uint64(nMax), uint64(heartbeatWindow), uint8(2),
+    /// uint64(dMax), uint64(marginV)). Word 8 binds retained recipient-bound membership encoding
+    /// version 2; the last two bind the back-pressure cap parameters.
     /// Authenticate the genesis schedule and explicit genesisCutoff from Inbox storage.
     /// Committee 0 opens the plain slot-278 bootstrap record at genesisCutoff (slot 279).
     ///
@@ -283,9 +277,10 @@ interface IEtnaInbox {
     /// Authenticate complete registry entries/count/root and evaluate active/exit eligibility at
     /// that snapshot number. Preserve effective stake, the lowest eligible bondId per pubkey,
     /// nMax ranking, set-key ordering and set root, voting-power division and overflow caps.
-    /// Heartbeats retain target-epoch evaluation with lookahead 2 and exemptions for epochs 0, 1
-    /// and 2. Non-switch blocks forbid runtime committee witnesses. No empty-set fallback is
-    /// implied.
+    /// From epoch 3, a seat holder needs a nonzero heartbeat sequence and a last heartbeat at or
+    /// after the start of the heartbeat window before the one containing the snapshot; epochs 0, 1
+    /// and 2 are exempt. Non-switch blocks forbid runtime committee witnesses. No empty-set
+    /// fallback is implied.
     ///
     /// For arbitrary batch starts, authenticate the checkpoint EL header against the public
     /// parent hash, then consecutive descending parentHash links through each required D(t).

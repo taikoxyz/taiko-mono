@@ -212,7 +212,6 @@ impl ContractFixture {
             genesisBlockHash: genesis_hash,
             genesisStateRoot: parent_header.state_root,
             epochLenL2: EPOCH_LEN,
-            epochLenL1: 1,
             genesisCutoff: cutoff,
             committeeRecordHash: record_hash(L2_CHAIN_ID, &committee.record),
             committeeConfigHash: committee_config_hash(&params),
