@@ -4,7 +4,6 @@ pragma solidity ^0.8.26;
 import { IEtnaInbox } from "../iface/IEtnaInbox.sol";
 import { IEtnaStakingRegistry } from "../iface/IEtnaStakingRegistry.sol";
 import { LibEntriesTree } from "../libs/LibEntriesTree.sol";
-import { LibStakeSchedule } from "../libs/LibStakeSchedule.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -23,25 +22,14 @@ import "./EtnaStakingRegistry_Layout.sol"; // DO NOT DELETE
 /// no two entries whose exits are not yet effective share a pubkey.
 ///
 /// A withdrawn bond's slot is reused by a later registration, so `MAX_ENTRIES` bounds the
-/// entries holding stake at once rather than every registration ever made. Activations and exits
-/// are scheduled through a per-window stake churn limit when `churnWindow` is non-zero.
+/// entries holding stake at once rather than every registration ever made.
 /// @custom:security-contact security@taiko.xyz
 contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     using SafeERC20 for IERC20;
-    using LibStakeSchedule for LibStakeSchedule.Tree;
 
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
-
-    /// @dev The churn queue of one direction (activations or exits), as in EIP-7251.
-    struct Churn {
-        /// @dev One past the latest churn window holding a scheduled activation (or exit); 0
-        /// before the first request.
-        uint256 nextWindow;
-        /// @dev The stake that the latest scheduled window can still absorb.
-        uint256 remaining;
-    }
 
     /// @custom:storage-location erc7201:taiko.etna.registry
     struct RegistryStorage {
@@ -62,16 +50,8 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         /// @dev Slot `R + 7`: the total stake of entries whose exit was not requested, pending
         /// activations included.
         uint256 bondedStake;
-        /// @dev Slots `R + 8` and `R + 9`.
-        Churn activationChurn;
-        /// @dev Slots `R + 10` and `R + 11`.
-        Churn exitChurn;
-        /// @dev Slot `R + 12`: the one-time bound Inbox that authenticates committee turnover.
+        /// @dev Slot `R + 8`: the one-time bound Inbox that authenticates committee turnover.
         address inbox;
-        /// @dev Slot `R + 13`: activation events of unwithdrawn bonds.
-        LibStakeSchedule.Tree activationStake;
-        /// @dev Slot `R + 14`: final effective exit events of unwithdrawn bonds.
-        LibStakeSchedule.Tree exitStake;
     }
 
     // ---------------------------------------------------------------
@@ -81,9 +61,6 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// @notice The maximum number of entries holding stake at once (the tree capacity). A
     /// withdrawn entry's slot is reused.
     uint256 public constant MAX_ENTRIES = LibEntriesTree.CAPACITY;
-
-    /// @dev The basis-point denominator of `churnBps`.
-    uint256 private constant _BPS = 10_000;
 
     /// @dev The ERC-7201 base slot `R` of `RegistryStorage`:
     /// `keccak256(abi.encode(uint256(keccak256("taiko.etna.registry")) - 1)) & ~bytes32(uint256(0xff))`.
@@ -116,16 +93,6 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// @notice The heartbeat window `W` in L1 blocks; equals the node's `heartbeat_window`.
     uint64 public immutable heartbeatWindow;
 
-    /// @notice The churn window in L1 blocks; 0 disables the churn limit.
-    uint64 public immutable churnWindow;
-
-    /// @notice The churn capacity of a window, for activations and separately for exits, in
-    /// basis points of current active stake before the request.
-    uint16 public immutable churnBps;
-
-    /// @notice The floor of a window's churn capacity, in TAIKO base units; at least `minStake`.
-    uint256 public immutable minChurnPerWindow;
-
     // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
@@ -137,29 +104,17 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// @param _exitDelay The exit delay in L1 blocks.
     /// @param _withdrawalDelay The withdrawal delay in L1 blocks.
     /// @param _heartbeatWindow The heartbeat window in L1 blocks; must be non-zero.
-    /// @param _churnWindow The churn window in L1 blocks; 0 disables the churn limit.
-    /// @param _churnBps A window's churn capacity in basis points of current active stake; at most
-    /// 10,000 when the churn limit is enabled.
-    /// @param _minChurnPerWindow The floor of a window's churn capacity; at least `_minStake`
-    /// when the churn limit is enabled.
     constructor(
         address _taikoToken,
         uint256 _minStake,
         uint64 _activationDelay,
         uint64 _exitDelay,
         uint64 _withdrawalDelay,
-        uint64 _heartbeatWindow,
-        uint64 _churnWindow,
-        uint16 _churnBps,
-        uint256 _minChurnPerWindow
+        uint64 _heartbeatWindow
     ) {
         require(_taikoToken != address(0), ZERO_ADDRESS());
         require(_minStake != 0, ZERO_VALUE());
         require(_heartbeatWindow != 0, InvalidHeartbeatWindow());
-        require(
-            _churnWindow == 0 || (_churnBps <= _BPS && _minChurnPerWindow >= _minStake),
-            InvalidChurn()
-        );
 
         taikoToken = IERC20(_taikoToken);
         minStake = _minStake;
@@ -167,9 +122,6 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         exitDelay = _exitDelay;
         withdrawalDelay = _withdrawalDelay;
         heartbeatWindow = _heartbeatWindow;
-        churnWindow = _churnWindow;
-        churnBps = _churnBps;
-        minChurnPerWindow = _minChurnPerWindow;
     }
 
     // ---------------------------------------------------------------
@@ -211,18 +163,12 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         Entry memory entry = Entry({
             pubkey: _pubkey,
             effStake: _amount,
-            activeFromL1: _scheduleChurn(
-                $.activationChurn,
-                _eventBlock(block.number + activationDelay),
-                _amount,
-                churnWindow == 0 ? 0 : _activeStake($)
-            ),
+            activeFromL1: _eventBlock(block.number + activationDelay),
             exitEffectiveL1: _NO_EXIT,
             lastHeartbeatAt: 0,
             lastHeartbeatSeq: 0,
             rewardRecipient: _rewardRecipient
         });
-        $.activationStake.add(entry.activeFromL1, _amount);
         if (freeCount != 0) {
             bondId_ = $.freeSlots[freeCount - 1];
             $.freeSlots.pop();
@@ -273,20 +219,11 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         Entry memory entry = $.entries[_bondId];
         require(entry.exitEffectiveL1 == _NO_EXIT, ExitAlreadyRequested());
 
-        // The exit queue advances with the request block only: an entry still waiting for its
-        // activation takes its exit slot now and exits no earlier than `exitDelay` after it
-        // activates, so a far-off activation cannot strand the queue in a distant window.
-        uint256 bonded = $.bondedStake;
-        uint64 queued = _scheduleChurn(
-            $.exitChurn,
-            _eventBlock(block.number + exitDelay),
-            entry.effStake,
-            churnWindow == 0 ? 0 : _activeStake($)
-        );
-        uint64 afterActivation = _eventBlock(uint256(entry.activeFromL1) + exitDelay);
-        entry.exitEffectiveL1 = queued > afterActivation ? queued : afterActivation;
-        $.exitStake.add(entry.exitEffectiveL1, entry.effStake);
-        $.bondedStake = bonded - entry.effStake;
+        // An entry still waiting for its activation exits no earlier than `exitDelay` after it
+        // activates.
+        entry.exitEffectiveL1 =
+            _eventBlock(Math.max(block.number, uint256(entry.activeFromL1)) + exitDelay);
+        $.bondedStake -= entry.effStake;
         $.entries[_bondId].exitEffectiveL1 = entry.exitEffectiveL1;
         _commit($, count, _bondId, entry);
 
@@ -328,8 +265,6 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
             CommitteeExitNotSettled()
         );
 
-        $.activationStake.remove(entry.activeFromL1, entry.effStake);
-        $.exitStake.remove(exitEffectiveL1, entry.effStake);
         $.withdrawn[_bondId] = true;
         $.freeSlots.push(_bondId);
         uint256 amount = entry.effStake;
@@ -387,11 +322,6 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         return _registryStorage().bondedStake;
     }
 
-    /// @inheritdoc IEtnaStakingRegistry
-    function activeStake() external view returns (uint256) {
-        return _activeStake(_registryStorage());
-    }
-
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
@@ -445,72 +375,12 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         emit CheckpointWritten(index, l1Block, count, root);
     }
 
-    /// @dev Schedules `_amount` of stake to activate (or exit) at or after `_earliest`, the way
-    /// EIP-7251 schedules exits: each window has a capacity of
-    /// `max(minChurnPerWindow, _active * churnBps / 10_000)`. A request consumes capacity from
-    /// the latest scheduled window on and takes effect at the start of the window where it is
-    /// fully absorbed; one that fits the window containing `_earliest` keeps `_earliest`. A
-    /// request larger than one window's capacity therefore takes effect in full at once, so
-    /// the limit bounds the average rate over consecutive windows, not each window.
-    /// @param _churn The churn queue to schedule in.
-    /// @param _earliest The L1 block the request would take effect at without a churn limit.
-    /// @param _amount The stake to schedule.
-    /// @param _active The current active stake the per-window churn is a fraction of.
-    /// @return effective_ The L1 block the request takes effect at.
-    function _scheduleChurn(
-        Churn storage _churn,
-        uint64 _earliest,
-        uint256 _amount,
-        uint256 _active
-    )
-        private
-        returns (uint64 effective_)
-    {
-        if (churnWindow == 0) return _earliest;
-
-        uint256 perWindow = Math.mulDiv(_active, churnBps, _BPS);
-        if (perWindow < minChurnPerWindow) perWindow = minChurnPerWindow;
-
-        uint256 window = _earliest / churnWindow;
-        uint256 remaining = perWindow;
-        if (_churn.nextWindow > window) {
-            // Earlier requests already reach this window: continue from the latest one.
-            window = _churn.nextWindow - 1;
-            remaining = _churn.remaining;
-        }
-        if (_amount > remaining) {
-            uint256 needed = _amount - remaining;
-            window += (needed - 1) / perWindow + 1;
-            // Compute spare capacity without materializing a rounded-up product, which
-            // may overflow uint256 even when the request and its final remainder fit.
-            uint256 remainder = needed % perWindow;
-            remaining = remainder == 0 ? 0 : perWindow - remainder;
-        } else {
-            remaining -= _amount;
-        }
-        _churn.nextWindow = window + 1;
-        _churn.remaining = remaining;
-
-        uint256 windowStart = window * churnWindow;
-        effective_ = _eventBlock(windowStart > _earliest ? windowStart : _earliest);
-    }
-
-    /// @dev Current-only sum: withdrawn intervals are cancelled from both trees. The reserved
-    /// no-exit sentinel makes every entry inactive at and beyond that block.
-    /// @param $ The registry storage.
-    /// @return stake_ The current active stake.
-    function _activeStake(RegistryStorage storage $) private view returns (uint256 stake_) {
-        if (block.number >= _NO_EXIT) return 0;
-        uint64 current = uint64(block.number);
-        return $.activationStake.prefix(current) - $.exitStake.prefix(current);
-    }
-
-    /// @dev Checks scheduling coordinates without truncation or a collision with no-exit.
+    /// @dev Checks an activation or exit block for truncation and a collision with no-exit.
     /// @param _block The proposed event block.
     /// @return block_ The supported coordinate.
     function _eventBlock(uint256 _block) private pure returns (uint64 block_) {
         block_ = SafeCast.toUint64(_block);
-        require(block_ != _NO_EXIT, InvalidChurn());
+        require(block_ != _NO_EXIT, InvalidEventBlock());
     }
 
     /// @dev Returns the registry's ERC-7201 storage.
@@ -530,7 +400,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     error ExitAlreadyRequested();
     error ExitNotRequested();
     error HeartbeatAlreadyRecorded();
-    error InvalidChurn();
+    error InvalidEventBlock();
     error InvalidHeartbeatWindow();
     error NotBondOwner();
     error PubkeyInUse();

@@ -24,9 +24,7 @@ abstract contract EtnaStakingRegistryGasBase is CommonTest {
         registry = EtnaStakingRegistry(
             address(
                 new ERC1967Proxy(
-                    address(
-                        new EtnaStakingRegistry(address(token), STAKE, 0, 0, 0, 1, 1, 10_000, STAKE)
-                    ),
+                    address(new EtnaStakingRegistry(address(token), STAKE, 0, 0, 0, 1)),
                     abi.encodeCall(EtnaStakingRegistry.init, (address(this)))
                 )
             )
@@ -51,14 +49,6 @@ abstract contract EtnaStakingRegistryGasBase is CommonTest {
         emit log_named_uint(_label, gasUsed);
         assertLt(gasUsed, 3_000_000);
     }
-
-    function _activeGas(string memory _label) internal {
-        vm.startSnapshotGas(_label);
-        registry.activeStake();
-        uint256 gasUsed = vm.stopSnapshotGas();
-        emit log_named_uint(_label, gasUsed);
-        assertLt(gasUsed, 350_000);
-    }
 }
 
 contract EtnaStakingRegistryInitialGasTest is EtnaStakingRegistryGasBase {
@@ -67,30 +57,25 @@ contract EtnaStakingRegistryInitialGasTest is EtnaStakingRegistryGasBase {
         vm.roll(0);
     }
 
-    function test_gas_InitialRegistrationMaximumUpdatePath() external {
+    function test_gas_InitialRegistration() external {
         _registerGas("initial_register");
     }
 }
 
-contract EtnaStakingRegistryDistantGasTest is EtnaStakingRegistryGasBase {
+contract EtnaStakingRegistrySecondEntryGasTest is EtnaStakingRegistryGasBase {
     function setUp() public override {
         super.setUp();
         vm.roll(0);
         registry.register(bytes32(uint256(1)), STAKE, Alice);
-        vm.roll(uint256(1) << 32);
+        vm.roll(1);
     }
 
-    function test_gas_DistantRegistration() external {
-        _registerGas("distant_register");
+    function test_gas_SecondRegistration() external {
+        _registerGas("second_register");
     }
 
-    function test_gas_DistantExit() external {
-        _exitGas("distant_exit");
-    }
-
-    function test_gas_MaximumPrefixQuery() external {
-        vm.roll(type(uint64).max - 1);
-        _activeGas("maximum_prefix");
+    function test_gas_Exit() external {
+        _exitGas("exit");
     }
 }
 
@@ -99,12 +84,12 @@ contract EtnaStakingRegistryWithdrawalGasTest is EtnaStakingRegistryGasBase {
         super.setUp();
         vm.roll(0);
         registry.register(bytes32(uint256(1)), STAKE, Alice);
-        vm.roll(uint256(1) << 32);
+        vm.roll(1);
         registry.requestExit(0);
         committee.setActiveCommitteeSnapshot(uint64(block.number));
     }
 
-    function test_gas_WithdrawalDifferentActivationAndExitPaths() external {
+    function test_gas_Withdrawal() external {
         vm.startSnapshotGas("withdrawal");
         registry.withdraw(0, address(this));
         uint256 gasUsed = vm.stopSnapshotGas();
@@ -127,10 +112,6 @@ contract EtnaStakingRegistryNearCapGasTest is EtnaStakingRegistryGasBase {
 
     function test_gas_RegistrationIntoLastSlot() external {
         _registerGas("register_at_4095");
-    }
-
-    function test_gas_ActiveQueryNearCapacity() external {
-        _activeGas("active_at_4095");
     }
 }
 

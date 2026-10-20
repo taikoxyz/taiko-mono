@@ -11,7 +11,7 @@ import { TestERC20 } from "test/mocks/TestERC20.sol";
 /// @title EtnaStakingRegistryHandler
 /// @notice Drives an `EtnaStakingRegistry` through `register`, `heartbeat`, `requestExit`,
 /// `withdraw` (to the owner) and L1 block advances, and keeps an independent model of its
-/// entries, free slots, checkpoints and churn queues for the invariant campaigns.
+/// entries, free slots and checkpoints for the invariant campaigns.
 /// @dev The model predicts each call's outcome before it runs in try/catch: success (and the
 /// bond id a registration must take) or the exact custom error. A mismatch or a broken property
 /// is recorded as a violation that the invariants assert never happened, so the handler itself
@@ -25,7 +25,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
     enum Property {
         Root,
         History,
-        Churn,
+        Timing,
         Heartbeat,
         Slots,
         Model
@@ -42,18 +42,6 @@ contract EtnaStakingRegistryHandler is CommonBase {
         uint64 lastHeartbeatBlock;
     }
 
-    /// @dev The model of one churn queue (see `_schedule`): its `nextWindow`, the current busy
-    /// period's first window, stake and opened capacity, and every request so far.
-    struct Queue {
-        uint256 nextWindow;
-        uint256 busyStart;
-        uint256 busyAmount;
-        uint256 busyCapacity;
-        uint256 maxEarliestWindow;
-        uint256 totalAmount;
-        uint256 deferred;
-    }
-
     /// @dev The entry count and the root over the modelled entries at the end of one
     /// checkpoint's block: refreshed after every change in that block, frozen once it is over.
     struct Snapshot {
@@ -65,17 +53,9 @@ contract EtnaStakingRegistryHandler is CommonBase {
     // Constants
     // ---------------------------------------------------------------
 
-    /// @dev The ERC-7201 base slot `R` of the registry storage.
-    uint256 internal constant REGISTRY_BASE =
-        0x46e4e2fea4a7d0ac18aca03baa3a1f64e1be04ec23c1ca0c7b901af7b59b8000;
-    /// @dev `RegistryStorage.activationChurn.nextWindow`; `remaining` follows it.
-    uint256 internal constant ACTIVATION_CHURN_SLOT = REGISTRY_BASE + 8;
-    /// @dev `RegistryStorage.exitChurn.nextWindow`; `remaining` follows it.
-    uint256 internal constant EXIT_CHURN_SLOT = REGISTRY_BASE + 10;
-
     uint64 internal constant NO_EXIT = type(uint64).max;
     uint256 internal constant TREE_DEPTH = 12;
-    /// @dev The longest single block advance, so a run stays within a few churn windows.
+    /// @dev The longest single block advance to a pending activation, exit or withdrawal.
     uint256 internal constant MAX_JUMP = 10_000;
 
     // ---------------------------------------------------------------
@@ -90,9 +70,9 @@ contract EtnaStakingRegistryHandler is CommonBase {
     uint64 public immutable exitDelay;
     uint64 public immutable withdrawalDelay;
     uint64 public immutable heartbeatWindow;
-    uint64 public immutable churnWindow;
-    uint16 public immutable churnBps;
-    uint256 public immutable minChurnPerWindow;
+    /// @dev The span of a block advance with nothing pending: an entry's activation, exit and
+    /// withdrawal delays plus one heartbeat window, so never zero.
+    uint256 internal immutable _idleSpan;
 
     address[] internal _stakers;
     bytes32[] internal _pubkeys;
@@ -127,18 +107,12 @@ contract EtnaStakingRegistryHandler is CommonBase {
     /// with few slots.
     bool public immutable keepSnapshotLeaves;
 
-    Queue internal _activations;
-    Queue internal _exits;
-
     /// @dev The slots and pubkeys a successful call touched after the prefill.
     uint256[] internal _touchedSlots;
     mapping(uint256 bondId => bool) internal _isTouchedSlot;
     bytes32[] internal _touchedKeys;
     mapping(bytes32 pubkey => bool) internal _isTouchedKey;
     bool internal _prefilling;
-    // The setup-only prefill is monotone, equal-sized, never exits, and precedes fuzz actions.
-    // Binary search counts untouched originals; touched generations use the naive interval sum.
-    uint64[] internal _prefillActivations;
 
     mapping(Property => uint256) public violations;
     mapping(Property => string) public firstViolation;
@@ -180,10 +154,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         exitDelay = _registry.exitDelay();
         withdrawalDelay = _registry.withdrawalDelay();
         heartbeatWindow = _registry.heartbeatWindow();
-        churnWindow = _registry.churnWindow();
-        churnBps = _registry.churnBps();
-        minChurnPerWindow = _registry.minChurnPerWindow();
-        require(churnWindow != 0, "churn-limited registry only");
+        _idleSpan = uint256(activationDelay) + exitDelay + withdrawalDelay + heartbeatWindow;
         _stakers = _stakerPool;
         _pubkeys = _pubkeyPool;
         for (uint256 level = 1; level <= TREE_DEPTH; ++level) {
@@ -255,14 +226,13 @@ contract EtnaStakingRegistryHandler is CommonBase {
         if (expected == 0 && _slots[bondId].entry.exitEffectiveL1 != NO_EXIT) {
             expected = EtnaStakingRegistry.ExitAlreadyRequested.selector;
         }
-        _checkQueue(_exits, EXIT_CHURN_SLOT);
 
         vm.prank(caller);
         try registry.requestExit(bondId) {
             if (expected == 0) _recordExit(bondId);
-            else _violate(Property.Churn, "requestExit accepted where the model rejects it");
+            else _violate(Property.Timing, "requestExit accepted where the model rejects it");
         } catch (bytes memory reason) {
-            _checkRevert(Property.Churn, expected, reason, "requestExit");
+            _checkRevert(Property.Timing, expected, reason, "requestExit");
         }
     }
 
@@ -283,15 +253,11 @@ contract EtnaStakingRegistryHandler is CommonBase {
             (bondId, caller) = _pickBond(_bondSeed, _stakerSeed);
         }
         bytes4 expected = _expectWithdraw(bondId, caller);
-        uint256 activeBefore = registry.activeStake();
         uint256 balanceBefore = token.balanceOf(caller);
         uint256 checkpointsBefore = registry.checkpointCount();
 
         vm.prank(caller);
         try registry.withdraw(bondId, caller) {
-            if (registry.activeStake() != activeBefore) {
-                _violate(Property.Model, "withdrawal changed current active stake");
-            }
             if (expected == 0) _recordWithdrawal(bondId, caller, balanceBefore, checkpointsBefore);
             else _violate(Property.Slots, "withdraw accepted where the model rejects it");
         } catch (bytes memory reason) {
@@ -304,7 +270,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
 
     /// @notice Advances the L1 block: not at all (so several actions share a block), within or
     /// across heartbeat windows, or exactly to a random entry's pending activation or exit
-    /// (across churn windows if it has none).
+    /// (within one entry's delays if it has none).
     function advanceBlocks(uint256 _seed) external {
         uint256 mode = _seed % 4;
         uint256 target = block.number;
@@ -322,7 +288,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
             }
             target = milestone > target
                 ? _min(milestone, target + MAX_JUMP)
-                : target + 1 + (_seed >> 3) % (3 * churnWindow);
+                : target + 1 + (_seed >> 3) % _idleSpan;
         }
         vm.roll(target);
     }
@@ -332,7 +298,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
     function advanceToWithdrawal(uint256 _seed) external {
         uint256 pending = _pendingWithdrawals.length;
         if (pending == 0) {
-            vm.roll(block.number + 1 + _seed % churnWindow);
+            vm.roll(block.number + 1 + _seed % _idleSpan);
             return;
         }
         uint256 target = _withdrawableAt(_pendingWithdrawals[(_seed >> 1) % pending]);
@@ -364,7 +330,6 @@ contract EtnaStakingRegistryHandler is CommonBase {
         _prefilling = true;
         for (uint256 i; i < _count; ++i) {
             _register(_stakers[i % _stakers.length], bytes32(_firstKey + i), minStake);
-            _prefillActivations.push(_slots[slotCount - 1].entry.activeFromL1);
         }
         _prefilling = false;
     }
@@ -372,40 +337,6 @@ contract EtnaStakingRegistryHandler is CommonBase {
     // ---------------------------------------------------------------
     // Views for the invariants
     // ---------------------------------------------------------------
-
-    /// @notice Independent interval sum over all modelled slots, including untouched prefill.
-    function activeStake() public view returns (uint256 stake_) {
-        if (_prefilling) return 0; // setup has positive activation delay and never rolls time
-        uint256 low;
-        uint256 high = _prefillActivations.length;
-        while (low < high) {
-            uint256 mid = (low + high) / 2;
-            if (_prefillActivations[mid] <= block.number) low = mid + 1;
-            else high = mid;
-        }
-        stake_ = low * minStake;
-        for (uint256 i; i < _touchedSlots.length; ++i) {
-            uint256 id = _touchedSlots[i];
-            if (id < low) stake_ -= minStake;
-            Slot storage s = _slots[id];
-            if (
-                !s.withdrawn && s.entry.activeFromL1 <= block.number
-                    && block.number < s.entry.exitEffectiveL1
-            ) stake_ += s.entry.effStake;
-        }
-    }
-
-    /// @notice Slow independent model sum for the small campaigns. Near-cap campaigns reuse
-    /// the bounded-frame all-entry root pass for their independent full interval sum.
-    function naiveActiveStake() external view returns (uint256 stake_) {
-        for (uint256 i; i < slotCount; ++i) {
-            Slot storage s = _slots[i];
-            if (
-                !s.withdrawn && s.entry.activeFromL1 <= block.number
-                    && block.number < s.entry.exitEffectiveL1
-            ) stake_ += s.entry.effStake;
-        }
-    }
 
     function slotAt(uint256 _bondId) external view returns (Slot memory) {
         return _slots[_bondId];
@@ -429,14 +360,6 @@ contract EtnaStakingRegistryHandler is CommonBase {
 
     function snapshotLeaves(uint256 _index) external view returns (bytes32[] memory) {
         return _snapshotLeaves[_index];
-    }
-
-    function activationQueue() external view returns (Queue memory) {
-        return _activations;
-    }
-
-    function exitQueue() external view returns (Queue memory) {
-        return _exits;
     }
 
     function touchedSlots() external view returns (uint256[] memory) {
@@ -465,7 +388,6 @@ contract EtnaStakingRegistryHandler is CommonBase {
     function _register(address _caller, bytes32 _pubkey, uint256 _amount) internal {
         bytes4 expected = _expectRegister(_pubkey, _amount);
         uint256 expectedId = _freeSlots.length != 0 ? _freeSlots[_freeSlots.length - 1] : slotCount;
-        _checkQueue(_activations, ACTIVATION_CHURN_SLOT);
 
         vm.prank(_caller);
         try registry.register(_pubkey, _amount, _caller) returns (uint256 bondId) {
@@ -510,9 +432,10 @@ contract EtnaStakingRegistryHandler is CommonBase {
     )
         internal
     {
-        uint64 activeFromL1 = _schedule(
-            _activations, ACTIVATION_CHURN_SLOT, uint64(block.number) + activationDelay, _amount
-        );
+        uint64 activeFromL1 = uint64(block.number) + activationDelay;
+        if (registry.entryAt(_bondId).activeFromL1 != activeFromL1) {
+            _violate(Property.Timing, "activation is not exactly its delay after registration");
+        }
         Slot storage s = _slots[_bondId];
         if (_bondId < slotCount) {
             _freeSlots.pop();
@@ -576,27 +499,14 @@ contract EtnaStakingRegistryHandler is CommonBase {
 
     function _recordExit(uint256 _bondId) internal {
         Slot storage s = _slots[_bondId];
-        uint64 earliest = uint64(block.number) + exitDelay;
-        uint64 queued = _schedule(_exits, EXIT_CHURN_SLOT, earliest, s.entry.effStake);
-        uint64 afterActivation = s.entry.activeFromL1 + exitDelay;
-        uint64 exitEffectiveL1 = queued > afterActivation ? queued : afterActivation;
-
-        uint64 actual = registry.entryAt(_bondId).exitEffectiveL1;
-        if (actual < earliest || actual < afterActivation) {
-            _violate(Property.Churn, "exit takes effect before both of its delays");
+        // An entry still waiting for its activation exits `exitDelay` after it activates.
+        uint64 exitEffectiveL1 = uint64(_max(block.number, s.entry.activeFromL1) + exitDelay);
+        if (registry.entryAt(_bondId).exitEffectiveL1 != exitEffectiveL1) {
+            _violate(
+                Property.Timing, "exit is not its delay after the later of request and activation"
+            );
         }
-        if (s.entry.activeFromL1 <= block.number) {
-            // An active entry's exit waits only for its own request block and the exit stake
-            // queued in the current busy period, never for a pending activation: the
-            // queue's last window is below busyStart + busyAmount / minChurnPerWindow.
-            uint256 lastWindow =
-                _exits.busyStart + _ceilDiv(_exits.busyAmount, minChurnPerWindow) - 1;
-            if (actual > _max(earliest, lastWindow * churnWindow)) {
-                _violate(Property.Churn, "an active entry's exit waits beyond the queued stake");
-            }
-        } else {
-            ++exitsBeforeActivation;
-        }
+        if (s.entry.activeFromL1 > block.number) ++exitsBeforeActivation;
 
         s.entry.exitEffectiveL1 = exitEffectiveL1;
         s.exitRequestedAt = uint64(block.number);
@@ -656,87 +566,6 @@ contract EtnaStakingRegistryHandler is CommonBase {
             }
         }
         ++withdrawals;
-    }
-
-    // ---------------------------------------------------------------
-    // Churn
-    // ---------------------------------------------------------------
-
-    /// @dev Checks that nothing but a scheduling call moved the queue since the model last saw it.
-    function _checkQueue(Queue storage _queue, uint256 _slot) internal {
-        if (_load(_slot) != _queue.nextWindow) {
-            _violate(Property.Churn, "a churn queue moved outside register and requestExit");
-        }
-    }
-
-    /// @dev Folds a request of `_amount` that would take effect at `_earliest` without a churn
-    /// limit into the queue model, checks where the registry put the queue and returns the
-    /// block the request should take effect at: the start of the queue's latest window, or
-    /// `_earliest` if later. Call it before changing the model's active interval.
-    ///
-    /// A busy period starts at the earliest window of a request that finds the queue behind it
-    /// and opens one window, and later requests continue it while the queue reaches their
-    /// earliest window. Every window a request opens holds `max(active * churnBps / 10_000,
-    /// minChurnPerWindow)`, and a request opens a further window only while the stake scheduled
-    /// in the period exceeds the windows opened so far. Hence, exactly:
-    /// - rate: the stored `remaining` is the capacity of the windows the period opened minus its
-    ///   stake, so no window absorbs more than it holds;
-    /// - no stranding: every window but the latest is full and holds at least
-    ///   `minChurnPerWindow`, so `(last - busyStart) * minChurnPerWindow < busyAmount`, and
-    ///   loosely `last <= maxEarliestWindow + ceil(totalAmount / minChurnPerWindow)`.
-    /// Neither bound depends on when a scheduled stake activates, only on request blocks and
-    /// amounts: an exit requested before a deferred activation cannot push the exit queue out.
-    function _schedule(
-        Queue storage _queue,
-        uint256 _slot,
-        uint64 _earliest,
-        uint256 _amount
-    )
-        internal
-        returns (uint64 effective_)
-    {
-        uint256 earliestWindow = _earliest / churnWindow;
-        uint256 previous = _queue.nextWindow;
-        uint256 next = _load(_slot);
-        _queue.nextWindow = next;
-        if (next < previous || next <= earliestWindow) {
-            _violate(
-                Property.Churn, "a request was scheduled before the queue or its earliest window"
-            );
-            return _earliest;
-        }
-
-        uint256 perWindow = _max(activeStake() * churnBps / 10_000, minChurnPerWindow);
-        if (previous > earliestWindow) {
-            _queue.busyAmount += _amount;
-            _queue.busyCapacity += (next - previous) * perWindow;
-        } else {
-            _queue.busyStart = earliestWindow;
-            _queue.busyAmount = _amount;
-            _queue.busyCapacity = (next - earliestWindow) * perWindow;
-        }
-        if (earliestWindow > _queue.maxEarliestWindow) _queue.maxEarliestWindow = earliestWindow;
-        _queue.totalAmount += _amount;
-
-        if (
-            _queue.busyAmount > _queue.busyCapacity
-                || _load(_slot + 1) != _queue.busyCapacity - _queue.busyAmount
-        ) {
-            _violate(Property.Churn, "a churn queue admitted other than its opened windows hold");
-        }
-        uint256 last = next - 1;
-        if (
-            last < _queue.busyStart
-                || (last - _queue.busyStart) * minChurnPerWindow >= _queue.busyAmount
-        ) {
-            _violate(Property.Churn, "a churn queue runs past the stake its busy period absorbed");
-        }
-        if (last > _queue.maxEarliestWindow + _ceilDiv(_queue.totalAmount, minChurnPerWindow)) {
-            _violate(Property.Churn, "a churn queue runs past every scheduled stake");
-        }
-        uint256 windowStart = last * churnWindow;
-        effective_ = windowStart > _earliest ? uint64(windowStart) : _earliest;
-        if (effective_ != _earliest) ++_queue.deferred;
     }
 
     // ---------------------------------------------------------------
@@ -880,7 +709,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
 
     function _violate(Property _property, string memory _reason) internal {
         if (violations[_property]++ != 0) return;
-        string[6] memory names = ["root", "history", "churn", "heartbeat", "slots", "model"];
+        string[6] memory names = ["root", "history", "timing", "heartbeat", "slots", "model"];
         firstViolation[_property] = string.concat(names[uint8(_property)], ": ", _reason);
     }
 
@@ -920,16 +749,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
         return _stakers[_seed % _stakers.length];
     }
 
-    function _load(uint256 _slot) internal view returns (uint256) {
-        return uint256(vm.load(address(registry), bytes32(_slot)));
-    }
-
     function _hashPair(bytes32 _left, bytes32 _right) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(_left, _right));
-    }
-
-    function _ceilDiv(uint256 _a, uint256 _b) internal pure returns (uint256) {
-        return _a == 0 ? 0 : (_a - 1) / _b + 1;
     }
 
     function _max(uint256 _a, uint256 _b) internal pure returns (uint256) {

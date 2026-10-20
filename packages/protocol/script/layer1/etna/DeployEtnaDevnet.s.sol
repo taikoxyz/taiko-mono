@@ -23,9 +23,7 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 ///
 /// Environment shared by both calls: PRIVATE_KEY; optional CONTRACT_OWNER (the deployer if zero).
 /// `run()`: TAIKO_TOKEN, REGISTRY_MIN_STAKE (base units), REGISTRY_ACTIVATION_DELAY,
-/// REGISTRY_EXIT_DELAY, REGISTRY_WITHDRAWAL_DELAY, REGISTRY_HEARTBEAT_WINDOW (L1 blocks),
-/// REGISTRY_CHURN_WINDOW (L1 blocks; 0 disables the churn limit), REGISTRY_CHURN_BPS and
-/// REGISTRY_MIN_CHURN_PER_WINDOW (base units).
+/// REGISTRY_EXIT_DELAY, REGISTRY_WITHDRAWAL_DELAY and REGISTRY_HEARTBEAT_WINDOW (L1 blocks).
 /// `deployInbox()`: STAKING_REGISTRY, ETNA_PROOF_VERIFIER, REMOTE_SIGNAL_SERVICE (on L2),
 /// L1_CHAIN_ID and L1_INBOX (the exact identity already used for vault export),
 /// L2_CHAIN_ID, MAX_BATCH_BLOCKS, FORCED_INCLUSION_FEE_GWEI (non-zero),
@@ -161,10 +159,7 @@ contract DeployEtnaDevnet is Script {
                 _envUint64("REGISTRY_ACTIVATION_DELAY"),
                 _envUint64("REGISTRY_EXIT_DELAY"),
                 _envUint64("REGISTRY_WITHDRAWAL_DELAY"),
-                _envUint64("REGISTRY_HEARTBEAT_WINDOW"),
-                _envUint64("REGISTRY_CHURN_WINDOW"),
-                SafeCast.toUint16(vm.envUint("REGISTRY_CHURN_BPS")),
-                vm.envUint("REGISTRY_MIN_CHURN_PER_WINDOW")
+                _envUint64("REGISTRY_HEARTBEAT_WINDOW")
             )
         );
     }
