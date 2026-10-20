@@ -13,6 +13,9 @@ solc_version = "0.8.30"
 evm_version = "osaka"
 # Fuzzing configuration (updated for newer Foundry versions)
 fuzz = { runs = 200, show_logs = false }
+# Invariant campaigns stay quick for local iteration; CI sets FOUNDRY_INVARIANT_RUNS=256 for the
+# full campaign. Suites keep their depth and revert policy inline.
+invariant = { runs = 64 }
 # Exclude genesis tests - they require special setup via genesis.test.sh
 no_match_path = "test/genesis/*"
 
@@ -57,12 +60,15 @@ block_gas_limit = 80_000_000
 
 fs_permissions = [
     { access = "read", path = "./out" },
+    # ExportEtnaGenesis writes local immutable runtime JSON here; it never broadcasts.
     { access = "read-write", path = "./deployments" },
     { access = "read-write", path = "./gas-reports" },
     { access = "read-write", path = "./script/layer1/proposals/" },
     { access = "read", path = "./test" },
     { access = "read", path = "./script/" },
     { access = "read", path = "./genesis" },
+    # The Etna vectors shared with taiko-client-rs (testdata/etna_vectors/README.md).
+    { access = "read", path = "../../testdata/etna_vectors" },
 ]
 
 # 2394: Transient storage warning
@@ -130,6 +136,8 @@ cache_path = "cache/layer1o"
 via_ir = true
 
 [profile.layer2]
+# Offline Etna genesis validation binds immutable reference IDs to their declarations.
+ast = true
 src = "contracts/layer2"
 test = "test/layer2"
 script = "script/layer2"
