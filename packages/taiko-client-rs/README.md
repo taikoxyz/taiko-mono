@@ -871,6 +871,44 @@ or config opening differs.
   its L1 node is on another network. Point it at a correct L1 node and peers, or restore a
   trusted state.
 
+### Checkpoint trust
+
+- Every app start and every signer session start closed. The app pins one block of its own L1
+  `finalized` view and authenticates the Inbox's latest checkpoint there: the L1 header and
+  state root, exact account and storage proofs, canonicality, generation and checkpoint hash.
+  While closed, `/trust` and `/status` report `trust_ready = false`, `syncing = true` and no
+  `trusted_consensus_head`; `trust_target` shows the pinned checkpoint and `trust_reason` why
+  trust is still closed. Info, InitChain and historical Finalize/Commit replay continue
+  normally meanwhile.
+- Trust opens only at the target height with an exact hash match. A committed head already
+  above the target must prove its complete `parentHash` ancestry down to the target; finding
+  the target in alethia-reth is not enough. Readiness opens after the matching state is durable
+  and the latest finalized checkpoint has been read again; if that checkpoint is now higher,
+  catch-up continues to it.
+- A missing proof, missing history or transient I/O keeps trust closed and retries. An
+  authenticated contradiction is a safety halt, and so is malformed or unverifiable data from
+  the own L1 node or alethia-reth (a header whose hash or number does not match, a proof that
+  fails against its state root, a second read returning a different hash for the same finalized
+  number), because the node cannot tell it apart from forgery.
+- Within one process the highest authenticated target survives across sessions and is never
+  lowered by a lagging L1 answer; after a restart, the loaded state's authenticated anchor is
+  the initial floor. Once trusted, ordinary advances of the L1 finalized head never expire an
+  accepted proposal and are not a block-validity rule.
+- Checkpoint fence: `FinalizeBlock` passes the `lastCheckpoint.hash` proven by the block's
+  anchor as forkchoice `finalized`. alethia-reth rejects a head that does not descend from it
+  with `-38002` (invalid forkchoice state), and the app stops with a safety halt. With
+  back-pressure, this bounds a history forged with old keys to `d_max - margin_v` blocks beyond
+  its fork point.
+- While untrusted, forkchoice passes `safe = 0`, so a replayed candidate never becomes the EL
+  safe head, and still passes the historical checkpoint as `finalized`. Syncing alethia-reth to
+  a block the app already persisted (at `InitChain`, at the handshake `Info`, or when a trust
+  session finds alethia-reth missing the committed head) passes 0 for both `safe` and
+  `finalized`, because that block passed the fence when it was finalized. Zero does not clear
+  tags alethia-reth already holds.
+- With these trust and signing gates, a forged suffix stays untrusted below the target or is
+  refused at its hash, so the starting checkpoint needs no age limit under the own-L1 and
+  proof-soundness assumptions. Historical replay is independent of this node-local check.
+
 ### Execution layer state history
 
 - Cold replay judges each decided block from its authenticated parent. Inclusion and ineligible-byte
