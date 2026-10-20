@@ -70,22 +70,21 @@ def decimals(value):
 
 
 def committee_config():
-    """The `ETNA_PARENT_ANCHOR_V4` configuration opening: eleven static words (352 bytes)."""
+    """The `ETNA_PARENT_ANCHOR_V5` configuration opening: ten static words (320 bytes)."""
     inputs = {
-        "tag": "ETNA_PARENT_ANCHOR_V4",
+        "tag": "ETNA_PARENT_ANCHOR_V5",
         "l2_chain_id": 167001,
         "registry": "0x2222222222222222222222222222222222222222",
         "vp_unit": 10**9,
         "s_min": 10**18,
         "n_max": 128,
         "heartbeat_window": 32,
-        "lookahead_epochs": 2,
         "encoding_version": 2,
         "d_max": 12,
         "margin_v": 2,
     }
     preimage = abi_encode(
-        "f(bytes32,uint256,address,uint256,uint256,uint64,uint64,uint64,uint8,uint64,uint64)",
+        "f(bytes32,uint256,address,uint256,uint256,uint64,uint64,uint8,uint64,uint64)",
         tag(inputs["tag"]),
         inputs["l2_chain_id"],
         inputs["registry"],
@@ -93,7 +92,6 @@ def committee_config():
         inputs["s_min"],
         inputs["n_max"],
         inputs["heartbeat_window"],
-        inputs["lookahead_epochs"],
         inputs["encoding_version"],
         inputs["d_max"],
         inputs["margin_v"],
@@ -366,7 +364,6 @@ def layout():
                     "genesis_height": field(0, 64),
                     "l1_block": field(64, 64),
                     "epoch_len_l2": field(128, 64),
-                    "epoch_len_l1": field(192, 64),
                 },
                 "genesis_cutoff": {"genesis_cutoff": field(0, 64)},
                 "active_committee_snapshot": {"active_committee_snapshot": field(0, 64)},

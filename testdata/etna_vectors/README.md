@@ -3,8 +3,8 @@
 `vectors.json` holds the Etna values that the L1 contracts and the Etna node must agree on byte for
 byte. Both sides read this one file instead of carrying their own copies of the literals:
 
-- `committee_config`: the `ETNA_PARENT_ANCHOR_V4` configuration opening that `EtnaInbox` stores as
-  `committeeConfigHash` (slot 269): its eleven input words, the 352-byte preimage and the hash.
+- `committee_config`: the `ETNA_PARENT_ANCHOR_V5` configuration opening that `EtnaInbox` stores as
+  `committeeConfigHash` (slot 269): its ten input words, the 320-byte preimage and the hash.
 - `land_statement`: the `TAIKO_ETNA_LAND_V10` twenty-one-word (672-byte) landing statement,
   including ordered blob hashes, distinct L1 fee and L2 reward recipients, the base-fee amount, and the terminal active committee snapshot.
 - `reward_receipt`: independent cast preimages and hashes for the batch ID, receipt commitment,

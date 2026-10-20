@@ -90,11 +90,6 @@
               "type": "uint64"
             },
             {
-              "internalType": "uint64",
-              "name": "epochLenL1",
-              "type": "uint64"
-            },
-            {
               "internalType": "bytes32",
               "name": "genesisBlockHash",
               "type": "bytes32"
@@ -399,11 +394,6 @@
             {
               "internalType": "uint64",
               "name": "epochLenL2",
-              "type": "uint64"
-            },
-            {
-              "internalType": "uint64",
-              "name": "epochLenL1",
               "type": "uint64"
             },
             {
@@ -852,12 +842,6 @@
           "indexed": false,
           "internalType": "uint64",
           "name": "epochLenL2",
-          "type": "uint64"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint64",
-          "name": "epochLenL1",
           "type": "uint64"
         },
         {
