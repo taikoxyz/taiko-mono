@@ -1208,7 +1208,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         );
     }
 
-    /// @dev The configuration opening (352 bytes) and V10 statement (672 bytes) vectors of
+    /// @dev The configuration opening (320 bytes) and V10 statement (672 bytes) vectors of
     /// `testdata/etna_vectors/vectors.json`, which `cast` computes and taiko-client-rs reads too.
     /// The Inbox is etched at the vector's address with the vector's identities and
     /// configuration hash, so `hashLandStatement` binds exactly the vector's twenty-one static words.
@@ -1248,7 +1248,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         bytes32 configHash = keccak256(configWords);
         vm.store(address(etnaInbox), bytes32(COMMITTEE_CONFIG_SLOT), configHash);
         IEtnaInbox.LandInput memory input = _batch(11);
-        for (uint256 i; i < 11; ++i) {
+        for (uint256 i; i < 10; ++i) {
             bytes memory mutated = bytes.concat(configWords);
             assembly {
                 let word := add(add(mutated, 32), mul(i, 32))
@@ -1304,7 +1304,7 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
 
         bytes memory configWords = LibEtnaVectors.configWords(_json);
         bytes32 configHash = LibEtnaVectors.bytes32At(_json, ".committee_config.hash");
-        assertEq(configWords.length, 352, "eleven config words");
+        assertEq(configWords.length, 320, "ten config words");
         assertEq(configWords, LibEtnaVectors.bytesAt(_json, ".committee_config.preimage"));
         assertEq(keccak256(configWords), configHash, "config opening");
         assertEq(
@@ -1510,17 +1510,16 @@ contract EtnaInboxLandTest is EtnaInboxTestBase {
         );
     }
 
-    /// @dev Eleven independent static words; the contract stores this commitment opaquely.
+    /// @dev Ten independent static words; the contract stores this commitment opaquely.
     function _parentAnchorConfigWords(address _registry) internal pure returns (bytes memory) {
         return abi.encode(
-            bytes32("ETNA_PARENT_ANCHOR_V4"),
+            bytes32("ETNA_PARENT_ANCHOR_V5"),
             uint256(167_001),
             _registry,
             uint256(1e9),
             uint256(1 ether),
             uint64(128),
             uint64(32),
-            uint64(2),
             uint8(2),
             uint64(12),
             uint64(2)

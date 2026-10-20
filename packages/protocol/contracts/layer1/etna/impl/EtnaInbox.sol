@@ -206,8 +206,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     function init(address _owner, GenesisParams calldata _params) external initializer {
         require(_params.genesisBlockHash != 0 && _params.genesisStateRoot != 0, InvalidGenesis());
         require(
-            _params.epochLenL2 >= _MIN_EPOCH_LEN_L2 && _params.epochLenL2 < type(uint48).max
-                && _params.epochLenL1 != 0,
+            _params.epochLenL2 >= _MIN_EPOCH_LEN_L2 && _params.epochLenL2 < type(uint48).max,
             InvalidEpochLength()
         );
         require(_isValidGenesisCutoff(_params.genesisCutoff), InvalidGenesisCutoff());
@@ -223,7 +222,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             genesisHeight: 0,
             l1Block: l1Block,
             epochLenL2: _params.epochLenL2,
-            epochLenL1: _params.epochLenL1,
             genesisBlockHash: _params.genesisBlockHash,
             genesisStateRoot: _params.genesisStateRoot
         });
@@ -248,7 +246,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             _params.genesisStateRoot,
             l1Block,
             _params.epochLenL2,
-            _params.epochLenL1,
             _params.genesisCutoff,
             _params.committeeRecordHash
         );

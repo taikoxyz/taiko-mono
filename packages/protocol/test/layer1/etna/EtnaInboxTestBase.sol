@@ -67,7 +67,6 @@ abstract contract EtnaInboxTestBase is CommonTest {
     uint64 internal constant FORCED_INCLUSION_DELAY = 1 hours;
     uint64 internal constant MAX_ANCHOR_AGE = 2 hours;
     uint64 internal constant EPOCH_LEN_L2 = 10;
-    uint64 internal constant EPOCH_LEN_L1 = 32;
     bytes32 internal constant COMMITTEE_RECORD_0 = keccak256("committee record 0");
     bytes32 internal constant COMMITTEE_CONFIG_HASH = keccak256("committee config");
     uint256 internal constant MIN_STAKE = 1000 ether;
@@ -164,7 +163,6 @@ abstract contract EtnaInboxTestBase is CommonTest {
             genesisBlockHash: genesisBlockHash,
             genesisStateRoot: genesisStateRoot,
             epochLenL2: EPOCH_LEN_L2,
-            epochLenL1: EPOCH_LEN_L1,
             genesisCutoff: registryCheckpointBlock,
             committeeRecordHash: COMMITTEE_RECORD_0,
             committeeConfigHash: COMMITTEE_CONFIG_HASH,

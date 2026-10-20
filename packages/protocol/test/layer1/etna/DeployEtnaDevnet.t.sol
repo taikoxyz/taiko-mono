@@ -83,7 +83,6 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         vm.setEnv("GENESIS_BLOCK_HASH", vm.toString(genesisBlockHash));
         vm.setEnv("GENESIS_STATE_ROOT", vm.toString(genesisStateRoot));
         vm.setEnv("EPOCH_LEN_L2", vm.toString(EPOCH_LEN_L2));
-        vm.setEnv("EPOCH_LEN_L1", vm.toString(EPOCH_LEN_L1));
         vm.setEnv("GENESIS_CUTOFF", vm.toString(registryCheckpointBlock));
         vm.setEnv("COMMITTEE_RECORD_HASH", vm.toString(COMMITTEE_RECORD_0));
         vm.setEnv("COMMITTEE_CONFIG_HASH", vm.toString(COMMITTEE_CONFIG_HASH));
