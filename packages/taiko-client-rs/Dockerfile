@@ -1,3 +1,10 @@
+FROM golang:1.27.2@sha256:820153096fda4de6ac1b7194d12e416b7dd8f4e9a33d17e0345b111b945162d8 AS signer-build
+WORKDIR /signer
+COPY packages/taiko-client-rs/tools/etna-signer/go.mod packages/taiko-client-rs/tools/etna-signer/go.sum ./
+RUN go mod download
+COPY packages/taiko-client-rs/tools/etna-signer/*.go ./
+RUN CGO_ENABLED=0 go build -mod=readonly -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /etna-signer .
+
 FROM rust:1.95.0 AS build
 
 WORKDIR /app
@@ -26,5 +33,6 @@ RUN apt-get update && \
 WORKDIR /app
 
 COPY --from=build /tmp/taiko-client ./taiko-client
+COPY --from=signer-build /etna-signer ./etna-signer
 
 ENTRYPOINT ["./taiko-client"]

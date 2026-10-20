@@ -1,123 +1,110 @@
 #!/bin/bash
+#
+# Runs the ABCI, lander, and CLI docker scenarios (all marked
+# `#[ignore = "docker"]`). Each scenario boots its own devnet through the docker CLI
+# (`crates/test-harness`: anvil as L1, alethia-reth, CometBFT) and removes it
+# afterwards, so this script only checks docker, pre-pulls the images and runs the
+# scenarios one at a time. Extra arguments are forwarded to `cargo nextest run`,
+# e.g. `just test --no-capture` or `just test restart` (a test-name filter).
+#
+# Environment:
+#   ANVIL_IMAGE, LANDER_ANVIL_IMAGE, ALETHIA_RETH_IMAGE, COMETBFT_IMAGE override the images.
+#   PULL_POLICY=missing  reuse images already present on the daemon instead of
+#                        pulling them on every run.
 
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Run from the package root so relative paths (compose file, nextest config,
-# workspace crates) resolve regardless of the caller's working directory.
+# Run from the package root so the nextest config and the workspace resolve
+# regardless of the caller's working directory.
 cd "$DIR/.."
 
-PROTOCOL_DIR="${PROTOCOL_DIR:-$DIR/../../protocol}"
-export PROTOCOL_DIR
-echo "Using PROTOCOL_DIR: $PROTOCOL_DIR"
+bash ./script/build_etna_signer.sh
+export ETNA_SIGNER_BIN="$PWD/target/etna-signer/etna-signer"
 
-export HARNESS_L1_HTTP=${HARNESS_L1_HTTP:-http://localhost:18545}
-export HARNESS_L1_WS=${HARNESS_L1_WS:-ws://localhost:18545}
-export L2_HTTP_0=http://localhost:28545
-export L2_WS_0=ws://localhost:28546
-export L2_AUTH_0=http://localhost:28551
-export L2_WS_1=ws://localhost:38546
-export L2_AUTH_1=http://localhost:38551
-export JWT_SECRET=$DIR/docker/jwt.hex
+# Internal selectors used by the fixed `just test-smoke` and `just test-full` recipes. Shift only
+# this leading flag so all remaining arguments retain their nextest meaning. By default the
+# slowest scenario is left to the full run (main, nightly, `just verify`): the L1 finality stall
+# needs about 1,150 L2 blocks to age past the 1152 s anchor floor. Unit tests cover its
+# halt-and-resume rule.
+filter='kind(test) & !test(=stale_l1_finality_pauses_and_resumes_l2)'
+if [[ "${1:-}" == "--smoke" ]]; then
+    shift
+    filter='kind(test) & (test(=single_validator_produces_blocks_by_the_header_rules) | test(=epoch_switch_adds_the_joining_validator) | test(=real_l2_rewards_claim_and_fee_continuation) | test(=lander_cli_recovers_from_sigkill_and_resumes_after_sigterm))'
+elif [[ "${1:-}" == "--full" ]]; then
+    shift
+    filter='kind(test)'
+fi
 
-# Environment variables for deploying protocol contracts on L1.
-export PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-export TAIKO_ANCHOR_ADDRESS=0x1670010000000000000000000000000000010001
-export L2_SIGNAL_SERVICE=0x1670010000000000000000000000000000010005
-export CONTRACT_OWNER=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-export TAIKO_TOKEN_PREMINT_RECIPIENT=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-export L2_CHAIN_ID=167001
-export PAUSE_BRIDGE="false"
-export OLD_FORK_TAIKO_INBOX=0x0000000000000000000000000000000000000000
-export TAIKO_TOKEN=0x0000000000000000000000000000000000000000
-export SHARED_RESOLVER=0x0000000000000000000000000000000000000000
-export INCLUSION_WINDOW=3
-export INCLUSION_FEE_IN_GWEI=10
-export DEPLOY_PRECONF_CONTRACTS="false"
-export PRECONF_INBOX="false"
-export DUMMY_VERIFIERS="true"
-export ACTIVATE_INBOX="true"
-export PROPOSER_ADDRESS=0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc
-export PRECONF_WHITELIST=0x0000000000000000000000000000000000000000
-export REMOTE_SIGNAL_SERVICE=0x1670010000000000000000000000000000000005
+# Every harness child inherits this label. Cleanup stays scoped to this invocation, including
+# lander fixtures, even when cancellation bypasses the harness's normal Drop cleanup.
+export TAIKO_CLIENT_RS_TEST_RUN=${TAIKO_CLIENT_RS_TEST_RUN:-local-$$-$RANDOM}
+cleanup_devnets() {
+    local status=$?
+    trap - EXIT INT TERM
+    local failed=0
+    local containers networks
+    containers=$(docker ps -aq --filter "label=taiko-client-rs.test-run=$TAIKO_CLIENT_RS_TEST_RUN") || failed=1
+    networks=$(docker network ls -q --filter "label=taiko-client-rs.test-run=$TAIKO_CLIENT_RS_TEST_RUN") || failed=1
+    if [[ -n "$containers" ]]; then
+        # Docker IDs contain no shell whitespace; xargs handles both Linux and macOS empty input.
+        printf '%s\n' "$containers" | xargs docker rm -f -v || failed=1
+    fi
+    if [[ -n "$networks" ]]; then
+        printf '%s\n' "$networks" | xargs docker network rm || failed=1
+    fi
+    if [[ "$status" == 0 && "$failed" != 0 ]]; then status=1; fi
+    exit "$status"
+}
 
-# Verify required CLI tools are present before starting containers, so a missing
-# binary fails loudly instead of hanging in a readiness loop below.
-for cmd in cast forge jq; do
-    if ! command -v "$cmd" > /dev/null 2>&1; then
-        echo "ERROR: required command '$cmd' not found in PATH"
-        exit 1
+if ! command -v docker > /dev/null 2>&1; then
+    echo "ERROR: required command 'docker' not found in PATH"
+    exit 1
+fi
+if ! docker info > /dev/null 2>&1; then
+    echo "ERROR: the docker daemon is not reachable"
+    exit 1
+fi
+trap cleanup_devnets EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# Pinned to the anvil release the scenarios are verified with: a moving tag could change its
+# JSON-RPC behaviour under them (e.g. whether it serves debug_getRawHeader).
+export ANVIL_IMAGE=${ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:v1.5.1}
+# Reviewed taikoxyz/alethia-reth#251 supports canonical-config alloc-only Etna genesis.
+# Real contracts require canonical zero-storage proofs and modern EIP-7594 wrappers.
+export LANDER_ANVIL_IMAGE=${LANDER_ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:v1.8.5}
+export ALETHIA_RETH_IMAGE=${ALETHIA_RETH_IMAGE:-us-docker.pkg.dev/evmchain/images/alethia-reth:sha-5d4d21a}
+export COMETBFT_IMAGE=${COMETBFT_IMAGE:-cometbft/cometbft:v0.40.0}
+
+# Pull before the first scenario so downloads don't eat into its readiness deadlines.
+for image in "$ANVIL_IMAGE" "$LANDER_ANVIL_IMAGE" "$ALETHIA_RETH_IMAGE" "$COMETBFT_IMAGE"; do
+    if [[ "${PULL_POLICY:-always}" == "missing" ]] && docker image inspect "$image" > /dev/null 2>&1; then
+        echo "Using local image $image"
+    else
+        echo "Pulling $image"
+        docker pull --quiet "$image"
     fi
 done
 
-# Prefer Docker Compose v2 plugin; fallback to the standalone v1/v2 binary.
-if docker compose version > /dev/null 2>&1; then
-    DOCKER_COMPOSE=(docker compose)
-elif command -v docker-compose > /dev/null 2>&1; then
-    DOCKER_COMPOSE=(docker-compose)
-else
-    echo "ERROR: neither 'docker compose' nor 'docker-compose' is available"
-    exit 1
-fi
-
-COMPOSE_FILE="${TAIKO_TEST_COMPOSE_FILE:-tests/docker/docker-compose.test.yaml}"
-COMPOSE_ARGS=(-f "$COMPOSE_FILE")
-if [[ "${ETNA_BOUNDARY:-false}" == "true" ]]; then
-    # Pin L1 genesis two hours in the past and activate Etna one hour later, so the boundary
-    # test crosses it by moving L1 time. The in-process client reads the same
-    # DEVNET_ETNA_TIMESTAMP through ShastaEnv.
-    L1_START_TIMESTAMP=$(( $(date +%s) - 7200 ))
-    DEVNET_ETNA_TIMESTAMP=$(( L1_START_TIMESTAMP + 3600 ))
-    export L1_START_TIMESTAMP DEVNET_ETNA_TIMESTAMP
-    COMPOSE_ARGS+=(-f tests/docker/docker-compose.etna.yaml)
-    echo "Etna boundary: L1 start ${L1_START_TIMESTAMP}, Etna ${DEVNET_ETNA_TIMESTAMP}"
-fi
-cleanup() {
-    "${DOCKER_COMPOSE[@]}" "${COMPOSE_ARGS[@]}" down -v
-}
-
-echo "Starting docker compose services..."
-"${DOCKER_COMPOSE[@]}" "${COMPOSE_ARGS[@]}" up -d
-trap cleanup EXIT
-
-# Wait for an RPC endpoint to accept requests, bounded so a container that never
-# comes up dumps its logs and fails instead of hanging forever.
-wait_for_rpc() {
-    local url="$1" name="$2" deadline=$((SECONDS + 120))
-    until cast chain-id --rpc-url "$url" > /dev/null 2>&1; do
-        if (( SECONDS >= deadline )); then
-            echo "ERROR: $name ($url) not ready after 120s"
-            "${DOCKER_COMPOSE[@]}" "${COMPOSE_ARGS[@]}" logs --tail=100
-            exit 1
-        fi
-        sleep 1
+echo "Running the ABCI, lander, and CLI docker scenarios"
+terminate_tree() {
+    local process=$1 child
+    for child in $(pgrep -P "$process" || true); do
+        terminate_tree "$child"
     done
-    echo "$name is ready ($url)"
+    kill -TERM "$process" 2>/dev/null || true
 }
-
-wait_for_rpc "$HARNESS_L1_HTTP" "L1 node"
-wait_for_rpc "$L2_WS_0" "L2 node 0"
-wait_for_rpc "$L2_WS_1" "L2 node 1"
-
-# Get the hash of the L2 genesis block.
-L2_GENESIS_HASH=$(cast block 0 --field hash --rpc-url "$L2_HTTP_0")
-export L2_GENESIS_HASH
-echo "L2_GENESIS_HASH: $L2_GENESIS_HASH"
-
-"$DIR/deploy.sh"
-
-# Export deployed contract addresses and other env vars for tests.
-DEPLOYMENT_JSON=$(cat "${PROTOCOL_DIR}/deployments/deploy_l1.json")
-SHASTA_INBOX=$(echo "$DEPLOYMENT_JSON" | jq -r '.shasta_inbox')
-export SHASTA_INBOX
-export TAIKO_ANCHOR=0x1670010000000000000000000000000000010001
-export L2_SUGGESTED_FEE_RECIPIENT=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-export L1_PROPOSER_PRIVATE_KEY=0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a
-
-if [[ -n "${TEST_CRATE:-}" ]]; then
-    echo "Running tests for crate: ${TEST_CRATE}"
-    cargo nextest -v run -p "${TEST_CRATE}" --all-features "$@"
-else
-    echo "Running full test suite (default)"
-    cargo nextest -v run --workspace --exclude bindings --all-features "$@"
-fi
+stop_scenarios() {
+    local status=$1
+    trap - INT TERM
+    terminate_tree "$scenario_pid"
+    wait "$scenario_pid" || true
+    exit "$status"
+}
+cargo nextest run -p abci -p lander -p taiko-client -p test-harness --all-features --profile integration --run-ignored only -E "$filter" "$@" &
+scenario_pid=$!
+trap 'stop_scenarios 130' INT
+trap 'stop_scenarios 143' TERM
+wait "$scenario_pid"

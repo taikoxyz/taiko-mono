@@ -1,0 +1,675 @@
+//! Pure committee derivation from authenticated staking-registry snapshots.
+//!
+//! Runtime epochs select the last registry checkpoint at or before the committed derivation
+//! parent anchor. Genesis and host proof jobs may name an explicit historical snapshot.
+//! [`verify_snapshot`] authenticates the checkpoint, its successor and the complete entry root.
+//! [`derive`] reserves the top seats after base eligibility and lowest-bond-id deduplication,
+//! then removes missing heartbeats without backfilling. [`committee_config_hash`] binds the
+//! configuration, including stake caps, set-key ordering and voting-power rules.
+//!
+//! Runtime witnesses appear only at `H(t)-2`, proven under the committed parent's anchor, whose
+//! number is the snapshot itself. A failed or empty committed snapshot has no implicit fallback;
+//! the unchanged recovery-generation and registry old-key/withdrawal assumptions still apply.
+//! All hashes use keccak256 over static 32-byte Solidity ABI words.
+
+use std::collections::BTreeMap;
+
+use alloy_primitives::{Address, B256, U256, keccak256, ruint::UintTryFrom};
+
+use crate::{
+    config::ChainParams,
+    envelope::CommitteeWitness,
+    l1::{
+        layout::{registry, word_u32, word_u64},
+        mpt::{MptError, verify_account_witness},
+    },
+    schedule::Schedule,
+    types::{AnchorState, CommitteeRecord, Member, RegistryEntry},
+};
+
+/// The committee record `encodingVersion` this crate derives.
+pub const ENCODING_VERSION: u8 = 2;
+
+/// Upper bound on a committee's total voting power: CometBFT's `MaxTotalVotingPower`,
+/// `(2^63 − 1) / 8`.
+pub const MAX_TOTAL_POWER: u64 = (i64::MAX as u64) / 8;
+
+/// The first target epoch whose committee requires recent heartbeats; the launch committees of
+/// epochs 0, 1 and 2 are exempt ([`heartbeat_floor`]).
+pub const FIRST_HEARTBEAT_EPOCH: u64 = Schedule::E0 + 3;
+
+/// `bytes32("ETNA_REG_ENTRY_V2")`: domain tag of registry entry leaves.
+const REG_ENTRY_TAG: B256 = tag(b"ETNA_REG_ENTRY_V2");
+/// `bytes32("ETNA_SET_KEY")`: domain tag of the member sort key ([`set_key`]).
+const SET_KEY_TAG: B256 = tag(b"ETNA_SET_KEY");
+/// `bytes32("ETNA_SET_LEAF_V2")`: domain tag of set-root leaves.
+const SET_LEAF_TAG: B256 = tag(b"ETNA_SET_LEAF_V2");
+/// `bytes32("ETNA_SET_NODE")`: domain tag of set-root inner nodes.
+const SET_NODE_TAG: B256 = tag(b"ETNA_SET_NODE");
+/// `bytes32("ETNA_COMMITTEE_V2")`: domain tag of the committee record hash.
+const RECORD_TAG: B256 = tag(b"ETNA_COMMITTEE_V2");
+
+/// Why a committee witness, snapshot or derivation was rejected.
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+pub enum CommitteeError {
+    /// The proving anchor is too early to authenticate the explicit historical snapshot.
+    #[error("snapshot cutoff {cutoff} is after proving anchor {anchor}")]
+    CutoffAfterAnchor {
+        /// Required explicit L1 snapshot cutoff.
+        cutoff: u64,
+        /// Proving L1 block number.
+        anchor: u64,
+    },
+    /// The witness proves an account other than the configured staking registry.
+    #[error("witness proves {got}, expected the registry at {expected}")]
+    WrongContract {
+        /// The configured registry address (chain constant).
+        expected: Address,
+        /// The address the witness proves.
+        got: Address,
+    },
+    /// The account or storage proofs do not verify, or prove the wrong slot set.
+    #[error(transparent)]
+    Mpt(#[from] MptError),
+    /// The claimed checkpoint index is not below `checkpoints.length`.
+    #[error("checkpoint {index} does not exist (registry holds {length})")]
+    CheckpointOutOfRange {
+        /// The claimed checkpoint index (`record.checkpoint_index`).
+        index: u64,
+        /// The proven `checkpoints.length`.
+        length: U256,
+    },
+    /// The witness proves `checkpoints[index + 1]` although it does not exist, or omits it
+    /// although it does.
+    #[error(
+        "checkpoint {index} of {length}: next-checkpoint proof present = {proven}, \
+         but a next checkpoint exists = {}",
+        !proven
+    )]
+    NextCheckpointMismatch {
+        /// The claimed checkpoint index.
+        index: u64,
+        /// The proven `checkpoints.length`.
+        length: U256,
+        /// Whether the witness carries the next checkpoint's proof.
+        proven: bool,
+    },
+    /// The claimed checkpoint was written after the cutoff.
+    #[error("checkpoint at L1 block {l1_block} is after the cutoff {cutoff}")]
+    CheckpointAfterCutoff {
+        /// The checkpoint's `l1Block`.
+        l1_block: u64,
+        /// The cutoff `C`, an L1 block number.
+        cutoff: u64,
+    },
+    /// The next checkpoint was written at or before the cutoff, so the claimed one is not the
+    /// last checkpoint with `l1Block <= C`.
+    #[error("next checkpoint at L1 block {l1_block} is not after the cutoff {cutoff}")]
+    NextCheckpointNotAfterCutoff {
+        /// The next checkpoint's `l1Block`.
+        l1_block: u64,
+        /// The cutoff `C`, an L1 block number.
+        cutoff: u64,
+    },
+    /// The witness carries a different number of entries than the checkpoint's `count`.
+    #[error("checkpoint holds {expected} entries, witness carries {got}")]
+    EntryCountMismatch {
+        /// The proven `count`.
+        expected: u32,
+        /// The number of entries in the witness.
+        got: usize,
+    },
+    /// The witnessed entries do not hash to the checkpoint's `entriesRoot`.
+    #[error("entries hash to {got}, checkpoint entriesRoot is {expected}")]
+    EntriesRootMismatch {
+        /// The proven `entriesRoot`.
+        expected: B256,
+        /// [`entries_root`] of the witnessed entries.
+        got: B256,
+    },
+    /// `VP_UNIT` is zero, so voting power is undefined.
+    #[error("vp_unit must be > 0")]
+    ZeroVpUnit,
+    /// A registry entry names the zero L2 payout address.
+    #[error("zero reward recipient")]
+    ZeroRecipient,
+    /// `HEARTBEAT_WINDOW` is zero, so the heartbeat windows of a filtered epoch are undefined.
+    #[error("heartbeat window must be >= 1")]
+    ZeroHeartbeatWindow,
+    /// The target epoch has no set version `k = targetEpoch − e_0 + 1` in `u64`.
+    #[error("target epoch {0} is out of range")]
+    EpochOutOfRange(u64),
+    /// No entry is eligible at the immutable snapshot. Activation cannot advance its cutoff or
+    /// silently reuse an old committee; recovery requires a new generation.
+    #[error("no eligible registry entry")]
+    Empty,
+    /// A saved member's stake is below the configured eligibility floor.
+    #[error("stake of {pubkey} is below the eligibility floor")]
+    IneligibleStake {
+        /// The member's consensus public key.
+        pubkey: B256,
+    },
+    /// A member's voting power `effStake / VP_UNIT` does not fit `u64`.
+    #[error("voting power of {pubkey} does not fit u64")]
+    PowerOverflow {
+        /// The member's consensus public key.
+        pubkey: B256,
+    },
+    /// The committee's total voting power exceeds [`MAX_TOTAL_POWER`].
+    #[error("total voting power {total} exceeds {MAX_TOTAL_POWER}")]
+    TotalPowerTooLarge {
+        /// The total voting power (saturating at `u128::MAX` on arithmetic overflow).
+        total: u128,
+    },
+    /// The committee's total effective stake overflows `uint256`.
+    #[error("total stake overflows uint256")]
+    TotalStakeOverflow,
+    /// The record the witness claims differs from the one derived from the snapshot.
+    #[error("claimed committee record {claimed:?} differs from the derived {derived:?}")]
+    RecordMismatch {
+        /// The record carried by the witness.
+        claimed: Box<CommitteeRecord>,
+        /// The record derived from the proven snapshot.
+        derived: Box<CommitteeRecord>,
+    },
+}
+
+/// A verified registry snapshot: one checkpoint and all of its entries.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Snapshot {
+    /// Index `i` of the checkpoint in `checkpoints[]`.
+    pub checkpoint_index: u64,
+    /// The checkpoint's `l1Block`: the L1 block whose entry changes it captures.
+    pub l1_block: u64,
+    /// The checkpoint's entries, in index (`bondId`) order.
+    pub entries: Vec<RegistryEntry>,
+}
+
+/// The registry `entriesRoot` over `entries`.
+///
+/// Leaf `i` = `keccak256(abi.encode(bytes32("ETNA_REG_ENTRY_V2"), uint256(i), bytes32 pubkey,
+/// uint256 effStake, uint64 activeFromL1, uint64 exitEffectiveL1, uint64 lastHeartbeatAt,
+/// uint64 lastHeartbeatSeq, address rewardRecipient))`;
+/// the leaves are padded with `bytes32(0)` to the next power of two and hashed pairwise
+/// (`keccak256(left ‖ right)`). One entry gives its leaf; no entries give `bytes32(0)`.
+pub fn entries_root(entries: &[RegistryEntry]) -> B256 {
+    if entries.is_empty() {
+        return B256::ZERO;
+    }
+    let mut level: Vec<B256> = entries.iter().enumerate().map(|(i, e)| entry_leaf(i, e)).collect();
+    level.resize(level.len().next_power_of_two(), B256::ZERO);
+    while level.len() > 1 {
+        level = level.chunks_exact(2).map(|pair| keccak256([pair[0], pair[1]].concat())).collect();
+    }
+    level[0]
+}
+
+/// The set key of `pubkey`, which orders committee members (set-key order):
+/// `keccak256(abi.encode(bytes32("ETNA_SET_KEY"), uint256 chainId, bytes32 pubkey))`.
+///
+/// `l2_chain_id` is the L2 EVM chain id, which unlike the CometBFT `chain_id` does not change
+/// with the recovery generation.
+pub fn set_key(l2_chain_id: u64, pubkey: B256) -> B256 {
+    keccak256([SET_KEY_TAG, word(l2_chain_id), pubkey].concat())
+}
+
+/// The Merkle set root over `members`, with `chainId` = the L2 EVM chain id.
+///
+/// `members` must already be sorted by [`set_key`] ascending (checked in debug builds). Leaf
+/// `index` = `keccak256(abi.encode(bytes32("ETNA_SET_LEAF_V2"), uint256 chainId, uint256 k,
+/// uint256 index, bytes32 pubkey, uint256 effStake, address rewardRecipient))`; inner node =
+/// `keccak256(abi.encode(bytes32("ETNA_SET_NODE"), uint256 chainId, uint256 k, bytes32 left,
+/// bytes32 right))`. Each level pairs nodes left to right and promotes an odd last node
+/// unchanged. One member gives its leaf; no members give `bytes32(0)` (never a valid committee).
+pub fn set_root(l2_chain_id: u64, k: u64, members: &[Member]) -> B256 {
+    debug_assert!(
+        members
+            .windows(2)
+            .all(|w| set_key(l2_chain_id, w[0].pubkey) < set_key(l2_chain_id, w[1].pubkey)),
+        "members must be sorted by set key without duplicates"
+    );
+    if members.is_empty() {
+        return B256::ZERO;
+    }
+    let mut level: Vec<B256> =
+        members.iter().enumerate().map(|(i, m)| set_leaf(l2_chain_id, k, i, m)).collect();
+    while level.len() > 1 {
+        level = level
+            .chunks(2)
+            .map(|chunk| match chunk {
+                [left, right] => set_node(l2_chain_id, k, *left, *right),
+                [odd] => *odd,
+                _ => unreachable!("chunks(2) yields one or two nodes"),
+            })
+            .collect();
+    }
+    level[0]
+}
+
+/// The committee record hash; only the genesis record hash is stored on L1:
+/// `keccak256(abi.encode(bytes32("ETNA_COMMITTEE_V2"), uint256 l2ChainId, uint64 targetEpoch,
+/// uint64 cutoffL1Block, uint64 checkpointIndex, bytes32 setRoot, uint256 totalStake,
+/// uint64 totalPower, uint8 encodingVersion))`.
+pub fn record_hash(l2_chain_id: u64, r: &CommitteeRecord) -> B256 {
+    keccak256(
+        [
+            RECORD_TAG,
+            word(l2_chain_id),
+            word(r.target_epoch),
+            word(r.cutoff_l1_block),
+            word(r.checkpoint_index),
+            r.set_root,
+            word(r.total_stake),
+            word(r.total_power),
+            word(r.encoding_version),
+        ]
+        .concat(),
+    )
+}
+
+/// The authenticated derivation configuration: ten static Solidity ABI words.
+///
+/// Binds the L2 chain, registry, stake/power rules, heartbeat window, committee-record encoding
+/// version and the back-pressure parameters `d_max` and `margin_v`.
+pub fn committee_config_hash(params: &ChainParams) -> B256 {
+    keccak256(
+        [
+            tag(b"ETNA_PARENT_ANCHOR_V5"),
+            word(params.l2_chain_id),
+            B256::from(U256::from_be_slice(params.registry.as_slice())),
+            word(params.vp_unit),
+            word(params.s_min),
+            word(params.n_max),
+            word(params.heartbeat_window),
+            word(ENCODING_VERSION),
+            word(params.d_max),
+            word(params.margin_v),
+        ]
+        .concat(),
+    )
+}
+
+/// The registry slots a committee witness for checkpoint `i` proves, in this order:
+/// `[checkpoints.length, checkpoints[i] word 0, checkpoints[i] word 1]`, followed by
+/// `checkpoints[i + 1]` word 0 when `has_next`.
+///
+/// The next checkpoint's slot is computed as `checkpoints[i]` word 1 plus one in `U256`, so
+/// `i = u64::MAX` does not overflow.
+pub fn snapshot_slots(i: u64, has_next: bool) -> Vec<B256> {
+    let [head, root] = registry::checkpoint_slots(i);
+    let mut slots = vec![registry::length_slot(), head, root];
+    if has_next {
+        // checkpoint_slots(i + 1)[0] = data + 2(i + 1) = checkpoint_slots(i)[1] + 1.
+        slots.push(B256::from(U256::from_be_bytes(root.0).wrapping_add(U256::from(1))));
+    }
+    slots
+}
+
+/// Verifies the registry snapshot carried by `w` against the L1 `state_root`.
+///
+/// The claimed checkpoint is `i = w.record.checkpoint_index`; the witness proves the next
+/// checkpoint iff it carries four storage proofs. Checks, in order: the witness proves the
+/// account at `registry`; its proofs verify for [`snapshot_slots`]`(i, has_next)`;
+/// `i < length`; the next-checkpoint proof is present iff `i + 1 < length`;
+/// `checkpoints[i].l1Block <= cutoff`; `checkpoints[i + 1].l1Block > cutoff` when present; the
+/// witness carries exactly `count` entries; and they hash to `entriesRoot`. Does not look at the
+/// rest of `w.record`.
+pub fn verify_snapshot(
+    state_root: B256,
+    registry: Address,
+    w: &CommitteeWitness,
+    cutoff: u64,
+) -> Result<Snapshot, CommitteeError> {
+    if w.registry.address != registry {
+        return Err(CommitteeError::WrongContract { expected: registry, got: w.registry.address });
+    }
+    let index = w.record.checkpoint_index;
+    let has_next = w.registry.storage.len() == 4;
+    let slots = snapshot_slots(index, has_next);
+    let storage = verify_account_witness(state_root, &w.registry, &slots)?;
+    // `verify_account_witness` succeeds only if the witness proves exactly `slots`.
+    let value = |slot: B256| storage.get(slot).expect("slot belongs to the verified slot set");
+
+    let length = value(slots[0]);
+    let position = U256::from(index);
+    if position >= length {
+        return Err(CommitteeError::CheckpointOutOfRange { index, length });
+    }
+    if has_next != (position + U256::from(1) < length) {
+        return Err(CommitteeError::NextCheckpointMismatch { index, length, proven: has_next });
+    }
+
+    let head = value(slots[1]);
+    let l1_block = word_u64(head, 0);
+    let count = word_u32(head, 64);
+    if l1_block > cutoff {
+        return Err(CommitteeError::CheckpointAfterCutoff { l1_block, cutoff });
+    }
+    if has_next {
+        let next = word_u64(value(slots[3]), 0);
+        if next <= cutoff {
+            return Err(CommitteeError::NextCheckpointNotAfterCutoff { l1_block: next, cutoff });
+        }
+    }
+
+    if w.entries.len() != count as usize {
+        return Err(CommitteeError::EntryCountMismatch { expected: count, got: w.entries.len() });
+    }
+    if w.entries.iter().any(|entry| entry.reward_recipient.is_zero()) {
+        return Err(CommitteeError::ZeroRecipient);
+    }
+    let expected = B256::from(value(slots[2]));
+    let got = entries_root(&w.entries);
+    if got != expected {
+        return Err(CommitteeError::EntriesRootMismatch { expected, got });
+    }
+    Ok(Snapshot { checkpoint_index: index, l1_block, entries: w.entries.clone() })
+}
+
+/// The heartbeat floor for the committee of `target_epoch` selected at `cutoff`.
+///
+/// Epochs before [`FIRST_HEARTBEAT_EPOCH`] are exempt (`None`). Later epochs take the start of
+/// the heartbeat window containing the cutoff, `cutoff − cutoff % heartbeat_window`, and
+/// subtract one window with saturation: a seat holder must have sent a heartbeat in the window
+/// containing the snapshot or the one before it. Eligibility also requires a nonzero heartbeat
+/// sequence. Rejects a zero heartbeat window for filtered epochs.
+pub fn heartbeat_floor(
+    heartbeat_window: u64,
+    target_epoch: u64,
+    cutoff: u64,
+) -> Result<Option<u64>, CommitteeError> {
+    if target_epoch < FIRST_HEARTBEAT_EPOCH {
+        return Ok(None);
+    }
+    if heartbeat_window == 0 {
+        return Err(CommitteeError::ZeroHeartbeatWindow);
+    }
+    let window_start = cutoff - cutoff % heartbeat_window;
+    Ok(Some(window_start.saturating_sub(heartbeat_window)))
+}
+
+/// Derives the committee for `target_epoch` from a verified `snapshot` at `cutoff` and returns its
+/// record and members (sorted by [`set_key`]).
+///
+/// An entry is base eligible iff `active_from_l1 <= cutoff < exit_effective_l1` and
+/// `eff_stake >= max(s_min, vp_unit)`. Among base-eligible entries that share a pubkey only
+/// the one with the lowest `bondId` (index in the snapshot) is kept: a
+/// deterministic tie-break, not registration order, since the registry reuses withdrawn slots.
+/// This is defence in depth: the registry keeps at most one entry per pubkey whose exit is not
+/// yet effective (see the module docs), so no two eligible entries share a key. If
+/// more than `n_max` remain, the first `n_max` by (`eff_stake` descending, set key ascending)
+/// reserve seats. When [`heartbeat_floor`] filters the epoch, only holders with
+/// `last_heartbeat_seq > 0` and `last_heartbeat_at >=` the floor remain; removed holders are
+/// never replaced. Each member's power is `eff_stake / vp_unit`; the total must not exceed
+/// [`MAX_TOTAL_POWER`]. An empty result returns [`CommitteeError::Empty`].
+pub fn derive(
+    snapshot: &Snapshot,
+    cutoff: u64,
+    target_epoch: u64,
+    params: &ChainParams,
+) -> Result<(CommitteeRecord, Vec<Member>), CommitteeError> {
+    let Selection { k, members, total_power, total_stake, .. } =
+        select(&snapshot.entries, cutoff, target_epoch, params)?;
+    let record = CommitteeRecord {
+        target_epoch,
+        cutoff_l1_block: cutoff,
+        checkpoint_index: snapshot.checkpoint_index,
+        set_root: set_root(params.l2_chain_id, k, &members),
+        total_stake,
+        total_power,
+        encoding_version: ENCODING_VERSION,
+    };
+    Ok((record, members))
+}
+
+/// Verifies a committee witness for a target epoch after `e_0` end to end against the parent's
+/// anchor and returns the committee it proves.
+///
+/// Selects exactly `parent_anchor.number` and authenticates the registry proofs under the
+/// same committed parent's state root. Eligibility is evaluated at that number, even when the
+/// last registry mutation checkpoint is older. Candidate anchors never select this snapshot.
+pub fn verify_committee_witness(
+    parent_anchor: &AnchorState,
+    params: &ChainParams,
+    w: &CommitteeWitness,
+    target_epoch: u64,
+) -> Result<(CommitteeRecord, Vec<Member>), CommitteeError> {
+    verify_committee_witness_at_cutoff(
+        parent_anchor.state_root,
+        parent_anchor.number,
+        params,
+        w,
+        target_epoch,
+    )
+}
+
+/// Verifies a committee witness whose snapshot is taken at the given `cutoff`, with its proofs
+/// against the L1 `state_root`, and returns the committee it proves.
+///
+/// The snapshot proofs verify against `state_root` and `params.registry` ([`verify_snapshot`]
+/// with `cutoff` as is: no lag, no grid). Then derives the committee for `target_epoch` at
+/// `cutoff` ([`derive`], so the record's `cutoff_l1_block` is `cutoff`) and
+/// requires the derived record to equal `w.record` ([`CommitteeError::RecordMismatch`]
+/// otherwise).
+///
+/// Precondition: `cutoff` is at or before the L1 block whose `state_root` the proofs verify
+/// against (the proving block). Only then is the snapshot final: a checkpoint written after the
+/// proving block but at or before `cutoff` would change it, and the proofs cannot show it.
+///
+/// Runtime switches use [`verify_committee_witness`] at their committed parent anchor number.
+/// The genesis committee `e_0` is verified here
+/// directly, with the Inbox's `genesisCutoff` against the `L1_0` header's state root: the
+/// genesis names that cutoff explicitly, as `L1_0` is unknown when the DAO proposal that
+/// activates Etna is written.
+pub fn verify_committee_witness_at_cutoff(
+    state_root: B256,
+    cutoff: u64,
+    params: &ChainParams,
+    w: &CommitteeWitness,
+    target_epoch: u64,
+) -> Result<(CommitteeRecord, Vec<Member>), CommitteeError> {
+    let snapshot = verify_snapshot(state_root, params.registry, w, cutoff)?;
+    let (record, members) = derive(&snapshot, cutoff, target_epoch, params)?;
+    if record != w.record {
+        return Err(CommitteeError::RecordMismatch {
+            claimed: Box::new(w.record.clone()),
+            derived: Box::new(record),
+        });
+    }
+    Ok((record, members))
+}
+
+/// The CometBFT validator updates that switch from committee `old` to committee `new`.
+///
+/// Every pubkey of `old` absent from `new` gets power 0 and every member of `new` gets its
+/// power (unchanged members are restated when the native set changes). Identical key/power
+/// sets emit no updates, independently of their authenticated payout metadata. The result is sorted
+/// by pubkey without duplicates.
+pub fn validator_updates(old: &[Member], new: &[Member]) -> Vec<(B256, u64)> {
+    let native = |members: &[Member]| {
+        members.iter().map(|m| (m.pubkey, m.power)).collect::<BTreeMap<_, _>>()
+    };
+    if native(old) == native(new) {
+        return Vec::new();
+    }
+    let mut updates: BTreeMap<B256, u64> = old.iter().map(|m| (m.pubkey, 0)).collect();
+    updates.extend(new.iter().map(|m| (m.pubkey, m.power)));
+    updates.into_iter().collect()
+}
+
+/// The committee [`derive()`] selects from a snapshot's entries, before its record.
+struct Selection {
+    /// Set version `k = targetEpoch − e_0 + 1`.
+    k: u64,
+    /// The members, sorted by set key.
+    members: Vec<Member>,
+    /// The members' total voting power, at most [`MAX_TOTAL_POWER`].
+    total_power: u64,
+    /// The members' total effective stake.
+    total_stake: U256,
+}
+
+/// Selects the committee for `target_epoch` at `cutoff` from `entries` (indexed by `bondId`)
+/// under every rule and check of [`derive()`], which only adds the record.
+fn select(
+    entries: &[RegistryEntry],
+    cutoff: u64,
+    target_epoch: u64,
+    params: &ChainParams,
+) -> Result<Selection, CommitteeError> {
+    if entries.iter().any(|entry| entry.reward_recipient.is_zero()) {
+        return Err(CommitteeError::ZeroRecipient);
+    }
+    if params.vp_unit.is_zero() {
+        return Err(CommitteeError::ZeroVpUnit);
+    }
+    let k = target_epoch
+        .checked_sub(Schedule::E0)
+        .and_then(|d| d.checked_add(1))
+        .ok_or(CommitteeError::EpochOutOfRange(target_epoch))?;
+    let min_stake = params.s_min.max(params.vp_unit);
+    let floor = heartbeat_floor(params.heartbeat_window, target_epoch, cutoff)?;
+
+    // `(set key, bondId, entry)`; `bondId` is the entry's index in the snapshot.
+    let mut eligible: Vec<(B256, usize, &RegistryEntry)> = entries
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| is_base_eligible(e, cutoff, min_stake))
+        .map(|(bond_id, e)| (set_key(params.l2_chain_id, e.pubkey), bond_id, e))
+        .collect();
+    // Equal pubkeys have equal keys, so after the sort the entries of one pubkey are adjacent,
+    // lowest bondId first, and `dedup_by_key` keeps exactly that one.
+    eligible.sort_by_key(|(key, bond_id, _)| (*key, *bond_id));
+    eligible.dedup_by_key(|(key, _, _)| *key);
+    if eligible.len() > params.n_max {
+        eligible.sort_by(|a, b| b.2.eff_stake.cmp(&a.2.eff_stake).then(a.0.cmp(&b.0)));
+        eligible.truncate(params.n_max);
+        eligible.sort_by_key(|(key, _, _)| *key);
+    }
+    // Top-N holders reserve their seats even if a missing heartbeat removes them. A lower
+    // ranked candidate must never backfill the hole or shadow the lowest eligible bond id.
+    eligible.retain(|(_, _, e)| {
+        floor.is_none_or(|floor| e.last_heartbeat_seq > 0 && e.last_heartbeat_at >= floor)
+    });
+    if eligible.is_empty() {
+        return Err(CommitteeError::Empty);
+    }
+    let selected: Vec<(usize, &RegistryEntry)> =
+        eligible.into_iter().map(|(_, bond_id, e)| (bond_id, e)).collect();
+
+    let members = selected
+        .iter()
+        .map(|(_, e)| {
+            let power = member_power(e.pubkey, e.eff_stake, params)?;
+            Ok(Member {
+                reward_recipient: e.reward_recipient,
+                pubkey: e.pubkey,
+                eff_stake: e.eff_stake,
+                power,
+            })
+        })
+        .collect::<Result<Vec<_>, CommitteeError>>()?;
+
+    let (total_power, total_stake) = member_totals(&members)?;
+    Ok(Selection { k, members, total_power, total_stake })
+}
+
+/// Computes canonical positive voting power from eligible stake, with checked narrowing.
+/// Shared by authenticated derivation and local persisted-state consistency checks.
+pub(crate) fn member_power(
+    pubkey: B256,
+    eff_stake: U256,
+    params: &ChainParams,
+) -> Result<u64, CommitteeError> {
+    if params.vp_unit.is_zero() {
+        return Err(CommitteeError::ZeroVpUnit);
+    }
+    if eff_stake < params.s_min.max(params.vp_unit) {
+        return Err(CommitteeError::IneligibleStake { pubkey });
+    }
+    u64::try_from(eff_stake / params.vp_unit).map_err(|_| CommitteeError::PowerOverflow { pubkey })
+}
+
+/// Sums member stake and power without overflow, enforcing CometBFT's total power cap.
+pub(crate) fn member_totals(members: &[Member]) -> Result<(u64, U256), CommitteeError> {
+    let total = members
+        .iter()
+        .try_fold(0u128, |acc, member| acc.checked_add(u128::from(member.power)))
+        .ok_or(CommitteeError::TotalPowerTooLarge { total: u128::MAX })?;
+    let total_power = u64::try_from(total)
+        .ok()
+        .filter(|total| *total <= MAX_TOTAL_POWER)
+        .ok_or(CommitteeError::TotalPowerTooLarge { total })?;
+    let total_stake = members
+        .iter()
+        .try_fold(U256::ZERO, |acc, member| acc.checked_add(member.eff_stake))
+        .ok_or(CommitteeError::TotalStakeOverflow)?;
+    Ok((total_power, total_stake))
+}
+
+/// Whether `e` can hold a seat at `cutoff`: active and staked at least `min_stake`.
+/// Heartbeat eligibility is checked only after deduplication and top-N seat reservation.
+fn is_base_eligible(e: &RegistryEntry, cutoff: u64, min_stake: U256) -> bool {
+    e.active_from_l1 <= cutoff && cutoff < e.exit_effective_l1 && e.eff_stake >= min_stake
+}
+
+/// The registry leaf of entry `index` (see [`entries_root`]).
+fn entry_leaf(index: usize, e: &RegistryEntry) -> B256 {
+    keccak256(
+        [
+            REG_ENTRY_TAG,
+            word(index),
+            e.pubkey,
+            word(e.eff_stake),
+            word(e.active_from_l1),
+            word(e.exit_effective_l1),
+            word(e.last_heartbeat_at),
+            word(e.last_heartbeat_seq),
+            B256::from(U256::from_be_slice(e.reward_recipient.as_slice())),
+        ]
+        .concat(),
+    )
+}
+
+/// The set-root leaf of the member at sorted position `index` (see [`set_root`]).
+fn set_leaf(l2_chain_id: u64, k: u64, index: usize, m: &Member) -> B256 {
+    keccak256(
+        [
+            SET_LEAF_TAG,
+            word(l2_chain_id),
+            word(k),
+            word(index),
+            m.pubkey,
+            word(m.eff_stake),
+            B256::from(U256::from_be_slice(m.reward_recipient.as_slice())),
+        ]
+        .concat(),
+    )
+}
+
+/// A set-root inner node over `left` and `right` (see [`set_root`]).
+fn set_node(l2_chain_id: u64, k: u64, left: B256, right: B256) -> B256 {
+    keccak256([SET_NODE_TAG, word(l2_chain_id), word(k), left, right].concat())
+}
+
+/// One `abi.encode` word: the unsigned integer `value` left-padded to 32 bytes, big-endian.
+fn word<T>(value: T) -> B256
+where
+    U256: UintTryFrom<T>,
+{
+    B256::from(U256::from(value))
+}
+
+/// A `bytes32` domain tag: the ASCII `name`, right-padded with zero bytes (at most 32 bytes).
+const fn tag(name: &[u8]) -> B256 {
+    let mut out = [0u8; 32];
+    let mut i = 0;
+    while i < name.len() {
+        out[i] = name[i];
+        i += 1;
+    }
+    B256::new(out)
+}
+
+#[cfg(test)]
+mod tests;

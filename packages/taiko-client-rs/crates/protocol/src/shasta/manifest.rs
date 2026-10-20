@@ -116,7 +116,19 @@ impl DerivationSourceManifest {
         offset: usize,
         max_blocks: usize,
     ) -> Result<Self> {
-        let decoded = match decode_manifest_payload(bytes, offset) {
+        Self::decompress_and_decode_with_limits(bytes, offset, max_blocks, usize::MAX)
+    }
+
+    /// Decompress and decode a derivation source manifest with caller-selected block and
+    /// decompressed-size limits. A manifest whose zlib stream would decompress to more than
+    /// `max_decompressed` bytes returns the default manifest, like any other content failure.
+    pub fn decompress_and_decode_with_limits(
+        bytes: &[u8],
+        offset: usize,
+        max_blocks: usize,
+        max_decompressed: usize,
+    ) -> Result<Self> {
+        let decoded = match decode_manifest_payload(bytes, offset, max_decompressed) {
             Ok(d) => d,
             Err(err) => {
                 warn!(?err, "failed to decode manifest payload; returning default manifest");
@@ -202,8 +214,13 @@ fn low_u64_from_word(word: &[u8]) -> u64 {
     u64::from_be_bytes(low)
 }
 
-/// Decode a manifest from the Shasta protocol payload format.
-fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Vec<u8>> {
+/// Decode a manifest from the Shasta protocol payload format, failing once the decompressed
+/// manifest exceeds `max_decompressed` bytes.
+fn decode_manifest_payload(
+    bytes: &[u8],
+    offset: usize,
+    max_decompressed: usize,
+) -> Result<Vec<u8>> {
     if bytes.len() < offset + 64 {
         return Err(ProtocolError::InvalidPayload(format!(
             "payload too short for header: expected at least {} bytes, got {}",
@@ -242,13 +259,19 @@ fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Vec<u8>> {
     }
 
     let compressed = &bytes[start..start + size];
-    decompress_manifest_zlib(compressed, &mut [0u8; 8192])
+    decompress_manifest_zlib(compressed, &mut [0u8; 8192], max_decompressed)
 }
 
 /// Decompress the first complete zlib stream, validating its checksum.
 /// Exhausted input is not completion: a truncated stream may have emitted an entire manifest.
 /// Bytes after the first completed stream are ignored, matching the Go source decoder.
-fn decompress_manifest_zlib(compressed: &[u8], chunk: &mut [u8]) -> Result<Vec<u8>> {
+/// Fails as soon as the output would exceed `max_output` bytes, so the returned buffer never
+/// holds more than `max_output` bytes.
+fn decompress_manifest_zlib(
+    compressed: &[u8],
+    chunk: &mut [u8],
+    max_output: usize,
+) -> Result<Vec<u8>> {
     debug_assert!(!chunk.is_empty());
     let mut dictionary_set = false;
     let mut decoder = Decompress::new(true);
@@ -279,6 +302,12 @@ fn decompress_manifest_zlib(compressed: &[u8], chunk: &mut [u8]) -> Result<Vec<u
             }
         };
         let produced = (decoder.total_out() - output_before) as usize;
+        // `decoded` never grows past `max_output`, so the subtraction cannot underflow.
+        if produced > max_output - decoded.len() {
+            return Err(ProtocolError::Compression(format!(
+                "decompressed manifest exceeds {max_output} bytes"
+            )));
+        }
         decoded.extend_from_slice(&chunk[..produced]);
 
         if status == Status::StreamEnd {
@@ -298,6 +327,36 @@ mod tests {
         DerivationSourceManifest { blocks: vec![BlockManifest { gas_limit, ..Default::default() }] }
     }
 
+    /// Decompressed manifest cap the forced inclusion derivation applies (1 MiB).
+    const FI_MAX_DECOMPRESSED_BYTES: usize = 1 << 20;
+
+    /// Build a one-block manifest whose RLP, the decompressed payload, is exactly `len` bytes,
+    /// by padding the input of its single legacy transaction.
+    fn manifest_with_rlp_len(len: usize) -> DerivationSourceManifest {
+        use alloy::primitives::Signature;
+        use alloy_consensus::SignableTransaction;
+
+        let padded = |pad: usize| {
+            let tx = TxLegacy { input: vec![0; pad].into(), ..Default::default() };
+            let signed = tx.into_signed(Signature::new(U256::from(1), U256::from(1), false));
+            DerivationSourceManifest {
+                blocks: vec![BlockManifest {
+                    transactions: vec![TxEnvelope::Legacy(signed)],
+                    ..Default::default()
+                }],
+            }
+        };
+        let overhead = alloy_rlp::encode(padded(len)).len() - len;
+        let manifest = padded(len - overhead);
+        assert_eq!(alloy_rlp::encode(&manifest).len(), len);
+        manifest
+    }
+
+    /// Hash a manifest's RLP so mismatches of megabyte-sized manifests print compactly.
+    fn rlp_hash(manifest: &DerivationSourceManifest) -> alloy::primitives::B256 {
+        alloy::primitives::keccak256(alloy_rlp::encode(manifest))
+    }
+
     fn assert_decoded_gas_limit(payload: &[u8], expected_gas_limit: u64) {
         let decoded = DerivationSourceManifest::decompress_and_decode(payload, 0)
             .expect("manifest decoding should not return a hard error");
@@ -309,7 +368,7 @@ mod tests {
     fn test_decode_manifest_payload_too_short() {
         let payload = vec![0u8; 32];
 
-        let result = decode_manifest_payload(&payload, 0);
+        let result = decode_manifest_payload(&payload, 0, usize::MAX);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("payload too short for header"));
     }
@@ -319,7 +378,7 @@ mod tests {
         let mut payload = vec![0u8; 64];
         payload[31] = SHASTA_PAYLOAD_VERSION + 1;
 
-        let result = decode_manifest_payload(&payload, 0);
+        let result = decode_manifest_payload(&payload, 0, usize::MAX);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("unsupported payload version"));
     }
@@ -372,7 +431,7 @@ mod tests {
         payload[64] = 0x78;
         payload[65] = 0x00; // truncated zlib stream
 
-        let result = decode_manifest_payload(&payload, 0);
+        let result = decode_manifest_payload(&payload, 0, usize::MAX);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("failed to decompress zlib data"));
     }
@@ -501,7 +560,7 @@ mod tests {
         payload[31] = SHASTA_PAYLOAD_VERSION;
         payload[56..64].fill(0xFF); // size word low 64 bits = u64::MAX
 
-        let result = decode_manifest_payload(&payload, 0);
+        let result = decode_manifest_payload(&payload, 0, usize::MAX);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("payload too short for compressed data"));
     }
@@ -531,7 +590,7 @@ mod tests {
         payload[31] = SHASTA_PAYLOAD_VERSION;
         payload[63] = 100; // size = 100, but only 2 bytes remain after the header
 
-        let result = decode_manifest_payload(&payload, 0);
+        let result = decode_manifest_payload(&payload, 0, usize::MAX);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("payload too short for compressed data"));
     }
@@ -579,6 +638,42 @@ mod tests {
 
         let decoded = DerivationSourceManifest::decompress_and_decode(&encoded, 0).unwrap();
         assert_eq!(decoded.blocks.len(), DERIVATION_SOURCE_MAX_BLOCKS);
+    }
+
+    #[test]
+    fn limits_decode_a_manifest_exactly_at_the_decompressed_cap() {
+        let manifest = manifest_with_rlp_len(FI_MAX_DECOMPRESSED_BYTES);
+        let payload = manifest.encode_and_compress().unwrap();
+
+        let decoded = DerivationSourceManifest::decompress_and_decode_with_limits(
+            &payload,
+            0,
+            1,
+            FI_MAX_DECOMPRESSED_BYTES,
+        )
+        .unwrap();
+        assert_eq!(rlp_hash(&decoded), rlp_hash(&manifest));
+    }
+
+    #[test]
+    fn limits_default_a_manifest_one_byte_over_the_cap() {
+        let manifest = manifest_with_rlp_len(FI_MAX_DECOMPRESSED_BYTES + 1);
+        let payload = manifest.encode_and_compress().unwrap();
+
+        let decoded = DerivationSourceManifest::decompress_and_decode_with_limits(
+            &payload,
+            0,
+            1,
+            FI_MAX_DECOMPRESSED_BYTES,
+        )
+        .unwrap();
+        assert_eq!(rlp_hash(&decoded), rlp_hash(&DerivationSourceManifest::default()));
+
+        // Without the cap the same payload decodes, so only the cap degrades it.
+        let uncapped =
+            DerivationSourceManifest::decompress_and_decode_with_max_blocks(&payload, 0, 1)
+                .unwrap();
+        assert_eq!(rlp_hash(&uncapped), rlp_hash(&manifest));
     }
 }
 

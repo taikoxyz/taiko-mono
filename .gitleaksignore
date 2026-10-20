@@ -1,0 +1,9 @@
+# Exact historical false positives only; keep all other credential detection enabled.
+# Both Etna companion branches carry this same union to merge without conflicts.
+# Public vector hashes are covered by the scoped allowlist in .gitleaks.toml.
+# Retain these commit-specific chain ID fingerprints for unsquashed branch history;
+# the current 301-member test uses a named constant instead of literal arguments.
+# The public CometBFT chain ID identifies the test chain; it is not a signer key.
+b730595938b38491c06d62a9aadb385168f4538c:packages/taiko-client-rs/crates/lander/src/test_utils/consensus_mpt.rs:generic-api-key:1319
+b730595938b38491c06d62a9aadb385168f4538c:packages/taiko-client-rs/crates/lander/src/test_utils/consensus_mpt.rs:generic-api-key:1323
+b730595938b38491c06d62a9aadb385168f4538c:packages/taiko-client-rs/crates/lander/src/test_utils/consensus_mpt.rs:generic-api-key:1327
