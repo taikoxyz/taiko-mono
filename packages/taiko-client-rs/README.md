@@ -254,9 +254,11 @@ for its block rule. The block timestamp is the derived `max(parent + 1, floor(BF
 Proposal selection prefers the newest usable finalized anchor (L1 `finalized` less
 `l1_finality_extra_depth`, never below the committed parent anchor). Acceptance checks the
 proposal's fixed derived block timestamp instead. A moved anchor must still be canonical and
-final in the validator's own L1 view, but there is no `K_FRESH` distance from its current finalized
-head. Advancing that head alone cannot expire an accepted proposal, including for a validator
-receiving it for the first time or replaying it without an acceptance cache.
+final in the validator's own L1 view, but its distance from that view's current finalized head is
+not checked. Advancing that head alone cannot expire an accepted proposal, including for a
+validator receiving it for the first time or replaying it without an acceptance cache; otherwise a
+locked block re-proposed unchanged in a later round might never gather more than 2/3 of the
+voting power.
 
 For the current authenticated queue head, a block timestamp at or beyond
 `entry.timestamp + D + maxAnchorAge` implies that the entry is due at the block's anchor.
