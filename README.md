@@ -53,6 +53,20 @@ Get started with Taiko Alethia:
 
 If you find a bug or have a feature request, please [open an issue](https://github.com/taikoxyz/taiko-mono/issues/new/choose).
 
+## Development prerequisites
+
+Use the Node.js version pinned in [`.nvmrc`](./.nvmrc) and pnpm 9 for local development and CI.
+Node.js 22.23.4 includes the [October 2026 security fixes](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases).
+
+From the repository root:
+
+```bash
+nvm install
+nvm use
+npm install --global pnpm@9
+pnpm install
+```
+
 ## Contributing
 
 Check out [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to contribute. You can also check out our grants cycle at [https://taiko.xyz/grant-program](https://taiko.xyz/grant-program).
