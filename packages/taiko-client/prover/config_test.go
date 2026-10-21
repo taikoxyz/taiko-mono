@@ -67,100 +67,6 @@ func (s *ProverTestSuite) TestProverConfigShastaOnlySurface() {
 	}))
 }
 
-func TestNewConfigFromCliContextMaxRisc0ProofProposalDistance(t *testing.T) {
-	t.Run("uses default value", func(t *testing.T) {
-		cfg := newTestConfigFromCLI(t)
-
-		require.Equal(t, uint64(30), cfg.MaxRisc0ProofProposalDistance)
-	})
-
-	t.Run("uses flag value", func(t *testing.T) {
-		cfg := newTestConfigFromCLI(t, "--"+flags.MaxRisc0ProofProposalDistance.Name, "12")
-
-		require.Equal(t, uint64(12), cfg.MaxRisc0ProofProposalDistance)
-	})
-
-	t.Run("rejects removed legacy flag", func(t *testing.T) {
-		err := runTestConfigFromCLI(t, "--prover.maxZKProofProposalDistance", "13")
-
-		require.ErrorContains(t, err, "flag provided but not defined")
-	})
-}
-
-func TestNewConfigFromCliContextForceSP1Proof(t *testing.T) {
-	t.Run("uses default value", func(t *testing.T) {
-		cfg := newTestConfigFromCLI(t)
-
-		require.False(t, cfg.ForceSP1Proof)
-	})
-
-	t.Run("uses flag value", func(t *testing.T) {
-		cfg := newTestConfigFromCLI(t, "--"+flags.ForceSP1Proof.Name)
-
-		require.True(t, cfg.ForceSP1Proof)
-	})
-}
-
-func TestNewConfigFromCliContextSP1ProofPercentage(t *testing.T) {
-	t.Run("uses default value", func(t *testing.T) {
-		cfg := newTestConfigFromCLI(t)
-
-		require.Zero(t, cfg.SP1ProofPercentage)
-	})
-
-	t.Run("accepts the default with any batch size", func(t *testing.T) {
-		cfg := newTestConfigFromCLI(t, "--"+flags.ZKVMBatchSize.Name, "3")
-
-		require.Zero(t, cfg.SP1ProofPercentage)
-	})
-
-	t.Run("accepts runs that fill whole batches", func(t *testing.T) {
-		cfg := newTestConfigFromCLI(
-			t,
-			"--"+flags.SP1ProofPercentage.Name, "30",
-			"--"+flags.ZKVMBatchSize.Name, "5",
-		)
-
-		require.Equal(t, uint64(30), cfg.SP1ProofPercentage)
-	})
-
-	t.Run("accepts 100 with any batch size", func(t *testing.T) {
-		cfg := newTestConfigFromCLI(
-			t,
-			"--"+flags.SP1ProofPercentage.Name, "100",
-			"--"+flags.ZKVMBatchSize.Name, "3",
-		)
-
-		require.Equal(t, uint64(100), cfg.SP1ProofPercentage)
-	})
-
-	t.Run("rejects values above 100", func(t *testing.T) {
-		err := runTestConfigFromCLI(t, "--"+flags.SP1ProofPercentage.Name, "101")
-
-		require.ErrorContains(t, err, "--"+flags.SP1ProofPercentage.Name+" must be at most 100")
-	})
-
-	t.Run("rejects an SP1 share that does not fill whole batches", func(t *testing.T) {
-		err := runTestConfigFromCLI(
-			t,
-			"--"+flags.SP1ProofPercentage.Name, "33",
-			"--"+flags.ZKVMBatchSize.Name, "5",
-		)
-
-		require.ErrorContains(t, err, "must both be multiples of --"+flags.ZKVMBatchSize.Name)
-	})
-
-	t.Run("rejects a RISC0 remainder that does not fill whole batches", func(t *testing.T) {
-		err := runTestConfigFromCLI(
-			t,
-			"--"+flags.SP1ProofPercentage.Name, "30",
-			"--"+flags.ZKVMBatchSize.Name, "3",
-		)
-
-		require.ErrorContains(t, err, "must both be multiples of --"+flags.ZKVMBatchSize.Name)
-	})
-}
-
 func TestNewConfigFromCliContextForceSGXProof(t *testing.T) {
 	t.Run("uses default value", func(t *testing.T) {
 		cfg := newTestConfigFromCLI(t)
@@ -188,17 +94,6 @@ func TestNewConfigFromCliContextSGXRethCompanionProof(t *testing.T) {
 		require.True(t, cfg.SGXRethCompanionProof)
 	})
 
-	t.Run("allows zk only proofs", func(t *testing.T) {
-		cfg := newTestConfigFromCLI(
-			t,
-			"--"+flags.SGXRethCompanionProof.Name,
-			"--"+flags.ZkOnlyProofs.Name,
-		)
-
-		require.True(t, cfg.SGXRethCompanionProof)
-		require.True(t, cfg.ZkOnlyProofs)
-	})
-
 	t.Run("rejects force sgx proof", func(t *testing.T) {
 		err := runTestConfigFromCLI(
 			t,
@@ -211,24 +106,6 @@ func TestNewConfigFromCliContextSGXRethCompanionProof(t *testing.T) {
 			err,
 			"--"+flags.SGXRethCompanionProof.Name+" cannot be combined with --"+flags.ForceSGXProof.Name,
 		)
-	})
-}
-
-func TestNewConfigFromCliContextZkOnlyProofs(t *testing.T) {
-	t.Run("uses default value", func(t *testing.T) {
-		cfg := newTestConfigFromCLI(t)
-
-		require.False(t, cfg.ZkOnlyProofs)
-	})
-
-	t.Run("uses flag value with the shared raiko host", func(t *testing.T) {
-		cfg := newTestConfigFromCLI(
-			t,
-			"--"+flags.ZkOnlyProofs.Name,
-		)
-
-		require.True(t, cfg.ZkOnlyProofs)
-		require.Equal(t, "http://raiko.host", cfg.RaikoHostEndpoint)
 	})
 }
 
@@ -318,17 +195,9 @@ func runTestConfigFromCLIWithConfig(t *testing.T, cfg **Config, extraArgs ...str
 		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
 		&cli.StringFlag{Name: flags.L1ProverPrivKey.Name},
 		&cli.StringFlag{Name: flags.JWTSecret.Name},
-		&cli.Uint64Flag{
-			Name:    flags.MaxRisc0ProofProposalDistance.Name,
-			Aliases: flags.MaxRisc0ProofProposalDistance.Aliases,
-			Value:   flags.MaxRisc0ProofProposalDistance.Value,
-		},
-		&cli.BoolFlag{Name: flags.ForceSP1Proof.Name},
-		&cli.Uint64Flag{Name: flags.SP1ProofPercentage.Name},
 		&cli.Uint64Flag{Name: flags.ZKVMBatchSize.Name, Value: flags.ZKVMBatchSize.Value},
 		&cli.BoolFlag{Name: flags.ForceSGXProof.Name},
 		&cli.BoolFlag{Name: flags.SGXRethCompanionProof.Name},
-		&cli.BoolFlag{Name: flags.ZkOnlyProofs.Name},
 		&cli.StringFlag{Name: flags.RaikoHostEndpoint.Name},
 	}
 
@@ -339,7 +208,7 @@ func runTestConfigFromCLIWithConfig(t *testing.T, cfg **Config, extraArgs ...str
 	}
 
 	args := []string{
-		"TestNewConfigFromCliContextMaxRisc0ProofProposalDistance",
+		"TestNewConfigFromCliContext",
 		"--" + flags.L1WSEndpoint.Name, "http://localhost:8545",
 		"--" + flags.L2WSEndpoint.Name, "http://localhost:9545",
 		"--" + flags.InboxAddress.Name, common.HexToAddress("0x00000000000000000000000000000000000000aa").Hex(),

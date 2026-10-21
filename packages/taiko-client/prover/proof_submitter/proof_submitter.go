@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"strconv"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -54,21 +53,11 @@ type ProofSubmitter struct {
 	proofBuffers   map[proofProducer.ProofType]*proofProducer.ProofBuffer
 	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse]
 	// Intervals
-	forceBatchProvingInterval     time.Duration
-	proofPollingInterval          time.Duration
-	proposalWindowSize            *big.Int
-	maxRisc0ProofProposalDistance *big.Int
-	forceSP1Proof                 bool
-	sp1ProofPercentage            uint64
-	forceSGXProof                 bool
-	sgxRethCompanionProof         bool
-	zkOnlyProofs                  bool
-	// RISC0-to-SP1 fallback state machine (see risc0_sp1_fallback.go).
-	risc0Backlog proofProducer.Risc0BacklogController
-	sp1Fallback  sp1Fallback
-	// ctx is the prover's long-lived context, used by background goroutines
-	// (e.g. the RISC0 backlog clear) that must outlive a single RequestProof call.
-	ctx context.Context
+	forceBatchProvingInterval time.Duration
+	proofPollingInterval      time.Duration
+	proposalWindowSize        *big.Int
+	forceSGXProof             bool
+	sgxRethCompanionProof     bool
 }
 
 // NewProofSubmitter creates a new ProofSubmitter instance.
@@ -86,12 +75,8 @@ func NewProofSubmitter(
 	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse],
 	flushCacheNotify chan proofProducer.ProofType,
 	proposalWindowSize *big.Int,
-	maxRisc0ProofProposalDistance *big.Int,
-	forceSP1Proof bool,
-	sp1ProofPercentage uint64,
 	forceSGXProof bool,
 	sgxRethCompanionProof bool,
-	zkOnlyProofs bool,
 ) (*ProofSubmitter, error) {
 	if zkvmProofProducer == nil {
 		return nil, fmt.Errorf("proof submitter requires a ZKVM proof producer")
@@ -109,29 +94,15 @@ func NewProofSubmitter(
 			senderOpts.PrivateTxmgr,
 			senderOpts.GasLimit,
 		),
-		proverAddress:                 senderOpts.Txmgr.From(),
-		proofPollingInterval:          proofPollingInterval,
-		proofBuffers:                  proofBuffers,
-		forceBatchProvingInterval:     forceBatchProvingInterval,
-		proofCacheMaps:                proofCacheMaps,
-		flushCacheNotify:              flushCacheNotify,
-		proposalWindowSize:            proposalWindowSize,
-		maxRisc0ProofProposalDistance: maxRisc0ProofProposalDistance,
-		forceSP1Proof:                 forceSP1Proof,
-		sp1ProofPercentage:            sp1ProofPercentage,
-		forceSGXProof:                 forceSGXProof,
-		sgxRethCompanionProof:         sgxRethCompanionProof,
-		zkOnlyProofs:                  zkOnlyProofs,
-		ctx:                           ctx,
-	}
-
-	// Wire the raiko2 control-plane client (ClearBacklog/StatusClean) when a
-	// RISC0 producer is configured. This is a compile-time capability check, not a
-	// probe of the remote host. When the Raiko host predates raiko2 #93, the
-	// control-plane calls return 404 and the machine degrades by design (see
-	// canResumeRisc0).
-	if risc0Backlog, ok := zkvmProofProducer.(proofProducer.Risc0BacklogController); ok {
-		proofSubmitter.risc0Backlog = risc0Backlog
+		proverAddress:             senderOpts.Txmgr.From(),
+		proofPollingInterval:      proofPollingInterval,
+		proofBuffers:              proofBuffers,
+		forceBatchProvingInterval: forceBatchProvingInterval,
+		proofCacheMaps:            proofCacheMaps,
+		flushCacheNotify:          flushCacheNotify,
+		proposalWindowSize:        proposalWindowSize,
+		forceSGXProof:             forceSGXProof,
+		sgxRethCompanionProof:     sgxRethCompanionProof,
 	}
 
 	proofSubmitter.startBackgroundWorkers(ctx)
@@ -243,7 +214,6 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 			meta.Shasta().GetEventData().Id,
 			meta,
 			startAt,
-			lastFinalizedProposalID,
 		); err != nil {
 			log.Debug("Got error, retrying", "err", err)
 			return err
@@ -283,26 +253,17 @@ func (s *ProofSubmitter) requestProposalProof(
 	proposalID *big.Int,
 	meta metadata.TaikoProposalMetaData,
 	startAt time.Time,
-	lastFinalizedProposalID *big.Int,
 ) (*proofProducer.ProofResponse, error) {
 	if s.zkvmProofProducer == nil {
 		return nil, fmt.Errorf("proof submitter requires a ZKVM proof producer")
 	}
 
-	// In ZK-only mode every proposal needs both ZK proofs: SP1 is the primary lane and the
-	// producer requests RISC0 as the companion leg, so the RISC0/SP1 selection machine (and
-	// its backlog-clearing side effects, which would cancel RISC0 tasks this mode depends
-	// on) must not run.
 	proofType := proofProducer.ProofTypeZKSP1
-	if s.forceSGXProof && !s.zkOnlyProofs {
+	if s.forceSGXProof {
 		proofType = proofProducer.ProofTypeSgx
-	} else if !s.zkOnlyProofs {
-		proofType = s.decideZKProofType(ctx, proposalID, lastFinalizedProposalID)
 	}
 	companionProofType := proofProducer.ProofTypeSgxGeth
-	if s.zkOnlyProofs {
-		companionProofType = proofProducer.ProofTypeZKR0
-	} else if s.sgxRethCompanionProof {
+	if s.sgxRethCompanionProof {
 		companionProofType = proofProducer.ProofTypeSgx
 	}
 
@@ -318,16 +279,6 @@ func (s *ProofSubmitter) requestProposalProof(
 		return nil, fmt.Errorf("received nil proof response from ZKVM producer for type %s", proofType)
 	}
 	return proofResponse, nil
-}
-
-func (s *ProofSubmitter) shouldUseRisc0Proof(proposalID *big.Int, lastFinalizedProposalID *big.Int) bool {
-	maxRisc0ProofProposalDistance := s.maxRisc0ProofProposalDistance
-	if maxRisc0ProofProposalDistance == nil {
-		return true
-	}
-
-	maxRisc0ProofProposalID := new(big.Int).Add(lastFinalizedProposalID, maxRisc0ProofProposalDistance)
-	return proposalID.Cmp(maxRisc0ProofProposalID) <= 0
 }
 
 // handleProofResponse routes a new proof into either the sequential buffer or cache.
@@ -464,42 +415,18 @@ func (s *ProofSubmitter) ClearProofBuffers(batchProof *proofProducer.BatchProofs
 	return nil
 }
 
-// TryAggregate tries to aggregate the proofs in the buffer, if the buffer is full, the forced
-// aggregation interval has passed, or its last proposal ends a run of proofType: a fixed
-// SP1-share or RISC0 run (see sp1_proof_share.go), or a run whose next proposal is already
-// proven with another proof type. The last two cases keep a partial batch at a run end from
-// waiting for the forced aggregation interval.
+// TryAggregate tries to aggregate proofs when the buffer is full or the forced interval has passed.
 func (s *ProofSubmitter) TryAggregate(buffer *proofProducer.ProofBuffer, proofType proofProducer.ProofType) bool {
 	// Check conditions first (without locking)
 	if uint64(buffer.Len()) < buffer.MaxLength &&
 		(buffer.Len() == 0 ||
-			(time.Since(buffer.LastItemAt()) <= s.forceBatchProvingInterval &&
-				!s.endsProofShareRun(buffer.LastInsertID(), proofType) &&
-				!s.nextProposalCachedAsOtherType(buffer.LastInsertID(), proofType))) {
+			time.Since(buffer.LastItemAt()) <= s.forceBatchProvingInterval) {
 		return false
 	}
 
 	if buffer.MarkAggregatingIfNot() { // Returns true if successfully marked
 		s.batchAggregationNotify <- proofType
 		return true
-	}
-	return false
-}
-
-// nextProposalCachedAsOtherType reports whether the proposal after lastProposalID already has a
-// cached proof of another proof type. That proposal gets no proof of proofType, so the buffer
-// cannot grow until its batch is finalized. This happens when the RISC0-to-SP1 fallback resumes
-// RISC0 after SP1 proved a proposal out of order: the in-flight proposals before it switch to
-// RISC0.
-func (s *ProofSubmitter) nextProposalCachedAsOtherType(
-	lastProposalID uint64,
-	proofType proofProducer.ProofType,
-) bool {
-	nextProposalID := strconv.FormatUint(lastProposalID+1, 10)
-	for cachedProofType, cacheMap := range s.proofCacheMaps {
-		if cachedProofType != proofType && cacheMap.Has(nextProposalID) {
-			return true
-		}
 	}
 	return false
 }
@@ -513,7 +440,7 @@ func (s *ProofSubmitter) AggregateProofsByType(ctx context.Context, proofType pr
 	// nolint:exhaustive
 	// We deliberately handle only known proof types and catch others in default case
 	switch proofType {
-	case proofProducer.ProofTypeSgx, proofProducer.ProofTypeZKR0, proofProducer.ProofTypeZKSP1:
+	case proofProducer.ProofTypeSgx, proofProducer.ProofTypeZKSP1:
 	default:
 		return fmt.Errorf("unknown proof type: %s", proofType)
 	}

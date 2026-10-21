@@ -45,12 +45,17 @@ Review each sub-command's command line flags:
 bin/taiko-client <sub-command> --help
 ```
 
-### SGX_RETH companion proofs
+### SP1 and SGX companion proofs
 
-After the Shasta fork, enable `--prover.sgxRethCompanionProof` when the prover
-should pair each RISC0 or SP1 proof with SGX_RETH instead of SGX_GETH. The flag
-defaults to `false`, preserving the SGX_GETH companion, and keeps the existing
-RISC0/SP1 selection and fallback behavior.
+After the Shasta fork, the prover requests an SP1 proof for every proposal and
+submits it with an SGX_GETH companion proof by default. The inbox's proof
+verifier must accept the `[SGX_GETH, SP1]` pair. The prover continues to buffer
+SP1 proofs for batch aggregation according to `--prover.zkvm.batchSize` and
+`--prover.forceBatchProvingInterval`.
+
+Enable `--prover.sgxRethCompanionProof` to use SGX_RETH instead of SGX_GETH.
+This submits the `[SGX_RETH, SP1]` pair and requires a verifier that accepts it.
+The flag defaults to `false`.
 
 Add `--prover.sgxRethCompanionProof` to your existing prover command, keeping all
 required connection, contract, and signing options. Alternatively, enable it in
@@ -62,14 +67,29 @@ export PROVER_SGX_RETH_COMPANION_PROOF=true
 
 Before enabling this mode, ensure that the configured Raiko host serves `sgx`
 (SGX_RETH) proofs, including aggregation, and that its SGX signer has a valid
-registered instance in the SGX_RETH verifier. The inbox's proof verifier must
-accept both `[SGX_RETH, RISC0]` and `[SGX_RETH, SP1]`; `MainnetVerifier` and
-`ZkRequiredVerifier` support these pairs. Submissions revert if the configured
-verifier does not accept the selected pair.
+registered instance in the SGX_RETH verifier. `MainnetVerifier` and
+`ZkRequiredVerifier` accept both SP1 and SGX pairs above. Submissions revert if
+the configured verifier does not accept the selected pair.
 
 Do not combine this flag with `--prover.forceSGXProof`: startup rejects that
-combination. With `--prover.zkOnlyProofs`, the companion flag is ignored and the
-prover still submits `[RISC0, SP1]`.
+combination. Forced SGX proving requires a verifier that accepts the
+`[SGX_GETH, SGX_RETH]` pair; `ZkRequiredVerifier` does not accept it.
+
+The RISC0 proving path and its fallback to SP1 have been removed. Remove the
+following flags and environment variables from prover deployments; SP1 is now
+the default ZK proof type:
+
+| Removed flag | Removed environment variable |
+| --- | --- |
+| `--prover.maxRisc0ProofProposalDistance` | `PROVER_MAX_RISC0_PROOF_PROPOSAL_DISTANCE` |
+| `--prover.forceSP1Proof` | `PROVER_FORCE_SP1_PROOF` |
+| `--prover.sp1ProofPercentage` | `PROVER_SP1_PROOF_PERCENTAGE` |
+| `--prover.zkOnlyProofs` | `PROVER_ZK_ONLY_PROOFS` |
+
+The former ZK-only mode submitted `[RISC0, SP1]` without an SGX companion.
+It is no longer available because a single SP1 proof does not satisfy the
+current two-sub-proof verifier interface. Deployments must provide an SGX
+companion proof and use a verifier that accepts the selected pair.
 
 ## L1 beacon node requirements
 
