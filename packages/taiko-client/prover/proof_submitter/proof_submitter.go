@@ -25,9 +25,6 @@ import (
 
 var ErrProposalOutOfAllowedRange = errors.New("proposalID out of allowed proving range")
 
-// SP1ProofShareCycle remains until the obsolete CLI validation is removed.
-const SP1ProofShareCycle uint64 = 100
-
 // SenderOptions is the options for the transaction sender.
 type SenderOptions struct {
 	RPCClient    *rpc.Client

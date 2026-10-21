@@ -65,43 +65,10 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_PROPOSAL_WINDOW_SIZE"},
 	}
-	MaxRisc0ProofProposalDistance = &cli.Uint64Flag{
-		Name: "prover.maxRisc0ProofProposalDistance",
-		Usage: "The maximum proposal distance counted from lastFinalizedProposalID for requesting RISC0 proofs. " +
-			"When proposalID exceeds lastFinalizedProposalID + maxRisc0ProofProposalDistance, the prover stops " +
-			"requesting RISC0 proofs, clears the RISC0 backlog, and falls back to SP1 until the backlog " +
-			"is cleared and the RISC0 endpoint reports clean, then resumes RISC0. Set to 0 to always use SP1. " +
-			"Post Shasta fork only.",
-		Value:    30,
-		Category: proverCategory,
-		EnvVars:  []string{"PROVER_MAX_RISC0_PROOF_PROPOSAL_DISTANCE"},
-	}
-	ForceSP1Proof = &cli.BoolFlag{
-		Name: "prover.forceSP1Proof",
-		Usage: "Always request SP1 proofs from the ZKVM proof producer instead of trying RISC0 first. " +
-			"Ignored when --prover.zkOnlyProofs is set. Post Shasta fork only.",
-		Value:    false,
-		Category: proverCategory,
-		EnvVars:  []string{"PROVER_FORCE_SP1_PROOF"},
-	}
-	SP1ProofPercentage = &cli.Uint64Flag{
-		Name: "prover.sp1ProofPercentage",
-		Usage: "Prove the first X of every 100 proposals (proposalID % 100 < X) with SP1, and the rest via RISC0 " +
-			"with the SP1 fallback of --prover.maxRisc0ProofProposalDistance. For 0 < X < 100, both X and " +
-			"100 - X must be multiples of --prover.zkvm.batchSize. 0 disables it, 100 behaves like " +
-			"--prover.forceSP1Proof. Ignored (but still validated) when --prover.forceSP1Proof, " +
-			"--prover.forceSGXProof or --prover.zkOnlyProofs is set. Post Shasta fork only.",
-		Value:    0,
-		Category: proverCategory,
-		EnvVars:  []string{"PROVER_SP1_PROOF_PERCENTAGE"},
-	}
 	ForceSGXProof = &cli.BoolFlag{
 		Name: "prover.forceSGXProof",
-		Usage: "Always request SGX_RETH proofs from the Raiko proof producer instead of using the " +
-			"RISC0-to-SP1 selection and fallback flow. Ignored when --prover.zkOnlyProofs is set. " +
+		Usage: "Request SGX_RETH proofs from Raiko instead of SP1. " +
 			"The inbox's proof verifier must accept the [SGX_GETH, SGX_RETH] sub-proof pair. " +
-			"When set, --prover.forceSP1Proof, --prover.sp1ProofPercentage and " +
-			"--prover.maxRisc0ProofProposalDistance are ignored. " +
 			"Post Shasta fork only.",
 		Value:    false,
 		Category: proverCategory,
@@ -109,28 +76,13 @@ var (
 	}
 	SGXRethCompanionProof = &cli.BoolFlag{
 		Name: "prover.sgxRethCompanionProof",
-		Usage: "Pair each RISC0 or SP1 proof with an SGX_RETH proof instead of an SGX_GETH proof. " +
+		Usage: "Pair each SP1 proof with an SGX_RETH proof instead of an SGX_GETH proof. " +
 			"The Raiko host must serve sgx (SGX_RETH) proofs, and the inbox's proof verifier must accept " +
-			"the [SGX_RETH, RISC0] and [SGX_RETH, SP1] sub-proof pairs. Ignored when --prover.zkOnlyProofs " +
-			"is set. Cannot be combined with --prover.forceSGXProof. Post Shasta fork only.",
-		Value:    false,
-		Category: proverCategory,
-		EnvVars:  []string{"PROVER_SGX_RETH_COMPANION_PROOF"},
-	}
-	ZkOnlyProofs = &cli.BoolFlag{
-		Name: "prover.zkOnlyProofs",
-		Usage: "Prove every proposal with both RISC0 and SP1 proofs and submit the [RISC0, SP1] sub-proof pair, " +
-			"instead of pairing a single ZK proof with an SGX proof. The " +
-			"inbox's proof verifier must accept the [RISC0, SP1] pair — i.e. ZkRequiredVerifier, live with the " +
-			"Unzen hardfork; on the pre-Unzen MainnetVerifier every submission reverts. " +
-			"Intended for provers running without a TEE (sgx-geth) service or during SGX outages; " +
-			"note that it generates proofs on both ZKVMs for every proposal. " +
-			"When set, --prover.forceSP1Proof, --prover.sp1ProofPercentage and " +
-			"--prover.maxRisc0ProofProposalDistance are ignored. " +
+			"the [SGX_RETH, SP1] sub-proof pair. Cannot be combined with --prover.forceSGXProof. " +
 			"Post Shasta fork only.",
 		Value:    false,
 		Category: proverCategory,
-		EnvVars:  []string{"PROVER_ZK_ONLY_PROOFS"},
+		EnvVars:  []string{"PROVER_SGX_RETH_COMPANION_PROOF"},
 	}
 	// Special flags for testing.
 	Dummy = &cli.BoolFlag{
@@ -200,10 +152,6 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	ZKVMBatchSize,
 	ForceBatchProvingInterval,
 	ProposalWindowSize,
-	MaxRisc0ProofProposalDistance,
-	ForceSP1Proof,
-	SP1ProofPercentage,
 	ForceSGXProof,
 	SGXRethCompanionProof,
-	ZkOnlyProofs,
 }, opsigner.CLIFlags("PROVER", proverCategory), TxmgrFlags)
