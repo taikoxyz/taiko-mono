@@ -95,9 +95,12 @@ paths = [
   '''^packages/protocol/docs/preconfirmation-v2/.*''',
 ]
 
+# Etna vectors: public keccak digests and the 33-byte compressed secp256k1 public keys
+# (0x02/0x03 + 64 hex) of fixed test scalars. Narrowed like the entry above: generic-api-key
+# only, and only bare hex of exactly those two shapes, in this one generated file.
 [[allowlists]]
-description = "Etna vectors: public committee sort hashes"
+description = "Etna vectors: public hashes and compressed public keys"
 targetRules = ["generic-api-key"]
 condition = "AND"
-regexes = ['''^(0x)?[a-fA-F0-9]{64}$''']
+regexes = ['''^(0x)?(0[23])?[a-fA-F0-9]{64}$''']
 paths = ['''^testdata/etna_vectors/vectors\.json$''']

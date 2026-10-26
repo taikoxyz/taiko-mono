@@ -231,6 +231,18 @@
       "public_key": "0x",
       "valid": false,
       "reason": "empty"
+    },
+    {
+      "name": "textual_hex",
+      "public_key": "0x303363633837303462386136306130646566613361393961373239396632653963336662633339356166623034616330373834323565663861313739336363303330",
+      "valid": false,
+      "reason": "textual"
+    },
+    {
+      "name": "identity_00",
+      "public_key": "0x00",
+      "valid": false,
+      "reason": "identity"
     }
   ],
   "register_digests": [
@@ -1373,6 +1385,57 @@
         "chain_id": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
         "sign_bytes": "0xa301080211ffffffffffffff7f19ffffff7f00000000224c0a20aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa122808ffffffff0f1220abababababababababababababababababababababababababababababababab2a0d08ff82d1ffaf0710ff93ebdc03323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
         "signature": "0xc1c5185418d0f92a235fc0fd1425d36c6e655ca4dab0bd80d5dfb1dbece4b04f385409b681bb1608ed4045e543953249edfb3dc55006c452d3e9f351219a477901"
+      },
+      {
+        "name": "precommit_b_h1001",
+        "vote": {
+          "voteType": "2",
+          "height": "1001",
+          "round": "0",
+          "blockHash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "partsTotal": "2",
+          "partsHash": "0xbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
+          "timestampSeconds": "1700000000",
+          "timestampNanos": "123",
+          "generation": "0"
+        },
+        "chain_id": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "sign_bytes": "0x9101080211e90300000000000022480a20bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb122408021220bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc2a080880e2cfaa06107b323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+        "signature": "0x787238769036a0cf8be2dc55bf14dfe3fa7549465540ca9e133c4e71b2eb29ab64e076c1b66c2ce36723d2d3f3049a71d290546dadd1f5ce486adba8c50e2d5a00"
+      },
+      {
+        "name": "hash_only_block_id",
+        "vote": {
+          "voteType": "2",
+          "height": "1000",
+          "round": "0",
+          "blockHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "partsTotal": "0",
+          "partsHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "timestampSeconds": "1700000000",
+          "timestampNanos": "123",
+          "generation": "0"
+        },
+        "chain_id": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "sign_bytes": "0x6d080211e80300000000000022240a20aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa12002a080880e2cfaa06107b323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+        "signature": "0x69003627847bf3691ea0eb6a4aac57922de9ecd0b42d3ef4dbcdf998616a73d24408233805cdafc1c10a8be8c34398fcc420d9f5ec34520dd7e0c207fa1002b701"
+      },
+      {
+        "name": "zero_timestamp",
+        "vote": {
+          "voteType": "2",
+          "height": "1000",
+          "round": "0",
+          "blockHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "partsTotal": "1",
+          "partsHash": "0xabababababababababababababababababababababababababababababababab",
+          "timestampSeconds": "0",
+          "timestampNanos": "0",
+          "generation": "0"
+        },
+        "chain_id": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "sign_bytes": "0x8901080211e80300000000000022480a20aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa122408011220abababababababababababababababababababababababababababababababab2a00323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+        "signature": "0xdb11f03a2ebdd3d8651c840b52055ba3b3a7925778c1efc65c17a964024c71e868276028352e6d69468638fdab6b0342a6627fe8c6d38efa37795408c500496e01"
       }
     ],
     "pairs": [
@@ -1454,6 +1517,30 @@
         "b": "other_inbox_precommit_b",
         "double_sign": false,
         "reason": "other_deployment",
+        "current_generation": "0"
+      },
+      {
+        "name": "different_round_conflicting_blocks",
+        "a": "prevote_a_r1",
+        "b": "prevote_b_r2",
+        "double_sign": false,
+        "reason": "different_round",
+        "current_generation": "0"
+      },
+      {
+        "name": "different_generation",
+        "a": "precommit_a",
+        "b": "gen1_precommit_b",
+        "double_sign": false,
+        "reason": "different_generation",
+        "current_generation": "1"
+      },
+      {
+        "name": "different_height",
+        "a": "precommit_a",
+        "b": "precommit_b_h1001",
+        "double_sign": false,
+        "reason": "different_height",
         "current_generation": "0"
       }
     ]
@@ -1591,6 +1678,12 @@
       {
         "name": "eip7702_tuple_high_s",
         "raw": "0x04f8cf83028c5980843b9aca008477359400830186a09455555555555555555555555555555555555555550180c0f85ff85d83028c599466666666666666666666666666666666666666668080a0c46cbe7fc70da57853d12d6c57c57eb0b4d4461faea6d363f1cf983c1478c246a0e06789778f183682953799e8f3cbe3c2e9ab3ee033279e9a00ee89abdf891a1401a0d2616e7492a06e9c549e112366d99c1b29d9e8f8a5c6a3a96e7cc3858c3fcdaea06cb1ee6be97165c76817f8f01ae960be7a8a2a4f2d30dfb401b210ad53e2d51a",
+        "eligible": true,
+        "rule": "eligible"
+      },
+      {
+        "name": "eip1559_tip_above_max_fee",
+        "raw": "0x02f86d83028c598084b2d05e0084773594008252089455555555555555555555555555555555555555550180c080a06755b4ff99787866654ae8cee1ecdd646850b823a90174b88228b2fe3dd509afa026513eb93650a39eecf7e3debb5d77a80bd891306fc3b65527f8fbdb4cc91ae8",
         "eligible": true,
         "rule": "eligible"
       },

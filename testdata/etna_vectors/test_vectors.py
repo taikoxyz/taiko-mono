@@ -113,10 +113,19 @@ def decompress(public_key):
     return x, y if y % 2 == public_key[0] - 2 else SECP_P - y
 
 
+def is_hex_text(data):
+    """Whether `data` is ASCII hex text (an even number of hex digits)."""
+    return len(data) % 2 == 0 and all(c in b"0123456789abcdefABCDEF" for c in data)
+
+
 def classify(public_key):
     """The reason a public key input is rejected, from its shape alone (None if it decodes)."""
     if not public_key:
         return "empty"
+    if public_key == b"\x00":
+        return "identity"
+    if len(public_key) == 66 and is_hex_text(public_key):
+        return "textual"
     if len(public_key) == 65 and public_key[0] == 4:
         return "uncompressed"
     if len(public_key) == 65 and public_key[0] in (6, 7):
@@ -188,6 +197,9 @@ VOTE_CASES = [
     "other_inbox_precommit_b",
     "partial_block_id",
     "max_values",
+    "precommit_b_h1001",
+    "hash_only_block_id",
+    "zero_timestamp",
 ]
 VOTE_FIELDS = [
     "voteType",
@@ -303,6 +315,7 @@ FI_CASES = [
     ("s_half_n", "eligible"),
     ("eip7702_tuple_nonce_max", "eligible"),
     ("eip7702_tuple_high_s", "eligible"),
+    ("eip1559_tip_above_max_fee", "eligible"),
     ("empty", "noncanonical"),
     ("trailing_byte", "noncanonical"),
     ("two_transactions", "noncanonical"),
@@ -697,7 +710,10 @@ class VectorsTest(unittest.TestCase):
         a = ("0x" + "aa" * 32, "1", "0x" + "ab" * 32)
         b = ("0x" + "bb" * 32, "2", "0x" + "bc" * 32)
         nil = (uint(0), "0", uint(0))
-        # name: (type, round, block id, generation); height 1000, timestamp (1700000000, 123).
+        # name: (type, round, block id, generation); height 1000 and timestamp (1700000000, 123)
+        # unless `heights` or `timestamps` says otherwise.
+        heights = {"precommit_b_h1001": "1001"}
+        timestamps = {"precommit_a_late": ("1700000001", "0"), "zero_timestamp": ("0", "0")}
         expected = {
             "precommit_a": ("2", "0", a, "0"),
             "precommit_nil": ("2", "0", nil, "0"),
@@ -713,6 +729,9 @@ class VectorsTest(unittest.TestCase):
             "gen2_precommit_b": ("2", "0", b, "2"),
             "other_inbox_precommit_b": ("2", "0", b, "0"),
             "partial_block_id": ("2", "0", (uint(0), "1", "0x" + "ab" * 32), "0"),
+            "precommit_b_h1001": ("2", "0", b, "0"),
+            "hash_only_block_id": ("2", "0", ("0x" + "aa" * 32, "0", uint(0)), "0"),
+            "zero_timestamp": ("2", "0", a, "0"),
         }
         for case in cases:
             name, vote = case["name"], case["vote"]
@@ -723,13 +742,14 @@ class VectorsTest(unittest.TestCase):
             if name == "max_values":
                 continue
             vote_type, round_, block_id, generation = expected[name]
-            timestamp = ("1700000001", "0") if name == "precommit_a_late" else ("1700000000", "123")
+            height = heights.get(name, "1000")
+            timestamp = timestamps.get(name, ("1700000000", "123"))
             self.assertEqual(
                 vote,
                 dict(
                     zip(
                         VOTE_FIELDS,
-                        (vote_type, "1000", round_, *block_id, *timestamp, generation),
+                        (vote_type, height, round_, *block_id, *timestamp, generation),
                     )
                 ),
                 name,
@@ -785,6 +805,14 @@ class VectorsTest(unittest.TestCase):
         self.assertEqual(list(read_message(body("partial_block_id")[4])), [2])
         self.assertEqual(list(body("precommit_nil")), [1, 2, 5, 6])
         self.assertEqual(list(body("max_values")), [1, 2, 3, 4, 5, 6])
+        # An all-zero part set header is still written, as `12 00`, after a present hash; a zero
+        # timestamp is still written, as `2a 00`.
+        self.assertEqual(
+            body("hash_only_block_id")[4], b"\x0a\x20" + b"\xaa" * 32 + b"\x12\x00"
+        )
+        self.assertEqual(body("zero_timestamp")[5], b"")
+        zero_timestamp = hexbytes(by_name(cases, "zero_timestamp")["sign_bytes"])
+        self.assertIn(b"\x2a\x00\x32\x30", zero_timestamp)
 
     def test_vote_signatures_low_s_v01(self):
         cases = V["votes"]["cases"]
@@ -808,11 +836,21 @@ class VectorsTest(unittest.TestCase):
                 "same_block_id",
                 "different_round",
                 "different_type",
+                "different_height",
+                "different_generation",
                 "future_generation",
                 "other_deployment",
             },
             {p["reason"] for p in pairs},
         )
+        fields = {"voteType", "height", "round", "generation"}
+        # The vote field each `different_*` reason isolates.
+        differing = {
+            "different_type": "voteType",
+            "different_height": "height",
+            "different_round": "round",
+            "different_generation": "generation",
+        }
         self.assertEqual(len({p["name"] for p in pairs}), len(pairs))
         for pair in pairs:
             self.assertEqual(
@@ -821,14 +859,14 @@ class VectorsTest(unittest.TestCase):
             a, b, reason = cases[pair["a"]], cases[pair["b"]], pair["reason"]
             self.assertIs(pair["double_sign"], reason == "double_sign", pair["name"])
             current = int(pair["current_generation"])
-            same = {k for k in ("voteType", "height", "round", "generation") if a[k] == b[k]}
-            if reason == "different_type":
-                self.assertEqual(same, {"height", "round", "generation"}, pair["name"])
+            same = {k for k in fields if a[k] == b[k]}
+            if reason in differing:
+                self.assertEqual(same, fields - {differing[reason]}, pair["name"])
+                # Neither vote's generation is in the future, so only the differing field fails.
+                self.assertLessEqual(int(a["generation"]), current, pair["name"])
+                self.assertLessEqual(int(b["generation"]), current, pair["name"])
                 continue
-            if reason == "different_round":
-                self.assertEqual(same, {"voteType", "height", "generation"}, pair["name"])
-                continue
-            self.assertEqual(same, {"voteType", "height", "round", "generation"}, pair["name"])
+            self.assertEqual(same, fields, pair["name"])
             self.assertIn(a["voteType"], ("1", "2"))
             if reason == "same_block_id":
                 self.assertEqual(block_id_of(a), block_id_of(b), pair["name"])
@@ -841,6 +879,17 @@ class VectorsTest(unittest.TestCase):
             self.assertLessEqual(int(a["generation"]), current, pair["name"])
             other = [n for n in (pair["a"], pair["b"]) if n.startswith("other_inbox")]
             self.assertEqual(len(other), 1 if reason == "other_deployment" else 0, pair["name"])
+        # Each `different_*` reason other than type also occurs with conflicting block ids, so the
+        # field check alone rejects it.
+        for reason in ("different_height", "different_round", "different_generation"):
+            self.assertTrue(
+                any(
+                    p["reason"] == reason
+                    and block_id_of(cases[p["a"]]) != block_id_of(cases[p["b"]])
+                    for p in pairs
+                ),
+                reason,
+            )
         historical = [
             p
             for p in pairs
@@ -1089,6 +1138,8 @@ class VectorsTest(unittest.TestCase):
                 "trailing_bytes",
                 "short",
                 "empty",
+                "textual",
+                "identity",
             },
             reasons,
         )
@@ -1121,6 +1172,12 @@ class VectorsTest(unittest.TestCase):
         self.assertEqual({len(k) for k in by_reason["trailing_bytes"]}, {34})
         self.assertEqual({len(k) for k in by_reason["short"]}, {32})
         self.assertEqual(by_reason["empty"], [b""])
+        # The hex text of a registered key is rejected as text, never parsed into the key.
+        keys = {hexbytes(k["public_key"]) for k in V["keys"]}
+        (textual,) = by_reason["textual"]
+        self.assertEqual(len(textual), 66)
+        self.assertIn(bytes.fromhex(textual.decode("ascii")), keys)
+        self.assertEqual(by_reason["identity"], [b"\x00"])
 
     def test_pop_signatures_are_65_bytes_low_s(self):
         cases = V["register_digests"]
@@ -1379,6 +1436,7 @@ class VectorsTest(unittest.TestCase):
             "s_half_n": (2, "s", SECP_N // 2),
             "eip7702_tuple_nonce_max": (4, None, None),
             "eip7702_tuple_high_s": (4, None, None),
+            "eip1559_tip_above_max_fee": (2, "max_priority_fee", 3 * 10**9),
             "type3_blob": (3, None, None),
             "unknown_type_05": (0x05, None, None),
             "unknown_type_7f": (0x7F, None, None),
@@ -1412,6 +1470,10 @@ class VectorsTest(unittest.TestCase):
             if field is not None:
                 self.assertEqual(decoded[name][1][field], value, name)
         self.assertNotEqual(decoded["typed_wrong_chain_id"][1]["chain_id"], chain_id)
+        # Eligibility ignores fees: a tip above the fee cap (both within width) is eligible.
+        tip_above = decoded["eip1559_tip_above_max_fee"][1]
+        self.assertGreater(tip_above["max_priority_fee"], tip_above["max_fee"])
+        self.assertLess(tip_above["max_priority_fee"], 2**128)
         self.assertTrue(SECP_N // 2 < decoded["high_s"][1]["s"] < SECP_N)
         self.assertFalse(has_point(decoded["unrecoverable_r"][1]["r"]))
         self.assertTrue(decoded["eip2930"][1]["access_list"])
