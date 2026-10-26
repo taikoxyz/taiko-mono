@@ -5,7 +5,7 @@ import { IEtnaInbox } from "../iface/IEtnaInbox.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 
 /// @title LibEtnaForcedInclusion
-/// @notice The Etna Inbox's calldata forced inclusion queue operations.
+/// @notice The Etna Inbox's calldata forced inclusion queue (spec 7.1).
 /// @dev Preserves Shasta's fee formula without depending on its blob queue or linked library.
 /// @custom:security-contact security@taiko.xyz
 library LibEtnaForcedInclusion {
@@ -15,7 +15,8 @@ library LibEtnaForcedInclusion {
     // Structs
     // ---------------------------------------------------------------
 
-    /// @dev Queue entries are retained after consumption. The pointers share one storage word.
+    /// @dev Inbox slots 280-281 (spec appendix B): the entries, retained after consumption,
+    /// then `head` and `tail` packed into one word from the least-significant bit.
     struct Storage {
         mapping(uint256 index => IEtnaInbox.ForcedInclusion entry) queue;
         uint48 head;
@@ -49,21 +50,6 @@ library LibEtnaForcedInclusion {
         uint256 multipliedFee =
             uint256(_baseFeeInGwei) * (uint256(_feeDoubleThreshold) + numPending);
         feeInGwei_ = uint64((multipliedFee / _feeDoubleThreshold).min(type(uint64).max));
-    }
-
-    /// @dev Moves `head` to `_newHead` and sums the fees of the entries in `[head, _newHead)`.
-    /// Entries are not deleted. The caller must ensure `head <= _newHead <= tail`.
-    /// @param $ The forced inclusion queue.
-    /// @param _newHead The new head.
-    /// @return feesInGwei_ The total fee in Gwei of the consumed entries.
-    function consume(Storage storage $, uint48 _newHead) internal returns (uint256 feesInGwei_) {
-        // Fewer than 2^48 uint64 fees cannot overflow a uint256 sum.
-        unchecked {
-            for (uint256 i = $.head; i < _newHead; ++i) {
-                feesInGwei_ += uint256($.queue[i].feeInGwei);
-            }
-        }
-        $.head = _newHead;
     }
 
     /// @dev Reads pending entries with the same bounds as the original queue getters.

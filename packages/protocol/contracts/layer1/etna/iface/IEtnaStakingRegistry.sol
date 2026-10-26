@@ -2,226 +2,353 @@
 pragma solidity ^0.8.26;
 
 /// @title IEtnaStakingRegistry
-/// @notice The TAIKO staking registry the Etna PoS node derives its committees from.
-/// @dev Validators register an Ed25519 consensus key with a TAIKO stake, heartbeat once per
-/// heartbeat window, request an exit and withdraw after the delay and settled committee turnover. Entries are
-/// indexed by bond id, which names a slot: a withdrawn bond's slot is reused by a later
-/// registration, so a bond id names its current holder only. Every L1 block that changes an
-/// entry ends with one checkpoint holding the entry count (the slots used so far) and the
-/// entries Merkle root at the end of that block.
-///
-/// The node reads `checkpoints` and `entries` straight from storage with EIP-1186 proofs, so the
-/// field order and packing of both structs, and their ERC-7201 location, are part of the
-/// node-facing layout (taiko-client-rs `crates/abci/src/l1/layout.rs`).
+/// @notice The TAIKO staking registry the Etna committees are selected from (spec 4.1).
+/// @dev Section numbers refer to the Etna specification. Validators register a secp256k1
+/// consensus key with a stake; the bond id is the entry's slot, and a released slot is reused by a
+/// later registration. Every L1 block that changes an entry ends with one checkpoint holding the
+/// slot count and the entries root at the end of that block. Nodes read only `checkpoints` (slot R)
+/// and `entries` (slot R + 1) of the ERC-7201 namespace `taiko.etna.registry` with EIP-1186
+/// proofs (spec appendix B); every packed word lays its fields out in declaration order from the
+/// least-significant bit. The Inbox proxy is fixed at deployment.
 /// @custom:security-contact security@taiko.xyz
 interface IEtnaStakingRegistry {
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
 
-    /// @notice The registry as it stands at the end of one L1 block that changed an entry.
-    /// @dev Two storage words: `l1Block` (bits 0–63) and `count` (bits 64–95), then
-    /// `entriesRoot`.
+    /// @notice The immutable parameters of a registry implementation (spec 11).
+    struct Config {
+        /// @notice The staked TAIKO token.
+        address token;
+        /// @notice The minimum stake of a registration in token base units; non-zero.
+        uint256 minStake;
+        /// @notice The L1 blocks from registration until the entry is active; in [1, 2^32).
+        uint256 activationDelay;
+        /// @notice The L1 blocks from the exit request, or the activation if later, until the
+        /// exit takes effect; in [1, 2^32).
+        uint256 exitDelay;
+        /// @notice The L1 blocks from the exit confirmation until the slot can be released; in
+        /// [1, 2^32).
+        uint256 withdrawalDelay;
+        /// @notice The share of a slashed stake paid to the reporter, in basis points; at most
+        /// 10,000.
+        uint256 slashBountyBps;
+        /// @notice The receiver of a slashed stake minus the bounty; non-zero.
+        address slashSink;
+        /// @notice The chain id of the Etna L2; non-zero and equal to the Inbox's.
+        uint64 l2ChainId;
+        /// @notice The Etna Inbox proxy; must have code.
+        address inbox;
+    }
+
+    /// @notice The registry at the end of an L1 block that changed an entry (array at slot R, two
+    /// words each); the first word packs `l1Block` and `count`.
     struct Checkpoint {
-        /// @notice The L1 block whose entry changes this checkpoint captures.
-        uint64 l1Block;
-        /// @notice The number of entry slots used so far (exited and withdrawn ones included) at
-        /// the end of `l1Block`.
-        uint32 count;
-        /// @notice The entries Merkle root over the first `count` entries.
+        /// @notice The L1 block.
+        uint48 l1Block;
+        /// @notice The number of slots used so far, released ones included.
+        uint48 count;
+        /// @notice The entries root over the first `count` entries (appendix A).
         bytes32 entriesRoot;
     }
 
-    /// @notice One registration, indexed by its bond id (its slot).
-    /// @dev Four storage words: `pubkey`, `effStake`, then `activeFromL1` (bits 0–63),
-    /// `exitEffectiveL1` (bits 64–127), `lastHeartbeatAt` (bits 128–191) and
-    /// `lastHeartbeatSeq` (bits 192–255), then `rewardRecipient` (bits 0–159).
+    /// @notice An entry, indexed by bond id (array at slot R + 1, three words each); the third
+    /// word packs `ckPrefix`, `activeFromL1` and `exitEffectiveL1`.
+    /// @dev A released slot's entry is all zero.
     struct Entry {
-        /// @notice The Ed25519 consensus public key.
-        bytes32 pubkey;
-        /// @notice The effective stake in TAIKO base units.
+        /// @notice The X coordinate of the secp256k1 consensus key.
+        bytes32 ckX;
+        /// @notice The effective stake in token base units; zero once slashed.
         uint256 effStake;
+        /// @notice The SEC1 prefix of the consensus key, 0x02 or 0x03.
+        uint8 ckPrefix;
         /// @notice The first L1 block at which the entry may be selected.
-        uint64 activeFromL1;
-        /// @notice The L1 block at which the exit takes effect; `type(uint64).max` if none was
-        /// requested.
-        uint64 exitEffectiveL1;
-        /// @notice The start L1 block of the heartbeat window of the last accepted heartbeat;
-        /// 0 until the first heartbeat (registration is not one).
-        uint64 lastHeartbeatAt;
-        /// @notice The number of accepted heartbeats; 0 means none. A first heartbeat in window
-        /// 0 leaves `lastHeartbeatAt` at 0, so this, not `lastHeartbeatAt`, tells whether the
-        /// entry has a heartbeat, which committee eligibility requires.
-        uint64 lastHeartbeatSeq;
-        /// @notice The immutable L2 reward recipient for this registration.
-        address rewardRecipient;
+        uint48 activeFromL1;
+        /// @notice The L1 block at which the exit takes effect; 2^48 - 1 if no exit is set.
+        uint48 exitEffectiveL1;
+    }
+
+    /// @notice A CometBFT vote submitted as double-sign evidence (spec 4.1, appendix A).
+    struct Vote {
+        /// @notice The vote type: 1 for prevote, 2 for precommit.
+        uint8 voteType;
+        /// @notice The L2 height, in [1, 2^63).
+        uint64 height;
+        /// @notice The consensus round, below 2^31.
+        uint32 round;
+        /// @notice The block id hash; the block id is all zero for a nil vote.
+        bytes32 blockHash;
+        /// @notice The part set header total.
+        uint32 partsTotal;
+        /// @notice The part set header hash.
+        bytes32 partsHash;
+        /// @notice The seconds of the vote timestamp, below 2^63.
+        uint64 timestampSeconds;
+        /// @notice The nanoseconds of the vote timestamp, below 10^9.
+        uint32 timestampNanos;
+        /// @notice The recovery generation of the chain id the vote is signed under.
+        uint48 generation;
+        /// @notice The 65-byte signature R ‖ S ‖ V, with V in {0, 1} and S at most n / 2.
+        bytes signature;
     }
 
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
 
-    /// @notice Emitted when the owner permanently binds the withdrawal-gating Inbox.
-    /// @param inbox The initialized Inbox for this registry.
-    event InboxBound(address indexed inbox);
-
     /// @notice Emitted when a validator registers.
-    /// @param bondId The new entry's bond id.
-    /// @param owner The bond owner (the caller).
-    /// @param pubkey The Ed25519 consensus public key.
-    /// @param amount The TAIKO stake pulled from the owner.
+    /// @param bondId The entry's bond id (its slot).
+    /// @param owner The bond owner, the caller.
+    /// @param ckAddr The consensus key's address, keccak256(ckX ‖ ckY)[12:].
+    /// @param ckPrefix The SEC1 prefix of the consensus key.
+    /// @param ckX The X coordinate of the consensus key.
+    /// @param amount The stake pulled from the owner.
     /// @param activeFromL1 The first L1 block at which the entry may be selected.
-    /// @param rewardRecipient The immutable L2 reward recipient.
     event Registered(
         uint256 indexed bondId,
         address indexed owner,
-        bytes32 pubkey,
+        address indexed ckAddr,
+        uint8 ckPrefix,
+        bytes32 ckX,
         uint256 amount,
-        uint64 activeFromL1,
-        address rewardRecipient
+        uint48 activeFromL1
     );
 
-    /// @notice Emitted when a heartbeat is accepted.
-    /// @param bondId The entry's bond id.
-    /// @param windowStart The start L1 block of the heartbeat window, now the entry's
-    /// `lastHeartbeatAt`.
-    /// @param seq The entry's new `lastHeartbeatSeq`, the number of heartbeats accepted so far.
-    event HeartbeatRecorded(uint256 indexed bondId, uint64 windowStart, uint64 seq);
-
-    /// @notice Emitted when the bond owner requests an exit.
+    /// @notice Emitted when the bond owner sets an exit.
     /// @param bondId The entry's bond id.
     /// @param exitEffectiveL1 The L1 block at which the exit takes effect.
-    event ExitRequested(uint256 indexed bondId, uint64 exitEffectiveL1);
+    event ExitRequested(uint256 indexed bondId, uint48 exitEffectiveL1);
 
-    /// @notice Emitted when an exited entry's stake is withdrawn.
+    /// @notice Emitted when an exit is first confirmed.
     /// @param bondId The entry's bond id.
+    /// @param exitConfirmedAtL1 The L1 block of the confirmation, where the withdrawal delay
+    /// starts.
+    event ExitConfirmed(uint256 indexed bondId, uint256 exitConfirmedAtL1);
+
+    /// @notice Emitted when a withdrawal releases a slot.
+    /// @param bondId The released bond id.
     /// @param to The recipient of the stake.
-    /// @param amount The TAIKO amount transferred.
+    /// @param amount The stake paid out; zero for a slashed entry.
     event StakeWithdrawn(uint256 indexed bondId, address indexed to, uint256 amount);
 
+    /// @notice Emitted when double-sign evidence slashes an entry.
+    /// @param bondId The entry's bond id.
+    /// @param reporter The caller, who receives the bounty.
+    /// @param amount The slashed stake.
+    /// @param bounty The part of `amount` paid to the reporter.
+    /// @param generation The votes' recovery generation.
+    /// @param height The votes' height.
+    /// @param round The votes' round.
+    /// @param voteType The votes' type.
+    event DoubleSignSlashed(
+        uint256 indexed bondId,
+        address indexed reporter,
+        uint256 amount,
+        uint256 bounty,
+        uint48 generation,
+        uint64 height,
+        uint32 round,
+        uint8 voteType
+    );
+
+    /// @notice Emitted when governance recovery forces an exit.
+    /// @param bondId The entry's bond id.
+    /// @param exitEffectiveL1 The new exit block, min(existing, R).
+    event ExitForced(uint256 indexed bondId, uint48 exitEffectiveL1);
+
     /// @notice Emitted when the current block's checkpoint is appended or overwritten.
-    /// @param index The checkpoint's index.
-    /// @param l1Block The L1 block the checkpoint captures (the current block).
-    /// @param count The number of entries at this point of the block.
-    /// @param entriesRoot The entries Merkle root at this point of the block.
+    /// @param index The checkpoint index.
+    /// @param l1Block The L1 block of the checkpoint, the current block.
+    /// @param count The number of slots used so far.
+    /// @param entriesRoot The entries root.
     event CheckpointWritten(
-        uint256 indexed index, uint64 l1Block, uint32 count, bytes32 entriesRoot
+        uint256 indexed index, uint48 l1Block, uint48 count, bytes32 entriesRoot
     );
 
     // ---------------------------------------------------------------
     // External Functions
     // ---------------------------------------------------------------
 
-    /// @notice Registers `_pubkey` with a stake of `_amount` TAIKO pulled from the caller, who
-    /// becomes the bond owner.
-    /// @dev Reverts if `_amount` is below the minimum stake, `_pubkey` or `_rewardRecipient`
-    /// is zero, all `MAX_ENTRIES` slots hold unwithdrawn stake, another entry holds `_pubkey` and its
-    /// exit is not yet effective. Same-block slot reuse is allowed when all delays permit it.
-    /// Takes the most recently freed slot (see `withdraw`), or a new slot if none is free. The
-    /// entry becomes active `activationDelay` blocks later and has no exit and no heartbeat
-    /// (`lastHeartbeatAt = 0`, `lastHeartbeatSeq = 0`). Writes the current block's checkpoint.
-    /// @param _pubkey The Ed25519 consensus public key.
-    /// @param _amount The TAIKO stake; the caller must have approved it.
-    /// @param _rewardRecipient The nonzero L2 reward recipient, fixed until this slot is reused.
-    /// @return bondId_ The new entry's bond id (its slot).
+    /// @notice Registers a consensus key with a stake pulled from the caller, who becomes the bond
+    /// owner (spec 4.1).
+    /// @dev `_publicKey` is exactly 33 bytes of canonical SEC1 compressed secp256k1 encoding,
+    /// prefix 0x02 or 0x03 followed by the 32-byte big-endian X; the registry decompresses it
+    /// (appendix A) and rejects any other encoding. `_popSig` is exactly 65 bytes R ‖ S ‖ V with
+    /// V in {0, 1}, 0 < R < n and 0 < S <= n / 2, recovering over `registerDigest(msg.sender)` to
+    /// the key's address. Each key address registers once, ever. Requires `_amount >= minStake`
+    /// and a free slot; the most recently released slot is reused first, otherwise a new one is
+    /// appended (at most 4096). The entry stores only `ckPrefix` and `ckX`, becomes active
+    /// `activationDelay` blocks later and has no exit set. Writes the current block's checkpoint.
+    /// @param _publicKey The 33-byte compressed consensus key.
+    /// @param _amount The stake; the caller must have approved it.
+    /// @param _popSig The proof of possession.
+    /// @return bondId_ The entry's bond id (its slot).
     function register(
-        bytes32 _pubkey,
+        bytes calldata _publicKey,
         uint256 _amount,
-        address _rewardRecipient
+        bytes calldata _popSig
     )
         external
         returns (uint256 bondId_);
 
-    /// @notice Records a heartbeat for `_bondId` in the current heartbeat window.
-    /// @dev Only the bond owner, and only before the exit takes effect. With
-    /// `windowStart = floor(block.number / heartbeatWindow) * heartbeatWindow`, the heartbeat
-    /// is accepted if the entry has none yet (`lastHeartbeatSeq == 0`) or `windowStart` exceeds
-    /// `lastHeartbeatAt`: at most one heartbeat per window, and `lastHeartbeatAt` never
-    /// decreases. It then sets `lastHeartbeatAt = windowStart`, increments `lastHeartbeatSeq`
-    /// and writes the current block's checkpoint.
-    ///
-    /// A first heartbeat in window 0 is valid and leaves `lastHeartbeatAt` at 0, so
-    /// `lastHeartbeatAt` alone cannot tell "heartbeat in window 0" from "no heartbeat". The
-    /// sequence is the eligibility rule's "has a heartbeat" guard: the node counts an entry as
-    /// live only if `lastHeartbeatSeq > 0 && lastHeartbeatAt >= floor`, where `floor` is the
-    /// start of the oldest window it still accepts.
-    ///
-    /// The bond owner's address heartbeats directly; a separate ECDSA heartbeat key and
-    /// relayed signed heartbeats are a follow-up.
-    /// @param _bondId The entry's bond id.
-    function heartbeat(uint256 _bondId) external;
-
-    /// @notice Requests the exit of `_bondId`.
-    /// @dev Only the bond owner, once. The exit takes effect at
-    /// `max(block.number, activeFromL1) + exitDelay`. Removes the stake from `bondedStake` and
-    /// writes the current block's checkpoint.
-    /// @param _bondId The entry's bond id.
+    /// @notice Sets the exit of an entry (spec 4.1).
+    /// @dev Only the bond owner, and only while no exit is set. The exit takes effect at
+    /// max(block.number, activeFromL1) + exitDelay, which must be below 2^48 - 1. Writes the
+    /// current block's checkpoint.
+    /// @param _bondId The bond id.
     function requestExit(uint256 _bondId) external;
 
-    /// @notice Binds this registry to its initialized Etna Inbox exactly once.
-    /// @dev Only the registry owner may bind an Inbox. The Inbox must identify this registry.
-    /// This checks reciprocal identity and initialization, not semantic startup correctness;
-    /// the owner must validate the intended deployment before binding. Withdrawals fail closed
-    /// until binding; registration, consensus and landing do not require binding. Binding never
-    /// changes committee snapshot entries and cannot be undone or redirected.
-    /// @param _inbox The deployed, initialized Etna Inbox proxy.
-    function bindInbox(address _inbox) external;
+    /// @notice Records the exit confirmation that starts the withdrawal delay (spec 4.1).
+    /// @dev Callable by anyone. Requires an initialized Inbox that is not executing `land` or
+    /// `recover`, an unreleased entry with an exit set, and the Inbox's
+    /// `activeCommitteeSnapshot() >= exitEffectiveL1`: a landed committee no longer includes the
+    /// stake. The first call records block.number; later calls succeed without moving it.
+    /// @param _bondId The bond id.
+    function confirmExit(uint256 _bondId) external;
 
-    /// @notice Returns the Inbox authenticating committee turnover for withdrawals.
-    /// @return inbox_ The bound Inbox, or zero before binding.
-    function inbox() external view returns (address inbox_);
-
-    /// @notice Transfers the stake of `_bondId` to `_to`.
-    /// @dev Only the bond owner, once, and only from `exitEffectiveL1 + withdrawalDelay` on. The
-    /// bound Inbox must also have settled a block governed by a committee selected at a snapshot
-    /// at or after `exitEffectiveL1`. A mature time delay alone never authorizes withdrawal.
-    /// The entry itself is left unchanged, so no checkpoint is written, and its slot is freed for
-    /// the next registration, which overwrites the entry and takes over the bond id.
-    /// @param _bondId The entry's bond id.
+    /// @notice Releases an entry's slot after its confirmed exit, paying out any remaining stake
+    /// (spec 4.1).
+    /// @dev Requires a confirmed exit, block.number >= exitConfirmedAtL1 + withdrawalDelay and an
+    /// Inbox that is not executing `land` or `recover`. With a positive stake only the bond owner
+    /// may call and the stake goes to `_to`; a slashed entry is released by anyone without
+    /// payment. Zeros the entry, clears its owner and confirmation, frees the slot and writes the
+    /// current block's checkpoint; the key stays used.
+    /// @param _bondId The bond id.
     /// @param _to The recipient of the stake.
     function withdraw(uint256 _bondId, address _to) external;
+
+    /// @notice Slashes an entry's whole stake for a same-round double sign (spec 4.1).
+    /// @dev Callable by anyone once the Inbox is initialized. Both votes have the same type
+    /// (prevote or precommit), height, round and generation and different block ids, and the
+    /// generation is at most the Inbox's recoveryGeneration. Each signature recovers, over
+    /// keccak256 of the vote's sign bytes under this deployment's chain id for that generation
+    /// (appendix A), to the address of the entry's stored key. The entry must be unreleased with a
+    /// positive stake. Sets effStake to zero and exitEffectiveL1 to min(existing, block.number),
+    /// pays slashBountyBps of the stake to the caller and the rest to slashSink, and writes the
+    /// current block's checkpoint.
+    /// @param _bondId The bond id.
+    /// @param _voteA One vote.
+    /// @param _voteB The conflicting vote.
+    function slashDoubleSign(uint256 _bondId, Vote calldata _voteA, Vote calldata _voteB) external;
+
+    /// @notice Moves an entry's exit to `_r` during governance recovery (spec 8 step 2).
+    /// @dev Only the Inbox. Requires an unreleased slot whose occupant matches
+    /// `_entryKey = keccak256(abi.encode(ckPrefix, ckX))`. Sets exitEffectiveL1 to
+    /// min(existing, _r) without slashing and writes the current block's checkpoint.
+    /// @param _bondId The bond id.
+    /// @param _entryKey The expected occupant's key.
+    /// @param _r The recovery execution block `R`.
+    function forceExit(uint256 _bondId, bytes32 _entryKey, uint256 _r) external;
 
     /// @notice Returns the number of checkpoints.
     /// @return The number of checkpoints.
     function checkpointCount() external view returns (uint256);
 
-    /// @notice Returns checkpoint `_index`; reverts if it does not exist.
+    /// @notice Returns a checkpoint; reverts if it does not exist.
     /// @param _index The checkpoint index.
     /// @return The checkpoint.
     function checkpointAt(uint256 _index) external view returns (Checkpoint memory);
 
-    /// @notice Returns the number of entry slots used so far (exited and withdrawn ones
-    /// included).
-    /// @return The number of entry slots.
+    /// @notice Returns the number of slots used so far, released ones included.
+    /// @return The number of entries.
     function entryCount() external view returns (uint256);
 
-    /// @notice Returns entry `_bondId`; reverts if it does not exist.
+    /// @notice Returns an entry; reverts if its slot was never used.
     /// @param _bondId The bond id.
-    /// @return The entry.
+    /// @return The entry; all zero for a released slot.
     function entryAt(uint256 _bondId) external view returns (Entry memory);
 
-    /// @notice Returns the entries Merkle root over all current entries.
-    /// @dev Equals the latest checkpoint's `entriesRoot` (`bytes32(0)` before the first entry).
-    /// @return The entries Merkle root.
+    /// @notice Returns the entries root over all `entryCount()` entries (appendix A).
+    /// @dev Equals the latest checkpoint's root; zero with no entry.
+    /// @return The entries root.
     function entriesRoot() external view returns (bytes32);
 
-    /// @notice Returns the owner of `_bondId`, or `address(0)` if it does not exist.
+    /// @notice Returns the owner of a bond.
     /// @param _bondId The bond id.
-    /// @return The bond owner.
-    function bondOwnerOf(uint256 _bondId) external view returns (address);
+    /// @return The owner; zero for an unused or released slot.
+    function ownerOf(uint256 _bondId) external view returns (address);
 
-    /// @notice Returns whether the stake of `_bondId`'s current holder was withdrawn (false if
-    /// the slot does not exist or was reused).
+    /// @notice Returns the L1 block at which a bond's exit was confirmed.
     /// @param _bondId The bond id.
-    /// @return Whether the stake was withdrawn.
-    function isWithdrawn(uint256 _bondId) external view returns (bool);
+    /// @return The confirmation block; zero if not confirmed.
+    function exitConfirmedAtL1(uint256 _bondId) external view returns (uint256);
 
-    /// @notice Returns the number of freed slots waiting for reuse.
+    /// @notice Returns whether a consensus key address was ever registered.
+    /// @param _ckAddr The consensus key's address.
+    /// @return Whether the key is used.
+    function keyUsed(address _ckAddr) external view returns (bool);
+
+    /// @notice Returns the number of released slots waiting for reuse.
     /// @return The number of free slots.
     function freeSlotCount() external view returns (uint256);
 
-    /// @notice Returns the total stake of entries whose exit was not requested, pending
-    /// activations included.
-    /// @return The bonded stake.
-    function bondedStake() external view returns (uint256);
+    /// @notice Returns the EIP-712 digest a registration's proof of possession signs
+    /// (appendix A).
+    /// @dev keccak256(0x1901 ‖ domainSeparator ‖ keccak256(abi.encode(keccak256("Register(address
+    /// owner)"), _owner))), the domain being name "EtnaStakingRegistry", version "1",
+    /// chainId = block.chainid and verifyingContract = this registry, computed on every call.
+    /// @param _owner The bond owner.
+    /// @return The digest.
+    function registerDigest(address _owner) external view returns (bytes32);
+
+    /// @notice Returns the Etna Inbox proxy fixed at deployment.
+    /// @return The Inbox address.
+    function inbox() external view returns (address);
+
+    /// @notice Returns the chain id of the Etna L2.
+    /// @return The L2 chain id.
+    function l2ChainId() external view returns (uint64);
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    /// @notice A constructor parameter is zero, codeless or out of bounds.
+    error InvalidConfig();
+    /// @notice The stake is below `minStake`.
+    error StakeTooLow();
+    /// @notice The public key is not a canonical 33-byte compressed secp256k1 point.
+    error InvalidPublicKey();
+    /// @notice The signature is malformed or does not recover to the expected key.
+    error InvalidSignature();
+    /// @notice The consensus key was already registered.
+    error KeyAlreadyUsed();
+    /// @notice Every slot holds an entry.
+    error RegistryFull();
+    /// @notice The bond id names no used slot.
+    error UnknownBond();
+    /// @notice The caller is not the bond owner.
+    error NotBondOwner();
+    /// @notice The slot was released.
+    error SlotReleased();
+    /// @notice The entry already has an exit set.
+    error ExitAlreadySet();
+    /// @notice The entry has no exit set.
+    error ExitNotSet();
+    /// @notice An activation or exit block does not fit below the no-exit sentinel.
+    error InvalidEventBlock();
+    /// @notice The Inbox is not initialized.
+    error InboxNotInitialized();
+    /// @notice The Inbox is executing `land` or `recover`.
+    error InboxLocked();
+    /// @notice No landed committee excludes the stake yet.
+    error ExitNotCovered();
+    /// @notice The exit is not confirmed.
+    error ExitNotConfirmed();
+    /// @notice The withdrawal delay has not elapsed.
+    error WithdrawalNotReady();
+    /// @notice A vote field is out of range.
+    error InvalidVote();
+    /// @notice The votes are not a same-round double sign.
+    error NotDoubleSign();
+    /// @notice The votes' generation is above the Inbox's recovery generation.
+    error FutureGeneration();
+    /// @notice The entry has no stake to slash.
+    error NothingToSlash();
+    /// @notice The slot's occupant does not match the expected entry key.
+    error EntryKeyMismatch();
+    /// @notice The checkpoint index does not exist.
+    error UnknownCheckpoint();
+    /// @notice The caller is not the Inbox.
+    error NotInbox();
 }
