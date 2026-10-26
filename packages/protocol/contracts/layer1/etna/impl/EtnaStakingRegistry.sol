@@ -1,127 +1,152 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { IEtnaInbox } from "../iface/IEtnaInbox.sol";
 import { IEtnaStakingRegistry } from "../iface/IEtnaStakingRegistry.sol";
 import { LibEntriesTree } from "../libs/LibEntriesTree.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 
 import "./EtnaStakingRegistry_Layout.sol"; // DO NOT DELETE
 
 /// @title EtnaStakingRegistry
-/// @notice The TAIKO staking registry of the Etna PoS chain: validator entries in reusable slots,
-/// one checkpoint per L1 block that changes an entry, and an incremental entries Merkle root.
-/// @dev All state lives in the ERC-7201 namespace `taiko.etna.registry` (`RegistryStorage`),
-/// whose slots the Etna node proves; see `IEtnaStakingRegistry`. The contract upholds the node's
-/// registry obligations: checkpoints have strictly increasing `l1Block`s, every L1 block that
-/// changes an entry has one, each covers every entry as it stands at the end of its block, and
-/// no two entries whose exits are not yet effective share a pubkey.
-///
-/// A withdrawn bond's slot is reused by a later registration, so `MAX_ENTRIES` bounds the
-/// entries holding stake at once rather than every registration ever made.
+/// @notice The TAIKO staking registry of the Etna PoS chain; see `IEtnaStakingRegistry`.
+/// @dev All state lives in three ERC-7201 namespaces (spec appendix B). `taiko.etna.registry`
+/// holds, from its base R: `checkpoints` (R) and `entries` (R + 1), the only slots nodes read,
+/// then the tree nodes, the free slot list and the used key addresses (C12).
+/// `taiko.etna.registry.owners` holds the bond owners and
+/// `taiko.etna.registry.exit-confirmations` the exit confirmations; neither enters the entries
+/// root. The Inbox proxy and the L2 chain id are immutables.
 /// @custom:security-contact security@taiko.xyz
 contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
-    using SafeERC20 for IERC20;
-
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
 
     /// @custom:storage-location erc7201:taiko.etna.registry
     struct RegistryStorage {
-        /// @dev Slot `R`: one checkpoint per L1 block that changed an entry.
+        /// @dev Slot R: one checkpoint per L1 block that changed an entry.
         Checkpoint[] checkpoints;
-        /// @dev Slot `R + 1`: the entries, indexed by bond id (the slot).
+        /// @dev Slot R + 1: the entries, indexed by bond id.
         Entry[] entries;
-        /// @dev Slot `R + 2`.
-        mapping(uint256 bondId => address owner) bondOwner;
-        /// @dev Slot `R + 3`.
-        mapping(uint256 bondId => bool withdrawn) withdrawn;
-        /// @dev Slot `R + 4`: the bond id plus one of the latest entry registered with a pubkey.
-        mapping(bytes32 pubkey => uint256 bondIdPlusOne) keyHolder;
-        /// @dev Slot `R + 5`: the `LibEntriesTree` nodes.
+        /// @dev Slot R + 2: the `LibEntriesTree` nodes.
         mapping(uint256 node => bytes32 hash) tree;
-        /// @dev Slot `R + 6`: withdrawn bond ids whose slots the next registrations reuse.
+        /// @dev Slot R + 3: released bond ids, reused last-in first-out.
         uint256[] freeSlots;
-        /// @dev Slot `R + 7`: the total stake of entries whose exit was not requested, pending
-        /// activations included.
-        uint256 bondedStake;
-        /// @dev Slot `R + 8`: the one-time bound Inbox that authenticates committee turnover.
-        address inbox;
+        /// @dev Slot R + 4: the consensus key addresses ever registered.
+        mapping(address ckAddr => bool used) keyUsed;
+    }
+
+    /// @custom:storage-location erc7201:taiko.etna.registry.owners
+    struct OwnersStorage {
+        mapping(uint256 bondId => address owner) owners;
+    }
+
+    /// @custom:storage-location erc7201:taiko.etna.registry.exit-confirmations
+    struct ExitConfirmationsStorage {
+        mapping(uint256 bondId => uint256 l1Block) exitConfirmedAtL1;
     }
 
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
 
-    /// @notice The maximum number of entries holding stake at once (the tree capacity). A
-    /// withdrawn entry's slot is reused.
+    /// @notice The `exitEffectiveL1` of an entry with no exit set.
+    uint48 public constant NO_EXIT = type(uint48).max;
+
+    /// @notice The number of slots (the entries tree capacity).
     uint256 public constant MAX_ENTRIES = LibEntriesTree.CAPACITY;
 
-    /// @dev The ERC-7201 base slot `R` of `RegistryStorage`:
-    /// `keccak256(abi.encode(uint256(keccak256("taiko.etna.registry")) - 1)) & ~bytes32(uint256(0xff))`.
+    /// @dev Delays must be below this bound (C14).
+    uint256 private constant _DELAY_BOUND = 2 ** 32;
+
+    /// @dev The basis points of a whole stake.
+    uint256 private constant _BPS = 10_000;
+
+    /// @dev `erc7201("taiko.etna.registry")`: the base slot R of `RegistryStorage`.
     bytes32 private constant _REGISTRY_STORAGE_SLOT =
         0x46e4e2fea4a7d0ac18aca03baa3a1f64e1be04ec23c1ca0c7b901af7b59b8000;
 
-    /// @dev The `exitEffectiveL1` of an entry whose exit was not requested.
-    uint64 private constant _NO_EXIT = type(uint64).max;
+    /// @dev `erc7201("taiko.etna.registry.owners")`.
+    bytes32 private constant _OWNERS_STORAGE_SLOT =
+        0x39c9f3adc28a427dc5a3705913196a8ee3e586999e5fd34170cb091706065d00;
+
+    /// @dev `erc7201("taiko.etna.registry.exit-confirmations")`.
+    bytes32 private constant _EXIT_CONFIRMATIONS_STORAGE_SLOT =
+        0x25e74f824855a18216fe2fa8b7d9dcc76ad83f6de1a344c666c3293e57124900;
+
+    /// @dev The EIP-712 domain type hash.
+    bytes32 private constant _DOMAIN_TYPEHASH = keccak256(
+        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+    );
+
+    /// @dev The hash of the EIP-712 domain name "EtnaStakingRegistry".
+    bytes32 private constant _NAME_HASH = keccak256("EtnaStakingRegistry");
+
+    /// @dev The hash of the EIP-712 domain version "1".
+    bytes32 private constant _VERSION_HASH = keccak256("1");
+
+    /// @dev The EIP-712 type hash of `Register(address owner)`.
+    bytes32 private constant _REGISTER_TYPEHASH = keccak256("Register(address owner)");
 
     // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
 
-    /// @notice The TAIKO token staked in this registry.
-    IERC20 public immutable taikoToken;
+    /// @notice The staked TAIKO token.
+    IERC20 public immutable token;
 
-    /// @notice The minimum stake of a registration, in TAIKO base units.
+    /// @notice The minimum stake of a registration in token base units.
     uint256 public immutable minStake;
 
-    /// @notice The number of L1 blocks from registration until the entry is active.
-    uint64 public immutable activationDelay;
+    /// @notice The L1 blocks from registration until the entry is active.
+    uint256 public immutable activationDelay;
 
-    /// @notice The number of L1 blocks from the exit request (or the activation, if later) until
-    /// the exit takes effect.
-    uint64 public immutable exitDelay;
+    /// @notice The L1 blocks from the exit request, or the activation if later, until the exit
+    /// takes effect.
+    uint256 public immutable exitDelay;
 
-    /// @notice The number of L1 blocks from the effective exit until the stake can be withdrawn.
-    uint64 public immutable withdrawalDelay;
+    /// @notice The L1 blocks from the exit confirmation until the slot can be released.
+    uint256 public immutable withdrawalDelay;
 
-    /// @notice The heartbeat window `W` in L1 blocks; equals the node's `heartbeat_window`.
-    uint64 public immutable heartbeatWindow;
+    /// @notice The share of a slashed stake paid to the reporter, in basis points.
+    uint256 public immutable slashBountyBps;
+
+    /// @notice The receiver of a slashed stake minus the bounty.
+    address public immutable slashSink;
+
+    /// @dev The chain id of the Etna L2.
+    uint64 private immutable _l2ChainId;
+
+    /// @dev The Etna Inbox proxy.
+    address private immutable _inbox;
 
     // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
 
     /// @notice Sets the registry's immutable parameters.
-    /// @param _taikoToken The TAIKO token.
-    /// @param _minStake The minimum stake of a registration; must be non-zero.
-    /// @param _activationDelay The activation delay in L1 blocks.
-    /// @param _exitDelay The exit delay in L1 blocks.
-    /// @param _withdrawalDelay The withdrawal delay in L1 blocks.
-    /// @param _heartbeatWindow The heartbeat window in L1 blocks; must be non-zero.
-    constructor(
-        address _taikoToken,
-        uint256 _minStake,
-        uint64 _activationDelay,
-        uint64 _exitDelay,
-        uint64 _withdrawalDelay,
-        uint64 _heartbeatWindow
-    ) {
-        require(_taikoToken != address(0), ZERO_ADDRESS());
-        require(_minStake != 0, ZERO_VALUE());
-        require(_heartbeatWindow != 0, InvalidHeartbeatWindow());
+    /// @param _config The configuration: non-zero token, minimum stake, slash sink and L2 chain
+    /// id, delays in [1, 2^32), a bounty of at most 10,000 bps and an Inbox with code.
+    constructor(Config memory _config) {
+        require(_config.token != address(0), InvalidConfig());
+        require(_config.minStake != 0, InvalidConfig());
+        require(_isValidDelay(_config.activationDelay), InvalidConfig());
+        require(_isValidDelay(_config.exitDelay), InvalidConfig());
+        require(_isValidDelay(_config.withdrawalDelay), InvalidConfig());
+        require(_config.slashBountyBps <= _BPS, InvalidConfig());
+        require(_config.slashSink != address(0), InvalidConfig());
+        require(_config.l2ChainId != 0, InvalidConfig());
+        require(_config.inbox.code.length != 0, InvalidConfig());
 
-        taikoToken = IERC20(_taikoToken);
-        minStake = _minStake;
-        activationDelay = _activationDelay;
-        exitDelay = _exitDelay;
-        withdrawalDelay = _withdrawalDelay;
-        heartbeatWindow = _heartbeatWindow;
+        token = IERC20(_config.token);
+        minStake = _config.minStake;
+        activationDelay = _config.activationDelay;
+        exitDelay = _config.exitDelay;
+        withdrawalDelay = _config.withdrawalDelay;
+        slashBountyBps = _config.slashBountyBps;
+        slashSink = _config.slashSink;
+        _l2ChainId = _config.l2ChainId;
+        _inbox = _config.inbox;
     }
 
     // ---------------------------------------------------------------
@@ -129,148 +154,36 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     // ---------------------------------------------------------------
 
     /// @notice Initializes the owner of the registry.
-    /// @param _owner The owner of this contract; `msg.sender` if zero.
+    /// @param _owner The owner; `msg.sender` if zero.
     function init(address _owner) external initializer {
         __Essential_init(_owner);
     }
 
     /// @inheritdoc IEtnaStakingRegistry
     function register(
-        bytes32 _pubkey,
-        uint256 _amount,
-        address _rewardRecipient
+        bytes calldata,
+        uint256,
+        bytes calldata
     )
         external
-        nonReentrant
-        returns (uint256 bondId_)
-    {
-        require(_amount >= minStake, StakeTooLow());
-        require(_pubkey != 0, ZeroPubkey());
-        require(_rewardRecipient != address(0), ZERO_ADDRESS());
-
-        RegistryStorage storage $ = _registryStorage();
-        uint256 count = $.entries.length;
-        uint256 freeCount = $.freeSlots.length;
-        require(freeCount != 0 || count < MAX_ENTRIES, RegistryFull());
-
-        uint256 holder = $.keyHolder[_pubkey];
-        if (holder != 0) {
-            // A slot reused by another pubkey no longer holds this one: its holder withdrew.
-            Entry storage held = $.entries[holder - 1];
-            require(held.pubkey != _pubkey || held.exitEffectiveL1 <= block.number, PubkeyInUse());
-        }
-
-        Entry memory entry = Entry({
-            pubkey: _pubkey,
-            effStake: _amount,
-            activeFromL1: _eventBlock(block.number + activationDelay),
-            exitEffectiveL1: _NO_EXIT,
-            lastHeartbeatAt: 0,
-            lastHeartbeatSeq: 0,
-            rewardRecipient: _rewardRecipient
-        });
-        if (freeCount != 0) {
-            bondId_ = $.freeSlots[freeCount - 1];
-            $.freeSlots.pop();
-            $.entries[bondId_] = entry;
-            delete $.withdrawn[bondId_];
-        } else {
-            bondId_ = count++;
-            $.entries.push(entry);
-        }
-        $.bondedStake += _amount;
-        $.bondOwner[bondId_] = msg.sender;
-        $.keyHolder[_pubkey] = bondId_ + 1;
-        _commit($, count, bondId_, entry);
-
-        taikoToken.safeTransferFrom(msg.sender, address(this), _amount);
-        emit Registered(bondId_, msg.sender, _pubkey, _amount, entry.activeFromL1, _rewardRecipient);
-    }
+        notImplemented
+        returns (uint256)
+    { }
 
     /// @inheritdoc IEtnaStakingRegistry
-    function heartbeat(uint256 _bondId) external nonReentrant {
-        RegistryStorage storage $ = _registryStorage();
-        uint256 count = _checkBondOwner($, _bondId);
-
-        Entry memory entry = $.entries[_bondId];
-        require(block.number < entry.exitEffectiveL1, AlreadyExited());
-
-        uint64 windowStart = uint64(block.number / heartbeatWindow * heartbeatWindow);
-        require(
-            entry.lastHeartbeatSeq == 0 || windowStart > entry.lastHeartbeatAt,
-            HeartbeatAlreadyRecorded()
-        );
-
-        entry.lastHeartbeatAt = windowStart;
-        ++entry.lastHeartbeatSeq;
-        Entry storage stored = $.entries[_bondId];
-        stored.lastHeartbeatAt = windowStart;
-        stored.lastHeartbeatSeq = entry.lastHeartbeatSeq;
-        _commit($, count, _bondId, entry);
-
-        emit HeartbeatRecorded(_bondId, windowStart, entry.lastHeartbeatSeq);
-    }
+    function requestExit(uint256) external notImplemented { }
 
     /// @inheritdoc IEtnaStakingRegistry
-    function requestExit(uint256 _bondId) external nonReentrant {
-        RegistryStorage storage $ = _registryStorage();
-        uint256 count = _checkBondOwner($, _bondId);
-
-        Entry memory entry = $.entries[_bondId];
-        require(entry.exitEffectiveL1 == _NO_EXIT, ExitAlreadyRequested());
-
-        // An entry still waiting for its activation exits no earlier than `exitDelay` after it
-        // activates.
-        entry.exitEffectiveL1 =
-            _eventBlock(Math.max(block.number, uint256(entry.activeFromL1)) + exitDelay);
-        $.bondedStake -= entry.effStake;
-        $.entries[_bondId].exitEffectiveL1 = entry.exitEffectiveL1;
-        _commit($, count, _bondId, entry);
-
-        emit ExitRequested(_bondId, entry.exitEffectiveL1);
-    }
+    function confirmExit(uint256) external notImplemented { }
 
     /// @inheritdoc IEtnaStakingRegistry
-    function bindInbox(address _inbox) external onlyOwner {
-        RegistryStorage storage $ = _registryStorage();
-        require($.inbox == address(0), InboxAlreadyBound());
-        require(_inbox.code.length != 0, InvalidInbox());
-        IEtnaInbox target = IEtnaInbox(_inbox);
-        require(
-            target.stakingRegistry() == address(this) && target.lastCheckpoint().blockHash != 0,
-            InvalidInbox()
-        );
-        $.inbox = _inbox;
-        emit InboxBound(_inbox);
-    }
+    function withdraw(uint256, address) external notImplemented { }
 
     /// @inheritdoc IEtnaStakingRegistry
-    function inbox() external view returns (address inbox_) {
-        return _registryStorage().inbox;
-    }
+    function slashDoubleSign(uint256, Vote calldata, Vote calldata) external notImplemented { }
 
     /// @inheritdoc IEtnaStakingRegistry
-    function withdraw(uint256 _bondId, address _to) external nonReentrant nonZeroAddr(_to) {
-        RegistryStorage storage $ = _registryStorage();
-        _checkBondOwner($, _bondId);
-        require(!$.withdrawn[_bondId], AlreadyWithdrawn());
-
-        Entry storage entry = $.entries[_bondId];
-        uint64 exitEffectiveL1 = entry.exitEffectiveL1;
-        require(exitEffectiveL1 != _NO_EXIT, ExitNotRequested());
-        require(block.number >= uint256(exitEffectiveL1) + withdrawalDelay, WithdrawalNotReady());
-        require($.inbox != address(0), InboxNotBound());
-        require(
-            IEtnaInbox($.inbox).activeCommitteeSnapshot() >= exitEffectiveL1,
-            CommitteeExitNotSettled()
-        );
-
-        $.withdrawn[_bondId] = true;
-        $.freeSlots.push(_bondId);
-        uint256 amount = entry.effStake;
-        taikoToken.safeTransfer(_to, amount);
-        emit StakeWithdrawn(_bondId, _to, amount);
-    }
+    function forceExit(uint256, bytes32, uint256) external notImplemented { }
 
     /// @inheritdoc IEtnaStakingRegistry
     function checkpointCount() external view returns (uint256) {
@@ -303,13 +216,18 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     }
 
     /// @inheritdoc IEtnaStakingRegistry
-    function bondOwnerOf(uint256 _bondId) external view returns (address) {
-        return _registryStorage().bondOwner[_bondId];
+    function ownerOf(uint256 _bondId) external view returns (address) {
+        return _ownersStorage().owners[_bondId];
     }
 
     /// @inheritdoc IEtnaStakingRegistry
-    function isWithdrawn(uint256 _bondId) external view returns (bool) {
-        return _registryStorage().withdrawn[_bondId];
+    function exitConfirmedAtL1(uint256 _bondId) external view returns (uint256) {
+        return _exitConfirmationsStorage().exitConfirmedAtL1[_bondId];
+    }
+
+    /// @inheritdoc IEtnaStakingRegistry
+    function keyUsed(address _ckAddr) external view returns (bool) {
+        return _registryStorage().keyUsed[_ckAddr];
     }
 
     /// @inheritdoc IEtnaStakingRegistry
@@ -318,72 +236,36 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     }
 
     /// @inheritdoc IEtnaStakingRegistry
-    function bondedStake() external view returns (uint256) {
-        return _registryStorage().bondedStake;
+    function registerDigest(address _owner) public view returns (bytes32) {
+        bytes32 domainSeparator = keccak256(
+            abi.encode(_DOMAIN_TYPEHASH, _NAME_HASH, _VERSION_HASH, block.chainid, address(this))
+        );
+        bytes32 structHash = keccak256(abi.encode(_REGISTER_TYPEHASH, _owner));
+        return keccak256(abi.encodePacked(hex"1901", domainSeparator, structHash));
+    }
+
+    /// @inheritdoc IEtnaStakingRegistry
+    function inbox() external view returns (address) {
+        return _inbox;
+    }
+
+    /// @inheritdoc IEtnaStakingRegistry
+    function l2ChainId() external view returns (uint64) {
+        return _l2ChainId;
     }
 
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
 
-    /// @dev Checks that `_bondId` exists and that the caller owns it.
-    /// @param $ The registry storage.
-    /// @param _bondId The bond id.
-    /// @return count_ The number of entries.
-    function _checkBondOwner(
-        RegistryStorage storage $,
-        uint256 _bondId
-    )
-        private
-        view
-        returns (uint256 count_)
-    {
-        count_ = $.entries.length;
-        require(_bondId < count_, UnknownBond());
-        require($.bondOwner[_bondId] == msg.sender, NotBondOwner());
+    /// @dev Returns whether a delay is in [1, 2^32) (C14).
+    /// @param _delay The delay in L1 blocks.
+    /// @return Whether the delay is valid.
+    function _isValidDelay(uint256 _delay) private pure returns (bool) {
+        return _delay != 0 && _delay < _DELAY_BOUND;
     }
 
-    /// @dev Rewrites the leaf of entry `_bondId` and records the new root in the current block's
-    /// checkpoint: overwritten if the latest checkpoint is this block's, appended otherwise.
-    /// @param $ The registry storage.
-    /// @param _count The number of entries.
-    /// @param _bondId The changed entry's bond id.
-    /// @param _entry The changed entry's new value.
-    function _commit(
-        RegistryStorage storage $,
-        uint256 _count,
-        uint256 _bondId,
-        Entry memory _entry
-    )
-        private
-    {
-        bytes32 root =
-            LibEntriesTree.update($.tree, _count, _bondId, LibEntriesTree.leaf(_bondId, _entry));
-        uint64 l1Block = SafeCast.toUint64(block.number);
-        // `_count` is at most MAX_ENTRIES, so it fits in a uint32.
-        uint32 count = uint32(_count);
-
-        uint256 index = $.checkpoints.length;
-        if (index != 0 && $.checkpoints[index - 1].l1Block == l1Block) {
-            --index;
-            Checkpoint storage last = $.checkpoints[index];
-            last.count = count;
-            last.entriesRoot = root;
-        } else {
-            $.checkpoints.push(Checkpoint({ l1Block: l1Block, count: count, entriesRoot: root }));
-        }
-        emit CheckpointWritten(index, l1Block, count, root);
-    }
-
-    /// @dev Checks an activation or exit block for truncation and a collision with no-exit.
-    /// @param _block The proposed event block.
-    /// @return block_ The supported coordinate.
-    function _eventBlock(uint256 _block) private pure returns (uint64 block_) {
-        block_ = SafeCast.toUint64(_block);
-        require(block_ != _NO_EXIT, InvalidEventBlock());
-    }
-
-    /// @dev Returns the registry's ERC-7201 storage.
+    /// @dev Returns the `taiko.etna.registry` storage.
     /// @return $ The registry storage.
     function _registryStorage() private pure returns (RegistryStorage storage $) {
         assembly {
@@ -391,27 +273,19 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         }
     }
 
-    // ---------------------------------------------------------------
-    // Custom Errors
-    // ---------------------------------------------------------------
+    /// @dev Returns the `taiko.etna.registry.owners` storage.
+    /// @return $ The owners storage.
+    function _ownersStorage() private pure returns (OwnersStorage storage $) {
+        assembly {
+            $.slot := _OWNERS_STORAGE_SLOT
+        }
+    }
 
-    error AlreadyExited();
-    error AlreadyWithdrawn();
-    error ExitAlreadyRequested();
-    error ExitNotRequested();
-    error HeartbeatAlreadyRecorded();
-    error InvalidEventBlock();
-    error InvalidHeartbeatWindow();
-    error NotBondOwner();
-    error PubkeyInUse();
-    error RegistryFull();
-    error StakeTooLow();
-    error UnknownBond();
-    error UnknownCheckpoint();
-    error WithdrawalNotReady();
-    error InboxAlreadyBound();
-    error InvalidInbox();
-    error InboxNotBound();
-    error CommitteeExitNotSettled();
-    error ZeroPubkey();
+    /// @dev Returns the `taiko.etna.registry.exit-confirmations` storage.
+    /// @return $ The exit confirmations storage.
+    function _exitConfirmationsStorage() private pure returns (ExitConfirmationsStorage storage $) {
+        assembly {
+            $.slot := _EXIT_CONFIRMATIONS_STORAGE_SLOT
+        }
+    }
 }

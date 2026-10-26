@@ -31,8 +31,8 @@ library LibEntriesTree {
     /// @dev The number of leaf positions, `2 ** DEPTH`.
     uint256 internal constant CAPACITY = 4096;
 
-    /// @dev The domain tag of entry leaves: "ETNA_REG_ENTRY_V2", right-padded with zero bytes.
-    bytes32 internal constant ENTRY_TAG = bytes32("ETNA_REG_ENTRY_V2");
+    /// @dev The domain tag of entry leaves: "ETNA_REG_ENTRY_V1", right-padded with zero bytes.
+    bytes32 internal constant ENTRY_TAG = bytes32("ETNA_REG_ENTRY_V1");
 
     /// @dev `zero(l)` for `l = 1..12`; `zero(0)` is `bytes32(0)`.
     bytes32 private constant _Z1 =
@@ -64,10 +64,10 @@ library LibEntriesTree {
     // Internal Functions
     // ---------------------------------------------------------------
 
-    /// @dev Hashes entry `_index` into its leaf:
-    /// `keccak256(abi.encode(ENTRY_TAG, uint256(_index), pubkey, effStake, uint64 activeFromL1,
-    /// uint64 exitEffectiveL1, uint64 lastHeartbeatAt, uint64 lastHeartbeatSeq,
-    /// address rewardRecipient))`.
+    /// @dev Hashes entry `_index` into its leaf, spec appendix A `regLeaf`: the seven-word
+    /// `keccak256(abi.encode(ENTRY_TAG, _index, uint256(ckPrefix), ckX, effStake,
+    /// uint256(activeFromL1), uint256(exitEffectiveL1)))`. A released slot's all-zero entry
+    /// still hashes to a non-zero leaf.
     /// @param _index The entry's index (its bond id).
     /// @param _entry The entry.
     /// @return The leaf hash.
@@ -83,13 +83,11 @@ library LibEntriesTree {
             abi.encode(
                 ENTRY_TAG,
                 _index,
-                _entry.pubkey,
+                uint256(_entry.ckPrefix),
+                _entry.ckX,
                 _entry.effStake,
-                _entry.activeFromL1,
-                _entry.exitEffectiveL1,
-                _entry.lastHeartbeatAt,
-                _entry.lastHeartbeatSeq,
-                _entry.rewardRecipient
+                uint256(_entry.activeFromL1),
+                uint256(_entry.exitEffectiveL1)
             )
         );
     }

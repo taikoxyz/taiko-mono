@@ -2,509 +2,515 @@
 pragma solidity ^0.8.26;
 
 /// @title IEtnaInbox
-/// @notice The L1 anchor of an Etna PoS chain that starts from L2 genesis.
-/// @dev A fresh proxy is initialized with the L2 block-0 hash and state root, epoch parameters,
-/// and the initial committee record and derivation configuration hash. The node authenticates
-/// genesis and checkpoint storage with EIP-1186 proofs. Future committees derive from the
-/// committed switch-parent anchor. Landing authenticates the active committee snapshot for
-/// staking withdrawals without publishing the full committee.
+/// @notice The L1 Inbox of an Etna PoS chain: it records L2 genesis, lands proven batches that end
+/// at grid points, keeps the forced inclusion queue and runs governance recovery.
+/// @dev Section numbers refer to the Etna specification. Nodes, guests and landers read the
+/// storage layout of spec appendix B (slots 258-291) with EIP-1186 proofs; each struct names the
+/// slots it occupies. Every packed word lays its fields out in declaration order from the
+/// least-significant bit. This file has no imports so clients can copy it as is.
 /// @custom:security-contact security@taiko.xyz
 interface IEtnaInbox {
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
 
-    /// @notice A forced L2 transaction authenticated by the submission's L1 state.
-    /// @dev Two storage words: the transaction hash, then timestamp (bits 0-47), L1 block
-    /// (bits 48-111), and fee in Gwei (bits 112-175).
-    struct ForcedInclusion {
-        /// @notice The keccak256 hash of the submitted transaction bytes.
-        bytes32 txHash;
-        /// @notice The L1 submission timestamp in seconds.
-        uint48 timestamp;
-        /// @notice The L1 block containing the submission and its transaction bytes event.
-        uint64 l1Block;
-        /// @notice The paid fee in Gwei, released when the entry is consumed.
-        uint64 feeInGwei;
-    }
-
-    /// @notice The constructor parameters of the Etna Inbox implementation.
+    /// @notice The immutable parameters of an Inbox implementation (spec 11).
     struct Config {
-        /// @notice The verifier of `land` proofs.
+        /// @notice The verifier of `land` proofs (spec 6.2).
         address proofVerifier;
-        /// @notice The L1 signal service that stores the L2 checkpoints.
+        /// @notice The L1 SignalService that stores the landed L2 checkpoints.
         address signalService;
-        /// @notice The Etna staking registry the committees derive from.
+        /// @notice The staking registry whose snapshots select the committees (spec 4.1).
         address stakingRegistry;
-        /// @notice The chain id of the Etna L2.
+        /// @notice The chain id of the Etna L2; non-zero.
         uint64 l2ChainId;
-        /// @notice The maximum number of L2 blocks one `land` call may cover.
+        /// @notice The maximum `h - p` of one landing; at least 6, one grid segment (spec 10).
         uint64 maxBatchBlocks;
-        /// @notice The forced inclusion fee in Gwei with an empty queue.
+        /// @notice The forced inclusion fee in Gwei with an empty queue (spec 7.1); non-zero.
         uint64 forcedInclusionFeeInGwei;
-        /// @notice The number of pending forced inclusions at which the fee doubles.
+        /// @notice The number of pending forced inclusions at which the fee doubles; non-zero.
         uint64 forcedInclusionFeeDoubleThreshold;
+        /// @notice The DAO treasury that receives the swept forced inclusion fees (spec 7.1);
+        /// non-zero.
+        address protocolFeeRecipient;
     }
 
-    /// @notice The genesis parameters of a new Etna chain.
-    struct GenesisParams {
+    /// @notice The committee derivation parameters opened by `committeeConfigHash` (spec 4.3, 6.4).
+    /// @dev committeeConfigHash = keccak256(abi.encode(bytes32("ETNA_PARENT_ANCHOR_V1"),
+    /// uint256(l2ChainId), stakingRegistry, vpUnit, sMin, nMax, unsettledLimit)): seven words,
+    /// 224 bytes (appendix A).
+    struct CommitteeConfig {
+        /// @notice `vp_unit`: the stake per unit of voting power; at least 867,361,738.
+        uint256 vpUnit;
+        /// @notice `s_min`: the minimum effective stake of an eligible entry; at least `vpUnit`.
+        uint256 sMin;
+        /// @notice `n_max`: the maximum committee size, in [1, 4096].
+        uint256 nMax;
+        /// @notice `U`: the maximum number of unsettled L2 blocks, a multiple of 6 in [6, 65,532].
+        uint256 unsettledLimit;
+    }
+
+    /// @notice The genesis inputs of `init` (spec 10 step 5).
+    struct InitParams {
+        /// @notice The hash of L2 block 0; non-zero.
+        bytes32 genesisBlockHash;
+        /// @notice The state root of L2 block 0; non-zero.
+        bytes32 genesisStateRoot;
+        /// @notice `L`: the epoch length in L2 blocks, with L >= 3 and L + 1 < 2^48 (spec 4.2).
+        uint256 epochLenL2;
+        /// @notice The registry snapshot block of committee 0: a past L1 block at or after the
+        /// registry's first checkpoint (spec 4.3).
+        uint256 genesisCutoff;
+        /// @notice The committee 0 record hash (appendix A `record`); non-zero.
+        bytes32 committeeRecordHash;
+        /// @notice The committee derivation parameters; `init` validates them and stores their
+        /// hash.
+        CommitteeConfig committeeConfig;
+        /// @notice The forced inclusion delay in seconds, in [1, 2^48) (spec 7.2).
+        uint256 forcedInclusionDelay;
+        /// @notice The maximum anchor age in seconds, in [1152, 2^48) (spec 3.4).
+        uint256 maxAnchorAge;
+    }
+
+    /// @notice The public inputs of `land` (spec 6.1).
+    struct LandInput {
+        /// @notice `p`: the proof origin, a retained checkpoint and grid point at or below `c`.
+        uint256 parentHeight;
+        /// @notice `h`: the terminal height, a grid point above `c`.
+        uint256 lastHeight;
+        /// @notice The EL block hash at `h`.
+        bytes32 lastBlockHash;
+        /// @notice The CometBFT block hash at `h`.
+        bytes32 lastCometHash;
+        /// @notice The EL state root at `h`.
+        bytes32 lastStateRoot;
+        /// @notice The L1 block whose header chain holds every anchor and proving root used.
+        uint256 l1ReferenceBlockNumber;
+        /// @notice The forced inclusion queue head after `h`.
+        uint256 forcedInclusionHead;
+        /// @notice The selection snapshot of the committee actually signing `h`.
+        uint256 activeCommitteeSnapshot;
+    }
+
+    /// @notice The latest landed L2 block `c` (slots 270/271).
+    struct LandedCheckpoint {
+        /// @notice The L2 height.
+        uint48 height;
+        /// @notice The EL block hash.
+        bytes32 blockHash;
+    }
+
+    /// @notice The genesis record (slots 272-274); slot 272 packs the three 48-bit fields.
+    struct GenesisRecord {
+        /// @notice The Etna genesis height, always 0.
+        uint48 genesisHeight;
+        /// @notice `L1_0`: the L1 block of `init`.
+        uint48 l1Block;
+        /// @notice `L`: the epoch length in L2 blocks.
+        uint48 epochLenL2;
         /// @notice The hash of L2 block 0.
         bytes32 genesisBlockHash;
         /// @notice The state root of L2 block 0.
         bytes32 genesisStateRoot;
-        /// @notice The epoch length in L2 blocks.
-        uint64 epochLenL2;
-        /// @notice A past L1 block whose registry snapshot defines committee 0.
-        uint64 genesisCutoff;
-        /// @notice The initial committee record hash, computed from that snapshot.
-        bytes32 committeeRecordHash;
-        /// @notice The non-zero commitment to the parent-anchor committee derivation configuration.
-        bytes32 committeeConfigHash;
-        /// @notice The non-zero forced inclusion delay in seconds. An entry is due at an L2 block
-        /// whose anchor timestamp is at least its timestamp plus it, evaluated without wrapping.
-        uint64 forcedInclusionDelay;
-        /// @notice The maximum anchor age in seconds, at least 1152 (three Ethereum epochs): every
-        /// L2 block requires `block.timestamp - anchor.timestamp <= maxAnchorAge`.
-        uint64 maxAnchorAge;
     }
 
-    /// @notice The genesis record; named activation for the existing node storage interface.
-    /// @dev Three storage words: `genesisHeight` (bits 0–63), `l1Block` (bits 64–127) and
-    /// `epochLenL2` (bits 128–191), with bits 192–255 unused, then `genesisBlockHash`, then
-    /// `genesisStateRoot`.
-    struct Activation {
-        /// @notice The Etna genesis height, always 0.
-        uint64 genesisHeight;
-        /// @notice `L1_0`: the L1 block in which the proxy was initialized.
-        uint64 l1Block;
-        /// @notice `L`: the epoch length in L2 blocks.
-        uint64 epochLenL2;
-        /// @notice `H*`: the block hash of `B*`.
-        bytes32 genesisBlockHash;
-        /// @notice `S*`: the state root of `B*`.
-        bytes32 genesisStateRoot;
+    /// @notice The landing record of a checkpoint height (slot 285 mapping, three words); the
+    /// first word packs `parentHeight`, `generation` and `head`.
+    /// @dev Height 0 holds (0, 0, 0, genesis hash, 0). Records are never pruned (spec 8.4).
+    struct Landing {
+        /// @notice The actual checkpoint `c` the landing settled on, never the proof origin.
+        uint48 parentHeight;
+        /// @notice The recovery generation of the landing.
+        uint48 generation;
+        /// @notice The forced inclusion queue head at this height.
+        uint48 head;
+        /// @notice The EL block hash at this height; never zero once written.
+        bytes32 elHash;
+        /// @notice The CometBFT block hash at this height; zero for block 0.
+        bytes32 cometHash;
     }
 
-    /// @notice The latest L2 block landed on L1 (block 0 after initialization).
-    /// @dev Two storage words: `height` (bits 0–63), then `blockHash`.
-    struct LandedCheckpoint {
-        /// @notice The L2 block height.
-        uint64 height;
-        /// @notice The L2 block hash.
-        bytes32 blockHash;
+    /// @notice The fixed origin of a recovery generation (slot 290 mapping, three words; spec 8.4).
+    /// @dev Generation 0 is (0, L1_0, initialization timestamp); a recovery generation is
+    /// (c, R.number, R.timestamp). Written once; every field is below 2^48.
+    struct Origin {
+        /// @notice The checkpoint height `c` the generation starts from.
+        uint256 startHeight;
+        /// @notice The origin L1 block: `R` for a recovery generation, `L1_0` for generation 0.
+        uint256 l1BlockNumber;
+        /// @notice The timestamp of that L1 block.
+        uint256 l1Timestamp;
     }
 
-    /// @notice The batch of `land`: the L2 blocks after the last checkpoint up to `lastHeight`,
-    /// the forced inclusions they consume, separate L1 queue-fee and L2 base-fee recipients,
-    /// and the proven base-fee amount for that range.
-    struct LandInput {
-        /// @notice The height of the batch's last block.
-        uint64 lastHeight;
-        /// @notice The hash of the batch's last block.
-        bytes32 lastBlockHash;
-        /// @notice The state root of the batch's last block.
-        bytes32 lastStateRoot;
-        /// @notice The L1 reference block authenticating the batch's anchor header chain.
-        /// @dev Every L2 block may have its own anchor; all must be on the L1 header chain ending
-        /// at this reference block, whose number is at least the last block's anchor number.
-        /// A lander picks a recent L1 block, so a landing outage longer than the EIP-2935
-        /// window does not strand the batch.
-        uint64 l1ReferenceBlockNumber;
-        /// @notice The forced inclusion queue head after the batch: the number of entries the
-        /// L2 chain has consumed up to `lastHeight`.
-        /// @dev At least the stored head, at most the queue tail, and ahead of the stored head by
-        /// at most the batch's block count, since each block consumes at most one entry.
-        uint48 forcedInclusionHead;
-        /// @notice The non-zero L1 receiver of consumed forced-inclusion fees, bound into V10.
-        address feeRecipient;
-        /// @notice The non-zero L2 receiver of the proven batch's base fees, bound into V10.
-        address l2RewardRecipient;
-        /// @notice The proven base-fee reward in wei; may be zero.
-        uint256 baseFeeAmount;
-        /// @notice The L1 snapshot selecting the committee governing `lastHeight`.
-        /// @dev Proof-bound to the active committee, not a pending validator update or the
-        /// terminal block's current anchor. The normal genesis-only schedule uses the genesis
-        /// cutoff for epoch zero and the committed derivation-parent anchor thereafter.
-        uint64 activeCommitteeSnapshot;
+    /// @notice A forced inclusion queue entry (slot 280 mapping, two words; spec 7.1); the second
+    /// word packs `timestamp` and `l1Block`.
+    struct ForcedInclusion {
+        /// @notice keccak256 of the submitted bytes; recovery may replace it with keccak256("").
+        bytes32 txHash;
+        /// @notice The L1 timestamp of the submission.
+        uint48 timestamp;
+        /// @notice The L1 block of the submission.
+        uint48 l1Block;
+    }
+
+    /// @notice A registry entry that recovery forces to exit at `R` (spec 8 step 2).
+    struct Exclusion {
+        /// @notice The entry's bond id (its slot).
+        uint256 bondId;
+        /// @notice keccak256(abi.encode(ckPrefix, ckX)) of the slot's expected occupant.
+        bytes32 entryKey;
     }
 
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
 
-    /// @notice Emitted when transaction bytes are appended to the forced inclusion queue.
-    /// @param index The assigned queue index.
-    /// @param tx The original transaction bytes, whose hash is stored in the queue entry.
-    event ForcedInclusionSaved(uint48 indexed index, bytes tx);
-
-    /// @notice Emitted when a fresh Etna proxy is initialized from L2 genesis.
+    /// @notice Emitted once, when `init` records L2 genesis (spec 10 step 5).
     /// @param genesisBlockHash The hash of L2 block 0.
     /// @param genesisStateRoot The state root of L2 block 0.
-    /// @param l1Block The L1 initialization block.
-    /// @param epochLenL2 The epoch length in L2 blocks.
-    /// @param genesisCutoff The initial committee's registry snapshot block.
-    /// @param committeeRecordHash The initial committee record hash.
+    /// @param l1Block `L1_0`, the L1 block of initialization.
+    /// @param epochLenL2 `L`, the epoch length in L2 blocks.
+    /// @param genesisCutoff The registry snapshot block of committee 0.
+    /// @param committeeRecordHash The committee 0 record hash.
+    /// @param committeeConfigHash The stored committee configuration hash.
     event EtnaInitialized(
         bytes32 genesisBlockHash,
         bytes32 genesisStateRoot,
-        uint64 l1Block,
-        uint64 epochLenL2,
-        uint64 genesisCutoff,
-        bytes32 committeeRecordHash
+        uint256 l1Block,
+        uint256 epochLenL2,
+        uint256 genesisCutoff,
+        bytes32 committeeRecordHash,
+        bytes32 committeeConfigHash
     );
 
-    /// @notice Emitted when a batch is landed.
-    /// @param firstHeight The height of the batch's first block.
-    /// @param lastHeight The height of the batch's last block, the new checkpoint.
-    /// @param lastBlockHash The hash of the batch's last block.
-    /// @param lastStateRoot The state root of the batch's last block.
-    /// @param l1ReferenceBlockNumber The L1 block whose header chain holds every block's anchor.
-    /// @param statementHash The landing statement hash the proof was verified against.
-    /// @param lander The caller.
-    event BatchLanded(
-        uint64 firstHeight,
-        uint64 lastHeight,
-        bytes32 lastBlockHash,
-        bytes32 lastStateRoot,
-        uint64 l1ReferenceBlockNumber,
-        bytes32 statementHash,
-        address indexed lander
+    /// @notice Emitted when `land` settles `(c, h]` with a proof covering `(p, h]` (spec 6.1).
+    /// @param parentHeight `p`, the proof origin.
+    /// @param checkpointHeight `c`, the checkpoint the landing settled on.
+    /// @param lastHeight `h`, the new checkpoint.
+    /// @param cutHash The hash over the cut leaves at the grid points in `(p, h)` (appendix A).
+    /// @param activeCommitteeSnapshot The selection snapshot of the committee signing `h`.
+    /// @param version The landing statement version, 1.
+    event Landed(
+        uint256 indexed parentHeight,
+        uint256 indexed checkpointHeight,
+        uint256 indexed lastHeight,
+        bytes32 cutHash,
+        uint256 activeCommitteeSnapshot,
+        uint8 version
     );
 
-    /// @notice Emitted when a landing consumes forced inclusions and pays their fees.
-    /// @param headBefore The forced inclusion queue head before the batch.
-    /// @param headAfter The queue head after the batch; entries [headBefore, headAfter) are
-    /// consumed.
-    /// @param feesWei The consumed entries' total fee in wei, paid to `recipient`.
-    /// @param recipient The batch's `feeRecipient`, which the landing statement binds.
-    event ForcedInclusionsConsumed(
-        uint48 headBefore, uint48 headAfter, uint256 feesWei, address indexed recipient
-    );
+    /// @notice Emitted when a transaction enters the forced inclusion queue (spec 7.1).
+    /// @param index The assigned queue index.
+    /// @param tx The submitted bytes; the entry stores only their hash.
+    /// @param feeWei The fee charged in wei, excluding the refunded overpayment.
+    event ForcedInclusionSaved(uint48 indexed index, bytes tx, uint256 feeWei);
 
-    /// @notice Records a fixed-size discovery event for an authenticated L2 reward receipt.
-    /// @param batchId The identity of the chain, generation and batch endpoints.
-    /// @param l2RewardRecipient The L2 reward receiver.
-    /// @param baseFeeAmount The proven reward in wei.
-    /// @param generation The stored recovery generation.
-    /// @param parentHeight The stored parent checkpoint height.
-    /// @param parentHash The stored parent checkpoint hash.
-    /// @param lastHeight The terminal batch height.
-    /// @param lastBlockHash The terminal batch hash.
-    event BatchRewardRecorded(
-        bytes32 indexed batchId,
-        address indexed l2RewardRecipient,
-        uint256 baseFeeAmount,
-        uint64 generation,
-        uint64 parentHeight,
-        bytes32 parentHash,
-        uint64 lastHeight,
-        bytes32 lastBlockHash
+    /// @notice Emitted when the Inbox's whole ETH balance is swept to `protocolFeeRecipient`.
+    /// @param amount The amount swept in wei.
+    event ProtocolFeesSwept(uint256 amount);
+
+    /// @notice Emitted when governance recovery starts a new generation (spec 8).
+    /// @param newGeneration The new recovery generation.
+    /// @param checkpointHeight `c`, the checkpoint the generation starts from.
+    /// @param l1BlockNumber The number of the execution block `R`.
+    /// @param l1Timestamp The timestamp of `R`.
+    /// @param exclusions The entries forced to exit at `R`, sorted strictly by bond id.
+    /// @param fiToClear The blanked forced inclusion indices, strictly increasing.
+    event Recovered(
+        uint48 indexed newGeneration,
+        uint256 checkpointHeight,
+        uint256 l1BlockNumber,
+        uint256 l1Timestamp,
+        Exclusion[] exclusions,
+        uint256[] fiToClear
     );
 
     // ---------------------------------------------------------------
     // External Functions
     // ---------------------------------------------------------------
 
-    /// @notice Appends a forced L2 transaction and pays the current queue fee.
-    /// @dev Requires active status and at most 8192 bytes. Admission does not validate transaction
-    /// encoding or execution validity: empty and undecodable input is handled by L2 consumption.
-    /// Stores the bytes hash, L1 timestamp, L1 block and fee; emits the bytes and refunds excess
-    /// Ether to the caller. Reverts if the fee is insufficient or the refund fails.
-    /// @param _tx The transaction bytes to publish through calldata.
+    /// @notice Initializes the Inbox from L2 genesis (spec 10 step 5).
+    /// @dev Only the owner, by upgrading the proxy from its bootstrap implementation. Validates the
+    /// spec 10 deployment constraints it can check: non-zero genesis hash, state root and committee
+    /// record; L >= 3 and L + 1 < 2^48; a genesis cutoff below block.number and at or after the
+    /// registry's first checkpoint; the committee configuration bounds; forcedInclusionDelay in
+    /// [1, 2^48); maxAnchorAge in [1152, 2^48); block.number and block.timestamp below 2^48. The
+    /// registry's fixed Inbox must be this proxy and its l2ChainId this Inbox's (spec 4.1).
+    /// Stores committeeConfigHash (slot 269) and the appendix B initial values: generation 0,
+    /// checkpoint (0, genesis hash), the genesis record with L1_0 = block.number, the committee 0
+    /// record and cutoff, activeCommitteeSnapshot = genesisCutoff, landings[0] = (0, 0, 0,
+    /// genesis hash, 0) and origins[0] = (0, L1_0, block.timestamp). Saves the block-0
+    /// SignalService checkpoint; any failure reverts everything.
+    /// @param _params The genesis inputs.
+    function init(InitParams calldata _params) external;
+
+    /// @notice Lands a proven batch: settles `(c, h]` with a proof covering `(p, h]` (spec 6.1).
+    /// @dev Permissionless and nonpayable; shares `recover`'s reentrancy lock. With K = 6 and `c`
+    /// the latest checkpoint height read at execution, it requires, before any state change:
+    /// 1. generationStartHeight() <= p <= c < h < 2^48 (c >= h means already settled), p and h
+    ///    multiples of K, and h - p <= maxBatchBlocks;
+    /// 2. landings[p].elHash != 0, and landings[p].generation == recoveryGeneration unless p is
+    ///    the current generation's start height;
+    /// 3. _leaves.length == (h - p) / K - 1 and landings[c].head equal to the queue head; if
+    ///    c > p, _leaves[(c - p) / K - 1] == keccak256(abi.encode(c, elHash, cometHash,
+    ///    uint256(head))) over landings[c];
+    /// 4. head <= forcedInclusionHead <= tail and forcedInclusionHead - head <= h - c;
+    /// 5. l1ReferenceBlockNumber < block.number with a non-zero hash from `blockhash` (256 blocks)
+    ///    or the EIP-2935 history contract (8191 blocks), and 1 to 6 blobs;
+    /// 6. proofVerifier.verifyProof(0, statement, _proof) succeeds.
+    /// cutHash = keccak256(abi.encode(bytes32("ETNA_LAND_CUTS_V1"), uint256(generation), p, h,
+    /// keccak256(abi.encodePacked(_leaves)))). The statement is the keccak256 of 21 static ABI
+    /// words (672 bytes): bytes32("TAIKO_ETNA_LAND_V1"), block.chainid, l2ChainId, this proxy,
+    /// stakingRegistry, generation, p, parentHash, parentCometHash, committeeConfigHash, h,
+    /// lastBlockHash, lastCometHash, lastStateRoot, l1ReferenceBlockNumber, its block hash,
+    /// keccak256(abi.encodePacked(blobHashes)), headBefore, forcedInclusionHead,
+    /// activeCommitteeSnapshot and cutHash, where parentHash, parentCometHash and headBefore are
+    /// the elHash, cometHash and head of landings[p] (appendix A). It then sets the checkpoint to
+    /// (h, lastBlockHash), activeCommitteeSnapshot, the queue head and landings[h] = (c,
+    /// generation, forcedInclusionHead, lastBlockHash, lastCometHash), saves the SignalService
+    /// checkpoint (h, lastBlockHash, lastStateRoot) and emits `Landed`. It pays no fee.
+    /// @param _input The batch's public inputs.
+    /// @param _leaves The cut leaves at the grid points p + K, ..., h - K, in height order.
+    /// @param _proof The two sub-proofs (spec 6.2).
+    function land(
+        LandInput calldata _input,
+        bytes32[] calldata _leaves,
+        bytes calldata _proof
+    )
+        external;
+
+    /// @notice Appends a forced transaction to the queue and charges the current fee (spec 7.1).
+    /// @dev Requires initialization and at most 8,192 bytes; the encoding is not checked. Charges
+    /// getCurrentForcedInclusionFee() Gwei, which stays in the Inbox until swept, and refunds any
+    /// overpayment to the caller. Stores keccak256(_tx), block.timestamp and block.number, each
+    /// below 2^48.
+    /// @param _tx The raw transaction bytes, published in `ForcedInclusionSaved`.
     function saveForcedInclusion(bytes calldata _tx) external payable;
 
-    /// @notice Returns the fee in Gwei to submit the next forced transaction.
-    /// @dev Uses baseFee * (threshold + pending) / threshold, capped at uint64.max.
-    /// @return feeInGwei_ The next admission fee in Gwei.
-    function getCurrentForcedInclusionFee() external view returns (uint64 feeInGwei_);
+    /// @notice Sends the Inbox's whole ETH balance to `protocolFeeRecipient` (spec 7.1).
+    /// @dev Permissionless; reverts if the transfer fails. Leaves the queue untouched.
+    function sweepProtocolFees() external;
 
-    /// @notice Returns pending forced transactions starting from a queue index.
-    /// @dev Returns an empty array if the start is outside [head, tail) or the maximum is zero.
-    /// Consumed entries remain stored but are excluded from this pending-entry getter.
-    /// @param _start The queue index to start reading.
-    /// @param _maxCount The maximum number of entries to return.
-    /// @return inclusions_ At most min(_maxCount, tail - _start) entries for a valid start.
+    /// @notice Starts a new recovery generation at the current checkpoint `c` (spec 8, 8.3, 8.4).
+    /// @dev Only the owner; shares `land`'s reentrancy lock and is atomic. Requires
+    /// _expectedGeneration == recoveryGeneration(), _expectedC == lastCheckpoint().height,
+    /// exclusions sorted strictly by bond id, and fiToClear strictly increasing within
+    /// [head, tail). With R = block.number, the registry checks each exclusion's entry key and
+    /// sets its exitEffectiveL1 to min(existing, R); each listed queue entry's txHash becomes
+    /// keccak256(""). Increments the generation, which must stay below 2^48, writes
+    /// origins[generation] = (c, R, block.timestamp) once and emits `Recovered`. The checkpoint,
+    /// its landing record, the queue head and activeCommitteeSnapshot are kept.
+    /// @param _expectedGeneration The recovery generation the call was authorized for.
+    /// @param _expectedC The checkpoint height the call was authorized for.
+    /// @param _exclusions The entries to force out, sorted strictly by bond id.
+    /// @param _fiToClear The queue indices to blank, strictly increasing.
+    function recover(
+        uint48 _expectedGeneration,
+        uint256 _expectedC,
+        Exclusion[] calldata _exclusions,
+        uint256[] calldata _fiToClear
+    )
+        external;
+
+    /// @notice Returns whether `init` has run.
+    /// @dev Slot 258 holds 3 once initialized.
+    /// @return Whether the Inbox is initialized.
+    function isInitialized() external view returns (bool);
+
+    /// @notice Returns the recovery generation (slot 268), bound into every landing statement and
+    /// CometBFT chain id.
+    /// @return The recovery generation.
+    function recoveryGeneration() external view returns (uint48);
+
+    /// @notice Returns the committee configuration hash (slot 269).
+    /// @return The configuration hash; zero before initialization.
+    function committeeConfigHash() external view returns (bytes32);
+
+    /// @notice Returns the latest landed checkpoint `c` (slots 270/271).
+    /// @return The checkpoint; (0, genesis hash) right after initialization.
+    function lastCheckpoint() external view returns (LandedCheckpoint memory);
+
+    /// @notice Returns the genesis record (slots 272-274).
+    /// @return The genesis record; zero before initialization.
+    function genesis() external view returns (GenesisRecord memory);
+
+    /// @notice Returns the committee 0 record hash (slot 278).
+    /// @return The record hash; zero before initialization.
+    function genesisCommitteeRecordHash() external view returns (bytes32);
+
+    /// @notice Returns the registry snapshot block of committee 0 (slot 279).
+    /// @return The genesis cutoff; zero before initialization.
+    function genesisCutoff() external view returns (uint48);
+
+    /// @notice Returns the forced inclusion delay in seconds (slot 282, bits 0-47).
+    /// @return The forced inclusion delay; zero before initialization.
+    function forcedInclusionDelay() external view returns (uint48);
+
+    /// @notice Returns the maximum anchor age in seconds (slot 282, bits 48-95).
+    /// @return The maximum anchor age; zero before initialization.
+    function maxAnchorAge() external view returns (uint48);
+
+    /// @notice Returns the selection snapshot of the committee that signed the latest checkpoint
+    /// (slot 284).
+    /// @dev Set to the genesis cutoff by `init` and advanced only by `land`; the registry's exit
+    /// confirmation reads it.
+    /// @return The L1 snapshot block.
+    function activeCommitteeSnapshot() external view returns (uint256);
+
+    /// @notice Returns the landing record of an L2 height (slot 285).
+    /// @param _height The L2 height.
+    /// @return The record; all zero if no landing ended at `_height`.
+    function landings(uint256 _height) external view returns (Landing memory);
+
+    /// @notice Returns the fixed origin of a recovery generation (slot 290).
+    /// @param _generation The recovery generation.
+    /// @return The origin; all zero if the generation has not started.
+    function origins(uint256 _generation) external view returns (Origin memory);
+
+    /// @notice Returns the current generation's start height,
+    /// `origins(recoveryGeneration()).startHeight`.
+    /// @return The start height.
+    function generationStartHeight() external view returns (uint256);
+
+    /// @notice Returns the current generation's origin L1 block,
+    /// `origins(recoveryGeneration()).l1BlockNumber`.
+    /// @dev `R` for a recovery generation; `L1_0` for generation 0, whose committee 0 is still
+    /// selected at the genesis cutoff (spec 8.4).
+    /// @return The origin L1 block.
+    function recoverySnapshot() external view returns (uint256);
+
+    /// @notice Returns the forced inclusion queue pointers (slot 281).
+    /// @return head_ The index of the next entry to consume.
+    /// @return tail_ The index of the next submission.
+    function getForcedInclusionState() external view returns (uint48 head_, uint48 tail_);
+
+    /// @notice Returns a stored queue entry, consumed or not.
+    /// @param _index The queue index.
+    /// @return The entry; all zero at or beyond the tail.
+    function getForcedInclusion(uint48 _index) external view returns (ForcedInclusion memory);
+
+    /// @notice Returns pending queue entries starting at `_start`.
+    /// @dev Empty if `_start` is outside [head, tail) or `_maxCount` is zero.
+    /// @param _start The first queue index.
+    /// @param _maxCount The maximum number of entries.
+    /// @return At most min(_maxCount, tail - _start) entries.
     function getForcedInclusions(
         uint48 _start,
         uint48 _maxCount
     )
         external
         view
-        returns (ForcedInclusion[] memory inclusions_);
+        returns (ForcedInclusion[] memory);
 
-    /// @notice Returns the forced inclusion queue pointers.
-    /// @dev The packed pointers occupy Inbox slot 281.
-    /// @return head_ The next entry to consume.
-    /// @return tail_ The index assigned to the next submission.
-    function getForcedInclusionState() external view returns (uint48 head_, uint48 tail_);
+    /// @notice Returns the fee in Gwei of the next forced inclusion (spec 7.1).
+    /// @dev forcedInclusionFeeInGwei * (threshold + tail - head) / threshold, capped at
+    /// type(uint64).max.
+    /// @return feeInGwei_ The fee in Gwei.
+    function getCurrentForcedInclusionFee() external view returns (uint64 feeInGwei_);
 
-    /// @notice Initializes a fresh Etna proxy and its L2 block-0 checkpoint.
-    /// @dev Call atomically in the proxy constructor. Requires non-zero genesis hash, state root,
-    /// committee record and derivation configuration hash, 3 <= epochLenL2 < type(uint48).max
-    /// (the first epoch boundary plus one must fit uint48),
-    /// a past genesis cutoff at or after the registry's first checkpoint, a forced inclusion
-    /// delay greater than zero and maxAnchorAge >= 1152 seconds. Choose maxAnchorAge above
-    /// the expected L1 finality lag, including extra depth and RPC latency. The SignalService must
-    /// authorize this proxy as its
-    /// syncer: initialization saves its block-0 checkpoint too, and any failure rolls back all
-    /// state. The owner supplies the trusted genesis values and the committee record computed
-    /// from the registry snapshot. The node also requires L >= D_MAX - MARGIN_V + 3.
-    /// @param _owner The owner; the proxy deployer if zero.
-    /// @param _params The genesis parameters.
-    function init(address _owner, GenesisParams calldata _params) external;
+    /// @notice Returns the staking registry.
+    /// @return The registry address.
+    function stakingRegistry() external view returns (address);
 
-    /// @notice Lands proven L2 blocks, records their L2 reward receipt and pays consumed L1 fees.
-    /// @dev Permissionless and nonpayable. Requires active status, progress, at most maxBatchBlocks,
-    /// uint48 terminal height, non-zero L1 and L2 recipients, an available past reference hash and
-    /// at least one blob. The queue head advances at most once per block and cannot exceed tail.
-    /// Records the checkpoint and receipt atomically with proof verification and L1 fee payment;
-    /// any failure rolls back all writes. No prefunding is required, including for zero rewards.
-    /// Clients discover receipts from events and authenticate the slot-283 commitment by proof.
-    ///
-    /// A valid Etna proof must authenticate every Inbox/registry account and storage proof under
-    /// the respective bound address and authenticated L1 state root. It must open the stored
-    /// committeeConfigHash using the exact ten-word encoding (320 bytes):
-    /// abi.encode(bytes32("ETNA_PARENT_ANCHOR_V5"), uint256(l2ChainId), address(stakingRegistry),
-    /// uint256(vpUnit), uint256(sMin), uint64(nMax), uint64(heartbeatWindow), uint8(2),
-    /// uint64(dMax), uint64(marginV)). Word 8 binds retained recipient-bound membership encoding
-    /// version 2; the last two bind the back-pressure cap parameters.
-    /// Authenticate the genesis schedule and explicit genesisCutoff from Inbox storage.
-    /// Committee 0 opens the plain slot-278 bootstrap record at genesisCutoff (slot 279).
-    ///
-    /// For t >= 1, H(t) = 1 + t * epochLenL2, S(t) = H(t) - 2 and D(t) = H(t) - 3, with
-    /// checked arithmetic. At S(t), derive the incoming set at exactly the committed parent's
-    /// anchor number, under that parent's authenticated L1 root; never the candidate's anchor.
-    /// Authenticate complete registry entries/count/root and evaluate active/exit eligibility at
-    /// that snapshot number. Preserve effective stake, the lowest eligible bondId per pubkey,
-    /// nMax ranking, set-key ordering and set root, voting-power division and overflow caps.
-    /// From epoch 3, a seat holder needs a nonzero heartbeat sequence and a last heartbeat at or
-    /// after the start of the heartbeat window before the one containing the snapshot; epochs 0, 1
-    /// and 2 are exempt. Non-switch blocks forbid runtime committee witnesses. No empty-set
-    /// fallback is implied.
-    ///
-    /// For arbitrary batch starts, authenticate the checkpoint EL header against the public
-    /// parent hash, then consecutive descending parentHash links through each required D(t).
-    /// Read the snapshot number only from D(t)'s generation-checked Etna anchor extraData;
-    /// a separate derivation hint or the checkpoint's newer anchor cannot select the set.
-    /// At nonzero checkpoint heights also authenticate the preceding EL header for the base-fee
-    /// grandparent timestamp. Current/next starting epochs differ by at most one; checked
-    /// history bounds require at most epochLenL2 + 2 links, without replaying old transactions.
-    /// Planned recovery at c=S(t) must bootstrap outgoing t-1 and authenticated already-derived
-    /// pending t from the original D(t), re-emitting that update at S(t)+1=H(t)-1. H+2 timing then
-    /// leaves the outgoing set signing H(t), with the incoming set from H(t)+1. Independent batch
-    /// cuts ending at either height must prove the actual signer and its cutoff. This is a future
-    /// recovery obligation, not an implemented recovery path or a new committee derivation.
-    ///
-    /// A later authenticated proving root whose number covers the snapshot may prove the last
-    /// immutable registry checkpoint at/before it, the successor after it (when present), array
-    /// length and complete entries/root. Recompute all parent/current/pending sets. In-batch
-    /// switches still require the actual committed parent's exact root and snapshot number.
-    ///
-    /// Apply CometBFT H+2 timing: updates returned at S(t) and persisted at Commit activate at
-    /// H(t). Verify the parent certificate, every current/pending certificate and current/next
-    /// validator hash across S/S+1/H and arbitrary cuts, with strictly more than 2/3 distinct
-    /// signer voting power under taiko-etna-<l2ChainId>-g<generation>. Anchor progress, status,
-    /// generation and back-pressure rules still apply; deterministic Finalize/replay makes no
-    /// new L1 calls. Epoch-first blocks need no publication witness.
-    ///
-    /// Forced inclusions: cursor c starts at 0; each block consumes at most entry c and advances
-    /// once, or keeps c. After landing, the stored head equals the checkpoint cursor. For the
-    /// candidate's anchor A (its own or inherited), forbid a forced witness if c >= tail(A);
-    /// otherwise require exactly c's witness [index, entryProof, tx]. Authenticate the Inbox
-    /// account, both entry slots and tail under A.stateRoot and enforce tx.length <= 8192.
-    /// The tx byte string may be empty for a pre-due ordinary block or inclusion. Nonempty bytes,
-    /// including redundant historical witness bytes, always require keccak256(tx) == entry.txHash.
-    /// Before a due skip, require that equality even for empty bytes: omission can only skip an
-    /// actual empty admission. Read tail from A, never genesis: save may follow init in the same
-    /// L1 block; block 1 always carries its own anchor witness. Authenticate delay/maxAnchorAge in
-    /// slot 282 under genesis. Due means A.timestamp >= entry.timestamp + delay without integer
-    /// wrapping. Entries never expire, even after fourteen days.
-    ///
-    /// Canonical bytes decode as exactly one complete EIP-2718 envelope (including legacy),
-    /// consume all input and re-encode identically using the pinned EL's codec. Empty, undecodable
-    /// or failed-round-trip bytes are invalid input. Canonical execution-block transaction zero
-    /// of at most 8192 bytes whose hash equals entry.txHash consumes c before or after due without
-    /// a duplicate witness preimage; later positions and same-sender/nonce replacements do not
-    /// count. Without inclusion, a pre-due entry keeps c; a due authenticated noncanonical entry
-    /// skips and advances once without an EL build; a due authenticated canonical entry advances
-    /// only after a successful completed singleton EL build returns no transactions. At or after
-    /// due, a block that neither includes nor legally skips the entry is invalid; it cannot keep c.
-    /// For the singleton, use the same committed parent and deterministic candidate attributes,
-    /// changing only the provided list to [tx], under the pinned legacy provided-list semantics.
-    /// A nonempty result rejects the skip; build errors, timeouts, missing parent state, cancellation
-    /// or incomplete results never permit consumption.
-    /// Do not duplicate EL signature, nonce, balance, gas or fee validation or specially defer
-    /// semantic failures after due. Inclusion may share a block with later mempool transactions
-    /// and may revert in EVM execution; receipt success is not required. The candidate still
-    /// requires normal header and EL payload validation, including
-    /// block.timestamp - A.timestamp <= maxAnchorAge, using the fixed candidate timestamp rather
-    /// than a moving local finalized-head freshness limit. An allowed skip rebuilds an ordinary mempool
-    /// block with its full budget when the combined build stopped at the forced transaction.
-    ///
-    /// Before due, a proposer may attempt bounded opportunistic preimage log reads to preserve
-    /// time for an ordinary block. Unavailable, inconsistent or oversized logs, read errors and
-    /// timeouts may fall back to an ordinary block with empty witness tx bytes. The entry proof
-    /// remains mandatory, nonempty witness bytes remain authenticated, and every due safety rule
-    /// still applies; preimage acquisition failure never justifies a due block retaining c.
-    ///
-    /// The future guest must enforce the same MPT/hash/canonical/position/due checks and consume
-    /// [forcedInclusionHeadBefore, forcedInclusionHeadAfter) in order. An EL-dependent skip needs
-    /// an execution witness and guest execution of the singleton on the authenticated parent
-    /// with the candidate attributes; debug_executionWitnessForTxList generates that witness.
-    /// feeRecipient and l2RewardRecipient are nonzero public inputs chosen by the lander and
-    /// bound by the proof; neither is derived from a block proposer. Authenticate each block's
-    /// beneficiary as the registered recipient of the original proposer in its certified CometBFT
-    /// header under that height's committee, including valid blocks retained across rounds.
-    /// Consensus and the future guest must enforce extraData[0] == 0 on every execution block.
-    /// Reexecute transactions to prove baseFeeAmount equals actual EL base-fee credits to the
-    /// immutable treasury over the landed range, excluding claims, ordinary/forced Ether and
-    /// other balance effects. Under this zero-sharing invariant and pinned EL rules, that equals
-    /// sum(header.baseFeePerGas * header.gasUsed). Inbox/vault do not inspect every L2 header;
-    /// economic correctness relies on the selected verifier and guest.
-    /// The receipt binds the lander's l2RewardRecipient and this exact amount. No expiry-derived
-    /// deletion exists. Timing claims require less than one-third Byzantine voting power,
-    /// reasonable clocks and continued L1/L2/landing progress; these rules do not establish a
-    /// wall-clock deadline for an arbitrary queued entry. The due obligation applies to cursor c.
-    ///
-    /// Prove activeCommitteeSnapshot is the authenticated cutoff of the committee actually
-    /// signing lastHeight. Under the normal genesis-only schedule this is genesisCutoff for
-    /// epoch zero, otherwise the anchor of D(t)=H(t)-3. At S(t) and S(t)+1 the outgoing committee
-    /// still governs; only H(t) activates the new one. A future authenticated recovery schedule
-    /// may replace that provenance; recovery and the real guest are not implemented here.
-    /// Neither a pending committee, the terminal anchor nor the reference block substitutes for
-    /// the actual signing committee's cutoff. Landing records it for stake withdrawals, enforces
-    /// no regression and the L1 reference upper bound, and relies on the proof for exact
-    /// provenance even when the numeric epoch is unchanged.
-    ///
-    /// Prove contiguous execution from the parent hash to the terminal hash/state root, every
-    /// anchor and actual proving L1 root on the header chain ending at the reference hash, and
-    /// exact execution data in the bound blobs. Payload V6 is
-    /// 0x06 || zlib(rlp([[cometHeaderProtoBytes, executionBlockRlpBytes], ...])). Both list
-    /// members are byte strings: canonical CometBFT header protobuf and canonical RLP of
-    /// [full execution header, ordered EIP-2718 transactions]. Require 1..6 ordered Kona-v0
-    /// blobs, each decoding at most 130044 bytes: every nonfinal chunk is full and the final
-    /// chunk is nonempty. Every 32-byte field element starts with two zero high bits; require
-    /// zero unused/reserved bits and padding. Concatenate decoded chunks before parsing.
-    /// The payload is exactly 0x06 followed by one complete RFC1950 zlib stream, with no
-    /// preset dictionary, truncation, trailing bytes or
-    /// concatenated streams. The inflated RLP list is at most 64 * 1024 * 1024 bytes; each
-    /// header-protobuf or execution-RLP byte string is at most 22020096 bytes. These are fixed
-    /// protocol ceilings independent of CLI settings. Require canonical RLP, exactly two byte
-    /// strings per pair, and no extra fields or trailing bytes in any encoding. Published headers
-    /// use v0_38 protobuf and must equal both protobuf re-encoding and domain-normalize/re-encode;
-    /// height 1 omits last_block_id. Go's empty BlockID encoding 0x2a021200 is accepted only in
-    /// private raw blocks, never a published header. Require exactly N = lastHeight-parentHeight
-    /// pairs, 0 < N <= authenticated deployed maxBatchBlocks. Both CometBFT and EL heights are
-    /// parentHeight+1..lastHeight. Require internal CometBFT last_block_id and EL parentHash
-    /// links, the first EL parentHash equal to parentHash, and terminal EL hash/stateRoot equal
-    /// to lastBlockHash/lastStateRoot. Lower operator max-blocks/budgets constrain capacity only;
-    /// they do not change guest validity. Every CometBFT header hashes to a certified block id.
-    /// Public decoding does not authenticate certificates or data_hash. Authenticate each original
-    /// envelope v6 against data_hash, verify its witnesses and prove its execution block equals
-    /// the public projection exactly. data_hash cannot be recomputed from that projection alone.
-    /// Original envelopes, anchor/committee/forced witnesses, evidence, commits and signatures
-    /// are private proof inputs, not blob data. A batch may start/end at any valid height without
-    /// a previous batch's committee output. Under a sound real proof and a finalized canonical
-    /// L1 checkpoint binding the ordered blob hashes, archived blobs plus genesis/execution
-    /// context suffice to reconstruct the landed EL chain and check its terminal hash/state root
-    /// without original witnesses/signatures. Blob commitments do not restore unavailable bytes;
-    /// exact consensus history and L1-only stock CometBFT bootstrap are separate capabilities,
-    /// and that bootstrap is not implemented. Unlanded history retains its proving inputs.
-    /// Envelope version 6, payload V6 and journal schema 12 reject incompatible formats;
-    /// never discard or replace a signed nonce. The verifier must pin a guest enforcing these V10
-    /// rules. Dummy proof 0x00 is for development only; no real guest exists here and the dummy
-    /// verifier does not establish consensus validity or ZK soundness.
-    /// @param _input The batch checkpoint, reference, queue head, L1 fee receiver and L2 reward.
-    /// @param _proof The V10 proof.
-    function land(LandInput calldata _input, bytes calldata _proof) external;
+    /// @notice Returns the SignalService that stores the landed checkpoints.
+    /// @return The SignalService address.
+    function signalService() external view returns (address);
 
-    /// @notice Encodes the V10 landing statement for supplied batch public inputs.
-    /// @dev Exactly twenty-one static ABI words (672 bytes): bytes32("TAIKO_ETNA_LAND_V10"),
-    /// block.chainid, l2ChainId, address(this), stakingRegistry, generation, parentHeight,
-    /// parentHash, committeeConfigHash, lastHeight, lastBlockHash, lastStateRoot,
-    /// l1ReferenceBlockNumber, l1ReferenceBlockHash, keccak256(abi.encodePacked(blobHashes)),
-    /// forcedInclusionHeadBefore, forcedInclusionHead, feeRecipient, l2RewardRecipient, baseFeeAmount,
-    /// activeCommitteeSnapshot.
-    /// Identities and config are read internally. land also reads the stored parent/generation/head.
-    /// @param _generation The recovery generation.
-    /// @param _parentHeight The parent checkpoint height.
-    /// @param _parentHash The parent checkpoint hash.
-    /// @param _forcedInclusionHeadBefore The previous queue head.
-    /// @param _input The batch.
-    /// @param _l1ReferenceBlockHash The reference hash.
-    /// @param _blobHashes The versioned blob hashes in order.
-    /// @return statementHash_ The statement hash.
-    function hashLandStatement(
-        uint64 _generation,
-        uint64 _parentHeight,
-        bytes32 _parentHash,
-        uint48 _forcedInclusionHeadBefore,
-        LandInput calldata _input,
-        bytes32 _l1ReferenceBlockHash,
-        bytes32[] calldata _blobHashes
-    )
-        external
-        view
-        returns (bytes32 statementHash_);
+    /// @notice Returns the verifier of `land` proofs.
+    /// @return The verifier address.
+    function proofVerifier() external view returns (address);
 
-    /// @notice Returns the latest landed L2 block.
-    /// @dev The initialized checkpoint is L2 block 0.
-    /// @return The latest landed checkpoint; zero before initialization.
-    function lastCheckpoint() external view returns (LandedCheckpoint memory);
+    /// @notice Returns the chain id of the Etna L2.
+    /// @return The L2 chain id.
+    function l2ChainId() external view returns (uint64);
 
-    /// @notice Returns the snapshot selecting the latest landed block's active committee.
-    /// @dev Initialized to the genesis cutoff and advanced only by a verified landing.
-    /// @return snapshot_ The authenticated L1 snapshot block number.
-    function activeCommitteeSnapshot() external view returns (uint64 snapshot_);
+    /// @notice Returns the maximum `h - p` of one landing.
+    /// @return The maximum batch size in L2 blocks.
+    function maxBatchBlocks() external view returns (uint64);
 
-    /// @notice Returns the staking registry whose snapshots select this chain's committees.
-    /// @return registry_ The registry address.
-    function stakingRegistry() external view returns (address registry_);
+    /// @notice Returns the forced inclusion fee in Gwei with an empty queue.
+    /// @return The base fee in Gwei.
+    function forcedInclusionFeeInGwei() external view returns (uint64);
 
-    /// @notice Returns the authenticated committee derivation configuration commitment.
-    /// @dev Stored at slot 269; installed once from the trusted genesis deployment input.
-    /// @return configHash_ The configuration hash; zero before initialization.
-    function committeeConfigHash() external view returns (bytes32 configHash_);
+    /// @notice Returns the number of pending forced inclusions at which the fee doubles.
+    /// @return The doubling threshold.
+    function forcedInclusionFeeDoubleThreshold() external view returns (uint64);
 
-    /// @notice Returns the initial committee record commitment.
-    /// @dev Stored directly at slot 278; no future epoch committee mapping exists.
-    /// @return recordHash_ The genesis committee record hash; zero before initialization.
-    function genesisCommitteeRecordHash() external view returns (bytes32 recordHash_);
+    /// @notice Returns the DAO treasury that receives the swept forced inclusion fees.
+    /// @return The protocol fee recipient.
+    function protocolFeeRecipient() external view returns (address);
 
-    /// @notice Returns the genesis record at the existing activation-record slots.
-    /// @dev The schedule and hashes are installed once during initialization.
-    /// @return The genesis record; zero before initialization.
-    function activation() external view returns (Activation memory);
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
 
-    /// @notice Returns the L1 block of the epoch-0 committee snapshot.
-    /// @dev Committee 0 alone uses this explicit snapshot; runtime sets use switch-parent anchors.
-    /// @return The genesis cutoff; zero before initialization.
-    function genesisCutoff() external view returns (uint64);
-
-    /// @notice Returns the forced inclusion delay in seconds.
-    /// @dev Stored at slot 282, bits 0–63; installed once from the trusted genesis input.
-    /// @return The forced inclusion delay; zero before initialization.
-    function forcedInclusionDelay() external view returns (uint64);
-
-    /// @notice Returns the maximum age in seconds of an L2 block's anchor.
-    /// @dev Stored at slot 282, bits 64–127; installed once from the trusted genesis input.
-    /// @return The maximum anchor age; zero before initialization.
-    function maxAnchorAge() external view returns (uint64);
-
-    /// @notice Returns the status word consumed by the existing ABCI node.
-    /// @dev The name is retained for node compatibility; there is no migration state machine.
-    /// @return 3 after initialization, 0 before initialization.
-    function migrationState() external view returns (uint8);
-
-    /// @notice Returns the recovery generation bound into every landing statement.
-    /// @dev Stays 0 until stall recovery, a governance action that resumes a stalled chain,
-    /// exists.
-    /// @return The recovery generation.
-    function recoveryGeneration() external view returns (uint64);
-
-    /// @notice Returns the authenticated reward commitment for a batch identity.
-    /// @dev Mapping base slot 283. Zero means no receipt has been recorded.
-    /// @param _batchId The batch identity.
-    /// @return commitment_ The receipt commitment.
-    function rewardCommitments(bytes32 _batchId) external view returns (bytes32 commitment_);
+    /// @notice The Inbox is not initialized.
+    error NotInitialized();
+    /// @notice `maxBatchBlocks` is below 6.
+    error InvalidMaxBatchBlocks();
+    /// @notice The forced inclusion fee is zero.
+    error ForcedInclusionFeeZero();
+    /// @notice The forced inclusion fee doubling threshold is zero.
+    error ForcedInclusionFeeDoubleThresholdZero();
+    /// @notice The genesis block hash or state root is zero.
+    error InvalidGenesis();
+    /// @notice The epoch length is below 3 or its successor does not fit 48 bits.
+    error InvalidEpochLength();
+    /// @notice The genesis cutoff is not a past block at or after the registry's first
+    /// checkpoint.
+    error InvalidGenesisCutoff();
+    /// @notice The committee 0 record hash is zero.
+    error ZeroCommitteeRecord();
+    /// @notice The committee configuration is out of bounds.
+    error InvalidCommitteeConfig();
+    /// @notice The forced inclusion delay is zero or does not fit 48 bits.
+    error InvalidForcedInclusionDelay();
+    /// @notice The maximum anchor age is below 1152 seconds or does not fit 48 bits.
+    error InvalidMaxAnchorAge();
+    /// @notice The registry's fixed Inbox or L2 chain id differs from this Inbox's.
+    error RegistryMismatch();
+    /// @notice A value does not fit its 48-bit storage field.
+    error ValueOverflow();
+    /// @notice The terminal height is already settled (`c >= h`).
+    error AlreadySettled();
+    /// @notice The proof origin is outside [generationStartHeight(), c] or `h` reaches 2^48.
+    error InvalidRange();
+    /// @notice `p` or `h` is not a multiple of 6.
+    error OffGrid();
+    /// @notice `h - p` exceeds `maxBatchBlocks`.
+    error BatchTooLarge();
+    /// @notice The proof origin has no landing record.
+    error MissingOrigin();
+    /// @notice The proof origin's record belongs to another generation.
+    error ForeignGeneration();
+    /// @notice The number of cut leaves is not `(h - p) / 6 - 1`.
+    error LeafCountMismatch();
+    /// @notice The checkpoint's recorded queue head differs from the stored queue head.
+    error ForcedInclusionHeadMismatch();
+    /// @notice The cut leaf at `c` differs from the one computed from `c`'s landing record.
+    error FrontierLeafMismatch();
+    /// @notice The new queue head goes back, passes the tail or advances more than `h - c`.
+    error InvalidForcedInclusionHead();
+    /// @notice The reference block is not in the past or its hash is unavailable.
+    error ReferenceBlockUnavailable();
+    /// @notice The transaction carries no blob or more than 6.
+    error InvalidBlobCount();
+    /// @notice The forced transaction exceeds 8,192 bytes.
+    error ForcedTransactionTooLarge();
+    /// @notice The forced inclusion fee is not covered.
+    error InsufficientFee();
+    /// @notice The expected generation is not the current one.
+    error GenerationMismatch();
+    /// @notice The expected checkpoint height is not the current one.
+    error CheckpointMismatch();
+    /// @notice The exclusions are not sorted strictly by bond id.
+    error ExclusionsNotSorted();
+    /// @notice The forced inclusion indices to clear are not strictly increasing.
+    error FiToClearNotSorted();
+    /// @notice A forced inclusion index to clear is outside [head, tail).
+    error FiIndexOutOfRange();
+    /// @notice The new generation's origin is already written.
+    error OriginAlreadyWritten();
+    /// @notice The entry point does not accept ETH.
+    error EtherNotAccepted();
 }
