@@ -67,6 +67,12 @@ contract LibCometVoteTest is CommonTest {
     /// @dev 2^31: rounds are below it (C7).
     uint32 private constant _TWO_POW_31 = uint32(1) << 31;
 
+    /// @dev 0001-01-01T00:00:00Z, the first second of CometBFT's (protobuf's) Timestamp range.
+    int64 private constant _MIN_SECONDS = -62_135_596_800;
+
+    /// @dev 9999-12-31T23:59:59Z, the last second of that range.
+    int64 private constant _MAX_SECONDS = 253_402_300_799;
+
     LibCometVoteHarness internal comet;
 
     function setUp() public virtual override {
@@ -150,7 +156,7 @@ contract LibCometVoteTest is CommonTest {
         assertEq(n, _VOTE_CASES);
         for (uint256 i; i < n; ++i) {
             string memory p = _at(".votes.cases", i);
-            IEtnaStakingRegistry.Vote memory vote = _vote(j, p);
+            IEtnaStakingRegistry.Vote memory vote = _vectorVote(j, p);
             bytes memory id = _derivedChainId(j, p, vote.generation);
             assertEq(comet.signBytes(vote, id), _bytes(j, p, "sign_bytes"), _string(j, p, "name"));
         }
@@ -216,7 +222,7 @@ contract LibCometVoteTest is CommonTest {
         assertEq(nil.length, 1 + 71, "precommit_nil length");
         assertEq(uint8(nil[0]), 71);
 
-        IEtnaStakingRegistry.Vote memory vote = _vote(j, _caseNamed(j, "precommit_nil"));
+        IEtnaStakingRegistry.Vote memory vote = _vectorVote(j, _caseNamed(j, "precommit_nil"));
         bytes memory sb = comet.signBytes(vote, new bytes(104));
         assertEq(sb.length, 1 + 127);
         assertEq(uint8(sb[0]), 0x7f);
@@ -236,7 +242,7 @@ contract LibCometVoteTest is CommonTest {
         assertEq(n, _VOTE_CASES);
         for (uint256 i; i < n; ++i) {
             string memory p = _at(".votes.cases", i);
-            IEtnaStakingRegistry.Vote memory vote = _vote(j, p);
+            IEtnaStakingRegistry.Vote memory vote = _vectorVote(j, p);
             bytes memory sb = comet.signBytes(vote, _derivedChainId(j, p, vote.generation));
             assertEq(
                 LibEtnaKeys.recoverSigner(keccak256(sb), vote.signature),
@@ -246,19 +252,26 @@ contract LibCometVoteTest is CommonTest {
         }
     }
 
-    /// @dev At the C7 upper bounds, which no vector reaches (CometBFT rejects timestamps past
-    /// year 9999), the seconds take a nine-byte varint and the encoding still decodes back.
-    function test_signBytes_EncodesTheRangeUpperBounds() external view {
-        IEtnaStakingRegistry.Vote memory vote = _maxVote();
-        comet.checkRanges(vote);
+    /// @dev Timestamp seconds are an int64 carried as its 64-bit two's-complement pattern and
+    /// written as protobuf's int64 varint, the uvarint of that pattern: a negative second takes
+    /// ten bytes. Checked at both ends of CometBFT's range and at -1, each decoding back.
+    function test_signBytes_EncodesSecondsAsInt64Varints() external view {
         bytes memory id = comet.chainId(bytes32(0));
-        bytes memory sb = comet.signBytes(vote, id);
-        assertEq(
-            _fieldPayload(sb, 0x2a),
-            hex"08ffffffffffffffff7f10ff93ebdc03",
-            "seconds 2^63 - 1, nanos 999,999,999"
+        IEtnaStakingRegistry.Vote memory vote = _baseVote();
+
+        vote.timestampSeconds = uint64(_MIN_SECONDS);
+        vote.timestampNanos = 0;
+        _assertTimestampField(vote, id, hex"088092b8c398feffffff01", "0001-01-01T00:00:00Z");
+
+        vote.timestampSeconds = uint64(int64(-1));
+        vote.timestampNanos = 123;
+        _assertTimestampField(vote, id, hex"08ffffffffffffffffff01107b", "-1 s, 123 ns");
+
+        vote.timestampSeconds = uint64(_MAX_SECONDS);
+        vote.timestampNanos = 1e9 - 1;
+        _assertTimestampField(
+            vote, id, hex"08ff82d1ffaf0710ff93ebdc03", "9999-12-31T23:59:59.999999999Z"
         );
-        _assertDecodesTo(sb, vote, id);
     }
 
     /// @dev Any in-range vote under any chain id decodes back to its fields, with zero fields
@@ -274,7 +287,9 @@ contract LibCometVoteTest is CommonTest {
         _vote.voteType = uint8(bound(_vote.voteType, 1, 2));
         _vote.height = uint64(bound(_vote.height, 1, _TWO_POW_63 - 1));
         _vote.round = uint32(bound(_vote.round, 0, _TWO_POW_31 - 1));
-        _vote.timestampSeconds = uint64(bound(_vote.timestampSeconds, 0, _TWO_POW_63 - 1));
+        _vote.timestampSeconds = uint64(
+            int64(bound(int256(int64(_vote.timestampSeconds)), _MIN_SECONDS, _MAX_SECONDS))
+        );
         _vote.timestampNanos = uint32(bound(_vote.timestampNanos, 0, 1e9 - 1));
         if (_zeroMask & 1 != 0) _vote.round = 0;
         if (_zeroMask & 2 != 0) _vote.blockHash = 0;
@@ -317,11 +332,16 @@ contract LibCometVoteTest is CommonTest {
         v.round = type(uint32).max;
         _assertInvalidVote(v, "round 2^32 - 1");
 
+        // Seconds carry an int64 that must lie in [0001-01-01, 10000-01-01).
         v = _baseVote();
-        v.timestampSeconds = _TWO_POW_63;
-        _assertInvalidVote(v, "seconds 2^63");
-        v.timestampSeconds = type(uint64).max;
-        _assertInvalidVote(v, "seconds 2^64 - 1");
+        v.timestampSeconds = uint64(_MIN_SECONDS - 1);
+        _assertInvalidVote(v, "seconds -62,135,596,801");
+        v.timestampSeconds = uint64(_MAX_SECONDS + 1);
+        _assertInvalidVote(v, "seconds 253,402,300,800");
+        v.timestampSeconds = uint64(type(int64).min);
+        _assertInvalidVote(v, "seconds -2^63 (pattern 2^63)");
+        v.timestampSeconds = uint64(type(int64).max);
+        _assertInvalidVote(v, "seconds 2^63 - 1");
 
         v = _baseVote();
         v.timestampNanos = 1e9;
@@ -339,13 +359,13 @@ contract LibCometVoteTest is CommonTest {
     }
 
     /// @dev Every vector vote is in range, and so is each bound on its own and all of them at
-    /// once: both vote types, height 1 and 2^63 - 1, round 2^31 - 1, seconds 2^63 - 1, nanos
-    /// 999,999,999 and a nil block id.
-    function test_checkRanges_AcceptsEveryVectorVoteAndTheUpperBounds() external view {
+    /// once: both vote types, height 1 and 2^63 - 1, round 2^31 - 1, seconds -62,135,596,800,
+    /// -1 (pattern 2^64 - 1), 0 and 253,402,300,799, nanos 999,999,999 and a nil block id.
+    function test_checkRanges_AcceptsEveryVectorVoteAndTheBounds() external view {
         string memory j = LibEtnaVectors.load();
         uint256 n = LibEtnaVectors.lengthAt(j, ".votes.cases");
         for (uint256 i; i < n; ++i) {
-            comet.checkRanges(_vote(j, _at(".votes.cases", i)));
+            comet.checkRanges(_vectorVote(j, _at(".votes.cases", i)));
         }
 
         IEtnaStakingRegistry.Vote memory v = _baseVote();
@@ -360,7 +380,11 @@ contract LibCometVoteTest is CommonTest {
         v.round = _TWO_POW_31 - 1;
         comet.checkRanges(v);
         v = _baseVote();
-        v.timestampSeconds = _TWO_POW_63 - 1;
+        v.timestampSeconds = uint64(_MIN_SECONDS);
+        comet.checkRanges(v);
+        v.timestampSeconds = type(uint64).max;
+        comet.checkRanges(v);
+        v.timestampSeconds = uint64(_MAX_SECONDS);
         comet.checkRanges(v);
         v = _baseVote();
         v.timestampNanos = 1e9 - 1;
@@ -392,9 +416,9 @@ contract LibCometVoteTest is CommonTest {
         }
 
         string memory j = LibEtnaVectors.load();
-        assertTrue(comet.isNil(_vote(j, _caseNamed(j, "precommit_nil"))), "precommit_nil");
-        assertFalse(comet.isNil(_vote(j, _caseNamed(j, "partial_block_id"))), "partial");
-        assertFalse(comet.isNil(_vote(j, _caseNamed(j, "hash_only_block_id"))), "hash only");
+        assertTrue(comet.isNil(_vectorVote(j, _caseNamed(j, "precommit_nil"))), "precommit_nil");
+        assertFalse(comet.isNil(_vectorVote(j, _caseNamed(j, "partial_block_id"))), "partial");
+        assertFalse(comet.isNil(_vectorVote(j, _caseNamed(j, "hash_only_block_id"))), "hash only");
     }
 
     /// @dev Two votes share a block id iff their hash, total and parts hash are all equal; the
@@ -424,11 +448,11 @@ contract LibCometVoteTest is CommonTest {
         assertTrue(comet.sameBlockId(a, b), "only the block id counts");
 
         string memory j = LibEtnaVectors.load();
-        IEtnaStakingRegistry.Vote memory nil = _vote(j, _caseNamed(j, "precommit_nil"));
+        IEtnaStakingRegistry.Vote memory nil = _vectorVote(j, _caseNamed(j, "precommit_nil"));
         assertTrue(comet.sameBlockId(nil, _copy(nil)), "nil, nil");
-        assertFalse(comet.sameBlockId(nil, _vote(j, _caseNamed(j, "partial_block_id"))));
-        assertFalse(comet.sameBlockId(nil, _vote(j, _caseNamed(j, "hash_only_block_id"))));
-        assertFalse(comet.sameBlockId(_vote(j, _caseNamed(j, "precommit_a")), nil));
+        assertFalse(comet.sameBlockId(nil, _vectorVote(j, _caseNamed(j, "partial_block_id"))));
+        assertFalse(comet.sameBlockId(nil, _vectorVote(j, _caseNamed(j, "hash_only_block_id"))));
+        assertFalse(comet.sameBlockId(_vectorVote(j, _caseNamed(j, "precommit_a")), nil));
     }
 
     // ---------------------------------------------------------------
@@ -436,7 +460,7 @@ contract LibCometVoteTest is CommonTest {
     // ---------------------------------------------------------------
 
     /// @dev The vote of the `votes.cases` item at `_p`, with its signature.
-    function _vote(
+    function _vectorVote(
         string memory _j,
         string memory _p
     )
@@ -499,7 +523,7 @@ contract LibCometVoteTest is CommonTest {
         returns (bytes memory)
     {
         string memory p = _caseNamed(_j, _name);
-        IEtnaStakingRegistry.Vote memory vote = _vote(_j, p);
+        IEtnaStakingRegistry.Vote memory vote = _vectorVote(_j, p);
         return comet.signBytes(vote, _derivedChainId(_j, p, vote.generation));
     }
 
@@ -541,7 +565,7 @@ contract LibCometVoteTest is CommonTest {
         v_.height = _TWO_POW_63 - 1;
         v_.round = _TWO_POW_31 - 1;
         v_.partsTotal = type(uint32).max;
-        v_.timestampSeconds = _TWO_POW_63 - 1;
+        v_.timestampSeconds = uint64(_MAX_SECONDS);
         v_.timestampNanos = 1e9 - 1;
         v_.generation = type(uint48).max;
     }
@@ -562,6 +586,23 @@ contract LibCometVoteTest is CommonTest {
         c_.timestampNanos = _v.timestampNanos;
         c_.generation = _v.generation;
         c_.signature = _v.signature;
+    }
+
+    /// @dev Asserts `_vote`'s sign bytes carry the timestamp field `2a len ‖ _payload` and decode
+    /// back to `_vote`.
+    function _assertTimestampField(
+        IEtnaStakingRegistry.Vote memory _vote,
+        bytes memory _chainId,
+        bytes memory _payload,
+        string memory _label
+    )
+        private
+        view
+    {
+        comet.checkRanges(_vote);
+        bytes memory sb = comet.signBytes(_vote, _chainId);
+        assertEq(_fieldPayload(sb, 0x2a), _payload, _label);
+        _assertDecodesTo(sb, _vote, _chainId);
     }
 
     function _assertInvalidVote(
