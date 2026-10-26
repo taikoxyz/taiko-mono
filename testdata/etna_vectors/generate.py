@@ -16,10 +16,14 @@ equation. Proof-of-possession signatures come from `cast wallet sign --no-hash`,
 EIP-712 hashing (`cast wallet sign --data`). Vote sign bytes and their secp256k1eth signatures come
 from stock CometBFT v0.40.0 (`votegen/`, run with `go run`); each sign-byte string must equal a
 separate Python encoder written from appendix A, and each signature must recover to the key's
-address over keccak256 of the sign bytes and equal cast's signature of that digest. Only the inputs,
-the packing table and the storage slot numbers are written by hand, following the Etna spec's
-appendix A (encodings) and appendix B (storage layout). All integers are decimal strings so that
-every value survives JSON parsing exactly.
+address over keccak256 of the sign bytes and equal cast's signature of that digest. Forced-inclusion
+eligibility cases (spec 7.2) are RLP-encoded in Python and signed with `cast wallet sign --no-hash`
+over `cast keccak` signing hashes (EIP-7702 tuples must equal `cast wallet sign-auth`); each case is
+classified again from its bytes, an ineligible case must break only the rule it is labelled with,
+and the written file is checked against go-ethereum v1.15.5 (`ficheck/`, run with `go run`). Only
+the inputs, the packing table and the storage slot numbers are written by hand, following the Etna
+spec's appendix A (encodings) and appendix B (storage layout). All integers are decimal strings so
+that every value survives JSON parsing exactly.
 """
 
 import base64
@@ -1176,6 +1180,584 @@ def votes(key_list, domains):
     )
 
 
+# --- forced-inclusion eligibility (spec 7.2) -----------------------------------------------------
+
+FICHECK = HERE / "ficheck"
+FI_SENDER_KEY = 0xF1  # signs every transaction
+FI_AUTHORITY_KEY = 0xF2  # signs the EIP-7702 authorization tuples
+FI_TO = bytes.fromhex("55" * 20)
+FI_DELEGATE = bytes.fromhex("66" * 20)
+FI_ACCESS_ADDRESS = bytes.fromhex("77" * 20)
+FI_STORAGE_KEY = (1).to_bytes(32, "big")
+FI_BLOB_HASH = bytes.fromhex("01" + "aa" * 31)
+GWEI = 10**9
+
+_FI_FEE_1559 = ("chain_id", "nonce", "max_priority_fee", "max_fee", "gas", "to", "value", "data")
+FI_LAYOUTS = {
+    0: ("nonce", "gas_price", "gas", "to", "value", "data", "v", "r", "s"),
+    1: (
+        "chain_id",
+        "nonce",
+        "gas_price",
+        "gas",
+        "to",
+        "value",
+        "data",
+        "access_list",
+        "y_parity",
+        "r",
+        "s",
+    ),
+    2: (*_FI_FEE_1559, "access_list", "y_parity", "r", "s"),
+    3: (
+        *_FI_FEE_1559,
+        "access_list",
+        "max_fee_per_blob_gas",
+        "blob_hashes",
+        "y_parity",
+        "r",
+        "s",
+    ),
+    4: (*_FI_FEE_1559, "access_list", "authorization_list", "y_parity", "r", "s"),
+}
+# Spec 7.2 widths: nonce and gas below 2^64, each fee field below 2^128, value below 2^256.
+FI_WIDTHS = {
+    "nonce": 64,
+    "gas": 64,
+    "gas_price": 128,
+    "max_priority_fee": 128,
+    "max_fee": 128,
+    "max_fee_per_blob_gas": 128,
+    "value": 256,
+}
+
+
+class Encoded(bytes):
+    """An item that is already RLP-encoded; `rlp` splices it in unchanged."""
+
+
+def be_bytes(value):
+    """Minimal big-endian bytes of a non-negative integer (empty for zero)."""
+    assert value >= 0, value
+    return value.to_bytes((value.bit_length() + 7) // 8, "big")
+
+
+def rlp_header(length, offset, pad=False):
+    """The RLP length prefix; `pad` adds a leading zero to the length bytes (non-canonical)."""
+    if length < 56 and not pad:
+        return bytes([offset + length])
+    length_bytes = (b"\x00" if pad else b"") + be_bytes(length)
+    return bytes([offset + 55 + len(length_bytes)]) + length_bytes
+
+
+def rlp(item):
+    """Canonical RLP of an int (minimal big-endian), bytes, `Encoded` bytes or a list of items."""
+    if isinstance(item, Encoded):
+        return bytes(item)
+    if isinstance(item, int):
+        item = be_bytes(item)
+    if isinstance(item, bytes):
+        if len(item) == 1 and item[0] < 0x80:
+            return item
+        return rlp_header(len(item), 0x80) + item
+    payload = b"".join(rlp(x) for x in item)
+    return rlp_header(len(payload), 0xC0) + payload
+
+
+def fi_layout(tx_type):
+    """The fields of `tx_type`; an unknown type's body is built (and read) with type 2's fields."""
+    return FI_LAYOUTS.get(tx_type, FI_LAYOUTS[2])
+
+
+def fi_encode(tx_type, fields):
+    """`rlp(fields)` for a legacy transaction, `type || rlp(fields)` for a typed one."""
+    body = rlp([fields[name] for name in fi_layout(tx_type)])
+    return body if tx_type == 0 else bytes([tx_type]) + body
+
+
+def fi_signing_hash(tx_type, fields, legacy_chain_id=None):
+    """keccak256 of the signing payload: a legacy transaction's six fields, plus
+    `[chain_id, 0, 0]` under EIP-155; `type || rlp(fields without the signature)` when typed."""
+    unsigned = [fields[name] for name in fi_layout(tx_type)[:-3]]
+    if tx_type == 0:
+        extra = [] if legacy_chain_id is None else [legacy_chain_id, 0, 0]
+        return keccak("0x" + rlp(unsigned + extra).hex())
+    return keccak("0x" + (bytes([tx_type]) + rlp(unsigned)).hex())
+
+
+def sign_digest(private_key, digest):
+    """`(r, s, recovery id)` from `cast wallet sign --no-hash` (RFC 6979, low s)."""
+    signed = cast("wallet", "sign", "--no-hash", "--private-key", word(private_key), digest)
+    r, s, v = split_sig(signed)
+    assert v in (27, 28) and 0 < r < SECP_N and 0 < s <= SECP_N // 2, signed
+    return r, s, v - 27
+
+
+@functools.cache
+def key_address(private_key):
+    address = address_of(*point(private_key))
+    assert address == cast("wallet", "address", "--private-key", word(private_key)).lower()
+    return address
+
+
+def fi_sign(tx_type, fields, legacy_chain_id=None):
+    """`fields` signed by the FI sender: a typed y_parity, or a legacy v of 27/28 (no chain id)
+    or 2·chainId + 35/36 (EIP-155)."""
+    digest = fi_signing_hash(tx_type, fields, legacy_chain_id)
+    r, s, parity = sign_digest(FI_SENDER_KEY, digest)
+    assert ecrecover(digest, r, s, parity) == key_address(FI_SENDER_KEY)
+    if tx_type != 0:
+        return {**fields, "y_parity": parity, "r": r, "s": s}
+    base = 27 if legacy_chain_id is None else 2 * legacy_chain_id + 35
+    return {**fields, "v": base + parity, "r": r, "s": s}
+
+
+def fi_parity(tx_type, fields):
+    if tx_type != 0:
+        return fields["y_parity"]
+    v = fields["v"]
+    return v - 27 if v in (27, 28) else (v - 35) % 2
+
+
+def fi_with_parity(tx_type, build, parity, legacy_chain_id=None):
+    """`build(nonce)` signed at the first nonce from 0 whose signature has this recovery id."""
+    nonce = 0
+    while True:
+        signed = fi_sign(tx_type, build(nonce), legacy_chain_id)
+        if fi_parity(tx_type, signed) == parity:
+            return signed
+        nonce += 1
+
+
+def fi_authorization_digest(chain_id, address, nonce):
+    return keccak("0x05" + rlp([chain_id, address, nonce]).hex())
+
+
+def fi_authorization(chain_id, nonce=0, address=FI_DELEGATE):
+    """An EIP-7702 tuple `[chain_id, address, nonce, y_parity, r, s]` signed by the authority over
+    keccak256(0x05 || rlp([chain_id, address, nonce])). Within EIP-7702 widths it must equal
+    `cast wallet sign-auth`; an over-wide nonce or a short address is signed as encoded."""
+    digest = fi_authorization_digest(chain_id, address, nonce)
+    r, s, parity = sign_digest(FI_AUTHORITY_KEY, digest)
+    assert ecrecover(digest, r, s, parity) == key_address(FI_AUTHORITY_KEY)
+    auth = [chain_id, address, nonce, parity, r, s]
+    if nonce >= 2**64 or len(address) != 20:
+        return auth
+    by_cast = cast(
+        "wallet",
+        "sign-auth",
+        "--private-key",
+        word(FI_AUTHORITY_KEY),
+        "--nonce",
+        nonce,
+        "--chain",
+        chain_id,
+        "--rpc-url",
+        "http://127.0.0.1:1",  # never contacted: nonce and chain are given
+        "0x" + address.hex(),
+    )
+    assert by_cast == "0x" + rlp(auth).hex(), by_cast
+    return auth
+
+
+def fi_authorization_with_parity(chain_id, parity):
+    """The authority's tuple at the first nonce from 0 whose signature has this recovery id."""
+    nonce = 0
+    while (auth := fi_authorization(chain_id, nonce))[3] != parity:
+        nonce += 1
+    return auth
+
+
+def fi_legacy(**overrides):
+    return {
+        "nonce": 0,
+        "gas_price": 2 * GWEI,
+        "gas": 21_000,
+        "to": FI_TO,
+        "value": 1,
+        "data": b"",
+        **overrides,
+    }
+
+
+def fi_eip2930(**overrides):
+    return {
+        "chain_id": DEPLOYMENT["l2_chain_id"],
+        "nonce": 0,
+        "gas_price": 2 * GWEI,
+        "gas": 30_000,
+        "to": FI_TO,
+        "value": 1,
+        "data": b"",
+        "access_list": [[FI_ACCESS_ADDRESS, [FI_STORAGE_KEY]]],
+        **overrides,
+    }
+
+
+def fi_eip1559(**overrides):
+    return {
+        "chain_id": DEPLOYMENT["l2_chain_id"],
+        "nonce": 0,
+        "max_priority_fee": GWEI,
+        "max_fee": 2 * GWEI,
+        "gas": 21_000,
+        "to": FI_TO,
+        "value": 1,
+        "data": b"",
+        "access_list": [],
+        **overrides,
+    }
+
+
+def fi_blob(**overrides):
+    return fi_eip1559(max_fee_per_blob_gas=1, blob_hashes=[FI_BLOB_HASH], **overrides)
+
+
+def fi_eip7702(authorizations, **overrides):
+    return fi_eip1559(gas=100_000, authorization_list=authorizations, **overrides)
+
+
+def rlp_lenient(data, i=0):
+    """`(item, end)` of the RLP item at `data[i]`, accepting non-minimal length prefixes; a string
+    is bytes and a list a list of items."""
+    if i >= len(data):
+        raise ValueError("truncated")
+    first = data[i]
+    if first < 0x80:
+        return data[i : i + 1], i + 1
+    is_list = first >= 0xC0
+    short = first - (0xC0 if is_list else 0x80)
+    if short < 56:
+        length, start = short, i + 1
+    else:
+        size = short - 55
+        length, start = int.from_bytes(data[i + 1 : i + 1 + size], "big"), i + 1 + size
+    end = start + length
+    if end > len(data):
+        raise ValueError("truncated")
+    if not is_list:
+        return data[start:end], end
+    items, j = [], start
+    while j < end:
+        item, j = rlp_lenient(data[:end], j)
+        items.append(item)
+    return items, end
+
+
+def fi_violations(raw):
+    """`(violated rules, recovered sender)` of `raw` under spec 7.2, from the bytes alone.
+
+    A lenient decode (non-minimal lengths, leading-zero integers, trailing bytes, extra fields and
+    an empty type-4 destination are read through and reported as `noncanonical`) lets every other
+    rule be checked too, so a case can be shown to break only the rule it is labelled with. The
+    signature is recovered over the signing payload re-encoded from the decoded fields.
+    """
+    l2_chain_id, gas_limit = DEPLOYMENT["l2_chain_id"], DEPLOYMENT["l2_block_gas_limit"]
+    if not raw or 0x80 <= raw[0] < 0xC0:
+        return {"noncanonical"}, None
+    violations = set()
+    tx_type = 0 if raw[0] >= 0xC0 else raw[0]
+    if tx_type not in (0, 1, 2, 4):
+        violations.add("type")
+    body = raw if tx_type == 0 else raw[1:]
+    try:
+        items, end = rlp_lenient(body)
+    except ValueError:
+        return violations | {"noncanonical"}, None
+    names = fi_layout(tx_type)
+    if end != len(body) or not isinstance(items, list) or len(items) != len(names):
+        violations.add("noncanonical")
+        if not isinstance(items, list) or len(items) < len(names):
+            return violations, None
+    fields = {}
+    for name, item in zip(names, items):
+        if name in ("to", "data", "access_list", "blob_hashes"):
+            fields[name] = item
+        elif name == "authorization_list":
+            fields[name] = [
+                [int.from_bytes(f, "big") if i != 1 else f for i, f in enumerate(auth)]
+                for auth in item
+            ]
+        else:
+            fields[name] = int.from_bytes(item, "big")
+    if fi_encode(tx_type, fields) != raw:
+        violations.add("noncanonical")
+    # Fixed-width fields that RLP does not constrain: a destination is empty or 20 bytes (always
+    # 20 for types 3 and 4), an access-list entry is [20-byte address, [32-byte keys]] and an
+    # authorization tuple has six fields.
+    if len(fields["to"]) != 20 and (fields["to"] or tx_type in (3, 4)):
+        violations.add("noncanonical")
+    for entry in fields.get("access_list", []):
+        address, keys = entry if isinstance(entry, list) and len(entry) == 2 else (b"", [])
+        if len(address) != 20 or not isinstance(keys, list) or any(len(k) != 32 for k in keys):
+            violations.add("noncanonical")
+    tuples = fields.get("authorization_list", [])
+    if any(len(auth) != 6 for auth in tuples):
+        violations.add("noncanonical")
+
+    if any(fields[name] >= 2**bits for name, bits in FI_WIDTHS.items() if name in fields):
+        violations.add("width")
+    # EIP-7702 tuple widths: chain_id uint256, address 20 bytes, nonce uint64, y_parity uint8,
+    # r and s uint256. Nothing else about a tuple affects eligibility.
+    for chain_id, address, nonce, y_parity, r, s in (auth[:6] for auth in tuples if len(auth) >= 6):
+        if len(address) != 20 or nonce >= 2**64 or y_parity >= 2**8:
+            violations.add("width")
+        if max(chain_id, r, s) >= 2**256:
+            violations.add("width")
+    if fields["gas"] > gas_limit:
+        violations.add("gas_limit")
+
+    legacy_chain_id, parity = None, None
+    if tx_type == 0:
+        v = fields["v"]
+        if v in (27, 28):
+            parity = v - 27
+        elif v >= 35:
+            legacy_chain_id, parity = (v - 35) // 2, (v - 35) % 2
+            if legacy_chain_id != l2_chain_id:
+                violations.add("chain_id")
+    else:
+        parity = fields["y_parity"]
+        if fields["chain_id"] != l2_chain_id:
+            violations.add("chain_id")
+    r, s = fields["r"], fields["s"]
+    sender = None
+    if parity in (0, 1) and 0 < r < SECP_N and 0 < s <= SECP_N // 2:
+        sender = ecrecover(fi_signing_hash(tx_type, fields, legacy_chain_id), r, s, parity)
+    if sender is None:
+        violations.add("signature")
+    return violations, sender
+
+
+def fi_cases():
+    """`(cases, other senders)`: `(name, rule, raw)` of every case, in the order the vectors list
+    them, and the sender of each readable non-signature case not signed by the FI sender.
+
+    Each ineligible case breaks only the rule it is labelled with (gas 2^64 is also above the
+    block gas limit) and is otherwise well-formed and signed by the FI sender, so an
+    implementation that skips that one rule accepts it. Framing cases wrap canonical
+    transactions; the signature of a re-encoded case covers its canonical signing payload.
+    """
+    l2_chain_id, gas_limit = DEPLOYMENT["l2_chain_id"], DEPLOYMENT["l2_block_gas_limit"]
+
+    def legacy(parity, chain_id):
+        return fi_with_parity(0, lambda n: fi_legacy(nonce=n), parity, chain_id)
+
+    def eip1559(**overrides):
+        return fi_sign(2, fi_eip1559(**overrides))
+
+    def eip7702(authorizations, **overrides):
+        return fi_encode(4, fi_sign(4, fi_eip7702(authorizations, **overrides)))
+
+    base = eip1559()
+    auth = fi_authorization(l2_chain_id)
+    auth_r_zero = [*auth[:4], 0, auth[5]]
+    auth_y_255 = [*auth[:3], 255, *auth[4:]]
+    # Over-wide tuples whose low bits are a valid tuple, so a decoder that truncates y_parity to
+    # 8 bits or r to 256 bits reads a validly signed tuple back.
+    even_auth = fi_authorization_with_parity(l2_chain_id, 0)
+    auth_y_256 = [*even_auth[:3], 256, *even_auth[4:]]
+    auth_r_33 = [*auth[:4], 2**256 + auth[4], auth[5]]
+    assert auth_y_256[3] % 2**8 == even_auth[3] and auth_r_33[4] % 2**256 == auth[4]
+    # A high-s tuple signature is the twin of a valid one; the EL skips that tuple.
+    auth_high_s = [*auth[:3], 1 - auth[3], auth[4], SECP_N - auth[5]]
+    auth_digest = fi_authorization_digest(*auth[:3])
+    assert ecrecover(auth_digest, auth[4], auth[5], auth[3]) == key_address(FI_AUTHORITY_KEY)
+    assert auth_high_s[5] > SECP_N // 2
+    short_address_access_list = [[FI_ACCESS_ADDRESS[:19], [FI_STORAGE_KEY]]]
+    even = fi_with_parity(2, lambda n: fi_eip1559(nonce=n), 0)
+    low_s = base["s"]
+    unrecoverable_r = smallest_off_curve_x()
+
+    # The low-s twin of `high_s` and the parity-masked twin of `y_parity_2` recover the sender.
+    base_digest, even_digest = fi_signing_hash(2, base), fi_signing_hash(2, even)
+    flipped = 1 - base["y_parity"]
+    assert ecrecover(base_digest, base["r"], SECP_N - low_s, flipped) == key_address(FI_SENDER_KEY)
+    assert ecrecover(even_digest, even["r"], even["s"], 2 & 1) == key_address(FI_SENDER_KEY)
+    assert ecrecover(base_digest, unrecoverable_r, low_s, 0) is None
+    assert ecrecover(base_digest, unrecoverable_r, low_s, 1) is None
+
+    # s = floor(n/2) is the largest low s, and no FI-sender signature has it: the boundary pair
+    # signs `base`'s payload with `base`'s r, so (r, n/2, 0) recovers some other key Q, and
+    # (r, n/2 + 1, 1) is its high-s twin.
+    half_n = SECP_N // 2
+    boundary_sender = ecrecover(base_digest, base["r"], half_n, 0)
+    assert boundary_sender not in (None, key_address(FI_SENDER_KEY))
+    assert SECP_N - (half_n + 1) == half_n
+
+    base_items = [base[name] for name in fi_layout(2)]
+    payload = rlp(base_items)[2:]  # a signed transaction is above 55 bytes: 0xf8 <length>
+    assert rlp(base_items)[0] == 0xF8 and len(payload) < 256
+    nonce_one = eip1559(nonce=1)
+
+    cases = [
+        ("legacy_eip155_35", "eligible", fi_encode(0, legacy(0, l2_chain_id))),
+        ("legacy_eip155_36", "eligible", fi_encode(0, legacy(1, l2_chain_id))),
+        ("legacy_pre155_27", "eligible", fi_encode(0, legacy(0, None))),
+        ("legacy_pre155_28", "eligible", fi_encode(0, legacy(1, None))),
+        ("eip2930", "eligible", fi_encode(1, fi_sign(1, fi_eip2930()))),
+        ("eip1559", "eligible", fi_encode(2, base)),
+        ("eip1559_zero_fee", "eligible", fi_encode(2, eip1559(max_priority_fee=0, max_fee=0))),
+        ("eip7702", "eligible", eip7702([auth])),
+        ("eip7702_invalid_auth_signature", "eligible", eip7702([auth_r_zero])),
+        ("eip7702_empty_auth_list", "eligible", eip7702([])),
+        ("gas_at_limit", "eligible", fi_encode(2, eip1559(gas=gas_limit))),
+        ("nonce_max", "eligible", fi_encode(2, eip1559(nonce=2**64 - 1))),
+        (
+            "fee_max",
+            "eligible",
+            fi_encode(2, eip1559(max_priority_fee=2**128 - 1, max_fee=2**128 - 1)),
+        ),
+        ("value_max", "eligible", fi_encode(2, eip1559(value=2**256 - 1))),
+        # The EL skips a tuple for another chain or with y_parity above 1; chain id 0 is any chain.
+        ("eip7702_foreign_tuple_chain_id", "eligible", eip7702([fi_authorization(1)])),
+        ("eip7702_tuple_y_parity_255", "eligible", eip7702([auth_y_255])),
+        ("eip7702_tuple_chain_id_zero", "eligible", eip7702([fi_authorization(0)])),
+        (
+            "legacy_contract_creation",
+            "eligible",
+            fi_encode(0, fi_sign(0, fi_legacy(to=b"", gas=60_000), l2_chain_id)),
+        ),
+        ("eip1559_contract_creation", "eligible", fi_encode(2, eip1559(to=b"", gas=60_000))),
+        ("s_half_n", "eligible", fi_encode(2, {**base, "s": half_n, "y_parity": 0})),
+        (
+            "eip7702_tuple_nonce_max",
+            "eligible",
+            eip7702([fi_authorization(l2_chain_id, nonce=2**64 - 1)]),
+        ),
+        ("eip7702_tuple_high_s", "eligible", eip7702([auth_high_s])),
+        ("empty", "noncanonical", b""),
+        ("trailing_byte", "noncanonical", fi_encode(2, base) + b"\x00"),
+        ("two_transactions", "noncanonical", fi_encode(2, base) + fi_encode(2, nonce_one)),
+        (
+            "leading_zero_nonce",
+            "noncanonical",
+            fi_encode(2, {**nonce_one, "nonce": Encoded(b"\x82\x00\x01")}),
+        ),
+        (
+            "non_minimal_length_prefix",
+            "noncanonical",
+            b"\x02" + rlp_header(len(payload), 0xC0, pad=True) + payload,
+        ),
+        (
+            "typed_missing_field",
+            "noncanonical",
+            b"\x02" + rlp([base[name] for name in fi_layout(2) if name != "access_list"]),
+        ),
+        ("typed_extra_field", "noncanonical", b"\x02" + rlp([*base_items, b""])),
+        ("eip7702_empty_to", "noncanonical", eip7702([auth], to=b"")),
+        (
+            "legacy_to_19_bytes",
+            "noncanonical",
+            fi_encode(0, fi_sign(0, fi_legacy(to=FI_TO[:19]), l2_chain_id)),
+        ),
+        ("eip1559_to_19_bytes", "noncanonical", fi_encode(2, eip1559(to=FI_TO[:19]))),
+        (
+            "eip2930_access_list_address_19_bytes",
+            "noncanonical",
+            fi_encode(1, fi_sign(1, fi_eip2930(access_list=short_address_access_list))),
+        ),
+        (
+            "eip1559_storage_key_31_bytes",
+            "noncanonical",
+            fi_encode(
+                2, eip1559(gas=30_000, access_list=[[FI_ACCESS_ADDRESS, [FI_STORAGE_KEY[1:]]]])
+            ),
+        ),
+        ("eip7702_tuple_5_fields", "noncanonical", eip7702([auth[:5]])),
+        ("eip7702_tuple_7_fields", "noncanonical", eip7702([[*auth, 0]])),
+        ("type3_blob", "type", fi_encode(3, fi_sign(3, fi_blob()))),
+        ("unknown_type_05", "type", fi_encode(0x05, fi_sign(0x05, fi_eip1559()))),
+        ("unknown_type_7f", "type", fi_encode(0x7F, fi_sign(0x7F, fi_eip1559()))),
+        ("legacy_v_37", "chain_id", fi_encode(0, legacy(0, 1))),
+        ("typed_wrong_chain_id", "chain_id", fi_encode(2, eip1559(chain_id=l2_chain_id + 1))),
+        ("y_parity_2", "signature", fi_encode(2, {**even, "y_parity": 2})),
+        ("r_zero", "signature", fi_encode(2, {**base, "r": 0})),
+        ("s_zero", "signature", fi_encode(2, {**base, "s": 0})),
+        ("r_eq_n", "signature", fi_encode(2, {**base, "r": SECP_N})),
+        (
+            "high_s",
+            "signature",
+            fi_encode(2, {**base, "s": SECP_N - low_s, "y_parity": flipped}),
+        ),
+        ("unrecoverable_r", "signature", fi_encode(2, {**base, "r": unrecoverable_r})),
+        ("s_half_n_plus_1", "signature", fi_encode(2, {**base, "s": half_n + 1, "y_parity": 1})),
+        ("nonce_2_64", "width", fi_encode(2, eip1559(nonce=2**64))),
+        ("gas_2_64", "width", fi_encode(2, eip1559(gas=2**64))),
+        ("fee_2_128", "width", fi_encode(2, eip1559(max_fee=2**128))),
+        ("tip_2_128", "width", fi_encode(2, eip1559(max_priority_fee=2**128))),
+        (
+            "legacy_gas_price_2_128",
+            "width",
+            fi_encode(0, fi_sign(0, fi_legacy(gas_price=2**128), l2_chain_id)),
+        ),
+        (
+            "eip2930_gas_price_2_128",
+            "width",
+            fi_encode(1, fi_sign(1, fi_eip2930(gas_price=2**128))),
+        ),
+        ("eip7702_fee_2_128", "width", eip7702([auth], max_fee=2**128)),
+        ("value_33_bytes", "width", fi_encode(2, eip1559(value=2**256))),
+        (
+            "eip7702_tuple_nonce_2_64",
+            "width",
+            eip7702([fi_authorization(l2_chain_id, nonce=2**64)]),
+        ),
+        ("eip7702_tuple_y_parity_256", "width", eip7702([auth_y_256])),
+        (
+            "eip7702_tuple_address_19_bytes",
+            "width",
+            eip7702([fi_authorization(l2_chain_id, address=FI_DELEGATE[:19])]),
+        ),
+        ("eip7702_tuple_r_33_bytes", "width", eip7702([auth_r_33])),
+        ("gas_above_limit", "gas_limit", fi_encode(2, eip1559(gas=gas_limit + 1))),
+    ]
+    return cases, {"s_half_n": boundary_sender}
+
+
+# Noncanonical cases with no transaction to read through: nothing else can be checked.
+FI_UNREADABLE = ("empty", "typed_missing_field")
+
+
+def fi_eligibility():
+    """Spec 7.2 forced-inclusion eligibility of raw transaction bytes at the deployment's L2 chain
+    id and block gas limit. Every case is classified again from its bytes by `fi_violations`;
+    `ficheck/` then checks the written file against go-ethereum v1.15.5."""
+    cases, other_senders = fi_cases()
+    out = []
+    for name, rule, raw in cases:
+        violations, recovered = fi_violations(raw)
+        expected = set() if rule == "eligible" else {rule}
+        if name == "gas_2_64":
+            expected.add("gas_limit")
+        assert violations == expected, (name, violations)
+        if rule != "signature" and name not in FI_UNREADABLE:
+            sender = other_senders.get(name, key_address(FI_SENDER_KEY))
+            assert recovered == sender, (name, recovered)
+        out.append(
+            {"name": name, "raw": "0x" + raw.hex(), "eligible": rule == "eligible", "rule": rule}
+        )
+    assert len({case["raw"] for case in out}) == len(out)
+    return {
+        "l2_chain_id": dec(DEPLOYMENT["l2_chain_id"]),
+        "l2_block_gas_limit": dec(DEPLOYMENT["l2_block_gas_limit"]),
+        "cases": out,
+    }
+
+
+def run_ficheck():
+    """Checks the written vectors against go-ethereum v1.15.5 (`ficheck/`, run with `go run`)."""
+    result = subprocess.run(
+        ["go", "run", ".", "../vectors.json"],
+        cwd=FICHECK,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "GOFLAGS": "-mod=readonly", "GOWORK": "off"},
+    )
+    if result.returncode != 0:
+        raise SystemExit(f"ficheck failed:\n{result.stdout}{result.stderr}")
+
+
 # --- storage layout ------------------------------------------------------------------------------
 
 # Packed words (appendix B): fields in the listed order from the least-significant bit; ckPrefix
@@ -1390,6 +1972,7 @@ def main():
         "land_abi": land_abi(statements),
         "chain_domains": domains,
         "votes": votes(key_list, domains),
+        "fi_eligibility": fi_eligibility(),
         "extra_data": extra_data(),
         "packed_words": packed_words(),
         "origin_words": origin_words(),
@@ -1397,6 +1980,7 @@ def main():
     }
     OUTPUT.write_text(json.dumps(vectors, indent=2) + "\n")
     subprocess.run(["pnpm", "exec", "prettier", "--write", str(OUTPUT)], cwd=ROOT, check=True)
+    run_ficheck()
 
 
 if __name__ == "__main__":

@@ -277,6 +277,231 @@ def block_id_of(vote):
     return vote["blockHash"], vote["partsTotal"], vote["partsHash"]
 
 
+# --- forced-inclusion eligibility (spec 7.2 static rules, decoded without keccak) -----------------
+
+FI_RULES = {"eligible", "noncanonical", "type", "chain_id", "signature", "width", "gas_limit"}
+FI_CASES = [
+    ("legacy_eip155_35", "eligible"),
+    ("legacy_eip155_36", "eligible"),
+    ("legacy_pre155_27", "eligible"),
+    ("legacy_pre155_28", "eligible"),
+    ("eip2930", "eligible"),
+    ("eip1559", "eligible"),
+    ("eip1559_zero_fee", "eligible"),
+    ("eip7702", "eligible"),
+    ("eip7702_invalid_auth_signature", "eligible"),
+    ("eip7702_empty_auth_list", "eligible"),
+    ("gas_at_limit", "eligible"),
+    ("nonce_max", "eligible"),
+    ("fee_max", "eligible"),
+    ("value_max", "eligible"),
+    ("eip7702_foreign_tuple_chain_id", "eligible"),
+    ("eip7702_tuple_y_parity_255", "eligible"),
+    ("eip7702_tuple_chain_id_zero", "eligible"),
+    ("legacy_contract_creation", "eligible"),
+    ("eip1559_contract_creation", "eligible"),
+    ("s_half_n", "eligible"),
+    ("eip7702_tuple_nonce_max", "eligible"),
+    ("eip7702_tuple_high_s", "eligible"),
+    ("empty", "noncanonical"),
+    ("trailing_byte", "noncanonical"),
+    ("two_transactions", "noncanonical"),
+    ("leading_zero_nonce", "noncanonical"),
+    ("non_minimal_length_prefix", "noncanonical"),
+    ("typed_missing_field", "noncanonical"),
+    ("typed_extra_field", "noncanonical"),
+    ("eip7702_empty_to", "noncanonical"),
+    ("legacy_to_19_bytes", "noncanonical"),
+    ("eip1559_to_19_bytes", "noncanonical"),
+    ("eip2930_access_list_address_19_bytes", "noncanonical"),
+    ("eip1559_storage_key_31_bytes", "noncanonical"),
+    ("eip7702_tuple_5_fields", "noncanonical"),
+    ("eip7702_tuple_7_fields", "noncanonical"),
+    ("type3_blob", "type"),
+    ("unknown_type_05", "type"),
+    ("unknown_type_7f", "type"),
+    ("legacy_v_37", "chain_id"),
+    ("typed_wrong_chain_id", "chain_id"),
+    ("y_parity_2", "signature"),
+    ("r_zero", "signature"),
+    ("s_zero", "signature"),
+    ("r_eq_n", "signature"),
+    ("high_s", "signature"),
+    ("unrecoverable_r", "signature"),
+    ("s_half_n_plus_1", "signature"),
+    ("nonce_2_64", "width"),
+    ("gas_2_64", "width"),
+    ("fee_2_128", "width"),
+    ("tip_2_128", "width"),
+    ("legacy_gas_price_2_128", "width"),
+    ("eip2930_gas_price_2_128", "width"),
+    ("eip7702_fee_2_128", "width"),
+    ("value_33_bytes", "width"),
+    ("eip7702_tuple_nonce_2_64", "width"),
+    ("eip7702_tuple_y_parity_256", "width"),
+    ("eip7702_tuple_address_19_bytes", "width"),
+    ("eip7702_tuple_r_33_bytes", "width"),
+    ("gas_above_limit", "gas_limit"),
+]
+_FI_FEE_1559 = ("chain_id", "nonce", "max_priority_fee", "max_fee", "gas", "to", "value", "data")
+FI_LAYOUTS = {
+    0: ("nonce", "gas_price", "gas", "to", "value", "data", "v", "r", "s"),
+    1: (
+        "chain_id",
+        "nonce",
+        "gas_price",
+        "gas",
+        "to",
+        "value",
+        "data",
+        "access_list",
+        "y_parity",
+        "r",
+        "s",
+    ),
+    2: (*_FI_FEE_1559, "access_list", "y_parity", "r", "s"),
+    3: (
+        *_FI_FEE_1559,
+        "access_list",
+        "max_fee_per_blob_gas",
+        "blob_hashes",
+        "y_parity",
+        "r",
+        "s",
+    ),
+    4: (*_FI_FEE_1559, "access_list", "authorization_list", "y_parity", "r", "s"),
+}
+# Spec 7.2 widths: nonce and gas below 2^64, each fee field below 2^128, value below 2^256.
+FI_WIDTHS = {
+    "nonce": 64,
+    "gas": 64,
+    "gas_price": 128,
+    "max_priority_fee": 128,
+    "max_fee": 128,
+    "max_fee_per_blob_gas": 128,
+    "value": 256,
+}
+
+
+def rlp_item(data, i):
+    """`(item, end)` of the canonical RLP item at `data[i]`; bytes or a list of items."""
+    assert i < len(data), "truncated"
+    first = data[i]
+    if first < 0x80:
+        return data[i : i + 1], i + 1
+    is_list = first >= 0xC0
+    short = first - (0xC0 if is_list else 0x80)
+    if short < 56:
+        length, start = short, i + 1
+    else:
+        size = short - 55
+        length_bytes = data[i + 1 : i + 1 + size]
+        assert len(length_bytes) == size and length_bytes[0] != 0, "non-minimal length"
+        length, start = int.from_bytes(length_bytes, "big"), i + 1 + size
+        assert length >= 56, "long form for a short item"
+    end = start + length
+    assert end <= len(data), "truncated"
+    if not is_list:
+        assert not (length == 1 and data[start] < 0x80), "single byte not encoded as itself"
+        return data[start:end], end
+    items, j = [], start
+    while j < end:
+        item, j = rlp_item(data, j)
+        items.append(item)
+    assert j == end, "list overrun"
+    return items, end
+
+
+def rlp_uint(item):
+    assert isinstance(item, bytes) and (not item or item[0] != 0), "non-canonical integer"
+    return int.from_bytes(item, "big")
+
+
+def decode_fi(raw):
+    """`(type, fields)` of exactly one canonical EIP-2718 transaction; AssertionError otherwise.
+
+    The body of an unknown type is read with type 2's fields (the vectors build it that way).
+    """
+    assert raw, "empty"
+    tx_type = 0 if raw[0] >= 0xC0 else raw[0]
+    assert tx_type < 0x80, "not a transaction"
+    body = raw if tx_type == 0 else raw[1:]
+    items, end = rlp_item(body, 0)
+    assert end == len(body), "trailing bytes"
+    names = FI_LAYOUTS.get(tx_type, FI_LAYOUTS[2])
+    assert isinstance(items, list) and len(items) == len(names), "field count"
+    fields = {}
+    for name, item in zip(names, items):
+        if name in ("to", "data"):
+            assert isinstance(item, bytes), name
+            fields[name] = item
+        elif name == "access_list":
+            for entry in item:
+                assert isinstance(entry, list) and len(entry) == 2, name
+                address, keys = entry
+                assert len(address) == 20 and isinstance(keys, list), name
+                assert all(isinstance(k, bytes) and len(k) == 32 for k in keys), name
+            fields[name] = item
+        elif name == "blob_hashes":
+            assert all(len(h) == 32 for h in item), name
+            fields[name] = item
+        elif name == "authorization_list":
+            fields[name] = []
+            # A tuple has six fields; an address of the wrong length breaks a tuple width, not
+            # canonical decoding.
+            for auth in item:
+                assert isinstance(auth, list) and len(auth) == 6, name
+                chain_id, address, nonce, y_parity, r, s = auth
+                assert isinstance(address, bytes), name
+                fields[name].append(
+                    {
+                        "chain_id": rlp_uint(chain_id),
+                        "address": address,
+                        "nonce": rlp_uint(nonce),
+                        "y_parity": rlp_uint(y_parity),
+                        "r": rlp_uint(r),
+                        "s": rlp_uint(s),
+                    }
+                )
+        else:
+            fields[name] = rlp_uint(item)
+    # A type-3 or type-4 destination is always a 20-byte address; otherwise it may be empty.
+    assert len(fields["to"]) == 20 or (not fields["to"] and tx_type not in (3, 4)), "to"
+    return tx_type, fields
+
+
+def fi_static_failures(tx_type, fields, chain_id, gas_limit):
+    """Spec 7.2 rules a decoded transaction breaks, except sender recovery (which needs keccak):
+    an r with no curve point stands in for an unrecoverable signature."""
+    failures = set()
+    if tx_type not in (0, 1, 2, 4):
+        failures.add("type")
+    if tx_type == 0:
+        v = fields["v"]
+        parity = v - 27 if v in (27, 28) else (v - 35) % 2 if v >= 35 else None
+        if v >= 35 and (v - 35) // 2 != chain_id:
+            failures.add("chain_id")
+    else:
+        parity = fields["y_parity"]
+        if fields["chain_id"] != chain_id:
+            failures.add("chain_id")
+    r, s = fields["r"], fields["s"]
+    if parity not in (0, 1) or not 0 < r < SECP_N or not 0 < s <= SECP_N // 2 or not has_point(r):
+        failures.add("signature")
+    if any(fields[name] >= 2**bits for name, bits in FI_WIDTHS.items() if name in fields):
+        failures.add("width")
+    # EIP-7702 tuple widths: chain_id uint256, address 20 bytes, nonce uint64, y_parity uint8,
+    # r and s uint256.
+    for auth in fields.get("authorization_list", []):
+        if len(auth["address"]) != 20 or auth["nonce"] >= 2**64 or auth["y_parity"] >= 2**8:
+            failures.add("width")
+        if max(auth["chain_id"], auth["r"], auth["s"]) >= 2**256:
+            failures.add("width")
+    if fields["gas"] > gas_limit:
+        failures.add("gas_limit")
+    return failures
+
+
 class VectorsTest(unittest.TestCase):
     def test_schema_version_is_4(self):
         self.assertEqual(V["schema_version"], "4")
@@ -1083,6 +1308,173 @@ class VectorsTest(unittest.TestCase):
                 uint(inputs["active_committee_snapshot"]),
             ],
         )
+
+    def test_fi_named_cases(self):
+        fi = V["fi_eligibility"]
+        self.assertEqual(list(fi), ["l2_chain_id", "l2_block_gas_limit", "cases"])
+        self.assertEqual(fi["l2_chain_id"], V["deployment"]["l2_chain_id"])
+        self.assertEqual(fi["l2_block_gas_limit"], V["deployment"]["l2_block_gas_limit"])
+        self.assertEqual((fi["l2_chain_id"], fi["l2_block_gas_limit"]), ("167001", "45000000"))
+        cases = fi["cases"]
+        self.assertEqual([(c["name"], c["rule"]) for c in cases], FI_CASES)
+        for case in cases:
+            self.assertEqual(list(case), ["name", "raw", "eligible", "rule"], case["name"])
+            self.assertIs(case["eligible"], case["rule"] == "eligible", case["name"])
+            hexbytes(case["raw"])
+        self.assertEqual(len({c["raw"] for c in cases}), len(cases))
+
+    def test_fi_cases_cover_every_static_rule(self):
+        self.assertEqual({c["rule"] for c in V["fi_eligibility"]["cases"]}, FI_RULES)
+
+    def test_fi_eligible_types(self):
+        types = set()
+        for case in V["fi_eligibility"]["cases"]:
+            if case["eligible"]:
+                first = hexbytes(case["raw"])[0]
+                self.assertTrue(first >= 0xC0 or first in (0x01, 0x02, 0x04), case["name"])
+                types.add("legacy" if first >= 0xC0 else first)
+        self.assertEqual(types, {"legacy", 0x01, 0x02, 0x04})
+
+    def test_fi_cases_break_only_their_rule(self):
+        fi = V["fi_eligibility"]
+        chain_id, gas_limit = int(fi["l2_chain_id"]), int(fi["l2_block_gas_limit"])
+        cases = {c["name"]: c for c in fi["cases"]}
+        decoded = {}
+        for name, case in cases.items():
+            raw = hexbytes(case["raw"])
+            if case["rule"] == "noncanonical":
+                with self.assertRaises(AssertionError, msg=name):
+                    decode_fi(raw)
+                continue
+            tx_type, fields = decode_fi(raw)
+            decoded[name] = (tx_type, fields)
+            expected = set() if case["rule"] == "eligible" else {case["rule"]}
+            # Any gas of 2^64 or more is also above the block gas limit.
+            if name == "gas_2_64":
+                expected.add("gas_limit")
+            failures = fi_static_failures(tx_type, fields, chain_id, gas_limit)
+            self.assertEqual(failures, expected, name)
+
+        # name: (type, field, value) pinned by the case; None skips that check.
+        pinned = {
+            "legacy_eip155_35": (0, "v", 2 * chain_id + 35),
+            "legacy_eip155_36": (0, "v", 2 * chain_id + 36),
+            "legacy_pre155_27": (0, "v", 27),
+            "legacy_pre155_28": (0, "v", 28),
+            "eip2930": (1, None, None),
+            "eip1559": (2, None, None),
+            "eip1559_zero_fee": (2, "max_fee", 0),
+            "eip7702": (4, None, None),
+            "eip7702_invalid_auth_signature": (4, None, None),
+            "eip7702_empty_auth_list": (4, "authorization_list", []),
+            "gas_at_limit": (None, "gas", gas_limit),
+            "nonce_max": (None, "nonce", 2**64 - 1),
+            "fee_max": (None, "max_fee", 2**128 - 1),
+            "value_max": (None, "value", 2**256 - 1),
+            "eip7702_foreign_tuple_chain_id": (4, None, None),
+            "eip7702_tuple_y_parity_255": (4, None, None),
+            "eip7702_tuple_chain_id_zero": (4, None, None),
+            "legacy_contract_creation": (0, "to", b""),
+            "eip1559_contract_creation": (2, "to", b""),
+            "s_half_n": (2, "s", SECP_N // 2),
+            "eip7702_tuple_nonce_max": (4, None, None),
+            "eip7702_tuple_high_s": (4, None, None),
+            "type3_blob": (3, None, None),
+            "unknown_type_05": (0x05, None, None),
+            "unknown_type_7f": (0x7F, None, None),
+            "legacy_v_37": (0, "v", 37),
+            "typed_wrong_chain_id": (None, None, None),
+            "y_parity_2": (None, "y_parity", 2),
+            "r_zero": (None, "r", 0),
+            "s_zero": (None, "s", 0),
+            "r_eq_n": (None, "r", SECP_N),
+            "high_s": (None, None, None),
+            "unrecoverable_r": (None, None, None),
+            "s_half_n_plus_1": (2, "s", SECP_N // 2 + 1),
+            "nonce_2_64": (None, "nonce", 2**64),
+            "gas_2_64": (None, "gas", 2**64),
+            "fee_2_128": (None, "max_fee", 2**128),
+            "tip_2_128": (2, "max_priority_fee", 2**128),
+            "legacy_gas_price_2_128": (0, "gas_price", 2**128),
+            "eip2930_gas_price_2_128": (1, "gas_price", 2**128),
+            "eip7702_fee_2_128": (4, "max_fee", 2**128),
+            "value_33_bytes": (None, "value", 2**256),
+            "eip7702_tuple_nonce_2_64": (4, None, None),
+            "eip7702_tuple_y_parity_256": (4, None, None),
+            "eip7702_tuple_address_19_bytes": (4, None, None),
+            "eip7702_tuple_r_33_bytes": (4, None, None),
+            "gas_above_limit": (None, "gas", gas_limit + 1),
+        }
+        self.assertEqual(set(pinned), set(decoded))
+        for name, (tx_type, field, value) in pinned.items():
+            if tx_type is not None:
+                self.assertEqual(decoded[name][0], tx_type, name)
+            if field is not None:
+                self.assertEqual(decoded[name][1][field], value, name)
+        self.assertNotEqual(decoded["typed_wrong_chain_id"][1]["chain_id"], chain_id)
+        self.assertTrue(SECP_N // 2 < decoded["high_s"][1]["s"] < SECP_N)
+        self.assertFalse(has_point(decoded["unrecoverable_r"][1]["r"]))
+        self.assertTrue(decoded["eip2930"][1]["access_list"])
+        # Authorization tuples need only EIP-7702 field widths: a zero tuple r stays eligible.
+        (valid,) = decoded["eip7702"][1]["authorization_list"]
+        self.assertEqual(valid["chain_id"], chain_id)
+        self.assertTrue(0 < valid["r"] < SECP_N and 0 < valid["s"] <= SECP_N // 2)
+        (invalid,) = decoded["eip7702_invalid_auth_signature"][1]["authorization_list"]
+        self.assertEqual(invalid["r"], 0)
+        # Each tuple case changes one tuple field of an otherwise ordinary type-4 transaction.
+        tuple_fields = {
+            "eip7702_foreign_tuple_chain_id": ("chain_id", 1),
+            "eip7702_tuple_y_parity_255": ("y_parity", 255),
+            "eip7702_tuple_chain_id_zero": ("chain_id", 0),
+            "eip7702_tuple_nonce_2_64": ("nonce", 2**64),
+            "eip7702_tuple_y_parity_256": ("y_parity", 256),
+            "eip7702_tuple_nonce_max": ("nonce", 2**64 - 1),
+        }
+        for name, (field, value) in tuple_fields.items():
+            (auth,) = decoded[name][1]["authorization_list"]
+            self.assertEqual(auth[field], value, name)
+        (short,) = decoded["eip7702_tuple_address_19_bytes"][1]["authorization_list"]
+        self.assertEqual(len(short["address"]), 19)
+        (high_s,) = decoded["eip7702_tuple_high_s"][1]["authorization_list"]
+        self.assertTrue(SECP_N // 2 < high_s["s"] < SECP_N)
+        (wide_r,) = decoded["eip7702_tuple_r_33_bytes"][1]["authorization_list"]
+        self.assertEqual(len(wide_r["r"].to_bytes(33, "big").lstrip(b"\0")), 33)
+        # Contract creations carry an EIP-155 v for the L2 chain (legacy) or the L2 chain id.
+        creation_v = decoded["legacy_contract_creation"][1]["v"]
+        self.assertIn(creation_v, (2 * chain_id + 35, 2 * chain_id + 36))
+        # The s = n/2 boundary pair: one transaction with (r, n/2, 0) and its high-s twin.
+        low, high = decoded["s_half_n"][1], decoded["s_half_n_plus_1"][1]
+        self.assertEqual((low["y_parity"], high["y_parity"]), (0, 1))
+        self.assertEqual(SECP_N - high["s"], low["s"])
+        self.assertEqual(
+            {k: v for k, v in low.items() if k not in ("s", "y_parity")},
+            {k: v for k, v in high.items() if k not in ("s", "y_parity")},
+        )
+
+        # Fixed-width fields that RLP round-trips but a typed decoder rejects.
+        def body(name):
+            raw = hexbytes(cases[name]["raw"])
+            return rlp_item(raw, 0 if raw[0] >= 0xC0 else 1)[0]
+
+        self.assertEqual(len(body("legacy_to_19_bytes")[3]), 19)
+        self.assertEqual(len(body("eip1559_to_19_bytes")[5]), 19)
+        self.assertEqual(len(body("eip2930_access_list_address_19_bytes")[7][0][0]), 19)
+        self.assertEqual(len(body("eip1559_storage_key_31_bytes")[8][0][1][0]), 31)
+        self.assertEqual(len(body("eip7702_tuple_5_fields")[9][0]), 5)
+        self.assertEqual(len(body("eip7702_tuple_7_fields")[9][0]), 7)
+
+        # The framing cases wrap otherwise canonical transactions.
+        trailing = hexbytes(cases["trailing_byte"]["raw"])
+        self.assertEqual(trailing[-1:], b"\x00")
+        decode_fi(trailing[:-1])
+        both = hexbytes(cases["two_transactions"]["raw"])
+        _, end = rlp_item(both, 1)
+        decode_fi(both[:end])
+        decode_fi(both[end:])
+        empty_to = hexbytes(cases["eip7702_empty_to"]["raw"])
+        self.assertEqual(empty_to[0], 0x04)
+        self.assertEqual(rlp_item(empty_to, 1)[0][5], b"")
+        self.assertEqual(hexbytes(cases["empty"]["raw"]), b"")
 
 
 if __name__ == "__main__":
