@@ -7,7 +7,8 @@ Run from the repository root (standard library only; no `cast`, `go` or network)
 
 `generate.py` computes every hash and slot with `cast`. These tests decode the generated preimages
 and words and check what can be checked without keccak: word order and count, field widths and
-packing offsets, the 48-byte chain id, key compression, and the shape of each case.
+packing offsets, the 48-byte chain id, key compression and decompression, signature recovery to the
+registered point, and the shape of each case.
 """
 
 import base64
@@ -20,6 +21,12 @@ V = json.loads((pathlib.Path(__file__).resolve().parent / "vectors.json").read_t
 K = 6
 U48_MAX = 2**48 - 1
 SECP_P = 2**256 - 2**32 - 977
+SECP_N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+SECP_G = (
+    0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798,
+    0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8,
+)
+OWNERS = ("0x" + "aa" * 20, "0x" + "bb" * 20)
 KECCAK_EMPTY = "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
 CHAIN_ID_ALPHABET = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")
 
@@ -56,6 +63,111 @@ def by_name(cases, name):
     matches = [case for case in cases if case["name"] == name]
     assert len(matches) == 1, name
     return matches[0]
+
+
+# --- secp256k1 (appendix A decompression and ecrecover, without keccak) ---------------------------
+
+
+def has_point(x):
+    """Whether x^3 + 7 is a square mod p (Euler's criterion)."""
+    return pow((x**3 + 7) % SECP_P, (SECP_P - 1) // 2, SECP_P) in (0, 1)
+
+
+def ec_add(a, b):
+    if a is None:
+        return b
+    if b is None:
+        return a
+    (x1, y1), (x2, y2) = a, b
+    if x1 == x2 and (y1 + y2) % SECP_P == 0:
+        return None
+    if a == b:
+        slope = 3 * x1 * x1 * pow(2 * y1, -1, SECP_P) % SECP_P
+    else:
+        slope = (y2 - y1) * pow(x2 - x1, -1, SECP_P) % SECP_P
+    x3 = (slope * slope - x1 - x2) % SECP_P
+    return x3, (slope * (x1 - x3) - y1) % SECP_P
+
+
+def ec_mul(point, k):
+    result = None
+    while k:
+        if k & 1:
+            result = ec_add(result, point)
+        point = ec_add(point, point)
+        k >>= 1
+    return result
+
+
+def decompress(public_key):
+    """Appendix A: the point of a 33-byte `ckPrefix || ckX`, or None when it is rejected."""
+    if len(public_key) != 33 or public_key[0] not in (2, 3):
+        return None
+    x = int.from_bytes(public_key[1:], "big")
+    if x >= SECP_P:
+        return None
+    a = (x**3 + 7) % SECP_P
+    y = pow(a, (SECP_P + 1) // 4, SECP_P)
+    if y * y % SECP_P != a:
+        return None
+    return x, y if y % 2 == public_key[0] - 2 else SECP_P - y
+
+
+def classify(public_key):
+    """The reason a public key input is rejected, from its shape alone (None if it decodes)."""
+    if not public_key:
+        return "empty"
+    if len(public_key) == 65 and public_key[0] == 4:
+        return "uncompressed"
+    if len(public_key) == 65 and public_key[0] in (6, 7):
+        return "hybrid"
+    if len(public_key) == 64:
+        return "uncompressed"
+    if len(public_key) > 33:
+        return "trailing_bytes"
+    if len(public_key) < 33:
+        return "short"
+    if public_key[0] not in (2, 3):
+        return "bad_prefix"
+    if int.from_bytes(public_key[1:], "big") >= SECP_P:
+        return "x_ge_p"
+    if decompress(public_key) is None:
+        return "not_on_curve"
+    return None
+
+
+def sig_parts(sig):
+    """(r, s, V) of a 65-byte `R || S || V` signature."""
+    assert len(sig) == 65, len(sig)
+    return int.from_bytes(sig[:32], "big"), int.from_bytes(sig[32:64], "big"), sig[64]
+
+
+def recover(digest, r, s, v):
+    """ecrecover(digest, v + 27, r, s) as a point (no keccak), or None where ecrecover returns 0."""
+    if not (0 < r < SECP_N and 0 < s < SECP_N and v in (0, 1)):
+        return None
+    big_r = decompress(bytes([2 + v]) + r.to_bytes(32, "big"))
+    if big_r is None:
+        return None
+    r_inv = pow(r, -1, SECP_N)
+    z = int(digest, 16)
+    return ec_add(ec_mul(big_r, s * r_inv % SECP_N), ec_mul(SECP_G, -z * r_inv % SECP_N))
+
+
+def pop_accepted(public_key, digest, pop_sig):
+    """Spec 4.1 PoP rule: 65 bytes, V in {0,1}, 0 < r < n, 0 < s <= n/2, recovers the key point."""
+    point = decompress(hexbytes(public_key))
+    sig = hexbytes(pop_sig)
+    if point is None or len(sig) != 65:
+        return False
+    r, s, v = sig_parts(sig)
+    if v not in (0, 1) or not 0 < r < SECP_N or not 0 < s <= SECP_N // 2:
+        return False
+    return recover(digest, r, s, v) == point
+
+
+def key_point(key):
+    return int(key["ck_x"], 16), int(key["ck_y"], 16)
 
 
 class VectorsTest(unittest.TestCase):
@@ -414,6 +526,204 @@ class VectorsTest(unittest.TestCase):
         lead = keys[-1]
         self.assertEqual(hexbytes(lead["ck_x"])[0], 0)
         self.assertEqual(hexbytes(lead["public_key"])[1], 0)
+
+    def test_decompression_accepts_both_prefixes_and_leading_zero_x(self):
+        cases = V["key_decompression"]
+        self.assertEqual(len({c["name"] for c in cases}), len(cases))
+        valid = [c for c in cases if c["valid"]]
+        self.assertEqual(len(valid), 2 * len(V["keys"]))
+        for key in V["keys"]:
+            x, y = key_point(key)
+            own = by_name(cases, key["name"])
+            self.assertTrue(own["valid"])
+            self.assertEqual(own["public_key"], key["public_key"])
+            self.assertEqual(own["ck_y"], key["ck_y"])
+            self.assertEqual(own["ck_addr"], key["ck_addr"])
+            # The other prefix with the same X decodes to the negated point, a different identity.
+            flip = by_name(cases, "parity_flip_" + key["name"])
+            self.assertTrue(flip["valid"])
+            self.assertEqual(
+                hexbytes(flip["public_key"]), bytes([(2 + (y & 1)) ^ 1]) + hexbytes(key["ck_x"])
+            )
+            self.assertEqual(flip["ck_y"], uint(SECP_P - y))
+            self.assertNotEqual(flip["ck_addr"], key["ck_addr"])
+        for case in valid:
+            self.assertEqual(list(case), ["name", "public_key", "valid", "ck_y", "ck_addr"])
+            public_key = hexbytes(case["public_key"])
+            point = decompress(public_key)
+            self.assertIsNotNone(point, case["name"])
+            x, y = point
+            self.assertEqual(case["ck_y"], uint(y), case["name"])
+            self.assertEqual((y * y - x**3 - 7) % SECP_P, 0)
+            self.assertEqual(y & 1, public_key[0] - 2)
+            self.assertEqual(len(hexbytes(case["ck_y"])), 32)
+            self.assertEqual(len(hexbytes(case["ck_addr"])), 20)
+        self.assertEqual({hexbytes(c["public_key"])[0] for c in valid}, {2, 3})
+        for name in ("leading_zero_x", "parity_flip_leading_zero_x"):
+            public_key = hexbytes(by_name(cases, name)["public_key"])
+            self.assertEqual(len(public_key), 33)
+            self.assertEqual(public_key[1], 0)
+
+    def test_decompression_reject_reasons_cover_spec(self):
+        rejected = [c for c in V["key_decompression"] if not c["valid"]]
+        reasons = {c["reason"] for c in rejected}
+        self.assertLessEqual(
+            {
+                "x_ge_p",
+                "not_on_curve",
+                "bad_prefix",
+                "uncompressed",
+                "hybrid",
+                "trailing_bytes",
+                "short",
+                "empty",
+            },
+            reasons,
+        )
+        by_reason = {reason: [] for reason in reasons}
+        for case in rejected:
+            self.assertEqual(list(case), ["name", "public_key", "valid", "reason"])
+            public_key = hexbytes(case["public_key"])
+            self.assertIsNone(decompress(public_key), case["name"])
+            self.assertEqual(classify(public_key), case["reason"], case["name"])
+            by_reason[case["reason"]].append(public_key)
+
+        def x_of(public_key):
+            return int.from_bytes(public_key[1:33], "big")
+
+        # X is never reduced mod p: X = p, and 2^256 - 1 (which reduces onto the curve).
+        self.assertEqual({x_of(k) for k in by_reason["x_ge_p"]}, {SECP_P, 2**256 - 1})
+        self.assertTrue(has_point((2**256 - 1) % SECP_P))
+        (off_curve,) = by_reason["not_on_curve"]
+        self.assertFalse(has_point(x_of(off_curve)))
+        self.assertTrue(all(has_point(x) for x in range(1, x_of(off_curve))))
+        self.assertEqual(
+            {(len(k), k[0]) for k in by_reason["bad_prefix"]}, {(33, 0), (33, 1), (33, 4)}
+        )
+        self.assertEqual({len(k) for k in by_reason["uncompressed"]}, {64, 65})
+        self.assertEqual({(len(k), k[0]) for k in by_reason["hybrid"]}, {(65, 6), (65, 7)})
+        for public_key in by_reason["uncompressed"] + by_reason["hybrid"]:
+            xy = public_key[-64:]
+            x, y = int.from_bytes(xy[:32], "big"), int.from_bytes(xy[32:], "big")
+            self.assertEqual((y * y - x**3 - 7) % SECP_P, 0)
+        self.assertEqual({len(k) for k in by_reason["trailing_bytes"]}, {34})
+        self.assertEqual({len(k) for k in by_reason["short"]}, {32})
+        self.assertEqual(by_reason["empty"], [b""])
+
+    def test_pop_signatures_are_65_bytes_low_s(self):
+        cases = V["register_digests"]
+        keys = {key["public_key"]: key for key in V["keys"]}
+        self.assertEqual(
+            sorted((c["key"], c["owner"]) for c in cases),
+            sorted((k, owner) for k in keys for owner in OWNERS),
+        )
+        self.assertEqual(len({c["name"] for c in cases}), len(cases))
+        self.assertEqual(len({c["domain_separator"] for c in cases}), 1)
+        for owner in OWNERS:
+            same_owner = [c for c in cases if c["owner"] == owner]
+            self.assertEqual(len({(c["struct_hash"], c["digest"]) for c in same_owner}), 1)
+        self.assertEqual(len({c["digest"] for c in cases}), len(OWNERS))
+        for case in cases:
+            self.assertEqual(
+                list(case),
+                [
+                    "name",
+                    "l1_chain_id",
+                    "registry",
+                    "owner",
+                    "key",
+                    "domain_separator",
+                    "struct_hash",
+                    "digest",
+                    "pop_sig",
+                ],
+            )
+            self.assertEqual(case["l1_chain_id"], V["deployment"]["l1_chain_id"])
+            self.assertEqual(case["registry"], V["deployment"]["registry"])
+            for field in ("domain_separator", "struct_hash", "digest"):
+                self.assertEqual(len(hexbytes(case[field])), 32)
+            r, s, v = sig_parts(hexbytes(case["pop_sig"]))
+            self.assertIn(v, (0, 1))
+            self.assertTrue(0 < r < SECP_N)
+            self.assertTrue(0 < s <= SECP_N // 2)
+            self.assertEqual(recover(case["digest"], r, s, v), key_point(keys[case["key"]]))
+            self.assertTrue(pop_accepted(case["key"], case["digest"], case["pop_sig"]))
+
+    def test_pop_rejection_reasons(self):
+        cases = V["pop_rejections"]
+        self.assertLessEqual(
+            {
+                "v_27",
+                "v_2",
+                "high_s",
+                "r_zero",
+                "s_zero",
+                "r_eq_n",
+                "length_64",
+                "length_66",
+                "wrong_owner",
+                "wrong_key",
+                "wrong_chain",
+                "wrong_registry",
+            },
+            {c["reason"] for c in cases},
+        )
+        self.assertEqual(len({c["name"] for c in cases}), len(cases))
+        digests = {c["owner"]: c["digest"] for c in V["register_digests"]}
+        valid = {(c["key"], c["owner"]): c["pop_sig"] for c in V["register_digests"]}
+        keys = {key["public_key"]: key for key in V["keys"]}
+        for case in cases:
+            self.assertEqual(list(case), ["name", "public_key", "owner", "pop_sig", "reason"])
+            self.assertIn(case["owner"], OWNERS)
+            public_key, owner, reason = case["public_key"], case["owner"], case["reason"]
+            digest = digests[owner]
+            sig = hexbytes(case["pop_sig"])
+            # Every case is rejected at the deployment registry when submitted by `owner`.
+            self.assertFalse(pop_accepted(public_key, digest, case["pop_sig"]), case["name"])
+            self.assertIsNotNone(decompress(hexbytes(public_key)), case["name"])
+            if reason in ("length_64", "length_66"):
+                full = hexbytes(valid[(public_key, owner)])
+                self.assertEqual(len(sig), 64 if reason == "length_64" else 66)
+                self.assertEqual(sig[:65], full[: len(sig)])
+                continue
+            r, s, v = sig_parts(sig)
+            point = key_point(keys[public_key]) if public_key in keys else None
+            if reason == "v_27":
+                self.assertEqual(v, 27)
+                self.assertEqual(recover(digest, r, s, v - 27), point)
+            elif reason == "v_2":
+                self.assertEqual(v, 2)
+            elif reason == "high_s":
+                # The malleated twin (n - s, V flipped) recovers the key; only low-s rejects it.
+                self.assertTrue(SECP_N // 2 < s < SECP_N)
+                self.assertEqual(recover(digest, r, s, v), point)
+            elif reason == "r_zero":
+                self.assertEqual(r, 0)
+            elif reason == "s_zero":
+                self.assertEqual(s, 0)
+            elif reason == "r_eq_n":
+                self.assertEqual(r, SECP_N)
+            elif reason == "unrecoverable_r":
+                self.assertTrue(0 < r < SECP_N and 0 < s <= SECP_N // 2 and v in (0, 1))
+                self.assertIsNone(decompress(bytes([2 + v]) + r.to_bytes(32, "big")))
+            else:
+                # Well-formed signatures that are bound to another owner, key, chain or registry.
+                self.assertTrue(0 < r < SECP_N and 0 < s <= SECP_N // 2 and v in (0, 1), reason)
+                if reason == "wrong_owner":
+                    (other,) = [o for o in OWNERS if o != owner]
+                    self.assertEqual(case["pop_sig"], valid[(public_key, other)])
+                elif reason == "wrong_key":
+                    signers = [k for (k, o), sig_hex in valid.items() if sig_hex == case["pop_sig"]]
+                    self.assertEqual(len(signers), 1)
+                    self.assertNotEqual(signers[0], public_key)
+                elif reason == "parity_flip":
+                    original = "0x" + bytes([hexbytes(public_key)[0] ^ 1]).hex() + public_key[4:]
+                    self.assertNotIn(public_key, keys)
+                    self.assertEqual(case["pop_sig"], valid[(original, owner)])
+                else:
+                    self.assertIn(reason, ("wrong_chain", "wrong_registry"))
+                    self.assertNotIn(case["pop_sig"], valid.values())
+                    self.assertIn(public_key, keys)
 
     def test_committee_sets_match_appendix_a(self):
         cases = V["committee_sets"]

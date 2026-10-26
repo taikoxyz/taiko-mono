@@ -10,12 +10,17 @@ Every ABI encoding, hash and storage slot below is computed by `cast` (`abi-enco
 `index`, `index-erc7201`, `format-bytes32-string`, `sig`, `calldata`, `wallet address`),
 independently of the Solidity contracts and of taiko-client-rs, which both read the output. The
 secp256k1 public keys come from a small pure-Python helper and are cross-checked against
-`cast wallet address`. Only the inputs, the packing table and the storage slot numbers are written
-by hand, following the Etna spec's appendix A (encodings) and appendix B (storage layout). All
-integers are decimal strings so that every value survives JSON parsing exactly.
+`cast wallet address`; key decompression follows appendix A and is checked against the curve
+equation. Proof-of-possession signatures come from `cast wallet sign --no-hash`, are checked with
+`cast wallet verify` and a pure-Python ecrecover, and each digest is checked against cast's own
+EIP-712 hashing (`cast wallet sign --data`). Only the inputs, the packing table and the storage slot
+numbers are written by hand, following the Etna spec's appendix A (encodings) and appendix B
+(storage layout). All integers are decimal strings so that every value survives JSON parsing
+exactly.
 """
 
 import base64
+import functools
 import json
 import pathlib
 import subprocess
@@ -45,6 +50,15 @@ DEPLOYMENT = {
     "l2_block_gas_limit": 45_000_000,
 }
 OTHER_INBOX = "0x3333333333333333333333333333333333333333"
+
+# Registration (spec 4.1, appendix A): EIP-712 domain and type, and the two registering owners.
+EIP712_DOMAIN_TYPE = (
+    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+)
+EIP712_NAME = "EtnaStakingRegistry"
+EIP712_VERSION = "1"
+REGISTER_TYPE = "Register(address owner)"
+OWNERS = ("0x" + "aa" * 20, "0x" + "bb" * 20)
 
 
 def cast(*args):
@@ -108,10 +122,9 @@ def _add(a, b):
     return x3, (slope * (x1 - x3) - y1) % SECP_P
 
 
-def point(k):
-    """`k·G` by double-and-add."""
-    assert 1 <= k < SECP_N
-    result, addend = None, SECP_G
+def _mul(addend, k):
+    """`k·addend` by double-and-add; `k = 0` gives the point at infinity."""
+    result = None
     while k:
         if k & 1:
             result = _add(result, addend)
@@ -120,9 +133,58 @@ def point(k):
     return result
 
 
+def point(k):
+    """`k·G`."""
+    assert 1 <= k < SECP_N
+    return _mul(SECP_G, k)
+
+
 def compress(x, y):
     """SEC1 compressed encoding: `0x02 | (y & 1)` followed by the 32-byte big-endian X."""
     return bytes([2 + (y & 1)]) + x.to_bytes(32, "big")
+
+
+def on_curve(x, y):
+    return 0 <= x < SECP_P and 0 <= y < SECP_P and (y * y - x**3 - 7) % SECP_P == 0
+
+
+def decompress(public_key):
+    """Appendix A: `(ckX, ckY)` of a 33-byte `ckPrefix || ckX`, or `None` when it is rejected.
+
+    X is never reduced mod p; `y0 = (x^3 + 7)^((p + 1) / 4)` must square back to `x^3 + 7`, and the
+    root with the prefix's parity is taken.
+    """
+    if len(public_key) != 33 or public_key[0] not in (2, 3):
+        return None
+    x = int.from_bytes(public_key[1:], "big")
+    if x >= SECP_P:
+        return None
+    a = (x**3 + 7) % SECP_P
+    y0 = pow(a, (SECP_P + 1) // 4, SECP_P)
+    if y0 * y0 % SECP_P != a:
+        return None
+    y = y0 if y0 % 2 == public_key[0] - 2 else SECP_P - y0
+    assert on_curve(x, y) and y & 1 == public_key[0] - 2
+    assert compress(x, y) == public_key
+    return x, y
+
+
+def address_of(x, y):
+    """`keccak256(uint256_be(x) || uint256_be(y))[12:]`."""
+    return "0x" + keccak(concat(word(x), word(y)))[-40:]
+
+
+def ecrecover(digest, r, s, v):
+    """`ecrecover(digest, v + 27, r, s)` for V in {0, 1}: the signer address, or `None` (zero)."""
+    if not (0 < r < SECP_N and 0 < s < SECP_N and v in (0, 1)):
+        return None
+    big_r = decompress(bytes([2 + v]) + r.to_bytes(32, "big"))
+    if big_r is None:
+        return None
+    r_inv = pow(r, -1, SECP_N)
+    z = int(digest, 16)
+    q = _add(_mul(big_r, s * r_inv % SECP_N), _mul(SECP_G, -z * r_inv % SECP_N))
+    return None if q is None else address_of(*q)
 
 
 # --- deployment and keys -------------------------------------------------------------------------
@@ -167,6 +229,250 @@ def keys():
             }
         )
     return decimals(out)
+
+
+# --- key decompression and registration PoPs -----------------------------------------------------
+
+
+def smallest_off_curve_x():
+    """The smallest X >= 1 that is not the X of any curve point."""
+    x = 1
+    while decompress(bytes([2]) + x.to_bytes(32, "big")) is not None:
+        x += 1
+    return x
+
+
+def key_decompression(key_list):
+    """Each key decoded from its own prefix and from the other one (the negated point), and the
+    inputs registration rejects. The malformed encodings reuse key a1's coordinates."""
+    cases = []
+    for key in key_list:
+        x, y = int(key["ck_x"], 16), int(key["ck_y"], 16)
+        own = compress(x, y)
+        flipped = bytes([own[0] ^ 1]) + own[1:]
+        for name, public_key, expected_y in (
+            (key["name"], own, y),
+            ("parity_flip_" + key["name"], flipped, SECP_P - y),
+        ):
+            decoded = decompress(public_key)
+            assert decoded == (x, expected_y), name
+            ck_addr = address_of(x, expected_y)
+            assert (ck_addr == key["ck_addr"]) == (public_key == own), name
+            cases.append(
+                {
+                    "name": name,
+                    "public_key": "0x" + public_key.hex(),
+                    "valid": True,
+                    "ck_y": word(expected_y),
+                    "ck_addr": ck_addr,
+                }
+            )
+
+    base = key_list[0]
+    x, y = int(base["ck_x"], 16), int(base["ck_y"], 16)
+    x_bytes, xy = x.to_bytes(32, "big"), x.to_bytes(32, "big") + y.to_bytes(32, "big")
+    off_curve_x = smallest_off_curve_x()
+    # X is not reduced mod p: X = p would reduce to 0 (no point), X = 2^256 - 1 onto the curve.
+    assert decompress(bytes([2]) + ((WORD_MOD - 1) % SECP_P).to_bytes(32, "big")) is not None
+    rejected = (
+        ("x_eq_p", bytes([2]) + SECP_P.to_bytes(32, "big"), "x_ge_p"),
+        ("x_max", bytes([3]) + (WORD_MOD - 1).to_bytes(32, "big"), "x_ge_p"),
+        ("not_on_curve", bytes([2]) + off_curve_x.to_bytes(32, "big"), "not_on_curve"),
+        ("prefix_00", bytes([0]) + x_bytes, "bad_prefix"),
+        ("prefix_01", bytes([1]) + x_bytes, "bad_prefix"),
+        ("prefix_04", bytes([4]) + x_bytes, "bad_prefix"),
+        ("uncompressed_65", bytes([4]) + xy, "uncompressed"),
+        ("uncompressed_64", xy, "uncompressed"),
+        ("hybrid_06", bytes([6]) + xy, "hybrid"),
+        ("hybrid_07", bytes([7]) + xy, "hybrid"),
+        ("trailing_byte", compress(x, y) + bytes(1), "trailing_bytes"),
+        ("short_32", x_bytes, "short"),
+        ("empty", b"", "empty"),
+    )
+    for name, public_key, reason in rejected:
+        assert decompress(public_key) is None, name
+        cases.append(
+            {"name": name, "public_key": "0x" + public_key.hex(), "valid": False, "reason": reason}
+        )
+    return cases
+
+
+@functools.cache
+def keccak_text(text):
+    """keccak256 of a UTF-8 string."""
+    assert not text.startswith("0x"), text
+    return cast("keccak", text)
+
+
+@functools.cache
+def register_digest(chain_id, registry, owner):
+    """`(domainSeparator, structHash, digest)` of the EIP-712 `Register(address owner)` message."""
+    domain_separator = keccak(
+        abi_encode(
+            "f(bytes32,bytes32,bytes32,uint256,address)",
+            keccak_text(EIP712_DOMAIN_TYPE),
+            keccak_text(EIP712_NAME),
+            keccak_text(EIP712_VERSION),
+            chain_id,
+            registry,
+        )
+    )
+    struct_hash = keccak(abi_encode("f(bytes32,address)", keccak_text(REGISTER_TYPE), owner))
+    return domain_separator, struct_hash, keccak(concat("0x1901", domain_separator, struct_hash))
+
+
+def typed_data(chain_id, registry, owner):
+    """The same message as EIP-712 typed data, for cast's own hashing."""
+    return json.dumps(
+        {
+            "types": {
+                "EIP712Domain": [
+                    {"name": "name", "type": "string"},
+                    {"name": "version", "type": "string"},
+                    {"name": "chainId", "type": "uint256"},
+                    {"name": "verifyingContract", "type": "address"},
+                ],
+                "Register": [{"name": "owner", "type": "address"}],
+            },
+            "primaryType": "Register",
+            "domain": {
+                "name": EIP712_NAME,
+                "version": EIP712_VERSION,
+                "chainId": chain_id,
+                "verifyingContract": registry,
+            },
+            "message": {"owner": owner},
+        }
+    )
+
+
+def split_sig(sig):
+    raw = bytes.fromhex(sig[2:])
+    assert len(raw) == 65, sig
+    return int.from_bytes(raw[:32], "big"), int.from_bytes(raw[32:64], "big"), raw[64]
+
+
+def join_sig(r, s, v):
+    """65-byte `R || S || V`."""
+    return "0x" + r.to_bytes(32, "big").hex() + s.to_bytes(32, "big").hex() + bytes([v]).hex()
+
+
+def sign_registration(key, chain_id, registry, owner):
+    """A PoP by `key` for `register_digest(chain_id, registry, owner)`, checked three ways.
+
+    `cast wallet sign --no-hash` signs the digest (RFC 6979, low s); V is rewritten from 27/28 to
+    0/1. The signature must equal cast's EIP-712 signature of the same typed data (so the digest is
+    cast's EIP-712 hash), pass `cast wallet verify`, and recover to `ck_addr` in pure Python.
+    """
+    domain_separator, struct_hash, digest = register_digest(chain_id, registry, owner)
+    private_key = key["private_key"]
+    signed = cast("wallet", "sign", "--no-hash", "--private-key", private_key, digest)
+    typed = typed_data(chain_id, registry, owner)
+    assert signed == cast("wallet", "sign", "--data", typed, "--private-key", private_key)
+    subprocess.run(
+        ["cast", "wallet", "verify", "--no-hash", "--address", key["ck_addr"], digest, signed],
+        check=True,
+        capture_output=True,
+    )
+    r, s, v = split_sig(signed)
+    assert v in (27, 28) and 0 < r < SECP_N and 0 < s <= SECP_N // 2
+    assert ecrecover(digest, r, s, v - 27) == key["ck_addr"]
+    return {
+        "domain_separator": domain_separator,
+        "struct_hash": struct_hash,
+        "digest": digest,
+        "pop_sig": join_sig(r, s, v - 27),
+    }
+
+
+def register_digests(key_list):
+    """Every key's PoP for both owners at the deployment registry on the deployment L1 chain."""
+    chain_id, registry = DEPLOYMENT["l1_chain_id"], DEPLOYMENT["registry"]
+    out = []
+    for key in key_list:
+        for owner in OWNERS:
+            signed = sign_registration(key, chain_id, registry, owner)
+            out.append(
+                {
+                    "name": f"{key['name']}_owner_{owner[-2:]}",
+                    "l1_chain_id": chain_id,
+                    "registry": registry,
+                    "owner": owner,
+                    "key": key["public_key"],
+                    **signed,
+                }
+            )
+    return decimals(out)
+
+
+def pop_accepted(public_key, owner, pop_sig):
+    """Spec 4.1 at the deployment registry: does a registration by `owner` accept this PoP?"""
+    decoded = decompress(bytes.fromhex(public_key[2:]))
+    raw = bytes.fromhex(pop_sig[2:])
+    if decoded is None or len(raw) != 65:
+        return False
+    r, s, v = split_sig(pop_sig)
+    if v not in (0, 1) or not 0 < r < SECP_N or not 0 < s <= SECP_N // 2:
+        return False
+    _, _, digest = register_digest(DEPLOYMENT["l1_chain_id"], DEPLOYMENT["registry"], owner)
+    signer = ecrecover(digest, r, s, v)
+    return signer is not None and signer == address_of(*decoded)
+
+
+def pop_rejections(key_list, digests):
+    """PoPs that a registration by `owner` at the deployment registry rejects; every key decodes.
+
+    The malformed signatures derive from one valid PoP whose V is 0 (so `v_27` is that signature in
+    the 27/28 form and `length_64` is also its EIP-2098 compact form). The binding cases are
+    well-formed signatures for another owner, key, chain id (the L2 chain id) or verifying contract
+    (the Inbox), or for the point with the same X and the other parity.
+    """
+    base = next(c for c in digests if c["owner"] == OWNERS[0] and c["pop_sig"].endswith("00"))
+    (key,) = [k for k in key_list if k["public_key"] == base["key"]]
+    other_key = next(k for k in key_list if k["public_key"] != base["key"])
+    owner, other_owner = OWNERS
+    public_key, sig = base["key"], base["pop_sig"]
+    r, s, v = split_sig(sig)
+    digest = base["digest"]
+    flipped = "0x" + bytes([bytes.fromhex(public_key[2:4])[0] ^ 1]).hex() + public_key[4:]
+    unrecoverable_r = smallest_off_curve_x()
+    wrong_chain = sign_registration(key, DEPLOYMENT["l2_chain_id"], DEPLOYMENT["registry"], owner)
+    wrong_registry = sign_registration(key, DEPLOYMENT["l1_chain_id"], DEPLOYMENT["inbox"], owner)
+    assert digest not in (wrong_chain["digest"], wrong_registry["digest"])
+    # The malleated twin is a valid ECDSA signature of the same key; only the low-s rule rejects it.
+    assert ecrecover(digest, r, SECP_N - s, 1 - v) == key["ck_addr"]
+    assert ecrecover(digest, unrecoverable_r, s, v) is None
+    cases = (
+        ("v_27", public_key, owner, join_sig(r, s, 27)),
+        ("v_2", public_key, owner, join_sig(r, s, 2)),
+        ("high_s", public_key, owner, join_sig(r, SECP_N - s, 1 - v)),
+        ("r_zero", public_key, owner, join_sig(0, s, v)),
+        ("s_zero", public_key, owner, join_sig(r, 0, v)),
+        ("r_eq_n", public_key, owner, join_sig(SECP_N, s, v)),
+        ("unrecoverable_r", public_key, owner, join_sig(unrecoverable_r, s, v)),
+        ("length_64", public_key, owner, sig[:-2]),
+        ("length_66", public_key, owner, sig + "00"),
+        ("wrong_owner", public_key, other_owner, sig),
+        ("wrong_key", other_key["public_key"], owner, sig),
+        ("wrong_chain", public_key, owner, wrong_chain["pop_sig"]),
+        ("wrong_registry", public_key, owner, wrong_registry["pop_sig"]),
+        ("parity_flip", flipped, owner, sig),
+    )
+    out = []
+    for name, case_key, case_owner, pop_sig in cases:
+        assert decompress(bytes.fromhex(case_key[2:])) is not None, name
+        assert not pop_accepted(case_key, case_owner, pop_sig), name
+        out.append(
+            {
+                "name": name,
+                "public_key": case_key,
+                "owner": case_owner,
+                "pop_sig": pop_sig,
+                "reason": name,
+            }
+        )
+    assert v == 0 and pop_accepted(public_key, owner, sig)
+    return out
 
 
 # --- committee configuration, registry entries, committee sets -----------------------------------
@@ -803,6 +1109,7 @@ def layout():
 
 def main():
     key_list = keys()
+    digests = register_digests(key_list)
     config = committee_config()
     entries = registry_entries(key_list)
     cut_vectors = cuts()
@@ -811,6 +1118,9 @@ def main():
         "schema_version": "4",
         "deployment": deployment(),
         "keys": key_list,
+        "key_decompression": key_decompression(key_list),
+        "register_digests": digests,
+        "pop_rejections": pop_rejections(key_list, digests),
         "committee_config": config,
         "registry_entries": entries,
         "committee_sets": committee_sets(entries["entries"], config),
