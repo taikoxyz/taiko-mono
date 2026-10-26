@@ -386,6 +386,7 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
     /// lock Carol confirms it.
     function test_slashDoubleSign_IgnoresTheInboxLock() external {
         EtnaInboxLockHarness harness = _upgradeToLockHarness();
+        // One block past Alice's activation (11), so the exit the slash sets differs from it.
         vm.roll(block.number + 1);
         (IEtnaStakingRegistry.Vote memory a, IEtnaStakingRegistry.Vote memory b) =
             _doubleSign(VALIDATOR_PK, 0);
@@ -461,10 +462,12 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
     // Pause
     // ---------------------------------------------------------------
 
-    /// @dev Pausing is not part of either contract's rules: with both proxies paused by their
-    /// owner, a landing, a forced inclusion, a registration and an exit request all succeed, and
-    /// so does a recovery (`EtnaInbox` documents `land`, `saveForcedInclusion` and `recover` as
-    /// unaffected by pause).
+    /// @dev Pausing is not part of either contract's rules (spec 1): with both proxies paused by
+    /// their owner, every entry point still works. On the Inbox: two landings, a forced inclusion,
+    /// a recovery and the fee sweep. On the registry: Bob's registration, Alice's exit request, a
+    /// confirmation by Carol once a landing covers that exit, the exclusion `recover` forces on
+    /// Bob's bond, a slash of Bob's double sign and, after the withdrawal delay, Alice's
+    /// withdrawal of her whole stake.
     function test_pause_DoesNotStopLandForcedInclusionOrRegistry() external {
         _inbox().pause();
         registry.pause();
@@ -481,10 +484,41 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         uint256 bobBond = _registerValidator(registry, Bob, _BOB_PK);
         assertEq(registry.ownerOf(bobBond), Bob, "registered");
 
-        _requestExit(Alice, 0);
+        uint256 exit = _requestExit(Alice, 0);
+        _landWithSnapshot(6, 12, exit);
+        vm.prank(Carol);
+        registry.confirmExit(0);
+        uint256 confirmedAt = block.number;
+        assertEq(registry.exitConfirmedAtL1(0), confirmedAt, "confirmed");
 
-        _recover(0, 6, _exclusionOf(bobBond));
+        IEtnaInbox.Exclusion[] memory exclusions = _exclusionOf(bobBond);
+        vm.expectEmit(address(registry));
+        emit IEtnaStakingRegistry.ExitForced(bobBond, uint48(block.number));
+        _recover(0, 12, exclusions);
         assertEq(registry.entryAt(bobBond).exitEffectiveL1, block.number, "excluded at R");
+
+        (IEtnaStakingRegistry.Vote memory a, IEtnaStakingRegistry.Vote memory b) =
+            _doubleSign(_BOB_PK, 0);
+        uint256 bounty = MIN_STAKE * registry.slashBountyBps() / _BPS;
+        vm.prank(David);
+        registry.slashDoubleSign(bobBond, a, b);
+        assertEq(registry.entryAt(bobBond).effStake, 0, "Bob slashed");
+        assertEq(taikoToken.balanceOf(David), bounty, "David's bounty");
+        assertEq(taikoToken.balanceOf(registry.slashSink()), MIN_STAKE - bounty, "sink");
+
+        vm.roll(confirmedAt + registry.withdrawalDelay());
+        uint256 aliceBefore = taikoToken.balanceOf(Alice);
+        vm.prank(Alice);
+        registry.withdraw(0, Alice);
+        assertEq(taikoToken.balanceOf(Alice) - aliceBefore, MIN_STAKE, "Alice paid");
+        _assertReleased(0);
+
+        uint256 fees = inboxProxy.balance;
+        assertGt(fees, 0, "forced inclusion fees");
+        uint256 treasuryBefore = PROTOCOL_FEE_RECIPIENT.balance;
+        _inbox().sweepProtocolFees();
+        assertEq(PROTOCOL_FEE_RECIPIENT.balance - treasuryBefore, fees, "fees swept");
+
         assertTrue(_inbox().paused(), "Inbox still paused");
         assertTrue(registry.paused(), "registry still paused");
     }
@@ -544,6 +578,7 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         });
     }
 
+    /// @dev An empty exclusion list.
     function _noExclusions() private pure returns (IEtnaInbox.Exclusion[] memory) {
         return new IEtnaInbox.Exclusion[](0);
     }
