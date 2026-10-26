@@ -34,6 +34,32 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         uint48 maxAnchorAge;
     }
 
+    /// @dev The 21 static words of the landing statement in appendix A order; its ABI encoding is
+    /// the 672-byte statement preimage.
+    struct LandStatement {
+        bytes32 tag;
+        uint256 l1ChainId;
+        uint256 l2ChainId;
+        address inbox;
+        address stakingRegistry;
+        uint256 generation;
+        uint256 parentHeight;
+        bytes32 parentHash;
+        bytes32 parentCometHash;
+        bytes32 committeeConfigHash;
+        uint256 lastHeight;
+        bytes32 lastBlockHash;
+        bytes32 lastCometHash;
+        bytes32 lastStateRoot;
+        uint256 l1ReferenceBlockNumber;
+        bytes32 l1ReferenceBlockHash;
+        bytes32 blobHashesHash;
+        uint256 forcedInclusionHeadBefore;
+        uint256 forcedInclusionHeadAfter;
+        uint256 activeCommitteeSnapshot;
+        bytes32 cutHash;
+    }
+
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -71,6 +97,24 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @dev The maximum `U`, the largest multiple of 6 below 2^16 (spec 10).
     uint256 private constant _MAX_UNSETTLED_LIMIT = 65_532;
+
+    /// @dev The domain tag of the landing statement (appendix A).
+    bytes32 private constant _LAND_STATEMENT_TAG = bytes32("TAIKO_ETNA_LAND_V1");
+
+    /// @dev The domain tag of `cutHash` (appendix A).
+    bytes32 private constant _LAND_CUTS_TAG = bytes32("ETNA_LAND_CUTS_V1");
+
+    /// @dev Every landed height is below 2^48, the width of a height in slots 270 and 285.
+    uint256 private constant _HEIGHT_LIMIT = 2 ** 48;
+
+    /// @dev The number of most recent L1 blocks whose hash `blockhash` returns.
+    uint256 private constant _BLOCKHASH_WINDOW = 256;
+
+    /// @dev The EIP-2935 history storage contract.
+    address private constant _HISTORY_STORAGE_ADDRESS = 0x0000F90827F1C53a10cb7A02335B175320002935;
+
+    /// @dev The number of most recent L1 blocks whose hash the EIP-2935 contract serves.
+    uint256 private constant _HISTORY_SERVE_WINDOW = 8191;
 
     // ---------------------------------------------------------------
     // Immutable Variables
@@ -244,10 +288,42 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     }
 
     /// @inheritdoc IEtnaInbox
-    function land(LandInput calldata, bytes32[] calldata, bytes calldata)
+    /// @dev Requires initialization, then follows the spec 6.1 reference Solidity: its checks in
+    /// its order, all before any write. Unaffected by pause. The only external calls are the proof
+    /// verifier and the EIP-2935 history contract (both static) and the SignalService.
+    function land(
+        LandInput calldata _input,
+        bytes32[] calldata _leaves,
+        bytes calldata _proof
+    )
         external
-        notImplemented
-    { }
+        nonReentrant
+    {
+        require(_initStatus == INITIALIZED_STATUS, NotInitialized());
+        uint48 generation = _recoveryGeneration;
+        uint256 c = _lastCheckpoint.height;
+
+        // Steps 1-4.
+        Landing memory origin = _checkRangeAndOrigin(_input, c, generation);
+        uint256 headAfter = _checkLeavesAndHead(_input, _leaves, c);
+
+        // Steps 5 and 6: the statement reads and checks the reference block and the blobs.
+        bytes32 cutHash = keccak256(
+            abi.encode(
+                _LAND_CUTS_TAG,
+                uint256(generation),
+                _input.parentHeight,
+                _input.lastHeight,
+                keccak256(abi.encodePacked(_leaves))
+            )
+        );
+        _proofVerifier.verifyProof(
+            0, _hashLandStatement(_input, origin, generation, cutHash), _proof
+        );
+
+        // Step 7.
+        _settle(_input, c, generation, headAfter, cutHash);
+    }
 
     /// @inheritdoc IEtnaInbox
     /// @dev Unaffected by pause. The refund is the last step, after every write and the event, and
@@ -458,6 +534,200 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
+
+    /// @dev Spec 6.1 steps 1 and 2: generationStartHeight() <= p <= c < h < 2^48, p and h on the
+    /// grid, h - p <= maxBatchBlocks, and a retained origin record in the current generation
+    /// unless p is the generation's start height.
+    /// @param _input The landing inputs.
+    /// @param _c The checkpoint height.
+    /// @param _generation The recovery generation.
+    /// @return origin_ The landing record at p.
+    function _checkRangeAndOrigin(
+        LandInput calldata _input,
+        uint256 _c,
+        uint48 _generation
+    )
+        private
+        view
+        returns (Landing memory origin_)
+    {
+        uint256 p = _input.parentHeight;
+        uint256 h = _input.lastHeight;
+        uint256 startHeight = _origins[_generation].startHeight;
+
+        require(_c < h, AlreadySettled());
+        require(startHeight <= p && p <= _c && h < _HEIGHT_LIMIT, InvalidRange());
+        require(p % GRID_INTERVAL == 0 && h % GRID_INTERVAL == 0, OffGrid());
+        require(h - p <= _maxBatchBlocks, BatchTooLarge());
+
+        origin_ = _landings[p];
+        // A written record never has a zero EL hash.
+        require(origin_.elHash != 0, MissingOrigin());
+        require(origin_.generation == _generation || p == startHeight, ForeignGeneration());
+    }
+
+    /// @dev Spec 6.1 steps 3 and 4: exactly the (h - p) / 6 - 1 grid-point leaves, c's recorded
+    /// queue head equal to the queue head, the leaf at c equal to cutLeaf(c) over c's record if
+    /// c > p, and a new queue head in [head, tail] at most h - c past the head.
+    /// @param _input The landing inputs.
+    /// @param _leaves The cut leaves at the grid points in (p, h).
+    /// @param _c The checkpoint height.
+    /// @return headAfter_ The new queue head.
+    function _checkLeavesAndHead(
+        LandInput calldata _input,
+        bytes32[] calldata _leaves,
+        uint256 _c
+    )
+        private
+        view
+        returns (uint256 headAfter_)
+    {
+        uint256 p = _input.parentHeight;
+        uint256 h = _input.lastHeight;
+        require(_leaves.length == (h - p) / GRID_INTERVAL - 1, LeafCountMismatch());
+
+        Landing storage cur = _landings[_c];
+        uint256 head = cur.head;
+        require(head == _forcedInclusions.head, ForcedInclusionHeadMismatch());
+        if (_c > p) {
+            require(
+                _leaves[(_c - p) / GRID_INTERVAL - 1]
+                    == keccak256(abi.encode(_c, cur.elHash, cur.cometHash, head)),
+                FrontierLeafMismatch()
+            );
+        }
+
+        headAfter_ = _input.forcedInclusionHead;
+        require(
+            head <= headAfter_ && headAfter_ <= _forcedInclusions.tail
+                && headAfter_ - head <= h - _c,
+            InvalidForcedInclusionHead()
+        );
+    }
+
+    /// @dev Builds the landing statement (appendix A) and hashes its 21 words. Runs spec 6.1
+    /// step 5: reads the reference block hash and the blob hashes, reverting if either is
+    /// unavailable. A separate frame keeps `land` within the non-IR compiler's stack limit.
+    /// @param _input The landing inputs.
+    /// @param _origin The landing record at p: the source of parentHash, parentCometHash and
+    /// headBefore.
+    /// @param _generation The recovery generation.
+    /// @param _cutHash The cut hash.
+    /// @return The statement hash.
+    function _hashLandStatement(
+        LandInput calldata _input,
+        Landing memory _origin,
+        uint48 _generation,
+        bytes32 _cutHash
+    )
+        private
+        view
+        returns (bytes32)
+    {
+        LandStatement memory statement;
+        statement.tag = _LAND_STATEMENT_TAG;
+        statement.l1ChainId = block.chainid;
+        statement.l2ChainId = _l2ChainId;
+        statement.inbox = address(this);
+        statement.stakingRegistry = address(_stakingRegistry);
+        statement.generation = _generation;
+        statement.parentHeight = _input.parentHeight;
+        statement.parentHash = _origin.elHash;
+        statement.parentCometHash = _origin.cometHash;
+        statement.committeeConfigHash = _committeeConfigHash;
+        statement.lastHeight = _input.lastHeight;
+        statement.lastBlockHash = _input.lastBlockHash;
+        statement.lastCometHash = _input.lastCometHash;
+        statement.lastStateRoot = _input.lastStateRoot;
+        statement.l1ReferenceBlockNumber = _input.l1ReferenceBlockNumber;
+        statement.l1ReferenceBlockHash = _readL1ReferenceBlockHash(_input.l1ReferenceBlockNumber);
+        statement.blobHashesHash = _hashBlobHashes();
+        statement.forcedInclusionHeadBefore = _origin.head;
+        statement.forcedInclusionHeadAfter = _input.forcedInclusionHead;
+        statement.activeCommitteeSnapshot = _input.activeCommitteeSnapshot;
+        statement.cutHash = _cutHash;
+        return keccak256(abi.encode(statement));
+    }
+
+    /// @dev Spec 6.1 step 7: moves the checkpoint to h, stores the proven snapshot and the new
+    /// queue head, writes landings[h] with the actual parent c, saves the SignalService
+    /// checkpoint and emits `Landed`. Every narrowing below is exact: h < 2^48 and the new head
+    /// is at most the 48-bit tail.
+    /// @param _input The landing inputs.
+    /// @param _c The checkpoint height the landing settles on.
+    /// @param _generation The recovery generation.
+    /// @param _headAfter The new queue head.
+    /// @param _cutHash The cut hash.
+    function _settle(
+        LandInput calldata _input,
+        uint256 _c,
+        uint48 _generation,
+        uint256 _headAfter,
+        bytes32 _cutHash
+    )
+        private
+    {
+        uint48 h = uint48(_input.lastHeight);
+        bytes32 lastBlockHash = _input.lastBlockHash;
+
+        _lastCheckpoint = LandedCheckpoint({ height: h, blockHash: lastBlockHash });
+        _activeCommitteeSnapshot = _input.activeCommitteeSnapshot;
+        _forcedInclusions.head = uint48(_headAfter);
+        _landings[h] = Landing({
+            parentHeight: uint48(_c),
+            generation: _generation,
+            head: uint48(_headAfter),
+            elHash: lastBlockHash,
+            cometHash: _input.lastCometHash
+        });
+
+        _signalService.saveCheckpoint(
+            ICheckpointStore.Checkpoint({
+                blockNumber: h, blockHash: lastBlockHash, stateRoot: _input.lastStateRoot
+            })
+        );
+
+        emit Landed(_input.parentHeight, _c, h, _cutHash, _input.activeCommitteeSnapshot, VERSION);
+    }
+
+    /// @dev Returns the hash of L1 block `_number`: from `blockhash` up to 256 blocks back, from
+    /// the EIP-2935 history contract up to 8191 blocks back. The number is a full word, so a
+    /// value of 2^64 or more is never in the past.
+    /// @param _number The L1 block number.
+    /// @return hash_ The block hash; reverts with `ReferenceBlockUnavailable` unless the block is
+    /// in the past, within the window and its hash non-zero.
+    function _readL1ReferenceBlockHash(uint256 _number) private view returns (bytes32 hash_) {
+        require(_number < block.number, ReferenceBlockUnavailable());
+        uint256 age = block.number - _number;
+        if (age <= _BLOCKHASH_WINDOW) {
+            hash_ = blockhash(_number);
+        } else {
+            require(age <= _HISTORY_SERVE_WINDOW, ReferenceBlockUnavailable());
+            (bool success, bytes memory data) =
+                _HISTORY_STORAGE_ADDRESS.staticcall(abi.encode(_number));
+            require(success && data.length == 32, ReferenceBlockUnavailable());
+            hash_ = abi.decode(data, (bytes32));
+        }
+        require(hash_ != 0, ReferenceBlockUnavailable());
+    }
+
+    /// @dev Returns keccak256(abi.encodePacked(blobHashes)) over the transaction's versioned blob
+    /// hashes in index order, up to the first zero.
+    /// @return The hash of the blob hash list; reverts with `InvalidBlobCount` unless there are
+    /// 1 to 6 blobs.
+    function _hashBlobHashes() private view returns (bytes32) {
+        uint256 count;
+        while (count <= MAX_BLOBS && blobhash(count) != 0) {
+            ++count;
+        }
+        require(count != 0 && count <= MAX_BLOBS, InvalidBlobCount());
+
+        bytes32[] memory hashes = new bytes32[](count);
+        for (uint256 i; i < count; ++i) {
+            hashes[i] = blobhash(i);
+        }
+        return keccak256(abi.encodePacked(hashes));
+    }
 
     /// @dev Checks the spec 10 deployment constraints `init` can check. Every stored 48-bit field
     /// fits once these pass: the cutoff is below `block.number`, itself below 2^48.
