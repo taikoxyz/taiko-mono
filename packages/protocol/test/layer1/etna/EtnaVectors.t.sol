@@ -542,6 +542,72 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
         _assertVectorLanding(j, at, input, p);
     }
 
+    /// @dev The genesis statement vector's (0, 18] transaction lands with the checkpoint above its
+    /// origin, so `land` checks the leaf at c against c's record on `.cuts.table` data: c = 6 is
+    /// planted through the vector's height-6 landing slots from `.cuts.table[6]`, and c = 12 is
+    /// written by landing (6, 12] with `.cuts.table[12]`. From both the verifier receives the
+    /// vector statement hash, which binds p and not c, and the record at 18 has parent c; the
+    /// reversed leaf list fails the leaf check at either c.
+    function test_land_ChecksTheCutTableLeafAboveTheOrigin() external {
+        string memory j = LibEtnaVectors.load();
+        string memory input = ".land_statements[0].inputs.";
+        address at = _etchVectorInbox(j, input);
+        string memory row6 = _at(".cuts.table", 6);
+        string memory row12 = _at(".cuts.table", 12);
+
+        _plantVectorLanding(j, at, 0, 0, _bytes32(j, input, "parent_hash"), bytes32(0));
+        _plantVectorOrigin(j, at, 0, 0);
+        assertEq(_uint(j, _at(".layout.inbox.landing_slots", 1), "height"), 6, "height-6 slots");
+        _plantVectorLanding(
+            j,
+            at,
+            1,
+            _uint(j, row6, "forced_head"),
+            _bytes32(j, row6, "block_hash"),
+            _bytes32(j, row6, "comet_hash")
+        );
+        vm.store(at, bytes32(_inboxSlot(j, "last_checkpoint_height")), bytes32(uint256(6)));
+        vm.store(
+            at, bytes32(_inboxSlot(j, "last_checkpoint_hash")), _bytes32(j, row6, "block_hash")
+        );
+        vm.store(
+            at,
+            bytes32(_inboxSlot(j, "forced_inclusion_head_tail")),
+            bytes32(_uint(j, row6, "forced_head") | (uint256(3) << 48))
+        );
+
+        bytes32[] memory leaves = new bytes32[](2);
+        (leaves[0], leaves[1]) = (_bytes32(j, row6, "leaf"), _bytes32(j, row12, "leaf"));
+        bytes32[] memory reversed = new bytes32[](2);
+        (reversed[0], reversed[1]) = (leaves[1], leaves[0]);
+        uint256 atSix = vm.snapshotState();
+
+        _expectVectorFrontierLeafMismatch(j, at, reversed);
+        _landGenesisVectorFrom(j, at, leaves, 6);
+
+        vm.revertToState(atSix);
+        IEtnaInbox.LandInput memory toTwelve = _landInput(j, input);
+        (toTwelve.parentHeight, toTwelve.lastHeight) = (6, 12);
+        toTwelve.lastBlockHash = _bytes32(j, row12, "block_hash");
+        toTwelve.lastCometHash = _bytes32(j, row12, "comet_hash");
+        toTwelve.lastStateRoot = keccak256("state root 12");
+        toTwelve.forcedInclusionHead = _uint(j, row12, "forced_head");
+        vm.blobhashes(_bytes32Array(j, input, "blob_hashes"));
+        IEtnaInbox(at).land(toTwelve, new bytes32[](0), _bytes(j, ".land_abi.", "proof"));
+        IEtnaInbox.Landing memory twelve = IEtnaInbox(at).landings(12);
+        assertEq(twelve.parentHeight, 6, "record at 12 settled on 6");
+        assertEq(
+            keccak256(
+                abi.encode(uint256(12), twelve.elHash, twelve.cometHash, uint256(twelve.head))
+            ),
+            _bytes32(j, row12, "leaf"),
+            "the record at 12 is the table's cut at 12"
+        );
+
+        _expectVectorFrontierLeafMismatch(j, at, reversed);
+        _landGenesisVectorFrom(j, at, leaves, 12);
+    }
+
     function test_chainDomains_DigestAndFortyEightByteChainId() external view {
         string memory j = LibEtnaVectors.load();
         uint256 n = LibEtnaVectors.lengthAt(j, ".chain_domains");
@@ -1184,6 +1250,53 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
             _bytes32(_j, _in, "last_state_root"),
             "signal state root"
         );
+    }
+
+    /// @dev Lands the genesis statement vector's (0, 18] inputs with `_leaves` on the vector Inbox
+    /// `_target` from checkpoint `_c`, with a verifier accepting only the vector statement hash and
+    /// expecting `Landed(0, _c, 18, cutHash, snapshot, 1)`, then checks the writes.
+    function _landGenesisVectorFrom(
+        string memory _j,
+        address _target,
+        bytes32[] memory _leaves,
+        uint256 _c
+    )
+        private
+    {
+        string memory s = ".land_statements[0].";
+        string memory input = string.concat(s, "inputs.");
+        IEtnaInbox.LandInput memory landInput = _landInput(_j, input);
+        bytes memory proof = _bytes(_j, ".land_abi.", "proof");
+        bytes32 statement = _bytes32(_j, s, "hash");
+        assertEq(IEtnaInbox(_target).lastCheckpoint().height, _c, "checkpoint above the origin");
+        landVerifier.setExpectedStatementHash(statement);
+
+        vm.blobhashes(_bytes32Array(_j, input, "blob_hashes"));
+        vm.expectCall(
+            address(landVerifier), abi.encodeCall(IProofVerifier.verifyProof, (0, statement, proof))
+        );
+        vm.expectEmit(_target);
+        emit IEtnaInbox.Landed(
+            0, _c, 18, _bytes32(_j, input, "cut_hash"), landInput.activeCommitteeSnapshot, 1
+        );
+        IEtnaInbox(_target).land(landInput, _leaves, proof);
+
+        _assertVectorLanding(_j, _target, input, _c);
+    }
+
+    /// @dev Expects the genesis statement vector's (0, 18] inputs with `_leaves` to revert with
+    /// `FrontierLeafMismatch` on the vector Inbox `_target`.
+    function _expectVectorFrontierLeafMismatch(
+        string memory _j,
+        address _target,
+        bytes32[] memory _leaves
+    )
+        private
+    {
+        string memory input = ".land_statements[0].inputs.";
+        vm.blobhashes(_bytes32Array(_j, input, "blob_hashes"));
+        vm.expectRevert(IEtnaInbox.FrontierLeafMismatch.selector);
+        IEtnaInbox(_target).land(_landInput(_j, input), _leaves, _bytes(_j, ".land_abi.", "proof"));
     }
 
     /// @dev Mints `MIN_STAKE` to `_owner`, who approves `_registry` for any amount.
