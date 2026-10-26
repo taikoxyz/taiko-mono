@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { EtnaTestConstants } from "./EtnaTestConstants.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
-import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { EtnaInboxBootstrap } from "src/layer1/etna/impl/EtnaInboxBootstrap.sol";
 import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
@@ -49,7 +49,7 @@ contract MockLandProofVerifier is IProofVerifier {
 /// implementation, the registry fixed to that proxy, and a SignalService authorizing it.
 /// @dev The proxy stays on the bootstrap implementation; tests build `EtnaInbox` implementations
 /// from `_defaultConfig()`.
-abstract contract EtnaInboxTestBase is CommonTest {
+abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
     // ---------------------------------------------------------------
     // Inbox storage slots (spec appendix B)
     // ---------------------------------------------------------------
@@ -78,21 +78,13 @@ abstract contract EtnaInboxTestBase is CommonTest {
     uint256 internal constant RESERVED_SLOT_291 = 291;
 
     // ---------------------------------------------------------------
-    // Deployment parameters
+    // Deployment parameters (the shared ones are in `EtnaTestConstants`)
     // ---------------------------------------------------------------
 
-    uint64 internal constant L2_CHAIN_ID = 167_001;
     uint64 internal constant MAX_BATCH_BLOCKS = 1000;
     uint64 internal constant FORCED_INCLUSION_FEE_GWEI = 10_000_000;
     uint64 internal constant FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD = 50;
     address internal constant PROTOCOL_FEE_RECIPIENT = address(0xfee);
-
-    uint256 internal constant MIN_STAKE = 1000 ether;
-    uint256 internal constant ACTIVATION_DELAY = 10;
-    uint256 internal constant EXIT_DELAY = 20;
-    uint256 internal constant WITHDRAWAL_DELAY = 30;
-    uint256 internal constant SLASH_BOUNTY_BPS = 1000;
-    address internal constant SLASH_SINK = address(0x5151);
     address internal constant REMOTE_SIGNAL_SERVICE = address(0xdead);
 
     MockLandProofVerifier internal landVerifier;
@@ -122,19 +114,8 @@ abstract contract EtnaInboxTestBase is CommonTest {
 
     /// @dev Deploys a registry proxy, owned by this test, whose Inbox is fixed to `_inbox`.
     function _deployRegistry(address _inbox) internal returns (EtnaStakingRegistry) {
-        EtnaStakingRegistry impl = new EtnaStakingRegistry(
-            IEtnaStakingRegistry.Config({
-                token: address(taikoToken),
-                minStake: MIN_STAKE,
-                activationDelay: ACTIVATION_DELAY,
-                exitDelay: EXIT_DELAY,
-                withdrawalDelay: WITHDRAWAL_DELAY,
-                slashBountyBps: SLASH_BOUNTY_BPS,
-                slashSink: SLASH_SINK,
-                l2ChainId: L2_CHAIN_ID,
-                inbox: _inbox
-            })
-        );
+        EtnaStakingRegistry impl =
+            new EtnaStakingRegistry(_registryConfig(address(taikoToken), _inbox));
         return EtnaStakingRegistry(
             address(
                 new ERC1967Proxy(

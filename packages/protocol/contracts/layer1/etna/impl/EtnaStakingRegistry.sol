@@ -3,7 +3,9 @@ pragma solidity ^0.8.26;
 
 import { IEtnaStakingRegistry } from "../iface/IEtnaStakingRegistry.sol";
 import { LibEntriesTree } from "../libs/LibEntriesTree.sol";
+import { LibEtnaKeys } from "../libs/LibEtnaKeys.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 
 import "./EtnaStakingRegistry_Layout.sol"; // DO NOT DELETE
@@ -15,9 +17,12 @@ import "./EtnaStakingRegistry_Layout.sol"; // DO NOT DELETE
 /// then the tree nodes, the free slot list and the used key addresses (C12).
 /// `taiko.etna.registry.owners` holds the bond owners and
 /// `taiko.etna.registry.exit-confirmations` the exit confirmations; neither enters the entries
-/// root. The Inbox proxy and the L2 chain id are immutables.
+/// root. The Inbox proxy and the L2 chain id are immutables. Every L1 block the registry stores
+/// (activation, exit and checkpoint blocks) is below the no-exit sentinel 2^48 - 1.
 /// @custom:security-contact security@taiko.xyz
 contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
+    using SafeERC20 for IERC20;
+
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
@@ -161,14 +166,45 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
 
     /// @inheritdoc IEtnaStakingRegistry
     function register(
-        bytes calldata,
-        uint256,
-        bytes calldata
+        bytes calldata _publicKey,
+        uint256 _amount,
+        bytes calldata _popSig
     )
         external
-        notImplemented
-        returns (uint256)
-    { }
+        nonReentrant
+        returns (uint256 bondId_)
+    {
+        require(_amount >= minStake, StakeTooLow());
+        (uint8 prefix, bytes32 x, bytes32 y) = LibEtnaKeys.parsePublicKey(_publicKey);
+        address ckAddr = LibEtnaKeys.ckAddr(x, y);
+        // The digest names the caller, so a copied transaction cannot change the owner.
+        require(
+            LibEtnaKeys.recoverSigner(registerDigest(msg.sender), _popSig) == ckAddr,
+            InvalidSignature()
+        );
+
+        RegistryStorage storage $ = _registryStorage();
+        require(!$.keyUsed[ckAddr], KeyAlreadyUsed());
+        bondId_ = _takeSlot($);
+        uint48 activeFromL1 = _toEventBlock(block.number + activationDelay);
+
+        _ownersStorage().owners[bondId_] = msg.sender;
+        $.keyUsed[ckAddr] = true;
+        _commit(
+            $,
+            bondId_,
+            Entry({
+                ckX: x,
+                effStake: _amount,
+                ckPrefix: prefix,
+                activeFromL1: activeFromL1,
+                exitEffectiveL1: NO_EXIT
+            })
+        );
+
+        token.safeTransferFrom(msg.sender, address(this), _amount);
+        emit Registered(bondId_, msg.sender, ckAddr, prefix, x, _amount, activeFromL1);
+    }
 
     /// @inheritdoc IEtnaStakingRegistry
     function requestExit(uint256) external notImplemented { }
@@ -257,6 +293,56 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
+
+    /// @dev Takes the slot of a new entry: the most recently released slot if there is one,
+    /// otherwise a new slot appended after the used ones. Reverts with `RegistryFull` when all
+    /// `MAX_ENTRIES` slots are used and none is free.
+    /// @param $ The registry storage.
+    /// @return bondId_ The slot.
+    function _takeSlot(RegistryStorage storage $) private returns (uint256 bondId_) {
+        uint256 freeCount = $.freeSlots.length;
+        if (freeCount != 0) {
+            bondId_ = $.freeSlots[freeCount - 1];
+            $.freeSlots.pop();
+        } else {
+            bondId_ = $.entries.length;
+            require(bondId_ < MAX_ENTRIES, RegistryFull());
+            $.entries.push();
+        }
+    }
+
+    /// @dev Writes entry `_bondId`, its tree leaf and the current block's checkpoint. The
+    /// checkpoint overwrites the last one if that is from this block and is appended otherwise,
+    /// so every L1 block that changes an entry ends with exactly one checkpoint.
+    /// @param $ The registry storage.
+    /// @param _bondId The bond id, below `entries.length`.
+    /// @param _entry The entry's new value.
+    function _commit(RegistryStorage storage $, uint256 _bondId, Entry memory _entry) private {
+        $.entries[_bondId] = _entry;
+        uint256 count = $.entries.length;
+        bytes32 root =
+            LibEntriesTree.update($.tree, count, _bondId, LibEntriesTree.leaf(_bondId, _entry));
+
+        uint48 l1Block = _toEventBlock(block.number);
+        // `count` is at most MAX_ENTRIES.
+        Checkpoint memory checkpoint =
+            Checkpoint({ l1Block: l1Block, count: uint48(count), entriesRoot: root });
+        uint256 index = $.checkpoints.length;
+        if (index != 0 && $.checkpoints[index - 1].l1Block == l1Block) {
+            $.checkpoints[--index] = checkpoint;
+        } else {
+            $.checkpoints.push(checkpoint);
+        }
+        emit CheckpointWritten(index, l1Block, uint48(count), root);
+    }
+
+    /// @dev Returns an L1 block as a 48-bit value below the no-exit sentinel.
+    /// @param _block The L1 block.
+    /// @return The block; reverts with `InvalidEventBlock` unless it is below `NO_EXIT`.
+    function _toEventBlock(uint256 _block) private pure returns (uint48) {
+        require(_block < NO_EXIT, InvalidEventBlock());
+        return uint48(_block);
+    }
 
     /// @dev Returns whether a delay is in [1, 2^32) (C14).
     /// @param _delay The delay in L1 blocks.

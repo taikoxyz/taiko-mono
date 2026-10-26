@@ -457,9 +457,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
     function test_registerDigest_MatchesRegistryAtVectorAddress() external {
         string memory j = LibEtnaVectors.load();
         uint256 l1ChainId = _uint(j, ".deployment.", "l1_chain_id");
-        address at = _address(j, ".deployment.", "registry");
-        vm.chainId(l1ChainId);
-        vm.etch(at, address(new EtnaStakingRegistry(_registryConfig())).code);
+        address at = address(_etchVectorRegistry(j));
         bytes32 domainSeparator = keccak256(
             abi.encode(
                 keccak256(
@@ -487,6 +485,70 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
             assertEq(_bytes(j, p, "key"), _bytes(j, key, "public_key"), "key");
             assertEq(_recover(digest, _bytes(j, p, "pop_sig")), _address(j, key, "ck_addr"), "PoP");
         }
+    }
+
+    /// @dev Every `register_digests` proof of possession registers its key for its owner at the
+    /// vector registry, each case from the same fresh state.
+    function test_register_AcceptsVectorPopAtVectorRegistry() external {
+        string memory j = LibEtnaVectors.load();
+        IEtnaStakingRegistry at = _etchVectorRegistry(j);
+        uint256 n = LibEtnaVectors.lengthAt(j, ".register_digests");
+        assertEq(n, 12);
+        for (uint256 i; i < n; ++i) {
+            string memory p = _at(".register_digests", i);
+            string memory key = _at(".keys", i / 2);
+            address owner = _address(j, p, "owner");
+            bytes memory publicKey = _bytes(j, p, "key");
+            bytes memory pop = _bytes(j, p, "pop_sig");
+            uint256 fresh = vm.snapshotState();
+            _fundVectorOwner(at, owner);
+
+            vm.prank(owner);
+            assertEq(at.register(publicKey, MIN_STAKE, pop), 0, "bond id");
+            assertEq(at.ownerOf(0), owner, "owner");
+            assertTrue(at.keyUsed(_address(j, key, "ck_addr")), "key used");
+            assertEq(at.entryAt(0).ckPrefix, _uint(j, key, "ck_prefix"), "ckPrefix");
+            assertEq(at.entryAt(0).ckX, _bytes32(j, key, "ck_x"), "ckX");
+            vm.revertToState(fresh);
+        }
+    }
+
+    /// @dev Every `pop_rejections` case reverts with `InvalidSignature` at the vector registry,
+    /// the one domain where the case's original proof of possession is valid: the control,
+    /// `register_digests[0]` (key a1 for owner 0xaaaa…aa), registers there afterwards.
+    function test_register_RevertWhen_VectorPopInvalidAtVectorRegistry() external {
+        string memory j = LibEtnaVectors.load();
+        IEtnaStakingRegistry at = _etchVectorRegistry(j);
+        bytes memory invalidSignature =
+            abi.encodeWithSelector(IEtnaStakingRegistry.InvalidSignature.selector);
+        uint256 n = LibEtnaVectors.lengthAt(j, ".pop_rejections");
+        assertEq(n, 14);
+        for (uint256 i; i < n; ++i) {
+            string memory p = _at(".pop_rejections", i);
+            string memory name = LibEtnaVectors.stringAt(j, string.concat(p, "name"));
+            address owner = _address(j, p, "owner");
+            bytes memory publicKey = _bytes(j, p, "public_key");
+            bytes memory pop = _bytes(j, p, "pop_sig");
+            _fundVectorOwner(at, owner);
+
+            vm.prank(owner);
+            try at.register(publicKey, MIN_STAKE, pop) returns (uint256) {
+                assertTrue(false, string.concat(name, ": registered"));
+            } catch (bytes memory err) {
+                assertEq(err, invalidSignature, name);
+            }
+        }
+        assertEq(at.entryCount(), 0, "no entry");
+
+        string memory control = ".register_digests[0].";
+        address controlOwner = _address(j, control, "owner");
+        bytes memory controlKey = _bytes(j, control, "key");
+        bytes memory controlPop = _bytes(j, control, "pop_sig");
+        assertEq(controlKey, _bytes(j, ".keys[0].", "public_key"), "key a1");
+        _fundVectorOwner(at, controlOwner);
+        vm.prank(controlOwner);
+        at.register(controlKey, MIN_STAKE, controlPop);
+        assertEq(at.ownerOf(0), controlOwner, "control registered");
     }
 
     // ---------------------------------------------------------------
@@ -838,23 +900,29 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
         return ecrecover(_digest, v + 27, r, s);
     }
 
-    function _registryConfig() private view returns (IEtnaStakingRegistry.Config memory) {
-        return IEtnaStakingRegistry.Config({
-            token: address(taikoToken),
-            minStake: MIN_STAKE,
-            activationDelay: ACTIVATION_DELAY,
-            exitDelay: EXIT_DELAY,
-            withdrawalDelay: WITHDRAWAL_DELAY,
-            slashBountyBps: SLASH_BOUNTY_BPS,
-            slashSink: SLASH_SINK,
-            l2ChainId: L2_CHAIN_ID,
-            inbox: inboxProxy
-        });
-    }
-
     // ---------------------------------------------------------------
     // Helpers: vectors and storage
     // ---------------------------------------------------------------
+
+    /// @dev Etches the registry's code, fixed to this test's Inbox proxy and token, at the vector
+    /// registry address and switches to the vector L1 chain id: the domain of every vector proof
+    /// of possession.
+    function _etchVectorRegistry(string memory _j) private returns (IEtnaStakingRegistry) {
+        address at = _address(_j, ".deployment.", "registry");
+        vm.chainId(_uint(_j, ".deployment.", "l1_chain_id"));
+        vm.etch(
+            at,
+            address(new EtnaStakingRegistry(_registryConfig(address(taikoToken), inboxProxy))).code
+        );
+        return IEtnaStakingRegistry(at);
+    }
+
+    /// @dev Mints `MIN_STAKE` to `_owner`, who approves `_registry` for any amount.
+    function _fundVectorOwner(IEtnaStakingRegistry _registry, address _owner) private {
+        taikoToken.mint(_owner, MIN_STAKE);
+        vm.prank(_owner);
+        taikoToken.approve(address(_registry), type(uint256).max);
+    }
 
     /// @dev The vector's plain Inbox slot `_name`.
     function _inboxSlot(string memory _j, string memory _name) private pure returns (uint256) {
