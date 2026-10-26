@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import { EtnaInboxTestBase } from "./EtnaInboxTestBase.sol";
+import { LibEtnaLandStatement } from "./LibEtnaLandStatement.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
@@ -14,8 +15,8 @@ import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 /// @dev The committed chain is the Lean `cutAt` table extended to every height: EL hash 100 + x,
 /// Comet hash 200 + x (0 at x = 0), forced inclusion cursor x / 6 and state root 300 + x. A suite
 /// that lands beyond height 18 must save enough forced inclusions or lower the input's head.
-/// `_statement` and `_cutHash` rebuild appendix A with flat `abi.encode`, independently of the
-/// contract; they read only the stored generation and committee configuration hash and the
+/// `_statement` and `_cutHash` rebuild appendix A with `LibEtnaLandStatement`, independently of
+/// the contract; they read only the stored generation and committee configuration hash and the
 /// immutable L2 chain id and registry through the Inbox getters.
 abstract contract EtnaLandTestBase is EtnaInboxTestBase {
     /// @dev `K`, the landing grid interval.
@@ -86,7 +87,7 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encode(_x, _el, _comet, _head));
+        return LibEtnaLandStatement.leaf(_x, _el, _comet, _head);
     }
 
     /// @dev The cut leaf of the committed chain at height `_x`.
@@ -133,14 +134,8 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
         view
         returns (bytes32)
     {
-        return keccak256(
-            abi.encode(
-                bytes32("ETNA_LAND_CUTS_V1"),
-                uint256(_inbox().recoveryGeneration()),
-                _in.parentHeight,
-                _in.lastHeight,
-                keccak256(abi.encodePacked(_leafList))
-            )
+        return LibEtnaLandStatement.cutHash(
+            _inbox().recoveryGeneration(), _in.parentHeight, _in.lastHeight, _leafList
         );
     }
 
@@ -156,10 +151,19 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
         view
         returns (bytes32)
     {
-        bytes memory preimage = bytes.concat(
-            _statementWords0To6(_in),
-            _statementWords7To13(_in, _origin),
-            _statementWords14To20(_in, _origin, _cutHashValue)
+        bytes memory preimage = LibEtnaLandStatement.preimage(
+            LibEtnaLandStatement.Context({
+                l2ChainId: _inbox().l2ChainId(),
+                inbox: inboxProxy,
+                stakingRegistry: _inbox().stakingRegistry(),
+                generation: _inbox().recoveryGeneration(),
+                committeeConfigHash: _inbox().committeeConfigHash()
+            }),
+            _in,
+            _origin,
+            l1ReferenceBlockHash,
+            blobHashes,
+            _cutHashValue
         );
         assertEq(preimage.length, 672, "21 statement words");
         return keccak256(preimage);
@@ -386,66 +390,5 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
         words_[6] = _inboxWord(slot);
         words_[7] = _inboxWord(slot + 1);
         words_[8] = _inboxWord(slot + 2);
-    }
-
-    /// @dev Statement words 0-6: tag, L1 chain id, L2 chain id, Inbox, registry, generation, p.
-    function _statementWords0To6(IEtnaInbox.LandInput memory _in)
-        private
-        view
-        returns (bytes memory)
-    {
-        return abi.encode(
-            bytes32("TAIKO_ETNA_LAND_V1"),
-            block.chainid,
-            uint256(_inbox().l2ChainId()),
-            inboxProxy,
-            _inbox().stakingRegistry(),
-            uint256(_inbox().recoveryGeneration()),
-            _in.parentHeight
-        );
-    }
-
-    /// @dev Statement words 7-13: parentHash, parentCometHash, committeeConfigHash, h,
-    /// lastBlockHash, lastCometHash, lastStateRoot.
-    function _statementWords7To13(
-        IEtnaInbox.LandInput memory _in,
-        IEtnaInbox.Landing memory _origin
-    )
-        private
-        view
-        returns (bytes memory)
-    {
-        return abi.encode(
-            _origin.elHash,
-            _origin.cometHash,
-            _inbox().committeeConfigHash(),
-            _in.lastHeight,
-            _in.lastBlockHash,
-            _in.lastCometHash,
-            _in.lastStateRoot
-        );
-    }
-
-    /// @dev Statement words 14-20: reference number and hash, blob hashes hash, headBefore,
-    /// headAfter, activeCommitteeSnapshot, cutHash.
-    function _statementWords14To20(
-        IEtnaInbox.LandInput memory _in,
-        IEtnaInbox.Landing memory _origin,
-        bytes32 _cutHashValue
-    )
-        private
-        view
-        returns (bytes memory)
-    {
-        bytes32[] memory blobs = blobHashes;
-        return abi.encode(
-            _in.l1ReferenceBlockNumber,
-            l1ReferenceBlockHash,
-            keccak256(abi.encodePacked(blobs)),
-            uint256(_origin.head),
-            _in.forcedInclusionHead,
-            _in.activeCommitteeSnapshot,
-            _cutHashValue
-        );
     }
 }
