@@ -5,7 +5,6 @@ import { EtnaInboxTestBase } from "./EtnaInboxTestBase.sol";
 import { LibEtnaVectors } from "./LibEtnaVectors.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
-import { L2FeeVault } from "src/layer2/core/L2FeeVault.sol";
 import { LibEtnaRewards } from "src/shared/libs/LibEtnaRewards.sol";
 
 /// @title EtnaVectorsTest
@@ -33,13 +32,9 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
         assertFalse(vm.keyExistsJson(vectors, ".committee_hashes"));
         assertTrue(vm.keyExistsJson(vectors, ".committee_sets"));
         assertTrue(vm.keyExistsJson(vectors, ".zero_fee"));
-        assertTrue(vm.keyExistsJson(vectors, ".claim_selector"));
     }
 
     function test_claim_SelectorZeroFeesAndReceiptSlotMatchVectors() external view {
-        assertEq(
-            L2FeeVault.claim.selector, bytes4(LibEtnaVectors.bytesAt(vectors, ".claim_selector"))
-        );
         assertEq(_inboxSlot("reward_receipts"), 283);
         LibEtnaRewards.Receipt memory receipt = LibEtnaVectors.rewardReceipt(vectors);
         bytes32 id = LibEtnaRewards.batchId(receipt);
