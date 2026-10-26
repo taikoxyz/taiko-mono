@@ -82,7 +82,10 @@ interface IEtnaStakingRegistry {
         uint32 partsTotal;
         /// @notice The part set header hash.
         bytes32 partsHash;
-        /// @notice The seconds of the vote timestamp, below 2^63.
+        /// @notice The seconds of the vote timestamp since the Unix epoch: a signed int64 carried
+        /// as its 64-bit two's-complement pattern (e.g. -1 is 2^64 - 1), within CometBFT's
+        /// Timestamp range [-62,135,596,800, 253,402,300,800), 0001-01-01T00:00:00Z up to
+        /// 10000-01-01T00:00:00Z.
         uint64 timestampSeconds;
         /// @notice The nanoseconds of the vote timestamp, below 10^9.
         uint32 timestampNanos;
