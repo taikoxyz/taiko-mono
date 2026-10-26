@@ -4,7 +4,9 @@
 // {"public_key", "signer", "cases": [{"name", "sign_bytes", "signature"}]} on stdout. Sign bytes
 // come from types.VoteSignBytes and signatures from the secp256k1eth key type, so the vectors
 // reflect what a CometBFT validator signs. Vote integers are decimal strings; an all-zero 32-byte
-// hash is an absent (empty) hash, as in the Etna spec's appendix A.
+// hash is an absent (empty) hash, as in the Etna spec's appendix A. timestampSeconds is a signed
+// int64 (negative before 1970) and timestampSecondsU64 its 64-bit two's-complement pattern; the
+// two must agree.
 //
 // generate.py runs it with `go run .` from this directory; no other module imports it.
 package main
@@ -32,6 +34,7 @@ type vote struct {
 	PartsTotal       string `json:"partsTotal"`
 	PartsHash        string `json:"partsHash"`
 	TimestampSeconds string `json:"timestampSeconds"`
+	TimestampSecU64  string `json:"timestampSecondsU64"`
 	TimestampNanos   string `json:"timestampNanos"`
 	Generation       string `json:"generation"`
 }
@@ -128,6 +131,12 @@ func toProto(in vote) (*cmtproto.Vote, error) {
 	seconds, err := strconv.ParseInt(in.TimestampSeconds, 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("timestampSeconds: %w", err)
+	}
+	pattern, err := strconv.ParseUint(in.TimestampSecU64, 10, 64)
+	if err != nil || pattern != uint64(seconds) {
+		return nil, fmt.Errorf(
+			"timestampSecondsU64 %q is not the pattern of %d", in.TimestampSecU64, seconds,
+		)
 	}
 	nanos, err := strconv.ParseInt(in.TimestampNanos, 10, 64)
 	if err != nil || nanos < 0 || nanos >= int64(time.Second) {

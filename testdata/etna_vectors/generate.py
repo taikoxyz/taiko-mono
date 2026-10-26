@@ -936,8 +936,11 @@ VOTEGEN = HERE / "votegen"
 PREVOTE, PRECOMMIT = 1, 2
 VOTE_HEIGHT = 1000
 VOTE_TIME = (1_700_000_000, 123)
-# The last second (9999-12-31T23:59:59Z) that protobuf's Timestamp, and so CometBFT's
-# VoteSignBytes, can encode; CometBFT panics on later times.
+# The first (0001-01-01T00:00:00Z) and last (9999-12-31T23:59:59Z) seconds that protobuf's
+# Timestamp, and so CometBFT's VoteSignBytes, can encode; CometBFT panics outside them. It signs
+# and accepts negative (pre-1970) timestamps, and each vote carries its own, so a validator can
+# backdate both votes of a double sign.
+MIN_VOTE_SECONDS = -62_135_596_800
 MAX_VOTE_SECONDS = 253_402_300_799
 # Block ids as (hash, part set total, part set hash); a zero hash is absent, as in appendix A.
 BLOCK_A = ("0x" + "aa" * 32, 1, "0x" + "ab" * 32)
@@ -969,6 +972,11 @@ VOTE_CASES = (
     ("precommit_b_h1001", PRECOMMIT, 0, BLOCK_B, 0, DEPLOYMENT["inbox"]),
     ("hash_only_block_id", PRECOMMIT, 0, BLOCK_HASH_ONLY, 0, DEPLOYMENT["inbox"]),
     ("zero_timestamp", PRECOMMIT, 0, BLOCK_A, 0, DEPLOYMENT["inbox"]),
+    ("negative_timestamp", PRECOMMIT, 0, BLOCK_A, 0, DEPLOYMENT["inbox"]),
+    ("min_timestamp", PRECOMMIT, 0, BLOCK_A, 0, DEPLOYMENT["inbox"]),
+    ("max_timestamp_seconds", PRECOMMIT, 0, BLOCK_A, 0, DEPLOYMENT["inbox"]),
+    ("precommit_a_backdated", PRECOMMIT, 0, BLOCK_A, 0, DEPLOYMENT["inbox"]),
+    ("precommit_b_backdated", PRECOMMIT, 0, BLOCK_B, 0, DEPLOYMENT["inbox"]),
 )
 VOTE_OVERRIDES = {
     "precommit_a_late": {"time": (1_700_000_001, 0)},
@@ -976,6 +984,13 @@ VOTE_OVERRIDES = {
     "precommit_b_h1001": {"height": VOTE_HEIGHT + 1},
     # The Unix epoch: both timestamp fields are zero, so CometBFT writes the timestamp as `2a 00`.
     "zero_timestamp": {"time": (0, 0)},
+    # Negative seconds are written as protobuf's int64 varint, the ten-byte uvarint of their
+    # 64-bit two's-complement pattern.
+    "negative_timestamp": {"time": (-1, 123)},
+    "min_timestamp": {"time": (MIN_VOTE_SECONDS, 0)},
+    "max_timestamp_seconds": {"time": (MAX_VOTE_SECONDS, 0)},
+    "precommit_a_backdated": {"time": (-1, 0)},
+    "precommit_b_backdated": {"time": (-1, 0)},
 }
 # name, vote a, vote b, the Inbox's current generation, reason ("double_sign" when slashable).
 VOTE_PAIRS = (
@@ -1001,6 +1016,8 @@ VOTE_PAIRS = (
     # double sign, even though both generations are at or below the current one.
     ("different_generation", "precommit_a", "gen1_precommit_b", 1, "different_generation"),
     ("different_height", "precommit_a", "precommit_b_h1001", 0, "different_height"),
+    # Backdated votes still count in CometBFT commits, so they are slashable evidence.
+    ("backdated_conflict", "precommit_a_backdated", "precommit_b_backdated", 0, "double_sign"),
 )
 
 
@@ -1015,6 +1032,12 @@ def uvarint(value):
     return bytes(out)
 
 
+def varint_int64(value):
+    """Protobuf varint of an int64: the uvarint of its 64-bit two's-complement pattern."""
+    assert -(2**63) <= value < 2**63, value
+    return uvarint(value % 2**64)
+
+
 def length_delimited(tag_byte, payload):
     """`tag || uvarint(len(payload)) || payload`."""
     return bytes([tag_byte]) + uvarint(len(payload)) + payload
@@ -1024,7 +1047,8 @@ def vote_sign_bytes(vote, chain_id):
     """Appendix A `voteSignBytes`, written from the spec text alone (not from CometBFT).
 
     Bracketed fields are omitted when zero or empty; an all-zero 32-byte hash counts as empty, and
-    a nil vote (hash, total and parts hash all zero) omits the whole block id.
+    a nil vote (hash, total and parts hash all zero) omits the whole block id. Timestamp seconds
+    are a signed int64 (`timestampSecondsU64` is their two's-complement pattern).
     """
     vote_type, height, round_ = (int(vote[k]) for k in ("voteType", "height", "round"))
     total, seconds, nanos = (
@@ -1032,7 +1056,8 @@ def vote_sign_bytes(vote, chain_id):
     )
     block_hash, parts_hash = (bytes.fromhex(vote[k][2:]) for k in ("blockHash", "partsHash"))
     assert vote_type in (PREVOTE, PRECOMMIT) and 0 <= height < 2**63 and 0 <= round_ < 2**31
-    assert 0 <= total < 2**32 and 0 <= seconds < 2**63 and 0 <= nanos < 10**9
+    assert 0 <= total < 2**32 and MIN_VOTE_SECONDS <= seconds <= MAX_VOTE_SECONDS
+    assert int(vote["timestampSecondsU64"]) == seconds % 2**64 and 0 <= nanos < 10**9
     assert len(block_hash) == len(parts_hash) == 32 and len(chain_id) == 48
     zero = bytes(32)
 
@@ -1043,7 +1068,7 @@ def vote_sign_bytes(vote, chain_id):
         length_delimited(0x12, psh)
     )
     is_nil = block_hash == zero and total == 0 and parts_hash == zero
-    timestamp = (b"\x08" + uvarint(seconds) if seconds else b"") + (
+    timestamp = (b"\x08" + varint_int64(seconds) if seconds else b"") + (
         b"\x10" + uvarint(nanos) if nanos else b""
     )
     cv = (
@@ -1072,6 +1097,7 @@ def vote_inputs(chain_ids):
             "partsTotal": total,
             "partsHash": parts_hash,
             "timestampSeconds": seconds,
+            "timestampSecondsU64": seconds % 2**64,
             "timestampNanos": nanos,
             "generation": generation,
         }

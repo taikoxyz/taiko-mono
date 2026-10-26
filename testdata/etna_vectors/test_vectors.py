@@ -200,6 +200,11 @@ VOTE_CASES = [
     "precommit_b_h1001",
     "hash_only_block_id",
     "zero_timestamp",
+    "negative_timestamp",
+    "min_timestamp",
+    "max_timestamp_seconds",
+    "precommit_a_backdated",
+    "precommit_b_backdated",
 ]
 VOTE_FIELDS = [
     "voteType",
@@ -209,9 +214,13 @@ VOTE_FIELDS = [
     "partsTotal",
     "partsHash",
     "timestampSeconds",
+    "timestampSecondsU64",
     "timestampNanos",
     "generation",
 ]
+# CometBFT's (protobuf's) Timestamp range: 0001-01-01T00:00:00Z to 9999-12-31T23:59:59Z.
+MIN_VOTE_SECONDS = -62_135_596_800
+MAX_VOTE_SECONDS = 253_402_300_799
 OTHER_INBOX = "0x" + "33" * 20
 
 
@@ -272,6 +281,9 @@ def decode_vote_sign_bytes(sign_bytes):
         assert hash_bytes is None or len(hash_bytes) == 32
     # A present block id is never all zero; a nil vote omits it.
     assert 4 not in cv or block_id.get(1) or psh, cv[4]
+    # Seconds are an int64 varint: the uvarint of the 64-bit two's-complement pattern.
+    pattern = timestamp.get(1, 0)
+    assert pattern < 2**64, pattern
     vote = {
         "voteType": cv.get(1, 0),
         "height": cv.get(2, 0),
@@ -279,7 +291,8 @@ def decode_vote_sign_bytes(sign_bytes):
         "blockHash": "0x" + block_id.get(1, bytes(32)).hex(),
         "partsTotal": psh.get(1, 0),
         "partsHash": "0x" + psh.get(2, bytes(32)).hex(),
-        "timestampSeconds": timestamp.get(1, 0),
+        "timestampSeconds": pattern - 2**64 if pattern >= 2**63 else pattern,
+        "timestampSecondsU64": pattern,
         "timestampNanos": timestamp.get(2, 0),
     }
     return {k: v if isinstance(v, str) else str(v) for k, v in vote.items()}, cv[6].decode("ascii")
@@ -713,7 +726,15 @@ class VectorsTest(unittest.TestCase):
         # name: (type, round, block id, generation); height 1000 and timestamp (1700000000, 123)
         # unless `heights` or `timestamps` says otherwise.
         heights = {"precommit_b_h1001": "1001"}
-        timestamps = {"precommit_a_late": ("1700000001", "0"), "zero_timestamp": ("0", "0")}
+        timestamps = {
+            "precommit_a_late": ("1700000001", "0"),
+            "zero_timestamp": ("0", "0"),
+            "negative_timestamp": ("-1", "123"),
+            "min_timestamp": (str(MIN_VOTE_SECONDS), "0"),
+            "max_timestamp_seconds": (str(MAX_VOTE_SECONDS), "0"),
+            "precommit_a_backdated": ("-1", "0"),
+            "precommit_b_backdated": ("-1", "0"),
+        }
         expected = {
             "precommit_a": ("2", "0", a, "0"),
             "precommit_nil": ("2", "0", nil, "0"),
@@ -732,6 +753,11 @@ class VectorsTest(unittest.TestCase):
             "precommit_b_h1001": ("2", "0", b, "0"),
             "hash_only_block_id": ("2", "0", ("0x" + "aa" * 32, "0", uint(0)), "0"),
             "zero_timestamp": ("2", "0", a, "0"),
+            "negative_timestamp": ("2", "0", a, "0"),
+            "min_timestamp": ("2", "0", a, "0"),
+            "max_timestamp_seconds": ("2", "0", a, "0"),
+            "precommit_a_backdated": ("2", "0", a, "0"),
+            "precommit_b_backdated": ("2", "0", b, "0"),
         }
         for case in cases:
             name, vote = case["name"], case["vote"]
@@ -743,7 +769,8 @@ class VectorsTest(unittest.TestCase):
                 continue
             vote_type, round_, block_id, generation = expected[name]
             height = heights.get(name, "1000")
-            timestamp = timestamps.get(name, ("1700000000", "123"))
+            seconds, nanos = timestamps.get(name, ("1700000000", "123"))
+            timestamp = (seconds, str(int(seconds) % 2**64), nanos)
             self.assertEqual(
                 vote,
                 dict(
@@ -768,6 +795,7 @@ class VectorsTest(unittest.TestCase):
                         "0x" + "aa" * 32,
                         str(2**32 - 1),
                         "0x" + "ab" * 32,
+                        "253402300799",
                         "253402300799",
                         "999999999",
                         "0",
@@ -813,6 +841,41 @@ class VectorsTest(unittest.TestCase):
         self.assertEqual(body("zero_timestamp")[5], b"")
         zero_timestamp = hexbytes(by_name(cases, "zero_timestamp")["sign_bytes"])
         self.assertIn(b"\x2a\x00\x32\x30", zero_timestamp)
+
+    def test_vote_timestamps_are_int64_in_cometbft_range(self):
+        cases = V["votes"]["cases"]
+        for case in cases:
+            vote = case["vote"]
+            seconds = int(vote["timestampSeconds"])
+            self.assertTrue(MIN_VOTE_SECONDS <= seconds <= MAX_VOTE_SECONDS, case["name"])
+            self.assertEqual(int(vote["timestampSecondsU64"]), seconds % 2**64, case["name"])
+            self.assertTrue(0 <= int(vote["timestampNanos"]) < 10**9, case["name"])
+        # Both ends of the range and a negative second occur; a negative second is a ten-byte
+        # varint (protobuf int64), e.g. -1 is `ff ff ff ff ff ff ff ff ff 01`.
+        self.assertLessEqual(
+            {MIN_VOTE_SECONDS, -1, 0, MAX_VOTE_SECONDS},
+            {int(c["vote"]["timestampSeconds"]) for c in cases},
+        )
+
+        def timestamp(name):
+            sign_bytes = hexbytes(by_name(cases, name)["sign_bytes"])
+            return read_message(sign_bytes[read_uvarint(sign_bytes, 0)[1] :])[5]
+
+        expected = {
+            "negative_timestamp": "08ffffffffffffffffff01107b",
+            "min_timestamp": "088092b8c398feffffff01",
+            "max_timestamp_seconds": "08ff82d1ffaf07",
+            "precommit_a_backdated": "08ffffffffffffffffff01",
+            "precommit_b_backdated": "08ffffffffffffffffff01",
+        }
+        for name, field in expected.items():
+            self.assertEqual(timestamp(name), bytes.fromhex(field), name)
+        # A backdated double sign is slashable evidence.
+        backdated = by_name(V["votes"]["pairs"], "backdated_conflict")
+        self.assertEqual(
+            (backdated["a"], backdated["b"], backdated["double_sign"]),
+            ("precommit_a_backdated", "precommit_b_backdated", True),
+        )
 
     def test_vote_signatures_low_s_v01(self):
         cases = V["votes"]["cases"]

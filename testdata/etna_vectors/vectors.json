@@ -1141,6 +1141,7 @@
           "partsTotal": "1",
           "partsHash": "0xabababababababababababababababababababababababababababababababab",
           "timestampSeconds": "1700000000",
+          "timestampSecondsU64": "1700000000",
           "timestampNanos": "123",
           "generation": "0"
         },
@@ -1158,6 +1159,7 @@
           "partsTotal": "0",
           "partsHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
           "timestampSeconds": "1700000000",
+          "timestampSecondsU64": "1700000000",
           "timestampNanos": "123",
           "generation": "0"
         },
@@ -1175,6 +1177,7 @@
           "partsTotal": "2",
           "partsHash": "0xbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
           "timestampSeconds": "1700000000",
+          "timestampSecondsU64": "1700000000",
           "timestampNanos": "123",
           "generation": "0"
         },
@@ -1192,6 +1195,7 @@
           "partsTotal": "1",
           "partsHash": "0xabababababababababababababababababababababababababababababababab",
           "timestampSeconds": "1700000001",
+          "timestampSecondsU64": "1700000001",
           "timestampNanos": "0",
           "generation": "0"
         },
@@ -1209,6 +1213,7 @@
           "partsTotal": "1",
           "partsHash": "0xabababababababababababababababababababababababababababababababab",
           "timestampSeconds": "1700000000",
+          "timestampSecondsU64": "1700000000",
           "timestampNanos": "123",
           "generation": "0"
         },
@@ -1226,6 +1231,7 @@
           "partsTotal": "2",
           "partsHash": "0xbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
           "timestampSeconds": "1700000000",
+          "timestampSecondsU64": "1700000000",
           "timestampNanos": "123",
           "generation": "0"
         },
@@ -1243,6 +1249,7 @@
           "partsTotal": "2",
           "partsHash": "0xbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
           "timestampSeconds": "1700000000",
+          "timestampSecondsU64": "1700000000",
           "timestampNanos": "123",
           "generation": "0"
         },
@@ -1260,6 +1267,7 @@
           "partsTotal": "2",
           "partsHash": "0xbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
           "timestampSeconds": "1700000000",
+          "timestampSecondsU64": "1700000000",
           "timestampNanos": "123",
           "generation": "0"
         },
@@ -1277,6 +1285,7 @@
           "partsTotal": "1",
           "partsHash": "0xabababababababababababababababababababababababababababababababab",
           "timestampSeconds": "1700000000",
+          "timestampSecondsU64": "1700000000",
           "timestampNanos": "123",
           "generation": "1"
         },
@@ -1294,6 +1303,7 @@
           "partsTotal": "2",
           "partsHash": "0xbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
           "timestampSeconds": "1700000000",
+          "timestampSecondsU64": "1700000000",
           "timestampNanos": "123",
           "generation": "1"
         },
@@ -1311,6 +1321,7 @@
           "partsTotal": "1",
           "partsHash": "0xabababababababababababababababababababababababababababababababab",
           "timestampSeconds": "1700000000",
+          "timestampSecondsU64": "1700000000",
           "timestampNanos": "123",
           "generation": "2"
         },
@@ -1328,6 +1339,7 @@
           "partsTotal": "2",
           "partsHash": "0xbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
           "timestampSeconds": "1700000000",
+          "timestampSecondsU64": "1700000000",
           "timestampNanos": "123",
           "generation": "2"
         },
@@ -1345,6 +1357,7 @@
           "partsTotal": "2",
           "partsHash": "0xbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
           "timestampSeconds": "1700000000",
+          "timestampSecondsU64": "1700000000",
           "timestampNanos": "123",
           "generation": "0"
         },
@@ -1362,6 +1375,7 @@
           "partsTotal": "1",
           "partsHash": "0xabababababababababababababababababababababababababababababababab",
           "timestampSeconds": "1700000000",
+          "timestampSecondsU64": "1700000000",
           "timestampNanos": "123",
           "generation": "0"
         },
@@ -1379,6 +1393,7 @@
           "partsTotal": "4294967295",
           "partsHash": "0xabababababababababababababababababababababababababababababababab",
           "timestampSeconds": "253402300799",
+          "timestampSecondsU64": "253402300799",
           "timestampNanos": "999999999",
           "generation": "0"
         },
@@ -1396,6 +1411,7 @@
           "partsTotal": "2",
           "partsHash": "0xbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
           "timestampSeconds": "1700000000",
+          "timestampSecondsU64": "1700000000",
           "timestampNanos": "123",
           "generation": "0"
         },
@@ -1413,6 +1429,7 @@
           "partsTotal": "0",
           "partsHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
           "timestampSeconds": "1700000000",
+          "timestampSecondsU64": "1700000000",
           "timestampNanos": "123",
           "generation": "0"
         },
@@ -1430,12 +1447,103 @@
           "partsTotal": "1",
           "partsHash": "0xabababababababababababababababababababababababababababababababab",
           "timestampSeconds": "0",
+          "timestampSecondsU64": "0",
           "timestampNanos": "0",
           "generation": "0"
         },
         "chain_id": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
         "sign_bytes": "0x8901080211e80300000000000022480a20aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa122408011220abababababababababababababababababababababababababababababababab2a00323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
         "signature": "0xdb11f03a2ebdd3d8651c840b52055ba3b3a7925778c1efc65c17a964024c71e868276028352e6d69468638fdab6b0342a6627fe8c6d38efa37795408c500496e01"
+      },
+      {
+        "name": "negative_timestamp",
+        "vote": {
+          "voteType": "2",
+          "height": "1000",
+          "round": "0",
+          "blockHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "partsTotal": "1",
+          "partsHash": "0xabababababababababababababababababababababababababababababababab",
+          "timestampSeconds": "-1",
+          "timestampSecondsU64": "18446744073709551615",
+          "timestampNanos": "123",
+          "generation": "0"
+        },
+        "chain_id": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "sign_bytes": "0x9601080211e80300000000000022480a20aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa122408011220abababababababababababababababababababababababababababababababab2a0d08ffffffffffffffffff01107b323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+        "signature": "0x9cfc16120d9cb1c1f8d21d0f170022b02fb1539789fd769ed7e0f78215229368376e97d721f65f30e26ef2074b163382f45a3fe2f8a42ab8f1a6c01774313eec00"
+      },
+      {
+        "name": "min_timestamp",
+        "vote": {
+          "voteType": "2",
+          "height": "1000",
+          "round": "0",
+          "blockHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "partsTotal": "1",
+          "partsHash": "0xabababababababababababababababababababababababababababababababab",
+          "timestampSeconds": "-62135596800",
+          "timestampSecondsU64": "18446744011573954816",
+          "timestampNanos": "0",
+          "generation": "0"
+        },
+        "chain_id": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "sign_bytes": "0x9401080211e80300000000000022480a20aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa122408011220abababababababababababababababababababababababababababababababab2a0b088092b8c398feffffff01323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+        "signature": "0x00714a1b3aa06b4211646ca1396f401aac8314d7b9fe2eac611916fc7200d4ff7af2b4297c45f02ab4fff6537c96ddf7e64ff7ce974da800176b718f1869a19201"
+      },
+      {
+        "name": "max_timestamp_seconds",
+        "vote": {
+          "voteType": "2",
+          "height": "1000",
+          "round": "0",
+          "blockHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "partsTotal": "1",
+          "partsHash": "0xabababababababababababababababababababababababababababababababab",
+          "timestampSeconds": "253402300799",
+          "timestampSecondsU64": "253402300799",
+          "timestampNanos": "0",
+          "generation": "0"
+        },
+        "chain_id": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "sign_bytes": "0x9001080211e80300000000000022480a20aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa122408011220abababababababababababababababababababababababababababababababab2a0708ff82d1ffaf07323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+        "signature": "0x529d95bb962617d5c0159ac2ff46cf7996c026ac8e9735a5e09fda55604e36d0445a0cfa6f73095edbbd0dc74102e38dcf5af15a2764dab3de0f454b04a601c600"
+      },
+      {
+        "name": "precommit_a_backdated",
+        "vote": {
+          "voteType": "2",
+          "height": "1000",
+          "round": "0",
+          "blockHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "partsTotal": "1",
+          "partsHash": "0xabababababababababababababababababababababababababababababababab",
+          "timestampSeconds": "-1",
+          "timestampSecondsU64": "18446744073709551615",
+          "timestampNanos": "0",
+          "generation": "0"
+        },
+        "chain_id": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "sign_bytes": "0x9401080211e80300000000000022480a20aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa122408011220abababababababababababababababababababababababababababababababab2a0b08ffffffffffffffffff01323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+        "signature": "0x43ecfc78f9a6c63d9d797bb0f06850bcc8feaaed05fad398551c4bf7121745161ae5e4bd6fd594ebc64cef0e47fb18310407a46bc78b17ed03a653dbe0e54f4500"
+      },
+      {
+        "name": "precommit_b_backdated",
+        "vote": {
+          "voteType": "2",
+          "height": "1000",
+          "round": "0",
+          "blockHash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "partsTotal": "2",
+          "partsHash": "0xbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
+          "timestampSeconds": "-1",
+          "timestampSecondsU64": "18446744073709551615",
+          "timestampNanos": "0",
+          "generation": "0"
+        },
+        "chain_id": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "sign_bytes": "0x9401080211e80300000000000022480a20bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb122408021220bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc2a0b08ffffffffffffffffff01323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+        "signature": "0x87de3ea383f4eb4e3854e0770bd40415d58c291f74029957596323471a6e404f203847a769f02fec4ed7818e07c3d07bd012ae12938017095c3369229b7c173001"
       }
     ],
     "pairs": [
@@ -1541,6 +1649,14 @@
         "b": "precommit_b_h1001",
         "double_sign": false,
         "reason": "different_height",
+        "current_generation": "0"
+      },
+      {
+        "name": "backdated_conflict",
+        "a": "precommit_a_backdated",
+        "b": "precommit_b_backdated",
+        "double_sign": true,
+        "reason": "double_sign",
         "current_generation": "0"
       }
     ]

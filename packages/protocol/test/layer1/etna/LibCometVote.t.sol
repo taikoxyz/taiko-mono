@@ -59,7 +59,7 @@ contract LibCometVoteHarness {
 
 contract LibCometVoteTest is CommonTest {
     /// @dev The number of `votes.cases` items.
-    uint256 private constant _VOTE_CASES = 18;
+    uint256 private constant _VOTE_CASES = 23;
 
     /// @dev 2^63: heights and timestamp seconds are below it (C7).
     uint64 private constant _TWO_POW_63 = uint64(1) << 63;
@@ -272,6 +272,17 @@ contract LibCometVoteTest is CommonTest {
         _assertTimestampField(
             vote, id, hex"08ff82d1ffaf0710ff93ebdc03", "9999-12-31T23:59:59.999999999Z"
         );
+
+        // CometBFT v0.40.0 wrote the same fields.
+        string memory j = LibEtnaVectors.load();
+        assertEq(_fieldPayload(_signBytesOf(j, "min_timestamp"), 0x2a), hex"088092b8c398feffffff01");
+        assertEq(
+            _fieldPayload(_signBytesOf(j, "negative_timestamp"), 0x2a),
+            hex"08ffffffffffffffffff01107b"
+        );
+        assertEq(
+            _fieldPayload(_signBytesOf(j, "max_values"), 0x2a), hex"08ff82d1ffaf0710ff93ebdc03"
+        );
     }
 
     /// @dev Any in-range vote under any chain id decodes back to its fields, with zero fields
@@ -475,7 +486,13 @@ contract LibCometVoteTest is CommonTest {
         v_.blockHash = _bytes32(_j, q, "blockHash");
         v_.partsTotal = uint32(_uint(_j, q, "partsTotal"));
         v_.partsHash = _bytes32(_j, q, "partsHash");
-        v_.timestampSeconds = uint64(_uint(_j, q, "timestampSeconds"));
+        // The registry takes the int64 seconds as their two's-complement pattern.
+        v_.timestampSeconds = uint64(_uint(_j, q, "timestampSecondsU64"));
+        assertEq(
+            int64(v_.timestampSeconds),
+            vm.parseJsonInt(_j, string.concat(q, "timestampSeconds")),
+            "signed seconds"
+        );
         v_.timestampNanos = uint32(_uint(_j, q, "timestampNanos"));
         v_.generation = uint48(_uint(_j, q, "generation"));
         v_.signature = _bytes(_j, _p, "signature");
