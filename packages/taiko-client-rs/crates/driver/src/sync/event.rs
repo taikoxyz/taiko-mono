@@ -316,8 +316,8 @@ fn resolve_missing_batch_mapping_fallback(
 /// - Rewind one block from the last seen height to cover partial delivery from the boundary block.
 /// - If a finalized L1 block exists behind that overlap point, rewind all the way to finalized so
 ///   reconnect replays the entire reorg-unsafe window.
-/// - If finalization is unavailable, fall back to the original startup anchor to avoid skipping
-///   potentially replaced historical logs on fresh chains.
+/// - If L1 has not finalized any block yet, fall back to the original startup anchor to avoid
+///   skipping potentially replaced historical logs on fresh chains.
 fn resolve_reconnect_start_block(
     last_seen_l1_block_number: u64,
     finalized_l1_block_number: Option<u64>,
@@ -1367,6 +1367,62 @@ impl EventSyncer {
         Ok(resume_head_block_number)
     }
 
+    /// Resolve the L1 block a reconnecting event scanner restarts from.
+    ///
+    /// Only the finalized header is read: reconnect needs its height, not finalized state, so a
+    /// historical-state gap cannot stall it. RPC failures (e.g. the L1 node restarting) are
+    /// retried with the scanner reconnect backoff instead of rewinding to the startup anchor,
+    /// which can be days behind and would replay every proposal since startup with
+    /// preconfirmation ingress closed. The scanner cannot start without L1 either, so waiting
+    /// adds no new stall. Only a chain that has not finalized any block yet falls back to the
+    /// startup anchor.
+    #[instrument(skip(self), level = "debug")]
+    async fn reconnect_start_block(
+        &self,
+        last_seen_l1_block_number: u64,
+        startup_anchor_block_number: u64,
+    ) -> u64 {
+        let mut attempt = 0u32;
+        loop {
+            let finalized_block_number =
+                match self.rpc.l1_provider.get_block_by_number(BlockNumberOrTag::Finalized).await {
+                    Ok(block) => block.map(|block| block.header.number),
+                    // Geth reports a chain without finality as an error; reth returns `null`.
+                    Err(err)
+                        if err.as_error_resp().is_some_and(|payload| {
+                            is_finalized_block_not_found(payload.code, payload.message.as_ref())
+                        }) =>
+                    {
+                        None
+                    }
+                    Err(err) => {
+                        DriverMetrics::event_sync_reconnect_anchor_retries_total().inc();
+                        let delay = scanner_reconnect_delay(self.cfg.retry_interval, attempt);
+                        warn!(
+                            error = %err,
+                            attempt,
+                            retry_after_secs = delay.as_secs_f64(),
+                            "failed to resolve finalized reconnect anchor; retrying"
+                        );
+                        sleep(delay).await;
+                        attempt = attempt.saturating_add(1);
+                        continue;
+                    }
+                };
+            if finalized_block_number.is_none() {
+                info!(
+                    fallback_start_block = startup_anchor_block_number,
+                    "L1 has not finalized any block yet; rewinding reconnect to startup anchor"
+                );
+            }
+            return resolve_reconnect_start_block(
+                last_seen_l1_block_number,
+                finalized_block_number,
+                startup_anchor_block_number,
+            );
+        }
+    }
+
     /// Try to resolve finalized L1 block metadata and finalized-safe proposal ID.
     ///
     /// Returns `None` when the L1 chain has not yet finalized (e.g. fresh devnets), and surfaces a
@@ -1877,26 +1933,9 @@ impl SyncStage for EventSyncer {
             self.close_preconf_ingress(&router).await;
 
             if let Some(block_number) = last_seen_l1_block_number {
-                let reconnect_finalized_block_number = match self.try_finalized_l1_snapshot().await
-                {
-                    Ok(snapshot) => snapshot.map(|snapshot| snapshot.block_number),
-                    Err(err) => {
-                        if matches!(err, SyncError::HistoricalStateUnavailable { .. }) {
-                            DriverMetrics::event_sync_finalized_state_unavailable_total().inc();
-                        }
-                        warn!(
-                            ?err,
-                            fallback_start_block = startup_anchor_block_number,
-                            "failed to resolve finalized reconnect anchor; rewinding to startup anchor"
-                        );
-                        None
-                    }
-                };
-                reconnect_start_tag = BlockNumberOrTag::Number(resolve_reconnect_start_block(
-                    block_number,
-                    reconnect_finalized_block_number,
-                    startup_anchor_block_number,
-                ));
+                reconnect_start_tag = BlockNumberOrTag::Number(
+                    self.reconnect_start_block(block_number, startup_anchor_block_number).await,
+                );
             }
             let delay = scanner_reconnect_state.next_delay(self.cfg.retry_interval);
             warn!(
@@ -3435,6 +3474,105 @@ mod tests {
     fn reconnect_start_falls_back_to_startup_anchor_without_finalization() {
         let reconnect_start = resolve_reconnect_start_block(120, None, 10);
         assert_eq!(reconnect_start, 10);
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn reconnect_start_block_retries_rpc_failures_until_finalized_header_resolves() {
+        let retries_before = DriverMetrics::event_sync_reconnect_anchor_retries_total().get();
+        let asserter = Asserter::new();
+        asserter.push_failure_msg("connection refused");
+        push_geth_server_error(&asserter, "internal error");
+        asserter.push_success(&l1_block_at(80, B256::from([8u8; 32]), B256::ZERO));
+
+        let (rpc, recorded_requests) = mock_client_with_recording_l1(asserter.clone());
+        let syncer = EventSyncer { rpc, ..build_syncer().await };
+        let pending = syncer.reconnect_start_block(120, 10);
+        tokio::pin!(pending);
+
+        for _ in 0..2 {
+            assert!(
+                timeout(Duration::from_millis(100), &mut pending).await.is_err(),
+                "an L1 RPC failure must keep the reconnect anchor pending, not rewind it",
+            );
+            tokio::time::advance(syncer.cfg.retry_interval).await;
+        }
+        let reconnect_start = timeout(Duration::from_millis(100), &mut pending)
+            .await
+            .expect("the retry should resolve once L1 serves the finalized header");
+
+        assert_eq!(
+            reconnect_start, 80,
+            "reconnect must rewind to finalized, not the startup anchor"
+        );
+        assert!(
+            DriverMetrics::event_sync_reconnect_anchor_retries_total().get() >= retries_before + 2,
+            "each failed lookup must be counted"
+        );
+        assert!(asserter.read_q().is_empty(), "every retry must re-read the finalized header");
+
+        let recorded_requests =
+            recorded_requests.lock().expect("recording lock should not be poisoned");
+        let header_params = recorded_requests
+            .iter()
+            .filter(|request| request.method == "eth_getBlockByNumber")
+            .map(|request| {
+                request.params.as_deref().expect("eth_getBlockByNumber should carry params")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(header_params.len(), 3, "one finalized header lookup per attempt");
+        assert!(
+            header_params.iter().all(|params| params.contains("\"finalized\"")),
+            "every reconnect lookup must use the finalized tag"
+        );
+        assert!(
+            recorded_requests.iter().all(|request| request.method != "eth_call"),
+            "reconnect must not read historical state"
+        );
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn reconnect_start_block_uses_startup_anchor_when_geth_has_no_finalized_block() {
+        let asserter = Asserter::new();
+        push_geth_server_error(&asserter, crate::sync::FINALIZED_BLOCK_NOT_FOUND);
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+
+        let reconnect_start =
+            timeout(Duration::from_millis(100), syncer.reconnect_start_block(120, 10))
+                .await
+                .expect("a chain without finality must not wait for a retry");
+
+        assert_eq!(reconnect_start, 10);
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn reconnect_start_block_uses_startup_anchor_when_reth_returns_null_finalized() {
+        let asserter = Asserter::new();
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+
+        let reconnect_start =
+            timeout(Duration::from_millis(100), syncer.reconnect_start_block(120, 10))
+                .await
+                .expect("a chain without finality must not wait for a retry");
+
+        assert_eq!(reconnect_start, 10);
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn reconnect_start_block_keeps_one_block_overlap_when_finalized_is_ahead() {
+        let asserter = Asserter::new();
+        asserter.push_success(&l1_block_at(240, B256::from([2u8; 32]), B256::ZERO));
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+
+        let reconnect_start =
+            timeout(Duration::from_millis(100), syncer.reconnect_start_block(120, 10))
+                .await
+                .expect("a served finalized header must not wait for a retry");
+
+        assert_eq!(reconnect_start, 119);
     }
 
     // -- resolve_missing_batch_mapping_fallback tests --
