@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import { EtnaStakingRegistryTestBase } from "./EtnaStakingRegistryTestBase.sol";
 import { EtnaTestKeys } from "./EtnaTestKeys.sol";
 import { LibEtnaVectors } from "./LibEtnaVectors.sol";
+import { ReentrantERC20 } from "./ReentrantERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
@@ -11,15 +12,13 @@ import { EtnaInboxBootstrap } from "src/layer1/etna/impl/EtnaInboxBootstrap.sol"
 import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
 import { LibEntriesTree } from "src/layer1/etna/libs/LibEntriesTree.sol";
 import { LibEtnaKeys } from "src/layer1/etna/libs/LibEtnaKeys.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 
 contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
     /// @dev Consensus private keys.
     uint256 private constant _CK_A = 0xC0A;
     uint256 private constant _CK_B = 0xC0B;
     uint256 private constant _CK_C = 0xC0C;
-    uint256 private constant _CK_D = 0xC0D;
-    uint256 private constant _CK_E = 0xC0E;
-    uint256 private constant _CK_F = 0xC0F;
     /// @dev The first of the consensus private keys that fill the registry.
     uint256 private constant _CK_FILL = 0xF000;
 
@@ -422,38 +421,50 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
         );
     }
 
-    /// @dev Released slots are reused before new ones are appended, the most recently released
-    /// first. The releases are planted in storage: the slot's entry and owner are zeroed and its
-    /// bond id is pushed onto the free list.
-    function test_register_ReusesFreeSlotsLastInFirstOut() external {
+    /// @dev A failed stake pull reverts the whole registration: the key stays unused, the freed
+    /// slot stays on the free list and no checkpoint is written.
+    function test_register_RevertWhen_TransferFails() external {
         _register(Alice, _CK_A);
-        _register(Alice, _CK_B);
-        _register(Alice, _CK_C);
-        _plantRelease(0);
-        _plantRelease(2);
-        assertEq(registry.freeSlotCount(), 2, "free slots");
-
+        _release(0);
         vm.roll(block.number + 1);
-        assertEq(_register(Bob, _CK_D), 2, "most recently released first");
-        assertEq(registry.entryCount(), 3, "no slot appended");
-        assertEq(_register(Bob, _CK_E), 0, "then the earlier release");
-        assertEq(registry.freeSlotCount(), 0, "free list empty");
-        assertEq(_register(Bob, _CK_F), 3, "then a new slot");
-        assertEq(registry.entryCount(), 4, "entry count");
+        uint256 checkpoints = registry.checkpointCount();
+        bytes32 root = registry.entriesRoot();
+        bytes memory publicKey = EtnaTestKeys.publicKey(_CK_B);
+        bytes memory pop = EtnaTestKeys.popSig(_CK_B, registry, Bob);
+        assertTrue(token.transfer(Bob, MIN_STAKE), "fund");
 
-        assertEq(registry.ownerOf(0), Bob, "owner 0");
-        assertEq(registry.ownerOf(1), Alice, "owner 1");
-        assertEq(registry.ownerOf(2), Bob, "owner 2");
-        assertEq(registry.entryAt(2).ckX, _xOf(_CK_D), "entry 2");
-        assertEq(registry.entryAt(0).ckX, _xOf(_CK_E), "entry 0");
-        bytes32 root = keccak256(
-            abi.encodePacked(
-                keccak256(abi.encodePacked(_leafAt(0), _leafAt(1))),
-                keccak256(abi.encodePacked(_leafAt(2), _leafAt(3)))
-            )
+        vm.expectRevert("ERC20: insufficient allowance");
+        vm.prank(Bob);
+        registry.register(publicKey, MIN_STAKE, pop);
+        _assertNothingRegistered(vm.addr(_CK_B), checkpoints, root);
+
+        vm.prank(Bob);
+        token.approve(address(registry), type(uint256).max);
+        vm.expectRevert("ERC20: transfer amount exceeds balance");
+        vm.prank(Bob);
+        registry.register(publicKey, MIN_STAKE + 1, pop);
+        _assertNothingRegistered(vm.addr(_CK_B), checkpoints, root);
+        assertEq(token.balanceOf(Bob), MIN_STAKE, "balance kept");
+    }
+
+    /// @dev A token that re-enters `register` from its `transferFrom` hits the registry's lock.
+    function test_register_RevertWhen_TokenReenters() external {
+        ReentrantERC20 reentrant = new ReentrantERC20();
+        registry = _deployRegistry(address(reentrant), address(mockInbox));
+        reentrant.mint(Alice, MIN_STAKE);
+        vm.prank(Alice);
+        reentrant.approve(address(registry), type(uint256).max);
+        bytes memory publicKey = EtnaTestKeys.publicKey(_CK_A);
+        bytes memory pop = EtnaTestKeys.popSig(_CK_A, registry, Alice);
+        reentrant.armReentry(
+            address(registry), abi.encodeCall(registry.register, (publicKey, MIN_STAKE, pop))
         );
-        assertEq(registry.entriesRoot(), root, "root over the current entries");
-        _assertCheckpoint(1, block.number, 4, root);
+
+        vm.expectRevert(EssentialContract.REENTRANT_CALL.selector);
+        vm.prank(Alice);
+        registry.register(publicKey, MIN_STAKE, pop);
+        assertEq(registry.entryCount(), 0, "no entry");
+        assertFalse(registry.keyUsed(vm.addr(_CK_A)), "key unused");
     }
 
     function test_register_SucceedsBeforeInboxInitialization() external {
@@ -616,34 +627,22 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
         vm.chainId(chainId);
     }
 
-    function _assertEntry(
-        uint256 _bondId,
-        IEtnaStakingRegistry.Entry memory _expected
-    )
-        private
-        view
-    {
-        IEtnaStakingRegistry.Entry memory entry = registry.entryAt(_bondId);
-        assertEq(entry.ckX, _expected.ckX, "ckX");
-        assertEq(entry.effStake, _expected.effStake, "effStake");
-        assertEq(entry.ckPrefix, _expected.ckPrefix, "ckPrefix");
-        assertEq(entry.activeFromL1, _expected.activeFromL1, "activeFromL1");
-        assertEq(entry.exitEffectiveL1, _expected.exitEffectiveL1, "exitEffectiveL1");
-    }
-
-    function _assertCheckpoint(
-        uint256 _index,
-        uint256 _l1Block,
-        uint256 _count,
+    /// @dev Asserts that `_ckAddr` is unused and that the registry still has one slot, released
+    /// and free, `_checkpoints` checkpoints and root `_root`.
+    function _assertNothingRegistered(
+        address _ckAddr,
+        uint256 _checkpoints,
         bytes32 _root
     )
         private
         view
     {
-        IEtnaStakingRegistry.Checkpoint memory checkpoint = registry.checkpointAt(_index);
-        assertEq(checkpoint.l1Block, _l1Block, "checkpoint l1Block");
-        assertEq(checkpoint.count, _count, "checkpoint count");
-        assertEq(checkpoint.entriesRoot, _root, "checkpoint entriesRoot");
+        assertFalse(registry.keyUsed(_ckAddr), "key unused");
+        assertEq(registry.freeSlotCount(), 1, "free slot kept");
+        assertEq(registry.entryCount(), 1, "no slot appended");
+        assertEq(registry.ownerOf(0), address(0), "no owner");
+        assertEq(registry.checkpointCount(), _checkpoints, "no checkpoint");
+        assertEq(registry.entriesRoot(), _root, "root");
     }
 
     /// @dev An entry with no exit set.
@@ -675,20 +674,11 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
         );
     }
 
-    /// @dev The leaf of the entry the registry holds at `_bondId`.
-    function _leafAt(uint256 _bondId) private view returns (bytes32) {
-        return LibEntriesTree.leaf(_bondId, registry.entryAt(_bondId));
-    }
-
     /// @dev The SEC1 prefix and X coordinate of `_pk`'s public key.
     function _compressed(uint256 _pk) private returns (uint8 prefix_, bytes32 x_) {
         Vm.Wallet memory wallet = vm.createWallet(_pk);
         prefix_ = uint8(2 + (wallet.publicKeyY & 1));
         x_ = bytes32(wallet.publicKeyX);
-    }
-
-    function _xOf(uint256 _pk) private returns (bytes32 x_) {
-        (, x_) = _compressed(_pk);
     }
 
     /// @dev Splits a 65-byte signature `R ‖ S ‖ V`.
@@ -734,25 +724,5 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
                 "checkpoint word 1 formula"
             );
         }
-    }
-
-    /// @dev Plants the release of slot `_bondId`: zeroes its entry (three words at
-    /// `keccak256(R + 1) + 3 * bondId`) and owner, and pushes it onto the free list (`freeSlots`,
-    /// length at R + 3, elements from `keccak256(R + 3)`).
-    function _plantRelease(uint256 _bondId) private {
-        string memory j = LibEtnaVectors.load();
-        uint256 base = uint256(LibEtnaVectors.bytes32At(j, ".layout.registry.base"));
-        uint256 entry = uint256(keccak256(abi.encode(base + 1))) + 3 * _bondId;
-        for (uint256 w; w < 3; ++w) {
-            vm.store(address(registry), bytes32(entry + w), 0);
-        }
-        bytes32 owners = LibEtnaVectors.bytes32At(j, ".layout.registry.owners.base");
-        vm.store(address(registry), keccak256(abi.encode(_bondId, owners)), 0);
-
-        bytes32 lengthSlot = bytes32(base + 3);
-        uint256 length = uint256(vm.load(address(registry), lengthSlot));
-        bytes32 element = bytes32(uint256(keccak256(abi.encode(lengthSlot))) + length);
-        vm.store(address(registry), element, bytes32(_bondId));
-        vm.store(address(registry), lengthSlot, bytes32(length + 1));
     }
 }
