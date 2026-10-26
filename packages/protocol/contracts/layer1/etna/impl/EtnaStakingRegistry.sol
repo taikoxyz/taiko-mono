@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import { IEtnaInbox } from "../iface/IEtnaInbox.sol";
 import { IEtnaStakingRegistry } from "../iface/IEtnaStakingRegistry.sol";
+import { LibCometVote } from "../libs/LibCometVote.sol";
 import { LibEntriesTree } from "../libs/LibEntriesTree.sol";
 import { LibEtnaKeys } from "../libs/LibEtnaKeys.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -267,7 +268,66 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     }
 
     /// @inheritdoc IEtnaStakingRegistry
-    function slashDoubleSign(uint256, Vote calldata, Vote calldata) external notImplemented { }
+    /// @dev Checks in order: the Inbox's initialization, both votes' ranges, the pair (same type,
+    /// height, round and generation, different block ids), the generation, the entry and its
+    /// stake, then both signatures. The slash is written before either transfer.
+    function slashDoubleSign(
+        uint256 _bondId,
+        Vote calldata _voteA,
+        Vote calldata _voteB
+    )
+        external
+        nonReentrant
+    {
+        require(IEtnaInbox(_inbox).isInitialized(), InboxNotInitialized());
+        Vote memory voteA = _voteA;
+        Vote memory voteB = _voteB;
+        LibCometVote.checkRanges(voteA);
+        LibCometVote.checkRanges(voteB);
+        require(
+            voteA.voteType == voteB.voteType && voteA.height == voteB.height
+                && voteA.round == voteB.round && voteA.generation == voteB.generation
+                && !LibCometVote.sameBlockId(voteA, voteB),
+            NotDoubleSign()
+        );
+        require(voteA.generation <= IEtnaInbox(_inbox).recoveryGeneration(), FutureGeneration());
+
+        RegistryStorage storage $ = _registryStorage();
+        Entry memory entry = _unreleasedEntry($, _bondId);
+        uint256 amount = entry.effStake;
+        require(amount != 0, NothingToSlash());
+
+        // The key was validated at registration, so it decompresses.
+        address signer =
+            LibEtnaKeys.ckAddr(entry.ckX, LibEtnaKeys.decompress(entry.ckPrefix, entry.ckX));
+        bytes memory cometChainId = LibCometVote.chainId(
+            LibCometVote.chainDomain(block.chainid, _l2ChainId, _inbox, voteA.generation)
+        );
+        require(
+            _voteSigner(voteA, cometChainId) == signer
+                && _voteSigner(voteB, cometChainId) == signer,
+            InvalidSignature()
+        );
+
+        entry.effStake = 0;
+        // At most the stored exit, so it fits in 48 bits.
+        entry.exitEffectiveL1 = uint48(Math.min(entry.exitEffectiveL1, block.number));
+        _commit($, _bondId, entry);
+
+        uint256 bounty = amount * slashBountyBps / _BPS;
+        token.safeTransfer(msg.sender, bounty);
+        token.safeTransfer(slashSink, amount - bounty);
+        emit DoubleSignSlashed(
+            _bondId,
+            msg.sender,
+            amount,
+            bounty,
+            voteA.generation,
+            voteA.height,
+            voteA.round,
+            voteA.voteType
+        );
+    }
 
     /// @inheritdoc IEtnaStakingRegistry
     function forceExit(uint256, bytes32, uint256) external notImplemented { }
@@ -404,6 +464,25 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
             $.checkpoints.push(checkpoint);
         }
         emit CheckpointWritten(index, l1Block, uint48(count), root);
+    }
+
+    /// @dev Recovers the signer of a vote from its signature over keccak256 of its CometBFT sign
+    /// bytes (appendix A). Reverts with `InvalidSignature` if `LibEtnaKeys.recoverSigner` rejects
+    /// the signature: V, R or S out of range, or no address recovered.
+    /// @param _vote The vote.
+    /// @param _cometChainId The CometBFT chain id the vote is checked under.
+    /// @return The recovered address.
+    function _voteSigner(
+        Vote memory _vote,
+        bytes memory _cometChainId
+    )
+        private
+        pure
+        returns (address)
+    {
+        return LibEtnaKeys.recoverSigner(
+            keccak256(LibCometVote.signBytes(_vote, _cometChainId)), _vote.signature
+        );
     }
 
     /// @dev Reverts with `InboxLocked` while the Inbox is executing `land` or `recover` (C8).

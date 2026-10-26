@@ -3,7 +3,6 @@ pragma solidity ^0.8.26;
 
 import { EtnaStakingRegistryTestBase } from "./EtnaStakingRegistryTestBase.sol";
 import { EtnaTestKeys } from "./EtnaTestKeys.sol";
-import { LibEtnaVectors } from "./LibEtnaVectors.sol";
 import { ReentrantERC20 } from "./ReentrantERC20.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
@@ -415,39 +414,6 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
         registry.withdraw(0, Alice);
         assertEq(token.balanceOf(Alice), MIN_STAKE, "paid");
         assertEq(registry.freeSlotCount(), 1, "slot freed");
-    }
-
-    /// @dev A zero-stake entry (slashed after its confirmation) still waits the full delay, then
-    /// anyone may release it, to any recipient, without payment. The zero stake is planted in
-    /// entry word 1 (`keccak256(R + 1) + 3 * bondId + 1`) until slashing exists; the release
-    /// rewrites the entry's stale leaf.
-    function test_withdraw_ReleasesZeroStakeForAnyoneWithoutPayment() external {
-        _requestExitCovered();
-        registry.confirmExit(0);
-        string memory j = LibEtnaVectors.load();
-        uint256 base = uint256(LibEtnaVectors.bytes32At(j, ".layout.registry.base"));
-        vm.store(address(registry), bytes32(uint256(keccak256(abi.encode(base + 1))) + 1), 0);
-        assertEq(registry.entryAt(0).effStake, 0, "planted zero stake");
-
-        vm.roll(_REGISTERED_AT + WITHDRAWAL_DELAY - 1);
-        vm.expectRevert(IEtnaStakingRegistry.WithdrawalNotReady.selector);
-        vm.prank(Carol);
-        registry.withdraw(0, address(0));
-
-        vm.roll(_REGISTERED_AT + WITHDRAWAL_DELAY);
-        IEtnaStakingRegistry.Entry memory zero;
-        vm.expectEmit(address(registry));
-        emit IEtnaStakingRegistry.StakeWithdrawn(0, address(0), 0);
-        vm.prank(Carol);
-        registry.withdraw(0, address(0));
-
-        assertEq(token.balanceOf(address(registry)), MIN_STAKE, "nothing paid");
-        assertEq(token.balanceOf(Carol), 0, "nothing to the caller");
-        _assertEntry(0, zero);
-        assertEq(registry.ownerOf(0), address(0), "owner cleared");
-        assertEq(registry.exitConfirmedAtL1(0), 0, "confirmation cleared");
-        assertEq(registry.freeSlotCount(), 1, "slot freed");
-        assertEq(registry.entriesRoot(), LibEntriesTree.leaf(0, zero), "root");
     }
 
     /// @dev The lock taken by `withdraw` stops a token that re-enters it from `transfer`. The

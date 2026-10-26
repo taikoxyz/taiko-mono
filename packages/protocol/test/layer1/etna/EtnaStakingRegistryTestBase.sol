@@ -38,10 +38,18 @@ abstract contract EtnaStakingRegistryTestBase is CommonTest, EtnaTestConstants {
         internal
         returns (EtnaStakingRegistry)
     {
+        return _deployRegistry(_registryConfig(_token, _inbox));
+    }
+
+    /// @dev Deploys a registry proxy, owned by this test, with `_config`.
+    function _deployRegistry(IEtnaStakingRegistry.Config memory _config)
+        internal
+        returns (EtnaStakingRegistry)
+    {
         return EtnaStakingRegistry(
             address(
                 new ERC1967Proxy(
-                    address(new EtnaStakingRegistry(_registryConfig(_token, _inbox))),
+                    address(new EtnaStakingRegistry(_config)),
                     abi.encodeCall(EtnaStakingRegistry.init, (address(0)))
                 )
             )
