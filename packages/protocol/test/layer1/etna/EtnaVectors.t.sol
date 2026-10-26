@@ -8,6 +8,7 @@ import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
+import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 
 /// @title EtnaVectorsTest
@@ -433,6 +434,112 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
             abi.encodeCall(IEtnaInbox.land, (input, leaves, _bytes(j, a, "proof"))),
             _bytes(j, a, "calldata")
         );
+    }
+
+    /// @dev `land` itself hashes the genesis statement vector: an Inbox at the vector address,
+    /// planted through the vector slots with landings(0) = (0, 0, 0, bytes32(100), 0), generation
+    /// 0 from height 0, head 0 and tail 3, lands (0, 18] with the leaves at 6 and 12.
+    function test_land_HashesTheGenesisStatementVector() external {
+        string memory j = LibEtnaVectors.load();
+        string memory s = ".land_statements[0].";
+        string memory input = string.concat(s, "inputs.");
+        assertEq(LibEtnaVectors.stringAt(j, string.concat(s, "name")), "genesis");
+        address at = _etchVectorInbox(j, input);
+
+        bytes32 parentHash = _bytes32(j, input, "parent_hash");
+        assertEq(parentHash, bytes32(uint256(100)), "genesis hash");
+        _plantVectorLanding(
+            j, at, 0, _uint(j, input, "forced_inclusion_head_before"), parentHash, bytes32(0)
+        );
+        _plantVectorOrigin(j, at, 0, 0);
+        vm.store(at, bytes32(_inboxSlot(j, "last_checkpoint_hash")), parentHash);
+        vm.store(
+            at,
+            bytes32(_inboxSlot(j, "forced_inclusion_head_tail")),
+            bytes32(_uint(j, input, "forced_inclusion_head_before") | (uint256(3) << 48))
+        );
+
+        bytes32[] memory leaves = new bytes32[](2);
+        leaves[0] = _bytes32(j, _at(".cuts.table", 6), "leaf");
+        leaves[1] = _bytes32(j, _at(".cuts.table", 12), "leaf");
+        string memory cuts = _at(".cuts.cut_hashes", 2);
+        assertEq(LibEtnaVectors.stringAt(j, string.concat(cuts, "name")), "g0_p0_h18");
+        assertEq(_bytes32(j, cuts, "cut_hash"), _bytes32(j, input, "cut_hash"), "cut hash");
+        assertEq(keccak256(abi.encodePacked(leaves)), _bytes32(j, cuts, "leaves_hash"), "leaves");
+
+        IEtnaInbox.LandInput memory landInput = _landInput(j, input);
+        bytes memory proof = _bytes(j, ".land_abi.", "proof");
+        vm.expectCall(
+            address(landVerifier),
+            abi.encodeCall(IProofVerifier.verifyProof, (0, _bytes32(j, s, "hash"), proof)),
+            1
+        );
+        vm.expectEmit(at);
+        emit IEtnaInbox.Landed(
+            0, 0, 18, _bytes32(j, input, "cut_hash"), landInput.activeCommitteeSnapshot, 1
+        );
+        IEtnaInbox(at).land(landInput, leaves, proof);
+
+        _assertVectorLanding(j, at, input, 0);
+    }
+
+    /// @dev `land` hashes the nonzero statement vector from its exact ABI calldata: generation 1
+    /// starts at 6, whose generation-0 record (0, 0, 1, bytes32(106), bytes32(206)) is also the
+    /// checkpoint; head 1 and tail 3.
+    function test_land_HashesTheNonzeroStatementVector() external {
+        string memory j = LibEtnaVectors.load();
+        string memory s = ".land_statements[1].";
+        string memory input = string.concat(s, "inputs.");
+        assertEq(LibEtnaVectors.stringAt(j, string.concat(s, "name")), "nonzero");
+        assertEq(LibEtnaVectors.stringAt(j, ".land_abi.statement"), "nonzero");
+        address at = _etchVectorInbox(j, input);
+
+        uint256 generation = _uint(j, input, "generation");
+        uint256 p = _uint(j, input, "parent_height");
+        bytes32 parentHash = _bytes32(j, input, "parent_hash");
+        assertEq(generation, 1, "generation");
+        assertEq(p, 6, "origin");
+        vm.store(at, bytes32(_inboxSlot(j, "recovery_generation")), bytes32(generation));
+        _plantVectorOrigin(j, at, 1, p);
+        _plantVectorLanding(
+            j,
+            at,
+            1,
+            _uint(j, input, "forced_inclusion_head_before"),
+            parentHash,
+            _bytes32(j, input, "parent_comet_hash")
+        );
+        vm.store(at, bytes32(_inboxSlot(j, "last_checkpoint_height")), bytes32(p));
+        vm.store(at, bytes32(_inboxSlot(j, "last_checkpoint_hash")), parentHash);
+        vm.store(
+            at,
+            bytes32(_inboxSlot(j, "forced_inclusion_head_tail")),
+            bytes32(_uint(j, input, "forced_inclusion_head_before") | (uint256(3) << 48))
+        );
+        assertEq(IEtnaInbox(at).generationStartHeight(), p, "origin is the start height");
+        assertEq(IEtnaInbox(at).landings(p).generation, 0, "an older generation's record");
+
+        vm.expectCall(
+            address(landVerifier),
+            abi.encodeCall(
+                IProofVerifier.verifyProof,
+                (0, _bytes32(j, s, "hash"), _bytes(j, ".land_abi.", "proof"))
+            ),
+            1
+        );
+        vm.expectEmit(at);
+        emit IEtnaInbox.Landed(
+            p,
+            p,
+            18,
+            _bytes32(j, input, "cut_hash"),
+            _uint(j, input, "active_committee_snapshot"),
+            1
+        );
+        (bool ok, bytes memory reason) = at.call(_bytes(j, ".land_abi.", "calldata"));
+        assertTrue(ok, string(reason));
+
+        _assertVectorLanding(j, at, input, p);
     }
 
     function test_chainDomains_DigestAndFortyEightByteChainId() external view {
@@ -958,6 +1065,125 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
             address(new EtnaStakingRegistry(_registryConfig(address(taikoToken), inboxProxy))).code
         );
         return IEtnaStakingRegistry(at);
+    }
+
+    /// @dev Etches `EtnaInbox` code at the vector Inbox address with the statement's L2 chain id
+    /// and registry, this suite's verifier and a fresh SignalService accepting that address;
+    /// switches to the statement's L1 chain id, rolls to the block after its reference block,
+    /// whose hash it sets, attaches its blobs and plants slot 258 = 3 and the vector config hash.
+    function _etchVectorInbox(string memory _j, string memory _in) private returns (address at_) {
+        at_ = _address(_j, ".deployment.", "inbox");
+        assertEq(_address(_j, _in, "inbox"), at_, "statement inbox");
+        assertEq(_address(_j, _in, "registry"), _address(_j, ".deployment.", "registry"));
+        vm.chainId(_uint(_j, _in, "l1_chain_id"));
+        signalService = _deploySignalService(at_);
+        IEtnaInbox.Config memory cfg = _defaultConfig();
+        cfg.stakingRegistry = _address(_j, _in, "registry");
+        cfg.l2ChainId = uint64(_uint(_j, _in, "l2_chain_id"));
+        vm.etch(at_, address(_newInboxImpl(cfg)).code);
+
+        uint256 ref = _uint(_j, _in, "l1_reference_block_number");
+        assertEq(ref, 19_000_000, "reference block");
+        vm.roll(ref + 1);
+        vm.setBlockhash(ref, _bytes32(_j, _in, "l1_reference_block_hash"));
+        vm.blobhashes(_bytes32Array(_j, _in, "blob_hashes"));
+
+        vm.store(
+            at_,
+            bytes32(_inboxSlot(_j, "initialization_status")),
+            bytes32(_uint(_j, ".layout.inbox.", "initialized_status"))
+        );
+        bytes32 configHash = _bytes32(_j, _in, "committee_config_hash");
+        assertEq(configHash, _bytes32(_j, ".committee_config.", "hash"), "config hash");
+        vm.store(at_, bytes32(_inboxSlot(_j, "committee_config_hash")), configHash);
+    }
+
+    /// @dev Writes the record (0, 0, `_head`, `_el`, `_comet`) at the vector's landing slots item
+    /// `_index`.
+    function _plantVectorLanding(
+        string memory _j,
+        address _target,
+        uint256 _index,
+        uint256 _head,
+        bytes32 _el,
+        bytes32 _comet
+    )
+        private
+    {
+        bytes32[] memory slots =
+            _bytes32Array(_j, _at(".layout.inbox.landing_slots", _index), "slots");
+        vm.store(_target, slots[0], bytes32(_head << 96));
+        vm.store(_target, slots[1], _el);
+        vm.store(_target, slots[2], _comet);
+    }
+
+    /// @dev Writes origin (`_startHeight`, 18,990,000, 1,700,000,000) for `_generation` at the
+    /// vector's origin slots.
+    function _plantVectorOrigin(
+        string memory _j,
+        address _target,
+        uint256 _generation,
+        uint256 _startHeight
+    )
+        private
+    {
+        string memory p = _at(".layout.inbox.origin_slots", _generation);
+        assertEq(_uint(_j, p, "generation"), _generation, "origin generation");
+        bytes32[] memory slots = _bytes32Array(_j, p, "slots");
+        vm.store(_target, slots[0], bytes32(_startHeight));
+        vm.store(_target, slots[1], bytes32(uint256(18_990_000)));
+        vm.store(_target, slots[2], bytes32(uint256(1_700_000_000)));
+    }
+
+    /// @dev Checks the writes of a vector landing ending at 18 that settled on `_c`: the record
+    /// at the vector's height-18 slots, the checkpoint, the queue head, the snapshot and the
+    /// SignalService checkpoint.
+    function _assertVectorLanding(
+        string memory _j,
+        address _target,
+        string memory _in,
+        uint256 _c
+    )
+        private
+        view
+    {
+        string memory p = _at(".layout.inbox.landing_slots", 2);
+        assertEq(_uint(_j, p, "height"), 18, "landing height");
+        bytes32[] memory slots = _bytes32Array(_j, p, "slots");
+        uint256 headAfter = _uint(_j, _in, "forced_inclusion_head_after");
+        bytes32 lastBlockHash = _bytes32(_j, _in, "last_block_hash");
+        assertEq(
+            vm.load(_target, slots[0]),
+            bytes32(_c | (_uint(_j, _in, "generation") << 48) | (headAfter << 96)),
+            "record word 1"
+        );
+        assertEq(vm.load(_target, slots[1]), lastBlockHash, "record EL hash");
+        assertEq(
+            vm.load(_target, slots[2]), _bytes32(_j, _in, "last_comet_hash"), "record Comet hash"
+        );
+        assertEq(
+            uint256(vm.load(_target, bytes32(_inboxSlot(_j, "last_checkpoint_height")))),
+            18,
+            "checkpoint height"
+        );
+        assertEq(
+            vm.load(_target, bytes32(_inboxSlot(_j, "last_checkpoint_hash"))),
+            lastBlockHash,
+            "checkpoint hash"
+        );
+        (uint48 head,) = IEtnaInbox(_target).getForcedInclusionState();
+        assertEq(head, headAfter, "queue head");
+        assertEq(
+            uint256(vm.load(_target, bytes32(_inboxSlot(_j, "active_committee_snapshot")))),
+            _uint(_j, _in, "active_committee_snapshot"),
+            "snapshot"
+        );
+        assertEq(signalService.getCheckpoint(18).blockHash, lastBlockHash, "signal block hash");
+        assertEq(
+            signalService.getCheckpoint(18).stateRoot,
+            _bytes32(_j, _in, "last_state_root"),
+            "signal state root"
+        );
     }
 
     /// @dev Mints `MIN_STAKE` to `_owner`, who approves `_registry` for any amount.
