@@ -116,6 +116,10 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev The number of most recent L1 blocks whose hash the EIP-2935 contract serves.
     uint256 private constant _HISTORY_SERVE_WINDOW = 8191;
 
+    /// @dev keccak256(""): the txHash recovery writes over a blanked forced inclusion (spec 8
+    /// step 3).
+    bytes32 private constant _BLANK_TX_HASH = keccak256("");
+
     // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
@@ -361,15 +365,53 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     }
 
     /// @inheritdoc IEtnaInbox
+    /// @dev Requires initialization; every check precedes every effect. The effects run in this
+    /// order: `forceExit` per exclusion, the blanking, the generation and origin writes, then the
+    /// event; a failing `forceExit` reverts the whole call. Unaffected by pause. The only external
+    /// calls are `forceExit` on the fixed registry. At block.number == 2^48 - 1 recovery passes its
+    /// own bound but any exclusion reverts in the registry, which stores no L1 block at its no-exit
+    /// sentinel.
     function recover(
-        uint48,
-        uint256,
-        Exclusion[] calldata,
-        uint256[] calldata
+        uint48 _expectedGeneration,
+        uint256 _expectedC,
+        Exclusion[] calldata _exclusions,
+        uint256[] calldata _fiToClear
     )
         external
-        notImplemented
-    { }
+        onlyOwner
+        nonReentrant
+    {
+        require(_initStatus == INITIALIZED_STATUS, NotInitialized());
+        uint48 generation = _recoveryGeneration;
+        require(_expectedGeneration == generation, GenerationMismatch());
+        uint48 c = _lastCheckpoint.height;
+        require(_expectedC == c, CheckpointMismatch());
+
+        // The new generation (slot 268) and the origin's L1 block and timestamp must fit 48 bits
+        // (C6); c already does.
+        uint48 newGeneration = _toUint48(uint256(generation) + 1);
+        require(
+            block.number <= type(uint48).max && block.timestamp <= type(uint48).max, ValueOverflow()
+        );
+        _checkRecoveryLists(_exclusions, _fiToClear);
+        Origin storage origin = _origins[newGeneration];
+        require(
+            origin.startHeight == 0 && origin.l1BlockNumber == 0 && origin.l1Timestamp == 0,
+            OriginAlreadyWritten()
+        );
+
+        for (uint256 i; i < _exclusions.length; ++i) {
+            _stakingRegistry.forceExit(_exclusions[i].bondId, _exclusions[i].entryKey, block.number);
+        }
+        for (uint256 i; i < _fiToClear.length; ++i) {
+            _forcedInclusions.queue[_fiToClear[i]].txHash = _BLANK_TX_HASH;
+        }
+        _recoveryGeneration = newGeneration;
+        _origins[newGeneration] =
+            Origin({ startHeight: c, l1BlockNumber: block.number, l1Timestamp: block.timestamp });
+
+        emit Recovered(newGeneration, c, block.number, block.timestamp, _exclusions, _fiToClear);
+    }
 
     /// @inheritdoc IEtnaInbox
     function isInitialized() external view returns (bool) {
@@ -602,6 +644,34 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             head <= headAfter_ && headAfter_ <= _forcedInclusions.tail
                 && headAfter_ - head <= h - _c,
             InvalidForcedInclusionHead()
+        );
+    }
+
+    /// @dev Spec 8 steps 1-3: exclusions sorted strictly by bond id, then queue indices strictly
+    /// increasing and within [head, tail). Strict order makes the first and last indices bound
+    /// the whole list.
+    /// @param _exclusions The entries to force out.
+    /// @param _fiToClear The queue indices to blank.
+    function _checkRecoveryLists(
+        Exclusion[] calldata _exclusions,
+        uint256[] calldata _fiToClear
+    )
+        private
+        view
+    {
+        for (uint256 i = 1; i < _exclusions.length; ++i) {
+            require(_exclusions[i - 1].bondId < _exclusions[i].bondId, ExclusionsNotSorted());
+        }
+
+        uint256 count = _fiToClear.length;
+        if (count == 0) return;
+        for (uint256 i = 1; i < count; ++i) {
+            require(_fiToClear[i - 1] < _fiToClear[i], FiToClearNotSorted());
+        }
+        require(
+            _fiToClear[0] >= _forcedInclusions.head
+                && _fiToClear[count - 1] < _forcedInclusions.tail,
+            FiIndexOutOfRange()
         );
     }
 
