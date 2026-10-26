@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { LibEtnaVectors } from "./LibEtnaVectors.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { LibEntriesTree } from "src/layer1/etna/libs/LibEntriesTree.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
@@ -170,6 +171,49 @@ contract LibEntriesTreeTest is CommonTest {
     }
 
     // ---------------------------------------------------------------
+    // Shared vectors (testdata/etna_vectors, registry_entries)
+    // ---------------------------------------------------------------
+
+    /// @dev The five `ETNA_REG_ENTRY_V1` leaves, and the leaf of released slot 5 (all-zero
+    /// fields).
+    function test_leaf_MatchesTheSharedVectors() external view {
+        string memory json = LibEtnaVectors.load();
+        uint256 n = LibEtnaVectors.lengthAt(json, ".registry_entries.entries");
+        assertEq(n, _ENTRIES);
+        assertEq(LibEtnaVectors.lengthAt(json, ".registry_entries.leaves"), n);
+        for (uint256 i; i < n; ++i) {
+            assertEq(tree.leaf(i, _vectorEntry(json, i)), _vectorLeaf(json, i), "entry leaf");
+        }
+        IEtnaStakingRegistry.Entry memory released;
+        uint256 index = LibEtnaVectors.uintAt(json, ".registry_entries.released.index");
+        assertEq(index, n);
+        assertEq(
+            tree.leaf(index, released),
+            LibEtnaVectors.bytes32At(json, ".registry_entries.released.leaf"),
+            "released leaf"
+        );
+    }
+
+    /// @dev The root after every append, from no entry to six (the five entries, then the
+    /// released slot), equals the shared root of that prefix.
+    function test_root_MatchesTheSharedVectors() external {
+        string memory json = LibEtnaVectors.load();
+        uint256 n = LibEtnaVectors.lengthAt(json, ".registry_entries.roots");
+        assertEq(n, _ENTRIES + 2);
+        assertEq(LibEtnaVectors.uintAt(json, ".registry_entries.roots[0].count"), 0);
+        assertEq(tree.root(0), _vectorRoot(json, 0), "no entry");
+        for (uint256 count = 1; count < n; ++count) {
+            string memory root = string.concat(".registry_entries.roots[", vm.toString(count), "]");
+            assertEq(LibEtnaVectors.uintAt(json, string.concat(root, ".count")), count);
+            bytes32 leaf = count <= _ENTRIES
+                ? _vectorLeaf(json, count - 1)
+                : LibEtnaVectors.bytes32At(json, ".registry_entries.released.leaf");
+            assertEq(tree.update(count, count - 1, leaf), _vectorRoot(json, count), "update");
+            assertEq(tree.root(count), _vectorRoot(json, count), "root");
+        }
+    }
+
+    // ---------------------------------------------------------------
     // update
     // ---------------------------------------------------------------
 
@@ -288,6 +332,39 @@ contract LibEntriesTreeTest is CommonTest {
             activeFromL1: uint48(10 + _i),
             exitEffectiveL1: _i % 2 == 1 ? uint48(1000 + _i) : _NO_EXIT
         });
+    }
+
+    /// @dev Entry `_i` of the shared `registry_entries`.
+    function _vectorEntry(
+        string memory _json,
+        uint256 _i
+    )
+        private
+        pure
+        returns (IEtnaStakingRegistry.Entry memory)
+    {
+        string memory p = string.concat(".registry_entries.entries[", vm.toString(_i), "].");
+        return IEtnaStakingRegistry.Entry({
+            ckX: LibEtnaVectors.bytes32At(_json, string.concat(p, "ck_x")),
+            effStake: LibEtnaVectors.uintAt(_json, string.concat(p, "eff_stake")),
+            ckPrefix: uint8(LibEtnaVectors.uintAt(_json, string.concat(p, "ck_prefix"))),
+            activeFromL1: uint48(LibEtnaVectors.uintAt(_json, string.concat(p, "active_from_l1"))),
+            exitEffectiveL1: uint48(
+                LibEtnaVectors.uintAt(_json, string.concat(p, "exit_effective_l1"))
+            )
+        });
+    }
+
+    function _vectorLeaf(string memory _json, uint256 _i) private pure returns (bytes32) {
+        return LibEtnaVectors.bytes32At(
+            _json, string.concat(".registry_entries.leaves[", vm.toString(_i), "]")
+        );
+    }
+
+    function _vectorRoot(string memory _json, uint256 _count) private pure returns (bytes32) {
+        return LibEtnaVectors.bytes32At(
+            _json, string.concat(".registry_entries.roots[", vm.toString(_count), "].entries_root")
+        );
     }
 
     /// @dev The appendix A `regLeaf` built word by word: the seven 32-byte words of the tag,
