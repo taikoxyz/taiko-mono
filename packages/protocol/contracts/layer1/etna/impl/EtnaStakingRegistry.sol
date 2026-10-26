@@ -330,7 +330,22 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     }
 
     /// @inheritdoc IEtnaStakingRegistry
-    function forceExit(uint256, bytes32, uint256) external notImplemented { }
+    /// @dev Checks in order: the caller, the entry (`UnknownBond`, then `SlotReleased`), the
+    /// entry key, then `_r`, which must be below the no-exit sentinel (`InvalidEventBlock`) so an
+    /// excluded entry is always left with an exit. An exit already at or before `_r` is kept, and
+    /// then nothing is written: no checkpoint and no event.
+    function forceExit(uint256 _bondId, bytes32 _entryKey, uint256 _r) external nonReentrant {
+        require(msg.sender == _inbox, NotInbox());
+        RegistryStorage storage $ = _registryStorage();
+        Entry memory entry = _unreleasedEntry($, _bondId);
+        require(_entryKey == LibEtnaKeys.entryKey(entry.ckPrefix, entry.ckX), EntryKeyMismatch());
+        uint48 r = _toEventBlock(_r);
+        if (r >= entry.exitEffectiveL1) return;
+
+        entry.exitEffectiveL1 = r;
+        _commit($, _bondId, entry);
+        emit ExitForced(_bondId, r);
+    }
 
     /// @inheritdoc IEtnaStakingRegistry
     function checkpointCount() external view returns (uint256) {
