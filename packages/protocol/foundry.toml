@@ -60,7 +60,6 @@ block_gas_limit = 80_000_000
 
 fs_permissions = [
     { access = "read", path = "./out" },
-    # ExportEtnaGenesis writes local immutable runtime JSON here; it never broadcasts.
     { access = "read-write", path = "./deployments" },
     { access = "read-write", path = "./gas-reports" },
     { access = "read-write", path = "./script/layer1/proposals/" },
@@ -136,8 +135,6 @@ cache_path = "cache/layer1o"
 via_ir = true
 
 [profile.layer2]
-# Offline Etna genesis validation binds immutable reference IDs to their declarations.
-ast = true
 src = "contracts/layer2"
 test = "test/layer2"
 script = "script/layer2"
