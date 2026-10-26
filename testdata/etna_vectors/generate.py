@@ -280,6 +280,9 @@ def key_decompression(key_list):
     x, y = int(base["ck_x"], 16), int(base["ck_y"], 16)
     x_bytes, xy = x.to_bytes(32, "big"), x.to_bytes(32, "big") + y.to_bytes(32, "big")
     off_curve_x = smallest_off_curve_x()
+    # The 66 ASCII characters of the key's hex form: textual encodings are rejected, not parsed.
+    textual = base["public_key"][2:].encode("ascii")
+    assert len(textual) == 66 and bytes.fromhex(textual.decode()) == compress(x, y)
     # X is not reduced mod p: X = p would reduce to 0 (no point), X = 2^256 - 1 onto the curve.
     assert decompress(bytes([2]) + ((WORD_MOD - 1) % SECP_P).to_bytes(32, "big")) is not None
     rejected = (
@@ -296,6 +299,9 @@ def key_decompression(key_list):
         ("trailing_byte", compress(x, y) + bytes(1), "trailing_bytes"),
         ("short_32", x_bytes, "short"),
         ("empty", b"", "empty"),
+        ("textual_hex", textual, "textual"),
+        # SEC1's single-byte encoding of the point at infinity.
+        ("identity_00", bytes(1), "identity"),
     )
     for name, public_key, reason in rejected:
         assert decompress(public_key) is None, name
@@ -938,6 +944,8 @@ BLOCK_A = ("0x" + "aa" * 32, 1, "0x" + "ab" * 32)
 BLOCK_B = ("0x" + "bb" * 32, 2, "0x" + "bc" * 32)
 BLOCK_NIL = (word(0), 0, word(0))
 BLOCK_PARTIAL = (word(0), 1, "0x" + "ab" * 32)
+# A hash with an all-zero part set header: CometBFT writes the empty header as `12 00`.
+BLOCK_HASH_ONLY = (BLOCK_A[0], 0, word(0))
 BLOCK_MAX = (BLOCK_A[0], 2**32 - 1, BLOCK_A[2])
 
 # name, type, round, block id, generation, Inbox; height VOTE_HEIGHT and time VOTE_TIME unless
@@ -958,10 +966,16 @@ VOTE_CASES = (
     ("other_inbox_precommit_b", PRECOMMIT, 0, BLOCK_B, 0, OTHER_INBOX),
     ("partial_block_id", PRECOMMIT, 0, BLOCK_PARTIAL, 0, DEPLOYMENT["inbox"]),
     ("max_values", PRECOMMIT, 2**31 - 1, BLOCK_MAX, 0, DEPLOYMENT["inbox"]),
+    ("precommit_b_h1001", PRECOMMIT, 0, BLOCK_B, 0, DEPLOYMENT["inbox"]),
+    ("hash_only_block_id", PRECOMMIT, 0, BLOCK_HASH_ONLY, 0, DEPLOYMENT["inbox"]),
+    ("zero_timestamp", PRECOMMIT, 0, BLOCK_A, 0, DEPLOYMENT["inbox"]),
 )
 VOTE_OVERRIDES = {
     "precommit_a_late": {"time": (1_700_000_001, 0)},
     "max_values": {"height": 2**63 - 1, "time": (MAX_VOTE_SECONDS, 999_999_999)},
+    "precommit_b_h1001": {"height": VOTE_HEIGHT + 1},
+    # The Unix epoch: both timestamp fields are zero, so CometBFT writes the timestamp as `2a 00`.
+    "zero_timestamp": {"time": (0, 0)},
 }
 # name, vote a, vote b, the Inbox's current generation, reason ("double_sign" when slashable).
 VOTE_PAIRS = (
@@ -975,6 +989,18 @@ VOTE_PAIRS = (
     ("historical_generation_conflict", "precommit_a", "precommit_b", 1, "double_sign"),
     ("future_generation", "gen2_precommit_a", "gen2_precommit_b", 1, "future_generation"),
     ("other_deployment", "precommit_a", "other_inbox_precommit_b", 0, "other_deployment"),
+    # Each of the next three conflicts on the block id and differs in exactly one other field.
+    (
+        "different_round_conflicting_blocks",
+        "prevote_a_r1",
+        "prevote_b_r2",
+        0,
+        "different_round",
+    ),
+    # Spec 4.1 needs the same generation: votes for one height in two generations are not a
+    # double sign, even though both generations are at or below the current one.
+    ("different_generation", "precommit_a", "gen1_precommit_b", 1, "different_generation"),
+    ("different_height", "precommit_a", "precommit_b_h1001", 0, "different_height"),
 )
 
 
@@ -1626,6 +1652,12 @@ def fi_cases():
             eip7702([fi_authorization(l2_chain_id, nonce=2**64 - 1)]),
         ),
         ("eip7702_tuple_high_s", "eligible", eip7702([auth_high_s])),
+        # Spec 7.2: eligibility ignores fees, even a tip above the fee cap.
+        (
+            "eip1559_tip_above_max_fee",
+            "eligible",
+            fi_encode(2, eip1559(max_priority_fee=3 * GWEI, max_fee=2 * GWEI)),
+        ),
         ("empty", "noncanonical", b""),
         ("trailing_byte", "noncanonical", fi_encode(2, base) + b"\x00"),
         ("two_transactions", "noncanonical", fi_encode(2, base) + fi_encode(2, nonce_one)),
