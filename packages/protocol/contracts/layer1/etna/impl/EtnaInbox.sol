@@ -6,6 +6,7 @@ import { IEtnaStakingRegistry } from "../iface/IEtnaStakingRegistry.sol";
 import { LibEtnaForcedInclusion } from "../libs/LibEtnaForcedInclusion.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
 import "./EtnaInbox_Layout.sol"; // DO NOT DELETE
@@ -49,6 +50,25 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @notice The slot 258 value once initialized.
     uint8 public constant INITIALIZED_STATUS = 3;
+
+    /// @dev The domain tag of `committeeConfigHash` (appendix A).
+    bytes32 private constant _COMMITTEE_CONFIG_TAG = bytes32("ETNA_PARENT_ANCHOR_V1");
+
+    /// @dev The minimum epoch length `L` in L2 blocks (spec 10).
+    uint256 private constant _MIN_EPOCH_LEN_L2 = 3;
+
+    /// @dev The minimum `maxAnchorAge` in seconds (spec 10).
+    uint256 private constant _MIN_MAX_ANCHOR_AGE = 1152;
+
+    /// @dev The minimum `vp_unit`, which keeps the committee's total voting power from overflowing
+    /// (spec 4.3).
+    uint256 private constant _MIN_VP_UNIT = 867_361_738;
+
+    /// @dev The maximum `n_max`, the registry's capacity.
+    uint256 private constant _MAX_COMMITTEE_SIZE = 4096;
+
+    /// @dev The maximum `U`, the largest multiple of 6 below 2^16 (spec 10).
+    uint256 private constant _MAX_UNSETTLED_LIMIT = 65_532;
 
     // ---------------------------------------------------------------
     // Immutable Variables
@@ -172,7 +192,54 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IEtnaInbox
-    function init(InitParams calldata) external notImplemented { }
+    /// @dev Writes only the non-zero appendix B values: a proxy that has only run the bootstrap
+    /// holds zero in every other Inbox slot, which is the remaining initial state (generation 0,
+    /// checkpoint height 0, an empty queue and the zero fields of landings[0] and origins[0]).
+    function init(InitParams calldata _params) external reinitializer(2) onlyOwner {
+        _validateInitParams(_params);
+
+        bytes32 configHash = _hashCommitteeConfig(_params.committeeConfig);
+        bytes32 genesisBlockHash = _params.genesisBlockHash;
+        uint48 l1Block = uint48(block.number);
+        uint48 cutoff = uint48(_params.genesisCutoff);
+
+        _initStatus = INITIALIZED_STATUS;
+        _committeeConfigHash = configHash;
+        _lastCheckpoint.blockHash = genesisBlockHash;
+        _genesis = GenesisRecord({
+            genesisHeight: 0,
+            l1Block: l1Block,
+            epochLenL2: uint48(_params.epochLenL2),
+            genesisBlockHash: genesisBlockHash,
+            genesisStateRoot: _params.genesisStateRoot
+        });
+        _genesisCommitteeRecordHash = _params.committeeRecordHash;
+        _genesisCutoff = cutoff;
+        _forcedInclusionConfig = ForcedInclusionConfig({
+            delay: uint48(_params.forcedInclusionDelay), maxAnchorAge: uint48(_params.maxAnchorAge)
+        });
+        _activeCommitteeSnapshot = cutoff;
+        _landings[0].elHash = genesisBlockHash;
+        Origin storage origin = _origins[0];
+        origin.l1BlockNumber = l1Block;
+        origin.l1Timestamp = block.timestamp;
+
+        _signalService.saveCheckpoint(
+            ICheckpointStore.Checkpoint({
+                blockNumber: 0, blockHash: genesisBlockHash, stateRoot: _params.genesisStateRoot
+            })
+        );
+
+        emit EtnaInitialized(
+            genesisBlockHash,
+            _params.genesisStateRoot,
+            l1Block,
+            _params.epochLenL2,
+            cutoff,
+            _params.committeeRecordHash,
+            configHash
+        );
+    }
 
     /// @inheritdoc IEtnaInbox
     function land(LandInput calldata, bytes32[] calldata, bytes calldata)
@@ -334,5 +401,80 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @inheritdoc IEtnaInbox
     function protocolFeeRecipient() external view returns (address) {
         return _protocolFeeRecipient;
+    }
+
+    // ---------------------------------------------------------------
+    // Private Functions
+    // ---------------------------------------------------------------
+
+    /// @dev Checks the spec 10 deployment constraints `init` can check. Every stored 48-bit field
+    /// fits once these pass: the cutoff is below `block.number`, itself below 2^48.
+    /// @param _params The genesis inputs.
+    function _validateInitParams(InitParams calldata _params) private view {
+        require(_params.genesisBlockHash != 0 && _params.genesisStateRoot != 0, InvalidGenesis());
+        require(_params.committeeRecordHash != 0, ZeroCommitteeRecord());
+        // L + 1 < 2^48.
+        require(
+            _params.epochLenL2 >= _MIN_EPOCH_LEN_L2 && _params.epochLenL2 < type(uint48).max,
+            InvalidEpochLength()
+        );
+        require(_isValidCommitteeConfig(_params.committeeConfig), InvalidCommitteeConfig());
+        require(
+            _params.forcedInclusionDelay != 0 && _params.forcedInclusionDelay <= type(uint48).max,
+            InvalidForcedInclusionDelay()
+        );
+        require(
+            _params.maxAnchorAge >= _MIN_MAX_ANCHOR_AGE && _params.maxAnchorAge <= type(uint48).max,
+            InvalidMaxAnchorAge()
+        );
+        require(
+            block.number <= type(uint48).max && block.timestamp <= type(uint48).max, ValueOverflow()
+        );
+        // The registry must be this Inbox's before its checkpoints are trusted (spec 4.1).
+        require(
+            _stakingRegistry.inbox() == address(this) && _stakingRegistry.l2ChainId() == _l2ChainId,
+            RegistryMismatch()
+        );
+        require(_isValidGenesisCutoff(_params.genesisCutoff), InvalidGenesisCutoff());
+    }
+
+    /// @dev Returns whether `_cutoff` is a past L1 block at or after the registry's first
+    /// checkpoint; a registry without checkpoints accepts none.
+    /// @param _cutoff The genesis cutoff.
+    /// @return Whether the cutoff is valid.
+    function _isValidGenesisCutoff(uint256 _cutoff) private view returns (bool) {
+        return _cutoff < block.number && _stakingRegistry.checkpointCount() != 0
+            && _cutoff >= _stakingRegistry.checkpointAt(0).l1Block;
+    }
+
+    /// @dev Returns whether the committee configuration is within the spec 10 bounds:
+    /// 6 <= U <= 65,532 with U a multiple of 6, vp_unit >= 867,361,738, s_min >= vp_unit and
+    /// 1 <= n_max <= 4096.
+    /// @param _config The committee configuration.
+    /// @return Whether the configuration is valid.
+    function _isValidCommitteeConfig(CommitteeConfig calldata _config) private pure returns (bool) {
+        uint256 unsettledLimit = _config.unsettledLimit;
+        return unsettledLimit >= GRID_INTERVAL && unsettledLimit <= _MAX_UNSETTLED_LIMIT
+            && unsettledLimit % GRID_INTERVAL == 0 && _config.vpUnit >= _MIN_VP_UNIT
+            && _config.sMin >= _config.vpUnit && _config.nMax != 0
+            && _config.nMax <= _MAX_COMMITTEE_SIZE;
+    }
+
+    /// @dev Returns `committeeConfigHash`: keccak256 over the seven words (224 bytes) of the tag,
+    /// the L2 chain id, the registry and the four configuration values (appendix A).
+    /// @param _config The committee configuration.
+    /// @return The configuration hash.
+    function _hashCommitteeConfig(CommitteeConfig calldata _config) private view returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                _COMMITTEE_CONFIG_TAG,
+                uint256(_l2ChainId),
+                address(_stakingRegistry),
+                _config.vpUnit,
+                _config.sMin,
+                _config.nMax,
+                _config.unsettledLimit
+            )
+        );
     }
 }

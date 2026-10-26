@@ -31,6 +31,11 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
         inbox = IEtnaInbox(inboxProxy);
     }
 
+    /// @dev The layout tests plant words into an uninitialized Inbox.
+    function _initializeOnSetUp() internal pure override returns (bool) {
+        return false;
+    }
+
     function test_schema_IsVersionFour() external view {
         assertEq(LibEtnaVectors.stringAt(LibEtnaVectors.load(), ".schema_version"), "4");
     }
@@ -299,6 +304,44 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
         assertEq(preimage.length, 224);
         assertEq(preimage, _bytes(j, ".committee_config.", "preimage"));
         assertEq(keccak256(preimage), _bytes32(j, ".committee_config.", "hash"));
+    }
+
+    /// @dev `init` stores the vector `committee_config.hash` for the vector inputs, registry address
+    /// and L2 chain id. Etched code carries no storage, so the vector registry's first checkpoint
+    /// comes from a real `register` there with the vector's control proof of possession
+    /// (`register_digests[0]`, valid only at that address and L1 chain id) rather than from
+    /// planted words.
+    function test_init_StoresTheVectorConfigHash() external {
+        string memory j = LibEtnaVectors.load();
+        string memory p = ".committee_config.inputs.";
+        IEtnaStakingRegistry at = _etchVectorRegistry(j);
+        assertEq(_address(j, p, "registry"), address(at), "registry");
+
+        string memory control = ".register_digests[0].";
+        address owner = _address(j, control, "owner");
+        _fundVectorOwner(at, owner);
+        vm.prank(owner);
+        at.register(_bytes(j, control, "key"), MIN_STAKE, _bytes(j, control, "pop_sig"));
+        assertEq(at.checkpointCount(), 1, "seeded checkpoint");
+        uint256 cutoff = block.number;
+        vm.roll(block.number + 1);
+
+        IEtnaInbox.Config memory cfg = _defaultConfig();
+        cfg.stakingRegistry = address(at);
+        cfg.l2ChainId = uint64(_uint(j, p, "l2_chain_id"));
+        IEtnaInbox.InitParams memory params = _defaultInitParams();
+        params.genesisCutoff = cutoff;
+        params.committeeConfig = IEtnaInbox.CommitteeConfig({
+            vpUnit: _uint(j, p, "vp_unit"),
+            sMin: _uint(j, p, "s_min"),
+            nMax: _uint(j, p, "n_max"),
+            unsettledLimit: _uint(j, p, "unsettled_limit")
+        });
+        _upgradeAndInit(_newInboxImpl(cfg), params);
+
+        bytes32 expected = _bytes32(j, ".committee_config.", "hash");
+        assertEq(vm.load(inboxProxy, bytes32(COMMITTEE_CONFIG_HASH_SLOT)), expected, "slot 269");
+        assertEq(inbox.committeeConfigHash(), expected, "committeeConfigHash");
     }
 
     function test_committeeSets_EncodeSetKeysLeavesNodesAndRecords() external view {
