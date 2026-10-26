@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Regenerates testdata/etna_vectors/vectors.json (schema "4").
 
-Run from the repository root with Foundry's `cast` on PATH and the workspace's pnpm dependencies
-installed (the output is formatted with the repository's prettier):
+Run from the repository root with Foundry's `cast` and Go on PATH and the workspace's pnpm
+dependencies installed (the output is formatted with the repository's prettier):
 
     python3 testdata/etna_vectors/generate.py
 
@@ -13,15 +13,19 @@ secp256k1 public keys come from a small pure-Python helper and are cross-checked
 `cast wallet address`; key decompression follows appendix A and is checked against the curve
 equation. Proof-of-possession signatures come from `cast wallet sign --no-hash`, are checked with
 `cast wallet verify` and a pure-Python ecrecover, and each digest is checked against cast's own
-EIP-712 hashing (`cast wallet sign --data`). Only the inputs, the packing table and the storage slot
-numbers are written by hand, following the Etna spec's appendix A (encodings) and appendix B
-(storage layout). All integers are decimal strings so that every value survives JSON parsing
-exactly.
+EIP-712 hashing (`cast wallet sign --data`). Vote sign bytes and their secp256k1eth signatures come
+from stock CometBFT v0.40.0 (`votegen/`, run with `go run`); each sign-byte string must equal a
+separate Python encoder written from appendix A, and each signature must recover to the key's
+address over keccak256 of the sign bytes and equal cast's signature of that digest. Only the inputs,
+the packing table and the storage slot numbers are written by hand, following the Etna spec's
+appendix A (encodings) and appendix B (storage layout). All integers are decimal strings so that
+every value survives JSON parsing exactly.
 """
 
 import base64
 import functools
 import json
+import os
 import pathlib
 import subprocess
 
@@ -916,6 +920,262 @@ def extra_data():
     return decimals(out)
 
 
+# --- votes: CometBFT v0.40.0 sign bytes and secp256k1eth signatures ------------------------------
+
+VOTEGEN = HERE / "votegen"
+PREVOTE, PRECOMMIT = 1, 2
+VOTE_HEIGHT = 1000
+VOTE_TIME = (1_700_000_000, 123)
+# The last second (9999-12-31T23:59:59Z) that protobuf's Timestamp, and so CometBFT's
+# VoteSignBytes, can encode; CometBFT panics on later times.
+MAX_VOTE_SECONDS = 253_402_300_799
+# Block ids as (hash, part set total, part set hash); a zero hash is absent, as in appendix A.
+BLOCK_A = ("0x" + "aa" * 32, 1, "0x" + "ab" * 32)
+BLOCK_B = ("0x" + "bb" * 32, 2, "0x" + "bc" * 32)
+BLOCK_NIL = (word(0), 0, word(0))
+BLOCK_PARTIAL = (word(0), 1, "0x" + "ab" * 32)
+BLOCK_MAX = (BLOCK_A[0], 2**32 - 1, BLOCK_A[2])
+
+# name, type, round, block id, generation, Inbox; height VOTE_HEIGHT and time VOTE_TIME unless
+# VOTE_OVERRIDES says otherwise.
+VOTE_CASES = (
+    ("precommit_a", PRECOMMIT, 0, BLOCK_A, 0, DEPLOYMENT["inbox"]),
+    ("precommit_nil", PRECOMMIT, 0, BLOCK_NIL, 0, DEPLOYMENT["inbox"]),
+    ("precommit_b", PRECOMMIT, 0, BLOCK_B, 0, DEPLOYMENT["inbox"]),
+    ("precommit_a_late", PRECOMMIT, 0, BLOCK_A, 0, DEPLOYMENT["inbox"]),
+    ("prevote_a_r1", PREVOTE, 1, BLOCK_A, 0, DEPLOYMENT["inbox"]),
+    ("prevote_b_r1", PREVOTE, 1, BLOCK_B, 0, DEPLOYMENT["inbox"]),
+    ("prevote_b_r2", PREVOTE, 2, BLOCK_B, 0, DEPLOYMENT["inbox"]),
+    ("precommit_b_r1", PRECOMMIT, 1, BLOCK_B, 0, DEPLOYMENT["inbox"]),
+    ("gen1_precommit_a", PRECOMMIT, 0, BLOCK_A, 1, DEPLOYMENT["inbox"]),
+    ("gen1_precommit_b", PRECOMMIT, 0, BLOCK_B, 1, DEPLOYMENT["inbox"]),
+    ("gen2_precommit_a", PRECOMMIT, 0, BLOCK_A, 2, DEPLOYMENT["inbox"]),
+    ("gen2_precommit_b", PRECOMMIT, 0, BLOCK_B, 2, DEPLOYMENT["inbox"]),
+    ("other_inbox_precommit_b", PRECOMMIT, 0, BLOCK_B, 0, OTHER_INBOX),
+    ("partial_block_id", PRECOMMIT, 0, BLOCK_PARTIAL, 0, DEPLOYMENT["inbox"]),
+    ("max_values", PRECOMMIT, 2**31 - 1, BLOCK_MAX, 0, DEPLOYMENT["inbox"]),
+)
+VOTE_OVERRIDES = {
+    "precommit_a_late": {"time": (1_700_000_001, 0)},
+    "max_values": {"height": 2**63 - 1, "time": (MAX_VOTE_SECONDS, 999_999_999)},
+}
+# name, vote a, vote b, the Inbox's current generation, reason ("double_sign" when slashable).
+VOTE_PAIRS = (
+    ("precommit_conflict", "precommit_a", "precommit_b", 0, "double_sign"),
+    ("precommit_vs_nil", "precommit_a", "precommit_nil", 0, "double_sign"),
+    ("prevote_conflict_round_1", "prevote_a_r1", "prevote_b_r1", 0, "double_sign"),
+    ("same_block_later_time", "precommit_a", "precommit_a_late", 0, "same_block_id"),
+    ("different_round", "prevote_b_r1", "prevote_b_r2", 0, "different_round"),
+    ("different_type", "prevote_a_r1", "precommit_b_r1", 0, "different_type"),
+    ("generation_1_conflict", "gen1_precommit_a", "gen1_precommit_b", 1, "double_sign"),
+    ("historical_generation_conflict", "precommit_a", "precommit_b", 1, "double_sign"),
+    ("future_generation", "gen2_precommit_a", "gen2_precommit_b", 1, "future_generation"),
+    ("other_deployment", "precommit_a", "other_inbox_precommit_b", 0, "other_deployment"),
+)
+
+
+def uvarint(value):
+    """Protobuf base-128 varint of a non-negative integer."""
+    assert value >= 0, value
+    out = bytearray()
+    while value >= 0x80:
+        out.append(value & 0x7F | 0x80)
+        value >>= 7
+    out.append(value)
+    return bytes(out)
+
+
+def length_delimited(tag_byte, payload):
+    """`tag || uvarint(len(payload)) || payload`."""
+    return bytes([tag_byte]) + uvarint(len(payload)) + payload
+
+
+def vote_sign_bytes(vote, chain_id):
+    """Appendix A `voteSignBytes`, written from the spec text alone (not from CometBFT).
+
+    Bracketed fields are omitted when zero or empty; an all-zero 32-byte hash counts as empty, and
+    a nil vote (hash, total and parts hash all zero) omits the whole block id.
+    """
+    vote_type, height, round_ = (int(vote[k]) for k in ("voteType", "height", "round"))
+    total, seconds, nanos = (
+        int(vote[k]) for k in ("partsTotal", "timestampSeconds", "timestampNanos")
+    )
+    block_hash, parts_hash = (bytes.fromhex(vote[k][2:]) for k in ("blockHash", "partsHash"))
+    assert vote_type in (PREVOTE, PRECOMMIT) and 0 <= height < 2**63 and 0 <= round_ < 2**31
+    assert 0 <= total < 2**32 and 0 <= seconds < 2**63 and 0 <= nanos < 10**9
+    assert len(block_hash) == len(parts_hash) == 32 and len(chain_id) == 48
+    zero = bytes(32)
+
+    psh = (b"\x08" + uvarint(total) if total else b"") + (
+        length_delimited(0x12, parts_hash) if parts_hash != zero else b""
+    )
+    block_id = (length_delimited(0x0A, block_hash) if block_hash != zero else b"") + (
+        length_delimited(0x12, psh)
+    )
+    is_nil = block_hash == zero and total == 0 and parts_hash == zero
+    timestamp = (b"\x08" + uvarint(seconds) if seconds else b"") + (
+        b"\x10" + uvarint(nanos) if nanos else b""
+    )
+    cv = (
+        (b"\x08" + uvarint(vote_type) if vote_type else b"")
+        + (b"\x11" + height.to_bytes(8, "little", signed=True) if height else b"")
+        + (b"\x19" + round_.to_bytes(8, "little", signed=True) if round_ else b"")
+        + (b"" if is_nil else length_delimited(0x22, block_id))
+        + length_delimited(0x2A, timestamp)
+        + length_delimited(0x32, chain_id.encode("ascii"))
+    )
+    return uvarint(len(cv)) + cv
+
+
+def vote_inputs(chain_ids):
+    """Every vote case as `{name, vote, chain_id}`, with integers as decimal strings."""
+    cases = []
+    for name, vote_type, round_, block_id, generation, inbox in VOTE_CASES:
+        overrides = VOTE_OVERRIDES.get(name, {})
+        seconds, nanos = overrides.get("time", VOTE_TIME)
+        block_hash, total, parts_hash = block_id
+        vote = {
+            "voteType": vote_type,
+            "height": overrides.get("height", VOTE_HEIGHT),
+            "round": round_,
+            "blockHash": block_hash,
+            "partsTotal": total,
+            "partsHash": parts_hash,
+            "timestampSeconds": seconds,
+            "timestampNanos": nanos,
+            "generation": generation,
+        }
+        cases.append(
+            {"name": name, "vote": decimals(vote), "chain_id": chain_ids[(inbox, generation)]}
+        )
+    return cases
+
+
+def run_votegen(private_key, cases):
+    """CometBFT v0.40.0's `VoteSignBytes` and secp256k1eth signature of every case."""
+    request = {
+        "key": private_key,
+        "votes": [{k: case[k] for k in ("name", "chain_id", "vote")} for case in cases],
+    }
+    result = subprocess.run(
+        ["go", "run", "."],
+        cwd=VOTEGEN,
+        input=json.dumps(request),
+        capture_output=True,
+        text=True,
+        env={**os.environ, "GOFLAGS": "-mod=readonly", "GOWORK": "off"},
+    )
+    if result.returncode != 0:
+        raise SystemExit(f"votegen failed:\n{result.stderr}")
+    return json.loads(result.stdout)
+
+
+def check_vote_signature(key, sign_bytes, signature):
+    """65 bytes, V in {0, 1}, low s; recovers to the key's address over keccak256(sign_bytes), as
+    `slashDoubleSign` checks with ecrecover, and equals cast's RFC 6979 signature of that digest."""
+    digest = keccak(sign_bytes)
+    r, s, v = split_sig(signature)
+    assert v in (0, 1) and 0 < r < SECP_N and 0 < s <= SECP_N // 2, signature
+    assert ecrecover(digest, r, s, v) == key["ck_addr"], signature
+    signed = cast("wallet", "sign", "--no-hash", "--private-key", key["private_key"], digest)
+    assert signed == join_sig(r, s, v + 27), (signed, signature)
+
+
+def block_id_of(vote):
+    return vote["blockHash"], vote["partsTotal"], vote["partsHash"]
+
+
+def double_sign_failure(key, chain_ids, a, b, current_generation):
+    """Spec 4.1 `slashDoubleSign` checks at this deployment: the first one the pair fails, or None.
+
+    Sign bytes are rebuilt from the deployment's own Inbox and the votes' shared generation, so a
+    vote signed for another deployment fails the signature check.
+    """
+    va, vb = a["vote"], b["vote"]
+    for rule, field in (
+        ("different_type", "voteType"),
+        ("different_height", "height"),
+        ("different_round", "round"),
+        ("different_generation", "generation"),
+    ):
+        if va[field] != vb[field]:
+            return rule
+    if block_id_of(va) == block_id_of(vb):
+        return "same_block_id"
+    generation = int(va["generation"])
+    if generation > current_generation:
+        return "future_generation"
+    chain_id = chain_ids[(DEPLOYMENT["inbox"], generation)]
+    for case in (a, b):
+        sign_bytes = "0x" + vote_sign_bytes(case["vote"], chain_id).hex()
+        r, s, v = split_sig(case["signature"])
+        if ecrecover(keccak(sign_bytes), r, s, v) != key["ck_addr"]:
+            return "signature"
+    return None
+
+
+def votes(key_list, domains):
+    """Vote sign bytes and signatures by key a1, and the double-sign pairs built from them.
+
+    CometBFT v0.40.0 produces the sign bytes and signatures; generation stops if any sign-byte
+    string differs from the appendix A encoder (neither side is adjusted to match the other).
+    """
+    key = key_list[0]
+    assert key["name"] == "a1" and int(key["private_key"], 16) == 0xA1
+    chain_ids = {(d["inbox"], int(d["generation"])): d["chain_id"] for d in domains}
+    used = [(DEPLOYMENT["inbox"], g) for g in (0, 1, 2)] + [(OTHER_INBOX, 0)]
+    cases = vote_inputs(chain_ids)
+    assert {c["chain_id"] for c in cases} == {chain_ids[u] for u in used}
+
+    out = run_votegen(key["private_key"], cases)
+    assert out["public_key"] == key["public_key"], out["public_key"]
+    assert out["signer"] == key["ck_addr"], out["signer"]
+    assert [c["name"] for c in out["cases"]] == [c["name"] for c in cases]
+    for case, signed in zip(cases, out["cases"]):
+        cometbft = signed["sign_bytes"]
+        appendix_a = "0x" + vote_sign_bytes(case["vote"], case["chain_id"]).hex()
+        if cometbft != appendix_a:
+            raise SystemExit(
+                f"{case['name']}: CometBFT v0.40.0 and appendix A sign bytes differ\n"
+                f"  CometBFT:   {cometbft}\n  appendix A: {appendix_a}"
+            )
+        check_vote_signature(key, cometbft, signed["signature"])
+        case["sign_bytes"] = cometbft
+        case["signature"] = signed["signature"]
+
+    by_name = {case["name"]: case for case in cases}
+    pairs = []
+    for name, a, b, current_generation, reason in VOTE_PAIRS:
+        failure = double_sign_failure(key, chain_ids, by_name[a], by_name[b], current_generation)
+        expected = {"double_sign": None, "other_deployment": "signature"}.get(reason, reason)
+        assert failure == expected, (name, failure, reason)
+        pairs.append(
+            {
+                "name": name,
+                "a": a,
+                "b": b,
+                "double_sign": reason == "double_sign",
+                "reason": reason,
+                "current_generation": current_generation,
+            }
+        )
+    return decimals(
+        {
+            "key": {
+                "private_key": key["private_key"],
+                "public_key": key["public_key"],
+                "signer": key["ck_addr"],
+            },
+            "chain_ids": [
+                {"inbox": inbox, "generation": g, "chain_id": chain_ids[(inbox, g)]}
+                for inbox, g in used
+            ],
+            "cases": cases,
+            "pairs": pairs,
+        }
+    )
+
+
 # --- storage layout ------------------------------------------------------------------------------
 
 # Packed words (appendix B): fields in the listed order from the least-significant bit; ckPrefix
@@ -1114,6 +1374,7 @@ def main():
     entries = registry_entries(key_list)
     cut_vectors = cuts()
     statements = land_statements(config, cut_vectors)
+    domains = chain_domains()
     vectors = {
         "schema_version": "4",
         "deployment": deployment(),
@@ -1127,7 +1388,8 @@ def main():
         "cuts": cut_vectors,
         "land_statements": statements,
         "land_abi": land_abi(statements),
-        "chain_domains": chain_domains(),
+        "chain_domains": domains,
+        "votes": votes(key_list, domains),
         "extra_data": extra_data(),
         "packed_words": packed_words(),
         "origin_words": origin_words(),

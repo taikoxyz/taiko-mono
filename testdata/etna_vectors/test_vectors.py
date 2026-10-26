@@ -170,6 +170,113 @@ def key_point(key):
     return int(key["ck_x"], 16), int(key["ck_y"], 16)
 
 
+# --- vote sign bytes (appendix A voteSignBytes, decoded without keccak) ---------------------------
+
+VOTE_CASES = [
+    "precommit_a",
+    "precommit_nil",
+    "precommit_b",
+    "precommit_a_late",
+    "prevote_a_r1",
+    "prevote_b_r1",
+    "prevote_b_r2",
+    "precommit_b_r1",
+    "gen1_precommit_a",
+    "gen1_precommit_b",
+    "gen2_precommit_a",
+    "gen2_precommit_b",
+    "other_inbox_precommit_b",
+    "partial_block_id",
+    "max_values",
+]
+VOTE_FIELDS = [
+    "voteType",
+    "height",
+    "round",
+    "blockHash",
+    "partsTotal",
+    "partsHash",
+    "timestampSeconds",
+    "timestampNanos",
+    "generation",
+]
+OTHER_INBOX = "0x" + "33" * 20
+
+
+def read_uvarint(data, i):
+    """`(value, next index)` of the unsigned varint at `data[i]`."""
+    value = shift = 0
+    while True:
+        byte = data[i]
+        i += 1
+        value |= (byte & 0x7F) << shift
+        shift += 7
+        if not byte & 0x80:
+            return value, i
+
+
+def read_message(data):
+    """`{field number: value}` of a protobuf message whose fields appear once, in ascending order.
+
+    Varints decode to ints, fixed64 to signed little-endian ints and length-delimited fields to
+    bytes. Proto3 omits zero and empty scalars, so a present scalar must be nonzero.
+    """
+    fields, i = {}, 0
+    while i < len(data):
+        key, i = read_uvarint(data, i)
+        number, wire = key >> 3, key & 7
+        assert not fields or number > max(fields), (number, list(fields))
+        if wire == 0:
+            value, i = read_uvarint(data, i)
+        elif wire == 1:
+            value = int.from_bytes(data[i : i + 8], "little", signed=True)
+            i += 8
+        elif wire == 2:
+            length, i = read_uvarint(data, i)
+            value = data[i : i + length]
+            i += length
+        else:
+            raise AssertionError(f"wire type {wire}")
+        fields[number] = value
+    assert i == len(data), (i, len(data))
+    return fields
+
+
+def decode_vote_sign_bytes(sign_bytes):
+    """`(vote fields without generation, chain_id)` of `uvarint(len(cv)) || cv`."""
+    length, start = read_uvarint(sign_bytes, 0)
+    assert length == len(sign_bytes) - start, (length, len(sign_bytes), start)
+    cv = read_message(sign_bytes[start:])
+    assert set(cv) <= {1, 2, 3, 4, 5, 6} and {5, 6} <= set(cv), list(cv)
+    for number in (1, 2, 3):
+        assert cv.get(number, 1) != 0, number
+    block_id = read_message(cv[4]) if 4 in cv else {}
+    assert set(block_id) <= {1, 2} and (not block_id or 2 in block_id), list(block_id)
+    psh = read_message(block_id[2]) if 2 in block_id else {}
+    timestamp = read_message(cv[5])
+    for message, allowed in ((psh, {1, 2}), (timestamp, {1, 2})):
+        assert set(message) <= allowed and all(message.values()), message
+    for hash_bytes in (block_id.get(1), psh.get(2)):
+        assert hash_bytes is None or len(hash_bytes) == 32
+    # A present block id is never all zero; a nil vote omits it.
+    assert 4 not in cv or block_id.get(1) or psh, cv[4]
+    vote = {
+        "voteType": cv.get(1, 0),
+        "height": cv.get(2, 0),
+        "round": cv.get(3, 0),
+        "blockHash": "0x" + block_id.get(1, bytes(32)).hex(),
+        "partsTotal": psh.get(1, 0),
+        "partsHash": "0x" + psh.get(2, bytes(32)).hex(),
+        "timestampSeconds": timestamp.get(1, 0),
+        "timestampNanos": timestamp.get(2, 0),
+    }
+    return {k: v if isinstance(v, str) else str(v) for k, v in vote.items()}, cv[6].decode("ascii")
+
+
+def block_id_of(vote):
+    return vote["blockHash"], vote["partsTotal"], vote["partsHash"]
+
+
 class VectorsTest(unittest.TestCase):
     def test_schema_version_is_4(self):
         self.assertEqual(V["schema_version"], "4")
@@ -335,6 +442,186 @@ class VectorsTest(unittest.TestCase):
             )
             chain_ids.add(chain_id)
         self.assertEqual(len(chain_ids), len(domains))
+
+    def test_vote_cases_present(self):
+        votes = V["votes"]
+        self.assertEqual(list(votes), ["key", "chain_ids", "cases", "pairs"])
+        key = V["keys"][0]
+        self.assertEqual(key["name"], "a1")
+        self.assertEqual(
+            votes["key"],
+            {
+                "private_key": key["private_key"],
+                "public_key": key["public_key"],
+                "signer": key["ck_addr"],
+            },
+        )
+        inbox = V["deployment"]["inbox"]
+        domains = {(d["inbox"], d["generation"]): d["chain_id"] for d in V["chain_domains"]}
+        self.assertEqual(
+            [(c["inbox"], c["generation"]) for c in votes["chain_ids"]],
+            [(inbox, "0"), (inbox, "1"), (inbox, "2"), (OTHER_INBOX, "0")],
+        )
+        for entry in votes["chain_ids"]:
+            self.assertEqual(list(entry), ["inbox", "generation", "chain_id"])
+            self.assertEqual(entry["chain_id"], domains[(entry["inbox"], entry["generation"])])
+        chain_ids = {(c["inbox"], c["generation"]): c["chain_id"] for c in votes["chain_ids"]}
+
+        cases = votes["cases"]
+        self.assertEqual([c["name"] for c in cases], VOTE_CASES)
+        a = ("0x" + "aa" * 32, "1", "0x" + "ab" * 32)
+        b = ("0x" + "bb" * 32, "2", "0x" + "bc" * 32)
+        nil = (uint(0), "0", uint(0))
+        # name: (type, round, block id, generation); height 1000, timestamp (1700000000, 123).
+        expected = {
+            "precommit_a": ("2", "0", a, "0"),
+            "precommit_nil": ("2", "0", nil, "0"),
+            "precommit_b": ("2", "0", b, "0"),
+            "precommit_a_late": ("2", "0", a, "0"),
+            "prevote_a_r1": ("1", "1", a, "0"),
+            "prevote_b_r1": ("1", "1", b, "0"),
+            "prevote_b_r2": ("1", "2", b, "0"),
+            "precommit_b_r1": ("2", "1", b, "0"),
+            "gen1_precommit_a": ("2", "0", a, "1"),
+            "gen1_precommit_b": ("2", "0", b, "1"),
+            "gen2_precommit_a": ("2", "0", a, "2"),
+            "gen2_precommit_b": ("2", "0", b, "2"),
+            "other_inbox_precommit_b": ("2", "0", b, "0"),
+            "partial_block_id": ("2", "0", (uint(0), "1", "0x" + "ab" * 32), "0"),
+        }
+        for case in cases:
+            name, vote = case["name"], case["vote"]
+            self.assertEqual(list(case), ["name", "vote", "chain_id", "sign_bytes", "signature"])
+            self.assertEqual(list(vote), VOTE_FIELDS, name)
+            case_inbox = OTHER_INBOX if name.startswith("other_inbox") else inbox
+            self.assertEqual(case["chain_id"], chain_ids[(case_inbox, vote["generation"])], name)
+            if name == "max_values":
+                continue
+            vote_type, round_, block_id, generation = expected[name]
+            timestamp = ("1700000001", "0") if name == "precommit_a_late" else ("1700000000", "123")
+            self.assertEqual(
+                vote,
+                dict(
+                    zip(
+                        VOTE_FIELDS,
+                        (vote_type, "1000", round_, *block_id, *timestamp, generation),
+                    )
+                ),
+                name,
+            )
+        # Each field at its largest value that CometBFT v0.40.0 can sign: int64 height, int32
+        # round, uint32 part count, and the last second protobuf's Timestamp can represent.
+        self.assertEqual(
+            by_name(cases, "max_values")["vote"],
+            dict(
+                zip(
+                    VOTE_FIELDS,
+                    (
+                        "2",
+                        str(2**63 - 1),
+                        str(2**31 - 1),
+                        "0x" + "aa" * 32,
+                        str(2**32 - 1),
+                        "0x" + "ab" * 32,
+                        "253402300799",
+                        "999999999",
+                        "0",
+                    ),
+                )
+            ),
+        )
+
+    def test_vote_sign_bytes_end_with_48_byte_chain_id(self):
+        prefix_lengths = set()
+        for case in V["votes"]["cases"]:
+            sign_bytes = hexbytes(case["sign_bytes"])
+            chain_id = case["chain_id"].encode("ascii")
+            self.assertEqual(len(chain_id), 48)
+            self.assertTrue(sign_bytes.endswith(b"\x32\x30" + chain_id), case["name"])
+            length, start = read_uvarint(sign_bytes, 0)
+            self.assertEqual(length, len(sign_bytes) - start, case["name"])
+            prefix_lengths.add(start)
+        # Both one-byte (nil vote) and two-byte (body above 127 bytes) length prefixes occur.
+        self.assertEqual(prefix_lengths, {1, 2})
+
+    def test_vote_sign_bytes_decode_to_vote(self):
+        for case in V["votes"]["cases"]:
+            vote, chain_id = decode_vote_sign_bytes(hexbytes(case["sign_bytes"]))
+            expected = {k: v for k, v in case["vote"].items() if k != "generation"}
+            self.assertEqual(vote, expected, case["name"])
+            self.assertEqual(chain_id, case["chain_id"], case["name"])
+        cases = V["votes"]["cases"]
+        self.assertEqual(len({c["sign_bytes"] for c in cases}), len(cases))
+        # A partial block id omits only the zero hash; a nil vote omits the whole block id.
+        def body(name):
+            sign_bytes = hexbytes(by_name(cases, name)["sign_bytes"])
+            return read_message(sign_bytes[read_uvarint(sign_bytes, 0)[1] :])
+
+        self.assertEqual(list(read_message(body("partial_block_id")[4])), [2])
+        self.assertEqual(list(body("precommit_nil")), [1, 2, 5, 6])
+        self.assertEqual(list(body("max_values")), [1, 2, 3, 4, 5, 6])
+
+    def test_vote_signatures_low_s_v01(self):
+        cases = V["votes"]["cases"]
+        for case in cases:
+            sig = hexbytes(case["signature"])
+            self.assertEqual(len(sig), 65, case["name"])
+            r, s, v = sig_parts(sig)
+            self.assertIn(v, (0, 1), case["name"])
+            self.assertTrue(0 < r < SECP_N, case["name"])
+            self.assertTrue(0 < s <= SECP_N // 2, case["name"])
+        self.assertEqual(len({c["signature"] for c in cases}), len(cases))
+        self.assertEqual({hexbytes(c["signature"])[64] for c in cases}, {0, 1})
+
+    def test_pairs_cover_reasons(self):
+        votes = V["votes"]
+        cases = {c["name"]: c["vote"] for c in votes["cases"]}
+        pairs = votes["pairs"]
+        self.assertLessEqual(
+            {
+                "double_sign",
+                "same_block_id",
+                "different_round",
+                "different_type",
+                "future_generation",
+                "other_deployment",
+            },
+            {p["reason"] for p in pairs},
+        )
+        self.assertEqual(len({p["name"] for p in pairs}), len(pairs))
+        for pair in pairs:
+            self.assertEqual(
+                list(pair), ["name", "a", "b", "double_sign", "reason", "current_generation"]
+            )
+            a, b, reason = cases[pair["a"]], cases[pair["b"]], pair["reason"]
+            self.assertIs(pair["double_sign"], reason == "double_sign", pair["name"])
+            current = int(pair["current_generation"])
+            same = {k for k in ("voteType", "height", "round", "generation") if a[k] == b[k]}
+            if reason == "different_type":
+                self.assertEqual(same, {"height", "round", "generation"}, pair["name"])
+                continue
+            if reason == "different_round":
+                self.assertEqual(same, {"voteType", "height", "generation"}, pair["name"])
+                continue
+            self.assertEqual(same, {"voteType", "height", "round", "generation"}, pair["name"])
+            self.assertIn(a["voteType"], ("1", "2"))
+            if reason == "same_block_id":
+                self.assertEqual(block_id_of(a), block_id_of(b), pair["name"])
+                self.assertNotEqual(a, b, pair["name"])
+                continue
+            self.assertNotEqual(block_id_of(a), block_id_of(b), pair["name"])
+            if reason == "future_generation":
+                self.assertGreater(int(a["generation"]), current, pair["name"])
+                continue
+            self.assertLessEqual(int(a["generation"]), current, pair["name"])
+            other = [n for n in (pair["a"], pair["b"]) if n.startswith("other_inbox")]
+            self.assertEqual(len(other), 1 if reason == "other_deployment" else 0, pair["name"])
+        historical = [
+            p
+            for p in pairs
+            if p["double_sign"] and int(cases[p["a"]]["generation"]) < int(p["current_generation"])
+        ]
+        self.assertTrue(historical)
 
     def test_extra_data_is_13_bytes(self):
         cases = V["extra_data"]
