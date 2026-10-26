@@ -6,6 +6,7 @@ import { IEtnaStakingRegistry } from "../iface/IEtnaStakingRegistry.sol";
 import { LibEtnaForcedInclusion } from "../libs/LibEtnaForcedInclusion.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
@@ -19,6 +20,7 @@ import "./EtnaInbox_Layout.sol"; // DO NOT DELETE
 /// @custom:security-contact security@taiko.xyz
 // solhint-disable-next-line max-states-count
 contract EtnaInbox is IEtnaInbox, EssentialContract {
+    using LibAddress for address;
     using LibEtnaForcedInclusion for LibEtnaForcedInclusion.Storage;
 
     // ---------------------------------------------------------------
@@ -248,10 +250,39 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     { }
 
     /// @inheritdoc IEtnaInbox
-    function saveForcedInclusion(bytes calldata) external payable notImplemented { }
+    /// @dev Unaffected by pause. The refund is the last step, after every write and the event, and
+    /// a failed refund reverts the whole submission.
+    function saveForcedInclusion(bytes calldata _tx) external payable nonReentrant {
+        require(_initStatus == INITIALIZED_STATUS, NotInitialized());
+        require(_tx.length <= MAX_FORCED_TX_BYTES, ForcedTransactionTooLarge());
+
+        uint256 feeWei = uint256(
+            _forcedInclusions.currentFee(
+                _forcedInclusionFeeInGwei, _forcedInclusionFeeDoubleThreshold
+            )
+        ) * 1 gwei;
+        require(msg.value >= feeWei, InsufficientFee());
+
+        uint48 index = _forcedInclusions.tail;
+        _forcedInclusions.queue[index] = ForcedInclusion({
+            txHash: keccak256(_tx),
+            timestamp: _toUint48(block.timestamp),
+            l1Block: _toUint48(block.number)
+        });
+        _forcedInclusions.tail = index + 1;
+
+        emit ForcedInclusionSaved(index, _tx, feeWei);
+
+        msg.sender.sendEtherAndVerify(msg.value - feeWei);
+    }
 
     /// @inheritdoc IEtnaInbox
-    function sweepProtocolFees() external notImplemented { }
+    /// @dev Also sweeps ETH forced into the Inbox without a call. A zero balance transfers nothing.
+    function sweepProtocolFees() external nonReentrant {
+        uint256 amount = address(this).balance;
+        emit ProtocolFeesSwept(amount);
+        _protocolFeeRecipient.sendEtherAndVerify(amount);
+    }
 
     /// @inheritdoc IEtnaInbox
     function recover(
@@ -404,6 +435,27 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     }
 
     // ---------------------------------------------------------------
+    // Public Functions
+    // ---------------------------------------------------------------
+
+    /// @notice Upgrades the implementation and calls `_data` on it, without accepting ETH.
+    /// @dev Only `saveForcedInclusion` accepts ETH (spec 7.1). The override must stay payable, so
+    /// it rejects a non-zero `msg.value` itself; the owner check is unchanged.
+    /// @param _newImplementation The new implementation.
+    /// @param _data The call to delegate to the new implementation.
+    function upgradeToAndCall(
+        address _newImplementation,
+        bytes memory _data
+    )
+        public
+        payable
+        override
+    {
+        require(msg.value == 0, EtherNotAccepted());
+        super.upgradeToAndCall(_newImplementation, _data);
+    }
+
+    // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
 
@@ -458,6 +510,14 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             && unsettledLimit % GRID_INTERVAL == 0 && _config.vpUnit >= _MIN_VP_UNIT
             && _config.sMin >= _config.vpUnit && _config.nMax != 0
             && _config.nMax <= _MAX_COMMITTEE_SIZE;
+    }
+
+    /// @dev Narrows `_value` to a 48-bit storage field (appendix B).
+    /// @param _value The value to store.
+    /// @return The value as a `uint48`; reverts with `ValueOverflow` if it is 2^48 or more.
+    function _toUint48(uint256 _value) private pure returns (uint48) {
+        require(_value <= type(uint48).max, ValueOverflow());
+        return uint48(_value);
     }
 
     /// @dev Returns `committeeConfigHash`: keccak256 over the seven words (224 bytes) of the tag,
