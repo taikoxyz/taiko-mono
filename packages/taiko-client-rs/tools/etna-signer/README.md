@@ -80,3 +80,13 @@ Only stock FilePV writes signing state after authorization.
 
 Run `just signer-test` for Go race/process/native interop tests. No Cargo build is
 needed for this helper.
+
+The supported supervisor adds `--denial-file <app-store>/signer-denial.json`.
+It is a private atomic observation, not signing state or authorization: sequence zero
+publishes a fresh session ID, and positive sequence increments capture every signing
+refusal, including a local-control timeout while the app remains Ready. The supervisor
+uses nonmutating schema-1 `observe`, waits for exact private Ready, then reaps and restarts
+Comet and the signer with unchanged HRS/WAL/history. Every new transport still begins a
+closed session. Terminal trust/domain failures persist a latch and leave the supervisor
+alive and quiescent, including after container restart. See the package README for the
+supported combined image and separate app/supervisor container commands.

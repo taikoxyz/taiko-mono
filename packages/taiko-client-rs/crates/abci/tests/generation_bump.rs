@@ -1,23 +1,17 @@
 //! Docker scenario: planting `recoveryGeneration = 1` into the Inbox supersedes the generation-0
 //! chain. Once a proposal anchors at a final L1 block that carries the bump, the app sets
-//! `/status.superseded` and refuses every proposal from then on: CometBFT stops.
+//! terminal private trust and the supervisor durably stops Comet and its signer.
 //!
 //! The fake lander advances only `lastCheckpoint`; committee bootstrap is immutable and runtime
 //! activation needs no publication, so settlement never overwrites the planted generation.
 
-use std::{
-    collections::BTreeSet,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use abci::l1::layout::inbox;
 use alloy_primitives::U256;
 use alloy_provider::Provider;
 use anyhow::Context;
 use test_harness::{Devnet, DevnetSpec, InboxValues, extra_data_of, wait_until};
-
-/// The `/status` halt reason of a superseded chain.
-const SUPERSEDED: &str = "superseded";
 
 /// Bound on the blocks committed after the planting: the bump lands in one L1 block and becomes
 /// final two blocks later (~3 s), the next proposal then anchors on it; 1 s cadence.
@@ -43,36 +37,30 @@ async fn generation_bump_supersedes_the_chain() -> anyhow::Result<()> {
         started.elapsed()
     );
 
+    let latch = devnet.app_data_dir(0).join("validator-supervisor.halted");
     wait_until(
-        "/status superseded",
+        "terminal generation latch",
         Duration::from_secs(30),
-        Duration::from_millis(250),
-        || async { Ok(devnet.abci_status(0).await?.superseded.then_some(())) },
+        Duration::from_millis(100),
+        || async { Ok(latch.is_file().then_some(())) },
     )
     .await?;
-
-    // CometBFT stays put.
-    let stop = devnet.cmt(0).latest_height().await?;
+    let stop = devnet.l2_provider(0).get_block_number().await?;
+    let state = devnet.signer_state(0)?;
+    let delegated = devnet.signer_authorizations(0)?;
     let hold_end = Instant::now() + spec.stall_hold();
-    let mut reasons = BTreeSet::new();
     while Instant::now() < hold_end {
-        assert_eq!(devnet.cmt(0).latest_height().await?, stop, "CometBFT moved after supersession");
-        reasons.extend(devnet.abci_status(0).await?.halt_reason);
+        assert_eq!(devnet.l2_provider(0).get_block_number().await?, stop);
+        assert_eq!(devnet.signer_state(0)?, state);
+        assert_eq!(devnet.signer_authorizations(0)?, delegated);
+        let trust = devnet.trust_control(0, "unregistered-observer").await?;
+        assert_eq!(trust["trust_ready"], false);
+        assert_eq!(trust["phase"], "halted");
+        assert!(latch.is_file());
         tokio::time::sleep(Duration::from_millis(250)).await;
     }
-    eprintln!("stopped at height {stop}; halt reasons seen: {reasons:?}");
-    assert!(
-        stop <= planted_at + MAX_BLOCKS_AFTER_PLANT,
-        "{} blocks committed after the planting",
-        stop - planted_at
-    );
-    let status = devnet.abci_status(0).await?;
-    assert!(status.superseded);
-    assert_eq!(status.halt_reason.as_deref(), Some(SUPERSEDED), "/status halt reason");
-    assert_eq!(reasons, BTreeSet::from([SUPERSEDED.to_string()]), "/status halt reasons");
-    assert_eq!(status.head, stop);
-    assert_eq!(status.generation, 0);
-    assert_eq!(devnet.app_halt(0), None, "supersession is a liveness halt, not a safety halt");
+    assert!(stop <= planted_at + MAX_BLOCKS_AFTER_PLANT);
+    eprintln!("generation bump durably latched at {stop}; no signatures or restarts");
 
     // Every committed block is generation 0 and anchors below the bump.
     let l2 = devnet.l2_provider(0);

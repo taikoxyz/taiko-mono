@@ -36,6 +36,7 @@ use url::Url;
 /// Decided source data; every block/certificate comes from the shared genuine fixture generator.
 #[derive(Clone)]
 pub struct RpcData {
+    pub chain_id: String,
     pub blocks: Vec<CertifiedBlock>,
     pub headers: Vec<Header>,
     pub committees: BTreeMap<u64, CommitteeState>,
@@ -116,7 +117,7 @@ async fn rpc(State(state): State<RpcState>, Json(request): Json<Value>) -> Respo
                 header_json
             }))
         }
-        "status" => Some(json!({"node_info":{"network":"taiko-etna-167001-g0"},
+        "status" => Some(json!({"node_info":{"network":data.chain_id},
             "sync_info":{"latest_block_height":data.blocks.len().to_string()}})),
         "block" | "commit" => {
             let index = params["height"]
@@ -172,8 +173,6 @@ impl CliInputs {
             self.rpc.to_string(),
             "--jwt.secret".into(),
             self.key.with_file_name("jwt.hex").display().to_string(),
-            "--l2.reward-recipient".into(),
-            "0x7777777777777777777777777777777777777777".into(),
             "--l2.http".into(),
             self.rpc.to_string(),
             "--comet.http".into(),

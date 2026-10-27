@@ -67,6 +67,7 @@ func run() error {
 	chain := flag.String("chain-id", "", "verified Comet chain ID")
 	key := flag.String("priv-key", "", "existing Comet FilePV private key")
 	state := flag.String("priv-state", "", "existing Comet FilePV anti-double-sign state (never reset)")
+	denial := flag.String("denial-file", "", "private atomic refusal event file for the local supervisor")
 	timeout := flag.Duration("trust-timeout", time.Second, "per-request private control deadline (0 < timeout <= 10s)")
 	flag.Parse()
 	if flag.NArg() != 0 || *addr == "" || *control == "" || *chain == "" || *key == "" || *state == "" || *timeout <= 0 || *timeout > 10*time.Second {
@@ -106,6 +107,7 @@ func run() error {
 	}
 	logger := log.NewTMLogger(log.NewSyncWriter(os.Stderr))
 	gate := newGate(*control, *timeout)
+	gate.denialPath = *denial
 	gate.authorized = func(r *trustResponse) {
 		logger.Info("checkpoint_trust_authorized", "session", r.SessionID, "committed_height", *r.Committed.Height, "target_height", *r.Target.Height)
 	}

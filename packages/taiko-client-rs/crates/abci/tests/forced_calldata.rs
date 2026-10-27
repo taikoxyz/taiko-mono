@@ -1,7 +1,12 @@
 //! Real pinned-EL calldata admission, mixed blocks, hostile proposals, and cold replay.
 #[path = "support/forced_calldata.rs"]
 mod support;
-use abci::{Engine, L1Source, RpcL1Source, engine::PayloadVerdict, forced, rules};
+use abci::{
+    Engine, L1Source, RpcL1Source,
+    engine::PayloadVerdict,
+    forced, rules,
+    wire::{Request, Response, response},
+};
 use alloy::{
     consensus::{SignableTransaction, TxEip1559, TxEnvelope},
     signers::SignerSync,
@@ -12,7 +17,6 @@ use alloy_provider::Provider;
 use anyhow::{Context, Result, ensure};
 use std::{sync::atomic::Ordering, time::Duration};
 use support::*;
-use tendermint::v0_38::abci::{Request, Response, response};
 use test_harness::{Devnet, DevnetSpec, dev_signer, send_transfer, sign_transfer};
 const RECIPIENT: Address = address!("00000000000000000000000000000000000f0ced");
 const TAIL_RECIPIENT: Address = address!("00000000000000000000000000000000000f00aa");
@@ -48,7 +52,7 @@ async fn forced_transaction_event_provenance() -> Result<()> {
         assert_eq!(keccak256(&fetched), proven.tx_hash);
         assert_eq!((proven.timestamp, proven.l1_block), (header.timestamp(), e.l1_block));
         assert_eq!((e.timestamp, e.tx_hash), (proven.timestamp, proven.tx_hash));
-        let logs:serde_json::Value=d.l1().raw_request("eth_getLogs".into(),(serde_json::json!({"address":d.params().inbox,"fromBlock":format!("{:#x}",e.l1_block),"toBlock":format!("{:#x}",e.l1_block),"topics":[keccak256("ForcedInclusionSaved(uint48,bytes)"),B256::from(U256::from(e.index))]}),)).await?;
+        let logs:serde_json::Value=d.l1().raw_request("eth_getLogs".into(),(serde_json::json!({"address":d.params().inbox,"fromBlock":format!("{:#x}",e.l1_block),"toBlock":format!("{:#x}",e.l1_block),"topics":[keccak256("ForcedInclusionSaved(uint48,bytes,uint256)"),B256::from(U256::from(e.index))]}),)).await?;
         let logs = logs.as_array().context("logs array")?;
         assert_eq!(logs.len(), 1);
         let hash: B256 = serde_json::from_value(logs[0]["transactionHash"].clone())?;
@@ -220,7 +224,7 @@ async fn forced_invalid_skip_keeps_mempool() -> Result<()> {
     let mut d = Devnet::start(DevnetSpec {
         forced_inclusion_delay: 2,
         epoch_len: 200,
-        d_max: 180,
+        unsettled_limit: 180,
         ..Default::default()
     })
     .await?;
@@ -240,8 +244,8 @@ async fn forced_invalid_skip_keeps_mempool() -> Result<()> {
         value: U256::from(4242),
         ..Default::default()
     };
-    // Canonical decoding and fee eligibility are independent: the zero-fee transaction is
-    // canonical, but only the other canonical cases require a real singleton skip check.
+    // Canonical bytes can fail deterministic eligibility locally.
+    // Fee, nonce, balance and zk-gas cases still require a real singleton result.
     let mut cases: Vec<(&str, Bytes, bool, bool)> = Vec::new();
     let mut tx = base.clone();
     tx.nonce += 10;
@@ -259,15 +263,15 @@ async fn forced_invalid_skip_keeps_mempool() -> Result<()> {
         .encoded_2718()
         .into(),
         true,
-        true,
+        false,
     ));
     let mut tx = base.clone();
     tx.max_fee_per_gas = 0;
     tx.max_priority_fee_per_gas = 0;
-    cases.push(("fee_below_base", sign_tx(tx)?.encoded_2718().into(), true, false));
+    cases.push(("fee_below_base", sign_tx(tx)?.encoded_2718().into(), true, true));
     let mut tx = base.clone();
     tx.gas_limit = d.params().block_gas_limit + 1;
-    cases.push(("declared_gas_above_block", sign_tx(tx)?.encoded_2718().into(), true, true));
+    cases.push(("declared_gas_above_block", sign_tx(tx)?.encoded_2718().into(), true, false));
     let blob = alloy::consensus::TxEip4844 {
         chain_id: base.chain_id,
         nonce,
@@ -284,7 +288,7 @@ async fn forced_invalid_skip_keeps_mempool() -> Result<()> {
         "unsupported_blob_envelope",
         TxEnvelope::from(blob.into_signed(sig)).encoded_2718().into(),
         true,
-        true,
+        false,
     ));
     let mut tx = base.clone();
     tx.to = TxKind::Call(fixture);
@@ -363,7 +367,26 @@ async fn forced_invalid_skip_keeps_mempool() -> Result<()> {
                 "{name}: malformed bytes never reach an explicit EL build"
             );
         }
-        // Only fee-eligible canonical skips need retained parent state during cold replay.
+        if requires_singleton {
+            // The explicit EL historical-state error is terminal, unlike -32603 below.
+            let (_fatal_dir, fatal_store) = saved_store(&parent)?;
+            let engine = ObservedEngine::new(d.rpc_engine(0)?);
+            engine.unknown_execution.store(true, Ordering::SeqCst);
+            let mut fatal = d.detached_app(0, fatal_store.clone(), engine)?;
+            assert!(
+                matches!(
+                    fatal.handle(finalize_request(&env, time)).await,
+                    Err(abci::AbciError::SafetyHalt(_))
+                ),
+                "{name}: -38100 is never a legal skip"
+            );
+            assert_eq!(fatal_store.load()?, Some(parent.clone()));
+            assert!(
+                std::fs::read_to_string(_fatal_dir.path().join("fatal-evidence.txt"))?
+                    .contains("-38100")
+            );
+        }
+        // Only deterministically eligible skips need retained parent state during cold replay.
         // Emulate the pinned getPayload error, then release the real engine and verify recovery.
         let (_cold_dir, cold_store) = saved_store(&parent)?;
         let engine = ObservedEngine::new(d.rpc_engine(0)?);
@@ -427,7 +450,7 @@ async fn forced_invalid_skip_keeps_mempool() -> Result<()> {
             assert_eq!(
                 attempts.load(Ordering::SeqCst),
                 0,
-                "{name}: malformed or low-fee bytes need no singleton"
+                "{name}: deterministically ineligible bytes need no singleton"
             );
         }
         assert_eq!(cold.state(), app.state());
@@ -484,5 +507,88 @@ async fn frozen_comet_is_reaped_before_parent_read_and_recovers() -> Result<()> 
         "managed stop and handshake must preserve committed execution history"
     );
     ensure!(d.app_halt(0).is_none(), "restart must not enter a safety halt");
+    d.stop().await
+}
+
+/// Exercise the raw cap against executable blocks built by the pinned real EL.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "docker"]
+async fn raw_execution_boundary_124000_accepts_124001_rejects() -> Result<()> {
+    use alloy_rlp::Encodable;
+    let mut d = Devnet::start(DevnetSpec::default()).await?;
+    d.wait_for_height(0, 3, Duration::from_secs(60)).await?;
+    let parent = freeze(&mut d).await?;
+    let (_dir, store) = saved_store(&parent)?;
+    let mut app = d.detached_app(0, store, d.rpc_engine(0)?)?;
+    let time = now();
+    let base = prepare(&mut app, time).await?;
+    let nonce = d.l2_provider(0).get_transaction_count(dev_signer().address()).await?;
+    let anchor = base.anchor.as_ref().map(|w| w.l1_header.hash()).unwrap_or(parent.anchor.hash);
+    let mut input_size = 123_000usize;
+    let mut blocks = Vec::new();
+    for target in [124_000usize, 124_001] {
+        let mut found = None;
+        for _ in 0..8 {
+            let tx = sign_tx(TxEip1559 {
+                chain_id: d.params().l2_chain_id,
+                nonce,
+                gas_limit: 3_000_000,
+                max_fee_per_gas: 10_000_000_000,
+                max_priority_fee_per_gas: 1_000_000_000,
+                to: TxKind::Call(RECIPIENT),
+                input: Bytes::from(vec![0; input_size]),
+                ..Default::default()
+            })?;
+            let mut attrs = rules::payload_attributes(
+                &expected(&base),
+                anchor,
+                Some(protocol::shasta::encode_transactions(&[tx])),
+            );
+            assert_eq!(attrs.max_block_bytes, Some(124_000));
+            // The EL reserves a conservative header bound during selection. Give this
+            // test-only construction room to obtain exact executable boundary blocks;
+            // production attributes above always retain124000.
+            attrs.max_block_bytes = Some(target as u64 + 1024);
+            let block = app.engine().build_block(parent.parent.hash, attrs).await?;
+            ensure!(
+                block.transactions.len() == 1,
+                "boundary fixture transaction must execute: target={target} input={input_size} raw={}",
+                block.length()
+            );
+            let length = block.length();
+            if length == target {
+                found = Some(block);
+                break;
+            }
+            input_size = input_size
+                .checked_add_signed(target as isize - length as isize)
+                .context("boundary input sizing")?;
+        }
+        blocks.push(found.context("exact executable raw boundary")?);
+    }
+    let mut over = base.clone();
+    over.block = blocks.pop().unwrap();
+    assert_eq!(over.block.length(), 124_001);
+    let Response::ProcessProposal(verdict) =
+        app.handle(Request::ProcessProposal(process_request(&over, time))).await?
+    else {
+        anyhow::bail!("process response")
+    };
+    assert_eq!(verdict, response::ProcessProposal::Reject);
+    let (_fatal_dir, fatal_store) = saved_store(&parent)?;
+    let mut fatal = d.detached_app(0, fatal_store.clone(), d.rpc_engine(0)?)?;
+    assert!(matches!(
+        fatal.handle(finalize_request(&over, time)).await,
+        Err(abci::AbciError::SafetyHalt(_))
+    ));
+    assert_eq!(fatal_store.load()?, Some(parent.clone()));
+    let mut exact = base;
+    exact.block = blocks.pop().unwrap();
+    assert_eq!(exact.block.length(), 124_000);
+    accept(&mut app, &exact, time).await?;
+    assert_eq!(d.l2_provider(0).get_block_number().await?, exact.block.header.number);
+    eprintln!(
+        "ACCEPTANCE raw124000=accepted raw124001=processRejectedAndFinalizeHalted realEL=true"
+    );
     d.stop().await
 }

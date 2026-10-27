@@ -8,10 +8,10 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use abci::{
     AnchorState, EtnaEnvelope, ExecutionBlock, ForcedWitness, ParentInfo, Schedule,
-    committee::{record_hash, verify_committee_witness},
+    committee::{record_hash, verify_committee_witness_at_cutoff},
     envelope::AnchorWitness,
     l1::{
-        fetch::build_committee_witness,
+        fetch::build_committee_witness_at_cutoff,
         layout::{inbox, word_u48},
         source::{L1Source, RpcL1Source},
         witness::verify_anchor_witness,
@@ -23,26 +23,23 @@ use alloy_eips::{BlockId, eip7685::EMPTY_REQUESTS_HASH};
 use alloy_primitives::{B256, Bytes, U256};
 use alloy_provider::Provider;
 use anyhow::{Context, Result, ensure};
-use ed25519_dalek::{Signer, SigningKey};
 use lander::{
     CertifiedBlock, LandingSnapshot, Limits, ProofRequest, SidecarMode,
     committee::{AuthenticatedCommittee, authenticate},
-    contracts::IEtnaInbox::LandInput,
     l1::{LandingSource, RpcLandingSource},
     validate::{EnvelopeContext, commit_hash, verify_commit, verify_envelope, verify_structure},
 };
 use sha2::{Digest, Sha256};
 use tendermint::{
-    AppHash, Block, Hash, Time, Vote,
-    block::{Commit, CommitSig, Id, header::Version},
+    AppHash, Hash, Time, Vote,
+    block::{Id, header::Version},
     vote::{CanonicalVote, Type},
 };
-use tendermint_proto::{
-    Protobuf,
-    v0_38::types::{Block as RawBlock, CanonicalVote as RawVote},
-};
+use tendermint_proto::{Protobuf, v0_38::types::CanonicalVote as RawVote};
 
-use super::contracts::{CONSENSUS_SEED, ContractFixture, EtnaInbox, L2_CHAIN_ID, view};
+use super::contracts::{ContractFixture, EtnaInbox, L2_CHAIN_ID, view};
+
+use lander::native::{Block, Commit, CommitSig, EvidenceList, RawBlock};
 
 /// Generous explicit fixture limits; no block is truncated to fit a blob.
 pub fn limits() -> Limits {
@@ -58,6 +55,8 @@ pub fn limits() -> Limits {
 /// The decided chain survives checkpoint advances so later fixtures preserve exact history.
 #[derive(Clone)]
 pub struct FixtureChain {
+    pub chain_id: String,
+    pub keys: Vec<test_harness::ValidatorKey>,
     pub blocks: Vec<CertifiedBlock>,
     pub headers: Vec<Header>,
     pub anchors: Vec<AnchorState>,
@@ -80,6 +79,13 @@ impl FixtureChain {
         let hash = record_hash(L2_CHAIN_ID, &fixture.committee.record);
         let committee = authenticate(fixture.committee.clone(), 0, hash, &fixture.params)?;
         Ok(Self {
+            chain_id: abci::domain::chain_id(&abci::domain::DeploymentDomain {
+                l1_chain_id: fixture.params.l1_chain_id,
+                l2_chain_id: U256::from(L2_CHAIN_ID),
+                inbox: fixture.inbox,
+                generation: 0,
+            })?,
+            keys: fixture.keys.clone(),
             blocks: Vec::new(),
             headers: vec![fixture.parent_header.clone()],
             anchors: vec![anchor],
@@ -138,16 +144,27 @@ impl FixtureChain {
             let consumed = forced.as_ref().filter(|w| !w.tx.is_empty()).map(|w| w.index);
             let committee = if let Some(target) = switch {
                 Some(
-                    build_committee_witness(&source, &fixture.params, parent_anchor.number, target)
-                        .await?,
+                    build_committee_witness_at_cutoff(
+                        &source,
+                        &fixture.params,
+                        anchor.number,
+                        parent_anchor.number.max(fixture.genesis.l1_0),
+                        target,
+                    )
+                    .await?,
                 )
             } else {
                 None
             };
             if let Some(w) = &committee {
                 let target = switch.expect("switch committee");
-                let (record, members) =
-                    verify_committee_witness(parent_anchor, &fixture.params, w, target)?;
+                let (record, members) = verify_committee_witness_at_cutoff(
+                    anchor.state_root,
+                    parent_anchor.number.max(fixture.genesis.l1_0),
+                    &fixture.params,
+                    w,
+                    target,
+                )?;
                 let hash = record_hash(L2_CHAIN_ID, &record);
                 self.committees.insert(
                     target,
@@ -176,11 +193,7 @@ impl FixtureChain {
             let time = parent.timestamp + 1;
             let expected = expected_header(&HeaderInputs {
                 height,
-                reward_recipient: abci::rules::proposer_recipient(
-                    &self.committees[&schedule.epoch_of(height)].state.members,
-                    self.committees[&schedule.epoch_of(height)].validators.validators()[0].address,
-                )
-                .unwrap(),
+                reward_recipient: fixture.params.fee_recipient,
                 parent: &parent_info,
                 anchor: &anchor,
                 bft_time_secs: time,
@@ -213,7 +226,10 @@ impl FixtureChain {
                 block: ExecutionBlock { header: header.clone(), transactions },
                 anchor: witness,
                 committee,
-                forced,
+                forced: forced.map(|mut w| {
+                    w.tx = Bytes::new();
+                    w
+                }),
             };
             let current = &self.committees[&schedule.epoch_of(height)];
             let pair = signed_pair(
@@ -221,8 +237,10 @@ impl FixtureChain {
                 current,
                 &self.committees[&schedule.epoch_of(height + 1)],
                 self.blocks.last(),
+                &self.chain_id,
+                &self.keys,
             );
-            verify_commit(&pair.commit, &pair.block.header, current, "taiko-etna-167001-g0")?;
+            verify_commit(&pair.commit, &pair.block.header, current, &self.chain_id)?;
             verify_structure(&pair, self.blocks.last(), height, parent.hash_slow())?;
             let facts = verify_envelope(
                 envelope,
@@ -266,7 +284,6 @@ impl FixtureChain {
         self.blocks
             .iter()
             .filter_map(|pair| EtnaEnvelope::decode(&pair.block.data[0]).ok()?.forced)
-            .filter(|witness| !witness.tx.is_empty())
             .count() as u64
     }
 
@@ -287,7 +304,11 @@ impl FixtureChain {
         let bootstrap =
             view(p, fixture.inbox, EtnaInbox::genesisCommitteeRecordHashCall {}, pin).await?;
         let inbox_witness = source
-            .account_witness(fixture.inbox, &lander::l1::snapshot_slots(), state.number())
+            .account_witness(
+                fixture.inbox,
+                &lander::l1::snapshot_landing_slots(checkpoint.height.to()),
+                state.number(),
+            )
             .await?;
         let head_tail = inbox_witness
             .storage
@@ -303,7 +324,18 @@ impl FixtureChain {
             inbox: fixture.inbox,
             registry: fixture.registry,
             generation: 0,
-            checkpoint_height: checkpoint.height,
+            checkpoint_height: checkpoint.height.to(),
+            checkpoint_comet_hash: if checkpoint.height.is_zero() {
+                B256::ZERO
+            } else {
+                B256::from_slice(
+                    self.blocks[checkpoint.height.to::<usize>() - 1]
+                        .commit
+                        .block_id
+                        .hash
+                        .as_bytes(),
+                )
+            },
             checkpoint_hash: checkpoint.blockHash,
             forced_inclusion_head: word_u48(head_tail, 0),
             forced_inclusion_tail: word_u48(head_tail, 48),
@@ -315,6 +347,8 @@ impl FixtureChain {
         };
         ensure!(last <= self.blocks.len() as u64, "fixture batch range");
         let chain = Arc::new(Self {
+            chain_id: self.chain_id.clone(),
+            keys: self.keys.clone(),
             blocks: self.blocks[..last as usize].to_vec(),
             headers: self.headers[..=last as usize].to_vec(),
             anchors: self.anchors[..=last as usize].to_vec(),
@@ -333,8 +367,6 @@ impl FixtureChain {
                 params: fixture.params.clone(),
                 limits: limits(),
                 mode,
-                fee_recipient: test_harness::dev_signer().address(),
-                l2_reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
                 engine: std::sync::Arc::new(test_harness::unavailable_engine::UnavailableEngine),
                 engine_timeout: std::time::Duration::from_secs(1),
             },
@@ -356,14 +388,16 @@ pub fn signed_pair(
     committee: &AuthenticatedCommittee,
     next: &AuthenticatedCommittee,
     previous: Option<&CertifiedBlock>,
+    chain_id: &str,
+    keys: &[test_harness::ValidatorKey],
 ) -> CertifiedBlock {
     let height = envelope.block.header.number;
     let parent = envelope.block.header.parent_hash;
     let time = envelope.block.header.timestamp;
     let data = vec![envelope.encode().to_vec()];
     let header = tendermint::block::Header {
-        version: Version { block: 11, app: 0 },
-        chain_id: "taiko-etna-167001-g0".parse().unwrap(),
+        version: Version { block: 11, app: 1 },
+        chain_id: chain_id.parse().unwrap(),
         height: height.try_into().unwrap(),
         time: Time::from_unix_timestamp(i64::try_from(time).unwrap(), 0).unwrap(),
         last_block_id: previous.map(|p| p.commit.block_id),
@@ -379,8 +413,13 @@ pub fn signed_pair(
         evidence_hash: Some(merkle(&[])),
         proposer_address: committee.validators.validators()[0].address,
     };
-    let block = Block::new(header, data, Default::default(), previous.map(|p| p.commit.clone()));
-    let mut raw = RawBlock::from(block.clone());
+    let block = Block { header, data, last_commit: previous.map(|p| p.commit.clone()) };
+    let mut raw = RawBlock {
+        header: Some(block.header.clone().into()),
+        data: Some(tendermint_proto::v0_38::types::Data { txs: block.data.clone() }),
+        evidence: Some(EvidenceList { evidence: vec![] }),
+        last_commit: block.last_commit.clone().map(Into::into),
+    };
     if height == 1 {
         raw.last_commit = Some(Commit::default().into());
         raw.header.as_mut().unwrap().last_block_id =
@@ -396,29 +435,36 @@ pub fn signed_pair(
         block_id: Id { hash: block.header.hash(), part_set_header: parts },
         signatures: vec![],
     };
-    let key = SigningKey::from_bytes(&CONSENSUS_SEED);
-    let validator = &committee.validators.validators()[0];
-    let vote = Vote {
-        vote_type: Type::Precommit,
-        height: commit.height,
-        round: commit.round,
-        block_id: Some(commit.block_id),
-        timestamp: Some(block.header.time),
-        validator_address: validator.address,
-        validator_index: 0u32.try_into().unwrap(),
-        signature: None,
-        extension: vec![],
-        extension_signature: None,
-    };
-    let bytes = Protobuf::<RawVote>::encode_length_delimited_vec(CanonicalVote::new(
-        vote,
-        block.header.chain_id.clone(),
-    ));
-    commit.signatures = vec![CommitSig::BlockIdFlagCommit {
-        validator_address: validator.address,
-        timestamp: block.header.time,
-        signature: Some(key.sign(&bytes).to_bytes().to_vec().try_into().unwrap()),
-    }];
+    commit.signatures = committee
+        .validators
+        .validators()
+        .iter()
+        .enumerate()
+        .map(|(index, validator)| {
+            let key = keys.iter().find(|key| key.pubkey() == validator.pub_key).unwrap();
+            let vote = Vote {
+                vote_type: Type::Precommit,
+                height: commit.height,
+                round: commit.round,
+                block_id: Some(commit.block_id),
+                timestamp: Some(block.header.time),
+                validator_address: validator.address,
+                validator_index: (index as u32).try_into().unwrap(),
+                signature: None,
+                extension: vec![],
+                extension_signature: None,
+            };
+            let bytes = Protobuf::<RawVote>::encode_length_delimited_vec(CanonicalVote::new(
+                vote,
+                block.header.chain_id.clone(),
+            ));
+            CommitSig::BlockIdFlagCommit {
+                validator_address: validator.address,
+                timestamp: block.header.time,
+                signature: Some(key.sign_native_message(&bytes).try_into().unwrap()),
+            }
+        })
+        .collect();
     CertifiedBlock::from_raw(raw, commit).unwrap()
 }
 
@@ -426,7 +472,7 @@ pub fn signed_pair(
 impl lander::comet::CometSource for FixtureChain {
     async fn status(&self) -> lander::error::Result<lander::comet::CometStatus> {
         Ok(lander::comet::CometStatus {
-            chain_id: "taiko-etna-167001-g0".into(),
+            chain_id: self.chain_id.clone(),
             height: self.blocks.len() as u64,
         })
     }
@@ -495,14 +541,8 @@ impl LandingSource for FixtureLanding {
     ) -> lander::error::Result<Vec<abci::RawL1Header>> {
         self.rpc.reference(snapshot, anchors).await
     }
-    async fn statement_hash(
-        &self,
-        snapshot: &LandingSnapshot,
-        input: &LandInput,
-        hash: B256,
-        blobs: &[B256],
-    ) -> lander::error::Result<B256> {
-        self.rpc.statement_hash(snapshot, input, hash, blobs).await
+    async fn deployment_identity(&self, snapshot: &LandingSnapshot) -> lander::error::Result<B256> {
+        self.rpc.deployment_identity(snapshot).await
     }
     async fn canonical_hash(&self, number: u64) -> lander::error::Result<B256> {
         self.rpc.canonical_hash(number).await

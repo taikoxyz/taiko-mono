@@ -23,7 +23,15 @@ async fn lander_live_comet_collector_preserves_and_authenticates_certificates() 
     let source =
         HttpCometSource::new(devnet.cmt(0).url(), Duration::from_secs(10), 16 * 1024 * 1024)?;
     let status = source.status().await?;
-    assert_eq!(status.chain_id, "taiko-etna-167001-g0");
+    assert_eq!(
+        status.chain_id,
+        abci::domain::chain_id(&abci::domain::DeploymentDomain {
+            l1_chain_id: devnet.params().l1_chain_id,
+            l2_chain_id: U256::from(devnet.params().l2_chain_id),
+            inbox: devnet.params().inbox,
+            generation: 0
+        })?
+    );
     assert!(status.height >= 5);
     let committee = source.committee(0).await?;
     assert_eq!(Some(committee.clone()), devnet.cmt(0).committee(0).await?);
@@ -48,8 +56,20 @@ async fn lander_live_comet_collector_preserves_and_authenticates_certificates() 
     for height in 1..=5 {
         let pair = source.block(height).await?;
         let raw = devnet.cmt(0).call("block", &[("height", height.to_string())]).await?;
-        let direct: tendermint::Block = serde_json::from_value(raw["block"].clone())?;
-        assert_eq!(pair.block, direct);
+        let direct: tendermint::block::Header =
+            serde_json::from_value(raw["block"]["header"].clone())?;
+        assert_eq!(pair.block.header, direct);
+        assert!(
+            pair.commit
+                .signatures
+                .iter()
+                .filter_map(|s| match s {
+                    lander::native::CommitSig::BlockIdFlagCommit { signature, .. } =>
+                        signature.as_ref(),
+                    _ => None,
+                })
+                .all(|s| s.as_bytes().len() == 65)
+        );
         verify_commit(&pair.commit, &pair.block.header, &authenticated, &status.chain_id)?;
         let envelope = verify_structure(&pair, previous.as_ref(), height, parent)
             .with_context(|| format!("live block {height} structure"))?;
@@ -70,7 +90,19 @@ async fn lander_live_comet_collector_preserves_and_authenticates_certificates() 
         .iter()
         .map(|pair| codec::PublishedBlock::try_from(pair).unwrap())
         .collect::<Vec<_>>();
-    assert_eq!(codec::decode(&payload, &limits)?, published);
+    assert_eq!(
+        codec::decode_landed(
+            &payload,
+            &codec::LandedRange {
+                parent_height: 0,
+                parent_hash: genesis.header.hash,
+                last_height: 5,
+                last_block_hash: parent,
+                last_state_root: published.last().unwrap().block.header.state_root
+            }
+        )?,
+        published
+    );
     assert!(devnet.cmt(0).committee(1).await?.is_none(), "no switch witness exists by height 5");
     devnet.stop().await
 }

@@ -83,3 +83,11 @@
 - Etna readiness is app `/trust` or `/status`, distinct from stock Comet `catching_up` and raw
   EL/Comet progress. Public RPC output needs its own readiness gate; do not claim an atomic
   cross-process revocation for a signing request authorized just before an app crash.
+
+- Supported validator images include Python 3.11+, the pinned unmodified Comet binary and the
+  guarded signer. Run `python3 /app/script/etna_validator.py` separately from the app using
+  shared private/persistent mounts. Private `observe` is nonmutating, never authorization;
+  signer event sequence zero establishes session identity and positive sequences record
+  denial/timeout. Recovery starts a fresh closed session only after private trust returns.
+  Terminal trust/domain failures durably latch and quiesce across restartAlways restarts.
+  Include `just supervisor-test` in the full verification gate.

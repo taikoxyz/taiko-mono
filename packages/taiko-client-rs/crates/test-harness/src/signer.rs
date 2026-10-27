@@ -22,11 +22,18 @@ pub(crate) fn processes() -> &'static Mutex<BTreeMap<u32, Child>> {
 /// One helper's immutable configuration and process, separate from its Comet-mounted home.
 #[derive(Debug)]
 pub(crate) struct SignerNode {
+    /// Private fixture directory containing diagnostics and bootstrap identity.
     dir: PathBuf,
+    /// App-owned private trust socket.
     control: PathBuf,
+    /// Authoritative key/HRS directory, never a Comet home.
     key_dir: Mutex<PathBuf>,
+    /// Exact deployment-domain Comet chain ID.
     chain_id: String,
+    /// Owned helper or supervisor PID in the cleanup registry.
     pid: Mutex<Option<u32>>,
+    /// Supported supervisor adapter: retained home and existing Docker container.
+    runtime: Option<(PathBuf, String)>,
 }
 
 impl SignerNode {
@@ -48,7 +55,36 @@ impl SignerNode {
         for name in ["key.json", "state.json"] {
             fs::set_permissions(dir.join(name), fs::Permissions::from_mode(0o600))?;
         }
-        Ok(Self { key_dir: Mutex::new(dir.clone()), dir, control, chain_id, pid: Mutex::new(None) })
+        Ok(Self {
+            key_dir: Mutex::new(dir.clone()),
+            dir,
+            control,
+            chain_id,
+            pid: Mutex::new(None),
+            runtime: None,
+        })
+    }
+
+    /// Uses already bootstrapped signing files; no runtime creation or height-zero fallback.
+    pub(crate) fn existing(dir: PathBuf, control: PathBuf, chain_id: String) -> Result<Self> {
+        ensure!(
+            dir.join("key.json").is_file() && dir.join("state.json").is_file(),
+            "authoritative signer files missing"
+        );
+        Ok(Self {
+            key_dir: Mutex::new(dir.clone()),
+            dir,
+            control,
+            chain_id,
+            pid: Mutex::new(None),
+            runtime: None,
+        })
+    }
+
+    /// Runs the same supervisor as the supported image against a stock Docker Comet child.
+    pub(crate) fn supervised(mut self, home: PathBuf, container: String) -> Self {
+        self.runtime = Some((home, container));
+        self
     }
 
     /// Starts with the current Docker-published signer port, retaining the same signing state.
@@ -66,22 +102,40 @@ impl SignerNode {
             fs::OpenOptions::new().create(true).append(true).open(self.dir.join("signer.log"))?;
         let key_dir = self.key_dir.lock().expect("signer key directory").clone();
         let mut owned = processes().lock().expect("signer process registry");
-        let child = Command::new(binary)
-            .arg("--comet-signer-addr")
-            .arg(format!("tcp://127.0.0.1:{port}"))
-            .arg("--trust-socket")
-            .arg(&self.control)
-            .arg("--chain-id")
-            .arg(&self.chain_id)
-            .arg("--priv-key")
-            .arg(key_dir.join("key.json"))
-            .arg("--priv-state")
-            .arg(key_dir.join("state.json"))
+        let mut command = if let Some((home, container)) = &self.runtime {
+            let mut command = Command::new("python3");
+            command
+                .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../script/etna_validator.py"))
+                .env("ETNA_COMET_HOME", home)
+                .env("ETNA_COMET_CONTAINER", container)
+                .env("ETNA_SIGNER_ADDR", format!("tcp://127.0.0.1:{port}"))
+                .env("ETNA_APP_STORE", self.control.parent().expect("app store"))
+                .env("ETNA_PRIV_KEY", key_dir.join("key.json"))
+                .env("ETNA_PRIV_STATE", key_dir.join("state.json"))
+                .env("ETNA_CHAIN_ID", &self.chain_id)
+                .env("ETNA_SIGNER_BIN", &binary);
+            command
+        } else {
+            let mut command = Command::new(binary);
+            command
+                .arg("--comet-signer-addr")
+                .arg(format!("tcp://127.0.0.1:{port}"))
+                .arg("--trust-socket")
+                .arg(&self.control)
+                .arg("--chain-id")
+                .arg(&self.chain_id)
+                .arg("--priv-key")
+                .arg(key_dir.join("key.json"))
+                .arg("--priv-state")
+                .arg(key_dir.join("state.json"));
+            command
+        };
+        let child = command
             .stdin(Stdio::null())
-            .stdout(Stdio::null())
+            .stdout(Stdio::from(log.try_clone()?))
             .stderr(Stdio::from(log))
             .spawn()
-            .context("starting guarded FilePV signer")?;
+            .context("starting guarded validator supervisor")?;
         let pid = child.id();
         owned.insert(pid, child);
         *self.pid.lock().expect("signer pid") = Some(pid);
@@ -94,6 +148,12 @@ impl SignerNode {
             let Some(mut child) =
                 processes().lock().expect("signer process registry").remove(&pid)
         {
+            let _ = Command::new("kill").args(["-TERM", &pid.to_string()]).status();
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+            while child.try_wait().ok().flatten().is_none() && std::time::Instant::now() < deadline
+            {
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
             let _ = child.kill();
             let _ = child.wait();
         }

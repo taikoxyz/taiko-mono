@@ -26,6 +26,7 @@ const CLIENT: &str = env!("CARGO_BIN_EXE_taiko-client");
 
 fn rpc_data(chain: &FixtureChain) -> RpcData {
     RpcData {
+        chain_id: chain.chain_id.clone(),
         blocks: chain.blocks.clone(),
         headers: chain.headers.clone(),
         committees: chain
@@ -44,8 +45,11 @@ fn inputs(fixture: &ContractFixture, rpc: &FixtureRpc, root: &TempDir) -> Result
     std::fs::write(
         &chain_config,
         format!(
-            "inbox = \"{}\"\nregistry = \"{}\"\nd_max = 12\nmargin_v = 2\n",
-            fixture.inbox, fixture.registry,
+            "inbox = \"{}\"\nregistry = \"{}\"\nunsettled_limit = {}\nl1_chain_id = \"{}\"\n",
+            fixture.inbox,
+            fixture.registry,
+            fixture.params.unsettled_limit,
+            fixture.params.l1_chain_id,
         ),
     )?;
     Ok(CliInputs {
@@ -54,11 +58,7 @@ fn inputs(fixture: &ContractFixture, rpc: &FixtureRpc, root: &TempDir) -> Result
         key,
         data: root.path().join("lander"),
         chain_config,
-        max_blocks: fixture
-            .genesis
-            .epoch_len
-            .checked_add(2)
-            .context("fixture batch cap overflow")?,
+        max_blocks: 24,
     })
 }
 
@@ -108,7 +108,7 @@ async fn lander_cli_recovers_from_sigkill_and_resumes_after_sigterm() -> Result<
     let fixture = ContractFixture::deploy().await?;
     let result = async {
         let mut chain = FixtureChain::new(&fixture).await?;
-        chain.extend(&fixture, 5).await?;
+        chain.extend(&fixture, 6).await?;
         let rpc = FixtureRpc::start(rpc_data(&chain)).await?;
         let directory = TempDir::new()?;
         let args = inputs(&fixture, &rpc, &directory)?;
@@ -153,9 +153,9 @@ async fn lander_cli_recovers_from_sigkill_and_resumes_after_sigterm() -> Result<
         )
         .await?;
         mine_l1_blocks(&fixture.anvil.provider, 1).await?;
-        wait_checkpoint(&fixture, &mut second, 5).await?;
+        wait_checkpoint(&fixture, &mut second, 6).await?;
         ensure!(
-            fixture.checkpoint().await? == (5, chain.headers[5].hash_slow()),
+            fixture.checkpoint().await? == (6, chain.headers[6].hash_slow()),
             "recovered CLI checkpoint differs from genuine decided chain"
         );
         ensure!(
@@ -165,7 +165,7 @@ async fn lander_cli_recovers_from_sigkill_and_resumes_after_sigterm() -> Result<
         ensure!(second.signal(libc::SIGTERM).await?.success(), "SIGTERM should exit cleanly");
         assert_key_absent(&second);
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;
-        let resumed_height = fixture.genesis.epoch_len + 2;
+        let resumed_height = 18;
         chain.extend(&fixture, resumed_height).await?;
         rpc.replace(rpc_data(&chain)).await;
         let mut third =
@@ -292,14 +292,14 @@ async fn wait_batch_marker(
 #[tokio::test]
 #[ignore = "docker"]
 async fn lander_cli_submits_at_minimum_or_timeout_and_keeps_wait_after_sigkill() -> Result<()> {
-    let fixture = ContractFixture::deploy().await?;
+    let fixture = ContractFixture::deploy_config(1, 120, 60).await?;
     let result = async {
         let mut chain = FixtureChain::new(&fixture).await?;
-        chain.extend(&fixture, 1).await?;
+        chain.extend(&fixture, 6).await?;
         let rpc = FixtureRpc::start(rpc_data(&chain)).await?;
         let directory = TempDir::new()?;
         let args = inputs(&fixture, &rpc, &directory)?;
-        let policy = [("--min-blocks", "3"), ("--max-batch-wait", "20")];
+        let policy = [("--min-blocks", "12"), ("--max-batch-wait", "20")];
         let sender = dev_signer().address();
         let nonce = fixture.anvil.provider.get_transaction_count(sender).await?;
         let mut first = CliProcess::spawn(
@@ -315,7 +315,7 @@ async fn lander_cli_submits_at_minimum_or_timeout_and_keeps_wait_after_sigkill()
         )?;
         // Seed before measuring batching policy. Cold Anvil EIP-7594 verification can exceed
         // the ordinary five-second CLI test RPC budget; this startup uses the harness margin.
-        wait_checkpoint(&fixture, &mut first, 1).await?;
+        wait_checkpoint(&fixture, &mut first, 6).await?;
         ensure!(first.signal(libc::SIGTERM).await?.success(), "initial checkpoint exits cleanly");
         let mut first = CliProcess::spawn(
             Path::new(CLIENT),
@@ -324,24 +324,24 @@ async fn lander_cli_submits_at_minimum_or_timeout_and_keeps_wait_after_sigkill()
             &policy,
         )?;
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;
-        chain.extend(&fixture, 3).await?;
+        chain.extend(&fixture, 12).await?;
         rpc.replace(rpc_data(&chain)).await;
         let waiting = wait_batch_marker(&mut first, &args.data)
             .await
             .context("initial checkpoint-1 backlog")?;
-        ensure!(waiting["checkpoint_height"] == 1, "wait attached to wrong checkpoint");
+        ensure!(waiting["checkpoint_height"] == 6, "wait attached to wrong checkpoint");
         tokio::time::sleep(Duration::from_millis(500)).await;
         first.assert_running()?;
-        ensure!(fixture.checkpoint().await?.0 == 1, "submitted before minimum or deadline");
+        ensure!(fixture.checkpoint().await?.0 == 6, "submitted before minimum or deadline");
         ensure!(
             fixture.anvil.provider.get_transaction_count(sender).await? == nonce + 1,
             "waiting consumed a nonce",
         );
-        chain.extend(&fixture, 4).await?;
+        chain.extend(&fixture, 18).await?;
         rpc.replace(rpc_data(&chain)).await;
         // Three publishable blocks trigger before the twenty-second timer.
         // The fifteen-second observation window includes real signing and inclusion overhead.
-        wait_checkpoint_before(&fixture, &mut first, 4, Duration::from_secs(15)).await?;
+        wait_checkpoint_before(&fixture, &mut first, 18, Duration::from_secs(15)).await?;
         let first_seen = waiting["first_seen_unix_ms"]
             .as_u64()
             .context("durable waiting timer has no observation timestamp")?;
@@ -354,11 +354,11 @@ async fn lander_cli_submits_at_minimum_or_timeout_and_keeps_wait_after_sigkill()
             "minimum test reached the timer deadline instead of the count gate"
         );
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;
-        chain.extend(&fixture, 5).await?;
+        chain.extend(&fixture, 24).await?;
         rpc.replace(rpc_data(&chain)).await;
         let original_wait =
             wait_batch_marker(&mut first, &args.data).await.context("checkpoint-4 backlog")?;
-        ensure!(original_wait["checkpoint_height"] == 4, "new backlog retained old checkpoint");
+        ensure!(original_wait["checkpoint_height"] == 18, "new backlog retained old checkpoint");
         ensure!(!first.signal(libc::SIGKILL).await?.success(), "SIGKILL should be abrupt");
         let mut second = CliProcess::spawn(
             Path::new(CLIENT),
@@ -370,9 +370,9 @@ async fn lander_cli_submits_at_minimum_or_timeout_and_keeps_wait_after_sigkill()
             .await
             .context("restored checkpoint-4 backlog")?;
         ensure!(restored_wait == original_wait, "restart reset the durable batching timer");
-        wait_checkpoint_before(&fixture, &mut second, 5, Duration::from_secs(50)).await?;
+        wait_checkpoint_before(&fixture, &mut second, 24, Duration::from_secs(50)).await?;
         ensure!(
-            fixture.checkpoint().await? == (5, chain.headers[5].hash_slow()),
+            fixture.checkpoint().await? == (24, chain.headers[24].hash_slow()),
             "timeout checkpoint differs"
         );
         ensure!(
@@ -395,10 +395,10 @@ async fn lander_cli_submits_at_minimum_or_timeout_and_keeps_wait_after_sigkill()
 #[ignore = "docker"]
 async fn lander_cli_flushes_backpressure_and_switch_witnesses_before_batch_deadline() -> Result<()>
 {
-    let fixture = ContractFixture::deploy().await?;
+    let fixture = ContractFixture::deploy_config(1, 12, 15).await?;
     let result = async {
         let mut chain = FixtureChain::new(&fixture).await?;
-        chain.extend(&fixture, 1).await?;
+        chain.extend(&fixture, 6).await?;
         let rpc = FixtureRpc::start(rpc_data(&chain)).await?;
         let directory = TempDir::new()?;
         let args = inputs(&fixture, &rpc, &directory)?;
@@ -410,31 +410,31 @@ async fn lander_cli_flushes_backpressure_and_switch_witnesses_before_batch_deadl
             directory.path().join("batch-urgent.log"),
             &[("--min-blocks", "1"), ("--max-batch-wait", "3600")],
         )?;
-        wait_checkpoint_before(&fixture, &mut process, 1, Duration::from_secs(15)).await?;
+        wait_checkpoint_before(&fixture, &mut process, 6, Duration::from_secs(15)).await?;
         ensure!(process.signal(libc::SIGTERM).await?.success(), "initial flush exits");
         let mut process = CliProcess::spawn(
             Path::new(CLIENT),
             &args,
             directory.path().join("batch-pressure.log"),
-            &[("--min-blocks", "10"), ("--max-batch-wait", "3600")],
+            &[("--min-blocks", "12"), ("--max-batch-wait", "3600")],
         )?;
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;
-        chain.extend(&fixture, 10).await?;
+        chain.extend(&fixture, 17).await?;
         rpc.replace(rpc_data(&chain)).await;
         // Nine unlanded blocks leave only one height before the builtin ABCI cap U=10.
-        wait_checkpoint_before(&fixture, &mut process, 10, Duration::from_secs(15)).await?;
+        wait_checkpoint_before(&fixture, &mut process, 12, Duration::from_secs(15)).await?;
         ensure!(process.signal(libc::SIGTERM).await?.success(), "SIGTERM should exit cleanly");
         assert_key_absent(&process);
         // The unlanded switch at height 12 triggers useful settlement at depth 2.
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;
-        let switch_height = fixture.genesis.epoch_len - 1;
+        let switch_height = 18;
         chain.extend(&fixture, switch_height).await?;
         rpc.replace(rpc_data(&chain)).await;
         let mut process = CliProcess::spawn(
             Path::new(CLIENT),
             &args,
             directory.path().join("batch-epoch.log"),
-            &[("--min-blocks", "10"), ("--max-batch-wait", "3600")],
+            &[("--min-blocks", "12"), ("--max-batch-wait", "3600")],
         )?;
         // Only two blocks remain, including the fixed-cutoff switch witness.
         wait_checkpoint_before(&fixture, &mut process, switch_height, Duration::from_secs(15))
@@ -490,6 +490,7 @@ async fn lander_cli_checks_engine_before_opening_journal_or_running() -> Result<
         ),
     ] {
         let rpc = FixtureRpc::start(RpcData {
+            chain_id: "unused-before-engine".into(),
             blocks: Vec::new(),
             headers: Vec::new(),
             committees: Default::default(),
@@ -508,7 +509,7 @@ async fn lander_cli_checks_engine_before_opening_journal_or_running() -> Result<
             key,
             chain_config,
             data: directory.path().join("lander"),
-            max_blocks: 1,
+            max_blocks: 6,
         };
         let mut process =
             CliProcess::spawn(Path::new(CLIENT), &args, directory.path().join("startup.log"), &[])?;

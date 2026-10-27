@@ -7,15 +7,15 @@ use alloy::{
 use alloy_consensus::{
     SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope,
 };
-use alloy_eips::{BlockId, eip2718::Encodable2718};
-use alloy_primitives::{B256, Bytes, U256, aliases::U48};
+use alloy_eips::eip2718::Encodable2718;
+use alloy_primitives::{B256, Bytes, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types::TransactionRequest;
 use anyhow::{Context, Result};
 use lander::{
     DummyProofProvider, ProofProvider, ProofRequest, SidecarMode,
     contracts::IEtnaInbox::landCall,
-    runner::{ran_out_of_gas, successful_landing},
+    runner::ran_out_of_gas,
     tx::{
         FeeCaps, RpcTransactionTransport, SignedTransaction, TransactionTransport, land_calldata,
     },
@@ -84,11 +84,7 @@ async fn land_through(
     last: u64,
 ) -> Result<()> {
     assert!(last <= EPOCH_LEN);
-    let schedule = abci::Schedule::from_genesis(&fixture.genesis);
-    let derivation_height = schedule.derivation_parent_height(1).context("D height")?;
-    let mut cuts = vec![5, derivation_height];
-    cuts.extend(derivation_height + 1..=last);
-    for cut in cuts {
+    for cut in (6..=last).step_by(6) {
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;
         chain.extend(fixture, cut).await?;
         let request = chain.prepare(fixture, cut, SidecarMode::Eip7594).await?;
@@ -125,60 +121,15 @@ async fn assert_landed(
         receipt.blob_gas_used,
         Some(131_072 * u64::try_from(request.batch.blobs.versioned_hashes.len())?)
     );
-    let event = receipt.decoded_log::<EtnaInbox::BatchLanded>().context("BatchLanded event")?;
-    assert_eq!(event.data.statementHash, request.batch.statement_hash);
+    let event = receipt.decoded_log::<EtnaInbox::Landed>().context("Landed event")?;
+    assert_eq!(event.data.version, 1);
+    assert_eq!(event.data.parentHeight, request.batch.input.parentHeight);
+    assert_eq!(event.data.checkpointHeight, U256::from(request.batch.snapshot.checkpoint_height));
     assert_eq!(event.data.lastHeight, request.batch.input.lastHeight);
-    assert_eq!(event.data.lander, dev_signer().address());
     let batch = &request.batch;
     assert_eq!(
         view(p, fixture.inbox, EtnaInbox::activeCommitteeSnapshotCall {}, None).await?,
         batch.input.activeCommitteeSnapshot
-    );
-    let reward = lander::rewards::Receipt {
-        l1ChainId: batch.snapshot.l1_chain_id,
-        l2ChainId: batch.snapshot.l2_chain_id,
-        inbox: batch.snapshot.inbox,
-        generation: batch.snapshot.generation,
-        parentHeight: batch.snapshot.checkpoint_height,
-        parentHash: batch.snapshot.checkpoint_hash,
-        lastHeight: batch.input.lastHeight,
-        lastBlockHash: batch.input.lastBlockHash,
-        l2RewardRecipient: batch.input.l2RewardRecipient,
-        baseFeeAmount: batch.input.baseFeeAmount,
-    };
-    let id = lander::rewards::batch_id(&reward);
-    let event = receipt
-        .decoded_log::<lander::contracts::BatchRewardRecorded>()
-        .context("BatchRewardRecorded")?;
-    assert_eq!(event.data.batchId, id);
-    let summary = successful_landing(
-        batch,
-        &lander::tx::LandingReceipt {
-            transaction_hash: receipt.transaction_hash,
-            block_number: receipt.block_number.context("landing block number")?,
-            block_hash: receipt.block_hash.context("landing block hash")?,
-            success: receipt.status(),
-            gas_used: receipt.gas_used,
-        },
-    )
-    .context("successful own reward summary")?;
-    assert_eq!(summary.batch_id, event.data.batchId);
-    assert_eq!(summary.reward, reward);
-    assert_eq!(event.data.l2RewardRecipient, reward.l2RewardRecipient);
-    assert_eq!(event.data.baseFeeAmount, reward.baseFeeAmount);
-    assert_eq!(event.data.parentHeight, reward.parentHeight);
-    assert_eq!(event.data.lastHeight, reward.lastHeight);
-    assert_eq!(
-        view(p, fixture.inbox, EtnaInbox::rewardCommitmentsCall { batchId: id }, None).await?,
-        lander::rewards::commitment(&reward)
-    );
-    assert_eq!(
-        p.get_storage_at(
-            fixture.inbox,
-            U256::from_be_slice(lander::rewards::receipt_slot(id).as_slice())
-        )
-        .await?,
-        U256::from_be_slice(lander::rewards::commitment(&reward).as_slice())
     );
     let tx = p.get_transaction_by_hash(hash).await?.context("landing transaction")?;
     assert_eq!(
@@ -188,15 +139,16 @@ async fn assert_landed(
     let decoded = landCall::abi_decode(tx.inner.input())?;
     assert_eq!(decoded._proof.as_ref(), &[0]);
     assert_eq!(decoded._input, request.batch.input);
+    assert_eq!(decoded._leaves, request.batch.leaves);
     assert_eq!(
         fixture.checkpoint().await?,
-        (request.batch.input.lastHeight, request.batch.input.lastBlockHash)
+        (request.batch.input.lastHeight.to(), request.batch.input.lastBlockHash)
     );
     let saved = view(
         p,
         fixture.signal,
         SignalService::getCheckpointCall {
-            _blockNumber: request.batch.input.lastHeight.try_into()?,
+            _blockNumber: request.batch.input.lastHeight.to::<u64>().try_into()?,
         },
         None,
     )
@@ -212,8 +164,8 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     let fixture = ContractFixture::deploy().await?;
     let p = &fixture.anvil.provider;
     let mut chain = FixtureChain::new(&fixture).await?;
-    chain.extend(&fixture, 5).await?;
-    let first = chain.prepare(&fixture, 5, SidecarMode::Eip7594).await?;
+    chain.extend(&fixture, 6).await?;
+    let first = chain.prepare(&fixture, 6, SidecarMode::Eip7594).await?;
     assert_eq!(first.batch.committees.len(), 1);
     fixture.expect_statement(first.batch.statement_hash).await?;
     let signed = sign(&fixture, &first).await?;
@@ -251,7 +203,7 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     );
     // A later prefix crosses the epoch boundary without a reward-freeze cut.
     let h = schedule.h_first(1);
-    for last in [switch_height, h + 2] {
+    for last in [18, 24] {
         mine_l1_blocks(p, 3).await?;
         chain.extend(&fixture, last).await?;
         assert!(chain.anchors[usize::try_from(switch_height)?].number >= exit_block);
@@ -272,8 +224,8 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
             incoming.derivation_parent.as_ref().context("D header")?.number,
             derivation_height
         );
-        if last > switch_height {
-            assert_eq!(next.batch.snapshot.checkpoint_height, switch_height);
+        if last == 18 {
+            assert_eq!(next.batch.snapshot.checkpoint_height, derivation_height);
             let later_anchor = &chain.anchors[usize::try_from(switch_height)?];
             assert_eq!(incoming.anchor.number, later_anchor.number);
             assert_eq!(incoming.anchor.hash, later_anchor.hash);
@@ -285,8 +237,8 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
                 "historical snapshot retains selected checkpoint and successor trace proofs"
             );
             let storage = &witness.registry.storage;
-            let selected_l1 = abci::l1::layout::word_u64(storage[1].value, 0);
-            let next_l1 = abci::l1::layout::word_u64(storage[3].value, 0);
+            let selected_l1 = abci::l1::layout::word_u48(storage[1].value, 0);
+            let next_l1 = abci::l1::layout::word_u48(storage[3].value, 0);
             assert!(selected_l1 <= immutable_snapshot);
             assert!(immutable_snapshot < next_l1);
             assert!(next_l1 <= incoming.anchor.number);
@@ -306,10 +258,10 @@ async fn lander_out_of_gas_landing_is_rebuilt_and_lands() -> Result<()> {
     let fixture = ContractFixture::deploy().await?;
     let p = &fixture.anvil.provider;
     let mut chain = FixtureChain::new(&fixture).await?;
-    land_through(&fixture, &mut chain, EPOCH_LEN).await?;
+    land_through(&fixture, &mut chain, 12).await?;
     mine_l1_blocks(p, 3).await?;
-    chain.extend(&fixture, EPOCH_LEN + 1).await?;
-    let request = chain.prepare(&fixture, EPOCH_LEN + 1, SidecarMode::Eip7594).await?;
+    chain.extend(&fixture, 18).await?;
+    let request = chain.prepare(&fixture, 18, SidecarMode::Eip7594).await?;
     fixture.expect_statement(request.batch.statement_hash).await?;
     let proof = Bytes::from(vec![0]);
     let production = transport(&fixture)?.sign(&request, &proof).await?;
@@ -322,8 +274,8 @@ async fn lander_out_of_gas_landing_is_rebuilt_and_lands() -> Result<()> {
     let failed = receipt(p, bare.hash).await?;
     assert!(!failed.status());
     assert!(ran_out_of_gas(failed.gas_used, bare.gas_limit()?));
-    assert_eq!(fixture.checkpoint().await?.0, EPOCH_LEN);
-    let rebuilt = chain.prepare(&fixture, EPOCH_LEN + 1, SidecarMode::Eip7594).await?;
+    assert_eq!(fixture.checkpoint().await?.0, 12);
+    let rebuilt = chain.prepare(&fixture, 18, SidecarMode::Eip7594).await?;
     fixture.expect_statement(rebuilt.batch.statement_hash).await?;
     let signed = sign(&fixture, &rebuilt).await?;
     assert_eq!(signed.nonce, bare.nonce + 1);
@@ -343,13 +295,14 @@ async fn lander_actual_contract_forced_inclusion_lands_and_pays_fee() -> Result<
     let mut chain = FixtureChain::new(&fixture).await?;
     chain.extend(&fixture, 2).await?;
 
-    // A one-block Shasta source; the lander checks the blob's binding, not its transactions.
-    use alloy_consensus::{SignableTransaction, TxEnvelope, TxLegacy};
-    use alloy_eips::eip2718::Encodable2718;
-    let payload = TxEnvelope::Legacy(
-        TxLegacy { gas_limit: 21_000, ..Default::default() }
-            .into_signed(alloy_primitives::Signature::new(U256::from(1), U256::from(1), false)),
+    let payload = test_harness::sign_transfer(
+        &fixture.l2.provider,
+        &dev_signer(),
+        alloy_primitives::Address::repeat_byte(0x44),
+        U256::from(7),
+        0,
     )
+    .await?
     .encoded_2718();
     let (saved, blob, fee) = fixture.save_forced_inclusion(&payload).await?;
     assert_eq!(fee, U256::from(1_000_000_000u64), "1 gwei with an empty queue");
@@ -357,43 +310,47 @@ async fn lander_actual_contract_forced_inclusion_lands_and_pays_fee() -> Result<
     // Finalize the entry's L1 block, so the next block's anchor holds it.
     mine_l1_blocks(p, 3).await?;
     chain.forced_transactions.insert(0, blob.clone());
-    chain.extend(&fixture, 4).await?;
+    chain.extend(&fixture, 6).await?;
     let forced = |height: usize| {
         abci::EtnaEnvelope::decode(&chain.blocks[height - 1].block.data[0]).map(|e| e.forced)
     };
     let witness = forced(3)?.context("block 3 consumes the entry")?;
-    assert_eq!((witness.index, &witness.tx), (0, &blob));
+    assert_eq!(witness.index, 0);
+    assert!(witness.tx.is_empty());
+    assert_eq!(
+        abci::EtnaEnvelope::decode(&chain.blocks[2].block.data[0])?.block.transactions[0],
+        blob
+    );
     assert!(chain.anchors[3].number >= saved.block_number.context("save block")?);
     assert_eq!((forced(2)?, forced(4)?), (None, None));
 
-    let request = chain.prepare(&fixture, 4, SidecarMode::Eip7594).await?;
+    let request = chain.prepare(&fixture, 6, SidecarMode::Eip7594).await?;
     assert_eq!(request.batch.snapshot.forced_inclusion_head, 0);
-    assert_eq!(request.batch.input.forcedInclusionHead, U48::from(1));
-    let lander = dev_signer().address();
-    let recipient = request.batch.input.feeRecipient;
-    assert_eq!(recipient, lander, "the lander names its sending address");
+    assert_eq!(request.batch.input.forcedInclusionHead, U256::from(1));
     fixture.expect_statement(request.batch.statement_hash).await?;
     let signed = sign(&fixture, &request).await?;
     assert_landed(&fixture, &request, &signed).await?;
 
-    let landed = receipt(p, signed.hash).await?;
-    let event = landed
-        .decoded_log::<EtnaInbox::ForcedInclusionsConsumed>()
-        .context("ForcedInclusionsConsumed event")?;
-    assert_eq!(
-        (event.data.headBefore, event.data.headAfter, event.data.feesWei, event.data.recipient),
-        (U48::from(0), U48::from(1), fee, recipient)
-    );
     assert_eq!(fixture.forced_inclusion_state().await?, (1, 1));
-    // The recipient (here the sender) moves by the fee less what the landing transaction cost.
-    let block = landed.block_number.context("landing block")?;
-    let balance = |number| async move {
-        anyhow::Ok(p.get_balance(recipient).block_id(BlockId::number(number)).await?)
-    };
-    let cost = U256::from(landed.gas_used) * U256::from(landed.effective_gas_price) +
-        U256::from(landed.blob_gas_used.context("blob gas")?) *
-            U256::from(landed.blob_gas_price.context("blob gas price")?);
-    assert_eq!(balance(block).await? + cost, balance(block - 1).await? + fee);
+    assert_eq!(
+        p.get_balance(fixture.inbox).await?,
+        fee,
+        "landing never pays FI fees to its sender"
+    );
+    let before = p.get_balance(fixture.admin).await?;
+    let sweep = transact(
+        p,
+        dev_signer().address(),
+        fixture.inbox,
+        EtnaInbox::sweepProtocolFeesCall {}.abi_encode(),
+    )
+    .await?;
+    assert_eq!(
+        sweep.decoded_log::<EtnaInbox::ProtocolFeesSwept>().context("treasury sweep")?.data.amount,
+        fee
+    );
+    assert_eq!(p.get_balance(fixture.admin).await?, before + fee);
+    assert_eq!(p.get_balance(fixture.inbox).await?, U256::ZERO);
     fixture.anvil.stop().await
 }
 
@@ -402,8 +359,8 @@ async fn lander_actual_contract_forced_inclusion_lands_and_pays_fee() -> Result<
 async fn lander_rejecting_verifier_rolls_back_checkpoint_signal_and_committees() -> Result<()> {
     let fixture = ContractFixture::deploy().await?;
     let mut chain = FixtureChain::new(&fixture).await?;
-    chain.extend(&fixture, 3).await?;
-    let request = chain.prepare(&fixture, 3, SidecarMode::Eip7594).await?;
+    chain.extend(&fixture, 6).await?;
+    let request = chain.prepare(&fixture, 6, SidecarMode::Eip7594).await?;
     fixture.expect_statement(request.batch.statement_hash).await?;
     // Sign while estimation accepts the call, then change the verifier from a separate account.
     let signed = sign(&fixture, &request).await?;
@@ -427,7 +384,7 @@ async fn lander_rejecting_verifier_rolls_back_checkpoint_signal_and_committees()
         view(
             &fixture.anvil.provider,
             fixture.signal,
-            SignalService::getCheckpointCall { _blockNumber: 3u64.try_into()? },
+            SignalService::getCheckpointCall { _blockNumber: 6u64.try_into()? },
             None
         )
         .await
@@ -446,40 +403,35 @@ async fn lander_rejecting_verifier_rolls_back_checkpoint_signal_and_committees()
 
 #[tokio::test]
 #[ignore = "requires Docker: actual Etna contracts on Osaka anvil"]
-async fn lander_competing_sender_partial_progress_reverts_obsolete_batch() -> Result<()> {
+async fn lander_competing_sender_partial_progress_keeps_original_signed_batch() -> Result<()> {
     let fixture = ContractFixture::deploy().await?;
     let mut chain = FixtureChain::new(&fixture).await?;
-    chain.extend(&fixture, 5).await?;
-    let obsolete = chain.prepare(&fixture, 5, SidecarMode::Eip7594).await?;
-    let loser = sign(&fixture, &obsolete).await?;
-    let winner = chain.prepare(&fixture, 3, SidecarMode::Eip7594).await?;
-    // The public land function accepts another account with exactly the same required proof.
-    let key = "59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d".parse()?;
+    chain.extend(&fixture, 12).await?;
+    let original = chain.prepare(&fixture, 12, SidecarMode::Eip7594).await?;
+    let signed = sign(&fixture, &original).await?;
+    let bytes = signed.network_bytes.clone();
+    let prefix = chain.prepare(&fixture, 6, SidecarMode::Eip7594).await?;
     let other = RpcTransactionTransport::new(
         fixture.anvil.provider.clone(),
-        key,
-        FeeCaps {
-            max_fee_per_gas: 20_000_000_000,
-            max_priority_fee_per_gas: 1_000_000_000,
-            max_fee_per_blob_gas: 20_000_000_000,
-        },
+        "59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d".parse()?,
+        FEES,
     )?;
-    assert_eq!(other.sender(), fixture.admin);
-    // The dummy verifier must bind the exact statement to model a real proof's parent binding.
-    fixture.expect_statement(winner.batch.statement_hash).await?;
-    let proof = Bytes::from(vec![0]);
-    let transaction = other.sign(&winner, &proof).await?;
-    other.broadcast(&transaction).await?;
-    assert!(receipt(&fixture.anvil.provider, transaction.hash).await?.status());
-    transport(&fixture)?.broadcast(&loser).await?;
-    assert!(!receipt(&fixture.anvil.provider, loser.hash).await?.status());
-    assert_eq!(fixture.checkpoint().await?, (3, winner.batch.input.lastBlockHash));
-    let rebuilt = chain.prepare(&fixture, 5, SidecarMode::Eip7594).await?;
-    assert_eq!(rebuilt.batch.committees.len(), 1, "starting context is independently derived");
-    fixture.expect_statement(rebuilt.batch.statement_hash).await?;
-    let signed = sign(&fixture, &rebuilt).await?;
-    assert!(signed.nonce > loser.nonce, "the old nonce must settle before a new transaction");
-    assert_landed(&fixture, &rebuilt, &signed).await?;
+    fixture.expect_statement(prefix.batch.statement_hash).await?;
+    let tx = other.sign(&prefix, &Bytes::from_static(&[0])).await?;
+    other.broadcast(&tx).await?;
+    assert!(receipt(&fixture.anvil.provider, tx.hash).await?.status());
+    assert_eq!(fixture.checkpoint().await?.0, 6);
+    fixture.expect_statement(original.batch.statement_hash).await?;
+    transport(&fixture)?.broadcast(&signed).await?;
+    let landed = receipt(&fixture.anvil.provider, signed.hash).await?;
+    assert!(landed.status());
+    let event = landed.decoded_log::<EtnaInbox::Landed>().context("overlap landed")?;
+    assert_eq!(
+        (event.data.parentHeight, event.data.checkpointHeight, event.data.lastHeight),
+        (U256::ZERO, U256::from(6), U256::from(12))
+    );
+    assert_eq!(signed.network_bytes, bytes);
+    assert_eq!(fixture.checkpoint().await?.0, 12);
     fixture.anvil.stop().await
 }
 
@@ -488,8 +440,8 @@ async fn lander_competing_sender_partial_progress_reverts_obsolete_batch() -> Re
 async fn lander_statement_mismatch_is_refused_before_broadcast() -> Result<()> {
     let fixture = ContractFixture::deploy().await?;
     let mut chain = FixtureChain::new(&fixture).await?;
-    chain.extend(&fixture, 3).await?;
-    let request = chain.prepare(&fixture, 3, SidecarMode::Eip7594).await?;
+    chain.extend(&fixture, 6).await?;
+    let request = chain.prepare(&fixture, 6, SidecarMode::Eip7594).await?;
     fixture.expect_statement(B256::repeat_byte(0xee)).await?;
     let before = transport(&fixture)?.nonce_state().await?;
     assert!(transport(&fixture)?.sign(&request, &Bytes::from(vec![0])).await.is_err());

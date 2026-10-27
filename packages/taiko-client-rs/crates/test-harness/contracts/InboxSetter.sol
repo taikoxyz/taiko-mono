@@ -4,7 +4,7 @@ pragma solidity 0.8.30;
 /// @notice Test-only Inbox and staking-registry storage setter.
 /// @dev Installed by the test harness; never deploy this unrestricted setter in production.
 contract InboxSetter {
-    event ForcedInclusionSaved(uint48 indexed index, bytes tx);
+    event ForcedInclusionSaved(uint48 indexed index, bytes tx, uint256 feeWei);
 
     /// @notice Plants a forced transaction and emits its protocol admission event.
     /// @dev Records the timestamp and block number of the transaction that writes the entry.
@@ -22,7 +22,7 @@ contract InboxSetter {
             let prior := sload(281)
             sstore(281, or(and(prior, sub(shl(48, 1), 1)), shl(48, add(_index, 1))))
         }
-        emit ForcedInclusionSaved(_index, _tx);
+        emit ForcedInclusionSaved(_index, _tx, uint256(_feeInGwei) * 1 gwei);
     }
 
     /// @notice Applies raw calldata pairs of storage slots and values.

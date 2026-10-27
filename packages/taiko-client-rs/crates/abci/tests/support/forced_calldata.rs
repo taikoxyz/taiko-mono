@@ -4,6 +4,7 @@ use abci::{
     engine::{PayloadVerdict, PoolSelection},
     envelope::EtnaEnvelope,
     rules::ExpectedHeader,
+    wire::{Request, Response, request, response},
 };
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy::{
@@ -25,7 +26,6 @@ use tendermint::{
     abci::types::CommitInfo,
     account,
     block::{Height, Round},
-    v0_38::abci::{Request, Response, request, response},
 };
 use test_harness::{Devnet, dev_signer, send_transfer, wait_until};
 
@@ -113,11 +113,8 @@ pub fn process_request(env: &EtnaEnvelope, time: Time) -> request::ProcessPropos
         height: Height::try_from(env.block.header.number).unwrap(),
         time,
         next_validators_hash: Hash::None,
-        proposer_address: account::Id::from(
-            tendermint::PublicKey::from_raw_ed25519(
-                test_harness::validator_keys(1)[0].pubkey().as_slice(),
-            )
-            .expect("fixture Ed25519 key"),
+        proposer_address: account::Id::new(
+            test_harness::validator_keys(1)[0].pubkey().address().into_array(),
         ),
     }
 }
@@ -144,11 +141,8 @@ pub async fn prepare<E: Engine>(app: &mut App<RpcL1Source, E>, time: Time) -> Re
         height: Height::try_from(height)?,
         time,
         next_validators_hash: Hash::None,
-        proposer_address: account::Id::from(
-            tendermint::PublicKey::from_raw_ed25519(
-                test_harness::validator_keys(1)[0].pubkey().as_slice(),
-            )
-            .expect("fixture Ed25519 key"),
+        proposer_address: account::Id::new(
+            test_harness::validator_keys(1)[0].pubkey().address().into_array(),
         ),
     };
     let Response::PrepareProposal(r) = app.handle(Request::PrepareProposal(r)).await? else {
@@ -202,6 +196,7 @@ pub struct ObservedEngine {
     pub inner: RpcEngine,
     pub builds: Arc<Mutex<Vec<Build>>>,
     pub unavailable: Arc<AtomicBool>,
+    pub unknown_execution: Arc<AtomicBool>,
     pub attempts: Arc<std::sync::atomic::AtomicUsize>,
 }
 impl ObservedEngine {
@@ -210,6 +205,7 @@ impl ObservedEngine {
             inner,
             builds: Default::default(),
             unavailable: Default::default(),
+            unknown_execution: Default::default(),
             attempts: Default::default(),
         }
     }
@@ -227,7 +223,15 @@ impl Engine for ObservedEngine {
         p: B256,
         a: TaikoPayloadAttributes,
     ) -> Result<ExecutionBlock, EngineError> {
+        assert_eq!(a.max_block_bytes, Some(124_000), "every production Etna build is capped");
         self.attempts.fetch_add(1, Ordering::SeqCst);
+        if self.unknown_execution.load(Ordering::SeqCst) {
+            return Err(EngineError::ErrorReply {
+                call: "engine_getPayloadV5".into(),
+                code: -38100,
+                message: "historical state unavailable".into(),
+            });
+        }
         if self.unavailable.load(Ordering::SeqCst) {
             return Err(EngineError::ErrorReply {
                 call: "engine_getPayloadV5".into(),

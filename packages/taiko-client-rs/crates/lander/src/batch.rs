@@ -795,7 +795,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             let mut committee = authenticate(derived, epoch, hash, &self.params)
                 .map_err(|e| LanderError::Safety(e.to_string()))?;
             committee.provenance = Some(CommitteeContext {
-                anchor: state.anchor.clone(),
+                anchor: facts.anchor.clone(),
                 derivation_parent: Some(state.header.clone()),
                 witness: facts.envelope.committee.clone().expect("verified switch witness"),
             });

@@ -28,6 +28,8 @@ pub(crate) struct LanderCtx {
     pub planter: Planter,
     /// The EL whose head is landed (node 0).
     pub l2: RootProvider,
+    /// Native committed history corresponding to the execution checkpoint.
+    pub cmt: crate::CmtClient,
 }
 
 /// The lander's switches, shared with its task.
@@ -109,14 +111,21 @@ async fn run(ctx: LanderCtx, switches: Arc<Switches>) {
 /// Advances the checkpoint to `head-TRAIL`; no committee record is published.
 async fn tick(ctx: &LanderCtx, landed: &mut Landed) -> Result<()> {
     let head = ctx.l2.get_block_number().await.context("L2 eth_blockNumber")?;
-    let target = head.saturating_sub(TRAIL);
+    let target = head.saturating_sub(TRAIL) / 6 * 6;
     if landed.height.is_none_or(|h| h < target) {
         let block = ctx
             .l2
             .get_block_by_number(BlockNumberOrTag::Number(target))
             .await?
             .with_context(|| format!("L2 block {target} missing"))?;
+        let comet_hash = if target == 0 {
+            alloy_primitives::B256::ZERO
+        } else {
+            let value = ctx.cmt.call("block", &[("height", target.to_string())]).await?;
+            value["block_id"]["hash"].as_str().context("native Comet checkpoint hash")?.parse()?
+        };
         let values = InboxValues {
+            checkpoint_comet_hash: Some(comet_hash),
             last_checkpoint: Some((target, block.header.hash)),
             ..Default::default()
         };

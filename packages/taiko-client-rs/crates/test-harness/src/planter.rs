@@ -77,6 +77,8 @@ pub struct InboxValues {
     pub recovery_generation: Option<u64>,
     /// `lastCheckpoint` `(height, blockHash)` (slots 270, 271).
     pub last_checkpoint: Option<(u64, B256)>,
+    /// Native Comet hash in the checkpoint landing record.
+    pub checkpoint_comet_hash: Option<B256>,
     /// The genesis record (slots 272–274) with its `genesisCutoff` (slot 279) and forced
     /// inclusion configuration (slot 282).
     pub genesis: Option<GenesisRecord>,
@@ -98,12 +100,18 @@ impl InboxValues {
         if let Some((height, hash)) = self.last_checkpoint {
             w.push((slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(height)));
             w.push((slot(inbox::LAST_CHECKPOINT_HASH), hash.into()));
+            let slots = inbox::landing_slots(height);
+            w.push((slots[1], hash.into()));
+            if let Some(hash) = self.checkpoint_comet_hash {
+                w.push((slots[2], hash.into()));
+            }
         }
         if let Some(a) = &self.genesis {
             let packed = U256::from(a.genesis_height) |
                 (U256::from(a.l1_0) << 48) |
                 (U256::from(a.epoch_len) << 96);
             w.push((slot(inbox::GENESIS_PACKED), packed));
+            w.push((inbox::origin_slots(0)[1], U256::from(a.l1_0)));
             w.push((slot(inbox::GENESIS_BLOCK_HASH), a.genesis_hash.into()));
             w.push((slot(inbox::GENESIS_STATE_ROOT), a.genesis_state_root.into()));
             w.push((slot(inbox::GENESIS_CUTOFF), U256::from(a.genesis_cutoff)));
@@ -120,9 +128,7 @@ impl InboxValues {
     }
 }
 
-/// A registry entry for `pubkey` with `eff_stake`, active from L1 block 0, never exiting, with
-/// one heartbeat naming window 0 (start 0, sequence 1; the devnet heartbeat window puts every
-/// L1 block in window 0).
+/// A native registry entry active from L1 block zero and never exiting.
 pub fn registry_entry(pubkey: abci::key::ConsensusKey, eff_stake: U256) -> RegistryEntry {
     RegistryEntry {
         ck_prefix: pubkey.prefix(),
@@ -372,7 +378,26 @@ impl NextBlock {
 
     /// Queues the Inbox writes of `v` into the block.
     pub async fn plant_inbox(&mut self, v: &InboxValues) -> Result<()> {
-        let tx = self.planter.submit(self.planter.inbox, &v.writes()).await?;
+        let mut writes = v.writes();
+        if v.genesis.is_some() {
+            // Bind the immutable origin timestamp to the actual initialization block.
+            // Mining is paused for this section, so this explicit next timestamp is stable.
+            let parent = self
+                .planter
+                .l1
+                .get_block_by_number(BlockNumberOrTag::Latest)
+                .await?
+                .context("initialization parent")?;
+            let timestamp = parent.header.timestamp + 1;
+            anvil_request::<Value>(
+                &self.planter.l1,
+                "evm_setNextBlockTimestamp",
+                json!([timestamp]),
+            )
+            .await?;
+            writes.push((inbox::origin_slots(0)[2], U256::from(timestamp)));
+        }
+        let tx = self.planter.submit(self.planter.inbox, &writes).await?;
         self.sent.extend(tx);
         Ok(())
     }

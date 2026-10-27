@@ -1,7 +1,7 @@
 {
   "artifact": {
     "path": "crates/test-harness/contracts/InboxSetter.json",
-    "sha256": "9809c86c1846a0d05799ab00ed7afe3850f9a0b0687c7dbfab19f693d6292ae2"
+    "sha256": "73d009a7f5ba4841cc7c13eb025378bd952ebba2cfe65028465cb6d3024b1031"
   },
   "compiler": {
     "version": "0.8.30+commit.73712a01"
@@ -29,8 +29,8 @@
     "remappings": []
   },
   "source": {
-    "keccak256": "0xaebeea5b59ddaa6918e1150bddb54759e3a9f8a03ae80a76eb441e21861a0bb6",
+    "keccak256": "0x6282f616b6f06ac2034c568e547d35461c5de500a8a6e6daeb3b54ef5cf35f5c",
     "path": "crates/test-harness/contracts/InboxSetter.sol",
-    "sha256": "70e260c48d16d5487f79ee05b42bf5701ee17a1097c9048a2a6aadb5fd93e6f4"
+    "sha256": "be4c55f522f9f09a60d390858612c6c86a9dd7d5a510fca20073478b189bcde2"
   }
 }

@@ -30,7 +30,7 @@ export ETNA_SIGNER_BIN="$PWD/target/etna-signer/etna-signer"
 filter='kind(test) & !test(=stale_l1_finality_pauses_and_resumes_l2)'
 if [[ "${1:-}" == "--smoke" ]]; then
     shift
-    filter='kind(test) & (test(=single_validator_produces_blocks_by_the_header_rules) | test(=epoch_switch_adds_the_joining_validator) | test(=real_l2_rewards_claim_and_fee_continuation) | test(=lander_cli_recovers_from_sigkill_and_resumes_after_sigterm))'
+    filter='kind(test) & (test(=single_validator_produces_blocks_by_the_header_rules) | test(=epoch_switch_adds_the_joining_validator) | test(=four_validator_native_consensus_fees_fi_epoch_landing_and_restart) | test(=lander_cli_recovers_from_sigkill_and_resumes_after_sigterm))'
 elif [[ "${1:-}" == "--full" ]]; then
     shift
     filter='kind(test)'
@@ -75,8 +75,8 @@ export ANVIL_IMAGE=${ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:v1.5.1}
 # Reviewed taikoxyz/alethia-reth#251 supports canonical-config alloc-only Etna genesis.
 # Real contracts require canonical zero-storage proofs and modern EIP-7594 wrappers.
 export LANDER_ANVIL_IMAGE=${LANDER_ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:v1.8.5}
-export ALETHIA_RETH_IMAGE=${ALETHIA_RETH_IMAGE:-us-docker.pkg.dev/evmchain/images/alethia-reth:sha-5d4d21a}
-export COMETBFT_IMAGE=${COMETBFT_IMAGE:-cometbft/cometbft:v0.40.0}
+export ALETHIA_RETH_IMAGE=${ALETHIA_RETH_IMAGE:-us-docker.pkg.dev/evmchain/images/alethia-reth:sha-b046734@sha256:2cb3b5f4afbd4e792f6d487af3d8d0eb8843ebec94180a845b277ab30fed4fd5}
+export COMETBFT_IMAGE=${COMETBFT_IMAGE:-cometbft/cometbft:v0.40.0@sha256:0703fb881dac0987c8e41a5810cc09dbcb503bb59ac91705f6936c4b972ac798}
 
 # Pull before the first scenario so downloads don't eat into its readiness deadlines.
 for image in "$ANVIL_IMAGE" "$LANDER_ANVIL_IMAGE" "$ALETHIA_RETH_IMAGE" "$COMETBFT_IMAGE"; do

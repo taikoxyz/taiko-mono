@@ -35,9 +35,9 @@ use crate::{
 /// Default anvil image (override with `ANVIL_IMAGE`), pinned like `tests/entrypoint.sh`'s.
 const ANVIL_IMAGE: &str = "ghcr.io/foundry-rs/foundry:v1.5.1";
 /// Default reviewed alethia-reth #251 image (override with `ALETHIA_RETH_IMAGE`).
-pub(crate) const RETH_IMAGE: &str = "us-docker.pkg.dev/evmchain/images/alethia-reth:sha-5d4d21a";
+pub(crate) const RETH_IMAGE: &str = "us-docker.pkg.dev/evmchain/images/alethia-reth:sha-b046734@sha256:2cb3b5f4afbd4e792f6d487af3d8d0eb8843ebec94180a845b277ab30fed4fd5";
 /// Default CometBFT image (override with `COMETBFT_IMAGE`).
-const COMETBFT_IMAGE: &str = "cometbft/cometbft:v0.40.0";
+const COMETBFT_IMAGE: &str = "cometbft/cometbft:v0.40.0@sha256:0703fb881dac0987c8e41a5810cc09dbcb503bb59ac91705f6936c4b972ac798";
 
 /// anvil's command line after the image: 1 s blocks, `finalized = latest − 2`.
 const ANVIL_CMD: &str = "--host 0.0.0.0 --block-time 1 --slots-in-an-epoch 1 --gas-limit 200000000";
@@ -90,7 +90,7 @@ pub(crate) struct Booted {
 /// Boots the devnet `id` into `docker`, keeping files under `tmp`:
 ///
 /// 1. anvil and one alethia-reth per validator, waiting for their RPCs;
-/// 2. the chain parameters for alethia-reth's chain id with test-only `d_max` / `margin_v`;
+/// 2. the chain parameters for alethia-reth's chain id with a legal direct unsettled limit U;
 /// 3. the setter contracts, then registry checkpoint 0 (the first `initial_validators` keys) in an
 ///    L1 block `c` and the initialized Inbox, with `genesisCutoff = c`, in a later block `L1_0`;
 /// 4. once `L1_0` is final, the CometBFT genesis via `abci::build_genesis`;
@@ -165,7 +165,8 @@ pub(crate) async fn boot(
         ensure!(other == genesis_hash, "alethia-reth genesis hashes differ");
     }
     let params = ChainParams {
-        unsettled_limit: spec.d_max.saturating_sub(spec.margin_v),
+        unsettled_limit: spec.unsettled_limit,
+        l1_chain_id: l1.raw_request("eth_chainId".into(), ()).await?,
         ..ChainParams::builtin(chain_id)?
     };
     params.validate()?;
@@ -204,7 +205,7 @@ pub(crate) async fn boot(
             index: i,
             reth: node.clone(),
             l1_http: l1_http.clone(),
-            params: params.clone(),
+            params: ChainParams { fee_recipient: keys[i].pubkey().address(), ..params.clone() },
             jwt: jwt.clone(),
             store_dir: tmp.join(format!("app-{i}")),
             port: free_port()?,
@@ -242,22 +243,25 @@ pub(crate) async fn boot(
             tmp.join(format!("app-{i}/checkpoint-trust.sock")),
             genesis_doc.chain_id.clone(),
             &keys[i],
-        )?;
+        )?
+        .supervised(home.clone(), cmt_names[i].clone());
         make_world_writable(&home)?;
         let mount = format!("{}:/cometbft", home.display());
+        let rpc_port = format!("127.0.0.1:{}:26657", free_port()?);
+        let signer_port = format!("127.0.0.1:{}:26659", free_port()?);
         let args = [
             "--add-host",
             "host.docker.internal:host-gateway",
             "--user",
             &user,
             "-p",
-            "127.0.0.1::26657",
+            &rpc_port,
             "-p",
-            "127.0.0.1::26659",
+            &signer_port,
             "-v",
             &mount,
             "--entrypoint",
-            "cometbft",
+            "/usr/bin/cometbft",
             &cmt_image,
             "start",
         ];
@@ -277,7 +281,7 @@ pub(crate) async fn boot(
     }
 
     // 7. The fake lander.
-    let lander = Lander::spawn(LanderCtx { planter: planter.clone(), l2 });
+    let lander = Lander::spawn(LanderCtx { planter: planter.clone(), l2, cmt: cmt[0].clone() });
 
     Ok(Booted { lander, apps, signers, cmt, reth, l1, keys, params, genesis, planter })
 }
@@ -337,6 +341,7 @@ async fn plant_genesis(
         last_checkpoint: Some((0, genesis_hash)),
         genesis: Some(genesis.clone()),
         genesis_committee_hash: Some(record_hash(params.l2_chain_id, &record)),
+        ..Default::default()
     })
     .await?;
     let mined = next.commit().await?;

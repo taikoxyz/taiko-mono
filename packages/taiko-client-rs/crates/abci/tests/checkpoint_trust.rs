@@ -96,6 +96,7 @@ async fn checkpoint_trust_ahead_keeps_short_local_tip_nonsigning() -> Result<()>
         .planter()
         .plant_inbox(&InboxValues {
             last_checkpoint: Some((head + 50, B256::repeat_byte(0x91))),
+            checkpoint_comet_hash: Some(B256::repeat_byte(0x93)),
             ..Default::default()
         })
         .await?;
@@ -127,6 +128,7 @@ async fn checkpoint_trust_mismatch_during_intact_comet_replay_never_signs_or_com
         .planter()
         .plant_inbox(&InboxValues {
             last_checkpoint: Some((4, B256::repeat_byte(0x92))),
+            checkpoint_comet_hash: Some(B256::repeat_byte(0x94)),
             ..Default::default()
         })
         .await?;

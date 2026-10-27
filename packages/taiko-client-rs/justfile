@@ -76,7 +76,7 @@ test-smoke:
 
 # Complete merge gate; smoke never substitutes for the full Docker suite.
 verify:
-  just signer-test && just fmt-check && just clippy && just unit && just check-lander-artifacts && just test-full
+  just signer-test && just supervisor-test && just fmt-check && just clippy && just unit && just check-lander-artifacts && just test-full
 
 gen_bindings:
   ./script/gen_bindings.sh
@@ -94,3 +94,11 @@ signer:
 
 signer-test:
   cd tools/etna-signer && go test -mod=readonly -race ./...
+
+# Lifecycle regression with real child processes and private observation sockets.
+supervisor-test:
+  python3 tests/supervisor_test.py
+
+# Build runtime-tools (repository-root context) or use the final client image before this smoke.
+runtime-image-test image:
+  docker run --rm --network none --entrypoint python3 -v "$PWD/tests:/app/tests:ro" {{image}} /app/tests/runtime_image_test.py
