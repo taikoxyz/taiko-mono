@@ -133,20 +133,20 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev The staking registry.
     IEtnaStakingRegistry internal immutable _stakingRegistry;
 
-    /// @dev The chain id of the Etna L2.
-    uint64 internal immutable _l2ChainId;
+    /// @inheritdoc IEtnaInbox
+    uint64 public immutable override l2ChainId;
 
-    /// @dev The maximum `h - p` of one landing.
-    uint64 internal immutable _maxBatchBlocks;
+    /// @inheritdoc IEtnaInbox
+    uint64 public immutable override maxBatchBlocks;
 
-    /// @dev The forced inclusion fee in Gwei with an empty queue.
-    uint64 internal immutable _forcedInclusionFeeInGwei;
+    /// @inheritdoc IEtnaInbox
+    uint64 public immutable override forcedInclusionFeeInGwei;
 
-    /// @dev The number of pending forced inclusions at which the fee doubles.
-    uint64 internal immutable _forcedInclusionFeeDoubleThreshold;
+    /// @inheritdoc IEtnaInbox
+    uint64 public immutable override forcedInclusionFeeDoubleThreshold;
 
-    /// @dev The DAO treasury that receives the swept forced inclusion fees.
-    address internal immutable _protocolFeeRecipient;
+    /// @inheritdoc IEtnaInbox
+    address public immutable override protocolFeeRecipient;
 
     // ---------------------------------------------------------------
     // State Variables
@@ -230,11 +230,11 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _signalService = ISignalService(_config.signalService);
         _stakingRegistry = IEtnaStakingRegistry(_config.stakingRegistry);
-        _l2ChainId = _config.l2ChainId;
-        _maxBatchBlocks = _config.maxBatchBlocks;
-        _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
-        _forcedInclusionFeeDoubleThreshold = _config.forcedInclusionFeeDoubleThreshold;
-        _protocolFeeRecipient = _config.protocolFeeRecipient;
+        l2ChainId = _config.l2ChainId;
+        maxBatchBlocks = _config.maxBatchBlocks;
+        forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
+        forcedInclusionFeeDoubleThreshold = _config.forcedInclusionFeeDoubleThreshold;
+        protocolFeeRecipient = _config.protocolFeeRecipient;
     }
 
     // ---------------------------------------------------------------
@@ -338,7 +338,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
         uint256 feeWei = uint256(
             _forcedInclusions.currentFee(
-                _forcedInclusionFeeInGwei, _forcedInclusionFeeDoubleThreshold
+                forcedInclusionFeeInGwei, forcedInclusionFeeDoubleThreshold
             )
         ) * 1 gwei;
         require(msg.value >= feeWei, InsufficientFee());
@@ -362,7 +362,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     function sweepProtocolFees() external nonReentrant {
         uint256 amount = address(this).balance;
         emit ProtocolFeesSwept(amount);
-        _protocolFeeRecipient.sendEtherAndVerify(amount);
+        protocolFeeRecipient.sendEtherAndVerify(amount);
     }
 
     /// @inheritdoc IEtnaInbox
@@ -404,7 +404,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         );
 
         for (uint256 i; i < _exclusions.length; ++i) {
-            _stakingRegistry.forceExit(_exclusions[i].bondId, _exclusions[i].entryKey, block.number);
+            _stakingRegistry.forceExit(_exclusions[i].bondId, _exclusions[i].entryKey);
         }
         for (uint256 i; i < _fiToClear.length; ++i) {
             _forcedInclusions.queue[_fiToClear[i]].txHash = _BLANK_TX_HASH;
@@ -510,9 +510,10 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @inheritdoc IEtnaInbox
     function getCurrentForcedInclusionFee() external view returns (uint64 feeInGwei_) {
-        return _forcedInclusions.currentFee(
-            _forcedInclusionFeeInGwei, _forcedInclusionFeeDoubleThreshold
-        );
+        return
+            _forcedInclusions.currentFee(
+                forcedInclusionFeeInGwei, forcedInclusionFeeDoubleThreshold
+            );
     }
 
     /// @inheritdoc IEtnaInbox
@@ -528,31 +529,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @inheritdoc IEtnaInbox
     function proofVerifier() external view returns (address) {
         return address(_proofVerifier);
-    }
-
-    /// @inheritdoc IEtnaInbox
-    function l2ChainId() external view returns (uint64) {
-        return _l2ChainId;
-    }
-
-    /// @inheritdoc IEtnaInbox
-    function maxBatchBlocks() external view returns (uint64) {
-        return _maxBatchBlocks;
-    }
-
-    /// @inheritdoc IEtnaInbox
-    function forcedInclusionFeeInGwei() external view returns (uint64) {
-        return _forcedInclusionFeeInGwei;
-    }
-
-    /// @inheritdoc IEtnaInbox
-    function forcedInclusionFeeDoubleThreshold() external view returns (uint64) {
-        return _forcedInclusionFeeDoubleThreshold;
-    }
-
-    /// @inheritdoc IEtnaInbox
-    function protocolFeeRecipient() external view returns (address) {
-        return _protocolFeeRecipient;
     }
 
     // ---------------------------------------------------------------
@@ -603,7 +579,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         require(_c < h, AlreadySettled());
         require(startHeight <= p && p <= _c && h < _HEIGHT_LIMIT, InvalidRange());
         require(p % GRID_INTERVAL == 0 && h % GRID_INTERVAL == 0, OffGrid());
-        require(h - p <= _maxBatchBlocks, BatchTooLarge());
+        require(h - p <= maxBatchBlocks, BatchTooLarge());
 
         origin_ = _landings[p];
         // A written record never has a zero EL hash: `init` rejects a zero genesis hash, and
@@ -701,7 +677,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         LandStatement memory statement;
         statement.tag = _LAND_STATEMENT_TAG;
         statement.l1ChainId = block.chainid;
-        statement.l2ChainId = _l2ChainId;
+        statement.l2ChainId = l2ChainId;
         statement.inbox = address(this);
         statement.stakingRegistry = address(_stakingRegistry);
         statement.generation = _generation;
@@ -828,7 +804,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         );
         // The registry must be this Inbox's before its checkpoints are trusted (spec 4.1).
         require(
-            _stakingRegistry.inbox() == address(this) && _stakingRegistry.l2ChainId() == _l2ChainId,
+            _stakingRegistry.inbox() == address(this) && _stakingRegistry.l2ChainId() == l2ChainId,
             RegistryMismatch()
         );
         require(_isValidGenesisCutoff(_params.genesisCutoff), InvalidGenesisCutoff());
@@ -872,7 +848,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         return keccak256(
             abi.encode(
                 _COMMITTEE_CONFIG_TAG,
-                uint256(_l2ChainId),
+                uint256(l2ChainId),
                 address(_stakingRegistry),
                 _config.vpUnit,
                 _config.sMin,

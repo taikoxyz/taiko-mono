@@ -64,7 +64,7 @@ contract RecoverRegistryProbe {
         _secondCall = _second;
     }
 
-    function forceExit(uint256, bytes32, uint256) external {
+    function forceExit(uint256, bytes32) external {
         ++forceExits;
         (firstSucceeded, firstResult) = _registry.call(_firstCall);
         (secondSucceeded, secondResult) = _registry.call(_secondCall);

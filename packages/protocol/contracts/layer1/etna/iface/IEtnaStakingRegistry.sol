@@ -237,16 +237,16 @@ interface IEtnaStakingRegistry {
     /// @param _voteB The conflicting vote.
     function slashDoubleSign(uint256 _bondId, Vote calldata _voteA, Vote calldata _voteB) external;
 
-    /// @notice Moves an entry's exit to `_r` during governance recovery (spec 8 step 2).
+    /// @notice Moves an entry's exit to the recovery execution block during governance recovery
+    /// (spec 8 step 2).
     /// @dev Only the Inbox. Requires an unreleased slot whose occupant matches
     /// `_entryKey = keccak256(abi.encode(ckPrefix, ckX))`, and reverts `InvalidEventBlock` if
-    /// `_r >= 2^48 - 1`, the no-exit sentinel. If `_r` is below the entry's exitEffectiveL1, sets
-    /// it to `_r` without slashing, writes the current block's checkpoint and emits `ExitForced`;
-    /// otherwise it keeps the existing exit and writes nothing.
+    /// `block.number >= 2^48 - 1`, the no-exit sentinel. If the current block is below the entry's
+    /// exitEffectiveL1, sets it to that block without slashing, writes its checkpoint and emits
+    /// `ExitForced`; otherwise it keeps the existing exit and writes nothing.
     /// @param _bondId The bond id.
     /// @param _entryKey The expected occupant's key.
-    /// @param _r The recovery execution block `R`.
-    function forceExit(uint256 _bondId, bytes32 _entryKey, uint256 _r) external;
+    function forceExit(uint256 _bondId, bytes32 _entryKey) external;
 
     /// @notice Returns the number of checkpoints.
     /// @return The number of checkpoints.

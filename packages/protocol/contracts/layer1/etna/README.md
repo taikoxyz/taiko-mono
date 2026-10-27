@@ -62,6 +62,7 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
   and the Inbox-only `forceExit` follow spec 4.1 and 8 step 2. Confirming an exit needs an
   initialized Inbox whose `activeCommitteeSnapshot` reaches the exit block; `slashDoubleSign`
   needs an initialized Inbox and accepts votes from the current or an earlier generation.
+- `forceExit(bondId, entryKey)` derives the recovery execution block from `block.number`.
 - Every L1 block that changes an entry ends with exactly one checkpoint
   (`l1Block`, `count`, `entriesRoot`). The Inbox proxy and the L2 chain id are immutables.
 
