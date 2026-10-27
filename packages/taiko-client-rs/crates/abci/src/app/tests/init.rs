@@ -50,7 +50,7 @@ async fn init_chain_persists_the_verified_genesis_state() {
 /// whose entries never sent one initializes the chain.
 #[tokio::test]
 async fn a_genesis_committee_without_heartbeats_initializes() {
-    let entries: Vec<RegistryEntry> = sample_entries(2).into_iter().map(|e| e).collect();
+    let entries: Vec<RegistryEntry> = sample_entries(2);
     let fx = Fixture::build(GenesisSpec { entries: Some(entries), ..GenesisSpec::new(2) });
     assert_eq!(fx.members.len(), 2);
     let dir = tempfile::tempdir().unwrap();
@@ -532,7 +532,7 @@ async fn genesis_validators_must_equal_the_committee() {
         ..fx.members[0].clone()
     }]));
     let mut duplicate = fx.request.clone();
-    duplicate.validators[2] = duplicate.validators[0].clone();
+    duplicate.validators[2] = duplicate.validators[0];
     let mut empty = fx.request.clone();
     empty.validators.clear();
 

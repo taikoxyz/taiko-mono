@@ -350,16 +350,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             );
             let reason = match tokio::time::timeout(limit, build).await {
                 Ok(Ok(consumed)) => return Ok(consumed),
-                Ok(Err(ForcedBuildError::Engine(e)))
-                    if e.is_retryable() ||
-                        matches!(
-                            e,
-                            EngineError::BuildNotStarted(_) |
-                                EngineError::ErrorReply { code: -38001, .. }
-                        ) =>
-                {
-                    e.to_string()
-                }
+                Ok(Err(ForcedBuildError::Engine(e))) if e.is_retryable_build() => e.to_string(),
                 Ok(Err(ForcedBuildError::Engine(e))) => {
                     return Err(safety_halt(
                         height,

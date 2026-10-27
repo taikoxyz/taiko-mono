@@ -10,7 +10,7 @@ use alloy_provider::{
     Provider, RootProvider,
     transport::{RpcError, TransportError},
 };
-use alloy_rpc_types_engine::{ForkchoiceState, PayloadStatusEnum};
+use alloy_rpc_types_engine::{ForkchoiceState, ForkchoiceUpdated, PayloadStatusEnum};
 use async_trait::async_trait;
 use rpc::{
     RpcClientError,
@@ -101,6 +101,34 @@ impl RpcEngine {
     /// endpoint ([`client_error`]).
     fn auth_error(&self, method: &str, err: RpcClientError) -> EngineError {
         client_error(format!("{method} at {}", self.auth_endpoint), err)
+    }
+
+    /// Accepts an INVALID build reply without diagnostic text, which Alloy requires, while
+    /// still validating every FCU field. Other malformed own-EL replies remain integrity errors.
+    fn build_forkchoice_reply(
+        &self,
+        error: RpcClientError,
+    ) -> Result<ForkchoiceUpdated, EngineError> {
+        if let RpcClientError::Rpc(RpcError::DeserError { text, .. }) = &error {
+            let repaired =
+                serde_json::from_str::<serde_json::Value>(text).ok().and_then(|mut reply| {
+                    let status = reply.get_mut("payloadStatus")?.as_object_mut()?;
+                    if status.get("status")?.as_str()? != "INVALID" ||
+                        status.get("validationError").is_some_and(|reason| !reason.is_null())
+                    {
+                        return None;
+                    }
+                    status.insert(
+                        "validationError".into(),
+                        serde_json::Value::String("INVALID".into()),
+                    );
+                    serde_json::from_value(reply).ok()
+                });
+            if let Some(reply) = repaired {
+                return Ok(reply);
+            }
+        }
+        Err(self.auth_error("engine_forkchoiceUpdatedV3", error))
     }
 
     /// The verdict of a payload status reply of `method` that alloy's strict decoding refused,
@@ -244,18 +272,13 @@ impl Engine for RpcEngine {
             safe_block_hash: B256::ZERO,
             finalized_block_hash: B256::ZERO,
         };
-        let updated = self
-            .auth
-            .engine_forkchoice_updated_v3(state, Some(attrs))
-            .await
-            .map_err(|e| self.auth_error("engine_forkchoiceUpdatedV3", e))?;
-        let payload_id = match (&updated.payload_status.status, updated.payload_id) {
+        let updated = match self.auth.engine_forkchoice_updated_v3(state, Some(attrs)).await {
+            Ok(updated) => updated,
+            Err(error) => self.build_forkchoice_reply(error)?,
+        };
+        let payload_id = match (updated.payload_status.status, updated.payload_id) {
             (PayloadStatusEnum::Valid, Some(id)) => id,
-            (status, id) => {
-                return Err(EngineError::BuildNotStarted(format!(
-                    "forkchoice on {parent_hash} answered {status} with payload id {id:?}"
-                )));
-            }
+            (status, _) => return Err(EngineError::BuildNotStarted(verdict(status))),
         };
         let envelope = self
             .auth
@@ -596,15 +619,40 @@ mod tests {
 
     #[tokio::test]
     async fn build_block_requires_a_valid_status_and_a_payload_id() {
-        for reply in [
-            fcu(status("SYNCING", None), Some("0x0000000000000001")),
-            fcu(status("INVALID", Some("bad parent")), None),
-            fcu(status("VALID", None), None),
+        for (reply, expected) in [
+            (fcu(status("SYNCING", None), Some("0x0000000000000001")), PayloadVerdict::Syncing),
+            (fcu(status("ACCEPTED", None), None), PayloadVerdict::Syncing),
+            (
+                fcu(status("INVALID", Some("bad parent")), None),
+                PayloadVerdict::Invalid("bad parent".into()),
+            ),
+            (fcu(status("INVALID", None), None), PayloadVerdict::Invalid("INVALID".into())),
+            (fcu(status("VALID", None), None), PayloadVerdict::Valid),
         ] {
             let m = mocked();
             m.auth.push_success(&reply);
             let err = m.engine.build_block(B256::ZERO, attrs(golden_root())).await;
-            assert!(matches!(err, Err(EngineError::BuildNotStarted(_))), "{reply}: {err:?}");
+            let err = err.expect_err("a build needs VALID plus a payload ID");
+            assert_eq!(
+                err.is_retryable_build(),
+                !matches!(expected, PayloadVerdict::Invalid(_)),
+                "{reply}"
+            );
+            assert_eq!(err, EngineError::BuildNotStarted(expected), "{reply}");
+        }
+    }
+
+    #[tokio::test]
+    async fn review_build_fcu_malformed_fields_remain_bad_replies() {
+        for reply in [
+            fcu(status("VALID", None), Some("malformed")),
+            fcu(status("INVALID", None), Some("malformed")),
+            json!({"payloadStatus": {"status":"INVALID", "latestValidHash":"malformed"}, "payloadId":null}),
+        ] {
+            let m = mocked();
+            m.auth.push_success(&reply);
+            let error = m.engine.build_block(B256::ZERO, attrs(golden_root())).await;
+            assert!(matches!(error, Err(EngineError::BadReply(_))), "{reply}: {error:?}");
         }
     }
 

@@ -79,7 +79,7 @@ root. Comet applies the returned validator updates at H(t). At L=3, the first sw
 Eligible keys must be unique; selection orders stake descending with set-key tie breaking.
 There are no heartbeat or registered-recipient rules.
 
-The seven-word `ETNA_COMMITTEE_CONFIG_V1` hash binds the L2 chain ID, registry, vpUnit,
+The seven-word `ETNA_PARENT_ANCHOR_V1` hash binds the L2 chain ID, registry, vpUnit,
 sMin, nMax and direct unsettled limit U. U is a multiple of six in 6..=65536, independent of L.
 The schedule requires L>=3 and L+1 within uint48. Registry entries are
 `[ckPrefix, ckX, effStake, activeFromL1, exitEffectiveL1]`; committee records contain

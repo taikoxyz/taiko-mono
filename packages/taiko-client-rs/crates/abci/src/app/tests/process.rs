@@ -843,3 +843,142 @@ async fn malformed_own_l1_reply_is_a_safety_halt_in_process_and_finalize() {
         assert!(app.store.fatal_evidence().unwrap().is_some());
     }
 }
+
+#[tokio::test(start_paused = true)]
+async fn review_singleton_incomplete_results_wait_without_consuming_cursor() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let tx = plant_due_entry(&fx, app.l1(), 66, fx.inbox.clone());
+    let env = hand_forced_envelope(
+        &app,
+        Some(fx.anchor_witness(app.l1(), 66)),
+        None,
+        fx.forced_witness(app.l1(), 66, 0, tx),
+        protocol::shasta::encode_transactions(&[]),
+    );
+    app.engine().state().build_script.extend([
+        Err(EngineError::BuildNotStarted(crate::engine::PayloadVerdict::Syncing)),
+        Err(EngineError::ErrorReply {
+            call: "engine_getPayloadV5".into(),
+            code: -38001,
+            message: "unknown payload".into(),
+        }),
+        Err(EngineError::BuildNotStarted(crate::engine::PayloadVerdict::Valid)),
+        Ok(env.block.clone()),
+    ]);
+    let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+    let store = app.store.clone();
+    {
+        let pending = app.handle(Request::ProcessProposal(req));
+        tokio::pin!(pending);
+        assert!(
+            tokio::time::timeout(Duration::from_millis(50), &mut pending).await.is_err(),
+            "incomplete singleton must not reject"
+        );
+        assert_eq!(store.load().unwrap().unwrap().forced_cursor, 0);
+        let result = tokio::time::timeout(Duration::from_secs(2), pending).await.unwrap().unwrap();
+        assert!(matches!(result, Response::ProcessProposal(response::ProcessProposal::Accept)));
+    }
+    assert_eq!(app.state().unwrap().forced_cursor, 0);
+    assert!(app.pending.is_none());
+    assert_eq!(
+        app.engine().calls().iter().filter(|c| matches!(c, EngineCall::BuildBlock { .. })).count(),
+        4
+    );
+}
+
+#[tokio::test]
+async fn review_own_el_bad_reply_halts_durably_but_peer_proof_rejects() {
+    for own_el in [true, false] {
+        let fx = Fixture::genesis(1);
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = initialized(&fx, dir.path()).await;
+        app.refresh_trust().await.unwrap();
+        assert!(app.trust.snapshot().trust_ready);
+        let mut env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None);
+        if own_el {
+            app.engine()
+                .state()
+                .new_payload_script
+                .push_back(Err(EngineError::BadReply("null payload status".into())));
+        } else {
+            env.anchor.as_mut().unwrap().inbox.storage[0].value += U256::from(1);
+        }
+        let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+        let result = app.handle(Request::ProcessProposal(req)).await;
+        if own_el {
+            assert!(matches!(result, Err(AbciError::SafetyHalt(_))), "{result:?}");
+            assert!(!app.trust.snapshot().trust_ready);
+            assert!(app.store.fatal_evidence().unwrap().is_some());
+            assert!(matches!(
+                App::new(
+                    fx.l1(),
+                    fx.engine(),
+                    fx.params.clone(),
+                    app.store.clone(),
+                    AppOptions::default()
+                ),
+                Err(AbciError::SafetyHalt(_))
+            ));
+        } else {
+            assert!(matches!(
+                result,
+                Ok(Response::ProcessProposal(response::ProcessProposal::Reject))
+            ));
+            assert!(app.store.fatal_evidence().unwrap().is_none());
+            assert!(app.trust.snapshot().trust_ready);
+        }
+    }
+}
+
+/// A completed INVALID build is definitive in both handlers; it must not enter the retry loop.
+#[tokio::test(start_paused = true)]
+async fn review_singleton_invalid_is_definitive_in_process_and_finalize() {
+    use super::proposal::finalize_req;
+    for cold in [false, true] {
+        let fx = Fixture::genesis(1);
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = mid_epoch(&fx, dir.path(), 5).await;
+        let tx = plant_due_entry(&fx, app.l1(), 66, fx.inbox.clone());
+        let env = hand_forced_envelope(
+            &app,
+            Some(fx.anchor_witness(app.l1(), 66)),
+            None,
+            fx.forced_witness(app.l1(), 66, 0, tx),
+            protocol::shasta::encode_transactions(&[]),
+        );
+        app.engine().state().build_script.push_back(Err(EngineError::BuildNotStarted(
+            crate::engine::PayloadVerdict::Invalid("bad parent".into()),
+        )));
+        let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+        let request = if cold {
+            Request::FinalizeBlock(finalize_req(&req))
+        } else {
+            Request::ProcessProposal(req)
+        };
+        let result = tokio::time::timeout(Duration::from_millis(50), app.handle(request))
+            .await
+            .expect("a completed INVALID must not retry");
+        if cold {
+            assert!(matches!(result, Err(AbciError::SafetyHalt(_))), "{result:?}");
+            assert!(app.store.fatal_evidence().unwrap().is_some());
+        } else {
+            assert!(
+                matches!(result, Ok(Response::ProcessProposal(response::ProcessProposal::Reject))),
+                "{result:?}"
+            );
+            assert!(app.store.fatal_evidence().unwrap().is_none());
+        }
+        assert_eq!(app.state().unwrap().forced_cursor, 0);
+        assert!(app.pending.is_none());
+        assert_eq!(
+            app.engine()
+                .calls()
+                .iter()
+                .filter(|c| matches!(c, EngineCall::BuildBlock { .. }))
+                .count(),
+            1
+        );
+    }
+}

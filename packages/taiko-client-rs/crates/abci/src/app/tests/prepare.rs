@@ -1208,3 +1208,25 @@ async fn preparation_proposer_change_reuses_cancelled_authenticated_io() {
         app.l1().calls()
     );
 }
+
+#[tokio::test]
+async fn review_own_l1_invalid_mpt_proof_halts_durably() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    app.refresh_trust().await.unwrap();
+    assert!(app.trust.snapshot().trust_ready);
+    fx.advance_l1(app.l1(), 66, &fx.inbox, &fx.registry);
+    let mut proof = fx.anchor_witness(app.l1(), 66).inbox;
+    proof.storage[0].value += alloy_primitives::U256::from(1);
+    app.l1().state().proof_override = Some(proof);
+    let request = prepare_req(next_height(&app), bft_time(&app));
+    let result = app.handle(Request::PrepareProposal(request)).await;
+    assert!(matches!(result, Err(AbciError::SafetyHalt(_))), "{result:?}");
+    assert!(!app.trust.snapshot().trust_ready);
+    assert!(app.store.fatal_evidence().unwrap().is_some());
+    assert!(matches!(
+        App::new(fx.l1(), fx.engine(), fx.params.clone(), app.store.clone(), AppOptions::default()),
+        Err(AbciError::SafetyHalt(_))
+    ));
+}

@@ -673,15 +673,7 @@ fn persisted_fixed_cutoff_config_is_rejected_without_migration() {
     assert_eq!(std::fs::read(file).unwrap(), before);
 }
 
-/// A prepared block pays tips to the authenticated proposer, with base fees kept in treasury.
-
-/// The decided header's original proposer remains authoritative in a later commit round.
-
-/// Even two members sharing a payout address cannot reuse one another's hot verdict.
-
-/// Finalize rejects a treasury-beneficiary candidate even when ProcessProposal never ran.
-
-/// No handler may substitute a default payout for a proposer outside the authenticated set.
+/// No handler may accept a proposer outside the authenticated committee.
 #[tokio::test]
 async fn proposal_unknown_certified_proposer_fails_closed() {
     let fx = Fixture::genesis(3);

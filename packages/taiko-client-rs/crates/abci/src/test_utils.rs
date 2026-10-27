@@ -649,6 +649,24 @@ pub(crate) fn in_own_process(module: &str, test: &str) -> bool {
     false
 }
 
+/// Deterministic valid consensus key derived from a nonzero test scalar.
+pub(crate) fn test_key(seed: u64) -> crate::key::ConsensusKey {
+    let scalar = U256::from(seed.saturating_add(1)).to_be_bytes::<32>();
+    let key = k256::SecretKey::from_slice(&scalar).unwrap();
+    use k256::elliptic_curve::sec1::ToEncodedPoint;
+    crate::key::ConsensusKey::from_slice(key.public_key().to_encoded_point(true).as_bytes())
+        .unwrap()
+}
+
+/// Maps arbitrary old test entropy to a valid native key, preserving deterministic identities.
+pub(crate) fn key_from_seed(seed: B256) -> crate::key::ConsensusKey {
+    use k256::elliptic_curve::sec1::ToEncodedPoint;
+    let scalar = keccak256(seed);
+    let key = k256::SecretKey::from_slice(scalar.as_slice()).unwrap();
+    crate::key::ConsensusKey::from_slice(key.public_key().to_encoded_point(true).as_bytes())
+        .unwrap()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1018,22 +1036,4 @@ mod tests {
         let slots: Vec<B256> = witness.inbox.storage.iter().map(|p| p.slot).collect();
         assert_eq!(slots, inbox::anchor_slots());
     }
-}
-
-/// Deterministic valid consensus key derived from a nonzero test scalar.
-pub(crate) fn test_key(seed: u64) -> crate::key::ConsensusKey {
-    let scalar = U256::from(seed.saturating_add(1)).to_be_bytes::<32>();
-    let key = k256::SecretKey::from_slice(&scalar).unwrap();
-    use k256::elliptic_curve::sec1::ToEncodedPoint;
-    crate::key::ConsensusKey::from_slice(key.public_key().to_encoded_point(true).as_bytes())
-        .unwrap()
-}
-
-/// Maps arbitrary old test entropy to a valid native key, preserving deterministic identities.
-pub(crate) fn key_from_seed(seed: B256) -> crate::key::ConsensusKey {
-    use k256::elliptic_curve::sec1::ToEncodedPoint;
-    let scalar = keccak256(seed);
-    let key = k256::SecretKey::from_slice(scalar.as_slice()).unwrap();
-    crate::key::ConsensusKey::from_slice(key.public_key().to_encoded_point(true).as_bytes())
-        .unwrap()
 }

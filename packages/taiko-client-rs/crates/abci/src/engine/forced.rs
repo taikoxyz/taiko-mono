@@ -187,7 +187,7 @@ mod tests {
     async fn engine_failures_and_incomplete_results_do_not_authorize_consumption() {
         for error in [
             EngineError::Transport("connection reset".into()),
-            EngineError::BuildNotStarted("SYNCING without payload id".into()),
+            EngineError::BuildNotStarted(crate::engine::PayloadVerdict::Syncing),
             EngineError::BadReply("null payload".into()),
             EngineError::ErrorReply {
                 call: "engine_getPayloadV5".into(),

@@ -337,7 +337,7 @@ mod tests {
     /// heartbeat are members.
     #[tokio::test]
     async fn applies_no_heartbeat_filter() {
-        let entries = sample_entries(2).into_iter().map(|e| e).collect();
+        let entries = sample_entries(2);
         let fx = Fixture::build(GenesisSpec { entries: Some(entries), ..GenesisSpec::new(2) });
         let report = build_committee_record(&fx.l1(), &fx.params, fx.genesis.genesis_cutoff, None)
             .await

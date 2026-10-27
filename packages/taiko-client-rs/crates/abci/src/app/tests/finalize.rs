@@ -1095,7 +1095,7 @@ async fn cold_forced_skip_failures_retry_or_halt() {
         let mut engine = app.engine().state();
         engine.build_script.extend([
             Err(EngineError::Transport("connection refused".into())),
-            Err(EngineError::BuildNotStarted("SYNCING".into())),
+            Err(EngineError::BuildNotStarted(crate::engine::PayloadVerdict::Syncing)),
         ]);
         engine.build_script.push_back(Ok(env.block.clone()));
         engine.delay_script.extend([Duration::ZERO, Duration::ZERO, slow]);
