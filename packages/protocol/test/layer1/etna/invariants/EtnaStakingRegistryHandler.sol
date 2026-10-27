@@ -9,7 +9,6 @@ import { Vm } from "forge-std/src/Vm.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
 import { LibCometVote } from "src/layer1/etna/libs/LibCometVote.sol";
-import { LibEntriesTree } from "src/layer1/etna/libs/LibEntriesTree.sol";
 import { LibEtnaKeys } from "src/layer1/etna/libs/LibEtnaKeys.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 
@@ -64,6 +63,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
         uint256 occupancies;
         /// @dev The entry key of the last occupant released from this slot.
         bytes32 formerEntryKey;
+        /// @dev Whether the occupant was slashed after its exit was confirmed.
+        bool slashedAfterConfirmation;
     }
 
     /// @dev The entry count and the root over the modelled entries at the end of one
@@ -296,7 +297,10 @@ contract EtnaStakingRegistryHandler is CommonBase {
     uint256 public releasesWithoutPayment;
     uint256 public releasesByOthers;
     uint256 public slashes;
+    uint256 public slashesOfExitingEntries;
     uint256 public slashesAfterConfirmation;
+    /// @dev Releases of an entry slashed after its exit was confirmed.
+    uint256 public releasesAfterConfirmedSlash;
     uint256 public slashesUnderLock;
     uint256 public historicalSlashes;
     uint256 public forcedExits;
@@ -653,6 +657,11 @@ contract EtnaStakingRegistryHandler is CommonBase {
         _confirmExit(_bondId, _reporters[0], false, false);
     }
 
+    /// @notice `_caller` withdraws `_bondId` to `_to`, through the same checks as `withdraw`.
+    function withdrawOf(uint256 _bondId, address _caller, address _to) external {
+        _withdraw(_bondId, _caller, _to, false);
+    }
+
     // ---------------------------------------------------------------
     // Views for the invariants
     // ---------------------------------------------------------------
@@ -789,6 +798,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         s.forcedExit = NO_EXIT;
         s.confirmedAt = 0;
         s.snapshotAtConfirmation = 0;
+        s.slashedAfterConfirmation = false;
         ++s.occupancies;
 
         if (registry.entryAt(_bondId).activeFromL1 != block.number + activationDelay) {
@@ -1029,6 +1039,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         if (amount == 0) {
             ++releasesWithoutPayment;
             if (_caller != s.owner) ++releasesByOthers;
+            if (s.slashedAfterConfirmation) ++releasesAfterConfirmedSlash;
         } else {
             ++withdrawals;
             if (_to == recipient) paidToRecipient += amount;
@@ -1049,6 +1060,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         s.forcedExit = 0;
         s.confirmedAt = 0;
         s.snapshotAtConfirmation = 0;
+        s.slashedAfterConfirmation = false;
         _commit(_bondId, Property.Reuse);
     }
 
@@ -1277,7 +1289,11 @@ contract EtnaStakingRegistryHandler is CommonBase {
         }
 
         ++slashes;
-        if (s.confirmedAt != 0) ++slashesAfterConfirmation;
+        if (s.entry.exitEffectiveL1 != NO_EXIT) ++slashesOfExitingEntries;
+        if (s.confirmedAt != 0) {
+            ++slashesAfterConfirmation;
+            s.slashedAfterConfirmation = true;
+        }
         if (_a.locked) ++slashesUnderLock;
         if (_a.voteA.generation < ghostGeneration) ++historicalSlashes;
         staked -= amount;
@@ -1420,7 +1436,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         if (!_sameEntry(registry.entryAt(_bondId), s.entry)) {
             _violate(_property, "the changed entry differs from the model");
         }
-        _setLeaf(_bondId, LibEntriesTree.leaf(_bondId, s.entry));
+        _setLeaf(_bondId, _regLeaf(_bondId, s.entry));
         if (!_prefilling && !_isTouchedSlot[_bondId]) {
             _isTouchedSlot[_bondId] = true;
             _touchedSlots.push(_bondId);
@@ -1455,7 +1471,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
             delete _snapshotLeaves[count - 1];
             bytes32[] storage leaves = _snapshotLeaves[count - 1];
             for (uint256 i; i < slotCount; ++i) {
-                leaves.push(LibEntriesTree.leaf(i, _slots[i].entry));
+                leaves.push(_regLeaf(i, _slots[i].entry));
             }
         }
     }
@@ -1665,6 +1681,31 @@ contract EtnaStakingRegistryHandler is CommonBase {
     {
         return LibCometVote.chainId(
             LibCometVote.chainDomain(_l1ChainId, _l2ChainId, _inbox, _generation)
+        );
+    }
+
+    /// @dev Spec appendix A `regLeaf`, written out rather than taken from `LibEntriesTree`, so
+    /// every checkpoint root the registry builds with its own leaf is held to this encoding:
+    /// keccak256 of the seven words tag, index, ckPrefix, ckX, effStake, activeFromL1,
+    /// exitEffectiveL1.
+    function _regLeaf(
+        uint256 _index,
+        IEtnaStakingRegistry.Entry memory _entry
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
+        return keccak256(
+            abi.encode(
+                bytes32("ETNA_REG_ENTRY_V1"),
+                _index,
+                uint256(_entry.ckPrefix),
+                _entry.ckX,
+                _entry.effStake,
+                uint256(_entry.activeFromL1),
+                uint256(_entry.exitEffectiveL1)
+            )
         );
     }
 

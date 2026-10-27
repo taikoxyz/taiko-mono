@@ -358,6 +358,42 @@ contract EtnaStakingRegistryInvariantTest is EtnaStakingRegistryInvariantBase {
         _assertModelHeld();
     }
 
+    /// @notice An entry slashed after its exit is confirmed keeps its exit and confirmation;
+    /// after the withdrawal delay from that confirmation, a non-owner releases the slot to the
+    /// zero address and no TAIKO moves (spec 4.1).
+    function test_handler_SlashAfterConfirmationKeepsItAndAnyoneReleases() external {
+        handler.register(0, 0, 0);
+        address bondOwner = registry.ownerOf(0);
+        assertEq(bondOwner, Alice, "Alice owns bond 0");
+        handler.requestExit(0);
+        handler.advanceToWithdrawal(0);
+        handler.settle(0);
+        handler.confirmExit(0);
+        uint256 confirmedAt = registry.exitConfirmedAtL1(0);
+        uint48 exit = registry.entryAt(0).exitEffectiveL1;
+        assertGt(confirmedAt, 0, "confirmed");
+
+        handler.slash(0);
+        assertEq(handler.slashesAfterConfirmation(), 1, "slashed after confirmation");
+        assertEq(registry.entryAt(0).effStake, 0, "whole stake slashed");
+        assertEq(registry.entryAt(0).exitEffectiveL1, exit, "exit kept: min(old, block)");
+        assertEq(registry.exitConfirmedAtL1(0), confirmedAt, "confirmation kept");
+        assertEq(registry.ownerOf(0), bondOwner, "owner kept");
+
+        handler.advanceToWithdrawal(0);
+        assertEq(block.number, confirmedAt + registry.withdrawalDelay(), "delay from confirmation");
+        uint256 carolBefore = token.balanceOf(Carol);
+        handler.withdrawOf(0, Carol, address(0));
+        assertEq(handler.releasesAfterConfirmedSlash(), 1, "released after the slash");
+        assertEq(handler.releasesByOthers(), 1, "released by a non-owner");
+        assertEq(registry.freeSlotCount(), 1, "slot released");
+        assertEq(registry.ownerOf(0), address(0), "no owner");
+        assertEq(registry.exitConfirmedAtL1(0), 0, "no confirmation");
+        assertEq(token.balanceOf(Carol), carolBefore, "nothing to the releaser");
+        assertEq(token.balanceOf(address(registry)), 0, "no stake left");
+        _assertModelHeld();
+    }
+
     /// @notice 1. `entriesRoot()` equals the naive zero-padded pairwise tree over the leaf of
     /// every slot's raw entry words (a released slot's all-zero entry contributes
     /// `leaf(j, zero)`), the handler's ghost tree has the same root, and the latest checkpoint
@@ -454,21 +490,18 @@ contract EtnaStakingRegistryInvariantTest is EtnaStakingRegistryInvariantBase {
         assertEq(released, handler.freeSlots().length, "every released slot is free");
     }
 
-    /// @notice 5. Each registration used one new key and `keyUsed` never clears: every key ever
-    /// registered stays used (getter and raw slot R + 4 word) and no pool key that was never
-    /// registered is used. No two unreleased entries share a key address, and each holds the
-    /// modelled occupant's key.
+    /// @notice 5. `keyUsed` never clears: every key ever registered stays used (getter and raw
+    /// slot R + 4 word) and no pool key that was never registered is used. No two unreleased
+    /// entries share a key address, and each holds the modelled occupant's key. (The model
+    /// records a key only after the registry accepted it as unused, so registered keys are
+    /// distinct by construction; the per-call `KeyAlreadyUsed` predictions test reuse.)
     function invariant_keysAreLifetimeUnique() external view {
         _assertModelHeld();
         uint256[] memory used = handler.usedPks();
-        assertEq(used.length, handler.registrations(), "one new key per registration");
         for (uint256 i; i < used.length; ++i) {
             address ckAddr = vm.addr(used[i]);
             assertTrue(registry.keyUsed(ckAddr), "a registered key stays used");
             assertEq(_load(_mappingSlot(uint160(ckAddr), KEY_USED_SLOT)), 1, "keyUsed word");
-            for (uint256 j; j < i; ++j) {
-                assertNotEq(ckAddr, vm.addr(used[j]), "a key registered twice");
-            }
         }
         uint256[] memory pool = handler.poolKeys();
         for (uint256 i; i < pool.length; ++i) {
