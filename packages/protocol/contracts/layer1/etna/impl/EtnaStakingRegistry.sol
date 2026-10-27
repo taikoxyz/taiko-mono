@@ -506,10 +506,10 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         );
     }
 
-    /// @dev Reverts with `InboxLocked` whenever the Inbox holds its reentrancy lock, so no exit
-    /// confirmation or withdrawal can run inside a landing or a recovery: during
-    /// `land` and `recover`, and also during `saveForcedInclusion` (its refund included) and
-    /// `sweepProtocolFees` (its transfer included).
+    /// @dev Reverts with `InboxLocked` whenever the Inbox holds its reentrancy lock (during `land`
+    /// and `recover`, and also during `saveForcedInclusion`, its refund included, and
+    /// `sweepProtocolFees`, its transfer included), so no exit confirmation or withdrawal can run
+    /// inside a landing or a recovery.
     function _checkInboxUnlocked() private view {
         require(!EssentialContract(_inbox).inNonReentrant(), InboxLocked());
     }

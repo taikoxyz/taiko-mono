@@ -78,7 +78,7 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
   on the snapshot.
 - `Landed` carries `VERSION = 1`; `Recovered` carries the new generation, c, R's number and
   timestamp, and both lists.
-- Each field of a slot 290 origin is below 2^48, because the slot packs each field into 48 bits.
+- Each field of a slot 290 origin is below 2^48.
 - Evidence votes have type 1 or 2, a height in [1, 2^63), a round below 2^31, timestamp seconds
   read as an int64 within CometBFT's Timestamp range (negative values included), nanoseconds
   below 10^9 and a 65-byte low-s signature with V in {0, 1}. An all-zero block id is a nil vote,
