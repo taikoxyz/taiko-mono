@@ -80,7 +80,7 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         vm.expectRevert(IEtnaInbox.InvalidMaxBatchBlocks.selector);
         _newInboxImpl(cfg);
 
-        // One grid segment; no multiple-of-six rule (C15).
+        // One grid segment is the minimum; the limit need not be a multiple of six.
         cfg.maxBatchBlocks = 6;
         assertEq(_newInboxImpl(cfg).maxBatchBlocks(), 6);
         cfg.maxBatchBlocks = 7;
@@ -100,7 +100,7 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
     }
 
     // ---------------------------------------------------------------
-    // bootstrap (C2)
+    // bootstrap
     // ---------------------------------------------------------------
 
     function test_bootstrap_SetsOwnerAndReportsUninitialized() external view {

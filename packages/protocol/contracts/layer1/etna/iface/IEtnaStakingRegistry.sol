@@ -333,7 +333,7 @@ interface IEtnaStakingRegistry {
     error ExitAlreadySet();
     /// @notice The entry has no exit set.
     error ExitNotSet();
-    /// @notice An activation or exit block does not fit below the no-exit sentinel.
+    /// @notice An activation, exit or checkpoint block does not fit below the no-exit sentinel.
     error InvalidEventBlock();
     /// @notice The Inbox is not initialized.
     error InboxNotInitialized();

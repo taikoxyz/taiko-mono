@@ -28,10 +28,11 @@ specification; appendix A is its encodings and appendix B its L1 storage layout.
   every spec 10 deployment constraint it can see, checks that the registry's fixed Inbox is this
   proxy and that both use the same L2 chain id, writes the appendix B initial values and saves
   the block-0 SignalService checkpoint.
-- `land(input, leaves, proof)`: the spec 6.1 reference Solidity, check for check. With K = 6, p, c
-  and h are grid points; `leaves` are the cut leaves at the grid points inside (p, h), and if
-  c > p the leaf at c is compared with c's slot 285 record before the immutable verifier checks
-  the 21-word statement with `verifyProof(0, statement, proof)` (0: no proposal age applies).
+- `land(input, leaves, proof)`: the spec 6.1 reference Solidity, check for check, plus an
+  initialization check. With K = 6, p, c and h are grid points; `leaves` are the cut leaves at
+  the grid points inside (p, h), and if c > p the leaf at c is compared with c's slot 285 record
+  before the immutable verifier checks the 21-word statement with
+  `verifyProof(0, statement, proof)` (0: no proposal age applies).
   The landing then moves the checkpoint, `activeCommitteeSnapshot` and the queue head, writes
   `landings[h]` with the actual parent c, saves the SignalService checkpoint and emits `Landed`.
   It pays nothing to anyone.
@@ -64,35 +65,36 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
 - Every L1 block that changes an entry ends with exactly one checkpoint
   (`l1Block`, `count`, `entriesRoot`). The Inbox proxy and the L2 chain id are immutables.
 
-## Decisions the contracts rely on
+## Choices the spec leaves open
 
-The spec leaves these points open; code comments cite them by number.
-
-- C1: every domain tag is `bytes32` right-zero-padded ASCII, including the unversioned
+- Every domain tag is `bytes32` right-zero-padded ASCII, including the unversioned
   `ETNA_SET_NODE`.
-- C2: the Inbox proxy starts on `EtnaInboxBootstrap`; once the registry exists, the owner calls
-  `upgradeToAndCall(EtnaInbox, init(...))`, and `init` also requires the owner. Slot 258 then
-  reads 3.
-- C3: `init` takes `vp_unit`, `s_min`, `n_max` and `U`, checks their bounds and computes
-  `committeeConfigHash` itself.
-- C4: `land` adds no check to the reference Solidity, in particular no bound on the snapshot.
-- C5: `Landed` carries `VERSION = 1`; `Recovered` carries the new generation, c, R's number and
+- The Inbox proxy starts on `EtnaInboxBootstrap`, so its address exists before the registry that
+  fixes it. Once the registry exists, the owner calls `upgradeToAndCall(EtnaInbox, init(...))`,
+  and `init` also requires the owner. Slot 258 then reads 3.
+- `init` takes `vp_unit`, `s_min`, `n_max` and `U`, checks their bounds and computes
+  `committeeConfigHash` itself, so a configuration outside the spec bounds cannot be stored.
+- `land` adds only an initialization check to the reference Solidity, and in particular no bound
+  on the snapshot.
+- `Landed` carries `VERSION = 1`; `Recovered` carries the new generation, c, R's number and
   timestamp, and both lists.
-- C6: each field of a slot 290 origin is below 2^48.
-- C7: evidence votes have type 1 or 2, a height in [1, 2^63), a round below 2^31, timestamp
-  seconds read as an int64 within CometBFT's Timestamp range (negative values included),
-  nanoseconds below 10^9 and a 65-byte low-s signature with V in {0, 1}. An all-zero block id is
-  a nil vote, and a nil and a non-nil vote in the same round conflict.
-- C8: `confirmExit` and `withdraw` revert while the Inbox holds its reentrancy lock.
-- C9: a released slot's leaf is the leaf of an all-zero entry, not zero.
-- C10: a repeated `confirmExit` succeeds and never moves `exitConfirmedAtL1`.
-- C11: the registry checks each exclusion's `entryKey` inside `forceExit`; a mismatch or a
-  released slot reverts the whole `recover`.
-- C12: registry storage that appendix B does not name (tree nodes, free slots, used keys) lives
-  in the `taiko.etna.registry` namespace after `entries`.
-- C13: `minStake` and `s_min` are independent; the deploy script defaults `minStake` to `s_min`.
-- C14: `activationDelay`, `exitDelay` and `withdrawalDelay` are each in [1, 2^32).
-- C15: `maxBatchBlocks` is at least 6, with no multiple-of-6 rule.
+- Each field of a slot 290 origin is below 2^48, because the slot packs each field into 48 bits.
+- Evidence votes have type 1 or 2, a height in [1, 2^63), a round below 2^31, timestamp seconds
+  read as an int64 within CometBFT's Timestamp range (negative values included), nanoseconds
+  below 10^9 and a 65-byte low-s signature with V in {0, 1}. An all-zero block id is a nil vote,
+  and a nil and a non-nil vote in the same round conflict.
+- `confirmExit` and `withdraw` revert while the Inbox holds its reentrancy lock, so no exit
+  confirmation or withdrawal can run inside a landing or a recovery.
+- A released slot's leaf is the leaf of an all-zero entry, not zero.
+- A repeated `confirmExit` succeeds and never moves `exitConfirmedAtL1`.
+- The registry checks each exclusion's `entryKey` inside `forceExit`; a mismatch or a released
+  slot reverts the whole `recover`.
+- Registry storage that appendix B does not name (tree nodes, free slots, used keys) lives in the
+  `taiko.etna.registry` namespace after `entries`, so nodes read only the two named slots.
+- `minStake` and `s_min` are independent; the deploy script defaults `minStake` to `s_min`.
+- `activationDelay`, `exitDelay` and `withdrawalDelay` are each in [1, 2^32), so an oversized
+  delay cannot make every registration or exit request revert.
+- `maxBatchBlocks` is at least 6, with no multiple-of-6 rule.
 
 ## Storage
 
@@ -100,9 +102,10 @@ The spec leaves these points open; code comments cite them by number.
   reserved slots 283, 286–289 and 291 are never read or written, and slots 251–257, 259–267 and
   275–277 are unused padding.
 - Registry: the ERC-7201 namespace `taiko.etna.registry` with base R holds `checkpoints` at R
-  and `entries` at R + 1, the only slots nodes read, then the internal storage of C12. Bond
-  owners and exit confirmations live in the separate namespaces `taiko.etna.registry.owners` and
-  `taiko.etna.registry.exit-confirmations`, outside `entriesRoot`.
+  and `entries` at R + 1, the only slots nodes read, then the tree nodes, the free slots and the
+  used keys. Bond owners and exit confirmations live in the separate namespaces
+  `taiko.etna.registry.owners` and `taiko.etna.registry.exit-confirmations`, outside
+  `entriesRoot`.
 - Packed words in both contracts lay out their fields from the least-significant bit: `ckPrefix`
   takes 8 bits, every other field 48, and a wider value reverts.
 - The machine-readable layout, with every slot, mapping derivation and packing table, is the
@@ -111,8 +114,9 @@ The spec leaves these points open; code comments cite them by number.
 
 ## Deployment
 
-`script/layer1/etna/DeployEtnaDevnet.s.sol` deploys in the C2 order; its NatSpec lists every
-environment variable. Run from `packages/protocol`:
+`script/layer1/etna/DeployEtnaDevnet.s.sol` deploys in the owner-initialized order (the Inbox
+proxy on its bootstrap, the registry, then the owner's `upgradeToAndCall` with `init`); its
+NatSpec lists every environment variable. Run from `packages/protocol`:
 
 ```bash
 export FOUNDRY_PROFILE=layer1 S=script/layer1/etna/DeployEtnaDevnet.s.sol:DeployEtnaDevnet

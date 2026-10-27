@@ -48,10 +48,10 @@ contract MockLandProofVerifier is IProofVerifier {
 }
 
 /// @title EtnaInboxTestBase
-/// @notice Deploys the Etna contracts in the C2 order: the Inbox proxy on its bootstrap
-/// implementation, the registry fixed to that proxy, a validator registration, the SignalService
-/// authorizing the proxy and the `EtnaInbox` implementation, which the owner then upgrades to and
-/// initializes in one transaction.
+/// @notice Deploys the Etna contracts in the owner-initialized order: the Inbox proxy on its
+/// bootstrap implementation, the registry fixed to that proxy, a validator registration, the
+/// SignalService authorizing the proxy and the `EtnaInbox` implementation, which the owner then
+/// upgrades to and initializes in one transaction.
 /// @dev `setUp` initializes the Inbox unless a suite overrides `_initializeOnSetUp`. The test
 /// contract owns both proxies.
 abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
@@ -138,12 +138,12 @@ abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
         _deployFreshInbox(_defaultConfig(), _defaultInitParams(), _initialize);
     }
 
-    /// @dev Deploys a fresh Etna stack in the C2 order (spec 10 steps 1 and 5): the Inbox proxy on
-    /// its bootstrap implementation, the registry fixed to it, Alice's registration of
-    /// `VALIDATOR_PK` (the registry's first checkpoint, at `registryCheckpointBlock`), one more L1
-    /// block, the SignalService authorizing the proxy and `inboxImpl` built from `_config`. With
-    /// `_initialize`, the owner then upgrades the proxy to `inboxImpl` and calls `init(_params)`
-    /// in the same transaction.
+    /// @dev Deploys a fresh Etna stack in the owner-initialized order (spec 10 steps 1 and 5): the
+    /// Inbox proxy on its bootstrap implementation, the registry fixed to it, Alice's registration
+    /// of `VALIDATOR_PK` (the registry's first checkpoint, at `registryCheckpointBlock`), one more
+    /// L1 block, the SignalService authorizing the proxy and `inboxImpl` built from `_config`. With
+    /// `_initialize`, the owner then upgrades the proxy to `inboxImpl` and calls `init(_params)` in
+    /// the same transaction.
     /// `_config.signalService`, `_config.stakingRegistry` and `_params.genesisCutoff` are always
     /// set to this deployment's SignalService, registry and `registryCheckpointBlock`, the only
     /// cutoff the fresh registry accepts in this block; every other field is used as given.

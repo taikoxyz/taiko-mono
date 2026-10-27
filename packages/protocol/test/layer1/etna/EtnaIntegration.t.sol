@@ -72,10 +72,10 @@ contract RecoverRegistryProbe {
 }
 
 /// @title EtnaIntegrationTest
-/// @notice The staking registry and the Inbox together, both real (spec 4.1, 6.1, 7.1, 8 and
-/// design C8): exits confirm only against landed committees, a bootstrap proxy keeps confirmation
-/// and slashing closed, recovery's exclusions and generations reach the registry, the Inbox lock
-/// closes confirmation and withdrawal but not slashing, and pausing stops neither contract.
+/// @notice The staking registry and the Inbox together, both real (spec 4.1, 6.1, 7.1 and 8): exits
+/// confirm only against landed committees, a bootstrap proxy keeps confirmation and slashing
+/// closed, recovery's exclusions and generations reach the registry, the Inbox lock closes
+/// confirmation and withdrawal but not slashing, and pausing stops neither contract.
 /// @dev Runs on the Lean example chain of `EtnaLandTestBase`: L1 block 11, Alice's bond 0
 /// (`VALIDATOR_PK`, registered at block 1, active from block 11, no exit), the genesis cutoff 1
 /// as the landed snapshot, three forced inclusions queued and reference block 10. Every registry
@@ -316,11 +316,12 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
     // The Inbox lock
     // ---------------------------------------------------------------
 
-    /// @dev Design C8: Alice's bond 0 is confirmed, slashed and past the withdrawal delay, so
-    /// anyone may release it; Bob's bond 1 has a covered exit, so anyone may confirm it. While the
-    /// Inbox lock is held, first by the lock harness and then by a real `recover` whose registry
-    /// probe makes the calls, both revert `InboxLocked` and change nothing. Outside the lock Carol
-    /// confirms bond 1 and releases bond 0 without payment.
+    /// @dev No exit confirmation or withdrawal runs inside a landing or a recovery: Alice's bond 0
+    /// is confirmed, slashed and past the withdrawal delay, so anyone may release it; Bob's bond 1
+    /// has a covered exit, so anyone may confirm it. While the Inbox lock is held, first by the
+    /// lock harness and then by a real `recover` whose registry probe makes the calls, both revert
+    /// `InboxLocked` and change nothing. Outside the lock Carol confirms bond 1 and releases bond 0
+    /// without payment.
     function test_confirmExit_RevertWhen_RecoverHoldsTheInboxLock() external {
         assertEq(_registerValidator(registry, Bob, _BOB_PK), 1, "Bob's bond 1");
         _requestExit(Alice, 0);
@@ -379,10 +380,10 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         _assertReleased(0);
     }
 
-    /// @dev `slashDoubleSign` does not check the Inbox lock (C8 covers only `confirmExit` and
-    /// `withdraw`). Under the harness's lock Alice's double sign slashes her whole stake, the
-    /// bounty going to the caller, the Inbox proxy. A landing then covers the exit the slash set,
-    /// yet confirming it under the lock reverts `InboxLocked`; outside the lock Carol confirms it.
+    /// @dev `slashDoubleSign` does not check the Inbox lock (only `confirmExit` and `withdraw` do).
+    /// Under the harness's lock Alice's double sign slashes her whole stake, the bounty going to
+    /// the caller, the Inbox proxy. A landing then covers the exit the slash set, yet confirming it
+    /// under the lock reverts `InboxLocked`; outside the lock Carol confirms it.
     function test_slashDoubleSign_IgnoresTheInboxLock() external {
         EtnaInboxLockHarness harness = _upgradeToLockHarness();
         // One block past Alice's activation (11), so the exit the slash sets differs from it.

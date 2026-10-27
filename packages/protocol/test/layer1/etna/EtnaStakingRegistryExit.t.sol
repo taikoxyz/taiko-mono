@@ -259,7 +259,8 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
         registry.confirmExit(1);
     }
 
-    /// @dev While the Inbox holds its reentrancy lock (C8), checked before anything else.
+    /// @dev While the Inbox holds its reentrancy lock (no confirmation runs inside a landing or a
+    /// recovery), checked before anything else.
     function test_confirmExit_RevertWhen_InboxLocked() external {
         _requestExitCovered();
         mockInbox.setInNonReentrant(true);
@@ -303,7 +304,7 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
 
     /// @dev Confirmed at 100 with a 30-block delay: block 129 is too early, block 130 releases
     /// the slot, paying `to` (Lean `confirmation_starts_new_timer`). The released slot keeps its
-    /// place in the tree with the all-zero entry's leaf (C9).
+    /// place in the tree with the all-zero entry's leaf, not a zero leaf.
     function test_withdraw_WaitsFullDelayFromConfirmation() external {
         _requestExitCovered();
         vm.roll(100);
@@ -376,8 +377,8 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
         assertEq(token.balanceOf(Alice), MIN_STAKE, "paid once");
     }
 
-    /// @dev While the Inbox holds its reentrancy lock (C8), checked before the confirmation and
-    /// the owner.
+    /// @dev While the Inbox holds its reentrancy lock (no withdrawal runs inside a landing or a
+    /// recovery), checked before the confirmation and the owner.
     function test_withdraw_RevertWhen_InboxLocked() external {
         _confirmAndWait();
         mockInbox.setInNonReentrant(true);

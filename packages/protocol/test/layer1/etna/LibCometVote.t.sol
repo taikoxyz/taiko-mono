@@ -61,10 +61,12 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
     /// @dev The number of `votes.cases` items.
     uint256 private constant _VOTE_CASES = 23;
 
-    /// @dev 2^63: heights and timestamp seconds are below it (C7).
+    /// @dev 2^63: heights are below it. Timestamp seconds follow CometBFT's Timestamp range
+    /// instead: the uint64 field holds an int64 in two's complement, accepted in
+    /// [-62,135,596,800, 253,402,300,800).
     uint64 private constant _TWO_POW_63 = uint64(1) << 63;
 
-    /// @dev 2^31: rounds are below it (C7).
+    /// @dev 2^31: rounds are below it.
     uint32 private constant _TWO_POW_31 = uint32(1) << 31;
 
     /// @dev 0001-01-01T00:00:00Z, the first second of CometBFT's (protobuf's) Timestamp range.
@@ -576,7 +578,7 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
         v_.signature = new bytes(65);
     }
 
-    /// @dev The vote with every field at its C7 upper bound.
+    /// @dev The vote with every field at its accepted upper bound.
     function _maxVote() private pure returns (IEtnaStakingRegistry.Vote memory v_) {
         v_ = _baseVote();
         v_.height = _TWO_POW_63 - 1;

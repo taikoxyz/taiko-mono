@@ -17,7 +17,8 @@ import "./EtnaStakingRegistry_Layout.sol"; // DO NOT DELETE
 /// @notice The TAIKO staking registry of the Etna PoS chain; see `IEtnaStakingRegistry`.
 /// @dev All state lives in three ERC-7201 namespaces (spec appendix B). `taiko.etna.registry`
 /// holds, from its base R: `checkpoints` (R) and `entries` (R + 1), the only slots nodes read,
-/// then the tree nodes, the free slot list and the used key addresses (C12).
+/// then the storage appendix B does not name: the tree nodes, the free slot list and the used key
+/// addresses.
 /// `taiko.etna.registry.owners` holds the bond owners and
 /// `taiko.etna.registry.exit-confirmations` the exit confirmations; neither enters the entries
 /// root. The Inbox proxy and the L2 chain id are immutables. Every L1 block the registry stores
@@ -64,7 +65,8 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// @notice The number of slots (the entries tree capacity).
     uint256 public constant MAX_ENTRIES = LibEntriesTree.CAPACITY;
 
-    /// @dev Delays must be below this bound (C14).
+    /// @dev Delays must be below this bound, so an oversized delay cannot make every
+    /// registration or exit request revert.
     uint256 private constant _DELAY_BOUND = 2 ** 32;
 
     /// @dev The basis points of a whole stake.
@@ -504,7 +506,8 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         );
     }
 
-    /// @dev Reverts with `InboxLocked` whenever the Inbox holds its reentrancy lock (C8): during
+    /// @dev Reverts with `InboxLocked` whenever the Inbox holds its reentrancy lock, so no exit
+    /// confirmation or withdrawal can run inside a landing or a recovery: during
     /// `land` and `recover`, and also during `saveForcedInclusion` (its refund included) and
     /// `sweepProtocolFees` (its transfer included).
     function _checkInboxUnlocked() private view {
@@ -519,7 +522,8 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         return uint48(_block);
     }
 
-    /// @dev Returns whether a delay is in [1, 2^32) (C14).
+    /// @dev Returns whether a delay is in [1, 2^32), the bound that keeps an oversized delay from
+    /// making every registration or exit request revert.
     /// @param _delay The delay in L1 blocks.
     /// @return Whether the delay is valid.
     function _isValidDelay(uint256 _delay) private pure returns (bool) {

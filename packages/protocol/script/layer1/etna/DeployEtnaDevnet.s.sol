@@ -14,7 +14,7 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 
 /// @title DeployEtnaDevnet
 /// @notice Deploys a new Etna chain starting from L2 block 0 in the owner-initialized order (spec
-/// 10 steps 1 and 5, design C2):
+/// 10 steps 1 and 5), so the Inbox proxy address exists before the registry that fixes it:
 /// 1. `deployInboxProxy()`: the Inbox proxy on `EtnaInboxBootstrap`, which only sets the owner.
 ///    Export the proxy as INBOX_PROXY.
 /// 2. `deployRegistry()`: the staking registry with INBOX_PROXY fixed as its Inbox. Export it as
@@ -30,8 +30,9 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// set but malformed reverts the call instead of falling back to its default.
 /// `deployInboxProxy()` reads nothing else.
 /// `deployRegistry()`: INBOX_PROXY; TAIKO_TOKEN; REGISTRY_MIN_STAKE in token base units, which
-/// defaults to ETNA_S_MIN if unset, empty or zero (C13); REGISTRY_ACTIVATION_DELAY,
-/// REGISTRY_EXIT_DELAY and REGISTRY_WITHDRAWAL_DELAY in L1 blocks, each in [1, 2^32);
+/// defaults to ETNA_S_MIN if unset, empty or zero (the two are independent parameters);
+/// REGISTRY_ACTIVATION_DELAY, REGISTRY_EXIT_DELAY and REGISTRY_WITHDRAWAL_DELAY in L1 blocks, each
+/// in [1, 2^32);
 /// SLASH_BOUNTY_BPS (at most 10,000); SLASH_SINK (non-zero); L2_CHAIN_ID.
 /// `deployInbox()`: INBOX_PROXY; STAKING_REGISTRY; ETNA_PROOF_VERIFIER, which must have code;
 /// REMOTE_SIGNAL_SERVICE (the L2 SignalService); L1_CHAIN_ID, which must equal this chain's id;
@@ -55,7 +56,7 @@ contract DeployEtnaDevnet is Script {
     // External & Public Functions
     // ---------------------------------------------------------------
 
-    /// @notice Deploys the Inbox proxy on its bootstrap implementation (C2 step 1).
+    /// @notice Deploys the Inbox proxy on its bootstrap implementation (step 1).
     /// @return proxy_ The Inbox proxy, owned by CONTRACT_OWNER or the deployer.
     function deployInboxProxy() external returns (address proxy_) {
         uint256 privateKey = _privateKey();
@@ -74,7 +75,7 @@ contract DeployEtnaDevnet is Script {
         console2.log("Export INBOX_PROXY, then deploy the registry.");
     }
 
-    /// @notice Deploys the staking registry with INBOX_PROXY fixed as its Inbox (C2 step 2).
+    /// @notice Deploys the staking registry with INBOX_PROXY fixed as its Inbox (step 2).
     /// @return registry_ The registry proxy, owned by CONTRACT_OWNER or the deployer.
     function deployRegistry() external returns (address registry_) {
         uint256 privateKey = _privateKey();
@@ -97,7 +98,7 @@ contract DeployEtnaDevnet is Script {
 
     /// @notice Deploys the SignalService authorizing INBOX_PROXY and the `EtnaInbox`
     /// implementation, then upgrades the proxy to it and initializes it if the deployer owns the
-    /// proxy (C2 step 4).
+    /// proxy (step 4).
     /// @dev Otherwise logs `ownerInitCall(inboxImpl_)` for the proxy owner to send to
     /// INBOX_PROXY. Reverts before broadcasting if ETNA_PROOF_VERIFIER has no code or L1_CHAIN_ID
     /// is not this chain's id.
@@ -166,8 +167,9 @@ contract DeployEtnaDevnet is Script {
         return owner == address(0) ? vm.addr(_key) : owner;
     }
 
-    /// @dev Reads the registry configuration; the minimum stake defaults to ETNA_S_MIN (C13)
-    /// when REGISTRY_MIN_STAKE is unset, empty or zero. A malformed value reverts.
+    /// @dev Reads the registry configuration; the minimum stake, an independent parameter,
+    /// defaults to ETNA_S_MIN when REGISTRY_MIN_STAKE is unset, empty or zero. A malformed value
+    /// reverts.
     /// @return The registry configuration.
     function _registryConfig() private view returns (IEtnaStakingRegistry.Config memory) {
         uint256 minStake = _isSet("REGISTRY_MIN_STAKE") ? vm.envUint("REGISTRY_MIN_STAKE") : 0;

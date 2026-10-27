@@ -301,11 +301,12 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     // Lists
     // ---------------------------------------------------------------
 
-    /// @dev Lean `stale_exclusion_identity_rejected` and `released_slot_exclusion_rejected` (C11):
-    /// the registry rejects an exclusion whose key no longer matches, an unknown bond and a
-    /// released slot (under the occupant's old key or the all-zero entry's key). Each list starts
-    /// with a valid exclusion of Alice and lists a blanking: the whole call reverts, so Alice's
-    /// exit, the queue entry and the generation stay as they were.
+    /// @dev Lean `stale_exclusion_identity_rejected` and `released_slot_exclusion_rejected`: the
+    /// registry checks each exclusion's entry key inside `forceExit` and rejects an exclusion whose
+    /// key no longer matches, an unknown bond and a released slot (under the occupant's old key or
+    /// the all-zero entry's key). Each list starts with a valid exclusion of Alice and lists a
+    /// blanking: the whole call reverts, so Alice's exit, the queue entry and the generation stay
+    /// as they were.
     function test_recover_RevertWhen_ExclusionKeyStaleOrReleased() external {
         IEtnaInbox.Exclusion[] memory list = new IEtnaInbox.Exclusion[](2);
         list[0] = _exclusion(0, VALIDATOR_PK);
@@ -422,8 +423,9 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         _assertOrigin(_TWO_POW_48, 0, 0, 0);
     }
 
-    /// @dev Origin timestamps must fit 48 bits (C6): at 2^48 recovery reverts with nothing
-    /// written, including the exclusion and the blanking it lists; at 2^48 - 1 it executes.
+    /// @dev Origin timestamps must fit 48 bits, the width of each slot 290 field: at 2^48 recovery
+    /// reverts with nothing written, including the exclusion and the blanking it lists; at 2^48 - 1
+    /// it executes.
     function test_recover_RevertWhen_TimestampOverflows48Bits() external {
         vm.warp(_TWO_POW_48);
         _expectRecoverRevert(
@@ -436,9 +438,10 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         _assertOrigin(1, 0, _LEAN_R, _TWO_POW_48 - 1);
     }
 
-    /// @dev R must fit 48 bits (C6): at block 2^48 recovery reverts. At 2^48 - 1 its own bound
-    /// passes, but the registry stores no L1 block at its no-exit sentinel, so an exclusion
-    /// reverts `InvalidEventBlock` with nothing written; without one recovery executes.
+    /// @dev R must fit 48 bits, the width of each slot 290 field: at block 2^48 recovery reverts.
+    /// At 2^48 - 1 its own bound passes, but the registry stores no L1 block at its no-exit
+    /// sentinel, so an exclusion reverts `InvalidEventBlock` with nothing written; without one
+    /// recovery executes.
     function test_recover_RevertWhen_L1BlockOverflows48Bits() external {
         vm.roll(_TWO_POW_48);
         _expectRecoverRevert(0, 0, _noExclusions(), _indices(0), IEtnaInbox.ValueOverflow.selector);

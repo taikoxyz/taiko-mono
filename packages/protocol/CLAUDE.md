@@ -259,7 +259,7 @@ For upgradeable contracts:
 ## Etna
 
 `contracts/layer1/etna/README.md` maps the Etna contracts to the Etna specification and lists the
-design decisions they rely on. Run from `packages/protocol`:
+choices the spec leaves open. Run from `packages/protocol`:
 
 ```bash
 # Every Etna suite: unit, integration, gas, vector and invariant (64-run default)

@@ -117,7 +117,7 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
     }
 
     /// @dev Spec 6.1 step 7 stores the snapshot as proven, with no bound against the stored one
-    /// or the reference block (design C4).
+    /// or the reference block: `land` adds no snapshot check to the reference Solidity.
     function test_land_StoresTheProvenSnapshotWithoutBounds() external {
         bytes32[] memory none = new bytes32[](0);
         IEtnaInbox.LandInput memory input = _input(0, 6);

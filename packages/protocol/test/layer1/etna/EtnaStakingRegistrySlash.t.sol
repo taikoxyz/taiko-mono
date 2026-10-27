@@ -42,7 +42,7 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
     bytes32 private constant _BLOCK_B = keccak256("block b");
 
     /// @dev 0001-01-01T00:00:00Z and 10000-01-01T00:00:00Z: CometBFT's Timestamp range is
-    /// [_MIN_SECONDS, _END_SECONDS) (C7).
+    /// [_MIN_SECONDS, _END_SECONDS), negative seconds included.
     int64 private constant _MIN_SECONDS = -62_135_596_800;
     int64 private constant _END_SECONDS = 253_402_300_800;
 
@@ -122,7 +122,7 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
     }
 
     /// @dev A nil precommit and a precommit for a block in the same round have different block
-    /// ids, so together they are a double sign, in either order (C7).
+    /// ids, so together they are a double sign, in either order.
     function test_slashDoubleSign_NilAgainstNonNilIsDoubleSign() external {
         IEtnaStakingRegistry.Vote memory forBlock = _signed(_CK_A, _vote(_BLOCK_A, 0));
         IEtnaStakingRegistry.Vote memory nil = _signed(_CK_A, _vote(0, 0));
@@ -552,9 +552,9 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         );
     }
 
-    /// @dev Each C7 bound, applied to both votes of a signed conflicting pair: an accepted value
-    /// slashes and a rejected one reverts `InvalidVote` when either vote carries it, before the
-    /// pair checks. Timestamp seconds are the int64 two's-complement pattern, accepted in
+    /// @dev Each vote field bound, applied to both votes of a signed conflicting pair: an accepted
+    /// value slashes and a rejected one reverts `InvalidVote` when either vote carries it, before
+    /// the pair checks. Timestamp seconds are the int64 two's-complement pattern, accepted in
     /// [-62,135,596,800, 253,402,300,800). The signature must be exactly 65 bytes; its V and S are
     /// left to recovery (`test_slashDoubleSign_RevertWhen_SignatureHasBadVOrHighS`).
     function test_slashDoubleSign_RevertWhen_VoteOutOfRange() external {

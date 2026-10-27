@@ -8,8 +8,9 @@ import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title EtnaInboxGridExamplesTest
-/// @notice Replays the Lean model's grid-landing examples (`Etna.Design.Examples`, from
-/// `grid_leaf_lists` to `snapshot_stored_as_proven`) against `land`.
+/// @notice Replays nine of the Lean model's grid-landing examples (`Etna.Design.Examples`) against
+/// `land`; each test names the example it replays. Two grid examples are not replayed here: one
+/// makes no landing, and `EtnaInboxLandTest` covers the foreign-generation rejection.
 /// @dev The Lean states are this suite's chain: `initial` is the state after `setUp` (c = 0,
 /// queue head 0 and tail 3), and `afterOne`, `afterTwo` and `afterThree` follow the landings
 /// (0, 6], (0, 12] and (0, 18], each proved from p = 0 with the honest grid leaves and
@@ -228,9 +229,9 @@ contract EtnaInboxGridExamplesTest is EtnaLandTestBase {
         _assertCheckpoint(12, bytes32(uint256(112)));
     }
 
-    /// @dev Lean `snapshot_stored_as_proven` (design C4): from `afterTwo`, which holds snapshot
-    /// 4, (0, 18] proving snapshot 2 lands and stores 2. The proof is over snapshot 2, and no
-    /// on-chain maximum keeps the larger stored value.
+    /// @dev Lean `snapshot_stored_as_proven`: `land` puts no bound on the snapshot, so from
+    /// `afterTwo`, which holds snapshot 4, (0, 18] proving snapshot 2 lands and stores 2. The proof
+    /// is over snapshot 2, and no on-chain maximum keeps the larger stored value.
     function test_land_ExampleSnapshotStoredAsProven() external {
         _land(0, 6);
         _land(0, 12);
