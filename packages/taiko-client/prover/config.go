@@ -17,43 +17,38 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 	pkgFlags "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
-	proofSubmitter "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter"
 )
 
 // Config contains the configurations to initialize a Taiko prover.
 type Config struct {
-	L1WsEndpoint                  string
-	L1BeaconEndpoint              string
-	L2WsEndpoint                  string
-	L2EngineEndpoint              string
-	JwtSecret                     string
-	InboxAddress                  common.Address
-	TaikoAnchorAddress            common.Address
-	L1ProverPrivKey               *ecdsa.PrivateKey
-	StartingProposalID            *big.Int
-	BackOffMaxRetries             uint64
-	BackOffRetryInterval          time.Duration
-	ProveUnassignedProposals      bool
-	RPCTimeout                    time.Duration
-	ProveBatchesGasLimit          uint64
-	RaikoHostEndpoint             string
-	RaikoApiKey                   string
-	RaikoRequestTimeout           time.Duration
-	LocalProposerAddresses        []common.Address
-	BlockConfirmations            uint64
-	TxmgrConfigs                  *txmgr.CLIConfig
-	PrivateTxmgrConfigs           *txmgr.CLIConfig
-	ZKVMProofBufferSize           uint64
-	ForceBatchProvingInterval     time.Duration
-	ProofPollingInterval          time.Duration
-	Dummy                         bool
-	ProposalWindowSize            uint64
-	MaxRisc0ProofProposalDistance uint64
-	ForceSP1Proof                 bool
-	SP1ProofPercentage            uint64
-	ForceSGXProof                 bool
-	SGXRethCompanionProof         bool
-	ZkOnlyProofs                  bool
+	L1WsEndpoint              string
+	L1BeaconEndpoint          string
+	L2WsEndpoint              string
+	L2EngineEndpoint          string
+	JwtSecret                 string
+	InboxAddress              common.Address
+	TaikoAnchorAddress        common.Address
+	L1ProverPrivKey           *ecdsa.PrivateKey
+	StartingProposalID        *big.Int
+	BackOffMaxRetries         uint64
+	BackOffRetryInterval      time.Duration
+	ProveUnassignedProposals  bool
+	RPCTimeout                time.Duration
+	ProveBatchesGasLimit      uint64
+	RaikoHostEndpoint         string
+	RaikoApiKey               string
+	RaikoRequestTimeout       time.Duration
+	LocalProposerAddresses    []common.Address
+	BlockConfirmations        uint64
+	TxmgrConfigs              *txmgr.CLIConfig
+	PrivateTxmgrConfigs       *txmgr.CLIConfig
+	ZKVMProofBufferSize       uint64
+	ForceBatchProvingInterval time.Duration
+	ProofPollingInterval      time.Duration
+	Dummy                     bool
+	ProposalWindowSize        uint64
+	ForceSGXProof             bool
+	SGXRethCompanionProof     bool
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -96,7 +91,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, fmt.Errorf("--%s is required", flags.RaikoHostEndpoint.Name)
 	}
 
-	zkOnlyProofs := c.Bool(flags.ZkOnlyProofs.Name)
 	sgxRethCompanionProof := c.Bool(flags.SGXRethCompanionProof.Name)
 	if sgxRethCompanionProof && c.Bool(flags.ForceSGXProof.Name) {
 		return nil, fmt.Errorf(
@@ -105,11 +99,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			flags.ForceSGXProof.Name,
 		)
 	}
-	sp1ProofPercentage := c.Uint64(flags.SP1ProofPercentage.Name)
-	if err := validateSP1ProofPercentage(sp1ProofPercentage, c.Uint64(flags.ZKVMBatchSize.Name)); err != nil {
-		return nil, err
-	}
-
 	var localProposerAddresses []common.Address
 	for _, localProposerAddress := range c.StringSlice(flags.LocalProposerAddresses.Name) {
 		if !common.IsHexAddress(localProposerAddress) {
@@ -139,19 +128,13 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		BackOffRetryInterval:     c.Duration(flags.BackOffRetryInterval.Name),
 		ProveUnassignedProposals: c.Bool(flags.ProveUnassignedProposals.Name),
 		ProposalWindowSize:       c.Uint64(flags.ProposalWindowSize.Name),
-		MaxRisc0ProofProposalDistance: c.Uint64(
-			flags.MaxRisc0ProofProposalDistance.Name,
-		),
-		ForceSP1Proof:          c.Bool(flags.ForceSP1Proof.Name),
-		SP1ProofPercentage:     sp1ProofPercentage,
-		ForceSGXProof:          c.Bool(flags.ForceSGXProof.Name),
-		SGXRethCompanionProof:  sgxRethCompanionProof,
-		ZkOnlyProofs:           zkOnlyProofs,
-		RPCTimeout:             c.Duration(flags.RPCTimeout.Name),
-		ProveBatchesGasLimit:   c.Uint64(flags.TxGasLimit.Name),
-		LocalProposerAddresses: localProposerAddresses,
-		BlockConfirmations:     c.Uint64(flags.BlockConfirmations.Name),
-		TxmgrConfigs:           pkgFlags.InitTxmgrConfigsFromCli(c.String(flags.L1WSEndpoint.Name), l1ProverPrivKey, c),
+		ForceSGXProof:            c.Bool(flags.ForceSGXProof.Name),
+		SGXRethCompanionProof:    sgxRethCompanionProof,
+		RPCTimeout:               c.Duration(flags.RPCTimeout.Name),
+		ProveBatchesGasLimit:     c.Uint64(flags.TxGasLimit.Name),
+		LocalProposerAddresses:   localProposerAddresses,
+		BlockConfirmations:       c.Uint64(flags.BlockConfirmations.Name),
+		TxmgrConfigs:             pkgFlags.InitTxmgrConfigsFromCli(c.String(flags.L1WSEndpoint.Name), l1ProverPrivKey, c),
 		PrivateTxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.L1PrivateEndpoint.Name),
 			l1ProverPrivKey,
@@ -161,27 +144,4 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ForceBatchProvingInterval: c.Duration(flags.ForceBatchProvingInterval.Name),
 		ProofPollingInterval:      c.Duration(flags.ProofPollingInterval.Name),
 	}, nil
-}
-
-// validateSP1ProofPercentage checks that the SP1 share and the RISC0 remainder of every
-// proposal cycle each fill whole proof batches, so neither run ends on a partial batch.
-func validateSP1ProofPercentage(percentage uint64, batchSize uint64) error {
-	cycle := proofSubmitter.SP1ProofShareCycle
-	if percentage > cycle {
-		return fmt.Errorf("--%s must be at most %d, got %d", flags.SP1ProofPercentage.Name, cycle, percentage)
-	}
-	if percentage == 0 || percentage == cycle || batchSize == 0 {
-		return nil
-	}
-	if percentage%batchSize != 0 || (cycle-percentage)%batchSize != 0 {
-		return fmt.Errorf(
-			"--%s (%d) and %d minus it must both be multiples of --%s (%d)",
-			flags.SP1ProofPercentage.Name,
-			percentage,
-			cycle,
-			flags.ZKVMBatchSize.Name,
-			batchSize,
-		)
-	}
-	return nil
 }

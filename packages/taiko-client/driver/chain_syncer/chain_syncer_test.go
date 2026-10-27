@@ -348,7 +348,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithMultipleBlocks() {
 	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
 	s.Nil(err)
 
-	testTx1, err := testutils.AssembleAndSendTestTx(
+	testTx1, err := testutils.AssembleTestTx(
 		s.RPCClient.L2,
 		s.TestAddrPrivKey,
 		nonce,
@@ -358,7 +358,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithMultipleBlocks() {
 	)
 	s.Nil(err)
 
-	testTx2, err := testutils.AssembleAndSendTestTx(
+	testTx2, err := testutils.AssembleTestTx(
 		s.RPCClient.L2,
 		s.TestAddrPrivKey,
 		nonce+1,
@@ -406,7 +406,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithOneBlobAndMultipleBlocks() 
 
 	for i := 0; i < batches; i++ {
 		for j := 0; j < txsInBatch; j++ {
-			testTx, err := testutils.AssembleAndSendTestTx(
+			testTx, err := testutils.AssembleTestTx(
 				s.RPCClient.L2,
 				s.TestAddrPrivKey,
 				nonce,
@@ -454,7 +454,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithTooMuchBlocks() {
 	txBatch := make([]types.Transactions, manifest.ProposalMaxBlocks+1)
 
 	for i := 0; i < len(txBatch); i++ {
-		testTx, err := testutils.AssembleAndSendTestTx(
+		testTx, err := testutils.AssembleTestTx(
 			s.RPCClient.L2,
 			s.TestAddrPrivKey,
 			nonce,
@@ -488,7 +488,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithInvalidForcedInclusion() {
 	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
 	s.Nil(err)
 
-	testTx, err := testutils.AssembleAndSendTestTx(
+	testTx, err := testutils.AssembleTestTx(
 		s.RPCClient.L2,
 		s.TestAddrPrivKey,
 		nonce,
@@ -498,7 +498,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithInvalidForcedInclusion() {
 	)
 	s.Nil(err)
 
-	testTx2, err := testutils.AssembleAndSendTestTx(
+	testTx2, err := testutils.AssembleTestTx(
 		s.RPCClient.L2,
 		s.TestAddrPrivKey,
 		nonce+1,
@@ -590,7 +590,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
 	s.Nil(err)
 
-	testTx, err := testutils.AssembleAndSendTestTx(
+	testTx, err := testutils.AssembleTestTx(
 		s.RPCClient.L2,
 		s.TestAddrPrivKey,
 		nonce,
