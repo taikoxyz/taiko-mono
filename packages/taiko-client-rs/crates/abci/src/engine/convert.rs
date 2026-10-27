@@ -56,6 +56,8 @@ pub fn block_from_payload(
     check_extra_data(&v1.extra_data)?;
 
     let header = Header {
+        block_access_list_hash: None,
+        slot_number: None,
         parent_hash: v1.parent_hash,
         ommers_hash: EMPTY_OMMER_ROOT_HASH,
         beneficiary: v1.fee_recipient,
@@ -192,6 +194,8 @@ mod tests {
     fn etna_block() -> ExecutionBlock {
         let transactions = vec![bytes!("02f801aa"), Bytes::from(vec![0x7f; 300])];
         let header = Header {
+            block_access_list_hash: None,
+            slot_number: None,
             parent_hash: B256::repeat_byte(0x01),
             ommers_hash: EMPTY_OMMER_ROOT_HASH,
             beneficiary: Address::repeat_byte(0x03),

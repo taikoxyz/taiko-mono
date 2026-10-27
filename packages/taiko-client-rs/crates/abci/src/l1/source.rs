@@ -35,6 +35,9 @@ pub enum L1Error {
     /// method and renders the cause.
     #[error("L1 RPC failed: {0}")]
     Rpc(String),
+    /// Required historical data is absent; retry without inferring invalid consensus input.
+    #[error("L1 historical data unavailable: {0}")]
+    DataUnavailable(String),
     /// The L1 node has no block for the tag or number.
     #[error("L1 block {0} not found")]
     BlockNotFound(BlockNumberOrTag),
@@ -47,6 +50,14 @@ pub enum L1Error {
         /// The requested block number.
         number: u64,
         /// Why the bytes are not a header.
+        error: L1HeaderError,
+    },
+    /// Canonical raw bytes match the own L1 hash but require a newer header parser.
+    #[error("canonical L1 header {number} requires a node upgrade: {error}")]
+    UnsupportedHeaderFormat {
+        /// Canonical L1 height requested by the node.
+        number: u64,
+        /// Unsupported shape of the hash-authenticated raw bytes.
         error: L1HeaderError,
     },
     /// The L1 node reported a block hash its own header does not hash to.
@@ -97,6 +108,22 @@ pub enum L1Error {
         /// The keys of the returned storage proofs, in order.
         got: Vec<B256>,
     },
+}
+
+impl L1Error {
+    /// Whether an own-node reply is contradictory or malformed rather than unavailable.
+    /// Hash-authenticated unknown header formats need an upgrade and remain retryable.
+    pub fn is_integrity_failure(&self) -> bool {
+        matches!(
+            self,
+            Self::MalformedResponse(_) |
+                Self::MalformedHeader { .. } |
+                Self::HeaderHashMismatch { .. } |
+                Self::HeaderNumberMismatch { .. } |
+                Self::ProofAddressMismatch { .. } |
+                Self::ProofSlotMismatch { .. }
+        )
+    }
 }
 
 /// Read access to the operator's own L1 execution node.
@@ -202,8 +229,14 @@ impl RpcL1Source {
             .raw_request::<_, Bytes>("debug_getRawHeader".into(), (selector,))
             .await
         {
-            Ok(raw) => RawL1Header::from_raw(raw)
-                .map_err(|error| L1Error::MalformedHeader { number, error })?,
+            Ok(raw) => {
+                let computed = alloy_primitives::keccak256(&raw);
+                if computed != reported {
+                    return Err(L1Error::HeaderHashMismatch { number, reported, computed });
+                }
+                RawL1Header::from_raw(raw)
+                    .map_err(|error| L1Error::UnsupportedHeaderFormat { number, error })?
+            }
             Err(e) if e.as_error_resp().is_some_and(|p| METHOD_UNAVAILABLE.contains(&p.code)) => {
                 header_from_json(number, block)?
             }
@@ -607,13 +640,18 @@ mod tests {
         let (l1, asserter) = mocked();
         asserter.push_success(&block());
         asserter.push_success(&Bytes::from_static(&[0xc1, 0x80]));
-        assert_eq!(
-            l1.header(1).await,
-            Err(L1Error::MalformedHeader {
-                number: 1,
-                error: L1HeaderError::TooFewFields { got: 1 }
-            })
-        );
+        assert!(matches!(l1.header(1).await, Err(L1Error::HeaderHashMismatch { .. })));
+    }
+
+    #[tokio::test]
+    async fn canonical_unsupported_header_requires_upgrade_without_safety_halt() {
+        let (l1, asserter) = mocked();
+        let raw = Bytes::from_static(&[0xc1, 0x80]);
+        let mut canonical = block();
+        canonical["hash"] = serde_json::json!(alloy_primitives::keccak256(&raw));
+        asserter.push_success(&canonical);
+        asserter.push_success(&raw);
+        assert!(matches!(l1.header(1).await, Err(L1Error::UnsupportedHeaderFormat { .. })));
     }
 
     #[tokio::test]

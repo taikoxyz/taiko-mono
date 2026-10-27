@@ -7,15 +7,14 @@ use alloy_primitives::{Address, B256, Bytes, U256};
 
 use super::{
     proposal::{
-        MAX_TX_BYTES, bft_time, decide, hand_envelope, hand_forced_envelope, incompressible, judge,
-        jump, mid_epoch, next_height, plant_due_entry, prepare, prepare_req, process, process_req,
-        propose, rejected, sample_tx_list, set_anchor_age, validate, with_extra_transaction,
+        bft_time, hand_envelope, hand_forced_envelope, incompressible, judge, jump, mid_epoch,
+        next_height, plant_due_entry, prepare, prepare_req, process, process_req, propose,
+        rejected, sample_tx_list, set_anchor_age, validate, with_extra_transaction,
     },
     *,
 };
 use crate::{
-    app::validate::{Rejection, WitnessKind, check_landing_capacity},
-    compression::{HEADER_ALLOWANCE, MAX_BLOCK_LANDING_BYTES, zlib_compress},
+    app::validate::{Rejection, WitnessKind},
     engine::{EngineError, PayloadVerdict},
     envelope::{EnvelopeError, EtnaEnvelope},
     forced::ForcedError,
@@ -133,10 +132,9 @@ async fn every_derived_header_field_is_checked() {
         extra[0] = 99; // basefeeSharingPctg
         h.extra_data = extra.into();
     };
-    let mutations: [(&str, &Mutation); 7] = [
+    let mutations: [(&str, &Mutation); 6] = [
         ("timestamp", &|h| h.timestamp += 1),
         ("extra_data", &pctg),
-        ("beneficiary", &|h| h.beneficiary = Address::repeat_byte(0x42)),
         ("gas_limit", &|h| h.gas_limit += 1),
         ("base_fee_per_gas", &|h| h.base_fee_per_gas = h.base_fee_per_gas.map(|f| f + 1)),
         ("mix_hash", &|h| h.mix_hash = B256::repeat_byte(0x43)),
@@ -400,7 +398,7 @@ async fn ordinary_block_skipping_a_due_entry_is_rejected() {
 }
 
 #[tokio::test]
-async fn due_low_fee_cap_skip_is_accepted_without_a_singleton_build() {
+async fn due_low_fee_cap_skip_requires_a_completed_singleton() {
     use alloy_consensus::{SignableTransaction, TxEnvelope, TxLegacy};
     let tx = TxEnvelope::Legacy(
         TxLegacy { gas_price: 999_999_999, gas_limit: 21_000, ..Default::default() }
@@ -423,11 +421,18 @@ async fn due_low_fee_cap_skip_is_accepted_without_a_singleton_build() {
     );
     assert_eq!(
         validate(&app, &env).unwrap().decision,
-        crate::forced::ForcedDecision::SkippedInvalid(0)
+        crate::forced::ForcedDecision::NeedsSkip {
+            index: 0,
+            tx: env.forced.as_ref().unwrap().tx.clone()
+        }
     );
+    app.engine().state().build_script.push_back(Ok(env.block.clone()));
     let before = app.engine().calls().len();
     assert_eq!(judge(&mut app, &env).await.0, response::ProcessProposal::Accept);
-    assert!(matches!(&app.engine().calls()[before..], [EngineCall::NewPayload(_)]));
+    assert!(matches!(
+        &app.engine().calls()[before..],
+        [EngineCall::BuildBlock { .. }, EngineCall::NewPayload(_)]
+    ));
 }
 
 /// A mid-epoch app whose own L1 finalized block 66 holding one due entry, and the forced block
@@ -510,43 +515,38 @@ async fn pending_entry_is_peeked_by_ordinary_blocks() {
 /// asked; it is a liveness guard only, so the same block, once decided, still commits.
 #[tokio::test]
 async fn process_rejects_a_block_that_cannot_fit_one_landing() {
+    use alloy_rlp::Encodable;
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let (mut app, mut env) = plain(&fx, dir.path()).await;
-    env.block.transactions.push(incompressible(800_000));
-    assert!(validate(&app, &env).is_ok(), "deterministically valid");
-    let encoded = env.encode();
-    assert!(i64::try_from(encoded.len()).unwrap() < MAX_TX_BYTES, "fits CometBFT's tx limit");
-    assert_eq!(
-        check_landing_capacity(&env.block),
-        Err(Rejection::LandingCapacity {
-            bytes: zlib_compress(&alloy_rlp::encode(&env.block)).len() + HEADER_ALLOWANCE,
-            max: MAX_BLOCK_LANDING_BYTES,
-        })
-    );
-
-    let engine_calls = app.engine().calls().len();
-    let (resp, req) = judge(&mut app, &env).await;
-    assert_eq!(resp, response::ProcessProposal::Reject);
-    assert_eq!(app.halt.as_deref(), Some("landing_capacity"));
-    assert_eq!(app.engine().calls().len(), engine_calls, "the EL is not asked");
-    assert!(app.verdicts.is_empty());
-
-    // FinalizeBlock does not re-check it.
-    decide(&mut app, &req).await;
-    assert_eq!(app.state().unwrap().parent.hash, env.block.header.hash_slow());
+    env.block.transactions.push(incompressible(124_001));
+    assert!(matches!(validate(&app, &env), Err(Rejection::LandingCapacity { max: 124_000, .. })));
+    assert!(env.block.length() > 124_000);
+    let before = app.engine().calls().len();
+    let (response, req) = judge(&mut app, &env).await;
+    assert_eq!(response, response::ProcessProposal::Reject);
+    assert_eq!(app.engine().calls().len(), before);
+    assert!(matches!(
+        super::proposal::finalize(&mut app, super::proposal::finalize_req(&req)).await,
+        Err(AbciError::SafetyHalt(_))
+    ));
 }
 
 /// 5 MB of zero calldata is far beyond one landing uncompressed, but compresses under the bound.
 #[tokio::test]
 async fn process_accepts_a_zero_heavy_block() {
+    use alloy_rlp::Encodable;
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let (mut app, mut env) = plain(&fx, dir.path()).await;
-    env.block.transactions.push(Bytes::from(vec![0u8; 5_000_000]));
-    assert!(env.encode().len() > MAX_BLOCK_LANDING_BYTES);
-    let (resp, _) = judge(&mut app, &env).await;
-    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
+    env.block.transactions.push(Bytes::from(vec![0; 123_000]));
+    let padding = 124_000 - env.block.length();
+    env.block.transactions[0] = Bytes::from(vec![0; 123_000 + padding]);
+    assert_eq!(env.block.length(), 124_000);
+    assert_eq!(judge(&mut app, &env).await.0, response::ProcessProposal::Accept);
+    env.block.transactions[0] = Bytes::from(vec![0; 123_001 + padding]);
+    assert_eq!(env.block.length(), 124_001);
+    assert_eq!(rejected(&mut app, &env).await, "landing_capacity");
 }
 
 #[tokio::test]
@@ -591,33 +591,33 @@ async fn superseding_anchor_must_be_final() {
 }
 
 #[tokio::test]
-async fn execution_failures_are_rejected() {
+async fn invalid_execution_rejects_but_transient_execution_retries() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let (mut app, env) = plain(&fx, dir.path()).await;
-    let scripts = [
-        (Ok(PayloadVerdict::Invalid("bad state root".into())), "payload_invalid"),
-        (Ok(PayloadVerdict::Syncing), "payload_syncing"),
-        (Err(EngineError::Transport("connection refused".into())), "engine_error"),
-    ];
-    for (script, label) in scripts {
+    app.engine()
+        .state()
+        .new_payload_script
+        .push_back(Ok(PayloadVerdict::Invalid("bad root".into())));
+    assert_eq!(rejected(&mut app, &env).await, "payload_invalid");
+    assert!(app.verdicts.is_empty());
+    for script in [Ok(PayloadVerdict::Syncing), Err(EngineError::Transport("down".into()))] {
         app.engine().state().new_payload_script.push_back(script);
-        assert_eq!(rejected(&mut app, &env).await, label);
+        assert_eq!(judge(&mut app, &env).await.0, response::ProcessProposal::Accept);
     }
-    assert!(app.verdicts.is_empty(), "nothing rejected is cached");
 }
 
 #[tokio::test(start_paused = true)]
-async fn engine_timeout_is_rejected() {
+async fn engine_timeout_waits_without_a_false_rejection() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let (mut app, env) = plain(&fx, dir.path()).await;
     app.engine().state().delay = Some(app.opts.engine_timeout + Duration::from_secs(1));
-    assert_eq!(rejected(&mut app, &env).await, "timeout");
+    assert!(tokio::time::timeout(Duration::from_secs(60), judge(&mut app, &env)).await.is_err());
 }
 
 #[tokio::test(start_paused = true)]
-async fn l1_timeout_is_rejected() {
+async fn l1_timeout_and_outage_wait_until_available() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
@@ -625,11 +625,13 @@ async fn l1_timeout_is_rejected() {
     let env = propose(&mut app).await;
     assert!(env.anchor.is_some());
     app.l1().state().delay = Some(app.opts.l1_timeout + Duration::from_secs(1));
-    assert_eq!(rejected(&mut app, &env).await, "timeout");
+    assert!(tokio::time::timeout(Duration::from_secs(60), judge(&mut app, &env)).await.is_err());
 
     app.l1().state().delay = None;
     app.l1().state().fail = Some(L1Error::Rpc("down".into()));
-    assert_eq!(rejected(&mut app, &env).await, "l1_error");
+    assert!(tokio::time::timeout(Duration::from_secs(60), judge(&mut app, &env)).await.is_err());
+    app.l1().state().fail = None;
+    assert_eq!(judge(&mut app, &env).await.0, response::ProcessProposal::Accept);
 }
 
 #[tokio::test]
@@ -714,4 +716,130 @@ async fn missing_due_preimage_rejects_before_any_engine_call() {
     assert_eq!(rejected(&mut app, &env).await, "forced_inclusion");
     assert_eq!(app.engine().calls().len(), before);
     assert_eq!(app.state().unwrap().forced_cursor, 0);
+}
+
+#[tokio::test]
+async fn historical_state_unavailable_halts_every_handler_and_survives_restart() {
+    for method in ["prepare", "process", "finalize"] {
+        let fx = Fixture::genesis(1);
+        let dir = tempfile::tempdir().unwrap();
+        let (mut app, env) = plain(&fx, dir.path()).await;
+        app.store.save(app.state().unwrap()).unwrap();
+        let error = EngineError::ErrorReply {
+            call: "engine build/import".into(),
+            code: -38100,
+            message: "historical state unavailable".into(),
+        };
+        let request = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+        let request = match method {
+            "prepare" => {
+                app.engine().state().build_script.push_back(Err(error));
+                Request::PrepareProposal(prepare_req(next_height(&app), bft_time(&app)))
+            }
+            "process" => {
+                app.engine().state().new_payload_script.push_back(Err(error));
+                Request::ProcessProposal(request)
+            }
+            _ => {
+                app.engine().state().new_payload_script.push_back(Err(error));
+                Request::FinalizeBlock(super::proposal::finalize_req(&request))
+            }
+        };
+        assert!(matches!(app.handle(request).await, Err(AbciError::SafetyHalt(_))), "{method}");
+        assert!(!app.trust.snapshot().trust_ready);
+        assert!(app.store.fatal_evidence().unwrap().unwrap().contains("-38100"));
+        assert!(matches!(
+            App::new(
+                fx.l1(),
+                fx.engine(),
+                fx.params.clone(),
+                app.store.clone(),
+                AppOptions::default()
+            ),
+            Err(AbciError::SafetyHalt(_))
+        ));
+    }
+}
+
+#[tokio::test]
+async fn arbitrary_certified_beneficiary_is_valid() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let (mut app, mut env) = plain(&fx, dir.path()).await;
+    env.block.header.beneficiary = Address::repeat_byte(0x42);
+    assert_eq!(judge(&mut app, &env).await.0, response::ProcessProposal::Accept);
+}
+
+#[tokio::test(start_paused = true)]
+async fn canonical_unsupported_anchor_waits_but_forged_malformed_anchor_rejects() {
+    use super::proposal::{finalize, finalize_req};
+    fn list(fields: &[Vec<u8>]) -> Vec<u8> {
+        let payload: Vec<u8> = fields.concat();
+        let mut out = Vec::new();
+        alloy_rlp::Header { list: true, payload_length: payload.len() }.encode(&mut out);
+        out.extend(payload);
+        out
+    }
+    for canonical in [true, false] {
+        let fx = Fixture::genesis(1);
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = initialized(&fx, dir.path()).await;
+        let witness = fx.anchor_witness(app.l1(), fx.genesis.l1_0);
+        let env = hand_envelope(&app, Some(witness.clone()), None);
+        let raw = list(&vec![vec![0x80]; 11]);
+        let anchor =
+            list(&[alloy_rlp::encode(Bytes::from(raw.clone())), alloy_rlp::encode(&witness.inbox)]);
+        let body = list(&[alloy_rlp::encode(&env.block), list(&[anchor]), list(&[]), list(&[])]);
+        let tx: Bytes = [vec![crate::envelope::ENVELOPE_VERSION], body].concat().into();
+        let req = process_req(next_height(&app), bft_time(&app), vec![tx]);
+        if canonical {
+            app.l1().state().canonical_script.push_back(Ok(alloy_primitives::keccak256(&raw)));
+            assert!(
+                tokio::time::timeout(Duration::from_millis(50), process(&mut app, req.clone()))
+                    .await
+                    .is_err()
+            );
+            app.l1().state().canonical_script.push_back(Ok(alloy_primitives::keccak256(&raw)));
+            assert!(
+                tokio::time::timeout(
+                    Duration::from_millis(50),
+                    finalize(&mut app, finalize_req(&req))
+                )
+                .await
+                .is_err()
+            );
+            assert!(app.store.fatal_evidence().unwrap().is_none());
+            assert!(app.pending.is_none());
+        } else {
+            assert_eq!(process(&mut app, req.clone()).await, response::ProcessProposal::Reject);
+            assert!(matches!(
+                finalize(&mut app, finalize_req(&req)).await,
+                Err(AbciError::SafetyHalt(_))
+            ));
+            assert!(app.store.fatal_evidence().unwrap().is_some());
+        }
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn malformed_own_l1_reply_is_a_safety_halt_in_process_and_finalize() {
+    use super::proposal::{finalize, finalize_req};
+    for cold in [false, true] {
+        let fx = Fixture::genesis(1);
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = initialized(&fx, dir.path()).await;
+        let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None);
+        let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+        app.l1()
+            .state()
+            .canonical_script
+            .push_back(Err(L1Error::MalformedResponse("bad own-L1 hash".into())));
+        let result = if cold {
+            finalize(&mut app, finalize_req(&req)).await.map(|_| ())
+        } else {
+            app.handle(Request::ProcessProposal(req)).await.map(|_| ())
+        };
+        assert!(matches!(result, Err(AbciError::SafetyHalt(_))), "cold={cold}: {result:?}");
+        assert!(app.store.fatal_evidence().unwrap().is_some());
+    }
 }

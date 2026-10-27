@@ -20,13 +20,17 @@ pub const STATE_ROOT_INDEX: usize = 3;
 pub const NUMBER_INDEX: usize = 8;
 /// Position of `timestamp` in an L1 header's RLP list.
 pub const TIMESTAMP_INDEX: usize = 11;
-/// The fewest fields an L1 header has: the 15 of a pre-London header (`parentHash` through
-/// `nonce`); every later fork only appends fields.
-pub const MIN_FIELDS: usize = 15;
+/// Minimum positional fields needed through timestamp; later header fields remain opaque.
+pub const MIN_FIELDS: usize = 12;
+/// Maximum authenticated L1 header size, including its canonical RLP framing.
+pub const MAX_HEADER_BYTES: usize = 4096;
 
 /// Why bytes are not an L1 header.
 #[derive(Debug, thiserror::Error, Clone, Copy, PartialEq, Eq)]
 pub enum L1HeaderError {
+    /// The original header exceeds the consensus byte bound.
+    #[error("L1 header is {0} bytes, exceeding 4096")]
+    Oversize(usize),
     /// The bytes are not one well-formed, canonical RLP list of well-formed items.
     #[error("malformed L1 header RLP: {0}")]
     Rlp(alloy_rlp::Error),
@@ -56,6 +60,7 @@ impl L1HeaderError {
     /// static message per variant, as [`alloy_rlp::Error::Custom`] holds no runtime detail.
     const fn as_rlp_error(&self) -> alloy_rlp::Error {
         alloy_rlp::Error::Custom(match self {
+            Self::Oversize(_) => "raw L1 header exceeds byte bound",
             Self::Rlp(_) => "malformed raw L1 header RLP",
             Self::TrailingBytes(_) => "trailing bytes after the raw L1 header",
             Self::TooFewFields { .. } => "raw L1 header has too few fields",
@@ -95,6 +100,9 @@ impl RawL1Header {
     /// and whose `number` and `timestamp` are canonical `u64`s ([`L1HeaderError::Field`]). Fields
     /// past the ones it reads are only checked to be well-formed RLP items.
     pub fn from_raw(raw: Bytes) -> Result<Self, L1HeaderError> {
+        if raw.len() > MAX_HEADER_BYTES {
+            return Err(L1HeaderError::Oversize(raw.len()));
+        }
         let mut buf = raw.as_ref();
         let fields = match alloy_rlp::Header::decode_raw(&mut buf).map_err(L1HeaderError::Rlp)? {
             PayloadView::List(fields) => fields,
@@ -261,7 +269,7 @@ mod tests {
         else {
             panic!("a list");
         };
-        assert_eq!(items.len(), fields(&base).len() + 2, "two fields appended");
+        assert_eq!(items.len(), fields(&base).len() + 3, "three fields appended");
         assert!(
             <Header as Decodable>::decode(&mut raw.as_ref()).is_err(),
             "alloy's header decoder rejects the extra fields"
@@ -319,7 +327,8 @@ mod tests {
     #[test]
     fn fewer_than_the_pre_london_fields_are_rejected() {
         let mut items = fields(&Header::default());
-        assert_eq!(items.len(), MIN_FIELDS, "a pre-London header has the minimum");
+        items.truncate(MIN_FIELDS);
+        assert!(RawL1Header::from_raw(list(&items).into()).is_ok());
         items.pop();
         assert_eq!(
             RawL1Header::from_raw(list(&items).into()),
@@ -361,7 +370,7 @@ mod tests {
     #[test]
     fn rlp_decoding_rejects_a_malformed_raw_header() {
         let mut short = fields(&Header::default());
-        short.pop();
+        short.truncate(11);
         let encoded = alloy_rlp::encode(Bytes::from(list(&short)));
         assert_eq!(
             RawL1Header::decode(&mut encoded.as_slice()),
@@ -423,7 +432,7 @@ mod tests {
     fn field_positions_are_ethereums() {
         assert_eq!(
             (PARENT_HASH_INDEX, STATE_ROOT_INDEX, NUMBER_INDEX, TIMESTAMP_INDEX, MIN_FIELDS),
-            (0, 3, 8, 11, 15)
+            (0, 3, 8, 11, 12)
         );
         let header = Header {
             parent_hash: b256!("0101010101010101010101010101010101010101010101010101010101010101"),
@@ -435,5 +444,15 @@ mod tests {
         assert_eq!(items[STATE_ROOT_INDEX], [vec![0xa0], vec![0x03; 32]].concat());
         assert_eq!(items[NUMBER_INDEX], hex!("8401234567"));
         assert_eq!(items[TIMESTAMP_INDEX], hex!("8468e77800"));
+    }
+}
+
+#[cfg(test)]
+mod v1_bound_tests {
+    use super::*;
+    #[test]
+    fn v1_l1_header_rejects_oversize_raw_input() {
+        let header = Header { extra_data: Bytes::from(vec![0; 4096]), ..Default::default() };
+        assert!(RawL1Header::from_raw(alloy_rlp::encode(header).into()).is_err());
     }
 }

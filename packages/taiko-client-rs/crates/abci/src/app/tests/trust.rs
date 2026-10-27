@@ -17,6 +17,24 @@ fn target(app: &App<MockL1, MockEngine>, fx: &Fixture, height: u64, hash: B256) 
     let inbox = InboxStorage {
         last_checkpoint_height: height,
         last_checkpoint_hash: hash,
+        last_checkpoint_comet_hash: if height == 0 {
+            B256::ZERO
+        } else {
+            app.store.load_comet_hash(height).unwrap().unwrap_or_else(|| {
+                if height == next_height(app) {
+                    let env = hand_envelope(
+                        app,
+                        Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)),
+                        None,
+                    );
+                    B256::from_slice(
+                        process_req(height, bft_time(app), vec![env.encode()]).hash.as_bytes(),
+                    )
+                } else {
+                    B256::repeat_byte(8)
+                }
+            })
+        },
         ..fx.inbox.clone()
     };
     fx.plant_l1_block(app.l1(), 100, &inbox, &fx.registry);
@@ -145,7 +163,7 @@ async fn checkpoint_proof_root_canonical_status_and_generation_are_authenticated
         let mut app = initialized(&fx, dir.path()).await;
         let mut inbox = fx.inbox.clone();
         if case == 0 {
-            inbox.status = 0;
+            inbox.last_checkpoint_hash = B256::repeat_byte(0xde);
         }
         if case == 1 {
             inbox.last_checkpoint_hash = B256::ZERO;
@@ -179,6 +197,7 @@ async fn target_is_pinned_until_match_then_refresh_can_extend_catchup() {
     let inbox = InboxStorage {
         last_checkpoint_height: 2,
         last_checkpoint_hash: B256::repeat_byte(8),
+        last_checkpoint_comet_hash: B256::repeat_byte(8),
         ..fx.inbox.clone()
     };
     fx.plant_l1_block(app.l1(), 101, &inbox, &fx.registry);
@@ -416,6 +435,7 @@ async fn ready_session_keeps_fixed_target_and_labels_valid_candidates_safe() {
     let inbox = InboxStorage {
         last_checkpoint_height: 2,
         last_checkpoint_hash: B256::repeat_byte(8),
+        last_checkpoint_comet_hash: B256::repeat_byte(8),
         ..fx.inbox.clone()
     };
     fx.plant_l1_block(app.l1(), 101, &inbox, &fx.registry);
@@ -623,4 +643,97 @@ async fn stale_adapter_integrity_failure_does_not_stop_new_session_recovery() {
     app.l1().state().delay = None;
     app.refresh_trust().await.unwrap();
     assert!(handle.check_session(&current.session_id).trust_ready);
+}
+
+#[tokio::test]
+async fn authenticated_genesis_landing_requires_zero_comet_hash() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    let inbox =
+        InboxStorage { last_checkpoint_comet_hash: B256::repeat_byte(0x77), ..fx.inbox.clone() };
+    fx.plant_l1_block(app.l1(), 100, &inbox, &fx.registry);
+    app.l1().set_finalized(100);
+    assert!(matches!(app.refresh_trust().await, Err(AbciError::SafetyHalt(_))));
+    assert!(!app.trust.snapshot().trust_ready);
+}
+
+#[tokio::test]
+async fn committed_comet_history_is_required_and_survives_restart() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    for i in 0..2 {
+        let anchor = (i == 0).then(|| fx.anchor_witness(app.l1(), fx.genesis.l1_0));
+        let env = hand_envelope(&app, anchor, None);
+        let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+        finalize(&mut app, finalize_req(&req)).await.unwrap();
+        assert!(app.store.load_comet_hash(req.height.value()).unwrap().is_none());
+        commit(&mut app).await.unwrap();
+        assert_eq!(
+            app.store.load_comet_hash(req.height.value()).unwrap(),
+            Some(B256::from_slice(req.hash.as_bytes()))
+        );
+    }
+    let comet = app.store.load_comet_hash(1).unwrap().unwrap();
+    let el = app.engine().state().chain[&1].hash_slow();
+    let mut restarted = app_with(
+        fx.l1(),
+        app.engine().reopen(),
+        fx.params.clone(),
+        dir.path(),
+        AppOptions::default(),
+    );
+    target(&restarted, &fx, 1, el);
+    let path = dir.path().join("comet-hash-1.json");
+    std::fs::remove_file(&path).unwrap();
+    restarted.refresh_trust().await.unwrap();
+    assert!(!restarted.trust.snapshot().trust_ready);
+    assert!(restarted.trust.snapshot().reason.unwrap().contains("missing committed Comet"));
+    restarted.store.save_comet_hash(1, comet).unwrap();
+    restarted.refresh_trust().await.unwrap();
+    assert!(restarted.trust.snapshot().trust_ready);
+    restarted.trust.begin_session();
+    let inbox = InboxStorage {
+        last_checkpoint_height: 1,
+        last_checkpoint_hash: el,
+        last_checkpoint_comet_hash: B256::repeat_byte(0xaa),
+        ..fx.inbox.clone()
+    };
+    fx.plant_l1_block(restarted.l1(), 101, &inbox, &fx.registry);
+    restarted.l1().set_finalized(101);
+    assert!(matches!(restarted.refresh_trust().await, Err(AbciError::SafetyHalt(_))));
+    assert!(restarted.store.fatal_evidence().unwrap().is_some());
+    assert!(matches!(
+        App::new(
+            fx.l1(),
+            app.engine().reopen(),
+            fx.params.clone(),
+            Store::volatile(dir.path().into()),
+            AppOptions::default()
+        ),
+        Err(AbciError::SafetyHalt(_))
+    ));
+}
+
+#[tokio::test]
+async fn decided_comet_hash_mismatch_halts_before_settle_even_when_el_matches() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None);
+    let inbox = InboxStorage {
+        last_checkpoint_height: 1,
+        last_checkpoint_hash: env.block.header.hash_slow(),
+        last_checkpoint_comet_hash: B256::repeat_byte(0xaa),
+        ..fx.inbox.clone()
+    };
+    fx.plant_l1_block(app.l1(), 100, &inbox, &fx.registry);
+    app.l1().set_finalized(100);
+    app.refresh_trust().await.unwrap();
+    let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+    let calls = app.engine().calls().len();
+    assert!(matches!(finalize(&mut app, finalize_req(&req)).await, Err(AbciError::SafetyHalt(_))));
+    assert!(app.pending.is_none());
+    assert_eq!(app.engine().calls().len(), calls);
 }

@@ -1,12 +1,7 @@
 //! [`App::handle`] dispatch of the methods without app logic.
 
-use tendermint::{
-    Hash, Time,
-    abci::types::Snapshot,
-    account,
-    block::Height,
-    v0_38::abci::{Request, Response, request, response},
-};
+use crate::wire::{Request, Response, request, response};
+use tendermint::{Hash, Time, abci::types::Snapshot, account, block::Height};
 
 use super::*;
 

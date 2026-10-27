@@ -259,7 +259,7 @@ impl L1Source for MockL1 {
             return Err(error.clone());
         }
         state.forced_transactions.get(&(inbox, index, l1_block)).cloned().ok_or_else(|| {
-            L1Error::MalformedResponse(format!(
+            L1Error::DataUnavailable(format!(
                 "mock L1: missing forced event {index} at block {l1_block}"
             ))
         })

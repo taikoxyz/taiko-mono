@@ -180,6 +180,7 @@ impl EngineError {
     /// | Error                                      | Retryable | Meaning                         |
     /// | ------------------------------------------ | --------- | ------------------------------- |
     /// | [`Transport`](Self::Transport)             | yes       | the exchange itself failed      |
+    /// | `ErrorReply` `-38100`                      | no        | parent history pruned; repair  |
     /// | `ErrorReply` `-38001..=-38005`             | no        | Engine API verdict on the call  |
     /// | `ErrorReply` `-32700`, `-32600..=-32602`   | no        | the call itself is malformed    |
     /// | `ErrorReply` `-32603`                      | yes       | internal error                  |
@@ -197,7 +198,7 @@ impl EngineError {
         match self {
             Self::Transport(_) => true,
             Self::ErrorReply { code, .. } => {
-                !matches!(*code, -38005..=-38001 | -32700 | -32602..=-32600)
+                !matches!(*code, -38100 | -38005..=-38001 | -32700 | -32602..=-32600)
             }
             _ => false,
         }
@@ -263,5 +264,19 @@ mod tests {
         ] {
             assert!(!error.is_retryable(), "{error:?}");
         }
+    }
+}
+
+#[cfg(test)]
+mod v1_pruning_tests {
+    use super::*;
+    #[test]
+    fn v1_pruned_parent_is_definitive() {
+        let err = EngineError::ErrorReply {
+            call: "engine_forkchoiceUpdatedV3".into(),
+            code: -38100,
+            message: "pruned parent".into(),
+        };
+        assert!(!err.is_retryable());
     }
 }

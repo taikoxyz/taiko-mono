@@ -22,6 +22,8 @@ pub mod committee;
 pub mod compression;
 /// Chain parameters (built-in per L2 chain id, optional TOML override).
 pub mod config;
+/// Complete deployment signing domain.
+pub mod domain;
 /// Execution-layer sync to a trusted head over devp2p.
 pub mod elsync;
 /// The execution-engine adapter (Engine API) and payload conversion for alethia-reth #251.
@@ -33,6 +35,8 @@ pub mod forced;
 /// The CometBFT genesis: the `app_state` genesis witness, its codec, and the builder of the
 /// whole `genesis.json` from L1.
 pub mod genesis;
+/// Native validated secp256k1eth consensus identities.
+pub mod key;
 /// L1 storage layout, EIP-1186 proof verification, Inbox witness decoding and the L1 source.
 pub mod l1;
 /// Prometheus metrics of the ABCI app.
@@ -47,6 +51,8 @@ pub mod server;
 pub mod store;
 /// Plain data shared across modules (witnesses, committee records, anchor and parent facts).
 pub mod types;
+/// Stock CometBFT transport with native secp256k1eth keys.
+pub mod wire;
 
 #[cfg(test)]
 pub(crate) mod test_utils;

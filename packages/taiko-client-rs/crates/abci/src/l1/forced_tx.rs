@@ -46,6 +46,9 @@ pub(crate) async fn fetch(
         })?;
     let mut logs: Vec<ForcedLog> = serde_json::from_value(response)
         .map_err(|error| malformed(format!("event logs: {error}")))?;
+    if logs.is_empty() {
+        return Err(L1Error::DataUnavailable(format!("forced event {index} at block {l1_block}")));
+    }
     if logs.len() != 1 {
         return Err(malformed(format!("expected one forced event, got {}", logs.len())));
     }
@@ -191,13 +194,12 @@ mod tests {
         }
         for result in cases {
             let (source, request) = server(json!({"result":result})).await;
-            assert!(
-                matches!(
-                    source.forced_transaction(INBOX, INDEX, BLOCK).await,
-                    Err(L1Error::MalformedResponse(_))
-                ),
-                "{result}"
-            );
+            let error = source.forced_transaction(INBOX, INDEX, BLOCK).await.unwrap_err();
+            if result.as_array().is_some_and(Vec::is_empty) {
+                assert!(matches!(error, L1Error::DataUnavailable(_)), "{result}: {error}");
+            } else {
+                assert!(matches!(error, L1Error::MalformedResponse(_)), "{result}: {error}");
+            }
             request.await.unwrap();
         }
     }

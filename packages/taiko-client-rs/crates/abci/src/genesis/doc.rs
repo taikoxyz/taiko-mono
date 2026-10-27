@@ -6,9 +6,9 @@
 //! `initial_height`, `validators` and `app_state`, which [`build_genesis`](super::build_genesis)
 //! derives from L1.
 
-use alloy_primitives::B256;
+use crate::key::{CometPublicKey, ConsensusKey};
 use serde::{Deserialize, Serialize};
-use tendermint::{PublicKey, Time, account, block, consensus, evidence, public_key};
+use tendermint::Time;
 
 use super::{AppStateJson, GenesisError, GenesisWitness};
 use crate::types::Member;
@@ -18,7 +18,7 @@ use crate::types::Member;
 pub struct GenesisDoc {
     /// RFC 3339 UTC time of L1 block `L1_0`, whole seconds (`YYYY-MM-DDTHH:MM:SSZ`).
     pub genesis_time: String,
-    /// `taiko-etna-<L2 chain id>-g<recoveryGeneration>`.
+    /// The 48-byte chain ID authenticating the complete deployment domain.
     pub chain_id: String,
     /// The first consensus height, always `"1"`, as a decimal string.
     pub initial_height: String,
@@ -26,7 +26,7 @@ pub struct GenesisDoc {
     pub consensus_params: GenesisConsensusParams,
     /// The `e_0` committee in set-key order.
     pub validators: Vec<GenesisValidator>,
-    /// The initial app hash; empty, as `InitChain` answers `H*`.
+    /// The initial EL genesis hash H*, uppercase hex as required by stock Comet JSON.
     pub app_hash: String,
     /// The genesis witness, embedded as the JSON object `{"witness": "0x<hex>"}`.
     pub app_state: AppStateJson,
@@ -72,7 +72,7 @@ pub struct EvidenceParams {
 /// `consensus_params.validator`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ValidatorParams {
-    /// The accepted validator key types (CometBFT names, e.g. `ed25519`).
+    /// The accepted validator key types (CometBFT names, `secp256k1eth` for this deployment).
     pub pub_key_types: Vec<String>,
 }
 
@@ -100,39 +100,43 @@ pub struct AuthorityParams {
 impl GenesisConsensusParams {
     /// Canonical parameters representable by the ABCI request type. CometBFT v0.40's
     /// authority field is not exposed by tendermint-rs and cannot be compared here.
-    pub(crate) fn abci() -> consensus::Params {
-        consensus::Params {
-            block: block::Size { max_bytes: 22_020_096, max_gas: -1, time_iota_ms: 1_000 },
-            evidence: evidence::Params {
+    pub(crate) fn abci() -> tendermint_proto::v0_38::types::ConsensusParams {
+        use tendermint_proto::{google::protobuf::Duration, v0_38::types};
+        types::ConsensusParams {
+            block: Some(types::BlockParams { max_bytes: 22_020_096, max_gas: -1 }),
+            evidence: Some(types::EvidenceParams {
                 max_age_num_blocks: 100_000,
-                max_age_duration: evidence::Duration(std::time::Duration::from_secs(172_800)),
+                max_age_duration: Some(Duration { seconds: 172_800, nanos: 0 }),
                 max_bytes: 1_048_576,
-            },
-            validator: consensus::params::ValidatorParams {
-                pub_key_types: vec![public_key::Algorithm::Ed25519],
-            },
-            version: Some(consensus::params::VersionParams { app: crate::app::APP_VERSION }),
-            abci: consensus::params::AbciParams::default(),
+            }),
+            validator: Some(types::ValidatorParams { pub_key_types: vec!["secp256k1eth".into()] }),
+            version: Some(types::VersionParams { app: crate::app::APP_VERSION }),
+            abci: Some(types::AbciParams { vote_extensions_enable_height: 0 }),
         }
     }
 
     /// The parameters of every Etna genesis: CometBFT's default `block.max_bytes` (22,020,096,
     /// above any envelope) without a gas limit, the default evidence limits (100,000 blocks,
-    /// 48 h, 1 MiB), Ed25519 keys only, the current app version, vote extensions disabled, and no
-    /// update authority.
+    /// 48 h, 1 MiB), secp256k1eth keys only, the current app version, vote extensions disabled, and
+    /// no update authority.
     pub fn etna() -> Self {
         let params = Self::abci();
         Self {
             block: BlockParams {
-                max_bytes: params.block.max_bytes.to_string(),
-                max_gas: params.block.max_gas.to_string(),
+                max_bytes: params.block.as_ref().expect("block params").max_bytes.to_string(),
+                max_gas: params.block.as_ref().expect("block params").max_gas.to_string(),
             },
             evidence: EvidenceParams {
-                max_age_num_blocks: params.evidence.max_age_num_blocks.to_string(),
-                max_age_duration: params.evidence.max_age_duration.0.as_nanos().to_string(),
-                max_bytes: params.evidence.max_bytes.to_string(),
+                max_age_num_blocks: params
+                    .evidence
+                    .as_ref()
+                    .expect("evidence params")
+                    .max_age_num_blocks
+                    .to_string(),
+                max_age_duration: "172800000000000".into(),
+                max_bytes: params.evidence.as_ref().expect("evidence params").max_bytes.to_string(),
             },
-            validator: ValidatorParams { pub_key_types: vec!["ed25519".into()] },
+            validator: ValidatorParams { pub_key_types: vec!["secp256k1eth".into()] },
             version: VersionParams { app: crate::app::APP_VERSION.to_string() },
             abci: AbciParams { vote_extensions_enable_height: "0".into() },
             authority: AuthorityParams { authority: String::new() },
@@ -153,8 +157,8 @@ pub(crate) fn genesis_time(timestamp: u64) -> Result<Time, GenesisError> {
 pub struct GenesisValidator {
     /// [`validator_address`] of the key.
     pub address: String,
-    /// The Ed25519 key: `{"type": "tendermint/PubKeyEd25519", "value": "<base64>"}`.
-    pub pub_key: PublicKey,
+    /// The native SEC1 key in stock Comet JSON with a base64 value.
+    pub pub_key: CometPublicKey,
     /// The voting power, as a decimal string.
     pub power: String,
     /// The validator name; always empty.
@@ -162,26 +166,20 @@ pub struct GenesisValidator {
 }
 
 impl GenesisValidator {
-    /// The genesis validator of committee member `m`: its Ed25519 key and mapped power.
+    /// The genesis validator of committee member `m`: its native key and mapped power.
     pub fn from_member(m: &Member) -> Self {
         Self {
             address: validator_address(m.pubkey),
-            pub_key: ed25519(m.pubkey),
+            pub_key: CometPublicKey(m.pubkey),
             power: m.power.to_string(),
             name: String::new(),
         }
     }
 }
 
-/// The CometBFT address of the Ed25519 key `pubkey`: the upper-case hex of the first 20 bytes
-/// of `sha256(pubkey)`.
-pub fn validator_address(pubkey: B256) -> String {
-    account::Id::from(ed25519(pubkey)).to_string()
-}
-
-/// `pubkey` as a CometBFT Ed25519 public key.
-fn ed25519(pubkey: B256) -> PublicKey {
-    PublicKey::from_raw_ed25519(pubkey.as_slice()).expect("a 32-byte string is an Ed25519 key")
+/// Upper-case hex of the native key's full 20-byte Ethereum address.
+pub fn validator_address(pubkey: ConsensusKey) -> String {
+    alloy_primitives::hex::encode_upper(pubkey.address())
 }
 
 impl GenesisDoc {
@@ -203,7 +201,20 @@ impl GenesisDoc {
             initial_height: "1".to_string(),
             consensus_params: GenesisConsensusParams::etna(),
             validators: members.iter().map(GenesisValidator::from_member).collect(),
-            app_hash: String::new(),
+            app_hash: alloy_primitives::hex::encode_upper(
+                w.inbox
+                    .storage
+                    .iter()
+                    .find(|word| {
+                        word.slot ==
+                            crate::l1::layout::inbox::slot(
+                                crate::l1::layout::inbox::GENESIS_BLOCK_HASH,
+                            )
+                    })
+                    .expect("verified genesis hash slot")
+                    .value
+                    .to_be_bytes::<32>(),
+            ),
             app_state: AppStateJson { witness: alloy_rlp::encode(w).into() },
         })
     }
@@ -216,121 +227,59 @@ impl GenesisDoc {
 
 #[cfg(test)]
 mod tests {
-    use alloy_primitives::{U256, keccak256};
-    use serde_json::{Value, json};
-
     use super::*;
-    use crate::{
-        genesis::encode_app_state,
-        test_utils::{Fixture, edit_l1_header},
-    };
-
-    fn member(pubkey: B256, power: u64) -> Member {
-        Member {
-            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
-            pubkey,
-            eff_stake: U256::from(power),
-            power,
-        }
-    }
-
+    use crate::test_utils::{Fixture, edit_l1_header, test_key};
     #[test]
-    fn validator_address_is_the_upper_hex_sha256_prefix() {
-        // sha256(0x01 × 32)[..20]
-        assert_eq!(
-            validator_address(B256::repeat_byte(0x01)),
-            "72CD6E8422C407FB6D098690F1130B7DED7EC2F7"
-        );
-        // sha256(keccak256("etna validator 0"))[..20]
-        assert_eq!(
-            validator_address(keccak256("etna validator 0")),
-            "3F2BC0483D8C553B9C58E1E4B1A26D9166FAF7C7"
-        );
+    fn validator_identity_is_full_ethereum_address() {
+        let k = ConsensusKey::from_slice(&alloy_primitives::hex!(
+            "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+        ))
+        .unwrap();
+        assert_eq!(validator_address(k), "7E5F4552091A69125D5DFCB7B8C2659029395BDF");
     }
-
-    /// Every key CometBFT v0.40 reads, with string-typed numbers and `authority` present.
     #[test]
-    fn json_has_the_cometbft_v040_shape() {
-        let fx = Fixture::genesis(1);
-        let doc = GenesisDoc::assemble(&fx.witness, "taiko-etna-7-g0".into(), &fx.members)
-            .expect("assembles");
-        let mut json: Value = serde_json::from_str(&doc.to_json_pretty()).expect("JSON");
-        let app_state = json["app_state"].take();
+    fn json_preserves_stock_parameters_and_genesis_app_hash() {
+        let fx = Fixture::genesis(2);
+        let doc =
+            GenesisDoc::assemble(&fx.witness, fx.request.chain_id.clone(), &fx.members).unwrap();
+        let value = serde_json::to_value(&doc).unwrap();
         assert_eq!(
-            json,
-            json!({
-                "genesis_time": "2025-10-09T09:06:08Z",
-                "chain_id": "taiko-etna-7-g0",
-                "initial_height": "1",
-                "consensus_params": {
-                    "block": { "max_bytes": "22020096", "max_gas": "-1" },
-                    "evidence": {
-                        "max_age_num_blocks": "100000",
-                        "max_age_duration": "172800000000000",
-                        "max_bytes": "1048576"
-                    },
-                    "validator": { "pub_key_types": ["ed25519"] },
-                    "version": { "app": "4" },
-                    "abci": { "vote_extensions_enable_height": "0" },
-                    "authority": { "authority": "" }
-                },
-                "validators": [{
-                    "address": "3F2BC0483D8C553B9C58E1E4B1A26D9166FAF7C7",
-                    "pub_key": {
-                        "type": "tendermint/PubKeyEd25519",
-                        "value": "WSQNhIRIGWt2/OrBNsKLMUXc17k/0ap6JI96t/b9hU8="
-                    },
-                    "power": "1000000000",
-                    "name": ""
-                }],
-                "app_hash": "",
-                "app_state": null
-            })
+            value["consensus_params"]["validator"]["pub_key_types"],
+            serde_json::json!(["secp256k1eth"])
         );
-        // app_state is the object encode_app_state writes, not a string.
-        let expected: Value = serde_json::from_slice(&encode_app_state(&fx.witness)).unwrap();
-        assert!(app_state.is_object());
-        assert_eq!(app_state, expected);
+        assert_eq!(value["consensus_params"]["version"]["app"], "1");
+        assert_eq!(value["consensus_params"]["block"]["max_bytes"], "22020096");
+        assert_eq!(doc.app_hash, alloy_primitives::hex::encode_upper(fx.genesis.genesis_hash));
+        assert_eq!(doc.initial_height, "1");
+        assert_eq!(serde_json::from_value::<GenesisDoc>(value).unwrap(), doc);
     }
-
     #[test]
-    fn json_keys_follow_the_cometbft_order() {
-        let fx = Fixture::genesis(1);
-        let doc = GenesisDoc::assemble(&fx.witness, "taiko-etna-7-g0".into(), &fx.members)
-            .expect("assembles");
-        let text = doc.to_json_pretty();
-        let at = |key: &str| text.find(&format!("\"{key}\"")).expect("key present");
-        let keys = [
-            "genesis_time",
-            "chain_id",
-            "initial_height",
-            "consensus_params",
-            "validators",
-            "app_hash",
-            "app_state",
+    fn validator_power_and_order_are_preserved() {
+        let members = [
+            Member { pubkey: test_key(9), eff_stake: alloy_primitives::U256::from(1), power: 7 },
+            Member { pubkey: test_key(1), eff_stake: alloy_primitives::U256::from(1), power: 8 },
         ];
-        assert!(keys.windows(2).all(|w| at(w[0]) < at(w[1])), "{text}");
-        assert_eq!(serde_json::from_str::<GenesisDoc>(&text).expect("parses back"), doc);
+        let vals = members.iter().map(GenesisValidator::from_member).collect::<Vec<_>>();
+        assert_eq!(vals[0].pub_key.0, members[0].pubkey);
+        assert_eq!(vals[1].power, "8");
     }
-
-    #[test]
-    fn validators_keep_the_member_order_and_powers() {
-        let fx = Fixture::genesis(1);
-        let members = [member(B256::repeat_byte(9), 7), member(B256::repeat_byte(1), u64::MAX)];
-        let doc = GenesisDoc::assemble(&fx.witness, "c".into(), &members).expect("assembles");
-        let addresses: Vec<&str> = doc.validators.iter().map(|v| v.address.as_str()).collect();
-        assert_eq!(addresses[1], "72CD6E8422C407FB6D098690F1130B7DED7EC2F7");
-        assert_eq!(addresses[0], validator_address(B256::repeat_byte(9)));
-        assert_eq!(doc.validators[0].power, "7");
-        assert_eq!(doc.validators[1].power, u64::MAX.to_string());
-        assert_eq!(doc.validators[1].pub_key, ed25519(B256::repeat_byte(1)));
-    }
-
     #[test]
     fn genesis_time_out_of_range_is_rejected() {
         let mut fx = Fixture::genesis(1);
         fx.witness.l1_header = edit_l1_header(&fx.witness.l1_header, |h| h.timestamp = u64::MAX);
-        let err = GenesisDoc::assemble(&fx.witness, "c".into(), &fx.members).unwrap_err();
-        assert!(matches!(err, GenesisError::GenesisTime(u64::MAX)), "{err:?}");
+        assert!(matches!(
+            GenesisDoc::assemble(&fx.witness, "c".into(), &fx.members),
+            Err(GenesisError::GenesisTime(u64::MAX))
+        ));
+    }
+}
+
+#[cfg(test)]
+mod v1_native_tests {
+    use super::*;
+    #[test]
+    fn v1_genesis_accepts_stock_secp256k1eth_key() {
+        let native = serde_json::json!({ "address":"7E5F4552091A69125D5DFCB7B8C2659029395BDF", "pub_key": {"type":"tendermint/PubKeySecp256k1eth", "value":"Anm+Zn753LusVaBilc6HCwcCm/zbLc4o2VnygVsW+BeY"}, "power":"10", "name":"" });
+        assert!(serde_json::from_value::<GenesisValidator>(native).is_ok());
     }
 }

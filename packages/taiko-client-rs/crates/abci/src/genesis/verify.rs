@@ -34,11 +34,20 @@ pub(crate) fn verify_context(
 ) -> Result<GenesisContext, GenesisError> {
     let (genesis, facts, committee_hash) =
         verify_genesis_inbox(header.state_root(), inbox, params.inbox)?;
+    if facts.recovery_generation != 0 {
+        return Err(GenesisError::UnsupportedRecovery("generation must be zero".into()));
+    }
     if header.number() != genesis.l1_0 {
         return Err(GenesisError::InitializationMismatch {
             l1_0: header.number(),
             proven: genesis.l1_0,
         });
+    }
+    let timestamp_slot = crate::l1::layout::inbox::origin_slots(0)[2];
+    if inbox.storage.iter().find(|proof| proof.slot == timestamp_slot).map(|proof| proof.value) !=
+        Some(alloy_primitives::U256::from(header.timestamp()))
+    {
+        return Err(GenesisError::Witness(Box::new(crate::l1::WitnessError::InvalidOrigin)));
     }
     let local = crate::committee::committee_config_hash(params);
     if local != genesis.committee_config_hash {

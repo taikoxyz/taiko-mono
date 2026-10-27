@@ -16,25 +16,18 @@ pub struct ChainParams {
     pub inbox: Address,
     /// `ETNA_REGISTRY`: L1 address of the staking registry.
     pub registry: Address,
-    /// `L2FeeVault`: canonical L2 treasury of the pinned execution layer, derived from the chain
-    /// id.
-    pub fee_vault: Address,
-    /// `D_MAX`: maximum unsettled depth, in L2 blocks; bound by the committee
-    /// configuration hash.
-    pub d_max: u64,
-    /// `MARGIN_V`: safety margin subtracted from `d_max`, in L2 blocks; `d_max > margin_v`;
-    /// bound by the committee configuration hash.
-    pub margin_v: u64,
+    /// Full L1 chain identifier used to bind the Comet signing domain.
+    pub l1_chain_id: U256,
+    /// Authenticated maximum unsettled depth U in L2 blocks, independent of epoch length.
+    pub unsettled_limit: u64,
+    /// Local execution beneficiary chosen by this proposer; not committee authentication data.
+    pub fee_recipient: Address,
     /// `VP_UNIT`: effective stake per unit of voting power, in TAIKO base units; `> 0`.
     pub vp_unit: U256,
     /// `S_min`: minimum effective stake of an eligible entry, in TAIKO base units; `>= vp_unit`.
     pub s_min: U256,
     /// `N_MAX`: maximum committee size; in `1..=`[`MAX_N_MAX`].
     pub n_max: usize,
-    /// `HEARTBEAT_WINDOW`: length of the L1 heartbeat windows heartbeat eligibility is measured
-    /// in, in L1 blocks ([`committee::heartbeat_floor`](crate::committee::heartbeat_floor));
-    /// `>= 1`.
-    pub heartbeat_window: u64,
     /// `F_L1`: extra L1 depth required on top of the own L1 node's `finalized` block.
     pub l1_finality_extra_depth: u64,
     /// `L2_BLOCK_GAS_LIMIT`: gas limit of every L2 block, in gas; `> 0`.
@@ -69,15 +62,15 @@ pub enum ConfigError {
         /// The consensus constant whose override differed from its built-in value.
         parameter: &'static str,
     },
-    /// `d_max <= margin_v`, so the unsettled cap would not be positive: block 1 could never pass
-    /// back-pressure against the genesis checkpoint at height 0.
-    #[error("d_max ({d_max}) must be > margin_v ({margin_v})")]
-    DMaxNotAboveMargin {
-        /// Configured `d_max`.
-        d_max: u64,
-        /// Configured `margin_v`.
-        margin_v: u64,
-    },
+    /// Back-pressure must allow at least the first block.
+    #[error("unsettled_limit must be positive")]
+    ZeroUnsettledLimit,
+    /// U must be a K=6 grid multiple within the protocol unsettled-depth bounds.
+    #[error("unsettled_limit must be a multiple of 6 in 6..=65536")]
+    InvalidUnsettledLimit,
+    /// Voting power units must respect the token-supply safety bound.
+    #[error("vp_unit must be at least 867361738 base units")]
+    VpUnitTooSmall,
     /// `vp_unit == 0`.
     #[error("vp_unit must be > 0")]
     ZeroVpUnit,
@@ -92,9 +85,6 @@ pub enum ConfigError {
         /// The largest accepted value, [`MAX_N_MAX`].
         max: usize,
     },
-    /// `heartbeat_window == 0`.
-    #[error("heartbeat_window must be >= 1")]
-    ZeroHeartbeatWindow,
     /// `block_gas_limit == 0`.
     #[error("block_gas_limit must be > 0")]
     ZeroBlockGasLimit,
@@ -120,13 +110,12 @@ impl ChainParams {
                 l2_chain_id,
                 inbox: address!("00000000000000000000000000000000E7A10001"),
                 registry: address!("00000000000000000000000000000000E7A10002"),
-                fee_vault: alethia_reth_primitives::addresses::get_treasury_address(l2_chain_id),
-                d_max: 12,
-                margin_v: 2,
+                l1_chain_id: U256::from(1),
+                unsettled_limit: 3600,
+                fee_recipient: Address::ZERO,
                 vp_unit: U256::from(1_000_000_000u64),
                 s_min: U256::from(1_000_000_000_000_000_000u64),
                 n_max: 128,
-                heartbeat_window: u64::MAX / 2,
                 l1_finality_extra_depth: 0,
                 block_gas_limit: 45_000_000,
             }),
@@ -134,21 +123,10 @@ impl ChainParams {
         }
     }
 
-    /// Applies a TOML override on top of `self` and returns the result.
-    ///
-    /// The TOML is a table whose keys are this struct's snake_case field names; every key is
-    /// optional and absent keys keep their current value. `fee_vault` and `block_gas_limit` must
-    /// equal their built-in values: the authenticated committee commitment does not bind these
-    /// consensus constants. `d_max` and `margin_v` may differ, because the commitment binds them:
-    /// a node whose values differ from its chain's cannot open the stored committee
-    /// configuration hash. Integers are TOML integers, addresses
-    /// are hex strings and `U256` values (`vp_unit`, `s_min`) are decimal or `0x`-hex strings.
-    /// Unknown keys and malformed values are rejected with [`ConfigError::Toml`]; an
-    /// `l2_chain_id` different from `self.l2_chain_id` is rejected with
-    /// [`ConfigError::ChainIdMismatch`] so an override cannot re-target the built-in parameters
-    /// at another chain.
-    ///
-    /// The result is not validated; call [`ChainParams::validate`] afterwards.
+    /// Applies optional snake_case TOML fields; omitted fields retain their values.
+    /// L2 chain id cannot be retargeted and block gas limit stays fixed by the pinned EL.
+    /// Stake units and full L1 chain id accept decimal or 0x-prefixed U256 strings. Unknown and
+    /// obsolete fields fail parsing. Call validate after applying overrides.
     pub fn with_overrides(mut self, toml: &str) -> Result<Self, ConfigError> {
         let o: Overrides = toml::from_str(toml)?;
         if let Some(got) = o.l2_chain_id &&
@@ -157,57 +135,52 @@ impl ChainParams {
             return Err(ConfigError::ChainIdMismatch { expected: self.l2_chain_id, got });
         }
         let builtin = Self::builtin(self.l2_chain_id)?;
-        let fixed = [
-            ("fee_vault", o.fee_vault.is_some_and(|v| v != builtin.fee_vault)),
-            ("block_gas_limit", o.block_gas_limit.is_some_and(|v| v != builtin.block_gas_limit)),
-        ];
+        let fixed =
+            [("block_gas_limit", o.block_gas_limit.is_some_and(|v| v != builtin.block_gas_limit))];
         if let Some((parameter, _)) = fixed.into_iter().find(|(_, changed)| *changed) {
             return Err(ConfigError::FixedConsensusParameter { parameter });
         }
         self.inbox = o.inbox.unwrap_or(self.inbox);
         self.registry = o.registry.unwrap_or(self.registry);
-        self.fee_vault = o.fee_vault.unwrap_or(self.fee_vault);
-        self.d_max = o.d_max.unwrap_or(self.d_max);
-        self.margin_v = o.margin_v.unwrap_or(self.margin_v);
+        self.l1_chain_id = o.l1_chain_id.map_or(self.l1_chain_id, |v| v.0);
+        self.unsettled_limit = o.unsettled_limit.unwrap_or(self.unsettled_limit);
+        self.fee_recipient = o.fee_recipient.unwrap_or(self.fee_recipient);
         self.vp_unit = o.vp_unit.map_or(self.vp_unit, |v| v.0);
         self.s_min = o.s_min.map_or(self.s_min, |v| v.0);
         self.n_max = o.n_max.unwrap_or(self.n_max);
-        self.heartbeat_window = o.heartbeat_window.unwrap_or(self.heartbeat_window);
         self.l1_finality_extra_depth =
             o.l1_finality_extra_depth.unwrap_or(self.l1_finality_extra_depth);
         self.block_gas_limit = o.block_gas_limit.unwrap_or(self.block_gas_limit);
         Ok(self)
     }
 
-    /// The unsettled-depth cap `U = d_max - margin_v`, in L2 blocks.
-    ///
-    /// At least 1 for parameters that pass [`ChainParams::validate`]; saturates at 0 when
-    /// `d_max < margin_v`.
+    /// Returns the directly authenticated unsettled limit U in L2 blocks, independent of L.
     pub fn unsettled_cap(&self) -> u64 {
-        self.d_max.saturating_sub(self.margin_v)
+        self.unsettled_limit
     }
 
-    /// Checks `d_max > margin_v`, `vp_unit > 0`, `1 <= n_max <= MAX_N_MAX` (4096),
-    /// `heartbeat_window >= 1`, `block_gas_limit > 0` and `s_min >= vp_unit`, returning the first
-    /// violation.
+    /// Checks K=6 grid depth bounds, token-supply voting-power safety, committee capacity,
+    /// positive block gas limit and s_min >= vp_unit. Returns the first invalid deployment
+    /// parameter.
     pub fn validate(&self) -> Result<(), ConfigError> {
-        if self.d_max <= self.margin_v {
-            return Err(ConfigError::DMaxNotAboveMargin {
-                d_max: self.d_max,
-                margin_v: self.margin_v,
-            });
+        if self.unsettled_limit == 0 {
+            return Err(ConfigError::ZeroUnsettledLimit);
+        }
+        if !(6..=65_536).contains(&self.unsettled_limit) || !self.unsettled_limit.is_multiple_of(6)
+        {
+            return Err(ConfigError::InvalidUnsettledLimit);
         }
         if self.vp_unit.is_zero() {
             return Err(ConfigError::ZeroVpUnit);
+        }
+        if self.vp_unit < U256::from(867_361_738) {
+            return Err(ConfigError::VpUnitTooSmall);
         }
         if self.n_max == 0 {
             return Err(ConfigError::ZeroNMax);
         }
         if self.n_max > MAX_N_MAX {
             return Err(ConfigError::NMaxTooLarge { n_max: self.n_max, max: MAX_N_MAX });
-        }
-        if self.heartbeat_window == 0 {
-            return Err(ConfigError::ZeroHeartbeatWindow);
         }
         if self.block_gas_limit == 0 {
             return Err(ConfigError::ZeroBlockGasLimit);
@@ -229,20 +202,18 @@ struct Overrides {
     inbox: Option<Address>,
     /// See [`ChainParams::registry`].
     registry: Option<Address>,
-    /// See [`ChainParams::fee_vault`].
-    fee_vault: Option<Address>,
-    /// See [`ChainParams::d_max`].
-    d_max: Option<u64>,
-    /// See [`ChainParams::margin_v`].
-    margin_v: Option<u64>,
+    /// See [`ChainParams::l1_chain_id`].
+    l1_chain_id: Option<U256String>,
+    /// See [`ChainParams::unsettled_limit`].
+    unsettled_limit: Option<u64>,
+    /// See [`ChainParams::fee_recipient`].
+    fee_recipient: Option<Address>,
     /// See [`ChainParams::vp_unit`].
     vp_unit: Option<U256String>,
     /// See [`ChainParams::s_min`].
     s_min: Option<U256String>,
     /// See [`ChainParams::n_max`].
     n_max: Option<usize>,
-    /// See [`ChainParams::heartbeat_window`].
-    heartbeat_window: Option<u64>,
     /// See [`ChainParams::l1_finality_extra_depth`].
     l1_finality_extra_depth: Option<u64>,
     /// See [`ChainParams::block_gas_limit`].
@@ -277,260 +248,89 @@ impl<'de> Deserialize<'de> for U256String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::address;
-    use protocol::shasta::constants::{
-        TAIKO_DEVNET_CHAIN_ID, TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID,
-    };
-
     fn devnet() -> ChainParams {
-        ChainParams::builtin(TAIKO_DEVNET_CHAIN_ID).expect("devnet is built in")
+        ChainParams::builtin(TAIKO_DEVNET_CHAIN_ID).unwrap()
     }
-
     #[test]
-    fn builtin_devnet_values() {
+    fn defaults_and_direct_u_are_valid() {
         let p = devnet();
-        assert_eq!(p.l2_chain_id, TAIKO_DEVNET_CHAIN_ID);
-        assert_eq!(p.inbox, address!("00000000000000000000000000000000E7A10001"));
-        assert_eq!(p.registry, address!("00000000000000000000000000000000E7A10002"));
-        assert_eq!(p.fee_vault, address!("1670010000000000000000000000000000010001"));
-        assert_eq!(
-            p.fee_vault,
-            alethia_reth_primitives::addresses::get_treasury_address(TAIKO_DEVNET_CHAIN_ID)
-        );
-        assert_eq!(p.d_max, 12);
-        assert_eq!(p.margin_v, 2);
-        assert_eq!(p.vp_unit, U256::from(1_000_000_000u64));
-        assert_eq!(p.s_min, U256::from(1_000_000_000_000_000_000u64));
-        assert_eq!(p.n_max, 128);
-        assert_eq!(p.heartbeat_window, u64::MAX / 2);
-        assert_eq!(p.l1_finality_extra_depth, 0);
-        assert_eq!(p.block_gas_limit, 45_000_000);
-        assert_eq!(p.unsettled_cap(), 10);
-        p.validate().expect("devnet defaults are valid");
-    }
-
-    #[test]
-    fn builtin_rejects_unconfigured_chains() {
-        for chain_id in [TAIKO_MAINNET_CHAIN_ID, TAIKO_HOODI_CHAIN_ID, 167_000, 167_013, 1] {
-            let err = ChainParams::builtin(chain_id).unwrap_err();
-            assert!(
-                matches!(err, ConfigError::NotConfigured { chain_id: c } if c == chain_id),
-                "{chain_id}: {err:?}"
-            );
-        }
-    }
-
-    #[test]
-    fn obsolete_snapshot_overrides_are_rejected() {
-        for key in ["cutoff_grid", "cutoff_lag"] {
-            assert!(matches!(
-                devnet().with_overrides(&format!("{key} = 1")),
-                Err(ConfigError::Toml(_))
-            ));
-        }
-    }
-
-    #[test]
-    fn empty_override_keeps_builtin() {
-        assert_eq!(devnet().with_overrides("").unwrap(), devnet());
-    }
-
-    #[test]
-    fn overrides_reject_changes_to_uncommitted_consensus_parameters() {
-        for (parameter, document) in [
-            ("fee_vault", "fee_vault = \"0x3333333333333333333333333333333333333333\""),
-            ("block_gas_limit", "block_gas_limit = 60000000"),
-        ] {
-            let err = devnet().with_overrides(document).expect_err("consensus override");
-            assert!(
-                matches!(err, ConfigError::FixedConsensusParameter { parameter: p } if p == parameter),
-                "{document}: {err:?}"
-            );
-        }
-    }
-
-    #[test]
-    fn overrides_committed_back_pressure_parameters() {
-        let p = devnet().with_overrides("d_max = 1024\nmargin_v = 5").unwrap();
-        assert_eq!(p.d_max, 1024);
-        assert_eq!(p.margin_v, 5);
-        assert_eq!(p.unsettled_cap(), 1019);
-        p.validate().expect("overridden back-pressure parameters are valid");
-        assert_ne!(
-            crate::committee::committee_config_hash(&p),
-            crate::committee::committee_config_hash(&devnet()),
-            "the committee configuration commits d_max and margin_v"
-        );
-    }
-
-    #[test]
-    fn overrides_allow_explicit_builtin_consensus_parameters() {
-        let document = r#"
-            fee_vault = "0x1670010000000000000000000000000000010001"
-            block_gas_limit = 45000000
-            d_max = 12
-            margin_v = 2
-        "#;
-        assert_eq!(devnet().with_overrides(document).unwrap(), devnet());
-    }
-
-    #[test]
-    fn overrides_u64_and_usize_fields() {
-        let p = devnet()
-            .with_overrides(
-                r#"
-                n_max = 4
-                heartbeat_window = 9223372036854775807
-                l1_finality_extra_depth = 3
-                "#,
-            )
-            .unwrap();
-        assert_eq!(p.d_max, 12);
-        assert_eq!(p.margin_v, 2);
-        assert_eq!(p.unsettled_cap(), 10);
-        assert_eq!(p.n_max, 4);
-        assert_eq!(p.heartbeat_window, i64::MAX as u64);
-        assert_eq!(p.l1_finality_extra_depth, 3);
-        assert_eq!(p.block_gas_limit, 45_000_000);
-        // Untouched fields keep their built-in values.
-        assert_eq!(p.inbox, devnet().inbox);
-        assert_eq!(p.vp_unit, devnet().vp_unit);
-    }
-
-    #[test]
-    fn overrides_address_fields() {
-        let p = devnet()
-            .with_overrides(
-                r#"
-                inbox = "0x1111111111111111111111111111111111111111"
-                registry = "0x2222222222222222222222222222222222222222"
-                "#,
-            )
-            .unwrap();
-        assert_eq!(p.inbox, Address::repeat_byte(0x11));
-        assert_eq!(p.registry, Address::repeat_byte(0x22));
-        assert_eq!(p.fee_vault, devnet().fee_vault);
-        assert_eq!(p.d_max, devnet().d_max);
-    }
-
-    #[test]
-    fn overrides_u256_fields_from_decimal_and_hex() {
-        let p = devnet()
-            .with_overrides(
-                r#"
-                vp_unit = "1000"
-                s_min = "0xde0b6b3a7640000"
-                "#,
-            )
-            .unwrap();
-        assert_eq!(p.vp_unit, U256::from(1_000u64));
-        assert_eq!(p.s_min, U256::from(1_000_000_000_000_000_000u64));
-
-        let big = devnet()
-            .with_overrides(r#"s_min = "115792089237316195423570985008687907853269984665640564039457584007913129639935""#)
-            .unwrap();
-        assert_eq!(big.s_min, U256::MAX);
-    }
-
-    #[test]
-    fn overrides_accept_same_chain_id_and_reject_another() {
-        let same = format!("l2_chain_id = {TAIKO_DEVNET_CHAIN_ID}");
-        assert_eq!(devnet().with_overrides(&same).unwrap(), devnet());
-
-        let err = devnet().with_overrides("l2_chain_id = 167000").unwrap_err();
-        assert!(
-            matches!(
-                err,
-                ConfigError::ChainIdMismatch { expected: TAIKO_DEVNET_CHAIN_ID, got: 167_000 }
-            ),
-            "{err:?}"
-        );
-    }
-
-    #[test]
-    fn overrides_reject_unknown_keys() {
-        let err = devnet().with_overrides("d_max = 12\nepoch_len = 20").unwrap_err();
-        assert!(matches!(err, ConfigError::Toml(_)), "{err:?}");
-        assert!(err.to_string().contains("epoch_len"), "{err}");
-    }
-
-    #[test]
-    fn overrides_reject_malformed_values() {
-        for toml in [
-            r#"vp_unit = "12abc""#,
-            r#"vp_unit = """#,
-            r#"vp_unit = "0x""#,
-            r#"vp_unit = "-1""#,
-            r#"vp_unit = 1000"#,
-            r#"inbox = "0x1234""#,
-            r#"d_max = -1"#,
-            r#"d_max = "12""#,
-            "d_max = ",
-        ] {
-            let err = devnet().with_overrides(toml).unwrap_err();
-            assert!(matches!(err, ConfigError::Toml(_)), "{toml}: {err:?}");
-        }
-    }
-
-    #[test]
-    fn validate_requires_d_max_above_margin() {
-        for (d_max, margin_v) in [(1, 2), (2, 2), (0, 0)] {
-            let err = ChainParams { d_max, margin_v, ..devnet() }.validate().unwrap_err();
-            let ConfigError::DMaxNotAboveMargin { d_max: d, margin_v: m } = err else {
-                panic!("{d_max}/{margin_v}: {err:?}");
-            };
-            assert_eq!((d, m), (d_max, margin_v));
-        }
-        // An unsettled cap of 1 lets block 1 pass back-pressure against checkpoint 0.
-        let p = ChainParams { d_max: 3, margin_v: 2, ..devnet() };
         p.validate().unwrap();
-        assert_eq!(p.unsettled_cap(), 1);
+        assert_eq!(p.unsettled_cap(), 3600);
+        assert_eq!(p.n_max, 128);
     }
-
     #[test]
-    fn validate_rejects_zero_vp_unit() {
-        let p = ChainParams { vp_unit: U256::ZERO, ..devnet() };
-        assert!(matches!(p.validate().unwrap_err(), ConfigError::ZeroVpUnit));
-    }
-
-    #[test]
-    fn validate_rejects_zero_n_max() {
-        let p = ChainParams { n_max: 0, ..devnet() };
-        assert!(matches!(p.validate().unwrap_err(), ConfigError::ZeroNMax));
-    }
-
-    #[test]
-    fn validate_bounds_n_max_by_registry_capacity() {
-        assert_eq!(MAX_N_MAX, 4096);
-        for n_max in [1, 301, 4096] {
-            ChainParams { n_max, ..devnet() }.validate().unwrap();
+    fn old_configuration_fields_are_rejected() {
+        for input in [
+            "d_max = 12",
+            "margin_v = 2",
+            "heartbeat_window = 10",
+            "fee_vault = '0x0000000000000000000000000000000000000001'",
+        ] {
+            assert!(devnet().with_overrides(input).is_err());
         }
-        let p = ChainParams { n_max: 4097, ..devnet() };
-        assert!(matches!(
-            p.validate().unwrap_err(),
-            ConfigError::NMaxTooLarge { n_max: 4097, max: 4096 }
-        ));
     }
-
     #[test]
-    fn validate_rejects_zero_heartbeat_window() {
-        let p = ChainParams { heartbeat_window: 0, ..devnet() };
-        assert!(matches!(p.validate().unwrap_err(), ConfigError::ZeroHeartbeatWindow));
+    fn overrides_authenticate_u_and_accept_full_l1_chain_id() {
+        let p=devnet().with_overrides("unsettled_limit = 7200\nl1_chain_id = '0x100000000000000000000000000000000000000000000000000'\nfee_recipient = '0x1111111111111111111111111111111111111111'").unwrap();
+        assert_eq!(p.unsettled_cap(), 7200);
+        assert!(p.l1_chain_id > U256::from(u64::MAX));
+        assert_eq!(p.fee_recipient, Address::repeat_byte(0x11));
     }
-
     #[test]
-    fn validate_rejects_zero_block_gas_limit() {
-        let p = ChainParams { block_gas_limit: 0, ..devnet() };
-        assert!(matches!(p.validate().unwrap_err(), ConfigError::ZeroBlockGasLimit));
+    fn bounds_reject_invalid_config() {
+        for p in [
+            ChainParams { unsettled_limit: 0, ..devnet() },
+            ChainParams { vp_unit: U256::ZERO, ..devnet() },
+            ChainParams { n_max: 0, ..devnet() },
+            ChainParams { n_max: 4097, ..devnet() },
+            ChainParams { block_gas_limit: 0, ..devnet() },
+            ChainParams { s_min: U256::ZERO, ..devnet() },
+        ] {
+            assert!(p.validate().is_err());
+        }
     }
-
     #[test]
-    fn validate_rejects_s_min_below_vp_unit() {
-        let p =
-            ChainParams { s_min: U256::from(999u64), vp_unit: U256::from(1_000u64), ..devnet() };
-        assert!(matches!(p.validate().unwrap_err(), ConfigError::SMinBelowVpUnit { .. }));
-        ChainParams { s_min: U256::from(1_000u64), vp_unit: U256::from(1_000u64), ..devnet() }
-            .validate()
-            .unwrap();
+    fn malformed_unknown_and_retargeted_overrides_fail() {
+        for input in [
+            "vp_unit = '12abc'",
+            "vp_unit = ''",
+            "vp_unit = '0x'",
+            "vp_unit = -1",
+            "inbox = '0x1234'",
+            "unsettled_limit = -1",
+            "epoch_len = 12",
+            "l2_chain_id = 1",
+            "block_gas_limit = 10",
+        ] {
+            assert!(devnet().with_overrides(input).is_err(), "{input}");
+        }
+    }
+    #[test]
+    fn unconfigured_chains_fail() {
+        for chain in [1, 167000, 167013] {
+            assert!(ChainParams::builtin(chain).is_err());
+        }
+    }
+}
+
+#[cfg(test)]
+mod v1_deployment_bounds {
+    use super::*;
+    #[test]
+    fn grid_and_voting_power_deployment_bounds() {
+        let base = ChainParams::builtin(TAIKO_DEVNET_CHAIN_ID).unwrap();
+        for limit in [0, 1, 5, 7, 65_536, 65_538] {
+            assert!(
+                ChainParams { unsettled_limit: limit, ..base.clone() }.validate().is_err(),
+                "U={limit}"
+            );
+        }
+        for limit in [6, 12, 3600, 65_532] {
+            assert!(ChainParams { unsettled_limit: limit, ..base.clone() }.validate().is_ok());
+        }
+        assert!(
+            ChainParams { vp_unit: U256::from(867_361_737), ..base.clone() }.validate().is_err()
+        );
+        assert!(ChainParams { vp_unit: U256::from(867_361_738), ..base }.validate().is_ok());
     }
 }

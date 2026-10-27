@@ -14,8 +14,6 @@ use base64::{Engine as _, engine::general_purpose::STANDARD};
 use serde_json::Value;
 use url::Url;
 
-use crate::keys::ValidatorKey;
-
 /// What differs between the devnet's CometBFT homes.
 #[derive(Clone, Debug)]
 pub(crate) struct HomeConfig<'a> {
@@ -32,7 +30,7 @@ pub(crate) struct HomeConfig<'a> {
     /// Mandatory remote guarded signer listener; the real key is outside this home.
     pub signer_addr: &'a str,
     /// The node key (`node_key.json`).
-    pub node: &'a ValidatorKey,
+    pub node: &'a crate::keys::NodeKey,
 }
 
 /// Writes a CometBFT home into `dir`: a minimal `config/config.toml`, `config/genesis.json`,

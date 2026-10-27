@@ -54,22 +54,15 @@ struct RecordJson {
     checkpoint_index: u64,
     /// [`CommitteeRecord::set_root`].
     set_root: B256,
-    /// [`CommitteeRecord::total_stake`], in TAIKO base units, as a decimal string.
-    #[serde(serialize_with = "serialize_decimal")]
-    total_stake: U256,
     /// [`CommitteeRecord::total_power`].
     total_power: u64,
-    /// [`CommitteeRecord::encoding_version`].
-    encoding_version: u8,
 }
 
 /// The report's JSON shape of a [`Member`]: its fields, with `eff_stake` in decimal.
 #[derive(Serialize)]
 struct MemberJson {
-    /// Authenticated L2 reward recipient.
-    reward_recipient: alloy_primitives::Address,
     /// [`Member::pubkey`].
-    pubkey: B256,
+    pubkey: crate::key::ConsensusKey,
     /// [`Member::eff_stake`], in TAIKO base units, as a decimal string.
     #[serde(serialize_with = "serialize_decimal")]
     eff_stake: U256,
@@ -84,9 +77,7 @@ fn serialize_record<S: Serializer>(record: &CommitteeRecord, s: S) -> Result<S::
         cutoff_l1_block: record.cutoff_l1_block,
         checkpoint_index: record.checkpoint_index,
         set_root: record.set_root,
-        total_stake: record.total_stake,
         total_power: record.total_power,
-        encoding_version: record.encoding_version,
     }
     .serialize(s)
 }
@@ -94,7 +85,6 @@ fn serialize_record<S: Serializer>(record: &CommitteeRecord, s: S) -> Result<S::
 /// Serializes [`GenesisCommitteeRecord::members`] as a sequence of [`MemberJson`].
 fn serialize_members<S: Serializer>(members: &[Member], s: S) -> Result<S::Ok, S::Error> {
     s.collect_seq(members.iter().map(|m| MemberJson {
-        reward_recipient: m.reward_recipient,
         pubkey: m.pubkey,
         eff_stake: m.eff_stake,
         power: m.power,
@@ -171,7 +161,7 @@ pub enum CommitteeRecordError {
 /// the snapshot at `genesis_cutoff` itself (no cutoff lag or grid) and its proofs at the proving
 /// block ([`build_committee_witness_at_cutoff`]), verifies it against that block's canonical
 /// header ([`verify_committee_witness_at_cutoff`]), and derives the committee as `InitChain` will:
-/// no heartbeat filter, the lowest `bondId` per pubkey, at most `n_max` members by stake. No
+/// unique eligible compressed keys, at most `n_max` members by stake and set-key ordering. No
 /// eligible entry is [`CommitteeRecordError::NoEligibleEntry`].
 ///
 /// The snapshot is the same at any proving block after the cutoff, so the record equals the one
@@ -227,9 +217,8 @@ pub async fn build_committee_record<L: L1Source + ?Sized>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        test_utils::{Fixture, GenesisSpec, L1Call, MockL1, RegistryStorage, sample_entries},
-        types::RegistryEntry,
+    use crate::test_utils::{
+        Fixture, GenesisSpec, L1Call, MockL1, RegistryStorage, sample_entries,
     };
 
     /// Before the genesis, the record computed at the fixture's genesis cutoff with proofs at
@@ -261,19 +250,12 @@ mod tests {
             crate::committee::committee_config_hash(&fx.params).to_string()
         );
         assert_eq!(json["record"]["cutoff_l1_block"], cutoff);
-        assert_eq!(json["record"]["total_stake"], report.record.total_stake.to_string());
+        assert!(json["record"].get("total_stake").is_none());
         assert_eq!(json["members"].as_array().map(Vec::len), Some(3));
         for (member, value) in report.members.iter().zip(json["members"].as_array().unwrap()) {
             assert_eq!(value["pubkey"], member.pubkey.to_string());
             assert_eq!(value["eff_stake"], member.eff_stake.to_string(), "decimal, not hex");
             assert_eq!(value["power"], member.power);
-            assert_eq!(
-                serde_json::from_value::<alloy_primitives::Address>(
-                    value["reward_recipient"].clone()
-                )
-                .unwrap(),
-                member.reward_recipient,
-            );
         }
         assert_eq!(json["proving_block"], report.proving_block);
 
@@ -314,13 +296,10 @@ mod tests {
                 cutoff_l1_block: 63,
                 checkpoint_index: 2,
                 set_root: B256::repeat_byte(0x5e),
-                total_stake: stake,
                 total_power: 7,
-                encoding_version: 1,
             },
             members: vec![Member {
-                reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
-                pubkey: B256::repeat_byte(0x11),
+                pubkey: crate::test_utils::key_from_seed(B256::repeat_byte(0x11)),
                 eff_stake: stake,
                 power: 7,
             }],
@@ -338,13 +317,10 @@ mod tests {
                     "cutoff_l1_block": 63,
                     "checkpoint_index": 2,
                     "set_root": B256::repeat_byte(0x5e).to_string(),
-                    "total_stake": decimal,
                     "total_power": 7,
-                    "encoding_version": 1,
                 },
                 "members": [{
-                    "reward_recipient": alloy_primitives::Address::repeat_byte(0x77).to_string(),
-                    "pubkey": B256::repeat_byte(0x11).to_string(),
+                    "pubkey": report.members[0].pubkey.to_string(),
                     "eff_stake": decimal,
                     "power": 7,
                 }],
@@ -361,10 +337,7 @@ mod tests {
     /// heartbeat are members.
     #[tokio::test]
     async fn applies_no_heartbeat_filter() {
-        let entries = sample_entries(2)
-            .into_iter()
-            .map(|e| RegistryEntry { last_heartbeat_at: 0, last_heartbeat_seq: 0, ..e })
-            .collect();
+        let entries = sample_entries(2).into_iter().map(|e| e).collect();
         let fx = Fixture::build(GenesisSpec { entries: Some(entries), ..GenesisSpec::new(2) });
         let report = build_committee_record(&fx.l1(), &fx.params, fx.genesis.genesis_cutoff, None)
             .await

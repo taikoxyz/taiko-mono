@@ -101,8 +101,8 @@ impl InboxValues {
         }
         if let Some(a) = &self.genesis {
             let packed = U256::from(a.genesis_height) |
-                (U256::from(a.l1_0) << 64) |
-                (U256::from(a.epoch_len) << 128);
+                (U256::from(a.l1_0) << 48) |
+                (U256::from(a.epoch_len) << 96);
             w.push((slot(inbox::GENESIS_PACKED), packed));
             w.push((slot(inbox::GENESIS_BLOCK_HASH), a.genesis_hash.into()));
             w.push((slot(inbox::GENESIS_STATE_ROOT), a.genesis_state_root.into()));
@@ -110,7 +110,7 @@ impl InboxValues {
             w.push((slot(inbox::COMMITTEE_CONFIG_HASH), a.committee_config_hash.into()));
             w.push((
                 slot(inbox::FORCED_INCLUSION_CONFIG),
-                U256::from(a.forced_inclusion_delay) | (U256::from(a.max_anchor_age) << 64),
+                U256::from(a.forced_inclusion_delay) | (U256::from(a.max_anchor_age) << 48),
             ));
         }
         if let Some(hash) = self.genesis_committee_hash {
@@ -123,15 +123,13 @@ impl InboxValues {
 /// A registry entry for `pubkey` with `eff_stake`, active from L1 block 0, never exiting, with
 /// one heartbeat naming window 0 (start 0, sequence 1; the devnet heartbeat window puts every
 /// L1 block in window 0).
-pub fn registry_entry(pubkey: B256, eff_stake: U256) -> RegistryEntry {
+pub fn registry_entry(pubkey: abci::key::ConsensusKey, eff_stake: U256) -> RegistryEntry {
     RegistryEntry {
-        reward_recipient: Address::from_slice(&pubkey.as_slice()[12..]),
-        pubkey,
+        ck_prefix: pubkey.prefix(),
+        ck_x: pubkey.x(),
         eff_stake,
         active_from_l1: 0,
-        exit_effective_l1: u64::MAX,
-        last_heartbeat_at: 0,
-        last_heartbeat_seq: 1,
+        exit_effective_l1: (1 << 48) - 1,
     }
 }
 
@@ -278,22 +276,20 @@ impl Planter {
         let count = u32::try_from(entries.len()).context("too many entries")?;
         let [head, root] = registry::checkpoint_slots(index);
         let mut w = vec![
-            (head, U256::from(l1_block) | (U256::from(count) << 64)),
+            (head, U256::from(l1_block) | (U256::from(count) << 48)),
             (root, entries_root(entries).into()),
             (registry::length_slot(), U256::from(index + 1)),
             (registry::entries_length_slot(), U256::from(entries.len())),
         ];
         for (j, e) in entries.iter().enumerate() {
-            let [pubkey, stake, packed, recipient] = registry::entry_slots(j as u64);
-            w.push((pubkey, e.pubkey.into()));
+            let [pubkey, stake, packed] = registry::entry_slots(j as u64);
+            w.push((pubkey, e.ck_x.into()));
             w.push((stake, e.eff_stake));
-            w.push((recipient, U256::from_be_slice(e.reward_recipient.as_slice())));
             w.push((
                 packed,
-                U256::from(e.active_from_l1) |
-                    (U256::from(e.exit_effective_l1) << 64) |
-                    (U256::from(e.last_heartbeat_at) << 128) |
-                    (U256::from(e.last_heartbeat_seq) << 192),
+                U256::from(e.ck_prefix) |
+                    (U256::from(e.active_from_l1) << 8) |
+                    (U256::from(e.exit_effective_l1) << 56),
             ));
         }
         Ok((index, w))

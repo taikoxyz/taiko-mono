@@ -40,29 +40,29 @@ hyper-util = { version = "0.1", features = ["client", "http1", "tokio"] }
 tower = { version = "0.5", features = ["timeout", "util"] }
 
 # ethereum
-alloy = { version = "1.8.3", default-features = false }
-alloy-consensus = { version = "1.8.3", default-features = false, features = [
+alloy = { version = "2.4.2", default-features = false }
+alloy-consensus = { version = "2.4.2", default-features = false, features = [
     "serde",
 ] }
-alloy-contract = { version = "1.8.3", default-features = false }
-alloy-eips = { version = "1.8.3", default-features = false }
-alloy-hardforks = { version = "0.4.7", default-features = false }
-alloy-primitives = { version = "1.5.7", default-features = false }
-alloy-provider = { version = "1.8.3", default-features = false }
-alloy-rlp = { version = "0.3.15", default-features = false }
-alloy-rpc-types = { version = "1.8.3", default-features = false }
-alloy-rpc-types-engine = { version = "1.8.3", default-features = false }
-alloy-rpc-types-engine-2 = { package = "alloy-rpc-types-engine", version = "2.0.4", default-features = false }
-alloy-signer-local = { version = "1.8.3", default-features = false }
-alloy-transport = { version = "1.8.3", default-features = false }
-alloy-transport-http = { version = "1.8.3", features = ["hyper", "jwt-auth"] }
+alloy-contract = { version = "2.4.2", default-features = false }
+alloy-eips = { version = "2.4.2", default-features = false }
+alloy-hardforks = { version = "0.4.8", default-features = false }
+alloy-primitives = { version = "1.6.1", default-features = false }
+alloy-provider = { version = "2.4.2", default-features = false }
+alloy-rlp = { version = "0.3.16", default-features = false }
+alloy-rpc-types = { version = "2.4.2", default-features = false }
+alloy-rpc-types-engine = { version = "2.4.2", default-features = false }
+alloy-rpc-types-engine-2 = { package = "alloy-rpc-types-engine", version = "2.4.2", default-features = false }
+alloy-signer-local = { version = "2.4.2", default-features = false }
+alloy-transport = { version = "2.4.2", default-features = false }
+alloy-transport-http = { version = "2.4.2", features = ["hyper", "jwt-auth"] }
 alloy-trie = { version = "0.9.5", default-features = false }
 k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
 
 # taiko
-alethia-reth-chainspec = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-chainspec", rev = "53d2cd81eb7dd271ef4eec693a14afc1a35ac12b", default-features = false }
-alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "53d2cd81eb7dd271ef4eec693a14afc1a35ac12b", default-features = false }
-alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "53d2cd81eb7dd271ef4eec693a14afc1a35ac12b", default-features = false, features = [
+alethia-reth-chainspec = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-chainspec", rev = "b046734a0a47b17ca66c33ccbc7c9087cbbf9b1e", default-features = false }
+alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "b046734a0a47b17ca66c33ccbc7c9087cbbf9b1e", default-features = false }
+alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "b046734a0a47b17ca66c33ccbc7c9087cbbf9b1e", default-features = false, features = [
     "serde",
 ] }
 

@@ -1,6 +1,7 @@
 //! Node-local checkpoint authentication and durable committed-chain trust.
 //!
-//! This metadata never enters AppState or the app hash. A session pins an own-finalized L1
+//! Readiness metadata never enters the app hash. Comet block IDs persist with committed state.
+//! A session pins an own-finalized L1
 //! proof, permits deterministic replay while closed, and refreshes once before becoming ready.
 use std::{
     io::Read,
@@ -15,7 +16,11 @@ use super::{AbciError, App, within};
 use crate::{
     engine::Engine,
     envelope::AnchorWitness,
-    l1::{L1Source, layout::inbox, verify_anchor_witness},
+    l1::{
+        L1Source,
+        layout::{inbox, word_u48},
+        verify_account_witness, verify_anchor_witness,
+    },
     store::AppState,
 };
 
@@ -30,6 +35,8 @@ pub struct CheckpointTarget {
     pub height: u64,
     /// Checkpoint L2 block hash.
     pub hash: B256,
+    /// Comet block ID authenticated by the checkpoint landing record (zero at height zero).
+    pub comet_hash: B256,
     /// Authenticated recovery generation.
     pub generation: u64,
     /// Account whose storage proof authenticated this target.
@@ -181,6 +188,9 @@ impl TrustHandle {
                     l1_hash: state.anchor.hash,
                     height: state.anchor.inbox.last_checkpoint_height,
                     hash: state.anchor.inbox.last_checkpoint_hash,
+                    // Committed anchors authenticate the EL hash; this floor's Comet hash is
+                    // unknown until the first slot-285 proof is acquired.
+                    comet_hash: B256::ZERO,
                     generation: state.generation,
                     inbox: state.inbox,
                 }),
@@ -273,7 +283,10 @@ impl TrustHandle {
                 ));
             }
             if (target.l1_number == floor.l1_number && target.l1_hash != floor.l1_hash) ||
-                (target.height == floor.height && target.hash != floor.hash)
+                (target.height == floor.height &&
+                    (target.hash != floor.hash ||
+                        (!floor.comet_hash.is_zero() &&
+                            target.comet_hash != floor.comet_hash)))
             {
                 return Err(AbciError::SafetyHalt(
                     "authenticated checkpoint conflicts with retained floor".into(),
@@ -335,6 +348,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             Err(error @ AbciError::SafetyHalt(_)) => {
                 // A stale result cannot halt or authorize a newer session.
                 if self.trust.revoke_if_session(&snapshot.session_id, error.to_string()) {
+                    self.store.record_fatal(&error.to_string())?;
                     return Err(error);
                 }
             }
@@ -379,7 +393,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
             return Ok(());
         }
         if (refreshed.l1_number == target.l1_number && refreshed.l1_hash != target.l1_hash) ||
-            (refreshed.height == target.height && refreshed.hash != target.hash)
+            (refreshed.height == target.height &&
+                (refreshed.hash != target.hash || refreshed.comet_hash != target.comet_hash))
         {
             return Err(AbciError::SafetyHalt(
                 "authenticated checkpoint changed at the same height".into(),
@@ -420,6 +435,31 @@ impl<L: L1Source, E: Engine> App<L, E> {
         )
         .map_err(|e| AbciError::SafetyHalt(format!("invalid checkpoint proof: {e}")))?
         .inbox;
+        let slots = inbox::landing_slots(facts.last_checkpoint_height);
+        let landing = within(
+            "trust landing proof",
+            timeout,
+            self.l1.account_witness(self.params.inbox, &slots, number),
+        )
+        .await?;
+        if landing.address != self.params.inbox {
+            return Err(AbciError::SafetyHalt("checkpoint landing account mismatch".into()));
+        }
+        let storage = verify_account_witness(header.state_root(), &landing, &slots)
+            .map_err(|error| AbciError::SafetyHalt(format!("invalid landing proof: {error}")))?;
+        let packed = storage.get(slots[0]).expect("verified exact slots");
+        let el_hash = B256::from(storage.get(slots[1]).expect("verified exact slots"));
+        let comet_hash = B256::from(storage.get(slots[2]).expect("verified exact slots"));
+        let parent = word_u48(packed, 0);
+        if el_hash != facts.last_checkpoint_hash ||
+            word_u48(packed, 48) != facts.recovery_generation ||
+            word_u48(packed, 96) != facts.forced_inclusion_head ||
+            (facts.last_checkpoint_height == 0 && (parent != 0 || !comet_hash.is_zero())) ||
+            (facts.last_checkpoint_height > 0 &&
+                (parent >= facts.last_checkpoint_height || comet_hash.is_zero()))
+        {
+            return Err(AbciError::SafetyHalt("invalid checkpoint landing record".into()));
+        }
         let canonical =
             within("trust canonical L1", timeout, self.l1.canonical_hash(number)).await?;
         if canonical != header.hash() {
@@ -432,10 +472,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 "own finalized L1 regressed during checkpoint acquisition".into(),
             ));
         }
-        if facts.status != inbox::ETNA_ACTIVE ||
-            facts.last_checkpoint_hash.is_zero() ||
-            facts.last_checkpoint_height > i64::MAX as u64
-        {
+        if facts.last_checkpoint_hash.is_zero() || facts.last_checkpoint_height > i64::MAX as u64 {
             return Err(AbciError::SafetyHalt("invalid finalized Inbox checkpoint/status".into()));
         }
         Ok(CheckpointTarget {
@@ -443,6 +480,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             l1_hash: header.hash(),
             height: facts.last_checkpoint_height,
             hash: facts.last_checkpoint_hash,
+            comet_hash,
             generation: facts.recovery_generation,
             inbox: self.params.inbox,
         })
@@ -496,6 +534,24 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if state.last_height == target.height && state.parent.hash != target.hash {
             return Err(AbciError::SafetyHalt("durable checkpoint hash mismatch".into()));
         }
+        let committed_comet = if target.height == 0 {
+            B256::ZERO
+        } else if target.height == state.last_height {
+            state.last_comet_hash
+        } else {
+            self.store.load_comet_hash(target.height)?.ok_or_else(|| {
+                AbciError::TrustControl(format!(
+                    "missing committed Comet hash at {}",
+                    target.height
+                ))
+            })?
+        };
+        if committed_comet != target.comet_hash {
+            return Err(AbciError::SafetyHalt(format!(
+                "committed checkpoint Comet hash mismatch at {}",
+                target.height
+            )));
+        }
         let mut expected = state.parent.hash;
         for number in (target.height..=state.last_height).rev() {
             let header = within(
@@ -521,10 +577,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
     }
 
     /// Checks a derived candidate before settling it; Finalize alone never grants readiness.
-    pub(super) fn check_trust_candidate(&self, height: u64, hash: B256) -> Result<(), AbciError> {
+    pub(super) fn check_trust_candidate(
+        &self,
+        height: u64,
+        hash: B256,
+        comet_hash: B256,
+    ) -> Result<(), AbciError> {
         if let Some(target) = self.trust.snapshot().target &&
             height == target.height &&
-            hash != target.hash
+            (hash != target.hash || comet_hash != target.comet_hash)
         {
             self.trust.revoke("decided checkpoint hash mismatch");
             return Err(AbciError::SafetyHalt(format!(
@@ -568,22 +629,19 @@ fn bounded_reason(reason: String) -> String {
 /// proof/header values. Transport, missing history and unsupported-header capabilities remain
 /// retryable: lack of data cannot prove a contradiction. Keep this local to startup trust.
 fn classify_trust_error(error: AbciError) -> AbciError {
-    use crate::{engine::EngineError, l1::L1Error};
-    let integrity = matches!(
-        &error,
-        AbciError::L1(
-            L1Error::MalformedResponse(_) |
-                L1Error::MalformedHeader { .. } |
-                L1Error::HeaderHashMismatch { .. } |
-                L1Error::HeaderNumberMismatch { .. } |
-                L1Error::ProofAddressMismatch { .. } |
-                L1Error::ProofSlotMismatch { .. }
-        ) | AbciError::Engine(
-            EngineError::HeaderHashMismatch { .. } |
+    use crate::{engine::EngineError, store::StoreError};
+    let integrity = match &error {
+        AbciError::L1(error) => error.is_integrity_failure(),
+        AbciError::Store(StoreError::Corrupt { .. } | StoreError::CometConflict(_)) => true,
+        AbciError::Engine(error) => matches!(
+            error,
+            EngineError::ErrorReply { code: -38100, .. } |
+                EngineError::HeaderHashMismatch { .. } |
                 EngineError::HeaderNumberMismatch { .. } |
                 EngineError::BadReply(_)
-        )
-    );
+        ),
+        _ => false,
+    };
     if integrity {
         AbciError::SafetyHalt(format!("checkpoint source integrity failure: {error}"))
     } else {

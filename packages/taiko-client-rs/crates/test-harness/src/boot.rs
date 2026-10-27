@@ -167,8 +167,7 @@ pub(crate) async fn boot(
         ensure!(other == genesis_hash, "alethia-reth genesis hashes differ");
     }
     let params = ChainParams {
-        d_max: spec.d_max,
-        margin_v: spec.margin_v,
+        unsettled_limit: spec.d_max.saturating_sub(spec.margin_v),
         ..ChainParams::builtin(chain_id)?
     };
     params.validate()?;

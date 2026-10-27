@@ -6,8 +6,7 @@
 //! no EL, in its steps (a)–(j). [`check_candidate`] holds the witness steps (b)–(h);
 //! `PrepareProposal` runs its two halves ([`check_candidate_anchor`], [`finish_candidate`]) on
 //! its own witnesses before it asks the EL to build.
-//! [`check_landing_capacity`] is the landing capacity guard `ProcessProposal` and
-//! `PrepareProposal` run on the encoded envelope (liveness only, never in `FinalizeBlock`).
+//! All consensus handlers enforce the raw execution block RLP limit of 124000 bytes.
 //! The authenticated forced decision is completed by the shared asynchronous singleton checker
 //! before any handler advances the queue cursor. Ordinary execution remains independent.
 
@@ -18,8 +17,7 @@ use alloy_primitives::B256;
 use protocol::shasta::constants::min_base_fee_for_chain;
 
 use crate::{
-    committee::{CommitteeError, verify_committee_witness},
-    compression::{HEADER_ALLOWANCE, MAX_BLOCK_LANDING_BYTES, zlib_compress},
+    committee::{CommitteeError, verify_committee_witness_at_cutoff},
     config::ChainParams,
     engine::EngineError,
     envelope::{AnchorWitness, CommitteeWitness, EnvelopeError, EtnaEnvelope, ExecutionBlock},
@@ -185,18 +183,44 @@ pub enum Rejection {
     /// A canonical skip failed the shared singleton check.
     #[error("forced inclusion check failed: {0}")]
     ForcedBuild(#[from] crate::engine::forced::ForcedBuildError),
-    /// The block cannot land on its own: its execution block compressed as landing payload V6
-    /// would publish it, plus [`HEADER_ALLOWANCE`], exceeds [`MAX_BLOCK_LANDING_BYTES`].
-    #[error("block needs {bytes} compressed landing bytes, above the {max} one landing carries")]
+    /// The raw execution block exceeds the consensus byte limit.
+    #[error("execution block needs {bytes} RLP bytes, above the {max} limit")]
     LandingCapacity {
-        /// The compressed envelope length plus [`HEADER_ALLOWANCE`], in bytes.
+        /// Canonical execution block RLP length, in bytes.
         bytes: usize,
-        /// [`MAX_BLOCK_LANDING_BYTES`].
+        /// Consensus limit, in bytes.
         max: usize,
     },
 }
 
 impl Rejection {
+    /// Whether an own-node integrity failure or unavailable execution state requires repair.
+    pub(crate) fn requires_dependency_repair(&self) -> bool {
+        if let Self::L1(error) = self {
+            return error.is_integrity_failure();
+        }
+        matches!(
+            self,
+            Self::Engine(EngineError::ErrorReply { code: -38100, .. }) |
+                Self::ForcedBuild(crate::engine::forced::ForcedBuildError::Engine(
+                    EngineError::ErrorReply { code: -38100, .. }
+                ))
+        )
+    }
+
+    /// Temporary dependency failures cannot authorize rejecting a locked proposal.
+    pub(crate) fn retryable_dependency(&self) -> bool {
+        match self {
+            Self::Engine(error) |
+            Self::ForcedBuild(crate::engine::forced::ForcedBuildError::Engine(error)) => {
+                error.is_retryable()
+            }
+            Self::L1(error) => !error.is_integrity_failure(),
+            Self::Timeout(_) | Self::PayloadSyncing => true,
+            _ => false,
+        }
+    }
+
     /// A stable snake_case label of the reason, for `/status` and the rejection metric. Rule
     /// violations use [`RuleViolation::label`].
     pub fn label(&self) -> &'static str {
@@ -251,24 +275,6 @@ impl From<FetchError> for Rejection {
     }
 }
 
-/// The landing capacity guard: the execution block of the `envelope` must fit one landing on its
-/// own, i.e. the execution block compressed as landing payload V6 would publish it, plus
-/// [`HEADER_ALLOWANCE`] for the published header, is at most [`MAX_BLOCK_LANDING_BYTES`].
-///
-/// The bound holds for any envelope content: the lander's single-block fallback deflates the
-/// envelope after a full flush ([`zlib_compress_split`](crate::compression::zlib_compress_split)),
-/// exactly as measured here, and the allowance covers the published prefix and that framing.
-///
-/// A liveness guard, not a validity rule: `ProcessProposal` and `PrepareProposal` run it,
-/// `FinalizeBlock` and the guest never do, so a decided block always commits.
-pub(crate) fn check_landing_capacity(block: &crate::ExecutionBlock) -> Result<(), Rejection> {
-    let bytes = zlib_compress(&alloy_rlp::encode(block)).len() + HEADER_ALLOWANCE;
-    if bytes > MAX_BLOCK_LANDING_BYTES {
-        return Err(Rejection::LandingCapacity { bytes, max: MAX_BLOCK_LANDING_BYTES });
-    }
-    Ok(())
-}
-
 /// The witnesses of a block candidate and what its `extraData` claims; the input of
 /// [`check_candidate`].
 #[derive(Clone, Copy, Debug)]
@@ -310,6 +316,7 @@ pub(crate) fn validate_block(
     bft_secs: u64,
     proposer: tendermint::account::Id,
 ) -> Result<Validated, Rejection> {
+    check_execution_size(&env.block)?;
     let header = &env.block.header;
     if state.last_height.checked_add(1) != Some(height) {
         return Err(RuleViolation::HeightMismatch { height, parent: state.last_height }.into());
@@ -329,7 +336,8 @@ pub(crate) fn validate_block(
         },
     )?;
 
-    let expected = expected_header(state, params, height, &facts.anchor, bft_secs, proposer)?;
+    let mut expected = expected_header(state, params, height, &facts.anchor, bft_secs, proposer)?;
+    expected.beneficiary = header.beneficiary;
     rules::check_anchor_freshness(
         expected.timestamp,
         facts.anchor.timestamp,
@@ -342,6 +350,8 @@ pub(crate) fn validate_block(
             anchor: &facts.anchor,
             delay: state.genesis.forced_inclusion_delay,
             inbox: params.inbox,
+            l2_chain_id: params.l2_chain_id,
+            block_gas_limit: params.block_gas_limit,
         },
         env.forced.as_ref(),
         env.block.transactions.first().map(|tx| tx.as_ref()),
@@ -362,7 +372,7 @@ pub(crate) fn validate_block(
 
 /// The derived header fields of the block at `height` on top of `state` with `anchor` and BFT
 /// time `bft_secs` ([`rules::expected_header`]), with the chain's minimum base fee and the
-/// certified `proposer` payout from the authenticated committee for this block's epoch.
+/// local fee recipient, after authenticating the certified proposer in this block's committee.
 pub(crate) fn expected_header(
     state: &AppState,
     params: &ChainParams,
@@ -373,8 +383,10 @@ pub(crate) fn expected_header(
 ) -> Result<ExpectedHeader, Rejection> {
     let epoch = state.schedule().epoch_of(height);
     let committee = state.committees.get(&epoch).ok_or(Rejection::CommitteeUnknown(epoch))?;
-    let reward_recipient = rules::proposer_recipient(&committee.members, proposer)
-        .ok_or(Rejection::ProposerUnknown(proposer))?;
+    if !rules::is_committee_proposer(&committee.members, proposer) {
+        return Err(Rejection::ProposerUnknown(proposer));
+    }
+    let reward_recipient = params.fee_recipient;
     rules::expected_header(&HeaderInputs {
         height,
         parent: &state.parent,
@@ -401,7 +413,7 @@ fn check_candidate(
 }
 
 /// Authenticates a supplied anchor or inherits the parent's anchor, then checks anchor progress,
-/// generation, active status and the unchanged back-pressure cap before registry discovery.
+/// generation and the authenticated back-pressure cap before registry discovery.
 /// Anchor witnesses are forced only on anchor moves and H0, independently of switch heights.
 pub(crate) fn check_candidate_anchor(
     state: &AppState,
@@ -417,9 +429,6 @@ pub(crate) fn check_candidate_anchor(
         GenerationCheck::Superseded
     {
         return Err(Rejection::Superseded { chain: state.generation, inbox: inbox_generation });
-    }
-    if anchor.inbox.status != inbox::ETNA_ACTIVE {
-        return Err(Rejection::NotActive(anchor.inbox.status));
     }
     rules::check_back_pressure(
         height,
@@ -439,7 +448,7 @@ pub(crate) fn finish_candidate(
     committee: Option<&CommitteeWitness>,
     anchor: AnchorState,
 ) -> Result<CandidateFacts, Rejection> {
-    let derived = candidate_committee(state, params, height, committee)?;
+    let derived = candidate_committee(state, params, height, committee, &anchor)?;
     if let Some(t) = state.schedule().switch_target(height) &&
         !state.committees.contains_key(&(t - 1))
     {
@@ -486,14 +495,53 @@ fn candidate_committee(
     params: &ChainParams,
     height: u64,
     w: Option<&CommitteeWitness>,
+    anchor: &AnchorState,
 ) -> Result<Option<(u64, CommitteeState)>, Rejection> {
     match (state.schedule().switch_target(height), w) {
         (None, None) => Ok(None),
         (None, Some(_)) => Err(Rejection::UnexpectedWitness(WitnessKind::Committee)),
         (Some(_), None) => Err(Rejection::MissingWitness(WitnessKind::Committee)),
         (Some(target), Some(w)) => {
-            let (record, members) = verify_committee_witness(&state.anchor, params, w, target)?;
+            let (record, members) = verify_committee_witness_at_cutoff(
+                anchor.state_root,
+                state.anchor.number.max(state.genesis.l1_0),
+                params,
+                w,
+                target,
+            )?;
             Ok(Some((target, CommitteeState { record, members })))
         }
     }
+}
+
+#[cfg(test)]
+mod v1_size_tests {
+    use super::*;
+    use alloy_primitives::Bytes;
+    use alloy_rlp::Encodable;
+    #[test]
+    fn v1_raw_block_limit_rejects_compressible_overflow() {
+        let mut block = crate::ExecutionBlock {
+            header: Default::default(),
+            transactions: vec![Bytes::from(vec![0; 123400])],
+        };
+        while block.length() < 124000 {
+            block.transactions[0] = Bytes::from(vec![0; block.transactions[0].len() + 1]);
+        }
+        assert_eq!(block.length(), 124000);
+        assert!(check_execution_size(&block).is_ok());
+        block.transactions[0] = Bytes::from(vec![0; block.transactions[0].len() + 1]);
+        assert_eq!(block.length(), 124001);
+        assert!(check_execution_size(&block).is_err());
+    }
+}
+
+/// Rejects raw execution blocks above the consensus bound, before validation or execution.
+pub(crate) fn check_execution_size(block: &crate::ExecutionBlock) -> Result<(), Rejection> {
+    use alloy_rlp::Encodable;
+    let bytes = block.length();
+    if bytes > 124_000 {
+        return Err(Rejection::LandingCapacity { bytes, max: 124_000 });
+    }
+    Ok(())
 }

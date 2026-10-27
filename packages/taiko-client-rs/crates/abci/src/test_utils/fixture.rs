@@ -14,20 +14,12 @@
 //! forced inclusion queue entry there, and [`Fixture::committee`] derives a later epoch's
 //! committee from the genesis snapshot.
 
+use crate::wire::request::InitChain;
 use std::{collections::BTreeMap, path::Path};
 
 use alloy_consensus::Header;
 use alloy_primitives::{Address, B256, Bytes, U256};
-use tendermint::{
-    Time,
-    abci::request::InitChain,
-    block::{self, Height},
-    consensus::{
-        self,
-        params::{AbciParams, ValidatorParams, VersionParams},
-    },
-    evidence, public_key, validator, vote,
-};
+use tendermint::{Time, block::Height, vote};
 
 use super::{
     InboxStorage, MockEngine, MockL1, RegistryStorage, TestState, committee_witness,
@@ -94,8 +86,10 @@ impl GenesisSpec {
             max_anchor_age: 7_200,
             recovery_generation: 0,
             committee_e0: None,
-            params: ChainParams::builtin(protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID)
-                .expect("devnet parameters are built in"),
+            params: ChainParams {
+                unsettled_limit: 12,
+                ..ChainParams::builtin(protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID).unwrap()
+            },
         }
     }
 
@@ -192,7 +186,7 @@ impl Fixture {
                 0,
             )
             .expect("valid genesis time"),
-            chain_id: chain_id_for(params.l2_chain_id, spec.recovery_generation),
+            chain_id: chain_id_for(&params, spec.recovery_generation).unwrap(),
             consensus_params: consensus_params(),
             validators: validator_updates(&members),
             app_state_bytes: encode_app_state(&witness).into(),
@@ -359,12 +353,14 @@ impl Fixture {
             0
         };
         AppState {
+            schema_version: 13,
             app_version: crate::app::APP_VERSION,
             chain_id: self.request.chain_id.clone(),
             generation: self.inbox.recovery_generation,
             inbox: self.params.inbox,
             genesis: self.genesis.clone(),
             last_height: self.genesis.genesis_height,
+            last_comet_hash: B256::ZERO,
             parent: ParentInfo {
                 number: b_star.number,
                 hash: b_star.hash_slow(),
@@ -381,7 +377,6 @@ impl Fixture {
                 state_root: self.l1_state.state_root(),
                 timestamp: self.witness.l1_header.timestamp(),
                 inbox: InboxFacts {
-                    status: inbox::ETNA_ACTIVE,
                     recovery_generation: self.inbox.recovery_generation,
                     last_checkpoint_height: self.genesis.genesis_height,
                     last_checkpoint_hash: self.genesis.genesis_hash,
@@ -426,12 +421,11 @@ pub(crate) fn l1_state_with(
 }
 
 /// The CometBFT validator updates of `members` (Ed25519 key, power), in member order.
-pub(crate) fn validator_updates(members: &[Member]) -> Vec<validator::Update> {
+pub(crate) fn validator_updates(members: &[Member]) -> Vec<crate::wire::ValidatorUpdate> {
     members
         .iter()
-        .map(|m| validator::Update {
-            pub_key: public_key::PublicKey::from_raw_ed25519(m.pubkey.as_slice())
-                .expect("32-byte Ed25519 key"),
+        .map(|m| crate::wire::ValidatorUpdate {
+            pub_key: m.pubkey,
             power: vote::Power::try_from(m.power).expect("power fits i64"),
         })
         .collect()
@@ -453,18 +447,8 @@ pub(crate) fn el_chain() -> Vec<Header> {
 }
 
 /// CometBFT consensus parameters as the genesis builder writes them.
-pub(crate) fn consensus_params() -> consensus::Params {
-    consensus::Params {
-        block: block::Size { max_bytes: 22_020_096, max_gas: -1, time_iota_ms: 1_000 },
-        evidence: evidence::Params {
-            max_age_num_blocks: 100_000,
-            max_age_duration: evidence::Duration(std::time::Duration::from_secs(172_800)),
-            max_bytes: 1_048_576,
-        },
-        validator: ValidatorParams { pub_key_types: vec![public_key::Algorithm::Ed25519] },
-        version: Some(VersionParams { app: crate::app::APP_VERSION }),
-        abci: AbciParams::default(),
-    }
+pub(crate) fn consensus_params() -> tendermint_proto::v0_38::types::ConsensusParams {
+    crate::genesis::GenesisConsensusParams::abci()
 }
 
 #[cfg(test)]

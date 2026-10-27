@@ -2,13 +2,12 @@
 //!
 //! Inbox activation authenticates status, generation, schedule, genesis cutoff, configuration
 //! hash, the single genesis committee hash and the forced inclusion delay and maximum anchor
-//! age. Runtime anchors prove only status, generation, checkpoint height/hash and the forced
+//! age. Runtime anchors prove only generation, checkpoint height/hash and the forced
 //! inclusion queue's head/tail; no future committee mapping exists.
 //!
 //! Registry checkpoints must be strictly increasing and complete, with a checkpoint in every
 //! changing L1 block. Discovery reads historical entries before the next checkpoint and then
-//! verifies their authenticated root. Heartbeat sequence zero means no heartbeat; registration
-//! must protect unique non-exited public keys. Lowest-bond-id deduplication is defense in depth.
+//! verifies their authenticated root. Eligible consensus keys must be unique.
 //! Packed Solidity fields are decoded low-order-first.
 
 use alloy_primitives::U256;
@@ -20,14 +19,14 @@ pub mod inbox {
     /// Inbox initialization status: `uint8`, bits 0–7. Slot 258 remains compatible with
     /// the contract's `migrationState()` getter.
     pub const STATUS: u64 = 258;
-    /// `recoveryGeneration` (slot pinned by #22262): `uint64`, bits 0–63.
+    /// `recoveryGeneration` (slot pinned by #22262): `uint48`, bits 0–47.
     pub const RECOVERY_GENERATION: u64 = 268;
-    /// `lastCheckpoint.height`: `uint64`, bits 0–63.
+    /// `lastCheckpoint.height`: `uint48`, bits 0–47.
     pub const LAST_CHECKPOINT_HEIGHT: u64 = 270;
     /// `lastCheckpoint.blockHash`: `bytes32`.
     pub const LAST_CHECKPOINT_HASH: u64 = 271;
-    /// Activation record, packed: `genesisHeight` (B*, bits 0–63), `l1Block` (L1_0, bits 64–127),
-    /// `epochLenL2` (L, bits 128–191); bits 192–255 are unused and not read.
+    /// Activation record, packed: `genesisHeight` (B*, bits 0–47), `l1Block` (L1_0, bits 48–95),
+    /// `epochLenL2` (L, bits 96–143); higher bits are reserved.
     pub const GENESIS_PACKED: u64 = 272;
     /// Activation record: `genesisBlockHash` (H*), `bytes32`.
     pub const GENESIS_BLOCK_HASH: u64 = 273;
@@ -37,7 +36,7 @@ pub mod inbox {
     pub const COMMITTEE_CONFIG_HASH: u64 = 269;
     /// The single bootstrap committee record hash; future committees are never published.
     pub const GENESIS_COMMITTEE_HASH: u64 = 278;
-    /// `genesisCutoff`: `uint64`, bits 0–63. The snapshot cutoff (an L1 block before `L1_0`) of
+    /// `genesisCutoff`: `uint48`, bits 0–47. The snapshot cutoff (an L1 block before `L1_0`) of
     /// the genesis committee, set once by the genesis.
     pub const GENESIS_CUTOFF: u64 = 279;
     /// The forced inclusion `queue` mapping (`LibForcedInclusion.Storage.queue`), keyed by entry
@@ -46,11 +45,35 @@ pub mod inbox {
     /// The forced inclusion queue's `head` (`uint48`, bits 0–47: the next entry not yet settled
     /// on L1) and `tail` (`uint48`, bits 48–95: the next free index).
     pub const FORCED_INCLUSION_HEAD_TAIL: u64 = 281;
-    /// Genesis forced inclusion configuration: `forcedInclusionDelay` (`uint64` seconds, bits
-    /// 0–63) and `maxAnchorAge` (`uint64` seconds, bits 64–127).
+    /// Genesis forced inclusion configuration: `forcedInclusionDelay` (`uint48` seconds, bits
+    /// 0–47) and `maxAnchorAge` (`uint48` seconds, bits 48–95).
     pub const FORCED_INCLUSION_CONFIG: u64 = 282;
     /// Proof-bound active committee snapshot: `uint64` L1 block number, bits 0–63.
     pub const ACTIVE_COMMITTEE_SNAPSHOT: u64 = 284;
+    /// Checkpoint landing records, keyed by endpoint height, three words each.
+    pub const LANDINGS: u64 = 285;
+    /// Immutable generation origins, keyed by generation, three words each.
+    pub const ORIGINS: u64 = 290;
+
+    /// Returns the three consecutive words at a Solidity mapping element.
+    fn mapping_words(mapping: u64, key: u64) -> [B256; 3] {
+        let base = U256::from_be_bytes(
+            alloy_primitives::keccak256([slot(key).as_slice(), slot(mapping).as_slice()].concat())
+                .0,
+        );
+        [0, 1, 2].map(|offset| B256::from(base.wrapping_add(U256::from(offset))))
+    }
+
+    /// Packed parent/generation/head, EL hash and Comet hash for a landed endpoint.
+    pub fn landing_slots(height: u64) -> [B256; 3] {
+        mapping_words(LANDINGS, height)
+    }
+
+    /// Fixed start height, L1 block number and L1 timestamp for a generation.
+    pub fn origin_slots(generation: u64) -> [B256; 3] {
+        mapping_words(ORIGINS, generation)
+    }
+
     /// Inbox status after genesis initialization.
     pub const ETNA_ACTIVE: u8 = 3;
 
@@ -59,11 +82,10 @@ pub mod inbox {
         B256::from(U256::from(n))
     }
 
-    /// The fixed slots authenticated by every per-block anchor witness: status, generation,
+    /// The fixed slots authenticated by every per-block anchor witness: generation,
     /// last checkpoint height and hash, and the forced inclusion queue's head/tail.
     pub fn anchor_slots() -> Vec<B256> {
         [
-            STATUS,
             RECOVERY_GENERATION,
             LAST_CHECKPOINT_HEIGHT,
             LAST_CHECKPOINT_HASH,
@@ -76,7 +98,7 @@ pub mod inbox {
     /// Genesis status, generation, schedule, cutoff, bootstrap committee, configuration, and
     /// forced inclusion configuration.
     pub fn genesis_slots() -> Vec<B256> {
-        [
+        let mut slots = [
             STATUS,
             RECOVERY_GENERATION,
             GENESIS_PACKED,
@@ -88,7 +110,9 @@ pub mod inbox {
             FORCED_INCLUSION_CONFIG,
         ]
         .map(slot)
-        .to_vec()
+        .to_vec();
+        slots.extend(origin_slots(0));
+        slots
     }
 
     /// The two calldata queue slots: transaction hash and packed timestamp, L1 block and fee.
@@ -101,11 +125,9 @@ pub mod inbox {
 ///
 /// The registry keeps its state in an ERC-7201 namespace `taiko.etna.registry` whose first field
 /// is `checkpoints`, a dynamic array of two-word structs
-/// `{ uint64 l1Block; uint32 count; bytes32 entriesRoot; }`. The second field is `entries`, the
-/// live entry array the checkpoints snapshot: a dynamic array of four-word structs
-/// `{ bytes32 pubkey; uint256 effStake; uint64 activeFromL1; uint64 exitEffectiveL1;
-/// uint64 lastHeartbeatAt; uint64 lastHeartbeatSeq; address rewardRecipient; }` indexed by
-/// `bondId`.
+/// `{ uint48 l1Block; uint48 count; bytes32 entriesRoot; }`. The second field is `entries`,
+/// a dynamic array of three-word structs with a compressed key, uint256 stake and packed
+/// uint8 key prefix / uint48 activation / uint48 exit heights, indexed by bond ID.
 ///
 /// As the contract appends a checkpoint in every L1 block that changes any entry (see the
 /// contract obligations in the module docs), the entries read at block `checkpoints[i].l1Block`
@@ -135,7 +157,7 @@ pub mod registry {
     /// The two slots of `checkpoints[i]`, as Solidity lays out dynamic-array elements:
     /// `[keccak256(R) + 2i, keccak256(R) + 2i + 1]` (wrapping in U256).
     ///
-    /// The first word packs `l1Block` (`uint64`, bits 0–63) and `count` (`uint32`, bits 64–95);
+    /// The first word packs `l1Block` (`uint48`, bits 0–47) and `count` (`uint48`, bits 48–95);
     /// the second is `entriesRoot`.
     pub fn checkpoint_slots(i: u64) -> [B256; 2] {
         let data = U256::from_be_bytes(keccak256(base()).0);
@@ -148,22 +170,16 @@ pub mod registry {
         B256::from(U256::from_be_bytes(base().0).wrapping_add(U256::from(1)))
     }
 
-    /// The four slots of `entries[j]`, as Solidity lays out dynamic-array elements:
-    /// `[keccak256(R + 1) + 4j, ..., keccak256(R + 1) + 4j + 3]` (wrapping
-    /// in U256).
-    ///
-    /// The words are `pubkey` (`bytes32`), `effStake` (`uint256`), and the packed
-    /// `activeFromL1` (`uint64`, bits 0–63), `exitEffectiveL1` (bits 64–127),
-    /// `lastHeartbeatAt` (bits 128–191) and `lastHeartbeatSeq` (bits 192–255). The fourth word is
-    /// the nonzero `rewardRecipient` address (bits 0–159), with zero high 96 bits.
-    pub fn entry_slots(j: u64) -> [B256; 4] {
+    /// The three words of `entries[j]`, at `keccak256(R + 1) + 3j` (wrapping in U256).
+    /// Words zero and one hold the key x coordinate and effective stake. Word two packs
+    /// key prefix (bits 0–7), activation (8–55) and exit (56–103).
+    pub fn entry_slots(j: u64) -> [B256; 3] {
         let data = U256::from_be_bytes(keccak256(entries_length_slot()).0);
-        let first = data.wrapping_add(U256::from(j) * U256::from(4));
+        let first = data.wrapping_add(U256::from(j) * U256::from(3));
         [
             B256::from(first),
             B256::from(first.wrapping_add(U256::from(1))),
             B256::from(first.wrapping_add(U256::from(2))),
-            B256::from(first.wrapping_add(U256::from(3))),
         ]
     }
 }
@@ -226,34 +242,52 @@ mod tests {
     #[test]
     fn inbox_slots_match_the_shared_vectors() {
         let slots = vectors::at("/layout/inbox/slots").as_object().expect("named slots");
-        assert_eq!(slots.len(), 15);
+        assert_eq!(slots.len(), 16);
         for name in slots.keys() {
             let constant = match name.as_str() {
-                "status" => inbox::STATUS,
+                "initialization_status" => inbox::STATUS,
                 "recovery_generation" => inbox::RECOVERY_GENERATION,
                 "committee_config_hash" => inbox::COMMITTEE_CONFIG_HASH,
                 "last_checkpoint_height" => inbox::LAST_CHECKPOINT_HEIGHT,
                 "last_checkpoint_hash" => inbox::LAST_CHECKPOINT_HASH,
-                "activation_packed" => inbox::GENESIS_PACKED,
+                "genesis_packed" => inbox::GENESIS_PACKED,
                 "genesis_block_hash" => inbox::GENESIS_BLOCK_HASH,
                 "genesis_state_root" => inbox::GENESIS_STATE_ROOT,
-                "genesis_committee_hash" => inbox::GENESIS_COMMITTEE_HASH,
+                "genesis_committee_record_hash" => inbox::GENESIS_COMMITTEE_HASH,
                 "genesis_cutoff" => inbox::GENESIS_CUTOFF,
                 "forced_inclusion_queue" => inbox::FORCED_INCLUSION_QUEUE,
                 "forced_inclusion_head_tail" => inbox::FORCED_INCLUSION_HEAD_TAIL,
                 "forced_inclusion_config" => inbox::FORCED_INCLUSION_CONFIG,
-                "reward_receipts" => 283,
+                "landings" => inbox::LANDINGS,
+                "origins" => inbox::ORIGINS,
                 "active_committee_snapshot" => inbox::ACTIVE_COMMITTEE_SNAPSHOT,
                 other => panic!("the node reads no Inbox slot named {other}"),
             };
             assert_eq!(constant, vectors::u64_at(&format!("/layout/inbox/slots/{name}")), "{name}");
         }
-        assert_eq!(u64::from(inbox::ETNA_ACTIVE), vectors::u64_at("/layout/inbox/status_active"));
+        assert_eq!(
+            u64::from(inbox::ETNA_ACTIVE),
+            vectors::u64_at("/layout/inbox/initialized_status")
+        );
         let listed = |pointer: &str| -> Vec<B256> {
             vectors::u64s_at(pointer).into_iter().map(inbox::slot).collect()
         };
         assert_eq!(inbox::anchor_slots(), listed("/layout/inbox/anchor_slots"));
-        assert_eq!(inbox::genesis_slots(), listed("/layout/inbox/genesis_slots"));
+        for (table, key, slots_fn) in [
+            ("origin_slots", "generation", inbox::origin_slots as fn(u64) -> [B256; 3]),
+            ("landing_slots", "height", inbox::landing_slots),
+        ] {
+            for case in vectors::at(&format!("/layout/inbox/{table}")).as_array().unwrap() {
+                let index = case[key].as_str().unwrap().parse().unwrap();
+                let expected: Vec<B256> = case["slots"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.as_str().unwrap().parse().unwrap())
+                    .collect();
+                assert_eq!(slots_fn(index).to_vec(), expected);
+            }
+        }
     }
 
     /// Entry `i` of the `queue` mapping at slot 280 is a `ForcedInclusion` struct at
@@ -307,7 +341,7 @@ mod tests {
         assert_eq!(registry::length_slot(), registry::base());
         assert_eq!(
             registry::entries_length_slot(),
-            vectors::b256_at("/layout/registry/entries_length_slot")
+            vectors::b256_at("/layout/registry/entries_slot")
         );
         for k in 0..vectors::len_at("/layout/registry/checkpoint_slots") {
             let p = format!("/layout/registry/checkpoint_slots/{k}");
@@ -356,11 +390,11 @@ mod tests {
     }
 
     #[test]
-    fn registry_entries_reject_the_legacy_three_word_stride() {
+    fn registry_entries_reject_the_obsolete_four_word_stride() {
         let base = U256::from_be_bytes(keccak256(registry::entries_length_slot()).0);
-        assert_ne!(registry::entry_slots(1)[0], B256::from(base + U256::from(3)));
-        assert_eq!(registry::entry_slots(1)[0], B256::from(base + U256::from(4)));
-        assert_eq!(registry::entry_slots(0).len(), 4);
+        assert_ne!(registry::entry_slots(1)[0], B256::from(base + U256::from(4)));
+        assert_eq!(registry::entry_slots(1)[0], B256::from(base + U256::from(3)));
+        assert_eq!(registry::entry_slots(0).len(), 3);
     }
 
     #[test]

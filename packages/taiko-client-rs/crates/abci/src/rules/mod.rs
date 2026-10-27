@@ -30,17 +30,14 @@ use crate::{
     types::{AnchorState, ParentInfo},
 };
 
-/// Zero base-fee sharing keeps base fees in the EL treasury; the certified proposer receives tips.
-pub const BASEFEE_SHARING_PCTG: u8 = 0;
+/// All base fees and tips accrue immediately to the execution beneficiary.
+pub const BASEFEE_SHARING_PCTG: u8 = 100;
 
 /// Length of an Etna `extraData`: `[pctg(1) | generation(6) | anchorNumber(6)]`.
 pub const EXTRA_DATA_LEN: usize = 13;
 
 /// CometBFT's `MaxChainIDLen`: the longest `chain_id` a genesis may carry, in bytes.
 pub const MAX_CHAIN_ID_LEN: usize = 50;
-
-/// Prefix of every Etna PoS CometBFT `chain_id` (`taiko-etna-<l2ChainId>-g<generation>`).
-const CHAIN_ID_PREFIX: &str = "taiko-etna-";
 
 /// Everything [`expected_header`] derives the header of height `height` from.
 #[derive(Clone, Copy, Debug)]
@@ -54,9 +51,9 @@ pub struct HeaderInputs<'a> {
     pub anchor: &'a AnchorState,
     /// `floor(time_H)`: the block's BFT time, in whole seconds since the Unix epoch.
     pub bft_time_secs: u64,
-    /// Recovery generation of the running chain (the `chain_id` suffix).
+    /// Recovery generation bound into the deployment chain-id digest.
     pub generation: u64,
-    /// Authenticated payout address of this block header's original CometBFT proposer.
+    /// Locally chosen beneficiary; validators accept the certified block's beneficiary.
     pub reward_recipient: Address,
     /// Chain constants (block gas limit).
     pub params: &'a ChainParams,
@@ -74,9 +71,9 @@ pub struct ExpectedHeader {
     pub parent_hash: B256,
     /// Block timestamp in seconds: `max(parent.timestamp + 1, floor(time_H), anchor.timestamp)`.
     pub timestamp: u64,
-    /// Coinbase and suggested fee recipient: the certified proposer's authenticated payout.
+    /// Coinbase and suggested fee recipient chosen by the certified proposer.
     pub beneficiary: Address,
-    /// The 13-byte `[0 | generation | anchorNumber]` `extraData` ([`encode_extra_data`]).
+    /// The 13-byte `[100 | generation | anchorNumber]` `extraData` ([`encode_extra_data`]).
     pub extra_data: Bytes,
     /// The anchor's L1 state root.
     pub parent_beacon_block_root: B256,
@@ -186,18 +183,18 @@ pub enum RuleViolation {
         /// The genesis `maxAnchorAge`, in seconds.
         max: u64,
     },
-    /// The unsettled depth `H - lastCheckpoint.height` exceeds `D_MAX - MARGIN_V`.
+    /// The unsettled depth `H - lastCheckpoint.height` exceeds `U`.
     #[error("unsettled depth {depth} exceeds the cap {cap}")]
     BackPressure {
         /// `H - lastCheckpoint.height`, in L2 blocks (0 when the checkpoint is not behind).
         depth: u64,
-        /// `D_MAX - MARGIN_V`, in L2 blocks.
+        /// `U`, in L2 blocks.
         cap: u64,
     },
     /// The `extraData` generation differs from the `chain_id` generation.
     #[error("extraData generation {extra} differs from the chain generation {chain}")]
     GenerationMismatch {
-        /// Generation in the `chain_id` suffix.
+        /// Generation authenticated by the deployment domain.
         chain: u64,
         /// Generation in the block's `extraData`.
         extra: u64,
@@ -205,13 +202,13 @@ pub enum RuleViolation {
     /// The chain claims a generation the Inbox has not reached yet.
     #[error("chain generation {chain} is ahead of the Inbox recoveryGeneration {inbox}")]
     GenerationAhead {
-        /// Generation in the `chain_id` suffix.
+        /// Generation authenticated by the deployment domain.
         chain: u64,
         /// The Inbox `recoveryGeneration` proven at the anchor.
         inbox: u64,
     },
-    /// The CometBFT `chain_id` is not `taiko-etna-<l2ChainId>-g<generation>` for this chain.
-    #[error("chain_id {chain_id:?} is not taiko-etna-{l2_chain_id}-g<generation>")]
+    /// The CometBFT chain ID does not match this deployment domain.
+    #[error("chain_id {chain_id:?} does not match the deployment domain for L2 {l2_chain_id}")]
     InvalidChainId {
         /// The rejected `chain_id`.
         chain_id: String,
@@ -289,16 +286,12 @@ fn uint48_be(bytes: &[u8]) -> u64 {
     u64::from_be_bytes(word)
 }
 
-/// Looks up the certified header proposer's authenticated committee payout address.
-/// Unknown proposers and malformed Ed25519 keys never acquire a default payout.
-pub fn proposer_recipient(
+/// Checks that the certified proposer belongs to the active native committee.
+pub fn is_committee_proposer(
     members: &[crate::types::Member],
     proposer: tendermint::account::Id,
-) -> Option<Address> {
-    members.iter().find_map(|member| {
-        let key = tendermint::PublicKey::from_raw_ed25519(member.pubkey.as_slice())?;
-        (tendermint::account::Id::from(key) == proposer).then_some(member.reward_recipient)
-    })
+) -> bool {
+    members.iter().any(|member| member.pubkey.address().as_slice() == proposer.as_bytes())
 }
 
 /// Derives the consensus-chosen header fields of height `i.height`.
@@ -361,6 +354,8 @@ pub fn check_header(h: &Header, e: &ExpectedHeader) -> Result<(), RuleViolation>
     field_eq("excess_blob_gas", Some(0), h.excess_blob_gas)?;
     field_eq("requests_hash", Some(EMPTY_REQUESTS_HASH), h.requests_hash)?;
     field_eq("ommers_hash", EMPTY_OMMER_ROOT_HASH, h.ommers_hash)?;
+    field_eq("block_access_list_hash", None, h.block_access_list_hash)?;
+    field_eq("slot_number", None, h.slot_number)?;
     field_eq("nonce", B64::ZERO, h.nonce)
 }
 
@@ -435,7 +430,7 @@ pub fn payload_attributes(
     let (_, _, anchor_number) = decode_extra_data(&e.extra_data)
         .expect("ExpectedHeader::extra_data is the 13-byte Etna layout");
     let is_forced_inclusion = tx_list.is_some();
-    build_payload_attributes_with_id(
+    let mut attrs = build_payload_attributes_with_id(
         PayloadAttributesInput {
             beneficiary: e.beneficiary,
             timestamp: e.timestamp,
@@ -453,7 +448,17 @@ pub fn payload_attributes(
             anchor_transaction: None,
         },
         &e.parent_hash,
-    )
+    );
+    attrs.max_block_bytes = Some(124_000);
+    attrs.l1_origin.build_payload_args_id =
+        alethia_reth_primitives::payload::builder::payload_id_taiko(
+            &e.parent_hash,
+            &attrs,
+            alethia_reth_primitives::payload::builder::PAYLOAD_ID_VERSION_V2,
+        )
+        .0
+        .0;
+    attrs
 }
 
 /// Checks a block's anchor L1 block number.
@@ -497,7 +502,7 @@ pub fn check_anchor_freshness(
 }
 
 /// Back-pressure: `height - last_checkpoint_height <= cap`, with the depth saturating at
-/// 0 when the checkpoint is not behind `height`. `cap` is `D_MAX - MARGIN_V`.
+/// 0 when the checkpoint is not behind `height`. `cap` is `U`.
 pub fn check_back_pressure(
     height: u64,
     last_checkpoint_height: u64,
@@ -531,33 +536,32 @@ pub fn check_generation(
     }
 }
 
-/// The CometBFT `chain_id` of `generation` on L2 chain `l2_chain_id`:
-/// `taiko-etna-<l2_chain_id>-g<generation>`, both in canonical decimal.
-///
-/// At most 39 bytes for a 6-digit L2 chain id, within [`MAX_CHAIN_ID_LEN`].
-pub fn chain_id_for(l2_chain_id: u64, generation: u64) -> String {
-    format!("{CHAIN_ID_PREFIX}{l2_chain_id}-g{generation}")
+/// Recomputes the signing domain from deployment configuration and an explicit generation.
+pub fn chain_id_for(
+    params: &ChainParams,
+    generation: u64,
+) -> Result<String, crate::domain::DomainError> {
+    crate::domain::chain_id(&crate::domain::DeploymentDomain {
+        l1_chain_id: params.l1_chain_id,
+        l2_chain_id: U256::from(params.l2_chain_id),
+        inbox: params.inbox,
+        generation,
+    })
 }
 
-/// Parses the generation out of a `chain_id` made by [`chain_id_for`] for `l2_chain_id`.
-///
-/// Strict: the prefix and L2 chain id must match exactly, and the generation must be non-empty
-/// ASCII decimal without a sign or leading zeros (except `"0"`) that fits `u64`. Anything else is
-/// a [`RuleViolation::InvalidChainId`].
-pub fn generation_from_chain_id(chain_id: &str, l2_chain_id: u64) -> Result<u64, RuleViolation> {
-    let invalid = || RuleViolation::InvalidChainId { chain_id: chain_id.to_string(), l2_chain_id };
-    let digits = chain_id
-        .strip_prefix(CHAIN_ID_PREFIX)
-        .and_then(|rest| rest.strip_prefix(l2_chain_id.to_string().as_str()))
-        .and_then(|rest| rest.strip_prefix("-g"))
-        .ok_or_else(invalid)?;
-    let canonical = !digits.is_empty() &&
-        digits.bytes().all(|b| b.is_ascii_digit()) &&
-        (digits == "0" || !digits.starts_with('0'));
-    if !canonical {
-        return Err(invalid());
+/// Verifies a chain identifier against an independently authenticated generation.
+pub fn check_chain_id(
+    chain_id: &str,
+    params: &ChainParams,
+    generation: u64,
+) -> Result<(), RuleViolation> {
+    if chain_id_for(params, generation).is_ok_and(|expected| expected == chain_id) {
+        return Ok(());
     }
-    digits.parse().map_err(|_| invalid())
+    Err(RuleViolation::InvalidChainId {
+        chain_id: chain_id.into(),
+        l2_chain_id: params.l2_chain_id,
+    })
 }
 
 #[cfg(test)]

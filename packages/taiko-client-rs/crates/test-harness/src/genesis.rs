@@ -72,7 +72,7 @@ impl EtnaGenesis {
                 "duplicate alloc address"
             );
         }
-        let vault = abci::ChainParams::builtin(167001)?.fee_vault;
+        let vault = alethia_reth_primitives::addresses::get_treasury_address(167001);
         let mut systems: serde_json::Map<String, Value> = serde_json::from_str(SYSTEMS)?;
         systems.insert(format!("{vault:#x}"), json!(runtime));
         for (address, code) in systems {

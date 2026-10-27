@@ -1,12 +1,8 @@
 //! App handler tests over [`MockL1`], [`MockEngine`] and a tempdir [`Store`], driven by
 //! [`Fixture`] genesis setups.
 
+use crate::wire::{Request, Response, request, request::InitChain, response};
 use std::{path::Path, sync::Arc};
-
-use tendermint::{
-    abci::request::InitChain,
-    v0_38::abci::{Request, Response, request, response},
-};
 
 use super::{AbciError, App, AppOptions};
 use crate::{
