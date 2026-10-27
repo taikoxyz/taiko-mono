@@ -2,7 +2,6 @@ use crate::{
     LanderError, Result,
     batch::{BatchObservation, BatchSource},
     config::BatchPolicy,
-    contracts::IEtnaInbox::LandInput,
     l1::{LandingSource, ParentContext},
     proof::{ProofError, ProofProvider, ProofRequest},
     runner::{Runner, RunnerConfig, StepOutcome},
@@ -82,7 +81,7 @@ impl Fixture {
         };
         Self {
             directory: tempfile::tempdir().unwrap(),
-            configured_recipient: request.batch.input.l2RewardRecipient,
+            configured_recipient: Address::repeat_byte(0x77),
             request,
             control: Arc::new(Mutex::new(control)),
         }
@@ -128,8 +127,6 @@ impl Fixture {
             proofs,
             Store::open(self.directory.path(), self.identity()).unwrap(),
             RunnerConfig {
-                l2_reward_recipient: self.configured_recipient,
-                fee_vault: crate::test_utils::consensus::parameters().fee_vault,
                 batch_policy: policy,
                 poll_interval: Duration::from_millis(10),
                 proof_timeout: Duration::from_millis(50),
@@ -144,7 +141,11 @@ impl Fixture {
     fn compete(&self, height: u64) {
         let mut control = self.control.lock().unwrap();
         control.snapshot.checkpoint_height = height;
-        control.snapshot.checkpoint_hash = B256::repeat_byte(height as u8);
+        let pair = &self.request.batch.blocks[height as usize - 1];
+        control.snapshot.checkpoint_hash =
+            abci::EtnaEnvelope::decode(&pair.block.data[0]).unwrap().block.header.hash_slow();
+        control.snapshot.checkpoint_comet_hash =
+            B256::from_slice(pair.block.header.hash().as_bytes());
     }
     fn mine(&self, transaction: &SignedTransaction, success: bool) {
         self.mine_using(transaction, success, 100_000);
@@ -164,7 +165,7 @@ impl Fixture {
         control.snapshot.l1_block_number = 30;
         control.snapshot.l1_block_hash = control.canonical_receipt;
         if success {
-            control.snapshot.checkpoint_height = self.request.batch.input.lastHeight;
+            control.snapshot.checkpoint_height = self.request.batch.input.lastHeight.to::<u64>();
             control.snapshot.checkpoint_hash = self.request.batch.input.lastBlockHash;
         }
     }
@@ -244,18 +245,11 @@ impl LandingSource for MockL1 {
     async fn reference(&self, _: &LandingSnapshot, _: &[AnchorState]) -> Result<Vec<RawL1Header>> {
         Ok(vec![])
     }
-    async fn statement_hash(
-        &self,
-        _: &LandingSnapshot,
-        _: &LandInput,
-
-        _: B256,
-        _: &[B256],
-    ) -> Result<B256> {
+    async fn deployment_identity(&self, _: &LandingSnapshot) -> Result<B256> {
         Ok(if self.control.lock().unwrap().helper_mismatch {
             B256::ZERO
         } else {
-            self.request.batch.statement_hash
+            self.request.batch.deployment_identity
         })
     }
     async fn canonical_hash(&self, number: u64) -> Result<B256> {
@@ -294,7 +288,7 @@ impl TransactionTransport for MockTx {
             let mut control = self.control.lock().unwrap();
             if control.estimate_revert {
                 if control.compete_during_estimate {
-                    control.snapshot.checkpoint_height = 1;
+                    control.snapshot.checkpoint_height = 12;
                     control.snapshot.checkpoint_hash = B256::repeat_byte(1);
                 }
                 return Err(LanderError::Reverted("estimation reverted".into()));
@@ -435,7 +429,7 @@ async fn partial_and_full_competing_progress_discards_only_unbroadcast_work() {
         if signed_phase {
             runner.step().await.unwrap();
         }
-        fixture.compete(1);
+        fixture.compete(12);
         assert_eq!(runner.step().await.unwrap(), StepOutcome::Rebuild);
         assert_eq!(runner.state(), &JournalState::Idle);
         assert_eq!(fixture.control.lock().unwrap().broadcasts.len(), 0);
@@ -445,7 +439,7 @@ async fn partial_and_full_competing_progress_discards_only_unbroadcast_work() {
     for _ in 0..3 {
         runner.step().await.unwrap();
     }
-    fixture.compete(1);
+    fixture.compete(12);
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
     assert!(matches!(runner.state(), JournalState::Pending { .. }));
     let control = fixture.control.lock().unwrap();
@@ -596,12 +590,14 @@ async fn out_of_gas_count_resets_when_the_checkpoint_changes() {
     let fixture = Fixture::new();
     let mut runner = fixture.runner();
     assert_eq!(land_out_of_gas(&fixture, &mut runner).await.unwrap(), StepOutcome::Rebuild);
-    fixture.compete(1);
+    fixture.compete(6);
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
     {
         let mut control = fixture.control.lock().unwrap();
         control.snapshot.checkpoint_height = fixture.request.batch.snapshot.checkpoint_height;
         control.snapshot.checkpoint_hash = fixture.request.batch.snapshot.checkpoint_hash;
+        control.snapshot.checkpoint_comet_hash =
+            fixture.request.batch.snapshot.checkpoint_comet_hash;
     }
     assert_eq!(land_out_of_gas(&fixture, &mut runner).await.unwrap(), StepOutcome::Rebuild);
     assert_eq!(fixture.control.lock().unwrap().signs, 2);
@@ -648,7 +644,7 @@ async fn expired_unbroadcast_reference_rebuilds_and_consumed_unknown_nonce_is_fa
 
 #[tokio::test]
 async fn partial_or_full_checkpoint_after_dropped_send_never_spends_a_new_nonce() {
-    for height in [1, 2] {
+    for height in [6, 12] {
         let fixture = Fixture::new();
         let mut runner = fixture.runner();
         for _ in 0..3 {
@@ -664,7 +660,7 @@ async fn partial_or_full_checkpoint_after_dropped_send_never_spends_a_new_nonce(
         assert!(matches!(runner.state(), JournalState::Pending { .. }));
         let control = fixture.control.lock().unwrap();
         assert_eq!(control.signs, 1);
-        assert_eq!(control.broadcasts.len(), 1);
+        assert_eq!(control.broadcasts.len(), if height == 6 { 2 } else { 1 });
     }
 }
 
@@ -912,8 +908,8 @@ async fn consensus_pressure_and_epoch_progress_bypass_high_threshold_and_long_wa
 #[tokio::test(start_paused = true)]
 async fn lower_prepared_tip_does_not_bypass_the_minimum_threshold() {
     let fixture = Fixture::new();
-    let policy = BatchPolicy { min_blocks: 3, max_wait: Duration::from_secs(30) };
-    fixture.control.lock().unwrap().publishable_blocks = 3;
+    let policy = BatchPolicy { min_blocks: 13, max_wait: Duration::from_secs(30) };
+    fixture.control.lock().unwrap().publishable_blocks = 13;
     let mut runner = fixture.with_policy(policy);
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
     assert_eq!(runner.state(), &JournalState::Idle);
@@ -1069,7 +1065,7 @@ async fn receipt_reconciliation_retries_an_orphaned_snapshot_without_discarding_
     {
         let mut control = fixture.control.lock().unwrap();
         control.snapshot.l1_block_hash = B256::repeat_byte(32);
-        control.snapshot.checkpoint_height = fixture.request.batch.input.lastHeight;
+        control.snapshot.checkpoint_height = fixture.request.batch.input.lastHeight.to::<u64>();
         control.snapshot.checkpoint_hash = fixture.request.batch.input.lastBlockHash;
     }
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Settled);
@@ -1148,40 +1144,6 @@ async fn latest_snapshot_reorg_preserves_pending_journal_and_signed_nonce_then_r
 }
 
 #[tokio::test]
-async fn prepared_restart_rejects_changed_recipient_before_signing() {
-    let mut fixture = Fixture::new();
-    let mut runner = fixture.runner();
-    runner.step().await.unwrap();
-    drop(runner);
-    fixture.configured_recipient = Address::repeat_byte(0x45);
-    let mut resumed = fixture.runner();
-    assert!(
-        matches!(resumed.step().await, Err(LanderError::Configuration(message)) if message.contains("recipient") && message.contains("unsigned"))
-    );
-    assert_eq!(fixture.control.lock().unwrap().signs, 0);
-    assert!(fixture.control.lock().unwrap().broadcasts.is_empty());
-    assert!(matches!(resumed.state(), JournalState::Prepared { .. }));
-}
-
-#[tokio::test]
-async fn prepared_restart_rejects_known_nonreceiver_before_signing() {
-    let mut fixture = Fixture::new();
-    fixture.request.batch.input.l2RewardRecipient =
-        crate::test_utils::consensus::parameters().fee_vault;
-    let payload =
-        crate::codec::encode(&fixture.request.batch.blocks, &crate::test_utils::runtime::limits())
-            .unwrap();
-    crate::test_utils::runtime::rebind(&mut fixture.request, &payload);
-    let mut runner = fixture.runner();
-    runner.step().await.unwrap();
-    drop(runner);
-    let mut resumed = fixture.runner();
-    assert!(matches!(resumed.step().await, Err(LanderError::Configuration(_))));
-    assert_eq!(fixture.control.lock().unwrap().signs, 0);
-    assert!(fixture.control.lock().unwrap().broadcasts.is_empty());
-}
-
-#[tokio::test]
 async fn signed_restart_keeps_original_recipient_and_bytes_for_future_config() {
     for phase in 2..=4 {
         let mut fixture = Fixture::new();
@@ -1207,46 +1169,105 @@ async fn signed_restart_keeps_original_recipient_and_bytes_for_future_config() {
             JournalState::Confirming { job, transaction, .. } => (job, transaction),
             _ => panic!("retained signed phase"),
         };
-        assert_eq!(
-            job.request.batch.input.l2RewardRecipient,
-            fixture.request.batch.input.l2RewardRecipient
-        );
+        assert_eq!(job.request.batch.input, fixture.request.batch.input);
         assert_eq!(transaction, &original);
         assert_eq!(fixture.control.lock().unwrap().signs, 1);
     }
 }
 
-#[test]
-fn successful_landing_summary_uses_canonical_batch_identity_and_omits_reverts() {
+#[tokio::test]
+async fn v1_partial_checkpoint_advance_retains_signed_bytes_across_restart() {
     let fixture = Fixture::new();
-    let receipt = LandingReceipt {
-        transaction_hash: B256::repeat_byte(0x45),
-        block_number: 30,
-        block_hash: B256::repeat_byte(0x30),
-        success: true,
-        gas_used: 100_000,
+    let mut runner = fixture.runner();
+    runner.step().await.unwrap();
+    runner.step().await.unwrap();
+    let original = match runner.state() {
+        JournalState::Signed { job, transaction } => (job.clone(), transaction.clone()),
+        _ => panic!("signed phase"),
     };
-    let summary = super::successful_landing(&fixture.request.batch, &receipt)
-        .expect("successful own landing reward");
-    let reward = &summary.reward;
-    let batch = &fixture.request.batch;
-    assert_eq!(summary.transaction_hash, receipt.transaction_hash);
-    assert_eq!(summary.batch_id, crate::rewards::batch_id(reward));
-    assert_eq!(reward.l1ChainId, batch.snapshot.l1_chain_id);
-    assert_eq!(reward.l2ChainId, batch.snapshot.l2_chain_id);
-    assert_eq!(reward.inbox, batch.snapshot.inbox);
-    assert_eq!(reward.generation, batch.snapshot.generation);
-    assert_eq!(reward.parentHeight, batch.snapshot.checkpoint_height);
-    assert_eq!(reward.parentHash, batch.snapshot.checkpoint_hash);
-    assert_eq!(reward.lastHeight, 2);
-    assert_eq!(reward.lastBlockHash, batch.input.lastBlockHash);
-    assert_eq!(reward.l2RewardRecipient, batch.input.l2RewardRecipient);
-    assert_eq!(reward.baseFeeAmount, batch.input.baseFeeAmount);
-    assert!(
-        super::successful_landing(
-            &fixture.request.batch,
-            &LandingReceipt { success: false, ..receipt }
-        )
-        .is_none()
-    );
+    drop(runner);
+    {
+        let mut control = fixture.control.lock().unwrap();
+        control.snapshot.checkpoint_height = 6;
+        control.snapshot.checkpoint_hash =
+            abci::EtnaEnvelope::decode(&fixture.request.batch.blocks[5].block.data[0])
+                .unwrap()
+                .block
+                .header
+                .hash_slow();
+        control.snapshot.checkpoint_comet_hash =
+            B256::from_slice(fixture.request.batch.blocks[5].block.header.hash().as_bytes());
+    }
+    let mut runner = fixture.runner();
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    match runner.state() {
+        JournalState::Pending { job, transaction } => {
+            assert_eq!(job, &original.0);
+            assert_eq!(transaction, &original.1);
+        }
+        _ => panic!("original signed overlapping job must become pending"),
+    }
+    let control = fixture.control.lock().unwrap();
+    assert_eq!(control.signs, 1);
+    assert_eq!(control.proofs, 1);
+    assert_eq!(control.broadcasts, vec![original.1.network_bytes]);
+}
+
+#[tokio::test]
+async fn v1_completed_settlement_keeps_pending_nonce_across_restart_until_canonical_receipt() {
+    let fixture = Fixture::new();
+    let mut runner = fixture.runner();
+    for _ in 0..3 {
+        runner.step().await.unwrap();
+    }
+    let original = runner.state().clone();
+    let transaction = match &original {
+        JournalState::Pending { transaction, .. } => transaction.clone(),
+        _ => panic!("pending"),
+    };
+    drop(runner);
+    fixture.compete(12);
+    {
+        let mut control = fixture.control.lock().unwrap();
+        control.known = false;
+        control.nonce.pending = 0;
+    }
+    let mut runner = fixture.runner();
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    assert_eq!(runner.state(), &original);
+    assert_eq!(fixture.control.lock().unwrap().broadcasts.len(), 1);
+    fixture.mine(&transaction, false);
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    fixture.control.lock().unwrap().snapshot.l1_block_number = 31;
+    runner.step().await.unwrap();
+    assert_eq!(runner.state(), &JournalState::Idle);
+    assert_eq!(fixture.control.lock().unwrap().signs, 1);
+}
+
+#[tokio::test]
+async fn v1_overlap_identity_mutations_preserve_signed_journal_and_stop_broadcast() {
+    for mutation in 0..4 {
+        let fixture = Fixture::new();
+        let mut runner = fixture.runner();
+        runner.step().await.unwrap();
+        runner.step().await.unwrap();
+        let original = runner.state().clone();
+        let path = fixture.directory.path().join("lander-state.json");
+        let bytes = std::fs::read(&path).unwrap();
+        fixture.compete(6);
+        {
+            let mut control = fixture.control.lock().unwrap();
+            match mutation {
+                0 => control.snapshot.checkpoint_hash[0] ^= 1,
+                1 => control.snapshot.checkpoint_comet_hash[0] ^= 1,
+                2 => control.snapshot.forced_inclusion_head += 1,
+                3 => control.helper_mismatch = true,
+                _ => unreachable!(),
+            }
+        }
+        assert!(runner.step().await.is_err());
+        assert_eq!(runner.state(), &original);
+        assert_eq!(std::fs::read(&path).unwrap(), bytes);
+        assert!(fixture.control.lock().unwrap().broadcasts.is_empty());
+    }
 }

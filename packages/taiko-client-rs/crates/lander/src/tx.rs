@@ -4,7 +4,7 @@ use std::{io::Read, path::Path};
 
 use alloy::{
     signers::{Signer, local::PrivateKeySigner},
-    sol_types::{SolCall, SolError},
+    sol_types::SolCall,
 };
 use alloy_consensus::{
     SignableTransaction, Transaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar,
@@ -21,7 +21,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    contracts::{IEtnaInbox::landCall, ZeroFeeRecipient},
+    contracts::IEtnaInbox::landCall,
     error::{LanderError, Result, sanitized_rpc_error},
     proof::ProofRequest,
     types::PreparedBatch,
@@ -31,9 +31,10 @@ use crate::{
 /// invalid, so a signed landing above it could never be included and would wedge its nonce.
 pub const MAX_TX_GAS: u64 = 1 << 24;
 
-/// Exact two-argument V10 land calldata for the immutable public inputs and proof.
+/// Exact three-argument V1 land calldata for the immutable public inputs and proof.
 pub fn land_calldata(batch: &PreparedBatch, proof: &Bytes) -> Vec<u8> {
-    landCall { _input: batch.input.clone(), _proof: proof.clone() }.abi_encode()
+    landCall { _input: batch.input.clone(), _leaves: batch.leaves.clone(), _proof: proof.clone() }
+        .abi_encode()
 }
 
 /// Explicit operator fee ceilings, all denominated in wei per gas unit.
@@ -390,15 +391,6 @@ fn is_known_response(message: &str) -> bool {
 /// built the input with a zero recipient, which no retry or refresh changes.
 fn estimate_error(error: alloy::transports::TransportError) -> LanderError {
     if let Some(payload) = error.as_error_resp() {
-        if payload
-            .as_revert_data()
-            .is_some_and(|data| data.starts_with(&ZeroFeeRecipient::SELECTOR))
-        {
-            return LanderError::Configuration(format!(
-                "the Inbox rejected the landing's zero fee recipient (ZeroFeeRecipient; RPC code {})",
-                payload.code
-            ));
-        }
         let lower = payload.message.to_ascii_lowercase();
         if payload.code == 3 ||
             lower.starts_with("execution reverted") ||
@@ -447,10 +439,10 @@ mod tests {
         other.batch.blobs.versioned_hashes[0] = B256::repeat_byte(1);
         assert!(transaction.validate(&other, &proof).is_err());
         other = request.clone();
-        other.batch.input.baseFeeAmount ^= U256::from(1);
+        other.batch.input.activeCommitteeSnapshot ^= U256::from(1);
         assert!(transaction.validate(&other, &proof).is_err(), "amount is signed");
         other = request.clone();
-        other.batch.input.l2RewardRecipient = Address::repeat_byte(0x99);
+        other.batch.input.lastCometHash = B256::repeat_byte(0x99);
         assert!(transaction.validate(&other, &proof).is_err(), "L2 recipient is signed");
         let mut corrupted = transaction.clone();
         corrupted.nonce += 1;
@@ -669,6 +661,7 @@ mod tests {
             ),
             block_hash: None,
             block_number: None,
+            block_timestamp: None,
             transaction_index: None,
             effective_gas_price: None,
         };
@@ -739,9 +732,9 @@ mod tests {
     /// The Inbox's `ZeroFeeRecipient` revert names an input the lander built wrongly, so it is a
     /// configuration error, never a retry; another revert stays [`LanderError::Reverted`].
     #[tokio::test]
-    async fn gas_estimation_zero_fee_recipient_revert_is_a_configuration_error() {
+    async fn gas_estimation_unknown_legacy_revert_remains_a_revert() {
         use serde_json::json;
-        let selector = ZeroFeeRecipient::SELECTOR;
+        let selector = [0xcf, 0xf9, 0xf1, 0x94];
         assert_eq!(selector, [0xcf, 0xf9, 0xf1, 0x94]);
         let data = alloy_primitives::hex::encode_prefixed(selector);
         let provider =
@@ -761,10 +754,7 @@ mod tests {
         )
         .unwrap();
         let result = transport.sign(&request(), &Bytes::from_static(&[0])).await;
-        assert!(
-            matches!(&result, Err(LanderError::Configuration(m)) if m.contains("ZeroFeeRecipient")),
-            "{result:?}"
-        );
+        assert!(matches!(&result, Err(LanderError::Reverted(_))), "{result:?}");
     }
 
     #[test]

@@ -11,7 +11,7 @@ use crate::{
     tx::{LandingReceipt, SignedTransaction, TransactionTransport},
     types::LandingSnapshot,
 };
-use alloy_primitives::{Address, B256};
+use alloy_primitives::{B256, U256};
 use std::{
     sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -31,10 +31,6 @@ const MAX_CONSECUTIVE_OUT_OF_GAS: u32 = 2;
 /// Runtime deadlines and confirmation policy; transport reads also retain their HTTP deadlines.
 #[derive(Clone, Copy, Debug)]
 pub struct RunnerConfig {
-    /// Desired recipient for future unsigned batches; signed jobs retain their original intent.
-    pub l2_reward_recipient: Address,
-    /// Canonical nonpayable vault from the configured execution chain parameters.
-    pub fee_vault: Address,
     /// Minimum complete-prefix size or maximum first-backlog wait before preparing a batch.
     pub batch_policy: BatchPolicy,
     /// Normal polling interval, including idle and known-pending waits.
@@ -84,43 +80,6 @@ pub enum StepOutcome {
     Rebuild,
     /// One canonical transaction settled and the next job can start from L1.
     Settled,
-}
-
-/// Claim identity for our successful canonical landing, before its journal is cleared.
-#[derive(Debug, PartialEq, Eq)]
-pub struct SuccessfulLanding {
-    /// Canonical reward batch identity, computed by the shared receipt helper.
-    pub batch_id: B256,
-    /// Our included L1 transaction; forwarded calls are identified by Inbox events.
-    pub transaction_hash: B256,
-    /// Exact immutable execution range, payout and amount from the prepared batch.
-    pub reward: crate::rewards::Receipt,
-}
-
-/// Expose claim information only for our successful landing, never a reverted competing job.
-pub fn successful_landing(
-    batch: &crate::types::PreparedBatch,
-    receipt: &LandingReceipt,
-) -> Option<SuccessfulLanding> {
-    receipt.success.then(|| {
-        let reward = crate::rewards::Receipt {
-            l1ChainId: batch.snapshot.l1_chain_id,
-            l2ChainId: batch.snapshot.l2_chain_id,
-            inbox: batch.snapshot.inbox,
-            generation: batch.snapshot.generation,
-            parentHeight: batch.snapshot.checkpoint_height,
-            parentHash: batch.snapshot.checkpoint_hash,
-            lastHeight: batch.input.lastHeight,
-            lastBlockHash: batch.input.lastBlockHash,
-            l2RewardRecipient: batch.input.l2RewardRecipient,
-            baseFeeAmount: batch.input.baseFeeAmount,
-        };
-        SuccessfulLanding {
-            batch_id: crate::rewards::batch_id(&reward),
-            transaction_hash: receipt.transaction_hash,
-            reward,
-        }
-    })
 }
 
 /// Durable backlog identity plus monotonic age, independent of arrivals and RPC retries.
@@ -226,15 +185,6 @@ impl Runner {
         } else {
             None
         };
-        if let JournalState::Signed { job, .. } |
-        JournalState::Pending { job, .. } |
-        JournalState::Confirming { job, .. } = &state &&
-            job.request.batch.input.l2RewardRecipient != config.l2_reward_recipient
-        {
-            tracing::warn!(retained_l2_reward_recipient=%job.request.batch.input.l2RewardRecipient,
-                    configured_l2_reward_recipient=%config.l2_reward_recipient,
-                    "lander resumed signed intent retains its original recipient; configured recipient applies to future batches");
-        }
         observe_state(&state);
         Ok(Self {
             batches,
@@ -371,13 +321,6 @@ impl Runner {
                 Ok(StepOutcome::Progress)
             }
             JournalState::Prepared { job } => {
-                let recipient = job.request.batch.input.l2RewardRecipient;
-                crate::config::validate_batch_recipient(recipient, self.config.fee_vault)?;
-                if recipient != self.config.l2_reward_recipient {
-                    return Err(LanderError::Configuration(
-                        "unsigned Prepared batch recipient differs from configured L2 recipient; restore the original configuration or archive only this unbroadcast unsigned job and rebuild in a fresh lander directory".into(),
-                    ));
-                }
                 if !self.unbroadcast_current(&snapshot, &job).await? {
                     return self.rebuild();
                 }
@@ -497,7 +440,7 @@ impl Runner {
         snapshot: &LandingSnapshot,
         job: &ProvedJob,
     ) -> Result<bool> {
-        if !same_parent(snapshot, &job.request.batch.snapshot) {
+        if !overlapping_frontier(snapshot, &job.request.batch)? {
             return Ok(false);
         }
         let batch = &job.request.batch;
@@ -516,7 +459,11 @@ impl Runner {
             .map_err(|e| LanderError::Journal(format!("reference header: {e}")))?;
         match self
             .l1
-            .validate_reference(snapshot, batch.input.l1ReferenceBlockNumber, raw.hash())
+            .validate_reference(
+                snapshot,
+                crate::types::protocol_u48(batch.input.l1ReferenceBlockNumber)?,
+                raw.hash(),
+            )
             .await
         {
             Ok(()) => {
@@ -537,13 +484,18 @@ impl Runner {
         reference_hash: alloy_primitives::B256,
     ) -> Result<()> {
         let batch = &job.request.batch;
-        let contract_hash = self
-            .l1
-            .statement_hash(snapshot, &batch.input, reference_hash, &batch.blobs.versioned_hashes)
-            .await?;
-        if contract_hash != batch.statement_hash {
+        let identity = self.l1.deployment_identity(snapshot).await?;
+        if identity != batch.deployment_identity ||
+            crate::statement::hash(
+                &batch.snapshot,
+                &batch.input,
+                reference_hash,
+                &batch.blobs.versioned_hashes,
+                &batch.leaves,
+            ) != batch.statement_hash
+        {
             return Err(LanderError::Configuration(
-                "fresh Inbox proxy statement helper differs from immutable job".into(),
+                "executing Inbox or immutable statement identity changed".into(),
             ));
         }
         Ok(())
@@ -579,6 +531,10 @@ impl Runner {
         job: Box<ProvedJob>,
         transaction: SignedTransaction,
     ) -> Result<StepOutcome> {
+        if U256::from(snapshot.checkpoint_height) >= job.request.batch.input.lastHeight {
+            tracing::info!(transaction_hash=%transaction.hash, pending_nonce=transaction.nonce,
+                settlement_complete=true, "lander settlement complete; awaiting canonical nonce resolution");
+        }
         let receipt =
             timeout(self.config.receipt_timeout, self.transactions.receipt(transaction.hash))
                 .await
@@ -637,7 +593,7 @@ impl Runner {
             tracing::info!(transaction_hash=%transaction.hash,pending_nonce=transaction.nonce,"lander waiting for outstanding nonce; no fee replacement");
             return Ok(StepOutcome::Waiting);
         }
-        if !same_parent(&snapshot, &job.request.batch.snapshot) {
+        if !overlapping_frontier(&snapshot, &job.request.batch)? {
             // Already-attempted bytes may still exist at another peer. Allocate no new nonce and
             // avoid spending gas rebroadcasting a job that the current checkpoint made obsolete.
             tracing::warn!(transaction_hash=%transaction.hash,pending_nonce=transaction.nonce,"lander outstanding nonce unresolved after competing checkpoint; operator reconciliation may be required");
@@ -653,7 +609,7 @@ impl Runner {
             .l1
             .validate_reference(
                 &snapshot,
-                job.request.batch.input.l1ReferenceBlockNumber,
+                crate::types::protocol_u48(job.request.batch.input.l1ReferenceBlockNumber)?,
                 raw.hash(),
             )
             .await
@@ -722,7 +678,7 @@ impl Runner {
             ));
         }
         if receipt.success {
-            if snapshot.checkpoint_height < job.request.batch.input.lastHeight {
+            if U256::from(snapshot.checkpoint_height) < job.request.batch.input.lastHeight {
                 return Err(LanderError::Safety(
                     "successful canonical receipt did not advance the Inbox checkpoint".into(),
                 ));
@@ -761,13 +717,6 @@ impl Runner {
                 "{} at nonce {} with unchanged checkpoint {}",
                 transaction.hash, transaction.nonce, snapshot.checkpoint_height
             )));
-        }
-        if let Some(summary) = successful_landing(&job.request.batch, &receipt) {
-            tracing::info!(batch_id=%summary.batch_id, landing_tx=%summary.transaction_hash,
-                parent_height=summary.reward.parentHeight, last_height=summary.reward.lastHeight,
-                l2_reward_recipient=%summary.reward.l2RewardRecipient,
-                base_fee_amount=%summary.reward.baseFeeAmount,
-                "lander successful landing reward recorded");
         }
         tracing::info!(transaction_hash=%transaction.hash,landed_height=snapshot.checkpoint_height,success=receipt.success,"lander canonical transaction settled");
         self.transition(JournalState::Idle)?;
@@ -821,7 +770,54 @@ pub fn ran_out_of_gas(gas_used: u64, gas_limit: u64) -> bool {
     gas_used >= gas_limit - gas_limit / 16
 }
 
-/// A changed generation, partial checkpoint advance, full advance, or rollback invalidates a job.
+/// Accept only an authenticated frontier on the immutable job's original proof interval.
+/// Interior progress must equal the corresponding signed cut leaf; nothing is rewritten.
+fn overlapping_frontier(
+    current: &LandingSnapshot,
+    batch: &crate::types::PreparedBatch,
+) -> Result<bool> {
+    let prepared = &batch.snapshot;
+    if current.generation != prepared.generation ||
+        current.checkpoint_height < prepared.checkpoint_height ||
+        U256::from(current.checkpoint_height) >= batch.input.lastHeight
+    {
+        return Ok(false);
+    }
+    if current.genesis != prepared.genesis ||
+        current.committee_config_hash != prepared.committee_config_hash
+    {
+        return Err(LanderError::Safety("landing genesis/config identity changed".into()));
+    }
+    if current.checkpoint_height == prepared.checkpoint_height {
+        if current.checkpoint_hash != prepared.checkpoint_hash ||
+            current.checkpoint_comet_hash != prepared.checkpoint_comet_hash ||
+            current.forced_inclusion_head != prepared.forced_inclusion_head
+        {
+            return Err(LanderError::Safety(
+                "landing parent identity changed at the same height".into(),
+            ));
+        }
+    } else {
+        if !current.checkpoint_height.is_multiple_of(6) {
+            return Err(LanderError::Safety("checkpoint is not a grid endpoint".into()));
+        }
+        let index = (current.checkpoint_height - prepared.checkpoint_height) / 6 - 1;
+        let leaf = crate::statement::cut_leaf(
+            current.checkpoint_height,
+            current.checkpoint_hash,
+            current.checkpoint_comet_hash,
+            current.forced_inclusion_head,
+        );
+        if batch.leaves.get(index as usize) != Some(&leaf) {
+            return Err(LanderError::Safety(
+                "overlapping checkpoint contradicts immutable cut leaf".into(),
+            ));
+        }
+    }
+    Ok(true)
+}
+
+/// Compare the exact receipt context when deciding whether a canonical revert made no progress.
 fn same_parent(current: &LandingSnapshot, prepared: &LandingSnapshot) -> bool {
     current.generation == prepared.generation &&
         current.checkpoint_height == prepared.checkpoint_height &&

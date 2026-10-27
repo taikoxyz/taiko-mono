@@ -1,5 +1,6 @@
 //! Serializable, immutable contexts. Contract-independent facts remain separate from ABI types.
 
+use crate::native::{Block, Commit, RawBlock};
 use abci::{
     AccountWitness, AnchorState, AnchorWitness, CommitteeState, CommitteeWitness, GenesisRecord,
     RawL1Header,
@@ -8,13 +9,21 @@ use alloy_consensus::Header;
 use alloy_primitives::{Address, B256, Bytes, U256, aliases::U48};
 use prost::Message;
 use serde::{Deserialize, Serialize};
-use tendermint_proto::v0_38::types::{Block as RawBlock, Commit as RawCommit};
+use tendermint_proto::v0_38::types::Commit as RawCommit;
 
 use crate::{
     blob::PreparedBlobs,
     contracts::IEtnaInbox::LandInput,
     error::{LanderError, Result},
 };
+
+/// Decode a protocol uint48 carried in an ABI uint256 without truncation.
+pub fn protocol_u48(value: U256) -> Result<u64> {
+    if value >= U256::from(1u64 << 48) {
+        return Err(LanderError::Safety("protocol integer exceeds uint48".into()));
+    }
+    Ok(value.to::<u64>())
+}
 
 /// Network sidecar representation selected explicitly for the target L1 fork.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -81,6 +90,8 @@ pub struct LandingSnapshot {
     pub checkpoint_height: u64,
     /// Latest landed L2 hash.
     pub checkpoint_hash: B256,
+    /// Authenticated Comet hash from the retained landing record at the checkpoint.
+    pub checkpoint_comet_hash: B256,
     /// Forced inclusion queue `head` (slot 281, bits 0–47): the next entry not yet settled on L1.
     pub forced_inclusion_head: u64,
     /// Forced inclusion queue `tail` (slot 281, bits 48–95): the next free entry index.
@@ -129,13 +140,13 @@ pub struct CommitteeContext {
 #[serde(try_from = "CertifiedBlockWire", into = "CertifiedBlockWire")]
 pub struct CertifiedBlock {
     /// Validated domain projection; its single transaction contains the Etna envelope.
-    pub block: tendermint::Block,
+    pub block: Block,
     /// Original canonical CometBFT block protobuf, retained without a domain round trip.
     /// Evidence powers, nil vote block ids and nested light-client validator sets enter the
     /// signed roots with these exact bytes; every future proof guest must retain them too.
     pub raw_block: Bytes,
     /// Commit whose block id and height identify `block`.
-    pub commit: tendermint::block::Commit,
+    pub commit: Commit,
 }
 
 /// Journal/proof wire representation, in protobufs only: a domain JSON serialization can rewrite
@@ -179,7 +190,7 @@ mod protobuf_serde {
 
 impl CertifiedBlock {
     /// Retains the original protobuf before creating a validated domain projection.
-    pub fn from_raw(raw: RawBlock, commit: tendermint::block::Commit) -> Result<Self> {
+    pub fn from_raw(raw: RawBlock, commit: Commit) -> Result<Self> {
         let raw_block = Bytes::from(raw.encode_to_vec());
         let block = domain_block(raw)
             .map_err(|e| LanderError::Encoding(format!("invalid CometBFT block protobuf: {e}")))?;
@@ -211,8 +222,7 @@ impl CertifiedBlock {
 /// verification never reads them), and inside a light-client attack, nil-vote signatures of other
 /// lengths (never verified) or validator key types this build does not convert. The original
 /// bytes, evidence included, remain the witness the evidence hash and part set are built from.
-fn domain_block(mut raw: RawBlock) -> std::result::Result<tendermint::Block, tendermint::Error> {
-    raw.evidence = None;
+fn domain_block(raw: RawBlock) -> std::result::Result<Block, String> {
     raw.try_into()
 }
 
@@ -268,8 +278,8 @@ pub struct PreparedBatch {
     /// ancestry.
     #[serde(with = "rlp_serde")]
     pub starting_inbox_witness: AnchorWitness,
-    /// Exact complete block/commit pairs in increasing height order. Only their Comet headers and
-    /// execution blocks are published; commits and signatures reach the proof only as witnesses.
+    /// Exact complete block/commit pairs in increasing height order. Only execution blocks are
+    /// published; original envelopes, headers, evidence and signatures remain private.
     pub blocks: Vec<CertifiedBlock>,
     /// Each block's own authenticated L1 anchor, in matching block order.
     pub anchors: Vec<AnchorState>,
@@ -279,21 +289,23 @@ pub struct PreparedBatch {
     pub committees: Vec<CommitteeState>,
     /// Registry witnesses deduplicated by epoch, with their authenticated proving roots.
     pub committee_witnesses: Vec<CommitteeContext>,
-    /// The exact nine `LandInput` fields the contract receives: the terminal height, block hash
-    /// and state root, the L1 reference block number, the forced inclusion head after the batch,
-    /// the L1 fee recipient, the L2 reward recipient, the base fee amount and active committee
-    /// snapshot.
+    /// Eight canonical V1 ABI fields binding the original parent and terminal EL/Comet state,
+    /// reference block, terminal forced cursor and active committee cutoff.
     #[serde(with = "crate::contracts::abi_serde")]
     pub input: LandInput,
+    /// Ordered cut leaves for the interior K=6 grid points of the immutable range.
+    pub leaves: Vec<B256>,
+    /// Executing deployment/config identity rechecked before signing or rebroadcasting.
+    pub deployment_identity: B256,
     /// Sidecar and ordered versioned blob hashes binding the V6 payload.
     pub blobs: PreparedBlobs,
-    /// Identity of this job: the exact V10 public statement hash.
+    /// Identity of this job: the exact V1 public statement hash.
     pub statement_hash: B256,
 }
 
 impl PreparedBatch {
-    /// Recompute the reward amount and V10 digest before journal restoration or signing. Headers
-    /// must already have been authenticated by batch construction; future guests must reexecute.
+    /// Reconstruct the V1 range, cut leaves, cursors and digest before restoration or signing.
+    /// Batch construction authenticates headers; a real proof guest must independently execute.
     pub fn validate_statement(&self) -> Result<()> {
         let headers = self
             .blocks
@@ -310,28 +322,101 @@ impl PreparedBatch {
                     .map(|envelope| envelope.block.header)
             })
             .collect::<Result<Vec<_>>>()?;
-        self.validate_active_committee_snapshot(&headers)?;
-        if self.input.l2RewardRecipient.is_zero() ||
-            self.input.feeRecipient.is_zero() ||
-            crate::rewards::basefee_sum(&headers)? != self.input.baseFeeAmount
-        {
-            return Err(LanderError::Journal("job reward amount or recipient mismatch".into()));
+        if self.blocks.iter().any(|pair| pair.block.header.version.app != abci::app::APP_VERSION) {
+            return Err(LanderError::Journal("job has unsupported Etna APP_VERSION".into()));
         }
+        let parent = protocol_u48(self.input.parentHeight)?;
+        let last = protocol_u48(self.input.lastHeight)?;
+        for value in [
+            self.input.l1ReferenceBlockNumber,
+            self.input.forcedInclusionHead,
+            self.input.activeCommitteeSnapshot,
+        ] {
+            protocol_u48(value)?;
+        }
+        if parent != self.snapshot.checkpoint_height ||
+            parent >= last ||
+            parent % 6 != 0 ||
+            last % 6 != 0 ||
+            self.snapshot.generation != 0 ||
+            self.blocks.len() as u64 != last - parent
+        {
+            return Err(LanderError::Journal(
+                "job has invalid V1 grid interval or generation".into(),
+            ));
+        }
+        if self.blocks.last().is_none_or(|pair| {
+            B256::from_slice(pair.block.header.hash().as_bytes()) != self.input.lastCometHash
+        }) {
+            return Err(LanderError::Journal("job terminal Comet hash mismatch".into()));
+        }
+        self.validate_cuts()?;
+        self.validate_active_committee_snapshot(&headers)?;
         let raw = self
             .reference_headers
             .first()
             .ok_or_else(|| LanderError::Journal("job has no L1 reference".into()))?;
         let header = abci::RawL1Header::from_raw(raw.clone())
             .map_err(|error| LanderError::Journal(format!("job reference: {error}")))?;
-        if header.number() != self.input.l1ReferenceBlockNumber ||
+        if self.input.l1ReferenceBlockNumber != header.number() ||
             crate::statement::hash(
                 &self.snapshot,
                 &self.input,
                 header.hash(),
                 &self.blobs.versioned_hashes,
+                &self.leaves,
             ) != self.statement_hash
         {
-            return Err(LanderError::Journal("job V10 statement identity mismatch".into()));
+            return Err(LanderError::Journal("job V1 statement identity mismatch".into()));
+        }
+        Ok(())
+    }
+
+    /// Reconstruct every committed cursor and cut from the retained authenticated envelopes.
+    /// A canonical skip was executed by the builder; restoration checks its unchanged pure
+    /// classification and witness, while a real proof guest must execute that skip itself.
+    fn validate_cuts(&self) -> Result<()> {
+        use abci::forced::{ForcedContext, ForcedDecision, check};
+        if self.anchors.len() != self.blocks.len() {
+            return Err(LanderError::Journal("job anchor count differs from blocks".into()));
+        }
+        let mut cursor = self.snapshot.forced_inclusion_head;
+        let mut leaves = Vec::new();
+        for (pair, anchor) in self.blocks.iter().zip(&self.anchors) {
+            let envelope = abci::EtnaEnvelope::decode(&pair.block.data[0])
+                .map_err(|e| LanderError::Journal(format!("job envelope: {e}")))?;
+            let decision = check(
+                ForcedContext {
+                    cursor,
+                    anchor,
+                    delay: self.snapshot.genesis.forced_inclusion_delay,
+                    inbox: self.snapshot.inbox,
+                    l2_chain_id: self.snapshot.l2_chain_id,
+                    block_gas_limit: envelope.block.header.gas_limit,
+                },
+                envelope.forced.as_ref(),
+                envelope.block.transactions.first().map(|tx| tx.as_ref()),
+            )
+            .map_err(|e| LanderError::Journal(format!("job forced cursor: {e}")))?;
+            if !matches!(decision, ForcedDecision::Ordinary) {
+                cursor = cursor
+                    .checked_add(1)
+                    .ok_or_else(|| LanderError::Journal("job cursor overflow".into()))?;
+            }
+            let height = envelope.block.header.number;
+            if height % 6 == 0 && U256::from(height) < self.input.lastHeight {
+                leaves.push(crate::statement::cut_leaf(
+                    height,
+                    envelope.block.header.hash_slow(),
+                    B256::from_slice(pair.block.header.hash().as_bytes()),
+                    cursor,
+                ));
+            }
+        }
+        if leaves != self.leaves || U256::from(cursor) != self.input.forcedInclusionHead {
+            return Err(LanderError::Journal(
+                "job V1 cut leaves or terminal cursor mismatch".into(),
+            ));
         }
         Ok(())
     }
@@ -344,7 +429,7 @@ impl PreparedBatch {
         let schedule = abci::Schedule::from_genesis(&self.snapshot.genesis);
         schedule.validate(0).map_err(|_| invalid())?;
         let terminal = headers.last().ok_or_else(invalid)?;
-        if terminal.number != self.input.lastHeight ||
+        if self.input.lastHeight != terminal.number ||
             terminal.hash_slow() != self.input.lastBlockHash ||
             terminal.state_root != self.input.lastStateRoot
         {
@@ -421,9 +506,9 @@ impl PreparedBatch {
             }
             cutoff
         };
-        if cutoff != self.input.activeCommitteeSnapshot ||
+        if self.input.activeCommitteeSnapshot != cutoff ||
             cutoff < schedule.genesis_cutoff ||
-            cutoff > self.input.l1ReferenceBlockNumber
+            self.input.l1ReferenceBlockNumber < U256::from(cutoff)
         {
             return Err(invalid());
         }
@@ -465,20 +550,21 @@ mod tests {
     use crate::test_utils::protocol::request;
 
     #[test]
-    fn prepared_statement_rejects_every_amount_bit_even_with_rebound_digest() {
+    fn prepared_statement_rejects_every_terminal_comet_bit_even_with_rebound_digest() {
         let request = crate::test_utils::runtime::request();
         request.batch.validate_statement().unwrap();
         let reference =
             abci::RawL1Header::from_raw(request.batch.reference_headers[0].clone()).unwrap();
         for bit in 0..256 {
             let mut changed = request.batch.clone();
-            changed.input.baseFeeAmount ^= U256::from(1) << bit;
+            changed.input.lastCometHash[bit / 8] ^= 1 << (bit % 8);
             assert!(changed.validate_statement().is_err(), "stale digest bit {bit}");
             changed.statement_hash = crate::statement::hash(
                 &changed.snapshot,
                 &changed.input,
                 reference.hash(),
                 &changed.blobs.versioned_hashes,
+                &changed.leaves,
             );
             assert!(changed.validate_statement().is_err(), "rebound digest bit {bit}");
         }
@@ -486,7 +572,7 @@ mod tests {
         changed.statement_hash = B256::ZERO;
         assert!(changed.validate_statement().is_err());
         let mut changed = request.batch;
-        changed.input.l2RewardRecipient = Address::ZERO;
+        changed.input.lastCometHash = B256::ZERO;
         assert!(changed.validate_statement().is_err());
     }
 

@@ -1,4 +1,4 @@
-//! The V6 payload codec, `0x06 || zlib(rlp([[header_proto, execution], ...]))`, whose decoder reads
+//! The V6 payload codec, `0x06 || zlib(rlp([ExecutionBlock, ...]))`, whose decoder reads
 //! blob data anyone can post.
 
 use std::sync::LazyLock;
@@ -8,10 +8,7 @@ use abci::{
     compression::{MAX_LANDING_BLOBS, zlib_compress, zlib_inflate_exact},
 };
 use alloy_primitives::B256;
-use alloy_rlp::Encodable;
 use proptest::{collection::vec, prelude::*, sample::Index};
-use prost::Message;
-use tendermint_proto::v0_38::types::Header as RawHeader;
 
 use super::strategies::{bytes, envelope_with};
 use crate::{
@@ -56,27 +53,16 @@ fn published(blocks: &[CertifiedBlock]) -> Vec<PublishedBlock> {
 }
 
 /// The published items of `blocks`: each header's canonical protobuf and its execution block.
-fn items(blocks: &[PublishedBlock]) -> Vec<(Vec<u8>, Vec<u8>)> {
-    blocks
-        .iter()
-        .map(|block| {
-            (RawHeader::from(block.header.clone()).encode_to_vec(), alloy_rlp::encode(&block.block))
-        })
-        .collect()
+fn items(blocks: &[PublishedBlock]) -> Vec<Vec<u8>> {
+    blocks.iter().map(|block| alloy_rlp::encode(&block.block)).collect()
 }
 
-/// `rlp([[header, execution], ...])` of `items`, assembled independently of the codec.
-fn list(items: &[(Vec<u8>, Vec<u8>)]) -> Vec<u8> {
-    let mut body = Vec::new();
-    for (header, envelope) in items {
-        let length = header.as_slice().length() + envelope.as_slice().length();
-        alloy_rlp::Header { list: true, payload_length: length }.encode(&mut body);
-        header.as_slice().encode(&mut body);
-        envelope.as_slice().encode(&mut body);
-    }
+/// Outer RLP list over already encoded execution block lists.
+fn list(items: &[Vec<u8>]) -> Vec<u8> {
+    let body = items.concat();
     let mut out = Vec::new();
     alloy_rlp::Header { list: true, payload_length: body.len() }.encode(&mut out);
-    out.extend_from_slice(&body);
+    out.extend(body);
     out
 }
 
@@ -86,7 +72,7 @@ fn frame(list: &[u8]) -> Vec<u8> {
 }
 
 /// The published items of a real three-block chain, to edit.
-static REAL_ITEMS: LazyLock<Vec<(Vec<u8>, Vec<u8>)>> = LazyLock::new(|| {
+static REAL_ITEMS: LazyLock<Vec<Vec<u8>>> = LazyLock::new(|| {
     let (_, committee, keys) = consensus::committee(&[1], 0);
     let mut blocks: Vec<CertifiedBlock> = Vec::new();
     for height in 1..=3u8 {
@@ -147,20 +133,16 @@ fn edited(bytes: &[u8], edits: &[Edit]) -> Vec<u8> {
 
 /// Lists of header/execution items: arbitrary byte pairs, or a prefix of a real chain's items,
 /// each with up to three [`Edit`]s.
-fn item_lists() -> impl Strategy<Value = Vec<(Vec<u8>, Vec<u8>)>> {
+fn item_lists() -> impl Strategy<Value = Vec<Vec<u8>>> {
     prop_oneof![
-        vec((bytes(300), bytes(300)), 0..=4),
-        (1..=REAL_ITEMS.len(), vec((edits(), edits()), REAL_ITEMS.len())).prop_map(
-            |(len, edits)| {
-                REAL_ITEMS[..len]
-                    .iter()
-                    .zip(edits)
-                    .map(|((header, envelope), (header_edits, envelope_edits))| {
-                        (edited(header, &header_edits), edited(envelope, &envelope_edits))
-                    })
-                    .collect()
-            }
-        ),
+        vec(bytes(600), 0..=4),
+        (1..=REAL_ITEMS.len(), vec(edits(), REAL_ITEMS.len())).prop_map(|(len, edits)| {
+            REAL_ITEMS[..len]
+                .iter()
+                .zip(edits)
+                .map(|(execution, edits)| edited(execution, &edits))
+                .collect()
+        }),
     ]
 }
 

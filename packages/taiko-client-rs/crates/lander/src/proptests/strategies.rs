@@ -87,6 +87,8 @@ fn el_header() -> impl Strategy<Value = Header> {
             excess_blob_gas: (forks >= 4).then_some(excess_blob_gas),
             parent_beacon_block_root: (forks >= 5).then_some(beacon),
             requests_hash: (forks >= 6).then_some(requests),
+            block_access_list_hash: None,
+            slot_number: None,
         },
     )
 }
@@ -125,28 +127,24 @@ fn anchor_witness() -> impl Strategy<Value = AnchorWitness> {
 /// A committee witness with an arbitrary record, registry witness and up to three entries.
 fn committee_witness() -> impl Strategy<Value = CommitteeWitness> {
     let record = (uint(), uint(), uint(), hash(), word(), uint(), any::<u8>()).prop_map(
-        |(target_epoch, cutoff, index, set_root, total_stake, total_power, version)| {
+        |(target_epoch, cutoff, index, set_root, _total_stake, total_power, _version)| {
             CommitteeRecord {
                 target_epoch,
                 cutoff_l1_block: cutoff,
                 checkpoint_index: index,
                 set_root,
-                total_stake,
                 total_power,
-                encoding_version: version,
             }
         },
     );
     let entry = (hash(), word(), uint(), uint(), uint(), uint()).prop_map(
-        |(pubkey, eff_stake, active_from_l1, exit_effective_l1, heartbeat_at, heartbeat_seq)| {
+        |(pubkey, eff_stake, active_from_l1, exit_effective_l1, _heartbeat_at, _heartbeat_seq)| {
             RegistryEntry {
-                reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
-                pubkey,
+                ck_prefix: 2,
+                ck_x: pubkey,
                 eff_stake,
                 active_from_l1,
                 exit_effective_l1,
-                last_heartbeat_at: heartbeat_at,
-                last_heartbeat_seq: heartbeat_seq,
             }
         },
     );

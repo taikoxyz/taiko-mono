@@ -116,7 +116,7 @@ pub(crate) async fn boot(
     let l1 = connect_http_with_timeout(l1_http.clone(), DEFAULT_HTTP_TIMEOUT);
     wait_until("anvil RPC", RPC_TIMEOUT, POLL, || async { Ok(Some(l1.get_block_number().await?)) })
         .await?;
-    let expected = crate::EtnaGenesis::build(&l1, ChainParams::builtin(167001)?.inbox).await?;
+    let expected = crate::EtnaGenesis::build()?;
     let genesis_path = tmp.join("genesis.json");
     fs::write(&genesis_path, &expected.json)?;
     let genesis_mount = format!("{}:/genesis.json:ro", genesis_path.display());
@@ -150,9 +150,7 @@ pub(crate) async fn boot(
             Ok(Some(provider.get_chain_id().await?))
         })
         .await?;
-        expected
-            .verify(&provider, l1.get_chain_id().await?, ChainParams::builtin(167001)?.inbox)
-            .await?;
+        expected.verify(&provider).await?;
         reth.push(node);
     }
 

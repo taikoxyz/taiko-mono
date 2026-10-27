@@ -43,7 +43,7 @@ fn public_rpc_and_wrapped_anchor_errors_never_render_endpoint_credentials() {
 async fn committee_discovery_errors_never_render_wrapped_rpc_credentials() {
     let sensitive = "https://alice:password@example.invalid/private-key-path?api_key=secret";
     let provider = rpc(move |_| json!({"__rpc_error":{"code":-32603,"message":sensitive}})).await;
-    let fixture = crate::test_utils::consensus_mpt::Fixture::new(20, 26);
+    let fixture = crate::test_utils::consensus_mpt::Fixture::new(18, 30);
     let source =
         RpcLandingSource::new(provider.provider.clone(), provider.provider.clone(), fixture.params);
     let proving_anchor = anchor(&fixture.snapshot.l1_header);
@@ -156,7 +156,6 @@ fn anchor(header: &RawL1Header) -> AnchorState {
         state_root: header.state_root(),
         timestamp: header.timestamp(),
         inbox: InboxFacts {
-            status: 3,
             recovery_generation: 0,
             last_checkpoint_height: 0,
             last_checkpoint_hash: B256::repeat_byte(1),
@@ -177,6 +176,7 @@ fn snapshot(headers: &BTreeMap<u64, RawL1Header>) -> LandingSnapshot {
         generation: 0,
         checkpoint_height: 0,
         checkpoint_hash: B256::repeat_byte(1),
+        checkpoint_comet_hash: B256::ZERO,
         forced_inclusion_head: 0,
         forced_inclusion_tail: 0,
         genesis: GenesisRecord {
@@ -222,7 +222,7 @@ async fn source(
         );
     }
     let answers = headers.clone();
-    let proof_fixture = crate::test_utils::consensus_mpt::Fixture::new(20, 26);
+    let proof_fixture = crate::test_utils::consensus_mpt::Fixture::new(18, 30);
     let mut proof_snapshot = proof_fixture.snapshot.clone();
     let mut raw: Header = alloy_rlp::decode_exact(proof_snapshot.l1_header.raw()).unwrap();
     raw.number = 20;
@@ -259,7 +259,7 @@ async fn source(
             json!({ "address": expected_proof.address, "nonce": format!("0x{:x}", expected_proof.nonce),
                 "balance": expected_proof.balance, "storageHash": expected_proof.storage_root,
                 "codeHash": expected_proof.code_hash, "accountProof": expected_proof.account_proof,
-                "storageProof": expected_proof.storage.iter().map(|s| json!({"key": s.slot, "value": s.value, "proof": s.proof})).collect::<Vec<_>>() })
+                "storageProof": expected_proof.storage.iter().filter(|s| request["params"][1].as_array().unwrap().contains(&json!(s.slot))).map(|s| json!({"key": s.slot, "value": s.value, "proof": s.proof})).collect::<Vec<_>>() })
         }
         other => panic!("unexpected L1 method {other}"),
     })
@@ -317,7 +317,7 @@ async fn snapshot_rpc_with_delay(
     first_proof_delay: Duration,
 ) -> SnapshotRpc {
     let fixture_a = crate::test_utils::consensus_mpt::Fixture::new(0, 2);
-    let fixture_b = crate::test_utils::consensus_mpt::Fixture::new(20, 26);
+    let fixture_b = crate::test_utils::consensus_mpt::Fixture::new(18, 30);
     let pin = |mut snapshot: LandingSnapshot| {
         let mut header: Header = alloy_rlp::decode_exact(snapshot.l1_header.raw()).unwrap();
         header.number = 20;
@@ -366,6 +366,7 @@ async fn snapshot_rpc_with_delay(
                 let from_b = *switched || *stale > 0;
                 *stale = stale.saturating_sub(1);
                 let mut witness = if from_b { answer_b.inbox_witness.clone() } else { answer_a.inbox_witness.clone() };
+                witness.storage.retain(|s| request["params"][1].as_array().unwrap().contains(&json!(s.slot)));
                 if malformed { witness.account_proof.clear(); }
                 proof_json(&witness)
             }
@@ -396,13 +397,13 @@ async fn snapshot_reorg_retries_with_coherent_hash_pinned_header_and_proof() {
         let calls = rpc.l1.requests.lock().unwrap();
         let proofs =
             calls.iter().filter(|call| call["method"] == "eth_getProof").collect::<Vec<_>>();
-        assert_eq!(proofs.len(), 2);
-        for (call, snapshot) in proofs.iter().zip([&rpc.a, &rpc.b]) {
+        assert_eq!(proofs.len(), 3);
+        for (call, snapshot) in proofs.iter().zip([&rpc.a, &rpc.b, &rpc.b]) {
             assert_eq!(
                 call["params"][2],
                 json!({"blockHash": snapshot.l1_block_hash, "requireCanonical": true})
             );
-            assert_eq!(call["params"][1].as_array().unwrap().len(), 12);
+            assert!(matches!(call["params"][1].as_array().unwrap().len(), 15 | 18));
         }
         let raw =
             calls.iter().filter(|call| call["method"] == "debug_getRawHeader").collect::<Vec<_>>();
@@ -431,7 +432,7 @@ async fn snapshot_rereads_a_head_proof_served_from_state_still_being_extended() 
     let rpc = snapshot_rpc_with(false, false, false, 1).await;
     assert_eq!(rpc.source.snapshot().await.unwrap(), rpc.a);
     let calls = rpc.l1.requests.lock().unwrap();
-    assert_eq!(calls.iter().filter(|call| call["method"] == "eth_getProof").count(), 2);
+    assert_eq!(calls.iter().filter(|call| call["method"] == "eth_getProof").count(), 3);
     assert_eq!(calls.iter().filter(|call| call["method"] == "debug_getRawHeader").count(), 2);
 }
 
@@ -441,7 +442,7 @@ async fn snapshot_grace_starts_when_a_slow_first_proof_is_observed_inconsistent(
     let source = rpc.source.as_ref().clone().with_head_proof_grace(Duration::from_millis(20));
     assert_eq!(source.snapshot().await.unwrap(), rpc.a);
     let calls = rpc.l1.requests.lock().unwrap();
-    assert_eq!(calls.iter().filter(|call| call["method"] == "eth_getProof").count(), 2);
+    assert_eq!(calls.iter().filter(|call| call["method"] == "eth_getProof").count(), 3);
 }
 
 #[tokio::test]
@@ -528,7 +529,7 @@ fn snapshot_with_an_invalid_forced_inclusion_config_is_a_configuration_error() {
 async fn snapshot_cannot_mix_inbox_generations_config_and_checkpoint_across_live_heads() {
     let (source, l1, _l2, headers) = source(18, false).await;
     let observed = source.snapshot().await.unwrap();
-    let mut expected = crate::test_utils::consensus_mpt::Fixture::new(20, 26).snapshot;
+    let mut expected = crate::test_utils::consensus_mpt::Fixture::new(18, 30).snapshot;
     let mut header: Header = alloy_rlp::decode_exact(expected.l1_header.raw()).unwrap();
     header.number = 20;
     header.parent_hash = headers[&19].hash();
@@ -537,7 +538,7 @@ async fn snapshot_cannot_mix_inbox_generations_config_and_checkpoint_across_live
     expected.l1_block_hash = header.hash_slow();
     assert_eq!(observed, expected);
     let calls = l1.requests.lock().unwrap();
-    assert_eq!(calls.iter().filter(|call| call["method"] == "eth_getProof").count(), 1);
+    assert_eq!(calls.iter().filter(|call| call["method"] == "eth_getProof").count(), 2);
     assert!(calls.iter().all(|call| call["method"] != "eth_getStorageAt"));
     assert_eq!(observed.l1_header.hash(), observed.l1_block_hash);
     let _ = headers;
@@ -624,14 +625,14 @@ async fn references_older_than_blockhash_window_require_actual_history_contract_
 
 #[tokio::test]
 async fn checkpoint_anchor_rejects_legacy_sharing_and_malformed_generation() {
-    let fixture = crate::test_utils::consensus_mpt::Fixture::new(20, 26);
+    let fixture = crate::test_utils::consensus_mpt::Fixture::new(18, 30);
     let provider =
         rpc(|_| json!({"__rpc_error":{"code":-32603,"message":"unexpected anchor lookup"}})).await;
     let source =
         RpcLandingSource::new(provider.provider.clone(), provider.provider.clone(), fixture.params);
     let snapshot = fixture.snapshot;
     let mut inputs = vec![vec![0; 12], vec![0; 14]];
-    for sharing in [1, 100, 255] {
+    for sharing in [0, 1, 255] {
         let mut bytes = vec![0; 13];
         bytes[0] = sharing;
         inputs.push(bytes);
@@ -653,5 +654,91 @@ async fn checkpoint_anchor_rejects_legacy_sharing_and_malformed_generation() {
             matches!(error, LanderError::Safety(_)),
             "malformed checkpoint {extra_data:?} must be rejected before RPC: {error}"
         );
+    }
+}
+
+/// Pause/checkpoint changes do not change settlement authorization; code/config changes do.
+#[tokio::test]
+async fn v1_deployment_identity_uses_real_pinned_boundaries_and_ignores_pause_and_progress() {
+    use crate::contracts::IEtnaInbox;
+    use alloy::sol_types::{SolCall, SolValue};
+    use alloy_primitives::{Address, Bytes};
+    use std::sync::atomic::{AtomicU8, Ordering};
+    let fixture = crate::test_utils::consensus_mpt::Fixture::new(0, 12);
+    let advanced = crate::test_utils::consensus_mpt::Fixture::new(18, 30);
+    let mode = Arc::new(AtomicU8::new(0));
+    let control = mode.clone();
+    let config = fixture.snapshot.committee_config_hash;
+    let registry = fixture.params.registry;
+    let chain_id = fixture.params.l2_chain_id;
+    let hash_a = fixture.snapshot.l1_block_hash;
+    let hash_b = advanced.snapshot.l1_block_hash;
+    let server = rpc(move |request| {
+        let mode = control.load(Ordering::Relaxed);
+        let pin = request["params"].as_array().unwrap().last().unwrap();
+        assert!(
+            [hash_a, hash_b]
+                .iter()
+                .any(|hash| pin == &json!({"blockHash": hash, "requireCanonical": true}))
+        );
+        match request["method"].as_str().unwrap() {
+            "eth_getCode" => {
+                assert_eq!(request["params"][0], json!(Address::repeat_byte(0x42)));
+                json!(Bytes::from(if mode == 4 {
+                    vec![]
+                } else {
+                    vec![0x60, if mode == 2 { 1 } else { 0 }]
+                }))
+            }
+            "eth_call" => {
+                let input = request["params"][0]
+                    .get("input")
+                    .or_else(|| request["params"][0].get("data"))
+                    .unwrap();
+                let input: Bytes = serde_json::from_value(input.clone()).unwrap();
+                macro_rules! answer {
+                    ($call:ident, $value:expr) => {
+                        if input.as_ref() == IEtnaInbox::$call::SELECTOR {
+                            return json!(Bytes::from(($value).abi_encode()));
+                        }
+                    };
+                }
+                answer!(VERSIONCall, U256::from(if mode == 3 { 2 } else { 1 }));
+                answer!(isInitializedCall, true);
+                answer!(l2ChainIdCall, U256::from(chain_id));
+                answer!(stakingRegistryCall, registry);
+                answer!(committeeConfigHashCall, if mode == 5 { B256::ZERO } else { config });
+                answer!(
+                    implCall,
+                    if mode == 6 { Address::ZERO } else { Address::repeat_byte(0x42) }
+                );
+                answer!(proofVerifierCall, Address::repeat_byte(0x43));
+                answer!(signalServiceCall, Address::repeat_byte(0x44));
+                answer!(maxBatchBlocksCall, U256::from(120));
+                answer!(forcedInclusionFeeInGweiCall, U256::from(1));
+                answer!(forcedInclusionFeeDoubleThresholdCall, U256::from(10));
+                answer!(protocolFeeRecipientCall, Address::repeat_byte(0x45));
+                // Even though this deployment can be paused, landing is not pause-gated.
+                answer!(pausedCall, mode == 1);
+                panic!("invented or unexpected ABI getter: {input}");
+            }
+            method => panic!("unexpected identity RPC {method}"),
+        }
+    })
+    .await;
+    let source =
+        RpcLandingSource::new(server.provider.clone(), server.provider.clone(), fixture.params);
+    let original = source.deployment_identity(&fixture.snapshot).await.unwrap();
+    mode.store(1, Ordering::Relaxed);
+    assert_eq!(source.deployment_identity(&fixture.snapshot).await.unwrap(), original);
+    assert_eq!(source.deployment_identity(&advanced.snapshot).await.unwrap(), original);
+    mode.store(2, Ordering::Relaxed);
+    assert_ne!(source.deployment_identity(&fixture.snapshot).await.unwrap(), original);
+    for invalid in [3, 4, 5, 6] {
+        mode.store(invalid, Ordering::Relaxed);
+        assert!(matches!(
+            source.deployment_identity(&fixture.snapshot).await,
+            Err(LanderError::Configuration(_))
+        ));
     }
 }

@@ -1,14 +1,12 @@
 //! Genuine trie/proof and epoch-changing fixtures for immutable batch assembly.
 
-use super::consensus::{pair_with_envelope, parameters};
+use super::consensus::{SigningKey, pair_with_envelope, parameters, public_key};
 use crate::{
     batch::verify_reference_chain,
     comet::{CometSource, CometStatus},
     committee::{AuthenticatedCommittee, authenticate},
-    contracts::IEtnaInbox::LandInput,
     error::{LanderError, Result},
     l1::{LandingSource, ParentContext},
-    statement,
     types::{CertifiedBlock, LandingSnapshot},
 };
 use abci::{
@@ -30,7 +28,6 @@ use alloy_trie::{
     proof::{ProofNodes, ProofRetainer},
 };
 use async_trait::async_trait;
-use ed25519_dalek::SigningKey;
 use std::{
     collections::BTreeMap,
     sync::atomic::{AtomicBool, Ordering},
@@ -137,9 +134,6 @@ impl State {
     }
 }
 
-/// The fee recipient the test builders name in every batch's `LandInput`.
-pub const FEE_RECIPIENT: Address = Address::repeat_byte(0xfe);
-
 pub struct Fixture {
     pub params: ChainParams,
     pub snapshot: LandingSnapshot,
@@ -186,12 +180,12 @@ struct Queue {
 fn state_with_queue(
     params: &ChainParams,
     entries: &[RegistryEntry],
-    height: u64,
-    hash: B256,
+    endpoint: (u64, B256, B256),
     committees: &BTreeMap<u64, AuthenticatedCommittee>,
     genesis: &GenesisRecord,
     queue: &Queue,
 ) -> State {
+    let (height, hash, comet_hash) = endpoint;
     let mut slots = vec![
         (inbox::slot(inbox::STATUS), U256::from(3)),
         (inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(height)),
@@ -205,19 +199,31 @@ fn state_with_queue(
         (inbox::slot(inbox::COMMITTEE_CONFIG_HASH), genesis.committee_config_hash.into()),
         (
             inbox::slot(inbox::GENESIS_PACKED),
-            U256::from(genesis.l1_0) << 64 | U256::from(genesis.epoch_len) << 128,
+            U256::from(genesis.l1_0) << 48 | U256::from(genesis.epoch_len) << 96,
         ),
         (inbox::slot(inbox::GENESIS_BLOCK_HASH), genesis.genesis_hash.into()),
         (inbox::slot(inbox::GENESIS_STATE_ROOT), genesis.genesis_state_root.into()),
         (inbox::slot(inbox::GENESIS_CUTOFF), U256::from(genesis.genesis_cutoff)),
         (
             inbox::slot(inbox::FORCED_INCLUSION_CONFIG),
-            U256::from(genesis.forced_inclusion_delay) | U256::from(genesis.max_anchor_age) << 64,
+            U256::from(genesis.forced_inclusion_delay) | U256::from(genesis.max_anchor_age) << 48,
         ),
         (
             inbox::slot(inbox::FORCED_INCLUSION_HEAD_TAIL),
             U256::from(queue.head) | U256::from(queue.tail) << 48,
         ),
+    ]);
+    let origin = inbox::origin_slots(0);
+    slots.extend([
+        (origin[0], U256::ZERO),
+        (origin[1], U256::from(genesis.l1_0)),
+        (origin[2], U256::from(genesis.l1_0)),
+    ]);
+    let landing = inbox::landing_slots(height);
+    slots.extend([
+        (landing[0], U256::from(queue.head) << 96),
+        (landing[1], hash.into()),
+        (landing[2], comet_hash.into()),
     ]);
     for entry in &queue.entries {
         let [hash, metadata] = inbox::forced_inclusion_entry_slots(entry.index);
@@ -238,7 +244,7 @@ fn state_with_queue(
             params.registry,
             vec![
                 (registry::length_slot(), U256::from(1)),
-                (checkpoint[0], U256::from(1) | (U256::from(entries.len()) << 64)),
+                (checkpoint[0], U256::from(1) | (U256::from(entries.len()) << 48)),
                 (checkpoint[1], entries_root(entries).into()),
             ],
         ),
@@ -305,7 +311,7 @@ fn forced_transaction(index: u64) -> (Bytes, B256) {
         TxLegacy {
             nonce: index,
             gas_limit: 21_000,
-            gas_price: abci::forced::FI_MIN_EXEC_FEE_CAP,
+            gas_price: 1_000_000_000,
             ..Default::default()
         }
         .into_signed(alloy_primitives::Signature::new(U256::from(1), U256::from(1), false)),
@@ -323,7 +329,6 @@ fn anchor(raw: &RawL1Header, height: u64, hash: B256, queue: &Queue) -> AnchorSt
         state_root: raw.state_root(),
         timestamp: raw.timestamp(),
         inbox: InboxFacts {
-            status: 3,
             recovery_generation: 0,
             last_checkpoint_height: height,
             last_checkpoint_hash: hash,
@@ -352,8 +357,11 @@ impl Fixture {
         let state = state_with_queue(
             &self.params,
             &self.registry_entries(),
-            self.snapshot.checkpoint_height,
-            self.snapshot.checkpoint_hash,
+            (
+                self.snapshot.checkpoint_height,
+                self.snapshot.checkpoint_hash,
+                self.snapshot.checkpoint_comet_hash,
+            ),
             &self.committees,
             &genesis,
             &Queue { head, tail, entries: Vec::new() },
@@ -364,7 +372,10 @@ impl Fixture {
             l1_block_hash: header.hash(),
             forced_inclusion_head: head,
             forced_inclusion_tail: tail,
-            inbox_witness: state.witness(self.params.inbox, &crate::l1::snapshot_slots()),
+            inbox_witness: state.witness(
+                self.params.inbox,
+                &crate::l1::snapshot_landing_slots(self.snapshot.checkpoint_height),
+            ),
             l1_header: header,
             genesis,
             ..self.snapshot.clone()
@@ -376,15 +387,11 @@ impl Fixture {
             .into_iter()
             .enumerate()
             .map(|(index, seed)| RegistryEntry {
-                reward_recipient: super::consensus::member_recipient(B256::from(
-                    SigningKey::from_bytes(&[seed; 32]).verifying_key().to_bytes(),
-                )),
-                pubkey: B256::from(SigningKey::from_bytes(&[seed; 32]).verifying_key().to_bytes()),
-                eff_stake: U256::from(if index == 0 { 3 } else { 1 }),
+                ck_prefix: public_key(&SigningKey::from_slice(&[seed; 32]).unwrap()).prefix(),
+                ck_x: public_key(&SigningKey::from_slice(&[seed; 32]).unwrap()).x(),
+                eff_stake: U256::from(if index == 0 { 3 } else { 1 }) * self.params.vp_unit,
                 active_from_l1: if index == 0 { 1 } else { 10 },
                 exit_effective_l1: u64::MAX,
-                last_heartbeat_at: 1,
-                last_heartbeat_seq: 1,
             })
             .collect()
     }
@@ -393,7 +400,7 @@ impl Fixture {
     }
 
     fn with_calldata(checkpoint: u64, tip: u64, bytes: usize) -> Self {
-        Self::with_epoch(checkpoint, tip, bytes, 23)
+        Self::with_epoch(checkpoint, tip, bytes, 24)
     }
 
     /// As [`Fixture::with_calldata`], with all-zero calldata that payload V4 compresses to almost
@@ -404,7 +411,7 @@ impl Fixture {
             tip,
             bytes,
             true,
-            EpochFixture { length: 23, advances: false },
+            EpochFixture { length: 24, advances: false },
             7_200,
             &ForcedPlan::default(),
         )
@@ -429,7 +436,7 @@ impl Fixture {
             tip,
             0,
             false,
-            EpochFixture { length: 10, advances: true },
+            EpochFixture { length: 12, advances: true },
             7_200,
             &ForcedPlan::default(),
         )
@@ -444,7 +451,7 @@ impl Fixture {
             tip,
             0,
             false,
-            EpochFixture { length: 23, advances: false },
+            EpochFixture { length: 24, advances: false },
             7_200,
             &plan,
         )
@@ -459,7 +466,7 @@ impl Fixture {
             tip,
             0,
             false,
-            EpochFixture { length: 23, advances: false },
+            EpochFixture { length: 24, advances: false },
             max_anchor_age,
             &ForcedPlan::default(),
         )
@@ -478,20 +485,20 @@ impl Fixture {
         plan: &ForcedPlan,
     ) -> Self {
         let epoch_len = epochs.length;
-        assert!(checkpoint == 0 || checkpoint >= epoch_len - 3);
+        assert!(checkpoint == 0 || checkpoint >= 6);
         let anchor_number = |height: u64| {
-            if height <= 1 || (checkpoint == 0 && !epochs.advances) {
+            if height <= 6 || (checkpoint == 0 && !epochs.advances) {
                 10
-            } else if height < epoch_len - 1 {
+            } else if height < epoch_len - 2 {
                 11
             } else if epochs.advances {
-                12 + (height - (epoch_len - 1)) / (epoch_len - 4)
+                12 + (height - (epoch_len - 2)) / (epoch_len - 6)
             } else {
                 12
             }
         };
         let mut params = parameters();
-        params.d_max = epoch_len - 3;
+        params.unsettled_limit = 18;
         let genesis_header = Header {
             number: 0,
             state_root: B256::repeat_byte(7),
@@ -512,20 +519,19 @@ impl Fixture {
             max_anchor_age,
         };
         let schedule = Schedule::from_genesis(&genesis);
-        let keys = vec![SigningKey::from_bytes(&[1; 32]), SigningKey::from_bytes(&[2; 32])];
+        let keys = vec![
+            SigningKey::from_slice(&[1; 32]).unwrap(),
+            SigningKey::from_slice(&[2; 32]).unwrap(),
+        ];
         let entries = keys
             .iter()
             .enumerate()
             .map(|(index, key)| RegistryEntry {
-                reward_recipient: super::consensus::member_recipient(B256::from(
-                    key.verifying_key().to_bytes(),
-                )),
-                pubkey: B256::from(key.verifying_key().to_bytes()),
-                eff_stake: U256::from(if index == 0 { 3 } else { 1 }),
+                ck_prefix: public_key(key).prefix(),
+                ck_x: public_key(key).x(),
+                eff_stake: U256::from(if index == 0 { 3 } else { 1 }) * params.vp_unit,
                 active_from_l1: if index == 0 { 1 } else { 10 },
                 exit_effective_l1: u64::MAX,
-                last_heartbeat_at: 1,
-                last_heartbeat_seq: 1,
             })
             .collect::<Vec<_>>();
         let snapshot = Snapshot { checkpoint_index: 0, l1_block: 1, entries: entries.clone() };
@@ -551,8 +557,7 @@ impl Fixture {
         let genesis_state = state_with_queue(
             &params,
             &entries,
-            0,
-            genesis.genesis_hash,
+            (0, genesis.genesis_hash, B256::ZERO),
             &committees,
             &genesis,
             &plan.queue(&planted, 10, 0),
@@ -564,7 +569,7 @@ impl Fixture {
         let mut l1_headers = BTreeMap::from([(10, raw10)]);
         let mut anchors = BTreeMap::from([(0, anchor10.clone())]);
         let mut headers = BTreeMap::from([(0, genesis_header)]);
-        let mut blocks = BTreeMap::new();
+        let mut blocks: BTreeMap<u64, CertifiedBlock> = BTreeMap::new();
         let mut parent = ParentInfo {
             number: 0,
             hash: genesis.genesis_hash,
@@ -580,18 +585,24 @@ impl Fixture {
             let cp = if number == 10 {
                 0
             } else if number == 11 {
-                1
+                6
             } else if epochs.advances {
-                epoch_len - 3 + (number - 12) * (epoch_len - 4)
+                epoch_len - 6 + (number - 12) * (epoch_len - 6)
             } else {
-                epoch_len - 3
+                epoch_len - 6
             };
+            let cp = cp / 6 * 6;
             if !l1_headers.contains_key(&number) {
                 let state = state_with_queue(
                     &params,
                     &entries,
-                    cp,
-                    headers[&cp].hash_slow(),
+                    (
+                        cp,
+                        headers[&cp].hash_slow(),
+                        blocks.get(&cp).map_or(B256::ZERO, |pair| {
+                            B256::from_slice(pair.block.header.hash().as_bytes())
+                        }),
+                    ),
                     &committees,
                     &genesis,
                     &plan.queue(&planted, number, cp),
@@ -609,14 +620,10 @@ impl Fixture {
                 l1_header: raw.clone(),
                 inbox: states[&number].witness(params.inbox, &inbox::anchor_slots()),
             });
-            let committee = schedule.switch_target(height).map(|target| {
-                let parent_anchor = &anchors[&(height - 1)];
-                CommitteeWitness {
-                    record: committees[&target].state.record.clone(),
-                    registry: states[&parent_anchor.number]
-                        .witness(params.registry, &snapshot_slots(0, false)),
-                    entries: entries.clone(),
-                }
+            let committee = schedule.switch_target(height).map(|target| CommitteeWitness {
+                record: committees[&target].state.record.clone(),
+                registry: states[&number].witness(params.registry, &snapshot_slots(0, false)),
+                entries: entries.clone(),
             });
             // The entry at the cursor, while the anchor's queue holds one: consumed with its
             // transaction at a planned height, otherwise peeked at.
@@ -639,11 +646,7 @@ impl Fixture {
             );
             let expected = rules::expected_header(&HeaderInputs {
                 height,
-                reward_recipient: rules::proposer_recipient(
-                    &committees[&schedule.epoch_of(height)].state.members,
-                    committees[&schedule.epoch_of(height)].validators.validators()[0].address,
-                )
-                .unwrap(),
+                reward_recipient: super::consensus::BATCH_RECIPIENT,
                 parent: &parent,
                 anchor: &a,
                 bft_time_secs: if max_anchor_age < 7200 { 1261 + height } else { 100 + height },
@@ -666,7 +669,7 @@ impl Fixture {
                     gas_limit: 2_000_000,
                     max_fee_per_gas: 1_000_001,
                     max_priority_fee_per_gas: 1,
-                    to: alloy_primitives::TxKind::Call(params.fee_vault),
+                    to: alloy_primitives::TxKind::Call(Address::repeat_byte(0x66)),
                     input: if zeros {
                         vec![0; bytes].into()
                     } else {
@@ -743,8 +746,13 @@ impl Fixture {
         let snapshot_state = state_with_queue(
             &params,
             &entries,
-            checkpoint,
-            headers[&checkpoint].hash_slow(),
+            (
+                checkpoint,
+                headers[&checkpoint].hash_slow(),
+                blocks.get(&checkpoint).map_or(B256::ZERO, |pair: &CertifiedBlock| {
+                    B256::from_slice(pair.block.header.hash().as_bytes())
+                }),
+            ),
             &committees,
             &genesis,
             &snapshot_queue,
@@ -762,6 +770,11 @@ impl Fixture {
             generation: 0,
             checkpoint_height: checkpoint,
             checkpoint_hash: headers[&checkpoint].hash_slow(),
+            checkpoint_comet_hash: blocks
+                .get(&checkpoint)
+                .map_or(B256::ZERO, |pair: &CertifiedBlock| {
+                    B256::from_slice(pair.block.header.hash().as_bytes())
+                }),
             forced_inclusion_head: snapshot_queue.head,
             forced_inclusion_tail: snapshot_queue.tail,
             committee_config_hash: genesis.committee_config_hash,
@@ -770,7 +783,8 @@ impl Fixture {
                 &committees[&0].state.record,
             ),
             l1_header: snapshot_header,
-            inbox_witness: snapshot_state.witness(params.inbox, &crate::l1::snapshot_slots()),
+            inbox_witness: snapshot_state
+                .witness(params.inbox, &crate::l1::snapshot_landing_slots(checkpoint)),
             genesis,
         };
         Self {
@@ -795,7 +809,7 @@ impl Fixture {
 impl CometSource for Fixture {
     async fn status(&self) -> Result<CometStatus> {
         Ok(CometStatus {
-            chain_id: rules::chain_id_for(self.params.l2_chain_id, 0),
+            chain_id: rules::chain_id_for(&self.params, 0).unwrap(),
             height: *self.headers.last_key_value().unwrap().0,
         })
     }
@@ -920,18 +934,11 @@ impl LandingSource for Fixture {
         verify_reference_chain(&headers, anchors)?;
         Ok(headers)
     }
-    async fn statement_hash(
-        &self,
-        snapshot: &LandingSnapshot,
-        input: &LandInput,
-        reference: B256,
-        blobs: &[B256],
-    ) -> Result<B256> {
-        Ok(if self.mismatch_statement.load(Ordering::Relaxed) {
-            B256::ZERO
-        } else {
-            statement::hash(snapshot, input, reference, blobs)
-        })
+    async fn deployment_identity(&self, _: &LandingSnapshot) -> Result<B256> {
+        if self.mismatch_statement.load(Ordering::Relaxed) {
+            return Err(LanderError::Configuration("deployment identity mismatch".into()));
+        }
+        Ok(B256::repeat_byte(0xdd))
     }
     async fn canonical_hash(&self, number: u64) -> Result<B256> {
         Ok(self.l1_headers[&number].hash())
@@ -978,8 +985,6 @@ mod readiness {
                 params: fixture.params.clone(),
                 limits,
                 mode: SidecarMode::Eip4844,
-                fee_recipient: FEE_RECIPIENT,
-                l2_reward_recipient: crate::test_utils::consensus::BATCH_RECIPIENT,
                 engine: std::sync::Arc::new(test_harness::unavailable_engine::UnavailableEngine),
                 engine_timeout: std::time::Duration::from_secs(1),
             },
@@ -1015,6 +1020,8 @@ mod readiness {
     fn advance_checkpoint(fixture: &mut Fixture, height: u64) {
         fixture.snapshot.checkpoint_height = height;
         fixture.snapshot.checkpoint_hash = fixture.headers[&height].hash_slow();
+        fixture.snapshot.checkpoint_comet_hash =
+            B256::from_slice(fixture.blocks[&height].block.header.hash().as_bytes());
         // The current L1 state has advanced while the tip still consumes its older L1 anchor.
         let mut accounts = fixture.states.last_key_value().unwrap().1.accounts.clone();
         let slots = &mut accounts.get_mut(&fixture.params.inbox).unwrap().0;
@@ -1023,6 +1030,10 @@ mod readiness {
             inbox::slot(inbox::LAST_CHECKPOINT_HASH),
             fixture.snapshot.checkpoint_hash.into(),
         );
+        let landing = inbox::landing_slots(height);
+        slots.insert(landing[0], U256::from(fixture.snapshot.forced_inclusion_head) << 96);
+        slots.insert(landing[1], fixture.snapshot.checkpoint_hash.into());
+        slots.insert(landing[2], fixture.snapshot.checkpoint_comet_hash.into());
         let state = State::new(
             accounts
                 .into_iter()
@@ -1034,17 +1045,17 @@ mod readiness {
         fixture.snapshot.l1_block_hash = raw.hash();
         fixture.snapshot.l1_header = raw.clone();
         fixture.snapshot.inbox_witness =
-            state.witness(fixture.params.inbox, &crate::l1::snapshot_slots());
+            state.witness(fixture.params.inbox, &crate::l1::snapshot_landing_slots(height));
         fixture.states.insert(number, state);
         fixture.l1_headers.insert(number, raw);
     }
 
     #[tokio::test]
     async fn no_backlog_has_no_publishable_blocks_or_urgent_flags() {
-        for checkpoint in [0, 20] {
+        for checkpoint in [0, 18] {
             let fixture = Arc::new(Fixture::new(checkpoint, checkpoint));
             let observed =
-                builder(fixture.clone(), limits(3)).observe(&fixture.snapshot).await.unwrap();
+                builder(fixture.clone(), limits(12)).observe(&fixture.snapshot).await.unwrap();
             assert_eq!(observed.decided_height, checkpoint);
             assert_eq!(observed.publishable_blocks, 0);
             assert!(!observed.force_backpressure);
@@ -1054,26 +1065,26 @@ mod readiness {
 
     #[tokio::test]
     async fn epoch_first_height_has_no_publication_urgency() {
-        let mut fixture = Fixture::new(0, 3);
+        let mut fixture = Fixture::new(0, 12);
         fixture.l1_headers.remove(&14);
         fixture.mismatch_statement.store(true, Ordering::Relaxed);
         let fixture = Arc::new(fixture);
         let observed =
-            builder(fixture.clone(), limits(3)).observe(&fixture.snapshot).await.unwrap();
-        assert_eq!(observed.decided_height, 3);
-        assert_eq!(observed.publishable_blocks, 3);
+            builder(fixture.clone(), limits(12)).observe(&fixture.snapshot).await.unwrap();
+        assert_eq!(observed.decided_height, 12);
+        assert_eq!(observed.publishable_blocks, 12);
         assert!(!observed.force_backpressure);
         assert!(!observed.force_epoch);
     }
 
     #[tokio::test]
     async fn pressure_uses_tip_authenticated_anchor_instead_of_latest_checkpoint() {
-        let mut fixture = Fixture::new(20, 20);
-        advance_checkpoint(&mut fixture, 19);
+        let mut fixture = Fixture::new(0, 17);
+        advance_checkpoint(&mut fixture, 6);
         let fixture = Arc::new(fixture);
         let observed =
-            builder(fixture.clone(), limits(3)).observe(&fixture.snapshot).await.unwrap();
-        assert_eq!(observed.publishable_blocks, 1);
+            builder(fixture.clone(), limits(12)).observe(&fixture.snapshot).await.unwrap();
+        assert_eq!(observed.publishable_blocks, 6);
         // U=20, tip=20, tip anchor CP=1: depth 19 forces publication despite latest CP=19.
         assert!(observed.force_backpressure);
         assert!(!observed.force_epoch);
@@ -1081,45 +1092,44 @@ mod readiness {
 
     #[tokio::test]
     async fn pressure_below_unsettled_cap_minus_one_allows_waiting() {
-        let mut fixture = Fixture::new(20, 20);
-        fixture.blocks.remove(&20);
-        fixture.headers.remove(&20);
-        advance_checkpoint(&mut fixture, 18);
+        let mut fixture = Fixture::new(0, 16);
+        advance_checkpoint(&mut fixture, 6);
         let fixture = Arc::new(fixture);
         let observed =
-            builder(fixture.clone(), limits(3)).observe(&fixture.snapshot).await.unwrap();
+            builder(fixture.clone(), limits(12)).observe(&fixture.snapshot).await.unwrap();
         // U=20, tip=19, tip anchor CP=1: depth 18 stays below the urgent threshold.
-        assert_eq!(observed.decided_height, 19);
-        assert_eq!(observed.publishable_blocks, 1);
+        assert_eq!(observed.decided_height, 16);
+        assert_eq!(observed.publishable_blocks, 6);
         assert!(!observed.force_backpressure);
         assert!(!observed.force_epoch);
     }
 
     #[tokio::test]
     async fn epoch_first_height_outside_blob_prefix_forces_publication_without_pressure() {
-        let fixture = Arc::new(Fixture::with_calldata(20, 26, 70_000));
+        let fixture = Arc::new(Fixture::with_calldata(18, 30, 70_000));
         let mut bound = limits(6);
         bound.max_blobs = 1;
         let observed = builder(fixture.clone(), bound).observe(&fixture.snapshot).await.unwrap();
-        assert_eq!(observed.decided_height, 26);
-        assert_eq!(observed.publishable_blocks, 1);
+        assert_eq!(observed.decided_height, 30);
+        assert_eq!(observed.publishable_blocks, 0);
         assert!(observed.force_epoch); // h_first(1)=24 is beyond the single-block prefix at 21.
         assert!(!observed.force_backpressure); // The tip anchor CP=20 gives depth 6 < 19.
-        let request = builder(fixture.clone(), bound)
-            .prepare(fixture.snapshot.clone())
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(request.batch.input.lastHeight, 21);
+        assert!(
+            builder(fixture.clone(), bound)
+                .prepare(fixture.snapshot.clone())
+                .await
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[tokio::test]
     async fn observation_counts_the_same_blob_and_codec_bounded_prefix_as_prepare() {
-        let fixture = Arc::new(Fixture::with_calldata(0, 3, 70_000));
-        let mut bound = limits(3);
+        let fixture = Arc::new(Fixture::with_calldata(0, 12, 70_000));
+        let mut bound = limits(12);
         bound.max_blobs = 1;
         let observed = builder(fixture.clone(), bound).observe(&fixture.snapshot).await.unwrap();
-        assert_eq!(observed.publishable_blocks, 1);
+        assert_eq!(observed.publishable_blocks, 0);
         let first = codec::encode(&[fixture.blocks[&1].clone()], &bound).unwrap();
         assert_eq!(blob::required_blobs(first.len()), 1);
         let list = abci::compression::zlib_inflate_exact(&first[1..], usize::MAX).unwrap();
@@ -1129,7 +1139,7 @@ mod readiness {
             builder(fixture.clone(), bound).observe(&fixture.snapshot).await,
             Err(LanderError::Capacity(_))
         ));
-        bound = limits(3);
+        bound = limits(12);
         bound.max_blocks = 2;
         assert_eq!(
             builder(fixture.clone(), bound)
@@ -1137,7 +1147,7 @@ mod readiness {
                 .await
                 .unwrap()
                 .publishable_blocks,
-            2
+            0
         );
         bound.max_message_bytes = 1;
         assert!(matches!(
@@ -1151,19 +1161,19 @@ mod readiness {
     #[tokio::test]
     async fn selection_within_budgets_matches_encoding_every_prefix() {
         for fixture in [
-            Fixture::new(0, 3),
-            Fixture::with_calldata(0, 3, 70_000),
-            Fixture::with_zero_calldata(0, 3, 150_000),
+            Fixture::new(0, 12),
+            Fixture::with_calldata(0, 12, 70_000),
+            Fixture::with_zero_calldata(0, 12, 120_000),
         ] {
             let fixture = Arc::new(fixture);
             for (max_blobs, max_payload_bytes) in [(1, 240_000), (2, 240_000), (2, 140_000)] {
-                let bound = Limits { max_blobs, max_payload_bytes, ..limits(3) };
-                let expected = scan_every_prefix(&fixture, &bound, 3);
+                let bound = Limits { max_blobs, max_payload_bytes, ..limits(12) };
+                let expected = scan_every_prefix(&fixture, &bound, 12);
                 let observed = builder(fixture.clone(), bound).observe(&fixture.snapshot).await;
                 if expected == 0 {
                     assert!(matches!(observed, Err(LanderError::Capacity(_))), "{bound:?}");
                 } else {
-                    assert_eq!(observed.unwrap().publishable_blocks, expected, "{bound:?}");
+                    assert_eq!(observed.unwrap().publishable_blocks, expected / 6 * 6, "{bound:?}");
                 }
             }
         }
@@ -1171,16 +1181,16 @@ mod readiness {
 
     #[tokio::test]
     async fn selection_stops_at_the_list_budget() {
-        let fixture = Arc::new(Fixture::with_zero_calldata(0, 3, 150_000));
-        let bound = Limits { max_blobs: 1, ..limits(3) };
-        let lists = prefix_lists(&fixture, &bound, 3);
+        let fixture = Arc::new(Fixture::with_zero_calldata(0, 12, 120_000));
+        let bound = Limits { max_blobs: 1, ..limits(12) };
+        let lists = prefix_lists(&fixture, &bound, 12);
         for (budget, expected) in [
-            (usize::MAX, 3),
-            (lists[2], 3),
-            (lists[2] - 1, 2),
-            (lists[1], 2),
-            (lists[1] - 1, 1),
-            (lists[0], 1),
+            (usize::MAX, 12),
+            (lists[11], 12),
+            (lists[11] - 1, 6),
+            (lists[5], 6),
+            (lists[5] - 1, 0),
+            (lists[0], 0),
         ] {
             let observed = builder(fixture.clone(), bound)
                 .with_selection_budgets(budget, usize::MAX)
@@ -1197,12 +1207,12 @@ mod readiness {
         assert!(matches!(error, LanderError::Capacity(_)), "{error}");
         assert!(error.to_string().contains("block 1"), "{error}");
         let request = builder(fixture.clone(), bound)
-            .with_selection_budgets(lists[1], usize::MAX)
+            .with_selection_budgets(lists[5], usize::MAX)
             .prepare(fixture.snapshot.clone())
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(request.batch.blocks.len(), 2);
+        assert_eq!(request.batch.blocks.len(), 6);
         let payload = blob::decode(request.batch.blobs.sidecar.blobs(), &bound).unwrap();
         assert_eq!(
             codec::decode(&payload, &bound).unwrap(),
@@ -1218,15 +1228,14 @@ mod readiness {
     #[tokio::test]
     async fn selection_stops_at_the_deflate_budget() {
         // Every prefix of these blocks exceeds one blob uncompressed, so each is deflated.
-        let fixture = Arc::new(Fixture::with_zero_calldata(0, 3, 150_000));
-        let bound = Limits { max_blobs: 1, ..limits(3) };
-        let lists = prefix_lists(&fixture, &bound, 3);
-        assert!(codec::payload_bound(lists[0]) > blob::PAYLOAD_BYTES_PER_BLOB);
-        let two = lists[0] + lists[1];
-        let three = two + lists[2];
-        // Sizing the first block is never refused.
+        let fixture = Arc::new(Fixture::with_zero_calldata(0, 12, 120_000));
+        let bound = Limits { max_blobs: 1, ..limits(12) };
+        let lists = prefix_lists(&fixture, &bound, 12);
+        assert!(codec::payload_bound(lists[1]) > blob::PAYLOAD_BYTES_PER_BLOB);
+        let six: usize = lists[1..6].iter().sum();
+        let twelve: usize = lists[1..].iter().sum();
         for (budget, expected) in
-            [(0, 1), (two - 1, 1), (two, 2), (three - 1, 2), (three, 3), (usize::MAX, 3)]
+            [(0, 0), (six - 1, 0), (six, 6), (twelve - 1, 6), (twelve, 12), (usize::MAX, 12)]
         {
             let observed = builder(fixture.clone(), bound)
                 .with_selection_budgets(usize::MAX, budget)
@@ -1236,34 +1245,34 @@ mod readiness {
             assert_eq!(observed.publishable_blocks, expected, "deflate budget {budget}");
         }
         // Prefixes whose worst-case payload fits are accepted without deflating anything.
-        let fixture = Arc::new(Fixture::with_calldata(0, 3, 70_000));
-        let lists = prefix_lists(&fixture, &limits(3), 3);
-        assert!(codec::payload_bound(lists[2]) <= limits(3).max_payload_bytes);
-        let observed = builder(fixture.clone(), limits(3))
+        let fixture = Arc::new(Fixture::with_calldata(0, 12, 10_000));
+        let lists = prefix_lists(&fixture, &limits(12), 12);
+        assert!(codec::payload_bound(lists[11]) <= limits(12).max_payload_bytes);
+        let observed = builder(fixture.clone(), limits(12))
             .with_selection_budgets(usize::MAX, 0)
             .observe(&fixture.snapshot)
             .await
             .unwrap();
-        assert_eq!(observed.publishable_blocks, 3);
+        assert_eq!(observed.publishable_blocks, 12);
     }
 
     #[tokio::test]
     async fn tip_body_and_certificate_are_authenticated_beyond_selected_prefix() {
-        let mut fixture = Fixture::new(20, 26);
+        let mut fixture = Fixture::new(18, 30);
         fixture.blocks.get_mut(&26).unwrap().block.data[0].push(0);
         let fixture = Arc::new(fixture);
         assert!(matches!(
             builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await,
             Err(LanderError::Safety(_))
         ));
-        let mut fixture = Fixture::new(20, 26);
+        let mut fixture = Fixture::new(18, 30);
         fixture
             .blocks
             .get_mut(&26)
             .unwrap()
             .commit
             .signatures
-            .fill(tendermint::block::CommitSig::BlockIdFlagAbsent);
+            .fill(crate::native::CommitSig::BlockIdFlagAbsent);
         let fixture = Arc::new(fixture);
         assert!(matches!(
             builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await,
@@ -1273,8 +1282,8 @@ mod readiness {
 
     #[tokio::test]
     async fn observation_rejects_certified_rpc_block_from_another_height() {
-        let mut fixture = Fixture::new(20, 26);
-        fixture.blocks.insert(21, fixture.blocks[&22].clone());
+        let mut fixture = Fixture::new(18, 30);
+        fixture.blocks.insert(19, fixture.blocks[&20].clone());
         let fixture = Arc::new(fixture);
         assert!(matches!(
             builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await,
@@ -1288,14 +1297,14 @@ mod readiness {
 
     #[tokio::test]
     async fn pressure_rejects_anchor_mpt_root_that_differs_from_certified_tip() {
-        let mut fixture = Fixture::new(20, 20);
-        advance_checkpoint(&mut fixture, 19);
+        let mut fixture = Fixture::new(18, 24);
+        advance_checkpoint(&mut fixture, 18);
         let state = fixture.states[&10].clone();
         fixture.states.insert(11, state.clone());
         fixture.l1_headers.insert(11, l1_header(11, &state, fixture.l1_headers[&10].hash()));
         let fixture = Arc::new(fixture);
         assert!(matches!(
-            builder(fixture.clone(), limits(3)).observe(&fixture.snapshot).await,
+            builder(fixture.clone(), limits(12)).observe(&fixture.snapshot).await,
             Err(LanderError::Safety(_))
         ));
     }
@@ -1305,20 +1314,29 @@ mod readiness {
 #[test]
 fn authenticates_301_members_from_registry_proof_through_comet_certificate() {
     use super::consensus::{committee, pair};
-    use crate::validate::{ValidationError, verify_commit};
+    use crate::{
+        native::CommitSig,
+        validate::{ValidationError, verify_commit},
+    };
     use abci::committee::{CommitteeError, verify_committee_witness_at_cutoff, verify_snapshot};
     use std::collections::BTreeSet;
-    use tendermint::block::CommitSig;
 
     const COUNT: usize = 301;
-    const CHAIN_ID: &str = "taiko-etna-167001-g0";
+    const CHAIN_ID: &str = "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4";
     let (params, seeded, keys) = committee(&[1; COUNT], 0);
     let entries = seeded.provenance.unwrap().witness.entries;
     assert_eq!(entries.len(), COUNT);
     assert_eq!(keys.len(), COUNT);
-    assert_eq!(entries.iter().map(|entry| entry.pubkey).collect::<BTreeSet<_>>().len(), COUNT);
     assert_eq!(
-        entries.iter().map(|entry| entry.reward_recipient).collect::<BTreeSet<_>>().len(),
+        entries.iter().map(|entry| entry.consensus_key().unwrap()).collect::<BTreeSet<_>>().len(),
+        COUNT
+    );
+    assert_eq!(
+        entries
+            .iter()
+            .map(|entry| entry.consensus_key().unwrap().address())
+            .collect::<BTreeSet<_>>()
+            .len(),
         COUNT
     );
     let snapshot = Snapshot { checkpoint_index: 0, l1_block: 1, entries: entries.clone() };
@@ -1328,7 +1346,7 @@ fn authenticates_301_members_from_registry_proof_through_comet_certificate() {
         params.registry,
         vec![
             (registry::length_slot(), U256::from(1)),
-            (checkpoint[0], U256::from(1) | (U256::from(COUNT) << 64)),
+            (checkpoint[0], U256::from(1) | (U256::from(COUNT) << 48)),
             (checkpoint[1], entries_root(&entries).into()),
         ],
     )]);
@@ -1350,17 +1368,18 @@ fn authenticates_301_members_from_registry_proof_through_comet_certificate() {
         authenticate(CommitteeState { record: verified_record, members }, 0, hash, &params)
             .unwrap();
     assert_eq!(authenticated.validators.validators().len(), COUNT);
-    assert_eq!(authenticated.validators.total_voting_power().value(), 301);
+    assert_eq!(authenticated.validators.total_voting_power(), 301);
 
     // The member beyond the old 300-member boundary is covered by the proven payout root.
     let mut tampered = witness.clone();
-    tampered.entries[COUNT - 1].reward_recipient = Address::repeat_byte(0x88);
+    tampered.entries[COUNT - 1].ck_x = B256::repeat_byte(0x88);
     assert!(matches!(
         verify_committee_witness_at_cutoff(state.root, 1, &params, &tampered, 0),
         Err(CommitteeError::EntriesRootMismatch { .. })
     ));
     let mut tampered_set = authenticated.state.clone();
-    tampered_set.members[COUNT - 1].reward_recipient = Address::repeat_byte(0x88);
+    tampered_set.members[COUNT - 1].pubkey =
+        public_key(&SigningKey::from_slice(&[99; 32]).unwrap());
     assert!(matches!(
         authenticate(tampered_set, 0, hash, &params),
         Err(crate::committee::CommitteeError::Invalid("member root mismatch"))

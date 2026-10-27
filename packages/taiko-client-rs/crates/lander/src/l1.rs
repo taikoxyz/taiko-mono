@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 use crate::{
-    contracts::IEtnaInbox::{LandInput, hashLandStatementCall},
+    contracts::IEtnaInbox,
     error::{LanderError, Result, sanitized_rpc_error},
     types::LandingSnapshot,
 };
@@ -77,14 +77,8 @@ pub trait LandingSource: Send + Sync {
         snapshot: &LandingSnapshot,
         anchors: &[AnchorState],
     ) -> Result<Vec<RawL1Header>>;
-    /// Ask the executing Inbox proxy to hash the identical public V10 statement.
-    async fn statement_hash(
-        &self,
-        snapshot: &LandingSnapshot,
-        input: &LandInput,
-        reference_hash: B256,
-        blob_hashes: &[B256],
-    ) -> Result<B256>;
+    /// Authenticate V1 initialization/configuration and identify the executing deployment.
+    async fn deployment_identity(&self, snapshot: &LandingSnapshot) -> Result<B256>;
     /// The canonical L1 hash at a requested number, including receipt blocks.
     async fn canonical_hash(&self, number: u64) -> Result<B256>;
     /// Reject a reference that is no longer canonical, past, or retained.
@@ -213,6 +207,21 @@ impl LandingSource for RpcLandingSource {
                     continue;
                 }
             }
+            let storage = verify_account_witness(raw.state_root(), &witness, &snapshot_slots())
+                .map_err(|e| LanderError::Safety(format!("Inbox snapshot proof: {e}")))?;
+            let height = word_u48(
+                storage.get(inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT)).expect("verified slot"),
+                0,
+            );
+            let witness = self
+                .anchors
+                .account_witness_hash_canonical(
+                    self.params.inbox,
+                    &snapshot_landing_slots(height),
+                    raw.hash(),
+                )
+                .await
+                .map_err(anchor_error)?;
             return decode_snapshot(raw, witness, l1_chain_id, l2_chain_id, &self.params);
         }
     }
@@ -361,31 +370,66 @@ impl LandingSource for RpcLandingSource {
         Ok(headers)
     }
 
-    async fn statement_hash(
-        &self,
-        snapshot: &LandingSnapshot,
-        input: &LandInput,
-        reference_hash: B256,
-        blob_hashes: &[B256],
-    ) -> Result<B256> {
-        let call = hashLandStatementCall {
-            _generation: snapshot.generation,
-            _parentHeight: snapshot.checkpoint_height,
-            _parentHash: snapshot.checkpoint_hash,
-            _forcedInclusionHeadBefore: snapshot.forced_inclusion_head_u48()?,
-            _input: input.clone(),
-            _l1ReferenceBlockHash: reference_hash,
-            _blobHashes: blob_hashes.to_vec(),
-        };
-        let tx = TransactionRequest::default().to(snapshot.inbox).input(call.abi_encode().into());
-        let bytes = self
+    /// Read actual current ABI boundaries at one canonical L1 block; no hashing RPC exists.
+    async fn deployment_identity(&self, snapshot: &LandingSnapshot) -> Result<B256> {
+        authenticate_snapshot(snapshot, &self.params)?;
+        let mut identity = Vec::new();
+        macro_rules! read {
+            ($call:ident) => {{
+                let call = IEtnaInbox::$call {};
+                let bytes = self
+                    .l1
+                    .call(
+                        TransactionRequest::default()
+                            .to(snapshot.inbox)
+                            .input(call.abi_encode().into()),
+                    )
+                    .block(BlockId::hash_canonical(snapshot.l1_block_hash))
+                    .await
+                    .map_err(rpc_error)?;
+                let value = IEtnaInbox::$call::abi_decode_returns(&bytes)
+                    .map_err(|_| LanderError::Configuration("invalid Inbox ABI response".into()))?;
+                identity.extend_from_slice(&bytes);
+                value
+            }};
+        }
+        let version = read!(VERSIONCall);
+        let initialized = read!(isInitializedCall);
+        let chain = read!(l2ChainIdCall);
+        let registry = read!(stakingRegistryCall);
+        let config = read!(committeeConfigHashCall);
+        if version != 1 ||
+            !initialized ||
+            chain != snapshot.l2_chain_id ||
+            registry != snapshot.registry ||
+            config != snapshot.committee_config_hash
+        {
+            return Err(LanderError::Configuration(
+                "Inbox V1 deployment/configuration mismatch".into(),
+            ));
+        }
+        let implementation = read!(implCall);
+        if implementation.is_zero() {
+            return Err(LanderError::Configuration("Inbox implementation address is zero".into()));
+        }
+        let _ = read!(proofVerifierCall);
+        let _ = read!(signalServiceCall);
+        let _ = read!(maxBatchBlocksCall);
+        let _ = read!(forcedInclusionFeeInGweiCall);
+        let _ = read!(forcedInclusionFeeDoubleThresholdCall);
+        let _ = read!(protocolFeeRecipientCall);
+        let code = self
             .l1
-            .call(tx)
-            .block(BlockId::hash_canonical(snapshot.l1_block_hash))
+            .get_code_at(implementation)
+            .block_id(BlockId::hash_canonical(snapshot.l1_block_hash))
             .await
             .map_err(rpc_error)?;
-        hashLandStatementCall::abi_decode_returns(&bytes)
-            .map_err(|e| LanderError::Configuration(format!("Inbox statement helper: {e}")))
+        if code.is_empty() {
+            return Err(LanderError::Configuration("Inbox implementation has no code".into()));
+        }
+        identity.extend_from_slice(alloy_primitives::keccak256(code).as_slice());
+        identity.extend_from_slice(snapshot.inbox_witness.code_hash.as_slice());
+        Ok(alloy_primitives::keccak256(identity))
     }
 
     async fn canonical_hash(&self, number: u64) -> Result<B256> {
@@ -440,6 +484,15 @@ pub fn snapshot_slots() -> Vec<B256> {
     slots
 }
 
+/// Fixed Inbox facts plus the exact retained landing record at the supplied checkpoint.
+pub fn snapshot_landing_slots(height: u64) -> Vec<B256> {
+    let mut slots = snapshot_slots();
+    slots.extend(inbox::landing_slots(height));
+    slots.sort_unstable();
+    slots.dedup();
+    slots
+}
+
 /// Decode all snapshot fields from an address-bound proof under the exact raw canonical header.
 fn decode_snapshot(
     raw: RawL1Header,
@@ -451,8 +504,15 @@ fn decode_snapshot(
     if witness.address != params.inbox {
         return Err(LanderError::Safety("snapshot proof names another Inbox".into()));
     }
-    let storage = verify_account_witness(raw.state_root(), &witness, &snapshot_slots())
-        .map_err(|e| LanderError::Safety(format!("Inbox snapshot proof: {e}")))?;
+    let height = witness
+        .storage
+        .iter()
+        .find(|proof| proof.slot == inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT))
+        .map(|proof| word_u48(proof.value, 0))
+        .ok_or_else(|| LanderError::Safety("snapshot checkpoint slot missing".into()))?;
+    let storage =
+        verify_account_witness(raw.state_root(), &witness, &snapshot_landing_slots(height))
+            .map_err(|e| LanderError::Safety(format!("Inbox snapshot proof: {e}")))?;
     let word = |slot| storage.get(inbox::slot(slot)).expect("verified snapshot slot");
     if word(inbox::STATUS) != U256::from(inbox::ETNA_ACTIVE) {
         return Err(LanderError::Configuration("Inbox is not active".into()));
@@ -465,14 +525,14 @@ fn decode_snapshot(
     let forced_config = word(inbox::FORCED_INCLUSION_CONFIG);
     let genesis = GenesisRecord {
         committee_config_hash: config,
-        genesis_height: word_u64(packed, 0),
-        l1_0: word_u64(packed, 64),
-        epoch_len: word_u64(packed, 128),
+        genesis_height: word_u48(packed, 0),
+        l1_0: word_u48(packed, 48),
+        epoch_len: word_u48(packed, 96),
         genesis_hash: word(inbox::GENESIS_BLOCK_HASH).into(),
         genesis_state_root: word(inbox::GENESIS_STATE_ROOT).into(),
         genesis_cutoff: word_u64(word(inbox::GENESIS_CUTOFF), 0),
-        forced_inclusion_delay: word_u64(forced_config, 0),
-        max_anchor_age: word_u64(forced_config, 64),
+        forced_inclusion_delay: word_u48(forced_config, 0),
+        max_anchor_age: word_u48(forced_config, 48),
     };
     let bootstrap: B256 = word(inbox::GENESIS_COMMITTEE_HASH).into();
     if genesis.genesis_height != 0 ||
@@ -485,10 +545,47 @@ fn decode_snapshot(
     {
         return Err(LanderError::Configuration("Inbox genesis record is invalid".into()));
     }
+    let (verified_genesis, _, verified_bootstrap) = abci::l1::witness::verify_genesis_inbox(
+        raw.state_root(),
+        &project_witness(&witness, &inbox::genesis_slots()),
+        params.inbox,
+    )
+    .map_err(|e| LanderError::Safety(format!("snapshot genesis/origin proof: {e}")))?;
+    if verified_genesis != genesis ||
+        verified_bootstrap != bootstrap ||
+        packed >> 144 != U256::ZERO ||
+        forced_config >> 96 != U256::ZERO ||
+        word(inbox::LAST_CHECKPOINT_HEIGHT) >> 48 != U256::ZERO ||
+        word(inbox::RECOVERY_GENERATION) >> 48 != U256::ZERO ||
+        word(inbox::GENESIS_CUTOFF) >> 48 != U256::ZERO
+    {
+        return Err(LanderError::Safety(
+            "snapshot genesis or packed storage identity mismatch".into(),
+        ));
+    }
     Schedule::from_genesis(&genesis)
         .validate(params.unsettled_cap())
         .map_err(|e| LanderError::Configuration(format!("Inbox epoch parameters: {e}")))?;
     let head_tail = word(inbox::FORCED_INCLUSION_HEAD_TAIL);
+    let slots = inbox::landing_slots(height);
+    let landing = storage.get(slots[0]).expect("verified landing slot");
+    let el_hash: B256 = storage.get(slots[1]).expect("verified landing slot").into();
+    let comet_hash: B256 = storage.get(slots[2]).expect("verified landing slot").into();
+    let generation = word_u48(word(inbox::RECOVERY_GENERATION), 0);
+    if landing >> 144 != U256::ZERO ||
+        head_tail >> 96 != U256::ZERO ||
+        generation != 0 ||
+        height % 6 != 0 ||
+        el_hash != B256::from(word(inbox::LAST_CHECKPOINT_HASH)) ||
+        word_u48(landing, 48) != generation ||
+        word_u48(landing, 96) != word_u48(head_tail, 0) ||
+        (height == 0 && (word_u48(landing, 0) != 0 || !comet_hash.is_zero())) ||
+        (height > 0 && (word_u48(landing, 0) >= height || comet_hash.is_zero()))
+    {
+        return Err(LanderError::Safety(
+            "invalid checkpoint landing record or unsupported generation".into(),
+        ));
+    }
     Ok(LandingSnapshot {
         l1_block_hash: raw.hash(),
         l1_block_number: raw.number(),
@@ -499,6 +596,7 @@ fn decode_snapshot(
         generation: word_u64(word(inbox::RECOVERY_GENERATION), 0),
         checkpoint_height: word_u64(word(inbox::LAST_CHECKPOINT_HEIGHT), 0),
         checkpoint_hash: word(inbox::LAST_CHECKPOINT_HASH).into(),
+        checkpoint_comet_hash: comet_hash,
         forced_inclusion_head: word_u48(head_tail, 0),
         forced_inclusion_tail: word_u48(head_tail, 48),
         genesis,
