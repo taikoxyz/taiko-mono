@@ -79,8 +79,8 @@ timeout_commit = "{timeout_commit}ms"
 /// One validator of a CometBFT validator set.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CmtValidator {
-    /// The Ed25519 public key.
-    pub pubkey: B256,
+    /// Canonical native compressed consensus key.
+    pub pubkey: abci::key::ConsensusKey,
     /// The voting power.
     pub power: u64,
 }
@@ -165,9 +165,13 @@ impl CmtClient {
             .context("validators: no array")?
             .iter()
             .map(|v| {
+                ensure!(
+                    v["pub_key"]["type"] == "tendermint/PubKeySecp256k1eth",
+                    "native validator key type required"
+                );
                 let key = STANDARD.decode(v["pub_key"]["value"].as_str().context("pub_key")?)?;
                 Ok(CmtValidator {
-                    pubkey: B256::try_from(key.as_slice()).context("32-byte key")?,
+                    pubkey: abci::key::ConsensusKey::from_slice(&key)?,
                     power: str_u64(&v["voting_power"])?,
                 })
             })

@@ -437,3 +437,33 @@ func TestMandatoryCanonicalCometCheckpointHash(t *testing.T) {
 		})
 	}
 }
+
+// A timeout must be observable even when the app never published a closed state.
+func TestDenialSignalIncludesTimeoutWithoutChangingHRS(t *testing.T) {
+	path := control(t, func(map[string]any) any { time.Sleep(100 * time.Millisecond); return snapshot(true) })
+	g := armed(path)
+	g.timeout = 10 * time.Millisecond
+	g.denialPath = filepath.Join(t.TempDir(), "denial.json")
+	signer, _, state := filePV(t)
+	before, _ := os.ReadFile(state)
+	for sequence := uint64(1); sequence <= 2; sequence++ {
+		_, err := g.handle(signer, voteRequest(tm.PrevoteType, 0, true), chain)
+		if err == nil {
+			t.Fatal("timeout authorized a signature")
+		}
+		data, err := os.ReadFile(g.denialPath)
+		if err != nil {
+			t.Fatalf("timeout must publish denial before returning: %v", err)
+		}
+		var event struct {
+			Sequence uint64 `json:"sequence"`
+		}
+		if err := json.Unmarshal(data, &event); err != nil || event.Sequence != sequence {
+			t.Fatalf("denial sequence: %s %v", data, err)
+		}
+	}
+	after, _ := os.ReadFile(state)
+	if !bytes.Equal(before, after) {
+		t.Fatal("timeout changed authoritative HRS")
+	}
+}

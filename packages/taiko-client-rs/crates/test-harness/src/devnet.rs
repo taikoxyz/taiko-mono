@@ -42,10 +42,8 @@ pub struct DevnetSpec {
     pub initial_validators: usize,
     /// `L`: epoch length in L2 blocks.
     pub epoch_len: u64,
-    /// `D_MAX`.
-    pub d_max: u64,
-    /// `MARGIN_V`.
-    pub margin_v: u64,
+    /// Direct unsettled block limit U, a positive multiple of six.
+    pub unsettled_limit: u64,
     /// CometBFT `timeout_commit`, in milliseconds.
     pub timeout_commit_ms: u64,
     /// `forcedInclusionDelay`, in seconds, planted at Inbox slot 282.
@@ -55,15 +53,14 @@ pub struct DevnetSpec {
 }
 
 impl Default for DevnetSpec {
-    /// One validator, `L = 20`, `D_MAX = 12`, `MARGIN_V = 2`, 1 s commits,
+    /// One validator, `L = 20`, direct `U = 12`, 1 s commits,
     /// forced inclusion delay 1 h, maximum anchor age 2 h, fake lander advancing checkpoints.
     fn default() -> Self {
         Self {
             validators: 1,
             initial_validators: 1,
             epoch_len: 20,
-            d_max: 12,
-            margin_v: 2,
+            unsettled_limit: 12,
             timeout_commit_ms: 1000,
             forced_inclusion_delay: 3_600,
             max_anchor_age: 7_200,
@@ -268,8 +265,8 @@ impl Devnet {
     /// Docker reports an error; callers must not read or replace its store until this succeeds.
     pub async fn node_stop(&mut self, i: usize) -> Result<()> {
         let name = self.cmt_container(i);
-        let stopped = docker(&["stop", "--time", "10", &name]).await;
         self.signers[i].stop();
+        let stopped = docker(&["stop", "--time", "10", &name]).await;
         self.app_stop(i).await;
         stopped?;
         let exit = docker(&["inspect", "--format", "{{.State.ExitCode}}", &name]).await?;
@@ -298,6 +295,7 @@ impl Devnet {
     /// tests can observe an app safety halt instead of waiting for an RPC that cannot start.
     pub async fn cmt_restart_begin(&self, i: usize) -> Result<()> {
         let name = self.cmt_container(i);
+        self.signers[i].stop();
         docker(&["restart", "-t", "10", &name]).await?;
         self.signers[i].start(host_port(&name, 26659).await?)?;
         self.cmt[i].set_url(local_url(host_port(&name, 26657).await?)?);

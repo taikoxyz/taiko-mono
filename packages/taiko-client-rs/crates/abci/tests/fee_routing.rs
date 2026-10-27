@@ -1,6 +1,6 @@
 //! Real EL acceptance: missing custom genesis and incorrect fee recipients must fail.
 use alloy_eips::{BlockId, BlockNumberOrTag};
-use alloy_primitives::{Address, U256, address};
+use alloy_primitives::{Address, U256};
 use alloy_provider::Provider;
 use anyhow::Context;
 use std::time::Duration;
@@ -17,28 +17,20 @@ async fn fee_routing_on_the_custom_genesis() -> anyhow::Result<()> {
     devnet.stop().await
 }
 
-/// The custom genesis is deterministic and binds the vault to this Inbox; a plain transfer pays
-/// the vault its base fee and the proposer its tip.
+/// The alloc-only custom genesis is deterministic; a plain transfer
+/// pays all base fees and tips directly to the beneficiary.
 async fn genesis_and_transfer(devnet: &Devnet) -> anyhow::Result<()> {
     let l2 = devnet.l2_provider(0);
-    let genesis = test_harness::EtnaGenesis::build(devnet.l1(), devnet.params().inbox).await?;
-    let repeat = test_harness::EtnaGenesis::build(devnet.l1(), devnet.params().inbox).await?;
+    let genesis = test_harness::EtnaGenesis::build()?;
+    let repeat = test_harness::EtnaGenesis::build()?;
     assert_eq!(genesis.json, repeat.json);
-    let different =
-        test_harness::EtnaGenesis::build(devnet.l1(), Address::repeat_byte(0xab)).await?;
-    assert_ne!(
-        genesis.hash, different.hash,
-        "constructor Inbox must change real runtime and genesis"
-    );
-    assert_ne!(genesis.state_root, different.state_root);
+    genesis.verify(&l2).await?;
     eprintln!(
-        "custom genesis hash={} state_root={} json_keccak={} inbox={}",
+        "alloc-only genesis hash={} state_root={} json_keccak={}",
         genesis.hash,
         genesis.state_root,
-        keccak256(&genesis.json),
-        devnet.params().inbox
+        keccak256(&genesis.json)
     );
-    let vault = address!("1670010000000000000000000000000000010001");
     let recipient = Address::repeat_byte(0x91);
     let tx = send_transfer(&l2, &dev_signer(), recipient, U256::from(123), 0).await?;
     let receipt = wait_until(
@@ -53,41 +45,10 @@ async fn genesis_and_transfer(devnet: &Devnet) -> anyhow::Result<()> {
     let block = l2.get_block_by_number(BlockNumberOrTag::Number(h)).await?.context("block")?;
     let before = BlockId::number(h - 1);
     let after = BlockId::number(h);
-    let fee =
-        U256::from(block.header.base_fee_per_gas.unwrap()) * U256::from(block.header.gas_used);
     assert_eq!(
-        l2.get_balance(vault).block_id(after).await? -
-            l2.get_balance(vault).block_id(before).await?,
-        fee
-    );
-    let proposer = block.header.beneficiary;
-    assert_ne!(proposer, vault);
-    assert_eq!(
-        l2.get_balance(proposer).block_id(after).await? -
-            l2.get_balance(proposer).block_id(before).await?,
-        U256::from(receipt.gas_used) *
-            U256::from(
-                receipt.effective_gas_price - u128::from(block.header.base_fee_per_gas.unwrap())
-            )
-    );
-    assert!(
-        !l2.get_code_at(vault).await?.is_empty(),
-        "custom genesis must install the actual immutable vault runtime"
-    );
-    let output = l2
-        .call(
-            alloy::rpc::types::TransactionRequest::default().to(vault).input(
-                alloy_primitives::Bytes::copy_from_slice(
-                    &alloy_primitives::keccak256("l1Inbox()")[..4],
-                )
-                .into(),
-            ),
-        )
-        .await?;
-    assert_eq!(
-        output.as_ref(),
-        alloy_primitives::U256::from_be_slice(devnet.params().inbox.as_slice()).to_be_bytes::<32>(),
-        "custom genesis must bind the actual vault to this L1 Inbox"
+        l2.get_balance(block.header.beneficiary).block_id(after).await? -
+            l2.get_balance(block.header.beneficiary).block_id(before).await?,
+        U256::from(receipt.gas_used) * U256::from(receipt.effective_gas_price)
     );
     Ok(())
 }
@@ -139,8 +100,8 @@ async fn submit(l2: &RootProvider, tx: TxEnvelope) -> anyhow::Result<Transaction
     .await
 }
 
-/// No claim or forced credit is present unless explicitly supplied. Pin every balance to
-/// the transaction block and subtract the proposer's ordinary transfer income separately.
+/// No unrelated transfer or forced credit is present unless explicitly supplied. Pin every balance
+/// to the transaction block and subtract the proposer's ordinary transfer income separately.
 async fn check_fees(
     d: &Devnet,
     receipt: &TransactionReceipt,
@@ -154,29 +115,18 @@ async fn check_fees(
     assert_eq!(h.gas_used, receipt.gas_used, "one deliberately submitted transaction per block");
     let before = BlockId::number(height - 1);
     let after = BlockId::number(height);
-    let vault = d.params().fee_vault;
-    let credit = l2.get_balance(vault).block_id(after).await? -
-        l2.get_balance(vault).block_id(before).await?;
     let base = U256::from(h.base_fee_per_gas.unwrap()) * U256::from(h.gas_used);
-    assert_eq!(
-        credit - movements.forced_credit,
-        base,
-        "header basefee times charged gas is the fee credit"
-    );
-    if !movements.forced_credit.is_zero() {
-        assert_ne!(credit, base, "balance delta includes non-fee income and cannot define rewards");
-    }
     let tips = U256::from(receipt.effective_gas_price - u128::from(h.base_fee_per_gas.unwrap())) *
         U256::from(receipt.gas_used);
     let proposer = h.beneficiary;
-    assert_eq!(proposer, d.keys()[0].reward_recipient());
-    assert_ne!(proposer, vault);
+    assert_eq!(proposer, d.keys()[0].beneficiary());
     assert_ne!(proposer, dev_signer().address());
     assert_eq!(
         l2.get_balance(proposer).block_id(after).await? -
             l2.get_balance(proposer).block_id(before).await? -
-            movements.proposer_transfer,
-        tips
+            movements.proposer_transfer -
+            movements.forced_credit,
+        base + tips
     );
     assert_eq!(
         l2.get_balance(dev_signer().address()).block_id(before).await? -
@@ -235,7 +185,7 @@ struct Movements {
 }
 
 /// Creation, value transfers, a revert, the SSTORE refund, the calldata floor, an EIP-7702
-/// authorization and Ether force-sent to the vault each route fees exactly.
+/// authorization and Ether force-sent to the beneficiary each route fees exactly.
 async fn fee_paths(d: &Devnet) -> anyhow::Result<()> {
     let l2 = d.l2_provider(0);
     let artifact: Value =
@@ -259,8 +209,7 @@ async fn fee_paths(d: &Devnet) -> anyhow::Result<()> {
         l2.get_balance(recipient).block_id(BlockId::number(paid.block_number.unwrap())).await?,
         value
     );
-    let proposer_paid =
-        send(&l2, d.keys()[0].reward_recipient().into(), Bytes::new(), value).await?;
+    let proposer_paid = send(&l2, d.keys()[0].beneficiary().into(), Bytes::new(), value).await?;
     check_fees(
         d,
         &proposer_paid,
@@ -347,7 +296,7 @@ async fn fee_paths(d: &Devnet) -> anyhow::Result<()> {
     );
     let mut force_input = selector("forceCredit(address)").to_vec();
     force_input.extend_from_slice(
-        &U256::from_be_slice(d.params().fee_vault.as_slice()).to_be_bytes::<32>(),
+        &U256::from_be_slice(d.keys()[0].pubkey().address().as_slice()).to_be_bytes::<32>(),
     );
     let forced = send(&l2, fixture.into(), force_input.into(), value).await?;
     assert!(forced.status());

@@ -15,7 +15,7 @@ struct ForcedLog {
     address: Address,
     /// Event signature and indexed queue index, with no additional indexed arguments.
     topics: Vec<B256>,
-    /// ABI-encoded nonindexed transaction bytes.
+    /// ABI-encoded nonindexed transaction bytes and admission fee in wei.
     data: Bytes,
     /// Numeric canonical block selector used for acquisition.
     block_number: U64,
@@ -35,7 +35,8 @@ pub(crate) async fn fetch(
     if index >= 1 << 48 {
         return Err(malformed("queue index does not fit uint48"));
     }
-    let topics = [keccak256("ForcedInclusionSaved(uint48,bytes)"), B256::from(U256::from(index))];
+    let topics =
+        [keccak256("ForcedInclusionSaved(uint48,bytes,uint256)"), B256::from(U256::from(index))];
     let block = U64::from(l1_block);
     let filter = json!({"address": inbox, "fromBlock": block, "toBlock": block, "topics": topics});
     let response: Value =
@@ -61,24 +62,25 @@ pub(crate) async fn fetch(
     decode_bytes(&log.data)
 }
 
-/// Decodes the sole dynamic bytes event argument with bounded length and canonical ABI padding.
+/// Decodes the current `(bytes,uint256)` event tuple with bounded length and canonical ABI.
+/// The admission fee is a full uint256; consensus authenticates the transaction hash separately.
 fn decode_bytes(data: &[u8]) -> Result<Bytes, L1Error> {
-    if data.len() < 64 || data[..32] != U256::from(32).to_be_bytes::<32>() {
-        return Err(malformed("forced event bytes offset must be 32"));
+    if data.len() < 96 || data[..32] != U256::from(64).to_be_bytes::<32>() {
+        return Err(malformed("forced event bytes offset must be 64"));
     }
-    let length = U256::from_be_slice(&data[32..64]);
+    let length = U256::from_be_slice(&data[64..96]);
     if length > U256::from(MAX_FORCED_TX_BYTES) {
         return Err(malformed("forced event transaction exceeds 8192 bytes"));
     }
     let length = length.to::<usize>();
-    let end = 64 + length;
-    let padded_end = 64 + length.div_ceil(32) * 32;
+    let end = 96 + length;
+    let padded_end = 96 + length.div_ceil(32) * 32;
     if data.len() != padded_end || data[end..].iter().any(|byte| *byte != 0) {
         return Err(malformed(
             "forced event bytes are truncated, have trailing data or nonzero padding",
         ));
     }
-    Ok(Bytes::copy_from_slice(&data[64..end]))
+    Ok(Bytes::copy_from_slice(&data[96..end]))
 }
 
 /// Labels inconsistent forced event responses without converting them to skip decisions.
@@ -99,16 +101,17 @@ mod tests {
     const BLOCK: u64 = 123;
 
     fn encoded(bytes: &[u8]) -> Bytes {
-        let mut data = Vec::from(U256::from(32).to_be_bytes::<32>());
+        let mut data = Vec::from(U256::from(64).to_be_bytes::<32>());
+        data.extend_from_slice(&U256::from(123_000_000_000u64).to_be_bytes::<32>());
         data.extend_from_slice(&U256::from(bytes.len()).to_be_bytes::<32>());
         data.extend_from_slice(bytes);
-        data.resize(64 + bytes.len().div_ceil(32) * 32, 0);
+        data.resize(96 + bytes.len().div_ceil(32) * 32, 0);
         data.into()
     }
 
     fn log(bytes: &[u8]) -> Value {
         json!({ "address": INBOX, "blockNumber": "0x7b", "removed": false,
-            "topics": [keccak256("ForcedInclusionSaved(uint48,bytes)"), B256::from(U256::from(INDEX))],
+            "topics": [keccak256("ForcedInclusionSaved(uint48,bytes,uint256)"), B256::from(U256::from(INDEX))],
             "data": encoded(bytes) })
     }
 
@@ -161,7 +164,7 @@ mod tests {
                 request["params"],
                 json!([{
                     "fromBlock":"0x7b", "toBlock":"0x7b", "address":INBOX,
-                    "topics":[keccak256("ForcedInclusionSaved(uint48,bytes)"), B256::from(U256::from(INDEX))]
+                    "topics":[keccak256("ForcedInclusionSaved(uint48,bytes,uint256)"), B256::from(U256::from(INDEX))]
                 }])
             );
         }
@@ -178,11 +181,14 @@ mod tests {
             ("blockNumber", json!("0x7c")),
             ("blockNumber", Value::Null),
             ("topics", json!([B256::ZERO, B256::from(U256::from(INDEX))])),
-            ("topics", json!([keccak256("ForcedInclusionSaved(uint48,bytes)"), B256::ZERO])),
+            (
+                "topics",
+                json!([keccak256("ForcedInclusionSaved(uint48,bytes,uint256)"), B256::ZERO]),
+            ),
             (
                 "topics",
                 json!([
-                    keccak256("ForcedInclusionSaved(uint48,bytes)"),
+                    keccak256("ForcedInclusionSaved(uint48,bytes,uint256)"),
                     B256::from(U256::from(INDEX)),
                     B256::ZERO
                 ]),
@@ -207,11 +213,11 @@ mod tests {
     #[tokio::test]
     async fn forced_tx_rejects_noncanonical_and_out_of_bounds_abi() {
         let mut bad_offset = encoded(&[2]).to_vec();
-        bad_offset[31] = 64;
+        bad_offset[31] = 32;
         let mut huge_length = encoded(&[2]).to_vec();
-        huge_length[32] = 1;
+        huge_length[64] = 1;
         let mut bad_padding = encoded(&[2]).to_vec();
-        bad_padding[95] = 1;
+        bad_padding[127] = 1;
         let mut trailing = encoded(&[2]).to_vec();
         trailing.extend_from_slice(&[0; 32]);
         let mut truncated = encoded(&[2]).to_vec();

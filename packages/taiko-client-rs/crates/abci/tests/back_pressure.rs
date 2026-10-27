@@ -1,9 +1,5 @@
-//! Docker scenario: with `lastCheckpoint` frozen on L1 the chain stops at the unsettled depth
-//! `U = D_MAX − MARGIN_V`, and a planted advance resumes it.
-//!
-//! The defaults `D_MAX = 12`, `MARGIN_V = 2` give `U = 10`, comfortably above the ~5–6 blocks the
-//! running fake lander's checkpoint trails the head by (its own lag plus L1 finality), so only
-//! the paused lander can stop the chain.
+//! Docker scenario: freezing the L1 checkpoint stops the chain at direct U=12;
+//! resuming checkpoint updates restores progress without changing epoch scheduling.
 
 use std::{
     collections::BTreeSet,
@@ -24,7 +20,7 @@ async fn back_pressure_stops_at_the_unsettled_cap() -> anyhow::Result<()> {
     let spec = DevnetSpec::default();
     let devnet = Devnet::start(spec.clone()).await?;
     let cap = devnet.params().unsettled_cap();
-    assert_eq!(cap, spec.d_max - spec.margin_v);
+    assert_eq!(cap, spec.unsettled_limit);
     devnet.wait_for_height(0, 8, Duration::from_secs(60)).await?;
 
     // Freeze lastCheckpoint: pause the lander (waiting out a landing in flight).

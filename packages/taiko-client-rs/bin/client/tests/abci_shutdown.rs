@@ -17,6 +17,7 @@ use tokio::{
 async fn rpc(Json(request): Json<Value>) -> Json<Value> {
     let result = match request["method"].as_str() {
         Some("eth_chainId") => json!(format!("{:#x}", 167001)),
+        Some("eth_getBlockByNumber") => Value::Null,
         Some("engine_exchangeCapabilities") => json!(rpc::auth::REQUIRED_ENGINE_METHODS),
         other => panic!("unexpected startup RPC: {other:?}"),
     };
@@ -57,6 +58,8 @@ async fn abci_sigterm_closes_live_connections_and_exits() -> Result<()> {
     let mut child = Command::new(env!("CARGO_BIN_EXE_taiko-client"))
         .args([
             "abci",
+            "--fee-recipient",
+            "0x7777777777777777777777777777777777777777",
             "--l1.http",
             &endpoint,
             "--l2.http",

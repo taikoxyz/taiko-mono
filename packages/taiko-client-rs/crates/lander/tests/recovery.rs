@@ -32,10 +32,10 @@ async fn lander_pending_reference_crosses_blockhash_window() -> Result<()> {
     let fixture = ContractFixture::deploy().await?;
     let p = &fixture.anvil.provider;
     let mut chain = FixtureChain::new(&fixture).await?;
-    chain.extend(&fixture, 3).await?;
-    let request = chain.prepare(&fixture, 3, SidecarMode::Eip7594).await?;
+    chain.extend(&fixture, 6).await?;
+    let request = chain.prepare(&fixture, 6, SidecarMode::Eip7594).await?;
     fixture.expect_statement(request.batch.statement_hash).await?;
-    let reference = request.batch.input.l1ReferenceBlockNumber;
+    let reference = request.batch.input.l1ReferenceBlockNumber.to::<u64>();
     let reference_hash =
         keccak256(request.batch.reference_headers.first().context("reference header")?);
     let history = address!("0000f90827f1c53a10cb7a02335b175320002935");
@@ -74,7 +74,7 @@ async fn lander_pending_reference_crosses_blockhash_window() -> Result<()> {
         "a canonical available reference must survive the resolver branch change; gas used {}",
         mined.gas_used
     );
-    assert_eq!(fixture.checkpoint().await?, (3, request.batch.input.lastBlockHash));
+    assert_eq!(fixture.checkpoint().await?, (6, request.batch.input.lastBlockHash));
     assert_eq!(transport(&fixture)?.nonce_state().await?.confirmed, original_nonce + 1);
     assert_eq!(transaction.network_bytes, original_bytes);
     let included =

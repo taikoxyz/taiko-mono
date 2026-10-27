@@ -437,11 +437,15 @@ or config opening differs.
 
    Keep the registered validator's existing `priv_validator_key.json` and its existing
    `priv_validator_state.json` together in a private signer directory outside the Comet home
-   and outside every Comet container mount. Preserve the state across every restart; never
+   and outside every separate Comet container mount. Preserve the state across every restart; never
    initialize, reset or replace it to recover consensus. The local key created by `cometbft init`
-   is an unused random identity: do not replace it with the registered key. Only `etna-signer`
+   is an unused random identity: do not replace it with the registered key. Stock
+   `DefaultNewNode` also creates this dummy when absent, then replaces it with SocketPV
+   for the mandatory listener; remote setup errors abort, with no local fallback. The
+   dummy is unregistered and stays at HRS0. Its presence is not authoritative signing state. Only `etna-signer`
    may access the registered private key and signing state. Use separate users or container
-   mounts so the Comet process cannot read that private signer directory.
+   mounts so the Comet process cannot read that private signer directory. The combined image
+   enforces a dedicated Comet UID as described below.
 
 3. **Configure CometBFT** in `./cmt/config/config.toml`:
 
@@ -481,6 +485,7 @@ or config opening differs.
    just signer
    # In another terminal, supervise the signer and stock Comet together.
    ETNA_COMET_HOME="$PWD/cmt" ETNA_APP_STORE="$PWD/abci-data" \
+     ETNA_SIGNER_BIN="$PWD/target/etna-signer/etna-signer" \
      ETNA_PRIV_KEY=/private/validator/priv_validator_key.json \
      ETNA_PRIV_STATE=/private/validator/priv_validator_state.json \
      ETNA_CHAIN_ID="$(jq -r .chain_id genesis.json)" \
@@ -488,7 +493,19 @@ or config opening differs.
    ```
 
    The host supervisor requires Bash and Python 3.11+ (`tomllib`); the production image
-   packages the two binaries and uses the app entrypoint. The supervisor requires
+   includes Python, the unchanged pinned stock Comet binary, the signer and this supervisor.
+   Its default entrypoint remains the app; the validator supervisor container uses
+   `command: ["python3", "/app/script/etna_validator.py"]` with the same environment below.
+   Run the app in a separate container sharing the private app-store socket and persisted
+   state mounts; do not expose the socket outside the pod. The image runs supervisor/signer
+   as root and drops the stock Comet child to UID/GID10001 (`ETNA_COMET_UID/GID`). Prepare
+   its persistent home and signer-listener directory owned by10001; keep registered key/HRS
+   root-owned0600 in a private directory outside that home. Put the Unix signer listener
+   under the Comet-owned home, not the app's0700 private store. This prevents the Comet
+   child from reading registered signing secrets. Supervisor needs root with SETUID, SETGID
+   and KILL capabilities; persistent Comet volume ownership is prepared separately. HRS
+   and its parent must be writable for atomic replacement, even when the key is read-only.
+   The supervisor requires
    `priv_validator_laddr`, existing signing files outside the Comet
    home, and matching genesis chain ID. UNIX is preferred; `tcp://` uses CometBFT's official
    encrypted SecretConnection, never raw signer protobuf over TCP. A nonvalidator full node
@@ -502,6 +519,22 @@ or config opening differs.
    evidence. Unavailable/malformed control, proof/history failure or a stale session denies
    signing without touching FilePV. The helper locks the existing state against a second
    helper process. No local signing fallback exists in the validator startup recipe.
+
+   The helper atomically publishes private `signer-denial.json` observations: sequence zero
+   establishes the current session; a positive sequence records a refused or timed-out
+   signing request. The supervisor's private `observe` request neither rearms the session
+   nor authorizes signing. A denial triggers bounded stop/reap and a fresh signer/Comet pair
+   only after exact deployment identity and private trust return Ready. This also handles a
+   signer timeout while the app stays Ready. The new transport initially closes trust;
+   PubKey/Ping and safe catchup remain available while signing waits for revalidation.
+   Halted trust, stale generation/domain, signer exit, or unexplained Comet exit creates
+   `<data-dir>/validator-supervisor.halted` and leaves the supervisor alive and quiescent.
+   The latch survives container restart: `restartAlways` cannot reopen the signing path.
+   A Comet EOF following observed control/trust loss also recovers after private Ready;
+   a repeated configuration failure with continuously Ready trust stays latched. Exact app
+   shutdown revocations wait for a fresh app incarnation; they never authorize signing.
+   Repair the underlying cause and review durable evidence before explicitly removing it.
+   Missing registered signing state fails closed; startup never creates replacement HRS.
 
    On restart, CometBFT replays missing app commits while signing stays closed until the app
    authenticates its own latest finalized-L1 checkpoint and links it to durable committed
@@ -732,10 +765,10 @@ just clippy     # doc lints on library code, then every target with -D warnings
   retry/recovery, plus an L1 finality stall that pauses and resumes L2. The history test emulates
   the source-backed unavailable-build RPC shape through a delegating Engine adapter; it does not
   actually prune Reth state. Lander scenarios cover actual Inbox blob
-  transactions, cross-epoch batching without reward cutoffs, real EL/Comet basefee claims with
-  genuine L1 account/storage proofs, replay rejection, claim-spend
-  independence in the next batch, and a forced inclusion landing that
-  pays its fee, permissionless races,
+  transactions, cross-epoch batching, four native validators with ordinary and forced
+  transactions, 100% beneficiary fees, protocol-treasury FI fees, epoch transition, dummy
+  0x00 landing, signer timeout recovery and offline catchup with retained HRS/history,
+  execution-DA replay, permissionless overlap races,
   verifier rejection, a pending L1 reference crossing the BLOCKHASH/EIP-2935 boundary, stock
   CometBFT collection, and actual-CLI SIGKILL/SIGTERM restarts, minimum/timeout batching, and
   pressure/epoch flushes; runner and store unit tests cover receipt reorgs and journal restarts.
@@ -757,9 +790,13 @@ just clippy     # doc lints on library code, then every target with -D warnings
   cleanup fallback for SIGKILL.
 
 - `just test-smoke` runs exactly four representative Docker scenarios: single-validator header
-  rules, epoch switch, real L2 rewards claim/fee continuation, and lander CLI SIGKILL/SIGTERM restarts.
+  rules, epoch switch, the four-validator native acceptance flow, and lander CLI SIGKILL/SIGTERM restarts.
   This fixed recipe accepts no arguments. Use `just test` for targeted subsets or output options.
-- `just verify` is the complete merge gate: formatting, strict clippy, fast tests, committed
+- `just runtime-image-test IMAGE` smoke-tests the actual Linux runtime composition, native
+  bootstrap, Comet UID isolation and unchanged HRS without a Rust rebuild. Build the
+  `runtime-tools` Docker target with repository-root context first. Multiarch final image CI
+  remains required before deployment.
+- `just verify` is the complete merge gate: Go signer race tests, supervisor process tests, formatting, strict clippy, fast tests, committed
   artifact reproduction, and all Docker scenarios (`just test-full`). Smoke is an iteration aid and never replaces
   this gate. After each coherent code change batch, run `just fmt && just clippy-fix` and targeted
   tests; run the complete gate once on the final change batch.

@@ -6,13 +6,15 @@ use std::{
     time::{Duration, Instant},
 };
 
-use abci::RegistryEntry;
-use alloy_primitives::B256;
+use abci::{RegistryEntry, key::ConsensusKey};
 use alloy_provider::Provider;
 use test_harness::{Devnet, DevnetSpec, wait_until};
 
 /// CometBFT node 0's validator set at `height` as `(pubkey, power)` pairs.
-async fn validator_set(devnet: &Devnet, height: u64) -> anyhow::Result<BTreeSet<(B256, u64)>> {
+async fn validator_set(
+    devnet: &Devnet,
+    height: u64,
+) -> anyhow::Result<BTreeSet<(ConsensusKey, u64)>> {
     let set = devnet.cmt(0).validators(Some(height)).await?;
     Ok(set.into_iter().map(|v| (v.pubkey, v.power)).collect())
 }
@@ -25,8 +27,7 @@ async fn epoch_switch_adds_the_joining_validator() -> anyhow::Result<()> {
         validators: 4,
         initial_validators: 3,
         epoch_len: 20,
-        d_max: 12,
-        margin_v: 2,
+        unsettled_limit: 12,
         ..Default::default()
     };
     let devnet = Devnet::start(spec.clone()).await?;
@@ -38,11 +39,10 @@ async fn epoch_switch_adds_the_joining_validator() -> anyhow::Result<()> {
     devnet.wait_for_height(0, 1, Duration::from_secs(90)).await?;
     // Capture before retention can prune it; each height uses its own authenticated committee.
     let initial = devnet.cmt(0).committee(0).await?.expect("genesis committee");
-    assert_eq!(keys.iter().map(|key| key.reward_recipient()).collect::<BTreeSet<_>>().len(), 4);
+    assert_eq!(keys.iter().map(|key| key.beneficiary()).collect::<BTreeSet<_>>().len(), 4);
 
     // Registry checkpoint 1: the genesis entries plus validator 4, active from the checkpoint's own
-    // L1 block and heartbeating there (window 0 under the devnet window: start 0, sequence 1, as
-    // every planted entry).
+    // L1 block.
     let mut next = devnet.planter().next_block().await?;
     let joined = next.number();
     let mut entries: Vec<RegistryEntry> = (0..3).map(|i| devnet.registry_entry(i)).collect();
@@ -70,9 +70,10 @@ async fn epoch_switch_adds_the_joining_validator() -> anyhow::Result<()> {
         },
     )
     .await?;
-    let four: BTreeSet<(B256, u64)> = keys.iter().map(|k| (k.pubkey(), power)).collect();
-    let three: BTreeSet<(B256, u64)> = keys[..3].iter().map(|k| (k.pubkey(), power)).collect();
-    let members: BTreeSet<(B256, u64)> =
+    let four: BTreeSet<(ConsensusKey, u64)> = keys.iter().map(|k| (k.pubkey(), power)).collect();
+    let three: BTreeSet<(ConsensusKey, u64)> =
+        keys[..3].iter().map(|k| (k.pubkey(), power)).collect();
+    let members: BTreeSet<(ConsensusKey, u64)> =
         committee.members.iter().map(|m| (m.pubkey, m.power)).collect();
     assert_eq!(members, four, "/committee/{t} members");
     assert_eq!(committee.record.target_epoch, t);
@@ -124,7 +125,8 @@ async fn epoch_switch_adds_the_joining_validator() -> anyhow::Result<()> {
             .await?
             .expect("committed EL block");
         assert_eq!(
-            block.header.beneficiary, member.reward_recipient,
+            block.header.beneficiary,
+            member.pubkey.address(),
             "height {height}: native proposer {proposer} payout"
         );
         let envelope = devnet.cmt(0).envelope(height).await?;

@@ -1,6 +1,9 @@
 //! Deploy the pinned real Inbox, registry and SignalService, without planting their
 //! storage.
 
+// Current generated registry ABI includes an eight-field event constructor.
+#![allow(clippy::too_many_arguments)]
+
 use abci::{
     ChainParams, CommitteeState, GenesisRecord, RegistryEntry, Snapshot,
     committee::{committee_config_hash, derive, record_hash},
@@ -16,9 +19,10 @@ use alloy_eips::{BlockId, eip2718::Encodable2718};
 use alloy_primitives::{Address, B256, Bytes, U256};
 use alloy_provider::{Provider, RootProvider};
 use anyhow::{Context, Result, ensure};
-use ed25519_dalek::SigningKey;
-use test_harness::{StandaloneAnvil, StandaloneReth, dev_signer, mine_l1_blocks};
+use std::{path::PathBuf, process::Command};
+use test_harness::{StandaloneAnvil, StandaloneReth, ValidatorKey, dev_signer, mine_l1_blocks};
 
+sol!(EtnaInboxBootstrap, "../../crates/lander/tests/fixtures/contracts/EtnaInboxBootstrap.json");
 sol!(EtnaInbox, "../../crates/lander/contracts/EtnaInbox.json");
 sol!(EtnaStakingRegistry, "../../crates/lander/tests/fixtures/contracts/EtnaStakingRegistry.json");
 sol!(SignalService, "../../crates/lander/tests/fixtures/contracts/SignalService.json");
@@ -29,14 +33,12 @@ sol!(
 );
 sol!(TestERC20, "../../crates/lander/tests/fixtures/contracts/TestERC20.json");
 
-/// Known ephemeral Ed25519 seed used only in these throw-away integration fixtures.
-pub const CONSENSUS_SEED: [u8; 32] = [0x19; 32];
 /// Effective stake: one TAIKO, with default devnet power mapping.
 pub const STAKE: u128 = 1_000_000_000_000_000_000;
 /// The devnet chain id accepted by builtin client configuration.
 pub const L2_CHAIN_ID: u64 = 167001;
-/// Smallest epoch length satisfying the builtin devnet cap `U = 12 - 2 = 10` plus three.
-pub const EPOCH_LEN: u64 = 13;
+/// Accelerated epoch length with D(1)=12 on the legal K=6 landing grid.
+pub const EPOCH_LEN: u64 = 15;
 /// Forced inclusion delay installed at genesis, in seconds.
 pub const FORCED_INCLUSION_DELAY: u64 = 3_600;
 /// Maximum anchor age installed at genesis, in seconds.
@@ -57,15 +59,36 @@ pub struct ContractFixture {
     pub parent_header: Header,
     pub committee: CommitteeState,
     pub entry: RegistryEntry,
+    pub keys: Vec<ValidatorKey>,
+    pub signer_storage: tempfile::TempDir,
 }
 
 impl ContractFixture {
     /// Deploy the real contracts and initialize the genesis checkpoint through the real proxy.
     pub async fn deploy() -> Result<Self> {
+        Self::deploy_validators(1).await
+    }
+
+    /// Creates keys exactly once with the shipped signer CLI and registers actual PoPs.
+    pub async fn deploy_validators(count: usize) -> Result<Self> {
+        Self::deploy_config(count, 120, EPOCH_LEN).await
+    }
+
+    pub async fn deploy_config(count: usize, unsettled_limit: u64, epoch_len: u64) -> Result<Self> {
         let anvil = StandaloneAnvil::start().await?;
         let p = &anvil.provider;
         let owner = dev_signer().address();
         let admin = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8".parse()?;
+        let bootstrap =
+            deploy(p, owner, include_str!("../fixtures/contracts/EtnaInboxBootstrap.json"), vec![])
+                .await?;
+        let inbox = proxy(
+            p,
+            owner,
+            bootstrap,
+            EtnaInboxBootstrap::initCall { _owner: owner }.abi_encode().into(),
+        )
+        .await?;
         let token = deploy(
             p,
             owner,
@@ -79,12 +102,17 @@ impl ContractFixture {
             owner,
             include_str!("../fixtures/contracts/EtnaStakingRegistry.json"),
             EtnaStakingRegistry::constructorCall {
-                _taikoToken: token,
-                _minStake: U256::from(STAKE),
-                _activationDelay: 0,
-                _exitDelay: 20,
-                _withdrawalDelay: 30,
-                _heartbeatWindow: u64::MAX / 2,
+                _config: IEtnaStakingRegistry::Config {
+                    token,
+                    minStake: U256::from(STAKE),
+                    activationDelay: U256::from(1),
+                    exitDelay: U256::from(20),
+                    withdrawalDelay: U256::from(30),
+                    slashBountyBps: U256::ZERO,
+                    slashSink: admin,
+                    l2ChainId: L2_CHAIN_ID,
+                    inbox,
+                },
             }
             .abi_encode(),
         )
@@ -96,73 +124,129 @@ impl ContractFixture {
             EtnaStakingRegistry::initCall { _owner: owner }.abi_encode().into(),
         )
         .await?;
+        let amount = U256::from(STAKE) * U256::from(count);
+        transact(p, owner, token, TestERC20::mintCall { to: owner, amount }.abi_encode()).await?;
         transact(
             p,
             owner,
             token,
-            TestERC20::mintCall { to: owner, amount: U256::from(STAKE) }.abi_encode(),
+            TestERC20::approveCall { spender: registry, amount }.abi_encode(),
         )
         .await?;
-        transact(
-            p,
-            owner,
-            token,
-            TestERC20::approveCall { spender: registry, amount: U256::from(STAKE) }.abi_encode(),
-        )
-        .await?;
-        let pubkey = B256::from(SigningKey::from_bytes(&CONSENSUS_SEED).verifying_key().to_bytes());
-        let registered = transact(
-            p,
-            owner,
-            registry,
-            EtnaStakingRegistry::registerCall {
-                _pubkey: pubkey,
-                _amount: U256::from(STAKE),
-                _rewardRecipient: Address::repeat_byte(0x77),
+        let l1_chain_id: U256 = p.raw_request("eth_chainId".into(), ()).await?;
+        let signer_storage =
+            tempfile::Builder::new().prefix("etna-authority-").tempdir_in("/tmp")?;
+        let binary = std::env::var_os("ETNA_SIGNER_BIN").map(PathBuf::from).unwrap_or_else(|| {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target/etna-signer/etna-signer")
+        });
+        let mut keys = Vec::new();
+        let mut entries = Vec::new();
+        for i in 0..count {
+            let dir = signer_storage.path().join(i.to_string());
+            std::fs::create_dir(&dir)?;
+            let key_file = dir.join("key.json");
+            let state_file = dir.join("state.json");
+            let generated = Command::new(&binary)
+                .arg("keygen")
+                .arg("--priv-key")
+                .arg(&key_file)
+                .arg("--priv-state")
+                .arg(&state_file)
+                .output()?;
+            ensure!(
+                generated.status.success(),
+                "explicit keygen failed: {}",
+                String::from_utf8_lossy(&generated.stderr)
+            );
+            if count == 4 {
+                eprintln!(
+                    "ACCEPTANCE keygen node={i} {}",
+                    String::from_utf8_lossy(&generated.stdout).trim()
+                );
             }
-            .abi_encode(),
-        )
-        .await?;
-        let register_block = registered.block_number.context("registration receipt block")?;
-        let heartbeat = transact(
-            p,
-            owner,
+            let key = ValidatorKey::from_file(&key_file)?;
+            let proof = Command::new(&binary)
+                .arg("pop")
+                .arg("--priv-key")
+                .arg(&key_file)
+                .args([
+                    "--owner",
+                    &owner.to_string(),
+                    "--registry",
+                    &registry.to_string(),
+                    "--l1-chain-id",
+                    &l1_chain_id.to_string(),
+                ])
+                .output()?;
+            ensure!(proof.status.success(), "registration PoP failed");
+            let pop: serde_json::Value = serde_json::from_slice(&proof.stdout)?;
+            if count == 4 {
+                eprintln!("ACCEPTANCE pop node={i} {pop}");
+            }
+            let registered = transact(
+                p,
+                owner,
+                registry,
+                EtnaStakingRegistry::registerCall {
+                    _publicKey: Bytes::copy_from_slice(key.pubkey().as_bytes()),
+                    _amount: U256::from(STAKE),
+                    _popSig: pop["signature"].as_str().context("PoP signature")?.parse()?,
+                }
+                .abi_encode(),
+            )
+            .await?;
+            let public_key = key.pubkey();
+            let bytes = public_key.as_bytes();
+            entries.push(RegistryEntry {
+                ck_prefix: bytes[0],
+                ck_x: B256::from_slice(&bytes[1..]),
+                eff_stake: U256::from(STAKE),
+                active_from_l1: registered.block_number.context("registration block")? + 1,
+                exit_effective_l1: (1u64 << 48) - 1,
+            });
+            keys.push(key);
+        }
+        mine_l1_blocks(p, 3).await?;
+        let cutoff = test_harness::finalized_number(p).await?;
+        let params = ChainParams {
+            inbox,
             registry,
-            EtnaStakingRegistry::heartbeatCall { _bondId: U256::ZERO }.abi_encode(),
-        )
-        .await?;
-        let cutoff = heartbeat.block_number.context("heartbeat receipt block")?;
-        let verifier = deploy(
-            p,
-            owner,
-            include_str!("../fixtures/contracts/MockLandProofVerifier.json"),
-            Vec::new(),
-        )
-        .await?;
-        // SignalService implementation and proxy precede Inbox implementation and proxy.
-        let next_nonce = p.get_transaction_count(owner).await?;
-        let predicted_inbox = owner.create(next_nonce + 3);
-        let l2 = StandaloneReth::start(p, predicted_inbox).await?;
+            l1_chain_id,
+            unsettled_limit,
+            fee_recipient: Address::repeat_byte(0x77),
+            ..ChainParams::builtin(L2_CHAIN_ID)?
+        };
+        let snapshot = Snapshot {
+            checkpoint_index: count as u64 - 1,
+            l1_block: cutoff,
+            entries: entries.clone(),
+        };
+        let (record, members) = derive(&snapshot, cutoff, 0, &params)?;
+        let committee = CommitteeState { record, members };
+        let l2 = StandaloneReth::start().await?;
         let parent_header = l2
             .provider
             .get_block_by_number(alloy_eips::BlockNumberOrTag::Number(0))
             .await?
-            .context("real EL genesis")?
+            .context("EL genesis")?
             .header
             .inner;
         let genesis_hash = parent_header.hash_slow();
-        ensure!(
-            p.get_transaction_count(owner).await? == next_nonce,
-            "genesis construction must not consume deployment nonce"
-        );
+        let verifier = deploy(
+            p,
+            owner,
+            include_str!("../fixtures/contracts/MockLandProofVerifier.json"),
+            vec![],
+        )
+        .await?;
         let signal_impl = deploy(
             p,
             owner,
             include_str!("../fixtures/contracts/SignalService.json"),
             SignalService::constructorCall {
-                authorizedSyncer: predicted_inbox,
+                authorizedSyncer: inbox,
                 remoteSignalService: Address::repeat_byte(0xdd),
-                _pauser: Address::ZERO,
+                _pauser: owner,
             }
             .abi_encode(),
         )
@@ -187,58 +271,43 @@ impl ContractFixture {
                     maxBatchBlocks: 1000,
                     forcedInclusionFeeInGwei: 1,
                     forcedInclusionFeeDoubleThreshold: 50,
+                    protocolFeeRecipient: admin,
                 },
             }
             .abi_encode(),
         )
         .await?;
-        let params = ChainParams::builtin(L2_CHAIN_ID)?.with_overrides(&format!(
-            "inbox = \"{predicted_inbox}\"\nregistry = \"{registry}\"\nd_max = 12\nmargin_v = 2\n"
-        ))?;
-        let entry = RegistryEntry {
-            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
-            pubkey,
-            eff_stake: U256::from(STAKE),
-            active_from_l1: register_block,
-            exit_effective_l1: u64::MAX,
-            last_heartbeat_at: 0,
-            last_heartbeat_seq: 1,
-        };
-        let snapshot =
-            Snapshot { checkpoint_index: 1, l1_block: cutoff, entries: vec![entry.clone()] };
-        let (record, members) = derive(&snapshot, cutoff, 0, &params)?;
-        let committee = CommitteeState { record, members };
-        let input = IEtnaInbox::GenesisParams {
+        let input = IEtnaInbox::InitParams {
             genesisBlockHash: genesis_hash,
             genesisStateRoot: parent_header.state_root,
-            epochLenL2: EPOCH_LEN,
-            genesisCutoff: cutoff,
+            epochLenL2: U256::from(epoch_len),
+            genesisCutoff: U256::from(cutoff),
             committeeRecordHash: record_hash(L2_CHAIN_ID, &committee.record),
-            committeeConfigHash: committee_config_hash(&params),
-            forcedInclusionDelay: FORCED_INCLUSION_DELAY,
-            maxAnchorAge: MAX_ANCHOR_AGE,
+            committeeConfig: IEtnaInbox::CommitteeConfig {
+                vpUnit: params.vp_unit,
+                sMin: params.s_min,
+                nMax: U256::from(params.n_max),
+                unsettledLimit: U256::from(params.unsettled_limit),
+            },
+            forcedInclusionDelay: U256::from(FORCED_INCLUSION_DELAY),
+            maxAnchorAge: U256::from(MAX_ANCHOR_AGE),
         };
-        let inbox = proxy(
+        let initialized = transact(
             p,
             owner,
-            inbox_impl,
-            EtnaInbox::initCall { _owner: owner, _params: input }.abi_encode().into(),
+            inbox,
+            EtnaInbox::upgradeToAndCallCall {
+                _newImplementation: inbox_impl,
+                _data: EtnaInbox::initCall { _params: input }.abi_encode().into(),
+            }
+            .abi_encode(),
         )
         .await?;
-        ensure!(inbox == predicted_inbox, "CREATE-predicted authorized syncer differs");
-        transact(
-            p,
-            owner,
-            registry,
-            EtnaStakingRegistry::bindInboxCall { _inbox: inbox }.abi_encode(),
-        )
-        .await?;
-        let activated = view(p, inbox, EtnaInbox::activationCall {}, None).await?;
         let genesis = GenesisRecord {
             committee_config_hash: committee_config_hash(&params),
             genesis_height: 0,
-            l1_0: activated.l1Block,
-            epoch_len: EPOCH_LEN,
+            l1_0: initialized.block_number.context("owner init block")?,
+            epoch_len,
             genesis_hash,
             genesis_state_root: parent_header.state_root,
             genesis_cutoff: cutoff,
@@ -246,10 +315,7 @@ impl ContractFixture {
             max_anchor_age: MAX_ANCHOR_AGE,
         };
         mine_l1_blocks(p, 3).await?;
-        ensure!(
-            Self::checkpoint_at(p, inbox).await? == (0, genesis_hash),
-            "real proxy genesis checkpoint"
-        );
+        ensure!(Self::checkpoint_at(p, inbox).await? == (0, genesis_hash), "real proxy checkpoint");
         Ok(Self {
             anvil,
             l2,
@@ -262,7 +328,9 @@ impl ContractFixture {
             genesis,
             parent_header,
             committee,
-            entry,
+            entry: entries[0].clone(),
+            keys,
+            signer_storage,
         })
     }
 
@@ -273,7 +341,7 @@ impl ContractFixture {
 
     async fn checkpoint_at(provider: &RootProvider, inbox: Address) -> Result<(u64, B256)> {
         let value = view(provider, inbox, EtnaInbox::lastCheckpointCall {}, None).await?;
-        Ok((value.height, value.blockHash))
+        Ok((value.height.to(), value.blockHash))
     }
 
     /// Select whether the pinned proof verifier rejects the dummy proof.

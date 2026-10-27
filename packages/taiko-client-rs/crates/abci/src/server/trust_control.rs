@@ -25,6 +25,11 @@ const MAX_CONNECTIONS: usize = 32;
 #[derive(Debug, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 enum Request {
+    /// Reads current readiness without changing or authorizing a signer session.
+    Observe {
+        /// Must equal one.
+        schema_version: u32,
+    },
     /// Allocates a fresh session and closes authorization before any L1 work.
     BeginSession {
         /// Must equal one.
@@ -103,6 +108,7 @@ async fn connection(stream: UnixStream, trust: TrustHandle) -> io::Result<()> {
         let request: Request = serde_json::from_slice(&line)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         let snapshot = match request {
+            Request::Observe { schema_version: 1 } => trust.snapshot(),
             Request::BeginSession { schema_version: 1 } => trust.begin_session(),
             Request::CheckSession { schema_version: 1, session_id } => {
                 trust.check_session(&session_id)
@@ -168,6 +174,23 @@ mod tests {
         let oversized = vec![b'x'; MAX_LINE as usize + 1];
         assert!(exchange(&path, &oversized).await.is_err());
         assert_eq!(trust.snapshot().session_id, second.session_id);
+        task.abort();
+    }
+
+    #[tokio::test]
+    async fn observation_never_rearms_or_authorizes_a_session() {
+        let dir = tempfile::Builder::new().prefix("etna-t-").tempdir_in("/tmp").unwrap();
+        let app = Fixture::genesis(1).app(dir.path());
+        let trust = app.trust_handle();
+        let path = app.trust_control_path();
+        let listener = bind(&path).await.unwrap();
+        let task = tokio::spawn(run(listener, trust.clone()));
+        let before = trust.snapshot();
+        let observed = exchange(&path, b"{\"schema_version\":1,\"op\":\"observe\"}\n")
+            .await
+            .expect("private observation must be available without a signing session");
+        assert_eq!(observed, before);
+        assert_eq!(trust.snapshot(), before);
         task.abort();
     }
 

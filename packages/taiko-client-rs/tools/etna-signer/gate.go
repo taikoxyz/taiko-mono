@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -47,10 +49,13 @@ type trustResponse struct {
 	Reason        *string   `json:"reason"`
 }
 type gate struct {
-	path       string
-	timeout    time.Duration
-	session    atomic.Pointer[string]
-	authorized func(*trustResponse)
+	path        string
+	timeout     time.Duration
+	session     atomic.Pointer[string]
+	authorized  func(*trustResponse)
+	denialPath  string
+	denials     uint64
+	observation sync.Mutex
 }
 
 func newGate(path string, timeout time.Duration) *gate { return &gate{path: path, timeout: timeout} }
@@ -182,8 +187,33 @@ func (g *gate) authorize(chain string) error {
 	return nil
 }
 
-// BeginSession is performed after the official transport handshake and before the
-// transport becomes visible to SignerServer, including every reconnection.
+// publishObservation never contains private signing data or grants authorization. Failure
+// stops this process rather than silently disabling the supervisor's refusal detection.
+func (g *gate) publishObservation(denied bool) {
+	g.observation.Lock()
+	defer g.observation.Unlock()
+	if denied {
+		g.denials++
+	}
+	if g.denialPath == "" {
+		return
+	}
+	session := ""
+	if current := g.session.Load(); current != nil {
+		session = *current
+	}
+	data, _ := json.Marshal(map[string]any{"sequence": g.denials, "session_id": session})
+	temporary := g.denialPath + ".tmp"
+	if err := os.WriteFile(temporary, data, 0600); err != nil {
+		panic("cannot persist signer observation")
+	}
+	if err := os.Rename(temporary, g.denialPath); err != nil {
+		panic("cannot publish signer observation")
+	}
+}
+
+// BeginSession follows the official transport handshake and precedes exposing the
+// transport to SignerServer, including every reconnection.
 func (g *gate) begin() error {
 	g.session.Store(nil)
 	response, err := g.query("begin_session", "")
@@ -194,6 +224,7 @@ func (g *gate) begin() error {
 		return errors.New("begin_session did not close trust")
 	}
 	g.session.Store(&response.SessionID)
+	g.publishObservation(false)
 	return nil
 }
 func (g *gate) dialer(base privval.SocketDialer) privval.SocketDialer {
@@ -248,6 +279,8 @@ func (g *gate) handle(signer types.PrivValidator, req pv.Message, chain string) 
 			err = g.authorize(chain)
 		}
 		if err != nil {
+			g.publishObservation(true)
+
 			remote := &pv.RemoteSignerError{Code: 1, Description: "checkpoint trust denied: " + err.Error()}
 			switch req.Sum.(type) {
 			case *pv.Message_SignVoteRequest:

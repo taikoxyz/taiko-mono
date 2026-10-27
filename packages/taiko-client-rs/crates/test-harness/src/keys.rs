@@ -29,6 +29,28 @@ impl ValidatorKey {
         }
     }
 
+    /// Loads a disposable key produced by the official bootstrap CLI for test certificates.
+    pub fn from_file(path: &std::path::Path) -> anyhow::Result<Self> {
+        let value: Value = serde_json::from_slice(&std::fs::read(path)?)?;
+        let seed = STANDARD.decode(
+            value["priv_key"]["value"]
+                .as_str()
+                .ok_or_else(|| anyhow::anyhow!("missing test private key"))?,
+        )?;
+        Ok(Self::from_seed(seed.try_into().map_err(|_| anyhow::anyhow!("native scalar width"))?))
+    }
+
+    /// Signs test-only structural certificates with the native Keccak/recoverable convention.
+    pub fn sign_native_message(&self, message: &[u8]) -> Vec<u8> {
+        let (signature, recovery) = self
+            .signing
+            .sign_prehash_recoverable(alloy_primitives::keccak256(message).as_slice())
+            .expect("native test signature");
+        let mut result = signature.to_bytes().to_vec();
+        result.push(recovery.to_byte());
+        result
+    }
+
     /// The key whose seed is `sha256(label ‖ be64(index))`.
     pub fn derive(label: &str, index: u64) -> Self {
         let mut hasher = Sha256::new();
@@ -43,8 +65,8 @@ impl ValidatorKey {
             .expect("valid test key")
     }
 
-    /// The deterministic nonzero L2 payout address used by the test registry planter.
-    pub fn reward_recipient(&self) -> alloy_primitives::Address {
+    /// The local beneficiary chosen by the deterministic harness proposer.
+    pub fn beneficiary(&self) -> alloy_primitives::Address {
         self.pubkey().address()
     }
 

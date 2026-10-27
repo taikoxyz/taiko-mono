@@ -210,8 +210,7 @@ async fn stale_l1_finality_pauses_and_resumes_l2() -> anyhow::Result<()> {
     let started = Instant::now();
     let spec = DevnetSpec {
         epoch_len: 2_000,
-        d_max: 1_800,
-        margin_v: 2,
+        unsettled_limit: 1_800,
         timeout_commit_ms: 1,
         max_anchor_age: 1_152,
         ..Default::default()

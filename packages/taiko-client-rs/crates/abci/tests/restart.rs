@@ -16,6 +16,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use abci::key::ConsensusKey;
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::B256;
 use alloy_provider::Provider;
@@ -23,7 +24,10 @@ use anyhow::Context;
 use test_harness::{Devnet, DevnetSpec, wait_until};
 
 /// CometBFT node 0's validator set at `height` as `(pubkey, power)` pairs.
-async fn validator_set(devnet: &Devnet, height: u64) -> anyhow::Result<BTreeSet<(B256, u64)>> {
+async fn validator_set(
+    devnet: &Devnet,
+    height: u64,
+) -> anyhow::Result<BTreeSet<(ConsensusKey, u64)>> {
     let set = devnet.cmt(0).validators(Some(height)).await?;
     Ok(set.into_iter().map(|v| (v.pubkey, v.power)).collect())
 }

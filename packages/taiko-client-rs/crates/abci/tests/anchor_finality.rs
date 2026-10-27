@@ -1,7 +1,7 @@
 //! Docker scenario: no block anchors above anvil's `finalized`, and an epoch boundary does not
 //! wait for L1: with L1 paused, the chain enters the next epoch on anchors L1 already finalized.
 //!
-//! `D_MAX = 19` gives the unsettled cap `U = 17` (the most `L = 20` allows), so the fake
+//! A legal independent unsettled cap `U = 18` leaves room across `L = 20`, so the fake
 //! lander's `lastCheckpoint`, frozen with L1 and trailing the head by a few blocks, does not stop
 //! the chain before it passes the boundary.
 
@@ -14,7 +14,7 @@ use test_harness::{Devnet, DevnetSpec, anchor_of, finalized_number, wait_until};
 #[ignore = "docker"]
 async fn an_epoch_boundary_does_not_wait_for_l1() -> anyhow::Result<()> {
     let started = Instant::now();
-    let spec = DevnetSpec { epoch_len: 20, d_max: 19, margin_v: 2, ..Default::default() };
+    let spec = DevnetSpec { epoch_len: 20, unsettled_limit: 18, ..Default::default() };
     let devnet = Devnet::start(spec.clone()).await?;
     let schedule = devnet.schedule();
     let boundary = schedule.h_first(1);
