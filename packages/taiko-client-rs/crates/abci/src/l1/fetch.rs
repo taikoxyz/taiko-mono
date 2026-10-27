@@ -380,7 +380,6 @@ mod tests {
     }
 
     /// The registry storage slots of entries `0..n`, in read order.
-
     fn entry_slots(n: u64) -> Vec<B256> {
         (0..n).flat_map(registry::entry_slots).collect()
     }

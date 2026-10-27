@@ -69,6 +69,7 @@ impl ValidatorKey {
 /// A separate deterministic Ed25519 P2P transport identity.
 #[derive(Clone, Debug)]
 pub struct NodeKey {
+    /// Ed25519 secret used only for P2P transport identity, never consensus signing.
     signing: SigningKey,
 }
 impl NodeKey {

@@ -71,9 +71,9 @@ impl Schedule {
         1
     }
 
-    /// The epoch containing height `h`: `(h - H_0) / L + e_0`.
+    /// The epoch containing height `h`: `h / L`; epoch zero contains heights `1..L`.
     ///
-    /// `h` must be `>= H_0` (debug-asserted); release builds map lower heights to `e_0`.
+    /// `h` must be positive (debug-asserted); release builds map height zero to epoch zero.
     ///
     /// # Panics
     ///
@@ -84,7 +84,7 @@ impl Schedule {
         h / self.len("epoch_of")
     }
 
-    /// `h_first(e) = H_0 + (e - e_0)·L`, the first height of epoch `e`.
+    /// The first height is 1 for epoch zero and `e * L` for every positive epoch.
     ///
     /// # Panics
     ///
@@ -156,9 +156,9 @@ impl Schedule {
         (h > 0 && h.is_multiple_of(len)).then(|| h / len)
     }
 
-    /// Checks `epoch_len >= 3`, `epoch_len >= unsettled_cap + 3`, that the first transition
-    /// fits the protocol's `uint48` height range, `h_first(1) <= UINT48_MAX` (a `land` height),
-    /// as `EtnaInbox.init` requires, and that `l1_0 <= UINT48_MAX`: every anchor is at or above
+    /// Checks `epoch_len >= 3` and `epoch_len + 1 <= UINT48_MAX`, independently of U.
+    /// The retained unsettled-cap argument does not constrain the schedule.
+    /// Also requires `l1_0 <= UINT48_MAX`: every anchor is at or above
     /// `l1_0` and the `extraData` encodes it as a `uint48`. Returns the first violation.
     /// `InitChain` and every load of `AppState` must call this before using the schedule.
     pub fn validate(&self, _unsettled_cap: u64) -> Result<(), ScheduleError> {

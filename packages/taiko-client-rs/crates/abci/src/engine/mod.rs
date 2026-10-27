@@ -38,6 +38,17 @@ pub enum PayloadVerdict {
     Syncing,
 }
 
+impl std::fmt::Display for PayloadVerdict {
+    /// Renders the Engine API status and, for INVALID, its diagnostic reason.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Valid => f.write_str("VALID"),
+            Self::Invalid(reason) => write!(f, "INVALID: {reason}"),
+            Self::Syncing => f.write_str("SYNCING"),
+        }
+    }
+}
+
 /// The Engine API operations the ABCI app needs from its execution engine.
 #[async_trait]
 pub trait Engine: Send + Sync + 'static {
@@ -149,10 +160,10 @@ pub enum EngineError {
     /// unreadable JWT secret, or an engine missing required Engine API methods.
     #[error("engine setup failed: {0}")]
     Setup(String),
-    /// A forkchoice update with payload attributes did not start a build (status other than
-    /// `VALID`, or no payload id); the value describes the reply.
+    /// A forkchoice update did not return a usable payload ID. Retains its verdict so an
+    /// incomplete VALID/SYNCING response cannot be confused with a definitive INVALID.
     #[error("engine did not start a payload build: {0}")]
-    BuildNotStarted(String),
+    BuildNotStarted(PayloadVerdict),
     /// The engine reported a block hash its own header does not hash to.
     #[error("engine block {number} reported hash {reported}, but its header hashes to {computed}")]
     HeaderHashMismatch {
@@ -174,8 +185,28 @@ pub enum EngineError {
 }
 
 impl EngineError {
-    /// Whether a retry of the call may succeed: `FinalizeBlock` retries such an error with
-    /// backoff and halts on any other.
+    /// Whether an incomplete block build can be retried. Unknown payload IDs may expire
+    /// between forkchoice and getPayload; INVALID and pruned parent state remain definitive.
+    pub const fn is_retryable_build(&self) -> bool {
+        self.is_retryable() ||
+            matches!(
+                self,
+                Self::BuildNotStarted(PayloadVerdict::Valid | PayloadVerdict::Syncing) |
+                    Self::ErrorReply { code: -38001, .. }
+            )
+    }
+
+    /// Whether the own EL returned malformed or contradictory RPC data requiring repair.
+    /// Peer-block conversion errors and completed INVALID verdicts are classified separately.
+    pub const fn is_integrity_failure(&self) -> bool {
+        matches!(
+            self,
+            Self::BadReply(_) | Self::HeaderHashMismatch { .. } | Self::HeaderNumberMismatch { .. }
+        )
+    }
+
+    /// Whether an ordinary EL call may succeed on retry. Finalize retries with backoff and
+    /// halts on other errors; singleton builds additionally use [`Self::is_retryable_build`].
     ///
     /// | Error                                      | Retryable | Meaning                         |
     /// | ------------------------------------------ | --------- | ------------------------------- |
@@ -249,7 +280,7 @@ mod tests {
         for error in [
             EngineError::BadReply("null".into()),
             EngineError::Setup("jwt".into()),
-            EngineError::BuildNotStarted("SYNCING".into()),
+            EngineError::BuildNotStarted(PayloadVerdict::Syncing),
             EngineError::NotEtnaShaped("withdrawals_root"),
             EngineError::Withdrawals(1),
             EngineError::BlobGas { blob_gas_used: 1, excess_blob_gas: 0 },

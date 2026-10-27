@@ -260,6 +260,28 @@ fn decode_optional<T: Decodable>(
     Ok(Some(value))
 }
 
+/// Extracts raw anchor bytes from an otherwise decodable envelope for upgrade classification.
+/// This never authenticates a witness: callers compare its exact hash with their own L1 first.
+pub(crate) fn undecodable_anchor(txs: &[Bytes]) -> Option<(u64, Bytes)> {
+    let [tx] = txs else {
+        return None;
+    };
+    let (&version, mut encoded) = tx.split_first()?;
+    if version != ENVELOPE_VERSION {
+        return None;
+    }
+    let mut fields = alloy_rlp::Header::decode_bytes(&mut encoded, true).ok()?;
+    let block = ExecutionBlock::decode(&mut fields).ok()?;
+    let (_, _, number) = crate::rules::decode_extra_data(&block.header.extra_data).ok()?;
+    let mut optional = alloy_rlp::Header::decode_bytes(&mut fields, true).ok()?;
+    let mut anchor = alloy_rlp::Header::decode_bytes(&mut optional, true).ok()?;
+    if !optional.is_empty() {
+        return None;
+    }
+    let raw = Bytes::decode(&mut anchor).ok()?;
+    RawL1Header::from_raw(raw.clone()).is_err().then_some((number, raw))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -976,26 +998,4 @@ mod tests {
         assert_eq!(l1.number(), 0x2400);
         assert_eq!(l1.timestamp(), 0x68e7_7800);
     }
-}
-
-/// Extracts raw anchor bytes from an otherwise decodable envelope for upgrade classification.
-/// This never authenticates a witness: callers compare its exact hash with their own L1 first.
-pub(crate) fn undecodable_anchor(txs: &[Bytes]) -> Option<(u64, Bytes)> {
-    let [tx] = txs else {
-        return None;
-    };
-    let (&version, mut encoded) = tx.split_first()?;
-    if version != ENVELOPE_VERSION {
-        return None;
-    }
-    let mut fields = alloy_rlp::Header::decode_bytes(&mut encoded, true).ok()?;
-    let block = ExecutionBlock::decode(&mut fields).ok()?;
-    let (_, _, number) = crate::rules::decode_extra_data(&block.header.extra_data).ok()?;
-    let mut optional = alloy_rlp::Header::decode_bytes(&mut fields, true).ok()?;
-    let mut anchor = alloy_rlp::Header::decode_bytes(&mut optional, true).ok()?;
-    if !optional.is_empty() {
-        return None;
-    }
-    let raw = Bytes::decode(&mut anchor).ok()?;
-    RawL1Header::from_raw(raw.clone()).is_err().then_some((number, raw))
 }

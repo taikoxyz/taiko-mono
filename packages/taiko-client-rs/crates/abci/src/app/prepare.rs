@@ -402,7 +402,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             let (l1_header, inbox) = tokio::try_join!(header, proof)?;
             AnchorWitness { l1_header, inbox }
         };
-        verify_anchor_witness(&witness, self.params.inbox)?;
+        verify_anchor_witness(&witness, self.params.inbox).map_err(Rejection::OwnWitness)?;
         self.preparation_cache().anchor = Some(witness.clone());
         Ok(witness)
     }

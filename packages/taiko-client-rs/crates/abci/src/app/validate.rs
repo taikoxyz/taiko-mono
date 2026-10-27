@@ -98,6 +98,9 @@ pub enum Rejection {
     /// The anchor witness does not verify.
     #[error("anchor witness rejected: {0}")]
     Witness(#[from] WitnessError),
+    /// An Inbox proof fetched from the own L1 failed authentication, unlike a peer witness.
+    #[error("own L1 anchor proof rejected: {0}")]
+    OwnWitness(#[source] WitnessError),
     /// The committee witness does not verify, or no committee can be derived from it.
     #[error("committee witness rejected: {0}")]
     Committee(#[from] CommitteeError),
@@ -196,24 +199,24 @@ pub enum Rejection {
 impl Rejection {
     /// Whether an own-node integrity failure or unavailable execution state requires repair.
     pub(crate) fn requires_dependency_repair(&self) -> bool {
-        if let Self::L1(error) = self {
-            return error.is_integrity_failure();
+        match self {
+            Self::OwnWitness(_) => true,
+            Self::L1(error) => error.is_integrity_failure(),
+            Self::Engine(error) |
+            Self::ForcedBuild(crate::engine::forced::ForcedBuildError::Engine(error)) => {
+                error.is_integrity_failure() ||
+                    matches!(error, EngineError::ErrorReply { code: -38100, .. })
+            }
+            _ => false,
         }
-        matches!(
-            self,
-            Self::Engine(EngineError::ErrorReply { code: -38100, .. }) |
-                Self::ForcedBuild(crate::engine::forced::ForcedBuildError::Engine(
-                    EngineError::ErrorReply { code: -38100, .. }
-                ))
-        )
     }
 
     /// Temporary dependency failures cannot authorize rejecting a locked proposal.
     pub(crate) fn retryable_dependency(&self) -> bool {
         match self {
-            Self::Engine(error) |
+            Self::Engine(error) => error.is_retryable(),
             Self::ForcedBuild(crate::engine::forced::ForcedBuildError::Engine(error)) => {
-                error.is_retryable()
+                error.is_retryable_build()
             }
             Self::L1(error) => !error.is_integrity_failure(),
             Self::Timeout(_) | Self::PayloadSyncing => true,
@@ -229,6 +232,7 @@ impl Rejection {
             Self::EmptyProposal => "empty_proposal",
             Self::Rule(rule) => rule.label(),
             Self::Witness(_) => "anchor_witness",
+            Self::OwnWitness(_) => "own_l1_witness",
             Self::Committee(_) => "committee_witness",
             Self::Superseded { .. } | Self::ChainSuperseded => "superseded",
             Self::MissingWitness(WitnessKind::Anchor) => "missing_anchor_witness",
@@ -514,6 +518,16 @@ fn candidate_committee(
     }
 }
 
+/// Rejects raw execution blocks above the consensus bound, before validation or execution.
+pub(crate) fn check_execution_size(block: &crate::ExecutionBlock) -> Result<(), Rejection> {
+    use alloy_rlp::Encodable;
+    let bytes = block.length();
+    if bytes > 124_000 {
+        return Err(Rejection::LandingCapacity { bytes, max: 124_000 });
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod v1_size_tests {
     use super::*;
@@ -534,14 +548,4 @@ mod v1_size_tests {
         assert_eq!(block.length(), 124001);
         assert!(check_execution_size(&block).is_err());
     }
-}
-
-/// Rejects raw execution blocks above the consensus bound, before validation or execution.
-pub(crate) fn check_execution_size(block: &crate::ExecutionBlock) -> Result<(), Rejection> {
-    use alloy_rlp::Encodable;
-    let bytes = block.length();
-    if bytes > 124_000 {
-        return Err(Rejection::LandingCapacity { bytes, max: 124_000 });
-    }
-    Ok(())
 }
