@@ -999,6 +999,7 @@ contract EtnaInboxHandler is CommonBase {
             _breakEntryKey(_attempt, _seed);
             selector = IEtnaStakingRegistry.EntryKeyMismatch.selector;
         } else {
+            // UNKNOWN_BOND, the last defect.
             _attempt.exclusions = _appendExclusion(
                 _attempt.exclusions,
                 IEtnaInbox.Exclusion({

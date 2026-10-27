@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import { EtnaInboxTestBase } from "./EtnaInboxTestBase.sol";
-import { LibEtnaVectors } from "./LibEtnaVectors.sol";
+import { EtnaVectorReader, LibEtnaVectors } from "./LibEtnaVectors.sol";
 import { Base64 } from "solady/src/utils/Base64.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
@@ -19,7 +19,7 @@ import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 /// the registry proxy, so a view that reads another slot, offset or width fails. Encoding tests
 /// rebuild every preimage with Solidity's `abi.encode` and compare bytes and hashes. Each test
 /// loads the file into memory (`j`); it is too large to keep in storage.
-contract EtnaVectorsTest is EtnaInboxTestBase {
+contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
     /// @dev `K`, the landing grid interval.
     uint256 private constant _K = 6;
 
@@ -1358,61 +1358,8 @@ contract EtnaVectorsTest is EtnaInboxTestBase {
         return uint256(_probe(_label)) & type(uint48).max;
     }
 
-    /// @dev `"<_array>[<_index>]."`, the path prefix of an array item's fields.
-    function _at(string memory _array, uint256 _index) private pure returns (string memory) {
-        return string.concat(_array, "[", vm.toString(_index), "].");
-    }
-
     function _member(string memory _p, uint256 _i) private pure returns (string memory) {
         return _at(string.concat(_p, "members"), _i);
-    }
-
-    function _uint(
-        string memory _j,
-        string memory _p,
-        string memory _field
-    )
-        private
-        pure
-        returns (uint256)
-    {
-        return LibEtnaVectors.uintAt(_j, string.concat(_p, _field));
-    }
-
-    function _bytes32(
-        string memory _j,
-        string memory _p,
-        string memory _field
-    )
-        private
-        pure
-        returns (bytes32)
-    {
-        return LibEtnaVectors.bytes32At(_j, string.concat(_p, _field));
-    }
-
-    function _address(
-        string memory _j,
-        string memory _p,
-        string memory _field
-    )
-        private
-        pure
-        returns (address)
-    {
-        return LibEtnaVectors.addressAt(_j, string.concat(_p, _field));
-    }
-
-    function _bytes(
-        string memory _j,
-        string memory _p,
-        string memory _field
-    )
-        private
-        pure
-        returns (bytes memory)
-    {
-        return LibEtnaVectors.bytesAt(_j, string.concat(_p, _field));
     }
 
     /// @dev Reads the `bytes32` array at `_p` + `_field` (possibly empty).

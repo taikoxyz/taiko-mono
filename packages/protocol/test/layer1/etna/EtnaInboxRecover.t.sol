@@ -937,27 +937,6 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         assertEq(entry.exitEffectiveL1, _expected.exitEffectiveL1, "exitEffectiveL1");
     }
 
-    /// @dev The record `(_parent, _generation, _head)` holding this suite's chain hashes at `_x`.
-    function _record(
-        uint256 _parent,
-        uint256 _generation,
-        uint256 _head,
-        uint256 _x
-    )
-        private
-        pure
-        returns (IEtnaInbox.Landing memory)
-    {
-        (bytes32 el, bytes32 comet,) = _cut(_x);
-        return IEtnaInbox.Landing({
-            parentHeight: uint48(_parent),
-            generation: uint48(_generation),
-            head: uint48(_head),
-            elHash: el,
-            cometHash: comet
-        });
-    }
-
     /// @dev The entry key of `_pk`'s consensus key: keccak256(abi.encode(ckPrefix, ckX)).
     function _entryKeyOf(uint256 _pk) private returns (bytes32) {
         bytes memory publicKey = EtnaTestKeys.publicKey(_pk);
@@ -991,10 +970,6 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         list_[1] = _exclusion(0, VALIDATOR_PK);
     }
 
-    function _noExclusions() private pure returns (IEtnaInbox.Exclusion[] memory) {
-        return new IEtnaInbox.Exclusion[](0);
-    }
-
     function _noIndices() private pure returns (uint256[] memory) {
         return new uint256[](0);
     }
@@ -1020,13 +995,5 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     {
         list_ = new uint256[](3);
         (list_[0], list_[1], list_[2]) = (_a, _b, _c);
-    }
-
-    function _isCall(VmSafe.AccountAccessKind _kind) private pure returns (bool) {
-        return _kind == VmSafe.AccountAccessKind.Call
-            || _kind == VmSafe.AccountAccessKind.DelegateCall
-            || _kind == VmSafe.AccountAccessKind.CallCode
-            || _kind == VmSafe.AccountAccessKind.StaticCall
-            || _kind == VmSafe.AccountAccessKind.Create;
     }
 }

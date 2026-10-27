@@ -577,11 +577,6 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         });
     }
 
-    /// @dev An empty exclusion list.
-    function _noExclusions() private pure returns (IEtnaInbox.Exclusion[] memory) {
-        return new IEtnaInbox.Exclusion[](0);
-    }
-
     /// @dev Upgrades the Inbox proxy to the lock harness, with the deployment's configuration.
     function _upgradeToLockHarness() private returns (EtnaInboxLockHarness) {
         _inbox().upgradeTo(address(new EtnaInboxLockHarness(_defaultConfig())));

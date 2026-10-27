@@ -681,15 +681,6 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
         x_ = bytes32(wallet.publicKeyX);
     }
 
-    /// @dev Splits a 65-byte signature `R ‖ S ‖ V`.
-    function _split(bytes memory _sig) private pure returns (bytes32 r_, bytes32 s_, uint8 v_) {
-        assembly {
-            r_ := mload(add(_sig, 0x20))
-            s_ := mload(add(_sig, 0x40))
-            v_ := byte(0, mload(add(_sig, 0x60)))
-        }
-    }
-
     /// @dev The registry word at the vector slot `_p` + `_field`.
     function _load(
         string memory _j,

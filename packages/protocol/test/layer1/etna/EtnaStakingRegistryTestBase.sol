@@ -126,4 +126,13 @@ abstract contract EtnaStakingRegistryTestBase is CommonTest, EtnaTestConstants {
         assertEq(checkpoint.count, _count, "checkpoint count");
         assertEq(checkpoint.entriesRoot, _root, "checkpoint entriesRoot");
     }
+
+    /// @dev Splits a 65-byte signature `R ‖ S ‖ V`.
+    function _split(bytes memory _sig) internal pure returns (bytes32 r_, bytes32 s_, uint8 v_) {
+        assembly {
+            r_ := mload(add(_sig, 0x20))
+            s_ := mload(add(_sig, 0x40))
+            v_ := byte(0, mload(add(_sig, 0x60)))
+        }
+    }
 }

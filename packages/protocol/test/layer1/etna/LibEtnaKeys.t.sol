@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { LibEtnaVectors } from "./LibEtnaVectors.sol";
+import { EtnaVectorReader, LibEtnaVectors } from "./LibEtnaVectors.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { LibEtnaKeys } from "src/layer1/etna/libs/LibEtnaKeys.sol";
@@ -38,7 +38,7 @@ contract LibEtnaKeysHarness {
     }
 }
 
-contract LibEtnaKeysTest is CommonTest {
+contract LibEtnaKeysTest is CommonTest, EtnaVectorReader {
     /// @dev The secp256k1 field prime.
     uint256 private constant _P = LibEtnaKeys.P;
 
@@ -597,69 +597,5 @@ contract LibEtnaKeysTest is CommonTest {
             if (keccak256(_bytes(_j, p, "public_key")) == keccak256(_publicKey)) return p;
         }
         revert("no key with that public key");
-    }
-
-    function _at(string memory _array, uint256 _index) private pure returns (string memory) {
-        return string.concat(_array, "[", vm.toString(_index), "].");
-    }
-
-    function _uint(
-        string memory _j,
-        string memory _p,
-        string memory _field
-    )
-        private
-        pure
-        returns (uint256)
-    {
-        return LibEtnaVectors.uintAt(_j, string.concat(_p, _field));
-    }
-
-    function _bytes32(
-        string memory _j,
-        string memory _p,
-        string memory _field
-    )
-        private
-        pure
-        returns (bytes32)
-    {
-        return LibEtnaVectors.bytes32At(_j, string.concat(_p, _field));
-    }
-
-    function _address(
-        string memory _j,
-        string memory _p,
-        string memory _field
-    )
-        private
-        pure
-        returns (address)
-    {
-        return LibEtnaVectors.addressAt(_j, string.concat(_p, _field));
-    }
-
-    function _bytes(
-        string memory _j,
-        string memory _p,
-        string memory _field
-    )
-        private
-        pure
-        returns (bytes memory)
-    {
-        return LibEtnaVectors.bytesAt(_j, string.concat(_p, _field));
-    }
-
-    function _string(
-        string memory _j,
-        string memory _p,
-        string memory _field
-    )
-        private
-        pure
-        returns (string memory)
-    {
-        return LibEtnaVectors.stringAt(_j, string.concat(_p, _field));
     }
 }
