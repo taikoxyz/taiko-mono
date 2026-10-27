@@ -65,7 +65,13 @@ impl AbciGenesisSubCommand {
             .with_writer(std::io::stderr)
             .try_init();
 
-        let params = load_chain_params(self.l2_chain_id, self.chain_config.as_deref())?;
+        let (mut params, expected_l1) =
+            load_chain_params(self.l2_chain_id, self.chain_config.as_deref())?;
+        super::bind_l1_chain_id(
+            &mut params,
+            expected_l1,
+            super::rpc_chain_id(&self.l1_http, "l1.http").await?,
+        )?;
         let l1 =
             RpcL1Source::new(connect_http_with_timeout(self.l1_http.clone(), DEFAULT_HTTP_TIMEOUT));
         let doc = build_genesis(&l1, &params).await?;
@@ -100,6 +106,39 @@ mod tests {
             Commands::AbciGenesis(cmd) => Ok(*cmd),
             other => panic!("expected abci-genesis, got {other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn genesis_reads_actual_full_l1_chain_id_before_contract_state() {
+        use std::sync::{Arc, Mutex};
+        let requests = Arc::new(Mutex::new(Vec::<String>::new()));
+        let seen = requests.clone();
+        let app = axum::Router::new().route("/", axum::routing::post(move |axum::Json(body): axum::Json<serde_json::Value>| {
+            let seen = seen.clone();
+            async move {
+                let method = body["method"].as_str().unwrap();
+                seen.lock().unwrap().push(method.to_owned());
+                axum::Json(serde_json::json!({"jsonrpc":"2.0", "id":body["id"],
+                    "result": if method == "eth_chainId" { serde_json::json!("0x100000000000000000000000000000001") } else { serde_json::Value::Null }}))
+            }
+        }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint = format!("http://{}/", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        assert_eq!(
+            super::super::rpc_chain_id(&endpoint.parse().unwrap(), "l1.http").await.unwrap(),
+            "0x100000000000000000000000000000001".parse::<alloy_primitives::U256>().unwrap()
+        );
+        requests.lock().unwrap().clear();
+        let command = AbciGenesisSubCommand {
+            l1_http: endpoint.parse().unwrap(),
+            l2_chain_id: 167001,
+            chain_config: None,
+            out: None,
+        };
+        assert!(command.run().await.is_err(), "fixture intentionally has no contract genesis");
+        assert_eq!(requests.lock().unwrap().first().map(String::as_str), Some("eth_chainId"));
+        server.abort();
     }
 
     #[test]

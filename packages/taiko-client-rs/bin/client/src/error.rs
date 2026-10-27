@@ -60,6 +60,15 @@ pub enum CliError {
     #[error("chain parameters: {0}")]
     ChainConfig(#[from] abci::ConfigError),
 
+    /// The selected L1 endpoint differs from the explicitly configured signing domain.
+    #[error("configured L1 chain id {configured} differs from RPC chain id {actual}")]
+    L1ChainIdMismatch {
+        /// Full chain identity explicitly supplied by the operator.
+        configured: alloy_primitives::U256,
+        /// Full chain identity returned by the configured own L1 endpoint.
+        actual: alloy_primitives::U256,
+    },
+
     /// The `--chain-config` file could not be read.
     #[error("cannot read the chain config {path}: {source}")]
     ChainConfigRead {

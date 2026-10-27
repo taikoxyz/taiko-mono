@@ -226,9 +226,8 @@ pub struct BatchBuilder<C: ?Sized, L: ?Sized> {
 }
 
 impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
-    /// Create a builder after validating operator and consensus limits. Every batch names
-    /// `fee_recipient` as its `LandInput.feeRecipient`; a zero address is a configuration error,
-    /// since the Inbox rejects it (`ZeroFeeRecipient`).
+    /// Create a builder after validating operator and consensus limits. Execution beneficiaries
+    /// remain authenticated header fields; the V1 landing input contains no payout recipient.
     pub fn new(comet: Arc<C>, l1: Arc<L>, config: BatchBuilderConfig) -> Result<Self> {
         let BatchBuilderConfig { params, limits, mode, engine, engine_timeout } = config;
         if engine_timeout.is_zero() ||

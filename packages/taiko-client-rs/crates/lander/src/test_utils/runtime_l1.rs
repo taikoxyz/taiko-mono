@@ -208,6 +208,14 @@ async fn source(
     finalized: u64,
     wrong_parent: bool,
 ) -> (RpcLandingSource, RpcFixture, RpcFixture, BTreeMap<u64, RawL1Header>) {
+    source_with_chain_id(finalized, wrong_parent, U256::from(1)).await
+}
+
+async fn source_with_chain_id(
+    finalized: u64,
+    wrong_parent: bool,
+    chain_id: U256,
+) -> (RpcLandingSource, RpcFixture, RpcFixture, BTreeMap<u64, RawL1Header>) {
     let mut headers = header_chain();
     if wrong_parent {
         headers.insert(
@@ -234,7 +242,7 @@ async fn source(
     let mut answers = answers;
     answers.insert(20, proof_snapshot.l1_header.clone());
     let l1 = rpc(move |request| match request["method"].as_str().unwrap() {
-        "eth_chainId" => json!("0x1"),
+        "eth_chainId" => json!(chain_id),
         "eth_blockNumber" => json!("0x14"),
         "eth_getBlockByNumber" => {
             let tag = request["params"][0].as_str().unwrap();
@@ -269,8 +277,9 @@ async fn source(
         json!("0x28c59")
     })
     .await;
-    let source =
-        RpcLandingSource::new(l1.provider.clone(), l2.provider.clone(), proof_fixture.params);
+    let mut params = proof_fixture.params;
+    params.l1_chain_id = chain_id;
+    let source = RpcLandingSource::new(l1.provider.clone(), l2.provider.clone(), params);
     (source, l1, l2, headers)
 }
 
@@ -523,6 +532,22 @@ fn snapshot_with_an_invalid_forced_inclusion_config_is_a_configuration_error() {
         .unwrap_err();
         assert!(matches!(error, LanderError::Configuration(_)), "{error}");
     }
+}
+
+#[tokio::test]
+async fn snapshot_rejects_different_configured_l1_domain() {
+    let (mut source, _l1, _l2, _) = source_with_chain_id(18, false, U256::MAX).await;
+    source.params.l1_chain_id = U256::from(1);
+    let error =
+        source.snapshot().await.expect_err("endpoint must match the configured signing domain");
+    assert!(matches!(error, LanderError::Configuration(_)), "{error}");
+}
+
+#[tokio::test]
+async fn snapshot_preserves_full_uint256_l1_chain_identity() {
+    let chain_id = U256::MAX;
+    let (source, _l1, _l2, _) = source_with_chain_id(18, false, chain_id).await;
+    assert_eq!(source.snapshot().await.unwrap().l1_chain_id, chain_id);
 }
 
 #[tokio::test]

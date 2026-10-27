@@ -52,17 +52,17 @@ asks the app's private control socket before every signature (see
 
 ## Project structure
 
-| Path                   | Description                                                                                           |
-| ---------------------- | ----------------------------------------------------------------------------------------------------- |
-| `bin/client/`          | The `taiko-client` binary (`abci`, `abci-genesis`, `abci-committee-record`, `lander`, `lander-claim`) |
-| `crates/lander/`       | Permissionless batch/blob construction, proof trait and durable L1 submission                         |
-| `crates/abci/`         | The ABCI++ application of the Etna PoS chain                                                          |
-| `crates/protocol/`     | Shared helpers; `shasta` and `FixedKSigner` serve raiko2                                              |
-| `crates/rpc/`          | Engine API and JWT helpers                                                                            |
-| `crates/bindings/`     | Generated Anchor contract bindings, kept for protocol's anchor builder (raiko2)                       |
-| `crates/test-harness/` | Docker devnet (anvil, alethia-reth, CometBFT) and calldata admission fixtures                         |
-| `script/`              | Maintenance scripts (binding generation)                                                              |
-| `tests/`               | The integration test entrypoint and the test JWT secret                                               |
+| Path                   | Description                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------------- |
+| `bin/client/`          | The `taiko-client` binary (`abci`, `abci-genesis`, `abci-committee-record`, `lander`) |
+| `crates/lander/`       | Permissionless batch/blob construction, proof trait and durable L1 submission         |
+| `crates/abci/`         | The ABCI++ application of the Etna PoS chain                                          |
+| `crates/protocol/`     | Shared helpers; `shasta` and `FixedKSigner` serve raiko2                              |
+| `crates/rpc/`          | Engine API and JWT helpers                                                            |
+| `crates/bindings/`     | Generated Anchor contract bindings, kept for protocol's anchor builder (raiko2)       |
+| `crates/test-harness/` | Docker devnet (anvil, alethia-reth, CometBFT) and calldata admission fixtures         |
+| `script/`              | Maintenance scripts (binding generation)                                              |
+| `tests/`               | The integration test entrypoint and the test JWT secret                               |
 
 ## Committees and fresh-genesis runtime
 
@@ -151,9 +151,8 @@ singleton build. `ProcessProposal`, cold `FinalizeBlock` and the lander share th
 skip checker. Prepare reclassifies its final candidate after an ordinary fallback, reusing a
 successful singleton confirmation only when the decision and its build context are unchanged.
 Host Engine checks establish current dummy-proof behavior; an independent validity proof guest
-remains future work. `land` pays the consumed L1 forced-inclusion fees to the statement-bound
-`feeRecipient`, the lander's sending address. The batch's base-fee reward is recorded in a receipt
-and paid separately on L2 through `L2FeeVault.claim` to `l2RewardRecipient`.
+remains future work. `land` sends consumed L1 forced-inclusion fees to the configured protocol
+treasury. L2 base fees and tips are credited immediately to the proposer-selected beneficiary.
 
 Proposers retrieve admission bytes with `eth_getLogs` for the exact proven submission block,
 Inbox address and event identity, then recheck the transaction hash. Before due, this lookup is
@@ -228,29 +227,33 @@ cargo build --release
 
 Serves the ABCI++ application to a CometBFT node.
 
-| Flag                                    | Env                    | Description                                                                   |
-| --------------------------------------- | ---------------------- | ----------------------------------------------------------------------------- |
-| `--abci.addr`                           | `ABCI_ADDR`            | Socket CometBFT's `proxy_app` connects to (default `tcp://127.0.0.1:26658`)   |
-| `--data-dir`                            | `ABCI_DATA_DIR`        | Directory of the persisted app state (`abci-state.json`), required            |
-| `--chain-config`                        | `ABCI_CHAIN_CONFIG`    | Optional TOML overriding the built-in chain parameters (devnet only)          |
-| `--l1.http`                             | `L1_HTTP`              | The operator's own L1 node, HTTP(S) only, required (see L1 node requirements) |
-| `--l1.archive`                          | `ABCI_L1_ARCHIVE`      | Optional archive RPC for fixed committee registry snapshots only              |
-| `--l2.http`                             | `L2_HTTP`              | alethia-reth's JSON-RPC endpoint, required                                    |
-| `--l2.auth`                             | `L2_AUTH`              | alethia-reth's Engine API endpoint, plain `http` only, required               |
-| `--jwt.secret`                          | `JWT_SECRET`           | Engine API JWT secret file, required                                          |
-| `--l1.timeout`                          | `ABCI_L1_TIMEOUT`      | Deadline of one L1 read, in seconds (default 3)                               |
-| `--engine.timeout`                      | `ABCI_ENGINE_TIMEOUT`  | Deadline of one Engine API or EL RPC call, in seconds (default 5)             |
-| `--elsync.timeout`                      | `ABCI_ELSYNC_TIMEOUT`  | Deadline of an EL sync to a trusted head, in seconds (default 600)            |
-| `--prepare.timeout`                     | `ABCI_PREPARE_TIMEOUT` | `PrepareProposal` deadline in seconds (default 2), below `timeout_propose`    |
-| `--metrics.enabled` / `.addr` / `.port` | `METRICS_*`            | Prometheus metrics server (default off, `0.0.0.0:9090`)                       |
-| `-v`, `--verbosity`                     | `VERBOSITY`            | Log level, 0 = error … 4 = trace (default 2); `RUST_LOG` overrides it         |
+| Flag                                    | Env                    | Description                                                                    |
+| --------------------------------------- | ---------------------- | ------------------------------------------------------------------------------ |
+| `--abci.addr`                           | `ABCI_ADDR`            | Socket CometBFT's `proxy_app` connects to (default `tcp://127.0.0.1:26658`)    |
+| `--fee-recipient`                       | `ABCI_FEE_RECIPIENT`   | Required explicit local execution beneficiary; receives all base fees and tips |
+| `--data-dir`                            | `ABCI_DATA_DIR`        | Directory of the persisted app state (`abci-state.json`), required             |
+| `--chain-config`                        | `ABCI_CHAIN_CONFIG`    | Optional TOML overriding the built-in chain parameters (devnet only)           |
+| `--l1.http`                             | `L1_HTTP`              | The operator's own L1 node, HTTP(S) only, required (see L1 node requirements)  |
+| `--l1.archive`                          | `ABCI_L1_ARCHIVE`      | Optional archive RPC for fixed committee registry snapshots only               |
+| `--l2.http`                             | `L2_HTTP`              | alethia-reth's JSON-RPC endpoint, required                                     |
+| `--l2.auth`                             | `L2_AUTH`              | alethia-reth's Engine API endpoint, plain `http` only, required                |
+| `--jwt.secret`                          | `JWT_SECRET`           | Engine API JWT secret file, required                                           |
+| `--l1.timeout`                          | `ABCI_L1_TIMEOUT`      | Deadline of one L1 read, in seconds (default 3)                                |
+| `--engine.timeout`                      | `ABCI_ENGINE_TIMEOUT`  | Deadline of one Engine API or EL RPC call, in seconds (default 5)              |
+| `--elsync.timeout`                      | `ABCI_ELSYNC_TIMEOUT`  | Deadline of an EL sync to a trusted head, in seconds (default 600)             |
+| `--prepare.timeout`                     | `ABCI_PREPARE_TIMEOUT` | `PrepareProposal` deadline in seconds (default 2), below `timeout_propose`     |
+| `--metrics.enabled` / `.addr` / `.port` | `METRICS_*`            | Prometheus metrics server (default off, `0.0.0.0:9090`)                        |
+| `-v`, `--verbosity`                     | `VERBOSITY`            | Log level, 0 = error … 4 = trace (default 2); `RUST_LOG` overrides it          |
 
 The four timeouts accept 1 to 3600 seconds. The L2 chain id is read from `--l2.http` and
 selects the built-in chain parameters. Only the internal devnet (chain id `167001`) has Etna PoS
 parameters so far; on other chains `abci` refuses to start. The `--chain-config` TOML uses the
 snake_case names of `abci::ChainParams` (for example `unsettled_limit = 3600`); absent keys keep their
 built-in values. The removed `d_max`, `margin_v`, `heartbeat_window` and `fee_vault` keys are
-rejected. `block_gas_limit` stays fixed by the built-in EL parameters. `fee_recipient` is local;
+rejected. `block_gas_limit` stays fixed by the built-in EL parameters. The required
+`--fee-recipient` overrides the local TOML beneficiary. Full uint256 L1 identity is read from
+`--l1.http`; an explicit `l1_chain_id` TOML value must match, while an omitted value uses the RPC
+identity. L2 IDs are checked without truncation and values above uint64 are explicitly refused;
 all nodes must use the authenticated seven-word committee configuration. The Inbox address
 is also required in persisted state and checked again on restart. `InitChain` requires the exact
 L1_0 genesis time, canonical representable CometBFT consensus parameters, and an EL genesis
@@ -266,278 +269,89 @@ is revoked while the process keeps running. A decided block carrying such an anc
 or signer-session trust check finding a different generation, is a safety halt. Restart only
 under the new generation.
 
-`PrepareProposal` and `ProcessProposal` also refuse a block that could not land on its own: one
-whose execution block, zlib-compressed as payload V6 compresses it, plus a 1,024-byte header allowance
-exceeds 776,168 bytes (six landing blobs less 4 KiB of payload framing). This landing capacity
-guard keeps every decided block landable; it is a liveness guard, not a validity rule, so
-`FinalizeBlock` does not re-check it. The allowance covers the published header prefix (at most
-768 bytes) and the framing of the lander's single-block fallback, which compresses the execution block
-exactly as the guard does (see payload V6 below).
+`PrepareProposal`, `ProcessProposal` and `FinalizeBlock` enforce the raw 124000-byte
+execution-block RLP bound. Each Engine build requests that same bound. Public landing data
+contains execution blocks only; original consensus envelopes remain private authenticated inputs.
 
 ### `lander`
 
-Runs an independent permissionless landing service. It reads decided blocks,
-certificates from CometBFT, independently authenticates the required committees from historical
-derivation-parent L1 registry witnesses, and submits complete batches in blob
-transactions. No validator identity or stake is required to call `land`.
-
-The first version implements `ProofProvider` with `DummyProofProvider`, which
-always returns the single byte `0x00`. The deployed verifier must accept this
-value for landing to succeed. A real Etna validity-proof guest/provider remains
-separate work; the current contract tests establish the submission and binding
-path, receipt proofs and L2 payouts; they do not establish EVM validity-proof soundness.
+The permissionless lander collects native Comet blocks/certificates, authenticates historical
+committee witnesses and execution/FI rules, and submits `land(input, leaves, proof)` blob
+transactions. `DummyProofProvider` returns exactly `0x00`; use an explicitly compatible dummy
+verifier on a disposable devnet. This does not establish validity-proof soundness.
 
 Required inputs are `--l1.http`, `--l2.http`, `--l2.auth`, `--jwt.secret`, `--comet.http`, a
-`--signing-key` file containing a hex key, an exclusive `--data-dir`,
-`--max-blocks`, `--max-blobs`, all three fee caps, `--sidecar`, and a nonzero
-`--l2.reward-recipient`. Mixed-case hex addresses require a valid EIP-55 checksum;
-all-lowercase and all-uppercase hex remain accepted. Batch recipients cannot be zero, the
-configured canonical L2 fee vault, EIP-4788 beacon roots, or EIP-2935 history contract: these
-canonical runtimes reject the vault's empty-calldata ETH transfer. Other EOAs and payable contracts
-remain allowed. Proposer registration is a separate policy because EL tips use balance credits.
-
-A restored unsigned `Prepared` batch must match the configured recipient. To change it, stop the
-lander, confirm the journal is exactly `Prepared` with no signature or broadcast, then archive that
-unsigned directory and rebuild in a fresh dedicated lander directory. Signed, Pending and Confirming
-jobs retain their original recipient and transaction bytes; startup reports that retained intent
-and applies the new configured recipient only to future batches. Reconcile any outstanding signed
-nonce before archiving its journal; deleting a signed directory is not a recipient-change procedure.
-
-The authenticated Engine API is required for historical singleton skip checks. Startup exchanges
-Engine capabilities before opening the journal or running the lander, so JWT/endpoint failures are
-reported before any skip is encountered. Transport failures (including HTTP authentication errors)
-retry with bounded backoff and can be stopped by a signal; missing methods and malformed replies
-stop startup. Diagnostics identify `--l2.auth` and `--jwt.secret` without copying upstream messages.
-Fee caps are positive wei per gas:
-`--max-fee-per-gas`, `--max-priority-fee-per-gas`, and
-`--max-fee-per-blob-gas`; the priority cap cannot exceed the execution cap.
-Signed transactions add a checked 20% gas-limit margin to the RPC estimate,
-covering a pending reference that moves from BLOCKHASH into the EIP-2935 lookup
-branch before inclusion, and never exceed EIP-7825's 16,777,216 limit. No reward settlement
-margin or per-member settlement calldata exists. An estimate above the cap stops signing;
-an Osaka node may instead reject estimation, which remains a retryable error. `n_max` may be
-up to the registry/configuration cap of 4096. A bounded regression authenticates 301 distinct
-members through a real registry proof and committee witness, reconstructs the lander validator
-set and verifies real Comet signatures, including payout-tampering and insufficient-quorum
-rejection. Larger sizes still require resource validation; this is not a 301-node network or
-4096-member production-capacity test. Set the
-limits to match the deployed Inbox and L1 fork. Choose the budgets
-explicitly before running this example:
+`--signing-key` file containing a hex key, an exclusive `--data-dir`, `--max-blocks`,
+`--max-blobs`, all three positive fee caps and `--sidecar`. `--l2.reward-recipient` and the
+`lander-claim` command are removed and rejected. Execution fees go directly to each block's
+locally selected beneficiary; consumed FI fees go to the protocol treasury.
 
 ```sh
 taiko-client lander --l1.http http://l1-node:8545 \
   --l2.http http://localhost:8545 --l2.auth http://localhost:8551 --jwt.secret ./jwt.hex \
-  --comet.http http://localhost:26657 \
+  --comet.http http://localhost:26657 --chain-config ./chain.toml \
   --signing-key ./lander.key --data-dir ./lander-data \
-  --l2.reward-recipient "$L2_REWARD_RECIPIENT" \
-  --max-blocks 10 --max-blobs 6 --sidecar eip7594 \
+  --min-blocks 60 --max-blocks 120 --max-batch-wait 300 --max-blobs 6 --sidecar eip7594 \
   --max-fee-per-gas "$LANDER_MAX_FEE_PER_GAS" \
   --max-priority-fee-per-gas "$LANDER_MAX_PRIORITY_FEE_PER_GAS" \
   --max-fee-per-blob-gas "$LANDER_MAX_FEE_PER_BLOB_GAS"
 ```
 
-Optional `--chain-config` uses the same parameters as ABCI; only the internal
-devnet has built-in Etna parameters. `--rpc.timeout`, `--proof.timeout`,
-`--broadcast.timeout` and `--receipt.timeout` accept 1–3600 seconds.
-`--poll.interval` is milliseconds (default 1000); `--confirmations` counts
-the receipt's own canonical block (default 1). Logging and metrics flags match
-the other subcommands. Metrics use bounded phase/retry labels; transaction
-hashes and waiting reasons appear in logs.
+The deployed Inbox must permit the selected maximum. A batch must fit a complete K=6 segment,
+so `--max-blocks` must be at least 6; endpoints are grid heights. `--max-blobs` is exactly 6.
+`--min-blocks` defaults to 1 and `--max-batch-wait` to 30 seconds, but neither permits a partial
+segment. The minimum is 1 through `--max-blocks`; wait expiry or consensus pressure can flush
+an available complete prefix below it. Batches can cross epoch transitions. Pressure uses the
+checkpoint in the decided tip's authenticated anchor and direct `unsettled_limit`, not an
+unauthenticated newer checkpoint. Switch urgency does not change committee activation timing.
 
-Batch submission starts when the complete publishable prefix reaches
-`--min-blocks` (default 1) **or** the oldest locally observed backlog has waited
-`--max-batch-wait` seconds (default 30; accepts 1–3600). The minimum must be
-between 1 and `--max-blocks`. Blob/message limits can make a prefix smaller
-than the minimum; its deadline still permits submission. The defaults retain
-immediate submission whenever a complete block is available.
+`--chain-config` uses the same authenticated parameters as ABCI. L1 identity is read as full
+uint256 from the actual endpoint; an explicit `l1_chain_id` must match. L2 IDs above uint64 are
+rejected, never truncated. `--engine.timeout`, `--rpc.timeout`, `--proof.timeout`,
+`--broadcast.timeout` and `--receipt.timeout` accept 1–3600 seconds. Defaults are respectively
+30, 30, 300, 30 and 30. `--poll.interval` is milliseconds (default 1000);
+`--confirmations` counts the receipt's own canonical block (default 1).
 
-Batches may cross epoch boundaries; rewards impose no freezing cutoff. Two conditions bypass
-both thresholds: only one producible height remains before the unsettled cap
-`U = d_max - margin_v`, or an unlanded committee switch witness is available. Pressure uses the
-checkpoint authenticated by the decided tip's L1 anchor, so a newer L1 checkpoint cannot hide
-pressure before adoption. Switch urgency flushes unlanded history without authorizing committee
-activation. Every prefix retains full committee, certificate, execution and FI validation.
+Engine/JWT access is required for historical singleton skip checks. Startup checks Engine
+capabilities before opening the journal or signing. Temporary endpoint failures retry with
+bounded backoff and remain signal-cancellable; unsupported capabilities and malformed replies
+stop. Logs identify failed endpoints without exposing credentials or upstream response bodies.
+The priority fee cap cannot exceed the total execution cap. Gas estimation adds a checked 20%
+margin within EIP-7825's 16,777,216 cap; no automatic fee or nonce replacement is supported.
 
-The waiting timer is keyed by checkpoint height, hash and generation and is
-persisted in the journal. More blocks arriving, temporary RPC failures, and
-process restarts preserve its age. A different coherent checkpoint or an empty
-backlog resets it. Waiting never requests a proof or signs a transaction.
+Public DA is exactly `0x06 || zlib(rlp([ExecutionBlock,...]))`. Original envelopes, native
+headers/commits, evidence, 65-byte signatures and witnesses remain private. Import and journal
+restoration enforce the raw 124000-byte execution bound, Unzen shape and authenticated
+projection. Pinned stock zlib, bounded decompression/private protobuf budgets and the existing
+BlobCoder protect capacity; eip4844/eip7594 select sidecar formats for the same payload.
+Native certificate verification retains complete committee proofs, strict greater-than-two-thirds
+quorum and stock secp256k1eth semantics, including the 301-member library regression.
 
-The batch's L1 reference is separate from each L2 block's anchor. The reference
-authenticates an ancestor header chain covering those anchors; it never changes
-the anchor number or state root committed in an L2 header. V10 binds the Inbox, registry, both
-chain ids, generation, checkpoint, committee configuration, terminal block/root, blobs, FI cursor
-before/after, L1 fee recipient, L2 reward recipient, exact batch basefee amount and terminal active committee snapshot. Committees are
-independently derived from authenticated historical snapshots; starting-set hints are not authority.
+The eight-field LandInput binds parent/last height, terminal EL/Comet hashes and state root,
+L1 reference, terminal FI cursor and active committee cutoff. The 21-word/672-byte
+`TAIKO_ETNA_LAND_V1` statement additionally binds the full chain IDs, Inbox/registry, generation, checkpoint,
+committee config and immutable cut leaves. The journal separately checks the current deployment
+implementation and immutable getters before signing or sending. The reference authenticates ancestry without changing individual execution anchors.
+The terminal committee uses genesisCutoff in epoch zero and the authenticated committed D(t)
+anchor thereafter; pending S(t) updates activate only at H(t).
 
-`LandInput.activeCommitteeSnapshot` names the committee active at the terminal height according to
-`schedule.epoch_of(height)` in the implemented normal schedule. Epoch zero uses `genesisCutoff`;
-every later epoch uses the L1 anchor in its authenticated derivation parent `D(t) = H(t) - 3`.
-At `S = H(t) - 2` and `S + 1`, the incoming committee is still pending, so those terminal blocks
-retain the outgoing cutoff. This also applies when a batch starts or ends partway through an
-epoch. A batch ending at `H(t)` or
-`H(t) + 1` uses the incoming committee's cutoff; the epoch number alone does not freeze that
-cutoff across successive landings. The validity proof must authenticate the actual terminal
-signing committee's provenance; neither the reference block, terminal anchor nor pending
-committee can substitute for it. A future governance recovery that replaces a signing committee
-within an epoch must prove the replacement's provenance and specify its re-emission schedule; that
-recovery path and its bootstrap are unimplemented. Restore validation checks the
-cutoff against committed ancestry and retained committee provenance even if the digest is
-recomputed. Schema 10 journals are rejected intact, including their outstanding signed nonce.
-The receipt remains ten words and its batch id is unchanged.
+`lander-state.json` uses schema 13 and is protected by `lander.lock`. Old schemas and legacy
+claim-directory markers reject intact. Signed bytes and blob sidecars are durably written before
+broadcast. For an original range (p,h] and competing checkpoint p<=c<h, the original input,
+leaves, proof, blobs, nonce and signed bytes remain unchanged. At c>=h, never-broadcast work
+can finish; possibly-broadcast work remains pending until canonical receipt/nonce reconciliation.
+An ambiguous send or dropped transaction never authorizes recycling its nonce.
 
-Before registry withdrawals can use the landed cutoff, its owner must call `bindInbox(address)`
-once with the initialized Inbox that names that registry. `withdraw()` requires the existing
-exit wait and `activeCommitteeSnapshot >= exitEffectiveL1`. The client never advances that
-cutoff from the reference block or a pending committee.
-
-Every block is held to the shared ABCI calldata classifier and asynchronous skip checker. Its
-witness authenticates the cursor's entry under that block's anchor. Inclusion must match the exact
-canonical bytes at position zero; a due invalid-byte skip consumes directly, while a due canonical
-skip requires Engine evidence. Unavailable evidence retries without cursor advancement. The cursor
-starts at the snapshot's Inbox head and advances by at most one per block. `forcedInclusionHead`
-in `LandInput` is the cursor after the batch's last block.
-`LandInput.feeRecipient` is the lander's sending address: `land` pays consumed fees to it and emits
-`ForcedInclusionsConsumed`. The statement binding prevents copied landing transactions from
-redirecting fees. The Inbox rejects a zero recipient (`ZeroFeeRecipient`); the lander treats that
-revert as a configuration error. Envelope v6 carries at most 8192 FI skip-preimage bytes as private proving input.
-Included transactions are published once in the execution block; omitted and skipped admissions
-are not execution DA.
-
-Priority fees go to the block proposer's immutable registered L2 reward address. Both proposal
-preparation and validation bind the beneficiary to the original proposer in the certified
-CometBFT block header, under that height's committee, including valid blocks retained across rounds;
-registration ownership and L1 fee collection are separate identities. Registration requires a
-nonzero recipient, which cannot be changed during that registration.
-
-Base fees go to the immutable L2 treasury. A landing records a ten-field receipt commitment for
-`sum(baseFeePerGas * gasUsed)` over exactly `(parentHeight, lastHeight]`, with explicit
-`--l2.reward-recipient`. Anyone can pay gas to claim it once using a real account/storage proof
-under a finalized L1 root relayed into the executed L2 EIP-4788 contract. Vault balances cannot
-define fee earnings: payouts and forced ETH credits are independent of header fee sums.
-
-`feeRecipient` continues to receive consumed queue fees on L1, while `l2RewardRecipient` receives
-base fees on L2. There are no participation arrays, settlement calldata, L1 reward pool, DAO
-subsidies, pre-funding or sweep. The lander needs its own L1 gas/blob working capital; earned
-base fees do not guarantee coverage of proving or landing costs. No proving-performance
-reduction has been measured. Use the explicit `lander-claim` command below; there is no automatic
-bridge withdrawal. A canonical out-of-gas landing may still be rebuilt once with ordinary
-estimation, preserving nonce recovery and the EIP-7825 cap.
-
-Proof requests retain the Inbox schedule/config/checkpoint proof under the batch parent's anchor,
-along with each committee's registry witness and proving header in the reference ancestry.
-For an arbitrary batch start, minimal descending EL headers authenticate the current and next
-committees' derivation parents from the contract's checkpoint hash. With checkpoint 15 and an
-epoch length of 10, headers 15 through 8 identify committee 1's snapshot from header 8.
-At checkpoint 9, committee 1 is already pending: the next block, height 10, still signs with
-committee 0 but advertises committee 1 in `next_validators_hash`. Its proof also needs header 8.
-The preceding header also authenticates the timestamp used for the parent's base fee.
-Historical registry checkpoints can be proved under a later authenticated L1 root covering
-the snapshot number; selection still uses the authenticated historical number. The earliest
-required derivation parent is at most `epochLenL2 + 2` links behind the checkpoint.
-The latest Inbox snapshot used to collect a coherent checkpoint is a separate operational
-input; it cannot replace a proof under an older reference chain.
-
-Blob payload V6 is 0x06 followed by one zlib stream of
-RLP([[comet_header_proto_bytes, execution_block_rlp_bytes], ...]). Each second item is an
-opaque byte string containing canonical RLP [full EL header, ordered EIP-2718 transactions].
-V6 acceptance is fixed by the companion Inbox NatSpec/README, not by operator CLI values:
-
-1. One to six ordered Kona-v0 blobs; chunks contain 1..130044 bytes, every nonfinal chunk is
-   full, every field element's top two bits are clear, and all unused bits/bytes are zero.
-2. Exactly one complete RFC1950 zlib stream after 0x06, without a preset dictionary,
-   truncation, concatenated streams or trailing bytes. The inflated RLP list is at most
-   67,108,864 bytes; each header/EL message byte string is at most 22,020,096 bytes.
-3. Canonical exact RLP/protobuf/domain encoding. At height 1, the PUBLISHED Comet header omits
-   last_block_id; Go's present empty BlockID (2a 02 12 00) is valid only in private raw_block.
-4. Exactly N=lastHeight-parentHeight pairs, with 0<N<=the deployed Inbox maxBatchBlocks:
-   both height sequences cover parentHeight+1..lastHeight, internal Comet and EL links match,
-   the first EL parent is parentHash, and the terminal EL hash/root are lastBlockHash/lastStateRoot.
-   Public recovery uses codec::decode_landed with an authenticated L1 range BEFORE importing
-   any block. codec::decode alone supplies structural checks, without checkpoint authentication.
-   Lower local max-blocks or memory budgets may refuse work for operational capacity; they cannot
-   relax these guest validity rules. Recovery uses fixed protocol limits and the landed range,
-   independently of the source node's collection settings.
-
-Complete canonical CometBFT v0_38 headers remain published. Original envelope v6 bytes,
-anchor/committee/forced witnesses, registry entries, skip preimages, evidence, commits and
-signatures stay private proof inputs. Public decoding checks canonical framing and consecutive
-Comet/EL links, not the omitted envelope against data_hash. Before publication and journal
-restoration, the lander authenticates the original envelope's data_hash and matches its exact
-execution projection. A real guest must additionally verify every certificate (ZIP215 Ed25519),
-all original witness/committee/FI rules, execution, and the projection against the bound blobs.
-
-Recovery assumes a sound real ZK landing proof, a finalized canonical L1 checkpoint and archived
-blob bytes plus genesis/execution context. Those suffice to reconstruct the landed EL chain and
-check its terminal hash/state root without historical original witnesses/signatures. Blob
-commitments alone cannot recover unavailable data. This is not L1-only stock CometBFT state
-bootstrap; unlanded blocks keep their full consensus/proving requirements. Dummy proofs do not
-establish these soundness guarantees.
-
-Batch sizing counts compressed execution DA; max-blobs remains six. Compression uses pinned
-stock C zlib 1.3.2. A single-block fallback retries best compression, then full-flushes before
-execution bytes so the capacity guard's bound holds independently of prefix alignment.
-Larger prefixes retain bounded default-level work. Published decompressed DA and retained
-private block/commit protobufs have separate 64 MiB budgets, alongside per-message limits,
-the 32 MiB selection deflate budget and the final 256 MiB journal bound. Prefix selection stops
-before either DA or private input budgets overflow; smaller DA cannot make private inputs
-unbounded. Existing back-pressure, generation and contract maxBatchBlocks are unchanged.
-The existing BlobCoder handles field-element encoding and multi-blob chunking.
-`eip4844` and `eip7594` select different sidecar wrappers/proofs for the same payload and
-commitments. Choose the mode supported by the L1 fork.
-`CertifiedBlock.raw_block` retains the original canonical block protobuf from `/block`, including
-Go's present empty height-1 commit and block id, nil evidence vote ids and evidence voting powers,
-and duplicate-vote evidence whose precommit carries a vote extension (vote signatures do not
-cover extensions, so anyone can attach one to a double-signed vote; Go's JSON carries the bytes
-as base64, which the lander decodes so the evidence hash covers them exactly), and any vote,
-commit signature or header time at the Unix epoch: Go always encodes these times, while
-tendermint-proto's JSON adapter reads the epoch as absent, so the lander restores them (one
-validator signing its precommit at the epoch is valid to CometBFT and would otherwise make the
-block and its certificate unreadable). A seeded differential test reads stock-Go-encoded random
-blocks and certificates back into exactly Go's protobufs.
-The journal/proof wire encodes these unchanged bytes, and the commit's protobuf, as canonical
-base64 and reconstructs the checked domain projection on restore. Body verification and every future guest must use that raw
-protobuf for the signed 64 KiB part-set root and the concrete evidence subtype protobufs (without
-the `Evidence` oneof wrapper) for `evidence_hash`; the raw witness is never rebuilt from the
-domain projection, which omits evidence altogether: nothing reads it, and the domain conversion
-rejects evidence CometBFT commits (extension signatures that are not 64 bytes, nil signatures of
-other lengths or secp256k1 validators inside a light-client attack). A light-client attack whose
-lunatic validator set uses a key type v0_38 protobufs cannot represent (secp256k1eth, BLS12-381,
-ML-DSA-65) still cannot be read; it needs at least a third of the voting power. The
-published header keeps the canonical Rust domain form,
-which normalizes the height-1 empty last block id to `None`.
-
-The journal is `lander-state.json`, separate from `abci-state.json`, and the
-process holds `lander.lock`. It writes/fsyncs signed transaction bytes and the
-sidecar before broadcasting. Restart reconciles receipts and account nonces
-before resubmission; lost responses can only cause identical-byte rebroadcast.
-Another lander advancing the checkpoint causes unbroadcast work to be rebuilt.
-An already attempted transaction retains its nonce until reconciled, even if
-its job becomes stale. This version does not replace fees or cancel nonces:
-an underpriced transaction or a dropped stale job can require operator
-reconciliation. A transaction that reverts canonically at the confirmation depth with the
-checkpoint unchanged stops the lander once, with the journal already reset to idle: its nonce
-is spent, so the next run builds a fresh job (a deterministic revert then stops at gas
-estimation, before signing) rather than re-reading the receipt. A revert that used at least 15/16
-of its gas limit ran out of gas, which depends on state at inclusion rather than on the job, so the
-lander resets to idle and keeps running, rebuilding and re-estimating the next job. A second
-out-of-gas landing in a row on the same checkpoint stops it with the journal idle, so a landing
-that cannot fit its limit does not keep spending fees. The count is kept in memory only: a settled
-landing, a checkpoint change or a restart starts it again. Use one active lander per signing
-account and separate accounts for independent competitors.
-
-The service needs unpruned CometBFT blocks/commits, the checkpoint parent and required EL ancestor headers, and
-L1 headers/proofs and registry snapshot entries for every consumed historical snapshot. Starting EL ancestry is
-bounded to 65,536 headers of at most 1,024 encoded bytes each, in addition to its epoch bound;
-the count is checked before ancestor reads. A reference chain is bounded to 131,072 headers;
-the durable journal is bounded to 256 MiB.
-A complete single block exceeding the configured blob capacity stops with its
-height and required capacity, rather than truncating consensus data.
+Canonical ordinary reverts stop once after clearing the spent job. A gas-exhausted landing may
+rebuild once with fresh estimation; repeated gas exhaustion on the same checkpoint stops.
+Use one active lander per signing account and preserve journals across restarts. Keep unpruned
+Comet blocks/commits, EL ancestry/execution state and historical L1 headers/proofs/registry
+snapshots. Real proving, governance recovery and automatic operator nonce repair remain excluded.
 
 ### `abci-genesis`
 
 Reads the Ethereum-final genesis record from L1 and writes the CometBFT `genesis.json`
-(chain id `taiko-etna-<l2 chain id>-g<generation>`, initial height, validator set and the genesis
+(48-byte `etna-` deployment-domain chain id, initial height 1, native validator set and the genesis
 witness in `app_state`). It never invents values; `InitChain` re-verifies everything. The genesis
 committee is the staking registry's snapshot at the Inbox's explicit `genesisCutoff`: the initializing DAO proposal names
 that past L1 block explicitly, as it is written before the initialization block is known. Every
@@ -558,7 +372,7 @@ proven from Inbox slot 282; a zero delay or `maxAnchorAge < 1152` is refused.
 Computes, before the initialization, the `committeeRecordHash` that `EtnaInbox::init` takes for a chosen
 `genesisCutoff`: the hash of the genesis committee derived from the staking registry's snapshot
 at that L1 block exactly as `InitChain` will derive it (every entry active at the cutoff with an
-effective stake of at least `max(s_min, vp_unit)`, the lowest bond id per public key, at most
+effective stake of at least `max(s_min, vp_unit)`, unique eligible native keys, at most
 `n_max` members by stake, no heartbeat filter). The snapshot is read and proven at a later L1
 block, the proving block, and the derived committee is verified against it before anything is
 printed. Run it while writing the initializing DAO proposal; anyone can rerun it to check the
@@ -574,12 +388,15 @@ proposal's hash.
 | `--json`           | Print the report as JSON instead of plain text                                       |
 
 The report gives the record hash, the cutoff, the snapshot's checkpoint index, the proving block,
-every member's public key and voting power, the total voting power and stake, and the committee
+every member's compressed 33-byte public key and voting power, total voting power, and the committee
 config hash required by Inbox initialization.
 Committee 0 uses this explicit genesis cutoff; later committees use the committed derivation parent anchor. A
 cutoff after the L1 node's `finalized` block is refused, as the initialization fixes it irreversibly,
 and so is a cutoff at which no entry is eligible: initializing with it would leave the chain
-without validators. `--json` prints stakes as decimal strings, like the plain text. Logs go to
+without validators. `--json` prints each member's effective stake as a decimal string. Its top-level fields are
+`record_hash`, `committee_config_hash`, `record`, `members`, `proving_block`. The record has
+`target_epoch`, `cutoff_l1_block`, `checkpoint_index`, `set_root`, `total_power`; each member has
+`pubkey`, `eff_stake`, `power`. Logs go to
 standard error.
 
 ```sh
@@ -589,7 +406,7 @@ taiko-client abci-committee-record --l1.http http://l1-node:8545 --l2.chain-id 1
 
 ## Run a validator
 
-The walkthrough assumes the Etna Inbox on L1 is initialized and the validator's Ed25519 consensus
+The walkthrough assumes the Etna Inbox on L1 is initialized and the validator's native secp256k1eth consensus
 key is registered in the staking registry snapshot the genesis committee is derived from. The
 initialization's `committeeRecordHash` was computed with `abci-committee-record` at the initialization's
 `genesisCutoff`, and its committee config hash matches the node's parameters; `abci-genesis` and
@@ -656,7 +473,7 @@ or config opening differs.
    ```sh
    taiko-client abci --l1.http http://l1-node:8545 \
      --l2.http http://localhost:8545 --l2.auth http://localhost:8551 --jwt.secret ./jwt.hex \
-     --data-dir ./abci-data
+     --data-dir ./abci-data --fee-recipient "$L2_FEE_RECIPIENT"
    ```
 
    ```sh
@@ -749,7 +566,7 @@ or config opening differs.
   registry or derivation error forgets them. An anchor can be `D(t)`'s only while `D(t)` passes
   back-pressure against the anchor's last checkpoint height and stays within `maxAnchorAge` of
   the anchor at one second per height at least, so this costs about one discovery per adopted
-  anchor (one per L1 epoch) in the last `d_max - margin_v` heights before each `D(t)`. An L1
+  anchor (one per L1 epoch) in the last `unsettled_limit` heights before each `D(t)`. An L1
   finality stall that holds the anchor through `D(t)`, an anchor freshness stall, an outage or a
   restart therefore does not leave `S(t)` waiting on pruned state, provided the anchor's state
   was still served when it was adopted; a proposal shares a running discovery rather than
@@ -888,94 +705,11 @@ immediate execution prefix and budget, verify state witnesses, independently rec
 rejection or overflow, and bind cursor advancement/output. A candidate beyond an earlier cutoff
 or under another parent context needs a suitable collection path.
 
-A future guest must bind the V10 recipient and actual executed-header basefee sum, authenticate
-the recipient-bound committee, and verify each beneficiary against the original proposer in
-that block's certified CometBFT header under that height's committee, including retained blocks.
-The lander-selected batch recipient is independent of these per-block proposer recipients.
-It must also prove the terminal active committee snapshot from its authenticated derivation
-header (or the explicit genesis cutoff), including outgoing selection at the switch boundary.
-It must preserve certificate threshold, execution ancestry, forced-inclusion and L1 reference checks. No real guest is implemented; the dummy verifier cannot establish those claims,
-so this version is restricted to disposable development chains.
-
-### `lander-claim`
-
-`lander-claim` independently claims one landed batch reward on L2. The explicit key file pays
-L2 gas; the authenticated receipt fixes the payout recipient and amount, and there is no redirect
-or automatic bridge operation. Use a dedicated directory for each claim, separate from the L1
-lander directory (including symlink aliases).
-
-```sh
-taiko-client lander-claim --l1.http http://l1-node:8545 --l2.http http://l2-node:8545 \
-  --landing-tx 0x... --batch-id 0x... --key-file /secure/l2-gas-payer.key \
-  --data-dir /data/claims/batch-id
-```
-
-A successful own landing logs `batch_id`, `landing_tx`, the covered `(parent_height, last_height]`
-range, `l2_reward_recipient` and `base_fee_amount` before clearing its journal. A reverted competing
-landing does not log a reward-ready identity. To recover the ID independently, inspect the successful
-landing transaction receipt for `BatchRewardRecorded` emitted by the fixed configured Inbox proxy;
-its indexed `batchId` is topic 1. Verify the log emitter, including when a forwarding contract sends
-the landing: the outer transaction's `to` is not the Inbox identity.
-
-The own L2 endpoint must expose the intended ABCI-produced canonical executed chain. While the
-EL remains at genesis, the command waits for its first committed execution block before decoding
-Etna `extraData` or acquiring a receipt proof. Malformed nonzero execution headers remain fatal. Preparation
-pins and independently hashes an executed header H, authenticates its L1 anchor through the own
-L1 node's finalized ancestry, verifies the fixed Inbox account and receipt mapping proof, and
-checks the actual EIP-4788 roots lookup at H using H's timestamp. The vault's immutable configuration
-supplies the expected Inbox; a discovery event alone cannot authorize payment. Historical receipts
-can use newer anchors and survive recovery-generation changes. Preparation does not require a
-subsequent L1 landing already covering H.
-
-The command estimates ordinary L2 EIP-1559 fees/gas, signs once, fsyncs the original bytes and
-broadcast intent, then submits. Availability failures (including bootstrap, anchor lag, and ambiguous
-sends) retry in the same process with cancellable backoff capped at eight seconds. Pending output
-shows the original transaction hash and nonce; changed retry reasons are displayed without RPC
-credentials or response bodies. SIGINT/SIGTERM interrupts RPCs and sleeps while retaining signed
-bytes. Rerun the same command and key to reconcile that job; unconsumed nonces replay only the same
-bytes. A consumed nonce without the matching canonical receipt requires operator review. No nonce,
-fee, proof, or recipient is automatically changed after signing.
-
-Reconciliation pins an own execution snapshot, reads its confirmed nonce before the receipt, then
-checks claimed at the exact successful receipt block (or snapshot when the own receipt is absent or
-reverted). Before each actual send or rebroadcast, it simulates the original signed transaction
-with its sender, calldata, gas, nonce and fees at that canonical snapshot and rechecks its hash.
-A failed or timed-out simulation retains the journal without sending or replacing the transaction.
-Simulation cannot guarantee success against state changes after the check. It refreshes a
-contradictory moving view once. Another
-payer can consume the reward first: authoritative canonical claimed state returns AlreadyClaimed,
-retains any original transaction, and stops broadcasting. This does not assert that our transaction
-succeeded; a revert selector alone is never sufficient authority.
-
-Included is the end state. Etna L2 blocks are final once CometBFT commits them, so the command
-does not wait for a later L1 landing to cover the claim block. A recovery that rewinds L2 can drop
-the claim transaction: rerun the same command and key after any recovery. It reconciles the retained
-signed bytes, reports Included again while the claim stays canonical, and otherwise rebroadcasts the
-same bytes. Journals that recorded the former `Finalized` state load as Included.
-
-`--rpc.timeout` (default 30 seconds, 1–3600) bounds individual calls and each reconciliation step.
-Claim HTTP responses are capped at 2 MiB before JSON decoding, including chunked responses;
-redirects are disabled. Direct typed capacity or unsupported-capability errors can stop the claim.
-The existing `RpcL1Source` adapter erases some `eth_getProof` errors, including response-cap and
-unsupported-capability failures, into sanitized retryable unavailability. Those failures can keep
-retrying until the operator cancels and fixes the endpoint; the response allocation bound still
-holds. Required history includes hash-pinned account/storage proofs and raw L1 headers. Missing
-history cannot be bypassed by trusting events or claimed state.
-
-Unsigned Prepared jobs can refresh their anchor proof before estimation. Roots validity depends on
-whether the timestamp's modulo ring slot still stores that entry, not on a fixed wall-clock expiry.
-Unsigned InvalidAnchorRoot estimates can refresh the proof. After signing, an InvalidAnchorRoot
-simulation retries only the retained transaction, without broadcasting or refreshing its proof.
-Retain the exact proof and raw bytes. Before archiving an old signed job and opening a new dedicated claim directory, establish
-its canonical outcome, check pending/confirmed nonce state, and settle or cancel any outstanding nonce
-using the operator's external transaction procedure. Never clear an ambiguous pending job or change its
-intent. A canonical reverted transaction consumes its nonce; replaying those bytes cannot repair it.
-
-RewardTransferFailed can mean insufficient vault balance **or** recipient rejection; the selector does
-not distinguish them. The vault cannot normally receive an ETH top-up through a plain transfer. Future
-basefee accrual may restore insufficient balance, but cannot repair an immutable recipient that rejects
-ETH. This receipt cannot be redirected to another recipient. Any independently approved new attempt
-requires an unclaimed reward and a separately reconciled claim job.
+A future guest must bind the V1 statement, cut leaves, execution-only public payload, native
+certificates and authenticated committee ancestry. The beneficiary is proposer-selected; full
+execution must establish its fee credit. Prove the terminal active committee cutoff, FI behavior
+and L1 reference ancestry. No real guest is implemented; the dummy verifier cannot establish
+these claims, so this version is restricted to disposable development chains.
 
 ## Development
 
@@ -987,7 +721,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 ### Tests
 
-- `just unit` runs all unit tests and the nine `lander_claim_cli` process tests, then protocol
+- `just unit` runs all unit tests and the `native_cli` process tests, then protocol
   tests without default features and the abci doctests. No docker needed. It builds only those
   targets, and without extra arguments runs lander's library tests in one `cargo test` process,
   which loads the KZG trusted setup once instead of once per test.

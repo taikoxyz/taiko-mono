@@ -5,12 +5,11 @@ use std::sync::Arc;
 use abci::{
     AbciMetrics, App, CommitteeL1Source, Engine, L1Source, RpcEngine, RpcL1Source, Store, serve,
 };
-use alloy_provider::Provider;
 use async_trait::async_trait;
 use clap::Parser;
 use rpc::{
     RpcClientError,
-    client::{DEFAULT_HTTP_TIMEOUT, connect_http_with_timeout, http_timeout_for},
+    client::{connect_http_with_timeout, http_timeout_for},
 };
 use tracing::info;
 use url::Url;
@@ -43,10 +42,10 @@ impl AbciSubCommand {
 
 /// `eth_chainId` of the L2 execution engine's public endpoint `url`.
 async fn l2_chain_id(url: &Url) -> Result<u64> {
-    connect_http_with_timeout(url.clone(), DEFAULT_HTTP_TIMEOUT).get_chain_id().await.map_err(|e| {
-        CliError::from(RpcClientError::RpcMessage(format!(
-            "L2 HTTP RPC (l2.http) failed to get chain id: {e}"
-        )))
+    super::rpc_chain_id(url, "l2.http").await?.try_into().map_err(|_| {
+        CliError::from(RpcClientError::RpcMessage(
+            "l2.http chain id exceeds the supported uint64 EVM chain range".into(),
+        ))
     })
 }
 
@@ -75,7 +74,13 @@ impl Subcommand for AbciSubCommand {
         let common = &self.common_flags;
         let flags = &self.abci_flags;
         let chain_id = l2_chain_id(&common.l2_http_endpoint).await?;
-        let params = load_chain_params(chain_id, flags.chain_config.as_deref())?;
+        let (mut params, expected_l1) = load_chain_params(chain_id, flags.chain_config.as_deref())?;
+        super::bind_l1_chain_id(
+            &mut params,
+            expected_l1,
+            super::rpc_chain_id(&common.l1_http_endpoint, "l1.http").await?,
+        )?;
+        params.fee_recipient = flags.fee_recipient;
         let opts = flags.app_options();
         let engine = RpcEngine::new(
             common.l2_http_endpoint.clone(),

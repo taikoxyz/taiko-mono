@@ -387,8 +387,8 @@ fn is_known_response(message: &str) -> bool {
 
 /// Distinguish an executed land revert from transient RPC failure before any signature exists.
 ///
-/// The Inbox's `ZeroFeeRecipient` revert is a [`LanderError::Configuration`] error: the lander
-/// built the input with a zero recipient, which no retry or refresh changes.
+/// Executed contract reverts invalidate the current land attempt; transport failures retain
+/// their retryable classification without inventing a contract rejection.
 fn estimate_error(error: alloy::transports::TransportError) -> LanderError {
     if let Some(payload) = error.as_error_resp() {
         let lower = payload.message.to_ascii_lowercase();

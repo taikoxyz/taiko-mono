@@ -47,7 +47,6 @@ struct Control {
 struct Fixture {
     directory: tempfile::TempDir,
     request: ProofRequest,
-    configured_recipient: Address,
     control: Arc<Mutex<Control>>,
 }
 impl Fixture {
@@ -81,7 +80,6 @@ impl Fixture {
         };
         Self {
             directory: tempfile::tempdir().unwrap(),
-            configured_recipient: Address::repeat_byte(0x77),
             request,
             control: Arc::new(Mutex::new(control)),
         }
@@ -1144,9 +1142,9 @@ async fn latest_snapshot_reorg_preserves_pending_journal_and_signed_nonce_then_r
 }
 
 #[tokio::test]
-async fn signed_restart_keeps_original_recipient_and_bytes_for_future_config() {
+async fn signed_restart_keeps_original_input_and_transaction_bytes() {
     for phase in 2..=4 {
-        let mut fixture = Fixture::new();
+        let fixture = Fixture::new();
         let mut runner = fixture.runner();
         for _ in 0..phase.min(3) {
             runner.step().await.unwrap();
@@ -1161,7 +1159,6 @@ async fn signed_restart_keeps_original_recipient_and_bytes_for_future_config() {
             runner.step().await.unwrap();
         }
         drop(runner);
-        fixture.configured_recipient = Address::repeat_byte(0x45);
         let mut resumed = fixture.runner();
         resumed.step().await.unwrap();
         let (job, transaction) = match resumed.state() {

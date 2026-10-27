@@ -79,7 +79,13 @@ impl AbciCommitteeRecordSubCommand {
             .with_writer(std::io::stderr)
             .try_init();
 
-        let params = load_chain_params(self.l2_chain_id, self.chain_config.as_deref())?;
+        let (mut params, expected_l1) =
+            load_chain_params(self.l2_chain_id, self.chain_config.as_deref())?;
+        super::bind_l1_chain_id(
+            &mut params,
+            expected_l1,
+            super::rpc_chain_id(&self.l1_http, "l1.http").await?,
+        )?;
         let l1 =
             RpcL1Source::new(connect_http_with_timeout(self.l1_http.clone(), DEFAULT_HTTP_TIMEOUT));
         let report = build_committee_record(&l1, &params, self.genesis_cutoff, self.at).await?;
@@ -110,14 +116,9 @@ fn render_text(report: &GenesisCommitteeRecord) -> String {
     let _ = writeln!(out, "provingBlock:        {}", report.proving_block);
     let _ = writeln!(out, "members:             {}", report.members.len());
     for member in &report.members {
-        let _ = writeln!(
-            out,
-            "  {} power {} rewardRecipient {}",
-            member.pubkey, member.power, member.reward_recipient
-        );
+        let _ = writeln!(out, "  {} power {}", member.pubkey, member.power);
     }
-    let _ = writeln!(out, "totalPower:          {}", record.total_power);
-    let _ = write!(out, "totalStake:          {}", record.total_stake);
+    let _ = write!(out, "totalPower:          {}", record.total_power);
     out
 }
 
@@ -235,9 +236,8 @@ mod tests {
 
     #[test]
     fn renders_the_report_one_fact_per_line() {
-        let member = |byte: &str, stake: &str, power, recipient| Member {
-            reward_recipient: alloy_primitives::Address::repeat_byte(recipient),
-            pubkey: word(byte).parse().unwrap(),
+        let member = |index: usize, stake: &str, power| Member {
+            pubkey: test_harness::ValidatorKey::derive("cli-report", index as u64).pubkey(),
             eff_stake: stake.parse().unwrap(),
             power,
         };
@@ -249,13 +249,11 @@ mod tests {
                 cutoff_l1_block: 63,
                 checkpoint_index: 2,
                 set_root: word("5e").parse().unwrap(),
-                total_stake: "3000000000000000000".parse().unwrap(),
                 total_power: 3_000_000_000,
-                encoding_version: 1,
             },
             members: vec![
-                member("11", "1000000000000000000", 1_000_000_000, 0x77),
-                member("22", "2000000000000000000", 2_000_000_000, 0x88),
+                member(0, "1000000000000000000", 1_000_000_000),
+                member(1, "2000000000000000000", 2_000_000_000),
             ],
             proving_block: 64,
         };
@@ -267,17 +265,10 @@ mod tests {
         assert_eq!(lines[3], "checkpointIndex:     2");
         assert_eq!(lines[4], "provingBlock:        64");
         assert_eq!(lines[5], "members:             2");
-        assert_eq!(
-            lines[6],
-            format!("  {} power 1000000000 rewardRecipient 0x{}", word("11"), "77".repeat(20))
-        );
-        assert_eq!(
-            lines[7],
-            format!("  {} power 2000000000 rewardRecipient 0x{}", word("22"), "88".repeat(20))
-        );
+        assert_eq!(lines[6], format!("  {} power 1000000000", report.members[0].pubkey));
+        assert_eq!(lines[7], format!("  {} power 2000000000", report.members[1].pubkey));
         assert_eq!(lines[8], "totalPower:          3000000000");
-        assert_eq!(lines[9], "totalStake:          3000000000000000000");
-        assert_eq!(lines.len(), 10);
+        assert_eq!(lines.len(), 9);
         assert!(!text.ends_with('\n'));
     }
 }

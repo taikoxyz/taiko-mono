@@ -178,8 +178,21 @@ impl LandingSource for RpcLandingSource {
         loop {
             let latest = self.l1.get_block_number().await.map_err(rpc_error)?;
             let raw = self.anchors.header_hash_pinned(latest).await.map_err(anchor_error)?;
-            let l1_chain_id = U256::from(self.l1.get_chain_id().await.map_err(rpc_error)?);
-            let l2_chain_id = self.l2.get_chain_id().await.map_err(rpc_error)?;
+            let l1_chain_id: U256 =
+                self.l1.raw_request("eth_chainId".into(), ()).await.map_err(rpc_error)?;
+            if l1_chain_id != self.params.l1_chain_id {
+                return Err(LanderError::Configuration(format!(
+                    "L1 endpoint chain id {l1_chain_id}, configured {}",
+                    self.params.l1_chain_id
+                )));
+            }
+            let l2_chain_id: U256 =
+                self.l2.raw_request("eth_chainId".into(), ()).await.map_err(rpc_error)?;
+            let l2_chain_id: u64 = l2_chain_id.try_into().map_err(|_| {
+                LanderError::Configuration(
+                    "L2 chain id exceeds the supported uint64 EVM chain range".into(),
+                )
+            })?;
             if l2_chain_id != self.params.l2_chain_id {
                 return Err(LanderError::Configuration(format!(
                     "L2 endpoint chain id {l2_chain_id}, configured {}",
