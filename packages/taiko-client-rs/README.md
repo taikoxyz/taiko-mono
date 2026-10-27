@@ -493,7 +493,13 @@ or config opening differs.
    ```
 
    The host supervisor requires Bash and Python 3.11+ (`tomllib`); the production image
-   includes Python, the unchanged pinned stock Comet binary, the signer and this supervisor.
+   includes Python, the signer, this supervisor and a native build of unmodified stock
+   Comet v0.40.0 source `0880b4d378f347ab16e54ec677ff50d803f37d62`. The pinned Go1.27.2
+   builder uses the official `make build-linux` target with explicit target architecture,
+   default build tags and readonly modules; source identity and a clean tree are checked.
+   The official v0.40.0 ARM64 image contains an x86-64 Comet executable, so it is not used
+   as the binary source. CI checks every bundled ELF against the declared matrix platform
+   before publishing the multiarch tag; emulated execution alone is insufficient.
    Its default entrypoint remains the app; the validator supervisor container uses
    `command: ["python3", "/app/script/etna_validator.py"]` with the same environment below.
    Run the app in a separate container sharing the private app-store socket and persisted
@@ -794,10 +800,11 @@ just clippy     # doc lints on library code, then every target with -D warnings
 - `just test-smoke` runs exactly four representative Docker scenarios: single-validator header
   rules, epoch switch, the four-validator native acceptance flow, and lander CLI SIGKILL/SIGTERM restarts.
   This fixed recipe accepts no arguments. Use `just test` for targeted subsets or output options.
-- `just runtime-image-test IMAGE` smoke-tests the actual Linux runtime composition, native
+- `just runtime-image-test IMAGE linux/arm64` (or `linux/amd64`) smoke-tests the actual Linux runtime composition, native
   bootstrap, Comet UID isolation and unchanged HRS without a Rust rebuild. Build the
   `runtime-tools` Docker target with repository-root context first. Multiarch final image CI
-  remains required before deployment.
+  remains required before deployment. The smoke requires an explicit platform and checks
+  Comet, signer and, in a release image, client ELF architecture before child startup.
 - `just verify` is the complete merge gate: Go signer race tests, supervisor process tests, formatting, strict clippy, fast tests, committed
   artifact reproduction, and all Docker scenarios (`just test-full`). Smoke is an iteration aid and never replaces
   this gate. After each coherent code change batch, run `just fmt && just clippy-fix` and targeted

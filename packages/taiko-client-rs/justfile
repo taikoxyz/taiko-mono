@@ -100,5 +100,5 @@ supervisor-test:
   python3 tests/supervisor_test.py
 
 # Build runtime-tools (repository-root context) or use the final client image before this smoke.
-runtime-image-test image:
-  docker run --rm --network none --entrypoint python3 -v "$PWD/tests:/app/tests:ro" {{image}} /app/tests/runtime_image_test.py
+runtime-image-test image platform:
+  docker run --rm --platform {{platform}} -e ETNA_EXPECTED_PLATFORM={{platform}} --network none --entrypoint python3 -v "$PWD/tests:/app/tests:ro" {{image}} /app/tests/runtime_image_test.py
