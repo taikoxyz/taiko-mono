@@ -121,7 +121,7 @@ func TestTransportOnlyDisconnectRearmsSameHelper(t *testing.T) {
 			vote := voteRequest(tm.PrecommitType, 0, false)
 			signedMessage := signerExchange(t, first, vote)
 			signed := signedMessage.GetSignedVoteResponse()
-			if signed == nil || signed.Error != nil || len(signed.Vote.Signature) != 64 {
+			if signed == nil || signed.Error != nil || len(signed.Vote.Signature) != 65 {
 				t.Fatal("initial Ready signature failed")
 			}
 			before, err := os.ReadFile(state)

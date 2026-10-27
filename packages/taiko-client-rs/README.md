@@ -613,6 +613,11 @@ or config opening differs.
    cp ./genesis.json ./cmt/config/genesis.json
    ```
 
+   For a brand-new identity, use the bootstrap-only `etna-signer keygen` and
+   `etna-signer pop` commands before registration and genesis creation; see the
+   [native signer instructions](tools/etna-signer/README.md). They emit public JSON
+   for deployment tooling. Never use keygen to recover an existing validator.
+
    Keep the registered validator's existing `priv_validator_key.json` and its existing
    `priv_validator_state.json` together in a private signer directory outside the Comet home
    and outside every Comet container mount. Preserve the state across every restart; never

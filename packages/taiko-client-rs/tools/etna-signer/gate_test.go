@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cometbft/cometbft/crypto/ed25519"
+	"github.com/cometbft/cometbft/crypto/secp256k1eth"
 	"github.com/cometbft/cometbft/libs/log"
 	"github.com/cometbft/cometbft/privval"
 	pv "github.com/cometbft/cometbft/proto/tendermint/privval"
@@ -71,13 +73,13 @@ func control(t *testing.T, reply func(map[string]any) any) string {
 }
 func snapshot(ready bool) map[string]any {
 	hash := "0x" + strings.Repeat("b", 64)
-	return map[string]any{"schema_version": 1, "session_id": "test:7", "chain_id": chain, "generation": 0, "trust_ready": ready, "syncing": !ready, "phase": map[bool]string{true: "ready", false: "catching_up"}[ready], "target": map[string]any{"l1_number": 10, "l1_hash": "0x" + strings.Repeat("a", 64), "height": 0, "hash": hash, "generation": 0, "inbox": "0x" + strings.Repeat("1", 40)}, "committed_head": map[string]any{"height": 0, "hash": hash}, "trusted_consensus_head": map[string]any{"height": 0, "hash": hash}, "reason": nil}
+	return map[string]any{"schema_version": 1, "session_id": "test:7", "chain_id": chain, "generation": 0, "trust_ready": ready, "syncing": !ready, "phase": map[bool]string{true: "ready", false: "catching_up"}[ready], "target": map[string]any{"l1_number": 10, "l1_hash": "0x" + strings.Repeat("a", 64), "height": 0, "hash": hash, "comet_hash": "0x" + strings.Repeat("c", 64), "generation": 0, "inbox": "0x" + strings.Repeat("1", 40)}, "committed_head": map[string]any{"height": 0, "hash": hash}, "trusted_consensus_head": map[string]any{"height": 0, "hash": hash}, "reason": nil}
 }
 func filePV(t *testing.T) (*privval.FilePV, string, string) {
 	t.Helper()
 	d := t.TempDir()
 	key, state := filepath.Join(d, "key.json"), filepath.Join(d, "state.json")
-	p := privval.GenFilePV(key, state)
+	p := privval.NewFilePV(secp256k1eth.GenPrivKey(), key, state)
 	p.Save()
 	return p, key, state
 }
@@ -139,7 +141,7 @@ func TestReadyIsFreshAndFilePVPersistsDoubleSignProtection(t *testing.T) {
 		t.Fatalf("ready: %v %v", res, err)
 	}
 	signed := res.GetSignedVoteResponse().Vote.Signature
-	if len(signed) != 64 {
+	if len(signed) != 65 {
 		t.Fatal("no official signature")
 	}
 	signer = privval.LoadFilePV(key, state)
@@ -363,7 +365,7 @@ func TestOfficialSignerWire(t *testing.T) {
 			ready.Store(true)
 			request := voteRequest(tm.PrecommitType, 0, false)
 			vote := request.GetSignVoteRequest().Vote
-			if err = client.SignVote(chain, vote); err != nil || len(vote.Signature) != 64 {
+			if err = client.SignVote(chain, vote); err != nil || len(vote.Signature) != 65 {
 				t.Fatalf("ready official signing: %v", err)
 			}
 			ready.Store(false)
@@ -404,5 +406,34 @@ func TestMalformedReadyRequestsNeverReachFilePV(t *testing.T) {
 	after, _ := os.ReadFile(state)
 	if signer.calls.Load() != 0 || !bytes.Equal(before, after) {
 		t.Fatal("malformed Ready request reached FilePV")
+	}
+}
+
+func TestMandatoryCanonicalCometCheckpointHash(t *testing.T) {
+	for _, value := range []any{nil, json.RawMessage("null"), "", "0x01", "0x" + strings.Repeat("A", 64), "0x" + strings.Repeat("0", 64)} {
+		t.Run(fmt.Sprint(value), func(t *testing.T) {
+			path := control(t, func(map[string]any) any {
+				r := snapshot(true)
+				target := r["target"].(map[string]any)
+				if value == nil {
+					delete(target, "comet_hash")
+				} else {
+					target["comet_hash"] = value
+				}
+				return r
+			})
+			signer, _, state := filePV(t)
+			before, _ := os.ReadFile(state)
+			_, err := armed(path).handle(signer, proposalRequest(), chain)
+			// The all-zero genesis Comet hash is canonical and is accepted.
+			valid := value == "0x"+strings.Repeat("0", 64)
+			if (err == nil) != valid {
+				t.Fatalf("comet hash acceptance: %v", err)
+			}
+			after, _ := os.ReadFile(state)
+			if !valid && !bytes.Equal(before, after) {
+				t.Fatal("invalid comet hash modified HRS")
+			}
+		})
 	}
 }
