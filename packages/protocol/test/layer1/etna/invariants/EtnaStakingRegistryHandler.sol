@@ -525,8 +525,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
     }
 
     /// @notice A recovery exclusion through the Inbox: about half of the calls start a new
-    /// recovery generation, then the Inbox moves one entry's exit to R (mostly the current block,
-    /// sometimes another block, a no-op when not earlier). One call in four is broken instead:
+    /// recovery generation, then the Inbox moves one entry's exit to the current block (a no-op
+    /// when not earlier). One call in four is broken instead:
     /// a caller other than the Inbox, an unknown bond, a released slot, a wrong entry key or
     /// R at or above 2^48 - 1.
     function forceExit(uint256 _seed) external {
@@ -551,14 +551,14 @@ contract EtnaStakingRegistryHandler is CommonBase {
             : bytes32(_rand(_seed, "entry key"));
         if (defect == FORCE_WRONG_KEY) entryKey = _wrongEntryKey(bondId, entryKey, _seed);
 
-        uint256 r = block.number;
+        uint256 executionBlock = block.number;
         if (defect == FORCE_BLOCK_OVERFLOW) {
             uint256 kind = _rand(_seed, "overflow") % 3;
-            r = kind == 0 ? NO_EXIT : kind == 1 ? uint256(NO_EXIT) + 1 : type(uint256).max;
-        } else if (_rand(_seed, "r") % 4 == 0) {
-            r = _rand(_seed, "r value") % (block.number + 2 * exitDelay + 1);
+            vm.roll(kind == 0 ? NO_EXIT : kind == 1 ? uint256(NO_EXIT) + 1 : type(uint256).max);
         }
-        _forceExit(bondId, entryKey, r, defect == FORCE_NOT_INBOX);
+        _forceExit(bondId, entryKey, defect == FORCE_NOT_INBOX);
+        // Boundary calls must revert without advancing the campaign into overflowing arithmetic.
+        if (defect == FORCE_BLOCK_OVERFLOW) vm.roll(executionBlock);
     }
 
     /// @notice Raises the Inbox's landed snapshot, never above the current block: to the current
@@ -1319,7 +1319,9 @@ contract EtnaStakingRegistryHandler is CommonBase {
     // Recovery exclusion
     // ---------------------------------------------------------------
 
-    function _forceExit(uint256 _bondId, bytes32 _entryKey, uint256 _r, bool _notInbox) internal {
+    /// @dev Models an Inbox exclusion using the actual execution block, including its bounds.
+    function _forceExit(uint256 _bondId, bytes32 _entryKey, bool _notInbox) internal {
+        uint256 r = block.number;
         Slot storage s = _slots[_bondId];
         bytes memory expected;
         if (_notInbox) {
@@ -1330,7 +1332,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
             expected = _err(IEtnaStakingRegistry.SlotReleased.selector);
         } else if (_entryKey != _entryKeyOf(s.entry.ckPrefix, s.entry.ckX)) {
             expected = _err(IEtnaStakingRegistry.EntryKeyMismatch.selector);
-        } else if (_r >= NO_EXIT) {
+        } else if (r >= NO_EXIT) {
             expected = _err(IEtnaStakingRegistry.InvalidEventBlock.selector);
         }
         uint256 checkpointsBefore = registry.checkpointCount();
@@ -1339,13 +1341,13 @@ contract EtnaStakingRegistryHandler is CommonBase {
         bytes memory reason;
         if (_notInbox) {
             vm.prank(_reporters[0]);
-            try registry.forceExit(_bondId, _entryKey, _r) {
+            try registry.forceExit(_bondId, _entryKey) {
                 ok = true;
             } catch (bytes memory err) {
                 reason = err;
             }
         } else {
-            try inbox.forceExit(registry, _bondId, _entryKey, _r) {
+            try inbox.forceExit(registry, _bondId, _entryKey) {
                 ok = true;
             } catch (bytes memory err) {
                 reason = err;
@@ -1357,7 +1359,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
             _countRejection(FORCE_EXIT, expected);
         } else if (expected.length != 0) {
             _violate(Property.Timing, "forceExit accepted where the model rejects it");
-        } else if (_r >= s.entry.exitEffectiveL1) {
+        } else if (r >= s.entry.exitEffectiveL1) {
             // An exit at or before R is kept and nothing is written.
             if (registry.checkpointCount() != checkpointsBefore) {
                 _violate(Property.History, "a forceExit that keeps the exit wrote a checkpoint");
@@ -1367,8 +1369,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
             }
             ++forcedNoOps;
         } else {
-            s.forcedExit = _min(s.forcedExit, _r);
-            _setExit(_bondId, _r);
+            s.forcedExit = _min(s.forcedExit, r);
+            _setExit(_bondId, r);
             ++forcedExits;
             _commit(_bondId, Property.Timing);
         }

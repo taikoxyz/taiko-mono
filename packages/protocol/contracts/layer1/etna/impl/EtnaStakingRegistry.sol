@@ -124,11 +124,11 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// @notice The receiver of a slashed stake minus the bounty.
     address public immutable slashSink;
 
-    /// @dev The chain id of the Etna L2.
-    uint64 private immutable _l2ChainId;
+    /// @inheritdoc IEtnaStakingRegistry
+    uint64 public immutable override l2ChainId;
 
-    /// @dev The Etna Inbox proxy.
-    address private immutable _inbox;
+    /// @inheritdoc IEtnaStakingRegistry
+    address public immutable override inbox;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -155,8 +155,8 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         withdrawalDelay = _config.withdrawalDelay;
         slashBountyBps = _config.slashBountyBps;
         slashSink = _config.slashSink;
-        _l2ChainId = _config.l2ChainId;
-        _inbox = _config.inbox;
+        l2ChainId = _config.l2ChainId;
+        inbox = _config.inbox;
     }
 
     // ---------------------------------------------------------------
@@ -231,10 +231,10 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// @dev Unaffected by pause.
     function confirmExit(uint256 _bondId) external {
         _checkInboxUnlocked();
-        require(IEtnaInbox(_inbox).isInitialized(), InboxNotInitialized());
+        require(IEtnaInbox(inbox).isInitialized(), InboxNotInitialized());
         uint48 exitEffectiveL1 = _unreleasedEntry(_registryStorage(), _bondId).exitEffectiveL1;
         require(exitEffectiveL1 != NO_EXIT, ExitNotSet());
-        require(IEtnaInbox(_inbox).activeCommitteeSnapshot() >= exitEffectiveL1, ExitNotCovered());
+        require(IEtnaInbox(inbox).activeCommitteeSnapshot() >= exitEffectiveL1, ExitNotCovered());
 
         mapping(uint256 => uint256) storage confirmations =
             _exitConfirmationsStorage().exitConfirmedAtL1;
@@ -285,7 +285,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         external
         nonReentrant
     {
-        require(IEtnaInbox(_inbox).isInitialized(), InboxNotInitialized());
+        require(IEtnaInbox(inbox).isInitialized(), InboxNotInitialized());
         Vote memory voteA = _voteA;
         Vote memory voteB = _voteB;
         LibCometVote.checkRanges(voteA);
@@ -296,7 +296,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
                 && !LibCometVote.sameBlockId(voteA, voteB),
             NotDoubleSign()
         );
-        require(voteA.generation <= IEtnaInbox(_inbox).recoveryGeneration(), FutureGeneration());
+        require(voteA.generation <= IEtnaInbox(inbox).recoveryGeneration(), FutureGeneration());
 
         RegistryStorage storage $ = _registryStorage();
         Entry memory entry = _unreleasedEntry($, _bondId);
@@ -307,7 +307,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         address signer =
             LibEtnaKeys.ckAddr(entry.ckX, LibEtnaKeys.decompress(entry.ckPrefix, entry.ckX));
         bytes memory cometChainId = LibCometVote.chainId(
-            LibCometVote.chainDomain(block.chainid, _l2ChainId, _inbox, voteA.generation)
+            LibCometVote.chainDomain(block.chainid, l2ChainId, inbox, voteA.generation)
         );
         require(
             _voteSigner(voteA, cometChainId) == signer
@@ -337,15 +337,15 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
 
     /// @inheritdoc IEtnaStakingRegistry
     /// @dev Checks in order: the caller, the entry (`UnknownBond`, then `SlotReleased`), the
-    /// entry key, then `_r`, which must be below the no-exit sentinel (`InvalidEventBlock`) so an
-    /// excluded entry is always left with an exit. An exit already at or before `_r` is kept, and
-    /// then nothing is written: no checkpoint and no event. Unaffected by pause.
-    function forceExit(uint256 _bondId, bytes32 _entryKey, uint256 _r) external nonReentrant {
-        require(msg.sender == _inbox, NotInbox());
+    /// entry key, then the current block, which must be below the no-exit sentinel
+    /// (`InvalidEventBlock`) so an excluded entry is always left with an exit. An exit already at
+    /// or before the current block is kept, with no checkpoint or event. Unaffected by pause.
+    function forceExit(uint256 _bondId, bytes32 _entryKey) external nonReentrant {
+        require(msg.sender == inbox, NotInbox());
         RegistryStorage storage $ = _registryStorage();
         Entry memory entry = _unreleasedEntry($, _bondId);
         require(_entryKey == LibEtnaKeys.entryKey(entry.ckPrefix, entry.ckX), EntryKeyMismatch());
-        uint48 r = _toEventBlock(_r);
+        uint48 r = _toEventBlock(block.number);
         if (r >= entry.exitEffectiveL1) return;
 
         entry.exitEffectiveL1 = r;
@@ -410,16 +410,6 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         );
         bytes32 structHash = keccak256(abi.encode(_REGISTER_TYPEHASH, _owner));
         return keccak256(abi.encodePacked(hex"1901", domainSeparator, structHash));
-    }
-
-    /// @inheritdoc IEtnaStakingRegistry
-    function inbox() external view returns (address) {
-        return _inbox;
-    }
-
-    /// @inheritdoc IEtnaStakingRegistry
-    function l2ChainId() external view returns (uint64) {
-        return _l2ChainId;
     }
 
     // ---------------------------------------------------------------
@@ -511,7 +501,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// `sweepProtocolFees`, its transfer included), so no exit confirmation or withdrawal can run
     /// inside a landing or a recovery.
     function _checkInboxUnlocked() private view {
-        require(!EssentialContract(_inbox).inNonReentrant(), InboxLocked());
+        require(!EssentialContract(inbox).inNonReentrant(), InboxLocked());
     }
 
     /// @dev Returns an L1 block as a 48-bit value below the no-exit sentinel.

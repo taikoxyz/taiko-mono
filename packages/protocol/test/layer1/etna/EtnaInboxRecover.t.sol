@@ -28,7 +28,7 @@ contract LockProbeRegistry {
         recoverCall = _recoverCall;
     }
 
-    function forceExit(uint256, bytes32, uint256) external {
+    function forceExit(uint256, bytes32) external {
         ++forceExits;
         lockHeld = EssentialContract(msg.sender).inNonReentrant();
         (landSucceeded, landError) = msg.sender.call(landCall);
@@ -570,7 +570,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     }
 
     /// @dev `recover` calls nothing but the fixed registry's `forceExit`, once per exclusion in
-    /// list order with R = block.number, and sends no ETH; it never calls the SignalService or the
+    /// list order, and sends no ETH; it never calls the SignalService or the
     /// verifier.
     function test_recover_CallsOnlyTheRegistry() external {
         IEtnaInbox.Exclusion[] memory everyone = new IEtnaInbox.Exclusion[](2);
@@ -598,10 +598,8 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
                 IEtnaInbox.Exclusion memory x = everyone[forceExits++];
                 assertEq(
                     a.data,
-                    abi.encodeCall(
-                        IEtnaStakingRegistry.forceExit, (x.bondId, x.entryKey, block.number)
-                    ),
-                    "forceExit(bondId, entryKey, R)"
+                    abi.encodeCall(IEtnaStakingRegistry.forceExit, (x.bondId, x.entryKey)),
+                    "forceExit(bondId, entryKey)"
                 );
             } else if (a.account == registryImpl) {
                 assertEq(
