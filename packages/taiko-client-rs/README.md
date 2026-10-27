@@ -803,9 +803,9 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 Regenerate lander ABI/deployment fixtures only when their inputs change, with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `08bcaca2cf764a9e951a9163e302849a016f7862` (also the
+The script requires protocol HEAD `23963b68e43b4cbeaf83113eeb61fbc1bddb4c46` (also the
 `PROTOCOL_REVISION` in `crates/lander/src/contracts.rs`),
-installs pnpm dependencies before Foundry, builds the Inbox, registry, immutable `L2FeeVault` and
+installs pnpm dependencies before Foundry, builds `EtnaInboxBootstrap`, the Inbox, registry and
 SignalService with their test fixtures, verifies compiler source hashes,
 formats generated JSON, and records ABI/bytecode/compiler provenance. It also copies the Etna
 vectors shared with the contracts (`testdata/etna_vectors`, which the `abci` and `lander` unit
