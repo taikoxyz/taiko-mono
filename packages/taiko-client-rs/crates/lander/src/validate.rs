@@ -4,28 +4,26 @@ use std::collections::BTreeSet;
 
 use abci::{
     AnchorState, ChainParams, CommitteeState, EtnaEnvelope, ParentInfo, Schedule,
-    committee::verify_committee_witness,
-    l1::{layout::inbox, witness::verify_anchor_witness},
+    l1::witness::verify_anchor_witness,
     rules::{self, GenerationCheck, HeaderInputs},
 };
 use alloy_primitives::B256;
-use ed25519_consensus::{Signature, VerificationKey};
 use prost::Message;
 use sha2::{Digest, Sha256};
 use tendermint::{
     Hash, Vote,
-    block::{Commit, CommitSig},
     vote::{CanonicalVote, Type},
 };
 use tendermint_proto::{
     Protobuf,
-    v0_38::types::{
-        Block as RawBlock, CanonicalVote as RawVote, CommitSig as RawCommitSig,
-        evidence::Sum as RawEvidence,
-    },
+    v0_38::types::{CanonicalVote as RawVote, CommitSig as RawCommitSig},
 };
 
-use crate::{committee::AuthenticatedCommittee, types::CertifiedBlock};
+use crate::{
+    committee::AuthenticatedCommittee,
+    native::{Commit, CommitSig, RawBlock, evidence::Sum as RawEvidence},
+    types::CertifiedBlock,
+};
 
 /// A certificate or block is inconsistent with authenticated consensus context.
 #[derive(Debug, thiserror::Error)]
@@ -65,14 +63,17 @@ pub struct BlockFacts {
 /// The timestamp, round, block id, height and chain id all enter Tendermint's canonical
 /// length-delimited vote sign bytes. Nil votes are verified but contribute no block power.
 /// Absent slots contribute no power. Signatures must follow the authenticated validator order.
-/// Ed25519 acceptance follows CometBFT's ZIP215 consensus rules, including torsion components;
-/// every future proof guest must use the same verifier.
+/// Native stock secp256k1eth verification enforces low-S recoverable signatures and authorized
+/// Ethereum addresses; every future proof guest must preserve these exact checks.
 pub fn verify_commit(
     commit: &Commit,
     header: &tendermint::block::Header,
     committee: &AuthenticatedCommittee,
     chain_id: &str,
 ) -> Result<(), ValidationError> {
+    if header.version.app != abci::app::APP_VERSION {
+        return Err(ValidationError::Certificate("unsupported Etna APP_VERSION".into()));
+    }
     if header.chain_id.as_str() != chain_id || commit.height != header.height {
         return Err(ValidationError::Certificate("chain id or commit height mismatch".into()));
     }
@@ -132,17 +133,11 @@ pub fn verify_commit(
             chain_id.parse().map_err(|e| ValidationError::Certificate(format!("chain id: {e}")))?;
         let sign_bytes =
             Protobuf::<RawVote>::encode_length_delimited_vec(CanonicalVote::new(vote, chain_id));
-        let raw_key = validator.pub_key.to_bytes();
-        let key_bytes: &[u8; 32] = raw_key
-            .as_slice()
-            .try_into()
-            .map_err(|_| ValidationError::Certificate("non-Ed25519 public key".into()))?;
-        let key = VerificationKey::try_from(*key_bytes)
-            .map_err(|e| ValidationError::Certificate(format!("Ed25519 key: {e}")))?;
-        let signature = Signature::try_from(signature.as_bytes())
-            .map_err(|e| ValidationError::Certificate(format!("Ed25519 signature: {e}")))?;
-        key.verify(&signature, &sign_bytes)
-            .map_err(|e| ValidationError::Certificate(format!("Ed25519 verification: {e}")))?;
+        if !validator.pub_key.verify_signature(&sign_bytes, signature.as_bytes()) {
+            return Err(ValidationError::Certificate(
+                "native secp256k1eth signature verification failed".into(),
+            ));
+        }
         if is_commit {
             signed_power += u128::from(validator.power());
         }
@@ -323,6 +318,8 @@ pub fn verify_envelope(
     envelope: EtnaEnvelope,
     context: EnvelopeContext<'_>,
 ) -> Result<BlockFacts, ValidationError> {
+    crate::codec::validate_execution(&envelope.block)
+        .map_err(|e| ValidationError::Etna(e.to_string()))?;
     let EnvelopeContext {
         bft_time_secs,
         proposer,
@@ -358,7 +355,7 @@ pub fn verify_envelope(
     let generation_check =
         rules::check_generation(generation, extra_generation, anchor.inbox.recovery_generation)
             .map_err(|e| ValidationError::Etna(e.to_string()))?;
-    if generation_check != GenerationCheck::Ok || anchor.inbox.status != inbox::ETNA_ACTIVE {
+    if generation_check != GenerationCheck::Ok {
         return Err(ValidationError::Etna("superseded generation or inactive Inbox".into()));
     }
     rules::check_back_pressure(height, anchor.inbox.last_checkpoint_height, params.unsettled_cap())
@@ -366,12 +363,21 @@ pub fn verify_envelope(
     let derived = match (switch, envelope.committee.as_ref()) {
         (None, None) => None,
         (Some(target), Some(w)) => {
-            let (record, members) = verify_committee_witness(parent_anchor, params, w, target)
-                .map_err(|e| ValidationError::Etna(e.to_string()))?;
+            let (record, members) = abci::committee::verify_committee_witness_at_cutoff(
+                anchor.state_root,
+                parent_anchor.number.max(schedule.l1_0),
+                params,
+                w,
+                target,
+            )
+            .map_err(|e| ValidationError::Etna(e.to_string()))?;
             Some(CommitteeState { record, members })
         }
         _ => return Err(ValidationError::Etna("committee witness presence mismatch".into())),
     };
+    if !members.iter().any(|member| member.pubkey.address().as_slice() == proposer.as_bytes()) {
+        return Err(ValidationError::Etna("unknown certified proposer".into()));
+    }
     let expected = rules::expected_header(&HeaderInputs {
         height,
         parent,
@@ -380,8 +386,7 @@ pub fn verify_envelope(
         generation,
         params,
         min_base_fee: protocol::shasta::constants::min_base_fee_for_chain(params.l2_chain_id),
-        reward_recipient: rules::proposer_recipient(members, proposer)
-            .ok_or_else(|| ValidationError::Etna("unknown certified proposer".into()))?,
+        reward_recipient: envelope.block.header.beneficiary,
     })
     .map_err(|e| ValidationError::Etna(e.to_string()))?;
     rules::check_anchor_freshness(expected.timestamp, anchor.timestamp, max_anchor_age)
@@ -394,6 +399,8 @@ pub fn verify_envelope(
             anchor: &anchor,
             delay: forced_inclusion_delay,
             inbox: params.inbox,
+            l2_chain_id: params.l2_chain_id,
+            block_gas_limit: params.block_gas_limit,
         },
         envelope.forced.as_ref(),
         envelope.block.transactions.first().map(|tx| tx.as_ref()),
@@ -425,94 +432,74 @@ pub fn verify_envelope(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::consensus::{committee, nil_vote, pair, raw_block};
-    use curve25519_dalek::{
-        constants::{ED25519_BASEPOINT_POINT, EIGHT_TORSION},
-        scalar::Scalar,
-    };
-    use sha2::Sha512;
+    use crate::test_utils::consensus::{self, committee, nil_vote, pair, raw_block};
     use tendermint::Time;
 
     #[test]
-    fn accepts_cometbft_zip215_torsion_nonce_with_an_ordinary_powered_key() {
-        let (_, committee, keys) = committee(&[1], 0);
-        let mut pair = pair(1, B256::ZERO, &committee, &keys, None);
-        let validator = &committee.validators.validators()[0];
-        let vote = Vote {
-            vote_type: Type::Precommit,
-            height: pair.commit.height,
-            round: pair.commit.round,
-            block_id: Some(pair.commit.block_id),
-            timestamp: Some(pair.block.header.time),
-            validator_address: validator.address,
-            validator_index: 0u32.try_into().unwrap(),
-            signature: None,
-            extension: vec![],
-            extension_signature: None,
-        };
-        let bytes = Protobuf::<RawVote>::encode_length_delimited_vec(CanonicalVote::new(
-            vote,
-            pair.block.header.chain_id.clone(),
-        ));
-        let mut secret = Sha512::digest(keys[0].to_bytes());
-        secret[0] &= 248;
-        secret[31] &= 63;
-        secret[31] |= 64;
-        let scalar = Scalar::from_bytes_mod_order(secret[..32].try_into().unwrap());
-        let nonce = Scalar::from(7u64);
-        let point = ED25519_BASEPOINT_POINT * nonce + EIGHT_TORSION[1];
-        assert!(!point.is_torsion_free());
-        assert!(!point.is_small_order());
-        let r = point.compress().to_bytes();
-        let challenge = Sha512::new()
-            .chain_update(r)
-            .chain_update(keys[0].verifying_key().to_bytes())
-            .chain_update(&bytes)
-            .finalize();
-        let challenge = Scalar::from_bytes_mod_order_wide(&challenge.into());
-        let s = nonce + challenge * scalar;
-        let signature = [r.as_slice(), s.as_bytes()].concat();
-        if let CommitSig::BlockIdFlagCommit { signature: slot, .. } = &mut pair.commit.signatures[0]
-        {
-            *slot = Some(signature.try_into().unwrap());
-        }
-        verify_commit(&pair.commit, &pair.block.header, &committee, "taiko-etna-167001-g0")
-            .unwrap();
-    }
-
-    #[test]
-    fn real_canonical_ed25519_commits_require_strictly_more_than_two_thirds() {
-        let (_, committee, keys) = committee(&[1, 1, 1], 0);
-        let mut block = pair(1, B256::repeat_byte(9), &committee, &keys, None);
-        verify_commit(&block.commit, &block.block.header, &committee, "taiko-etna-167001-g0")
-            .unwrap();
-        block.commit.signatures[2] = CommitSig::BlockIdFlagAbsent;
+    fn v1_certificate_rejects_another_app_version_even_with_valid_native_signatures() {
+        let (_, committee, keys) = consensus::committee(&[1, 1, 1], 0);
+        let mut pair = consensus::pair(1, B256::ZERO, &committee, &keys, None);
+        pair.block.header.version.app = 0;
+        consensus::resign(&mut pair, &committee, &keys);
         assert!(
-            verify_commit(&block.commit, &block.block.header, &committee, "taiko-etna-167001-g0")
-                .is_err()
+            verify_commit(
+                &pair.commit,
+                &pair.block.header,
+                &committee,
+                pair.block.header.chain_id.as_str()
+            )
+            .is_err()
         );
     }
 
     #[test]
-    fn zip215_rejects_noncanonical_scalars_and_noncurve_nonce_points() {
+    fn real_canonical_native_commits_require_strictly_more_than_two_thirds() {
+        let (_, committee, keys) = committee(&[1, 1, 1], 0);
+        let mut block = pair(1, B256::repeat_byte(9), &committee, &keys, None);
+        verify_commit(
+            &block.commit,
+            &block.block.header,
+            &committee,
+            "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        )
+        .unwrap();
+        block.commit.signatures[2] = CommitSig::BlockIdFlagAbsent;
+        assert!(
+            verify_commit(
+                &block.commit,
+                &block.block.header,
+                &committee,
+                "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4"
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn native_rejects_invalid_scalars_and_recovery_ids() {
         let (_, committee, keys) = committee(&[1], 0);
         let original = pair(1, B256::ZERO, &committee, &keys, None);
-        for scalar in [false, true] {
+        for mutation in 0..3 {
             let mut changed = original.clone();
             if let CommitSig::BlockIdFlagCommit { signature, .. } =
                 &mut changed.commit.signatures[0]
             {
                 let mut bytes = signature.as_ref().unwrap().as_bytes().to_vec();
-                if scalar {
-                    bytes[32..].fill(255);
-                } else {
-                    let invalid = [2; 32];
-                    assert!(
-                        curve25519_dalek::edwards::CompressedEdwardsY(invalid)
-                            .decompress()
-                            .is_none()
-                    );
-                    bytes[..32].copy_from_slice(&invalid);
+                match mutation {
+                    0 => bytes[64] = 2,
+                    1 => bytes[..32].fill(0),
+                    2 => {
+                        let order = alloy_primitives::U256::from_be_slice(
+                            &alloy_primitives::hex::decode(
+                                "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141",
+                            )
+                            .unwrap(),
+                        );
+                        let high_s = order - alloy_primitives::U256::from_be_slice(&bytes[32..64]);
+                        bytes[32..64].copy_from_slice(&high_s.to_be_bytes::<32>());
+                        bytes[64] ^= 1;
+                    }
+                    _ => unreachable!(),
                 }
                 *signature = Some(bytes.try_into().unwrap());
             }
@@ -521,7 +508,7 @@ mod tests {
                     &changed.commit,
                     &changed.block.header,
                     &committee,
-                    "taiko-etna-167001-g0"
+                    "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4"
                 )
                 .is_err()
             );
@@ -532,18 +519,28 @@ mod tests {
     fn weighted_quorum_absent_and_nil_votes_do_not_count() {
         let (_, committee, keys) = committee(&[3, 1], 0);
         let mut block = pair(1, B256::ZERO, &committee, &keys, None);
-        verify_commit(&block.commit, &block.block.header, &committee, "taiko-etna-167001-g0")
-            .unwrap();
+        verify_commit(
+            &block.commit,
+            &block.block.header,
+            &committee,
+            "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        )
+        .unwrap();
         block.commit.signatures[1] = CommitSig::BlockIdFlagAbsent;
-        verify_commit(&block.commit, &block.block.header, &committee, "taiko-etna-167001-g0")
-            .unwrap();
+        verify_commit(
+            &block.commit,
+            &block.block.header,
+            &committee,
+            "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        )
+        .unwrap();
         let mut nil_block = pair(1, B256::ZERO, &committee, &keys, None);
         nil_block.commit.signatures[1] = nil_vote(&nil_block, &committee, &keys, 1);
         verify_commit(
             &nil_block.commit,
             &nil_block.block.header,
             &committee,
-            "taiko-etna-167001-g0",
+            "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
         )
         .unwrap();
         nil_block.commit.signatures[0] = nil_vote(&nil_block, &committee, &keys, 0);
@@ -552,14 +549,19 @@ mod tests {
                 &nil_block.commit,
                 &nil_block.block.header,
                 &committee,
-                "taiko-etna-167001-g0"
+                "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4"
             )
             .is_err()
         );
         block.commit.signatures[0] = CommitSig::BlockIdFlagAbsent;
         assert!(
-            verify_commit(&block.commit, &block.block.header, &committee, "taiko-etna-167001-g0")
-                .is_err()
+            verify_commit(
+                &block.commit,
+                &block.block.header,
+                &committee,
+                "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4"
+            )
+            .is_err()
         );
     }
 
@@ -570,20 +572,35 @@ mod tests {
         let mut block = original.clone();
         block.commit.signatures[1] = block.commit.signatures[0].clone();
         assert!(
-            verify_commit(&block.commit, &block.block.header, &committee, "taiko-etna-167001-g0")
-                .is_err()
+            verify_commit(
+                &block.commit,
+                &block.block.header,
+                &committee,
+                "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4"
+            )
+            .is_err()
         );
         let mut block = original.clone();
         block.commit.round = 1u16.into();
         assert!(
-            verify_commit(&block.commit, &block.block.header, &committee, "taiko-etna-167001-g0")
-                .is_err()
+            verify_commit(
+                &block.commit,
+                &block.block.header,
+                &committee,
+                "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4"
+            )
+            .is_err()
         );
         let mut block = original.clone();
         block.commit.height = 2u32.into();
         assert!(
-            verify_commit(&block.commit, &block.block.header, &committee, "taiko-etna-167001-g0")
-                .is_err()
+            verify_commit(
+                &block.commit,
+                &block.block.header,
+                &committee,
+                "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4"
+            )
+            .is_err()
         );
         assert!(
             verify_commit(
@@ -596,19 +613,29 @@ mod tests {
         );
         let mut block = original.clone();
         if let CommitSig::BlockIdFlagCommit { signature, .. } = &mut block.commit.signatures[0] {
-            *signature = Some(vec![0; 64].try_into().unwrap());
+            *signature = Some(vec![0; 65].try_into().unwrap());
         }
         assert!(
-            verify_commit(&block.commit, &block.block.header, &committee, "taiko-etna-167001-g0")
-                .is_err()
+            verify_commit(
+                &block.commit,
+                &block.block.header,
+                &committee,
+                "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4"
+            )
+            .is_err()
         );
         let mut block = original;
         if let CommitSig::BlockIdFlagCommit { timestamp, .. } = &mut block.commit.signatures[0] {
             *timestamp = Time::from_unix_timestamp(200, 0).unwrap();
         }
         assert!(
-            verify_commit(&block.commit, &block.block.header, &committee, "taiko-etna-167001-g0")
-                .is_err()
+            verify_commit(
+                &block.commit,
+                &block.block.header,
+                &committee,
+                "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4"
+            )
+            .is_err()
         );
     }
 
@@ -687,114 +714,18 @@ mod tests {
             forced_inclusion_delay: fixture.snapshot.genesis.forced_inclusion_delay,
         };
         let facts = verify_envelope(envelope.clone(), context(original)).unwrap();
+        assert_eq!(facts.expected.beneficiary, envelope.block.header.beneficiary);
+        assert_eq!(facts.expected.extra_data[0], 100);
+        let mut changed = envelope.clone();
+        changed.block.header.beneficiary = alloy_primitives::Address::repeat_byte(0x88);
         assert_eq!(
-            facts.expected.beneficiary,
-            rules::proposer_recipient(members, original).unwrap()
+            verify_envelope(changed, context(original)).unwrap().expected.beneficiary,
+            alloy_primitives::Address::repeat_byte(0x88)
         );
-        assert_eq!(facts.expected.extra_data[0], 0);
-        let mut wrong = envelope.clone();
-        wrong.block.header.beneficiary = fixture.params.fee_vault;
-        assert!(
-            matches!(verify_envelope(wrong, context(original)), Err(ValidationError::Etna(m)) if m.contains("beneficiary"))
-        );
-        let mut changed = members.clone();
-        let key = changed
-            .iter_mut()
-            .find(|member| {
-                rules::proposer_recipient(std::slice::from_ref(member), original).is_some()
-            })
-            .unwrap();
-        key.reward_recipient = alloy_primitives::Address::repeat_byte(0x88);
-        assert!(
-            verify_envelope(
-                envelope.clone(),
-                EnvelopeContext { members: &changed, ..context(original) }
-            )
-            .is_err()
-        );
-        let mut updated = envelope.clone();
-        updated.block.header.beneficiary = alloy_primitives::Address::repeat_byte(0x88);
-        verify_envelope(updated, EnvelopeContext { members: &changed, ..context(original) })
-            .unwrap();
         let unknown = tendermint::account::Id::new([0xff; 20]);
         assert!(
             matches!(verify_envelope(envelope, context(unknown)), Err(ValidationError::Etna(m)) if m.contains("unknown certified proposer"))
         );
-    }
-
-    #[test]
-    fn asymmetric_members_keep_batch_payout_distinct_from_certified_proposer() {
-        let fixture = crate::test_utils::consensus_mpt::Fixture::new(24, 25);
-        let schedule = Schedule::from_genesis(&fixture.snapshot.genesis);
-        let committee = &fixture.committees[&schedule.epoch_of(25)];
-        let members = &committee.state.members;
-        assert_eq!(members.len(), 2);
-        assert_ne!(members[0].reward_recipient, members[1].reward_recipient);
-        let batch_recipient = crate::test_utils::consensus::BATCH_RECIPIENT;
-        assert!(members.iter().all(|m| m.reward_recipient != batch_recipient));
-        // Deliberately certify the member that is not first in set-key order, in a later round.
-        let original = committee
-            .validators
-            .validators()
-            .iter()
-            .find(|v| {
-                rules::proposer_recipient(members, v.address) == Some(members[1].reward_recipient)
-            })
-            .unwrap()
-            .address;
-        let mut certified = fixture.blocks[&25].clone();
-        certified.block.header.proposer_address = original;
-        certified.commit.round = 2u16.into();
-        let mut envelope = EtnaEnvelope::decode(&certified.block.data[0]).unwrap();
-        envelope.block.header.beneficiary = members[1].reward_recipient;
-        certified.block.data[0] = envelope.encode().to_vec();
-        let keys = vec![
-            ed25519_dalek::SigningKey::from_bytes(&[1; 32]),
-            ed25519_dalek::SigningKey::from_bytes(&[2; 32]),
-        ];
-        crate::test_utils::consensus::resign(&mut certified, committee, &keys);
-        verify_commit(
-            &certified.commit,
-            &certified.block.header,
-            committee,
-            "taiko-etna-167001-g0",
-        )
-        .unwrap();
-        let previous = &fixture.headers[&24];
-        let parent = ParentInfo {
-            number: 24,
-            hash: previous.hash_slow(),
-            timestamp: previous.timestamp,
-            gas_limit: previous.gas_limit,
-            gas_used: previous.gas_used,
-            base_fee: previous.base_fee_per_gas.unwrap(),
-            difficulty: previous.difficulty,
-            grandparent_timestamp: fixture.headers[&23].timestamp,
-        };
-        let context = || EnvelopeContext {
-            bft_time_secs: 125,
-            proposer: certified.block.header.proposer_address,
-            members,
-            parent: &parent,
-            parent_anchor: &fixture.anchors[&24],
-            generation: 0,
-            schedule: &schedule,
-            params: &fixture.params,
-            max_anchor_age: 7200,
-            forced_cursor: 0,
-            forced_inclusion_delay: fixture.snapshot.genesis.forced_inclusion_delay,
-        };
-        assert_eq!(
-            verify_envelope(envelope.clone(), context()).unwrap().expected.beneficiary,
-            members[1].reward_recipient
-        );
-        for wrong in [members[0].reward_recipient, batch_recipient] {
-            let mut changed = envelope.clone();
-            changed.block.header.beneficiary = wrong;
-            assert!(
-                matches!(verify_envelope(changed, context()), Err(ValidationError::Etna(m)) if m.contains("beneficiary"))
-            );
-        }
     }
 
     #[test]
@@ -851,6 +782,12 @@ mod tests {
         crate::test_utils::consensus::resign(&mut big, &committee, &keys);
         assert_eq!(big.commit.block_id.part_set_header.total, 2);
         verify_structure(&big, None, 1, B256::ZERO).unwrap();
-        verify_commit(&big.commit, &big.block.header, &committee, "taiko-etna-167001-g0").unwrap();
+        verify_commit(
+            &big.commit,
+            &big.block.header,
+            &committee,
+            "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        )
+        .unwrap();
     }
 }

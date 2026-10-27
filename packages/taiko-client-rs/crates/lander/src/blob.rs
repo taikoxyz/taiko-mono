@@ -358,7 +358,10 @@ mod tests {
         list.push(&block).unwrap();
         let list = list.to_list();
         for joint in [zlib_compress(&list), zlib_compress_best(&list)] {
-            assert!(joint.len() + 1 > limits.max_payload_bytes, "joint compression must not fit");
+            assert!(
+                joint.len() < limits.max_payload_bytes,
+                "execution-only DA stays within the guard bound"
+            );
         }
 
         let payload = crate::codec::encode(&[block], &limits).unwrap();

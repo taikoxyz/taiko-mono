@@ -16,6 +16,7 @@ use std::{
 
 /// Journal schema version; incompatible formats stop rather than discard outstanding nonces.
 ///
+/// Schema 13 binds native private protobufs, V1 grid cuts and deployment identity.
 /// Schema 12 binds V10 execution-only DA; old signed jobs remain untouched on rejection.
 /// Schema 11 adds the proof-bound active committee snapshot in the twenty-one-word V9 statement
 /// and nine-field canonical ABI input. Schema 10 signed jobs are rejected without migration.
@@ -29,7 +30,7 @@ use std::{
 /// over a six-field `LandInput` (forced inclusion head after the batch and fee recipient included),
 /// compressed V3 blob payloads and snapshots carrying the forced inclusion queue; schema 4 bound V5
 /// statements over uncompressed V2 payloads and schema 3 complete V1 blocks.
-const JOURNAL_VERSION: u8 = 12;
+const JOURNAL_VERSION: u8 = 13;
 /// Hard allocation bound before reading or decoding an untrusted journal.
 pub(crate) const MAX_JOURNAL_BYTES: u64 = 256 * 1024 * 1024;
 
@@ -143,7 +144,7 @@ pub struct Store {
 impl Store {
     /// Lock an existing or empty lander directory; validate the journal before returning.
     pub fn open(path: impl AsRef<Path>, identity: JournalIdentity) -> Result<Self> {
-        let (directory, directory_lock) = lock_transaction_directory(path.as_ref(), false)?;
+        let (directory, directory_lock) = lock_transaction_directory(path.as_ref())?;
         let lock = OpenOptions::new()
             .read(true)
             .write(true)
@@ -290,7 +291,7 @@ impl Store {
         let range = codec::LandedRange {
             parent_height: snapshot.checkpoint_height,
             parent_hash: snapshot.checkpoint_hash,
-            last_height: batch.input.lastHeight,
+            last_height: crate::types::protocol_u48(batch.input.lastHeight)?,
             last_block_hash: batch.input.lastBlockHash,
             last_state_root: batch.input.lastStateRoot,
         };
@@ -329,13 +330,13 @@ fn io_error(error: std::io::Error) -> LanderError {
     LanderError::Journal(error.to_string())
 }
 
-/// Claim and landing schemas remain independent, but a physical directory has one kind forever.
+/// Preserve exclusive ownership and reject directories containing obsolete claim state.
 /// The shared OS lock closes the check/create race; durable per-kind lock markers cover reopening
 /// in either order, including symlink aliases and directories whose state file was never written.
-pub(crate) fn lock_transaction_directory(path: &Path, claim: bool) -> Result<(PathBuf, File)> {
+fn lock_transaction_directory(path: &Path) -> Result<(PathBuf, File)> {
     std::fs::create_dir_all(path).map_err(io_error)?;
     let directory = std::fs::canonicalize(path).map_err(io_error)?;
-    reject_foreign_directory(&directory, claim)?;
+    reject_foreign_directory(&directory)?;
     let lock = OpenOptions::new()
         .read(true)
         .write(true)
@@ -345,20 +346,16 @@ pub(crate) fn lock_transaction_directory(path: &Path, claim: bool) -> Result<(Pa
         .map_err(io_error)?;
     lock.try_lock()
         .map_err(|_| LanderError::Journal("transaction directory already locked".into()))?;
-    reject_foreign_directory(&directory, claim)?;
+    reject_foreign_directory(&directory)?;
     Ok((directory, lock))
 }
 
 /// Reject foreign markers both before creating a guard and after acquiring it.
-fn reject_foreign_directory(directory: &Path, claim: bool) -> Result<()> {
-    let incompatible = if claim {
-        ["lander.lock", "lander-state.json"]
-    } else {
-        ["claim.lock", "claim-state.json"]
-    };
+fn reject_foreign_directory(directory: &Path) -> Result<()> {
+    let incompatible = ["claim.lock", "claim-state.json"];
     if incompatible.iter().any(|name| directory.join(name).exists()) {
         return Err(LanderError::Journal(
-            "claim and landing stores require separate directories".into(),
+            "incompatible legacy claim store; retained unchanged".into(),
         ));
     }
     Ok(())
@@ -437,6 +434,19 @@ mod tests {
         assert_eq!((receipt.block_number, receipt.gas_used), (30, 0));
     }
     #[test]
+    fn obsolete_claim_directory_is_rejected_without_mutating_its_nonce_record() {
+        for marker in ["claim.lock", "claim-state.json"] {
+            let directory = tempfile::tempdir().unwrap();
+            let path = directory.path().join(marker);
+            let bytes = b"legacy signed nonce record";
+            std::fs::write(&path, bytes).unwrap();
+            assert!(Store::open(directory.path(), identity()).is_err());
+            assert_eq!(std::fs::read(path).unwrap(), bytes);
+            assert!(!directory.path().join("lander-state.json").exists());
+        }
+    }
+
+    #[test]
     fn idle_wait_roundtrip_and_phase_save_clears_the_marker() {
         let directory = tempfile::tempdir().unwrap();
         let store = Store::open(directory.path(), identity()).unwrap();
@@ -459,7 +469,7 @@ mod tests {
     /// domain JSON commits and schema 8 V6 statements without participation.
     #[test]
     fn legacy_journals_are_rejected_without_modifying_their_files() {
-        for version in [2, 3, 4, 5, 6, 7, 8, 9, 10, 11] {
+        for version in [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] {
             let directory = tempfile::tempdir().unwrap();
             let journal = serde_json::json!({
                 "version": version,
@@ -520,7 +530,7 @@ mod tests {
     #[test]
     fn restored_job_rejects_cutoff_tampering_even_with_recomputed_digest() {
         let mut request = crate::test_utils::runtime::request();
-        request.batch.input.activeCommitteeSnapshot += 1;
+        request.batch.input.activeCommitteeSnapshot += U256::from(1);
         let reference =
             abci::RawL1Header::from_raw(request.batch.reference_headers[0].clone()).unwrap();
         request.batch.statement_hash = crate::statement::hash(
@@ -528,6 +538,7 @@ mod tests {
             &request.batch.input,
             reference.hash(),
             &request.batch.blobs.versioned_hashes,
+            &request.batch.leaves,
         );
         let id = JournalIdentity {
             l1_chain_id: request.batch.snapshot.l1_chain_id,
@@ -565,7 +576,7 @@ mod tests {
         };
         let state =
             JournalState::Pending { job: Box::new(ProvedJob { request, proof }), transaction };
-        for version in [2, 3, 4, 5, 6, 7, 8, 9, 10, 11] {
+        for version in [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] {
             let directory = tempfile::tempdir().unwrap();
             let bytes = serde_json::to_vec(
                 &serde_json::json!({ "version": version, "identity": id, "state": state }),
@@ -610,7 +621,7 @@ mod tests {
             Ok(_) => panic!("schema 10 must be rejected"),
         };
         assert!(
-            error.to_string().contains("incompatible journal schema 10 (expected 12)"),
+            error.to_string().contains("incompatible journal schema 10 (expected 13)"),
             "{error}"
         );
         assert_eq!(std::fs::read(&path).unwrap(), bytes);
@@ -664,7 +675,7 @@ mod tests {
 
     /// Even a recomputed statement cannot authorize a journal amount absent from its headers.
     #[test]
-    fn journal_recomputes_base_fee_amount_after_statement_rebinding() {
+    fn journal_recomputes_terminal_comet_hash_after_statement_rebinding() {
         use crate::test_utils::runtime::{limits, rebind, request};
         let mut request = request();
         let snapshot = &request.batch.snapshot;
@@ -684,13 +695,31 @@ mod tests {
         store.save(&valid).unwrap();
         let original = std::fs::read(directory.path().join("lander-state.json")).unwrap();
         let payload = crate::codec::encode(&request.batch.blocks, &limits()).unwrap();
-        request.batch.input.baseFeeAmount ^= U256::from(1);
+        request.batch.input.lastCometHash[0] ^= 1;
         rebind(&mut request, &payload);
         let error = store
             .save(&JournalState::Prepared { job: Box::new(ProvedJob { request, proof }) })
             .unwrap_err();
-        assert!(error.to_string().contains("reward amount"), "{error}");
+        assert!(error.to_string().contains("Comet"), "{error}");
         assert_eq!(std::fs::read(directory.path().join("lander-state.json")).unwrap(), original);
+    }
+
+    #[test]
+    fn v1_journal_rejects_rebound_cut_leaves_and_cursor() {
+        use crate::test_utils::runtime::{limits, rebind, request};
+        for mutation in 0..4 {
+            let mut request = request();
+            let payload = crate::codec::encode(&request.batch.blocks, &limits()).unwrap();
+            match mutation {
+                0 => request.batch.leaves[0][0] ^= 1,
+                1 => request.batch.leaves.clear(),
+                2 => request.batch.leaves.push(B256::ZERO),
+                3 => request.batch.input.forcedInclusionHead += U256::from(1),
+                _ => unreachable!(),
+            }
+            rebind(&mut request, &payload);
+            assert!(request.batch.validate_statement().is_err(), "rebound mutation {mutation}");
+        }
     }
 
     /// Journaled blocks grow by at most 4/3 of their private protobuf bytes (base64),
@@ -703,11 +732,11 @@ mod tests {
             runtime::{rebind, request},
         };
         let cap = crate::types::Limits {
-            max_blocks: 2,
+            max_blocks: 12,
             max_blobs: 2,
             max_payload_bytes: 1_000_000,
             max_message_bytes: 4 << 20,
-            max_decompressed_bytes: 8 << 20,
+            max_decompressed_bytes: 32 << 20,
         };
         let list_len = |request: &ProofRequest| {
             use prost::Message;
@@ -741,30 +770,38 @@ mod tests {
         let (_, committee, keys) = consensus::committee(&[3, 3, 3], 0);
         let mut blocks: Vec<crate::CertifiedBlock> = Vec::new();
         let mut parent_hash = small.batch.snapshot.checkpoint_hash;
-        for height in 1..=2 {
-            let envelope = abci::EtnaEnvelope {
-                block: abci::ExecutionBlock {
-                    header: alloy_consensus::Header {
-                        number: height,
-                        parent_hash,
-                        state_root: B256::ZERO,
-                        base_fee_per_gas: Some(7),
-                        gas_used: 21_000,
-                        ..Default::default()
-                    },
-                    transactions: vec![vec![0; 1 << 20].into()],
-                },
-                anchor: None,
-                committee: None,
-                forced: None,
-            };
+        for height in 1..=12 {
+            let mut envelope =
+                abci::EtnaEnvelope::decode(&small.batch.blocks[height as usize - 1].block.data[0])
+                    .unwrap();
+            envelope.block.header.parent_hash = parent_hash;
+            let mut witness = small.batch.starting_inbox_witness.clone();
+            witness.inbox.account_proof = vec![vec![0; 1 << 20].into()];
+            envelope.anchor = Some(witness);
             parent_hash = envelope.block.header.hash_slow();
             blocks.push(consensus::pair_with_envelope(envelope, &committee, &keys, blocks.last()));
         }
         let mut large = small.clone();
         large.batch.blocks = blocks;
         large.batch.input.lastBlockHash = parent_hash;
-        large.batch.input.lastStateRoot = B256::ZERO;
+        large.batch.input.lastStateRoot =
+            abci::EtnaEnvelope::decode(&large.batch.blocks.last().unwrap().block.data[0])
+                .unwrap()
+                .block
+                .header
+                .state_root;
+        large.batch.input.lastCometHash =
+            B256::from_slice(large.batch.blocks.last().unwrap().block.header.hash().as_bytes());
+        large.batch.leaves = vec![crate::statement::cut_leaf(
+            6,
+            abci::EtnaEnvelope::decode(&large.batch.blocks[5].block.data[0])
+                .unwrap()
+                .block
+                .header
+                .hash_slow(),
+            B256::from_slice(large.batch.blocks[5].block.header.hash().as_bytes()),
+            0,
+        )];
         let payload = codec::encode(&large.batch.blocks, &cap).unwrap();
         rebind(&mut large, &payload);
         let list_growth = list_len(&large) - list_len(&small);

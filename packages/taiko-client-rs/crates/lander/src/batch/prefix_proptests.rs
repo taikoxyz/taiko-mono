@@ -7,7 +7,7 @@ use std::sync::Arc;
 use abci::{
     AnchorState, AnchorWitness, ChainParams, CommitteeState, CommitteeWitness, RawL1Header,
 };
-use alloy_primitives::{Address, B256};
+use alloy_primitives::B256;
 use async_trait::async_trait;
 use proptest::{collection::vec, prelude::*};
 
@@ -17,7 +17,6 @@ use crate::{
     codec::{self, PublishedBlock},
     comet::{CometSource, CometStatus},
     config::COMET_BLOCK_MAX_BYTES,
-    contracts::IEtnaInbox::LandInput,
     error::{LanderError, Result},
     l1::{LandingSource, ParentContext},
     proptests::{
@@ -86,16 +85,9 @@ impl LandingSource for Decided {
         Err(unread("L1"))
     }
 
-    async fn statement_hash(
-        &self,
-        _: &LandingSnapshot,
-        _: &LandInput,
-        _: B256,
-        _: &[B256],
-    ) -> Result<B256> {
+    async fn deployment_identity(&self, _: &LandingSnapshot) -> Result<B256> {
         Err(unread("L1"))
     }
-
     async fn canonical_hash(&self, _: u64) -> Result<B256> {
         Err(unread("L1"))
     }
@@ -115,7 +107,7 @@ fn capacity(limits: &Limits) -> usize {
 /// up to 150 kB, 75 kB or 37.5 kB.
 fn decided_chain() -> impl Strategy<Value = Vec<CertifiedBlock>> {
     let sized = prop_oneof![payload(150_000), payload(75_000), payload(37_500)];
-    vec((envelope_with(vec(bytes(100), 1..=2)), sized), 1..=4).prop_map(|blocks| {
+    vec((envelope_with(vec(bytes(100), 1..=2)), sized), 6..=12).prop_map(|blocks| {
         let (_, committee, keys) = consensus::committee(&[1], 0);
         let mut chain: Vec<CertifiedBlock> = Vec::new();
         for (height, (mut envelope, payload)) in (1..).zip(blocks) {
@@ -177,8 +169,6 @@ fn builder(
         params: ChainParams::builtin(167_001).expect("a built-in chain"),
         limits,
         mode: SidecarMode::Eip4844,
-        fee_recipient: Address::repeat_byte(0xfe),
-        l2_reward_recipient: crate::test_utils::consensus::BATCH_RECIPIENT,
         engine: Arc::new(test_harness::unavailable_engine::UnavailableEngine),
         engine_timeout: std::time::Duration::from_secs(1),
     };
@@ -190,21 +180,17 @@ fn builder(
 proptest! {
     #![proptest_config(ProptestConfig { cases: 32, ..ProptestConfig::default() })]
 
-    /// Over a decided chain above the checkpoint, prefix selection returns a complete prefix of
-    /// at most `max_blocks` blocks whose payload fits `max_payload_bytes` and `max_blobs` and
-    /// decodes to exactly those blocks, and fails only on a first block the landing capacity
-    /// guard would not admit against the limits' payload capacity: whenever the guard's measure
-    /// of the first block is within it (as `MAX_BLOCK_LANDING_BYTES` is within the lander's six
-    /// blobs), the selected prefix is not empty. Payload bounds sit below, at and above the first
-    /// block's measure, with the blobs as many as they need or (at blob granularity) binding,
-    /// under random deflate budgets.
+    /// Selection returns an exact consecutive prefix ending on K=6 within every capacity bound.
+    /// Admitting the first block prevents a first-block capacity error; admitting all six candidate
+    /// prefixes with enough deflate work guarantees a nonempty grid segment. Random capacities
+    /// and work budgets also exercise the legitimate empty result below the next grid endpoint.
     #[test]
-    fn selected_prefix_fits_its_limits_and_is_never_empty_when_the_guard_admits_the_first_block(
+    fn selected_prefix_is_a_bounded_grid_prefix_and_publishes_an_admitted_segment(
         chain in decided_chain(),
         room in room(),
         blob_bound in any::<bool>(),
         spare_blob in any::<bool>(),
-        max_blocks in 1usize..=6,
+        max_blocks in 1usize..=12,
         deflate_bytes in 0usize..=2 << 20,
     ) {
         let measure = guard_measure(&chain[0].block.data[0]);
@@ -217,6 +203,19 @@ proptest! {
             max_decompressed_bytes: COMET_BLOCK_MAX_BYTES * max_blocks,
         };
         let admitted = measure <= capacity(&limits);
+        // Independent sufficient condition: all six candidate encodings fit, and even charging
+        // every candidate's entire inflated list stays inside the deflate-work budget.
+        let mut segment_admitted = max_blocks >= 6;
+        let mut work = 0;
+        for count in 1..=6 {
+            match codec::encode(&chain[..count], &limits) {
+                Ok(payload) if blob::required_blobs(payload.len()) <= limits.max_blobs => {
+                    work += abci::compression::zlib_inflate_exact(&payload[1..], usize::MAX)?.len();
+                }
+                _ => segment_admitted = false,
+            }
+        }
+        segment_admitted &= work <= deflate_bytes;
         let decided = chain.len();
         let builder = builder(chain.clone(), limits, deflate_bytes);
         let runtime = tokio::runtime::Builder::new_current_thread().build()?;
@@ -225,7 +224,10 @@ proptest! {
         match runtime.block_on(builder.publishable_prefix(&snapshot, &schedule, decided as u64)) {
             Ok(prefix) => {
                 let selected = prefix.blocks.len();
-                prop_assert!((1..=max_blocks.min(decided)).contains(&selected));
+                prop_assert!(selected <= max_blocks.min(decided));
+                prop_assert_eq!(selected % 6, 0);
+                prop_assert!(!segment_admitted || selected >= 6);
+                if selected == 0 { return Ok(()); }
                 prop_assert_eq!(&prefix.blocks[..], &chain[..selected]);
                 let (blocks, payload) = runtime.block_on(builder.payload(prefix))?;
                 prop_assert!(payload.len() <= limits.max_payload_bytes);

@@ -7,7 +7,7 @@ use crate::{
 use abci::{AnchorState, GenesisRecord, InboxFacts};
 use alloy_consensus::Header;
 use alloy_eips::{eip4844::BlobTransactionSidecar, eip7594::BlobTransactionSidecarVariant};
-use alloy_primitives::{Address, B256, U256, aliases::U48};
+use alloy_primitives::{Address, B256, U256};
 
 pub(crate) fn request() -> ProofRequest {
     let genesis = GenesisRecord {
@@ -27,7 +27,6 @@ pub(crate) fn request() -> ProofRequest {
         state_root: B256::repeat_byte(4),
         timestamp: 20,
         inbox: InboxFacts {
-            status: 3,
             recovery_generation: 0,
             last_checkpoint_height: 0,
             last_checkpoint_hash: genesis.genesis_hash,
@@ -47,6 +46,7 @@ pub(crate) fn request() -> ProofRequest {
                 generation: 0,
                 checkpoint_height: 0,
                 checkpoint_hash: genesis.genesis_hash,
+                checkpoint_comet_hash: B256::ZERO,
                 forced_inclusion_head: 0,
                 forced_inclusion_tail: 0,
                 genesis,
@@ -84,16 +84,18 @@ pub(crate) fn request() -> ProofRequest {
             reference_headers: vec![],
             committees: vec![],
             committee_witnesses: vec![],
+            leaves: vec![],
+            deployment_identity: B256::repeat_byte(0xdd),
             input: LandInput {
-                lastHeight: 1,
+                parentHeight: U256::ZERO,
+                lastCometHash: B256::repeat_byte(7),
+                lastHeight: U256::from(1),
                 lastBlockHash: B256::repeat_byte(7),
                 lastStateRoot: B256::repeat_byte(8),
-                l1ReferenceBlockNumber: 15,
-                forcedInclusionHead: U48::ZERO,
-                l2RewardRecipient: Address::repeat_byte(0x77),
-                baseFeeAmount: U256::ZERO,
-                activeCommitteeSnapshot: 9,
-                feeRecipient: super::consensus_mpt::FEE_RECIPIENT,
+                l1ReferenceBlockNumber: U256::from(15),
+                forcedInclusionHead: U256::ZERO,
+
+                activeCommitteeSnapshot: U256::from(9),
             },
             blobs: PreparedBlobs {
                 payload_bytes: 0,

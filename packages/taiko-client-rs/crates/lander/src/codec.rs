@@ -1,23 +1,8 @@
 //! V6 execution-only DA codec, bounded before parsing or allocating messages.
 //!
-//! Blobs publish canonical CometBFT headers and canonical execution blocks, never the original
-//! envelope or its witnesses. Original envelopes and certificates stay private proving inputs.
-//! A public decoder cannot check the original data_hash: sound landing proofs bind the private
-//! authenticated envelope to this exact projection. Landed EL recovery trusts a finalized L1
-//! checkpoint and archived DA; it does not recover stock CometBFT state or old signatures.
-//!
-//! Published headers use canonical tendermint-proto v0_38 domain-normalized protobuf. At height
-//! one, last_block_id is absent: Go's present empty BlockID (2a 02 12 00) is retained in PRIVATE
-//! raw_block witnesses, but is rejected in published headers. Unknown/duplicate protobuf fields,
-//! noncanonical RLP, extra pair fields and trailing list bytes are rejected.
-//!
-//! Exactly one complete RFC1950 zlib stream follows 0x06: no preset dictionary, truncated data,
-//! concatenated streams or trailing bytes. Inflation is capped at 64 MiB and each published
-//! message at 22,020,096 bytes regardless of operator settings. decode_landed additionally binds
-//! the exact parentHeight+1..lastHeight interval and EL boundary hashes/state root before import.
-//!
-//! One zlib stream compresses the batch. A single-block full-flush fallback makes the execution
-//! block deflate exactly as the ABCI landing-capacity guard measured it.
+//! Public bytes are exactly `0x06 || zlib(rlp([ExecutionBlock, ...]))`.
+//! Original envelopes, Comet headers, certificates and evidence remain private inputs. One
+//! complete zlib stream and canonical RLP are required before any execution block is imported.
 
 use crate::{
     error::{LanderError, Result},
@@ -25,7 +10,7 @@ use crate::{
     validate::data_hash,
 };
 
-/// Version prefix of `0x06 || zlib(rlp([[header_proto, execution], ...]))`.
+/// Version prefix of `0x06 || zlib(rlp([ExecutionBlock, ...]))`.
 pub const VERSION: u8 = 6;
 
 /// Protocol ceiling on the complete inflated V6 RLP list, independent of operator CLI limits.
@@ -36,7 +21,7 @@ use abci::compression::{
 };
 use alloy_rlp::{Decodable, Encodable, Header};
 use prost::Message;
-use tendermint_proto::v0_38::types::{Commit as RawCommit, Header as RawHeader};
+use tendermint_proto::v0_38::types::Commit as RawCommit;
 
 /// Apply fixed public DA ceilings before parsing/allocation; lower operator budgets may refuse
 /// work for capacity but cannot redefine guest validity.
@@ -53,11 +38,9 @@ pub(crate) fn bounded_limits(limits: &Limits) -> Result<Limits> {
     })
 }
 
-/// One published block: its complete CometBFT header and execution-only DA projection.
+/// One public execution-only DA projection.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PublishedBlock {
-    /// Canonical CometBFT header whose hash is the signed block id hash.
-    pub header: tendermint::block::Header,
     /// Full EL header and ordered EIP-2718 transactions, without any consensus witnesses.
     pub block: abci::ExecutionBlock,
 }
@@ -68,11 +51,11 @@ impl TryFrom<&CertifiedBlock> for PublishedBlock {
     /// Authenticates the private original envelope before publishing its execution projection.
     fn try_from(pair: &CertifiedBlock) -> Result<Self> {
         let envelope = validate_pair(pair)?;
-        Ok(Self { header: pair.block.header.clone(), block: envelope.block })
+        Ok(Self { block: envelope.block })
     }
 }
 
-/// Encode complete, consecutive certified blocks as their published headers and execution blocks.
+/// Encode complete, consecutive certified blocks as their execution-only projections.
 ///
 /// The RLP list is bounded by `max_decompressed_bytes` before it is allocated; the compressed
 /// payload, version byte included, by `max_payload_bytes`.
@@ -95,8 +78,8 @@ pub fn encode(blocks: &[CertifiedBlock], limits: &Limits) -> Result<Vec<u8>> {
 /// Compress one published block: at the default level, then at the best level, and when neither
 /// fits, with a full flush before the execution ([`zlib_compress_split`]). That last stream is at
 /// most the execution's own `zlib_compress` size plus the published prefix and
-/// `SPLIT_OVERHEAD`, which the ABCI landing capacity guard reserves in `HEADER_ALLOWANCE`, so a
-/// block the guard admitted always fits. Joint compression has no such bound: the header prefix
+/// `SPLIT_OVERHEAD`, reserved by the structural compression budget in `HEADER_ALLOWANCE`.
+/// Authenticated Etna admission additionally enforces raw size and shape. The outer list prefix
 /// shifts the execution's deflate block boundaries, which crafted calldata turns into kilobytes.
 /// Larger prefixes keep the default codec and its deflate-work budget.
 pub(crate) fn compress_single(list: &[u8], limits: &Limits) -> Result<Vec<u8>> {
@@ -114,21 +97,17 @@ pub(crate) fn compress_single(list: &[u8], limits: &Limits) -> Result<Vec<u8>> {
     compressed_payload(zlib_compress_split(prefix, execution), limits)
 }
 
-/// The offset of the execution bytes in a single block's list `rlp([[header_proto, execution]])`:
-/// everything before it is the published prefix (list headers, header, execution string header).
+/// The offset of nested execution bytes in a single-block outer RLP list:
+/// everything before it is the outer RLP list header.
 fn single_execution_offset(list: &[u8]) -> Option<usize> {
     let mut rest = list;
     let mut items = Header::decode_bytes(&mut rest, true).ok()?;
     if !rest.is_empty() {
         return None;
     }
-    let mut fields = Header::decode_bytes(&mut items, true).ok()?;
-    if !items.is_empty() {
-        return None;
-    }
-    Header::decode_bytes(&mut fields, false).ok()?;
-    let execution = Header::decode_bytes(&mut fields, false).ok()?;
-    fields.is_empty().then(|| list.len() - execution.len())
+    let before = items.len();
+    abci::ExecutionBlock::decode(&mut items).ok()?;
+    items.is_empty().then_some(list.len() - before)
 }
 
 /// `0x06 || zlib(list)`, bounded by `max_payload_bytes`.
@@ -207,19 +186,21 @@ impl PayloadList {
             ));
         }
         let published = PublishedBlock::try_from(pair)?;
-        validate_published(&published, self.headers.last().map(|(header, hash)| (header, *hash)))?;
-        let header = RawHeader::from(published.header.clone()).encode_to_vec();
+        validate_published(
+            &published,
+            self.headers.last().map(|(header, hash)| (header.height.value(), *hash)),
+        )?;
+        if let Some((previous, _)) = self.headers.last() &&
+            pair.block.header.last_block_id.map(|id| id.hash) != Some(previous.hash())
+        {
+            return Err(LanderError::Encoding("private Comet last block id does not link".into()));
+        }
         let execution = alloy_rlp::encode(&published.block);
-        let length = header
-            .as_slice()
-            .length()
-            .checked_add(execution.as_slice().length())
-            .ok_or_else(|| LanderError::Capacity("RLP item length overflow".into()))?;
+        let length = execution.len();
         let items = self
             .items
             .len()
-            .checked_add(Header { list: true, payload_length: length }.length())
-            .and_then(|n| n.checked_add(length))
+            .checked_add(length)
             .ok_or_else(|| LanderError::Capacity("RLP payload length overflow".into()))?;
         let total = Header { list: true, payload_length: items }
             .length()
@@ -229,12 +210,10 @@ impl PayloadList {
         if total > self.limits.max_decompressed_bytes {
             return Err(LanderError::Capacity("batch exceeds decompressed limit".into()));
         }
-        Header { list: true, payload_length: length }.encode(&mut self.items);
-        header.as_slice().encode(&mut self.items);
-        execution.as_slice().encode(&mut self.items);
+        self.items.extend_from_slice(&execution);
         self.ends.push(self.items.len());
         self.private_ends.push(private_bytes);
-        self.headers.push((published.header, published.block.header.hash_slow()));
+        self.headers.push((pair.block.header.clone(), published.block.header.hash_slow()));
         Ok(())
     }
 
@@ -251,7 +230,7 @@ impl PayloadList {
         Header { list: true, payload_length: self.items.len() }.length() + self.items.len()
     }
 
-    /// The RLP list `rlp([[header_proto, execution], ...])`.
+    /// The RLP list of nested execution blocks.
     pub(crate) fn to_list(&self) -> Vec<u8> {
         let mut list = Vec::with_capacity(self.list_len());
         Header { list: true, payload_length: self.items.len() }.encode(&mut list);
@@ -277,9 +256,9 @@ pub(crate) fn check_message_limits(pair: &CertifiedBlock, limits: &Limits) -> Re
     Ok(())
 }
 
-/// Decode one complete zlib stream of at most `max_decompressed_bytes`, then bounded, canonical RLP
-/// and canonical v0_38 protobuf headers with their execution blocks.
-pub fn decode(payload: &[u8], limits: &Limits) -> Result<Vec<PublishedBlock>> {
+/// Parse bounded canonical framing and consecutive execution links only. This structural helper
+/// does not establish Etna validity; authenticated import and journal replay use `decode_landed`.
+pub(crate) fn decode(payload: &[u8], limits: &Limits) -> Result<Vec<PublishedBlock>> {
     let limits = bounded_limits(limits)?;
     if payload.len() > limits.max_payload_bytes {
         return Err(LanderError::Capacity("batch exceeds payload limit".into()));
@@ -308,38 +287,21 @@ pub fn decode(payload: &[u8], limits: &Limits) -> Result<Vec<PublishedBlock>> {
         if blocks.len() == limits.max_blocks {
             return Err(LanderError::Capacity("batch exceeds block limit".into()));
         }
-        let mut fields = Header::decode_bytes(&mut list, true).map_err(rlp_error)?;
-        let header_bytes = Header::decode_bytes(&mut fields, false).map_err(rlp_error)?;
-        let execution = Header::decode_bytes(&mut fields, false).map_err(rlp_error)?;
-        if !fields.is_empty() {
-            return Err(LanderError::Encoding("header/execution item has extra fields".into()));
+        let before = list;
+        let execution_block = abci::ExecutionBlock::decode(&mut list).map_err(rlp_error)?;
+        let consumed = before.len() - list.len();
+        if consumed > limits.max_message_bytes {
+            return Err(LanderError::Capacity("execution exceeds message limit".into()));
         }
-        if header_bytes.len() > limits.max_message_bytes ||
-            execution.len() > limits.max_message_bytes
-        {
-            return Err(LanderError::Capacity("header or execution exceeds message limit".into()));
-        }
-        let raw = RawHeader::decode(header_bytes)
-            .map_err(|e| LanderError::Encoding(format!("invalid header protobuf: {e}")))?;
-        if raw.encode_to_vec() != header_bytes {
-            return Err(LanderError::Encoding("noncanonical header protobuf encoding".into()));
-        }
-        let header: tendermint::block::Header = raw
-            .try_into()
-            .map_err(|e| LanderError::Encoding(format!("invalid CometBFT header: {e}")))?;
-        // The domain adapter normalizes empty block ids: require their canonical form too.
-        if RawHeader::from(header.clone()).encode_to_vec() != header_bytes {
-            return Err(LanderError::Encoding("noncanonical CometBFT header form".into()));
-        }
-        let mut remaining = execution;
-        let execution_block = abci::ExecutionBlock::decode(&mut remaining).map_err(rlp_error)?;
-        if !remaining.is_empty() || alloy_rlp::encode(&execution_block) != execution {
+        if alloy_rlp::encode(&execution_block) != before[..consumed] {
             return Err(LanderError::Encoding("noncanonical execution block RLP".into()));
         }
-        let block = PublishedBlock { header, block: execution_block };
+        let block = PublishedBlock { block: execution_block };
         validate_published(
             &block,
-            blocks.last().map(|previous| (&previous.header, previous.block.header.hash_slow())),
+            blocks
+                .last()
+                .map(|previous| (previous.block.header.number, previous.block.header.hash_slow())),
         )?;
         blocks.push(block);
     }
@@ -386,14 +348,17 @@ pub fn decode_landed(payload: &[u8], range: &LandedRange) -> Result<Vec<Publishe
         max_decompressed_bytes: MAX_DECOMPRESSED_BYTES,
     };
     let blocks = decode(payload, &limits)?;
+    for block in &blocks {
+        validate_execution(&block.block)?;
+    }
     let (first, last) = blocks
         .first()
         .zip(blocks.last())
         .ok_or_else(|| LanderError::Encoding("empty landed checkpoint interval".into()))?;
     if blocks.len() != max_blocks ||
-        first.header.height.value() != range.parent_height + 1 ||
+        first.block.header.number != range.parent_height + 1 ||
         first.block.header.parent_hash != range.parent_hash ||
-        last.header.height.value() != range.last_height ||
+        last.block.header.number != range.last_height ||
         last.block.header.hash_slow() != range.last_block_hash ||
         last.block.header.state_root != range.last_state_root
     {
@@ -402,6 +367,31 @@ pub fn decode_landed(payload: &[u8], range: &LandedRange) -> Result<Vec<Publishe
         ));
     }
     Ok(blocks)
+}
+
+/// Enforce context-free Etna admission rules before authenticated DA import or reconstruction.
+/// Certificate, committee, anchor and deterministic header validation remain the builder's job.
+pub(crate) fn validate_execution(block: &abci::ExecutionBlock) -> Result<()> {
+    if block.length() > 124_000 {
+        return Err(LanderError::Capacity("raw execution block exceeds 124000 bytes".into()));
+    }
+    let header = &block.header;
+    if header.base_fee_per_gas.is_none() ||
+        header.withdrawals_root != Some(alloy_consensus::EMPTY_ROOT_HASH) ||
+        header.blob_gas_used != Some(0) ||
+        header.excess_blob_gas != Some(0) ||
+        header.parent_beacon_block_root.is_none() ||
+        header.requests_hash != Some(alloy_eips::eip7685::EMPTY_REQUESTS_HASH) ||
+        header.ommers_hash != alloy_consensus::EMPTY_OMMER_ROOT_HASH ||
+        header.nonce != alloy_primitives::B64::ZERO ||
+        header.block_access_list_hash.is_some() ||
+        header.slot_number.is_some()
+    {
+        return Err(LanderError::Encoding(
+            "execution header is not canonical Etna Unzen shape".into(),
+        ));
+    }
+    Ok(())
 }
 
 /// Translate canonical RLP errors into the shared codec error category.
@@ -437,33 +427,16 @@ pub(crate) fn validate_pair(pair: &CertifiedBlock) -> Result<abci::EtnaEnvelope>
 /// signatures or the projection against data_hash; that is the landing proof's responsibility.
 fn validate_published(
     block: &PublishedBlock,
-    previous: Option<(&tendermint::block::Header, alloy_primitives::B256)>,
+    previous: Option<(u64, alloy_primitives::B256)>,
 ) -> Result<()> {
-    let height = block.header.height.value();
-    if height == 0 || block.block.header.number != height {
-        return Err(LanderError::Encoding("published Comet/EL height mismatch".into()));
+    let header = &block.block.header;
+    if header.number == 0 {
+        return Err(LanderError::Encoding("published execution height is zero".into()));
     }
-    let linked = match previous {
-        Some((previous, execution_hash)) => {
-            if previous.height.value().checked_add(1) != Some(height) {
-                return Err(LanderError::Encoding(format!(
-                    "nonconsecutive block height {height} after {}",
-                    previous.height
-                )));
-            }
-            if block.block.header.parent_hash != execution_hash {
-                return Err(LanderError::Encoding(
-                    "execution parent hash does not link batch".into(),
-                ));
-            }
-            block.header.last_block_id.map(|id| id.hash) == Some(previous.hash())
-        }
-        None => block.header.last_block_id.is_none() == (height == 1),
-    };
-    if !linked {
-        return Err(LanderError::Encoding(format!(
-            "last block id does not link height {height} to its predecessor"
-        )));
+    if let Some((height, hash)) = previous &&
+        (height.checked_add(1) != Some(header.number) || header.parent_hash != hash)
+    {
+        return Err(LanderError::Encoding("execution blocks do not link consecutively".into()));
     }
     Ok(())
 }
@@ -471,15 +444,77 @@ fn validate_published(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::consensus;
+    use crate::{native::CommitSig, test_utils::consensus};
     use abci::compression::zlib_compress;
     use alloy_primitives::B256;
     use alloy_rlp::{Encodable, Header};
     use prost::Message;
-    use tendermint::block::CommitSig;
     use tendermint_proto::v0_38::types::{
         BlockId as RawBlockId, Header as RawHeader, PartSetHeader as RawPartSetHeader,
     };
+
+    #[test]
+    fn v1_landed_import_rejects_oversize_and_non_unzen_execution() {
+        let original = abci::EtnaEnvelope::decode(&chain(1)[0].block.data[0]).unwrap().block;
+        for mutation in 0..4 {
+            let mut block = original.clone();
+            match mutation {
+                0 => {
+                    block.transactions = vec![vec![0; 100_000].into()];
+                    block.transactions[0] = vec![0; 124_001 - (block.length() - 100_000)].into();
+                    assert_eq!(block.length(), 124_001);
+                    let mut boundary = block.clone();
+                    boundary.transactions[0] = boundary.transactions[0]
+                        [..boundary.transactions[0].len() - 1]
+                        .to_vec()
+                        .into();
+                    assert_eq!(boundary.length(), 124_000);
+                    let payload = wire(&[(vec![], alloy_rlp::encode(&boundary))]);
+                    let range = LandedRange {
+                        parent_height: 0,
+                        parent_hash: boundary.header.parent_hash,
+                        last_height: 1,
+                        last_block_hash: boundary.header.hash_slow(),
+                        last_state_root: boundary.header.state_root,
+                    };
+                    decode_landed(&payload, &range).unwrap();
+                }
+                1 => block.header.requests_hash = None,
+                2 => block.header.block_access_list_hash = Some(B256::ZERO),
+                3 => block.header.blob_gas_used = Some(1),
+                _ => unreachable!(),
+            }
+            let bytes = alloy_rlp::encode(&block);
+            let payload = wire(&[(vec![], bytes)]);
+            let range = LandedRange {
+                parent_height: 0,
+                parent_hash: block.header.parent_hash,
+                last_height: 1,
+                last_block_hash: block.header.hash_slow(),
+                last_state_root: block.header.state_root,
+            };
+            assert!(decode(&payload, &limits()).is_ok(), "structural parsing is context-free");
+            assert!(
+                decode_landed(&payload, &range).is_err(),
+                "invalid execution mutation {mutation}"
+            );
+        }
+    }
+
+    #[test]
+    fn v1_public_da_is_only_execution_rlp_and_rejects_legacy_pairs() {
+        let blocks = chain(2);
+        let executions = blocks
+            .iter()
+            .map(|pair| abci::EtnaEnvelope::decode(&pair.block.data[0]).unwrap().block)
+            .collect::<Vec<_>>();
+        let payload = encode(&blocks, &limits()).unwrap();
+        assert_eq!(
+            zlib_inflate_exact(&payload[1..], 1_000_000).unwrap(),
+            alloy_rlp::encode(&executions)
+        );
+        assert!(decode(&frame(VERSION, &old_list(&items(&blocks))), &limits()).is_err());
+    }
 
     #[test]
     fn retries_best_compression_for_a_single_block_that_exceeds_default_output() {
@@ -583,7 +618,7 @@ mod tests {
     }
 
     /// `rlp([[header, execution], ...])`, assembled independently of `encode`.
-    fn list(items: &[(Vec<u8>, Vec<u8>)]) -> Vec<u8> {
+    fn old_list(items: &[(Vec<u8>, Vec<u8>)]) -> Vec<u8> {
         let mut body = Vec::new();
         for (header, envelope) in items {
             let length = header.as_slice().length() + envelope.as_slice().length();
@@ -594,6 +629,16 @@ mod tests {
         let mut bytes = Vec::new();
         Header { list: true, payload_length: body.len() }.encode(&mut bytes);
         bytes.extend_from_slice(&body);
+        bytes
+    }
+
+    /// V1 public DA is a list of nested execution blocks, with no BFT header.
+    fn list(items: &[(Vec<u8>, Vec<u8>)]) -> Vec<u8> {
+        let body =
+            items.iter().flat_map(|(_, execution)| execution.iter().copied()).collect::<Vec<_>>();
+        let mut bytes = Vec::new();
+        Header { list: true, payload_length: body.len() }.encode(&mut bytes);
+        bytes.extend(body);
         bytes
     }
 
@@ -617,7 +662,7 @@ mod tests {
     }
 
     #[test]
-    fn canonical_wire_is_v038_header_protobuf_and_execution_in_two_rlp_strings() {
+    fn canonical_wire_is_nested_execution_rlp_without_consensus() {
         let blocks = chain(1);
         let expected = wire(&items(&blocks));
         assert_eq!(expected[0], 6);
@@ -650,7 +695,7 @@ mod tests {
                 .map(|pair| (header_bytes(&pair.block.header), pair.block.data[0].clone()))
                 .collect::<Vec<_>>()
         };
-        let old = frame(5, &list(&old_items(&blocks)));
+        let old = frame(5, &old_list(&old_items(&blocks)));
         let current = encode(&blocks, &limits).unwrap();
         assert!(current.len() < old.len());
         let count = |execution_only: bool| {
@@ -659,7 +704,7 @@ mod tests {
                     let bytes = if execution_only {
                         encode(&blocks[..n], &limits).unwrap()
                     } else {
-                        frame(5, &list(&old_items(&blocks[..n])))
+                        frame(5, &old_list(&old_items(&blocks[..n])))
                     };
                     bytes.len() <= crate::blob::PAYLOAD_BYTES_PER_BLOB
                 })
@@ -772,13 +817,16 @@ mod tests {
         let decoded = decode(&encode(&blocks, &limits()).unwrap(), &limits()).unwrap();
         assert_eq!(decoded, published(&blocks));
         for (block, pair) in decoded.iter().zip(&blocks) {
-            assert_eq!(block.header.hash(), pair.commit.block_id.hash);
+            assert_eq!(
+                block.block.header,
+                abci::EtnaEnvelope::decode(&pair.block.data[0]).unwrap().block.header
+            );
             assert_eq!(block.block, abci::EtnaEnvelope::decode(&pair.block.data[0]).unwrap().block);
         }
     }
 
     #[test]
-    fn height_one_go_empty_last_block_id_is_noncanonical() {
+    fn height_one_native_private_last_block_id_preserves_go_shape() {
         let blocks = chain(1);
         let mut go = RawHeader::from(blocks[0].block.header.clone());
         // Go's nullable=false BlockID/PartSetHeader are present even when empty; the domain
@@ -791,8 +839,14 @@ mod tests {
         assert_eq!(normalized, blocks[0].block.header);
         let envelope =
             alloy_rlp::encode(&abci::EtnaEnvelope::decode(&blocks[0].block.data[0]).unwrap().block);
-        assert!(decode(&wire(&[(go.encode_to_vec(), envelope.clone())]), &limits()).is_err());
-        assert!(decode(&wire(&[(header_bytes(&normalized), envelope)]), &limits()).is_ok());
+        assert_eq!(
+            blocks[0].block_proto().unwrap().header.unwrap().last_block_id,
+            go.last_block_id
+        );
+        assert_eq!(
+            wire(&[(go.encode_to_vec(), envelope.clone())]),
+            wire(&[(header_bytes(&normalized), envelope)])
+        );
     }
 
     #[test]
@@ -815,10 +869,14 @@ mod tests {
             alloy_rlp::encode(&abci::EtnaEnvelope::decode(&blocks[0].block.data[0]).unwrap().block);
         let mut header = header_bytes(&blocks[0].block.header);
         header.extend_from_slice(&[0x18, 0x01]); // repeated singular height: protobuf accepts, canonical codec rejects.
-        assert!(decode(&wire(&[(header, envelope.clone())]), &limits()).is_err());
+        assert!(
+            decode(&frame(VERSION, &old_list(&[(header, envelope.clone())])), &limits()).is_err()
+        );
         let mut header = header_bytes(&blocks[0].block.header);
         header.extend_from_slice(&[0xf8, 0x07, 0x01]); // unknown field.
-        assert!(decode(&wire(&[(header, envelope.clone())]), &limits()).is_err());
+        assert!(
+            decode(&frame(VERSION, &old_list(&[(header, envelope.clone())])), &limits()).is_err()
+        );
         let mut padded = envelope;
         padded.push(0);
         assert!(
@@ -992,17 +1050,9 @@ mod tests {
         let mut id = relinked.last_block_id.unwrap();
         id.hash = tendermint::Hash::Sha256([7; 32]);
         relinked.last_block_id = Some(id);
-        let chained = [all[0].clone(), (header_bytes(&relinked), all[1].1.clone())];
-        assert!(encoding_error(decode(&wire(&chained), &limits())).contains("last block id"));
-        let mut first = blocks[0].block.header.clone();
-        first.last_block_id = blocks[1].block.header.last_block_id;
-        let first = [(header_bytes(&first), all[0].1.clone())];
-        // The domain adapter itself refuses a previous block id at the first height.
-        assert!(decode(&wire(&first), &limits()).is_err());
-        let mut second = blocks[1].block.header.clone();
-        second.last_block_id = None;
-        let second = [(header_bytes(&second), all[1].1.clone())];
-        assert!(encoding_error(decode(&wire(&second), &limits())).contains("last block id"));
+        let mut changed = blocks[1].clone();
+        changed.block.header = relinked;
+        assert!(encode(&[blocks[0].clone(), changed], &limits()).is_err());
     }
 
     #[test]

@@ -1,40 +1,40 @@
-//! Genuine deterministic Ed25519 certificates used by consensus tests.
+//! Genuine deterministic native secp256k1eth certificates used by consensus tests.
 
 use abci::{
     AccountWitness, AnchorState, ChainParams, CommitteeRecord, CommitteeState, CommitteeWitness,
     EtnaEnvelope, ExecutionBlock, InboxFacts, Member, RegistryEntry,
     committee::{record_hash, set_key, set_root},
+    key::ConsensusKey,
 };
+pub use alloy::signers::k256::ecdsa::SigningKey;
 use alloy_consensus::Header;
 use alloy_primitives::{B256, U256};
-use ed25519_dalek::{Signer, SigningKey};
 use prost::Message;
 use sha2::{Digest, Sha256};
 use tendermint::{
-    AppHash, Block, Hash, Time, Vote,
-    block::{Commit, CommitSig, Id, header::Version},
+    AppHash, Hash, Time, Vote,
+    block::{Id, header::Version},
     vote::{CanonicalVote, Type},
 };
-use tendermint_proto::{
-    Protobuf,
-    v0_38::types::{Block as RawBlock, CanonicalVote as RawVote},
-};
+use tendermint_proto::{Protobuf, v0_38::types::CanonicalVote as RawVote};
 
 use crate::{
     committee::{AuthenticatedCommittee, authenticate},
+    native::{Block, Commit, CommitSig, RawBlock},
     types::CertifiedBlock,
     validate::{block_parts, commit_hash},
 };
 
-/// Independent batch payout, deliberately distinct from every general member fixture.
+/// Locally chosen proposer beneficiary, independent of consensus signing identity.
 pub const BATCH_RECIPIENT: alloy_primitives::Address = alloy_primitives::Address::repeat_byte(0x77);
 
 pub fn parameters() -> ChainParams {
     let mut params = ChainParams::builtin(167001).unwrap();
-    params.vp_unit = U256::from(1);
-    params.s_min = U256::from(1);
-    params.d_max = 0;
-    params.margin_v = 0;
+    params.inbox = alloy_primitives::Address::repeat_byte(0x11);
+    params.registry = alloy_primitives::Address::repeat_byte(0x22);
+    params.vp_unit = U256::from(1_000_000_000);
+    params.s_min = params.vp_unit;
+    params.unsettled_limit = 65532;
     params
 }
 
@@ -54,7 +54,7 @@ pub fn committee(
                 .chain_update(b"etna-lander-test-member")
                 .chain_update(index.to_be_bytes())
                 .finalize();
-            SigningKey::from_bytes(&seed.into())
+            SigningKey::from_bytes(&seed).unwrap()
         })
         .collect::<Vec<_>>();
     committee_with_keys(powers, epoch, keys, false)
@@ -68,7 +68,7 @@ pub fn stock_go_committee(
 ) -> (ChainParams, AuthenticatedCommittee, Vec<SigningKey>) {
     assert!(powers.len() <= usize::from(u8::MAX), "stock-Go fixture seed range");
     let keys = (1..=powers.len())
-        .map(|index| SigningKey::from_bytes(&[u8::try_from(index).unwrap(); 32]))
+        .map(|index| SigningKey::from_slice(&[u8::try_from(index).unwrap(); 32]).unwrap())
         .collect();
     committee_with_keys(powers, epoch, keys, true)
 }
@@ -78,7 +78,7 @@ fn committee_with_keys(
     powers: &[u64],
     epoch: u64,
     keys: Vec<SigningKey>,
-    stock_go: bool,
+    _stock_go: bool,
 ) -> (ChainParams, AuthenticatedCommittee, Vec<SigningKey>) {
     let mut params = parameters();
     params.n_max = params.n_max.max(powers.len());
@@ -86,13 +86,8 @@ fn committee_with_keys(
         .iter()
         .zip(powers)
         .map(|(key, power)| Member {
-            reward_recipient: if stock_go {
-                alloy_primitives::Address::repeat_byte(0x77)
-            } else {
-                member_recipient(B256::from(key.verifying_key().to_bytes()))
-            },
-            pubkey: B256::from(key.verifying_key().to_bytes()),
-            eff_stake: U256::from(*power),
+            pubkey: public_key(key),
+            eff_stake: U256::from(*power) * params.vp_unit,
             power: *power,
         })
         .collect::<Vec<_>>();
@@ -102,26 +97,18 @@ fn committee_with_keys(
         cutoff_l1_block: 1,
         checkpoint_index: 0,
         set_root: set_root(params.l2_chain_id, epoch + 1, &members),
-        total_stake: members.iter().map(|member| member.eff_stake).sum(),
         total_power: powers.iter().sum(),
-        encoding_version: abci::committee::ENCODING_VERSION,
     };
     let hash = record_hash(params.l2_chain_id, &record);
     let entries = keys
         .iter()
         .zip(powers)
         .map(|(key, power)| RegistryEntry {
-            reward_recipient: if stock_go {
-                alloy_primitives::Address::repeat_byte(0x77)
-            } else {
-                member_recipient(B256::from(key.verifying_key().to_bytes()))
-            },
-            pubkey: B256::from(key.verifying_key().to_bytes()),
-            eff_stake: U256::from(*power),
+            ck_prefix: public_key(key).prefix(),
+            ck_x: public_key(key).x(),
+            eff_stake: U256::from(*power) * params.vp_unit,
             active_from_l1: 1,
             exit_effective_l1: u64::MAX,
-            last_heartbeat_at: 1,
-            last_heartbeat_seq: 1,
         })
         .collect();
     let registry = AccountWitness {
@@ -139,7 +126,6 @@ fn committee_with_keys(
         state_root: B256::repeat_byte(2),
         timestamp: 1,
         inbox: InboxFacts {
-            status: 3,
             recovery_generation: 0,
             last_checkpoint_height: 0,
             last_checkpoint_hash: B256::ZERO,
@@ -158,9 +144,17 @@ fn committee_with_keys(
     (params, committee, keys)
 }
 
-/// Stable payout distinct for each authenticated member, independent of committee sorting.
-pub fn member_recipient(pubkey: B256) -> alloy_primitives::Address {
-    alloy_primitives::Address::from_slice(&alloy_primitives::keccak256(pubkey)[12..])
+/// Canonical native identity corresponding to a deterministic fixture signer.
+pub fn public_key(key: &SigningKey) -> ConsensusKey {
+    ConsensusKey::from_slice(key.verifying_key().to_encoded_point(true).as_bytes()).unwrap()
+}
+/// Stock low-S recoverable signature; no Ethereum personal-message prefix is applied.
+pub fn sign(key: &SigningKey, bytes: &[u8]) -> crate::native::Signature {
+    let (signature, recovery) =
+        key.sign_prehash_recoverable(alloy_primitives::keccak256(bytes).as_slice()).unwrap();
+    let mut bytes = signature.to_bytes().to_vec();
+    bytes.push(recovery.to_byte());
+    bytes.try_into().unwrap()
 }
 
 pub fn merkle(items: &[Vec<u8>]) -> Hash {
@@ -171,8 +165,12 @@ pub fn merkle(items: &[Vec<u8>]) -> Hash {
 
 /// Builds Go's protobuf shape for synthetic, evidence-free fixtures.
 pub fn raw_block(block: &Block) -> RawBlock {
-    assert!(block.evidence.as_ref().is_empty());
-    let mut raw = RawBlock::from(block.clone());
+    let mut raw = RawBlock {
+        header: Some(block.header.clone().into()),
+        data: Some(tendermint_proto::v0_38::types::Data { txs: block.data.clone() }),
+        evidence: Some(crate::native::EvidenceList { evidence: vec![] }),
+        last_commit: block.last_commit.clone().map(Into::into),
+    };
     if block.header.height.value() == 1 {
         raw.last_commit = Some(Commit::default().into());
         raw.header.as_mut().unwrap().last_block_id =
@@ -196,13 +194,15 @@ pub fn pair(
             header: Header {
                 number: height,
                 parent_hash: parent,
-                beneficiary: abci::rules::proposer_recipient(
-                    &committee.state.members,
-                    committee.validators.validators()[0].address,
-                )
-                .unwrap(),
+                beneficiary: BATCH_RECIPIENT,
                 base_fee_per_gas: Some(7),
                 gas_used: 21_000,
+                ommers_hash: alloy_consensus::EMPTY_OMMER_ROOT_HASH,
+                withdrawals_root: Some(alloy_consensus::EMPTY_ROOT_HASH),
+                blob_gas_used: Some(0),
+                excess_blob_gas: Some(0),
+                parent_beacon_block_root: Some(B256::repeat_byte(9)),
+                requests_hash: Some(alloy_eips::eip7685::EMPTY_REQUESTS_HASH),
                 ..Default::default()
             },
             transactions: vec![],
@@ -224,8 +224,8 @@ pub fn pair_with_envelope(
     let parent = envelope.block.header.parent_hash;
     let data = vec![envelope.encode().to_vec()];
     let header = tendermint::block::Header {
-        version: Version { block: 11, app: 0 },
-        chain_id: "taiko-etna-167001-g0".parse().unwrap(),
+        version: Version { block: 11, app: 1 },
+        chain_id: "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4".parse().unwrap(),
         height: height.try_into().unwrap(),
         time: Time::from_unix_timestamp(100 + i64::try_from(height).unwrap(), 0).unwrap(),
         last_block_id: previous.map(|pair| pair.commit.block_id),
@@ -243,8 +243,7 @@ pub fn pair_with_envelope(
         evidence_hash: Some(merkle(&[])),
         proposer_address: committee.validators.validators()[0].address,
     };
-    let block =
-        Block::new(header, data, Default::default(), previous.map(|pair| pair.commit.clone()));
+    let block = Block { header, data, last_commit: previous.map(|pair| pair.commit.clone()) };
     let raw = raw_block(&block);
     let parts = block_parts(&raw);
     let commit = Commit {
@@ -269,12 +268,7 @@ pub fn resign(pair: &mut CertifiedBlock, committee: &AuthenticatedCommittee, key
         .iter()
         .enumerate()
         .map(|(index, validator)| {
-            let key = keys
-                .iter()
-                .find(|key| {
-                    key.verifying_key().as_bytes().as_slice() == validator.pub_key.to_bytes()
-                })
-                .unwrap();
+            let key = keys.iter().find(|key| public_key(key) == validator.pub_key).unwrap();
             let timestamp = pair.block.header.time;
             let vote = Vote {
                 vote_type: Type::Precommit,
@@ -295,7 +289,7 @@ pub fn resign(pair: &mut CertifiedBlock, committee: &AuthenticatedCommittee, key
             CommitSig::BlockIdFlagCommit {
                 validator_address: validator.address,
                 timestamp,
-                signature: Some(key.sign(&bytes).to_bytes().to_vec().try_into().unwrap()),
+                signature: Some(sign(key, &bytes)),
             }
         })
         .collect();
@@ -308,10 +302,7 @@ pub fn nil_vote(
     index: usize,
 ) -> CommitSig {
     let validator = &committee.validators.validators()[index];
-    let key = keys
-        .iter()
-        .find(|key| key.verifying_key().as_bytes().as_slice() == validator.pub_key.to_bytes())
-        .unwrap();
+    let key = keys.iter().find(|key| public_key(key) == validator.pub_key).unwrap();
     let timestamp = pair.block.header.time;
     let vote = Vote {
         vote_type: Type::Precommit,
@@ -332,6 +323,6 @@ pub fn nil_vote(
     CommitSig::BlockIdFlagNil {
         validator_address: validator.address,
         timestamp,
-        signature: Some(key.sign(&bytes).to_bytes().to_vec().try_into().unwrap()),
+        signature: Some(sign(key, &bytes)),
     }
 }

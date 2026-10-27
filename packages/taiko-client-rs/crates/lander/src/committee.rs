@@ -2,10 +2,11 @@
 
 use abci::{
     ChainParams, CommitteeState,
-    committee::{ENCODING_VERSION, MAX_TOTAL_POWER, record_hash, set_key, set_root},
+    committee::{MAX_TOTAL_POWER, record_hash, set_key, set_root},
+    key::ConsensusKey,
 };
 use alloy_primitives::{B256, U256};
-use tendermint::{PublicKey, validator};
+use tendermint::{Hash, account::Id};
 
 /// A malformed or unauthenticated committee response.
 #[derive(Debug, thiserror::Error)]
@@ -37,9 +38,50 @@ pub struct AuthenticatedCommittee {
     /// The exact full record and its members in canonical set-key order.
     pub state: CommitteeState,
     /// CometBFT orders its validators by descending power then ascending address.
-    pub validators: validator::Set,
+    pub validators: Validators,
     /// Registry proof and authenticated derivation parent retained for independent derivation.
     pub provenance: Option<crate::types::CommitteeContext>,
+}
+
+/// Native validator metadata in the exact ordered certificate slot.
+#[derive(Clone, Debug)]
+pub struct Validator {
+    /// Ethereum address derived from the authorized compressed key.
+    pub address: Id,
+    /// Authorized native key, validated by the core key type.
+    pub pub_key: ConsensusKey,
+    /// Positive voting power admitted by the committee record.
+    voting_power: u64,
+}
+impl Validator {
+    /// Voting power contributed by a valid block vote.
+    pub fn power(&self) -> u64 {
+        self.voting_power
+    }
+}
+/// Authenticated native validators; unlike evidence wire sets this retains a checked commitment.
+#[derive(Clone, Debug)]
+pub struct Validators {
+    /// Validators in descending power and ascending Ethereum-address order.
+    members: Vec<Validator>,
+    /// Stock native protobuf validator Merkle commitment.
+    hash: Hash,
+    /// Checked total power, bounded by the core consensus limit.
+    total: u64,
+}
+impl Validators {
+    /// Ordered signature slots.
+    pub fn validators(&self) -> &[Validator] {
+        &self.members
+    }
+    /// Commitment used by Comet header validators_hash fields.
+    pub fn hash(&self) -> Hash {
+        self.hash
+    }
+    /// Total voting power of all slots.
+    pub fn total_voting_power(&self) -> u64 {
+        self.total
+    }
 }
 
 /// Reconstructs the set-key order, set root and voting power against an independently derived
@@ -55,9 +97,6 @@ pub fn authenticate(
 ) -> Result<AuthenticatedCommittee, CommitteeError> {
     if state.record.target_epoch != epoch {
         return Err(CommitteeError::Epoch { expected: epoch, got: state.record.target_epoch });
-    }
-    if state.record.encoding_version != ENCODING_VERSION {
-        return Err(CommitteeError::Invalid("unsupported record encoding"));
     }
     if state.members.is_empty() || state.members.len() > params.n_max {
         return Err(CommitteeError::Invalid("empty or oversized member list"));
@@ -87,14 +126,14 @@ pub fn authenticate(
             .checked_add(member.power)
             .filter(|total| *total <= MAX_TOTAL_POWER)
             .ok_or(CommitteeError::Invalid("total power overflow"))?;
-        let key = PublicKey::from_raw_ed25519(member.pubkey.as_slice())
-            .ok_or(CommitteeError::Invalid("invalid Ed25519 public key"))?;
-        let power =
-            member.power.try_into().map_err(|_| CommitteeError::Invalid("invalid voting power"))?;
-        validators.push(validator::Info::new(key, power));
+        validators.push(Validator {
+            address: Id::new(member.pubkey.address().into_array()),
+            pub_key: member.pubkey,
+            voting_power: member.power,
+        });
     }
-    if stake != state.record.total_stake || power != state.record.total_power {
-        return Err(CommitteeError::Invalid("record stake/power totals mismatch"));
+    if power != state.record.total_power {
+        return Err(CommitteeError::Invalid("record power total mismatch"));
     }
     let k = epoch.checked_add(1).ok_or(CommitteeError::Invalid("epoch overflow"))?;
     if set_root(params.l2_chain_id, k, &state.members) != state.record.set_root {
@@ -104,9 +143,12 @@ pub fn authenticate(
     if got != expected_hash {
         return Err(CommitteeError::Hash { expected: expected_hash, got });
     }
+    validators.sort_by_key(|v| (std::cmp::Reverse(v.voting_power), v.address));
+    let hash = abci::wire::validators_hash(&state.members)
+        .map_err(|_| CommitteeError::Invalid("native validator hash"))?;
     Ok(AuthenticatedCommittee {
         state,
-        validators: validator::Set::without_proposer(validators),
+        validators: Validators { members: validators, hash: Hash::Sha256(hash.0), total: power },
         provenance: None,
     })
 }
@@ -121,7 +163,7 @@ mod tests {
         let (params, valid, _) = committee(&[5, 3, 1], 0);
         let expected = record_hash(params.l2_chain_id, &valid.state.record);
         let result = authenticate(valid.state.clone(), 0, expected, &params).unwrap();
-        assert_eq!(result.validators.total_voting_power().value(), 9);
+        assert_eq!(result.validators.total_voting_power(), 9);
         assert_eq!(result.validators.validators()[0].power(), 5);
         assert!(authenticate(valid.state.clone(), 1, expected, &params).is_err());
         assert!(authenticate(valid.state.clone(), 0, B256::ZERO, &params).is_err());
@@ -132,9 +174,9 @@ mod tests {
                 1 => state.members[1] = state.members[0].clone(),
                 2 => state.members[0].power += 1,
                 3 => state.record.total_power += 1,
-                4 => state.record.total_stake += U256::from(1),
+                4 => state.members[0].eff_stake += U256::from(1),
                 5 => state.record.set_root = B256::ZERO,
-                6 => state.record.encoding_version = 1,
+                6 => state.record.cutoff_l1_block += 1,
                 7 => state.members.clear(),
                 _ => unreachable!(),
             }

@@ -6,10 +6,10 @@ use crate::{
     docker::{DockerEnv, host_port},
     wait_until,
 };
-use alloy::{consensus::Header, rpc::types::TransactionRequest};
+use alloy::consensus::Header;
 use alloy_eips::{BlockNumberOrTag, eip7685::EMPTY_REQUESTS_HASH};
 use alloy_genesis::Genesis;
-use alloy_primitives::{Address, B256, Bytes, U256, address, keccak256};
+use alloy_primitives::{Address, B256, U256, address, keccak256};
 use alloy_provider::{Provider, RootProvider};
 use alloy_trie::{
     EMPTY_ROOT_HASH, TrieAccount,
@@ -27,15 +27,12 @@ pub const ROOTS: Address = address!("000f3df6d732807ef1319fb7b8bb8522d0beac02");
 pub const HISTORY: Address = address!("0000f90827f1c53a10cb7a02335b175320002935");
 const BASE: &str = include_str!("../contracts/devnet-genesis.json");
 const SYSTEMS: &str = include_str!("../contracts/system-runtimes.json");
-const VAULT: &str = include_str!("../../lander/tests/fixtures/contracts/L2FeeVault.json");
 
-/// Actual vault runtime, canonical system predeploys, and independently computed block zero.
+/// Canonical system predeploys and independently computed fresh Etna block zero.
 #[derive(Debug, Clone)]
 pub struct EtnaGenesis {
     /// Deterministic custom-chain JSON; canonical fields except alloc and derived stateRoot.
     pub json: String,
-    /// The pinned devnet treasury address that receives EL base fees.
-    pub vault: Address,
     /// Independently computed canonical Osaka block-zero header hash.
     pub hash: B256,
     /// Alloc trie root, computed without trusting the JSON stateRoot field.
@@ -43,26 +40,8 @@ pub struct EtnaGenesis {
 }
 
 impl EtnaGenesis {
-    /// Execute the committed real constructor read-only on L1. It only reads its explicit
-    /// arguments, not CHAINID or ADDRESS. eth_call neither mines nor consumes a deployer nonce.
-    pub async fn build(l1: &RootProvider, inbox: Address) -> Result<Self> {
-        let chain = l1.get_chain_id().await?;
-        ensure!(chain != 0 && inbox != Address::ZERO, "invalid L1 vault identity");
-        let artifact: Value = serde_json::from_str(VAULT)?;
-        let mut input = artifact["bytecode"]["object"]
-            .as_str()
-            .context("vault constructor")?
-            .parse::<Bytes>()?
-            .to_vec();
-        input.extend_from_slice(&U256::from(chain).to_be_bytes::<32>());
-        input.extend_from_slice(&U256::from_be_slice(inbox.as_slice()).to_be_bytes::<32>());
-        let runtime =
-            l1.call(TransactionRequest::default().input(Bytes::from(input).into())).await?;
-        ensure!(!runtime.is_empty(), "vault constructor returned empty runtime");
-        Self::with_runtime(runtime)
-    }
-
-    fn with_runtime(runtime: Bytes) -> Result<Self> {
+    /// Build canonical generated genesis with the pinned execution system predeploys.
+    pub fn build() -> Result<Self> {
         let mut base: Value = serde_json::from_str(BASE)?;
         let mut alloc = serde_json::Map::new();
         for (key, value) in base["alloc"].as_object().context("genesis alloc")? {
@@ -72,9 +51,7 @@ impl EtnaGenesis {
                 "duplicate alloc address"
             );
         }
-        let vault = alethia_reth_primitives::addresses::get_treasury_address(167001);
-        let mut systems: serde_json::Map<String, Value> = serde_json::from_str(SYSTEMS)?;
-        systems.insert(format!("{vault:#x}"), json!(runtime));
+        let systems: serde_json::Map<String, Value> = serde_json::from_str(SYSTEMS)?;
         for (address, code) in systems {
             alloc.insert(address, json!({"balance":"0x0", "nonce":"0x1", "code":code}));
         }
@@ -120,11 +97,12 @@ impl EtnaGenesis {
             requests_hash: Some(EMPTY_REQUESTS_HASH),
             ..Default::default()
         };
-        Ok(Self { json, vault, hash: header.hash_slow(), state_root })
+        Ok(Self { json, hash: header.hash_slow(), state_root })
     }
 
-    /// Fail startup if EL ignored allocs, fork overrides, code, or constructor identity.
-    pub async fn verify(&self, l2: &RootProvider, l1_chain_id: u64, inbox: Address) -> Result<()> {
+    /// Fail startup if EL ignored generated allocs, fork overrides, system code or genesis
+    /// identity.
+    pub async fn verify(&self, l2: &RootProvider) -> Result<()> {
         ensure!(l2.get_chain_id().await? == 167001, "unexpected L2 chain id");
         let block = l2
             .get_block_by_number(BlockNumberOrTag::Number(0))
@@ -135,27 +113,11 @@ impl EtnaGenesis {
             "custom genesis hash or state root mismatch"
         );
         let genesis: Genesis = serde_json::from_str(&self.json)?;
-        for address in [self.vault, ROOTS, HISTORY] {
+        for address in [ROOTS, HISTORY] {
             let expected = genesis.alloc[&address].code.as_ref().context("runtime missing")?;
             ensure!(
                 !expected.is_empty() && l2.get_code_at(address).await? == *expected,
                 "genesis runtime mismatch at {address}"
-            );
-        }
-        for (getter, expected) in [
-            ("l1ChainId()", U256::from(l1_chain_id)),
-            ("l1Inbox()", U256::from_be_slice(inbox.as_slice())),
-        ] {
-            let result = l2
-                .call(
-                    TransactionRequest::default()
-                        .to(self.vault)
-                        .input(Bytes::copy_from_slice(&keccak256(getter)[..4]).into()),
-                )
-                .await?;
-            ensure!(
-                result.as_ref() == expected.to_be_bytes::<32>(),
-                "vault immutable {getter} mismatch"
             );
         }
         Ok(())
@@ -177,9 +139,9 @@ pub struct StandaloneReth {
     _tmp: TempDir,
 }
 impl StandaloneReth {
-    /// Start a fresh EL before L1 Inbox deployment, using its predicted CREATE address.
-    pub async fn start(l1: &RootProvider, inbox: Address) -> Result<Self> {
-        let genesis = EtnaGenesis::build(l1, inbox).await?;
+    /// Start a fresh EL with canonical generated system predeploys and no obsolete fee vault.
+    pub async fn start() -> Result<Self> {
+        let genesis = EtnaGenesis::build()?;
         let tmp = tempfile::Builder::new().prefix("etna-el-").tempdir()?;
         let name = tmp.path().file_name().unwrap().to_string_lossy().to_string();
         let mut docker = DockerEnv::create(format!("{name}-net")).await?;
@@ -208,7 +170,7 @@ impl StandaloneReth {
             Ok(Some(provider.get_chain_id().await?))
         })
         .await?;
-        genesis.verify(&provider, l1.get_chain_id().await?, inbox).await?;
+        genesis.verify(&provider).await?;
         Ok(Self { provider, http, auth, genesis, docker, _tmp: tmp })
     }
     /// Engine access for tests that explicitly build and validate subsequent blocks.
@@ -229,15 +191,16 @@ impl StandaloneReth {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloy_primitives::Bytes;
     #[test]
     fn genesis_preserves_non_alloc_and_predeploys_change_header() {
         let mut original: Value = serde_json::from_str(BASE).unwrap();
-        let a = EtnaGenesis::with_runtime(Bytes::from_static(&[0x60, 0])).unwrap();
-        let b = EtnaGenesis::with_runtime(Bytes::from_static(&[0x60, 1])).unwrap();
+        let a = EtnaGenesis::build().unwrap();
+        let b = EtnaGenesis::build().unwrap();
         let mut actual: Value = serde_json::from_str(&a.json).unwrap();
         for (key, account) in original["alloc"].as_object().unwrap() {
             let address: Address = key.parse().unwrap();
-            if ![a.vault, ROOTS, HISTORY].contains(&address) {
+            if ![ROOTS, HISTORY].contains(&address) {
                 assert_eq!(actual["alloc"][format!("{address:#x}")], *account);
             }
         }
@@ -246,9 +209,9 @@ mod tests {
         original.as_object_mut().unwrap().remove("stateRoot");
         actual["alloc"] = original["alloc"].clone();
         assert_eq!(actual, original);
-        assert_ne!(a.hash, b.hash);
-        assert_ne!(a.state_root, b.state_root);
-        assert_eq!(a.json, EtnaGenesis::with_runtime(Bytes::from_static(&[0x60, 0])).unwrap().json);
+        assert_eq!(a.hash, b.hash);
+        assert_eq!(a.state_root, b.state_root);
+        assert_eq!(a.json, EtnaGenesis::build().unwrap().json);
     }
     #[test]
     fn committed_genesis_inputs_match_provenance() {
@@ -258,14 +221,6 @@ mod tests {
         for (name, data) in [("devnet-genesis.json", BASE), ("system-runtimes.json", SYSTEMS)] {
             assert_eq!(manifest["artifacts"][name], format!("{:x}", Sha256::digest(data)));
         }
-        let vault_manifest: Value = serde_json::from_str(include_str!(
-            "../../lander/tests/fixtures/contracts/manifest.json"
-        ))
-        .unwrap();
-        assert_eq!(
-            vault_manifest["artifacts"]["L2FeeVault"]["sha256"],
-            format!("{:x}", Sha256::digest(VAULT))
-        );
         let fixture_manifest: Value =
             serde_json::from_str(include_str!("../contracts/FeeRoutingFixture.manifest.json"))
                 .unwrap();

@@ -1,16 +1,15 @@
-//! The landing capacity guard's promise to the lander: every block it admits lands on its own.
+//! Structural compression-budget properties, independent of authenticated Etna admission.
 //!
-//! The guard sizes a block by its envelope alone, so the published header must fit the room it
-//! reserves, and the single-block payload must deflate the envelope as the guard measured it,
-//! whatever the header's length shifts. The properties below are scale-free: a block lands alone
-//! within the guard's measure whatever its size, and the guard's own bound,
-//! `MAX_BLOCK_LANDING_BYTES`, is the case that fits `MAX_LANDING_BLOBS` blobs.
+//! These deliberately include large and arbitrary execution headers to stress deflate framing
+//! and blob accounting. The authenticated `decode_landed` and builder boundaries separately
+//! enforce the current raw 124000-byte limit and Unzen shape; passing these properties alone
+//! does not establish that an execution block is valid Etna data.
 
 use abci::compression::{
     HEADER_ALLOWANCE, MAX_BLOCK_LANDING_BYTES, MAX_LANDING_BLOBS, zlib_compress,
 };
 use proptest::{collection::vec, prelude::*};
-use tendermint::block::{self, Commit};
+use tendermint::block;
 
 use super::strategies::{
     HeaderFields, Payload, bytes, envelope_with, header_fields, noise, payload,
@@ -19,6 +18,7 @@ use crate::{
     blob,
     codec::{self, PublishedBlock},
     config::COMET_BLOCK_MAX_BYTES,
+    native::{Block, Commit},
     test_utils::consensus,
     types::{CertifiedBlock, Limits, SidecarMode},
     validate::block_parts,
@@ -45,7 +45,8 @@ fn certified(fields: &HeaderFields, envelope: Vec<u8>) -> CertifiedBlock {
     decoded.block.header.number = header.height.value();
     let envelope = decoded.encode().to_vec();
     let header = fields.header(&envelope);
-    let block = tendermint::Block::new(header, vec![envelope], Default::default(), None);
+    let last_commit = (header.height.value() > 1).then(Commit::default);
+    let block = Block { header, data: vec![envelope], last_commit };
     let raw = consensus::raw_block(&block);
     let commit = Commit {
         height: block.header.height,
