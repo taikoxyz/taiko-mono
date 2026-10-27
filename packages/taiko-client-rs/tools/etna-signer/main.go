@@ -54,6 +54,14 @@ func singleLinkState(path string) error {
 	return nil
 }
 func run() error {
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "keygen":
+			return keygen(os.Args[2:], os.Stdout)
+		case "pop":
+			return pop(os.Args[2:], os.Stdout)
+		}
+	}
 	addr := flag.String("comet-signer-addr", "", "Comet-owned signer listener (unix:// or tcp:// SecretConnection)")
 	control := flag.String("trust-socket", "", "private <app-store>/checkpoint-trust.sock")
 	chain := flag.String("chain-id", "", "verified Comet chain ID")
@@ -61,7 +69,7 @@ func run() error {
 	state := flag.String("priv-state", "", "existing Comet FilePV anti-double-sign state (never reset)")
 	timeout := flag.Duration("trust-timeout", time.Second, "per-request private control deadline (0 < timeout <= 10s)")
 	flag.Parse()
-	if *addr == "" || *control == "" || *chain == "" || *key == "" || *state == "" || *timeout <= 0 || *timeout > 10*time.Second {
+	if flag.NArg() != 0 || *addr == "" || *control == "" || *chain == "" || *key == "" || *state == "" || *timeout <= 0 || *timeout > 10*time.Second {
 		return errors.New("all addresses, chain ID and existing key/state paths are required; timeout must be in (0,10s]")
 	}
 	for _, path := range []*string{key, state} {
@@ -81,6 +89,9 @@ func run() error {
 	defer lock.Close()
 	if err = syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		return errors.New("another signer owns this FilePV state")
+	}
+	if _, err := loadNativeKey(*key); err != nil {
+		return err
 	}
 	signer := privval.LoadFilePV(*key, *state)
 	var dial privval.SocketDialer
