@@ -29,9 +29,9 @@ specification; appendix A is its encodings and appendix B its L1 storage layout.
   proxy and that both use the same L2 chain id, writes the appendix B initial values and saves
   the block-0 SignalService checkpoint.
 - `land(input, leaves, proof)`: the spec 6.1 reference Solidity, check for check. With K = 6, p, c
-  and h are grid points; `leaves` are the cut leaves at the grid points inside (p, h), and the
-  leaf at c is compared with c's slot 285 record before the immutable verifier checks the
-  21-word statement with `verifyProof(0, statement, proof)` (its proposal age argument is unused).
+  and h are grid points; `leaves` are the cut leaves at the grid points inside (p, h), and if
+  c > p the leaf at c is compared with c's slot 285 record before the immutable verifier checks
+  the 21-word statement with `verifyProof(0, statement, proof)` (0: no proposal age applies).
   The landing then moves the checkpoint, `activeCommitteeSnapshot` and the queue head, writes
   `landings[h]` with the actual parent c, saves the SignalService checkpoint and emits `Landed`.
   It pays nothing to anyone.
@@ -41,14 +41,15 @@ specification; appendix A is its encodings and appendix B its L1 storage layout.
 - `sweepProtocolFees()`: anyone sends the Inbox's whole balance to the immutable
   `protocolFeeRecipient`, the DAO treasury.
 - `recover(expectedGeneration, expectedC, exclusions, fiToClear)`: owner only and atomic. With
-  R = `block.number`, each excluded entry's exit moves to R in the registry, each listed queue
-  entry's hash becomes `keccak256("")`, the generation increments and its origin
+  R = `block.number`, each excluded entry's exit moves to min(existing, R) in the registry, each
+  listed queue entry's hash becomes `keccak256("")`, the generation increments and its origin
   (c, R's number, R's timestamp) is written once to slot 290. The checkpoint, its record, the
   queue head and `activeCommitteeSnapshot` are kept.
 
 `land`, `recover`, `saveForcedInclusion` and `sweepProtocolFees` share one reentrancy lock.
-Pausing the Inbox or the registry stops none of their entry points (spec 1). Only
-`saveForcedInclusion` accepts ETH; `upgradeToAndCall` rejects it too.
+Pause affects none of these entry points, nor the registry's (spec 1 requires this for `land`,
+`saveForcedInclusion` and the registry). Only `saveForcedInclusion` accepts ETH;
+`upgradeToAndCall` rejects it too.
 
 ## EtnaStakingRegistry
 

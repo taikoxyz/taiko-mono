@@ -9,8 +9,6 @@ from pathlib import Path
 
 PROTOCOL = Path(__file__).resolve().parents[3]
 SCRIPT = PROTOCOL / "script/layer2/build_etna_genesis.py"
-# The former fee-vault treasury address; the alloc-only genesis installs nothing there.
-RETIRED_VAULT = "0x1670010000000000000000000000000000010001"
 
 
 class EtnaGenesisBuilderTest(unittest.TestCase):
@@ -48,11 +46,6 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
                 self._system_account(self.builder.HISTORY_RUNTIME),
         })
 
-    def test_build_installs_no_vault(self):
-        alloc = self.builder.build(self.base)["alloc"]
-        self.assertNotIn(RETIRED_VAULT, alloc)
-        self.assertEqual(len(alloc), 3)
-
     def test_replaces_prefixed_and_uppercase_target_allocs(self):
         roots = self.builder.ROOTS.removeprefix("0x")
         history = self.builder.HISTORY.removeprefix("0x")
@@ -75,11 +68,9 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
         finally:
             self.builder.ROOTS_RUNTIME = original
 
-    def test_cli_rejects_removed_runtime_flags(self):
-        for flag in ("--runtime", "--vault-artifact"):
-            with self.subTest(flag=flag):
-                self._assert_cli_rejected(json.dumps(self.base), "unrecognized arguments",
-                                          [flag, "x"])
+    def test_cli_rejects_unknown_flags(self):
+        self._assert_cli_rejected(json.dumps(self.base), "unrecognized arguments",
+                                  ["--unknown", "x"])
 
     def test_cli_rejects_duplicate_literal_alloc_keys_without_output(self):
         key = "0xabcdef0000000000000000000000000000000000"

@@ -302,11 +302,11 @@ interface IEtnaInbox {
     /// strictly by bond id and fiToClear strictly increasing within [head, tail); and no origin
     /// written yet for the new generation (`OriginAlreadyWritten`). With R = block.number, the
     /// registry checks each exclusion's entry key and sets its exitEffectiveL1 to min(existing,
-    /// R) (`IEtnaStakingRegistry.forceExit`), so any exclusion reverts `InvalidEventBlock` at
-    /// block.number == 2^48 - 1, the registry's no-exit sentinel. Each listed queue entry's
-    /// txHash becomes keccak256(""). Increments the generation, writes origins[generation] =
-    /// (c, R, block.timestamp) once and emits `Recovered`. The checkpoint, its landing record,
-    /// the queue head and activeCommitteeSnapshot are kept.
+    /// R) (`IEtnaStakingRegistry.forceExit`), so any otherwise valid exclusion reverts
+    /// `InvalidEventBlock` at block.number == 2^48 - 1, the registry's no-exit sentinel. Each
+    /// listed queue entry's txHash becomes keccak256(""). Increments the generation, writes
+    /// origins[generation] = (c, R, block.timestamp) once and emits `Recovered`. The checkpoint,
+    /// its landing record, the queue head and activeCommitteeSnapshot are kept.
     /// @param _expectedGeneration The recovery generation the call was authorized for.
     /// @param _expectedC The checkpoint height the call was authorized for.
     /// @param _exclusions The entries to force out, sorted strictly by bond id.

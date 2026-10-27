@@ -7,8 +7,6 @@ import { Test } from "forge-std/src/Test.sol";
 /// EVM. Execution-client fork activation and block-0 commitments require separate integration
 /// tests.
 contract EtnaGenesisTest is Test {
-    /// @dev The former fee-vault treasury address; the alloc-only genesis installs nothing there.
-    address private constant _VAULT = 0x1670010000000000000000000000000000010001;
     address private constant _ROOTS = 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
     address private constant _HISTORY = 0x0000F90827F1C53a10cb7A02335B175320002935;
     address private constant _SYSTEM = 0xffffFFFfFFffffffffffffffFfFFFfffFFFfFFfE;
@@ -16,8 +14,6 @@ contract EtnaGenesisTest is Test {
     function test_buildGenesis_InstallsCanonicalSystemContracts() external {
         string memory genesis = _build();
         assertEq(vm.parseJsonKeys(genesis, ".alloc").length, 2, "only the system contracts");
-        assertFalse(vm.keyExistsJson(genesis, _allocKey(_VAULT)), "no vault alloc");
-        assertEq(_VAULT.code.length, 0);
         assertEq(
             sha256(_ROOTS.code),
             hex"cb7bd3e115730f7d57c15cd892880ed517ff4421bf43dfc7591198868fffe31d"
