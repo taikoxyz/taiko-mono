@@ -47,7 +47,7 @@ test *ARGS:
 test-full *ARGS:
   ./tests/entrypoint.sh --full "$@"
 
-# Fast tests: unit tests plus the lander_claim_cli process tests, with no docker. Only those
+# Fast tests: unit tests and CLI parser/process tests, with no docker. Only those
 # targets are built, so the docker-only integration binaries stay out of this lane. Without
 # extra args, lander's lib tests run in one `cargo test` process instead of one process per
 # test: each process would otherwise rebuild the KZG trusted setup, which dominates their
@@ -59,7 +59,7 @@ test-full *ARGS:
 unit *ARGS:
   #!/usr/bin/env bash
   set -euo pipefail
-  targets=(--workspace --exclude bindings --all-features --lib --bins --test lander_claim_cli)
+  targets=(--workspace --exclude bindings --all-features --lib --bins --test native_cli)
   if [[ $# -eq 0 ]]; then
     cargo nextest run "${targets[@]}" -E '!(package(lander) & kind(lib))'
     cargo test -p lander --all-features --lib

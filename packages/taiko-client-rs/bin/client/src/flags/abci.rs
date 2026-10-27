@@ -15,6 +15,9 @@ pub const MAX_TIMEOUT_SECS: u64 = 3600;
 /// Flags of the `abci` subcommand (besides the common ones).
 #[derive(Parser, Clone, Debug, PartialEq, Eq)]
 pub struct AbciArgs {
+    /// Explicit local beneficiary for all fees of blocks this node proposes.
+    #[clap(long = "fee-recipient", env = "ABCI_FEE_RECIPIENT", required = true)]
+    pub fee_recipient: alloy_primitives::Address,
     /// The ABCI socket CometBFT's `proxy_app` connects to: `tcp://<host>:<port>` or
     /// `unix://<path>`.
     #[clap(
@@ -126,6 +129,7 @@ mod tests {
     /// Every environment variable the `abci` subcommand reads, unset.
     fn clear_env() -> Vec<EnvGuard> {
         [
+            "ABCI_FEE_RECIPIENT",
             "ABCI_ADDR",
             "ABCI_DATA_DIR",
             "ABCI_CHAIN_CONFIG",
@@ -149,6 +153,8 @@ mod tests {
         let mut argv = vec![
             "taiko-client",
             "abci",
+            "--fee-recipient",
+            "0x7777777777777777777777777777777777777777",
             "--l1.http",
             "http://localhost:8545",
             "--l2.http",
@@ -168,6 +174,15 @@ mod tests {
             Commands::Abci(cmd) => Ok(*cmd),
             other => panic!("expected abci, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn accepts_explicit_local_fee_recipient() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let _clear = clear_env();
+        let command = parse(argv(&["--data-dir", "/data"]))
+            .expect("local proposer beneficiary must be configurable");
+        assert_eq!(command.abci_flags.fee_recipient, alloy_primitives::Address::repeat_byte(0x77));
     }
 
     #[test]
@@ -232,6 +247,7 @@ mod tests {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
         let _clear = clear_env();
         let _env = [
+            EnvGuard::set("ABCI_FEE_RECIPIENT", "0x7777777777777777777777777777777777777777"),
             EnvGuard::set("ABCI_ADDR", "tcp://0.0.0.0:36658"),
             EnvGuard::set("ABCI_DATA_DIR", "/env/data"),
             EnvGuard::set("ABCI_CHAIN_CONFIG", "/env/chain.toml"),

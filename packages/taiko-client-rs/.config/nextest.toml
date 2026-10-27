@@ -11,14 +11,14 @@ leak-timeout = "100ms"
 # docker daemon's memory. A direct `cargo nextest run --run-ignored only` uses this
 # profile, so it gets the same hang guard as the `integration` profile below: a
 # wedged scenario is terminated instead of stalling the serial lane forever.
-filter = 'kind(test) & !binary(lander_claim_cli)'
+filter = 'kind(test) & !binary(native_cli)'
 test-group = "docker"
 slow-timeout = { period = "120s", terminate-after = 5 }
 
 [[profile.default.overrides]]
 # These process tests own independent ports and directories, so they can run in
 # parallel with unit tests. Retain the integration hang guard without Docker's group.
-filter = 'binary(lander_claim_cli)'
+filter = 'binary(native_cli)'
 slow-timeout = { period = "120s", terminate-after = 5 }
 
 [test-groups.docker]

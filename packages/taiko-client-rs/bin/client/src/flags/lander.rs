@@ -2,7 +2,6 @@
 
 use std::{path::PathBuf, time::Duration};
 
-use alloy_primitives::Address;
 use clap::Parser;
 use lander::{
     Limits, SidecarMode,
@@ -27,9 +26,6 @@ pub struct LanderArgs {
     /// Authenticated Engine API endpoint used to verify forced transaction skips.
     #[clap(long="l2.auth",env="L2_AUTH",required=true,value_parser=http_url)]
     pub l2_auth_endpoint: Url,
-    /// Nonzero L2 recipient for landed base fees, independent of the L1 signing key.
-    #[clap(long = "l2.reward-recipient", env = "LANDER_L2_REWARD_RECIPIENT", required = true, value_parser = reward_recipient)]
-    pub l2_reward_recipient: Address,
     /// File containing the Engine API JWT secret.
     #[clap(long = "jwt.secret", env = "JWT_SECRET", required = true)]
     pub jwt_secret: PathBuf,
@@ -116,7 +112,6 @@ impl LanderArgs {
         let config = LanderConfig {
             l1_http: self.l1_http_endpoint.clone(),
             l2_http: self.l2_http_endpoint.clone(),
-            l2_reward_recipient: self.l2_reward_recipient,
             l2_auth: self.l2_auth_endpoint.clone(),
             jwt_secret: self.jwt_secret.clone(),
             comet_http: self.comet_http_endpoint.clone(),
@@ -153,21 +148,6 @@ impl LanderArgs {
         config.validate()?;
         Ok(config)
     }
-}
-
-/// Parse the explicit nonzero address whose L2 reward the V9 statement binds.
-fn reward_recipient(value: &str) -> Result<Address, String> {
-    let address = value.parse::<Address>().map_err(|e| e.to_string())?;
-    let hex = value.strip_prefix("0x").or_else(|| value.strip_prefix("0X")).unwrap_or(value);
-    let mixed =
-        hex.bytes().any(|b| b.is_ascii_lowercase()) && hex.bytes().any(|b| b.is_ascii_uppercase());
-    if mixed {
-        Address::parse_checksummed(format!("0x{hex}"), None).map_err(|e| e.to_string())?;
-    }
-    if address.is_zero() {
-        return Err("L2 reward recipient must be nonzero".into());
-    }
-    Ok(address)
 }
 
 /// Parse a nonzero batch/blob allocation limit.
@@ -246,8 +226,6 @@ mod tests {
             "http://l1:8545",
             "--l2.http",
             "http://l2:8545",
-            "--l2.reward-recipient",
-            "0x7777777777777777777777777777777777777777",
             "--l2.auth",
             "http://l2:8551",
             "--jwt.secret",
@@ -281,43 +259,13 @@ mod tests {
     }
 
     #[test]
-    fn accepts_explicit_l2_reward_recipient_independent_of_signing_key() {
+    fn removed_reward_flag_is_rejected() {
         let _lock = ENV_LOCK.lock().unwrap();
         let _clear = clear_env();
         let mut args = argv();
-        let index = args.iter().position(|arg| *arg == "--l2.reward-recipient").unwrap();
-        args[index + 1] = "0x2222222222222222222222222222222222222222";
-        let command = parse(args).expect("explicit L2 recipient must parse");
-        command.lander_flags.config().expect("recipient independent of signer must validate");
-    }
-
-    #[test]
-    fn reward_recipient_checks_only_mixed_case_eip55() {
-        let valid = "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed";
-        for text in [
-            valid.to_owned(),
-            valid[2..].to_owned(),
-            valid.to_lowercase(),
-            format!("0x{}", valid[2..].to_uppercase()),
-        ] {
-            assert!(reward_recipient(&text).is_ok(), "{text}");
-        }
-        assert!(reward_recipient("0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAEd").is_err());
-    }
-
-    #[test]
-    fn requires_explicit_nonzero_l2_recipient() {
-        let _lock = ENV_LOCK.lock().unwrap();
-        let _clear = clear_env();
-        let mut missing = argv();
-        let index = missing.iter().position(|arg| *arg == "--l2.reward-recipient").unwrap();
-        missing.drain(index..index + 2);
-        assert_eq!(parse(missing).unwrap_err().kind(), ErrorKind::MissingRequiredArgument);
-        for value in ["0x0000000000000000000000000000000000000000", "invalid"] {
-            let mut args = argv();
-            args[index + 1] = value;
-            assert_eq!(parse(args).unwrap_err().kind(), ErrorKind::ValueValidation);
-        }
+        args.extend(["--l2.reward-recipient", "0x7777777777777777777777777777777777777777"]);
+        assert_eq!(parse(args).unwrap_err().kind(), ErrorKind::UnknownArgument);
+        assert!(Cli::try_parse_from(["taiko-client", "lander-claim"]).is_err());
     }
 
     #[test]
@@ -368,8 +316,7 @@ mod tests {
         let mut args = argv();
         let i = args.iter().position(|v| *v == "--max-blocks").unwrap();
         args[i + 1] = "1";
-        let smaller = parse(args).unwrap().lander_flags.config().unwrap();
-        assert_eq!(smaller.limits.max_decompressed_bytes, 22_020_096);
+        assert!(parse(args).unwrap().lander_flags.config().is_err(), "a batch must fit K=6");
     }
 
     #[test]

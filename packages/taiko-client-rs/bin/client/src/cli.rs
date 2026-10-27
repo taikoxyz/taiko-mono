@@ -11,7 +11,6 @@ use crate::{
     commands::{
         abci::AbciSubCommand, abci_committee_record::AbciCommitteeRecordSubCommand,
         abci_genesis::AbciGenesisSubCommand, lander::LanderSubCommand,
-        lander_claim::LanderClaimSubCommand,
     },
     error::{CliError, Result},
 };
@@ -30,8 +29,6 @@ pub enum Commands {
     Abci(Box<AbciSubCommand>),
     /// Run the permissionless Etna lander with the dummy proof provider.
     Lander(Box<LanderSubCommand>),
-    /// Claim a landed batch reward on L2 with an independent gas payer.
-    LanderClaim(Box<LanderClaimSubCommand>),
     /// Write the CometBFT genesis.json of the Etna PoS chain from the L1 genesis record.
     AbciGenesis(Box<AbciGenesisSubCommand>),
     /// Compute the committeeRecordHash an Etna genesis takes for a genesis cutoff.
@@ -53,7 +50,6 @@ impl Cli {
         match self.subcommand {
             Commands::Abci(cmd) => Self::run_until_shutdown(cmd.run()),
             Commands::Lander(cmd) => Self::run_until_shutdown(cmd.run()),
-            Commands::LanderClaim(cmd) => Self::run_one_shot(cmd.run()),
             Commands::AbciGenesis(cmd) => Self::run_one_shot(cmd.run()),
             Commands::AbciCommitteeRecord(cmd) => Self::run_one_shot(cmd.run()),
         }

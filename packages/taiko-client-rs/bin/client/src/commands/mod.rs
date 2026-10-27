@@ -3,6 +3,7 @@
 use std::{io::IsTerminal, net::SocketAddr, path::Path};
 
 use ::abci::ChainParams;
+use alloy_primitives::U256;
 use async_trait::async_trait;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
@@ -18,16 +19,53 @@ pub mod abci_genesis;
 pub mod lander;
 
 /// The chain parameters of `l2_chain_id`: the built-in ones, overridden by the TOML file at
-/// `chain_config` when given, validated.
-pub fn load_chain_params(l2_chain_id: u64, chain_config: Option<&Path>) -> Result<ChainParams> {
+/// `chain_config` when given, validated, plus an explicitly configured L1 identity if present.
+pub fn load_chain_params(
+    l2_chain_id: u64,
+    chain_config: Option<&Path>,
+) -> Result<(ChainParams, Option<U256>)> {
     let mut params = ChainParams::builtin(l2_chain_id)?;
+    let mut expected_l1 = None;
     if let Some(path) = chain_config {
         let toml = std::fs::read_to_string(path)
             .map_err(|source| CliError::ChainConfigRead { path: path.to_path_buf(), source })?;
         params = params.with_overrides(&toml)?;
+        let fields: toml::Table = toml::from_str(&toml).map_err(::abci::ConfigError::from)?;
+        if fields.contains_key("l1_chain_id") {
+            expected_l1 = Some(params.l1_chain_id);
+        }
     }
     params.validate()?;
-    Ok(params)
+    Ok((params, expected_l1))
+}
+
+/// Binds parameters to the observed full-width L1 identity, rejecting an explicit mismatch.
+pub fn bind_l1_chain_id(
+    params: &mut ChainParams,
+    expected: Option<U256>,
+    actual: U256,
+) -> Result<()> {
+    if let Some(configured) = expected &&
+        configured != actual
+    {
+        return Err(CliError::L1ChainIdMismatch { configured, actual });
+    }
+    params.l1_chain_id = actual;
+    Ok(())
+}
+
+/// Reads the complete chain identifier directly from the configured endpoint. RPC errors
+/// name only the public flag label, never endpoint credentials or untrusted response text.
+pub async fn rpc_chain_id(url: &url::Url, flag: &'static str) -> Result<alloy_primitives::U256> {
+    use alloy_provider::Provider;
+    rpc::client::connect_http_with_timeout(url.clone(), rpc::client::DEFAULT_HTTP_TIMEOUT)
+        .raw_request("eth_chainId".into(), ())
+        .await
+        .map_err(|_| {
+            CliError::from(rpc::RpcClientError::RpcMessage(format!(
+                "{flag} failed to get a full uint256 chain id"
+            )))
+        })
 }
 
 /// Shared behaviour for CLI subcommands.
@@ -86,6 +124,3 @@ pub fn init_metrics(args: &ObservabilityArgs) -> Result<()> {
     info!(target: "metrics", "Prometheus metrics server started at http://{}", metrics_addr);
     Ok(())
 }
-
-/// Independent L2 reward claims.
-pub mod lander_claim;
