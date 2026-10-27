@@ -22,7 +22,6 @@ fn anchor(number: u64, timestamp: u64) -> AnchorState {
         state_root: B256::repeat_byte(0x5a),
         timestamp,
         inbox: InboxFacts {
-            status: 3,
             recovery_generation: GENERATION,
             last_checkpoint_height: 0,
             last_checkpoint_hash: B256::ZERO,
@@ -130,20 +129,20 @@ fn block_timestamp_saturates_at_u64_max() {
 #[test]
 fn extra_data_encodes_the_13_byte_layout_and_round_trips() {
     let extra = encode_extra_data(2, 123_456).expect("fits uint48");
-    assert_eq!(extra.as_ref(), hex!("0000000000000200000001e240"));
+    assert_eq!(extra.as_ref(), hex!("6400000000000200000001e240"));
     assert_eq!(decode_extra_data(&extra), Ok((BASEFEE_SHARING_PCTG, 2, 123_456)));
 
     let max = encode_extra_data(UINT48_MAX, UINT48_MAX).expect("max uint48 fits");
-    assert_eq!(max.as_ref(), hex!("00ffffffffffffffffffffffff"));
-    assert_eq!(decode_extra_data(&max), Ok((0, UINT48_MAX, UINT48_MAX)));
+    assert_eq!(max.as_ref(), hex!("64ffffffffffffffffffffffff"));
+    assert_eq!(decode_extra_data(&max), Ok((100, UINT48_MAX, UINT48_MAX)));
 
     let zero = encode_extra_data(0, 0).expect("fits uint48");
-    assert_eq!(decode_extra_data(&zero), Ok((0, 0, 0)));
+    assert_eq!(decode_extra_data(&zero), Ok((100, 0, 0)));
 }
 
 #[test]
 fn decode_extra_data_returns_the_pctg_byte_verbatim() {
-    let mut raw = hex!("0000000000000200000001e240");
+    let mut raw = hex!("6400000000000200000001e240");
     raw[0] = 50;
     assert_eq!(decode_extra_data(&raw), Ok((50, 2, 123_456)));
 }
@@ -187,7 +186,7 @@ fn expected_header_for_a_genesis_parent() {
             parent_hash: p.hash,
             timestamp: BFT_SECS,
             beneficiary: Address::repeat_byte(0x77),
-            extra_data: Bytes::from(hex!("000000000000020000000001f4").to_vec()),
+            extra_data: Bytes::from(hex!("640000000000020000000001f4").to_vec()),
             parent_beacon_block_root: a.state_root,
             gas_limit: 45_000_000,
             // SHASTA_INITIAL_BASE_FEE: a genesis parent has no EIP-4396 history.
@@ -207,7 +206,7 @@ fn expected_header_for_a_non_genesis_parent() {
     assert_eq!(e.parent_hash, p.hash);
     assert_eq!(e.timestamp, BFT_SECS);
     assert_eq!(e.beneficiary, Address::repeat_byte(0x77));
-    assert_eq!(decode_extra_data(&e.extra_data), Ok((0, GENERATION, 500)));
+    assert_eq!(decode_extra_data(&e.extra_data), Ok((100, GENERATION, 500)));
     assert_eq!(e.parent_beacon_block_root, a.state_root);
     assert_eq!(e.gas_limit, params.block_gas_limit);
     // 30M used against a 22.5M target over a 2 s block: 10_000_000 + 10_000_000·7.5M/22.5M/8.
@@ -551,49 +550,9 @@ fn generation_matrix() {
 // ---------------------------------------------------------------------------------------------
 
 #[test]
-fn chain_id_format_and_round_trip() {
-    assert_eq!(chain_id_for(167_001, 0), "taiko-etna-167001-g0");
-    assert_eq!(chain_id_for(167_000, 12), "taiko-etna-167000-g12");
-    for generation in [0, 1, 9, 10, 1_000, u64::MAX] {
-        let id = chain_id_for(167_001, generation);
-        assert_eq!(generation_from_chain_id(&id, 167_001), Ok(generation), "{id}");
-    }
-}
-
-#[test]
 fn chain_id_fits_cometbft_max_len() {
-    assert!(chain_id_for(167_000, u64::MAX).len() <= MAX_CHAIN_ID_LEN);
+    assert!(chain_id_for(&devnet(), (1 << 48) - 1).unwrap().len() <= MAX_CHAIN_ID_LEN);
     assert_eq!(MAX_CHAIN_ID_LEN, 50);
-}
-
-#[test]
-fn generation_from_chain_id_rejects_malformed_ids() {
-    for id in [
-        "",
-        "taiko-etna-167001-g",
-        "taiko-etna-167001-g01",
-        "taiko-etna-167001-g00",
-        "taiko-etna-167001-g+1",
-        "taiko-etna-167001-g-1",
-        "taiko-etna-167001-g1a",
-        "taiko-etna-167001-g 1",
-        "taiko-etna-167001-g1 ",
-        "taiko-etna-167001-g\u{0661}",
-        "taiko-etna-167001-g18446744073709551616",
-        "taiko-etna-167001-1",
-        "taiko-etna-167000-g1",
-        "taiko-etna-0167001-g1",
-        "taiko-etna-1670010-g1",
-        "Taiko-etna-167001-g1",
-        "taiko-shasta-167001-g1",
-        " taiko-etna-167001-g1",
-    ] {
-        assert_eq!(
-            generation_from_chain_id(id, 167_001),
-            Err(RuleViolation::InvalidChainId { chain_id: id.to_string(), l2_chain_id: 167_001 }),
-            "{id:?}"
-        );
-    }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -655,4 +614,28 @@ fn every_violation_has_a_message() {
     for v in every_violation() {
         assert!(!v.to_string().is_empty(), "{v:?}");
     }
+}
+
+#[test]
+fn v1_proposer_receives_all_basefees() {
+    assert_eq!(encode_extra_data(0, 42).unwrap()[0], 100);
+}
+
+#[test]
+fn v1_all_engine_builds_are_byte_bounded() {
+    let header = non_genesis_expected();
+    for tx_list in [None, Some(Bytes::new())] {
+        let attrs = payload_attributes(&header, B256::ZERO, tx_list);
+        assert_eq!(serde_json::to_value(attrs).unwrap()["maxBlockBytes"], 124000);
+    }
+}
+
+#[test]
+fn v1_domain_matches_schema4_vector() {
+    let mut params = devnet();
+    params.inbox = Address::repeat_byte(0x11);
+    assert_eq!(
+        chain_id_for(&params, 0).unwrap(),
+        "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4"
+    );
 }

@@ -136,8 +136,7 @@ async fn prepare_does_not_propose_an_oversized_block() {
     let mut zeros = built;
     zeros.transactions.push(vec![0u8; 5_000_000].into());
     app.engine().state().build_script.push_back(Ok(zeros.clone()));
-    assert_eq!(propose(&mut app).await.block, zeros);
-    assert_eq!(app.halt, None);
+    assert_eq!(refused(&mut app).await, "landing_capacity");
 }
 
 #[tokio::test]
@@ -218,7 +217,7 @@ async fn failing_pre_checks_propose_nothing() {
     let mut inbox = fx.inbox.clone();
     inbox.status = 2;
     fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
-    assert_eq!(refused(&mut app).await, "inbox_not_active");
+    assert!(propose(&mut app).await.anchor.is_some());
 }
 
 /// An epoch boundary places no floor on the anchor: when the own L1 has finalized nothing newer,
@@ -271,7 +270,12 @@ async fn a_header_of_another_l1_block_is_not_proposed_on() {
     let other = crate::test_utils::edit_l1_header(&header, |h| h.number = 67);
     app.l1().state().headers.insert(66, other);
 
-    assert_eq!(refused(&mut app).await, "l1_error");
+    let req = prepare_req(next_height(&app), bft_time(&app));
+    assert!(matches!(
+        app.handle(Request::PrepareProposal(req)).await,
+        Err(AbciError::SafetyHalt(_))
+    ));
+    assert!(app.store.fatal_evidence().unwrap().is_some());
     assert!(app.engine().calls().iter().all(|c| !matches!(c, EngineCall::BuildBlock { .. })));
 }
 
@@ -396,7 +400,10 @@ async fn peer_switch_witness_survives_restart_after_local_execution_refusal() {
     let b_dir = tempfile::tempdir().unwrap();
     let mut node = before_switch(&fx, b_dir.path()).await;
     node.store.save(node.state().unwrap()).unwrap();
-    node.engine().state().new_payload_script.push_back(Ok(PayloadVerdict::Syncing));
+    node.engine()
+        .state()
+        .new_payload_script
+        .push_back(Ok(PayloadVerdict::Invalid("local execution refusal".into())));
     assert_eq!(judge(&mut node, &env).await.0, response::ProcessProposal::Reject);
     node.l1().state().states.clear();
     // The judge started a background switch-witness discovery; stop it to take the sole L1.
@@ -729,10 +736,13 @@ async fn a_committee_witness_judged_at_a_switch_is_reused_by_the_next_proposer()
     // C's EL refuses A's block (syncing); C still proposes without discovery.
     let dir = tempfile::tempdir().unwrap();
     let mut c = before_switch(&fx, dir.path()).await;
-    c.engine().state().new_payload_script.push_back(Ok(PayloadVerdict::Syncing));
+    c.engine()
+        .state()
+        .new_payload_script
+        .push_back(Ok(PayloadVerdict::Invalid("local execution refusal".into())));
     let (resp, _) = super::proposal::judge(&mut c, &env).await;
     assert_eq!(resp, response::ProcessProposal::Reject);
-    assert_eq!(c.halt.as_deref(), Some("payload_syncing"));
+    assert_eq!(c.halt.as_deref(), Some("payload_invalid"));
     c.l1().state().calls.clear();
     let own = propose(&mut c).await;
     assert_eq!(registry_reads(&c), 0, "{:?}", c.l1().calls());
@@ -1104,22 +1114,22 @@ async fn preparation_proposer_change_rebuilds_for_payout_and_reuses_raw_proofs()
     use super::proposal::plant_due_entry;
     use crate::test_utils::sample_entries;
     use alloy_primitives::Address;
-    for recipient in [sample_entries(3)[0].reward_recipient, Address::repeat_byte(0x88)] {
+    for recipient in [Address::ZERO, Address::repeat_byte(0x88)] {
         let mut spec = GenesisSpec::new(3);
-        let mut entries = sample_entries(3);
-        entries[1].reward_recipient = recipient;
+        let entries = sample_entries(3);
+        spec.params.fee_recipient = recipient;
         spec.entries = Some(entries.clone());
         let fx = Fixture::build(spec);
         let dir = tempfile::tempdir().unwrap();
         let mut app = mid_epoch(&fx, dir.path(), 3).await;
         plant_due_entry(&fx, app.l1(), 70, fx.inbox_with(1));
         let env = propose(&mut app).await;
-        assert_eq!(env.block.header.beneficiary, entries[0].reward_recipient);
+        assert_eq!(env.block.header.beneficiary, fx.params.fee_recipient);
         app.l1().state().calls.clear();
         let before = app.engine().calls().len();
         let mut req = prepare_req(next_height(&app), bft_time(&app));
-        req.proposer_address = tendermint::account::Id::from(
-            tendermint::PublicKey::from_raw_ed25519(entries[1].pubkey.as_slice()).unwrap(),
+        req.proposer_address = tendermint::account::Id::new(
+            entries[1].consensus_key().unwrap().address().into_array(),
         );
         let txs = prepare(&mut app, req).await;
         assert_eq!(txs.len(), 1);
@@ -1157,14 +1167,14 @@ async fn preparation_proposer_change_reuses_cancelled_authenticated_io() {
     use crate::test_utils::sample_entries;
     use alloy_primitives::Address;
     let mut spec = GenesisSpec::new(3);
-    let mut entries = sample_entries(3);
-    entries[1].reward_recipient = Address::repeat_byte(0x88);
+    let entries = sample_entries(3);
+    spec.params.fee_recipient = Address::repeat_byte(0x88);
     spec.entries = Some(entries.clone());
     let fx = Fixture::build(spec);
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 3).await;
     let old = propose(&mut app).await;
-    assert_eq!(old.block.header.beneficiary, entries[0].reward_recipient);
+    assert_eq!(old.block.header.beneficiary, fx.params.fee_recipient);
     plant_due_entry(&fx, app.l1(), 70, fx.inbox_with(1));
     let anchor = fx.anchor_state(app.l1(), 70);
     let entry = app.forced_entry(&anchor, 0).await.unwrap().proven;
@@ -1180,9 +1190,8 @@ async fn preparation_proposer_change_reuses_cancelled_authenticated_io() {
     app.l1().state().delay = None;
     app.l1().state().calls.clear();
     let mut req = prepare_req(next_height(&app), bft_time(&app));
-    req.proposer_address = tendermint::account::Id::from(
-        tendermint::PublicKey::from_raw_ed25519(entries[1].pubkey.as_slice()).unwrap(),
-    );
+    req.proposer_address =
+        tendermint::account::Id::new(entries[1].consensus_key().unwrap().address().into_array());
     let txs = prepare(&mut app, req).await;
     assert_eq!(txs.len(), 1);
     let env = EtnaEnvelope::decode(&txs[0]).unwrap();

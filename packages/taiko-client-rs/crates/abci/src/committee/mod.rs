@@ -1,17 +1,11 @@
-//! Pure committee derivation from authenticated staking-registry snapshots.
+//! Direct committee derivation from a complete authenticated registry snapshot.
 //!
-//! Runtime epochs select the last registry checkpoint at or before the committed derivation
-//! parent anchor. Genesis and host proof jobs may name an explicit historical snapshot.
-//! [`verify_snapshot`] authenticates the checkpoint, its successor and the complete entry root.
-//! [`derive`] reserves the top seats after base eligibility and lowest-bond-id deduplication,
-//! then removes missing heartbeats without backfilling. [`committee_config_hash`] binds the
-//! configuration, including stake caps, set-key ordering and voting-power rules.
-//!
-//! Runtime witnesses appear only at `H(t)-2`, proven under the committed parent's anchor, whose
-//! number is the snapshot itself. A failed or empty committed snapshot has no implicit fallback;
-//! the unchanged recovery-generation and registry old-key/withdrawal assumptions still apply.
-//! All hashes use keccak256 over static 32-byte Solidity ABI words.
+//! V1 uses compressed secp256k1eth keys, stake eligibility and deterministic top-N selection.
+//! Snapshot cutoff and proving root are separate: runtime switches use D(t)'s committed anchor
+//! as cutoff and S(t)'s own anchor root for the proof. No heartbeat or payout metadata
+//! participates.
 
+use crate::key::ConsensusKey;
 use std::collections::BTreeMap;
 
 use alloy_primitives::{Address, B256, U256, keccak256, ruint::UintTryFrom};
@@ -20,38 +14,37 @@ use crate::{
     config::ChainParams,
     envelope::CommitteeWitness,
     l1::{
-        layout::{registry, word_u32, word_u64},
+        layout::{registry, word_u48},
         mpt::{MptError, verify_account_witness},
     },
     schedule::Schedule,
     types::{AnchorState, CommitteeRecord, Member, RegistryEntry},
 };
 
-/// The committee record `encodingVersion` this crate derives.
-pub const ENCODING_VERSION: u8 = 2;
-
 /// Upper bound on a committee's total voting power: CometBFT's `MaxTotalVotingPower`,
 /// `(2^63 − 1) / 8`.
 pub const MAX_TOTAL_POWER: u64 = (i64::MAX as u64) / 8;
 
-/// The first target epoch whose committee requires recent heartbeats; the launch committees of
-/// epochs 0, 1 and 2 are exempt ([`heartbeat_floor`]).
-pub const FIRST_HEARTBEAT_EPOCH: u64 = Schedule::E0 + 3;
-
-/// `bytes32("ETNA_REG_ENTRY_V2")`: domain tag of registry entry leaves.
-const REG_ENTRY_TAG: B256 = tag(b"ETNA_REG_ENTRY_V2");
-/// `bytes32("ETNA_SET_KEY")`: domain tag of the member sort key ([`set_key`]).
-const SET_KEY_TAG: B256 = tag(b"ETNA_SET_KEY");
-/// `bytes32("ETNA_SET_LEAF_V2")`: domain tag of set-root leaves.
-const SET_LEAF_TAG: B256 = tag(b"ETNA_SET_LEAF_V2");
+/// `bytes32("ETNA_REG_ENTRY_V1")`: domain tag of registry entry leaves.
+const REG_ENTRY_TAG: B256 = tag(b"ETNA_REG_ENTRY_V1");
+/// `bytes32("ETNA_SET_KEY_V1")`: domain tag of the member sort key ([`set_key`]).
+const SET_KEY_TAG: B256 = tag(b"ETNA_SET_KEY_V1");
+/// `bytes32("ETNA_SET_LEAF_V1")`: domain tag of set-root leaves.
+const SET_LEAF_TAG: B256 = tag(b"ETNA_SET_LEAF_V1");
 /// `bytes32("ETNA_SET_NODE")`: domain tag of set-root inner nodes.
 const SET_NODE_TAG: B256 = tag(b"ETNA_SET_NODE");
-/// `bytes32("ETNA_COMMITTEE_V2")`: domain tag of the committee record hash.
-const RECORD_TAG: B256 = tag(b"ETNA_COMMITTEE_V2");
+/// `bytes32("ETNA_COMMITTEE_V1")`: domain tag of the committee record hash.
+const RECORD_TAG: B256 = tag(b"ETNA_COMMITTEE_V1");
 
 /// Why a committee witness, snapshot or derivation was rejected.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum CommitteeError {
+    /// An eligible entry carries an invalid consensus key.
+    #[error(transparent)]
+    Key(#[from] crate::key::KeyError),
+    /// Multiple eligible entries carry the same consensus identity.
+    #[error("duplicate eligible consensus key")]
+    DuplicateKey,
     /// The proving anchor is too early to authenticate the explicit historical snapshot.
     #[error("snapshot cutoff {cutoff} is after proving anchor {anchor}")]
     CutoffAfterAnchor {
@@ -115,7 +108,7 @@ pub enum CommitteeError {
     #[error("checkpoint holds {expected} entries, witness carries {got}")]
     EntryCountMismatch {
         /// The proven `count`.
-        expected: u32,
+        expected: u64,
         /// The number of entries in the witness.
         got: usize,
     },
@@ -130,12 +123,6 @@ pub enum CommitteeError {
     /// `VP_UNIT` is zero, so voting power is undefined.
     #[error("vp_unit must be > 0")]
     ZeroVpUnit,
-    /// A registry entry names the zero L2 payout address.
-    #[error("zero reward recipient")]
-    ZeroRecipient,
-    /// `HEARTBEAT_WINDOW` is zero, so the heartbeat windows of a filtered epoch are undefined.
-    #[error("heartbeat window must be >= 1")]
-    ZeroHeartbeatWindow,
     /// The target epoch has no set version `k = targetEpoch − e_0 + 1` in `u64`.
     #[error("target epoch {0} is out of range")]
     EpochOutOfRange(u64),
@@ -147,13 +134,13 @@ pub enum CommitteeError {
     #[error("stake of {pubkey} is below the eligibility floor")]
     IneligibleStake {
         /// The member's consensus public key.
-        pubkey: B256,
+        pubkey: ConsensusKey,
     },
     /// A member's voting power `effStake / VP_UNIT` does not fit `u64`.
     #[error("voting power of {pubkey} does not fit u64")]
     PowerOverflow {
         /// The member's consensus public key.
-        pubkey: B256,
+        pubkey: ConsensusKey,
     },
     /// The committee's total voting power exceeds [`MAX_TOTAL_POWER`].
     #[error("total voting power {total} exceeds {MAX_TOTAL_POWER}")]
@@ -185,13 +172,9 @@ pub struct Snapshot {
     pub entries: Vec<RegistryEntry>,
 }
 
-/// The registry `entriesRoot` over `entries`.
-///
-/// Leaf `i` = `keccak256(abi.encode(bytes32("ETNA_REG_ENTRY_V2"), uint256(i), bytes32 pubkey,
-/// uint256 effStake, uint64 activeFromL1, uint64 exitEffectiveL1, uint64 lastHeartbeatAt,
-/// uint64 lastHeartbeatSeq, address rewardRecipient))`;
-/// the leaves are padded with `bytes32(0)` to the next power of two and hashed pairwise
-/// (`keccak256(left ‖ right)`). One entry gives its leaf; no entries give `bytes32(0)`.
+/// V1 registry Merkle root: ABI leaves bind index, compressed-key prefix/x, stake and
+/// activation/exit uint48 fields. Pad to a power of two with zero leaves; an empty list hashes to
+/// zero.
 pub fn entries_root(entries: &[RegistryEntry]) -> B256 {
     if entries.is_empty() {
         return B256::ZERO;
@@ -204,23 +187,14 @@ pub fn entries_root(entries: &[RegistryEntry]) -> B256 {
     level[0]
 }
 
-/// The set key of `pubkey`, which orders committee members (set-key order):
-/// `keccak256(abi.encode(bytes32("ETNA_SET_KEY"), uint256 chainId, bytes32 pubkey))`.
-///
-/// `l2_chain_id` is the L2 EVM chain id, which unlike the CometBFT `chain_id` does not change
-/// with the recovery generation.
-pub fn set_key(l2_chain_id: u64, pubkey: B256) -> B256 {
-    keccak256([SET_KEY_TAG, word(l2_chain_id), pubkey].concat())
+/// V1 ordering key: keccak256 of ABI words (ETNA_SET_KEY_V1, L2 chain id, prefix, x).
+pub fn set_key(l2_chain_id: u64, pubkey: ConsensusKey) -> B256 {
+    keccak256([SET_KEY_TAG, word(l2_chain_id), word(pubkey.prefix()), pubkey.x()].concat())
 }
 
-/// The Merkle set root over `members`, with `chainId` = the L2 EVM chain id.
-///
-/// `members` must already be sorted by [`set_key`] ascending (checked in debug builds). Leaf
-/// `index` = `keccak256(abi.encode(bytes32("ETNA_SET_LEAF_V2"), uint256 chainId, uint256 k,
-/// uint256 index, bytes32 pubkey, uint256 effStake, address rewardRecipient))`; inner node =
-/// `keccak256(abi.encode(bytes32("ETNA_SET_NODE"), uint256 chainId, uint256 k, bytes32 left,
-/// bytes32 right))`. Each level pairs nodes left to right and promotes an odd last node
-/// unchanged. One member gives its leaf; no members give `bytes32(0)` (never a valid committee).
+/// V1 committee Merkle root over members already sorted by set key. Leaves bind chain id,
+/// set version, index, prefix, x, effective stake and power. Tagged inner nodes bind chain id
+/// and version; an odd last node is promoted without padding.
 pub fn set_root(l2_chain_id: u64, k: u64, members: &[Member]) -> B256 {
     debug_assert!(
         members
@@ -246,10 +220,7 @@ pub fn set_root(l2_chain_id: u64, k: u64, members: &[Member]) -> B256 {
     level[0]
 }
 
-/// The committee record hash; only the genesis record hash is stored on L1:
-/// `keccak256(abi.encode(bytes32("ETNA_COMMITTEE_V2"), uint256 l2ChainId, uint64 targetEpoch,
-/// uint64 cutoffL1Block, uint64 checkpointIndex, bytes32 setRoot, uint256 totalStake,
-/// uint64 totalPower, uint8 encodingVersion))`.
+/// V1 record hash over the tag, L2 chain id and the five canonical CommitteeRecord fields.
 pub fn record_hash(l2_chain_id: u64, r: &CommitteeRecord) -> B256 {
     keccak256(
         [
@@ -259,31 +230,24 @@ pub fn record_hash(l2_chain_id: u64, r: &CommitteeRecord) -> B256 {
             word(r.cutoff_l1_block),
             word(r.checkpoint_index),
             r.set_root,
-            word(r.total_stake),
             word(r.total_power),
-            word(r.encoding_version),
         ]
         .concat(),
     )
 }
 
-/// The authenticated derivation configuration: ten static Solidity ABI words.
-///
-/// Binds the L2 chain, registry, stake/power rules, heartbeat window, committee-record encoding
-/// version and the back-pressure parameters `d_max` and `margin_v`.
+/// Authenticates seven ABI words: V1 parent-anchor tag, L2 chain id, registry address,
+/// voting-power unit, minimum stake, maximum committee size and direct unsettled limit U.
 pub fn committee_config_hash(params: &ChainParams) -> B256 {
     keccak256(
         [
-            tag(b"ETNA_PARENT_ANCHOR_V5"),
+            tag(b"ETNA_PARENT_ANCHOR_V1"),
             word(params.l2_chain_id),
             B256::from(U256::from_be_slice(params.registry.as_slice())),
             word(params.vp_unit),
             word(params.s_min),
             word(params.n_max),
-            word(params.heartbeat_window),
-            word(ENCODING_VERSION),
-            word(params.d_max),
-            word(params.margin_v),
+            word(params.unsettled_limit),
         ]
         .concat(),
     )
@@ -340,13 +304,13 @@ pub fn verify_snapshot(
     }
 
     let head = value(slots[1]);
-    let l1_block = word_u64(head, 0);
-    let count = word_u32(head, 64);
+    let l1_block = word_u48(head, 0);
+    let count = word_u48(head, 48);
     if l1_block > cutoff {
         return Err(CommitteeError::CheckpointAfterCutoff { l1_block, cutoff });
     }
     if has_next {
-        let next = word_u64(value(slots[3]), 0);
+        let next = word_u48(value(slots[3]), 0);
         if next <= cutoff {
             return Err(CommitteeError::NextCheckpointNotAfterCutoff { l1_block: next, cutoff });
         }
@@ -354,9 +318,6 @@ pub fn verify_snapshot(
 
     if w.entries.len() != count as usize {
         return Err(CommitteeError::EntryCountMismatch { expected: count, got: w.entries.len() });
-    }
-    if w.entries.iter().any(|entry| entry.reward_recipient.is_zero()) {
-        return Err(CommitteeError::ZeroRecipient);
     }
     let expected = B256::from(value(slots[2]));
     let got = entries_root(&w.entries);
@@ -366,68 +327,30 @@ pub fn verify_snapshot(
     Ok(Snapshot { checkpoint_index: index, l1_block, entries: w.entries.clone() })
 }
 
-/// The heartbeat floor for the committee of `target_epoch` selected at `cutoff`.
-///
-/// Epochs before [`FIRST_HEARTBEAT_EPOCH`] are exempt (`None`). Later epochs take the start of
-/// the heartbeat window containing the cutoff, `cutoff − cutoff % heartbeat_window`, and
-/// subtract one window with saturation: a seat holder must have sent a heartbeat in the window
-/// containing the snapshot or the one before it. Eligibility also requires a nonzero heartbeat
-/// sequence. Rejects a zero heartbeat window for filtered epochs.
-pub fn heartbeat_floor(
-    heartbeat_window: u64,
-    target_epoch: u64,
-    cutoff: u64,
-) -> Result<Option<u64>, CommitteeError> {
-    if target_epoch < FIRST_HEARTBEAT_EPOCH {
-        return Ok(None);
-    }
-    if heartbeat_window == 0 {
-        return Err(CommitteeError::ZeroHeartbeatWindow);
-    }
-    let window_start = cutoff - cutoff % heartbeat_window;
-    Ok(Some(window_start.saturating_sub(heartbeat_window)))
-}
-
-/// Derives the committee for `target_epoch` from a verified `snapshot` at `cutoff` and returns its
-/// record and members (sorted by [`set_key`]).
-///
-/// An entry is base eligible iff `active_from_l1 <= cutoff < exit_effective_l1` and
-/// `eff_stake >= max(s_min, vp_unit)`. Among base-eligible entries that share a pubkey only
-/// the one with the lowest `bondId` (index in the snapshot) is kept: a
-/// deterministic tie-break, not registration order, since the registry reuses withdrawn slots.
-/// This is defence in depth: the registry keeps at most one entry per pubkey whose exit is not
-/// yet effective (see the module docs), so no two eligible entries share a key. If
-/// more than `n_max` remain, the first `n_max` by (`eff_stake` descending, set key ascending)
-/// reserve seats. When [`heartbeat_floor`] filters the epoch, only holders with
-/// `last_heartbeat_seq > 0` and `last_heartbeat_at >=` the floor remain; removed holders are
-/// never replaced. Each member's power is `eff_stake / vp_unit`; the total must not exceed
-/// [`MAX_TOTAL_POWER`]. An empty result returns [`CommitteeError::Empty`].
+/// Derives a committee from entries active at cutoff with stake >= max(s_min, vp_unit).
+/// Rejects duplicate eligible keys, ranks descending stake then ascending set key, and keeps
+/// at most n_max members. Output is encoded in set-key order with floor(stake/vp_unit) powers.
+/// Empty sets, invalid keys and arithmetic/power overflows fail closed.
 pub fn derive(
     snapshot: &Snapshot,
     cutoff: u64,
     target_epoch: u64,
     params: &ChainParams,
 ) -> Result<(CommitteeRecord, Vec<Member>), CommitteeError> {
-    let Selection { k, members, total_power, total_stake, .. } =
+    let Selection { k, members, total_power, .. } =
         select(&snapshot.entries, cutoff, target_epoch, params)?;
     let record = CommitteeRecord {
         target_epoch,
         cutoff_l1_block: cutoff,
         checkpoint_index: snapshot.checkpoint_index,
         set_root: set_root(params.l2_chain_id, k, &members),
-        total_stake,
         total_power,
-        encoding_version: ENCODING_VERSION,
     };
     Ok((record, members))
 }
 
-/// Verifies a committee witness for a target epoch after `e_0` end to end against the parent's
-/// anchor and returns the committee it proves.
-///
-/// Selects exactly `parent_anchor.number` and authenticates the registry proofs under the
-/// same committed parent's state root. Eligibility is evaluated at that number, even when the
-/// last registry mutation checkpoint is older. Candidate anchors never select this snapshot.
+/// Verifies a witness when the snapshot cutoff and proving anchor are the same L1 block.
+/// Runtime switches with a moved anchor use verify_committee_witness_at_cutoff instead.
 pub fn verify_committee_witness(
     parent_anchor: &AnchorState,
     params: &ChainParams,
@@ -443,24 +366,9 @@ pub fn verify_committee_witness(
     )
 }
 
-/// Verifies a committee witness whose snapshot is taken at the given `cutoff`, with its proofs
-/// against the L1 `state_root`, and returns the committee it proves.
-///
-/// The snapshot proofs verify against `state_root` and `params.registry` ([`verify_snapshot`]
-/// with `cutoff` as is: no lag, no grid). Then derives the committee for `target_epoch` at
-/// `cutoff` ([`derive`], so the record's `cutoff_l1_block` is `cutoff`) and
-/// requires the derived record to equal `w.record` ([`CommitteeError::RecordMismatch`]
-/// otherwise).
-///
-/// Precondition: `cutoff` is at or before the L1 block whose `state_root` the proofs verify
-/// against (the proving block). Only then is the snapshot final: a checkpoint written after the
-/// proving block but at or before `cutoff` would change it, and the proofs cannot show it.
-///
-/// Runtime switches use [`verify_committee_witness`] at their committed parent anchor number.
-/// The genesis committee `e_0` is verified here
-/// directly, with the Inbox's `genesisCutoff` against the `L1_0` header's state root: the
-/// genesis names that cutoff explicitly, as `L1_0` is unknown when the DAO proposal that
-/// activates Etna is written.
+/// Authenticates the complete snapshot at cutoff under state_root, then derives the target
+/// committee and requires exact record equality. The caller guarantees cutoff <= proving block.
+/// Runtime cutoff is max(D(t) committed anchor, generation origin); genesis uses genesisCutoff.
 pub fn verify_committee_witness_at_cutoff(
     state_root: B256,
     cutoff: u64,
@@ -479,20 +387,16 @@ pub fn verify_committee_witness_at_cutoff(
     Ok((record, members))
 }
 
-/// The CometBFT validator updates that switch from committee `old` to committee `new`.
-///
-/// Every pubkey of `old` absent from `new` gets power 0 and every member of `new` gets its
-/// power (unchanged members are restated when the native set changes). Identical key/power
-/// sets emit no updates, independently of their authenticated payout metadata. The result is sorted
-/// by pubkey without duplicates.
-pub fn validator_updates(old: &[Member], new: &[Member]) -> Vec<(B256, u64)> {
+/// Produces native key/power updates, including zero-power removals, sorted by key.
+/// Identical native sets emit no updates; authenticated stake changes alone need no Comet update.
+pub fn validator_updates(old: &[Member], new: &[Member]) -> Vec<(ConsensusKey, u64)> {
     let native = |members: &[Member]| {
         members.iter().map(|m| (m.pubkey, m.power)).collect::<BTreeMap<_, _>>()
     };
     if native(old) == native(new) {
         return Vec::new();
     }
-    let mut updates: BTreeMap<B256, u64> = old.iter().map(|m| (m.pubkey, 0)).collect();
+    let mut updates: BTreeMap<ConsensusKey, u64> = old.iter().map(|m| (m.pubkey, 0)).collect();
     updates.extend(new.iter().map(|m| (m.pubkey, m.power)));
     updates.into_iter().collect()
 }
@@ -505,8 +409,6 @@ struct Selection {
     members: Vec<Member>,
     /// The members' total voting power, at most [`MAX_TOTAL_POWER`].
     total_power: u64,
-    /// The members' total effective stake.
-    total_stake: U256,
 }
 
 /// Selects the committee for `target_epoch` at `cutoff` from `entries` (indexed by `bondId`)
@@ -517,9 +419,6 @@ fn select(
     target_epoch: u64,
     params: &ChainParams,
 ) -> Result<Selection, CommitteeError> {
-    if entries.iter().any(|entry| entry.reward_recipient.is_zero()) {
-        return Err(CommitteeError::ZeroRecipient);
-    }
     if params.vp_unit.is_zero() {
         return Err(CommitteeError::ZeroVpUnit);
     }
@@ -528,29 +427,24 @@ fn select(
         .and_then(|d| d.checked_add(1))
         .ok_or(CommitteeError::EpochOutOfRange(target_epoch))?;
     let min_stake = params.s_min.max(params.vp_unit);
-    let floor = heartbeat_floor(params.heartbeat_window, target_epoch, cutoff)?;
 
     // `(set key, bondId, entry)`; `bondId` is the entry's index in the snapshot.
     let mut eligible: Vec<(B256, usize, &RegistryEntry)> = entries
         .iter()
         .enumerate()
         .filter(|(_, e)| is_base_eligible(e, cutoff, min_stake))
-        .map(|(bond_id, e)| (set_key(params.l2_chain_id, e.pubkey), bond_id, e))
-        .collect();
-    // Equal pubkeys have equal keys, so after the sort the entries of one pubkey are adjacent,
-    // lowest bondId first, and `dedup_by_key` keeps exactly that one.
+        .map(|(bond_id, e)| Ok((set_key(params.l2_chain_id, e.consensus_key()?), bond_id, e)))
+        .collect::<Result<_, CommitteeError>>()?;
+    // Adjacent equal set keys identify duplicate eligible consensus identities.
     eligible.sort_by_key(|(key, bond_id, _)| (*key, *bond_id));
-    eligible.dedup_by_key(|(key, _, _)| *key);
+    if eligible.windows(2).any(|pair| pair[0].0 == pair[1].0) {
+        return Err(CommitteeError::DuplicateKey);
+    }
     if eligible.len() > params.n_max {
         eligible.sort_by(|a, b| b.2.eff_stake.cmp(&a.2.eff_stake).then(a.0.cmp(&b.0)));
         eligible.truncate(params.n_max);
         eligible.sort_by_key(|(key, _, _)| *key);
     }
-    // Top-N holders reserve their seats even if a missing heartbeat removes them. A lower
-    // ranked candidate must never backfill the hole or shadow the lowest eligible bond id.
-    eligible.retain(|(_, _, e)| {
-        floor.is_none_or(|floor| e.last_heartbeat_seq > 0 && e.last_heartbeat_at >= floor)
-    });
     if eligible.is_empty() {
         return Err(CommitteeError::Empty);
     }
@@ -560,24 +454,20 @@ fn select(
     let members = selected
         .iter()
         .map(|(_, e)| {
-            let power = member_power(e.pubkey, e.eff_stake, params)?;
-            Ok(Member {
-                reward_recipient: e.reward_recipient,
-                pubkey: e.pubkey,
-                eff_stake: e.eff_stake,
-                power,
-            })
+            let pubkey = e.consensus_key()?;
+            let power = member_power(pubkey, e.eff_stake, params)?;
+            Ok(Member { pubkey, eff_stake: e.eff_stake, power })
         })
         .collect::<Result<Vec<_>, CommitteeError>>()?;
 
-    let (total_power, total_stake) = member_totals(&members)?;
-    Ok(Selection { k, members, total_power, total_stake })
+    let (total_power, _) = member_totals(&members)?;
+    Ok(Selection { k, members, total_power })
 }
 
 /// Computes canonical positive voting power from eligible stake, with checked narrowing.
 /// Shared by authenticated derivation and local persisted-state consistency checks.
 pub(crate) fn member_power(
-    pubkey: B256,
+    pubkey: ConsensusKey,
     eff_stake: U256,
     params: &ChainParams,
 ) -> Result<u64, CommitteeError> {
@@ -608,7 +498,7 @@ pub(crate) fn member_totals(members: &[Member]) -> Result<(u64, U256), Committee
 }
 
 /// Whether `e` can hold a seat at `cutoff`: active and staked at least `min_stake`.
-/// Heartbeat eligibility is checked only after deduplication and top-N seat reservation.
+/// Empty released slots fail stake and active-lifetime eligibility.
 fn is_base_eligible(e: &RegistryEntry, cutoff: u64, min_stake: U256) -> bool {
     e.active_from_l1 <= cutoff && cutoff < e.exit_effective_l1 && e.eff_stake >= min_stake
 }
@@ -619,13 +509,11 @@ fn entry_leaf(index: usize, e: &RegistryEntry) -> B256 {
         [
             REG_ENTRY_TAG,
             word(index),
-            e.pubkey,
+            word(e.ck_prefix),
+            e.ck_x,
             word(e.eff_stake),
             word(e.active_from_l1),
             word(e.exit_effective_l1),
-            word(e.last_heartbeat_at),
-            word(e.last_heartbeat_seq),
-            B256::from(U256::from_be_slice(e.reward_recipient.as_slice())),
         ]
         .concat(),
     )
@@ -639,9 +527,10 @@ fn set_leaf(l2_chain_id: u64, k: u64, index: usize, m: &Member) -> B256 {
             word(l2_chain_id),
             word(k),
             word(index),
-            m.pubkey,
+            word(m.pubkey.prefix()),
+            m.pubkey.x(),
             word(m.eff_stake),
-            B256::from(U256::from_be_slice(m.reward_recipient.as_slice())),
+            word(m.power),
         ]
         .concat(),
     )

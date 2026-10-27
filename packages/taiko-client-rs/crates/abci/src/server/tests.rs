@@ -7,8 +7,8 @@ use std::{
     time::Duration,
 };
 
+use crate::wire::{request, response};
 use prost::Message;
-use tendermint::v0_38::abci::{request, response};
 use tendermint_proto::v0_38::abci as pb;
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},

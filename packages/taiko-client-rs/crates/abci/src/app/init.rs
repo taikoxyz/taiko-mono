@@ -1,14 +1,10 @@
 //! `InitChain`: verify the genesis witness against the node's own L1 and the EL,
 //! then persist the initial [`AppState`].
 
+use crate::wire::{request, response};
 use std::collections::BTreeMap;
 
 use alloy_consensus::Header;
-use alloy_primitives::B256;
-use tendermint::{
-    abci::{request, response},
-    validator,
-};
 
 use super::{AbciError, App, app_hash, at_genesis, within};
 use crate::{
@@ -17,7 +13,7 @@ use crate::{
         GenesisConsensusParams, decode_app_state, genesis_time, verify_committee, verify_context,
     },
     l1::{L1Source, is_final_canonical},
-    rules::generation_from_chain_id,
+    rules::check_chain_id,
     schedule::Schedule,
     store::AppState,
     types::{GenesisRecord, Member, ParentInfo},
@@ -71,7 +67,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
         Ok(response::InitChain {
             consensus_params: None,
-            validators: req.validators,
+            validators: vec![],
             app_hash: app_hash(genesis_hash),
         })
     }
@@ -118,13 +114,13 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
         let context = verify_context(l1_header, &w.inbox, params)?;
         let schedule = Schedule::from_genesis(&context.genesis);
-        let generation = generation_from_chain_id(&req.chain_id, params.l2_chain_id)?;
-        if generation != context.anchor.inbox.recovery_generation {
-            return Err(AbciError::GenerationMismatch {
-                chain_id: generation,
-                inbox: context.anchor.inbox.recovery_generation,
-            });
+        let generation = context.anchor.inbox.recovery_generation;
+        if generation != 0 {
+            return Err(AbciError::StoredState(
+                "unsupported recovery generation: fresh generation 0 only".into(),
+            ));
         }
+        check_chain_id(&req.chain_id, params, generation)?;
         let initial_height = req.initial_height.value();
         if initial_height != schedule.h0() {
             return Err(AbciError::InitialHeight { got: initial_height, expected: schedule.h0() });
@@ -134,12 +130,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
         check_validators(&req.validators, &committee.members)?;
         let parent = self.genesis_parent(&context.genesis).await?;
         Ok(AppState {
+            schema_version: 13,
             app_version: crate::app::APP_VERSION,
             chain_id: req.chain_id.clone(),
             generation,
             inbox: w.inbox.address,
             genesis: context.genesis,
             last_height: 0,
+            last_comet_hash: alloy_primitives::B256::ZERO,
             parent,
             anchor: context.anchor,
             forced_cursor: 0,
@@ -193,16 +191,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
 /// Requires the genesis validators to be exactly `members`: the same Ed25519 keys with the same
 /// powers, in any order, without duplicates.
-fn check_validators(validators: &[validator::Update], members: &[Member]) -> Result<(), AbciError> {
+fn check_validators(
+    validators: &[crate::wire::ValidatorUpdate],
+    members: &[Member],
+) -> Result<(), AbciError> {
     let mismatch = AbciError::GenesisValidatorsMismatch;
     let mut genesis = BTreeMap::new();
     for v in validators {
-        let key = v
-            .pub_key
-            .ed25519()
-            .ok_or_else(|| mismatch(format!("validator key {:?} is not Ed25519", v.pub_key)))?;
-        let pubkey = B256::try_from(key.as_bytes())
-            .map_err(|_| mismatch("Ed25519 key is not 32 bytes".to_string()))?;
+        let pubkey = v.pub_key;
         if genesis.insert(pubkey, v.power.value()).is_some() {
             return Err(mismatch(format!("validator {pubkey} is listed twice")));
         }

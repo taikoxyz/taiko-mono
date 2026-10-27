@@ -11,14 +11,13 @@
 //! is a safety halt: the process exits and an operator must investigate. The derived state stays
 //! pending until `Commit` persists it.
 
+use crate::wire::{request, response};
 use std::{fmt, future::Future, time::Duration};
 
 use alloy_primitives::{B256, Bytes};
 use tendermint::{
-    abci::{Code, request, response, types::ExecTxResult},
+    abci::{Code, types::ExecTxResult},
     block::Height,
-    public_key::PublicKey,
-    validator,
     vote::Power,
 };
 
@@ -58,7 +57,24 @@ impl<L: L1Source, E: Engine> App<L, E> {
         };
         let bft_secs = unix_secs(req.time);
         let txs: Vec<Bytes> = req.txs.iter().cloned().map(Bytes::from).collect();
-        let env = single_envelope(&txs).map_err(|e| invalid_block(height, &Rejection::from(e)))?;
+        let env = match single_envelope(&txs) {
+            Ok(env) => env,
+            Err(error) => {
+                loop {
+                    match self.check_header_format(&txs).await {
+                        Ok(()) => break,
+                        Err(reason) if reason.requires_dependency_repair() => {
+                            return Err(AbciError::SafetyHalt(reason.to_string()));
+                        }
+                        Err(reason) => {
+                            tracing::warn!(height, %reason, "waiting for canonical L1 header support");
+                            tokio::time::sleep(FINALIZE_RETRY_MAX).await;
+                        }
+                    }
+                }
+                return Err(invalid_block(height, &Rejection::from(error)));
+            }
+        };
         let fresh =
             validate_block(state, &self.params, &env, height, bft_secs, req.proposer_address)
                 .map_err(|e| invalid_block(height, &e))?;
@@ -82,14 +98,20 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if cold {
             validated.forced = self.confirm_forced(state, height, &validated).await?;
         }
-        let (next, updates) = next_state(state, &validated, height)?;
+        let (mut next, updates) = next_state(state, &validated, height)?;
+        next.last_comet_hash = match req.hash {
+            tendermint::Hash::Sha256(hash) => B256::from(hash),
+            tendermint::Hash::None => {
+                return Err(AbciError::SafetyHalt("decided Comet hash is absent".into()))
+            }
+        };
         let validator_updates = updates
             .into_iter()
             .map(|update| validator_update(height, update))
             .collect::<Result<Vec<_>, _>>()?;
 
         let hash = next.parent.hash;
-        self.check_trust_candidate(height, hash)?;
+        self.check_trust_candidate(height, hash, next.last_comet_hash)?;
         let finalized = next.anchor.inbox.last_checkpoint_hash;
         self.settle(height, &validated, finalized).await?;
         self.decided_live = !cold;
@@ -124,6 +146,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// cannot be persisted (it then stays pending).
     pub(super) fn commit(&mut self) -> Result<response::Commit, AbciError> {
         let pending = self.pending.as_ref().ok_or(AbciError::NothingToCommit)?;
+        self.store.save_comet_hash(pending.last_height, pending.last_comet_hash)?;
         self.store.save(pending)?;
         tracing::info!(
             height = pending.last_height,
@@ -252,6 +275,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         loop {
             let reason = match self.read_anchor(header, bound).await {
                 AnchorRead::Confirmed => return Ok(()),
+                AnchorRead::Integrity(reason) => return Err(AbciError::SafetyHalt(reason)),
                 AnchorRead::OffChain(detail) => {
                     let since = suspect_since.get_or_insert_with(Instant::now);
                     if since.elapsed() >= ANCHOR_OFF_CHAIN_WINDOW {
@@ -276,20 +300,20 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let (number, limit) = (header.number(), self.opts.l1_timeout);
         let finalized = match deadline("L1 finalized", limit, self.l1.finalized_number()).await {
             Ok(finalized) => finalized,
-            Err(rejection) => return AnchorRead::Pending(rejection.to_string()),
+            Err(rejection) => return AnchorRead::failed(rejection),
         };
         if finalized >= bound {
             return match deadline("L1 canonical hash", limit, self.l1.canonical_hash(number)).await
             {
                 Ok(own) if own == header.hash() => AnchorRead::Confirmed,
                 Ok(own) => AnchorRead::OffChain(format!("the own L1 holds {own} at that number")),
-                Err(rejection) => AnchorRead::Pending(rejection.to_string()),
+                Err(rejection) => AnchorRead::failed(rejection),
             };
         }
         if number > finalized {
             let own = match deadline("L1 header", limit, self.l1.header(finalized)).await {
                 Ok(own) => own,
-                Err(rejection) => return AnchorRead::Pending(rejection.to_string()),
+                Err(rejection) => return AnchorRead::failed(rejection),
             };
             let earliest = own.timestamp().saturating_add(number - finalized);
             if header.timestamp() < earliest {
@@ -420,6 +444,19 @@ enum AnchorRead {
     OffChain(String),
     /// The own L1 is unreachable or has not finalized the header yet, for the given reason.
     Pending(String),
+    /// The own L1 supplied malformed or contradictory data requiring operator repair.
+    Integrity(String),
+}
+
+impl AnchorRead {
+    /// Classifies own-node errors without treating malformed replies as temporary lag.
+    fn failed(error: Rejection) -> Self {
+        if error.requires_dependency_repair() {
+            Self::Integrity(error.to_string())
+        } else {
+            Self::Pending(error.to_string())
+        }
+    }
 }
 
 /// The pause schedule of one decided block's EL (or own-L1) retries in `FinalizeBlock`: the first
@@ -481,7 +518,7 @@ fn next_state(
     state: &AppState,
     v: &Validated,
     height: u64,
-) -> Result<(AppState, Vec<(B256, u64)>), AbciError> {
+) -> Result<(AppState, Vec<(crate::key::ConsensusKey, u64)>), AbciError> {
     let header = &v.block.header;
     let mut next = state.clone();
     next.last_height = height;
@@ -537,14 +574,13 @@ fn next_state(
 /// outside it is a corrupt state: [`AbciError::SafetyHalt`].
 fn validator_update(
     height: u64,
-    (pubkey, power): (B256, u64),
-) -> Result<validator::Update, AbciError> {
-    let pub_key = PublicKey::from_raw_ed25519(pubkey.as_slice())
-        .expect("any 32 bytes form a CometBFT Ed25519 public key");
+    (pubkey, power): (crate::key::ConsensusKey, u64),
+) -> Result<crate::wire::ValidatorUpdate, AbciError> {
+    let pub_key = pubkey;
     let power = Power::try_from(power).map_err(|e| {
         safety_halt(height, "validator_power", format!("validator {pubkey} power {power}: {e}"))
     })?;
-    Ok(validator::Update { pub_key, power })
+    Ok(crate::wire::ValidatorUpdate { pub_key, power })
 }
 
 /// The safety halt of the decided block at `height` that fails `rejection` ([`safety_halt`] with

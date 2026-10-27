@@ -7,7 +7,7 @@ use crate::{
     config::ChainParams,
     l1::{
         L1Source, build_committee_witness_at_cutoff, header_at,
-        layout::{inbox, word_u8, word_u64},
+        layout::{inbox, word_u8, word_u48},
     },
     rules::chain_id_for,
     schedule::Schedule,
@@ -29,7 +29,7 @@ use crate::{
 /// can be as old as `genesisCutoff`: the L1 node must serve that state (an archive node once it
 /// leaves the node's state window).
 ///
-/// The document has `chain_id = taiko-etna-<l2ChainId>-g<recoveryGeneration>`,
+/// The document uses the 48-byte deployment-domain chain ID,
 /// `initial_height = 1`, `genesis_time` = the `L1_0` timestamp, the `e_0` members as
 /// validators and the genesis witness as `app_state`. Nothing in it is trusted: `InitChain`
 /// re-verifies all of it against each node's own L1.
@@ -43,7 +43,7 @@ pub async fn build_genesis<L: L1Source + ?Sized>(
     if status != inbox::ETNA_ACTIVE {
         return Err(GenesisError::NotActive(status));
     }
-    let l1_0 = word_u64(inbox_word(inbox::GENESIS_PACKED).await?, 64);
+    let l1_0 = word_u48(inbox_word(inbox::GENESIS_PACKED).await?, 48);
     let extra_depth = params.l1_finality_extra_depth;
     if l1_0.checked_add(extra_depth).is_none_or(|bound| bound > finalized) {
         return Err(GenesisError::InitializationNotFinal { l1_0, extra_depth, finalized });
@@ -56,7 +56,8 @@ pub async fn build_genesis<L: L1Source + ?Sized>(
     let committee =
         build_committee_witness_at_cutoff(l1, params, l1_0, genesis_cutoff, Schedule::E0).await?;
     let verified = verify_committee(&context, &committee, params)?;
-    let chain_id = chain_id_for(params.l2_chain_id, context.anchor.inbox.recovery_generation);
+    let chain_id = chain_id_for(params, context.anchor.inbox.recovery_generation)
+        .map_err(|e| GenesisError::UnsupportedRecovery(e.to_string()))?;
     GenesisDoc::assemble(
         &GenesisWitness { l1_header, inbox: inbox_witness, committee },
         chain_id,
@@ -66,14 +67,9 @@ pub async fn build_genesis<L: L1Source + ?Sized>(
 
 #[cfg(test)]
 mod tests {
+    use crate::wire::{Request, Response, request::InitChain};
     use alloy_primitives::B256;
-    use tendermint::{
-        Genesis,
-        abci::request::InitChain,
-        block::Height,
-        v0_38::abci::{Request, Response},
-        validator,
-    };
+    use tendermint::block::Height;
 
     use super::*;
     use crate::{
@@ -89,22 +85,23 @@ mod tests {
     /// the ABCI protobuf conversion, as the server's wire decoder does: JSON's explicit vote
     /// extension height zero becomes the typed request's disabled `None` value.
     fn init_chain_from(doc: &GenesisDoc) -> InitChain {
-        let genesis: Genesis<serde_json::Value> =
-            serde_json::from_str(&doc.to_json_pretty()).expect("a CometBFT genesis file");
-        let req = InitChain {
-            time: genesis.genesis_time,
-            chain_id: genesis.chain_id.to_string(),
-            consensus_params: genesis.consensus_params,
+        let genesis: GenesisDoc = serde_json::from_str(&doc.to_json_pretty()).unwrap();
+        InitChain {
+            time: genesis.genesis_time.parse().unwrap(),
+            chain_id: genesis.chain_id,
+            consensus_params: crate::genesis::GenesisConsensusParams::abci(),
             validators: genesis
                 .validators
                 .iter()
-                .map(|v| validator::Update { pub_key: v.pub_key, power: v.power })
+                .map(|v| crate::wire::ValidatorUpdate {
+                    pub_key: v.pub_key.0,
+                    power: v.power.parse::<u64>().unwrap().try_into().unwrap(),
+                })
                 .collect(),
-            app_state_bytes: serde_json::to_vec(&genesis.app_state).expect("JSON").into(),
-            initial_height: Height::try_from(genesis.initial_height).expect("a CometBFT height"),
-        };
-        let raw: tendermint_proto::v0_38::abci::RequestInitChain = req.into();
-        InitChain::try_from(raw).expect("valid CometBFT ABCI request")
+            app_state_bytes: serde_json::to_vec(&genesis.app_state).unwrap().into(),
+            initial_height: Height::try_from(genesis.initial_height.parse::<u64>().unwrap())
+                .unwrap(),
+        }
     }
 
     /// The built genesis is the fixture's: same witness, validators, chain id and heights, and
@@ -116,8 +113,8 @@ mod tests {
         let req = init_chain_from(&doc);
         assert_eq!(req, fx.request);
         let params = &req.consensus_params;
-        assert_eq!(params.block.max_bytes, 22_020_096);
-        assert_eq!(params.block.max_gas, -1);
+        assert_eq!(params.block.as_ref().unwrap().max_bytes, 22_020_096);
+        assert_eq!(params.block.as_ref().unwrap().max_gas, -1);
         assert_eq!(params.evidence, fx.request.consensus_params.evidence);
         assert_eq!(params.validator, fx.request.consensus_params.validator);
 
@@ -128,7 +125,7 @@ mod tests {
         else {
             panic!("InitChain answers InitChain");
         };
-        assert_eq!(resp.validators, req.validators);
+        assert!(resp.validators.is_empty());
         assert_eq!(app.state(), Some(&fx.expected_state()));
     }
 
@@ -278,11 +275,11 @@ mod tests {
                     word(p.vp_unit),
                     word(p.s_min),
                     word(U256::from(p.n_max)),
-                    word(U256::from(p.heartbeat_window)),
+                    word(U256::from(123u64)),
                     word(U256::from(2u64)),
                     word(U256::from(encoding_version)),
-                    word(U256::from(p.d_max)),
-                    word(U256::from(p.margin_v)),
+                    word(U256::from(12u64)),
+                    word(U256::from(2u64)),
                 ]
                 .concat(),
             );
@@ -340,12 +337,11 @@ mod tests {
 
     /// A generation-1 Inbox yields a `-g1` chain id, which `InitChain` accepts.
     #[tokio::test]
-    async fn chain_id_carries_the_recovery_generation() {
-        let mut spec = GenesisSpec::new(1);
-        spec.recovery_generation = 1;
-        let fx = Fixture::build(spec);
-        let doc = build_genesis(&fx.l1(), &fx.params).await.expect("builds");
-        assert!(doc.chain_id.ends_with("-g1"), "{}", doc.chain_id);
-        assert_eq!(doc.chain_id, fx.request.chain_id);
+    async fn recovery_generation_cannot_build_fresh_genesis() {
+        let fx = Fixture::build(GenesisSpec { recovery_generation: 1, ..GenesisSpec::new(1) });
+        assert!(matches!(
+            build_genesis(&fx.l1(), &fx.params).await,
+            Err(GenesisError::UnsupportedRecovery(_))
+        ));
     }
 }

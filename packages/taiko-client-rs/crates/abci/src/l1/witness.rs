@@ -11,7 +11,7 @@ use crate::{
     envelope::AnchorWitness,
     l1::{
         header::RawL1Header,
-        layout::{inbox, word_u8, word_u48, word_u64},
+        layout::{inbox, word_u8, word_u48},
         mpt::{MptError, VerifiedStorage, verify_account_witness},
     },
     types::{AccountWitness, AnchorState, GenesisRecord, InboxFacts},
@@ -34,6 +34,10 @@ pub enum WitnessError {
     /// Genesis only: the Inbox's initialization status is not `ETNA_ACTIVE`.
     #[error("inbox status is {0}, expected ETNA_ACTIVE ({active})", active = inbox::ETNA_ACTIVE)]
     NotInitialized(u8),
+    /// The authenticated generation-zero origin differs from the genesis record or exceeds its
+    /// widths.
+    #[error("invalid generation-zero origin")]
+    InvalidOrigin,
     /// Genesis only: the genesis record's `genesisBlockHash` (H*) is zero.
     #[error("genesis record has a zero genesis block hash")]
     ZeroGenesisHash,
@@ -80,9 +84,8 @@ pub fn verify_anchor_witness(
     let storage = verify_account_witness(header.state_root(), &w.inbox, &inbox::anchor_slots())?;
     let head_tail = inbox_word(&storage, inbox::FORCED_INCLUSION_HEAD_TAIL);
     let facts = InboxFacts {
-        status: word_u8(inbox_word(&storage, inbox::STATUS), 0),
-        recovery_generation: word_u64(inbox_word(&storage, inbox::RECOVERY_GENERATION), 0),
-        last_checkpoint_height: word_u64(inbox_word(&storage, inbox::LAST_CHECKPOINT_HEIGHT), 0),
+        recovery_generation: word_u48(inbox_word(&storage, inbox::RECOVERY_GENERATION), 0),
+        last_checkpoint_height: word_u48(inbox_word(&storage, inbox::LAST_CHECKPOINT_HEIGHT), 0),
         last_checkpoint_hash: inbox_word(&storage, inbox::LAST_CHECKPOINT_HASH).into(),
         forced_inclusion_head: word_u48(head_tail, 0),
         forced_inclusion_tail: word_u48(head_tail, 48),
@@ -130,16 +133,21 @@ pub fn verify_genesis_inbox(
     let packed = inbox_word(&storage, inbox::GENESIS_PACKED);
     let forced_config = inbox_word(&storage, inbox::FORCED_INCLUSION_CONFIG);
     let genesis = GenesisRecord {
-        genesis_height: word_u64(packed, 0),
-        l1_0: word_u64(packed, 64),
-        epoch_len: word_u64(packed, 128),
+        genesis_height: word_u48(packed, 0),
+        l1_0: word_u48(packed, 48),
+        epoch_len: word_u48(packed, 96),
         genesis_hash: inbox_word(&storage, inbox::GENESIS_BLOCK_HASH).into(),
         genesis_state_root: inbox_word(&storage, inbox::GENESIS_STATE_ROOT).into(),
-        genesis_cutoff: word_u64(inbox_word(&storage, inbox::GENESIS_CUTOFF), 0),
+        genesis_cutoff: word_u48(inbox_word(&storage, inbox::GENESIS_CUTOFF), 0),
         committee_config_hash: inbox_word(&storage, inbox::COMMITTEE_CONFIG_HASH).into(),
-        forced_inclusion_delay: word_u64(forced_config, 0),
-        max_anchor_age: word_u64(forced_config, 64),
+        forced_inclusion_delay: word_u48(forced_config, 0),
+        max_anchor_age: word_u48(forced_config, 48),
     };
+    let [start, number, timestamp] = inbox::origin_slots(0).map(|slot| word(&storage, slot));
+    if start != U256::ZERO || number != U256::from(genesis.l1_0) || timestamp > U256::from(u64::MAX)
+    {
+        return Err(WitnessError::InvalidOrigin);
+    }
     if genesis.genesis_height != 0 {
         return Err(WitnessError::NonzeroGenesisHeight(genesis.genesis_height));
     }
@@ -165,8 +173,7 @@ pub fn verify_genesis_inbox(
     }
 
     let facts = InboxFacts {
-        status,
-        recovery_generation: word_u64(inbox_word(&storage, inbox::RECOVERY_GENERATION), 0),
+        recovery_generation: word_u48(inbox_word(&storage, inbox::RECOVERY_GENERATION), 0),
         last_checkpoint_height: genesis.genesis_height,
         last_checkpoint_hash: genesis.genesis_hash,
         forced_inclusion_head: 0,
@@ -212,9 +219,10 @@ mod tests {
     fn live_storage() -> InboxStorage {
         InboxStorage {
             status: inbox::ETNA_ACTIVE,
-            recovery_generation: u64::MAX - 1,
-            last_checkpoint_height: 0x0123_4567_89ab_cdef,
+            recovery_generation: ((1u64 << 48) - 1) - 1,
+            last_checkpoint_height: 0x4567_89ab_cdef,
             last_checkpoint_hash: B256::repeat_byte(0xc4),
+            last_checkpoint_comet_hash: B256::ZERO,
             forced_inclusion_head: 0x0000_8765_4321_0fed,
             forced_inclusion_tail: 0x0000_ffff_ffff_fffe,
             forced_inclusion_queue: vec![],
@@ -241,30 +249,41 @@ mod tests {
         };
         let word = |name: &str, byte: u8| (slot(name), U256::from_be_bytes([byte; 32]));
         let max48 = (1u64 << 48) - 1;
-        let words = vec![
-            packed("status", &[("status", vectors::u64_at("/layout/inbox/status_active"))]),
-            packed("recovery_generation", &[("recovery_generation", u64::MAX - 1)]),
-            packed("last_checkpoint_height", &[("height", 0x0123_4567_89ab_cdef)]),
+        let mut words = vec![
+            (
+                slot("initialization_status"),
+                U256::from(vectors::u64_at("/layout/inbox/initialized_status")),
+            ),
+            (slot("recovery_generation"), U256::from((1u64 << 48) - 2)),
+            (slot("last_checkpoint_height"), U256::from(0x4567_89ab_cdefu64)),
             word("last_checkpoint_hash", 0xc4),
             packed("forced_inclusion_head_tail", &[("head", max48 - 1), ("tail", max48)]),
             packed(
-                "activation_packed",
+                "genesis_packed",
                 &[
                     ("genesis_height", 0),
-                    ("l1_block", u64::MAX - 2),
-                    ("epoch_len_l2", 0x0102_0304_0506_0708),
+                    ("l1_block", ((1u64 << 48) - 1) - 2),
+                    ("epoch_len_l2", 0x0304_0506_0708),
                 ],
             ),
             word("genesis_block_hash", 0xa1),
             word("genesis_state_root", 0xa2),
-            packed("genesis_cutoff", &[("genesis_cutoff", u64::MAX - 4)]),
+            (slot("genesis_cutoff"), U256::from((1u64 << 48) - 5)),
             word("committee_config_hash", 0xa3),
-            word("genesis_committee_hash", 0xa4),
+            word("genesis_committee_record_hash", 0xa4),
             packed(
                 "forced_inclusion_config",
-                &[("delay", u64::MAX - 5), ("max_anchor_age", u64::MAX)],
+                &[
+                    ("forced_inclusion_delay", ((1u64 << 48) - 1) - 5),
+                    ("max_anchor_age", ((1u64 << 48) - 1)),
+                ],
             ),
         ];
+        words.extend(inbox::origin_slots(0).into_iter().zip([
+            U256::ZERO,
+            U256::from(max48 - 2),
+            U256::from(1),
+        ]));
         let mut accounts = filler_accounts();
         accounts.push((INBOX, 1, U256::ZERO, keccak256(b"etna inbox code"), words));
         let state = TestState::new(accounts);
@@ -277,13 +296,13 @@ mod tests {
             GenesisRecord {
                 committee_config_hash: B256::repeat_byte(0xa3),
                 genesis_height: 0,
-                l1_0: u64::MAX - 2,
-                epoch_len: 0x0102_0304_0506_0708,
+                l1_0: ((1u64 << 48) - 1) - 2,
+                epoch_len: 0x0304_0506_0708,
                 genesis_hash: B256::repeat_byte(0xa1),
                 genesis_state_root: B256::repeat_byte(0xa2),
-                genesis_cutoff: u64::MAX - 4,
-                forced_inclusion_delay: u64::MAX - 5,
-                max_anchor_age: u64::MAX,
+                genesis_cutoff: ((1u64 << 48) - 1) - 4,
+                forced_inclusion_delay: ((1u64 << 48) - 1) - 5,
+                max_anchor_age: ((1u64 << 48) - 1),
             }
         );
         assert_eq!(committee, B256::repeat_byte(0xa4));
@@ -292,9 +311,8 @@ mod tests {
         assert_eq!(
             verify_anchor_witness(&anchor, INBOX).unwrap().inbox,
             InboxFacts {
-                status: inbox::ETNA_ACTIVE,
-                recovery_generation: u64::MAX - 1,
-                last_checkpoint_height: 0x0123_4567_89ab_cdef,
+                recovery_generation: ((1u64 << 48) - 1) - 1,
+                last_checkpoint_height: 0x4567_89ab_cdef,
                 last_checkpoint_hash: B256::repeat_byte(0xc4),
                 forced_inclusion_head: max48 - 1,
                 forced_inclusion_tail: max48,
@@ -314,9 +332,8 @@ mod tests {
         assert_eq!(
             anchor.inbox,
             InboxFacts {
-                status: inbox::ETNA_ACTIVE,
-                recovery_generation: u64::MAX - 1,
-                last_checkpoint_height: 0x0123_4567_89ab_cdef,
+                recovery_generation: ((1u64 << 48) - 1) - 1,
+                last_checkpoint_height: 0x4567_89ab_cdef,
                 last_checkpoint_hash: B256::repeat_byte(0xc4),
                 forced_inclusion_head: 0x0000_8765_4321_0fed,
                 forced_inclusion_tail: 0x0000_ffff_ffff_fffe,
@@ -386,7 +403,6 @@ mod tests {
         let state = TestState::new(accounts);
         let w = anchor_witness_in(&state, INBOX, l1_header(1, 1));
         let facts = verify_anchor_witness(&w, INBOX).unwrap().inbox;
-        assert_eq!(facts.status, 3);
         assert_eq!(facts.recovery_generation, 5);
         assert_eq!(facts.last_checkpoint_height, 77);
         assert_eq!(facts.last_checkpoint_hash, B256::ZERO);
@@ -421,13 +437,13 @@ mod tests {
         let genesis = GenesisRecord {
             committee_config_hash: B256::repeat_byte(0xb1),
             genesis_height: 0,
-            l1_0: 0x0102_0304_0506_0708,
-            epoch_len: 0xfedc_ba98_7654_3210,
+            l1_0: 0x0304_0506_0708,
+            epoch_len: 0xba98_7654_3210,
             genesis_hash: B256::repeat_byte(0xa1),
             genesis_state_root: B256::repeat_byte(0xa2),
-            genesis_cutoff: 0x0102_0304_0506_0707,
+            genesis_cutoff: 0x0304_0506_0707,
             forced_inclusion_delay: 1_209_599,
-            max_anchor_age: u64::MAX,
+            max_anchor_age: ((1u64 << 48) - 1),
         };
         let storage = InboxStorage {
             recovery_generation: 6,
@@ -442,11 +458,13 @@ mod tests {
         let (decoded, facts, record) = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap();
 
         assert_eq!(decoded, genesis);
-        assert_eq!((decoded.forced_inclusion_delay, decoded.max_anchor_age), (1_209_599, u64::MAX));
+        assert_eq!(
+            (decoded.forced_inclusion_delay, decoded.max_anchor_age),
+            (1_209_599, ((1u64 << 48) - 1))
+        );
         assert_eq!(
             facts,
             InboxFacts {
-                status: inbox::ETNA_ACTIVE,
                 recovery_generation: 6,
                 last_checkpoint_height: genesis.genesis_height,
                 last_checkpoint_hash: genesis.genesis_hash,
@@ -464,7 +482,7 @@ mod tests {
         let mut words = InboxStorage::genesis(genesis.clone(), committee_e0()).slots();
         let activation = inbox::slot(inbox::GENESIS_PACKED);
         let (_, word) = words.iter_mut().find(|(slot, _)| *slot == activation).unwrap();
-        *word |= U256::from(u64::MAX) << 192;
+        *word |= U256::from((1u64 << 48) - 1) << 192;
         let mut accounts = filler_accounts();
         accounts.push((INBOX, 1, U256::ZERO, keccak256(b"etna inbox code"), words));
         let state = TestState::new(accounts);
@@ -554,7 +572,7 @@ mod tests {
     #[test]
     fn genesis_rejects_a_cutoff_not_before_l1_0() {
         let l1_0 = sample_genesis_record().l1_0;
-        for genesis_cutoff in [l1_0, l1_0 + 1, u64::MAX] {
+        for genesis_cutoff in [l1_0, l1_0 + 1, ((1u64 << 48) - 1)] {
             let genesis = GenesisRecord { genesis_cutoff, ..sample_genesis_record() };
             let storage = InboxStorage::genesis(genesis.clone(), committee_e0());
             let (w, state) = genesis_inbox_witness(INBOX, &storage);
@@ -607,7 +625,7 @@ mod tests {
         }
 
         // The extremes of the accepted ranges.
-        for (delay, max_anchor_age) in [(1, 1152), (u64::MAX, u64::MAX)] {
+        for (delay, max_anchor_age) in [(1, 1152), (((1u64 << 48) - 1), ((1u64 << 48) - 1))] {
             let genesis = GenesisRecord {
                 forced_inclusion_delay: delay,
                 max_anchor_age,

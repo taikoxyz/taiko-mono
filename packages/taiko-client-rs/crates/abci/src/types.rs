@@ -51,31 +51,34 @@ pub struct AccountWitness {
 /// Entries are indexed by slot (`bondId`). An exited entry stays with `exit_effective_l1` set until
 /// its stake is withdrawn; a later registration may then reuse its slot.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RlpEncodable, RlpDecodable)]
+#[serde(deny_unknown_fields)]
 pub struct RegistryEntry {
-    /// The validator's Ed25519 consensus public key (32 raw bytes).
-    pub pubkey: B256,
-    /// Effective stake, in TAIKO base units (10^-18 TAIKO).
+    /// SEC1 parity prefix; zero only for a released all-zero entry.
+    pub ck_prefix: u8,
+    /// Full 32-byte SEC1 X coordinate, preserving leading zeros.
+    pub ck_x: B256,
+    /// Effective stake in token base units.
     pub eff_stake: U256,
-    /// First L1 block number at which the entry is active (inclusive).
+    /// First eligible L1 block, inclusive.
     pub active_from_l1: u64,
-    /// First L1 block number at which the entry is exited (exclusive end of activity);
-    /// `u64::MAX` means no exit is scheduled.
+    /// First ineligible L1 block, exclusive end of activity.
     pub exit_effective_l1: u64,
-    /// Start L1 block of the heartbeat window the entry's last accepted heartbeat named;
-    /// 0 before the first heartbeat, and also after one naming window 0.
-    pub last_heartbeat_at: u64,
-    /// `lastHeartbeatSeq`: the sequence of the entry's last accepted heartbeat; 0 means the entry
-    /// never sent one. Eligibility requires a nonzero sequence, a test `last_heartbeat_at` cannot
-    /// give for window 0.
-    pub last_heartbeat_seq: u64,
-    /// Nonzero L2 address receiving this entry's proposer rewards; authenticated in the entry
-    /// root.
-    pub reward_recipient: Address,
+}
+
+impl RegistryEntry {
+    /// Validates and returns the canonical compressed consensus key.
+    pub fn consensus_key(&self) -> Result<crate::key::ConsensusKey, crate::key::KeyError> {
+        let mut bytes = [0; 33];
+        bytes[0] = self.ck_prefix;
+        bytes[1..].copy_from_slice(self.ck_x.as_slice());
+        crate::key::ConsensusKey::from_slice(&bytes)
+    }
 }
 
 /// The committee record for one target epoch, as deterministically derived from a fixed L1 snapshot
 /// ([`committee::record_hash`](crate::committee::record_hash)).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RlpEncodable, RlpDecodable)]
+#[serde(deny_unknown_fields)]
 pub struct CommitteeRecord {
     /// The epoch this committee signs.
     pub target_epoch: u64,
@@ -87,37 +90,30 @@ pub struct CommitteeRecord {
     /// Set root ([`set_root`](crate::committee::set_root)) over the members, with `chainId` = the
     /// L2 EVM chain id.
     pub set_root: B256,
-    /// Sum of the members' effective stake, in TAIKO base units.
-    pub total_stake: U256,
     /// Sum of the members' voting power; at most `(2^63 - 1) / 8` (CometBFT's total-power cap).
     pub total_power: u64,
-    /// Record encoding version; currently always 2.
-    pub encoding_version: u8,
 }
 
 /// One committee member, derived from an eligible registry entry.
 ///
 /// Member lists are kept in set-key order: ascending by
-/// `keccak256(abi.encode("ETNA_SET_KEY", chainId, pubkey))`.
+/// `keccak256(abi.encode("ETNA_SET_KEY_V1", chainId, ckPrefix, ckX))`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Member {
-    /// The member's Ed25519 consensus public key (32 raw bytes).
-    pub pubkey: B256,
+    /// The member's validated compressed secp256k1eth consensus key.
+    pub pubkey: crate::key::ConsensusKey,
     /// Effective stake, in TAIKO base units.
     pub eff_stake: U256,
     /// CometBFT voting power: `floor(eff_stake / VP_UNIT)`, always >= 1 for a member.
     pub power: u64,
-    /// Authenticated nonzero L2 payout address of the selected registry entry.
-    pub reward_recipient: Address,
 }
 
 /// Inbox facts proven by an anchor (or genesis) witness.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct InboxFacts {
-    /// `status` (slot 258, exposed by the compatibility `migrationState` getter); `ETNA_ACTIVE =
-    /// 3` once Etna PoS is live.
-    pub status: u8,
-    /// `recoveryGeneration` (slot 268); also the CometBFT `chain_id` suffix and the `extraData`
+    /// `recoveryGeneration` (slot 268); also bound into the CometBFT domain and the `extraData`
     /// generation of every block of that generation.
     pub recovery_generation: u64,
     /// `lastCheckpoint.height` (slot 270): L2 block number of the last L1-accepted checkpoint.
@@ -145,7 +141,7 @@ pub struct GenesisRecord {
     pub genesis_height: u64,
     /// `L1_0`: L1 block number of initialization; the minimum anchor of every block.
     pub l1_0: u64,
-    /// `L`: epoch length in L2 blocks (validated `>= 3` and `>= unsettled_cap + 3`).
+    /// `L`: epoch length in L2 blocks (validated `>= 3`; independent of the unsettled cap).
     pub epoch_len: u64,
     /// `H*`: L2 block hash of `B*`.
     pub genesis_hash: B256,
@@ -155,10 +151,10 @@ pub struct GenesisRecord {
     /// number; validated `< l1_0`. Genesis names it explicitly before `L1_0` is known.
     /// Runtime epochs select the committed derivation parent anchor instead.
     pub genesis_cutoff: u64,
-    /// `forcedInclusionDelay` (`D`, slot 282 bits 0–63), in seconds: an entry is due once an
+    /// `forcedInclusionDelay` (`D`, slot 282 bits 0–47), in seconds: an entry is due once an
     /// anchor's timestamp reaches its own plus `D`. Validated positive with no upper bound.
     pub forced_inclusion_delay: u64,
-    /// `maxAnchorAge` (`M`, slot 282 bits 64–127), in seconds: a block's timestamp may exceed
+    /// `maxAnchorAge` (`M`, slot 282 bits 48–95), in seconds: a block's timestamp may exceed
     /// its anchor's by at most `M`. Validated `>= 1152`.
     pub max_anchor_age: u64,
 }
@@ -243,7 +239,6 @@ mod tests {
 
     fn inbox_facts() -> InboxFacts {
         InboxFacts {
-            status: 3,
             recovery_generation: 2,
             last_checkpoint_height: 1_000,
             last_checkpoint_hash: B256::repeat_byte(0x33),
@@ -275,13 +270,17 @@ mod tests {
     #[test]
     fn registry_entry_rlp_round_trips() {
         rlp_round_trip(&RegistryEntry {
-            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
-            pubkey: b256!("aa00000000000000000000000000000000000000000000000000000000000001"),
+            ck_prefix: crate::test_utils::key_from_seed(b256!(
+                "aa00000000000000000000000000000000000000000000000000000000000001"
+            ))
+            .prefix(),
+            ck_x: crate::test_utils::key_from_seed(b256!(
+                "aa00000000000000000000000000000000000000000000000000000000000001"
+            ))
+            .x(),
             eff_stake: U256::from(10).pow(U256::from(24)),
             active_from_l1: 12,
             exit_effective_l1: u64::MAX,
-            last_heartbeat_at: 0,
-            last_heartbeat_seq: 1,
         });
     }
 
@@ -292,9 +291,7 @@ mod tests {
             cutoff_l1_block: 64,
             checkpoint_index: 3,
             set_root: B256::repeat_byte(0x44),
-            total_stake: U256::MAX,
             total_power: (i64::MAX as u64) / 8,
-            encoding_version: 1,
         });
     }
 
@@ -351,8 +348,7 @@ mod tests {
     #[test]
     fn member_json_round_trips() {
         json_round_trip(&Member {
-            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
-            pubkey: B256::repeat_byte(0xcc),
+            pubkey: crate::test_utils::key_from_seed(B256::repeat_byte(0xcc)),
             eff_stake: U256::from(5_000_000_000u64),
             power: 5,
         });

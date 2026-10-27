@@ -338,29 +338,23 @@ mod tests {
                 cutoff_l1_block: 8_990,
                 checkpoint_index: 4,
                 set_root: B256::repeat_byte(0x44),
-                total_stake: U256::from(10).pow(U256::from(24)),
                 total_power: 2_000_000,
-                encoding_version: 2,
             },
             registry: account_witness(0xb2),
             entries: vec![
                 RegistryEntry {
-                    reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
-                    pubkey: B256::repeat_byte(0x10),
+                    ck_prefix: crate::test_utils::key_from_seed(B256::repeat_byte(0x10)).prefix(),
+                    ck_x: crate::test_utils::key_from_seed(B256::repeat_byte(0x10)).x(),
                     eff_stake: U256::from(10).pow(U256::from(21)),
                     active_from_l1: 100,
                     exit_effective_l1: u64::MAX,
-                    last_heartbeat_at: 8_000,
-                    last_heartbeat_seq: 7,
                 },
                 RegistryEntry {
-                    reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
-                    pubkey: B256::repeat_byte(0x20),
+                    ck_prefix: crate::test_utils::key_from_seed(B256::repeat_byte(0x20)).prefix(),
+                    ck_x: crate::test_utils::key_from_seed(B256::repeat_byte(0x20)).x(),
                     eff_stake: U256::from(5) * U256::from(10).pow(U256::from(20)),
                     active_from_l1: 200,
                     exit_effective_l1: 9_500,
-                    last_heartbeat_at: 0,
-                    last_heartbeat_seq: 0,
                 },
             ],
         }
@@ -595,7 +589,7 @@ mod tests {
         let env = envelope(None, None, None);
         let inbox = alloy_rlp::encode(account_witness(0xa1));
         // A 14-field list: one field short of a pre-London header.
-        let short = rlp_list(&vec![vec![0x80]; 14]);
+        let short = rlp_list(&vec![vec![0x80]; 11]);
         let anchor = rlp_list(&[alloy_rlp::encode(Bytes::from(short)), inbox]);
         let body = rlp_list(&[
             alloy_rlp::encode(&env.block),
@@ -844,9 +838,7 @@ mod tests {
                     cutoff_l1_block: 0x23f0,
                     checkpoint_index: 5,
                     set_root: B256::repeat_byte(0x44),
-                    total_stake: U256::from(10).pow(U256::from(24)),
                     total_power: 0x0f_4240,
-                    encoding_version: 2,
                 },
                 registry: AccountWitness {
                     address: address!("00000000000000000000000000000000e7a10002"),
@@ -862,13 +854,11 @@ mod tests {
                     }],
                 },
                 entries: vec![RegistryEntry {
-                    reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
-                    pubkey: B256::repeat_byte(0x10),
+                    ck_prefix: crate::test_utils::key_from_seed(B256::repeat_byte(0x10)).prefix(),
+                    ck_x: crate::test_utils::key_from_seed(B256::repeat_byte(0x10)).x(),
                     eff_stake: U256::from(10).pow(U256::from(21)),
                     active_from_l1: 0x64,
                     exit_effective_l1: u64::MAX,
-                    last_heartbeat_at: 0x1f40,
-                    last_heartbeat_seq: 0x0102,
                 }],
             }),
             forced: Some(ForcedWitness {
@@ -913,13 +903,11 @@ mod tests {
             &inbox,              // inbox
         ]);
         let record = list(&[
-            &hex!("02"),                     // target_epoch
-            &hex!("8223f0"),                 // cutoff_l1_block
-            &hex!("05"),                     // checkpoint_index
-            &word(0x44),                     // set_root
-            &hex!("8ad3c21bcecceda1000000"), // total_stake: 10^24
-            &hex!("830f4240"),               // total_power
-            &hex!("02"),                     // encoding_version
+            &hex!("02"),       // target_epoch
+            &hex!("8223f0"),   // cutoff_l1_block
+            &hex!("05"),       // checkpoint_index
+            &word(0x44),       // set_root
+            &hex!("830f4240"), // total_power
         ]);
         let registry = list(&[
             &hex!("9400000000000000000000000000000000e7a10002"), // address
@@ -935,14 +923,13 @@ mod tests {
                 &list(&[&hex!("84e3a120ff")]),                   // proof: one node
             ])]),
         ]);
+        let native = crate::test_utils::key_from_seed(B256::repeat_byte(0x10));
         let entry = list(&[
-            &word(0x10),                                         // pubkey
-            &hex!("893635c9adc5dea00000"),                       // eff_stake: 10^21
-            &hex!("64"),                                         // active_from_l1
-            &hex!("88ffffffffffffffff"),                         // exit_effective_l1: u64::MAX
-            &hex!("821f40"),                                     // last_heartbeat_at
-            &hex!("820102"),                                     // last_heartbeat_seq
-            &hex!("947777777777777777777777777777777777777777"), // reward_recipient
+            &[native.prefix()],
+            &[vec![0xa0], native.x().as_slice().to_vec()].concat(),
+            &hex!("893635c9adc5dea00000"),
+            &hex!("64"),
+            &hex!("88ffffffffffffffff"),
         ]);
         let committee = list(&[
             &record,          // record
@@ -989,4 +976,26 @@ mod tests {
         assert_eq!(l1.number(), 0x2400);
         assert_eq!(l1.timestamp(), 0x68e7_7800);
     }
+}
+
+/// Extracts raw anchor bytes from an otherwise decodable envelope for upgrade classification.
+/// This never authenticates a witness: callers compare its exact hash with their own L1 first.
+pub(crate) fn undecodable_anchor(txs: &[Bytes]) -> Option<(u64, Bytes)> {
+    let [tx] = txs else {
+        return None;
+    };
+    let (&version, mut encoded) = tx.split_first()?;
+    if version != ENVELOPE_VERSION {
+        return None;
+    }
+    let mut fields = alloy_rlp::Header::decode_bytes(&mut encoded, true).ok()?;
+    let block = ExecutionBlock::decode(&mut fields).ok()?;
+    let (_, _, number) = crate::rules::decode_extra_data(&block.header.extra_data).ok()?;
+    let mut optional = alloy_rlp::Header::decode_bytes(&mut fields, true).ok()?;
+    let mut anchor = alloy_rlp::Header::decode_bytes(&mut optional, true).ok()?;
+    if !optional.is_empty() {
+        return None;
+    }
+    let raw = Bytes::decode(&mut anchor).ok()?;
+    RawL1Header::from_raw(raw.clone()).is_err().then_some((number, raw))
 }

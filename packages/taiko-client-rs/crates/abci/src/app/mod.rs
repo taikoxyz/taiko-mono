@@ -8,8 +8,9 @@
 //!
 //! Errors returned by [`App::handle`] are fatal to the connection; [`AbciError::SafetyHalt`]
 //! marks the ones where the node must stop signing and an operator must investigate.
-//! A bad or unbuildable proposal is never an error: it is a [`Rejection`] (liveness only).
+//! Invalid proposals are rejected; own-node integrity failures require explicit repair.
 
+use crate::wire::{Request, Response, response};
 use std::{
     collections::VecDeque,
     future::Future,
@@ -20,11 +21,7 @@ use std::{
 use alloy_primitives::B256;
 use rpc::client::http_timeout_for;
 use serde::{Deserialize, Serialize};
-use tendermint::{
-    AppHash, Hash, Time,
-    block::Height,
-    v0_38::abci::{Request, Response, response},
-};
+use tendermint::{AppHash, Hash, Time, block::Height};
 
 use crate::{
     config::{ChainParams, ConfigError},
@@ -33,7 +30,7 @@ use crate::{
     genesis::GenesisError,
     l1::{DiscoveryProgress, L1Error, L1Source},
     metrics::{AbciMetrics, set_u64},
-    rules::{RuleViolation, generation_from_chain_id},
+    rules::{RuleViolation, check_chain_id},
     schedule::ScheduleError,
     store::{AppState, Store, StoreError},
 };
@@ -70,7 +67,7 @@ pub const APP_NAME: &str = "taiko-abci";
 
 /// The ABCI application version reported in `Info.app_version`; the genesis
 /// `consensus_params.version.app` carries the same value.
-pub const APP_VERSION: u64 = 4;
+pub const APP_VERSION: u64 = 1;
 
 /// Interval between EL polls while waiting for an EL sync to a trusted head.
 pub const ELSYNC_POLL: Duration = Duration::from_secs(1);
@@ -190,7 +187,8 @@ pub enum AbciError {
         /// The genesis header's hash.
         hash: B256,
     },
-    /// The genesis record's schedule violates the epoch-length bounds ([`Schedule::validate`]).
+    /// The genesis record's schedule violates the epoch-length bounds
+    /// ([`Schedule::validate`](crate::schedule::Schedule::validate)).
     #[error(transparent)]
     Schedule(#[from] ScheduleError),
     /// A CometBFT `chain_id` is not `taiko-etna-<l2ChainId>-g<generation>` for this chain.
@@ -338,12 +336,13 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Creates the app, validating `params` and loading any persisted state from `store`.
     ///
     /// A loaded state must be consistent with `params` and with itself: its schedule must pass
-    /// [`Schedule::validate`] for `params`' unsettled cap and equal the one derived from its
-    /// genesis record, its Inbox must match the account authenticated at genesis,
-    /// its `chain_id` must name `params.l2_chain_id` and its generation, and
-    /// its last height must equal its parent's number and fit a CometBFT height. Every saved
-    /// committee must retain canonical stake-derived powers, checked totals and its set root.
-    /// These local consistency checks do not authenticate a coherently rewritten state file.
+    /// [`Schedule::validate`](crate::schedule::Schedule::validate) independently of the unsettled
+    /// cap and equal the one derived from its genesis record, its Inbox must match the account
+    /// authenticated at genesis, its `chain_id` must name `params.l2_chain_id` and its
+    /// generation, and its last height must equal its parent's number and fit a CometBFT
+    /// height. Every saved committee must retain canonical stake-derived powers, checked totals
+    /// and its set root. These local consistency checks do not authenticate a coherently
+    /// rewritten state file.
     ///
     /// Forced inclusion uses authenticated calldata and requires no KZG initialization.
     pub fn new(
@@ -354,6 +353,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
         opts: AppOptions,
     ) -> Result<Self, AbciError> {
         params.validate()?;
+        if let Some(reason) = store.fatal_evidence()? {
+            return Err(AbciError::SafetyHalt(format!(
+                "persisted fatal evidence requires operator repair: {reason}"
+            )));
+        }
         let state = store.load()?;
         if let Some(state) = &state {
             check_stored_state(state, &params)?;
@@ -436,6 +440,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if let Err(error) = &result {
             if matches!(error, AbciError::SafetyHalt(_) | AbciError::Store(_)) {
                 self.trust.revoke(error.to_string());
+                self.store.record_fatal(&error.to_string())?;
             } else {
                 // Network/initialization failures close authorization but must allow a later
                 // successful handshake to recover without requiring a signed block.
@@ -607,6 +612,12 @@ fn at_genesis(state: &AppState) -> bool {
 
 /// Rejects a persisted state that `params` or the state itself contradicts (see [`App::new`]).
 fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), AbciError> {
+    if state.schema_version != 13 {
+        return Err(AbciError::StoredState(format!(
+            "unsupported journal schema {} (expected 13)",
+            state.schema_version
+        )));
+    }
     if state.app_version != APP_VERSION {
         return Err(AbciError::StoredState(format!(
             "unsupported app version {} (expected {APP_VERSION})",
@@ -623,13 +634,12 @@ fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), Abci
     if state.genesis.genesis_height != 0 {
         return Err(AbciError::StoredState("genesis height must be zero".into()));
     }
-    let generation = generation_from_chain_id(&state.chain_id, params.l2_chain_id)?;
-    if generation != state.generation {
-        return Err(AbciError::StoredState(format!(
-            "chain_id {} names generation {generation}, state has {}",
-            state.chain_id, state.generation
-        )));
+    if state.generation != 0 {
+        return Err(AbciError::StoredState(
+            "unsupported recovery generation: fresh generation 0 only".into(),
+        ));
     }
+    check_chain_id(&state.chain_id, params, state.generation)?;
     if state.genesis.committee_config_hash != crate::committee::committee_config_hash(params) {
         return Err(AbciError::StoredState(
             "committee configuration opening differs from genesis".into(),
@@ -638,10 +648,8 @@ fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), Abci
     for (epoch, committee) in &state.committees {
         let members = &committee.members;
         if committee.record.target_epoch != *epoch ||
-            committee.record.encoding_version != crate::committee::ENCODING_VERSION ||
             members.is_empty() ||
             members.len() > params.n_max ||
-            members.iter().any(|member| member.reward_recipient.is_zero()) ||
             members.windows(2).any(|pair| {
                 crate::committee::set_key(params.l2_chain_id, pair[0].pubkey) >=
                     crate::committee::set_key(params.l2_chain_id, pair[1].pubkey)
@@ -663,11 +671,9 @@ fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), Abci
                 return Err(invalid(format!("noncanonical power for {}", member.pubkey)));
             }
         }
-        let (total_power, total_stake) =
+        let (total_power, _) =
             crate::committee::member_totals(members).map_err(|err| invalid(err.to_string()))?;
-        if total_power != committee.record.total_power ||
-            total_stake != committee.record.total_stake
-        {
+        if total_power != committee.record.total_power {
             return Err(invalid("record totals differ from members".into()));
         }
         let k = epoch

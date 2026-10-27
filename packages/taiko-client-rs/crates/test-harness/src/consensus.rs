@@ -59,7 +59,7 @@ impl ContractConsensus {
                 persistent_peers: "",
                 genesis_json: &genesis,
                 signer_addr: "tcp://0.0.0.0:26659",
-                node: &ValidatorKey::derive("real-node", 0),
+                node: &crate::keys::NodeKey::derive("real-node", 0),
             },
         )?;
         let signer = SignerNode::ephemeral(

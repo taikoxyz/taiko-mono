@@ -8,14 +8,16 @@ use tokio::{sync::watch, task::JoinHandle, time::Instant};
 
 use super::{App, Rejection};
 use crate::{
-    committee::{committee_config_hash, verify_committee_witness},
+    committee::{
+        committee_config_hash, verify_committee_witness, verify_committee_witness_at_cutoff,
+    },
     config::ChainParams,
     engine::Engine,
     envelope::CommitteeWitness,
     l1::{DiscoveryProgress, L1Source, build_committee_witness_within},
     rules,
     store::{AppState, Store},
-    types::GenesisRecord,
+    types::{AnchorState, GenesisRecord},
 };
 
 /// The bound of one background switch-witness discovery; a failed or timed-out discovery is
@@ -58,6 +60,8 @@ struct CacheKey {
     parent_state_root: B256,
     /// Epoch whose incoming committee is derived.
     target_epoch: u64,
+    /// Candidate anchor identity under which the snapshot proof is authenticated.
+    proof_anchor: (u64, B256, B256),
 }
 
 impl CacheKey {
@@ -72,6 +76,7 @@ impl CacheKey {
             parent_anchor_hash: state.anchor.hash,
             parent_state_root: state.anchor.state_root,
             target_epoch,
+            proof_anchor: (state.anchor.number, state.anchor.hash, state.anchor.state_root),
         }
     }
 }
@@ -167,7 +172,9 @@ pub(super) fn load_cached_committee(
             return None;
         }
     };
-    if persisted.key != CacheKey::new(state, params, target) {
+    let mut expected_key = CacheKey::new(state, params, target);
+    expected_key.proof_anchor = persisted.key.proof_anchor;
+    if persisted.key != expected_key {
         tracing::debug!("ignoring committee witness sidecar for another context");
         return None;
     }
@@ -178,7 +185,13 @@ pub(super) fn load_cached_committee(
             return None;
         }
     };
-    if let Err(error) = verify_committee_witness(&state.anchor, params, &witness, target) {
+    if let Err(error) = verify_committee_witness_at_cutoff(
+        persisted.key.proof_anchor.2,
+        state.anchor.number.max(state.genesis.l1_0),
+        params,
+        &witness,
+        target,
+    ) {
         tracing::warn!(%error, "ignoring unverified cached committee witness");
         return None;
     }
@@ -226,7 +239,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let key = CacheKey::new(state, &self.params, target);
         {
             let mut cache = self.committee_cache();
-            if cache.as_ref().is_some_and(|cached| cached.key == key) {
+            if cache.as_ref().is_some_and(|cached| {
+                let mut same_context = key.clone();
+                same_context.proof_anchor = cached.key.proof_anchor;
+                cached.key == same_context
+            }) {
                 drop(cache);
                 *self.committee_prefetch() = None;
                 return;
@@ -364,12 +381,46 @@ impl<L: L1Source, E: Engine> App<L, E> {
         target_epoch: u64,
         witness: &CommitteeWitness,
     ) -> Result<(), Rejection> {
-        let key = CacheKey::new(state, &self.params, target_epoch);
+        self.cache_candidate_committee_witness(state, &state.anchor, target_epoch, witness)
+    }
+
+    /// Returns a snapshot proof only when both the cutoff and candidate anchor match.
+    pub(super) fn cached_candidate_committee_witness(
+        &self,
+        state: &AppState,
+        anchor: &AnchorState,
+        target_epoch: u64,
+    ) -> Option<CommitteeWitness> {
+        let mut key = CacheKey::new(state, &self.params, target_epoch);
+        key.proof_anchor = (anchor.number, anchor.hash, anchor.state_root);
+        self.committee_cache()
+            .as_ref()
+            .filter(|cached| cached.key == key)
+            .map(|cached| cached.witness.clone())
+    }
+
+    /// Persists a candidate's proof under its own root and the committed derivation cutoff.
+    pub(super) fn cache_candidate_committee_witness(
+        &self,
+        state: &AppState,
+        anchor: &AnchorState,
+        target_epoch: u64,
+        witness: &CommitteeWitness,
+    ) -> Result<(), Rejection> {
+        let mut key = CacheKey::new(state, &self.params, target_epoch);
+        key.proof_anchor = (anchor.number, anchor.hash, anchor.state_root);
+
         let mut cache = self.committee_cache();
         if cache.as_ref().is_some_and(|cached| cached.key == key && cached.witness == *witness) {
             return Ok(());
         }
-        verify_committee_witness(&state.anchor, &self.params, witness, target_epoch)?;
+        verify_committee_witness_at_cutoff(
+            anchor.state_root,
+            state.anchor.number.max(state.genesis.l1_0),
+            &self.params,
+            witness,
+            target_epoch,
+        )?;
         let persisted =
             PersistedCommittee { key: key.clone(), witness: alloy_rlp::encode(witness).into() };
         let bytes = serde_json::to_vec(&persisted)

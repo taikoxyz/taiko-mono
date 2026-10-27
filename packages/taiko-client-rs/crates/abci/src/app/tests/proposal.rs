@@ -33,9 +33,7 @@ pub(super) const MAX_TX_BYTES: i64 = 22_020_096;
 
 /// The authenticated first fixture registry key's CometBFT address.
 pub(super) fn proposer() -> account::Id {
-    account::Id::from(
-        tendermint::PublicKey::from_raw_ed25519(sample_entries(1)[0].pubkey.as_slice()).unwrap(),
-    )
+    account::Id::new(sample_entries(1)[0].consensus_key().unwrap().address().into_array())
 }
 
 /// A `PrepareProposal` request for `height` at BFT time `time` (Unix seconds).
@@ -659,7 +657,7 @@ async fn epoch_first_height_forbids_a_runtime_committee_witness() {
 fn persisted_fixed_cutoff_config_is_rejected_without_migration() {
     let mut spec = GenesisSpec::new(2);
     spec.params.registry = alloy_primitives::Address::repeat_byte(0x22);
-    spec.params.heartbeat_window = 32;
+    spec.params.unsettled_limit = 36;
     let fx = Fixture::build(spec);
     let mut state = fx.expected_state();
     // Independent ethers eleven-word vector: same remaining fields, old grid10/lag20.
@@ -676,94 +674,12 @@ fn persisted_fixed_cutoff_config_is_rejected_without_migration() {
 }
 
 /// A prepared block pays tips to the authenticated proposer, with base fees kept in treasury.
-#[tokio::test]
-async fn proposal_pays_certified_proposer_and_rejects_vault_beneficiary() {
-    let fx = Fixture::genesis(3);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = initialized(&fx, dir.path()).await;
-    let mut env = propose(&mut app).await;
-    assert_eq!(env.block.header.beneficiary, sample_entries(3)[0].reward_recipient);
-    assert_eq!(env.block.header.extra_data[0], 0);
-    assert_eq!(judge(&mut app, &env).await.0, response::ProcessProposal::Accept);
-    env.block.header.beneficiary = fx.params.fee_vault;
-    assert_eq!(rejected(&mut app, &env).await, "header_field");
-}
 
 /// The decided header's original proposer remains authoritative in a later commit round.
-#[tokio::test]
-async fn proposal_retained_across_rounds_keeps_original_proposer_payout() {
-    let mut spec = GenesisSpec::new(3);
-    let mut entries = sample_entries(3);
-    entries[1].reward_recipient = Address::repeat_byte(0x88);
-    spec.entries = Some(entries.clone());
-    let fx = Fixture::build(spec);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = initialized(&fx, dir.path()).await;
-    let original = account::Id::from(
-        tendermint::PublicKey::from_raw_ed25519(entries[0].pubkey.as_slice()).unwrap(),
-    );
-    let mut req = prepare_req(next_height(&app), bft_time(&app));
-    req.proposer_address = original;
-    let txs = prepare(&mut app, req).await;
-    let env = EtnaEnvelope::decode(&txs[0]).unwrap();
-    assert_eq!(env.block.header.beneficiary, sample_entries(3)[0].reward_recipient);
-    let mut req = process_req(next_height(&app), bft_time(&app), txs);
-    req.proposer_address = original;
-    let later_proposer = account::Id::from(
-        tendermint::PublicKey::from_raw_ed25519(entries[1].pubkey.as_slice()).unwrap(),
-    );
-    let mut different = req.clone();
-    different.proposer_address = later_proposer;
-    assert_eq!(process(&mut app, different.clone()).await, response::ProcessProposal::Reject);
-    assert!(finalize(&mut app, finalize_req(&different)).await.is_err());
-    let mut fresh = prepare_req(next_height(&app), bft_time(&app));
-    fresh.proposer_address = later_proposer;
-    let txs = prepare(&mut app, fresh).await;
-    let new_env = EtnaEnvelope::decode(&txs[0]).unwrap();
-    assert_eq!(new_env.block.header.beneficiary, Address::repeat_byte(0x88));
-    different.txs = txs.into_iter().map(|tx| tx.0).collect();
-    assert_eq!(process(&mut app, different).await, response::ProcessProposal::Accept);
-    assert_eq!(process(&mut app, req.clone()).await, response::ProcessProposal::Accept);
-    // Comet may retain this original block when `later_proposer` signs the round-2 Proposal.
-    // ABCI carries only the original block header's proposer, never that round's signer.
-    assert_ne!(later_proposer, req.proposer_address);
-    finalize(&mut app, finalize_req(&req)).await.unwrap();
-    assert!(app.decided_live);
-}
 
 /// Even two members sharing a payout address cannot reuse one another's hot verdict.
-#[tokio::test]
-async fn proposal_changed_proposer_with_shared_recipient_forces_cold_finalize() {
-    let mut spec = GenesisSpec::new(3);
-    let mut entries = sample_entries(3);
-    entries[1].reward_recipient = entries[0].reward_recipient;
-    spec.entries = Some(entries);
-    let fx = Fixture::build(spec);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = initialized(&fx, dir.path()).await;
-    let env = propose(&mut app).await;
-    let (resp, req) = judge(&mut app, &env).await;
-    assert_eq!(resp, response::ProcessProposal::Accept);
-    let mut decided = finalize_req(&req);
-    let entries = sample_entries(3);
-    decided.proposer_address = account::Id::from(
-        tendermint::PublicKey::from_raw_ed25519(entries[1].pubkey.as_slice()).unwrap(),
-    );
-    finalize(&mut app, decided).await.unwrap();
-    assert!(!app.decided_live, "changed certified proposer must reexecute despite equal payout");
-}
 
 /// Finalize rejects a treasury-beneficiary candidate even when ProcessProposal never ran.
-#[tokio::test]
-async fn proposal_cold_finalize_rejects_vault_beneficiary() {
-    let fx = Fixture::genesis(3);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = initialized(&fx, dir.path()).await;
-    let mut env = propose(&mut app).await;
-    env.block.header.beneficiary = fx.params.fee_vault;
-    let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
-    assert!(finalize(&mut app, finalize_req(&req)).await.is_err());
-}
 
 /// No handler may substitute a default payout for a proposer outside the authenticated set.
 #[tokio::test]

@@ -6,14 +6,14 @@
 //! absent from position zero require the caller to validate a skip. This rule has no expiry
 //! and never consults the EL.
 
-use alloy_consensus::{Transaction, TxEnvelope};
+use alloy_consensus::{Transaction, TxEnvelope, transaction::SignerRecoverable};
 use alloy_eips::eip2718::{Decodable2718, Encodable2718};
 use alloy_primitives::{Address, B256, Bytes, U256, keccak256};
 use alloy_rlp::{Decodable, RlpEncodable};
 
 use crate::{
     l1::{
-        layout::{inbox, word_u48, word_u64},
+        layout::{inbox, word_u48},
         mpt::verify_account_witness,
     },
     types::{AccountWitness, AnchorState},
@@ -21,10 +21,6 @@ use crate::{
 
 /// Maximum byte length of a forced transaction committed by the Inbox.
 pub const MAX_FORCED_TX_BYTES: usize = 8192;
-
-/// Minimum execution fee cap, in wei, for a due canonical transaction to require an EL skip
-/// check. This genesis-bound protocol floor equals the hard base-fee cap; it is not a local flag.
-pub const FI_MIN_EXEC_FEE_CAP: u128 = 1_000_000_000;
 
 /// One authenticated calldata queue entry decoded from two Inbox storage words.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -35,7 +31,7 @@ pub struct ForcedEntry {
     pub tx_hash: B256,
     /// L1 submission time in Unix seconds, stored as a `uint48`.
     pub timestamp: u64,
-    /// L1 submission block number, stored as a `uint64`.
+    /// L1 submission block number, stored as a `uint48`.
     pub l1_block: u64,
 }
 
@@ -106,6 +102,10 @@ pub struct ForcedContext<'a> {
     pub delay: u64,
     /// Inbox contract address whose entry must be proven.
     pub inbox: Address,
+    /// Execution chain identity required by protected and typed transactions.
+    pub l2_chain_id: u64,
+    /// Maximum transaction gas, in execution gas units.
+    pub block_gas_limit: u64,
 }
 
 /// Two storage slots of `queue[index]`: the transaction hash followed by packed metadata.
@@ -130,11 +130,24 @@ pub fn decode_canonical(bytes: &[u8]) -> Option<TxEnvelope> {
     (remaining.is_empty() && tx.encoded_2718().as_slice() == bytes).then_some(tx)
 }
 
-/// Whether a canonical transaction requires singleton validation before a due skip.
-/// Legacy/type-1 gas price and typed execution max-fee caps use the same immutable wei floor.
-/// This predicate never restricts matching transaction-zero inclusion or pre-due blocks.
-pub fn requires_singleton_skip(tx: &TxEnvelope) -> bool {
-    tx.max_fee_per_gas() >= FI_MIN_EXEC_FEE_CAP
+/// Decodes an eligible FI transaction without consulting execution state or fees.
+/// Canonical decoding enforces field widths, parity and exact re-encoding. Authorization
+/// tuple signatures remain the EL's responsibility and do not affect this predicate.
+pub fn decode_eligible(bytes: &[u8], l2_chain_id: u64, block_gas_limit: u64) -> Option<TxEnvelope> {
+    let tx = decode_canonical(bytes)?;
+    if tx.is_eip4844() || tx.gas_limit() > block_gas_limit {
+        return None;
+    }
+    if tx.chain_id().is_some_and(|chain| chain != l2_chain_id) {
+        return None;
+    }
+    if !tx.is_legacy() && tx.chain_id() != Some(l2_chain_id) {
+        return None;
+    }
+    if tx.signature().normalize_s().is_some() || tx.recover_signer().is_err() {
+        return None;
+    }
+    Some(tx)
 }
 
 /// Authenticates `index` at `inbox` under `state_root` and decodes the two storage words.
@@ -163,7 +176,7 @@ pub fn verify_entry(
         index,
         tx_hash: hash.into(),
         timestamp: word_u48(metadata, 0),
-        l1_block: word_u64(metadata, 48),
+        l1_block: word_u48(metadata, 48),
     })
 }
 
@@ -173,15 +186,10 @@ pub(crate) fn is_due(timestamp: u64, delay: u64, anchor_timestamp: u64) -> bool 
     u128::from(anchor_timestamp) >= u128::from(timestamp) + u128::from(delay)
 }
 
-/// Classifies one block's forced entry using its authenticated index, proof and available bytes.
-///
-/// An exhausted queue forbids a witness; a pending entry requires its two-slot proof. A canonical
-/// `first_tx` within the byte cap whose hash matches the entry consumes it without a duplicate
-/// preimage. Before due, an omitted preimage permits an ordinary block. A due skip requires the
-/// exact preimage: canonical bytes meeting [`FI_MIN_EXEC_FEE_CAP`] return
-/// [`ForcedDecision::NeedsSkip`] for further validation; malformed or lower-cap bytes consume
-/// directly. Nonempty redundant preimages remain hash-checked for historical envelope
-/// compatibility. Neither malformed nor low-cap bytes can be skipped early; there is no expiry.
+/// Authenticates the queue head and any supplied preimage before every acceptance branch.
+/// Only an eligible matching transaction at position zero consumes an inclusion. Before due,
+/// omission consumes nothing. A due ineligible preimage can be skipped directly; every eligible
+/// omission requires a completed singleton build, independent of its fee cap.
 pub fn check(
     context: ForcedContext<'_>,
     witness: Option<&ForcedWitness>,
@@ -208,7 +216,7 @@ pub fn check(
     if first_tx.is_some_and(|tx| {
         tx.len() <= MAX_FORCED_TX_BYTES &&
             keccak256(tx) == entry.tx_hash &&
-            decode_canonical(tx).is_some()
+            decode_eligible(tx, context.l2_chain_id, context.block_gas_limit).is_some()
     }) {
         return Ok(ForcedDecision::Included(context.cursor));
     }
@@ -220,7 +228,7 @@ pub fn check(
     if got != entry.tx_hash {
         return Err(ForcedError::TxHashMismatch { expected: entry.tx_hash, got });
     }
-    Ok(if decode_canonical(&w.tx).as_ref().is_some_and(requires_singleton_skip) {
+    Ok(if decode_eligible(&w.tx, context.l2_chain_id, context.block_gas_limit).is_some() {
         ForcedDecision::NeedsSkip { index: context.cursor, tx: w.tx.clone() }
     } else {
         ForcedDecision::SkippedInvalid(context.cursor)

@@ -458,6 +458,7 @@ mod tests {
         );
 
         let attributes = TaikoPayloadAttributes {
+            max_block_bytes: None,
             payload_attributes: Default::default(),
             base_fee_per_gas: U256::from(7u64),
             block_metadata: Default::default(),

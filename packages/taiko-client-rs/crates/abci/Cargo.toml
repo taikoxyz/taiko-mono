@@ -23,7 +23,11 @@ alloy-rpc-types-engine = { workspace = true, features = ["std", "serde"] }
 alloy-trie = { workspace = true, features = ["std", "ethereum"] }
 
 # consensus
+base64 = { workspace = true }
+k256 = { workspace = true, features = ["ecdsa"] }
+prost = { workspace = true }
 tendermint = { workspace = true }
+tendermint-proto = { workspace = true }
 tower = { workspace = true }
 tower-abci = { workspace = true }
 

@@ -4,10 +4,7 @@ use crate::{
     test_utils::{TestState, sample_transactions},
     types::{AnchorState, InboxFacts},
 };
-use alloy_consensus::{
-    SignableTransaction, TxEip1559, TxEip2930, TxEip4844, TxEip4844Variant, TxEip7702, TxEnvelope,
-    TxLegacy,
-};
+use alloy_consensus::{SignableTransaction, TxEip1559, TxEip2930, TxEip7702, TxEnvelope, TxLegacy};
 use alloy_eips::eip2718::Encodable2718;
 use alloy_primitives::{Address, B256, Bytes, TxKind, U256, address, keccak256};
 use alloy_rlp::Decodable;
@@ -33,7 +30,6 @@ fn fixture(tx: Bytes) -> (AnchorState, ForcedWitness) {
         state_root: state.state_root(),
         timestamp: T0 + DELAY,
         inbox: InboxFacts {
-            status: 3,
             recovery_generation: 0,
             last_checkpoint_height: 0,
             last_checkpoint_hash: B256::ZERO,
@@ -46,7 +42,14 @@ fn fixture(tx: Bytes) -> (AnchorState, ForcedWitness) {
 }
 
 fn context(anchor: &AnchorState) -> ForcedContext<'_> {
-    ForcedContext { cursor: INDEX, anchor, delay: DELAY, inbox: INBOX }
+    ForcedContext {
+        cursor: INDEX,
+        anchor,
+        delay: DELAY,
+        inbox: INBOX,
+        l2_chain_id: 167001,
+        block_gas_limit: 45_000_000,
+    }
 }
 
 fn canonical_tx() -> Bytes {
@@ -62,26 +65,26 @@ fn fee_cap_transactions(fee_cap: u128) -> Vec<Bytes> {
         ..Default::default()
     };
     let access_list = TxEip2930 {
+        chain_id: 167001,
         gas_price: fee_cap,
         gas_limit: 21_000,
         to: TxKind::Call(INBOX),
         ..Default::default()
     };
     let dynamic = TxEip1559 {
+        chain_id: 167001,
         max_fee_per_gas: fee_cap,
         gas_limit: 21_000,
         to: TxKind::Call(INBOX),
         ..Default::default()
     };
-    let blob = TxEip4844Variant::TxEip4844(TxEip4844 {
+    let authorization = TxEip7702 {
+        chain_id: 167001,
         max_fee_per_gas: fee_cap,
-        max_fee_per_blob_gas: u128::MAX,
         gas_limit: 21_000,
         to: INBOX,
         ..Default::default()
-    });
-    let authorization =
-        TxEip7702 { max_fee_per_gas: fee_cap, gas_limit: 21_000, to: INBOX, ..Default::default() };
+    };
     let signature = |hash: B256| signer.sign_with_predefined_k(&hash.0).unwrap().signature;
     vec![
         TxEnvelope::Legacy(legacy.clone().into_signed(signature(legacy.signature_hash()))),
@@ -89,7 +92,6 @@ fn fee_cap_transactions(fee_cap: u128) -> Vec<Bytes> {
             access_list.clone().into_signed(signature(access_list.signature_hash())),
         ),
         TxEnvelope::Eip1559(dynamic.clone().into_signed(signature(dynamic.signature_hash()))),
-        TxEnvelope::Eip4844(blob.clone().into_signed(signature(blob.signature_hash()))),
         TxEnvelope::Eip7702(
             authorization.clone().into_signed(signature(authorization.signature_hash())),
         ),
@@ -100,13 +102,13 @@ fn fee_cap_transactions(fee_cap: u128) -> Vec<Bytes> {
 }
 
 #[test]
-fn due_low_fee_cap_transactions_skip_without_singleton_validation() {
+fn due_low_fee_cap_transactions_require_singleton_validation() {
     for raw in fee_cap_transactions(999_999_999) {
         assert!(decode_canonical(&raw).is_some(), "fee eligibility never narrows decoding");
-        let (anchor, witness) = fixture(raw);
+        let (anchor, witness) = fixture(raw.clone());
         assert_eq!(
             check(context(&anchor), Some(&witness), None),
-            Ok(ForcedDecision::SkippedInvalid(INDEX))
+            Ok(ForcedDecision::NeedsSkip { index: INDEX, tx: raw })
         );
     }
 }
@@ -206,7 +208,7 @@ fn authenticated_entry_masks_field_widths_and_ignores_padding() {
     )]);
     let w = state.witness(INBOX, &slots);
     let e = verify_entry(state.state_root(), &w, INBOX, INDEX).unwrap();
-    assert_eq!((e.timestamp, e.l1_block), (timestamp, u64::MAX));
+    assert_eq!((e.timestamp, e.l1_block), (timestamp, (1 << 48) - 1));
 }
 
 #[test]
@@ -497,4 +499,19 @@ fn matching_hash_does_not_turn_noncanonical_first_bytes_into_inclusion() {
         check(context(&anchor), Some(&witness), Some(&raw)),
         Err(ForcedError::TxHashMismatch { .. })
     ));
+}
+
+#[test]
+fn v1_all_shared_eligibility_boundaries() {
+    let v = crate::test_utils::vectors::at("/fi_eligibility");
+    let chain = v["l2_chain_id"].as_str().unwrap().parse().unwrap();
+    let gas = v["l2_block_gas_limit"].as_str().unwrap().parse().unwrap();
+    let mut failures = Vec::new();
+    for case in v["cases"].as_array().unwrap() {
+        let raw = alloy_primitives::hex::decode(case["raw"].as_str().unwrap()).unwrap();
+        if decode_eligible(&raw, chain, gas).is_some() != case["eligible"].as_bool().unwrap() {
+            failures.push(case["name"].as_str().unwrap());
+        }
+    }
+    assert!(failures.is_empty(), "eligibility mismatches: {failures:?}");
 }

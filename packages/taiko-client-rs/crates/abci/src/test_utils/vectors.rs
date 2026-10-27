@@ -7,7 +7,7 @@
 
 use std::sync::OnceLock;
 
-use alloy_primitives::{Address, B256, U256};
+use alloy_primitives::{B256, U256};
 use serde_json::Value;
 
 use crate::types::RegistryEntry;
@@ -16,7 +16,7 @@ use crate::types::RegistryEntry;
 pub(crate) fn vectors() -> &'static Value {
     static VECTORS: OnceLock<Value> = OnceLock::new();
     VECTORS.get_or_init(|| {
-        serde_json::from_str(include_str!("../../../../../../testdata/etna_vectors/vectors.json"))
+        serde_json::from_str(include_str!("../../testdata/v1-vectors.json"))
             .expect("the shared Etna vectors are valid JSON")
     })
 }
@@ -57,11 +57,6 @@ pub(crate) fn b256_at(pointer: &str) -> B256 {
     str_at(pointer).parse().unwrap_or_else(|e| panic!("Etna vector {pointer}: {e}"))
 }
 
-/// The address at `pointer`.
-pub(crate) fn address_at(pointer: &str) -> Address {
-    str_at(pointer).parse().unwrap_or_else(|e| panic!("Etna vector {pointer}: {e}"))
-}
-
 /// The 32-byte words of the array at `pointer`.
 pub(crate) fn b256s_at(pointer: &str) -> Vec<B256> {
     (0..len_at(pointer)).map(|i| b256_at(&format!("{pointer}/{i}"))).collect()
@@ -76,13 +71,11 @@ pub(crate) fn u64s_at(pointer: &str) -> Vec<u64> {
 pub(crate) fn registry_entry(index: usize) -> RegistryEntry {
     let field = |name: &str| format!("/registry_entries/entries/{index}/{name}");
     RegistryEntry {
-        reward_recipient: address_at(&field("reward_recipient")),
-        pubkey: b256_at(&field("pubkey")),
+        ck_prefix: u64_at(&field("ck_prefix")) as u8,
+        ck_x: b256_at(&field("ck_x")),
         eff_stake: u256_at(&field("eff_stake")),
         active_from_l1: u64_at(&field("active_from_l1")),
         exit_effective_l1: u64_at(&field("exit_effective_l1")),
-        last_heartbeat_at: u64_at(&field("last_heartbeat_at")),
-        last_heartbeat_seq: u64_at(&field("last_heartbeat_seq")),
     }
 }
 

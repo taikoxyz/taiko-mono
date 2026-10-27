@@ -12,7 +12,7 @@ tokio = { workspace = true }
 # ethereum
 alloy = { workspace = true, features = ["consensus", "signer-local", "std", "json", "rpc-types"] }
 alloy-eips = { workspace = true }
-alloy-genesis = "1.8.3"
+alloy-genesis = "2.4.2"
 alloy-primitives = { workspace = true, features = ["std", "serde"] }
 alloy-provider = { workspace = true }
 alloy-trie = { workspace = true, features = ["ethereum"] }
@@ -41,5 +41,6 @@ serde_json = { workspace = true }
 # testing
 base64 = { workspace = true }
 ed25519-dalek = { workspace = true }
+k256 = { workspace = true, features = ["ecdsa"] }
 sha2 = { workspace = true }
 tempfile = { workspace = true }

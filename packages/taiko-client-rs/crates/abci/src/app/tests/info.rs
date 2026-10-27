@@ -13,7 +13,6 @@ use crate::{
     elsync::ElSyncError,
     engine::PayloadVerdict,
     rules::RuleViolation,
-    schedule::ScheduleError,
     store::CommitteeState,
     test_utils::{EngineCall, MockEngine},
     types::ParentInfo,
@@ -292,13 +291,13 @@ async fn app_new_rejects_a_changed_inbox_after_initialization() {
 }
 
 #[tokio::test]
-async fn app_new_rejects_a_stored_schedule_violating_the_cap() {
+async fn app_new_rejects_a_changed_authenticated_unsettled_cap() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     drop(initialized(&fx, dir.path()).await);
 
     // L = 20 is too short once the cap grows to 18.
-    let params = ChainParams { d_max: 20, ..fx.params.clone() };
+    let params = ChainParams { unsettled_limit: 18, ..fx.params.clone() };
     let err = App::new(
         fx.l1(),
         fx.engine(),
@@ -308,7 +307,7 @@ async fn app_new_rejects_a_stored_schedule_violating_the_cap() {
     )
     .expect_err("stored schedule violates the cap");
     assert!(
-        matches!(err, AbciError::Schedule(ScheduleError::EpochShorterThanCap { .. })),
+        matches!(err, AbciError::StoredState(ref msg) if msg.contains("configuration")),
         "{err:?}"
     );
 }
@@ -428,7 +427,7 @@ async fn check_tx_rejects_every_transaction() {
 #[test]
 fn saved_state_rejects_old_and_unknown_protocol_versions() {
     let fx = Fixture::genesis(1);
-    for version in [0, 1, 2, crate::app::APP_VERSION + 1] {
+    for version in [0, 4, 2, crate::app::APP_VERSION + 1] {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::volatile(dir.path().into());
         let mut state = fx.expected_state();
@@ -440,19 +439,6 @@ fn saved_state_rejects_old_and_unknown_protocol_versions() {
             matches!(result,Err(AbciError::StoredState(ref msg)) if msg.contains("app version"))
         );
     }
-}
-
-#[test]
-fn saved_state_rejects_payout_metadata_outside_its_set_commitment() {
-    let fx = Fixture::genesis(1);
-    let dir = tempfile::tempdir().unwrap();
-    let store = Store::volatile(dir.path().into());
-    let mut state = fx.expected_state();
-    state.committees.get_mut(&0).unwrap().members[0].reward_recipient =
-        alloy_primitives::Address::repeat_byte(0x88);
-    store.save(&state).unwrap();
-    let result = App::new(fx.l1(), fx.engine(), fx.params.clone(), store, AppOptions::default());
-    assert!(matches!(result, Err(AbciError::StoredState(ref msg)) if msg.contains("committee")));
 }
 
 #[test]
@@ -491,7 +477,7 @@ fn saved_state_checks_every_committees_power_and_totals() {
                 "member+1" => committee.members[0].power += 1,
                 "zero" => committee.members[0].power = 0,
                 "total-power" => committee.record.total_power += 1,
-                "total-stake" => committee.record.total_stake += U256::from(1),
+                "total-stake" => committee.record.total_power += 1,
                 "ineligible" => committee.members[0].eff_stake = U256::ZERO,
                 "power-overflow" => committee.members[0].eff_stake = U256::MAX,
                 "power-cap" => {

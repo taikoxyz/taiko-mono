@@ -65,7 +65,7 @@ async fn witness_at(app: &App<MockL1, MockEngine>, n_p: u64) -> CommitteeWitness
 /// (a) The honest proposer moves the anchor to [`NEW_ANCHOR`] and proves committee 2 at the
 /// parent's anchor [`PARENT_ANCHOR`]: snapshot 1010 selects the genesis checkpoint. Accepted.
 #[tokio::test]
-async fn committee_witness_proven_at_the_parent_anchor_is_accepted() {
+async fn committee_witness_uses_own_anchor_root_and_parent_cutoff() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let (mut app, moved) = before_switch(&fx, dir.path()).await;
@@ -73,7 +73,18 @@ async fn committee_witness_proven_at_the_parent_anchor_is_accepted() {
     let env = propose(&mut app).await;
     assert_eq!(env.anchor.as_ref().map(|w| w.l1_header.number()), Some(NEW_ANCHOR));
     let w = env.committee.clone().expect("switch 2 carries a committee witness");
-    assert_eq!(w, witness_at(&app, PARENT_ANCHOR).await);
+    assert_eq!(
+        w,
+        crate::l1::build_committee_witness_at_cutoff(
+            app.l1(),
+            &app.params,
+            NEW_ANCHOR,
+            PARENT_ANCHOR,
+            2
+        )
+        .await
+        .unwrap()
+    );
     assert_eq!(w.record.target_epoch, 2);
     assert_eq!(w.record.cutoff_l1_block, PARENT_ANCHOR, "committed parent snapshot");
     assert_eq!(w.record.checkpoint_index, 0, "checkpoint 1 (block 1020) is after the parent");
@@ -92,7 +103,7 @@ async fn committee_witness_proven_at_the_parent_anchor_is_accepted() {
 /// (b) The candidate anchor 1030 selects the joined checkpoint and is valid there, but its
 /// registry proof does not authenticate under the committed parent 1010, so it is refused.
 #[tokio::test]
-async fn committee_witness_proven_at_the_new_anchor_is_rejected() {
+async fn committee_witness_cannot_select_a_newer_cutoff() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let (mut app, moved) = before_switch(&fx, dir.path()).await;
@@ -110,7 +121,7 @@ async fn committee_witness_proven_at_the_new_anchor_is_rejected() {
     let anchor = fx.anchor_witness(app.l1(), NEW_ANCHOR);
     let env = hand_envelope(&app, Some(anchor), Some(w));
     match validate(&app, &env) {
-        Err(Rejection::Committee(CommitteeError::Mpt(MptError::Account(_)))) => {}
+        Err(Rejection::Committee(CommitteeError::CheckpointAfterCutoff { .. })) => {}
         other => panic!("expected the registry account proof to fail at the parent: {other:?}"),
     }
     assert_eq!(rejected(&mut app, &env).await, "committee_witness");
@@ -130,7 +141,15 @@ async fn forged_committee_witnesses_are_rejected() {
     let dir = tempfile::tempdir().unwrap();
     let (mut app, _) = before_switch(&fx, dir.path()).await;
     let anchor = fx.anchor_witness(app.l1(), NEW_ANCHOR);
-    let valid = witness_at(&app, PARENT_ANCHOR).await;
+    let valid = crate::l1::build_committee_witness_at_cutoff(
+        app.l1(),
+        &app.params,
+        NEW_ANCHOR,
+        PARENT_ANCHOR,
+        2,
+    )
+    .await
+    .unwrap();
     let env = hand_envelope(&app, Some(anchor.clone()), Some(valid.clone()));
     assert!(validate(&app, &env).is_ok(), "the unforged witness passes");
 
@@ -158,7 +177,7 @@ async fn forged_committee_witnesses_are_rejected() {
             "count and entriesRoot words forged to match a dropped entry",
             Box::new(move |w| {
                 w.entries.truncate(2);
-                w.registry.storage[1].value = U256::from(l1_0) | (U256::from(2) << 64);
+                w.registry.storage[1].value = U256::from(l1_0) | (U256::from(2) << 48);
                 w.registry.storage[2].value = entries_root(&w.entries).into();
             }),
             storage,

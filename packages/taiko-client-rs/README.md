@@ -30,7 +30,7 @@ asks the app's private control socket before every signature (see
           └── --data-dir: abci-state.json
 ```
 
-- **CometBFT** runs consensus among the current committee (Ed25519 keys, voting power derived
+- **CometBFT** runs consensus among the current committee (native secp256k1eth keys, voting power derived
   from stake) and keeps the block store. Its mempool is disabled (`mempool.type = "nop"`): user
   transactions travel over the execution layer's devp2p, and the proposer's alethia-reth picks
   them from its own txpool.
@@ -64,111 +64,45 @@ asks the app's private control socket before every signature (see
 | `script/`              | Maintenance scripts (binding generation)                                                              |
 | `tests/`               | The integration test entrypoint and the test JWT secret                                               |
 
-## Committees from the committed parent anchor
+## Committees and fresh-genesis runtime
 
-Epoch `t` starts at `H(t) = 1 + t * epochLenL2`. Committee 0 uses `genesisCutoff`.
-Every later committee uses the committed parent of its switch block:
+The ABCI runtime follows the V1 specification with native stock CometBFT 0.40.0
+`secp256k1eth` validator keys. Its 48-byte chain ID is `etna-` plus the unpadded base64url
+Keccak digest of the ABI-encoded `ETNA_COMET_DOMAIN_V1` tag, full L1 and L2 chain IDs,
+Inbox address and uint48 generation. P2P node keys are separate Ed25519 identities.
+Only fresh generation zero starts are supported.
 
-```text
-switch(t) = H(t) - 2
-derivationParent(t) = H(t) - 3
-snapshot(t) = anchor.number in committed EL block derivationParent(t)
-```
+For positive epochs, `H(t)=tL`, `S(t)=tL-2` and `D(t)=tL-3`; epoch zero starts at height 1.
+The switch block derives the next committee using the committed D(t) anchor number as its
+cutoff (at least L1_0), but authenticates its complete registry proof under S(t)'s own anchor
+root. Comet applies the returned validator updates at H(t). At L=3, the first switch is block 1.
+Eligible keys must be unique; selection orders stake descending with set-key tie breaking.
+There are no heartbeat or registered-recipient rules.
 
-At the switch, nodes prove the latest registry checkpoint at or before that snapshot under
-the committed parent's exact L1 state root. Eligibility is evaluated at the snapshot number,
-even when the last registry mutation is older. Snapshot entries are fully verified before base eligibility and lowest-bond-id pubkey
-deduplication. The top `n_max` seats are then selected by stake before heartbeat filtering;
-missing heartbeats leave those seats empty without backfilling from lower-ranked entries.
-Committees 0, 1 and 2 retain their launch heartbeat exemption. A later committee keeps a seat
-holder only if its heartbeat sequence is nonzero and its last heartbeat is at or after the start
-of the heartbeat window before the one containing the snapshot.
+The seven-word `ETNA_COMMITTEE_CONFIG_V1` hash binds the L2 chain ID, registry, vpUnit,
+sMin, nMax and direct unsettled limit U. U is a multiple of six in 6..=65536, independent of L.
+The schedule requires L>=3 and L+1 within uint48. Registry entries are
+`[ckPrefix, ckX, effStake, activeFromL1, exitEffectiveL1]`; committee records contain
+`[targetEpoch, cutoffL1Block, checkpointIndex, setRoot, totalPower]`.
 
-At `H(t) - 2`, the envelope carries committee `t`'s witness and `FinalizeBlock` returns the
-validator updates. CometBFT activates them at `H(t)`. Epoch-first blocks no longer publish a
-future committee. The Inbox stores only the genesis committee hash and the authenticated
-`committeeConfigHash`; no separate `set()` transaction or landed epoch mapping authorizes a
-switch. The proof guest must independently derive every required signing/pending committee
-from the same authenticated historical snapshot and configuration, including arbitrary batch cuts.
+Every consensus handler enforces the 124000-byte raw ExecutionBlock RLP limit. Etna Engine
+builds include `max_block_bytes=Some(124000)`, including singleton FI probes, and the build
+fingerprint includes that bound. The header fee-sharing byte is 100. A proposer chooses its
+beneficiary locally; validators validate the certified block's beneficiary without a registry
+recipient binding. Historical state error -38100 stops the node with durable fatal evidence.
 
-For example, with ten blocks per epoch, committee 1 is derived at height 9 from height 8's
-committed anchor and activates at height 11. If height 8 anchored L1 block 1010, a new anchor
-1030 proposed at height 9 cannot change that selection. A different decided history whose
-height 8 anchored 1020 may select a different committee; all nodes replaying one history agree.
+Envelope version remains 6; the app protocol version is 1 and its state schema is 13.
+Older state shapes and deployment domains are refused, with no implicit migration. Never reset
+signed state or Comet history to force startup. The app persists `last_comet_hash` with each
+commit and writes `comet-hash-{height}.json` first; retain this history for checkpoint trust.
+`fatal-evidence.txt` survives restarts and records the first safety failure for operator repair.
 
-The config hash binds ten ABI words under `ETNA_PARENT_ANCHOR_V5`: L2 chain id,
-registry, `vp_unit`, `s_min`, `n_max`, `heartbeat_window`, recipient-bound committee encoding
-version 2, `d_max` and `margin_v`. The opening is exactly 320 bytes.
-The coordinated format is envelope v6, payload v6, V10 statement (21 words / 672 bytes),
-journal schema 12, committee encoding version 2 and `APP_VERSION = 4`. State files must
-carry that exact app version and all authenticated genesis, anchor and FI fields. Old app/config versions and structural formats
-are explicitly rejected; no migration or signed-journal rewrite is provided. Never delete an
-outstanding signed nonce or CometBFT history to force startup.
-
-Settlement back-pressure remains `height - anchoredCheckpointHeight <= d_max - margin_v`;
-generation behavior is unchanged. Thus committee authorization does not wait for `land`, while
-a long settlement outage can still stop overall block production. An empty committed-parent roster
-and an outgoing committee without quorum still require explicit protocol recovery; this change
-does not supply an implicit replacement set.
-
-The incoming set becomes certain only after its derivation parent commits. Valid preceding
-anchor choices can affect membership, so guaranteed advance notice is shorter. Once an empty
-parent snapshot is committed, later L1 registry changes cannot repair that switch. Stake
-retention, withdrawal timing and restart trust assumptions remain; this change does not add
-a recovery-generation bootstrap or an implicit replacement set. Governance recovery and the
-recovery-generation bootstrap remain unimplemented; the supported deployment path is
-new-genesis-only.
-
-## New-genesis deployment order
-
-Deploy the registry and register nonzero immutable L2 recipients first. Predict the Inbox proxy
-CREATE address, export a constructor-resolved `L2FeeVault` runtime bound to that Inbox/L1 chain,
-and install it at the canonical treasury with zero balance, alongside the explicit EIP-4788 roots
-and EIP-2935 history runtimes. Set `BasefeeSharingPctg = 0`. Preserve canonical devnet genesis fields except alloc and the derived top-level
-`stateRoot`, which must be omitted after changing alloc. Start the custom-genesis EL and verify its actual block-0 hash/state root
-before initializing Inbox with those commitments. Keep the deployment wallet's nonce unchanged
-between address prediction and deployment. Only after L1 initialization finality should
-`abci-genesis` construct the CometBFT genesis. The deploy script always leaves the registry
-unbound. Verify the authenticated config, EL genesis and intended node startup (prefer a first
-finalized landing where practical), then have the registry owner explicitly call `bindInbox(inbox)`
-once. This binding cannot be redirected; an unverified candidate can be replaced before binding
-by repeating address prediction and genesis setup. Withdrawals fail closed until bound; registration,
-consensus and landing can proceed. See the complete
-[protocol deployment instructions](https://github.com/taikoxyz/taiko-mono/blob/08bcaca2cf764a9e951a9163e302849a016f7862/packages/protocol/contracts/layer1/etna/README.md#genesis-initialization).
-
-The required [EL dependency](https://github.com/taikoxyz/alethia-reth/pull/251) is revision
-`5d4d21ac472c024703082ba46c6eacfa3b8ec1bf`, image `us-docker.pkg.dev/evmchain/images/alethia-reth:sha-5d4d21a`,
-verified manifest digest `sha256:85d23ce00bfe9e917bd3c327256d2c11cc05085a83c7afa33af8f11f50c8d495`.
-It rebuilds the chainspec for an alloc-only canonical devnet override before computing block 0.
-The genesis input/source hashes are indexed in `crates/test-harness/contracts/genesis.manifest.json`;
-real runtime acceptance verifies immutable vault configuration, roots/history and fee movement.
-The protocol dependency is [PR #22286](https://github.com/taikoxyz/taiko-mono/pull/22286); its exact
-immutable revision appears in the artifact index below. This is new-genesis-only deployment.
-
-## Genesis schedule bounds and pacing
-
-Inbox initialization fixes `L1_0` (the initialization block) and `L = epochLenL2`, and the
-configuration hash fixes the unsettled cap `U = d_max - margin_v`, so only a new deployment
-corrects a bad value. `abci`, `abci-genesis` and the lander reject:
-
-- `d_max <= margin_v` (`U = 0`): block 1 would already exceed the cap against the genesis
-  checkpoint at height 0, so the chain could never produce it;
-- `L < 3` or `L < U + 3`;
-- `h_first(1) = L + 1` above `type(uint48).max`, the last height `land` accepts;
-- `L1_0` above `type(uint48).max`, the last anchor number the `extraData` encodes; every
-  anchor is at or above `L1_0`.
-
-Only the first transition is range-checked; at practical values the `uint48` limits lie millions
-of years ahead. The contract checks `3 <= L < type(uint48).max`. `U = 0` is already rejected by
-`abci-committee-record` before deployment, but the schedule bounds are first checked by
-`abci-genesis` after initialization, so check `L + 1` before deploying.
-
-Pacing is the deployer's obligation, not a validity rule. Epochs place no floor on the anchor:
-a block's anchor only has to be at or after its parent's and at most `maxAnchorAge` older than
-the block, so the L2 block rate is not tied to L1's. Back-pressure paces settlement: L2 pauses
-(`back_pressure`) while `U` blocks are unlanded, so choose `U` above the number of blocks
-produced during one landing round trip (proving, `land` inclusion and the landing's L1 finality)
-unless such pauses are intended.
+The aligned dependencies are protocol commit `23963b68e43b4cbeaf83113eeb61fbc1bddb4c46`
+and EL `b046734a0a47b17ca66c33ccbc7c9087cbbf9b1e`. Fresh genesis must set fee sharing to 100,
+start the EL and verify block 0, then initialize Inbox and authenticate its finalized L1 record,
+including generation origin slot 290. Genesis generation is always zero. The CLI, lander,
+contract-artifact and deployment sections below are being migrated in the separate integration
+task; they do not describe a completed end-to-end deployment of this core-only change.
 
 ## Forced inclusion
 
@@ -314,12 +248,10 @@ Serves the ABCI++ application to a CometBFT node.
 The four timeouts accept 1 to 3600 seconds. The L2 chain id is read from `--l2.http` and
 selects the built-in chain parameters. Only the internal devnet (chain id `167001`) has Etna PoS
 parameters so far; on other chains `abci` refuses to start. The `--chain-config` TOML uses the
-snake_case names of `abci::ChainParams` (for example `d_max = 1024`); absent keys keep their
-built-in values. `fee_vault` and `block_gas_limit` may only repeat the built-in values, because
-the ten-word contract configuration does not commit these fields; changing them requires a
-coordinated protocol/built-in update. `d_max` and `margin_v` are committed, so a chain may set
-its own; every node and lander of that chain must use the values its Inbox configuration hash
-opens with. The authenticated Inbox address
+snake_case names of `abci::ChainParams` (for example `unsettled_limit = 3600`); absent keys keep their
+built-in values. The removed `d_max`, `margin_v`, `heartbeat_window` and `fee_vault` keys are
+rejected. `block_gas_limit` stays fixed by the built-in EL parameters. `fee_recipient` is local;
+all nodes must use the authenticated seven-word committee configuration. The Inbox address
 is also required in persisted state and checked again on restart. `InitChain` requires the exact
 L1_0 genesis time, canonical representable CometBFT consensus parameters, and an EL genesis
 header whose hash and state root match H* and S*.
@@ -875,12 +807,12 @@ or config opening differs.
 
 - Every app start and every signer session start closed. The app pins one block of its own L1
   `finalized` view and authenticates the Inbox's latest checkpoint there: the L1 header and
-  state root, exact account and storage proofs, canonicality, generation and checkpoint hash.
+  state root, exact account and storage proofs, canonicality, generation and both the checkpoint EL hash and slot-285 Comet hash.
   While closed, `/trust` and `/status` report `trust_ready = false`, `syncing = true` and no
   `trusted_consensus_head`; `trust_target` shows the pinned checkpoint and `trust_reason` why
   trust is still closed. Info, InitChain and historical Finalize/Commit replay continue
   normally meanwhile.
-- Trust opens only at the target height with an exact hash match. A committed head already
+- Trust opens only after both target hashes match durable committed history. A committed head already
   above the target must prove its complete `parentHash` ancestry down to the target; finding
   the target in alethia-reth is not enough. Readiness opens after the matching state is durable
   and the latest finalized checkpoint has been read again; if that checkpoint is now higher,
@@ -897,7 +829,7 @@ or config opening differs.
 - Checkpoint fence: `FinalizeBlock` passes the `lastCheckpoint.hash` proven by the block's
   anchor as forkchoice `finalized`. alethia-reth rejects a head that does not descend from it
   with `-38002` (invalid forkchoice state), and the app stops with a safety halt. With
-  back-pressure, this bounds a history forged with old keys to `d_max - margin_v` blocks beyond
+  back-pressure, this bounds a history forged with old keys to `unsettled_limit` blocks beyond
   its fork point.
 - While untrusted, forkchoice passes `safe = 0`, so a replayed candidate never becomes the EL
   safe head, and still passes the historical checkpoint as `finalized`. Syncing alethia-reth to

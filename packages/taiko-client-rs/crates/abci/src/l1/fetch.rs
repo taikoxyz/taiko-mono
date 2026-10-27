@@ -14,11 +14,11 @@ use std::{
     time::Duration,
 };
 
-use alloy_primitives::{Address, B256, U256};
+use alloy_primitives::{B256, U256};
 use futures::{StreamExt, TryStreamExt, stream};
 
 use super::{
-    layout::{registry, word_u32, word_u64},
+    layout::{registry, word_u8, word_u48},
     source::{L1Error, L1Source},
 };
 use crate::{
@@ -227,7 +227,7 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
         let (mut lo, mut hi) = (0u64, length);
         while lo < hi {
             let mid = lo + (hi - lo) / 2;
-            if word_u64(self.head(mid, n_p).await?, 0) <= cutoff {
+            if word_u48(self.head(mid, n_p).await?, 0) <= cutoff {
                 lo = mid + 1;
             } else {
                 hi = mid;
@@ -235,8 +235,8 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
         }
         let index = lo.saturating_sub(1);
         let head = self.head(index, n_p).await?;
-        let (l1_block, count) = (word_u64(head, 0), word_u32(head, 64));
-        if count > MAX_REGISTRY_ENTRIES {
+        let (l1_block, count) = (word_u48(head, 0), word_u48(head, 48));
+        if count > u64::from(MAX_REGISTRY_ENTRIES) {
             return Err(FetchError::Registry(format!(
                 "checkpoint {index} claims {count} entries, above the discovery cap of \
                  {MAX_REGISTRY_ENTRIES}"
@@ -246,7 +246,7 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
         let next = index.checked_add(1).filter(|next| *next < length);
         let entries_block = match next {
             Some(next) => {
-                let next_l1_block = word_u64(self.head(next, n_p).await?, 0);
+                let next_l1_block = word_u48(self.head(next, n_p).await?, 0);
                 n_p.min(next_l1_block.saturating_sub(1))
             }
             None => n_p,
@@ -270,8 +270,7 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
     /// The first `count` registry entries as stored at L1 block `block`, read with one
     /// `account_witness` call per [`ENTRY_BATCH`] entries (the proofs are not needed), at most
     /// [`ENTRY_READS_IN_FLIGHT`] calls at once; the first failing batch fails the read.
-    async fn entries(&self, count: u32, block: u64) -> Result<Vec<RegistryEntry>, FetchError> {
-        let count = u64::from(count);
+    async fn entries(&self, count: u64, block: u64) -> Result<Vec<RegistryEntry>, FetchError> {
         let ranges = (0..count.div_ceil(ENTRY_BATCH))
             .map(|i| i * ENTRY_BATCH..count.min((i + 1) * ENTRY_BATCH));
         let batches: Vec<Vec<RegistryEntry>> = stream::iter(ranges)
@@ -310,17 +309,15 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
         }
         let entries: Vec<RegistryEntry> = witness
             .storage
-            .chunks_exact(4)
+            .chunks_exact(3)
             .map(|words| {
                 let packed = words[2].value;
                 Ok(RegistryEntry {
-                    reward_recipient: decode_reward_recipient(words[3].value)?,
-                    pubkey: B256::from(words[0].value),
+                    ck_prefix: word_u8(packed, 0),
+                    ck_x: B256::from(words[0].value),
                     eff_stake: words[1].value,
-                    active_from_l1: word_u64(packed, 0),
-                    exit_effective_l1: word_u64(packed, 64),
-                    last_heartbeat_at: word_u64(packed, 128),
-                    last_heartbeat_seq: word_u64(packed, 192),
+                    active_from_l1: word_u48(packed, 8),
+                    exit_effective_l1: word_u48(packed, 56),
                 })
             })
             .collect::<Result<_, FetchError>>()?;
@@ -358,19 +355,6 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
     }
 }
 
-/// Decodes a discovery storage word as a canonical nonzero L2 payout address.
-/// The entry remains untrusted until the complete typed snapshot matches its proven entries root.
-fn decode_reward_recipient(word: U256) -> Result<Address, FetchError> {
-    if word >> 160 != U256::ZERO {
-        return Err(FetchError::Registry("noncanonical reward recipient word".into()));
-    }
-    let recipient = Address::from_slice(&word.to_be_bytes::<32>()[12..]);
-    if recipient.is_zero() {
-        return Err(FetchError::Registry("zero reward recipient".into()));
-    }
-    Ok(recipient)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -396,32 +380,6 @@ mod tests {
     }
 
     /// The registry storage slots of entries `0..n`, in read order.
-    #[tokio::test]
-    async fn discovery_rejects_legacy_three_word_entries() {
-        let fx = Fixture::genesis(1);
-        let l1 = fx.l1();
-        let mut words = fx.registry.slots();
-        words.retain(|(slot, _)| *slot != registry::entry_slots(0)[3]);
-        let legacy = TestState::new(vec![(fx.params.registry, 1, U256::ZERO, B256::ZERO, words)]);
-        l1.state().states.insert(fx.genesis.l1_0, legacy);
-        let result = build_committee_witness(&l1, &fx.params, fx.genesis.l1_0, 0).await;
-        assert!(matches!(result, Err(FetchError::Registry(msg)) if msg == "zero reward recipient"));
-    }
-
-    #[test]
-    fn reward_recipient_words_are_canonical_nonzero_addresses() {
-        let recipient = Address::repeat_byte(0x88);
-        let word = U256::from_be_slice(recipient.as_slice());
-        assert_eq!(decode_reward_recipient(word).unwrap(), recipient);
-        assert!(
-            matches!(decode_reward_recipient(U256::ZERO), Err(FetchError::Registry(msg)) if msg == "zero reward recipient")
-        );
-        for bit in [160, 255] {
-            assert!(
-                matches!(decode_reward_recipient(word | (U256::from(1) << bit)), Err(FetchError::Registry(msg)) if msg == "noncanonical reward recipient word")
-            );
-        }
-    }
 
     fn entry_slots(n: u64) -> Vec<B256> {
         (0..n).flat_map(registry::entry_slots).collect()
@@ -597,7 +555,7 @@ mod tests {
             })
             .collect();
         let all = entry_slots(n);
-        let split = usize::try_from(4 * ENTRY_BATCH).unwrap();
+        let split = usize::try_from(3 * ENTRY_BATCH).unwrap();
         assert_eq!(batches, [all[..split].to_vec(), all[split..].to_vec()]);
     }
 
@@ -809,16 +767,14 @@ mod tests {
     /// The L1 state of a registry with one checkpoint (at L1 block 1) whose head claims `count`
     /// entries with only their canonical recipient words stored.
     fn registry_claiming(fx: &Fixture, count: u32) -> TestState {
-        let head = U256::from(1u64) | (U256::from(count) << 64);
+        let head = U256::from(1u64) | (U256::from(count) << 48);
         let mut words = vec![
             (registry::length_slot(), U256::from(1u64)),
             (registry::checkpoint_slots(0)[0], head),
         ];
         // Let discovery decode a capacity-sized fixture fully before its root is rejected.
         if count <= MAX_REGISTRY_ENTRIES {
-            words.extend(
-                (0..u64::from(count)).map(|i| (registry::entry_slots(i)[3], U256::from(1))),
-            );
+            words.extend((0..u64::from(count)).map(|i| (registry::entry_slots(i)[2], U256::ZERO)));
         }
         TestState::new(vec![(fx.params.registry, 1, U256::ZERO, B256::ZERO, words)])
     }

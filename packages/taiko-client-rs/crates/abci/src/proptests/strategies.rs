@@ -112,6 +112,8 @@ pub(super) fn el_header() -> impl Strategy<Value = Header> {
             (difficulty, number, gas_limit, gas_used, timestamp, extra_data, mix_hash, nonce),
             (forks, base_fee, withdrawals_root, blob_gas_used, excess_blob_gas, beacon, requests),
         )| Header {
+            block_access_list_hash: None,
+            slot_number: None,
             parent_hash,
             ommers_hash,
             beneficiary,
@@ -181,46 +183,28 @@ pub(super) fn account_witness() -> impl Strategy<Value = AccountWitness> {
 
 /// A committee record with arbitrary fields.
 pub(super) fn committee_record() -> impl Strategy<Value = CommitteeRecord> {
-    (uint(), uint(), uint(), hash(), word(), uint(), any::<u8>()).prop_map(
-        |(
-            target_epoch,
-            cutoff_l1_block,
-            checkpoint_index,
-            set_root,
-            total_stake,
-            total_power,
-            encoding_version,
-        )| CommitteeRecord {
-            target_epoch,
-            cutoff_l1_block,
-            checkpoint_index,
-            set_root,
-            total_stake,
-            total_power,
-            encoding_version,
+    (uint(), uint(), uint(), hash(), uint()).prop_map(
+        |(target_epoch, cutoff_l1_block, checkpoint_index, set_root, total_power)| {
+            CommitteeRecord {
+                target_epoch,
+                cutoff_l1_block,
+                checkpoint_index,
+                set_root,
+                total_power,
+            }
         },
     )
 }
 
-/// A registry entry with arbitrary fields.
+/// Arbitrary canonical field encodings; derivation separately validates curve membership.
 fn registry_entry() -> impl Strategy<Value = RegistryEntry> {
-    (hash(), word(), uint(), uint(), uint(), uint(), address()).prop_map(
-        |(
-            pubkey,
+    (any::<u8>(), hash(), word(), uint(), uint()).prop_map(
+        |(ck_prefix, ck_x, eff_stake, active_from_l1, exit_effective_l1)| RegistryEntry {
+            ck_prefix,
+            ck_x,
             eff_stake,
             active_from_l1,
             exit_effective_l1,
-            last_heartbeat_at,
-            last_heartbeat_seq,
-            reward_recipient,
-        )| RegistryEntry {
-            reward_recipient,
-            pubkey,
-            eff_stake,
-            active_from_l1,
-            exit_effective_l1,
-            last_heartbeat_at,
-            last_heartbeat_seq,
         },
     )
 }

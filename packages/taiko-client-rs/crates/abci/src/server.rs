@@ -1,17 +1,15 @@
 //! The ABCI socket server.
 //!
 //! CometBFT opens four connections to the app's socket (consensus, mempool, info, snapshot).
-//! [`serve`] answers them through tower-abci: [`split::service`] fans the four connections into
-//! clones of one [`AppService`], and every clone forwards each request, in the order tower-abci
-//! hands it over, into one unbounded channel (tower-abci keeps each connection's order and,
-//! when several connections wait, favours consensus over mempool, snapshot and info requests).
-//! A single dedicated task owns the [`App`] and answers that channel strictly sequentially, so
-//! no two requests ever run concurrently and the app needs no locking.
+//! [`serve`] decodes stock varint-framed protobuf messages with the native key adapter and
+//! forwards them through clones of [`AppService`] into one sequential app worker. Each
+//! connection retains request/response order; the private trust socket remains independent.
+//! No two consensus handlers run concurrently, so the app needs no consensus-state locking.
 //!
 //! An [`AbciError::SafetyHalt`] is logged at ERROR and answered as an error; then the
 //! [`HaltHook`] runs (in production [`ExitProcess`], which exits the process with
 //! [`SAFETY_HALT_EXIT_CODE`]: no automatic restart into signing) and the worker stops. Any other
-//! error is answered as an error too, on which tower-abci closes that connection and CometBFT
+//! error closes the native connection and CometBFT
 //! attempts to stop on its broken ABCI client. The pinned CometBFT socket client can hang if a
 //! new request races with EOF, so process supervision must bound CometBFT's stop separately.
 //!
@@ -26,16 +24,13 @@ use std::{
     task::{Context, Poll},
 };
 
-use tendermint::v0_38::abci::{Request, Response};
+use crate::wire::{Request, Response};
 use tokio::{
     sync::{mpsc, oneshot},
     task::JoinHandle,
 };
 use tower::Service;
-use tower_abci::{
-    BoxError,
-    v038::{Server, split},
-};
+use tower_abci::BoxError;
 
 use crate::{
     app::{AbciError, App},
@@ -53,10 +48,6 @@ pub const SAFETY_HALT_EXIT_CODE: i32 = 2;
 
 /// The default ABCI listen address (CometBFT's default `proxy_app`).
 pub const DEFAULT_ADDR: &str = "tcp://127.0.0.1:26658";
-
-/// Queue bound of each tower-abci component service; [`AppService::call`] never waits, so one
-/// slot suffices.
-const SPLIT_BOUND: usize = 1;
 
 /// How long [`remove_stale_socket`] waits for its probe connection to an existing socket file.
 #[cfg(unix)]
@@ -279,23 +270,7 @@ pub async fn serve_with<H: AbciHandler, K: HaltHook>(
         tasks.push(task.abort_handle());
     }
     let _lifecycle = ServerTasks { tasks, trust: control.map(|(trust, _)| trust) };
-    let (consensus, mempool, snapshot, info) = split::service(service, SPLIT_BOUND);
-    let server = Server::builder()
-        .consensus(consensus)
-        .mempool(mempool)
-        .info(info)
-        .snapshot(snapshot)
-        .finish()
-        .expect("all four ABCI services are set");
-    let listen = async move {
-        match listen_addr {
-            ListenAddr::Tcp(host_port) => server.listen_tcp(host_port).await,
-            #[cfg(unix)]
-            ListenAddr::Unix(path) => server.listen_unix(path).await,
-            #[cfg(not(unix))]
-            ListenAddr::Unix(_) => Err("unix sockets need a unix platform".into()),
-        }
-    };
+    let listen = listen_native(listen_addr, service);
     #[cfg(unix)]
     let control_watch = async move {
         match control_task {
@@ -478,3 +453,83 @@ const fn method_name(req: &Request) -> &'static str {
 
 #[cfg(test)]
 mod tests;
+
+/// Maximum stock ABCI message size; checked before allocation.
+const MAX_ABCI_MESSAGE_BYTES: usize = 100 * 1024 * 1024;
+
+/// Accepts independent Comet connections and cancels every connection on listener shutdown.
+async fn listen_native(addr: ListenAddr, service: AppService) -> Result<(), BoxError> {
+    let mut connections = tokio::task::JoinSet::new();
+    match addr {
+        ListenAddr::Tcp(addr) => {
+            let listener = tokio::net::TcpListener::bind(addr).await?;
+            loop {
+                tokio::select! {
+                    accepted = listener.accept() => {
+                        let (socket, _) = accepted?;
+                        connections.spawn(native_connection(socket, service.clone()));
+                    }
+                    _ = connections.join_next(), if !connections.is_empty() => {}
+                }
+            }
+        }
+        #[cfg(unix)]
+        ListenAddr::Unix(path) => {
+            let listener = tokio::net::UnixListener::bind(path)?;
+            loop {
+                tokio::select! {
+                    accepted = listener.accept() => {
+                        let (socket, _) = accepted?;
+                        connections.spawn(native_connection(socket, service.clone()));
+                    }
+                    _ = connections.join_next(), if !connections.is_empty() => {}
+                }
+            }
+        }
+        #[cfg(not(unix))]
+        ListenAddr::Unix(_) => Err("Unix sockets require Unix".into()),
+    }
+}
+
+/// Serves stock unsigned-varint-delimited protobuf messages in connection order.
+async fn native_connection<S>(mut socket: S, mut service: AppService) -> Result<(), BoxError>
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
+{
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    loop {
+        let mut size = 0u64;
+        for shift in (0..70).step_by(7) {
+            let byte = match socket.read_u8().await {
+                Ok(byte) => byte,
+                Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof && shift == 0 => {
+                    return Ok(())
+                }
+                Err(e) => return Err(e.into()),
+            };
+            if shift == 63 && byte > 1 {
+                return Err("ABCI frame length overflow".into());
+            }
+            size |= u64::from(byte & 0x7f) << shift;
+            if byte & 0x80 == 0 {
+                if shift != 0 && byte == 0 {
+                    return Err("noncanonical ABCI frame length".into());
+                }
+                break;
+            }
+        }
+        let size = usize::try_from(size)
+            .ok()
+            .filter(|size| *size <= MAX_ABCI_MESSAGE_BYTES)
+            .ok_or("ABCI frame exceeds limit")?;
+        let mut bytes = vec![0; size];
+        socket.read_exact(&mut bytes).await?;
+        let request = Request::decode(&bytes)?;
+        let response = service.call(request).await?.encode();
+        let mut framed = Vec::with_capacity(response.len() + 10);
+        prost::encoding::encode_varint(response.len() as u64, &mut framed);
+        framed.extend(response);
+        socket.write_all(&framed).await?;
+        socket.flush().await?;
+    }
+}

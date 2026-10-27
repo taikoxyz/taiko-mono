@@ -77,6 +77,9 @@ pub struct AppStateJson {
 /// [`GenesisError::TrailingBytes`]; the other variants come from [`build_genesis`].
 #[derive(Debug, thiserror::Error)]
 pub enum GenesisError {
+    /// Fresh deployments only; no governance recovery state can be synthesized.
+    #[error("unsupported recovery: {0}")]
+    UnsupportedRecovery(String),
     /// The local committee parameters do not open the authenticated Inbox configuration.
     #[error("committee configuration hash {local} differs from authenticated {proven}")]
     ConfigMismatch {
@@ -237,19 +240,15 @@ mod tests {
                     cutoff_l1_block: 64,
                     checkpoint_index: 2,
                     set_root: B256::repeat_byte(0x77),
-                    total_stake: U256::from(10).pow(U256::from(19)),
                     total_power: 10_000_000_000,
-                    encoding_version: 1,
                 },
                 registry: account(2),
                 entries: vec![RegistryEntry {
-                    reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
-                    pubkey: B256::repeat_byte(0xed),
+                    ck_prefix: crate::test_utils::key_from_seed(B256::repeat_byte(0xed)).prefix(),
+                    ck_x: crate::test_utils::key_from_seed(B256::repeat_byte(0xed)).x(),
                     eff_stake: U256::from(10).pow(U256::from(19)),
                     active_from_l1: 0,
                     exit_effective_l1: u64::MAX,
-                    last_heartbeat_at: 3,
-                    last_heartbeat_seq: 1,
                 }],
             },
         }

@@ -203,6 +203,8 @@ pub(crate) struct InboxStorage {
     pub(crate) last_checkpoint_height: u64,
     /// Slot 271, `bytes32`.
     pub(crate) last_checkpoint_hash: B256,
+    /// Authenticated Comet block hash in the checkpoint landing record.
+    pub(crate) last_checkpoint_comet_hash: B256,
     /// Slot 281, `uint48` at bits 0–47.
     pub(crate) forced_inclusion_head: u64,
     /// Slot 281, `uint48` at bits 48–95.
@@ -228,6 +230,7 @@ impl InboxStorage {
             recovery_generation: 0,
             last_checkpoint_height: genesis.genesis_height,
             last_checkpoint_hash: genesis.genesis_hash,
+            last_checkpoint_comet_hash: B256::ZERO,
             forced_inclusion_head: 0,
             forced_inclusion_tail: 0,
             forced_inclusion_queue: vec![],
@@ -250,10 +253,28 @@ impl InboxStorage {
                     (U256::from(self.forced_inclusion_tail) << 48),
             ),
         ];
+        let landing = inbox::landing_slots(self.last_checkpoint_height);
+        slots.extend([
+            (
+                landing[0],
+                U256::from(self.last_checkpoint_height.saturating_sub(6)) |
+                    (U256::from(self.recovery_generation) << 48) |
+                    (U256::from(self.forced_inclusion_head) << 96),
+            ),
+            (landing[1], self.last_checkpoint_hash.into()),
+            (landing[2], self.last_checkpoint_comet_hash.into()),
+        ]);
         if let Some(a) = &self.genesis {
+            let origins = inbox::origin_slots(0);
+            slots.extend([
+                (origins[0], U256::ZERO),
+                (origins[1], U256::from(a.l1_0)),
+                (origins[2], U256::from(1_760_000_000u64 + 12 * a.l1_0)),
+            ]);
+
             let packed = U256::from(a.genesis_height) |
-                (U256::from(a.l1_0) << 64) |
-                (U256::from(a.epoch_len) << 128);
+                (U256::from(a.l1_0) << 48) |
+                (U256::from(a.epoch_len) << 96);
             slots.extend([
                 (inbox::slot(inbox::GENESIS_PACKED), packed),
                 (inbox::slot(inbox::GENESIS_BLOCK_HASH), a.genesis_hash.into()),
@@ -262,7 +283,7 @@ impl InboxStorage {
                 (inbox::slot(inbox::COMMITTEE_CONFIG_HASH), a.committee_config_hash.into()),
                 (
                     inbox::slot(inbox::FORCED_INCLUSION_CONFIG),
-                    U256::from(a.forced_inclusion_delay) | (U256::from(a.max_anchor_age) << 64),
+                    U256::from(a.forced_inclusion_delay) | (U256::from(a.max_anchor_age) << 48),
                 ),
             ]);
         }
@@ -274,12 +295,7 @@ impl InboxStorage {
             let [hash, metadata] = inbox::forced_inclusion_entry_slots(entry.index);
             slots.extend([
                 (hash, entry.tx_hash.into()),
-                (
-                    metadata,
-                    U256::from(entry.timestamp) |
-                        (U256::from(entry.l1_block) << 48) |
-                        (U256::from(7) << 112),
-                ),
+                (metadata, U256::from(entry.timestamp) | (U256::from(entry.l1_block) << 48)),
             ]);
         }
         slots
@@ -361,7 +377,6 @@ pub(crate) fn anchor_at(number: u64, state_root: B256) -> AnchorState {
         state_root,
         timestamp: 0,
         inbox: InboxFacts {
-            status: inbox::ETNA_ACTIVE,
             recovery_generation: 0,
             last_checkpoint_height: 0,
             last_checkpoint_hash: B256::ZERO,
@@ -377,7 +392,9 @@ pub(crate) fn raw_with_future_fields(header: &Header) -> Bytes {
     let encoded = alloy_rlp::encode(header);
     let mut payload =
         alloy_rlp::Header::decode_bytes(&mut encoded.as_slice(), true).expect("a list").to_vec();
-    payload.extend([vec![0xa0], vec![0xba; 32], alloy_rlp::encode(0x0102_0304u64)].concat());
+    payload.extend(
+        [vec![0xa0], vec![0xba; 32], alloy_rlp::encode(0x0102_0304u64), vec![0xc0]].concat(),
+    );
     let mut raw = Vec::new();
     alloy_rlp::Header { list: true, payload_length: payload.len() }.encode(&mut raw);
     raw.extend(payload);
@@ -483,22 +500,20 @@ impl RegistryStorage {
         for (i, (l1_block, entries)) in self.checkpoints.iter().enumerate() {
             let [head, root] = registry::checkpoint_slots(i as u64);
             let count = u32::try_from(entries.len()).expect("checkpoint count fits uint32");
-            slots.push((head, U256::from(*l1_block) | (U256::from(count) << 64)));
+            slots.push((head, U256::from(*l1_block) | (U256::from(count) << 48)));
             slots.push((root, entries_root(entries).into()));
         }
         let entries = self.checkpoints.last().map(|(_, entries)| entries.as_slice()).unwrap_or(&[]);
         slots.push((registry::entries_length_slot(), U256::from(entries.len())));
         for (j, entry) in entries.iter().enumerate() {
-            let [pubkey, stake, packed, recipient] = registry::entry_slots(j as u64);
-            slots.push((pubkey, entry.pubkey.into()));
+            let [pubkey, stake, packed] = registry::entry_slots(j as u64);
+            slots.push((pubkey, entry.ck_x.into()));
             slots.push((stake, entry.eff_stake));
-            slots.push((recipient, U256::from_be_slice(entry.reward_recipient.as_slice())));
             slots.push((
                 packed,
-                U256::from(entry.active_from_l1) |
-                    (U256::from(entry.exit_effective_l1) << 64) |
-                    (U256::from(entry.last_heartbeat_at) << 128) |
-                    (U256::from(entry.last_heartbeat_seq) << 192),
+                U256::from(entry.ck_prefix) |
+                    (U256::from(entry.active_from_l1) << 8) |
+                    (U256::from(entry.exit_effective_l1) << 56),
             ));
         }
         slots
@@ -543,16 +558,15 @@ pub(crate) fn committee_witness(
 /// sequence 1: every L1 block is in window 0 under the devnet heartbeat window).
 pub(crate) fn sample_entries(n: usize) -> Vec<RegistryEntry> {
     (0..n)
-        .map(|i| RegistryEntry {
-            reward_recipient: Address::from_slice(
-                &keccak256(format!("etna validator recipient {i}"))[12..],
-            ),
-            pubkey: keccak256(format!("etna validator {i}")),
-            eff_stake: U256::from(i + 1) * U256::from(10u64).pow(U256::from(18u64)),
-            active_from_l1: 0,
-            exit_effective_l1: u64::MAX,
-            last_heartbeat_at: 0,
-            last_heartbeat_seq: 1,
+        .map(|i| {
+            let pubkey = test_key(i as u64 + 1);
+            RegistryEntry {
+                ck_prefix: pubkey.prefix(),
+                ck_x: pubkey.x(),
+                eff_stake: U256::from(i + 1) * U256::from(10u64).pow(U256::from(18u64)),
+                active_from_l1: 0,
+                exit_effective_l1: (1 << 48) - 1,
+            }
         })
         .collect()
 }
@@ -638,7 +652,7 @@ pub(crate) fn in_own_process(module: &str, test: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::l1::layout::{word_u8, word_u32, word_u48, word_u64};
+    use crate::l1::layout::{word_u8, word_u48, word_u64};
     use alloy_primitives::{U256, b256};
 
     fn word(slots: &[(B256, U256)], slot: B256) -> U256 {
@@ -655,20 +669,21 @@ mod tests {
                 )
                 .unwrap(),
             ),
-            genesis_height: u64::MAX,
-            l1_0: 0x0102_0304_0506_0708,
+            genesis_height: ((1u64 << 48) - 1),
+            l1_0: 0x0304_0506_0708,
             epoch_len: 1,
             genesis_hash: B256::repeat_byte(0xa1),
             genesis_state_root: B256::repeat_byte(0xa2),
-            genesis_cutoff: u64::MAX - 2,
-            forced_inclusion_delay: u64::MAX - 3,
-            max_anchor_age: u64::MAX - 4,
+            genesis_cutoff: ((1u64 << 48) - 1) - 2,
+            forced_inclusion_delay: ((1u64 << 48) - 1) - 3,
+            max_anchor_age: ((1u64 << 48) - 1) - 4,
         };
         let storage = InboxStorage {
             status: u8::MAX,
-            recovery_generation: u64::MAX,
-            last_checkpoint_height: u64::MAX - 7,
+            recovery_generation: ((1u64 << 48) - 1),
+            last_checkpoint_height: ((1u64 << 48) - 1) - 7,
             last_checkpoint_hash: B256::repeat_byte(0xa3),
+            last_checkpoint_comet_hash: B256::ZERO,
             forced_inclusion_head: (1 << 48) - 2,
             forced_inclusion_tail: (1 << 48) - 1,
             forced_inclusion_queue: vec![],
@@ -680,8 +695,8 @@ mod tests {
 
         assert_eq!(word_u8(at(inbox::STATUS), 0), u8::MAX);
         assert_eq!(at(inbox::STATUS) >> 8, U256::ZERO);
-        assert_eq!(word_u64(at(inbox::RECOVERY_GENERATION), 0), u64::MAX);
-        assert_eq!(word_u64(at(inbox::LAST_CHECKPOINT_HEIGHT), 0), u64::MAX - 7);
+        assert_eq!(word_u64(at(inbox::RECOVERY_GENERATION), 0), ((1u64 << 48) - 1));
+        assert_eq!(word_u64(at(inbox::LAST_CHECKPOINT_HEIGHT), 0), ((1u64 << 48) - 1) - 7);
         assert_eq!(B256::from(at(inbox::LAST_CHECKPOINT_HASH)), B256::repeat_byte(0xa3));
         let head_tail = at(inbox::FORCED_INCLUSION_HEAD_TAIL);
         assert_eq!(word_u48(head_tail, 0), (1 << 48) - 2);
@@ -689,24 +704,24 @@ mod tests {
         assert_eq!(head_tail >> 96, U256::ZERO);
 
         let packed = at(inbox::GENESIS_PACKED);
-        assert_eq!(word_u64(packed, 0), genesis.genesis_height);
-        assert_eq!(word_u64(packed, 64), genesis.l1_0);
-        assert_eq!(word_u64(packed, 128), genesis.epoch_len);
+        assert_eq!(word_u48(packed, 0), genesis.genesis_height);
+        assert_eq!(word_u48(packed, 48), genesis.l1_0);
+        assert_eq!(word_u48(packed, 96), genesis.epoch_len);
         assert_eq!(packed >> 192, U256::ZERO);
         assert_eq!(B256::from(at(inbox::GENESIS_BLOCK_HASH)), genesis.genesis_hash);
         assert_eq!(B256::from(at(inbox::GENESIS_STATE_ROOT)), genesis.genesis_state_root);
         assert_eq!(word_u64(at(inbox::GENESIS_CUTOFF), 0), genesis.genesis_cutoff);
         assert_eq!(at(inbox::GENESIS_CUTOFF) >> 64, U256::ZERO);
         let forced_config = at(inbox::FORCED_INCLUSION_CONFIG);
-        assert_eq!(word_u64(forced_config, 0), genesis.forced_inclusion_delay);
-        assert_eq!(word_u64(forced_config, 64), genesis.max_anchor_age);
-        assert_eq!(forced_config >> 128, U256::ZERO);
+        assert_eq!(word_u48(forced_config, 0), genesis.forced_inclusion_delay);
+        assert_eq!(word_u48(forced_config, 48), genesis.max_anchor_age);
+        assert_eq!(forced_config >> 96, U256::ZERO);
 
         assert_eq!(
             B256::from(word(&slots, inbox::slot(inbox::GENESIS_COMMITTEE_HASH))),
             B256::repeat_byte(0xa4)
         );
-        assert_eq!(slots.len(), 5 + 5 + 2);
+        assert_eq!(slots.len(), 5 + 5 + 2 + 3 + 3);
     }
 
     /// Hand-written storage words (as a Solidity contract would write them) equal the packing.
@@ -733,6 +748,7 @@ mod tests {
             recovery_generation: 0x0102,
             last_checkpoint_height: 0x0a0b_0c0d,
             last_checkpoint_hash: B256::repeat_byte(0x77),
+            last_checkpoint_comet_hash: B256::ZERO,
             forced_inclusion_head: 0x03,
             forced_inclusion_tail: 0x09,
             forced_inclusion_queue: vec![],
@@ -756,7 +772,7 @@ mod tests {
         );
         assert_eq!(
             at(inbox::GENESIS_PACKED),
-            b256!("0000000000000000000000000033333300000000000022220000000000000011")
+            b256!("0000000000000000000000000000000000333333000000002222000000000011")
         );
         assert_eq!(
             at(inbox::GENESIS_CUTOFF),
@@ -768,9 +784,9 @@ mod tests {
         );
         assert_eq!(
             at(inbox::FORCED_INCLUSION_CONFIG),
-            b256!("000000000000000000000000000000000000000000001c200000000000000e10")
+            b256!("0000000000000000000000000000000000000000000000001c20000000000e10")
         );
-        assert_eq!(slots.len(), 5 + 6);
+        assert_eq!(slots.len(), 5 + 6 + 3 + 3);
     }
 
     /// A queue entry packs into its two slots like Solidity writes `queue[i]`.
@@ -791,9 +807,7 @@ mod tests {
         assert!(slots.contains(&(hash, entry.tx_hash.into())));
         assert!(slots.contains(&(
             metadata,
-            U256::from(entry.timestamp) |
-                (U256::from(entry.l1_block) << 48) |
-                (U256::from(7) << 112)
+            U256::from(entry.timestamp) | (U256::from(entry.l1_block) << 48)
         )));
     }
 
@@ -805,7 +819,14 @@ mod tests {
             ..InboxStorage::genesis(sample_genesis_record(), B256::ZERO)
         };
         let slots: Vec<B256> = storage.slots().into_iter().map(|(s, _)| s).collect();
-        assert_eq!(slots, [258u64, 268, 270, 271, 281].map(inbox::slot));
+        assert_eq!(
+            slots,
+            [258u64, 268, 270, 271, 281]
+                .map(inbox::slot)
+                .into_iter()
+                .chain(inbox::landing_slots(0))
+                .collect::<Vec<_>>()
+        );
     }
 
     #[test]
@@ -823,8 +844,9 @@ mod tests {
     /// Pack, then decode with the layout readers: length, l1Block, count and entriesRoot.
     #[test]
     fn registry_storage_packing_decodes_back() {
-        let storage =
-            RegistryStorage { checkpoints: vec![(u64::MAX, sample_entries(3)), (7, vec![])] };
+        let storage = RegistryStorage {
+            checkpoints: vec![(((1u64 << 48) - 1), sample_entries(3)), (7, vec![])],
+        };
         let slots = storage.slots();
         // length + 2 words per checkpoint + entries.length (the last checkpoint has no entries).
         assert_eq!(slots.len(), 1 + 2 * 2 + 1);
@@ -832,8 +854,8 @@ mod tests {
         assert_eq!(word(&slots, registry::entries_length_slot()), U256::ZERO);
 
         let [head0, root0] = registry::checkpoint_slots(0);
-        assert_eq!(word_u64(word(&slots, head0), 0), u64::MAX);
-        assert_eq!(word_u32(word(&slots, head0), 64), 3);
+        assert_eq!(word_u48(word(&slots, head0), 0), ((1u64 << 48) - 1));
+        assert_eq!(word_u48(word(&slots, head0), 48), 3);
         assert_eq!(word(&slots, head0) >> 96, U256::ZERO);
         assert_eq!(B256::from(word(&slots, root0)), entries_root(&sample_entries(3)));
 
@@ -848,33 +870,27 @@ mod tests {
         let mut last = sample_entries(3);
         last[1].active_from_l1 = 0x0102;
         last[1].exit_effective_l1 = 0x0304;
-        last[1].last_heartbeat_at = u64::MAX;
-        last[1].last_heartbeat_seq = 0x0506;
         let storage =
             RegistryStorage { checkpoints: vec![(5, sample_entries(5)), (9, last.clone())] };
         let slots = storage.slots();
-        assert_eq!(slots.len(), 1 + 2 * 2 + 1 + 3 * 4);
+        assert_eq!(slots.len(), 1 + 2 * 2 + 1 + 3 * 3);
         assert_eq!(word(&slots, registry::entries_length_slot()), U256::from(3));
 
         for (j, entry) in last.iter().enumerate() {
-            let [pubkey, stake, packed, recipient] = registry::entry_slots(j as u64);
-            assert_eq!(B256::from(word(&slots, pubkey)), entry.pubkey);
+            let [pubkey, stake, packed] = registry::entry_slots(j as u64);
+            assert_eq!(B256::from(word(&slots, pubkey)), entry.ck_x);
             assert_eq!(word(&slots, stake), entry.eff_stake);
-            assert_eq!(
-                word(&slots, recipient),
-                U256::from_be_slice(entry.reward_recipient.as_slice())
-            );
+
             let packed = word(&slots, packed);
-            assert_eq!(word_u64(packed, 0), entry.active_from_l1);
-            assert_eq!(word_u64(packed, 64), entry.exit_effective_l1);
-            assert_eq!(word_u64(packed, 128), entry.last_heartbeat_at);
-            assert_eq!(word_u64(packed, 192), entry.last_heartbeat_seq);
+            assert_eq!(crate::l1::layout::word_u48(packed, 8), entry.active_from_l1);
+            assert_eq!(crate::l1::layout::word_u48(packed, 56), entry.exit_effective_l1);
+            assert_eq!(crate::l1::layout::word_u8(packed, 0), entry.ck_prefix);
         }
         assert!(slots.iter().all(|(slot, _)| *slot != registry::entry_slots(3)[0]));
 
         assert_eq!(
             B256::from(word(&slots, registry::entry_slots(1)[2])),
-            b256!("0000000000000506ffffffffffffffff00000000000003040000000000000102")
+            b256!("0000000000000000000000000000000000000000000000030400000000010202")
         );
     }
 
@@ -886,40 +902,37 @@ mod tests {
     #[test]
     fn planters_write_the_shared_layout() {
         let entry = RegistryEntry {
-            reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
-            pubkey: B256::repeat_byte(0x5a),
+            ck_prefix: crate::test_utils::key_from_seed(B256::repeat_byte(0x5a)).prefix(),
+            ck_x: crate::test_utils::key_from_seed(B256::repeat_byte(0x5a)).x(),
             eff_stake: U256::MAX - U256::from(1),
-            active_from_l1: u64::MAX - 1,
-            exit_effective_l1: 0x0102_0304_0506_0708,
-            last_heartbeat_at: u64::MAX,
-            last_heartbeat_seq: 0x0506,
+            active_from_l1: ((1u64 << 48) - 1) - 1,
+            exit_effective_l1: 0x0304_0506_0708,
         };
-        let storage = RegistryStorage { checkpoints: vec![(u64::MAX - 7, vec![entry.clone()])] };
+        let storage =
+            RegistryStorage { checkpoints: vec![(((1u64 << 48) - 1) - 7, vec![entry.clone()])] };
         let slots = storage.slots();
         let head = vectors::b256_at("/layout/registry/checkpoint_slots/0/slots/0");
         assert_eq!(vectors::u64_at("/layout/registry/checkpoint_slots/0/index"), 0);
         assert_eq!(
             word(&slots, head),
             vectors::pack(
-                "/layout/registry/packing/checkpoint_head",
-                &[("l1_block", U256::from(u64::MAX - 7)), ("count", U256::from(1))]
+                "/layout/registry/packing/checkpoint_word1",
+                &[("l1_block", U256::from(((1u64 << 48) - 1) - 7)), ("count", U256::from(1))]
             )
         );
         assert_eq!(vectors::u64_at("/layout/registry/entry_slots/0/index"), 0);
-        let [pubkey, stake, packed, recipient] = [0, 1, 2, 3]
+        let [pubkey, stake, packed] = [0, 1, 2]
             .map(|w| vectors::b256_at(&format!("/layout/registry/entry_slots/0/slots/{w}")));
-        assert_eq!(B256::from(word(&slots, pubkey)), entry.pubkey);
+        assert_eq!(B256::from(word(&slots, pubkey)), entry.ck_x);
         assert_eq!(word(&slots, stake), entry.eff_stake);
-        assert_eq!(word(&slots, recipient), U256::from_be_slice(entry.reward_recipient.as_slice()));
         assert_eq!(
             word(&slots, packed),
             vectors::pack(
-                "/layout/registry/packing/entry_packed",
+                "/layout/registry/packing/entry_word3",
                 &[
                     ("active_from_l1", U256::from(entry.active_from_l1)),
                     ("exit_effective_l1", U256::from(entry.exit_effective_l1)),
-                    ("last_heartbeat_at", U256::from(entry.last_heartbeat_at)),
-                    ("last_heartbeat_seq", U256::from(entry.last_heartbeat_seq)),
+                    ("ck_prefix", U256::from(entry.ck_prefix)),
                 ]
             )
         );
@@ -928,7 +941,7 @@ mod tests {
             index: 7,
             tx_hash: B256::repeat_byte(0x77),
             timestamp: (1 << 48) - 2,
-            l1_block: u64::MAX - 9,
+            l1_block: ((1u64 << 48) - 1) - 9,
         };
         let inbox = InboxStorage {
             forced_inclusion_queue: vec![queued],
@@ -944,12 +957,11 @@ mod tests {
         assert_eq!(
             word(&slots, metadata),
             vectors::pack(
-                "/layout/inbox/packing/forced_inclusion_entry_metadata",
+                "/layout/inbox/packing/forced_inclusion_entry_word2",
                 &[
                     ("timestamp", U256::from(queued.timestamp)),
                     ("l1_block", U256::from(queued.l1_block)),
                     // The planter's fixed L1-only fee, seven gwei.
-                    ("fee_in_gwei", U256::from(7)),
                 ]
             )
         );
@@ -966,9 +978,7 @@ mod tests {
             cutoff_l1_block: 0,
             checkpoint_index: 0,
             set_root: B256::ZERO,
-            total_stake: U256::ZERO,
             total_power: 0,
-            encoding_version: 1,
         };
 
         let first = committee_witness(&state, address, &storage, 0, record.clone());
@@ -981,7 +991,7 @@ mod tests {
         assert_eq!(slots, snapshot_slots(1, false));
         assert_eq!(last.entries, sample_entries(2));
 
-        let beyond = committee_witness(&state, address, &storage, u64::MAX, record);
+        let beyond = committee_witness(&state, address, &storage, (1u64 << 48) - 1, record);
         assert_eq!(beyond.registry.storage.len(), 3);
         assert!(beyond.entries.is_empty());
     }
@@ -991,7 +1001,8 @@ mod tests {
         let entries = sample_entries(4);
         assert_eq!(entries, sample_entries(4));
         assert_eq!(entries[..2], sample_entries(2)[..]);
-        let pubkeys: std::collections::BTreeSet<B256> = entries.iter().map(|e| e.pubkey).collect();
+        let pubkeys: std::collections::BTreeSet<_> =
+            entries.iter().map(|e| e.consensus_key().unwrap()).collect();
         assert_eq!(pubkeys.len(), 4);
         assert_eq!(entries[3].eff_stake, U256::from(4_000_000_000_000_000_000u64));
     }
@@ -1007,4 +1018,22 @@ mod tests {
         let slots: Vec<B256> = witness.inbox.storage.iter().map(|p| p.slot).collect();
         assert_eq!(slots, inbox::anchor_slots());
     }
+}
+
+/// Deterministic valid consensus key derived from a nonzero test scalar.
+pub(crate) fn test_key(seed: u64) -> crate::key::ConsensusKey {
+    let scalar = U256::from(seed.saturating_add(1)).to_be_bytes::<32>();
+    let key = k256::SecretKey::from_slice(&scalar).unwrap();
+    use k256::elliptic_curve::sec1::ToEncodedPoint;
+    crate::key::ConsensusKey::from_slice(key.public_key().to_encoded_point(true).as_bytes())
+        .unwrap()
+}
+
+/// Maps arbitrary old test entropy to a valid native key, preserving deterministic identities.
+pub(crate) fn key_from_seed(seed: B256) -> crate::key::ConsensusKey {
+    use k256::elliptic_curve::sec1::ToEncodedPoint;
+    let scalar = keccak256(seed);
+    let key = k256::SecretKey::from_slice(scalar.as_slice()).unwrap();
+    crate::key::ConsensusKey::from_slice(key.public_key().to_encoded_point(true).as_bytes())
+        .unwrap()
 }

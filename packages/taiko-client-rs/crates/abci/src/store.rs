@@ -13,7 +13,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use alloy_primitives::Address;
+use alloy_primitives::{Address, B256};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -48,11 +48,13 @@ pub struct CommitteeState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppState {
+    /// Internal V1 journal schema; historical layouts require fresh state.
+    pub schema_version: u32,
     /// Mandatory consensus format marker; old saved state has no implicit migration.
     pub app_version: u64,
-    /// CometBFT `chain_id` (`taiko-etna-<l2ChainId>-g<generation>`).
+    /// The 48-byte CometBFT deployment-domain chain ID.
     pub chain_id: String,
-    /// Recovery generation of the running chain (the `chain_id` suffix).
+    /// Recovery generation authenticated in the deployment domain.
     pub generation: u64,
     /// Inbox account authenticated at genesis. Required so a restart cannot switch contracts;
     /// state files written without this binding are refused rather than migrated implicitly.
@@ -61,6 +63,8 @@ pub struct AppState {
     pub genesis: GenesisRecord,
     /// Last committed CometBFT height (== `parent.number`); `B*` right after `InitChain`.
     pub last_height: u64,
+    /// Exact Comet block ID supplied by FinalizeBlock; zero only at genesis.
+    pub last_comet_hash: B256,
     /// Summary of the last committed L2 block, the parent of the next height.
     pub parent: ParentInfo,
     /// The L1 anchor of the last committed block and the Inbox facts proven at it.
@@ -108,6 +112,9 @@ pub enum StoreError {
         #[source]
         source: serde_json::Error,
     },
+    /// Replaying a committed height produced a different Comet block ID.
+    #[error("conflicting durable Comet block hash at height {0}")]
+    CometConflict(u64),
     /// The state could not be serialized to JSON.
     #[error("cannot serialize the app state: {0}")]
     Encode(#[source] serde_json::Error),
@@ -164,6 +171,46 @@ impl Store {
         let state: AppState = serde_json::from_slice(&bytes)
             .map_err(|source| StoreError::Corrupt { path, source })?;
         Ok(Some(state))
+    }
+
+    /// Reads committed Comet history. Absence keeps checkpoint trust closed until restored.
+    /// Entries above the committed AppState height are never evidence of a commit.
+    pub fn load_comet_hash(&self, height: u64) -> Result<Option<B256>, StoreError> {
+        let path = self.dir.join(format!("comet-hash-{height}.json"));
+        match fs::read(&path) {
+            Ok(bytes) => serde_json::from_slice(&bytes)
+                .map(Some)
+                .map_err(|source| StoreError::Corrupt { path, source }),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+            Err(source) => Err(StoreError::Io { op: "read", path, source }),
+        }
+    }
+
+    /// Durably records one immutable Comet block ID before publishing its committed AppState.
+    pub fn save_comet_hash(&self, height: u64, hash: B256) -> Result<(), StoreError> {
+        if let Some(previous) = self.load_comet_hash(height)? {
+            return if previous == hash { Ok(()) } else { Err(StoreError::CometConflict(height)) };
+        }
+        let json = serde_json::to_vec(&hash).map_err(StoreError::Encode)?;
+        self.save_bytes(&json, &format!("comet-hash-{height}.json"), "comet-hash.tmp")
+    }
+
+    /// Reads sticky fatal evidence. Its presence requires explicit operator repair before restart.
+    pub(crate) fn fatal_evidence(&self) -> Result<Option<String>, StoreError> {
+        let path = self.dir.join("fatal-evidence.txt");
+        match fs::read(&path) {
+            Ok(bytes) => Ok(Some(String::from_utf8_lossy(&bytes).into_owned())),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+            Err(source) => Err(StoreError::Io { op: "read", path, source }),
+        }
+    }
+
+    /// Durably retains the first fatal observation without rewriting earlier evidence.
+    pub(crate) fn record_fatal(&self, reason: &str) -> Result<(), StoreError> {
+        if self.fatal_evidence()?.is_none() {
+            self.save_bytes(reason.as_bytes(), "fatal-evidence.txt", "fatal-evidence.tmp")?;
+        }
+        Ok(())
     }
 
     /// Loads the untrusted committee sidecar bytes and discards an interrupted temporary save.
@@ -242,9 +289,7 @@ mod tests {
             cutoff_l1_block: 100 + epoch,
             checkpoint_index: epoch,
             set_root: B256::repeat_byte(epoch as u8 + 1),
-            total_stake: U256::from(3_000_000_000_000_000_000u128),
             total_power: 3_000_000_000,
-            encoding_version: 1,
         }
     }
 
@@ -253,8 +298,7 @@ mod tests {
             record: record(epoch),
             members: (1..=3u8)
                 .map(|i| Member {
-                    reward_recipient: alloy_primitives::Address::repeat_byte(0x77),
-                    pubkey: B256::repeat_byte(i),
+                    pubkey: crate::test_utils::key_from_seed(B256::repeat_byte(i)),
                     eff_stake: U256::from(1_000_000_000_000_000_000u128),
                     power: 1_000_000_000,
                 })
@@ -280,12 +324,14 @@ mod tests {
             max_anchor_age: 7_200,
         };
         AppState {
+            schema_version: 13,
             app_version: crate::app::APP_VERSION,
             chain_id: "taiko-etna-167001-g0".to_string(),
             generation: 0,
             inbox: alloy_primitives::address!("00000000000000000000000000000000E7A10001"),
             genesis,
             last_height: 105,
+            last_comet_hash: B256::repeat_byte(5),
             parent: ParentInfo {
                 number: 105,
                 hash: B256::repeat_byte(0xbb),
@@ -302,7 +348,6 @@ mod tests {
                 state_root: B256::repeat_byte(0x5a),
                 timestamp: 1_791_526_400,
                 inbox: InboxFacts {
-                    status: 3,
                     recovery_generation: 0,
                     last_checkpoint_height: 101,
                     last_checkpoint_hash: B256::repeat_byte(0x33),
@@ -361,7 +406,7 @@ mod tests {
             serde_json::from_slice(&fs::read(dir.path().join(STATE_FILE)).unwrap()).unwrap();
         assert!(json.get("genesis").is_some());
         assert!(json.get("activation").is_none());
-        assert!(json["anchor"]["inbox"].get("status").is_some());
+        assert!(json["anchor"]["inbox"].get("status").is_none());
         assert!(json["anchor"]["inbox"].get("migration_state").is_none());
         assert_eq!(store.load().unwrap(), Some(state()));
     }
@@ -383,7 +428,7 @@ mod tests {
         let store = Store::new(dir.path().into());
         let mut json = serde_json::to_value(state()).unwrap();
         let facts = json["anchor"]["inbox"].as_object_mut().unwrap();
-        let status = facts.remove("status").unwrap();
+        let status = serde_json::json!(3);
         facts.insert("migration_state".into(), status);
         fs::write(dir.path().join(STATE_FILE), serde_json::to_vec(&json).unwrap()).unwrap();
         assert!(matches!(store.load(), Err(StoreError::Corrupt { .. })));
@@ -427,7 +472,9 @@ mod tests {
         let current = serde_json::to_value(state()).unwrap();
         for (object, field) in [
             ("", "app_version"),
-            ("/committees/0/members/0", "reward_recipient"),
+            ("", "schema_version"),
+            ("", "last_comet_hash"),
+            ("/committees/0/members/0", "pubkey"),
             ("", "forced_cursor"),
             ("/genesis", "forced_inclusion_delay"),
             ("/genesis", "max_anchor_age"),
@@ -523,5 +570,27 @@ mod tests {
         assert_eq!(s.committees[&2], committee(2));
         s.prune_committees(10);
         assert!(s.committees.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod comet_history_tests {
+    use super::*;
+    #[test]
+    fn durable_comet_hashes_are_immutable_and_corruption_is_not_absence() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().into());
+        assert_eq!(store.load_comet_hash(6).unwrap(), None);
+        let hash = B256::repeat_byte(6);
+        store.save_comet_hash(6, hash).unwrap();
+        let reopened = Store::new(dir.path().into());
+        assert_eq!(reopened.load_comet_hash(6).unwrap(), Some(hash));
+        reopened.save_comet_hash(6, hash).unwrap();
+        assert!(matches!(
+            reopened.save_comet_hash(6, B256::repeat_byte(7)),
+            Err(StoreError::CometConflict(6))
+        ));
+        std::fs::write(dir.path().join("comet-hash-6.json"), b"invalid").unwrap();
+        assert!(matches!(reopened.load_comet_hash(6), Err(StoreError::Corrupt { .. })));
     }
 }

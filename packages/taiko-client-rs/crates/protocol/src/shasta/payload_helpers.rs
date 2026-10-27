@@ -202,6 +202,7 @@ pub fn build_payload_attributes(input: PayloadAttributesInput) -> TaikoPayloadAt
             signature,
         },
         anchor_transaction,
+        max_block_bytes: None,
     }
 }
 

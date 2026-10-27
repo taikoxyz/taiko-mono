@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use alloy_primitives::{Address, B256};
-use tendermint::{Time, block::Height, public_key, vote};
+use tendermint::{Time, block::Height, vote};
 
 use super::*;
 use crate::{
@@ -13,7 +13,7 @@ use crate::{
     genesis::GenesisError,
     l1::{RawL1Header, witness::WitnessError},
     rules::{RuleViolation, chain_id_for},
-    schedule::{Schedule, ScheduleError},
+    schedule::Schedule,
     test_utils::{
         EngineCall, GenesisSpec, L1Call, MockEngine, TestState, committee_witness, edit_l1_header,
         filler_accounts, inbox_account, l1_header, registry_account, sample_entries,
@@ -28,7 +28,7 @@ async fn init_chain_persists_the_verified_genesis_state() {
     let mut app = fx.app(dir.path());
 
     let resp = init_chain(&mut app, fx.request.clone()).await.expect("InitChain succeeds");
-    assert_eq!(resp.validators, fx.request.validators);
+    assert!(resp.validators.is_empty());
     assert_eq!(resp.app_hash.as_bytes(), fx.genesis_hash().as_slice());
     assert_eq!(resp.consensus_params, None);
 
@@ -50,16 +50,13 @@ async fn init_chain_persists_the_verified_genesis_state() {
 /// whose entries never sent one initializes the chain.
 #[tokio::test]
 async fn a_genesis_committee_without_heartbeats_initializes() {
-    let entries: Vec<RegistryEntry> = sample_entries(2)
-        .into_iter()
-        .map(|e| RegistryEntry { last_heartbeat_at: 0, last_heartbeat_seq: 0, ..e })
-        .collect();
+    let entries: Vec<RegistryEntry> = sample_entries(2).into_iter().map(|e| e).collect();
     let fx = Fixture::build(GenesisSpec { entries: Some(entries), ..GenesisSpec::new(2) });
     assert_eq!(fx.members.len(), 2);
     let dir = tempfile::tempdir().unwrap();
     let mut app = fx.app(dir.path());
     let resp = init_chain(&mut app, fx.request.clone()).await.expect("InitChain succeeds");
-    assert_eq!(resp.validators, fx.request.validators);
+    assert!(resp.validators.is_empty());
     assert_eq!(app.state(), Some(&fx.expected_state()));
 }
 
@@ -87,13 +84,15 @@ async fn the_genesis_committee_is_derived_at_the_genesis_cutoff() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = fx.app(dir.path());
     let resp = init_chain(&mut app, fx.request.clone()).await.expect("InitChain succeeds");
-    assert_eq!(resp.validators.len(), 2);
+    assert!(resp.validators.is_empty());
+    assert_eq!(app.state().unwrap().committees[&0].members.len(), 2);
     let state = app.state().expect("initialized");
     assert_eq!(state, &fx.expected_state());
     let e0 = &state.committees[&0];
     assert_eq!(e0.record.cutoff_l1_block, genesis_cutoff);
-    let pubkeys: Vec<B256> = e0.members.iter().map(|m| m.pubkey).collect();
-    let mut expected: Vec<B256> = fx.registry.checkpoints[0].1.iter().map(|e| e.pubkey).collect();
+    let pubkeys: Vec<crate::key::ConsensusKey> = e0.members.iter().map(|m| m.pubkey).collect();
+    let mut expected: Vec<crate::key::ConsensusKey> =
+        fx.registry.checkpoints[0].1.iter().map(|e| e.consensus_key().unwrap()).collect();
     expected.sort_by_key(|pubkey| committee::set_key(fx.params.l2_chain_id, *pubkey));
     assert_eq!(pubkeys, expected);
 }
@@ -123,7 +122,7 @@ async fn genesis_validators_are_compared_as_a_set() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = fx.app(dir.path());
     let resp = init_chain(&mut app, fx.request.clone()).await.expect("order is irrelevant");
-    assert_eq!(resp.validators, fx.request.validators, "the request's validators are echoed");
+    assert!(resp.validators.is_empty());
 }
 
 #[tokio::test]
@@ -139,12 +138,16 @@ async fn genesis_at_block_zero_has_a_zero_grandparent_timestamp() {
 }
 
 #[tokio::test]
-async fn a_later_generation_starts_with_its_own_chain_id() {
+async fn a_later_generation_is_explicitly_unsupported() {
     let fx = Fixture::build(GenesisSpec { recovery_generation: 2, ..GenesisSpec::new(2) });
-    assert_eq!(fx.request.chain_id, chain_id_for(fx.params.l2_chain_id, 2));
     let dir = tempfile::tempdir().unwrap();
-    let app = initialized(&fx, dir.path()).await;
-    assert_eq!(app.state().expect("initialized").generation, 2);
+    let mut app = fx.app(dir.path());
+    assert!(matches!(
+        init_chain(&mut app, fx.request.clone()).await,
+        Err(AbciError::Genesis(GenesisError::UnsupportedRecovery(_)))
+    ));
+    assert_not_initialized(&app, dir.path());
+    assert!(app.engine().calls().is_empty());
 }
 
 /// CometBFT re-sends InitChain while the app reports height 0 (no PoS block yet): the same
@@ -174,7 +177,7 @@ async fn init_chain_is_idempotent_at_genesis() {
     let mut reordered = fx.request.clone();
     reordered.validators.reverse();
     let resp = init_chain(&mut app, reordered.clone()).await.expect("same genesis");
-    assert_eq!(resp.validators, reordered.validators);
+    assert!(resp.validators.is_empty());
 }
 
 #[tokio::test]
@@ -224,9 +227,9 @@ async fn re_sent_init_chain_reports_a_verification_failure() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     let mut req = fx.request.clone();
-    req.chain_id = chain_id_for(fx.params.l2_chain_id, 1);
+    req.chain_id = chain_id_for(&fx.params, 1).unwrap();
     let err = init_chain(&mut app, req).await.expect_err("generation 1 is not on L1");
-    assert!(matches!(err, AbciError::GenerationMismatch { .. }), "{err:?}");
+    assert!(matches!(err, AbciError::ChainId(RuleViolation::InvalidChainId { .. })), "{err:?}");
     assert_eq!(app.state(), Some(&fx.expected_state()));
 }
 
@@ -338,33 +341,21 @@ async fn genesis_header_must_be_the_initialization_block() {
 }
 
 #[tokio::test]
-async fn schedule_violating_the_unsettled_cap_is_rejected() {
-    // Devnet cap U = 12 − 2 = 10, so L must be >= 13.
-    let fx = Fixture::build(GenesisSpec { epoch_len: 12, ..GenesisSpec::new(2) });
+async fn epoch_length_is_independent_of_unsettled_cap() {
+    let fx = Fixture::build(GenesisSpec { epoch_len: 3, ..GenesisSpec::new(2) });
     let dir = tempfile::tempdir().unwrap();
-    let mut app = fx.app(dir.path());
-    let err = init_chain(&mut app, fx.request.clone()).await.expect_err("L too short");
-    assert!(
-        matches!(
-            err,
-            AbciError::Genesis(GenesisError::Schedule(ScheduleError::EpochShorterThanCap {
-                epoch_len: 12,
-                ..
-            }))
-        ),
-        "{err:?}"
-    );
-    assert_not_initialized(&app, dir.path());
+    let app = initialized(&fx, dir.path()).await;
+    assert_eq!(app.state().unwrap().schedule().h_first(1), 3);
 }
 
 #[tokio::test]
 async fn chain_id_generation_must_match_the_inbox() {
     let mut fx = Fixture::genesis(2);
-    fx.request.chain_id = chain_id_for(fx.params.l2_chain_id, 1);
+    fx.request.chain_id = chain_id_for(&fx.params, 1).unwrap();
     let dir = tempfile::tempdir().unwrap();
     let mut app = fx.app(dir.path());
     let err = init_chain(&mut app, fx.request.clone()).await.expect_err("generation mismatch");
-    assert!(matches!(err, AbciError::GenerationMismatch { chain_id: 1, inbox: 0 }), "{err:?}");
+    assert!(matches!(err, AbciError::ChainId(RuleViolation::InvalidChainId { .. })), "{err:?}");
 
     for bad in ["taiko-etna-1-g0".to_string(), format!("taiko-etna-{}-g", fx.params.l2_chain_id)] {
         fx.request.chain_id = bad;
@@ -428,22 +419,22 @@ async fn genesis_rejects_noncanonical_consensus_parameters() {
     let canonical = Fixture::genesis(2).request.consensus_params;
     let mut changes = Vec::new();
     let mut changed = canonical.clone();
-    changed.block.max_bytes -= 1;
+    changed.block.as_mut().unwrap().max_bytes -= 1;
     changes.push(("block byte limit", changed));
     let mut changed = canonical.clone();
-    changed.block.max_gas = 45_000_000;
+    changed.block.as_mut().unwrap().max_gas = 45_000_000;
     changes.push(("block gas limit", changed));
     let mut changed = canonical.clone();
-    changed.evidence.max_age_num_blocks -= 1;
+    changed.evidence.as_mut().unwrap().max_age_num_blocks -= 1;
     changes.push(("evidence block age", changed));
     let mut changed = canonical.clone();
-    changed.evidence.max_age_duration.0 -= Duration::from_secs(1);
+    changed.evidence.as_mut().unwrap().max_age_duration.as_mut().unwrap().seconds -= 1;
     changes.push(("evidence duration", changed));
     let mut changed = canonical.clone();
-    changed.evidence.max_bytes -= 1;
+    changed.evidence.as_mut().unwrap().max_bytes -= 1;
     changes.push(("evidence byte limit", changed));
     let mut changed = canonical.clone();
-    changed.validator.pub_key_types.push(public_key::Algorithm::Secp256k1);
+    changed.validator.as_mut().unwrap().pub_key_types.push("secp256k1".into());
     changes.push(("validator key types", changed));
     let mut changed = canonical.clone();
     changed.version.as_mut().unwrap().app = crate::app::APP_VERSION + 1;
@@ -452,7 +443,7 @@ async fn genesis_rejects_noncanonical_consensus_parameters() {
     changed.version = None;
     changes.push(("missing app version", changed));
     let mut changed = canonical;
-    changed.abci.vote_extensions_enable_height = Some(Height::from(1u32));
+    changed.abci.as_mut().unwrap().vote_extensions_enable_height = 1;
     changes.push(("vote extensions", changed));
 
     let fx = Fixture::genesis(2);
@@ -537,7 +528,7 @@ async fn genesis_validators_must_equal_the_committee() {
     missing.validators.pop();
     let mut extra = fx.request.clone();
     extra.validators.extend(crate::test_utils::validator_updates(&[crate::types::Member {
-        pubkey: B256::repeat_byte(0xab),
+        pubkey: crate::test_utils::key_from_seed(B256::repeat_byte(0xab)),
         ..fx.members[0].clone()
     }]));
     let mut duplicate = fx.request.clone();
@@ -637,7 +628,7 @@ async fn el_serving_another_block_after_sync_is_a_safety_halt() {
 async fn genesis_rejects_a_different_committee_config_opening() {
     let mut fx = Fixture::genesis(2);
     let proven = fx.genesis.committee_config_hash;
-    fx.params.heartbeat_window -= 1;
+    fx.params.unsettled_limit -= 6;
     let local = committee::committee_config_hash(&fx.params);
     let dir = tempfile::tempdir().unwrap();
     let mut app = fx.app(dir.path());
@@ -666,7 +657,7 @@ async fn lost_state_rejects_old_app_zero_genesis_before_replay() {
 #[tokio::test]
 async fn genesis_and_restart_authenticate_chain_specific_backpressure_parameters() {
     let params =
-        ChainParams::builtin(167001).unwrap().with_overrides("d_max = 30\nmargin_v = 5").unwrap();
+        ChainParams::builtin(167001).unwrap().with_overrides("unsettled_limit = 24").unwrap();
     let fx = Fixture::build(GenesisSpec { params, epoch_len: 28, ..GenesisSpec::new(2) });
     let dir = tempfile::tempdir().unwrap();
     let app = initialized(&fx, dir.path()).await;
@@ -679,8 +670,8 @@ async fn genesis_and_restart_authenticate_chain_specific_backpressure_parameters
     for field in ["d_max", "margin_v"] {
         let mut wrong = fx.clone();
         match field {
-            "d_max" => wrong.params.d_max -= 1,
-            "margin_v" => wrong.params.margin_v += 1,
+            "d_max" => wrong.params.unsettled_limit -= 6,
+            "margin_v" => wrong.params.unsettled_limit += 6,
             _ => unreachable!(),
         }
         let empty_dir = tempfile::tempdir().unwrap();

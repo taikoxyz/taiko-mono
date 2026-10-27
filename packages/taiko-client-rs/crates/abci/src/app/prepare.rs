@@ -4,14 +4,14 @@
 
 use std::future::Future;
 
+use crate::wire::{request, response};
 use alloy_consensus::Transaction;
 use alloy_primitives::Bytes;
-use tendermint::abci::{request, response};
 
 use super::{
     AbciError, App, deadline, unix_secs,
     validate::{
-        Candidate, Rejection, check_candidate_anchor, check_landing_capacity, expected_header,
+        Candidate, Rejection, check_candidate_anchor, check_execution_size, expected_header,
         finish_candidate,
     },
 };
@@ -64,6 +64,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 vec![envelope.0]
             }
             Err(rejection) => {
+                if rejection.requires_dependency_repair() {
+                    return Err(AbciError::SafetyHalt(rejection.to_string()));
+                }
                 AbciMetrics::proposals_empty().inc();
                 self.note_rejection("PrepareProposal", height, &rejection);
                 vec![]
@@ -75,15 +78,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Builds the encoded envelope of the block at `req.height` on top of `state`.
     ///
     /// Chooses `max(parent anchor, own finalized - extra depth)`, authenticates a changed anchor
-    /// or the forced H0 anchor, checks progress, generation, status and back-pressure, derives
+    /// or the forced H0 anchor, checks progress, generation and back-pressure, derives
     /// the header and checks that its timestamp keeps the anchor fresh (an anchor older than
     /// `maxAnchorAge` proposes nothing until L1 finalizes a newer block). At `H(t)-2`, discovers
-    /// or reuses committee `t` under the committed parent's state root and anchor number. Then
-    /// verifies the candidate, collects the forced inclusion witness the anchor's queue requires
-    /// ([`App::forced_inclusion`]), attempts a forced-first mixed list, confirms any required skip,
-    /// restores full ordinary selection after a failed forced attempt, checks every derived header
-    /// field and ensures the envelope fits CometBFT's transaction limit and one landing on its
-    /// own ([`check_landing_capacity`]).
+    /// or reuses committee `t` at the committed parent's cutoff under the candidate anchor's state
+    /// root. Then verifies the candidate, collects the forced inclusion witness the anchor's
+    /// queue requires ([`App::forced_inclusion`]), attempts a forced-first mixed list, confirms
+    /// any required skip, restores full ordinary selection after a failed forced attempt,
+    /// checks every derived header field and ensures the envelope fits CometBFT's transaction
+    /// limit and one landing on its own ([`check_execution_size`]).
     async fn propose(
         &self,
         state: &AppState,
@@ -151,7 +154,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         )?;
         let committee = match switch {
             Some(target) => {
-                let witness = self.committee_witness(state, target).await?;
+                let witness = self.committee_witness(state, &anchor_state, target).await?;
                 Some((target, witness))
             }
             None => None,
@@ -159,7 +162,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let witness = committee.as_ref().map(|(_, w)| w);
         let facts = finish_candidate(state, params, height, witness, anchor_state)?;
         if let Some((target_epoch, witness)) = &committee {
-            self.cache_committee_witness(state, *target_epoch, witness)?;
+            self.cache_candidate_committee_witness(state, &facts.anchor, *target_epoch, witness)?;
         }
         let mut forced = self.forced_inclusion(state, &facts.anchor, prepare_deadline).await?;
         let context = ForcedContext {
@@ -167,8 +170,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
             anchor: &facts.anchor,
             delay: state.genesis.forced_inclusion_delay,
             inbox: params.inbox,
+            l2_chain_id: params.l2_chain_id,
+            block_gas_limit: params.block_gas_limit,
         };
-        let canonical = forced.as_ref().and_then(|w| forced::decode_canonical(&w.tx));
+        let canonical = forced.as_ref().and_then(|w| {
+            forced::decode_eligible(&w.tx, params.l2_chain_id, params.block_gas_limit)
+        });
         let tx_list = if let Some(transaction) = canonical {
             let gas_limit = expected.gas_limit.saturating_sub(transaction.gas_limit());
             let max_bytes = MIXED_TX_SELECTION_BYTES
@@ -271,7 +278,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if !i64::try_from(encoded.len()).is_ok_and(|len| len <= req.max_tx_bytes) {
             return Err(Rejection::Oversize { len: encoded.len(), max: req.max_tx_bytes });
         }
-        check_landing_capacity(&envelope.block)?;
+        check_execution_size(&envelope.block)?;
         Ok(encoded)
     }
 
@@ -283,9 +290,30 @@ impl<L: L1Source, E: Engine> App<L, E> {
     async fn committee_witness(
         &self,
         state: &AppState,
+        anchor: &AnchorState,
         target_epoch: u64,
     ) -> Result<CommitteeWitness, Rejection> {
         let parent_anchor = state.anchor.number;
+        if anchor.hash != state.anchor.hash {
+            if let Some(witness) =
+                self.cached_candidate_committee_witness(state, anchor, target_epoch)
+            {
+                return Ok(witness);
+            }
+            return deadline(
+                "switch registry proof",
+                self.opts.l1_timeout,
+                crate::l1::build_committee_witness_at_cutoff(
+                    self.l1(),
+                    &self.params,
+                    anchor.number,
+                    parent_anchor.max(state.genesis.l1_0),
+                    target_epoch,
+                ),
+            )
+            .await;
+        }
+
         if let Some(witness) = self.cached_committee_witness(state, target_epoch) {
             tracing::debug!(parent_anchor, target_epoch, "reusing the cached committee witness");
             return Ok(witness);
