@@ -156,13 +156,59 @@ pub struct Commit {
     pub signatures: Vec<CommitSig>,
 }
 impl<'de> Deserialize<'de> for Commit {
-    /// Restores the Unix epoch that the upstream optional timestamp JSON adapter omits.
+    /// Requires explicit signature timestamps before the SDK can collapse epoch and null values.
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let mut raw = RawCommit::deserialize(deserializer)?;
-        restore_commit_times(&mut raw);
-        raw.try_into().map_err(serde::de::Error::custom)
+        let json = CommitJson::deserialize(deserializer)?;
+        RawCommit {
+            height: json.height,
+            round: json.round,
+            block_id: json.block_id,
+            signatures: json
+                .signatures
+                .into_iter()
+                .map(|sig| RawCommitSig {
+                    block_id_flag: sig.block_id_flag,
+                    validator_address: sig.validator_address,
+                    timestamp: Some(sig.timestamp),
+                    signature: sig.signature,
+                })
+                .collect(),
+        }
+        .try_into()
+        .map_err(serde::de::Error::custom)
     }
 }
+/// Stock commit JSON metadata with a timestamp-preserving signature adapter.
+/// Typed serde retains its duplicate-field rejection for direct JSON deserialization.
+#[derive(Deserialize)]
+struct CommitJson {
+    /// Stock string-encoded signed height; domain conversion checks its range.
+    #[serde(with = "tendermint_proto::serializers::from_str")]
+    height: i64,
+    /// Stock numeric round; domain conversion rejects negative values.
+    round: i32,
+    /// Supported SDK block ID, required by the domain conversion.
+    block_id: Option<tendermint_proto::v0_38::types::BlockId>,
+    /// Received slot order; stock JSON permits a null list for an empty commit.
+    #[serde(with = "tendermint_proto::serializers::nullable")]
+    signatures: Vec<CommitSigJson>,
+}
+
+/// Stock signature JSON with a required timestamp rather than SDK's lossy optional adapter.
+#[derive(Deserialize)]
+struct CommitSigJson {
+    /// Original absent, block or nil discriminator, checked by the native conversion.
+    block_id_flag: i32,
+    /// Original hexadecimal validator identity, without address rewriting.
+    #[serde(with = "tendermint_proto::serializers::bytes::hexstring")]
+    validator_address: Vec<u8>,
+    /// Required RFC3339 stock timestamp; null and missing are errors, Unix epoch is retained.
+    timestamp: Timestamp,
+    /// Original base64 signature bytes, including the native recovery byte.
+    #[serde(with = "tendermint_proto::serializers::bytes::base64string")]
+    signature: Vec<u8>,
+}
+
 impl TryFrom<RawCommit> for Commit {
     /// Invalid metadata or native signature slot.
     type Error = String;
@@ -442,6 +488,7 @@ pub fn decode_block(mut value: serde_json::Value) -> Result<RawBlock, String> {
             }
         }
     }
+    check_block_timestamps(&value)?;
     let mut block: RawBlock = serde_json::from_value(value).map_err(|e| e.to_string())?;
     restore_block_times(&mut block);
     Ok(block)
@@ -449,6 +496,72 @@ pub fn decode_block(mut value: serde_json::Value) -> Result<RawBlock, String> {
 /// Decodes a stock decision certificate without the SDK's 64-byte signature restriction.
 pub fn decode_commit(value: serde_json::Value) -> Result<Commit, String> {
     serde_json::from_value(value).map_err(|e| e.to_string())
+}
+
+/// Rejects absent, null or malformed timestamp fields while their JSON presence is still known.
+fn check_timestamp(value: &Value, field: &str) -> Result<(), String> {
+    let timestamp = value.get(field).ok_or_else(|| format!("missing {field}"))?;
+    if !timestamp.is_string() {
+        return Err(format!("{field} must be an explicit RFC3339 timestamp"));
+    }
+    serde_json::from_value::<Timestamp>(timestamp.clone()).map(|_| ()).map_err(|e| e.to_string())
+}
+
+/// Checks each present raw certificate slot before SDK optional timestamp deserialization.
+fn check_commit_timestamps(commit: &Value) -> Result<(), String> {
+    if let Some(signatures) = commit.get("signatures").and_then(Value::as_array) {
+        for signature in signatures {
+            check_timestamp(signature, "timestamp")?;
+        }
+    }
+    Ok(())
+}
+
+/// Checks every timestamp that the stock block RPC carries, including nested evidence.
+/// Optional message nodes remain structural-validation inputs; every present node must supply time.
+fn check_block_timestamps(block: &Value) -> Result<(), String> {
+    if let Some(header) = block.get("header").filter(|v| !v.is_null()) {
+        check_timestamp(header, "time")?;
+    }
+    if let Some(commit) = block.get("last_commit").filter(|v| !v.is_null()) {
+        check_commit_timestamps(commit)?;
+    }
+    if let Some(evidence) = block.pointer("/evidence/evidence").and_then(Value::as_array) {
+        for item in evidence {
+            let Some(fields) = item.get("value") else { continue };
+            match item.get("type").and_then(Value::as_str) {
+                Some("tendermint/DuplicateVoteEvidence") => {
+                    // The SDK accepts Go's exported name as well as protobuf-shaped JSON.
+                    let field =
+                        if fields.get("timestamp").is_some() { "timestamp" } else { "Timestamp" };
+                    check_timestamp(fields, field)?;
+                    for name in ["vote_a", "vote_b"] {
+                        if let Some(vote) = fields.get(name).filter(|v| !v.is_null()) {
+                            check_timestamp(vote, "timestamp")?;
+                        }
+                    }
+                }
+                Some("tendermint/LightClientAttackEvidence") => {
+                    // Exported aliases have already been normalized by decode_block.
+                    check_timestamp(fields, "timestamp")?;
+                    if let Some(header) = fields
+                        .pointer("/conflicting_block/signed_header/header")
+                        .filter(|v| !v.is_null())
+                    {
+                        check_timestamp(header, "time")?;
+                    }
+                    if let Some(commit) = fields
+                        .pointer("/conflicting_block/signed_header/commit")
+                        .filter(|v| !v.is_null())
+                    {
+                        check_commit_timestamps(commit)?;
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Restores the Unix-epoch times of `block`'s header, last commit and evidence votes and
@@ -486,12 +599,9 @@ fn restore_block_times(block: &mut RawBlock) {
     }
 }
 
-/// Go encodes a header's time, a vote's timestamp and a commit signature's timestamp as
-/// non-nullable timestamps, so the JSON always carries them; tendermint-proto's JSON adapter
-/// (`serializers::optional`) reads one equal to the Unix epoch as absent. An absent value can
-/// therefore only be the epoch: restoring it keeps a validator that signs its precommit at the
-/// epoch (valid to CometBFT, and covered by the signature) from making a committed block and
-/// its certificate unreadable. The hashes and signatures over these fields still bind them.
+/// Restores only the supplied Unix-epoch timestamp erased by SDK's optional JSON adapter.
+/// `check_block_timestamps` first requires and parses every corresponding original JSON field,
+/// so neither an explicit null nor an omitted timestamp can reach this restoration path.
 fn restore_header_time(header: &mut RawHeader) {
     header.time.get_or_insert_with(Default::default);
 }
@@ -708,5 +818,101 @@ mod tests {
         let fields = block["evidence"]["evidence"][0]["value"].as_object_mut().unwrap();
         fields.insert("conflicting_block".into(), fields["ConflictingBlock"].clone());
         assert!(decode_block(block).is_err());
+    }
+    fn fixture_vector(file: &str, name: &str) -> Value {
+        let fixture: Value = serde_json::from_str(match file {
+            "evidence" => include_str!("../testdata/cometbft-v0.40/vectors.json"),
+            "differential" => include_str!("../testdata/cometbft-v0.40/differential.json"),
+            _ => unreachable!(),
+        })
+        .unwrap();
+        fixture["vectors"].as_array().unwrap().iter().find(|v| v["name"] == name).unwrap().clone()
+    }
+
+    fn omit_or_null(value: &mut Value, path: &str, omit: bool) {
+        assert!(value.pointer(path).is_some(), "fixture field {path}");
+        if omit {
+            let (parent, field) = path.rsplit_once('/').unwrap();
+            value.pointer_mut(parent).unwrap().as_object_mut().unwrap().remove(field);
+        } else {
+            *value.pointer_mut(path).unwrap() = Value::Null;
+        }
+    }
+
+    #[test]
+    fn commit_json_rejects_missing_or_null_signed_timestamps() {
+        let mut accepted = Vec::new();
+        for name in ["own_commit_sig_at_unix_epoch", "own_nil_sig_at_unix_epoch"] {
+            let vector = fixture_vector("differential", name);
+            let original = vector["commit_rpc"]["signed_header"]["commit"].clone();
+            for index in 0..2 {
+                for omit in [false, true] {
+                    let mut json = original.clone();
+                    omit_or_null(&mut json, &format!("/signatures/{index}/timestamp"), omit);
+                    if decode_commit(json.clone()).is_ok() ||
+                        serde_json::from_value::<Commit>(json.clone()).is_ok() ||
+                        serde_json::from_str::<Commit>(&json.to_string()).is_ok()
+                    {
+                        accepted.push(format!("{name} slot {index} omit={omit}"));
+                    }
+                }
+            }
+        }
+        assert!(accepted.is_empty(), "malformed commit timestamps accepted: {accepted:?}");
+    }
+
+    #[test]
+    fn block_rpc_rejects_missing_or_null_nested_timestamps() {
+        let mut accepted = Vec::new();
+        for (file, name, path) in [
+            ("differential", "header_at_unix_epoch", "/header/time"),
+            (
+                "differential",
+                "last_commit_sig_at_unix_epoch",
+                "/last_commit/signatures/1/timestamp",
+            ),
+            (
+                "differential",
+                "last_commit_nil_sig_at_unix_epoch",
+                "/last_commit/signatures/1/timestamp",
+            ),
+            (
+                "differential",
+                "duplicate_votes_at_unix_epoch",
+                "/evidence/evidence/0/value/vote_a/timestamp",
+            ),
+            (
+                "differential",
+                "duplicate_votes_at_unix_epoch",
+                "/evidence/evidence/0/value/vote_b/timestamp",
+            ),
+            (
+                "differential",
+                "duplicate_votes_at_unix_epoch",
+                "/evidence/evidence/0/value/Timestamp",
+            ),
+            (
+                "evidence",
+                "light_client_attack",
+                "/evidence/evidence/0/value/ConflictingBlock/signed_header/header/time",
+            ),
+            (
+                "evidence",
+                "light_client_attack",
+                "/evidence/evidence/0/value/ConflictingBlock/signed_header/commit/signatures/0/timestamp",
+            ),
+            ("evidence", "light_client_attack", "/evidence/evidence/0/value/Timestamp"),
+        ] {
+            let original = fixture_vector(file, name)["block_rpc"]["block"].clone();
+            assert!(decode_block(original.clone()).is_ok());
+            for omit in [false, true] {
+                let mut json = original.clone();
+                omit_or_null(&mut json, path, omit);
+                if decode_block(json).is_ok() {
+                    accepted.push(format!("{name} {path} omit={omit}"));
+                }
+            }
+        }
+        assert!(accepted.is_empty(), "malformed block timestamps accepted: {accepted:?}");
     }
 }
