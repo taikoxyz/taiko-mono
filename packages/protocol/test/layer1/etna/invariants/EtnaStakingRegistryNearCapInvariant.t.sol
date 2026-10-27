@@ -55,6 +55,7 @@ abstract contract EtnaStakingRegistryNearCapInvariantBase is EtnaStakingRegistry
         bytes32 root = _naiveRootOfEntries();
         vm.resumeGasMetering();
         assertEq(registry.entriesRoot(), root, "prefilled root");
+        assertEq(handler.ghostRoot(), root, "the ghost tree is the naive tree");
         _assertModelHeld();
     }
 
@@ -71,8 +72,8 @@ abstract contract EtnaStakingRegistryNearCapInvariantBase is EtnaStakingRegistry
 contract EtnaStakingRegistryNearCapInvariantTest is EtnaStakingRegistryNearCapInvariantBase {
     /// @notice The 4,096th registration takes the last slot, the next one reverts
     /// `RegistryFull`, and after a release the next registration reuses the released slot at the
-    /// cap. The naive root over all 4,096 raw entries then equals `entriesRoot()` and the ghost
-    /// tree's root.
+    /// cap. With the released slot present and again after the reuse, the naive root over all
+    /// 4,096 raw entries equals `entriesRoot()` and the ghost tree's root.
     function test_handler_FillsReleasesAndReusesAtTheCap() external {
         handler.register(0, 0, 0);
         assertEq(registry.entryCount(), CAPACITY, "the 4096th registration");
@@ -84,22 +85,21 @@ contract EtnaStakingRegistryNearCapInvariantTest is EtnaStakingRegistryNearCapIn
         handler.advanceToWithdrawal(0);
         handler.withdraw(0);
         assertEq(handler.withdrawals(), 1, "a slot released");
+        assertEq(registry.freeSlotCount(), 1, "one free slot at the cap");
+        _assertNaiveRoot("at the cap with a free slot");
         handler.register(2, 2, 0);
         assertEq(handler.reusesAtCap(), 1, "the released slot reused at the cap");
         assertEq(registry.entryCount(), CAPACITY, "still 4096 slots");
 
-        vm.pauseGasMetering();
-        bytes32 root = _naiveRootOfEntries();
-        vm.resumeGasMetering();
-        assertEq(registry.entriesRoot(), root, "entriesRoot is the naive root at the cap");
-        assertEq(handler.ghostRoot(), root, "the ghost tree is the naive tree at the cap");
+        _assertNaiveRoot("at the cap after the reuse");
         _assertModelHeld();
     }
 
     /// @notice 8. Entries never exceed the 4,096 slots: a registration at the cap reverts
     /// `RegistryFull` unless a slot is free, the most recently released slot is reused first,
     /// and every free slot is a distinct released bond. Every slot and key a run touched matches
-    /// the model, and the registry's balance is the modelled stake.
+    /// the model, and the registry's balance is the modelled stake. `entriesRoot()` is the ghost
+    /// tree's root over all modelled entries, and the latest checkpoint holds it and the count.
     function invariant_entriesStayWithinTheCap() external view {
         _assertModelHeld();
         uint256 count = registry.entryCount();
@@ -116,6 +116,27 @@ contract EtnaStakingRegistryNearCapInvariantTest is EtnaStakingRegistryNearCapIn
             assertTrue(registry.keyUsed(keys[i]), "a registered key stays used");
         }
         assertEq(token.balanceOf(address(registry)), handler.staked(), "modelled stake");
+
+        bytes32 root = registry.entriesRoot();
+        assertEq(root, handler.ghostRoot(), "entriesRoot is the modelled root");
+        IEtnaStakingRegistry.Checkpoint memory latest =
+            registry.checkpointAt(registry.checkpointCount() - 1);
+        assertEq(latest.count, count, "the latest checkpoint counts every slot");
+        assertEq(latest.entriesRoot, root, "the latest checkpoint holds the current root");
+    }
+
+    /// @dev Asserts that the naive root over all raw entries equals `entriesRoot()` and the ghost
+    /// tree's root.
+    function _assertNaiveRoot(string memory _when) internal {
+        vm.pauseGasMetering();
+        bytes32 root = _naiveRootOfEntries();
+        vm.resumeGasMetering();
+        assertEq(
+            registry.entriesRoot(), root, string.concat("entriesRoot is the naive root ", _when)
+        );
+        assertEq(
+            handler.ghostRoot(), root, string.concat("the ghost tree is the naive tree ", _when)
+        );
     }
 
     /// @notice 2. One checkpoint per L1 block that changed an entry, the prefill's included;
