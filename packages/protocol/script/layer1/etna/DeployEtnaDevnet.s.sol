@@ -26,12 +26,13 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 ///    implementation. The proxy owner upgrades to it and calls `init` in one transaction: the
 ///    script sends that call when the deployer owns the proxy and otherwise logs it for the owner.
 /// @dev Every call reads PRIVATE_KEY (the deployer) and the optional CONTRACT_OWNER, the owner of
-/// the proxies it deploys (the deployer if unset or zero).
+/// the proxies it deploys (the deployer if unset, empty or zero). An optional variable that is
+/// set but malformed reverts the call instead of falling back to its default.
 /// `deployInboxProxy()` reads nothing else.
 /// `deployRegistry()`: INBOX_PROXY; TAIKO_TOKEN; REGISTRY_MIN_STAKE in token base units, which
-/// defaults to ETNA_S_MIN if unset or zero (C13); REGISTRY_ACTIVATION_DELAY, REGISTRY_EXIT_DELAY
-/// and REGISTRY_WITHDRAWAL_DELAY in L1 blocks, each in [1, 2^32); SLASH_BOUNTY_BPS (at most
-/// 10,000); SLASH_SINK (non-zero); L2_CHAIN_ID.
+/// defaults to ETNA_S_MIN if unset, empty or zero (C13); REGISTRY_ACTIVATION_DELAY,
+/// REGISTRY_EXIT_DELAY and REGISTRY_WITHDRAWAL_DELAY in L1 blocks, each in [1, 2^32);
+/// SLASH_BOUNTY_BPS (at most 10,000); SLASH_SINK (non-zero); L2_CHAIN_ID.
 /// `deployInbox()`: INBOX_PROXY; STAKING_REGISTRY; ETNA_PROOF_VERIFIER, which must have code;
 /// REMOTE_SIGNAL_SERVICE (the L2 SignalService); L1_CHAIN_ID, which must equal this chain's id;
 /// L2_CHAIN_ID, which must equal the registry's; MAX_BATCH_BLOCKS (at least 6);
@@ -41,11 +42,13 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// COMMITTEE_RECORD_HASH; ETNA_VP_UNIT (at least 867,361,738), ETNA_S_MIN (at least
 /// ETNA_VP_UNIT), ETNA_N_MAX (in [1, 4096]) and ETNA_UNSETTLED_LIMIT (U, a multiple of 6 in
 /// [6, 65,532]); FORCED_INCLUSION_DELAY (seconds, non-zero); MAX_ANCHOR_AGE (seconds, at least
-/// 1152 and above the L1 finality delay).
+/// 1152).
 /// The script checks only ETNA_PROOF_VERIFIER's code and L1_CHAIN_ID itself; the constructors
-/// and `init` check the other bounds, so a logged owner call is validated when the owner sends
-/// it. The genesis values must match the L2 genesis, and nodes and guests must use the same
-/// configuration. A verifier that accepts every proof is for ephemeral devnets only.
+/// and `init` check the other bounds listed above, so a logged owner call is validated when the
+/// owner sends it. Nothing on chain checks the rest, which the operator must ensure:
+/// MAX_ANCHOR_AGE above the L1 finality delay (spec 11), genesis values that match the L2
+/// genesis, and nodes and guests using the same configuration. A verifier that accepts every
+/// proof is for ephemeral devnets only.
 /// @custom:security-contact security@taiko.xyz
 contract DeployEtnaDevnet is Script {
     // ---------------------------------------------------------------
@@ -154,18 +157,20 @@ contract DeployEtnaDevnet is Script {
         return key;
     }
 
-    /// @dev Reads the owner of the deployed proxies, falling back to the deployer.
+    /// @dev Reads the owner of the deployed proxies, falling back to the deployer when
+    /// CONTRACT_OWNER is unset, empty or zero. A malformed value reverts.
     /// @param _key The deployment key.
     /// @return The owner.
     function _owner(uint256 _key) private view returns (address) {
-        address owner = vm.envOr("CONTRACT_OWNER", address(0));
+        address owner = _isSet("CONTRACT_OWNER") ? vm.envAddress("CONTRACT_OWNER") : address(0);
         return owner == address(0) ? vm.addr(_key) : owner;
     }
 
-    /// @dev Reads the registry configuration; the minimum stake defaults to ETNA_S_MIN (C13).
+    /// @dev Reads the registry configuration; the minimum stake defaults to ETNA_S_MIN (C13)
+    /// when REGISTRY_MIN_STAKE is unset, empty or zero. A malformed value reverts.
     /// @return The registry configuration.
     function _registryConfig() private view returns (IEtnaStakingRegistry.Config memory) {
-        uint256 minStake = vm.envOr("REGISTRY_MIN_STAKE", uint256(0));
+        uint256 minStake = _isSet("REGISTRY_MIN_STAKE") ? vm.envUint("REGISTRY_MIN_STAKE") : 0;
         if (minStake == 0) minStake = vm.envUint("ETNA_S_MIN");
         return IEtnaStakingRegistry.Config({
             token: vm.envAddress("TAIKO_TOKEN"),
@@ -222,6 +227,14 @@ contract DeployEtnaDevnet is Script {
     /// @return The uint64 value.
     function _envUint64(string memory _name) private view returns (uint64) {
         return SafeCast.toUint64(vm.envUint(_name));
+    }
+
+    /// @dev Returns whether an optional variable holds a non-empty value, which the caller then
+    /// parses strictly. `vm.envOr` would also return its default for a malformed value.
+    /// @param _name The variable name.
+    /// @return Whether the variable is set and non-empty.
+    function _isSet(string memory _name) private view returns (bool) {
+        return vm.envExists(_name) && bytes(vm.envString(_name)).length != 0;
     }
 
     // ---------------------------------------------------------------

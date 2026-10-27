@@ -61,6 +61,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         _RevertWhen_L1ChainIdMismatch();
         _RevertWhen_ProofVerifierHasNoCode();
         _RevertWhen_UnsettledLimitInvalid();
+        _RevertWhen_OptionalVariableMalformed();
     }
 
     modifier withEnvironment() {
@@ -272,6 +273,26 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertTrue(IEtnaInbox(proxy).isInitialized(), "a valid limit initializes");
     }
 
+    /// @dev A set but malformed CONTRACT_OWNER or REGISTRY_MIN_STAKE reverts before anything is
+    /// broadcast instead of falling back to the deployer or to ETNA_S_MIN; an empty
+    /// CONTRACT_OWNER still means the deployer.
+    function _RevertWhen_OptionalVariableMalformed() private withEnvironment {
+        vm.setEnv("CONTRACT_OWNER", "0xB0b");
+        _expectMalformedRejected(
+            abi.encodeCall(DeployEtnaDevnet.deployInboxProxy, ()), "CONTRACT_OWNER"
+        );
+
+        vm.setEnv("CONTRACT_OWNER", "");
+        address proxy = _deployment.deployInboxProxy();
+        assertEq(EssentialContract(proxy).owner(), _scriptDeployer, "empty means the deployer");
+
+        vm.setEnv("INBOX_PROXY", vm.toString(proxy));
+        vm.setEnv("REGISTRY_MIN_STAKE", "12abc");
+        _expectMalformedRejected(
+            abi.encodeCall(DeployEtnaDevnet.deployRegistry, ()), "REGISTRY_MIN_STAKE"
+        );
+    }
+
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
@@ -309,6 +330,29 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(uint256(mode), uint256(VmSafe.CallerMode.None), "broadcast never started");
         assertEq(vm.getNonce(_scriptDeployer), nonce, "nothing deployed");
         assertFalse(IEtnaInbox(_proxy).isInitialized(), "proxy stays on the bootstrap");
+    }
+
+    /// @dev Expects the script call `_call` to revert with a reason naming the malformed variable
+    /// `_name`, before it broadcasts or deploys anything.
+    function _expectMalformedRejected(bytes memory _call, string memory _name) private {
+        uint64 nonce = vm.getNonce(_scriptDeployer);
+        (bool success, bytes memory reason) = address(_deployment).call(_call);
+        assertFalse(success, "malformed value rejected");
+        assertTrue(vm.contains(_revertString(reason), _name), "the reason names the variable");
+        (VmSafe.CallerMode mode,,) = vm.readCallers();
+        assertEq(uint256(mode), uint256(VmSafe.CallerMode.None), "broadcast never started");
+        assertEq(vm.getNonce(_scriptDeployer), nonce, "nothing deployed");
+    }
+
+    /// @dev Decodes a failed cheatcode's `CheatcodeError(string)` revert data into its message.
+    function _revertString(bytes memory _reason) private pure returns (string memory) {
+        assertEq(bytes4(_reason), bytes4(keccak256("CheatcodeError(string)")), "a cheatcode error");
+        uint256 length = _reason.length;
+        assembly {
+            _reason := add(_reason, 4)
+            mstore(_reason, sub(length, 4))
+        }
+        return abi.decode(_reason, (string));
     }
 
     /// @dev Expects the owner's upgrade-and-initialize call, and so `deployInbox`, to revert with
