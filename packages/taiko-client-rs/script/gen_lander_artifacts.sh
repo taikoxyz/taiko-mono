@@ -5,7 +5,7 @@
 # the committed files.
 set -euo pipefail
 
-PINNED_REVISION=08bcaca2cf764a9e951a9163e302849a016f7862
+PINNED_REVISION=23963b68e43b4cbeaf83113eeb61fbc1bddb4c46
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLIENT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROTOCOL_CHECKOUT="$(cd "${1:?usage: gen_lander_artifacts.sh <taiko-mono-checkout>}" && pwd)"
@@ -22,11 +22,10 @@ if [[ "${PNPM_OFFLINE:-0}" == 1 ]]; then INSTALL_FLAGS+=(--offline); fi
 (cd "$PROTOCOL_CHECKOUT" && pnpm install "${INSTALL_FLAGS[@]}")
 (cd "$PROTOCOL_CHECKOUT/packages/protocol" && FOUNDRY_PROFILE=layer1 forge build \
     contracts/layer1/etna/impl/EtnaInbox.sol \
+    contracts/layer1/etna/impl/EtnaInboxBootstrap.sol \
     contracts/layer1/etna/impl/EtnaStakingRegistry.sol \
     contracts/shared/signal/SignalService.sol test/layer1/etna/EtnaInboxTestBase.sol \
     --build-info)
-(cd "$PROTOCOL_CHECKOUT/packages/protocol" && FOUNDRY_PROFILE=layer2 forge build \
-    contracts/layer2/core/L2FeeVault.sol --build-info)
 
 python3 - "$PROTOCOL_CHECKOUT" "$CLIENT_DIR" "$PINNED_REVISION" <<'PYTHON'
 import hashlib
@@ -42,13 +41,14 @@ output.mkdir(parents=True, exist_ok=True)
 artifacts = {
     "EtnaInbox": "EtnaInbox.sol/EtnaInbox.json",
     "EtnaStakingRegistry": "EtnaStakingRegistry.sol/EtnaStakingRegistry.json",
-    "L2FeeVault": "L2FeeVault.sol/L2FeeVault.json",
+    "EtnaInboxBootstrap": "EtnaInboxBootstrap.sol/EtnaInboxBootstrap.json",
     "SignalService": "SignalService.sol/SignalService.json",
     "ERC1967Proxy": "ERC1967Proxy.sol/ERC1967Proxy.json",
     "MockLandProofVerifier": "EtnaInboxTestBase.sol/MockLandProofVerifier.json",
     "TestERC20": "TestERC20.sol/TestERC20.json",
 }
-(output / "EtnaRewardPool.json").unlink(missing_ok=True)
+for stale in ["EtnaRewardPool.json", "L2FeeVault.json"]:
+    (output / stale).unlink(missing_ok=True)
 manifest = {
     "protocolRevision": revision,
     "generator": "script/gen_lander_artifacts.sh",
@@ -62,7 +62,7 @@ manifest = {
     "artifacts": {},
 }
 for name, relative in artifacts.items():
-    profile = "layer2" if name == "L2FeeVault" else "layer1"
+    profile = "layer1"
     source = protocol / f"out/{profile}" / relative
     artifact = json.loads(source.read_text())
     metadata = json.loads(artifact["rawMetadata"])
@@ -99,27 +99,15 @@ for name, relative in artifacts.items():
         "settings": settings,
         "sources": sources,
     }
-# Alloy 1.6 emits an unconditional eight-argument Events enum constructor for this event.
-# Relocate only that event into a standalone sol! declaration, retaining typed event decoding
-# and the complete, unchanged real contract artifact above. No runtime bytecode is projected.
+# The V1 ABI has no reward-event projection; retain every current Inbox ABI entry.
 inbox_artifact = json.loads((output / "EtnaInbox.json").read_text())
-reward_event = next(item for item in inbox_artifact["abi"]
-                    if item.get("type") == "event" and item.get("name") == "BatchRewardRecorded")
-projected = {"abi": [item for item in inbox_artifact["abi"] if item != reward_event]}
 bindings_path = client / "crates/lander/contracts/EtnaInbox.json"
-bindings_path.write_text(json.dumps(projected, indent=2, sort_keys=True) + "\n")
+bindings_path.write_text(json.dumps({"abi": inbox_artifact["abi"]}, indent=2, sort_keys=True) + "\n")
 subprocess.run(["pnpm", "exec", "prettier", "--write", str(bindings_path)], cwd=checkout, check=True)
-params = ",\n    ".join(f"{item['type']}{' indexed' if item['indexed'] else ''} {item['name']}"
-                           for item in reward_event["inputs"])
-event_path = client / "crates/lander/contracts/BatchRewardRecorded.sol"
-event_path.write_text("// SPDX-License-Identifier: MIT\npragma solidity ^0.8.26;\n\n"
-                      "// Generated from the pinned EtnaInbox ABI; do not edit.\n"
-                      f"event BatchRewardRecorded(\n    {params}\n);\n")
+(client / "crates/lander/contracts/BatchRewardRecorded.sol").unlink(missing_ok=True)
 manifest["bindings"] = {
     "sourceArtifact": "EtnaInbox.json",
-    "omittedEvents": ["BatchRewardRecorded"],
     "projection": {"path": "contracts/EtnaInbox.json", "sha256": hashlib.sha256(bindings_path.read_bytes()).hexdigest()},
-    "standaloneEvent": {"path": "contracts/BatchRewardRecorded.sol", "sha256": hashlib.sha256(event_path.read_bytes()).hexdigest()},
 }
 interface_path = "contracts/layer1/etna/iface/IEtnaInbox.sol"
 interface = (protocol / interface_path).read_bytes()
