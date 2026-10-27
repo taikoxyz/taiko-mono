@@ -4,9 +4,9 @@
 Only alloc changes, except the derived top-level stateRoot is discarded. All other non-alloc
 fields remain identical to canonical devnet JSON. The alloc gains the canonical EIP-4788 and
 EIP-2935 system contracts.
-The pinned EL dependency (alethia-reth PR #251) supports this strict custom genesis with an
-explicit Etna activation override, restores the canonical fork table and rebuilds its genesis
-header/hash. The client harness checks the actual block-0 hash/root and installed runtimes.
+The pinned alethia-reth supports this strict custom genesis with an explicit Etna activation
+override, restores the canonical fork table and rebuilds its genesis header/hash. The client
+harness checks the actual block-0 hash/root and installed runtimes.
 """
 
 import argparse

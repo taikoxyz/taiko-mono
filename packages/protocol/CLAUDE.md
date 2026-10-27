@@ -262,7 +262,7 @@ For upgradeable contracts:
 design decisions they rely on. Run from `packages/protocol`:
 
 ```bash
-# Focused Etna unit, integration, gas and vector tests
+# Every Etna suite: unit, integration, gas, vector and invariant (64-run default)
 pnpm test:l1 --match-contract 'Etna|LibEntriesTree|LibEtnaKeys|LibCometVote'
 # Invariant campaigns at 256 runs (each suite sets depth 50)
 FOUNDRY_INVARIANT_RUNS=256 pnpm test:l1 --match-contract 'Etna.*Invariant'

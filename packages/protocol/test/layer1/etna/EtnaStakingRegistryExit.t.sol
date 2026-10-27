@@ -259,7 +259,7 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
         registry.confirmExit(1);
     }
 
-    /// @dev While the Inbox runs `land` or `recover` (C8), checked before anything else.
+    /// @dev While the Inbox holds its reentrancy lock (C8), checked before anything else.
     function test_confirmExit_RevertWhen_InboxLocked() external {
         _requestExitCovered();
         mockInbox.setInNonReentrant(true);
@@ -376,7 +376,7 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
         assertEq(token.balanceOf(Alice), MIN_STAKE, "paid once");
     }
 
-    /// @dev While the Inbox runs `land` or `recover` (C8), checked before the confirmation and
+    /// @dev While the Inbox holds its reentrancy lock (C8), checked before the confirmation and
     /// the owner.
     function test_withdraw_RevertWhen_InboxLocked() external {
         _confirmAndWait();
