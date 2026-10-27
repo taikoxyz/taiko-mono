@@ -7,7 +7,7 @@ cp "$fixture_dir/generate.go" "$fixture_tmp/main.go"
 cat > "$fixture_tmp/go.mod" <<'EOF'
 module lander-comet-fixture
 
-go 1.25.0
+go 1.27.2
 
 require github.com/cometbft/cometbft v0.40.0
 EOF

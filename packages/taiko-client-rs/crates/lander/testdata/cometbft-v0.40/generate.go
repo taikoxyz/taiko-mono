@@ -4,8 +4,6 @@ package main
 
 import (
 	"bytes"
-	stded25519 "crypto/ed25519"
-	"crypto/sha512"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -17,13 +15,11 @@ import (
 	"time"
 
 	"github.com/cometbft/cometbft/crypto"
-	"github.com/cometbft/cometbft/crypto/ed25519"
 	"github.com/cometbft/cometbft/crypto/secp256k1"
+	"github.com/cometbft/cometbft/crypto/secp256k1eth"
 	cmtjson "github.com/cometbft/cometbft/libs/json"
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/cometbft/cometbft/types"
-	"github.com/oasisprotocol/curve25519-voi/curve"
-	"github.com/oasisprotocol/curve25519-voi/curve/scalar"
 )
 
 type vector struct {
@@ -42,54 +38,21 @@ func must(err error) {
 	}
 }
 
-func key(seed byte) ed25519.PrivKey {
-	// Match ed25519-dalek::SigningKey::from_bytes([seed; 32]).
-	return ed25519.PrivKey(stded25519.NewKeyFromSeed(bytes.Repeat([]byte{seed}, 32)))
+func key(seed byte) secp256k1eth.PrivKey {
+	// Canonical nonzero secp256k1 scalar shared with the Rust fixture.
+	return secp256k1eth.PrivKey(bytes.Repeat([]byte{seed}, 32))
 }
 
-func signVote(k ed25519.PrivKey, id types.BlockID) *types.Vote {
+func signVote(k secp256k1eth.PrivKey, id types.BlockID) *types.Vote {
 	v := &types.Vote{
 		Type: cmtproto.PrecommitType, Height: 1, Round: 0, BlockID: id,
 		Timestamp: time.Unix(100, 0).UTC(), ValidatorAddress: k.PubKey().Address(),
 		ValidatorIndex: 1,
 	}
 	var err error
-	v.Signature, err = k.Sign(types.VoteSignBytes("taiko-etna-167001-g0", v.ToProto()))
+	v.Signature, err = k.Sign(types.VoteSignBytes(chainID, v.ToProto()))
 	must(err)
 	return v
-}
-
-// Torsion in the nonce is accepted under ZIP215 for an ordinary prime-order public key.
-func torsionSignature(k ed25519.PrivKey, message []byte) []byte {
-	secret := sha512.Sum512(k[:32])
-	secret[0] &= 248
-	secret[31] &= 63
-	secret[31] |= 64
-	a, err := new(scalar.Scalar).SetBytesModOrder(secret[:32])
-	must(err)
-	nonce := new(scalar.Scalar).SetUint64(7)
-	r := new(curve.EdwardsPoint).MulBasepoint(curve.ED25519_BASEPOINT_TABLE, nonce)
-	r.Add(r, curve.EIGHT_TORSION[1])
-	if r.IsTorsionFree() || r.IsSmallOrder() {
-		panic("fixture nonce must have nontrivial torsion without small order")
-	}
-	rBytes, err := r.MarshalBinary()
-	must(err)
-	hash := sha512.New()
-	hash.Write(rBytes)
-	hash.Write(k.PubKey().Bytes())
-	hash.Write(message)
-	challenge, err := new(scalar.Scalar).SetBytesModOrderWide(hash.Sum(nil))
-	must(err)
-	s := new(scalar.Scalar).Mul(challenge, a)
-	s.Add(s, nonce)
-	sBytes, err := s.MarshalBinary()
-	must(err)
-	signature := append(rBytes, sBytes...)
-	if !k.PubKey().VerifySignature(message, signature) {
-		panic("stock CometBFT rejected the ZIP215 fixture")
-	}
-	return signature
 }
 
 func commit(header types.Header, id types.BlockID, vals *types.ValidatorSet) *types.Commit {
@@ -107,9 +70,6 @@ func commit(header types.Header, id types.BlockID, vals *types.ValidatorSet) *ty
 		message := types.VoteSignBytes(header.ChainID, vote.ToProto())
 		signature, err := k.Sign(message)
 		must(err)
-		if bytes.Equal(k.PubKey().Bytes(), key(1).PubKey().Bytes()) {
-			signature = torsionSignature(k, message)
-		}
 		result.Signatures = append(result.Signatures, types.CommitSig{
 			BlockIDFlag: types.BlockIDFlagCommit, ValidatorAddress: v.Address,
 			Timestamp: vote.Timestamp, Signature: signature,
@@ -122,7 +82,7 @@ func commit(header types.Header, id types.BlockID, vals *types.ValidatorSet) *ty
 func block(evidence types.Evidence, envelope []byte, vals *types.ValidatorSet) vector {
 	b := &types.Block{
 		Header: types.Header{
-			ChainID: "taiko-etna-167001-g0", Height: 1, Time: time.Unix(101, 0).UTC(),
+			ChainID: chainID, Height: 1, Time: time.Unix(101, 0).UTC(),
 			ValidatorsHash: vals.Hash(), NextValidatorsHash: vals.Hash(),
 			ConsensusHash: bytes.Repeat([]byte{2}, 32), AppHash: make([]byte, 32),
 			ProposerAddress: vals.Validators[0].Address,
@@ -132,6 +92,7 @@ func block(evidence types.Evidence, envelope []byte, vals *types.ValidatorSet) v
 		LastCommit: &types.Commit{},
 	}
 	b.Header.Version.Block = 11
+	b.Header.Version.App = 1
 	hash := b.Hash()
 	parts, err := b.MakePartSet(65536)
 	must(err)
@@ -189,12 +150,13 @@ func main() {
 		return evidence
 	}
 	conflicting := types.Header{
-		ChainID: "taiko-etna-167001-g0", Height: 2, Time: time.Unix(102, 0).UTC(),
+		ChainID: chainID, Height: 2, Time: time.Unix(102, 0).UTC(),
 		ValidatorsHash: vals.Hash(), NextValidatorsHash: vals.Hash(),
 		ConsensusHash: bytes.Repeat([]byte{2}, 32), AppHash: bytes.Repeat([]byte{7}, 32),
 		ProposerAddress: vals.Validators[0].Address,
 	}
 	conflicting.Version.Block = 11
+	conflicting.Version.App = 1
 	conflictingID := id(8)
 	conflictingID.Hash = conflicting.Hash()
 	lca := &types.LightClientAttackEvidence{
@@ -220,13 +182,13 @@ func main() {
 	output, err := json.MarshalIndent(struct {
 		Provenance string   `json:"provenance"`
 		Vectors    []vector `json:"vectors"`
-	}{"github.com/cometbft/cometbft v0.40.0; generate.sh", result}, "", "  ")
+	}{"github.com/cometbft/cometbft v0.40.0; secp256k1eth; Go 1.27.2; generate.sh", result}, "", "  ")
 	must(err)
 	must(os.WriteFile(os.Args[2], append(output, '\n'), 0644))
 	differentialOutput, err := json.MarshalIndent(struct {
 		Provenance string               `json:"provenance"`
 		Vectors    []differentialVector `json:"vectors"`
-	}{"github.com/cometbft/cometbft v0.40.0; generate.sh; seeded PCG(22280, 2026)", differentialVectors(envelope)}, "", "  ")
+	}{"github.com/cometbft/cometbft v0.40.0; secp256k1eth; Go 1.27.2; generate.sh; seeded PCG(22280, 2026)", differentialVectors(envelope)}, "", "  ")
 	must(err)
 	must(os.WriteFile(os.Args[3], append(differentialOutput, '\n'), 0644))
 }
@@ -246,7 +208,8 @@ type differentialVector struct {
 	PartsTotal   uint32          `json:"parts_total"`
 }
 
-const chainID = "taiko-etna-167001-g0"
+// Schema-4 chain_domains[0]: L1=1, L2=167001, Inbox=0x1111...1111, generation=0.
+const chainID = "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4"
 
 var epoch = time.Unix(0, 0).UTC()
 
@@ -346,7 +309,10 @@ func differential(name string, height int64, at time.Time, powers []int64, last 
 		LastCommit: &types.Commit{},
 	}
 	b.Header.Version.Block = 11
-	b.Header.Version.App = option.app
+	b.Header.Version.App = 1
+	if option.app != 0 {
+		b.Header.Version.App = option.app
+	}
 	if last != nil {
 		b.LastCommit = last
 		b.Header.LastBlockID = last.BlockID
@@ -500,6 +466,7 @@ func (f fuzz) lightClientAttack(vals *types.ValidatorSet) types.Evidence {
 		ConsensusHash: f.bytes(32), AppHash: f.bytes(32), ProposerAddress: conflictingVals.Validators[0].Address,
 	}
 	header.Version.Block = 11
+	header.Version.App = 1
 	id := f.blockID()
 	id.Hash = header.Hash()
 	byzantine := []*types.Validator{vals.Validators[f.IntN(vals.Size())]}
@@ -628,6 +595,7 @@ func oddLightClientAttack(vals *types.ValidatorSet, secp bool) types.Evidence {
 		ProposerAddress: conflicting.Validators[0].Address,
 	}
 	header.Version.Block = 11
+	header.Version.App = 1
 	id := types.BlockID{Hash: header.Hash(), PartSetHeader: types.PartSetHeader{Total: 1, Hash: bytes.Repeat([]byte{8}, 32)}}
 	specs := make([]sigSpec, conflicting.Size())
 	for i := range specs {

@@ -58,3 +58,6 @@ pub mod history;
 
 /// Independent permissionless L2 reward claims.
 pub mod claim;
+
+/// Lossless native stock-Comet certificates and key-bearing block evidence.
+pub mod native;
