@@ -515,16 +515,19 @@ mod tests {
             genesis_committee_hash: Some(B256::repeat_byte(8)),
             ..Default::default()
         };
-        let packed = U256::from(1u64) | U256::from(2u64) << 64 | U256::from(3u64) << 128;
+        // Current IEtnaInbox.GenesisRecord packs three uint48 values. Generation zero's
+        // Origin separately records the same L1 initialization block at mapping slot 290.
+        let packed = U256::from(1u64) | U256::from(2u64) << 48 | U256::from(3u64) << 96;
         assert_eq!(
             v.writes(),
             vec![
                 (inbox::slot(272), packed),
+                (inbox::origin_slots(0)[1], U256::from(2u64)),
                 (inbox::slot(273), U256::from_be_bytes([5; 32])),
                 (inbox::slot(274), U256::from_be_bytes([6; 32])),
                 (inbox::slot(279), U256::from(7u64)),
                 (inbox::slot(269), U256::from_be_bytes([9; 32])),
-                (inbox::slot(282), U256::from(10u64) | U256::from(11u64) << 64),
+                (inbox::slot(282), U256::from(10u64) | U256::from(11u64) << 48),
                 (inbox::slot(inbox::GENESIS_COMMITTEE_HASH), U256::from_be_bytes([8; 32])),
             ]
         );
