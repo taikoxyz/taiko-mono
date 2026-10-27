@@ -4,9 +4,9 @@
     "system-runtimes.json": "dfc49844adf1e81f88b4fdc1fd342f104c8d6c240aeee8e0f0a23c5a2837b304"
   },
   "generator": "script/gen_test_harness_artifacts.sh",
-  "revision": "5d4d21ac472c024703082ba46c6eacfa3b8ec1bf",
+  "revision": "b046734a0a47b17ca66c33ccbc7c9087cbbf9b1e",
   "sources": {
     "crates/chainspec/src/genesis/devnet.json": "213f446a01b718ca32fad18039d53aa04235fd4886b215a9be24e76a58f727db",
-    "crates/node/tests/fixtures/etna-genesis.json": "fec1dcaad5d05370ba94526e661a85ac34c3f23c181479db929ab37577f319e6"
+    "crates/node/tests/fixtures/etna-genesis.json": "6a9afc01533a4480dcde7102ba3b88b2215ffc60959de60b88f7c50475269ba5"
   }
 }
