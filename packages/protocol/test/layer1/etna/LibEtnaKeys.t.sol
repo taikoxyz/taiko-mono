@@ -417,7 +417,9 @@ contract LibEtnaKeysTest is CommonTest, EtnaVectorReader {
     function test_parseSignature_RevertWhen_LengthIsNot65() external view {
         bytes memory sig = _signature(1, 1, 0);
         _assertSignatureRejected("", "0 bytes");
-        _assertSignatureRejected(abi.encodePacked(bytes32(uint256(1)), bytes32(uint256(1))), "64");
+        _assertSignatureRejected(
+            abi.encodePacked(bytes32(uint256(1)), bytes32(uint256(1))), "64 bytes"
+        );
         _assertSignatureRejected(abi.encodePacked(sig, uint8(0)), "66 bytes");
         _assertSignatureRejected(abi.encodePacked(sig, sig), "130 bytes");
     }

@@ -16,9 +16,10 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 
 /// @title DeployEtnaDevnetTest
-/// @notice Runs `DeployEtnaDevnet` in the C2 order (spec 10 steps 1 and 5): the Inbox proxy on its
-/// bootstrap implementation, the registry fixed to it, a validator registration, then the
-/// SignalService and the Inbox implementation, with the proxy owner's upgrade-and-initialize call.
+/// @notice Runs `DeployEtnaDevnet` in the owner-initialized order (spec 10 steps 1 and 5): the
+/// Inbox proxy on its bootstrap implementation, the registry fixed to it, a validator registration,
+/// then the SignalService and the Inbox implementation, with the proxy owner's
+/// upgrade-and-initialize call.
 /// @dev The base stack stays on its bootstrap implementation; only its registry is used, as a
 /// registry fixed to another Inbox.
 contract DeployEtnaDevnetTest is EtnaInboxTestBase {
@@ -297,8 +298,8 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     // Helpers
     // ---------------------------------------------------------------
 
-    /// @dev Runs the first two C2 steps, the Inbox proxy and then the registry fixed to it, and
-    /// exports both addresses.
+    /// @dev Runs the first two deployment steps, the Inbox proxy and then the registry fixed to it,
+    /// and exports both addresses.
     function _deployProxyAndRegistry()
         private
         returns (address proxy_, EtnaStakingRegistry registry_)

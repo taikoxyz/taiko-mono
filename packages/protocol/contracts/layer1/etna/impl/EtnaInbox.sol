@@ -390,8 +390,8 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         uint48 c = _lastCheckpoint.height;
         require(_expectedC == c, CheckpointMismatch());
 
-        // The new generation (slot 268) and the origin's L1 block and timestamp must fit 48 bits
-        // (C6); c already does.
+        // The new generation (slot 268) and the origin's L1 block and timestamp must fit 48 bits,
+        // since slot 290 packs each origin field into 48 bits; c already does.
         uint48 newGeneration = _toUint48(uint256(generation) + 1);
         require(
             block.number <= type(uint48).max && block.timestamp <= type(uint48).max, ValueOverflow()
@@ -606,7 +606,8 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         require(h - p <= _maxBatchBlocks, BatchTooLarge());
 
         origin_ = _landings[p];
-        // A written record never has a zero EL hash.
+        // A written record never has a zero EL hash: `init` rejects a zero genesis hash, and
+        // `land` saves each hash as a SignalService checkpoint, which rejects a zero hash.
         require(origin_.elHash != 0, MissingOrigin());
         require(origin_.generation == _generation || p == startHeight, ForeignGeneration());
     }

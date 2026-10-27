@@ -12,10 +12,10 @@ import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 
 /// @title EtnaVectorsTest
-/// @notice Pins the frozen Etna storage layout (spec appendix B) and encodings (appendix A) to
+/// @notice Pins the Etna storage layout (spec appendix B) and encodings (appendix A) to
 /// `testdata/etna_vectors/vectors.json`, the file the Etna node and guests read.
 /// @dev Layout tests write raw words at the vector's slots with `vm.store` and read them back
-/// through the frozen views of the Inbox proxy (upgraded to `EtnaInbox`, not initialized) and of
+/// through the views of the Inbox proxy (upgraded to `EtnaInbox`, not initialized) and of
 /// the registry proxy, so a view that reads another slot, offset or width fails. Encoding tests
 /// rebuild every preimage with Solidity's `abi.encode` and compare bytes and hashes. Each test
 /// loads the file into memory (`j`); it is too large to keep in storage.
