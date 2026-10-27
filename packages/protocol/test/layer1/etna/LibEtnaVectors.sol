@@ -96,4 +96,81 @@ library LibEtnaVectors {
             ++count_;
         }
     }
+
+    /// @dev Returns `"<_array>[<_index>]."`, the path prefix of an array item's fields.
+    /// @param _array The JSON path of the array.
+    /// @param _index The item's index.
+    /// @return The item's path prefix.
+    function itemAt(string memory _array, uint256 _index) internal pure returns (string memory) {
+        return string.concat(_array, "[", _VM.toString(_index), "].");
+    }
+}
+
+/// @title EtnaVectorReader
+/// @notice The field readers of the suites that walk `vectors.json` item by item: `_at` names an
+/// array item and the others read field `_field` of the item whose path prefix is `_p`.
+abstract contract EtnaVectorReader {
+    function _at(string memory _array, uint256 _index) internal pure returns (string memory) {
+        return LibEtnaVectors.itemAt(_array, _index);
+    }
+
+    function _uint(
+        string memory _j,
+        string memory _p,
+        string memory _field
+    )
+        internal
+        pure
+        returns (uint256)
+    {
+        return LibEtnaVectors.uintAt(_j, string.concat(_p, _field));
+    }
+
+    function _bytes32(
+        string memory _j,
+        string memory _p,
+        string memory _field
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
+        return LibEtnaVectors.bytes32At(_j, string.concat(_p, _field));
+    }
+
+    function _address(
+        string memory _j,
+        string memory _p,
+        string memory _field
+    )
+        internal
+        pure
+        returns (address)
+    {
+        return LibEtnaVectors.addressAt(_j, string.concat(_p, _field));
+    }
+
+    function _bytes(
+        string memory _j,
+        string memory _p,
+        string memory _field
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return LibEtnaVectors.bytesAt(_j, string.concat(_p, _field));
+    }
+
+    function _string(
+        string memory _j,
+        string memory _p,
+        string memory _field
+    )
+        internal
+        pure
+        returns (string memory)
+    {
+        return LibEtnaVectors.stringAt(_j, string.concat(_p, _field));
+    }
 }

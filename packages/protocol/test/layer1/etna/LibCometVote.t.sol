@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { LibEtnaVectors } from "./LibEtnaVectors.sol";
+import { EtnaVectorReader, LibEtnaVectors } from "./LibEtnaVectors.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { LibCometVote } from "src/layer1/etna/libs/LibCometVote.sol";
 import { LibEtnaKeys } from "src/layer1/etna/libs/LibEtnaKeys.sol";
@@ -57,7 +57,7 @@ contract LibCometVoteHarness {
     }
 }
 
-contract LibCometVoteTest is CommonTest {
+contract LibCometVoteTest is CommonTest, EtnaVectorReader {
     /// @dev The number of `votes.cases` items.
     uint256 private constant _VOTE_CASES = 23;
 
@@ -868,73 +868,5 @@ contract LibCometVoteTest is CommonTest {
         if (c == 0x2d) return 62; // -
         if (c == 0x5f) return 63; // _
         return 64;
-    }
-
-    // ---------------------------------------------------------------
-    // Helpers: JSON
-    // ---------------------------------------------------------------
-
-    function _at(string memory _array, uint256 _index) private pure returns (string memory) {
-        return string.concat(_array, "[", vm.toString(_index), "].");
-    }
-
-    function _uint(
-        string memory _j,
-        string memory _p,
-        string memory _field
-    )
-        private
-        pure
-        returns (uint256)
-    {
-        return LibEtnaVectors.uintAt(_j, string.concat(_p, _field));
-    }
-
-    function _bytes32(
-        string memory _j,
-        string memory _p,
-        string memory _field
-    )
-        private
-        pure
-        returns (bytes32)
-    {
-        return LibEtnaVectors.bytes32At(_j, string.concat(_p, _field));
-    }
-
-    function _address(
-        string memory _j,
-        string memory _p,
-        string memory _field
-    )
-        private
-        pure
-        returns (address)
-    {
-        return LibEtnaVectors.addressAt(_j, string.concat(_p, _field));
-    }
-
-    function _bytes(
-        string memory _j,
-        string memory _p,
-        string memory _field
-    )
-        private
-        pure
-        returns (bytes memory)
-    {
-        return LibEtnaVectors.bytesAt(_j, string.concat(_p, _field));
-    }
-
-    function _string(
-        string memory _j,
-        string memory _p,
-        string memory _field
-    )
-        private
-        pure
-        returns (string memory)
-    {
-        return LibEtnaVectors.stringAt(_j, string.concat(_p, _field));
     }
 }

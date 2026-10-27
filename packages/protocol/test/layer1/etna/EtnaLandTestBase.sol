@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import { EtnaInboxTestBase } from "./EtnaInboxTestBase.sol";
 import { LibEtnaLandStatement } from "./LibEtnaLandStatement.sol";
+import { VmSafe } from "forge-std/src/Vm.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
@@ -117,6 +118,28 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
             l1ReferenceBlockNumber: l1ReferenceBlockNumber,
             forcedInclusionHead: head,
             activeCommitteeSnapshot: LEAN_SNAPSHOT
+        });
+    }
+
+    /// @dev The record `(_parent, _generation, _head)` holding the committed chain's hashes at
+    /// `_x`.
+    function _record(
+        uint256 _parent,
+        uint256 _generation,
+        uint256 _head,
+        uint256 _x
+    )
+        internal
+        pure
+        returns (IEtnaInbox.Landing memory)
+    {
+        (bytes32 el, bytes32 comet,) = _cut(_x);
+        return IEtnaInbox.Landing({
+            parentHeight: uint48(_parent),
+            generation: uint48(_generation),
+            head: uint48(_head),
+            elHash: el,
+            cometHash: comet
         });
     }
 
@@ -273,6 +296,20 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
         IEtnaInbox.Config memory config = _defaultConfig();
         config.maxBatchBlocks = _maxBatchBlocks;
         _inbox().upgradeTo(address(_newInboxImpl(config)));
+    }
+
+    /// @dev An empty exclusion list.
+    function _noExclusions() internal pure returns (IEtnaInbox.Exclusion[] memory) {
+        return new IEtnaInbox.Exclusion[](0);
+    }
+
+    /// @dev Whether a recorded account access is a call or a create.
+    function _isCall(VmSafe.AccountAccessKind _kind) internal pure returns (bool) {
+        return _kind == VmSafe.AccountAccessKind.Call
+            || _kind == VmSafe.AccountAccessKind.DelegateCall
+            || _kind == VmSafe.AccountAccessKind.CallCode
+            || _kind == VmSafe.AccountAccessKind.StaticCall
+            || _kind == VmSafe.AccountAccessKind.Create;
     }
 
     // ---------------------------------------------------------------

@@ -902,15 +902,6 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         return string.concat(".votes.cases[", vm.toString(_i), "].");
     }
 
-    /// @dev Splits a 65-byte signature `R ‖ S ‖ V`.
-    function _split(bytes memory _sig) private pure returns (bytes32 r_, bytes32 s_, uint8 v_) {
-        assembly {
-            r_ := mload(add(_sig, 0x20))
-            s_ := mload(add(_sig, 0x40))
-            v_ := byte(0, mload(add(_sig, 0x60)))
-        }
-    }
-
     /// @dev The first `_n` bytes of `_b`.
     function _prefix(bytes memory _b, uint256 _n) private pure returns (bytes memory out_) {
         out_ = new bytes(_n);

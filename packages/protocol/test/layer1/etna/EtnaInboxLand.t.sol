@@ -674,38 +674,8 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
     // Helpers
     // ---------------------------------------------------------------
 
-    /// @dev The record `(_parent, _generation, _head)` holding the committed chain's hashes at
-    /// `_x`.
-    function _record(
-        uint256 _parent,
-        uint256 _generation,
-        uint256 _head,
-        uint256 _x
-    )
-        private
-        pure
-        returns (IEtnaInbox.Landing memory)
-    {
-        (bytes32 el, bytes32 comet,) = _cut(_x);
-        return IEtnaInbox.Landing({
-            parentHeight: uint48(_parent),
-            generation: uint48(_generation),
-            head: uint48(_head),
-            elHash: el,
-            cometHash: comet
-        });
-    }
-
     function _plantHistory(uint256 _number, bytes32 _hash) private {
         vm.etch(HISTORY_STORAGE, HISTORY_STORAGE_CODE);
         vm.store(HISTORY_STORAGE, bytes32(_number % 8191), _hash);
-    }
-
-    function _isCall(VmSafe.AccountAccessKind _kind) private pure returns (bool) {
-        return _kind == VmSafe.AccountAccessKind.Call
-            || _kind == VmSafe.AccountAccessKind.DelegateCall
-            || _kind == VmSafe.AccountAccessKind.CallCode
-            || _kind == VmSafe.AccountAccessKind.StaticCall
-            || _kind == VmSafe.AccountAccessKind.Create;
     }
 }
