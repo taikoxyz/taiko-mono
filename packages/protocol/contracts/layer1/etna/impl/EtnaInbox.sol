@@ -358,6 +358,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @inheritdoc IEtnaInbox
     /// @dev Also sweeps ETH forced into the Inbox without a call. A zero balance transfers nothing.
+    /// Unaffected by pause.
     function sweepProtocolFees() external nonReentrant {
         uint256 amount = address(this).balance;
         emit ProtocolFeesSwept(amount);
@@ -365,12 +366,14 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     }
 
     /// @inheritdoc IEtnaInbox
-    /// @dev Requires initialization; every check precedes every effect. The effects run in this
-    /// order: `forceExit` per exclusion, the blanking, the generation and origin writes, then the
-    /// event; a failing `forceExit` reverts the whole call. Unaffected by pause. The only external
-    /// calls are `forceExit` on the fixed registry. At block.number == 2^48 - 1 recovery passes its
-    /// own bound but any exclusion reverts in the registry, which stores no L1 block at its no-exit
-    /// sentinel.
+    /// @dev The Inbox makes all of its own checks (initialization, the expected values, the 48-bit
+    /// bounds, both lists and the unwritten origin) before any effect. The effects then run in
+    /// this order: `forceExit` per exclusion, the blanking, the generation and origin writes, then
+    /// the event. The registry checks each exclusion inside its `forceExit`, after the earlier
+    /// exclusions have been applied; the call is atomic, so a failing `forceExit` reverts them
+    /// all. Unaffected by pause. The only external calls are `forceExit` on the fixed registry. At
+    /// block.number == 2^48 - 1 recovery passes its own bound but any exclusion reverts in the
+    /// registry, which stores no L1 block at its no-exit sentinel.
     function recover(
         uint48 _expectedGeneration,
         uint256 _expectedC,

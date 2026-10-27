@@ -256,25 +256,24 @@ For upgradeable contracts:
 
 **Note**: For monorepo-wide guidance, see root `/CLAUDE.md`
 
-## Etna new-genesis rewards
+## Etna
 
-Etna uses nonpayable V10 landing statements (21 words), receipt commitments at Inbox mapping
-slot 283, the terminal active committee snapshot at slot 284, and explicit proof-based claims from the immutable L2 treasury. Keep L1 queue-fee
-`feeRecipient` separate from `l2RewardRecipient`; there is no L1 reward pool, DAO subsidy,
-pre-funding or participation settlement. Registry withdrawals also require its one-time bound Inbox's
-settled active committee snapshot to cover exitEffectiveL1; elapsed L1 time alone is insufficient. Follow `contracts/layer1/etna/README.md` for predicted
-Inbox/genesis ordering, immutable registration recipients and strict format boundaries. The real
-guest is absent; dummy verifier tests establish contract/client behavior only. Preserve the
-mandatory `solidity-tester` delegation above for all Solidity test work.
-
-For focused local Etna L1 iteration, run:
+`contracts/layer1/etna/README.md` maps the Etna contracts to the Etna specification and lists the
+design decisions they rely on. Run from `packages/protocol`:
 
 ```bash
-FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/etna/*.t.sol' --no-match-path 'test/layer1/etna/invariants/*'
+# Focused Etna unit, integration, gas and vector tests
+pnpm test:l1 --match-contract 'Etna|LibEntriesTree|LibEtnaKeys|LibCometVote'
+# Invariant campaigns at 256 runs (each suite sets depth 50)
+FOUNDRY_INVARIANT_RUNS=256 pnpm test:l1 --match-contract 'Etna.*Invariant'
+# L2 genesis builder
+pnpm test:l2 --match-contract EtnaGenesisTest
+python3 -m unittest discover -s test/layer2/core -p 'test_etna_genesis.py'
+# Shared vectors: structural tests, then regeneration (needs cast, Go and pnpm)
+python3 -m unittest discover -s ../../testdata/etna_vectors -p 'test_vectors.py'
+(cd ../.. && python3 testdata/etna_vectors/generate.py)
 ```
 
-Foundry path filters are globs; the explicit exclusion keeps the invariant subdirectory out of this
-local run. Use the same filters with `--list` to inspect discovery. Run the relevant invariant
-campaign after focused checks; preserve the configured 256-run, depth-50 campaigns. The full
-protocol merge gate remains `pnpm test` (L1, L2 and shared, including all Etna invariants), plus
-`python3 -m unittest discover -s test/layer2/core -p 'test_etna_genesis.py'` after the L2 build.
+Regeneration is deterministic: a second run must give identical bytes. taiko-client-rs pins
+`testdata/etna_vectors` by hash and builds `test/layer1/etna/EtnaInboxTestBase.sol` for its
+lander artifacts, so keep `MockLandProofVerifier` there with its name and setters.
