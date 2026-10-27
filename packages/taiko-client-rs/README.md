@@ -502,8 +502,10 @@ or config opening differs.
    its persistent home and signer-listener directory owned by10001; keep registered key/HRS
    root-owned0600 in a private directory outside that home. Put the Unix signer listener
    under the Comet-owned home, not the app's0700 private store. This prevents the Comet
-   child from reading registered signing secrets. Supervisor needs root with SETUID, SETGID
-   and KILL capabilities; persistent Comet volume ownership is prepared separately. HRS
+   child from reading registered signing secrets. Supervisor needs root with SETUID, SETGID,
+   KILL and DAC_OVERRIDE capabilities: the root signer must connect to the Comet-owned Unix
+   socket. Comet runs as UID10001 with zero effective capabilities. Persistent Comet volume
+   ownership is prepared separately. HRS
    and its parent must be writable for atomic replacement, even when the key is read-only.
    The supervisor requires
    `priv_validator_laddr`, existing signing files outside the Comet
