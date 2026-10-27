@@ -168,6 +168,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     }
 
     /// @inheritdoc IEtnaStakingRegistry
+    /// @dev Unaffected by pause.
     function register(
         bytes calldata _publicKey,
         uint256 _amount,
@@ -210,6 +211,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     }
 
     /// @inheritdoc IEtnaStakingRegistry
+    /// @dev Unaffected by pause.
     function requestExit(uint256 _bondId) external {
         RegistryStorage storage $ = _registryStorage();
         // Existence comes before ownership: an unknown or released slot has no owner.
@@ -224,6 +226,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     }
 
     /// @inheritdoc IEtnaStakingRegistry
+    /// @dev Unaffected by pause.
     function confirmExit(uint256 _bondId) external {
         _checkInboxUnlocked();
         require(IEtnaInbox(_inbox).isInitialized(), InboxNotInitialized());
@@ -240,7 +243,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
 
     /// @inheritdoc IEtnaStakingRegistry
     /// @dev Only an unreleased slot has a confirmation, so the confirmation check also rejects
-    /// unknown and released bonds.
+    /// unknown and released bonds. Unaffected by pause.
     function withdraw(uint256 _bondId, address _to) external nonReentrant {
         _checkInboxUnlocked();
         mapping(uint256 => uint256) storage confirmations =
@@ -270,7 +273,8 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// @inheritdoc IEtnaStakingRegistry
     /// @dev Checks in order: the Inbox's initialization, both votes' ranges, the pair (same type,
     /// height, round and generation, different block ids), the generation, the entry and its
-    /// stake, then both signatures. The slash is written before either transfer.
+    /// stake, then both signatures. The slash is written before either transfer. Unaffected by
+    /// pause, and by the Inbox's reentrancy lock.
     function slashDoubleSign(
         uint256 _bondId,
         Vote calldata _voteA,
@@ -333,7 +337,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// @dev Checks in order: the caller, the entry (`UnknownBond`, then `SlotReleased`), the
     /// entry key, then `_r`, which must be below the no-exit sentinel (`InvalidEventBlock`) so an
     /// excluded entry is always left with an exit. An exit already at or before `_r` is kept, and
-    /// then nothing is written: no checkpoint and no event.
+    /// then nothing is written: no checkpoint and no event. Unaffected by pause.
     function forceExit(uint256 _bondId, bytes32 _entryKey, uint256 _r) external nonReentrant {
         require(msg.sender == _inbox, NotInbox());
         RegistryStorage storage $ = _registryStorage();
@@ -500,7 +504,9 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         );
     }
 
-    /// @dev Reverts with `InboxLocked` while the Inbox is executing `land` or `recover` (C8).
+    /// @dev Reverts with `InboxLocked` whenever the Inbox holds its reentrancy lock (C8): during
+    /// `land` and `recover`, and also during `saveForcedInclusion` (its refund included) and
+    /// `sweepProtocolFees` (its transfer included).
     function _checkInboxUnlocked() private view {
         require(!EssentialContract(_inbox).inNonReentrant(), InboxLocked());
     }

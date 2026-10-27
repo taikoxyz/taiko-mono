@@ -154,9 +154,9 @@ interface IEtnaStakingRegistry {
         uint8 voteType
     );
 
-    /// @notice Emitted when governance recovery forces an exit.
+    /// @notice Emitted when governance recovery moves an entry's exit earlier.
     /// @param bondId The entry's bond id.
-    /// @param exitEffectiveL1 The new exit block, min(existing, R).
+    /// @param exitEffectiveL1 The new exit block, R.
     event ExitForced(uint256 indexed bondId, uint48 exitEffectiveL1);
 
     /// @notice Emitted when the current block's checkpoint is appended or overwritten.
@@ -202,20 +202,23 @@ interface IEtnaStakingRegistry {
     function requestExit(uint256 _bondId) external;
 
     /// @notice Records the exit confirmation that starts the withdrawal delay (spec 4.1).
-    /// @dev Callable by anyone. Requires an initialized Inbox that is not executing `land` or
-    /// `recover`, an unreleased entry with an exit set, and the Inbox's
-    /// `activeCommitteeSnapshot() >= exitEffectiveL1`: a landed committee no longer includes the
-    /// stake. The first call records block.number; later calls succeed without moving it.
+    /// @dev Callable by anyone. Reverts `InboxLocked` whenever the Inbox holds its reentrancy
+    /// lock, which it does throughout `land`, `recover`, `saveForcedInclusion` (including the
+    /// refund) and `sweepProtocolFees`. Requires an initialized Inbox, an unreleased entry with
+    /// an exit set, and the Inbox's `activeCommitteeSnapshot() >= exitEffectiveL1`: a landed
+    /// committee no longer includes the stake. The first call records block.number; later calls
+    /// succeed without moving it.
     /// @param _bondId The bond id.
     function confirmExit(uint256 _bondId) external;
 
     /// @notice Releases an entry's slot after its confirmed exit, paying out any remaining stake
     /// (spec 4.1).
-    /// @dev Requires a confirmed exit, block.number >= exitConfirmedAtL1 + withdrawalDelay and an
-    /// Inbox that is not executing `land` or `recover`. With a positive stake only the bond owner
-    /// may call and the stake goes to `_to`; a slashed entry is released by anyone without
-    /// payment. Zeros the entry, clears its owner and confirmation, frees the slot and writes the
-    /// current block's checkpoint; the key stays used.
+    /// @dev Reverts `InboxLocked` whenever the Inbox holds its reentrancy lock (see
+    /// `confirmExit`). Requires a confirmed exit and block.number >= exitConfirmedAtL1 +
+    /// withdrawalDelay. With a positive stake only the bond owner may call and the stake goes to
+    /// a non-zero `_to`; a slashed entry is released by anyone without payment. Zeros the entry,
+    /// clears its owner and confirmation, frees the slot and writes the current block's
+    /// checkpoint; the key stays used.
     /// @param _bondId The bond id.
     /// @param _to The recipient of the stake.
     function withdraw(uint256 _bondId, address _to) external;
@@ -236,8 +239,10 @@ interface IEtnaStakingRegistry {
 
     /// @notice Moves an entry's exit to `_r` during governance recovery (spec 8 step 2).
     /// @dev Only the Inbox. Requires an unreleased slot whose occupant matches
-    /// `_entryKey = keccak256(abi.encode(ckPrefix, ckX))`. Sets exitEffectiveL1 to
-    /// min(existing, _r) without slashing and writes the current block's checkpoint.
+    /// `_entryKey = keccak256(abi.encode(ckPrefix, ckX))`, and reverts `InvalidEventBlock` if
+    /// `_r >= 2^48 - 1`, the no-exit sentinel. If `_r` is below the entry's exitEffectiveL1, sets
+    /// it to `_r` without slashing, writes the current block's checkpoint and emits `ExitForced`;
+    /// otherwise it keeps the existing exit and writes nothing.
     /// @param _bondId The bond id.
     /// @param _entryKey The expected occupant's key.
     /// @param _r The recovery execution block `R`.
@@ -332,7 +337,8 @@ interface IEtnaStakingRegistry {
     error InvalidEventBlock();
     /// @notice The Inbox is not initialized.
     error InboxNotInitialized();
-    /// @notice The Inbox is executing `land` or `recover`.
+    /// @notice The Inbox holds its reentrancy lock: it is executing `land`, `recover`,
+    /// `saveForcedInclusion` or `sweepProtocolFees`.
     error InboxLocked();
     /// @notice No landed committee excludes the stake yet.
     error ExitNotCovered();

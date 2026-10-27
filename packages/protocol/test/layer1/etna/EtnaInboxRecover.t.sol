@@ -659,8 +659,8 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         assertEq(saved.stateRoot, bytes32(uint256(318)), "signal state root");
     }
 
-    /// @dev Review focus 1: with c = 18 landed in generation 1 above the origin 12, whose record is
-    /// from generation 0, (12, 24] proved from 12 lands. The leaf at c is checked against the
+    /// @dev With c = 18 landed in generation 1 above the origin 12, whose record is from
+    /// generation 0, (12, 24] proved from 12 lands. The leaf at c is checked against the
     /// generation-1 record, so the discarded generation-0 suffix's leaf at 18 is rejected, and
     /// every origin below 12 is rejected although its record exists.
     function test_land_AfterRecoveryOverlapsFromTheGenerationOrigin() external {
@@ -699,9 +699,10 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         _assertLanding(12, _record(6, 0, 2, 12));
     }
 
-    /// @dev Lean `foreign_generation_proof_rejected`: the (0, 18] transaction built for generation
-    /// 0 fails after recovery at c = 12 because its origin is below the generation's start, and
-    /// so does origin 6; origin 12 lands.
+    /// @dev Lean `foreign_generation_proof_rejected`: the (0, 18] inputs prepared before recovery
+    /// at c = 12 fail after it because origin 0 is below the new generation's start height, and so
+    /// do the inputs from origin 6; origin 12 lands. `LandInput` carries no generation (the
+    /// statement binds it), so these rejections come from the range check, before any proof.
     function test_land_AfterRecoveryRejectsOlderOrigins() external {
         _land(0, 6);
         _land(6, 12);

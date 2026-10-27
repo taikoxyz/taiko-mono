@@ -191,9 +191,9 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         );
     }
 
-    /// @dev Task 11's check on the real bootstrap proxy: long after Alice's exit takes effect,
-    /// confirmation reverts `InboxNotInitialized` for anyone, and the Inbox is checked before the
-    /// bond, so an unknown bond gets the same error. Nothing is recorded.
+    /// @dev On the real bootstrap proxy, long after Alice's exit takes effect, confirmation
+    /// reverts `InboxNotInitialized` for anyone, and the Inbox is checked before the bond, so an
+    /// unknown bond gets the same error. Nothing is recorded.
     function test_confirmExit_RevertWhen_InboxNotInitialized() external {
         _deployFreshInbox(false);
         uint256 exit = _requestExit(Alice, 0);
@@ -316,11 +316,11 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
     // The Inbox lock
     // ---------------------------------------------------------------
 
-    /// @dev Review focus 4 and design C8: Alice's bond 0 is confirmed, slashed and past the
-    /// withdrawal delay, so anyone may release it; Bob's bond 1 has a covered exit, so anyone may
-    /// confirm it. While the Inbox lock is held, first by the lock harness and then by a real
-    /// `recover` whose registry probe makes the calls, both revert `InboxLocked` and change
-    /// nothing. Outside the lock Carol confirms bond 1 and releases bond 0 without payment.
+    /// @dev Design C8: Alice's bond 0 is confirmed, slashed and past the withdrawal delay, so
+    /// anyone may release it; Bob's bond 1 has a covered exit, so anyone may confirm it. While the
+    /// Inbox lock is held, first by the lock harness and then by a real `recover` whose registry
+    /// probe makes the calls, both revert `InboxLocked` and change nothing. Outside the lock Carol
+    /// confirms bond 1 and releases bond 0 without payment.
     function test_confirmExit_RevertWhen_RecoverHoldsTheInboxLock() external {
         assertEq(_registerValidator(registry, Bob, _BOB_PK), 1, "Bob's bond 1");
         _requestExit(Alice, 0);
@@ -379,11 +379,10 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         _assertReleased(0);
     }
 
-    /// @dev Task 12's decision: `slashDoubleSign` does not check the Inbox lock (C8 covers only
-    /// `confirmExit` and `withdraw`). Under the harness's lock Alice's double sign slashes her
-    /// whole stake, the bounty going to the caller, the Inbox proxy. A landing then covers the
-    /// exit the slash set, yet confirming it under the lock reverts `InboxLocked`; outside the
-    /// lock Carol confirms it.
+    /// @dev `slashDoubleSign` does not check the Inbox lock (C8 covers only `confirmExit` and
+    /// `withdraw`). Under the harness's lock Alice's double sign slashes her whole stake, the
+    /// bounty going to the caller, the Inbox proxy. A landing then covers the exit the slash set,
+    /// yet confirming it under the lock reverts `InboxLocked`; outside the lock Carol confirms it.
     function test_slashDoubleSign_IgnoresTheInboxLock() external {
         EtnaInboxLockHarness harness = _upgradeToLockHarness();
         // One block past Alice's activation (11), so the exit the slash sets differs from it.
@@ -420,12 +419,12 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         assertEq(registry.exitConfirmedAtL1(0), block.number, "confirmed outside the lock");
     }
 
-    /// @dev Task 15: the forced inclusion refund runs under the Inbox lock (`saveForcedInclusion`
-    /// is `nonReentrant` and refunds last), so a sender whose `receive` confirms Alice's covered
-    /// exit gets `InboxLocked`. If the sender lets that revert propagate, the refund fails and
-    /// the whole save reverts `ETH_TRANSFER_FAILED` (LibAddress does not bubble revert data):
-    /// nothing is queued or charged. If it catches the revert, the save succeeds and no
-    /// confirmation is recorded. Outside the lock the same confirmation succeeds.
+    /// @dev The forced inclusion refund runs under the Inbox lock (`saveForcedInclusion` is
+    /// `nonReentrant` and refunds last), so a sender whose `receive` confirms Alice's covered exit
+    /// gets `InboxLocked`. If the sender lets that revert propagate, the refund fails and the whole
+    /// save reverts `ETH_TRANSFER_FAILED` (LibAddress does not bubble revert data): nothing is
+    /// queued or charged. If it catches the revert, the save succeeds and no confirmation is
+    /// recorded. Outside the lock the same confirmation succeeds.
     function test_saveForcedInclusion_RefundRecipientCannotConfirmAnExit() external {
         uint256 exit = _requestExit(Alice, 0);
         _landWithSnapshot(0, 6, exit);
