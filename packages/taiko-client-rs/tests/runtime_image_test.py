@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import struct
 import subprocess
 import tempfile
 import time
@@ -11,8 +12,27 @@ import tomllib
 
 assert os.getuid() == 0, "supported supervisor uses root to drop Comet privileges"
 assert os.environ["ETNA_COMET_UID"] == os.environ["ETNA_COMET_GID"] == "10001"
+# OCI platform labels and successful execution under binfmt do not prove that
+# every bundled executable is native. In particular, the upstream v0.40.0
+# arm64 image packaged an x86-64 Comet binary that Docker Desktop could emulate.
+expected_platform = os.environ["ETNA_EXPECTED_PLATFORM"]
+expected_uname, expected_machine = {
+    "linux/arm64": ("aarch64", 183), "linux/amd64": ("x86_64", 62)
+}[expected_platform]
+assert os.uname().machine == expected_uname, (expected_platform, os.uname().machine)
+binary_machines = {}
+for executable in ["/app/etna-signer", "/usr/bin/cometbft", "/app/taiko-client"]:
+    path = Path(executable)
+    if executable == "/app/taiko-client" and not path.exists():
+        continue  # runtime-tools target deliberately excludes the Rust app.
+    with path.open("rb") as binary:
+        header = binary.read(20)
+    assert header[:4] == b"\x7fELF", f"not a Linux ELF executable: {executable}"
+    machine = struct.unpack("<H", header[18:20])[0]
+    binary_machines[executable] = machine
+    assert machine == expected_machine, (executable, os.uname().machine, machine, expected_machine)
 version = subprocess.check_output(["cometbft", "version"], text=True).strip()
-# The official pinned v0.40.0 image retains this upstream stale version constant.
+# Exact stock source 0880b4d retains this upstream stale version constant.
 assert version == "0.39.0+0880b4d", version
 with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
     root = Path(directory)
@@ -94,7 +114,7 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
         assert denied_start.returncode != 0 and b"etna_supervisor_started" not in denied_start.stdout
         assert not missing.exists(), "missing authoritative files must never regenerate"
         saved.rename(missing)
-    print(json.dumps(dict(architecture=os.uname().machine, comet_source_tag="v0.40.0", comet_version_label=version, python=os.sys.version.split()[0],
+    print(json.dumps(dict(architecture=os.uname().machine, expected_platform=expected_platform, binary_elf_machines=binary_machines, comet_source_tag="v0.40.0", comet_version_label=version, python=os.sys.version.split()[0],
                           comet_sha256=hashlib.sha256(Path("/usr/bin/cometbft").read_bytes()).hexdigest(),
                           publicKey=public["publicKey"], child_uids=observed,
                           comet_cannot_read_registered_key=True, HRS_unchanged=True,
