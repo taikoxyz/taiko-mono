@@ -35,6 +35,8 @@ use crate::{
     store::{AppState, Store, StoreError},
 };
 
+/// Checkpoint ancestry of anchor witnesses against the local chain.
+mod checkpoint;
 /// Durable independently verified switch witness retention.
 mod committee_cache;
 /// The `FinalizeBlock` and `Commit` handlers.

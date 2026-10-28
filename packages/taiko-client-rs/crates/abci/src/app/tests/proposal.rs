@@ -22,8 +22,8 @@ use crate::{
     rules,
     store::CommitteeState,
     test_utils::{
-        GenesisSpec, InboxStorage, L1Call, RegistryStorage, sample_entries, sample_transactions,
-        simple_block,
+        GenesisSpec, InboxStorage, L1Call, RegistryStorage, committed_block, sample_entries,
+        sample_transactions, simple_block,
     },
     types::{AnchorState, ParentInfo},
 };
@@ -188,19 +188,29 @@ pub(super) async fn step(app: &mut App<MockL1, MockEngine>) -> EtnaEnvelope {
 }
 
 /// Moves the committed state to height `last` with a synthetic parent block, `anchor` as the
-/// committed anchor, and `committees` added to the known ones.
+/// committed anchor, and `committees` added to the known ones. The parent is the
+/// [`committed_block`] at `last`, and the EL's canonical chain gains one below it at every height
+/// above genesis it does not hold yet, so anchored checkpoints of `Fixture::inbox_with` name the
+/// local chain.
 pub(super) fn jump(
     app: &mut App<MockL1, MockEngine>,
     last: u64,
     anchor: AnchorState,
     committees: &[(u64, CommitteeState)],
 ) {
+    let genesis_height = app.state().expect("initialized").genesis.genesis_height;
+    {
+        let mut engine = app.engine().state();
+        for number in genesis_height + 1..last {
+            engine.chain.entry(number).or_insert_with(|| committed_block(number));
+        }
+    }
     let state = app.state.as_mut().expect("initialized");
     let offset = last - state.genesis.genesis_height;
     let timestamp = state.parent.timestamp + 2 * offset;
     state.parent = ParentInfo {
         number: last,
-        hash: keccak256(last.to_be_bytes()),
+        hash: committed_block(last).hash_slow(),
         timestamp,
         grandparent_timestamp: timestamp - 2,
         ..state.parent.clone()
@@ -444,7 +454,7 @@ async fn round_trips_through_a_plain_height_and_an_anchor_change() {
     let fx = Fixture::genesis(2);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    step(&mut app).await; // H_0
+    let h0 = step(&mut app).await.block.header;
 
     // A plain height: the finalized L1 block has not moved, so no witness at all.
     let env = propose(&mut app).await;
@@ -457,8 +467,8 @@ async fn round_trips_through_a_plain_height_and_an_anchor_change() {
     assert_eq!(app.verdicts.get(&req.hash).expect("the verdict is cached").anchor, anchor_before);
     decide(&mut app, &req).await;
 
-    // L1 finalizes block 66, where the checkpoint has advanced: the anchor moves.
-    let inbox = fx.inbox_with(fx.genesis.genesis_height + 1);
+    // L1 finalizes block 66, where the checkpoint has advanced to H_0: the anchor moves.
+    let inbox = fx.inbox_at_checkpoint(h0.number, h0.hash_slow());
     let header = fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
     let env = propose(&mut app).await;
     let anchor = env.anchor.as_ref().expect("a moved anchor carries its witness");

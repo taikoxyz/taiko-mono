@@ -97,3 +97,26 @@ async fn refusals_count_by_reason_and_raise_halted() {
     assert_eq!(judge(&mut app, &env).await.0, response::ProcessProposal::Accept);
     assert_eq!(AbciMetrics::halted().get(), 0);
 }
+
+#[tokio::test]
+async fn checkpoint_conflicts_count_as_a_fallback_and_a_rejection() {
+    if !in_own_process(module_path!(), "checkpoint_conflicts_count_as_a_fallback_and_a_rejection") {
+        return;
+    }
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let inbox = fx.inbox_at_checkpoint(3, alloy_primitives::B256::repeat_byte(0xc4));
+    fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
+    let fallbacks =
+        || AbciMetrics::proposal_fallbacks().with_label_values(&["checkpoint_conflict"]).get();
+    let (fallen_back, conflicts) = (fallbacks(), rejected("checkpoint_conflict"));
+
+    assert!(propose(&mut app).await.anchor.is_none(), "the parent anchor is kept");
+    assert_eq!(fallbacks(), fallen_back + 1);
+
+    let env = super::proposal::hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)), None);
+    assert_eq!(judge(&mut app, &env).await.0, response::ProcessProposal::Reject);
+    assert_eq!(rejected("checkpoint_conflict"), conflicts + 1);
+    assert_eq!(AbciMetrics::halted().get(), 1);
+}

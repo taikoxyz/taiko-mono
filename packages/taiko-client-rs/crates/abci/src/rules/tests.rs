@@ -504,6 +504,32 @@ fn back_pressure_boundary() {
 }
 
 #[test]
+fn checkpoint_at_or_below_the_parent_matching_the_local_block_is_accepted() {
+    let hash = B256::repeat_byte(0x5a);
+    check_checkpoint(10, 10, hash, hash).expect("checkpoint at the parent");
+    check_checkpoint(10, 4, hash, hash).expect("checkpoint below the parent");
+    check_checkpoint(0, 0, hash, hash).expect("genesis checkpoint");
+    check_checkpoint_height(10, 10).expect("height half at the parent");
+}
+
+#[test]
+fn checkpoint_above_the_parent_is_rejected() {
+    let expected = Err(RuleViolation::CheckpointAboveParent { checkpoint: 11, parent: 10 });
+    assert_eq!(check_checkpoint_height(10, 11), expected);
+    let hash = B256::repeat_byte(0x5a);
+    assert_eq!(check_checkpoint(10, 11, hash, hash), expected, "even when the hashes agree");
+}
+
+#[test]
+fn checkpoint_hash_differing_from_the_local_block_is_rejected() {
+    let (proven, local) = (B256::repeat_byte(0x5a), B256::repeat_byte(0x5b));
+    let violation = check_checkpoint(10, 6, proven, local).unwrap_err();
+    assert_eq!(violation, RuleViolation::CheckpointConflict { height: 6, proven, local });
+    assert!(violation.is_checkpoint_conflict());
+    assert!(!RuleViolation::BackPressure { depth: 1, cap: 0 }.is_checkpoint_conflict());
+}
+
+#[test]
 fn anchor_freshness_accepts_age_equal_to_max() {
     check_anchor_freshness(1_760_007_300, 1_760_000_100, 7_200).expect("age == max is allowed");
     check_anchor_freshness(1_760_000_100, 1_760_000_100, 7_200).expect("age 0");
@@ -574,6 +600,12 @@ fn every_violation() -> Vec<RuleViolation> {
         RuleViolation::GenerationMismatch { chain: 1, extra: 2 },
         RuleViolation::GenerationAhead { chain: 2, inbox: 1 },
         RuleViolation::InvalidChainId { chain_id: "x".into(), l2_chain_id: 1 },
+        RuleViolation::CheckpointAboveParent { checkpoint: 2, parent: 1 },
+        RuleViolation::CheckpointConflict {
+            height: 1,
+            proven: B256::repeat_byte(1),
+            local: B256::repeat_byte(2),
+        },
     ];
     // Exhaustiveness guard: adding a variant without listing it above fails to compile here.
     for v in &all {
@@ -589,7 +621,9 @@ fn every_violation() -> Vec<RuleViolation> {
             RuleViolation::BackPressure { .. } |
             RuleViolation::GenerationMismatch { .. } |
             RuleViolation::GenerationAhead { .. } |
-            RuleViolation::InvalidChainId { .. } => {}
+            RuleViolation::InvalidChainId { .. } |
+            RuleViolation::CheckpointAboveParent { .. } |
+            RuleViolation::CheckpointConflict { .. } => {}
         }
     }
     all

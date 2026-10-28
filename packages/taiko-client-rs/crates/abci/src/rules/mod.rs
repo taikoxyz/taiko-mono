@@ -4,8 +4,8 @@
 //! the committed parent, the block's L1 anchor, the BFT time, the recovery generation and the
 //! chain constants. `PrepareProposal` builds with [`payload_attributes`] of that header;
 //! `ProcessProposal` and `FinalizeBlock` recompute it and compare with [`check_header`]. The
-//! remaining predicates cover anchor progress, anchor freshness, back-pressure, the
-//! generation triple and the CometBFT `chain_id`.
+//! remaining predicates cover anchor progress, anchor freshness, back-pressure, checkpoint
+//! ancestry, the generation triple and the CometBFT `chain_id`.
 //!
 //! Execution results (state root, receipts root, transactions root, gas used and the zk gas in
 //! `difficulty`) are not checked here: `engine_newPayload` validates them.
@@ -215,6 +215,28 @@ pub enum RuleViolation {
         /// The L2 EVM chain id it must name.
         l2_chain_id: u64,
     },
+    /// The anchor proves a `lastCheckpoint` above the committed parent: L1 settled a height this
+    /// chain has not decided, so the anchored history is not this chain's.
+    #[error("anchored lastCheckpoint height {checkpoint} is above the parent height {parent}")]
+    CheckpointAboveParent {
+        /// `lastCheckpoint.height` proven by the anchor.
+        checkpoint: u64,
+        /// The committed parent's height.
+        parent: u64,
+    },
+    /// The anchor proves a `lastCheckpoint` hash that differs from the local chain's block at
+    /// that height: L1 settled another history.
+    #[error(
+        "anchored lastCheckpoint {proven} at height {height} differs from the local block {local}"
+    )]
+    CheckpointConflict {
+        /// `lastCheckpoint.height` proven by the anchor.
+        height: u64,
+        /// `lastCheckpoint.hash` proven by the anchor.
+        proven: B256,
+        /// The local chain's EL block hash at that height.
+        local: B256,
+    },
 }
 
 impl RuleViolation {
@@ -241,7 +263,15 @@ impl RuleViolation {
             Self::GenerationMismatch { .. } => "generation_mismatch",
             Self::GenerationAhead { .. } => "generation_ahead",
             Self::InvalidChainId { .. } => "invalid_chain_id",
+            Self::CheckpointAboveParent { .. } => "checkpoint_above_parent",
+            Self::CheckpointConflict { .. } => "checkpoint_conflict",
         }
+    }
+
+    /// Whether the anchor's proven `lastCheckpoint` contradicts the local chain
+    /// ([`check_checkpoint`]): an alert, since L1 then records a history other than this one.
+    pub fn is_checkpoint_conflict(&self) -> bool {
+        matches!(self, Self::CheckpointAboveParent { .. } | Self::CheckpointConflict { .. })
     }
 }
 
@@ -512,6 +542,42 @@ pub fn check_back_pressure(
     let depth = height.saturating_sub(last_checkpoint_height);
     if depth > cap {
         return Err(RuleViolation::BackPressure { depth, cap });
+    }
+    Ok(())
+}
+
+/// The height half of [`check_checkpoint`]: `checkpoint_height <= parent_height`. It needs no
+/// local block, so callers check it before they look one up.
+pub fn check_checkpoint_height(
+    parent_height: u64,
+    checkpoint_height: u64,
+) -> Result<(), RuleViolation> {
+    if checkpoint_height > parent_height {
+        return Err(RuleViolation::CheckpointAboveParent {
+            checkpoint: checkpoint_height,
+            parent: parent_height,
+        });
+    }
+    Ok(())
+}
+
+/// Checkpoint ancestry, applied whenever a block carries an anchor witness: the anchor's proven
+/// `lastCheckpoint` is at most the committed parent's height
+/// ([`RuleViolation::CheckpointAboveParent`]) and its hash is `local_hash`, the EL block hash at
+/// that height on the local authenticated chain ([`RuleViolation::CheckpointConflict`]).
+pub fn check_checkpoint(
+    parent_height: u64,
+    checkpoint_height: u64,
+    checkpoint_hash: B256,
+    local_hash: B256,
+) -> Result<(), RuleViolation> {
+    check_checkpoint_height(parent_height, checkpoint_height)?;
+    if checkpoint_hash != local_hash {
+        return Err(RuleViolation::CheckpointConflict {
+            height: checkpoint_height,
+            proven: checkpoint_hash,
+            local: local_hash,
+        });
     }
     Ok(())
 }

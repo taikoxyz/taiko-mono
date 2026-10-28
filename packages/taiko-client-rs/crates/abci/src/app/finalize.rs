@@ -6,10 +6,11 @@
 //! derives the same response and state as one that voted. The one L1 read is for a block this
 //! node never judged whose envelope moves the anchor: its own L1 must have finalized that very
 //! header ([`App::confirm_anchor`]), so a block-synced history cannot carry a forged L1 header and
-//! with it a forged registry or Inbox checkpoint. A decided block that fails a deterministic check,
-//! whose anchor is off the own L1 chain, that the EL rejects, or that contradicts a known committee
-//! is a safety halt: the process exits and an operator must investigate. The derived state stays
-//! pending until `Commit` persists it.
+//! with it a forged registry or Inbox checkpoint, and that anchor's `lastCheckpoint` must name a
+//! block of the local chain ([`App::confirm_checkpoint`]). A decided block that fails a
+//! deterministic check, whose anchor is off the own L1 chain or settles another history, that the
+//! EL rejects, or that contradicts a known committee is a safety halt: the process exits and an
+//! operator must investigate. The derived state stays pending until `Commit` persists it.
 
 use crate::wire::{request, response};
 use std::{fmt, future::Future, time::Duration};
@@ -42,7 +43,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Authenticates a decided envelope against the committed context and settles its payload.
     /// A cached verdict is reused only for identical certified proposer, envelope bytes, expected
     /// header, parent cursor and authenticated facts. Cold decisions confirm moved anchors and
-    /// complete any canonical skip probe before deriving the next state. The candidate executes
+    /// their checkpoint ancestry and complete any canonical skip probe before deriving the next
+    /// state. The candidate executes
     /// through `newPayload` and becomes the forkchoice head; singleton evidence never becomes
     /// the head. State stays pending until `Commit`. Invalid decisions halt; temporary EL
     /// failures retry.
@@ -92,6 +94,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         } else {
             if let Some(witness) = &env.anchor {
                 self.confirm_anchor(height, &witness.l1_header).await?;
+                self.confirm_checkpoint(state, height, &fresh.anchor).await?;
             }
             (fresh, true)
         };
@@ -289,6 +292,41 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 }
             };
             backoff.wait("L1 anchor confirmation", &reason).await;
+        }
+    }
+
+    /// Confirms, for the decided block at `height` this node never judged, that its anchor's
+    /// proven `lastCheckpoint` names a block of the local chain, the check `ProcessProposal`
+    /// makes ([`App::check_anchor_checkpoint`]).
+    ///
+    /// A conflict is a safety halt: the decided history's L1 facts settle another chain. While the
+    /// EL lacks the block at that height, is unreachable or answers a retryable error, the block
+    /// waits with the [`Backoff`] schedule; a malformed EL answer or any other engine error halts.
+    async fn confirm_checkpoint(
+        &self,
+        state: &AppState,
+        height: u64,
+        anchor: &crate::types::AnchorState,
+    ) -> Result<(), AbciError> {
+        let mut backoff = Backoff::new(height);
+        loop {
+            let reason = match self.check_anchor_checkpoint(state, anchor).await {
+                Ok(()) => return Ok(()),
+                Err(conflict) if conflict.is_checkpoint_conflict() => {
+                    return Err(invalid_block(height, &conflict));
+                }
+                Err(wait) if wait.retryable_dependency() && !wait.requires_dependency_repair() => {
+                    wait.to_string()
+                }
+                Err(error) => {
+                    return Err(safety_halt(
+                        height,
+                        error.label(),
+                        format!("checkpoint ancestry check failed: {error}"),
+                    ));
+                }
+            };
+            backoff.wait("checkpoint ancestry", &reason).await;
         }
     }
 

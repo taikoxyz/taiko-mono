@@ -181,6 +181,42 @@ async fn proposer_anchors_at_finalized_minus_the_extra_depth() {
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
 }
 
+/// A finalized anchor whose proven `lastCheckpoint` conflicts with the local chain (another hash
+/// at a committed height, or a height above the parent) is never proposed: the proposer keeps
+/// the parent's anchor without a witness, raises an alert, and validators accept that block. It
+/// moves the anchor again once L1 finalizes a block whose checkpoint is on the local chain.
+#[tokio::test]
+async fn proposer_keeps_the_parent_anchor_when_the_finalized_checkpoint_conflicts() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let parent = app.state().unwrap().last_height;
+    let parent_anchor = app.state().unwrap().anchor.number;
+    let conflicting =
+        [(66, fx.inbox_at_checkpoint(3, B256::repeat_byte(0xc4))), (67, fx.inbox_with(parent + 1))];
+    for (number, inbox) in conflicting {
+        fx.advance_l1(app.l1(), number, &inbox, &fx.registry);
+        let logs = crate::test_utils::LogCapture::start();
+        let env = propose(&mut app).await;
+        assert!(env.anchor.is_none(), "L1 block {number}: no witness of the conflicting anchor");
+        assert_eq!(decode_extra_data(&env.block.header.extra_data).unwrap().2, parent_anchor);
+        assert_eq!(app.halt, None, "a block is still proposed");
+        assert!(
+            logs.at("ERROR").iter().any(|line| line.contains("lastCheckpoint conflicts")),
+            "the conflict is an alert: {}",
+            logs.text()
+        );
+        let other = tempfile::tempdir().unwrap();
+        let mut validator = mid_epoch(&fx, other.path(), 5).await;
+        let (resp, _) = judge(&mut validator, &env).await;
+        assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", validator.halt);
+    }
+
+    fx.advance_l1(app.l1(), 68, &fx.inbox_with(3), &fx.registry);
+    let env = propose(&mut app).await;
+    assert_eq!(env.anchor.map(|w| w.l1_header.number()), Some(68));
+}
+
 #[tokio::test]
 async fn proposer_never_anchors_below_the_parent() {
     let fx = Fixture::genesis(1);

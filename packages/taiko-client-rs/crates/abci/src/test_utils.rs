@@ -49,7 +49,7 @@ mod mocks;
 /// The Etna vectors shared with the contracts (`testdata/etna_vectors`).
 pub(crate) mod vectors;
 
-pub(crate) use fixture::{Fixture, GenesisSpec, validator_updates};
+pub(crate) use fixture::{Fixture, GenesisSpec, committed_block, validator_updates};
 pub(crate) use mocks::{EngineCall, L1Call, MockEngine, MockL1, simple_block};
 
 /// One account of a [`TestState`]: `(address, nonce, balance, code_hash, storage)`, where

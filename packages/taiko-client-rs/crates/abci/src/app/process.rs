@@ -1,6 +1,6 @@
 //! `ProcessProposal`: the deterministic checks of [`validate_block`], then the
-//! node-local ¹ checks (anchor finality in the own L1 view, EL execution), with the EL rebuild of
-//! canonical forced skips before normal execution.
+//! node-local ¹ checks (anchor finality in the own L1 view, checkpoint ancestry against the local
+//! chain, EL execution), with the EL rebuild of canonical forced skips before normal execution.
 
 use crate::wire::{request, response};
 use alloy_primitives::Bytes;
@@ -72,8 +72,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// [`validate_block`] with the request's BFT time; the block must fit one landing on its own
     /// ([`check_execution_size`], shared with FinalizeBlock); a present
     /// anchor witness must be final and canonical in the own L1 view (L1 is not called when it is
-    /// absent); the shared checker must complete the authenticated forced decision within the
-    /// engine deadline; finally the EL must execute the ordinary candidate payload as `VALID`.
+    /// absent), and its proven `lastCheckpoint` must name a block of the local chain
+    /// ([`App::check_anchor_checkpoint`]); the shared checker must complete the authenticated
+    /// forced decision within the engine deadline; finally the EL must execute the ordinary
+    /// candidate payload as `VALID`.
     ///
     /// Supersession is reported only after the supplied anchor is independently confirmed final
     /// and canonical, since a forged header could claim a later generation. Verified committee
@@ -126,6 +128,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         check_execution_size(&env.block)?;
         if let Some(w) = &env.anchor {
             self.check_anchor_final(w).await?;
+            self.check_anchor_checkpoint(state, &validated.anchor).await?;
         }
         validated.forced = deadline(
             "forced singleton check",

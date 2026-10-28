@@ -426,11 +426,11 @@ fn realize(fx: &Fixture, specs: &[EntrySpec]) -> Vec<Entry> {
         .collect()
 }
 
-/// Plants the [`ANCHORS`] blocks in `l1` and finalizes them. Each holds the last checkpoint at
-/// `H_0` and the entries visible there: a queue prefix, whose length is the tail.
+/// Plants the [`ANCHORS`] blocks in `l1` and finalizes them. Each holds the genesis checkpoint
+/// and the entries visible there: a queue prefix, whose length is the tail.
 fn plant_anchors(fx: &Fixture, l1: &MockL1, entries: &[Entry]) {
     for number in ANCHORS {
-        let mut inbox = fx.inbox_with(fx.genesis.genesis_height + 1);
+        let mut inbox = fx.inbox.clone();
         inbox.forced_inclusion_queue = (0u64..)
             .zip(entries)
             .filter(|(_, entry)| entry.visible_at <= number)

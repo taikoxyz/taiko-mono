@@ -44,6 +44,13 @@ impl AbciMetrics {
         &METRICS.process_rejected
     }
 
+    /// `abci_proposal_fallbacks_total{reason}`: proposals `PrepareProposal` built in a reduced
+    /// form instead of the intended one, labelled with the reason (for example an anchor whose
+    /// `lastCheckpoint` conflicts with the local chain, which keeps the parent anchor).
+    pub fn proposal_fallbacks() -> &'static IntCounterVec {
+        &METRICS.proposal_fallbacks
+    }
+
     /// `abci_process_seconds`: `ProcessProposal` latency.
     pub fn process_seconds() -> &'static Histogram {
         &METRICS.process_seconds
@@ -128,6 +135,8 @@ struct Metrics {
     process_accepted: IntCounter,
     /// See [`AbciMetrics::process_rejected`].
     process_rejected: IntCounterVec,
+    /// See [`AbciMetrics::proposal_fallbacks`].
+    proposal_fallbacks: IntCounterVec,
     /// See [`AbciMetrics::process_seconds`].
     process_seconds: Histogram,
     /// See [`AbciMetrics::finalize_seconds`].
@@ -170,6 +179,16 @@ static METRICS: Lazy<Metrics> = Lazy::new(|| Metrics {
     process_rejected: register(
         IntCounterVec::new(
             Opts::new("abci_process_rejected_total", "ProcessProposal REJECT answers by reason"),
+            &["reason"],
+        )
+        .expect("valid counter vector options"),
+    ),
+    proposal_fallbacks: register(
+        IntCounterVec::new(
+            Opts::new(
+                "abci_proposal_fallbacks_total",
+                "PrepareProposal blocks built in a reduced form, by reason",
+            ),
             &["reason"],
         )
         .expect("valid counter vector options"),
@@ -237,6 +256,7 @@ mod tests {
     fn init_registers_every_series() {
         AbciMetrics::init();
         AbciMetrics::process_rejected().with_label_values(&["envelope"]).inc();
+        AbciMetrics::proposal_fallbacks().with_label_values(&["checkpoint_conflict"]).inc();
         let names: Vec<String> =
             prometheus::gather().iter().map(|family| family.get_name().to_string()).collect();
         for name in [
@@ -244,6 +264,7 @@ mod tests {
             "abci_proposals_empty_total",
             "abci_process_accepted_total",
             "abci_process_rejected_total",
+            "abci_proposal_fallbacks_total",
             "abci_process_seconds",
             "abci_finalize_seconds",
             "abci_head",
