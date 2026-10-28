@@ -3,7 +3,7 @@
 use abci::{
     AccountWitness, AnchorState, ChainParams, CommitteeRecord, CommitteeState, CommitteeWitness,
     EtnaEnvelope, ExecutionBlock, InboxFacts, Member, RegistryEntry,
-    committee::{record_hash, set_key, set_root},
+    committee::{set_key, set_root},
     key::ConsensusKey,
 };
 pub use alloy::signers::k256::ecdsa::SigningKey;
@@ -19,7 +19,7 @@ use tendermint::{
 use tendermint_proto::{Protobuf, v0_38::types::CanonicalVote as RawVote};
 
 use crate::{
-    committee::{AuthenticatedCommittee, authenticate},
+    committee::AuthenticatedCommittee,
     native::{Block, Commit, CommitSig, RawBlock},
     types::CertifiedBlock,
     validate::{block_parts, commit_hash},
@@ -99,7 +99,6 @@ fn committee_with_keys(
         set_root: set_root(params.l2_chain_id, epoch + 1, &members),
         total_power: powers.iter().sum(),
     };
-    let hash = record_hash(params.l2_chain_id, &record);
     let entries = keys
         .iter()
         .zip(powers)
@@ -134,8 +133,7 @@ fn committee_with_keys(
         },
     };
     let mut committee =
-        authenticate(CommitteeState { record: record.clone(), members }, epoch, hash, &params)
-            .unwrap();
+        AuthenticatedCommittee::new(CommitteeState { record: record.clone(), members }).unwrap();
     committee.provenance = Some(crate::types::CommitteeContext {
         anchor,
         derivation_parent: None,

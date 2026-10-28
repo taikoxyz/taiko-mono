@@ -19,7 +19,7 @@ use crate::{
     blob,
     codec::{self, PayloadList},
     comet::{CometSource, CometStatus},
-    committee::{AuthenticatedCommittee, authenticate},
+    committee::AuthenticatedCommittee,
     config::COMET_BLOCK_MAX_BYTES,
     contracts::IEtnaInbox::LandInput,
     error::{LanderError, Result, engine_diagnostic},
@@ -474,7 +474,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             ));
         }
         let mut authenticated =
-            authenticate(abci::CommitteeState { record, members }, epoch, hash, &self.params)
+            AuthenticatedCommittee::new(abci::CommitteeState { record, members })
                 .map_err(|e| LanderError::Safety(e.to_string()))?;
         authenticated.provenance =
             Some(CommitteeContext { anchor: anchor.clone(), derivation_parent, witness });
@@ -806,7 +806,6 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         };
         if let Some(derived) = facts.derived {
             let epoch = derived.record.target_epoch;
-            let hash = record_hash(snapshot.l2_chain_id, &derived.record);
             if let Some(existing) = committees.get(&epoch) &&
                 existing.state != derived
             {
@@ -814,7 +813,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                     "derived committee {epoch} conflicts with authenticated context"
                 )));
             }
-            let mut committee = authenticate(derived, epoch, hash, &self.params)
+            let mut committee = AuthenticatedCommittee::new(derived)
                 .map_err(|e| LanderError::Safety(e.to_string()))?;
             committee.provenance = Some(CommitteeContext {
                 anchor: facts.anchor.clone(),
