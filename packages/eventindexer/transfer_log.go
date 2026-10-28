@@ -1,13 +1,10 @@
 package eventindexer
 
 // Kinds of transfer log whose application is tracked in processed_transfer_logs.
-const (
-	TransferKindNFT   = "nft"
-	TransferKindERC20 = "erc20"
-)
+const TransferKindNFT = "nft"
 
 // TransferLogRef uniquely identifies a single balance-mutating unit of a transfer
-// log. An ERC20 Transfer, an ERC721 Transfer, and an ERC1155 TransferSingle each
+// log. An ERC721 Transfer and an ERC1155 TransferSingle each
 // produce one unit with BatchIndex 0; an ERC1155 TransferBatch produces one unit
 // per token id, indexed by its position in the batch.
 type TransferLogRef struct {

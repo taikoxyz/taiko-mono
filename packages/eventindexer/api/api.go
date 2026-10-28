@@ -7,7 +7,6 @@ import (
 
 	nethttp "net/http"
 
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/labstack/echo/v4"
 	"github.com/urfave/cli/v2"
 
@@ -56,39 +55,15 @@ func InitFromConfig(ctx context.Context, api *API, cfg *Config) error {
 		return err
 	}
 
-	eventRepository, err := repo.NewEventRepository(db)
-	if err != nil {
-		return err
-	}
-
-	chartRepository, err := repo.NewChartRepository(db)
-	if err != nil {
-		return err
-	}
-
 	nftBalanceRepository, err := repo.NewNFTBalanceRepository(db)
 	if err != nil {
 		return err
 	}
 
-	erc20BalanceRepository, err := repo.NewERC20BalanceRepository(db)
-	if err != nil {
-		return err
-	}
-
-	ethClient, err := ethclient.Dial(cfg.RPCUrl)
-	if err != nil {
-		return err
-	}
-
 	srv, err := http.NewServer(http.NewServerOpts{
-		EventRepo:        eventRepository,
-		NFTBalanceRepo:   nftBalanceRepository,
-		ERC20BalanceRepo: erc20BalanceRepository,
-		ChartRepo:        chartRepository,
-		Echo:             echo.New(),
-		CorsOrigins:      cfg.CORSOrigins,
-		EthClient:        ethClient,
+		NFTBalanceRepo: nftBalanceRepository,
+		Echo:           echo.New(),
+		CorsOrigins:    cfg.CORSOrigins,
 	})
 	if err != nil {
 		return err
