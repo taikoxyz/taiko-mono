@@ -2,11 +2,12 @@
 
 use std::{path::PathBuf, time::Duration};
 
-use abci::{GRID_INTERVAL, compression::MAX_LANDING_BLOBS};
+use abci::GRID_INTERVAL;
 use url::Url;
 
 use crate::{
     Limits, SidecarMode,
+    blob::MAX_LANDING_BLOBS,
     error::{LanderError, Result},
 };
 

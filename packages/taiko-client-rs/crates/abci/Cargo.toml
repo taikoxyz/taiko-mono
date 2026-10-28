@@ -46,8 +46,6 @@ thiserror = { workspace = true }
 url = { workspace = true }
 
 # serialization
-flate2 = { workspace = true }
-libz-sys = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 toml = { workspace = true }
@@ -56,6 +54,7 @@ toml = { workspace = true }
 alloy = { workspace = true, features = ["consensus", "signer-local", "std", "json"] }
 alloy-transport = { workspace = true }
 anyhow = { workspace = true }
+flate2 = { workspace = true }
 proptest = { workspace = true }
 prost = { workspace = true }
 tempfile = { workspace = true }

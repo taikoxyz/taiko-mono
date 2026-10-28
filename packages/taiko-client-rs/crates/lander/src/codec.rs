@@ -16,9 +16,7 @@ pub const VERSION: u8 = 6;
 /// Protocol ceiling on the complete inflated V6 RLP list, independent of operator CLI limits.
 pub const MAX_DECOMPRESSED_BYTES: usize = 64 * 1024 * 1024;
 
-use abci::compression::{
-    InflateError, zlib_compress, zlib_compress_best, zlib_compress_split, zlib_inflate_exact,
-};
+use crate::compression::{InflateError, zlib_compress, zlib_inflate_exact};
 use alloy_rlp::{Decodable, Header};
 use prost::Message;
 use tendermint_proto::v0_38::types::Commit as RawCommit;
@@ -28,10 +26,10 @@ use tendermint_proto::v0_38::types::Commit as RawCommit;
 pub(crate) fn bounded_limits(limits: &Limits) -> Result<Limits> {
     limits.validate()?;
     Ok(Limits {
-        max_blobs: limits.max_blobs.min(abci::compression::MAX_LANDING_BLOBS),
+        max_blobs: limits.max_blobs.min(crate::blob::MAX_LANDING_BLOBS),
         max_payload_bytes: limits
             .max_payload_bytes
-            .min(abci::compression::MAX_LANDING_BLOBS * crate::blob::PAYLOAD_BYTES_PER_BLOB),
+            .min(crate::blob::MAX_LANDING_BLOBS * crate::blob::PAYLOAD_BYTES_PER_BLOB),
         max_message_bytes: limits.max_message_bytes.min(crate::config::COMET_BLOCK_MAX_BYTES),
         max_decompressed_bytes: limits.max_decompressed_bytes.min(MAX_DECOMPRESSED_BYTES),
         ..*limits
@@ -59,7 +57,8 @@ impl TryFrom<&CertifiedBlock> for PublishedBlock {
 ///
 /// The RLP list is bounded by `max_decompressed_bytes` before it is allocated; the compressed
 /// payload, version byte included, by `max_payload_bytes`.
-pub fn encode(blocks: &[CertifiedBlock], limits: &Limits) -> Result<Vec<u8>> {
+#[cfg(test)]
+pub(crate) fn encode(blocks: &[CertifiedBlock], limits: &Limits) -> Result<Vec<u8>> {
     let limits = bounded_limits(limits)?;
     if blocks.is_empty() || blocks.len() > limits.max_blocks {
         return Err(LanderError::Capacity("batch is empty or exceeds block limit".into()));
@@ -68,46 +67,7 @@ pub fn encode(blocks: &[CertifiedBlock], limits: &Limits) -> Result<Vec<u8>> {
     for pair in blocks {
         list.push(pair)?;
     }
-    if blocks.len() == 1 {
-        compress_single(&list.to_list(), &limits)
-    } else {
-        compress(&list.to_list(), &limits)
-    }
-}
-
-/// Compress one published block: at the default level, then at the best level, and when neither
-/// fits, with a full flush before the execution ([`zlib_compress_split`]). That last stream is at
-/// most the execution's own `zlib_compress` size plus the published prefix and
-/// `SPLIT_OVERHEAD`, reserved by the structural compression budget in `HEADER_ALLOWANCE`.
-/// Authenticated Etna admission additionally enforces raw size and shape. The outer list prefix
-/// shifts the execution's deflate block boundaries, which crafted calldata turns into kilobytes.
-/// Larger prefixes keep the default codec and its deflate-work budget.
-pub(crate) fn compress_single(list: &[u8], limits: &Limits) -> Result<Vec<u8>> {
-    match compress(list, limits) {
-        Err(LanderError::Capacity(_)) => {}
-        result => return result,
-    }
-    match compressed_payload(zlib_compress_best(list), limits) {
-        Err(LanderError::Capacity(_)) => {}
-        result => return result,
-    }
-    let offset = single_execution_offset(list)
-        .ok_or_else(|| LanderError::Encoding("single-block list without one execution".into()))?;
-    let (prefix, execution) = list.split_at(offset);
-    compressed_payload(zlib_compress_split(prefix, execution), limits)
-}
-
-/// The offset of nested execution bytes in a single-block outer RLP list:
-/// everything before it is the outer RLP list header.
-fn single_execution_offset(list: &[u8]) -> Option<usize> {
-    let mut rest = list;
-    let mut items = Header::decode_bytes(&mut rest, true).ok()?;
-    if !rest.is_empty() {
-        return None;
-    }
-    let before = items.len();
-    abci::ExecutionBlock::decode(&mut items).ok()?;
-    items.is_empty().then_some(list.len() - before)
+    compress(&list.to_list(), &limits)
 }
 
 /// `0x06 || zlib(list)`, bounded by `max_payload_bytes`.
@@ -341,9 +301,8 @@ pub fn decode_landed(payload: &[u8], range: &LandedRange) -> Result<Vec<Publishe
     // Recovery uses fixed protocol ceilings, not a source node's operator max-blocks.
     let limits = Limits {
         max_blocks,
-        max_blobs: abci::compression::MAX_LANDING_BLOBS,
-        max_payload_bytes: abci::compression::MAX_LANDING_BLOBS *
-            crate::blob::PAYLOAD_BYTES_PER_BLOB,
+        max_blobs: crate::blob::MAX_LANDING_BLOBS,
+        max_payload_bytes: crate::blob::MAX_LANDING_BLOBS * crate::blob::PAYLOAD_BYTES_PER_BLOB,
         max_message_bytes: crate::config::COMET_BLOCK_MAX_BYTES,
         max_decompressed_bytes: MAX_DECOMPRESSED_BYTES,
     };
@@ -439,7 +398,6 @@ fn validate_published(
 mod tests {
     use super::*;
     use crate::{native::CommitSig, test_utils::consensus};
-    use abci::compression::zlib_compress;
     use alloy_primitives::B256;
     use alloy_rlp::{Encodable, Header};
     use prost::Message;
@@ -508,25 +466,6 @@ mod tests {
             alloy_rlp::encode(&executions)
         );
         assert!(decode(&frame(VERSION, &old_list(&items(&blocks))), &limits()).is_err());
-    }
-
-    #[test]
-    fn retries_best_compression_for_a_single_block_that_exceeds_default_output() {
-        use flate2::{Compression, write::ZlibEncoder};
-        use std::io::Write;
-
-        let list: Vec<u8> =
-            (0..100_000u32).flat_map(|i| (i % 1021).to_le_bytes().repeat(4)).collect();
-        let default = zlib_compress(&list);
-        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::best());
-        encoder.write_all(&list).unwrap();
-        let best = encoder.finish().unwrap();
-        assert!(best.len() < default.len());
-        let limits = Limits { max_payload_bytes: best.len() + 1, ..limits() };
-        assert!(matches!(compress(&list, &limits), Err(LanderError::Capacity(_))));
-        let payload = compress_single(&list, &limits).expect("best level fits the payload cap");
-        assert_eq!(payload[0], VERSION);
-        assert_eq!(zlib_inflate_exact(&payload[1..], list.len()).unwrap(), list);
     }
 
     fn limits() -> Limits {
@@ -1073,8 +1012,6 @@ mod tests {
         assert!(decode(&encoded, &cap).is_ok());
         cap.max_payload_bytes -= 1;
         assert!(decode(&encoded, &cap).is_err());
-        let list = zlib_inflate_exact(&encoded[1..], usize::MAX).unwrap();
-        cap.max_payload_bytes = encoded.len().min(zlib_compress_best(&list).len() + 1) - 1;
         assert!(encode(one, &cap).is_err());
         cap = limits();
         cap.max_blocks = 1;

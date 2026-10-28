@@ -8,7 +8,7 @@
 //! confirms that a moved anchor header is final and canonical in the node's own L1.
 //!
 //! The `types`, `config`, `schedule`, `envelope`, `l1::header`, `l1::layout`, `l1::mpt`,
-//! `l1::witness`, `committee`, `compression`, `forced`, `rules` and `engine::convert` modules and
+//! `l1::witness`, `committee`, `forced`, `rules` and `engine::convert` modules and
 //! the genesis `app_state` codec perform no I/O; `l1::source`, `l1::forced_tx`, `engine` and
 //! `elsync` hold the L1 and execution-engine adapters, `l1::fetch` and the genesis
 //! builder read L1 through them, `app` answers CometBFT's ABCI requests on top of them, and
@@ -18,8 +18,6 @@
 pub mod app;
 /// Committee derivation from staking-registry snapshots, set roots and record hashes.
 pub mod committee;
-/// zlib helpers shared with the V6 landing payload codec, and the capacity of one landing.
-pub mod compression;
 /// Chain parameters (built-in per L2 chain id, optional TOML override).
 pub mod config;
 /// Complete deployment signing domain.

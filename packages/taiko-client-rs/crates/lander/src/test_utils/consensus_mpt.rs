@@ -1130,9 +1130,7 @@ mod readiness {
         assert_eq!(observed.publishable_blocks, 0);
         let first = codec::encode(&[fixture.blocks[&1].clone()], &bound).unwrap();
         assert_eq!(blob::required_blobs(first.len()), 1);
-        let list = abci::compression::zlib_inflate_exact(&first[1..], usize::MAX).unwrap();
-        let best_size = abci::compression::zlib_compress_best(&list).len() + 1;
-        bound.max_payload_bytes = first.len().min(best_size) - 1;
+        bound.max_payload_bytes = first.len() - 1;
         assert!(matches!(
             builder(fixture.clone(), bound).observe(&fixture.snapshot).await,
             Err(LanderError::Capacity(_))

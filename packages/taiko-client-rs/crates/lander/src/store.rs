@@ -640,7 +640,7 @@ mod tests {
         use flate2::{Compression, write::ZlibEncoder};
         let mut request = request();
         let payload = crate::codec::encode(&request.batch.blocks, &limits()).unwrap();
-        let list = abci::compression::zlib_inflate_exact(&payload[1..], usize::MAX).unwrap();
+        let list = crate::compression::zlib_inflate_exact(&payload[1..], usize::MAX).unwrap();
         let mut encoder = ZlibEncoder::new(vec![payload[0]], Compression::none());
         encoder.write_all(&list).unwrap();
         let stored = encoder.finish().unwrap();

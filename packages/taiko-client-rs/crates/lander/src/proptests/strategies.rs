@@ -1,6 +1,6 @@
-//! Generators for the lander's properties: envelopes with arbitrary contents, the variable fields
-//! of a published CometBFT header, and transaction payloads deflate shrinks to almost nothing, not
-//! at all, or worse once shifted against its block boundaries.
+//! Generators for the lander's properties: envelopes with arbitrary contents and transaction
+//! payloads deflate shrinks to almost nothing, not at all, or worse once shifted against its block
+//! boundaries.
 
 use std::sync::LazyLock;
 
@@ -10,10 +10,7 @@ use abci::{
 };
 use alloy_consensus::Header;
 use alloy_primitives::{Address, B64, B256, Bloom, Bytes, U256};
-use proptest::{array::uniform3, collection::vec, option, prelude::*, sample::select};
-use tendermint::{AppHash, Hash, Time, account, block};
-
-use crate::validate::data_hash;
+use proptest::{collection::vec, option, prelude::*};
 
 /// A `u64` of uniformly random bit length (0 to 64).
 pub(crate) fn uint() -> impl Strategy<Value = u64> {
@@ -195,8 +192,8 @@ static BOUNDARY_RUNS: LazyLock<Vec<u8>> = LazyLock::new(|| boundary_runs(9));
 /// `runs` runs of [`RUN`] bytes, alternating between the even and the odd byte values, with no
 /// three-byte string repeated within deflate's window, so deflate emits only literals: a block
 /// costs about 7 bits a byte when it covers one run and 8 when it straddles two. Shifting the
-/// runs against deflate's block boundaries, as a published header prefix does, therefore changes
-/// the output by kilobytes. The same construction as `deflate_boundary_noise` in `blob`'s tests.
+/// runs against deflate's block boundaries, as the payload list's framing before an execution
+/// block does, therefore changes the output by kilobytes.
 fn boundary_runs(runs: usize) -> Vec<u8> {
     let mut state = 0x9e37_79b9_7f4a_7c15u64;
     let mut next = || {
@@ -241,8 +238,8 @@ pub(crate) enum Payload {
     /// `len` (at least 16) bytes of [`boundary_runs`] whose run boundaries fall `shift` bytes
     /// after deflate's block boundaries when the envelope carrying them is compressed on its own
     /// ([`Payload::fill`]). A small shift is the crafted case: the envelope alone deflates
-    /// cheaply, while a published header before it moves the run boundaries into deflate's
-    /// blocks.
+    /// cheaply, while the payload list's framing before it moves the run boundaries into
+    /// deflate's blocks.
     Boundary {
         /// The run boundaries' offset after deflate's block boundaries, in bytes.
         shift: usize,
@@ -297,119 +294,4 @@ pub(crate) fn payload(max: usize) -> impl Strategy<Value = Payload> {
         2 => (0..=600usize, boundary / 2..=boundary)
             .prop_map(|(shift, len)| Payload::Boundary { shift, len }),
     ]
-}
-
-/// The variable fields of a published CometBFT header, all but the data hash, which commits to
-/// the envelope.
-///
-/// Every value survives the header's protobuf round trip: a chain id of 1 to 50 characters of
-/// CometBFT's alphabet, a height below 2^63, a time in years 1 to 9999 (negative Unix seconds
-/// included) and a last block id exactly when the height is above 1.
-#[derive(Clone, Debug)]
-pub(crate) struct HeaderFields {
-    /// The block and app protocol versions.
-    version: (u64, u64),
-    /// The chain id.
-    chain_id: String,
-    /// The height, at least 1.
-    height: u64,
-    /// The time: Unix seconds and nanoseconds.
-    time: (i64, u32),
-    /// The last block id's hash, part set size and part set hash, used above height 1.
-    last_block_id: ([u8; 32], u32, [u8; 32]),
-    /// `last_commit_hash`, `last_results_hash` and `evidence_hash`, each absent or set.
-    optional_hashes: [Option<[u8; 32]>; 3],
-    /// `validators_hash`, `next_validators_hash` and `consensus_hash`, each empty or set.
-    hashes: [Option<[u8; 32]>; 3],
-    /// The app hash: empty, or up to 32 bytes.
-    app_hash: Vec<u8>,
-    /// The proposer address.
-    proposer: [u8; 20],
-}
-
-/// Characters CometBFT allows in a chain id.
-const CHAIN_ID_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.";
-
-/// The earliest and latest Unix seconds of a CometBFT time: years 1 and 9999.
-const TIME_SECS: std::ops::RangeInclusive<i64> = -62_135_596_800..=253_402_300_799;
-
-/// Arbitrary [`HeaderFields`]: a 50-character chain id half the time, versions and heights of
-/// any bit length, and the first height a quarter of the time.
-pub(crate) fn header_fields() -> impl Strategy<Value = HeaderFields> {
-    let chain_id = prop_oneof![1 => 1usize..=50, 1 => Just(50usize)]
-        .prop_flat_map(|len| vec(select(CHAIN_ID_CHARS), len))
-        .prop_map(|chars| String::from_utf8(chars).expect("ASCII"));
-    let height = prop_oneof![1 => Just(1u64), 3 => uint().prop_map(|h| (h >> 1).max(2))];
-    let hashes = || uniform3(option::of(any::<[u8; 32]>()));
-    let app_hash = prop_oneof![Just(vec![]), vec(any::<u8>(), 32), vec(any::<u8>(), 0..=32)];
-    (
-        (uint(), uint()),
-        chain_id,
-        height,
-        (TIME_SECS, 0u32..1_000_000_000),
-        (any::<[u8; 32]>(), any::<u32>(), any::<[u8; 32]>()),
-        hashes(),
-        hashes(),
-        app_hash,
-        any::<[u8; 20]>(),
-    )
-        .prop_map(
-            |(
-                version,
-                chain_id,
-                height,
-                time,
-                last_block_id,
-                optional_hashes,
-                hashes,
-                app_hash,
-                proposer,
-            )| HeaderFields {
-                version,
-                chain_id,
-                height,
-                time,
-                last_block_id,
-                optional_hashes,
-                hashes,
-                app_hash,
-                proposer,
-            },
-        )
-}
-
-impl HeaderFields {
-    /// The header with these fields of a block whose one transaction is `envelope`.
-    pub(crate) fn header(&self, envelope: &[u8]) -> block::Header {
-        let sha256 = |bytes: Option<[u8; 32]>| bytes.map_or(Hash::None, Hash::Sha256);
-        let [last_commit_hash, last_results_hash, evidence_hash] =
-            self.optional_hashes.map(|bytes| bytes.map(Hash::Sha256));
-        let [validators_hash, next_validators_hash, consensus_hash] = self.hashes.map(sha256);
-        let (hash, total, parts) = self.last_block_id;
-        let last_block_id = (self.height > 1).then(|| block::Id {
-            hash: Hash::Sha256(hash),
-            part_set_header: block::parts::Header::new(
-                total,
-                if total == 0 { Hash::None } else { Hash::Sha256(parts) },
-            )
-            .expect("a part set hash exactly when it has parts"),
-        });
-        block::Header {
-            version: block::header::Version { block: self.version.0, app: self.version.1 },
-            chain_id: self.chain_id.parse().expect("a valid chain id"),
-            height: self.height.try_into().expect("a height below 2^63"),
-            time: Time::from_unix_timestamp(self.time.0, self.time.1)
-                .expect("a time in years 1 to 9999"),
-            last_block_id,
-            last_commit_hash,
-            data_hash: Some(data_hash(&[envelope.to_vec()])),
-            validators_hash,
-            next_validators_hash,
-            consensus_hash,
-            app_hash: AppHash::try_from(self.app_hash.clone()).expect("any bytes"),
-            last_results_hash,
-            evidence_hash,
-            proposer_address: account::Id::new(self.proposer),
-        }
-    }
 }
