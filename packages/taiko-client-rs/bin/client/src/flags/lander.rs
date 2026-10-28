@@ -49,7 +49,8 @@ pub struct LanderArgs {
     #[clap(long = "max-blocks", env = "LANDER_MAX_BLOCKS", required = true, value_parser = positive_usize)]
     pub max_blocks: usize,
     /// Minimum complete blocks before submission; wait expiry or consensus may require earlier
-    /// landing.
+    /// landing. At most the batch cap: `--max-blocks` and the Inbox's `maxBatchBlocks`, whichever
+    /// is lower, in whole 6-block segments, checked at startup.
     #[clap(long = "min-blocks", env = "LANDER_MIN_BLOCKS", default_value_t = 1, value_parser = positive_usize)]
     pub min_blocks: usize,
     /// Maximum wait for a below-threshold batch, in seconds; positive and at most one hour.

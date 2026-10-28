@@ -110,13 +110,15 @@ impl LanderSubCommand {
             retry_bootstrap(config.poll_interval, retry_max_delay, || landing.snapshot()).await?;
         // The deployment reads refuse an Inbox this client cannot land on, such as one whose
         // GRID_INTERVAL differs from abci::GRID_INTERVAL, before anything else starts. Its
-        // maxBatchBlocks caps batch selection together with --max-blocks.
+        // maxBatchBlocks caps batch selection together with --max-blocks, and --min-blocks must
+        // not exceed that cap.
         let deployment = retry_bootstrap(config.poll_interval, retry_max_delay, || {
             landing.deployment(&snapshot)
         })
         .await?;
         let batch_cap =
             lander::batch::batch_cap(config.limits.max_blocks, deployment.max_batch_blocks)?;
+        lander::batch::check_min_blocks(config.batch_policy.min_blocks, batch_cap)?;
         if deployment.max_batch_blocks < config.limits.max_blocks as u64 {
             info!(
                 max_blocks = config.limits.max_blocks,

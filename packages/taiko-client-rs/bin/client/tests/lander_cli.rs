@@ -248,6 +248,23 @@ async fn lander_cli_refuses_locks_corrupt_journals_and_invalid_caps_before_signi
             invalid.output()
         );
         assert_key_absent(&invalid);
+        // --min-blocks 9 is within --max-blocks 10, but batches hold whole 6-block segments.
+        let mut unreachable = CliProcess::spawn(
+            Path::new(CLIENT),
+            &args,
+            directory.path().join("unreachable-minimum.log"),
+            &[("--max-blocks", "10"), ("--min-blocks", "9")],
+        )?;
+        ensure!(
+            !unreachable.wait_exit().await?.success(),
+            "unreachable minimum reached the runner"
+        );
+        ensure!(
+            unreachable.output().contains("minimum batch blocks 9 exceed the 6-block batch cap"),
+            "unreachable minimum error lacked context: {}",
+            unreachable.output()
+        );
+        assert_key_absent(&unreachable);
         ensure!(
             fixture.anvil.provider.get_transaction_count(sender).await? == nonce,
             "fatal startup error submitted a transaction"

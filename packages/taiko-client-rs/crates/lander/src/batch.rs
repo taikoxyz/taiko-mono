@@ -221,6 +221,22 @@ pub fn batch_cap(max_blocks: usize, max_batch_blocks: u64) -> Result<usize> {
     Ok(cap)
 }
 
+/// Refuses a `min_blocks` collection threshold ([`crate::config::BatchPolicy::min_blocks`])
+/// above `cap` ([`batch_cap`]). No batch selects more than `cap` blocks, so such a threshold is
+/// never met and every landing would wait the full collection wait instead. The lander checks
+/// this at startup, once the Inbox's `maxBatchBlocks` is known; the configuration alone only
+/// bounds the threshold by `max_blocks`.
+pub fn check_min_blocks(min_blocks: usize, cap: usize) -> Result<()> {
+    if min_blocks > cap {
+        return Err(LanderError::Configuration(format!(
+            "minimum batch blocks {min_blocks} exceed the {cap}-block batch cap, the lower of \
+             the configured maximum and the Inbox maxBatchBlocks in whole {GRID_INTERVAL}-block \
+             grid segments: no batch reaches it, so every landing would wait the full batch wait"
+        )));
+    }
+    Ok(())
+}
+
 /// Collector-backed builder; no proof computation or transaction mutation occurs here.
 pub struct BatchBuilder<C: ?Sized, L: ?Sized> {
     /// Read-only CometBFT block/certificate source.
@@ -1450,6 +1466,33 @@ mod tests {
                     Err(LanderError::Configuration(_))
                 ),
                 "{max_blocks} configured, {max_batch_blocks} deployed"
+            );
+        }
+    }
+
+    /// A minimum the batch cap can reach starts; one above it, which the configuration's own
+    /// `min_blocks <= max_blocks` check lets through when the cap rounds `max_blocks` down to
+    /// whole segments or the Inbox's `maxBatchBlocks` is lower, is refused.
+    #[test]
+    fn a_min_blocks_above_the_batch_cap_is_refused() {
+        for (min_blocks, max_blocks, max_batch_blocks) in
+            [(12, 12, u64::MAX), (1, 6, 6), (12, 100, 13), (96, 100, 120)]
+        {
+            let cap = batch_cap(max_blocks, max_batch_blocks).unwrap();
+            assert!(check_min_blocks(min_blocks, cap).is_ok(), "{min_blocks} below cap {cap}");
+        }
+        for (min_blocks, max_blocks, max_batch_blocks) in
+            [(9, 10, u64::MAX), (13, 100, 13), (24, 24, 18), (97, 100, 120)]
+        {
+            assert!(min_blocks <= max_blocks, "the configuration check alone allows it");
+            let cap = batch_cap(max_blocks, max_batch_blocks).unwrap();
+            assert!(
+                matches!(
+                    check_min_blocks(min_blocks, cap),
+                    Err(LanderError::Configuration(reason))
+                        if reason.contains(&format!("{min_blocks} exceed the {cap}-block batch cap"))
+                ),
+                "{min_blocks} above cap {cap}"
             );
         }
     }
