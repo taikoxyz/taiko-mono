@@ -56,9 +56,7 @@ alloy-transport = { workspace = true }
 anyhow = { workspace = true }
 flate2 = { workspace = true }
 proptest = { workspace = true }
-prost = { workspace = true }
 tempfile = { workspace = true }
-tendermint-proto = { workspace = true }
 test-harness = { path = "../test-harness" }
 tokio = { workspace = true, features = ["test-util"] }
 tracing-subscriber = { workspace = true }
