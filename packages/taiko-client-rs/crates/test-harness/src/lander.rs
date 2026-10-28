@@ -111,7 +111,7 @@ async fn run(ctx: LanderCtx, switches: Arc<Switches>) {
 /// Advances the checkpoint to `head-TRAIL`; no committee record is published.
 async fn tick(ctx: &LanderCtx, landed: &mut Landed) -> Result<()> {
     let head = ctx.l2.get_block_number().await.context("L2 eth_blockNumber")?;
-    let target = head.saturating_sub(TRAIL) / 6 * 6;
+    let target = head.saturating_sub(TRAIL) / abci::GRID_INTERVAL * abci::GRID_INTERVAL;
     if landed.height.is_none_or(|h| h < target) {
         let block = ctx
             .l2

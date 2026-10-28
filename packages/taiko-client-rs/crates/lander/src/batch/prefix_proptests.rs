@@ -180,7 +180,8 @@ fn builder(
 proptest! {
     #![proptest_config(ProptestConfig { cases: 32, ..ProptestConfig::default() })]
 
-    /// Selection returns an exact consecutive prefix ending on K=6 within every capacity bound.
+    /// Selection returns an exact consecutive prefix ending on a grid point within every capacity
+    /// bound.
     /// Admitting the first block prevents a first-block capacity error; admitting all six candidate
     /// prefixes with enough deflate work guarantees a nonempty grid segment. Random capacities
     /// and work budgets also exercise the legitimate empty result below the next grid endpoint.
@@ -203,11 +204,13 @@ proptest! {
             max_decompressed_bytes: COMET_BLOCK_MAX_BYTES * max_blocks,
         };
         let admitted = measure <= capacity(&limits);
-        // Independent sufficient condition: all six candidate encodings fit, and even charging
+        // Independent sufficient condition: every candidate encoding up to one grid segment fits,
+        // and even charging
         // every candidate's entire inflated list stays inside the deflate-work budget.
-        let mut segment_admitted = max_blocks >= 6;
+        let grid = abci::GRID_INTERVAL as usize;
+        let mut segment_admitted = max_blocks >= grid;
         let mut work = 0;
-        for count in 1..=6 {
+        for count in 1..=grid {
             match codec::encode(&chain[..count], &limits) {
                 Ok(payload) if blob::required_blobs(payload.len()) <= limits.max_blobs => {
                     work += abci::compression::zlib_inflate_exact(&payload[1..], usize::MAX)?.len();
@@ -225,8 +228,8 @@ proptest! {
             Ok(prefix) => {
                 let selected = prefix.blocks.len();
                 prop_assert!(selected <= max_blocks.min(decided));
-                prop_assert_eq!(selected % 6, 0);
-                prop_assert!(!segment_admitted || selected >= 6);
+                prop_assert_eq!(selected % grid, 0);
+                prop_assert!(!segment_admitted || selected >= grid);
                 if selected == 0 { return Ok(()); }
                 prop_assert_eq!(&prefix.blocks[..], &chain[..selected]);
                 let (blocks, payload) = runtime.block_on(builder.payload(prefix))?;

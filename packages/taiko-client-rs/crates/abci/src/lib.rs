@@ -62,7 +62,7 @@ mod proptests;
 
 pub use app::{AbciError, App, AppOptions, Status};
 pub use committee::{CommitteeError, Snapshot, committee_config_hash};
-pub use config::{ChainParams, ConfigError};
+pub use config::{ChainParams, ConfigError, GRID_INTERVAL};
 pub use elsync::{ElSyncError, ensure_block};
 pub use engine::{
     Engine, EngineError, PayloadVerdict, RpcEngine, block_from_payload, payload_from_block,

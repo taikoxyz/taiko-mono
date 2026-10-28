@@ -2,8 +2,8 @@
 
 use crate::native::{Block, Commit, RawBlock};
 use abci::{
-    AccountWitness, AnchorState, AnchorWitness, CommitteeState, CommitteeWitness, GenesisRecord,
-    RawL1Header,
+    AccountWitness, AnchorState, AnchorWitness, CommitteeState, CommitteeWitness, GRID_INTERVAL,
+    GenesisRecord, RawL1Header,
 };
 use alloy_consensus::Header;
 use alloy_primitives::{Address, B256, Bytes, U256, aliases::U48};
@@ -293,7 +293,7 @@ pub struct PreparedBatch {
     /// reference block, terminal forced cursor and active committee cutoff.
     #[serde(with = "crate::contracts::abi_serde")]
     pub input: LandInput,
-    /// Ordered cut leaves for the interior K=6 grid points of the immutable range.
+    /// Ordered cut leaves for the interior grid points ([`GRID_INTERVAL`]) of the immutable range.
     pub leaves: Vec<B256>,
     /// Executing deployment/config identity rechecked before signing or rebroadcasting.
     pub deployment_identity: B256,
@@ -336,8 +336,8 @@ impl PreparedBatch {
         }
         if parent != self.snapshot.checkpoint_height ||
             parent >= last ||
-            parent % 6 != 0 ||
-            last % 6 != 0 ||
+            !parent.is_multiple_of(GRID_INTERVAL) ||
+            !last.is_multiple_of(GRID_INTERVAL) ||
             self.snapshot.generation != 0 ||
             self.blocks.len() as u64 != last - parent
         {
@@ -404,7 +404,7 @@ impl PreparedBatch {
                     .ok_or_else(|| LanderError::Journal("job cursor overflow".into()))?;
             }
             let height = envelope.block.header.number;
-            if height % 6 == 0 && U256::from(height) < self.input.lastHeight {
+            if height.is_multiple_of(GRID_INTERVAL) && U256::from(height) < self.input.lastHeight {
                 leaves.push(crate::statement::cut_leaf(
                     height,
                     envelope.block.header.hash_slow(),

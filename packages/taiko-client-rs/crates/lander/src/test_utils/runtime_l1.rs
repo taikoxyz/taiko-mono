@@ -733,6 +733,7 @@ async fn v1_deployment_identity_uses_real_pinned_boundaries_and_ignores_pause_an
                 answer!(l2ChainIdCall, U256::from(chain_id));
                 answer!(stakingRegistryCall, registry);
                 answer!(committeeConfigHashCall, if mode == 5 { B256::ZERO } else { config });
+                answer!(GRID_INTERVALCall, U256::from(if mode == 7 { 12 } else { 6 }));
                 answer!(
                     implCall,
                     if mode == 6 { Address::ZERO } else { Address::repeat_byte(0x42) }
@@ -759,7 +760,7 @@ async fn v1_deployment_identity_uses_real_pinned_boundaries_and_ignores_pause_an
     assert_eq!(source.deployment_identity(&advanced.snapshot).await.unwrap(), original);
     mode.store(2, Ordering::Relaxed);
     assert_ne!(source.deployment_identity(&fixture.snapshot).await.unwrap(), original);
-    for invalid in [3, 4, 5, 6] {
+    for invalid in [3, 4, 5, 6, 7] {
         mode.store(invalid, Ordering::Relaxed);
         assert!(matches!(
             source.deployment_identity(&fixture.snapshot).await,

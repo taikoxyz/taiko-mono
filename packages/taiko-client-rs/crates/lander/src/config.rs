@@ -2,7 +2,7 @@
 
 use std::{path::PathBuf, time::Duration};
 
-use abci::compression::MAX_LANDING_BLOBS;
+use abci::{GRID_INTERVAL, compression::MAX_LANDING_BLOBS};
 use url::Url;
 
 use crate::{
@@ -139,10 +139,10 @@ impl LanderConfig {
     /// Validate every local invariant before opening RPCs or reading a signing key.
     pub fn validate(&self) -> Result<()> {
         self.limits.validate()?;
-        if self.limits.max_blocks < 6 {
-            return Err(LanderError::Configuration(
-                "maximum batch blocks must fit a K=6 segment".into(),
-            ));
+        if self.limits.max_blocks < GRID_INTERVAL as usize {
+            return Err(LanderError::Configuration(format!(
+                "maximum batch blocks must fit a {GRID_INTERVAL}-block grid segment"
+            )));
         }
         self.batch_policy.validate()?;
         if self.batch_policy.min_blocks > self.limits.max_blocks {
