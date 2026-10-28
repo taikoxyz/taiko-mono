@@ -22,7 +22,7 @@ Each block has a `BLOCK_ZK_GAS_LIMIT`. If cumulative zk gas exceeds this limit d
 Three areas require special handling:
 - Transaction intrinsic cost — see [Pseudocode](#pseudocode)
 - Spawn opcodes (`CALL`, `CREATE` family) — see [Problem with Spawn Opcodes](#problem-with-spawn-opcodes)
-- Precompile calls — see [Precompile Metering](#precompile-metering)
+- Precompile calls, including a transaction that calls a precompile address directly — see [Precompile Metering](#precompile-metering)
 
 ## Multiplier Source
 
@@ -97,7 +97,9 @@ def on_opcode(opcode: uint8, step_gas: uint64, child_frame_created: bool, precom
         halt_execution()  # stop immediately, do not execute further opcodes
 
 
-# --- Precompile hook (called when a CALL-family opcode resolves to a precompile) ---
+# --- Precompile hook (called every time an active precompile executes) ---
+# Covers both a CALL-family opcode that resolves to a precompile and a transaction
+# whose top-level call targets a precompile address (see Precompile Metering).
 
 def on_precompile(precompile_address: address, gas_used: uint64):
     # Indexed by the precompile address; a missing entry returns FAILSAFE_MULTIPLIER = max(uint16).
@@ -135,7 +137,7 @@ def execute_block(txs, BLOCK_ZK_GAS_LIMIT: uint64):
 
 ## Precompile Metering
 
-Precompile calls do not execute opcodes — the EVM runs them directly and returns a result without creating a child execution frame. The per-opcode metering loop never sees precompile work, so precompiles must be metered explicitly.
+Precompile calls do not execute opcodes — the EVM runs them directly and returns a result without creating a child execution frame. The per-opcode metering loop never sees precompile work, so precompiles must be metered explicitly. Every precompile execution is metered, whether a CALL-family opcode reaches it or the transaction calls it directly.
 
 Precompile detection is implementation-defined (e.g. checking the active precompile set for the current fork). The multiplier is indexed by the precompile address.
 
@@ -145,6 +147,14 @@ When a CALL-family opcode targets a precompile address:
 - `precompile_zk = precompile_gas_used * precompile_multiplier[precompile_address]`
 - `precompile_gas_used` is the gas charged by the precompile's own gas schedule (`base_cost + data_cost`), excluding the CALL-family opcode's own costs (cold account access, memory expansion, value transfer stipend). This is the value deducted from the calling frame's gas counter when the precompile runs.
 - The charge is applied after the precompile executes, since gas cost is only known after execution. Since precompiles are atomic (no child opcodes), the block limit check fires before any subsequent opcode.
+
+When the transaction itself calls a precompile address (the transaction's `to` is an active precompile):
+
+- No opcode executes, so `on_opcode` is never called. No spawn estimate is charged: the call is not a CALL-family opcode, and implementations must not meter it as one.
+- `on_precompile` is called once, with `precompile_gas_used` defined as above. Here it is deducted from the gas the top-level call receives after the transaction's intrinsic EVM gas (the 21,000 base cost, calldata and access list); that intrinsic gas is not part of it.
+- The transaction's zk gas is `TX_INTRINSIC_ZK_GAS + precompile_gas_used * precompile_multiplier[tx.to]`.
+
+Example: a transaction that calls sha256 (`0x0000000000000000000000000000000000000002`) directly with 32 bytes of input uses 72 precompile gas and pays `243,000 + 72 * 10 = 243,720` zk gas. A contract that makes the same call with `STATICCALL` also pays the `STATICCALL` spawn estimate (`3,500 * 23 = 80,500`) plus the zk gas of its other opcodes.
 
 ## Problem with Spawn Opcodes
 
