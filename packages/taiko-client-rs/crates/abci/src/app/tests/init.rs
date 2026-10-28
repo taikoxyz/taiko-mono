@@ -345,7 +345,7 @@ async fn epoch_length_is_independent_of_unsettled_cap() {
     let fx = Fixture::build(GenesisSpec { epoch_len: 3, ..GenesisSpec::new(2) });
     let dir = tempfile::tempdir().unwrap();
     let app = initialized(&fx, dir.path()).await;
-    assert_eq!(app.state().unwrap().schedule().h_first(1), 3);
+    assert_eq!(app.state().unwrap().schedule().h_first(1), 4);
 }
 
 #[tokio::test]

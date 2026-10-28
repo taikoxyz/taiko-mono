@@ -2,7 +2,8 @@
 //!
 //! Each pending entry commits to at most 8192 bytes of one transaction. A canonical transaction
 //! consumes its entry only at position zero, including before its delay elapses. At or after the
-//! delay, invalid or low-fee-cap bytes consume the entry directly; eligible canonical bytes
+//! delay, canonically ineligible bytes consume the entry directly; eligible bytes, including
+//! those with low or zero fee caps,
 //! absent from position zero require the caller to validate a skip. This rule has no expiry
 //! and never consults the EL.
 

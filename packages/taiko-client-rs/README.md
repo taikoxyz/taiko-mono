@@ -72,10 +72,13 @@ Keccak digest of the ABI-encoded `ETNA_COMET_DOMAIN_V1` tag, full L1 and L2 chai
 Inbox address and uint48 generation. P2P node keys are separate Ed25519 identities.
 Only fresh generation zero starts are supported.
 
-For positive epochs, `H(t)=tL`, `S(t)=tL-2` and `D(t)=tL-3`; epoch zero starts at height 1.
+For every epoch, `H(t)=1+tL` and `epoch(h)=floor((h-1)/L)` for positive heights.
+For incoming epochs t>=1, `S(t)=H(t)-2` and `D(t)=H(t)-3`.
 The switch block derives the next committee using the committed D(t) anchor number as its
 cutoff (at least L1_0), but authenticates its complete registry proof under S(t)'s own anchor
-root. Comet applies the returned validator updates at H(t). At L=3, the first switch is block 1.
+root. The outgoing committee signs S(t) and S(t)+1; Comet activates the returned updates
+at H(t). At L=3 the first switch is block 2 and activation is block 4. With the default
+L=900, D(1)=898, S(1)=899 and H(1)=901.
 Eligible keys must be unique; selection orders stake descending with set-key tie breaking.
 There are no heartbeat or registered-recipient rules.
 
@@ -89,7 +92,9 @@ Every consensus handler enforces the 124000-byte raw ExecutionBlock RLP limit. E
 builds include `max_block_bytes=Some(124000)`, including singleton FI probes, and the build
 fingerprint includes that bound. The header fee-sharing byte is 100. A proposer chooses its
 beneficiary locally; validators validate the certified block's beneficiary without a registry
-recipient binding. Historical state error -38100 stops the node with durable fatal evidence.
+recipient binding. Historical state error -38100 stops the node with durable fatal evidence. A hash-canonical
+unsupported L1 header makes ProcessProposal reject without a fatal latch; FinalizeBlock waits
+for parser support. Transient dependency failures remain retryable.
 
 Envelope version remains 6; the app protocol version is 1 and its state schema is 13.
 Older state shapes and deployment domains are refused, with no implicit migration. Never reset
@@ -100,17 +105,18 @@ commit and writes `comet-hash-{height}.json` first; retain this history for chec
 The aligned dependencies are protocol commit `23963b68e43b4cbeaf83113eeb61fbc1bddb4c46`
 and EL `b046734a0a47b17ca66c33ccbc7c9087cbbf9b1e`. Fresh genesis must set fee sharing to 100,
 start the EL and verify block 0, then initialize Inbox and authenticate its finalized L1 record,
-including generation origin slot 290. Genesis generation is always zero. The CLI, lander,
-contract-artifact and deployment sections below are being migrated in the separate integration
-task; they do not describe a completed end-to-end deployment of this core-only change.
+including generation origin slot 290. Genesis generation is always zero. The CLI, lander and
+pinned contract artifacts share this format; the deployment runbook requires a fresh chain.
+This supports dummy-proof devnet operation, not deployed-state migration or a real validity guest.
 
 ## Forced inclusion
 
 A user can submit one exact transaction byte string to the Etna Inbox with `saveForcedInclusion(bytes)`.
 The maximum is 8192 bytes; empty and undecodable bytes are admissible input but cannot count as
 valid inclusion. The admission event records the raw bytes. Queue entries commit their Keccak-256
-hash and pack the L1 timestamp, L1 submission block and fee in gwei. The fee grows with unsettled
-entries. The app tracks `forced_cursor`, and each landing advances the Inbox's queue head to its
+hash and pack a uint48 L1 timestamp followed by a uint48 L1 submission block; the high
+bits are unused. Admission fees grow with unsettled entries and are not stored in this metadata.
+The app tracks `forced_cursor`, and each landing advances the Inbox's queue head to its
 checkpoint cursor. Consumed queue entries remain stored.
 
 Each block uses its own authenticated anchor `A` and the parent cursor `c`. A pending entry is
@@ -130,11 +136,11 @@ there is no expiry or expiry-derived upper bound.
   envelopes that redundantly carry them. RLP decoding bounds the bytes before copying them.
   A due entry absent from position zero must authenticate its preimage before any skip decision;
   omitted bytes cannot authorize skipping a nonempty admission.
-- An entry absent from position zero cannot be consumed early. Once due, empty, malformed,
-  noncanonical or low-fee-cap bytes consume the entry directly as an ineligible-byte skip.
-  The declared execution fee cap must reach `FI_MIN_EXEC_FEE_CAP = 1 gwei` (`gasPrice` for
-  types 0/1, `maxFeePerGas` otherwise) to require a singleton check. This classification
-  does not depend on the live base fee or reject a matching canonical inclusion.
+- An entry absent from position zero cannot be consumed early. Once due, bytes that fail
+  canonical eligibility (including malformed encoding/signatures, unsupported blob transactions
+  or excess gas limits) consume the entry as an ineligible-byte skip. A low or zero fee cap
+  alone does not make otherwise eligible bytes ineligible; they still require the completed
+  singleton check, including when their cap is below the current base fee.
 - Due eligible bytes absent from position zero require the shared Engine skip checker. It
   builds the singleton on the supplied authenticated parent and requires the result to preserve
   the consensus-derived header and retain no transaction. ABCI supplies its committed-parent

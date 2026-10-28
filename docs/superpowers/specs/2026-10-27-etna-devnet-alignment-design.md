@@ -8,13 +8,13 @@ The user explicitly excludes real proving guests and governance recovery. Mock p
 
 ## Authorities and immutable inputs
 
-| Source | Revision / role |
-| --- | --- |
+| Source                 | Revision / role                                                                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | Canonical Chinese spec | Notion page 3fe9673143d6813da4cdeb86d5203dfd, last edited 2026-10-27T04:07:38.279Z; snapshot `/tmp/etna-client-align-spec.txt` |
-| Protocol #22286 | `23963b68e43b4cbeaf83113eeb61fbc1bddb4c46`; fixed deployed interface, storage and schema-4 vectors |
-| EL #262 | `b046734a0a47b17ca66c33ccbc7c9087cbbf9b1e`; generic bounded builds and definitive pruning error |
-| Client starting head | #22280 `f0036c1f80d3324563f87622688520e7705e779a`, base `1204948fbf4e4b3a238ee82a54ef72a346ccb841` |
-| K8s starting head | #1663 `1eb18b0d6ae9db6b8b45e0f3d3922473f1db368b`, base `36305d893a8f325fcfe5824312a73f612ccc8f53` |
+| Protocol #22286        | `23963b68e43b4cbeaf83113eeb61fbc1bddb4c46`; fixed deployed interface, storage and schema-4 vectors                             |
+| EL #262                | `b046734a0a47b17ca66c33ccbc7c9087cbbf9b1e`; generic bounded builds and definitive pruning error                                |
+| Client starting head   | #22280 `f0036c1f80d3324563f87622688520e7705e779a`, base `1204948fbf4e4b3a238ee82a54ef72a346ccb841`                             |
+| K8s starting head      | #1663 `1eb18b0d6ae9db6b8b45e0f3d3922473f1db368b`, base `36305d893a8f325fcfe5824312a73f612ccc8f53`                              |
 
 The spec governs observable client behavior. Protocol #22286 fixes K=6, which the spec permits. Internal names and code organization are builder choices. Record any actual contradiction rather than silently change the referenced contracts or spec. The prior V15 design and unpublished V15 worktrees describe a different protocol and are not authorities for this task. Leave their worktrees and untracked documents untouched.
 
@@ -36,11 +36,11 @@ Reject previous app/config/journal formats explicitly. Choose a distinct interna
 
 Authenticate the complete registry snapshot and derive genesis and normal committees directly: eligibility, descending stake / ascending set-key tie break, top n_max, floor(stake/vp_unit), then set-key encoding order. Reject duplicate eligible keys, empty results and arithmetic/power errors. Remove heartbeat filtering, old-member priority, reward-recipient fields and d_max/margin_v derivation. U is directly authenticated and independent of epoch length L.
 
-Use H(t)=t*L, S(t)=H(t)-2 and D(t)=H(t)-3. Snapshot uses D(t)'s committed anchor and the generation origin floor; registry proofs are under S(t)'s own anchor root. S(t) updates become active at H(t); batches may cross the transition.
+Use canonical H(t)=1+t\*L and epoch(h)=floor((h-1)/L) for positive heights, S(t)=H(t)-2 and D(t)=H(t)-3 for incoming epochs. The earlier H=tL design transcription is superseded by canonical §4.2. At L=900, D(1)=898, S(1)=899 and H(1)=901; the outgoing committee signs S and S+1. Snapshot uses D(t)'s committed anchor and the generation origin floor; registry proofs are under S(t)'s own anchor root. S(t) updates become active at H(t); batches may cross the transition.
 
 Use canonical compressed secp256k1eth keys, Ethereum validator addresses, low-s 65-byte R||S||V signatures and stock VoteSignBytes. Node, host validation, genesis and Go FilePV helper must agree with cross-language vectors. Preserve complete checkpoint-trust/readiness gates for all signatures, including nil/repeated votes; transport identity need not use the consensus algorithm. Do not fork CometBFT or silently substitute generic secp256k1/SHA256 semantics.
 
-Preserve startup/reconnect authentication and durable fatal evidence. Temporary L1/EL unavailability waits/retries; contradictory authenticated data closes trust and follows the specified safety behavior. Normal process restarts preserve HRS, WAL and private history. Real guest and recovery-domain transitions remain unsupported.
+Preserve startup/reconnect authentication and durable fatal evidence. Temporary L1/EL unavailability waits/retries; hash-canonical unsupported L1 header formats make ProcessProposal reject without a fatal latch while FinalizeBlock waits for an upgrade. Contradictory authenticated data closes trust and follows the specified safety behavior. Normal process restarts preserve HRS, WAL and private history. Real guest and recovery-domain transitions remain unsupported.
 
 ### Header, FI and Engine API ownership
 

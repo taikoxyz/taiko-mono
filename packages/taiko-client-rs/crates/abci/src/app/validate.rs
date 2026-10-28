@@ -211,14 +211,18 @@ impl Rejection {
         }
     }
 
-    /// Temporary dependency failures cannot authorize rejecting a locked proposal.
+    /// Transient dependencies keep ProcessProposal pending; a canonical unsupported header
+    /// rejects so Comet can rotate rounds. FinalizeBlock independently waits for parser support.
     pub(crate) fn retryable_dependency(&self) -> bool {
         match self {
             Self::Engine(error) => error.is_retryable(),
             Self::ForcedBuild(crate::engine::forced::ForcedBuildError::Engine(error)) => {
                 error.is_retryable_build()
             }
-            Self::L1(error) => !error.is_integrity_failure(),
+            Self::L1(error) => {
+                !error.is_integrity_failure() &&
+                    !matches!(error, L1Error::UnsupportedHeaderFormat { .. })
+            }
             Self::Timeout(_) | Self::PayloadSyncing => true,
             _ => false,
         }

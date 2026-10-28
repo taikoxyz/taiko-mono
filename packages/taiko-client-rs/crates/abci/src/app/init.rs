@@ -189,8 +189,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     }
 }
 
-/// Requires the genesis validators to be exactly `members`: the same Ed25519 keys with the same
-/// powers, in any order, without duplicates.
+/// Requires the genesis validators to be exactly `members`: the same native secp256k1eth keys with
+/// the same powers, in any order, without duplicates.
 fn check_validators(
     validators: &[crate::wire::ValidatorUpdate],
     members: &[Member],

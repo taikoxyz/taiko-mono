@@ -262,7 +262,7 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
         Ok(CommitteeWitness { record, registry: proof, entries: snapshot.entries })
     }
 
-    /// The packed `l1Block | count << 64` word of `checkpoints[i]` as of the parent anchor `n_p`.
+    /// The packed `l1Block | count << 48` word of `checkpoints[i]` as of the parent anchor `n_p`.
     async fn head(&self, i: u64, n_p: u64) -> Result<U256, FetchError> {
         self.registry_word(registry::checkpoint_slots(i)[0], n_p).await
     }

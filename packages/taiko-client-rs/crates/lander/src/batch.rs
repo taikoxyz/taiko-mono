@@ -1271,10 +1271,11 @@ mod tests {
         b.validate_checkpoint(&snapshot).await.unwrap();
         b.observe(&snapshot).await.unwrap();
         let request = b.prepare(snapshot.clone()).await.unwrap().unwrap();
-        assert_eq!(request.batch.execution_history.len(), 4);
-        assert_eq!(source.history_reads.load(Ordering::Relaxed), 3);
+        assert_eq!(request.batch.execution_history.len(), 3);
+        assert_eq!(source.history_reads.load(Ordering::Relaxed), 2);
         assert_eq!(source.inbox_reads.load(Ordering::Relaxed), 1);
-        assert_eq!(source.committee_reads.load(Ordering::Relaxed), 1);
+        // Checkpoint 24 is H(1)-1, so both outgoing and pending committees are required.
+        assert_eq!(source.committee_reads.load(Ordering::Relaxed), 2);
         assert_eq!(source.parent_reads.load(Ordering::Relaxed), 3);
         assert_eq!(source.status_reads.load(Ordering::Relaxed), 3);
 
@@ -1291,9 +1292,10 @@ mod tests {
         advanced.l1_headers.insert(header.number, advanced.snapshot.l1_header.clone());
         *source.fixture.write().unwrap() = Arc::new(advanced);
         b.validate_checkpoint(&source.fixture().snapshot).await.unwrap();
-        assert_eq!(source.history_reads.load(Ordering::Relaxed), 3);
+        assert_eq!(source.history_reads.load(Ordering::Relaxed), 2);
         assert_eq!(source.inbox_reads.load(Ordering::Relaxed), 1);
-        assert_eq!(source.committee_reads.load(Ordering::Relaxed), 1);
+        // Checkpoint 24 is H(1)-1, so both outgoing and pending committees are required.
+        assert_eq!(source.committee_reads.load(Ordering::Relaxed), 2);
     }
 
     #[tokio::test]
@@ -1311,7 +1313,7 @@ mod tests {
         source.anchor_reorg.store(false, Ordering::Relaxed);
         let reads = source.history_reads.load(Ordering::Relaxed);
         b.validate_checkpoint(&snapshot).await.unwrap();
-        assert_eq!(source.history_reads.load(Ordering::Relaxed), reads + 3);
+        assert_eq!(source.history_reads.load(Ordering::Relaxed), reads + 2);
     }
 
     #[tokio::test]
@@ -1321,11 +1323,12 @@ mod tests {
         b.validate_checkpoint(&source.fixture().snapshot).await.unwrap();
         *source.fixture.write().unwrap() = Arc::new(Fixture::new(30, 30));
         b.validate_checkpoint(&source.fixture().snapshot).await.unwrap();
-        assert_eq!(source.history_reads.load(Ordering::Relaxed), 12);
+        assert_eq!(source.history_reads.load(Ordering::Relaxed), 10);
         assert_eq!(source.inbox_reads.load(Ordering::Relaxed), 2);
-        assert_eq!(source.committee_reads.load(Ordering::Relaxed), 2);
+        // The old checkpoint needs two committees; checkpoint 30 needs only epoch 1.
+        assert_eq!(source.committee_reads.load(Ordering::Relaxed), 3);
         b.validate_checkpoint(&source.fixture().snapshot).await.unwrap();
-        assert_eq!(source.history_reads.load(Ordering::Relaxed), 12);
+        assert_eq!(source.history_reads.load(Ordering::Relaxed), 10);
     }
 
     #[tokio::test]
@@ -1336,10 +1339,10 @@ mod tests {
         b.validate_checkpoint(&snapshot).await.unwrap();
         source.snapshot_reorg.store(true, Ordering::Relaxed);
         assert!(matches!(b.validate_checkpoint(&snapshot).await, Err(LanderError::Stale(_))));
-        assert_eq!(source.history_reads.load(Ordering::Relaxed), 3);
+        assert_eq!(source.history_reads.load(Ordering::Relaxed), 2);
         source.snapshot_reorg.store(false, Ordering::Relaxed);
         b.validate_checkpoint(&snapshot).await.unwrap();
-        assert_eq!(source.history_reads.load(Ordering::Relaxed), 6);
+        assert_eq!(source.history_reads.load(Ordering::Relaxed), 4);
     }
 
     #[tokio::test]
@@ -1410,7 +1413,7 @@ mod tests {
     #[tokio::test]
     async fn terminal_active_committee_snapshot_tracks_activation_and_mid_epoch_cuts() {
         use alloy::sol_types::SolValue;
-        for (checkpoint, tip, expected) in [(0, 6, 1), (6, 12, 11), (12, 18, 11)] {
+        for (checkpoint, tip, expected) in [(0, 6, 1), (6, 12, 1), (12, 18, 11)] {
             let fixture = Arc::new(Fixture::with_epoch(checkpoint, tip, 0, 12));
             let request = builder(fixture.clone(), limits((tip - checkpoint) as usize))
                 .prepare(fixture.snapshot.clone())
@@ -1430,7 +1433,7 @@ mod tests {
     #[tokio::test]
     async fn later_epochs_and_partial_batches_restore_the_terminal_active_cutoff() {
         for (checkpoint, tip, expected) in
-            [(6, 12, 11), (12, 18, 11), (18, 24, 13), (24, 30, 13), (30, 36, 15)]
+            [(6, 12, 1), (12, 18, 11), (18, 24, 11), (24, 30, 13), (30, 36, 13)]
         {
             let fixture = Arc::new(Fixture::with_progressing_epochs(checkpoint, tip));
             let batch = builder(fixture.clone(), limits((tip - checkpoint) as usize))
@@ -1542,7 +1545,7 @@ mod tests {
                 .iter()
                 .find(|c| c.witness.record.target_epoch == 1)
                 .unwrap();
-            assert_eq!(context.derivation_parent.as_ref().unwrap().number, 9);
+            assert_eq!(context.derivation_parent.as_ref().unwrap().number, 10);
             assert_eq!(
                 request.batch.grandparent_timestamp,
                 fixture.headers[&(checkpoint - 1)].timestamp
@@ -1559,18 +1562,18 @@ mod tests {
             let mut fixture = Fixture::new(24, 30);
             match mutation {
                 0 => {
-                    fixture.headers.remove(&21);
+                    fixture.headers.remove(&22);
                 }
-                1 => fixture.headers.get_mut(&21).unwrap().number = 22,
+                1 => fixture.headers.get_mut(&22).unwrap().number = 23,
                 2 => {
-                    fixture.headers.get_mut(&22).unwrap().parent_hash = alloy_primitives::B256::ZERO
+                    fixture.headers.get_mut(&23).unwrap().parent_hash = alloy_primitives::B256::ZERO
                 }
                 3 => {
-                    fixture.headers.get_mut(&21).unwrap().extra_data =
+                    fixture.headers.get_mut(&22).unwrap().extra_data =
                         abci::rules::encode_extra_data(1, 11).unwrap()
                 }
                 4 => {
-                    fixture.headers.get_mut(&21).unwrap().parent_beacon_block_root =
+                    fixture.headers.get_mut(&22).unwrap().parent_beacon_block_root =
                         Some(alloy_primitives::B256::ZERO)
                 }
                 _ => unreachable!(),
@@ -1585,7 +1588,7 @@ mod tests {
                 };
                 if mutation == 0 {
                     assert!(matches!(error, LanderError::Unavailable(_)));
-                    assert!(error.to_string().contains("height 21"));
+                    assert!(error.to_string().contains("height 22"));
                 } else {
                     assert!(matches!(error, LanderError::Safety(_)), "{error}");
                 }
@@ -1665,7 +1668,7 @@ mod tests {
         assert_eq!(observed.decided_height, 30);
         assert!(observed.force_epoch);
         let mut fixture = Fixture::new(18, 30);
-        alter_envelope(&mut fixture, 22, |e| e.committee = None);
+        alter_envelope(&mut fixture, 23, |e| e.committee = None);
         let fixture = Arc::new(fixture);
         assert!(matches!(
             builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await,
@@ -1817,20 +1820,20 @@ mod tests {
             .iter()
             .position(|validator| validator.pub_key == pubkey)
             .unwrap();
-        // Height 24's `/commit` has the power-1 member's precommit; block 25's `last_commit`
+        // Height 25's `/commit` has the power-1 member's precommit; block 26's `last_commit`
         // omits it, which leaves 3 of 4 power, still a quorum.
-        let seen = &fixture.blocks[&24].commit;
+        let seen = &fixture.blocks[&25].commit;
         assert!(matches!(
             seen.signatures[slot],
             crate::native::CommitSig::BlockIdFlagCommit { .. }
         ));
-        let pair = fixture.blocks.get_mut(&25).unwrap();
+        let pair = fixture.blocks.get_mut(&26).unwrap();
         let last_commit = pair.block.last_commit.as_mut().unwrap();
         last_commit.signatures[slot] = crate::native::CommitSig::BlockIdFlagAbsent;
         pair.block.header.last_commit_hash = Some(crate::validate::commit_hash(last_commit));
-        reseal_from(&mut fixture, 25);
+        reseal_from(&mut fixture, 26);
         assert!(matches!(
-            fixture.blocks[&24].commit.signatures[slot],
+            fixture.blocks[&25].commit.signatures[slot],
             crate::native::CommitSig::BlockIdFlagCommit { .. }
         ));
 
@@ -1880,38 +1883,70 @@ mod tests {
     async fn middle_epoch_batch_authenticates_h_plus_two_switch_and_derives_exact_next_record() {
         let fixture = Arc::new(Fixture::new(18, 30));
         let snapshot = fixture.snapshot.clone();
-        let request = builder(fixture.clone(), limits(6)).prepare(snapshot).await.unwrap().unwrap();
-        assert_eq!(request.batch.input.lastHeight, 24);
-        assert_eq!(request.batch.committee_witnesses.len(), 2);
+        let request =
+            builder(fixture.clone(), limits(12)).prepare(snapshot).await.unwrap().unwrap();
+        let batch = &request.batch;
+        assert_eq!(batch.input.lastHeight, 30);
+        assert_eq!(batch.committee_witnesses.len(), 2);
         assert_eq!(
-            request
-                .batch
+            batch
                 .committees
                 .iter()
                 .map(|committee| committee.record.target_epoch)
                 .collect::<Vec<_>>(),
             vec![0, 1]
         );
-        assert_eq!(request.batch.blocks[3].block.header.height.value(), 22);
+        // Canonical L=24: D=22, S=23, H=25. S and S+1 retain the outgoing set.
+        for (index, height) in [(4, 23), (5, 24)] {
+            assert_eq!(batch.blocks[index].block.header.height.value(), height);
+            assert_eq!(
+                batch.blocks[index].block.header.validators_hash,
+                fixture.committees[&0].validators.hash()
+            );
+        }
         assert_eq!(
-            request.batch.blocks[3].block.header.validators_hash,
-            fixture.committees[&0].validators.hash()
-        );
-        assert_eq!(
-            request.batch.blocks[4].block.header.next_validators_hash,
+            batch.blocks[5].block.header.next_validators_hash,
             fixture.committees[&1].validators.hash()
         );
+        assert_eq!(batch.blocks[6].block.header.height.value(), 25);
         assert_eq!(
-            request.batch.blocks[5].block.header.validators_hash,
+            batch.blocks[6].block.header.validators_hash,
             fixture.committees[&1].validators.hash()
         );
         assert_ne!(
             fixture.committees[&0].validators.hash(),
             fixture.committees[&1].validators.hash()
         );
-        assert_eq!(request.batch.parent_anchor.number, 11);
-        assert_eq!(request.batch.anchors[3].number, 12);
-        assert_eq!(request.batch.input.l1ReferenceBlockNumber, 14);
+        let incoming = batch
+            .committee_witnesses
+            .iter()
+            .find(|context| context.witness.record.target_epoch == 1)
+            .unwrap();
+        assert_eq!(incoming.derivation_parent.as_ref().unwrap().number, 22);
+        assert_eq!(incoming.witness.record.cutoff_l1_block, 11);
+        assert_eq!(incoming.anchor.number, 12);
+        assert_eq!(batch.parent_anchor.number, 11);
+        assert_eq!(batch.anchors[3].number, 11);
+        assert_eq!(batch.anchors[4].number, 12);
+        assert_eq!(batch.input.l1ReferenceBlockNumber, 14);
+        let restored: PreparedBatch =
+            serde_json::from_slice(&serde_json::to_vec(batch).unwrap()).unwrap();
+        assert_eq!(&restored, batch);
+        restored.validate_statement().unwrap();
+        let mut wrong = restored;
+        wrong
+            .committee_witnesses
+            .iter_mut()
+            .find(|context| context.witness.record.target_epoch == 1)
+            .unwrap()
+            .derivation_parent
+            .as_mut()
+            .unwrap()
+            .number = 21;
+        assert!(
+            wrong.validate_statement().is_err(),
+            "old D=21 cannot authorize the restored batch"
+        );
     }
 
     #[tokio::test]
@@ -2014,7 +2049,7 @@ mod tests {
     #[tokio::test]
     async fn missing_extra_and_wrong_epoch_committee_witnesses_are_rejected() {
         let mut fixture = Fixture::new(18, 30);
-        alter_envelope(&mut fixture, 22, |envelope| envelope.committee = None);
+        alter_envelope(&mut fixture, 23, |envelope| envelope.committee = None);
         let fixture = Arc::new(fixture);
         let error = builder(fixture.clone(), limits(6))
             .prepare(fixture.snapshot.clone())
@@ -2024,15 +2059,15 @@ mod tests {
         assert!(error.to_string().contains("committee witness presence"));
         let mut fixture = Fixture::new(18, 30);
         let extra =
-            abci::EtnaEnvelope::decode(&fixture.blocks[&22].block.data[0]).unwrap().committee;
-        alter_envelope(&mut fixture, 21, |envelope| envelope.committee = extra);
+            abci::EtnaEnvelope::decode(&fixture.blocks[&23].block.data[0]).unwrap().committee;
+        alter_envelope(&mut fixture, 22, |envelope| envelope.committee = extra);
         let fixture = Arc::new(fixture);
         assert!(matches!(
             builder(fixture.clone(), limits(6)).prepare(fixture.snapshot.clone()).await,
             Err(LanderError::Safety(_))
         ));
         let mut fixture = Fixture::new(18, 30);
-        alter_envelope(&mut fixture, 22, |envelope| {
+        alter_envelope(&mut fixture, 23, |envelope| {
             envelope.committee.as_mut().unwrap().record.target_epoch = 2
         });
         let fixture = Arc::new(fixture);
@@ -2060,7 +2095,7 @@ mod tests {
 
     #[tokio::test]
     async fn checkpoint_pending_next_validator_hash_is_independently_authenticated() {
-        let mut fixture = Fixture::with_epoch(24, 30, 0, 25);
+        let mut fixture = Fixture::with_epoch(24, 30, 0, 24);
         let pair = fixture.blocks.get_mut(&24).unwrap();
         pair.block.header.next_validators_hash = fixture.committees[&0].validators.hash();
         let keys = vec![
@@ -2363,14 +2398,14 @@ mod tests {
         /// committee and the forced witness, and both must verify.
         #[tokio::test]
         async fn switch_height_forced_block_lands() {
-            // Entry 0 first appears in L1 12, the anchor the switch-height block 22 moves to.
+            // Entry 0 first appears in L1 12, the anchor the switch-height block 23 moves to.
             let plan =
-                ForcedPlan { entries: vec![(12, 3)], consume_at: vec![22], ..Default::default() };
+                ForcedPlan { entries: vec![(12, 3)], consume_at: vec![23], ..Default::default() };
             let forced = || Fixture::with_forced(18, 30, plan.clone());
             let fixture = Arc::new(forced());
             let request = prepare(&fixture, 6).await;
-            let switch = envelope(&request, 3);
-            assert_eq!(switch.block.header.number, 22);
+            let switch = envelope(&request, 4);
+            assert_eq!(switch.block.header.number, 23);
             assert!(switch.anchor.is_some() && switch.committee.is_some());
             let witness = switch.forced.unwrap();
             assert_eq!((witness.index, witness.tx.is_empty()), (0, false));
@@ -2382,10 +2417,10 @@ mod tests {
             );
 
             let mut fixture = forced();
-            alter_envelope(&mut fixture, 22, |envelope| envelope.committee = None);
+            alter_envelope(&mut fixture, 23, |envelope| envelope.committee = None);
             assert_safety(fixture, "committee witness presence").await;
             let mut fixture = forced();
-            alter_envelope(&mut fixture, 22, |envelope| {
+            alter_envelope(&mut fixture, 23, |envelope| {
                 let witness = envelope.forced.as_mut().unwrap();
                 let mut blob = witness.tx.to_vec();
                 blob[0] ^= 1;

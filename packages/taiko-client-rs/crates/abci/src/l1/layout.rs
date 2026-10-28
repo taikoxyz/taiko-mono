@@ -115,7 +115,7 @@ pub mod inbox {
         slots
     }
 
-    /// The two calldata queue slots: transaction hash and packed timestamp, L1 block and fee.
+    /// The two calldata queue slots: transaction hash and packed uint48 timestamp/L1 block.
     pub fn forced_inclusion_entry_slots(index: u64) -> [B256; 2] {
         crate::forced::entry_slots(index)
     }
