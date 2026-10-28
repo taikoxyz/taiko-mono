@@ -4,6 +4,10 @@ The Rust consensus-side node of the Taiko Etna PoS chain, starting from L2 genes
 blocks; the `taiko-client abci` ABCI++ application builds and validates them and drives
 alethia-reth through the Engine API. The independent `taiko-client lander` publishes decided batches to L1.
 
+The protocol rules are specified in the [Etna PoS ZK Design Spec](https://app.notion.com/p/taikoxyz/Etna-PoS-ZK-Design-Spec-3fe9673143d6817a9f0fdaaf1b965d7a);
+"spec section N" below refers to it. This README covers building, running and operating the
+client, and names the spec section where an operator needs a rule.
+
 Mainnet and Hoodi must keep their existing pinned 2.3.x client images: the Etna 3.x client removes
 `driver`, `proposer`, and `whitelist-preconfirmation-driver`. The `codex/taiko-client-rs-2.3.x`
 maintenance branch preserves those commands for legacy fixes. Cherry-pick compatible fixes there,
@@ -35,18 +39,13 @@ asks the app's private control socket before every signature (see
   transactions travel over the execution layer's devp2p, and the proposer's alethia-reth picks
   them from its own txpool.
 - **`taiko-client abci`** wraps each execution block, together with the L1 facts it consumes (an
-  L1 header plus EIP-1186 storage proofs of the Inbox and the staking registry; while an entry the
-  chain has not consumed is queued at the anchor, that entry's proof and exact calldata bytes),
-  into the CometBFT block. Validators check with their own L1 node that the anchored header is
-  canonical and final. `FinalizeBlock`, replay and block sync read no L1 state or admission logs;
-  for a block the node never judged, they confirm its anchor header (see Restarts). Canonical
-  forced transactions omitted at position zero require Engine checks against the authenticated
-  parent; valid inclusion and ineligible-byte skips need no singleton build. At each switch height the
-  app derives the target committee from the committed parent anchor and hands CometBFT the
-  validator updates, effective two heights later. Its state is persisted atomically at every
-  `Commit`. The genesis record includes the authenticated committee config hash, and the epoch
-  schedule is derived from it. Only canonical `genesis` and `status` fields are accepted; legacy
-  aliases, redundant persisted schedules, and missing config hash or Inbox binding are rejected.
+  L1 header plus EIP-1186 storage proofs of the Inbox and the staking registry, and the pending
+  forced inclusion entry's proof), into the CometBFT block. Validators check with their own L1
+  node that the anchored header is canonical and final. `FinalizeBlock`, replay and block sync
+  read no L1 state or admission logs; for a block the node never judged, they confirm its anchor
+  header (see Restarts). At each switch height the app derives the next committee and hands
+  CometBFT the validator updates (spec section 4, Staking and committees). Its state is persisted
+  atomically at every `Commit`.
 - **alethia-reth** executes blocks; the app drives it with `engine_forkchoiceUpdatedV3`,
   `engine_getPayloadV5` and `engine_newPayloadV4`. CometBFT height equals the EL block number; Etna starts at L2 block 0, and consensus starts at height 1.
 
@@ -64,151 +63,39 @@ asks the app's private control socket before every signature (see
 | `script/`              | Maintenance scripts (binding generation)                                              |
 | `tests/`               | The integration test entrypoint and the test JWT secret                               |
 
-## Committees and fresh-genesis runtime
+## Fresh deployment
 
-The ABCI runtime follows the V1 specification with native stock CometBFT 0.40.0
-`secp256k1eth` validator keys. Its 48-byte chain ID is `etna-` plus the unpadded base64url
-Keccak digest of the ABI-encoded `ETNA_COMET_DOMAIN_V1` tag, full L1 and L2 chain IDs,
-Inbox address and uint48 generation. P2P node keys are separate Ed25519 identities.
-Only fresh generation zero starts are supported.
+The client starts a fresh Etna chain at generation zero only; it migrates no earlier state
+format. It is aligned with protocol commit `23963b68e43b4cbeaf83113eeb61fbc1bddb4c46` (the
+Inbox, staking registry and the pinned contract artifacts) and alethia-reth commit
+`b046734a0a47b17ca66c33ccbc7c9087cbbf9b1e`. Start the EL and verify its block 0 before the Inbox
+is initialized (spec section 10, Startup and deployment). The proof provider is a dummy `0x00`,
+so run the client only on disposable development chains.
 
-For every epoch, `H(t)=1+tL` and `epoch(h)=floor((h-1)/L)` for positive heights.
-For incoming epochs t>=1, `S(t)=H(t)-2` and `D(t)=H(t)-3`.
-The switch block derives the next committee using the committed D(t) anchor number as its
-cutoff (at least L1_0), but authenticates its complete registry proof under S(t)'s own anchor
-root. The outgoing committee signs S(t) and S(t)+1; Comet activates the returned updates
-at H(t). At L=3 the first switch is block 2 and activation is block 4. With the default
-L=900, D(1)=898, S(1)=899 and H(1)=901.
-Eligible keys must be unique; selection orders stake descending with set-key tie breaking.
-There are no heartbeat or registered-recipient rules.
+Validators sign with stock CometBFT v0.40.0 `secp256k1eth` consensus keys; node P2P keys stay
+separate Ed25519 identities. The CometBFT chain ID is the 48-byte `etna-` deployment domain that
+`abci-genesis` writes.
 
-The seven-word `ETNA_PARENT_ANCHOR_V1` hash binds the L2 chain ID, registry, vpUnit,
-sMin, nMax and direct unsettled limit U. U is a multiple of six in 6..=65536, independent of L.
-The schedule requires L>=3 and L+1 within uint48. Registry entries are
-`[ckPrefix, ckX, effStake, activeFromL1, exitEffectiveL1]`; committee records contain
-`[targetEpoch, cutoffL1Block, checkpointIndex, setRoot, totalPower]`.
-
-Every consensus handler enforces the 124000-byte raw ExecutionBlock RLP limit. Etna Engine
-builds include `max_block_bytes=Some(124000)`, including singleton FI probes, and the build
-fingerprint includes that bound. The header fee-sharing byte is 100. A proposer chooses its
-beneficiary locally; validators validate the certified block's beneficiary without a registry
-recipient binding. Historical state error -38100 stops the node with durable fatal evidence. A hash-canonical
-unsupported L1 header makes ProcessProposal reject without a fatal latch; FinalizeBlock waits
-for parser support. Transient dependency failures remain retryable.
-
-Envelope version remains 6; the app protocol version is 1 and its state schema is 13.
-Older state shapes and deployment domains are refused, with no implicit migration. Never reset
-signed state or Comet history to force startup. The app persists `last_comet_hash` with each
-commit and writes `comet-hash-{height}.json` first; retain this history for checkpoint trust.
-`fatal-evidence.txt` survives restarts and records the first safety failure for operator repair.
-
-The aligned dependencies are protocol commit `23963b68e43b4cbeaf83113eeb61fbc1bddb4c46`
-and EL `b046734a0a47b17ca66c33ccbc7c9087cbbf9b1e`. Fresh genesis must set fee sharing to 100,
-start the EL and verify block 0, then initialize Inbox and authenticate its finalized L1 record,
-including generation origin slot 290. Genesis generation is always zero. The CLI, lander and
-pinned contract artifacts share this format; the deployment runbook requires a fresh chain.
-This supports dummy-proof devnet operation, not deployed-state migration or a real validity guest.
+Never reset signed state or Comet history to force a start. The app writes
+`comet-hash-{height}.json` before each commit; retain those files with Comet history, as
+checkpoint trust reads them. `fatal-evidence.txt` survives restarts and records the first safety
+failure, such as an unknown-execution-state Engine error (`-38100`); repair its cause before
+restarting. An L1 header shape the node cannot parse makes `ProcessProposal` reject and
+`FinalizeBlock` wait, without a safety halt: upgrade the client.
 
 ## Forced inclusion
 
-A user can submit one exact transaction byte string to the Etna Inbox with `saveForcedInclusion(bytes)`.
-The maximum is 8192 bytes; empty and undecodable bytes are admissible input but cannot count as
-valid inclusion. The admission event records the raw bytes. Queue entries commit their Keccak-256
-hash and pack a uint48 L1 timestamp followed by a uint48 L1 submission block; the high
-bits are unused. Admission fees grow with unsettled entries and are not stored in this metadata.
-The app tracks `forced_cursor`, and each landing advances the Inbox's queue head to its
-checkpoint cursor. Consumed queue entries remain stored.
+Users submit a forced transaction as calldata with the Inbox's `saveForcedInclusion(bytes)`; spec
+section 7 (Forced inclusion) gives the rules for including or skipping it. For operators:
 
-Each block uses its own authenticated anchor `A` and the parent cursor `c`. A pending entry is
-due when `A.timestamp >= entry.timestamp + forcedInclusionDelay`. The delay must be positive;
-there is no expiry or expiry-derived upper bound.
-
-- If `c >= tail(A)`, the block carries no forced witness and consumes no entry.
-- Otherwise every block carries entry `c`'s two-slot proof. Proposers leave the witness's `tx`
-  byte string empty for ordinary and included blocks, avoiding repeated admission data while an
-  entry waits. Only skips carry the original preimage; an actually empty admission also uses an
-  empty byte string and is distinguished by the proven hash and due time.
-- A canonical transaction at position zero whose hash matches the proven entry consumes it,
-  even early, without duplicating its bytes in the witness. It must fit the 8192-byte admission
-  cap. Matching canonical low-fee-cap transactions may also be included. Ordinary transactions
-  may follow; matching a later transaction is insufficient.
-- Nonempty witness bytes always match the proven hash and byte limit, including historical
-  envelopes that redundantly carry them. RLP decoding bounds the bytes before copying them.
-  A due entry absent from position zero must authenticate its preimage before any skip decision;
-  omitted bytes cannot authorize skipping a nonempty admission.
-- An entry absent from position zero cannot be consumed early. Once due, bytes that fail
-  canonical eligibility (including malformed encoding/signatures, unsupported blob transactions
-  or excess gas limits) consume the entry as an ineligible-byte skip. A low or zero fee cap
-  alone does not make otherwise eligible bytes ineligible; they still require the completed
-  singleton check, including when their cap is below the current base fee.
-- Due eligible bytes absent from position zero require the shared Engine skip checker. It
-  builds the singleton on the supplied authenticated parent and requires the result to preserve
-  the consensus-derived header and retain no transaction. ABCI supplies its committed-parent
-  context; the lander additionally checks that parent's numeric canonical hash before probing.
-  Filtering or zk-gas overflow can yield the empty result and authorize the skip. RPC errors,
-  missing history, malformed results and a signature-recovery failure in a transaction the block
-  claims to include never authorize consumption.
-
-At or after due, a block that neither includes the entry nor completes an authenticated valid
-skip is invalid; it cannot retain the cursor.
-
-At most one queue entry is consumed per block. Included and ineligible-byte cases require no
-singleton build. `ProcessProposal`, cold `FinalizeBlock` and the lander share the classifier and
-skip checker. Prepare reclassifies its final candidate after an ordinary fallback, reusing a
-successful singleton confirmation only when the decision and its build context are unchanged.
-Host Engine checks establish current dummy-proof behavior; an independent validity proof guest
-remains future work. `land` sends consumed L1 forced-inclusion fees to the configured protocol
-treasury. L2 base fees and tips are credited immediately to the proposer-selected beneficiary.
-
-Proposers retrieve admission bytes with `eth_getLogs` for the exact proven submission block,
-Inbox address and event identity, then recheck the transaction hash. Before due, this lookup is
-optional and gets at most one quarter of the remaining Prepare budget: errors or a slow lookup
-fall back to an ordinary block with the mandatory entry proof and empty witness bytes. Owned
-reads may complete for later rounds. At due, missing bytes cannot authorize a skip. Retain historical admission
-logs as long as queued entries may remain pending. No beacon endpoint, blob timeout or KZG warmup
-is used for FI. The removed `--l1.beacon` and `--l1.blob-timeout` flags are rejected. Lander batch
-publication still uses blobs and EIP-4844/EIP-7594 sidecars.
-
-Completed proposal anchor/entry proofs and authenticated transaction bytes are cached under their
-exact header/root/entry identity. One bounded entry/event read can survive a cancelled round;
-changing its context aborts unfinished work. A commit retains bytes and an in-flight event read
-only for the still-pending cursor. These reads use `--l1.timeout`; the overall preparation budget
-must remain below CometBFT's proposal timeout. Missing or mismatching admission data prevents a
-proposal rather than authorizing a skip. Committee witness prefetch and retry backoff are unchanged.
-
-### Anchor freshness
-
-Every block must satisfy `block.timestamp - anchor.timestamp <= maxAnchorAge`, checked in
-`PrepareProposal`, `ProcessProposal` and `FinalizeBlock` replay. `maxAnchorAge` is a genesis
-parameter the genesis record reads from Inbox slot 282, next to the delay. The pinned Inbox
-initializer requires `maxAnchorAge >= 1152` seconds and a positive `forcedInclusionDelay`. There is no expiry bound. ABCI uses that authenticated value
-for its block rule. The block timestamp is the derived `max(parent + 1, floor(BFT time), anchor.timestamp)`.
-
-Proposal selection prefers the newest usable finalized anchor (L1 `finalized` less
-`l1_finality_extra_depth`, never below the committed parent anchor). Acceptance checks the
-proposal's fixed derived block timestamp instead. A moved anchor must still be canonical and
-final in the validator's own L1 view, but its distance from that view's current finalized head is
-not checked. Advancing that head alone cannot expire an accepted proposal, including for a
-validator receiving it for the first time or replaying it without an acceptance cache; otherwise a
-locked block re-proposed unchanged in a later round might never gather more than 2/3 of the
-voting power.
-
-For the current authenticated queue head, a block timestamp at or beyond
-`entry.timestamp + D + maxAnchorAge` implies that the entry is due at the block's anchor.
-The FI rules then require inclusion or an authenticated skip; they process at most one queue
-head per block. Later queued entries are processed only after they become the head.
-A proposer whose newest usable anchor is too old relative to the derived block
-timestamp proposes nothing and records `anchor_too_old`. Finality must resume before a proposer
-can use a sufficiently recent anchor; a delayed entry never expires.
-
-This is a bound in block time, with no promised fixed wall-clock FI deadline. Etna does not enable
-proposer-based timestamps (PBTS): BFT time is the voting-power-weighted median of the precommit
-timestamps included in the block's last commit. The normal liveness assumption is less than one
-third Byzantine voting power, reasonably synchronized honest clocks and continued L1 finality,
-L2 consensus, execution and settlement progress. The age rule alone does not guarantee that
-block timestamps track wall-clock time; a coalition above the normal Byzantine threshold can
-manipulate the commit's median time. Neither the deterministic age bound nor continuing block
-production establishes a wall-clock inclusion guarantee against every coalition below two thirds.
+- Proposers read each pending entry's admission event with exact-block `eth_getLogs` on
+  `--l1.http`, bounded by `--l1.timeout` and `--prepare.timeout`; keep old logs while entries stay
+  pending (see L1 node requirements). Forced inclusion uses no beacon endpoint.
+- Skipping a due eligible transaction needs a singleton Engine build on the parent's execution
+  state, so validators and landers need that history (see Execution layer state history).
+- Admission fees stay in the Inbox: neither `saveForcedInclusion` nor `land` pays the treasury.
+  Anyone may call `sweepProtocolFees()` to send the Inbox's balance to the deployment's protocol
+  treasury. L2 base fees and tips go to each block's proposer-selected beneficiary.
 
 ## Prerequisites
 
@@ -216,9 +103,9 @@ production establishes a wall-clock inclusion guarantee against every coalition 
 - [Just](https://github.com/casey/just) and [cargo-nextest](https://nexte.st) 0.9.145 or later
 - Docker (for the integration tests)
 
-Nextest 0.9.145 fixes a macOS capture-pipe inheritance race that can falsely report a passing
-test as `LEAK` ([upstream fix](https://github.com/nextest-rs/nextest/pull/3553)). The configuration
-retains the previous runner's 100 ms leak-detection budget for both default and integration profiles.
+Earlier nextest versions have a macOS capture-pipe inheritance race that can falsely report a
+passing test as `LEAK` ([upstream fix](https://github.com/nextest-rs/nextest/pull/3553)). Both the
+default and integration profiles use a 100 ms leak-detection budget.
 
 ## Build the source
 
@@ -255,12 +142,13 @@ The four timeouts accept 1 to 3600 seconds. The L2 chain id is read from `--l2.h
 selects the built-in chain parameters. Only the internal devnet (chain id `167001`) has Etna PoS
 parameters so far; on other chains `abci` refuses to start. The `--chain-config` TOML uses the
 snake_case names of `abci::ChainParams` (for example `unsettled_limit = 3600`); absent keys keep their
-built-in values. The removed `d_max`, `margin_v`, `heartbeat_window` and `fee_vault` keys are
-rejected. `block_gas_limit` stays fixed by the built-in EL parameters. The required
+built-in values; unknown keys are rejected. `block_gas_limit` stays fixed by the built-in EL
+parameters. The required
 `--fee-recipient` overrides the local TOML beneficiary. Full uint256 L1 identity is read from
 `--l1.http`; an explicit `l1_chain_id` TOML value must match, while an omitted value uses the RPC
-identity. L2 IDs are checked without truncation and values above uint64 are explicitly refused;
-all nodes must use the authenticated seven-word committee configuration. The Inbox address
+identity. L2 IDs are checked without truncation and values above uint64 are explicitly refused.
+All nodes must use the same chain parameters: genesis and every restart check them against the
+Inbox's committee configuration hash. The Inbox address
 is also required in persisted state and checked again on restart. `InitChain` requires the exact
 L1_0 genesis time, canonical representable CometBFT consensus parameters, and an EL genesis
 header whose hash and state root match H* and S*.
@@ -268,16 +156,13 @@ header whose hash and state root match H* and S*.
 A safety halt (a committed block or the execution engine contradicting the app state) exits the
 process with status 2; investigate before restarting. Liveness halts (anchor not final, anchor
 older than `maxAnchorAge`, back-pressure, committee discovery unavailable, a due forced
-inclusion event unavailable) keep the process running and CometBFT rounding; the ABCI query
+inclusion event unavailable; spec section 8, Halts and recovery) keep the process running and
+CometBFT rounding; the ABCI query
 `/status` reports the head, epoch, generation and halt reason. A superseded generation is
 permanent. A proposal whose anchor shows a higher Inbox `recoveryGeneration` is refused and trust
 is revoked while the process keeps running. A decided block carrying such an anchor, or a startup
 or signer-session trust check finding a different generation, is a safety halt. Restart only
 under the new generation.
-
-`PrepareProposal`, `ProcessProposal` and `FinalizeBlock` enforce the raw 124000-byte
-execution-block RLP bound. Each Engine build requests that same bound. Public landing data
-contains execution blocks only; original consensus envelopes remain private authenticated inputs.
 
 ### `lander`
 
@@ -288,9 +173,9 @@ verifier on a disposable devnet. This does not establish validity-proof soundnes
 
 Required inputs are `--l1.http`, `--l2.http`, `--l2.auth`, `--jwt.secret`, `--comet.http`, a
 `--signing-key` file containing a hex key, an exclusive `--data-dir`, `--max-blocks`,
-`--max-blobs`, all three positive fee caps and `--sidecar`. `--l2.reward-recipient` and the
-`lander-claim` command are removed and rejected. Execution fees go directly to each block's
-locally selected beneficiary; consumed FI fees go to the protocol treasury.
+`--max-blobs`, all three positive fee caps and `--sidecar`. Landing pays the lander nothing:
+execution fees go to each block's beneficiary, and forced inclusion fees stay in the Inbox until
+`sweepProtocolFees()`.
 
 ```sh
 taiko-client lander --l1.http http://l1-node:8545 \
@@ -307,9 +192,8 @@ The deployed Inbox must permit the selected maximum. A batch must fit a complete
 so `--max-blocks` must be at least 6; endpoints are grid heights. `--max-blobs` is exactly 6.
 `--min-blocks` defaults to 1 and `--max-batch-wait` to 30 seconds, but neither permits a partial
 segment. The minimum is 1 through `--max-blocks`; wait expiry or consensus pressure can flush
-an available complete prefix below it. Batches can cross epoch transitions. Pressure uses the
-checkpoint in the decided tip's authenticated anchor and direct `unsettled_limit`, not an
-unauthenticated newer checkpoint. Switch urgency does not change committee activation timing.
+an available complete prefix below it. Batches can cross epoch transitions; batch timing and
+back-pressure follow spec sections 6.3 (Batches) and 6.4 (Back-pressure).
 
 `--chain-config` uses the same authenticated parameters as ABCI. L1 identity is read as full
 uint256 from the actual endpoint; an explicit `l1_chain_id` must match. L2 IDs above uint64 are
@@ -325,24 +209,13 @@ stop. Logs identify failed endpoints without exposing credentials or upstream re
 The priority fee cap cannot exceed the total execution cap. Gas estimation adds a checked 20%
 margin within EIP-7825's 16,777,216 cap; no automatic fee or nonce replacement is supported.
 
-Public DA is exactly `0x06 || zlib(rlp([ExecutionBlock,...]))`. Original envelopes, native
-headers/commits, evidence, 65-byte signatures and witnesses remain private. Import and journal
-restoration enforce the raw 124000-byte execution bound, Unzen shape and authenticated
-projection. Pinned stock zlib, bounded decompression/private protobuf budgets and the existing
-BlobCoder protect capacity; eip4844/eip7594 select sidecar formats for the same payload.
-Native certificate verification retains complete committee proofs, strict greater-than-two-thirds
-quorum and stock secp256k1eth semantics, including the 301-member library regression.
+The public blob payload carries execution blocks only (spec section 5.2, Blob payload);
+`--sidecar eip4844` or `eip7594` selects the sidecar format for the same payload. The `land`
+input and statement are spec section 6.1 (land). Before signing or sending, the lander checks the
+deployed Inbox implementation and its immutable getters.
 
-The eight-field LandInput binds parent/last height, terminal EL/Comet hashes and state root,
-L1 reference, terminal FI cursor and active committee cutoff. The 21-word/672-byte
-`TAIKO_ETNA_LAND_V1` statement additionally binds the full chain IDs, Inbox/registry, generation, checkpoint,
-committee config and immutable cut leaves. The journal separately checks the current deployment
-implementation and immutable getters before signing or sending. The reference authenticates ancestry without changing individual execution anchors.
-The terminal committee uses genesisCutoff in epoch zero and the authenticated committed D(t)
-anchor thereafter; pending S(t) updates activate only at H(t).
-
-`lander-state.json` uses schema 13 and is protected by `lander.lock`. Old schemas and legacy
-claim-directory markers reject intact. Signed bytes and blob sidecars are durably written before
+`lander-state.json` uses schema 13 and is protected by `lander.lock`; other schemas are refused
+and left intact. Signed bytes and blob sidecars are durably written before
 broadcast. For an original range (p,h] and competing checkpoint p<=c<h, the original input,
 leaves, proof, blobs, nonce and signed bytes remain unchanged. At c>=h, never-broadcast work
 can finish; possibly-broadcast work remains pending until canonical receipt/nonce reconciliation.
@@ -360,9 +233,8 @@ Reads the Ethereum-final genesis record from L1 and writes the CometBFT `genesis
 (48-byte `etna-` deployment-domain chain id, initial height 1, native validator set and the genesis
 witness in `app_state`). It never invents values; `InitChain` re-verifies everything. The genesis
 committee is the staking registry's snapshot at the Inbox's explicit `genesisCutoff`: the initializing DAO proposal names
-that past L1 block explicitly, as it is written before the initialization block is known. Every
-later epoch uses the committed switch-parent anchor; the new block's proposed anchor and a
-lander's reference cannot replace it. Genesis verification also checks the stored committee config hash against
+that past L1 block explicitly, as it is written before the initialization block is known.
+Genesis verification also checks the stored committee config hash against
 the local parameters. The genesis record carries the forced inclusion delay and `maxAnchorAge`
 proven from Inbox slot 282; a zero delay or `maxAnchorAge < 1152` is refused.
 
@@ -377,9 +249,8 @@ proven from Inbox slot 282; a zero delay or `maxAnchorAge < 1152` is refused.
 
 Computes, before the initialization, the `committeeRecordHash` that `EtnaInbox::init` takes for a chosen
 `genesisCutoff`: the hash of the genesis committee derived from the staking registry's snapshot
-at that L1 block exactly as `InitChain` will derive it (every entry active at the cutoff with an
-effective stake of at least `max(s_min, vp_unit)`, unique eligible native keys, at most
-`n_max` members by stake, no heartbeat filter). The snapshot is read and proven at a later L1
+at that L1 block exactly as `InitChain` will derive it (spec section 4.3, Committee derivation).
+The snapshot is read and proven at a later L1
 block, the proving block, and the derived committee is verified against it before anything is
 printed. Run it while writing the initializing DAO proposal; anyone can rerun it to check the
 proposal's hash.
@@ -395,10 +266,8 @@ proposal's hash.
 
 The report gives the record hash, the cutoff, the snapshot's checkpoint index, the proving block,
 every member's compressed 33-byte public key and voting power, total voting power, and the committee
-config hash required by Inbox initialization.
-Committee 0 uses this explicit genesis cutoff; later committees use the committed derivation parent anchor. A
-cutoff after the L1 node's `finalized` block is refused, as the initialization fixes it irreversibly,
-and so is a cutoff at which no entry is eligible: initializing with it would leave the chain
+config hash required by Inbox initialization. A cutoff after the L1 node's `finalized` block
+is refused, as the initialization fixes it irreversibly, and so is a cutoff at which no entry is eligible: initializing with it would leave the chain
 without validators. `--json` prints each member's effective stake as a decimal string. Its top-level fields are
 `record_hash`, `committee_config_hash`, `record`, `members`, `proving_block`. The record has
 `target_epoch`, `cutoff_l1_block`, `checkpoint_index`, `set_root`, `total_power`; each member has
@@ -601,16 +470,17 @@ or config opening differs.
   checkpoint can be older than that anchor. The state window or cached history must cover
   those historical entry reads as well as the parent-anchor proofs. Landers starting mid-epoch
   also need the earlier derivation snapshot's entries and the bounded EL ancestor headers.
-- At switch height `S(t)`, registry proofs must authenticate under the committed `D(t)` anchor's
-  fixed state root. An L1 finality stall keeps that anchor for up to `maxAnchorAge` (planned
-  2 h, about 600 L1 blocks), far beyond a geth full node's 128-block state window, so nodes
+- At switch height `S(t)`, the registry snapshot is the committed `D(t)` anchor's L1 block, and
+  its proofs verify under `S(t)`'s own anchor state root (spec section 4.3); `S(t)` keeps its
+  parent's anchor unless it carries a newer one. An L1 finality stall keeps that anchor for up to
+  `maxAnchorAge` (planned 2 h, about 600 L1 blocks), far beyond a geth full node's 128-block state window, so nodes
   discover the witness as soon as they commit the anchor (see the sidecar below). That needs the
   L1 proof window to cover the finality lag plus `l1_finality_extra_depth` plus one discovery
   and its retries; a deeper extra depth, or a node that was not live when the anchor was
   adopted, still needs historical state. Configure historical proof/state retention to cover the
   required history, or supply `--l1.archive` (`ABCI_L1_ARCHIVE`) as an HTTP(S) archive fallback
   for committee registry reads. Archive state reads use the exact requested block; their
-  complete witness still verifies under the fixed committed parent root. Finality, canonical
+  complete witness still verifies under the anchor's state root. Finality, canonical
   hashes, headers and Inbox proofs continue to use only `--l1.http`. With an archive configured,
   the primary gets a head start of at most 100 milliseconds before the archive state read also
   starts; the first successful response supplies discovery data. If one source fails, the other
@@ -794,7 +664,7 @@ just clippy     # doc lints on library code, then every target with -D warnings
   the source-backed unavailable-build RPC shape through a delegating Engine adapter; it does not
   actually prune Reth state. Lander scenarios cover actual Inbox blob
   transactions, cross-epoch batching, four native validators with ordinary and forced
-  transactions, 100% beneficiary fees, protocol-treasury FI fees, epoch transition, dummy
+  transactions, 100% beneficiary fees, FI fees swept to the treasury, epoch transition, dummy
   0x00 landing, signer timeout recovery and offline catchup with retained HRS/history,
   execution-DA replay, permissionless overlap races,
   verifier rejection, a pending L1 reference crossing the BLOCKHASH/EIP-2935 boundary, stock
@@ -808,9 +678,8 @@ just clippy     # doc lints on library code, then every target with -D warnings
   `just test-full` runs every scenario, as CI does on main, nightly and on manual dispatch.
   `tests/entrypoint.sh` pulls the images first; override them with `ANVIL_IMAGE`,
   `ALETHIA_RETH_IMAGE`, `COMETBFT_IMAGE` and `LANDER_ANVIL_IMAGE`, or set
-  `PULL_POLICY=missing` to reuse local images. Existing ABCI tests retain Anvil v1.5.1;
-  actual-contract lander tests use v1.8.5, which fixes canonical zero-storage proofs
-  and supports EIP-7594 wrappers. `just unit` also verifies the pinned contract artifact hashes.
+  `PULL_POLICY=missing` to reuse local images. `just unit` also verifies the pinned contract
+  artifact hashes.
   Harness RPC ports bind to host loopback. SIGINT/SIGTERM remove resources owned by the interrupted
   test process; the entrypoint and CI use the shared `taiko-client-rs.test-run` Docker label to
   remove any leftovers from that run, including lander fixtures. Set `TAIKO_CLIENT_RS_TEST_RUN`
@@ -827,14 +696,13 @@ just clippy     # doc lints on library code, then every target with -D warnings
   Comet, signer and, in a release image, client ELF architecture before child startup.
 - `just verify` is the complete merge gate: Go signer race tests, supervisor process tests, formatting, strict clippy, fast tests, committed
   artifact reproduction, and all Docker scenarios (`just test-full`). Smoke is an iteration aid and never replaces
-  this gate. After each coherent code change batch, run `just fmt && just clippy-fix` and targeted
-  tests; run the complete gate once on the final change batch.
+  this gate.
 
 Regenerate lander ABI/deployment fixtures only when their inputs change, with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
-The script requires protocol HEAD `23963b68e43b4cbeaf83113eeb61fbc1bddb4c46` (also the
-`PROTOCOL_REVISION` in `crates/lander/src/contracts.rs`),
-installs pnpm dependencies before Foundry, builds `EtnaInboxBootstrap`, the Inbox, registry and
+The script requires the pinned protocol revision (see Fresh deployment; `PINNED_REVISION` in the
+script and `PROTOCOL_REVISION` in `crates/lander/src/contracts.rs`) as HEAD, installs pnpm
+dependencies before Foundry, builds `EtnaInboxBootstrap`, the Inbox, registry and
 SignalService with their test fixtures, verifies compiler source hashes,
 formats generated JSON, and records ABI/bytecode/compiler provenance. It also copies the Etna
 vectors shared with the contracts (`testdata/etna_vectors`, which the `abci` and `lander` unit
