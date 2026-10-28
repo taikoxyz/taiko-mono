@@ -15,10 +15,14 @@ import (
 //			@ID			   	get-nft-balances-by-address-and-chain-id
 //		    @Param			address	query		string		true	"address to query"
 //		    @Param			chainID	query		string		true	"chainID to query"
-//			@Accept			json
-//			@Produce		json
-//			@Success		200	{object} paginate.Page
-//			@Router			/nftsByAddress [get]
+//
+// @Param page query int false "Zero-based page number"
+// @Param size query int false "Page size"
+//
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object} paginate.Page
+//	@Router			/nftsByAddress [get]
 func (srv *Server) GetNFTBalancesByAddressAndChainID(c echo.Context) error {
 	page, err := srv.nftBalanceRepo.FindByAddress(
 		c.Request().Context(),

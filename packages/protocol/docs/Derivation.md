@@ -1,6 +1,6 @@
 # Block Derivation in Taiko
 
-This document provides a comprehensive specification for deriving blocks from on-chain proposals in Taiko's Shasta fork.
+This document provides a comprehensive specification for deriving blocks from on-chain proposals in Taiko's Shasta fork, including the changes made by the later Unzen and Etna forks (see [Forks](#forks)).
 
 ## Terminology
 
@@ -8,6 +8,16 @@ The Shasta fork introduces refined terminology to better reflect the system's ar
 
 - **Proposal**: Replaces the term _Batch_ to denote the unit of on-chain submission for block construction data
 - **Finalization**: Replaces _Verification_ to describe the state where a proposal's post-state is confirmed as final
+
+## Forks
+
+| Fork                 | Activation         | Changes to derivation                                                                                                                                     |
+| -------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shasta               | `SHASTA_FORK_TIME` | Baseline of this document                                                                                                                                 |
+| Unzen                | `UNZEN_FORK_TIME`  | Osaka execution rules with the Cancun and Prague header fields; zk gas, recorded in `difficulty`; a larger per-source block limit                         |
+| Etna (not scheduled) | `ETNA_FORK_TIME`   | No anchor transaction; L1 anchor state root in `parentBeaconBlockRoot` and number in `extraData` (see [Etna](#etna-blocks-without-an-anchor-transaction)) |
+
+Each L2 block follows the fork active at its own timestamp, so one proposal can contain blocks of two forks. Only the per-source block limit picks its fork by the proposal's L1 timestamp.
 
 ## Metadata Architecture
 
@@ -165,7 +175,7 @@ For each `DerivationSource[i]`, the validator performs:
    - At/after Unzen: `UNZEN_DERIVATION_SOURCE_MAX_BLOCKS = 768`
 8. **Forced Inclusion Block Count Enforcement**: If `derivation.sources[i].isForcedInclusion` is true and `manifest.blocks.length != 1`, replace the entire source with the default manifest
 
-If any validation step fails for source `i`, that source is replaced with a **default source manifest** (single block with only an anchor transaction). Other sources are unaffected.
+If any validation step fails for source `i`, that source is replaced with a **default source manifest** (single block with only an anchor transaction, or with no transactions from Etna on). Other sources are unaffected.
 
 #### Default Source Manifest
 
@@ -182,7 +192,7 @@ defaultSource.blocks = new BlockManifest[](1);  // Single block
 | `coinbase`          | Protocol substitutes `proposal.proposer`                                                                                                  |
 | `anchorBlockNumber` | Protocol inherits from the parent block                                                                                                   |
 | `gasLimit`          | Protocol inherits from the parent block                                                                                                   |
-| `transactions`      | Empty list (only includes the anchor transaction)                                                                                         |
+| `transactions`      | Empty list (only includes the anchor transaction before Etna)                                                                             |
 
 #### ProposalManifest Construction
 
@@ -235,6 +245,8 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 
 **Forced inclusion protection**: Only proposer-supplied sources are penalized for stagnant anchors. Forced inclusions (`derivationSource.isForcedInclusion == true`) blocks intentionally inherit the parent anchor as mentioned above and never get replaced with the default manifest even when the anchor number does not advance.
 
+Recover `parent.metadata.anchorBlockNumber` using the parent's fork: `Anchor.getBlockState().anchorBlockNumber` before Etna, bytes 7..12 of `extraData` from Etna, and `0` for genesis.
+
 #### `anchorBlockHash` and `anchorStateRoot` Validation
 
 The anchor hash and state root must always correspond to the actual L1 block referenced by `anchorBlockNumber`. The Taiko node/driver enforces that both `anchorBlockHash` and `anchorStateRoot` accurately reflect the L1 state for that block.
@@ -260,7 +272,7 @@ Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` parts per 
 2. **Source validation**:
    - If `manifest.blocks[i].gasLimit` falls outside `[lowerBound, upperBound]`: Replace the entire derivation source with the default source manifest.
 
-After all calculations above, an additional `1_000_000` gas units will be added to the final gas limit value, reserving headroom for the mandatory `Anchor.anchorV4` transaction.
+Before Etna, after all calculations above, an additional `1_000_000` gas units will be added to the final gas limit value, reserving headroom for the mandatory `Anchor.anchorV4` transaction. Accordingly, `parent.metadata.gasLimit` is the parent header's `gasLimit` minus `1_000_000` for a non-genesis parent before Etna, and the parent header's `gasLimit` otherwise.
 
 ### Additional Metadata Fields
 
@@ -272,7 +284,7 @@ The remaining metadata fields follow straightforward assignment patterns:
 | ----------------------- | ----------------------------------------------------------------- |
 | `metadata.index`        | `parent.metadata.index + 1` (abbreviated as `i`)                  |
 | `metadata.number`       | `parent.metadata.number + 1`                                      |
-| `metadata.difficulty`   | `keccak(abi.encode(parent.metadata.difficulty, metadata.number))` |
+| `metadata.difficulty`   | `keccak256(abi.encode(parentHeader.difficulty, metadata.number))` |
 | `metadata.transactions` | `sourceManifest.blocks[i].transactions` (from current source)     |
 
 **Derivation source-level assignments:**
@@ -288,21 +300,24 @@ The remaining metadata fields follow straightforward assignment patterns:
 The validated metadata serves three critical functions in block construction:
 
 1. **Pre-execution block header field determination**
-2. **L2 anchor transaction construction**
+2. **L2 anchor transaction construction** (before Etna)
 3. **L2 world state modification**
 
 ### Pre-Execution Block Header
 
 Metadata encoding into L2 block header fields facilitates efficient peer validation:
 
-| Metadata Component   | Type    | Header Field              |
-| -------------------- | ------- | ------------------------- |
-| `number`             | uint256 | `number`                  |
-| `timestamp`          | uint256 | `timestamp`               |
-| `difficulty`         | uint256 | `difficulty`              |
-| `gasLimit`           | uint256 | `gasLimit`                |
-| `basefeeSharingPctg` | uint8   | First byte in `extraData` |
-| `proposalId`         | uint48  | Bytes 1..6 in `extraData` |
+| Metadata Component   | Type    | Header Field                           |
+| -------------------- | ------- | -------------------------------------- |
+| `number`             | uint256 | `number`                               |
+| `timestamp`          | uint256 | `timestamp`                            |
+| `difficulty`         | uint256 | `mixHash`                              |
+| `gasLimit`           | uint256 | `gasLimit`                             |
+| `basefeeSharingPctg` | uint8   | First byte in `extraData`              |
+| `proposalId`         | uint48  | Bytes 1..6 in `extraData`              |
+| `anchorBlockNumber`  | uint48  | Bytes 7..12 in `extraData` (Etna only) |
+
+For non-genesis blocks, Shasta/Unzen use 7-byte `extraData`; Etna uses exactly 13 bytes: `[basefeeSharingPctg(1) | proposalId(6) | anchorBlockNumber(6)]`. Offsets are zero-based and inclusive. Both `uint48` values are big-endian and must fit without truncation. Encode the final derived `anchorBlockNumber` after validation and inheritance.
 
 #### Additional Pre-Execution Block Header Fields
 
@@ -311,12 +326,26 @@ The following block header fields are also set before transaction execution but 
 | Header Field | Value                                                                                           |
 | ------------ | ----------------------------------------------------------------------------------------------- |
 | `parentHash` | Hash of the previous L2 block                                                                   |
-| `mixHash`    | Set to `prevRandao` as per EIP-4399                                                             |
 | `baseFee`    | Calculated using EIP-4396 from parent and current block timestamps before transaction execution |
 
 Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, and `gasUsed` are populated after transaction execution.
 
+#### Fork-Dependent Header Fields
+
+| Header Field                   | Before Unzen | Unzen                    | Etna                                                            |
+| ------------------------------ | ------------ | ------------------------ | --------------------------------------------------------------- |
+| `parentBeaconBlockRoot`        | Absent       | `0x0`                    | `metadata.anchorStateRoot`, never zero for non-genesis blocks   |
+| `blobGasUsed`, `excessBlobGas` | Absent       | `0`                      | `0`                                                             |
+| `requestsHash`                 | Absent       | `sha256("")`             | `sha256("")`                                                    |
+| `difficulty` (after execution) | `0`          | zk gas used by the block | zk gas used by the block (`0` for a block without transactions) |
+
+### zk Gas
+
+From Unzen on, execution meters zk gas as specified in [the zk gas spec](./zk_gas_spec.md): the transaction that would exceed `BLOCK_ZK_GAS_LIMIT` is aborted, every later transaction is skipped, and the header's `difficulty` records the zk gas used. Before Etna the anchor transaction is metered but never aborted; from Etna on, the first transaction can be aborted like any other.
+
 ### Anchor Transaction
+
+This section applies only to blocks before Etna.
 
 The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization. It invokes the `anchorV4` function on the `Anchor` contract with the L1 checkpoint fields:
 
@@ -344,13 +373,23 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
 - Gas limit: Exactly 1,000,000 gas (enforced by the Taiko node software)
 - Caller restriction: Golden touch address (system account) only
 
+## Etna: Blocks Without an Anchor Transaction
+
+Etna replaces the anchor transaction with header commitments to the L1 anchor block's number and execution state root. EIP-4788 records the root. The proposal format and metadata validation rules stay the same.
+
+- A block's transactions come from `metadata.transactions` as before, but nothing is prepended and no position is reserved, so the first transaction is treated like every other one. A default source manifest yields a block without transactions.
+- Transactions from the golden touch address are ordinary transactions, with ordinary balance, fee and refund handling.
+- In non-genesis blocks, `parentBeaconBlockRoot` is the nonzero `metadata.anchorStateRoot` of the L1 block at the final `anchorBlockNumber`; bytes 7..12 of `extraData` encode that number. The execution engine checks the nonzero root and 13-byte layout.
+- Inherited anchors, including forced/default blocks, preserve the parent's number/root pair. Use an Etna parent's header; for a pre-Etna parent, authenticate its number and any saved checkpoint through its L2 state. If no checkpoint exists, authenticate the L1 header instead.
+- Genesis inheritance uses number `0` and the state root of L1 block `0`. The L2 genesis header keeps a zero `parentBeaconBlockRoot` and performs no EIP-4788 call.
+
 ## L1 Proof and Liveness Bond Settlement
 
 Late-proof handling on L1 may trigger at most one liveness-bond settlement for the first proven proposal. The Inbox applies the settlement inside `prove` on L1 (best-effort), crediting 50% of the debited bond to the actual prover and burning the remainder.
 
 ## Base Fee Calculation
 
-The calculation of block base fee shall follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification).
+The calculation of block base fee shall follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification). It uses the parent header's `gasLimit` and `gasUsed` as recorded, without subtracting the anchor reserve, including for the parent of the first Etna block.
 
 The consensus engine pins the base fee at `INITIAL_BASE_FEE` for the very first block when the Shasta fork starts from genesis, because the parent block time (`parent.timestamp - parent.parent.timestamp`) needed for calculation is unavailable. If the fork activates later or once the block height exceeds `1`, base fee computation should follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification), and the calculated value must be clamped within a chain-specific lower bound and `MAX_BASE_FEE`.
 
@@ -377,4 +416,6 @@ The following constants govern the block derivation process:
 | **MAINNET_MIN_BASE_FEE**               | `0.01 gwei` (10,000,000 wei)                           | The minimum base fee (inclusive) after Shasta fork on Taiko mainnet.                                                   |
 | **MAX_BASE_FEE**                       | `1 gwei` (1,000,000,000 wei)                           | The maximum base fee (inclusive) after Shasta fork.                                                                    |
 | **BLOCK_TIME_TARGET**                  | `2 seconds`                                            | The block time target.                                                                                                 |
-| **SHASTA_FORK_TIME**                   | Hoodi/Mainnet: not scheduled                           | The timestamp that determines when the fork should occur.                                                              |
+| **SHASTA_FORK_TIME**                   | Hoodi: `1770296400`, Mainnet: `1775135700`             | The timestamp that determines when the fork should occur.                                                              |
+| **UNZEN_FORK_TIME**                    | Hoodi: `1781787600`, Mainnet: `1786021200`             | The timestamp that determines when the Unzen fork occurs.                                                              |
+| **ETNA_FORK_TIME**                     | Hoodi/Mainnet: not scheduled                           | The timestamp that determines when the Etna fork occurs.                                                               |

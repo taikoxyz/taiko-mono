@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -19,6 +20,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
@@ -511,6 +513,103 @@ func TestEventLoopProcessesQueuedMessages(t *testing.T) {
 	// The loop registers itself on the WaitGroup that Close waits on, so a shutdown cannot race
 	// past a loop that is still running.
 	p.wg.Wait()
+}
+
+// parkedBridge holds every MessageStatus call until the test releases it, standing in for a
+// destination-chain read that is still in flight when shutdown starts.
+type parkedBridge struct {
+	mock.Bridge
+
+	entered chan struct{}
+	release chan struct{}
+}
+
+func newParkedBridge() *parkedBridge {
+	return &parkedBridge{
+		entered: make(chan struct{}, 1),
+		release: make(chan struct{}),
+	}
+}
+
+func (b *parkedBridge) MessageStatus(_ *bind.CallOpts, _ [32]byte) (uint8, error) {
+	select {
+	case b.entered <- struct{}{}:
+	default:
+	}
+
+	<-b.release
+
+	// EventStatusDone short-circuits canProcessMessage, so the worker leaves processMessage as
+	// soon as it is released rather than continuing on into the claim send.
+	return uint8(relayer.EventStatusDone), nil
+}
+
+// A message the loop has already handed to a worker goes on using the tx manager and the event
+// repository for seconds. Close only waited for the loop, so it could return — and close both —
+// while that worker was still inside processMessage.
+func TestCloseWaitsForInFlightMessageWorkers(t *testing.T) {
+	parked := newParkedBridge()
+
+	p := newTestProcessor(false)
+	p.destBridge = parked
+	p.msgCh = make(chan queue.Message, 1)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	p.cancel = cancel
+
+	loopDone := make(chan struct{})
+
+	go func() {
+		p.eventLoop(ctx)
+		close(loopDone)
+	}()
+
+	// The empty Topic slice is not decoration: types.Log only decodes back when "topics" is
+	// present, and a nil slice marshals as null.
+	body, err := json.Marshal(queue.QueueMessageSentBody{
+		ID: 1,
+		Event: &bridge.BridgeMessageSent{
+			Raw: types.Log{Topics: []common.Hash{}},
+		},
+	})
+	require.NoError(t, err)
+
+	p.msgCh <- queue.Message{Body: body}
+
+	select {
+	case <-parked.entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the event loop never started processing the message")
+	}
+
+	closed := make(chan struct{})
+
+	go func() {
+		p.Close(context.Background())
+		close(closed)
+	}()
+
+	// The worker is still parked, so Close must not be able to finish. Without the worker counted
+	// on the WaitGroup this returns in microseconds, having already closed the repository under it.
+	select {
+	case <-closed:
+		t.Fatal("Close returned while a message was still being processed")
+	case <-time.After(250 * time.Millisecond):
+	}
+
+	close(parked.release)
+
+	select {
+	case <-closed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Close did not return after the in-flight message finished")
+	}
+
+	select {
+	case <-loopDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("eventLoop did not return on a cancelled context")
+	}
 }
 
 func TestCloseCancelsAndDrains(t *testing.T) {
