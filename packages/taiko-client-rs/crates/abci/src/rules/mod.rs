@@ -37,6 +37,7 @@ pub const BASEFEE_SHARING_PCTG: u8 = 100;
 pub const EXTRA_DATA_LEN: usize = 13;
 
 /// CometBFT's `MaxChainIDLen`: the longest `chain_id` a genesis may carry, in bytes.
+#[cfg(test)]
 pub const MAX_CHAIN_ID_LEN: usize = 50;
 
 /// Everything [`expected_header`] derives the header of height `height` from.

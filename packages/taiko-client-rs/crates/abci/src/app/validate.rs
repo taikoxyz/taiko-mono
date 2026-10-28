@@ -25,7 +25,7 @@ use crate::{
     engine::EngineError,
     envelope::{AnchorWitness, CommitteeWitness, EnvelopeError, EtnaEnvelope, ExecutionBlock},
     forced::{self, ForcedContext, ForcedDecision, ForcedError},
-    l1::{FetchError, L1Error, WitnessError, layout::inbox, verify_anchor_witness},
+    l1::{FetchError, L1Error, WitnessError, verify_anchor_witness},
     rules::{self, ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation},
     schedule::Schedule,
     store::{AppState, CommitteeState},
@@ -185,9 +185,6 @@ pub enum Rejection {
     /// A witness the height must not carry is present.
     #[error("the block carries an unexpected {0} witness")]
     UnexpectedWitness(WitnessKind),
-    /// The anchored Inbox is not in `ETNA_ACTIVE`.
-    #[error("inbox status is {0}, expected ETNA_ACTIVE ({active})", active = inbox::ETNA_ACTIVE)]
-    NotActive(u8),
     /// A switch height needs a committee the app does not hold.
     #[error("no committee known for epoch {0}")]
     CommitteeUnknown(u64),
@@ -311,7 +308,6 @@ impl Rejection {
             Self::MissingWitness(WitnessKind::Committee) => "missing_committee_witness",
             Self::UnexpectedWitness(WitnessKind::Anchor) => "unexpected_anchor_witness",
             Self::UnexpectedWitness(WitnessKind::Committee) => "unexpected_committee_witness",
-            Self::NotActive(_) => "inbox_not_active",
             Self::CommitteeUnknown(_) => "committee_unknown",
             Self::ProposerUnknown(_) => "proposer_unknown",
             Self::AnchorNotFinal { .. } => "anchor_not_final",

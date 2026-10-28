@@ -91,13 +91,6 @@ pub struct ObservabilityArgs {
     pub metrics_addr: String,
 }
 
-impl CommonArgs {
-    /// Convert verbosity level to tracing::Level
-    pub fn log_level(&self) -> Level {
-        self.observability.log_level()
-    }
-}
-
 impl ObservabilityArgs {
     /// Convert verbosity to the minimum tracing level.
     pub fn log_level(&self) -> Level {

@@ -341,8 +341,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Creates the app, validating `params` and loading any persisted state from `store`.
     ///
     /// A loaded state must be consistent with `params` and with itself: its schedule must pass
-    /// [`Schedule::validate`](crate::schedule::Schedule::validate) independently of the unsettled
-    /// cap and equal the one derived from its genesis record, its Inbox must match the account
+    /// [`Schedule::validate`](crate::schedule::Schedule::validate) and equal the one derived from
+    /// its genesis record, its Inbox must match the account
     /// authenticated at genesis, its `chain_id` must name `params.l2_chain_id` and its
     /// generation, and its last height must equal its parent's number and fit a CometBFT
     /// height. Every saved committee must retain canonical stake-derived powers, checked totals
@@ -645,7 +645,7 @@ fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), Abci
             params.inbox, state.inbox
         )));
     }
-    state.schedule().validate(params.unsettled_cap())?;
+    state.schedule().validate()?;
     if state.genesis.genesis_height != 0 {
         return Err(AbciError::StoredState("genesis height must be zero".into()));
     }

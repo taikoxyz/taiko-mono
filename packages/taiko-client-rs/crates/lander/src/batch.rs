@@ -307,9 +307,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             ));
         }
         let schedule = Schedule::from_genesis(&snapshot.genesis);
-        schedule
-            .validate(self.params.unsettled_cap())
-            .map_err(|e| LanderError::Configuration(e.to_string()))?;
+        schedule.validate().map_err(|e| LanderError::Configuration(e.to_string()))?;
         Ok(schedule)
     }
 
@@ -347,7 +345,6 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     async fn publishable_prefix(
         &self,
         snapshot: &LandingSnapshot,
-        _schedule: &Schedule,
         decided_height: u64,
     ) -> Result<PublishablePrefix> {
         let limits = self.selection_limits();
@@ -895,7 +892,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
                 force_epoch: false,
             });
         }
-        let prefix = self.publishable_prefix(snapshot, &schedule, status.height).await?;
+        let prefix = self.publishable_prefix(snapshot, status.height).await?;
         let mut committees = BTreeMap::new();
         let start = self.checkpoint(snapshot, &schedule, &mut committees).await?;
         let mut state = ForwardState::new(&start, snapshot)?;
@@ -928,7 +925,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
         }
         let mut committees = BTreeMap::new();
         let start = self.checkpoint(&snapshot, &schedule, &mut committees).await?;
-        let prefix = self.publishable_prefix(&snapshot, &schedule, status.height).await?;
+        let prefix = self.publishable_prefix(&snapshot, status.height).await?;
         let (anchors, forced_cursor, leaves) = self
             .authenticate_blocks(&snapshot, &schedule, &start, &mut committees, &prefix.blocks)
             .await?;
@@ -1718,9 +1715,8 @@ mod tests {
         for checkpoint in [18, 24, 30] {
             let fixture = Arc::new(Fixture::new(checkpoint, 36));
             let builder = builder(fixture.clone(), limits(20));
-            let schedule = builder.schedule(&fixture.snapshot).unwrap();
-            let prefix =
-                builder.publishable_prefix(&fixture.snapshot, &schedule, 36).await.unwrap();
+            builder.schedule(&fixture.snapshot).unwrap();
+            let prefix = builder.publishable_prefix(&fixture.snapshot, 36).await.unwrap();
             assert_eq!(prefix.blocks.len(), (36 - checkpoint) as usize, "{checkpoint}");
         }
     }
