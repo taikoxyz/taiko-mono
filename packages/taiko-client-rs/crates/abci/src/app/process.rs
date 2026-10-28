@@ -7,7 +7,7 @@ use alloy_primitives::Bytes;
 
 use super::{
     AbciError, App, deadline, unix_secs,
-    validate::{Rejection, Validated, check_execution_size, validate_block},
+    validate::{Rejection, Validated, validate_block},
 };
 use crate::{
     engine::{Engine, PayloadVerdict},
@@ -69,8 +69,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// In order: a superseded chain rejects everything; no transaction at all is an
     /// [`Rejection::EmptyProposal`]; the transactions must be exactly one envelope;
-    /// [`validate_block`] with the request's BFT time; the block must fit one landing on its own
-    /// ([`check_execution_size`], shared with FinalizeBlock); a present
+    /// [`validate_block`] with the request's BFT time, whose first check is the block size bound
+    /// ([`check_execution_size`](super::validate::check_execution_size)); a present
     /// anchor witness must be final and canonical in the own L1 view (L1 is not called when it is
     /// absent), and its proven `lastCheckpoint` must name a block of the local chain
     /// ([`App::check_anchor_checkpoint`]); the shared checker must complete the authenticated
@@ -130,7 +130,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 witness,
             )?;
         }
-        check_execution_size(&env.block)?;
         if let Some(w) = &env.anchor {
             self.check_anchor_final(w).await?;
             self.check_anchor_checkpoint(state, &validated.anchor).await?;
