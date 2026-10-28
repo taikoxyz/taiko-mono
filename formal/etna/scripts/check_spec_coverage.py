@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check public frozen sources and explicit theorem/claim evidence edges.
+"""Check the pinned spec revision and explicit theorem/claim evidence edges.
 
 This is a traceability report and its consistency check, not the verification result. The
 result is the three headline theorems under `Etna.Statements.Premises` (README). A clause
@@ -14,9 +14,10 @@ or not derived) and `regression` edges never do.
 The role text is not trusted: the proof audit (scripts/EtnaAudit.lean, checkContract)
 checks each `property`/`supporting` role both ways against the kernel type and proof term.
 
-Bilingual symmetry (a mechanical count check, not a translation check): every theorem
-cites as many EN as ZH clauses, and every proof claim has as many EN as ZH evidence
-clauses and cites the same theorem multiset across its EN clauses as across its ZH ones.
+The source is the in-repo spec, packages/protocol/docs/etna-pos-zk/sources/spec.md, pinned
+in spec-coverage.json by revision and SHA-256 and cross-checked against that directory's
+manifest.json. Any edit to the spec fails this check until the clause links are reviewed
+against the new text and the pin is updated.
 
 Every theorem cites at least one clause, except the reviewed plumbing in UNSOURCED, which
 cites none: it is audited like any theorem but is the obligation of no clause.
@@ -30,6 +31,9 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+REPO = ROOT.parents[1]
+SPEC_DIR = 'packages/protocol/docs/etna-pos-zk/sources'
+SPEC_PATH = SPEC_DIR+'/spec.md'
 ROLES = {'property', 'constant', 'supporting', 'regression'}
 PARTIAL_ROLES = {'property', 'constant'}
 SCOPE = 'conditional decoded specification property only'
@@ -101,32 +105,26 @@ def content_key(identity):
     return '-'.join(identity.split('-')[:2])
 
 
-def source_rows(root=ROOT):
-    index = json.loads((root/'specs/index.json').read_text())
-    if index.get('schema_version') != 2:
-        raise ValueError('unsupported source index schema')
-    if {s['language'] for s in index['snapshots']} != {'en','zh'} or len(index['snapshots']) != 2:
-        raise ValueError('two bilingual snapshots required')
-    result = []
-    for snapshot in index['snapshots']:
-        language = snapshot['language']
-        if snapshot['path'] != f'specs/2026-10-27.{language}.md':
-            raise ValueError('invalid frozen snapshot path')
-        data = (root/snapshot['path']).read_bytes()
-        if digest(data) != snapshot['sha256']:
-            raise ValueError('snapshot digest mismatch: '+language)
-        text = data.decode()
-        if re.search(r'https://(?:app\.notion\.com|[^/\s]*notion\.so)/|discussion://', text):
-            raise ValueError('internal source links are not public snapshot content')
-        result.extend(clauses(text,language))
-    return result
+def source_rows(root=ROOT, repo=REPO):
+    source = json.loads((root/'spec-coverage.json').read_text())['source']
+    if source.get('path') != SPEC_PATH:
+        raise ValueError('the spec source must be '+SPEC_PATH)
+    data = (repo/SPEC_PATH).read_bytes()
+    if digest(data) != source['sha256']:
+        raise ValueError(f'spec digest mismatch: {SPEC_PATH} differs from the reviewed revision {source["revision"]}; '
+                         'review the clause links against the new text, then update source in spec-coverage.json')
+    manifest = json.loads((repo/SPEC_DIR/'manifest.json').read_text())
+    entry = next(d for d in manifest['documents'] if d['source'] == 'spec.md')
+    if manifest['revision'] != source['revision'] or entry['sha256'] != source['sha256']:
+        raise ValueError(f'pinned spec revision differs from {SPEC_DIR}/manifest.json')
+    return clauses(data.decode(),'en')
 
 
-def inventory(root=ROOT):
+def inventory(root=ROOT, repo=REPO):
     spec = json.loads((root/'spec-coverage.json').read_text())
-    if spec.get('schema_version') != 2 or spec.get('scope') != SCOPE:
+    if spec.get('schema_version') != 3 or spec.get('scope') != SCOPE:
         raise ValueError('unsupported inventory schema/scope')
-    rows = source_rows(root)
+    rows = source_rows(root, repo)
     ids = {r['id'] for r in rows}
     if len(ids) != len(rows):
         raise ValueError('duplicate content identity')
@@ -134,7 +132,6 @@ def inventory(root=ROOT):
     names = [e['declaration'] for e in entries]
     if len(names) != len(set(names)):
         raise ValueError('duplicate theorem identity')
-    language = {r['id']:r['language'] for r in rows}
     links = {source:[] for source in ids}
     roles = {}
     for entry in entries:
@@ -149,9 +146,6 @@ def inventory(root=ROOT):
         for source in sources:
             if source not in ids:
                 raise ValueError(f'unknown theorem source {source}: {name}')
-        counts = Counter(language[s] for s in sources)
-        if counts['en'] != counts['zh']:
-            raise ValueError(f'EN/ZH source clause counts differ ({counts["en"]} EN, {counts["zh"]} ZH): {name}')
         if not entry['scope'].strip():
             raise ValueError(f'theorem scope required: {name}')
         roles[name] = role
@@ -188,12 +182,9 @@ def inventory(root=ROOT):
             raise ValueError(f'named boundaries required in proof claim {cid}')
         if not claim['evidence']:
             raise ValueError(f'claim evidence required: {cid}')
-        clause_counts, cited = Counter(), {'en':Counter(), 'zh':Counter()}
         for source, declarations in claim['evidence'].items():
             if source not in by_id:
                 raise ValueError(f'unknown source clause in proof claim {cid}: {source}')
-            clause_counts[language[source]] += 1
-            cited[language[source]].update(declarations)
             if by_id[source]['status'] not in {'partial','proved'}:
                 raise ValueError(f'proof claim {cid} targets deferred/design-pending source {source}')
             if not declarations or len(declarations) != len(set(declarations)):
@@ -206,27 +197,21 @@ def inventory(root=ROOT):
                 if by_name[name]['role'] != 'property':
                     raise ValueError(f'general property evidence required; constants/finite regressions/helpers '
                                      f'cannot support proof claims: {cid} {source} {name} ({by_name[name]["role"]})')
-        if clause_counts['en'] != clause_counts['zh']:
-            raise ValueError(f'EN/ZH clause counts differ in proof claim {cid}: '
-                             f'{clause_counts["en"]} EN, {clause_counts["zh"]} ZH')
-        if cited['en'] != cited['zh']:
-            raise ValueError(f'EN/ZH theorem citations differ in proof claim {cid}: '
-                             f'cited more often in EN: {sorted(cited["en"]-cited["zh"])}; '
-                             f'cited more often in ZH: {sorted(cited["zh"]-cited["en"])}')
     return rows
 
 
-def validate(root=ROOT):
-    return len(inventory(root))
+def validate(root=ROOT, repo=REPO):
+    return len(inventory(root, repo))
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root',type=Path,default=ROOT)
+    parser.add_argument('--repo',type=Path,default=REPO)
     args = parser.parse_args()
     try:
-        rows = inventory(args.root)
-        print(f'Validated {len(rows)} bilingual source clauses, explicit claim edges, roles and EN/ZH evidence symmetry; '+str(dict(Counter(r['status'] for r in rows))))
+        rows = inventory(args.root, args.repo)
+        print(f'Validated {len(rows)} spec clauses of {SPEC_PATH}, explicit claim edges and roles; '+str(dict(Counter(r['status'] for r in rows))))
         return 0
     except (ValueError,KeyError,OSError,TypeError) as exc:
         print('spec coverage failed: '+str(exc),file=sys.stderr)

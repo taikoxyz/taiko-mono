@@ -26,13 +26,12 @@ def genesis (s : State) (registry : RegistryHistory.State) (cfg : Config) (archi
 def genesisOrigin (s : State) : Origin := ((s.origins.head?).map Prod.snd).getD ⟨0,0,0⟩
 
 /-- §10 initialization constraints expressible on the decoded state (EN "Deployment
-constraints", source L541; ZH L534): `configOK` is L ≥ 3, L+1 < 2^48, 1 ≤ K ≤ 6 and
-K ≤ U ≤ 65,536 with K ∣ U; forcedInclusionDelay > 0 and maxAnchorAge ≥ 1152 s (also L571),
-each fitting its 48-bit slot-282 field (L741, L756); the first origin is generation 0's
-(0, L1_0, ·) with L1_0 < 2^48 and a past genesisCutoff < L1_0 (L492, L532); 1 ≤ n_max ≤ 4096;
-vp_unit ≥ 867,361,738 (4.3, L175) and s_min ≥ vp_unit; and the §11 Inbox immutables (L572;
-ZH L565): maxBatchBlocks ≥ K (also L544), FI fee and threshold above 0 and a nonzero
-protocolFeeRecipient (also L535). L541's "no earlier than the first registry checkpoint"
+constraints", source L538): `configOK` is L ≥ 3, L+1 < 2^48, 1 ≤ K ≤ 6 and
+K ≤ U ≤ 65,536 with K ∣ U; forcedInclusionDelay > 0 and maxAnchorAge ≥ 1152 s (also L568),
+each fitting its 48-bit slot-282 field (L738, L753); the first origin is generation 0's
+(0, L1_0, ·) with L1_0 < 2^48 and a past genesisCutoff < L1_0 (L492, L529); 1 ≤ n_max ≤ 4096;
+vp_unit ≥ 867,361,738 (4.3, L175) and s_min ≥ vp_unit; and the §11 Inbox immutables (L569): maxBatchBlocks ≥ K (also L541), FI fee and threshold above 0 and a nonzero
+protocolFeeRecipient (also L532). L538's "no earlier than the first registry checkpoint"
 reads registry history, so it is a conjunct of `Genesis` and follows from the build guard's
 `GenesisElected` (`build_initialization_constraints`). The 48-byte chain id, the L1-finality
 bound on maxAnchorAge and the leaf-calldata gas bound on maxBatchBlocks are outside this
@@ -47,9 +46,9 @@ def Constraints (s : State) (cfg : Config) : Prop :=
 
 instance (s : State) (cfg : Config) : Decidable (Constraints s cfg) := inferInstanceAs (Decidable (_ ∧ _))
 
-/-- §10/§11 registry deployment bounds (EN L541, L577; ZH L534, L570): positive activation and
+/-- §10/§11 registry deployment bounds (spec L538, L574): positive activation and
 exit delays and slashBountyBps ≤ 10000. withdrawalDelay's lower bound (the double-sign
-evidence window) and the nonzero slashSink are outside this state. L577's l2ChainId matching
+evidence window) and the nonzero slashSink are outside this state. L574's l2ChainId matching
 the Inbox and the fixed Inbox proxy address equal to the Inbox's own (also 4.1 L156, checked
 at initialization, §10 step 5) are not modeled: `RegistryHistory.State` has no l2ChainId or
 Inbox-address field, and slashing reads the Inbox's own `domain` (`RegistryHistory.editBond`),
@@ -86,7 +85,7 @@ def build (w : ProtocolState.World) (cfg : Config) (archive : List Nat) (templat
         configHash := w.adapters.configHash,committeeHash := w.adapters.recordHash }
   else none
 
-/-- §10 step 5 (EN L535; ZH L528) with Appendix B slots 268/270/271/281/284/285/290 and 8.4:
+/-- §10 step 5 (spec L532) with Appendix B slots 268/270/271/281/284/285/290 and 8.4:
 the World right after the Inbox is initialized on genesis hash `hash` and stateRoot `root`.
 recoveryGeneration is 0; lastCheckpoint, its only slot-285 record and the only SignalService
 checkpoint are block 0 (EL hash = genesis hash, Comet hash 0, parent/generation/FI cursor 0);
@@ -96,10 +95,10 @@ in flight; fee ghosts are consistent; the registry is valid at the clock; commit
 with nothing pending; the §10 constraints hold for the stored configuration (including the
 nonzero protocolFeeRecipient) and for the registry immutables; the stored config and
 committee-0 hashes open, under the World's fixed adapters, to the stored ghost openings; the
-committee-0 opening is the genesis election (4.3 L178, §10 step 2 L532): target epoch 0,
+committee-0 opening is the genesis election (4.3 L178, §10 step 2 L529): target epoch 0,
 cutoff genesisCutoff and members the election over the registry snapshot at genesisCutoff
 under the stored configuration; and genesisCutoff is no earlier than the first registry
-checkpoint (L541). `genesis_builds` shows these admit the deployment construction.
+checkpoint (L538). `genesis_builds` shows these admit the deployment construction.
 Owner-only `recover` is the owner check of `Recovery.Allowed`, not state. Step 5's registry
 check (4.1 L156: the registry's fixed Inbox address and l2ChainId equal the Inbox's own) is
 not state here; see `RegistryConstraints`. -/

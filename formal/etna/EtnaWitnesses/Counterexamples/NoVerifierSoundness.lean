@@ -3,8 +3,8 @@ import EtnaWitnesses.NonVacuity.Premises
 /-! Scope counterexample: H1 (fund safety) needs `Premises.verifierSound`. This is not a failure
 of H1; it shows what the premise carries.
 
-§1 "Funds" (EN L14): "every landing needs two proofs, at least one of them ZK"; §1 "Upgrades and
-trust" (EN L18): "Verifier soundness ... is a separate assumption"; §8 "Verifier failure" (EN
+§1 "Funds" (spec L12): "every landing needs two proofs, at least one of them ZK"; §1 "Upgrades and
+trust" (spec L16): "Verifier soundness ... is a separate assumption"; §8 "Verifier failure" (EN
 L457): "both proofs accepting a wrong result is outside the threat model". `land` checks the
 proofs' shape (`dualOK`) and that the certificate is the Inbox's own statement for the call, but
 nothing in the contract checks that the statement comes from valid blocks.

@@ -4,11 +4,11 @@ import EtnaWitnesses.NonVacuity.Premises
 failure of H1–H3; it shows that H2's "slashable" conclusion only bites while the stake is live,
 and that the stake stays live only if the rollback restores a trusted snapshot.
 
-§8 "Verifier failure" (EN L457): the rollback restores "activeCommitteeSnapshot (284) to the
+§8 "Verifier failure" (spec L457): the rollback restores "activeCommitteeSnapshot (284) to the
 values written by the last trusted landing ... if there is none, restore the initialization
 values", and "the registry re-checks every exit confirmation against the restored snapshot".
-4.1 (EN L141): "confirmExit ... the Inbox must have activeCommitteeSnapshot ≥ exitEffectiveL1";
-4.1 (EN L142): "Confirmation requires that a landed committee no longer includes the stake".
+4.1 (spec L141): "confirmExit ... the Inbox must have activeCommitteeSnapshot ≥ exitEffectiveL1";
+4.1 (spec L142): "Confirmation requires that a landed committee no longer includes the stake".
 The model's rollback step takes any snapshot (`ProtocolState.Step.rollback`): which value the DAO
 restores is a governance trust boundary. A `trustedRollback` premise (`SoundStep.rollback`:
 snapshot below the rollback's block) was considered and dropped because H1–H3 do not use it; the spec's real

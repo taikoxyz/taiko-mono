@@ -1,4 +1,4 @@
-"""Review regressions for evidence linkage, stable IDs and public source hygiene."""
+"""Review regressions for evidence linkage and stable clause IDs."""
 import importlib.util
 import json
 from pathlib import Path
@@ -15,19 +15,13 @@ spec.loader.exec_module(coverage)
 class EvidencePackageTests(unittest.TestCase):
     def test_claim_pairs_have_reviewed_edges(self):
         rows = coverage.inventory()
-        self.assertEqual(len(rows),619)
+        self.assertEqual(len(rows),308)
         # inventory() checks each explicit claim edge and its general-property role.
 
     def test_clause_ids_survive_line_insertion(self):
-        text = (ROOT/'specs/2026-10-27.en.md').read_text()
+        text = (coverage.REPO/coverage.SPEC_PATH).read_text()
         self.assertEqual([c['id'] for c in coverage.clauses(text,'en')],
                          [c['id'] for c in coverage.clauses('\n\n'+text,'en')])
-
-    def test_public_snapshots_have_no_internal_links(self):
-        for path in (ROOT/'specs').glob('*.md'):
-            text = path.read_text()
-            self.assertFalse('https://app.notion.com/' in text, path.name)
-            self.assertFalse('discussion://' in text, path.name)
 
     def test_generated_duplicates_are_untracked(self):
         for name in ('Audit.lean','proof-policy.json','coverage.json'):
@@ -55,16 +49,3 @@ class EvidencePackageTests(unittest.TestCase):
         import subprocess
         paths = subprocess.check_output(['git','ls-files','reports/*-plan.md'],cwd=ROOT,text=True)
         self.assertEqual(paths,'')
-
-    def test_public_sanitizer_retains_normative_text(self):
-        spec = importlib.util.spec_from_file_location('prepare',ROOT/'scripts/prepare_spec.py')
-        prepare = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(prepare)
-        raw = '<page url="https://app.notion.com/p/test"><content>\n- A <span discussion-urls="discussion://test">normative rule</span>.\n</content></page>'
-        public = prepare.sanitize(raw)
-        self.assertIn('normative rule',public)
-        self.assertFalse('discussion://' in public)
-        self.assertFalse('notion.com' in public)
-        self.assertEqual(public,prepare.sanitize(public))
-        label = prepare.sanitize('<b>English</b>: <mention url="https://app.notion.com/p/test" />\n')
-        self.assertEqual(label,'<b>English</b>: [internal reference omitted]\n')

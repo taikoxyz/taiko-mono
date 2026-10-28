@@ -110,7 +110,7 @@ private theorem elected_checkpointed {s : State} {registry : RegistryHistory.Sta
 
 /-- A successful construction exposes the §10 initialization constraints, the §11 Inbox and
 registry immutable bounds, that committee 0 is the valid genesis-cutoff election and that
-genesisCutoff is no earlier than the first registry checkpoint (L541). -/
+genesisCutoff is no earlier than the first registry checkpoint (L538). -/
 theorem build_initialization_constraints {w : ProtocolState.World} {cfg : Config} {archive : List Nat}
     {template r : BlockValidity.Rules} (ok : build w cfg archive template = some r) :
     1 ≤ w.inbox.gridK ∧ w.inbox.gridK ≤ 6 ∧ 3 ≤ w.inbox.epochLen ∧ w.inbox.epochLen+1 < limit48 ∧

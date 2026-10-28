@@ -4555,7 +4555,7 @@
       "id": "forced.hw.fee-stays-after-consumption",
       "family": "forced",
       "source": "handwritten",
-      "spec": "EN L390",
+      "spec": "spec L390",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 3,
@@ -4603,7 +4603,7 @@
       "id": "forced.hw.sweep-leaves-queue-untouched",
       "family": "forced",
       "source": "handwritten",
-      "spec": "EN L395",
+      "spec": "spec L395",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 3,
@@ -4650,7 +4650,7 @@
       "id": "forced.hw.second-sweep-sends-nothing",
       "family": "forced",
       "source": "handwritten",
-      "spec": "EN L395",
+      "spec": "spec L395",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 2,
@@ -4694,7 +4694,7 @@
       "id": "forced.hw.empty-submission-reads-as-blanked",
       "family": "forced",
       "source": "handwritten",
-      "spec": "EN L432",
+      "spec": "spec L432",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 0,
@@ -4735,7 +4735,7 @@
       "id": "forced.hw.failed-refund-charges-nothing",
       "family": "forced",
       "source": "handwritten",
-      "spec": "EN L390",
+      "spec": "spec L390",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 1,
@@ -4778,7 +4778,7 @@
       "id": "forced.hw.entries-retained-after-consumption",
       "family": "forced",
       "source": "handwritten",
-      "spec": "EN L400",
+      "spec": "spec L400",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 4,
@@ -4829,7 +4829,7 @@
       "id": "forced.hw.timestamp-2pow48-minus1",
       "family": "forced",
       "source": "handwritten",
-      "spec": "EN L756",
+      "spec": "spec L753",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 0,
@@ -4870,7 +4870,7 @@
       "id": "forced.hw.timestamp-2pow48",
       "family": "forced",
       "source": "handwritten",
-      "spec": "EN L756",
+      "spec": "spec L753",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 0,
@@ -4909,7 +4909,7 @@
       "id": "forced.hw.block-2pow48-minus1",
       "family": "forced",
       "source": "handwritten",
-      "spec": "EN L756",
+      "spec": "spec L753",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 0,
@@ -4950,7 +4950,7 @@
       "id": "forced.hw.block-2pow48",
       "family": "forced",
       "source": "handwritten",
-      "spec": "EN L756",
+      "spec": "spec L753",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 0,

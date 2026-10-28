@@ -1,5 +1,4 @@
 """Validate canonical evidence through real on-disk source/claim mutations."""
-from collections import Counter
 import json
 from pathlib import Path
 import shutil
@@ -16,14 +15,17 @@ spec.loader.exec_module(coverage)
 
 class SpecCoverageTests(unittest.TestCase):
     def check(self,mutate=None):
+        """Run the checker on copies: `root` is formal/etna inside a scratch repo holding the spec."""
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            for name in ('specs','manifests','spec-coverage.json'):
-                src = ROOT/name
-                if src.is_dir(): shutil.copytree(src,root/name)
-                else: shutil.copyfile(src,root/name)
+            repo = Path(tmp)
+            root = repo/'formal/etna'
+            root.mkdir(parents=True)
+            shutil.copytree(ROOT/'manifests',root/'manifests')
+            shutil.copyfile(ROOT/'spec-coverage.json',root/'spec-coverage.json')
+            shutil.copytree(coverage.REPO/coverage.SPEC_DIR,repo/coverage.SPEC_DIR)
             if mutate: mutate(root)
-            return subprocess.run(['python3',str(ROOT/'scripts/check_spec_coverage.py'),'--root',str(root)],capture_output=True,text=True)
+            return subprocess.run(['python3',str(ROOT/'scripts/check_spec_coverage.py'),'--root',str(root),'--repo',str(repo)],
+                                  capture_output=True,text=True)
 
     def edit(self,root,name,change):
         file = root/name
@@ -64,12 +66,24 @@ class SpecCoverageTests(unittest.TestCase):
         def cite(x):
             entry = next(e for e in x['theorems'] if e['declaration']=='Etna.Proofs.run_trace')
             self.assertEqual(entry['sources'],[])
-            entry['sources'] = ['EN-d9391f6926e651b1','ZH-d7b29cda33f26d67']
+            entry['sources'] = ['EN-976a8c89163f509a']
         self.rejected(lambda r:self.edit(r,'manifests/design.json',cite),
-                      'Etna.Proofs.run_trace is listed in UNSOURCED (backs no clause) but cites EN-d9391f6926e651b1')
+                      'Etna.Proofs.run_trace is listed in UNSOURCED (backs no clause) but cites EN-976a8c89163f509a')
 
-    def test_snapshot_bytes_are_authenticated(self):
-        self.rejected(lambda r:(r/'specs/2026-10-27.en.md').write_text('changed'),'snapshot digest')
+    def test_spec_bytes_are_pinned(self):
+        self.rejected(lambda r:(r.parents[1]/coverage.SPEC_PATH).write_text('changed'),'spec digest mismatch')
+
+    def test_pinned_revision_matches_spec_manifest(self):
+        def bump(root):
+            file = root.parents[1]/coverage.SPEC_DIR/'manifest.json'
+            value = json.loads(file.read_text())
+            value['revision'] = '2000-01-01'
+            file.write_text(json.dumps(value))
+        self.rejected(bump,'pinned spec revision differs')
+
+    def test_spec_source_path_is_fixed(self):
+        self.rejected(lambda r:self.edit(r,'spec-coverage.json',lambda x:x['source'].update(path='spec.md')),
+                      'the spec source must be')
 
     def test_claim_edge_not_in_theorem_map_is_rejected(self):
         entries = json.loads((ROOT/'manifests/design.json').read_text())['theorems']
@@ -78,7 +92,7 @@ class SpecCoverageTests(unittest.TestCase):
         self.rejected(lambda r:self.edit(r,'spec-coverage.json',lambda x:x['claims'][0].update(evidence={source:['Etna.Design.dual_count']})),'claim edge missing')
 
     def test_claim_cannot_target_deferred_local_trust_clause(self):
-        source = next(r['id'] for r in coverage.inventory() if r['language']=='en' and 'Reject a latest checkpoint conflicting with local history' in r['summary'])
+        source = next(r['id'] for r in coverage.inventory() if 'Reject a latest checkpoint conflicting with local history' in r['summary'])
         self.rejected(lambda r:self.edit(r,'spec-coverage.json',lambda x:x['claims'][0].update(evidence={source:['Etna.Design.dual_count']})),'deferred/design-pending')
 
     def test_claim_cannot_use_unknown_theorem(self):
@@ -91,66 +105,20 @@ class SpecCoverageTests(unittest.TestCase):
         self.rejected(lambda r:self.edit(r,'spec-coverage.json',lambda x:x['boundaries'].pop('l1')),'named boundaries')
 
     def test_concrete_only_clause_cannot_support_proof_claim(self):
-        # The EN clause and its ZH twin move together, so EN/ZH symmetry still holds; a
+        # A clause backed only by regressions stays deferred and cannot back a claim; a
         # theorem left without sources (the constant cap_derivation) leaves the graph.
         rows = coverage.inventory()
-        pair = [next(r['id'] for r in rows if r['language']==lang and phrase in r['summary'])
-                for lang,phrase in (('en','The bound comes from the 125,948'),('zh','上限的来历：1 个 blob 可用 125,948'))]
+        source = next(r['id'] for r in rows if 'The bound leaves headroom within the 130,044' in r['summary'])
         name = 'Etna.Design.Budget.grid_calldata_examples'
         def mutate(root):
             def edit_manifest(x):
                 for e in x['theorems']:
-                    e['sources'] = [s for s in e['sources'] if s not in pair]
-                    if e['declaration']==name: e['sources'].extend(pair)
-                x['theorems'] = [e for e in x['theorems'] if e['sources']]
+                    e['sources'] = [s for s in e['sources'] if s != source]
+                    if e['declaration']==name: e['sources'].append(source)
+                x['theorems'] = [e for e in x['theorems'] if e['sources'] or e['declaration'] in coverage.UNSOURCED]
             self.edit(root,'manifests/design.json',edit_manifest)
-            self.edit(root,'spec-coverage.json',lambda x:x['claims'][0].update(evidence={s:[name] for s in pair}))
+            self.edit(root,'spec-coverage.json',lambda x:x['claims'][0].update(evidence={source:[name]}))
         self.rejected(mutate,'deferred/design-pending')
-
-    def test_theorem_language_counts_must_match(self):
-        entry = json.loads((ROOT/'manifests/design.json').read_text())['theorems'][0]
-        zh = next(s for s in entry['sources'] if s.startswith('ZH-'))
-        def drop(x):
-            x['theorems'][0]['sources'].remove(zh)
-        en = sum(s.startswith('EN-') for s in entry['sources'])
-        self.rejected(lambda r:self.edit(r,'manifests/design.json',drop),
-                      f'EN/ZH source clause counts differ ({en} EN, {en-1} ZH): {entry["declaration"]}')
-
-    def zh_pair(self):
-        """A claim ZH clause citing two or more theorems, and the last of them."""
-        claims = json.loads((ROOT/'spec-coverage.json').read_text())['claims']
-        return next((c,s,ds[-1]) for c in claims for s,ds in c['evidence'].items()
-                    if s.startswith('ZH-') and len(ds) >= 2)
-
-    def test_claim_theorem_citations_must_match_across_languages(self):
-        claim, zh, name = self.zh_pair()
-        def drop(x):
-            next(c for c in x['claims'] if c['id']==claim['id'])['evidence'][zh].remove(name)
-        self.rejected(lambda r:self.edit(r,'spec-coverage.json',drop),
-                      f"EN/ZH theorem citations differ in proof claim {claim['id']}: cited more often in EN: ['{name}']")
-
-    def test_claim_clause_counts_must_match_across_languages(self):
-        # Same theorem multiset, one more ZH clause: move `name` from `zh` to a fresh ZH
-        # clause, linked in the manifest together with a fresh EN clause (theorem stays symmetric).
-        claim, zh, name = self.zh_pair()
-        rows = coverage.inventory()
-        texts = Counter(coverage.content_key(r['id']) for r in rows)
-        entry = next(e for e in json.loads((ROOT/'manifests/design.json').read_text())['theorems']
-                     if e['declaration']==name)
-        fresh = {lang:next(r['id'] for r in rows if r['language']==lang and r['status']!='design-pending'
-                           and texts[coverage.content_key(r['id'])]==1 and r['id'] not in entry['sources']
-                           and r['id'] not in claim['evidence']) for lang in ('en','zh')}
-        def mutate(root):
-            def manifest(x):
-                next(e for e in x['theorems'] if e['declaration']==name)['sources'].extend(fresh.values())
-            def spec(x):
-                evidence = next(c for c in x['claims'] if c['id']==claim['id'])['evidence']
-                evidence[zh].remove(name)
-                evidence[fresh['zh']] = [name]
-            self.edit(root,'manifests/design.json',manifest)
-            self.edit(root,'spec-coverage.json',spec)
-        en = sum(s.startswith('EN-') for s in claim['evidence'])
-        self.rejected(mutate,f"EN/ZH clause counts differ in proof claim {claim['id']}: {en} EN, {en+1} ZH")
 
 
 class ReviewedMappingTests(unittest.TestCase):
@@ -158,11 +126,11 @@ class ReviewedMappingTests(unittest.TestCase):
         self.entries = {e['declaration']:e for e in json.loads((ROOT/'manifests/design.json').read_text())['theorems']}
 
     def test_local_history_and_dao_prechecks_remain_unproved(self):
-        phrases = ('Reject a latest checkpoint conflicting with local history','Before authorizing','不采纳与本地链冲突','授权前')
+        phrases = ('Reject a latest checkpoint conflicting with local history','Before authorizing')
         rows = [r for r in coverage.inventory() if any(p in r['summary'] for p in phrases)]
-        # Exact EN/ZH node-fence and DAO pre-check paragraphs, without line-number IDs.
-        rows = [r for r in rows if r['summary'].startswith(('- <b>Reject','- <b>Before','- <b>不采纳','- <b>授权前'))]
-        self.assertEqual(len(rows),4)
+        # Exact node-fence and DAO pre-check paragraphs, without line-number IDs.
+        rows = [r for r in rows if r['summary'].startswith(('- <b>Reject','- <b>Before'))]
+        self.assertEqual(len(rows),2)
         for row in rows: self.assertEqual(row['status'],'deferred',row['id'])
 
     def test_concrete_vectors_are_regression_evidence(self):

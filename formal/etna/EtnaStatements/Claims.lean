@@ -32,9 +32,9 @@ def Extends (env : Environment) (w0 w : ProtocolState.World) (generation : Nat)
   ∃ w' r bs, Run env w0 w' ∧ Run env w' w ∧ w'.inbox.generation = generation ∧ Built env w' r ∧
     BlockValidity.Chain r start bs ∧ BlockValidity.terminal start bs = stop
 
-/-- H1, fund safety. §1 "Funds" (EN L14): "L1 recognizes only landed checkpoints, and every
+/-- H1, fund safety. §1 "Funds" (spec L12): "L1 recognizes only landed checkpoints, and every
 landing needs two proofs, at least one of them ZK (6.2). Even the whole committee acting
-maliciously cannot take funds on L1."; 6.2 (EN L331): "Withdrawals use the checkpoint that land
+maliciously cannot take funds on L1."; 6.2 (spec L331): "Withdrawals use the checkpoint that land
 writes into SignalService directly". Along every run from the initialized World `w0`, some map `H`
 gives every retained slot-285 record the header of its block (`HeaderOf`) such that:
 - block 0's record gets block 0's header `env.genesisHeader`;
@@ -79,9 +79,9 @@ def Slashable (w : ProtocolState.World) (a b : Staking.Vote) (sigA sigB k : Hash
     (w'.registry.slots id).key = k → (w'.registry.slots id).released = false → 0 < (w'.registry.slots id).stake →
     ∃ t, RegistryHistory.edit w'.registry w'.inbox id now (.slash a b sigA sigB) = some t ∧ (t.slots id).stake = 0
 
-/-- H2, accountable finality. §1 "Finality" (EN L15): "while Byzantine voting power stays below
-1/3, a CometBFT commit is final and consensus never rolls back a committed block"; 3.1 (EN L56):
-"slashing happens only on L1 ... and anyone can submit two conflicting votes"; 4.1 (EN L149):
+/-- H2, accountable finality. §1 "Finality" (spec L13): "while Byzantine voting power stays below
+1/3, a CometBFT commit is final and consensus never rolls back a committed block"; 3.1 (spec L56):
+"slashing happens only on L1 ... and anyone can submit two conflicting votes"; 4.1 (spec L149):
 "Valid evidence from historical generations remains admissible after recovery". For every World
 `w` that any trace reaches from the initialized World, and every rule set the deployment builds
 on it: two valid commits (6.2 item 3) for different blocks at one height and round were both
@@ -90,8 +90,8 @@ each such member's live staked bond can be slashed with one vote from each commi
 members that sign conflicting precommits at that height and round hold less than 1/3 of the
 power, every two valid commits there are for the same block.
 Scope: this is same-round safety only. Two commits at different rounds of one height are not
-compared, and CometBFT's locking rules are not modelled (§1 "Out of scope", EN L19: "Slashing
-covers only same-round double signing"). It says nothing about checkpoints staying put:
+compared, and CometBFT's locking rules are not modelled (§1 "Slashing scope", spec L18: "only
+same-round double signing is slashed"). It says nothing about checkpoints staying put:
 governance recovery and the rollback after verifier failure (section 8) are outside it. -/
 def AccountableFinality : Prop :=
   ∀ (env : Environment) (w0 : ProtocolState.World), Premises w0 env →
@@ -115,7 +115,7 @@ def AccountableFinality : Prop :=
 
 /-- Step `w → t` is a governance recovery whose `fiToClear` lists entry `j`, and it blanks
 `entry`: txHash becomes keccak256("") (the recovery adapter's `emptyHash`), timestamp and L1
-block stay (8 step 3, EN L461; 7.2 "Blanked entries", EN L432). -/
+block stay (8 step 3, spec L461; 7.2 "Blanked entries", spec L432). -/
 def Blanks (w t : ProtocolState.World) (j : Nat) (entry : Forced.Entry) : Prop :=
   ∃ (a : Recovery.Request) (r : Origin) (owner externalOK : Bool) (s : Recovery.World),
     Recovery.recover (ProtocolState.recoveryView w) a w.adapters.recovery r owner externalOK = some s ∧
@@ -129,9 +129,9 @@ def pairs (q : BlockValidity.Header) (bs : List BlockValidity.Block) :
 
 /-- Block `b` on parent header `p`, under rules `r`, in a batch landed on World `w`, serves the
 forced-inclusion queue as 7.2 requires. If it consumes entry `p.cursor`, `Forced.step` accepts
-that advance (inclusion at position 0 or a legal skip, EN L423) from a witness that shows the
+that advance (inclusion at position 0 or a legal skip, spec L423) from a witness that shows the
 entry's actual queue content. If its anchor shows that entry pending and due, it consumes it
-(7.3, EN L436: "A due queue-head entry must be included or legally skipped under 7.2"). -/
+(7.3, spec L436: "A due queue-head entry must be included or legally skipped under 7.2"). -/
 def ServesQueue (w : ProtocolState.World) (r : BlockValidity.Rules) (p : BlockValidity.Header)
     (b : BlockValidity.Block) : Prop :=
   (b.header.cursor = p.cursor+1 →
@@ -141,19 +141,19 @@ def ServesQueue (w : ProtocolState.World) (r : BlockValidity.Rules) (p : BlockVa
   (∀ entry, (p.cursor, entry) ∈ w.queue → p.cursor < b.header.anchor.tail →
     entry.timestamp+r.forcedDelay ≤ b.header.anchor.timestamp → b.header.cursor = p.cursor+1)
 
-/-- H3, forced-inclusion integrity. §1 "Censorship resistance" (EN L17): "a due queue-head entry
+/-- H3, forced-inclusion integrity. §1 "Censorship resistance" (spec L15): "a due queue-head entry
 can only be included or legally skipped, otherwise the block is invalid. Entries cannot be
 deleted merely because they are old; the only exception is that governance recovery (section 8)
-can explicitly blank specified entries"; 6.2 item 5 (EN L342): "Forced inclusion entries
-[headBefore, headAfter) are consumed exactly and in order"; 7.2 (EN L400): "After a landing, the
+can explicitly blank specified entries"; 6.2 item 5 (spec L342): "Forced inclusion entries
+[headBefore, headAfter) are consumed exactly and in order"; 7.2 (spec L400): "After a landing, the
 Inbox's head equals c at the checkpoint".
 - Along every trace from the initialized World, each step keeps every queue entry, except that a
-  governance recovery blanks the entries its fiToClear lists (8 step 3, EN L461).
+  governance recovery blanks the entries its fiToClear lists (8 step 3, spec L461).
 - Along every trace, a step that does not advance lastCheckpoint (any step but a landing) never
-  advances the FI head. 6.1 (EN L289): "FI head only advances from its pre-execution value to
-  forcedInclusionHead" in land; 8 step 4 (EN L462): recovery must "Preserve checkpoint c's
-  landing record and FI head"; 7.1 (EN L395): sweeping "does not modify FI entries or queue
-  progress"; 8 (EN L457): rollback restores "the FI head (281) ... to the values written by the
+  advances the FI head. 6.1 (spec L289): "FI head only advances from its pre-execution value to
+  forcedInclusionHead" in land; 8 step 4 (spec L462): recovery must "Preserve checkpoint c's
+  landing record and FI head"; 7.1 (spec L395): sweeping "does not modify FI entries or queue
+  progress"; 8 (spec L457): rollback restores "the FI head (281) ... to the values written by the
   last trusted landing".
 - Each landing of a run settles blocks valid under rules the deployment builds on the World it
   lands on, from the current checkpoint (FI cursor = head) to the new one. Each entry in
@@ -176,7 +176,7 @@ def ForcedInclusionIntegrity : Prop :=
         (∀ j, w.inbox.head ≤ j → j < s.head → ∃ x ∈ pairs q bs, x.1.cursor = j ∧ x.2.header.cursor = j+1) ∧
         ∀ x ∈ pairs q bs, ServesQueue w r x.1 x.2)
 
-/-- The headline claims of §1 "Positioning and security model" (EN L11-L19): fund safety,
+/-- The headline claims of §1 "Positioning and security model" (spec L9-L19): fund safety,
 accountable finality and forced-inclusion integrity, each under the one premise record. -/
 def Claims : Prop := FundSafety ∧ AccountableFinality ∧ ForcedInclusionIntegrity
 

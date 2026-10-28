@@ -70,7 +70,7 @@ theorem positive_payout_owner {s : State} {b out : Bond} {caller now delay amoun
       · exact owner
     · contradiction
 
-/-- Withdrawal does not re-read the landed snapshot (4.1 "提款时无需复查"). -/
+/-- Withdrawal does not re-read the landed snapshot (4.1, spec L142: "withdrawal does not re-check it"). -/
 theorem withdraw_ignores_snapshot (s : State) (b : Bond) (caller now delay x : Nat) :
     withdraw { s with snapshot := x } b caller now delay = withdraw s b caller now delay := by
   cases h : b.confirmedAt with

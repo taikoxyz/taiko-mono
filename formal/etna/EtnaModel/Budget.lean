@@ -6,16 +6,16 @@ implementation and measurement boundaries. -/
 namespace Etna.Design.Budget
 
 def blobBytes : Nat := 130044
-def frameReserve : Nat := 4096
-/-- Bytes usable by one payload in one blob: 130,044 − 4 KiB. -/
-def blobUsable : Nat := blobBytes-frameReserve
-/-- Framing allowance per block (1,024 bytes); the blob payload carries no CometBFT header. -/
-def headerFrame : Nat := 1024
-/-- Validity cap on the envelope block item (uncompressed). -/
+/-- Validity cap on the envelope block item (uncompressed), its RLP list header included. -/
 def blockCap : Nat := 124000
-def storedBlock : Nat := 65535
+/-- Payload list `rlp([executionBlock, …])` of m block items of at most `blockCap` bytes each:
+the items total at most m · 124,000 < 2^24 bytes for m ≤ 6, so the list header takes at most
+4 bytes. -/
+def payloadCap (m : Nat) : Nat := m*blockCap+4
 
-/-- zlib stored output: 2-byte header, 5 bytes per ≤65,535-byte block, 4-byte Adler-32. -/
-def storedSize (len : Nat) : Nat := len+5*((len+storedBlock-1)/storedBlock)+6
+/-- zlib's `deflateBound` at default settings (windowBits 15, memLevel 8), zlib wrapper
+included: n + n/2^12 + n/2^14 + n/2^25 + 13. It bounds the compressed size of any n-byte
+input, incompressible data included. -/
+def deflateBound (len : Nat) : Nat := len+len/4096+len/16384+len/33554432+13
 
 end Etna.Design.Budget

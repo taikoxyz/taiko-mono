@@ -40,33 +40,33 @@ def exclusionGrid : List Scenario :=
 
 def recoverHandwritten : List Scenario := [
   recoverCase "recover.lists.exclusion-and-blanking" (recoverNow [⟨1, 2⟩] [1, 3]),
-  recoverCase "recover.hw.second-recovery" recoverNow (recoverSetup ++ [recoverNow]) (some "EN L483"),
+  recoverCase "recover.hw.second-recovery" recoverNow (recoverSetup ++ [recoverNow]) (some "spec L483"),
   recoverCase "recover.hw.stale-checkpoint-after-landing" (later 1 (.recover true ⟨0, 12, [], []⟩))
-    (recoverSetup ++ [landTo 18]) (some "EN L469"),
+    (recoverSetup ++ [landTo 18]) (some "spec L469"),
   recoverCase "recover.hw.stale-generation-after-recovery" (later 1 (.recover true ⟨0, 12, [], []⟩))
-    (recoverSetup ++ [recoverNow]) (some "EN L483"),
-  recoverCase "recover.hw.keeps-settled-state" (recoverNow [⟨1, 2⟩] [2]) (spec := some "EN L462"),
+    (recoverSetup ++ [recoverNow]) (some "spec L483"),
+  recoverCase "recover.hw.keeps-settled-state" (recoverNow [⟨1, 2⟩] [2]) (spec := some "spec L462"),
   recoverCase "recover.hw.exclusion-moves-exit-to-recovery-block" (recoverNow [⟨1, 2⟩] [])
-    (recoverSetup ++ [later 1 (.requestExit 2 1)]) (some "EN L460"),
+    (recoverSetup ++ [later 1 (.requestExit 2 1)]) (some "spec L460"),
   recoverCase "recover.hw.exclusion-keeps-earlier-exit"
     (fun w => ⟨(w.registry.slots 1).exitAt+5, .recover true ⟨w.inbox.generation, w.inbox.checkpoint.height, [⟨1, 2⟩], []⟩⟩)
-    (recoverSetup ++ [later 1 (.requestExit 2 1)]) (some "EN L460"),
+    (recoverSetup ++ [later 1 (.requestExit 2 1)]) (some "spec L460"),
   recoverCase "recover.hw.reused-slot-old-key" (recoverNow [⟨3, 4⟩] [])
-    (recoverSetup ++ [later 1 (.register 5 5 10)]) (some "EN L460"),
+    (recoverSetup ++ [later 1 (.register 5 5 10)]) (some "spec L460"),
   recoverCase "recover.hw.reused-slot-new-key" (recoverNow [⟨3, 5⟩] [])
-    (recoverSetup ++ [later 1 (.register 5 5 10)]) (some "EN L460"),
+    (recoverSetup ++ [later 1 (.register 5 5 10)]) (some "spec L460"),
   recoverCase "recover.hw.excluding-slashed-entry" (recoverNow [⟨1, 2⟩] [])
-    (recoverSetup ++ [later 1 (.slash 5 1 { signer := 2 } { blockId := 12, signer := 2 })]) (some "EN L460"),
-  recoverCase "recover.hw.blank-twice" (recoverNow [] [1]) (recoverSetup ++ [recoverNow [] [1]]) (some "EN L461"),
-  { recoverCase "recover.hw.recovery-block-2pow48-minus1" (recoverAt (limit48-1) []) (spec := some "EN L747") with
+    (recoverSetup ++ [later 1 (.slash 5 1 { signer := 2 } { blockId := 12, signer := 2 })]) (some "spec L460"),
+  recoverCase "recover.hw.blank-twice" (recoverNow [] [1]) (recoverSetup ++ [recoverNow [] [1]]) (some "spec L461"),
+  { recoverCase "recover.hw.recovery-block-2pow48-minus1" (recoverAt (limit48-1) []) (spec := some "spec L744") with
     callTimestamp := some (timestampOf 200) },
-  { recoverCase "recover.hw.recovery-block-2pow48" (recoverAt limit48 []) (spec := some "EN L747") with
+  { recoverCase "recover.hw.recovery-block-2pow48" (recoverAt limit48 []) (spec := some "spec L744") with
     callTimestamp := some (timestampOf 200) },
-  { recoverCase "recover.hw.exclusion-at-block-2pow48-minus1" (recoverAt (limit48-1) [⟨1, 2⟩]) (spec := some "EN L460") with
+  { recoverCase "recover.hw.exclusion-at-block-2pow48-minus1" (recoverAt (limit48-1) [⟨1, 2⟩]) (spec := some "spec L460") with
     callTimestamp := some (timestampOf 200) },
-  { recoverCase "recover.hw.origin-timestamp-2pow48-minus1" (recoverNow) (spec := some "EN L747") with
+  { recoverCase "recover.hw.origin-timestamp-2pow48-minus1" (recoverNow) (spec := some "spec L744") with
     callTimestamp := some (limit48-1) },
-  { recoverCase "recover.hw.origin-timestamp-2pow48" (recoverNow) (spec := some "EN L747") with
+  { recoverCase "recover.hw.origin-timestamp-2pow48" (recoverNow) (spec := some "spec L744") with
     callTimestamp := some limit48 }]
 
 def recoverScenarios : List Scenario := expectedGrid ++ fiGrid ++ exclusionGrid ++ recoverHandwritten

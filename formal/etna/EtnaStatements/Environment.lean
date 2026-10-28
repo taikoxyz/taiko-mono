@@ -37,7 +37,7 @@ structure Environment where
   fields 3.2 fixes (number, stateRoot, timestamp, extraData with the anchor block number,
   parentBeaconBlockRoot = the anchor's stateRoot, ...). -/
   headerHash : BlockValidity.Header → Hash
-  /-- Block 0's decoded header, the deployment's starting point (§10 step 4, EN L534: "Compute
+  /-- Block 0's decoded header, the deployment's starting point (§10 step 4, spec L531: "Compute
   block 0's hash and stateRoot with the EL"). -/
   genesisHeader : BlockValidity.Header
   /-- The `land` calls landers submit: the World they act on and the call's inputs. -/

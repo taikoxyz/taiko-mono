@@ -125,7 +125,7 @@ class GeneratorTests(unittest.TestCase):
                 handwritten = v['source'] == 'handwritten'
                 self.assertEqual(handwritten, 'spec' in v, v['id'])
                 if handwritten:
-                    self.assertRegex(v['spec'], r'^EN L\d+$', v['id'])
+                    self.assertRegex(v['spec'], r'^spec L\d+$', v['id'])
                 self.assertEqual(sorted(v), sorted({'id', 'family', 'source', 'setup', 'call', 'expect'}
                                                    | ({'spec'} if handwritten else set())), v['id'])
 
@@ -147,7 +147,7 @@ class GeneratorTests(unittest.TestCase):
                 self.assertEqual(handwritten, 'spec' in v, v['id'])
                 self.assertEqual(handwritten, '.hw.' in v['id'], v['id'])
                 if handwritten:
-                    self.assertRegex(v['spec'], r'^EN L\d+$', v['id'])
+                    self.assertRegex(v['spec'], r'^spec L\d+$', v['id'])
                 self.assertEqual(sorted(v), sorted({'id', 'family', 'source', 'input', 'expect'}
                                                    | ({'spec'} if handwritten else set())), v['id'])
 

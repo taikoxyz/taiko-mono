@@ -3,10 +3,10 @@ import EtnaWitnesses.Counterexamples.NoVerifierSoundness
 /-! Scope counterexample (an open design issue): a governance-recovery authorization that a landing
 voided becomes executable again after a verifier-failure rollback.
 
-8.1 (EN L469): "expectedC is set to the current c and fixed at authorization, so any landing
-after that makes the call unexecutable"; 8.3 (EN L483): "Landing first invalidates an old
+8.1 (spec L469): "expectedC is set to the current c and fixed at authorization, so any landing
+after that makes the call unexecutable"; 8.3 (spec L483): "Landing first invalidates an old
 authorization ... Inbox need not cancel old authorizations individually"; §8 "Verifier failure"
-(EN L457): "The rollback returns c to an earlier value, so the DAO also cancels every
+(spec L457): "The rollback returns c to an earlier value, so the DAO also cancels every
 unexecuted recovery authorization". The Inbox binds an authorization only to (generation, c), and
 a rollback restores an earlier c without changing the generation, so cancelling is left to the
 DAO. Taiko's DAO has no cancel for an approved proposal, and optimistic proposals do not
@@ -21,7 +21,7 @@ The run, from the non-vacuity deployment:
 3. L1 block 16: the verifier-failure rollback restores block 0's record and the trusted slot
    284 value (genesisCutoff 12, below the rollback's block).
 4. L1 block 17: the stale authorization executes and starts generation 1 at c = 0.
-Caveat: this deployment has one validator, so the DAO's 8.1 committee check (EN L470, no party
+Caveat: this deployment has one validator, so the DAO's 8.1 committee check (spec L470, no party
 at or above 1/3) would not pass on it; that precondition is irrelevant here, since the revival
 depends only on the (generation, c) binding the Inbox checks. -/
 namespace Etna.Design.StaleDaoAuthorization

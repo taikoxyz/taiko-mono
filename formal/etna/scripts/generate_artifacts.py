@@ -14,21 +14,21 @@ from pathlib import Path
 import sys
 
 from audit_proofs import GRAPH, ROOT, load_shadow_allowlist, render_audit, validate_contract
-from check_spec_coverage import inventory
+from check_spec_coverage import REPO, SPEC_DIR, inventory
 
 
-def artifacts(root=ROOT):
+def artifacts(root=ROOT, repo=REPO):
     manifest = json.loads((root/'manifests/design.json').read_text())
     validate_contract(manifest,root)
-    rows = inventory(root)
+    rows = inventory(root, repo)
     shadows = load_shadow_allowlist(root)
-    paths = [root/name for name in ('lean-toolchain','lakefile.toml','lake-manifest.json',
-                                   'spec-coverage.json','specs/index.json')]
+    paths = [root/name for name in ('lean-toolchain','lakefile.toml','lake-manifest.json','spec-coverage.json')]
     paths += [p for library in GRAPH.LIBRARIES for p in GRAPH.library_files(root,library)]
-    for directory, suffixes in [('manifests',{'.json'}),('scripts',{'.py','.lean'}),
-                                ('tests',{'.py','.lean'}),('specs',{'.md'})]:
+    for directory, suffixes in [('manifests',{'.json'}),('scripts',{'.py','.lean'}),('tests',{'.py','.lean'})]:
         paths += [p for p in (root/directory).glob('*') if p.suffix in suffixes]
     hashes = {str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(set(paths))}
+    for name in ('spec.md','manifest.json'):
+        hashes[SPEC_DIR+'/'+name] = hashlib.sha256((repo/SPEC_DIR/name).read_bytes()).hexdigest()
     report = dict(generated=True,scope='source clauses are not atomic requirements or a coverage percentage',
                   clauses=rows,statuses=dict(Counter(r['status'] for r in rows)),source_sha256=hashes,
                   source_sha256_scope='informational input fingerprints; not validated against a reviewed record')

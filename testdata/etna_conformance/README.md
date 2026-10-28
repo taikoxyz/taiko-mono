@@ -104,7 +104,7 @@ Each file is one object: `schema`, `family`, `generator`, `provenance` (the copi
   "id": "registry.hw.slashed-slot-released-by-anyone",
   "family": "registry",
   "source": "handwritten",
-  "spec": "EN L142",
+  "spec": "spec L142",
   "setup": {"deployment": {...}, "callCount": 3, "calls": [<call>, ...]},
   "call": <call>,
   "expect": {"revert": false, "result": {"paid": 0}, "observable": {"registry": {...}}}
@@ -112,8 +112,8 @@ Each file is one object: `schema`, `family`, `generator`, `provenance` (the copi
 ```
 
 - `source` is `generated` (an enumerated grid) or `handwritten` (an edge case taken from the spec
-  text). Only hand-written vectors have `spec`, an English spec line of
-  `formal/etna/specs/2026-10-27.en.md`.
+  text). Only hand-written vectors have `spec`, a line of
+  `packages/protocol/docs/etna-pos-zk/sources/spec.md` at the revision `formal/etna` pins.
 - `setup.deployment` sets the immutables a vector varies: `initialized` (false leaves the Inbox
   proxy on its bootstrap implementation), `maxBatchBlocks`, `feeGwei`, `threshold`,
   `recipientAccepts` (false makes `protocolFeeRecipient` a contract that rejects ETH),
@@ -207,7 +207,7 @@ family's shared tables, `vectorCount` and `vectors`. A vector:
   "id": "forced_step.hw.blanked-entry-due-skips-without-el",
   "family": "forced_step",
   "source": "handwritten",
-  "spec": "EN L432",
+  "spec": "spec L432",
   "input": {...},
   "expect": {...}
 }
@@ -296,10 +296,10 @@ Known divergences, as listed in each harness:
 
 | Implementation | Vector | Spec | Model | Implementation | Kind |
 | --- | --- | --- | --- | --- | --- |
-| contracts | `registry.hw.free-slot-reuse-order` | EN L139 | reuses the oldest freed slot (bond 1) | reuses the most recent (bond 2) | spec ambiguity, reachable |
-| contracts | `registry.hw.withdraw-to-zero-address` | EN L142 | accepts (no recipient) | reverts `ZERO_ADDRESS` | spec ambiguity, reachable |
-| contracts | `registry.hw.withdraw-at-block-2pow48-minus1` | EN L754, L756 | accepts | reverts `InvalidEventBlock` | unreachable block |
-| contracts | `registry.hw.slash-at-block-2pow48-minus1` | EN L151, L754 | accepts; the entry keeps no exit | reverts `InvalidEventBlock` | unreachable block |
-| contracts | `recover.hw.exclusion-at-block-2pow48-minus1` | EN L460, L754 | accepts; the entry stays eligible | reverts (`forceExit`) | unreachable block |
-| contracts | `recover.hw.origin-timestamp-2pow48` | EN L747 | accepts (word bound 2^256) | reverts `ValueOverflow` (2^48) | spec ambiguity, unreachable |
-| client | `block_rules.hw.height-2pow48` | EN L266 | rejects: `HeaderValid` requires height < 2^48 | accepts: 3.4 states no height bound | spec ambiguity, unreachable |
+| contracts | `registry.hw.free-slot-reuse-order` | spec L139 | reuses the oldest freed slot (bond 1) | reuses the most recent (bond 2) | spec ambiguity, reachable |
+| contracts | `registry.hw.withdraw-to-zero-address` | spec L142 | accepts (no recipient) | reverts `ZERO_ADDRESS` | spec ambiguity, reachable |
+| contracts | `registry.hw.withdraw-at-block-2pow48-minus1` | spec L751, L753 | accepts | reverts `InvalidEventBlock` | unreachable block |
+| contracts | `registry.hw.slash-at-block-2pow48-minus1` | spec L151, L751 | accepts; the entry keeps no exit | reverts `InvalidEventBlock` | unreachable block |
+| contracts | `recover.hw.exclusion-at-block-2pow48-minus1` | spec L460, L751 | accepts; the entry stays eligible | reverts (`forceExit`) | unreachable block |
+| contracts | `recover.hw.origin-timestamp-2pow48` | spec L744 | accepts (word bound 2^256) | reverts `ValueOverflow` (2^48) | spec ambiguity, unreachable |
+| client | `block_rules.hw.height-2pow48` | spec L266 | rejects: `HeaderValid` requires height < 2^48 | accepts: 3.4 states no height bound | spec ambiguity, unreachable |

@@ -789,8 +789,7 @@ class CoverageRoleTests(unittest.TestCase):
     def inventory(self, change_manifest=None, change_spec=None):
         with scratch() as tmp:
             root = Path(tmp)
-            for name in ('specs', 'manifests'):
-                shutil.copytree(ROOT/name, root/name)
+            shutil.copytree(ROOT/'manifests', root/'manifests')
             shutil.copyfile(ROOT/'spec-coverage.json', root/'spec-coverage.json')
             for name, change in (('manifests/design.json', change_manifest), ('spec-coverage.json', change_spec)):
                 if change:
@@ -829,14 +828,14 @@ class CoverageRoleTests(unittest.TestCase):
             self.inventory(change_manifest=unknown)
 
     def test_linked_duplicate_text_clause_rejected(self):
-        def link(m):  # with its ZH twin, so EN/ZH symmetry holds
-            m['theorems'][0]['sources'] += ['EN-831f11e7d7026bc2-2', 'ZH-831f11e7d7026bc2-2']
-        with self.assertRaisesRegex(ValueError, '(EN|ZH)-831f11e7d7026bc2-2 .*order-dependent'):
+        def link(m):
+            m['theorems'][0]['sources'] += ['EN-831f11e7d7026bc2-2']
+        with self.assertRaisesRegex(ValueError, 'EN-831f11e7d7026bc2-2 .*order-dependent'):
             self.inventory(change_manifest=link)
 
     def test_unsupported_domain_tag_edge_removed(self):
         rows = [r for r in self.inventory() if 'ETNA_COMET_DOMAIN_V1' in r['summary']]
-        self.assertEqual(len(rows), 2)
+        self.assertEqual(len(rows), 1)
         for row in rows:
             self.assertNotIn('Etna.Design.Encoding.domain_tags_are_ascii', row['theorems'], row['id'])
 

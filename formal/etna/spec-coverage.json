@@ -1,6 +1,11 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "scope": "conditional decoded specification property only",
+  "source": {
+    "path": "packages/protocol/docs/etna-pos-zk/sources/spec.md",
+    "revision": "2026-10-28",
+    "sha256": "a6af94bbf73a4a03a05cd35a4677229a620a1f7bcf9dce5201477df74493df68"
+  },
   "boundaries": {
     "context": "HistoricalContext derives origin, latest-at-cutoff registry entries and covered anchor lookups from typed authenticated inputs. RegistryHistory models lifetime identities and entry checkpoints; actual root/key-byte validation, genesis provenance and complete evidence/token accounting remain external.",
     "l1": "Real raw-header ancestry, canonicality/finality, storage/MPT parsing and authentication are external.",
@@ -12,9 +17,6 @@
     "deployment": "Stored initialized L, genesisCutoff, K, maxAnchorAge and forcedInclusionDelay, the committee-0 and config commitments, and their authenticated ghost openings: the 4-field config opening (vp_unit, s_min, n_max, U), which the config commitment hashes as seven ABI words together with the domain tag, l2ChainId and registry, and the committee-0 record; plus the World's fixed hash adapters. Every modeled transition preserves them and no transaction input chooses them. Opening authentication and real hash/preimage separation are explicit external assumptions (the representable_opening_unique premise; Premises.hashSeparation for the deployment's own commitment), not proven by a free Rules field."
   },
   "design_pending": [
-    "ZH-64ee5ec7ae8c81ec",
-    "ZH-3ad8d640f3fd4307",
-    "ZH-c4cd7b4709508cd2",
     "EN-fac3b57a8c83d321",
     "EN-d419a126b4a3b7a6",
     "EN-25fd594df64d441a"
@@ -30,7 +32,7 @@
         "hash"
       ],
       "evidence": {
-        "EN-08a6c4f13c38b0f9": [
+        "EN-ec6474f088a5a4d0": [
           "Etna.Design.BlockValidity.chain_last_block_ids"
         ],
         "EN-3f15fb492bdc1523": [
@@ -39,19 +41,6 @@
           "Etna.Design.Derived.chain_heights_consecutive"
         ],
         "EN-87e5d209cd94e1fa": [
-          "Etna.Design.BlockValidity.chain_height",
-          "Etna.Design.BlockValidity.chain_parent_hashes",
-          "Etna.Design.Derived.chain_heights_consecutive"
-        ],
-        "ZH-46422ed5dcae3608": [
-          "Etna.Design.BlockValidity.chain_last_block_ids"
-        ],
-        "ZH-9ad0ec38adf92711": [
-          "Etna.Design.BlockValidity.chain_height",
-          "Etna.Design.BlockValidity.chain_parent_hashes",
-          "Etna.Design.Derived.chain_heights_consecutive"
-        ],
-        "ZH-bc5cae5d0dd3136c": [
           "Etna.Design.BlockValidity.chain_height",
           "Etna.Design.BlockValidity.chain_parent_hashes",
           "Etna.Design.Derived.chain_heights_consecutive"
@@ -77,15 +66,6 @@
         ],
         "EN-f6b4a647a9d06f40": [
           "Etna.Design.BlockValidity.chain_timestamps_increase"
-        ],
-        "ZH-5d04c1c30f01e754": [
-          "Etna.Design.BlockValidity.chain_anchor_window"
-        ],
-        "ZH-5fd310cd31b92652": [
-          "Etna.Design.BlockValidity.chain_timestamps_increase"
-        ],
-        "ZH-8ecb9e31c8123d32": [
-          "Etna.Design.BlockValidity.chain_timestamps_increase"
         ]
       }
     },
@@ -104,13 +84,6 @@
           "Etna.Design.Accountability.conflicting_commits_overlap"
         ],
         "EN-460ed962a964fc18": [
-          "Etna.Design.Accountability.conflicting_commits_double_sign",
-          "Etna.Design.Accountability.conflicting_commits_overlap"
-        ],
-        "ZH-c3cf5b240bc326ab": [
-          "Etna.Design.Accountability.conflicting_commits_overlap"
-        ],
-        "ZH-cf47ee5df23790d0": [
           "Etna.Design.Accountability.conflicting_commits_double_sign",
           "Etna.Design.Accountability.conflicting_commits_overlap"
         ]
@@ -134,15 +107,6 @@
         ],
         "EN-c704a0b119e2703e": [
           "Etna.Design.Derived.chain_switch_witnesses_activate"
-        ],
-        "ZH-21f1795fea2921b4": [
-          "Etna.Design.Derived.chain_switch_witnesses_activate"
-        ],
-        "ZH-7cc29b0cc2ccf01b": [
-          "Etna.Design.Derived.chain_switch_witnesses_activate"
-        ],
-        "ZH-c6ce18279f5d46e9": [
-          "Etna.Design.Derived.chain_switch_witnesses_activate"
         ]
       }
     },
@@ -163,16 +127,7 @@
         "EN-97fcc42389c0df07": [
           "Etna.Design.BlockValidity.chain_cursor_steps"
         ],
-        "EN-f89a481fb7efda20": [
-          "Etna.Design.BlockValidity.chain_cursor_steps"
-        ],
-        "ZH-0154af1da3ffe4a7": [
-          "Etna.Design.BlockValidity.chain_cursor_steps"
-        ],
-        "ZH-24f3ba22fc93a9d9": [
-          "Etna.Design.BlockValidity.chain_cursor_steps"
-        ],
-        "ZH-8948ca6d2de47eec": [
+        "EN-adcd3a47969dbd68": [
           "Etna.Design.BlockValidity.chain_cursor_steps"
         ]
       }
@@ -189,10 +144,7 @@
         "hash"
       ],
       "evidence": {
-        "EN-f89a481fb7efda20": [
-          "Etna.Design.Settlement.chain_certified"
-        ],
-        "ZH-8948ca6d2de47eec": [
+        "EN-adcd3a47969dbd68": [
           "Etna.Design.Settlement.chain_certified"
         ]
       }
@@ -212,19 +164,10 @@
         "EN-1a5225545d3246a1": [
           "Etna.Design.Settlement.accepted_frontier_from_valid_chain"
         ],
-        "EN-d9391f6926e651b1": [
+        "EN-976a8c89163f509a": [
           "Etna.Design.Settlement.accepted_frontier_from_valid_chain"
         ],
-        "EN-f89a481fb7efda20": [
-          "Etna.Design.Settlement.accepted_frontier_from_valid_chain"
-        ],
-        "ZH-8948ca6d2de47eec": [
-          "Etna.Design.Settlement.accepted_frontier_from_valid_chain"
-        ],
-        "ZH-c3cf5b240bc326ab": [
-          "Etna.Design.Settlement.accepted_frontier_from_valid_chain"
-        ],
-        "ZH-d7b29cda33f26d67": [
+        "EN-adcd3a47969dbd68": [
           "Etna.Design.Settlement.accepted_frontier_from_valid_chain"
         ]
       }
@@ -260,35 +203,11 @@
           "Etna.Design.Settlement.accepted_snapshot_monotone_from",
           "Etna.Design.Settlement.certified_trace_snapshot_monotone"
         ],
-        "EN-d9391f6926e651b1": [
+        "EN-976a8c89163f509a": [
           "Etna.Design.Settlement.accepted_terminal_from_valid_chain"
         ],
-        "EN-f89a481fb7efda20": [
+        "EN-adcd3a47969dbd68": [
           "Etna.Design.Settlement.accepted_terminal_from_valid_chain"
-        ],
-        "ZH-1dd5b4276e1a79f8": [
-          "Etna.Design.ProtocolState.snapshot_monotone_across_recovery",
-          "Etna.Design.Settlement.accepted_snapshot_monotone",
-          "Etna.Design.Settlement.accepted_snapshot_monotone_from",
-          "Etna.Design.Settlement.accepted_terminal_from_valid_chain",
-          "Etna.Design.Settlement.certified_trace_snapshot_monotone"
-        ],
-        "ZH-7cc29b0cc2ccf01b": [
-          "Etna.Design.ProtocolState.snapshot_monotone_across_recovery",
-          "Etna.Design.Settlement.accepted_snapshot_monotone",
-          "Etna.Design.Settlement.accepted_snapshot_monotone_from",
-          "Etna.Design.Settlement.certified_trace_snapshot_monotone"
-        ],
-        "ZH-8948ca6d2de47eec": [
-          "Etna.Design.Settlement.accepted_terminal_from_valid_chain"
-        ],
-        "ZH-d7b29cda33f26d67": [
-          "Etna.Design.Settlement.accepted_terminal_from_valid_chain"
-        ],
-        "ZH-e6fd73e69237bca7": [
-          "Etna.Design.ProtocolState.snapshot_monotone_across_recovery",
-          "Etna.Design.Settlement.accepted_snapshot_monotone_from",
-          "Etna.Design.Settlement.certified_trace_snapshot_monotone"
         ]
       }
     },
@@ -301,19 +220,11 @@
         "journal"
       ],
       "evidence": {
-        "EN-6a1cb86fca1d22d0": [
+        "EN-ea1733d82f160469": [
           "Etna.Design.Settlement.trace_preserves_old_records",
           "Etna.Design.Settlement.trace_preserves_state"
         ],
-        "EN-d9391f6926e651b1": [
-          "Etna.Design.Settlement.trace_preserves_old_records",
-          "Etna.Design.Settlement.trace_preserves_state"
-        ],
-        "ZH-92c9ccb4c07e9a91": [
-          "Etna.Design.Settlement.trace_preserves_old_records",
-          "Etna.Design.Settlement.trace_preserves_state"
-        ],
-        "ZH-d7b29cda33f26d67": [
+        "EN-976a8c89163f509a": [
           "Etna.Design.Settlement.trace_preserves_old_records",
           "Etna.Design.Settlement.trace_preserves_state"
         ]
@@ -353,31 +264,6 @@
         ],
         "EN-e7c90bac979e2a7a": [
           "Etna.Design.Derived.conflicting_commits_slashable"
-        ],
-        "ZH-253c24d4ae004bb8": [
-          "Etna.Design.Derived.conflicting_commits_slashable"
-        ],
-        "ZH-393b14f012c15bfc": [
-          "Etna.Design.Derived.conflicting_commits_slashable"
-        ],
-        "ZH-63c19021b54ada23": [
-          "Etna.Design.Derived.conflicting_commits_slashable"
-        ],
-        "ZH-7351e0d1f796b30c": [
-          "Etna.Design.Derived.conflicting_commits_slashable"
-        ],
-        "ZH-856868276a015cfa": [
-          "Etna.Design.Derived.conflicting_commits_slashable"
-        ],
-        "ZH-b4a524e42800be5d": [
-          "Etna.Design.RegistryHistory.trace_preserves_slash_bounty"
-        ],
-        "ZH-c0dfaf771f7d7322": [
-          "Etna.Design.Lifecycle.trace_keeps_inbox_initialized"
-        ],
-        "ZH-c3092565f99c9030": [
-          "Etna.Design.RegistryHistory.trace_forbids_lifetime_reuse",
-          "Etna.Design.RegistryHistory.trace_never_releases_key"
         ]
       }
     },
@@ -399,15 +285,6 @@
           "Etna.Design.RegistryHistory.later_trace_preserves_snapshot",
           "Etna.Design.RegistryHistory.snapshot_is_latest",
           "Etna.Design.RegistryHistory.trace_preserves_registry"
-        ],
-        "ZH-0d97c072e52e11e0": [
-          "Etna.Design.RegistryHistory.later_trace_preserves_snapshot",
-          "Etna.Design.RegistryHistory.snapshot_is_latest",
-          "Etna.Design.RegistryHistory.trace_preserves_registry"
-        ],
-        "ZH-395dd1d306323390": [
-          "Etna.Design.RegistryHistory.later_trace_preserves_snapshot",
-          "Etna.Design.RegistryHistory.snapshot_is_latest"
         ]
       }
     },
@@ -431,18 +308,6 @@
           "Etna.Design.HistoricalContext.context_uses_latest_snapshot"
         ],
         "EN-e11112a7ad1b77fd": [
-          "Etna.Design.HistoricalContext.context_uses_latest_snapshot"
-        ],
-        "ZH-0d97c072e52e11e0": [
-          "Etna.Design.HistoricalContext.context_uses_latest_snapshot"
-        ],
-        "ZH-395dd1d306323390": [
-          "Etna.Design.HistoricalContext.context_uses_latest_snapshot"
-        ],
-        "ZH-69fd7695cccea52e": [
-          "Etna.Design.HistoricalContext.covered_context_header"
-        ],
-        "ZH-c6ce18279f5d46e9": [
           "Etna.Design.HistoricalContext.context_uses_latest_snapshot"
         ]
       }
@@ -473,43 +338,15 @@
           "Etna.Design.ProtocolState.step_preserves_core",
           "Etna.Design.ProtocolState.trace_preserves_core"
         ],
-        "EN-bc7707d4eae0b603": [
+        "EN-21e6553a98d0e543": [
           "Etna.Design.ProtocolState.step_preserves_core",
           "Etna.Design.ProtocolState.trace_preserves_core"
         ],
-        "EN-d9391f6926e651b1": [
+        "EN-976a8c89163f509a": [
           "Etna.Design.ProtocolState.step_preserves_core",
           "Etna.Design.ProtocolState.trace_preserves_core"
         ],
         "EN-e11112a7ad1b77fd": [
-          "Etna.Design.ProtocolState.step_preserves_core",
-          "Etna.Design.ProtocolState.trace_preserves_core"
-        ],
-        "ZH-0d97c072e52e11e0": [
-          "Etna.Design.ProtocolState.step_preserves_core",
-          "Etna.Design.ProtocolState.trace_preserves_core"
-        ],
-        "ZH-96f87855b7f478f0": [
-          "Etna.Design.ProtocolState.step_preserves_core",
-          "Etna.Design.ProtocolState.trace_preserves_core"
-        ],
-        "ZH-ade089be0f271aec": [
-          "Etna.Design.ProtocolState.step_preserves_core",
-          "Etna.Design.ProtocolState.trace_preserves_core"
-        ],
-        "ZH-b60f10164a0dd3a3": [
-          "Etna.Design.ProtocolState.step_preserves_core",
-          "Etna.Design.ProtocolState.trace_preserves_core"
-        ],
-        "ZH-c3092565f99c9030": [
-          "Etna.Design.ProtocolState.step_preserves_core",
-          "Etna.Design.ProtocolState.trace_preserves_core"
-        ],
-        "ZH-d7b29cda33f26d67": [
-          "Etna.Design.ProtocolState.step_preserves_core",
-          "Etna.Design.ProtocolState.trace_preserves_core"
-        ],
-        "ZH-ea4cedb1cd595da9": [
           "Etna.Design.ProtocolState.step_preserves_core",
           "Etna.Design.ProtocolState.trace_preserves_core"
         ]
@@ -525,28 +362,13 @@
         "journal"
       ],
       "evidence": {
-        "EN-6a1cb86fca1d22d0": [
+        "EN-9ef4669a01e1c4e4": [
           "Etna.Design.ProtocolState.trace_keeps_origin_archive"
         ],
         "EN-6d967458e628d3d4": [
           "Etna.Design.ProtocolState.trace_generation_monotone"
         ],
         "EN-7319b105593c8c53": [
-          "Etna.Design.ProtocolState.trace_generation_monotone"
-        ],
-        "EN-8d26eb17caa3fab8": [
-          "Etna.Design.ProtocolState.trace_keeps_origin_archive"
-        ],
-        "ZH-2e000b1e0de52028": [
-          "Etna.Design.ProtocolState.trace_generation_monotone"
-        ],
-        "ZH-7b0c7be71603df91": [
-          "Etna.Design.ProtocolState.trace_keeps_origin_archive"
-        ],
-        "ZH-92c9ccb4c07e9a91": [
-          "Etna.Design.ProtocolState.trace_keeps_origin_archive"
-        ],
-        "ZH-e6fd73e69237bca7": [
           "Etna.Design.ProtocolState.trace_generation_monotone"
         ]
       }
@@ -581,23 +403,6 @@
         ],
         "EN-9ac7403cd8147312": [
           "Etna.Design.ProtocolState.accepted_snapshot_from_history"
-        ],
-        "ZH-1dd5b4276e1a79f8": [
-          "Etna.Design.Deployment.accepted_deployed_snapshot",
-          "Etna.Design.ProtocolState.accepted_snapshot_from_history"
-        ],
-        "ZH-2ac14f88566d1c07": [
-          "Etna.Design.Deployment.accepted_deployed_snapshot"
-        ],
-        "ZH-395dd1d306323390": [
-          "Etna.Design.ProtocolState.accepted_snapshot_from_history"
-        ],
-        "ZH-69fd7695cccea52e": [
-          "Etna.Design.ProtocolState.accepted_snapshot_from_history"
-        ],
-        "ZH-c6ce18279f5d46e9": [
-          "Etna.Design.Deployment.accepted_deployed_snapshot",
-          "Etna.Design.ProtocolState.accepted_snapshot_from_history"
         ]
       }
     },
@@ -623,7 +428,7 @@
         "EN-851fa1dfa3186229": [
           "Etna.Design.Deployment.trace_preserves_constraints"
         ],
-        "EN-8d26eb17caa3fab8": [
+        "EN-9ef4669a01e1c4e4": [
           "Etna.Design.Deployment.trace_preserves_constraints"
         ],
         "EN-a9466cc7d5e5bdc2": [
@@ -631,27 +436,6 @@
           "Etna.Design.Deployment.genesis_trace_invariants"
         ],
         "EN-bc5dadfc224bbed1": [
-          "Etna.Design.ProtocolState.trace_preserves_immutables"
-        ],
-        "ZH-370388d4922ca8fc": [
-          "Etna.Design.Deployment.genesis_snapshot_monotone",
-          "Etna.Design.Deployment.genesis_trace_invariants"
-        ],
-        "ZH-419e6e0b4491d43b": [
-          "Etna.Design.Deployment.trace_preserves_constraints",
-          "Etna.Design.ProtocolState.trace_preserves_immutables"
-        ],
-        "ZH-7b0c7be71603df91": [
-          "Etna.Design.Deployment.trace_preserves_constraints"
-        ],
-        "ZH-a0a331f5e62c3289": [
-          "Etna.Design.Deployment.trace_preserves_constraints"
-        ],
-        "ZH-b4a524e42800be5d": [
-          "Etna.Design.Deployment.trace_preserves_registry_constraints",
-          "Etna.Design.ProtocolState.trace_preserves_immutables"
-        ],
-        "ZH-ca29737fad92dc98": [
           "Etna.Design.ProtocolState.trace_preserves_immutables"
         ]
       }

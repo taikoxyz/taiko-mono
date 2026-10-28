@@ -64,7 +64,7 @@ changed. Plans and execution logs stay untracked.
   Unrelated line insertion preserves IDs; editing a linked clause requires reviewing
   its new evidence edge. Line ranges remain derived locations. No bilingual semantic
   equivalence or full-spec coverage percentage is inferred.
-- DAO cancellation is cited to §8 **Verifier failure** (original EN L467), not §8.3.
+- DAO cancellation is cited to §8 **Verifier failure** (original spec L467), not §8.3.
 - Net 174→172 partial was six status changes, not two: the FI "Included" table row
   (EN-a0d7e057533c65e9) and the "at/after due, neither includes nor skips → invalid"
   rule (EN-7fdd2e21c46727ee) became deferred after pruning `Forced.*` edges, and
@@ -414,10 +414,10 @@ committed vectors are fresh (`check_vectors.py`). The README lists each check's 
 
 **Docs and small fixes.** The README is rewritten around the theorems, the premises and what
 they leave out. Premise and claim docstrings cite exact spec lines (block 0's Comet hash,
-EN L743 and L273; the EL header fields, EN L72-L76 and L341) and state the FI anchor window as
+spec L740 and L273; the EL header fields, spec L72-L76 and L341) and state the FI anchor window as
 the Lean does; `VerifierSound` gives its equivalent form ("every submitted landing that lands
 is certified"); H2's scope and H3's coverage limits are stated plainly. In the manifest, H3
-now also cites 8 step 3 (EN L461), which it states, and `build_binds_parameters` names
+now also cites 8 step 3 (spec L461), which it states, and `build_binds_parameters` names
 `Premises.hashSeparation` instead of the vacuous `opening_unique`.
 
 **Status changes vs `d2606679e`:** 8 EN/ZH pairs became partial, all through headline
@@ -435,3 +435,60 @@ after verifier failure, a wall-clock FI deadline and real cryptography stay outs
 claims (README, "What is not covered"). The harnesses and their copies of the vectors are in
 the Etna contracts and client PRs, not yet merged; their copies are refreshed by hand from a
 pushed formal commit.
+
+## Spec source: the in-repo spec, revision 2026-10-28 (baseline `31bb5d18c`)
+
+**Source.** The package now models `packages/protocol/docs/etna-pos-zk/sources/spec.md` at
+revision 2026-10-28. Before, it modelled its own public copies of the 2026-10-27 04:07Z
+English and Chinese text. `spec-coverage.json` pins the path, the revision and the file's
+SHA-256, and the coverage check compares them with `sources/manifest.json`. Any edit to the
+spec therefore fails the check until the links are reviewed against the new text. The spec is
+English only. The Chinese clauses, the EN/ZH symmetry checks, the copies and their sanitizer
+are gone. Clause IDs keep the `EN-` prefix and are unchanged wherever the text is unchanged.
+Spec lines are written `spec L<n>` and renumbered to the new file.
+
+**Changed clauses with links.** The text of 16 linked clauses changed. Ten changed only in
+wording and keep their links. Those edits are:
+- links to the acceptance checklist;
+- "must"/"should";
+- "per block";
+- the `verifyProof` age argument;
+- the wording of slot-285 retention;
+- how the block-size rule counts transactions.
+
+Six changed in meaning:
+- Blob budget (spec L118). The bound is now zlib's default-settings `deflateBound`, not a
+  stored-zlib fallback. As `0x06 ‖ zlib`, one maximum-size block takes at most 124,055 bytes and
+  six take at most 744,244, within six blobs (780,264).
+  - `Budget` now models `deflateBound` and the 4-byte list header.
+  - `cap_derivation`, `single_block_one_blob`, `blocks_fit_blobs` and
+    `grid_segment_fits_one_landing` are restated on it, and `stored_monotone` becomes
+    `deflate_bound_monotone`.
+  - `stored_fallback_fits` is removed, since the single-block theorem now includes the prefix.
+- Set key (spec L169). The spec now defines it as keccak256 of the L2 chain id and the
+  compressed key, fixed per key. The model's `Entry.key` already stands for a fixed per-key
+  value, so the election links stay.
+- §8.4 (spec L490-L495). The metadata, genesis and handover bullets are rewritten as "Fixed
+  origin record", "Unique genesis" and "First block", with the same rules, and their links move
+  to them.
+- The old "History retention" bullet is gone, and its links are resolved as follows:
+  - Its slot-285 part is now the slot-285 row (spec L740, "never pruned"), which takes the
+    settlement-record links, including claim DV-10.
+  - Its origin part is the fixed origin record (spec L492), which takes the origin-archive
+    links, including claim HS-05.
+  - Twelve links that touched it only loosely are dropped. They covered anchor-archive prefix
+    arithmetic, L1 clock monotonicity, old registry snapshots, checkpoint monotonicity and one
+    forced-inclusion regression. Each of those theorems keeps its other clauses.
+
+**Docs.** Three docstrings that quoted the Chinese text now quote the English lines.
+
+**Status changes vs `31bb5d18c`** (its English half, 308 clauses): the "History retention"
+bullet, which was partial, is deleted, so partial goes from 57 to 56. No other clause changed
+status.
+
+**Validation:** Lean 4.35.0-rc4, build clean, lint clean. The audit checks **614** contracts
+(93 property, 3 constant, 301 supporting, 217 regression) with a fresh kernel replay,
+mechanical roles and the headline checks; every premise field is still read by a headline
+proof, and **140** Python tests pass. Inventory: **308** clauses, **56 partial, 249 deferred,
+3 design-pending**; none is fully proved. 16 claims. The conformance vectors decide the same
+cases as before; only their `spec` line citations changed.

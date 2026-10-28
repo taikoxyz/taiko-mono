@@ -229,7 +229,7 @@
       "id": "registry.hw.key-registered-once-ever",
       "family": "registry",
       "source": "handwritten",
-      "spec": "EN L129",
+      "spec": "spec L129",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 5,
@@ -265,7 +265,7 @@
       "id": "registry.hw.register-before-inbox-init",
       "family": "registry",
       "source": "handwritten",
-      "spec": "EN L156",
+      "spec": "spec L156",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": false, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 0,
@@ -295,7 +295,7 @@
       "id": "registry.hw.free-slot-reuse-order",
       "family": "registry",
       "source": "handwritten",
-      "spec": "EN L139",
+      "spec": "spec L139",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
@@ -337,7 +337,7 @@
       "id": "registry.hw.one-checkpoint-per-block",
       "family": "registry",
       "source": "handwritten",
-      "spec": "EN L155",
+      "spec": "spec L155",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 1,
@@ -665,7 +665,7 @@
       "id": "registry.hw.exit-request-after-slash",
       "family": "registry",
       "source": "handwritten",
-      "spec": "EN L140",
+      "spec": "spec L140",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 1,
@@ -940,7 +940,7 @@
       "id": "registry.hw.confirm-is-idempotent",
       "family": "registry",
       "source": "handwritten",
-      "spec": "EN L141",
+      "spec": "spec L141",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 3,
@@ -1448,7 +1448,7 @@
       "id": "registry.hw.withdraw-to-zero-address",
       "family": "registry",
       "source": "handwritten",
-      "spec": "EN L142",
+      "spec": "spec L142",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 3,
@@ -1481,7 +1481,7 @@
       "id": "registry.hw.slashed-slot-released-by-anyone",
       "family": "registry",
       "source": "handwritten",
-      "spec": "EN L142",
+      "spec": "spec L142",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 3,
@@ -1546,7 +1546,7 @@
       "id": "registry.hw.withdraw-at-block-2pow48-minus1",
       "family": "registry",
       "source": "handwritten",
-      "spec": "EN L754",
+      "spec": "spec L751",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 3,
@@ -1579,7 +1579,7 @@
       "id": "registry.hw.confirm-at-block-2pow48-minus1",
       "family": "registry",
       "source": "handwritten",
-      "spec": "EN L758",
+      "spec": "spec L755",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 2,
@@ -2096,7 +2096,7 @@
       "id": "registry.hw.slash-moves-exit-earlier",
       "family": "registry",
       "source": "handwritten",
-      "spec": "EN L151",
+      "spec": "spec L151",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 1,
@@ -2127,7 +2127,7 @@
       "id": "registry.hw.slash-keeps-earlier-exit",
       "family": "registry",
       "source": "handwritten",
-      "spec": "EN L151",
+      "spec": "spec L151",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 1,
@@ -2158,7 +2158,7 @@
       "id": "registry.hw.slash-historical-generation",
       "family": "registry",
       "source": "handwritten",
-      "spec": "EN L149",
+      "spec": "spec L149",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 1,
@@ -2249,7 +2249,7 @@
       "id": "registry.hw.slash-at-block-2pow48-minus1",
       "family": "registry",
       "source": "handwritten",
-      "spec": "EN L151",
+      "spec": "spec L151",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 0,

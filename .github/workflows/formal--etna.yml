@@ -5,12 +5,14 @@ on:
     paths:
       - 'formal/etna/**'
       - 'testdata/etna_conformance/**'
+      - 'packages/protocol/docs/etna-pos-zk/sources/**'
       - '.github/workflows/formal--etna.yml'
   push:
     branches: [main]
     paths:
       - 'formal/etna/**'
       - 'testdata/etna_conformance/**'
+      - 'packages/protocol/docs/etna-pos-zk/sources/**'
       - '.github/workflows/formal--etna.yml'
   workflow_dispatch:
 

@@ -447,7 +447,7 @@
       "id": "schedule.hw.genesis-uses-genesis-cutoff.h1",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L178",
+      "spec": "spec L178",
       "input": {"context": "genesis-uses-genesis-cutoff", "height": 1},
       "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": null}
     },
@@ -455,7 +455,7 @@
       "id": "schedule.hw.genesis-uses-genesis-cutoff.h2",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L178",
+      "spec": "spec L178",
       "input": {"context": "genesis-uses-genesis-cutoff", "height": 2},
       "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": null}
     },
@@ -463,7 +463,7 @@
       "id": "schedule.hw.genesis-uses-genesis-cutoff.h3",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L178",
+      "spec": "spec L178",
       "input": {"context": "genesis-uses-genesis-cutoff", "height": 3},
       "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": 1}
     },
@@ -471,7 +471,7 @@
       "id": "schedule.hw.genesis-uses-genesis-cutoff.h4",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L178",
+      "spec": "spec L178",
       "input": {"context": "genesis-uses-genesis-cutoff", "height": 4},
       "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": null}
     },
@@ -479,7 +479,7 @@
       "id": "schedule.hw.genesis-uses-genesis-cutoff.h5",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L178",
+      "spec": "spec L178",
       "input": {"context": "genesis-uses-genesis-cutoff", "height": 5},
       "expect": {"targetEpoch": 1, "cutoff": 102, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
     },
@@ -487,7 +487,7 @@
       "id": "schedule.hw.genesis-uses-genesis-cutoff.h6",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L178",
+      "spec": "spec L178",
       "input": {"context": "genesis-uses-genesis-cutoff", "height": 6},
       "expect": {"targetEpoch": 1, "cutoff": 102, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
     },
@@ -495,7 +495,7 @@
       "id": "schedule.hw.genesis-uses-genesis-cutoff.h7",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L178",
+      "spec": "spec L178",
       "input": {"context": "genesis-uses-genesis-cutoff", "height": 7},
       "expect": {"targetEpoch": 1, "cutoff": 102, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": 2}
     },
@@ -503,7 +503,7 @@
       "id": "schedule.hw.genesis-uses-genesis-cutoff.h8",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L178",
+      "spec": "spec L178",
       "input": {"context": "genesis-uses-genesis-cutoff", "height": 8},
       "expect": {"targetEpoch": 1, "cutoff": 102, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
     },
@@ -511,7 +511,7 @@
       "id": "schedule.hw.switch-uses-derivation-parent-anchor.h1",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L183",
+      "spec": "spec L183",
       "input": {"context": "switch-uses-derivation-parent-anchor", "height": 1},
       "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": null}
     },
@@ -519,7 +519,7 @@
       "id": "schedule.hw.switch-uses-derivation-parent-anchor.h2",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L183",
+      "spec": "spec L183",
       "input": {"context": "switch-uses-derivation-parent-anchor", "height": 2},
       "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": null}
     },
@@ -527,7 +527,7 @@
       "id": "schedule.hw.switch-uses-derivation-parent-anchor.h3",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L183",
+      "spec": "spec L183",
       "input": {"context": "switch-uses-derivation-parent-anchor", "height": 3},
       "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": null}
     },
@@ -535,7 +535,7 @@
       "id": "schedule.hw.switch-uses-derivation-parent-anchor.h4",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L183",
+      "spec": "spec L183",
       "input": {"context": "switch-uses-derivation-parent-anchor", "height": 4},
       "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": 1}
     },
@@ -543,7 +543,7 @@
       "id": "schedule.hw.switch-uses-derivation-parent-anchor.h5",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L183",
+      "spec": "spec L183",
       "input": {"context": "switch-uses-derivation-parent-anchor", "height": 5},
       "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": null}
     },
@@ -551,7 +551,7 @@
       "id": "schedule.hw.switch-uses-derivation-parent-anchor.h6",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L183",
+      "spec": "spec L183",
       "input": {"context": "switch-uses-derivation-parent-anchor", "height": 6},
       "expect": {"targetEpoch": 1, "cutoff": 100, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": null}
     },
@@ -559,7 +559,7 @@
       "id": "schedule.hw.switch-uses-derivation-parent-anchor.h7",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L183",
+      "spec": "spec L183",
       "input": {"context": "switch-uses-derivation-parent-anchor", "height": 7},
       "expect": {"targetEpoch": 1, "cutoff": 100, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": null}
     },
@@ -567,7 +567,7 @@
       "id": "schedule.hw.switch-uses-derivation-parent-anchor.h8",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L183",
+      "spec": "spec L183",
       "input": {"context": "switch-uses-derivation-parent-anchor", "height": 8},
       "expect": {"targetEpoch": 1, "cutoff": 100, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": null}
     },
@@ -575,7 +575,7 @@
       "id": "schedule.hw.switch-uses-derivation-parent-anchor.h9",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L183",
+      "spec": "spec L183",
       "input": {"context": "switch-uses-derivation-parent-anchor", "height": 9},
       "expect": {"targetEpoch": 1, "cutoff": 100, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": 2}
     },
@@ -583,7 +583,7 @@
       "id": "schedule.hw.switch-uses-derivation-parent-anchor.h10",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L183",
+      "spec": "spec L183",
       "input": {"context": "switch-uses-derivation-parent-anchor", "height": 10},
       "expect": {"targetEpoch": 1, "cutoff": 100, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": null}
     },
@@ -591,7 +591,7 @@
       "id": "schedule.hw.switch-uses-derivation-parent-anchor.h11",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L183",
+      "spec": "spec L183",
       "input": {"context": "switch-uses-derivation-parent-anchor", "height": 11},
       "expect": {"targetEpoch": 2, "cutoff": 130, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
     },
@@ -599,7 +599,7 @@
       "id": "schedule.hw.switch-uses-derivation-parent-anchor.h12",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L183",
+      "spec": "spec L183",
       "input": {"context": "switch-uses-derivation-parent-anchor", "height": 12},
       "expect": {"targetEpoch": 2, "cutoff": 130, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
     },
@@ -607,7 +607,7 @@
       "id": "schedule.hw.duplicate-eligible-key.h1",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L168",
+      "spec": "spec L168",
       "input": {"context": "duplicate-eligible-key", "height": 1},
       "expect": {"targetEpoch": 0, "cutoff": 90, "valid": false, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 3000, "power": 3}, {"key": 2, "stake": 2000, "power": 2}], "switchTarget": null}
     },
@@ -615,7 +615,7 @@
       "id": "schedule.hw.duplicate-eligible-key.h2",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L168",
+      "spec": "spec L168",
       "input": {"context": "duplicate-eligible-key", "height": 2},
       "expect": {"targetEpoch": 0, "cutoff": 90, "valid": false, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 3000, "power": 3}, {"key": 2, "stake": 2000, "power": 2}], "switchTarget": 1}
     },
@@ -623,7 +623,7 @@
       "id": "schedule.hw.duplicate-eligible-key.h3",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L168",
+      "spec": "spec L168",
       "input": {"context": "duplicate-eligible-key", "height": 3},
       "expect": {"targetEpoch": 0, "cutoff": 90, "valid": false, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 3000, "power": 3}, {"key": 2, "stake": 2000, "power": 2}], "switchTarget": null}
     },
@@ -631,7 +631,7 @@
       "id": "schedule.hw.duplicate-eligible-key.h4",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L168",
+      "spec": "spec L168",
       "input": {"context": "duplicate-eligible-key", "height": 4},
       "expect": {"targetEpoch": 1, "cutoff": 102, "valid": false, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 3000, "power": 3}, {"key": 2, "stake": 2000, "power": 2}], "switchTarget": null}
     },
@@ -639,7 +639,7 @@
       "id": "schedule.hw.duplicate-key-one-exited.h1",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L168",
+      "spec": "spec L168",
       "input": {"context": "duplicate-key-one-exited", "height": 1},
       "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 3000, "power": 3}], "switchTarget": null}
     },
@@ -647,7 +647,7 @@
       "id": "schedule.hw.duplicate-key-one-exited.h4",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L168",
+      "spec": "spec L168",
       "input": {"context": "duplicate-key-one-exited", "height": 4},
       "expect": {"targetEpoch": 1, "cutoff": 102, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 3000, "power": 3}], "switchTarget": null}
     },
@@ -655,7 +655,7 @@
       "id": "schedule.hw.stale-heartbeat.h1",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L168",
+      "spec": "spec L168",
       "input": {"context": "stale-heartbeat", "height": 1},
       "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
     },
@@ -663,7 +663,7 @@
       "id": "schedule.hw.stale-heartbeat.h2",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L168",
+      "spec": "spec L168",
       "input": {"context": "stale-heartbeat", "height": 2},
       "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": 1}
     },
@@ -671,7 +671,7 @@
       "id": "schedule.hw.stale-heartbeat.h3",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L168",
+      "spec": "spec L168",
       "input": {"context": "stale-heartbeat", "height": 3},
       "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
     },
@@ -679,7 +679,7 @@
       "id": "schedule.hw.stale-heartbeat.h4",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L168",
+      "spec": "spec L168",
       "input": {"context": "stale-heartbeat", "height": 4},
       "expect": {"targetEpoch": 1, "cutoff": 102, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
     },
@@ -687,7 +687,7 @@
       "id": "schedule.hw.stale-heartbeat.h5",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L168",
+      "spec": "spec L168",
       "input": {"context": "stale-heartbeat", "height": 5},
       "expect": {"targetEpoch": 1, "cutoff": 102, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": 2}
     },
@@ -695,7 +695,7 @@
       "id": "schedule.hw.stale-heartbeat.h6",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L168",
+      "spec": "spec L168",
       "input": {"context": "stale-heartbeat", "height": 6},
       "expect": {"targetEpoch": 1, "cutoff": 102, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
     },
@@ -703,7 +703,7 @@
       "id": "schedule.hw.stale-heartbeat.h7",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L168",
+      "spec": "spec L168",
       "input": {"context": "stale-heartbeat", "height": 7},
       "expect": {"targetEpoch": 2, "cutoff": 108, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
     },
@@ -711,7 +711,7 @@
       "id": "schedule.hw.stale-heartbeat.h8",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L168",
+      "spec": "spec L168",
       "input": {"context": "stale-heartbeat", "height": 8},
       "expect": {"targetEpoch": 2, "cutoff": 108, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": 3}
     },
@@ -719,7 +719,7 @@
       "id": "schedule.hw.stale-heartbeat.h9",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L168",
+      "spec": "spec L168",
       "input": {"context": "stale-heartbeat", "height": 9},
       "expect": {"targetEpoch": 2, "cutoff": 108, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
     },
@@ -727,7 +727,7 @@
       "id": "schedule.hw.stale-heartbeat.h10",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L168",
+      "spec": "spec L168",
       "input": {"context": "stale-heartbeat", "height": 10},
       "expect": {"targetEpoch": 3, "cutoff": 114, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
     },
@@ -735,7 +735,7 @@
       "id": "schedule.hw.stale-heartbeat.h11",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L168",
+      "spec": "spec L168",
       "input": {"context": "stale-heartbeat", "height": 11},
       "expect": {"targetEpoch": 3, "cutoff": 114, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": 4}
     },
@@ -743,7 +743,7 @@
       "id": "schedule.hw.stale-heartbeat.h12",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L168",
+      "spec": "spec L168",
       "input": {"context": "stale-heartbeat", "height": 12},
       "expect": {"targetEpoch": 3, "cutoff": 114, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
     },
@@ -751,7 +751,7 @@
       "id": "schedule.hw.eligibility-boundaries.h1",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L168",
+      "spec": "spec L168",
       "input": {"context": "eligibility-boundaries", "height": 1},
       "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 4, "stake": 5000, "power": 5}, {"key": 5, "stake": 1000, "power": 1}], "switchTarget": null}
     },
@@ -759,7 +759,7 @@
       "id": "schedule.hw.n-max-tie-by-set-key.h1",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L169",
+      "spec": "spec L169",
       "input": {"context": "n-max-tie-by-set-key", "height": 1},
       "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 3000, "power": 3}], "switchTarget": null}
     },
@@ -767,7 +767,7 @@
       "id": "schedule.hw.no-eligible-entry.h1",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L170",
+      "spec": "spec L170",
       "input": {"context": "no-eligible-entry", "height": 1},
       "expect": {"targetEpoch": 0, "cutoff": 90, "valid": false, "members": [], "switchTarget": null}
     },
@@ -775,7 +775,7 @@
       "id": "schedule.hw.latest-checkpoint-at-cutoff.h1",
       "family": "schedule",
       "source": "handwritten",
-      "spec": "EN L167",
+      "spec": "spec L167",
       "input": {"context": "latest-checkpoint-at-cutoff", "height": 1},
       "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}], "switchTarget": null}
     }

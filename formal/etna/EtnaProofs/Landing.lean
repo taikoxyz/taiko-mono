@@ -74,7 +74,8 @@ theorem land_stores_proven_snapshot {s t : State} {i : LandInput} {w : List Leaf
 committee governing each height and is monotone (`Committee.heightCutoff_monotone`), the
 stored value tracks the committee at c, and a sound proof reports the committee at h,
 then after landing the stored value tracks the committee at the new c and did not
-decrease (c < h). This is "只增不减" under sound proofs, with no on-chain max. -/
+decrease (c < h). This is 4.1's "`activeCommitteeSnapshot` never decreases" (spec L142) under sound
+proofs, with no on-chain max. -/
 theorem stored_snapshot_tracks_cutoff {s t : State} {i : LandInput} {w : List Leaf} {e : LandingEnv}
     {cutoffOf : Nat → Nat} (ok : land s i w e = some t)
     (monotone : ∀ a b, a ≤ b → cutoffOf a ≤ cutoffOf b)

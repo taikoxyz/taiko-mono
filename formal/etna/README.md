@@ -1,9 +1,10 @@
 # Etna design verification
 
 This package is a Lean 4 model of the Etna specification and the proofs about it. The
-specification is the bilingual snapshot of 2026-10-27 04:07Z (12:07 Asia/Shanghai), saved as
-[public normative texts](specs/README.md) with internal Notion metadata and links removed. A
-spec line written `EN L…` is a line of `specs/2026-10-27.en.md`.
+specification is [`packages/protocol/docs/etna-pos-zk/sources/spec.md`](../../packages/protocol/docs/etna-pos-zk/sources/spec.md)
+at revision 2026-10-28, pinned by SHA-256 in `spec-coverage.json`. A spec line written `spec L…`
+is a line of that file. Any edit to the spec fails the coverage check until the clause links are
+reviewed against the new text and the pin is updated.
 
 **The result is three headline theorems**, fund safety, accountable finality and
 forced-inclusion integrity, each proved for every deployment and environment that satisfy one
@@ -12,7 +13,7 @@ premise record, `Premises`. To trust the result, read the statements and the pre
 proofs. The package says nothing about the production contracts, client or guests beyond the
 conformance vectors below.
 
-The clause inventory (619 bilingual clauses), the theorem roles and the 16 narrow claims in
+The clause inventory (308 spec clauses), the theorem roles and the 16 narrow claims in
 `spec-coverage.json` are a **traceability report, not the verification result**. They record
 which spec clauses some theorem speaks to, and CI keeps them consistent. A clause marked
 partial is not proved.
@@ -148,7 +149,7 @@ The statement has three parts.
   entry pending and due.
 
 Part (b) covers only blocks inside landed segments, and it does not claim the maxAnchorAge bound
-of 7.3 (EN L436). Part (a) is about (index, entry) pairs staying present; that each index holds
+of 7.3 (spec L436). Part (a) is about (index, entry) pairs staying present; that each index holds
 one entry is the separate queue invariant of `ProtocolState.Core`.
 
 ## Premises
@@ -160,27 +161,27 @@ field.
 
 | Field | What it assumes | Spec source | Used by |
 | --- | --- | --- | --- |
-| `genesis` | `w0` is the World right after Inbox initialization (`Deployment.Genesis`), made with block 0's EL hash and stateRoot from `env.genesisHeader`, which has height 0, CometBFT hash 0 and FI cursor 0. | §10 steps 4-5 (EN L534-L535); Appendix B slot 285 (EN L743); 6.1 (EN L273); 7.2 (EN L400) | H1, H2, H3 |
-| `verifierSound` | Two proofs, at least one sound: every proof pair the Inbox accepts contains a sound backend, and a sound backend approves a submitted landing only if its statement is `Certifies`, i.e. the statement of a batch valid under the rules `Deployment.build` derives from the guest's uint256 opening of the stored commitments. Equivalently: every submitted landing that lands is certified. | §1 "Funds" (EN L14); §1 "Upgrades and trust" (EN L18); §8 "Verifier failure" (EN L457) | H1, H3 |
-| `authenticatedInputs` | For a submitted landing that lands, an authenticated FI witness under an authenticated anchor, from the current generation's origin L1 block up to the landing's block, shows the World's real queue entry. | 3.3 (EN L86); 7.2 (EN L401) | H3 |
-| `hashSeparation` | The stored committeeConfigHash has exactly one uint256 opening (`Representable`): the deployment's own configuration. | 6.2 item 1 (EN L338) | H1, H3 |
-| `headerHashes` | An EL hash is the hash of the header it names: when the EL accepts a block on a parent, both EL hashes are `headerHash` of the decoded headers, and so is block 0's. | 3.4 rules 1 and 9 (EN L99, L107); 6.2 item 4 (EN L341) | H1 |
-| `headerSeparation` | Collision resistance, idealized: equal EL hashes mean equal height, stateRoot, timestamp and the whole decoded anchor. | 3.2 (EN L68, L72-L76); 6.2 item 4 (EN L341) | H1 |
-| `signatureAgreement` | The registry's signature check accepts every vote in this deployment's domain that the consensus signature relation accepts. | 3.1 (EN L42); 4.1 (EN L150) | H2 |
+| `genesis` | `w0` is the World right after Inbox initialization (`Deployment.Genesis`), made with block 0's EL hash and stateRoot from `env.genesisHeader`, which has height 0, CometBFT hash 0 and FI cursor 0. | §10 steps 4-5 (spec L531-L532); Appendix B slot 285 (spec L740); 6.1 (spec L273); 7.2 (spec L400) | H1, H2, H3 |
+| `verifierSound` | Two proofs, at least one sound: every proof pair the Inbox accepts contains a sound backend, and a sound backend approves a submitted landing only if its statement is `Certifies`, i.e. the statement of a batch valid under the rules `Deployment.build` derives from the guest's uint256 opening of the stored commitments. Equivalently: every submitted landing that lands is certified. | §1 "Funds" (spec L12); §1 "Upgrades and trust" (spec L16); §8 "Verifier failure" (spec L457) | H1, H3 |
+| `authenticatedInputs` | For a submitted landing that lands, an authenticated FI witness under an authenticated anchor, from the current generation's origin L1 block up to the landing's block, shows the World's real queue entry. | 3.3 (spec L86); 7.2 (spec L401) | H3 |
+| `hashSeparation` | The stored committeeConfigHash has exactly one uint256 opening (`Representable`): the deployment's own configuration. | 6.2 item 1 (spec L338) | H1, H3 |
+| `headerHashes` | An EL hash is the hash of the header it names: when the EL accepts a block on a parent, both EL hashes are `headerHash` of the decoded headers, and so is block 0's. | 3.4 rules 1 and 9 (spec L99, L107); 6.2 item 4 (spec L341) | H1 |
+| `headerSeparation` | Collision resistance, idealized: equal EL hashes mean equal height, stateRoot, timestamp and the whole decoded anchor. | 3.2 (spec L68, L72-L76); 6.2 item 4 (spec L341) | H1 |
+| `signatureAgreement` | The registry's signature check accepts every vote in this deployment's domain that the consensus signature relation accepts. | 3.1 (spec L42); 4.1 (spec L150) | H2 |
 
 The audit fails if any field is read by no headline proof.
 
 ## What is not covered
 
 - **Liveness.** No claim says a block, a landing or a due FI entry ever happens (§1 "Liveness",
-  EN L16).
+  spec L14).
 - **Cross-round safety.** H2 compares commits at one height and one round only. Commits at
   different rounds of one height are not compared, and CometBFT's locking rules are not
-  modelled (§1 "Out of scope", EN L19: slashing covers only same-round double signing).
+  modelled (§1 "Slashing scope", spec L18: slashing covers only same-round double signing).
 - **Checkpoint permanence.** No claim says a landed checkpoint stays. Governance recovery
   discards the blocks above the checkpoint, and the model's verifier-failure rollback may return
   to any retained record. H1 holds across both; §1's "nothing at or below a checkpoint can be
-  rolled back except by a DAO upgrade" (EN L15) is a governance promise, not a theorem.
+  rolled back except by a DAO upgrade" (spec L13) is a governance promise, not a theorem.
 - **The bridge.** H1 ends at SignalService state roots. That the Bridge pays only against them
   (storage proofs, QuotaManager, pausing) is not modelled.
 - **What happens after verifier failure.** Without `verifierSound` nothing is claimed
@@ -189,7 +190,7 @@ The audit fails if any field is read by no headline proof.
   authorizations) is not proved: the model's rollback step takes any retained record and any
   slot-284 snapshot.
 - **A wall-clock FI deadline.** H3 gives none, and §1 says the design gives none either
-  (EN L17). H3 does not claim the maxAnchorAge bound of 7.3 (EN L436).
+  (spec L15). H3 does not claim the maxAnchorAge bound of 7.3 (spec L436).
 - **Real cryptography, MPT, KZG and the EL.** Hashes are opaque numbers. Signatures, storage
   proofs, blob decoding, payload decoding and EL execution are relations of `Environment`. The
   premises idealize some of them and leave others open: history and committee authentication
@@ -201,7 +202,7 @@ The audit fails if any field is read by no headline proof.
   (parentBeaconBlockRoot); the other anchor fields agree only because both headers read them
   from that authenticated L1 block. `hashSeparation` is Keccak
   separation over uint256 openings (the unbounded `Deployment.opening_unique` is vacuous:
-  `opening_separation_unsatisfiable`). Proof completeness (EN L18), durable signer and node
+  `opening_separation_unsatisfiable`). Proof completeness (spec L16), durable signer and node
   trust (8.2), and PoS issuance and economics are also out of scope.
 - **Rollback trust (a dropped premise).** A `trustedRollback` premise was considered: the
   restored slot-284 snapshot is below the rollback's block (`SoundStep.rollback`). No headline
@@ -211,7 +212,7 @@ The audit fails if any field is read by no headline proof.
   no landing wrote, and the committee confirms its exit and withdraws while it still signs; its
   conflicting commits are then unslashable. Even `snapshot < now` is too weak, since a later
   rollback can restore an untrusted value below its own block. A premise that protects H2 must
-  be the spec's duty (EN L457): the restored snapshot is a value a retained landing or the
+  be the spec's duty (spec L457): the restored snapshot is a value a retained landing or the
   initialization wrote.
 
 ## Witnesses
@@ -252,14 +253,14 @@ the claims.
 - **`NoVerifierSoundness`.** If both proof backends accept a false statement, a checkpoint lands
   that no valid chain reaches, and SignalService publishes its fake state root. Every other
   premise holds, so `verifierSound` is what H1 rests on. The spec already takes verifier
-  soundness as an assumption (EN L18, L457); no fix is needed.
+  soundness as an assumption (spec L16, L457); no fix is needed.
 - **`UntrustedRollback`.** A verifier-failure rollback restores slot 284 to a value no trusted
   landing wrote. The exit of the committee's only validator is then confirmed and its stake
   withdrawn while the built rules still make it the whole committee; its conflicting commits are
   valid and unslashable. A realistic withdrawalDelay only postpones this. Fix: the rollback duty
   above, stated as a premise if H2 is to cover rollbacks.
 - **`RecoveryCapture`.** Four honest validators each hold 1/4 of the power, so a recovery
-  authorization passes the modelled parts of the DAO's check (8.1, EN L470: nonempty, no party
+  authorization passes the modelled parts of the DAO's check (8.1, spec L470: nonempty, no party
   at or above 1/3). A newcomer registers 9 TAIKO between authorization and execution and ends up
   with 9/13 (over 2/3) of the recovery committee, alone producing valid commits. The DAO cannot
   stop the scheduled call at execution, and its exclusion list is fixed. Suggested fix: bind the
@@ -291,17 +292,18 @@ Foundry harness in the Etna contracts PR (#22286),
 divergences listed in that harness, none a contract bug. The first two are reachable; the other
 four need an L1 block at 2^48 − 1 or a timestamp at 2^48:
 
-1. Free-slot reuse order (EN L139): the model reuses the oldest freed slot, the contract the
+1. Free-slot reuse order (spec L139): the model reuses the oldest freed slot, the contract the
    most recent. The spec does not say; it should pick one (suggested: most recent), and the
-   model then follows.
-2. Withdrawal to address 0 (EN L142): any owner can call `withdraw(id, address(0))`; the
+   model then follows. The set key is fixed per key (spec L169), so the choice decides only
+   which bond id a registration gets, not elections.
+2. Withdrawal to address 0 (spec L142): any owner can call `withdraw(id, address(0))`; the
    contract refuses (stricter), while the model, which has no recipient, accepts. The spec
    could say "to ≠ 0".
 3. Withdrawal at L1 block 2^48 − 1: the contract is stricter than the spec. Unreachable.
-4. Slash at L1 block 2^48 − 1 (EN L151): the spec's formula gives the no-exit value; the model
+4. Slash at L1 block 2^48 − 1 (spec L151): the spec's formula gives the no-exit value; the model
    follows it, the contract refuses (safer). Unreachable.
-5. Recovery exclusion at L1 block 2^48 − 1 (EN L460): the same kind. Unreachable.
-6. Recovery origin timestamp 2^48 (EN L747): the spec asks for "range checks" without naming
+5. Recovery exclusion at L1 block 2^48 − 1 (spec L460): the same kind. Unreachable.
+6. Recovery origin timestamp 2^48 (spec L744): the spec asks for "range checks" without naming
    the range; the contract uses 2^48, the model only the 2^256 word bound. The spec should name
    2^48. Unreachable.
 
@@ -319,7 +321,7 @@ against the client's public rules: `forced::check` with `verify_forced` and a sc
 `Schedule` with `committee::derive`, the header and anchor rules of `rules`, and
 `check_execution_size`. All four families run. All vectors agree except one known divergence,
 listed in that harness: the model's `HeaderValid` rejects L2 height 2^48, while section 3.4
-states no height bound (only the Inbox's `land` bounds heights, EN L266) and the client accepts
+states no height bound (only the Inbox's `land` bounds heights, spec L266) and the client accepts
 it. It is a spec ambiguity at a height no chain reaches; the spec could state the bound in 3.4.
 
 Out of reach of the client vectors: the lander's landing grid and cut leaves, recovery
@@ -377,7 +379,8 @@ CI (`.github/workflows/formal--etna.yml`) runs, in order:
 5. `scripts/generate_artifacts.py` and `--check`: write `Audit.lean` and the clause inventory to
    the ignored `.scratch/generated`; `--check` verifies deterministic rendering only.
 6. `scripts/check_spec_coverage.py`: the traceability report's consistency (every claim edge is
-   a manifest edge to a partial clause, roles, EN/ZH symmetry); prints the clause statuses.
+   a manifest edge to a partial clause, roles, the pinned spec revision); prints the clause
+   statuses.
 7. `scripts/audit_proofs.py`, whose logic is `scripts/EtnaAudit.lean`, compiled separately so
    model code cannot change it: the checks below, transitive axioms, `leanchecker --fresh` over
    every library, and a replay of `tests/*.lean` with zero diagnostics.
@@ -388,7 +391,7 @@ What the audit checks, each with its documented limit:
 
 - **Headline.** `Etna.Proofs.claims` and the three headline theorems have exactly their claim
   types and only the standard axioms.
-- **Exact types.** Each of the 615 manifest entries carries a full expected type, parsed as one
+- **Exact types.** Each of the 614 manifest entries carries a full expected type, parsed as one
   term (no `by`, `sorry` or `%`-elaborators) and compared with the kernel's. The manifest is a
   reviewed artifact; the gate does not compare it with prose.
 - **Rule P** (needed for the `property` role). The statement is quantified, and every conjunct,
@@ -470,15 +473,15 @@ namespace (for example `EtnaModel/Deployment.lean` and `EtnaProofs/Deployment.le
   and the audit admits its root `main` as the one declaration outside `Etna`.
 - `manifests/design.json`: the theorem contracts; `manifests/shadowing-allowlist.json`.
 - `spec-coverage.json`: the 16 narrow claims (traceability).
-- `scripts/`, `tests/`: the gate and its tests. `specs/`: the frozen spec. `reports/`: review
-  history. `legacy/v9`: historical V9 material outside the build.
+- `scripts/`, `tests/`: the gate and its tests. `reports/`: review history. `legacy/v9`:
+  historical V9 material outside the build.
 
 ## Numbers
 
-- 615 theorem contracts: 93 property, 3 constant, 302 supporting, 217 regression.
+- 614 theorem contracts: 93 property, 3 constant, 301 supporting, 217 regression.
 - 93 property derivation chains (52 use induction directly, 41 through derived Etna theorems).
-- 619 bilingual clauses: 114 partial, 499 deferred, 6 design-pending; 16 narrow claims.
-- 143 formal tests.
+- 308 spec clauses: 56 partial, 249 deferred, 3 design-pending; 16 narrow claims.
+- 140 formal tests.
 - Conformance: 334 contract vectors (6 known divergences), 340 client vectors (1 known
   divergence).
 

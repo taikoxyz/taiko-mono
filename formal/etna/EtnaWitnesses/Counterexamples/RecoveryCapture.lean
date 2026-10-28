@@ -3,15 +3,15 @@ import EtnaWitnesses.NonVacuity.Premises
 /-! Scope counterexample (an open design issue): stake registered after the DAO authorizes a
 governance recovery can join, and here capture, the recovery committee.
 
-8.1 (EN L470): before authorizing, the DAO "checks a nonempty intended set, more than 2/3 online
-power, no party at or above 1/3"; 8 step 5 (EN L463): nodes "select the committee directly from
+8.1 (spec L470): before authorizing, the DAO "checks a nonempty intended set, more than 2/3 online
+power, no party at or above 1/3"; 8 step 5 (spec L463): nodes "select the committee directly from
 the registry snapshot at execution block R under 4.3 ... other already active candidates may
-enter"; 4.1 (EN L128): a registration activates after `activationDelay` L1 blocks, which §10
+enter"; 4.1 (spec L128): a registration activates after `activationDelay` L1 blocks, which §10
 only requires to be positive. The call `recover(expectedGeneration, expectedC, exclusions,
 fiToClear)` binds no registry bound, so the committee the DAO checked and the one R elects can
 differ by every registration that activates between authorization and execution. The exclusion
 list cannot help: it is fixed at authorization, and each entry must still match an existing,
-unreleased bond (8 step 2, EN L460), which the late stake was not yet. L470 asks for the check
+unreleased bond (8 step 2, spec L460), which the late stake was not yet. L470 asks for the check
 "before scheduling and executing", but a check at execution cannot change the outcome: the DAO
 cannot stop a scheduled call then (Taiko's DAO has no cancel for an approved proposal; see
 `StaleDaoAuthorization`), and the call's exclusion list is fixed.

@@ -5554,7 +5554,7 @@
       "id": "land.hw.generation-start-reuses-older-record",
       "family": "land",
       "source": "handwritten",
-      "spec": "EN L274",
+      "spec": "spec L274",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
@@ -5624,7 +5624,7 @@
       "id": "land.hw.below-generation-start",
       "family": "land",
       "source": "handwritten",
-      "spec": "EN L266",
+      "spec": "spec L266",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
@@ -5692,7 +5692,7 @@
       "id": "land.hw.own-generation-record",
       "family": "land",
       "source": "handwritten",
-      "spec": "EN L274",
+      "spec": "spec L274",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
@@ -5762,7 +5762,7 @@
       "id": "land.hw.previous-generation-start",
       "family": "land",
       "source": "handwritten",
-      "spec": "EN L266",
+      "spec": "spec L266",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 13,
@@ -5832,7 +5832,7 @@
       "id": "land.hw.second-recovery-start",
       "family": "land",
       "source": "handwritten",
-      "spec": "EN L274",
+      "spec": "spec L274",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 13,
@@ -5904,7 +5904,7 @@
       "id": "land.hw.two-recoveries-at-one-checkpoint",
       "family": "land",
       "source": "handwritten",
-      "spec": "EN L274",
+      "spec": "spec L274",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
@@ -5973,7 +5973,7 @@
       "id": "land.hw.record-parent-is-actual-checkpoint",
       "family": "land",
       "source": "handwritten",
-      "spec": "EN L315",
+      "spec": "spec L315",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
@@ -6038,7 +6038,7 @@
       "id": "land.hw.max-batch-blocks-6.one-segment",
       "family": "land",
       "source": "handwritten",
-      "spec": "EN L267",
+      "spec": "spec L267",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 6, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
@@ -6097,7 +6097,7 @@
       "id": "land.hw.max-batch-blocks-6.two-segments",
       "family": "land",
       "source": "handwritten",
-      "spec": "EN L267",
+      "spec": "spec L267",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 6, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
@@ -6154,7 +6154,7 @@
       "id": "land.hw.inbox-does-not-enforce-unsettled-limit",
       "family": "land",
       "source": "handwritten",
-      "spec": "EN L372",
+      "spec": "spec L372",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 6, "withdrawalDelay": 30},
         "callCount": 0,

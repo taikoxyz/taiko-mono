@@ -561,7 +561,7 @@
       "id": "block_rules.hw.fee-share-is-100",
       "family": "block_rules",
       "source": "handwritten",
-      "spec": "EN L75",
+      "spec": "spec L75",
       "input": {"rule": "feeShare", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
       "expect": {"valid": true}
     },
@@ -569,7 +569,7 @@
       "id": "block_rules.hw.anchor-at-origin-in-a-later-epoch",
       "family": "block_rules",
       "source": "handwritten",
-      "spec": "EN L162",
+      "spec": "spec L162",
       "input": {"rule": "anchor", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 24, "timestamp": 1700000000, "anchor": 100, "anchorTimestamp": 1699999000}, "block": {"height": 25, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 101, "timestamp": 1699999500, "checkpointHeight": 20, "generation": 0}},
       "expect": {"valid": true}
     },
@@ -577,7 +577,7 @@
       "id": "block_rules.hw.inherited-origin-anchor-in-a-later-epoch",
       "family": "block_rules",
       "source": "handwritten",
-      "spec": "EN L162",
+      "spec": "spec L162",
       "input": {"rule": "anchor", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 34, "timestamp": 1700000000, "anchor": 100, "anchorTimestamp": 1699999500}, "block": {"height": 35, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 100, "timestamp": 1699999500, "checkpointHeight": 30, "generation": 0}},
       "expect": {"valid": true}
     },
@@ -585,7 +585,7 @@
       "id": "block_rules.hw.anchor-below-origin",
       "family": "block_rules",
       "source": "handwritten",
-      "spec": "EN L101",
+      "spec": "spec L101",
       "input": {"rule": "anchor", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 99, "anchorTimestamp": 1699999500}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 99, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
       "expect": {"valid": false}
     },
@@ -593,7 +593,7 @@
       "id": "block_rules.hw.anchor-max-uint48",
       "family": "block_rules",
       "source": "handwritten",
-      "spec": "EN L75",
+      "spec": "spec L75",
       "input": {"rule": "anchor", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 281474976710655, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
       "expect": {"valid": true}
     },
@@ -601,7 +601,7 @@
       "id": "block_rules.hw.anchor-2pow48",
       "family": "block_rules",
       "source": "handwritten",
-      "spec": "EN L75",
+      "spec": "spec L75",
       "input": {"rule": "anchor", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 281474976710656, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
       "expect": {"valid": false}
     },
@@ -609,7 +609,7 @@
       "id": "block_rules.hw.superseded-chain",
       "family": "block_rules",
       "source": "handwritten",
-      "spec": "EN L102",
+      "spec": "spec L102",
       "input": {"rule": "generation", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 1}},
       "expect": {"valid": false}
     },
@@ -617,7 +617,7 @@
       "id": "block_rules.hw.inbox-behind-chain",
       "family": "block_rules",
       "source": "handwritten",
-      "spec": "EN L102",
+      "spec": "spec L102",
       "input": {"rule": "generation", "chainGeneration": 1, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 1}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
       "expect": {"valid": false}
     },
@@ -625,7 +625,7 @@
       "id": "block_rules.hw.back-pressure-at-u",
       "family": "block_rules",
       "source": "handwritten",
-      "spec": "EN L103",
+      "spec": "spec L103",
       "input": {"rule": "backPressure", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 19, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 20, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 14, "generation": 0}},
       "expect": {"valid": true}
     },
@@ -633,7 +633,7 @@
       "id": "block_rules.hw.freshness-at-max-age",
       "family": "block_rules",
       "source": "handwritten",
-      "spec": "EN L105",
+      "spec": "spec L105",
       "input": {"rule": "freshness", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699992804, "checkpointHeight": 2, "generation": 0}},
       "expect": {"valid": true}
     },
@@ -641,7 +641,7 @@
       "id": "block_rules.hw.timestamp-strictly-increases",
       "family": "block_rules",
       "source": "handwritten",
-      "spec": "EN L73",
+      "spec": "spec L73",
       "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000000, "timestamp": 1700000000, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999990, "checkpointHeight": 2, "generation": 0}},
       "expect": {"valid": false}
     },
@@ -649,7 +649,7 @@
       "id": "block_rules.hw.height-max-uint48",
       "family": "block_rules",
       "source": "handwritten",
-      "spec": "EN L266",
+      "spec": "spec L266",
       "input": {"rule": "height", "chainGeneration": 0, "epochLen": 140737488355328, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 281474976710654, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 281474976710655, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 281474976710653, "generation": 0}},
       "expect": {"valid": true}
     },
@@ -657,7 +657,7 @@
       "id": "block_rules.hw.height-2pow48",
       "family": "block_rules",
       "source": "handwritten",
-      "spec": "EN L266",
+      "spec": "spec L266",
       "input": {"rule": "height", "chainGeneration": 0, "epochLen": 140737488355328, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 281474976710655, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 281474976710656, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 281474976710654, "generation": 0}},
       "expect": {"valid": false}
     }

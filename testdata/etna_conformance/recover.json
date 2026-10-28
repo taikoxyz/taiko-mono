@@ -2478,7 +2478,7 @@
       "id": "recover.hw.second-recovery",
       "family": "recover",
       "source": "handwritten",
-      "spec": "EN L483",
+      "spec": "spec L483",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 13,
@@ -2556,7 +2556,7 @@
       "id": "recover.hw.stale-checkpoint-after-landing",
       "family": "recover",
       "source": "handwritten",
-      "spec": "EN L469",
+      "spec": "spec L469",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 13,
@@ -2634,7 +2634,7 @@
       "id": "recover.hw.stale-generation-after-recovery",
       "family": "recover",
       "source": "handwritten",
-      "spec": "EN L483",
+      "spec": "spec L483",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 13,
@@ -2711,7 +2711,7 @@
       "id": "recover.hw.keeps-settled-state",
       "family": "recover",
       "source": "handwritten",
-      "spec": "EN L462",
+      "spec": "spec L462",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
@@ -2787,7 +2787,7 @@
       "id": "recover.hw.exclusion-moves-exit-to-recovery-block",
       "family": "recover",
       "source": "handwritten",
-      "spec": "EN L460",
+      "spec": "spec L460",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 13,
@@ -2864,7 +2864,7 @@
       "id": "recover.hw.exclusion-keeps-earlier-exit",
       "family": "recover",
       "source": "handwritten",
-      "spec": "EN L460",
+      "spec": "spec L460",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 13,
@@ -2941,7 +2941,7 @@
       "id": "recover.hw.reused-slot-old-key",
       "family": "recover",
       "source": "handwritten",
-      "spec": "EN L460",
+      "spec": "spec L460",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 13,
@@ -3017,7 +3017,7 @@
       "id": "recover.hw.reused-slot-new-key",
       "family": "recover",
       "source": "handwritten",
-      "spec": "EN L460",
+      "spec": "spec L460",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 13,
@@ -3094,7 +3094,7 @@
       "id": "recover.hw.excluding-slashed-entry",
       "family": "recover",
       "source": "handwritten",
-      "spec": "EN L460",
+      "spec": "spec L460",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 13,
@@ -3171,7 +3171,7 @@
       "id": "recover.hw.blank-twice",
       "family": "recover",
       "source": "handwritten",
-      "spec": "EN L461",
+      "spec": "spec L461",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 13,
@@ -3249,7 +3249,7 @@
       "id": "recover.hw.recovery-block-2pow48-minus1",
       "family": "recover",
       "source": "handwritten",
-      "spec": "EN L747",
+      "spec": "spec L744",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
@@ -3325,7 +3325,7 @@
       "id": "recover.hw.recovery-block-2pow48",
       "family": "recover",
       "source": "handwritten",
-      "spec": "EN L747",
+      "spec": "spec L744",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
@@ -3400,7 +3400,7 @@
       "id": "recover.hw.exclusion-at-block-2pow48-minus1",
       "family": "recover",
       "source": "handwritten",
-      "spec": "EN L460",
+      "spec": "spec L460",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
@@ -3476,7 +3476,7 @@
       "id": "recover.hw.origin-timestamp-2pow48-minus1",
       "family": "recover",
       "source": "handwritten",
-      "spec": "EN L747",
+      "spec": "spec L744",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
@@ -3552,7 +3552,7 @@
       "id": "recover.hw.origin-timestamp-2pow48",
       "family": "recover",
       "source": "handwritten",
-      "spec": "EN L747",
+      "spec": "spec L744",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
