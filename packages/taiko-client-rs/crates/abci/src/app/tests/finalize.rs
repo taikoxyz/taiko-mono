@@ -1277,7 +1277,7 @@ fn short_epochs() -> Fixture {
     Fixture::build(spec)
 }
 
-/// Drives `PrepareProposal → ProcessProposal → FinalizeBlock → Commit` for `2 L + 2` heights
+/// Drives `PrepareProposal → ProcessProposal → FinalizeBlock → Commit` for `3 L + 3` heights
 /// from `H_0` on a [`short_epochs`] fixture; returns the app and every decided height's
 /// `FinalizeBlock` request and response.
 ///
@@ -1299,7 +1299,7 @@ async fn multi_epoch_run(
         ],
     };
     let mut decided = vec![];
-    for k in 0..3 * fx.genesis.epoch_len + 2 {
+    for k in 0..3 * fx.genesis.epoch_len + 3 {
         if k > 0 {
             let state = app.state().unwrap();
             let mut inbox = fx.inbox_with(state.last_height);
@@ -1347,8 +1347,8 @@ async fn multi_epoch_run_switches_the_validator_set_once() {
     let state = app.state().unwrap();
     let schedule = state.schedule();
     let h0 = schedule.h0();
-    assert_eq!(decided.len(), 14);
-    assert_eq!(state.last_height, h0 + 13);
+    assert_eq!(decided.len(), 15);
+    assert_eq!(state.last_height, h0 + 14);
     assert_eq!(schedule.epoch_of(state.last_height), 3);
 
     let c1 = fx.committee(1);

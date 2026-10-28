@@ -1,7 +1,7 @@
 //! Epoch schedule of a chain starting at L2 genesis block 0.
 //!
 //! CometBFT heights equal L2 block numbers. With `e_0 = 0`, `H_0 = 1`,
-//! `epoch_of(h) = h / L`, `h_first(e) = e·L` (epoch zero starts at 1) and `h_last(e) = h_first(e +
+//! `epoch_of(h) = (h - 1) / L`, `h_first(e) = 1 + e·L` and `h_last(e) = h_first(e +
 //! 1) - 1`. `FinalizeBlock` emits epoch `e >= 1`'s validators at `h_first(e) - 2` because CometBFT
 //! applies the updates two heights later. Epoch 0's validators come from genesis.
 //!
@@ -24,7 +24,7 @@ pub struct Schedule {
     /// `L1_0`: L1 block number of initialization; the minimum anchor of every block; validated
     /// `<= UINT48_MAX`.
     pub l1_0: u64,
-    /// `L`: epoch length in L2 blocks (CometBFT heights); validated `>= 3`, `>= U + 3`,
+    /// `L`: epoch length in L2 blocks (CometBFT heights); validated `>= 3`, independently of U,
     /// `< UINT48_MAX`, so `h_first(1)` is a `uint48` height.
     pub epoch_len: u64,
     /// `genesisCutoff`: the explicit L1 block of epoch `e_0`'s registry snapshot; `< l1_0`
@@ -71,7 +71,7 @@ impl Schedule {
         1
     }
 
-    /// The epoch containing height `h`: `h / L`; epoch zero contains heights `1..L`.
+    /// The epoch containing height `h`: `(h - 1) / L`; epoch zero contains heights `1..=L`.
     ///
     /// `h` must be positive (debug-asserted); release builds map height zero to epoch zero.
     ///
@@ -81,10 +81,10 @@ impl Schedule {
     pub fn epoch_of(&self, h: u64) -> u64 {
         let h0 = self.h0();
         debug_assert!(h >= h0, "epoch_of: height {h} is below H_0 = {h0}");
-        h / self.len("epoch_of")
+        h.saturating_sub(h0) / self.len("epoch_of")
     }
 
-    /// The first height is 1 for epoch zero and `e * L` for every positive epoch.
+    /// The first height of epoch `e` is `1 + e * L`, including epoch zero.
     ///
     /// # Panics
     ///
@@ -95,7 +95,7 @@ impl Schedule {
 
     /// [`Schedule::h_first`], or `None` if the height overflows `u64`.
     pub fn checked_h_first(&self, e: u64) -> Option<u64> {
-        if e == 0 { Some(1) } else { Self::offset(e, self.epoch_len) }
+        Self::offset(e, self.epoch_len)?.checked_add(self.h0())
     }
 
     /// The committed L2 parent selecting `target_epoch` at its switch: `H(target_epoch) - 3`.
@@ -106,7 +106,7 @@ impl Schedule {
         if target_epoch == Self::E0 {
             return None;
         }
-        Self::offset(target_epoch, self.epoch_len)?.checked_sub(3)
+        self.checked_h_first(target_epoch)?.checked_sub(3)
     }
 
     /// `h_last(e) = h_first(e + 1) - 1`, the last height of epoch `e`.
@@ -150,10 +150,8 @@ impl Schedule {
     /// If `epoch_len == 0`.
     pub fn epoch_starting_at(&self, h: u64) -> Option<u64> {
         let len = self.len("epoch_starting_at");
-        if h == 1 {
-            return Some(0);
-        }
-        (h > 0 && h.is_multiple_of(len)).then(|| h / len)
+        let offset = h.checked_sub(self.h0())?;
+        offset.is_multiple_of(len).then(|| offset / len)
     }
 
     /// Checks `epoch_len >= 3` and `epoch_len + 1 <= UINT48_MAX`, independently of U.
@@ -205,6 +203,53 @@ mod tests {
     const CASES: [u64; 2] = [3, 20];
 
     #[test]
+    fn canonical_epoch_boundaries_use_the_first_consensus_height() {
+        // Literal canonical §4.2/4.3 boundaries, independent of Schedule helpers.
+        for (l, epoch, first, last, parent, switch) in [
+            (3, 1, 4, 6, 1, 2),
+            (3, 2, 7, 9, 4, 5),
+            (900, 1, 901, 1800, 898, 899),
+            (900, 2, 1801, 2700, 1798, 1799),
+        ] {
+            let s = schedule(l);
+            assert_eq!(s.h_first(epoch), first, "L={l} epoch={epoch}");
+            assert_eq!(s.h_last(epoch), last);
+            assert_eq!(s.derivation_parent_height(epoch), Some(parent));
+            for height in [first - 1, first, first + 1, last] {
+                assert_eq!(s.epoch_of(height), if height < first { epoch - 1 } else { epoch });
+                assert_eq!(s.epoch_starting_at(height), (height == first).then_some(epoch));
+            }
+            assert_eq!(s.switch_target(switch - 1), None);
+            assert_eq!(s.switch_target(switch), Some(epoch));
+            assert_eq!(s.switch_target(switch + 1), None);
+            assert_eq!(s.next_switch_target(switch - 1), Some(epoch));
+            assert_eq!(s.next_switch_target(switch), Some(epoch));
+            assert_eq!(s.next_switch_target(switch + 1), Some(epoch + 1));
+        }
+        assert_eq!(schedule(3).h_first(0), 1);
+        assert_eq!(schedule(3).h_last(0), 3);
+        assert_eq!(schedule(900).h_last(0), 900);
+        assert_eq!(schedule(3).epoch_starting_at(0), None);
+        assert_eq!(schedule(3).switch_target(0), None);
+        assert_eq!(schedule(3).next_switch_target(0), Some(1));
+    }
+
+    #[test]
+    fn canonical_epoch_offset_addition_is_checked() {
+        assert_eq!(schedule(u64::MAX).checked_h_first(1), None);
+        assert_eq!(schedule(u64::MAX).derivation_parent_height(1), None);
+        assert_eq!(schedule(u64::MAX - 1).checked_h_first(1), Some(u64::MAX));
+        assert_eq!(schedule(u64::MAX - 1).derivation_parent_height(1), Some(u64::MAX - 3));
+        assert_eq!(schedule(900).checked_h_first(u64::MAX), None);
+        assert_eq!(schedule(900).next_switch_target(u64::MAX), None);
+        assert_eq!(schedule(900).switch_target(u64::MAX - 1), None);
+        let last = schedule(UINT48_MAX - 1);
+        assert_eq!(last.validate(3600), Ok(()));
+        assert_eq!(last.h_first(1), UINT48_MAX);
+        assert!(schedule(UINT48_MAX).validate(3600).is_err());
+    }
+
+    #[test]
     fn from_genesis_copies_the_schedule_fields() {
         let a = GenesisRecord {
             committee_config_hash: crate::committee::committee_config_hash(
@@ -238,7 +283,7 @@ mod tests {
 
             // (epoch, h_first, h_last)
             for (e, first, last) in
-                [(0, h0, l - 1), (1, l, 2 * l - 1), (2, 2 * l, 3 * l - 1), (7, 7 * l, 8 * l - 1)]
+                [(0, h0, l), (1, l + 1, 2 * l), (2, 2 * l + 1, 3 * l), (7, 7 * l + 1, 8 * l)]
             {
                 assert_eq!(s.h_first(e), first, "{ctx} h_first({e})");
                 assert_eq!(s.checked_h_first(e), Some(first), "{ctx} checked_h_first({e})");
@@ -252,12 +297,12 @@ mod tests {
 
             // (height, switch_target)
             for (h, expected) in [
-                (l - 2, Some(1)),
-                (2 * l - 2, Some(2)),
-                (l - 3, None),
-                (l - 1, None),
+                (l - 1, Some(1)),
+                (2 * l - 1, Some(2)),
+                (l - 2, None),
+                (l + 1, None),
                 (l, None),
-                (h0, (l == 3).then_some(1)),
+                (h0, None),
                 (0, None),
                 (u64::MAX, None),
                 (u64::MAX - 1, None),
@@ -265,7 +310,6 @@ mod tests {
                 assert_eq!(s.switch_target(h), expected, "{ctx} switch_target({h})");
             }
 
-            assert_eq!(s.epoch_starting_at(0), None, "{ctx}");
             assert_eq!(s.epoch_starting_at(0), None, "{ctx}");
         }
     }
@@ -294,7 +338,7 @@ mod tests {
     fn switch_heights_start_no_earlier_than_h0() {
         for l in CASES {
             let s = schedule(l);
-            assert_eq!(s.switch_target(s.h0()), (l == 3).then_some(1), "L={l}");
+            assert_eq!(s.switch_target(s.h0()), None, "L={l}");
             for e in 1..10 {
                 assert!(s.h_first(e) - 2 >= s.h0(), "L={l} e={e}");
             }
@@ -333,7 +377,7 @@ mod tests {
         // h_first(1) = L + 1 may be the last height `land` accepts, not one above it.
         let s = Schedule { epoch_len: UINT48_MAX - 1, ..schedule(20) };
         assert_eq!(s.validate(10), Ok(()));
-        assert_eq!(s.h_first(1), UINT48_MAX - 1);
+        assert_eq!(s.h_first(1), UINT48_MAX);
         for epoch_len in [UINT48_MAX, u64::MAX - 1, u64::MAX] {
             assert_eq!(
                 Schedule { epoch_len, ..schedule(20) }.validate(10),
@@ -363,13 +407,10 @@ mod tests {
     #[test]
     fn checked_h_first_reports_overflow() {
         assert_eq!(schedule(20).checked_h_first(u64::MAX), None);
-        assert_eq!(
-            Schedule { epoch_len: u64::MAX, ..schedule(20) }.checked_h_first(1),
-            Some(u64::MAX)
-        );
+        assert_eq!(Schedule { epoch_len: u64::MAX, ..schedule(20) }.checked_h_first(1), None);
         assert_eq!(
             Schedule { epoch_len: u64::MAX - 1, ..schedule(20) }.checked_h_first(1),
-            Some(u64::MAX - 1)
+            Some(u64::MAX)
         );
     }
 
@@ -388,15 +429,12 @@ mod parent_height_tests {
     fn derivation_parent_is_checked_before_switch_and_activation() {
         let schedule = Schedule { l1_0: 1000, epoch_len: 10, genesis_cutoff: 980 };
         for (epoch, height) in
-            [(0, None), (1, Some(7)), (2, Some(17)), (3, Some(27)), (u64::MAX, None)]
+            [(0, None), (1, Some(8)), (2, Some(18)), (3, Some(28)), (u64::MAX, None)]
         {
             assert_eq!(schedule.derivation_parent_height(epoch), height);
         }
-        assert_eq!(
-            Schedule { epoch_len: u64::MAX, ..schedule }.derivation_parent_height(1),
-            Some(u64::MAX - 3)
-        );
+        assert_eq!(Schedule { epoch_len: u64::MAX, ..schedule }.derivation_parent_height(1), None);
         assert_eq!(Schedule { epoch_len: 1, ..schedule }.derivation_parent_height(1), None);
-        assert_eq!(Schedule { epoch_len: 3, ..schedule }.derivation_parent_height(1), Some(0));
+        assert_eq!(Schedule { epoch_len: 3, ..schedule }.derivation_parent_height(1), Some(1));
     }
 }

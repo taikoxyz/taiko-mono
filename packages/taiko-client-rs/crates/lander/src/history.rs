@@ -161,16 +161,16 @@ mod tests {
     fn headers(mutation: u8) -> Vec<Header> {
         let mut result = Vec::new();
         let mut parent = B256::repeat_byte(1);
-        for number in 7..=15 {
+        for number in 8..=15 {
             let header = Header {
                 number,
                 parent_hash: parent,
                 extra_data: rules::encode_extra_data(
-                    if mutation == 1 && number == 7 { 1 } else { 0 },
-                    if mutation == 2 && number == 7 { 9 } else { 11 },
+                    if mutation == 1 && number == 8 { 1 } else { 0 },
+                    if mutation == 2 && number == 8 { 9 } else { 11 },
                 )
                 .unwrap(),
-                parent_beacon_block_root: if mutation == 3 && number == 7 {
+                parent_beacon_block_root: if mutation == 3 && number == 8 {
                     Some(B256::ZERO)
                 } else {
                     Some(B256::repeat_byte(7))
@@ -196,23 +196,30 @@ mod tests {
         )
     }
     #[test]
-    fn v1_derivation_at_genesis_uses_initialization_anchor_not_bootstrap_cutoff() {
+    fn minimal_epoch_derives_from_first_block_anchor_not_bootstrap_cutoff() {
         let schedule = Schedule { l1_0: 10, epoch_len: 3, genesis_cutoff: 1 };
-        assert_eq!(schedule.derivation_parent_height(1), Some(0));
-        assert_eq!(snapshot_number(Some(&Header::default()), &schedule).unwrap(), 10);
+        assert_eq!(schedule.derivation_parent_height(1), Some(1));
+        let parent = Header {
+            number: 1,
+            extra_data: rules::encode_extra_data(0, 11).unwrap(),
+            ..Default::default()
+        };
+        assert_eq!(snapshot_number(Some(&parent), &schedule).unwrap(), 11);
         assert_eq!(snapshot_number(None, &schedule).unwrap(), 1);
     }
 
     #[test]
     fn minimal_starting_epochs_include_pending_set_at_switch_checkpoint() {
         for (p, epochs, oldest) in [
-            (8, vec![0, 1], 7),
-            (9, vec![0, 1], 7),
-            (10, vec![1], 7),
-            (11, vec![1], 7),
-            (15, vec![1], 7),
-            (18, vec![1, 2], 7),
-            (19, vec![1, 2], 7),
+            (8, vec![0], 7),
+            (9, vec![0, 1], 8),
+            (10, vec![0, 1], 8),
+            (11, vec![1], 8),
+            (15, vec![1], 8),
+            (18, vec![1], 8),
+            (19, vec![1, 2], 8),
+            (20, vec![1, 2], 8),
+            (21, vec![2], 18),
         ] {
             let req = requirements(p, &schedule()).unwrap();
             assert_eq!(req.epochs, epochs);
@@ -227,7 +234,7 @@ mod tests {
     fn history_binds_order_number_hash_generation_and_anchor_without_hints() {
         let valid = headers(0);
         let derived = verify_headers(&valid).unwrap();
-        assert_eq!(derived[&1].as_ref().unwrap().number, 7);
+        assert_eq!(derived[&1].as_ref().unwrap().number, 8);
         assert_eq!(snapshot_number(derived[&1].as_ref(), &schedule()).unwrap(), 11);
         assert_eq!(snapshot_number(None, &schedule()).unwrap(), 1);
         for mutation in 1..=3 {

@@ -37,8 +37,8 @@ sol!(TestERC20, "../../crates/lander/tests/fixtures/contracts/TestERC20.json");
 pub const STAKE: u128 = 1_000_000_000_000_000_000;
 /// The devnet chain id accepted by builtin client configuration.
 pub const L2_CHAIN_ID: u64 = 167001;
-/// Accelerated epoch length with D(1)=12 on the legal K=6 landing grid.
-pub const EPOCH_LEN: u64 = 15;
+/// Accelerated canonical epoch: D(1)=12, S(1)=13, H(1)=15; D is on the K=6 grid.
+pub const EPOCH_LEN: u64 = 14;
 /// Forced inclusion delay installed at genesis, in seconds.
 pub const FORCED_INCLUSION_DELAY: u64 = 3_600;
 /// Maximum anchor age installed at genesis, in seconds.

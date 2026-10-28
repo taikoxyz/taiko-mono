@@ -440,10 +440,13 @@ mod tests {
         assert!(transaction.validate(&other, &proof).is_err());
         other = request.clone();
         other.batch.input.activeCommitteeSnapshot ^= U256::from(1);
-        assert!(transaction.validate(&other, &proof).is_err(), "amount is signed");
+        assert!(
+            transaction.validate(&other, &proof).is_err(),
+            "active committee snapshot is signed"
+        );
         other = request.clone();
         other.batch.input.lastCometHash = B256::repeat_byte(0x99);
-        assert!(transaction.validate(&other, &proof).is_err(), "L2 recipient is signed");
+        assert!(transaction.validate(&other, &proof).is_err(), "terminal Comet hash is signed");
         let mut corrupted = transaction.clone();
         corrupted.nonce += 1;
         assert!(corrupted.validate(&request, &proof).is_err());
@@ -729,13 +732,12 @@ mod tests {
         }
     }
 
-    /// The Inbox's `ZeroFeeRecipient` revert names an input the lander built wrongly, so it is a
-    /// configuration error, never a retry; another revert stays [`LanderError::Reverted`].
+    /// An unknown retired selector remains a revert; it is neither a retry nor a current
+    /// configuration error inferred from obsolete reward-recipient semantics.
     #[tokio::test]
     async fn gas_estimation_unknown_legacy_revert_remains_a_revert() {
         use serde_json::json;
         let selector = [0xcf, 0xf9, 0xf1, 0x94];
-        assert_eq!(selector, [0xcf, 0xf9, 0xf1, 0x94]);
         let data = alloy_primitives::hex::encode_prefixed(selector);
         let provider =
             crate::l1::tests::rpc(move |request| match request["method"].as_str().unwrap() {

@@ -172,8 +172,10 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     assert_landed(&fixture, &first, &signed).await?;
     // Land exactly D, then mutate the registry after the immutable derivation snapshot.
     let schedule = abci::Schedule::from_genesis(&fixture.genesis);
-    let derivation_height = schedule.derivation_parent_height(1).context("D height")?;
-    let switch_height = schedule.h_first(1) - 2;
+    let (derivation_height, switch_height, activation_height) = (12, 13, 15);
+    assert_eq!(schedule.derivation_parent_height(1), Some(derivation_height));
+    assert_eq!(schedule.switch_target(switch_height), Some(1));
+    assert_eq!(schedule.h_first(1), activation_height);
     mine_l1_blocks(&fixture.anvil.provider, 3).await?;
     chain.extend(&fixture, derivation_height).await?;
     let derivation = chain.prepare(&fixture, derivation_height, SidecarMode::Eip7594).await?;

@@ -80,10 +80,10 @@ mod tests {
     };
 
     /// The `InitChain` request CometBFT sends for `doc`: the document is parsed as a CometBFT
-    /// genesis file (with tendermint-rs's own parser), the validators carry their Ed25519 keys
-    /// and powers, and `app_state` is passed on as its raw JSON bytes. The request passes through
-    /// the ABCI protobuf conversion, as the server's wire decoder does: JSON's explicit vote
-    /// extension height zero becomes the typed request's disabled `None` value.
+    /// native genesis file (with the application parser), the validators carry their secp256k1eth
+    /// keys and powers, and `app_state` is passed on as its raw JSON bytes. The request passes
+    /// through the ABCI protobuf conversion, as the server's wire decoder does: JSON's explicit
+    /// vote extension height zero becomes the typed request's disabled `None` value.
     fn init_chain_from(doc: &GenesisDoc) -> InitChain {
         let genesis: GenesisDoc = serde_json::from_str(&doc.to_json_pretty()).unwrap();
         InitChain {

@@ -489,10 +489,10 @@ impl Fixture {
         let anchor_number = |height: u64| {
             if height <= 6 || (checkpoint == 0 && !epochs.advances) {
                 10
-            } else if height < epoch_len - 2 {
+            } else if height < epoch_len - 1 {
                 11
             } else if epochs.advances {
-                12 + (height - (epoch_len - 2)) / (epoch_len - 6)
+                12 + (height - (epoch_len - 1)) / (epoch_len - 6)
             } else {
                 12
             }
@@ -1112,7 +1112,7 @@ mod readiness {
         let observed = builder(fixture.clone(), bound).observe(&fixture.snapshot).await.unwrap();
         assert_eq!(observed.decided_height, 30);
         assert_eq!(observed.publishable_blocks, 0);
-        assert!(observed.force_epoch); // h_first(1)=24 is beyond the single-block prefix at 21.
+        assert!(observed.force_epoch); // h_first(1)=25 is beyond the single-block prefix at 21.
         assert!(!observed.force_backpressure); // The tip anchor CP=20 gives depth 6 < 19.
         assert!(
             builder(fixture.clone(), bound)

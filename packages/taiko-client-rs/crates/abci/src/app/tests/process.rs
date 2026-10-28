@@ -771,7 +771,7 @@ async fn arbitrary_certified_beneficiary_is_valid() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn canonical_unsupported_anchor_waits_but_forged_malformed_anchor_rejects() {
+async fn canonical_unsupported_anchor_rejects_process_but_finalize_waits() {
     use super::proposal::{finalize, finalize_req};
     fn list(fields: &[Vec<u8>]) -> Vec<u8> {
         let payload: Vec<u8> = fields.concat();
@@ -794,11 +794,14 @@ async fn canonical_unsupported_anchor_waits_but_forged_malformed_anchor_rejects(
         let req = process_req(next_height(&app), bft_time(&app), vec![tx]);
         if canonical {
             app.l1().state().canonical_script.push_back(Ok(alloy_primitives::keccak256(&raw)));
-            assert!(
+            assert_eq!(
                 tokio::time::timeout(Duration::from_millis(50), process(&mut app, req.clone()))
                     .await
-                    .is_err()
+                    .expect("canonical unsupported header must return control to Comet"),
+                response::ProcessProposal::Reject
             );
+            assert!(app.store.fatal_evidence().unwrap().is_none());
+            assert!(app.pending.is_none());
             app.l1().state().canonical_script.push_back(Ok(alloy_primitives::keccak256(&raw)));
             assert!(
                 tokio::time::timeout(

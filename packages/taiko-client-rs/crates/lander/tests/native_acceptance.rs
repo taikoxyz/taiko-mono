@@ -178,7 +178,7 @@ async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> 
     c.wait_for_height(18.max(fi_height + 1)).await?;
     let epoch = c.cmt.committee(1).await?.context("native epoch 1")?;
     assert_eq!(epoch.members.len(), 4);
-    assert_eq!(c.cmt.validators(Some(f.genesis.epoch_len)).await?.len(), 4);
+    assert_eq!(c.cmt.validators(Some(f.genesis.epoch_len + 1)).await?.len(), 4);
     eprintln!(
         "ACCEPTANCE normal={} at={} fee={} FI={} at={} epoch=1 nativeMembers=4",
         payment, h, fee, forced_hash, fi_height

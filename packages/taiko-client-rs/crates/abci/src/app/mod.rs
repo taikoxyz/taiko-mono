@@ -191,13 +191,13 @@ pub enum AbciError {
     /// ([`Schedule::validate`](crate::schedule::Schedule::validate)).
     #[error(transparent)]
     Schedule(#[from] ScheduleError),
-    /// A CometBFT `chain_id` is not `taiko-etna-<l2ChainId>-g<generation>` for this chain.
+    /// A CometBFT `chain_id` differs from this chain's 48-byte `etna-` deployment-domain digest.
     #[error(transparent)]
     ChainId(#[from] RuleViolation),
     /// The `chain_id` generation differs from the Inbox's `recoveryGeneration`.
     #[error("chain_id generation {chain_id} differs from the inbox recoveryGeneration {inbox}")]
     GenerationMismatch {
-        /// The generation in the `chain_id` suffix.
+        /// The generation authenticated by the genesis signing domain.
         chain_id: u64,
         /// The Inbox's `recoveryGeneration` at `L1_0`.
         inbox: u64,

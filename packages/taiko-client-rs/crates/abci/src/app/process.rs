@@ -24,7 +24,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// hash for `FinalizeBlock`. A rejection is recorded as the halt reason and logged; it is
     /// never an error. A proven later recovery generation sets the `superseded` status, after
     /// which every proposal is rejected. Missing initialization and own-node integrity failures
-    /// return errors; temporary dependencies wait without a false rejection.
+    /// return errors; temporary dependencies wait without a false rejection. Hash-canonical
+    /// unsupported L1 header formats reject without a fatal latch; FinalizeBlock waits instead.
     pub(super) async fn process_proposal(
         &mut self,
         req: request::ProcessProposal,
