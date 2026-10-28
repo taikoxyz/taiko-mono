@@ -291,7 +291,8 @@ async fn lander_out_of_gas_landing_is_rebuilt_and_lands() -> Result<()> {
 /// until `sweepProtocolFees` pays it to the treasury.
 #[tokio::test]
 #[ignore = "requires Docker: actual Etna contracts on Osaka anvil"]
-async fn lander_actual_contract_forced_inclusion_lands_and_pays_fee() -> Result<()> {
+async fn lander_actual_contract_forced_inclusion_lands_and_fee_is_swept_to_treasury() -> Result<()>
+{
     let fixture = ContractFixture::deploy().await?;
     let p = &fixture.anvil.provider;
     let mut chain = FixtureChain::new(&fixture).await?;

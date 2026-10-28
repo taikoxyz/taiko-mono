@@ -311,7 +311,7 @@ mod tests {
 
     /// The lander takes exactly `MAX_LANDING_BLOBS` blobs; fewer are refused.
     #[test]
-    fn rejects_fewer_blobs_than_one_landing_needs() {
+    fn rejects_fewer_blobs_than_one_transaction_permits() {
         let mut c = valid();
         c.limits.max_blobs = MAX_LANDING_BLOBS;
         c.validate().unwrap();

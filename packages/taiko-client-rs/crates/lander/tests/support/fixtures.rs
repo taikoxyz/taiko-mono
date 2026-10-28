@@ -186,7 +186,7 @@ impl FixtureChain {
             let time = parent.timestamp + 1;
             let expected = expected_header(&HeaderInputs {
                 height,
-                reward_recipient: fixture.params.fee_recipient,
+                beneficiary: fixture.params.fee_recipient,
                 parent: &parent_info,
                 anchor: &anchor,
                 bft_time_secs: time,
