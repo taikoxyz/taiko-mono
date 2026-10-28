@@ -524,8 +524,8 @@ async fn frozen_comet_is_reaped_before_parent_read_and_recovers() -> Result<()> 
     d.stop().await
 }
 
-/// Exercise the raw cap against executable blocks built by the pinned real EL, including a block
-/// the EL fills with legacy transactions under the production byte limit.
+/// Exercise the raw cap against executable blocks built by the pinned real EL, including legacy
+/// transactions that fit the production byte limit only when counted in block-body form.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
 async fn raw_execution_boundary_124000_accepts_124001_rejects() -> Result<()> {
@@ -582,38 +582,80 @@ async fn raw_execution_boundary_124000_accepts_124001_rejects() -> Result<()> {
         blocks.push(found.context("exact executable raw boundary")?);
     }
 
-    // The EL measures every transaction, legacy included, as an RLP byte string of its EIP-2718
-    // bytes, like the envelope. Offered more legacy transactions than fit, it fills the block
-    // under the production limit with a measure the client accepts.
-    let legacy = (0..5u64)
-        .map(|i| {
-            sign_legacy(TxLegacy {
-                chain_id: Some(d.params().l2_chain_id),
-                nonce: nonce + i,
-                gas_price: 10_000_000_000,
-                gas_limit: 1_000_000,
-                to: TxKind::Call(RECIPIENT),
-                value: U256::ZERO,
-                input: Bytes::from(vec![0; 30_000]),
+    // The client measures every transaction, legacy included, as an RLP byte string of its
+    // EIP-2718 bytes, as the envelope carries it; block-body form leaves out each legacy
+    // transaction's 3-byte string header. Eight legacy transactions are sized so that all of
+    // them make a 124,001-byte executionBlock in the client's measure. In block-body form the
+    // same block measures 24 bytes less, more than the at most 16 bytes the EL's header reserve
+    // leaves unused, so an EL counting block-body form would include all eight under the
+    // production limit and build a block the client rejects. An EL counting the client's form
+    // must leave the last one out.
+    const LEGACY: u64 = 8;
+    const LEGACY_INPUT: usize = 15_000;
+    let legacy_txs = |last_input: usize| {
+        (0..LEGACY)
+            .map(|i| {
+                sign_legacy(TxLegacy {
+                    chain_id: Some(d.params().l2_chain_id),
+                    nonce: nonce + i,
+                    gas_price: 10_000_000_000,
+                    gas_limit: 1_000_000,
+                    to: TxKind::Call(RECIPIENT),
+                    value: U256::ZERO,
+                    input: Bytes::from(vec![
+                        0;
+                        if i + 1 == LEGACY { last_input } else { LEGACY_INPUT }
+                    ]),
+                })
             })
-        })
-        .collect::<Result<Vec<_>>>()?;
-    let attrs = rules::payload_attributes(
-        &expected(&base),
-        anchor,
-        Some(protocol::shasta::encode_transactions(&legacy)),
-    );
+            .collect::<Result<Vec<_>>>()
+    };
+    let legacy_attrs = |txs: &[TxEnvelope]| {
+        rules::payload_attributes(
+            &expected(&base),
+            anchor,
+            Some(protocol::shasta::encode_transactions(txs)),
+        )
+    };
+    // Size the last transaction with room for all eight in either form, so the sizing does not
+    // depend on how the EL counts.
+    let mut last_input = 17_000usize;
+    let mut sized = None;
+    for _ in 0..8 {
+        let txs = legacy_txs(last_input)?;
+        let mut attrs = legacy_attrs(&txs);
+        attrs.max_block_bytes = Some(124_001 + 1024);
+        let block = app.engine().build_block(parent.parent.hash, attrs).await?;
+        ensure!(
+            block.transactions.len() == txs.len(),
+            "all legacy transactions must execute: last input {last_input}, raw {}",
+            block.length()
+        );
+        let length = block.length();
+        if length == 124_001 {
+            sized = Some(txs);
+            break;
+        }
+        last_input = last_input
+            .checked_add_signed(124_001 - length as isize)
+            .context("legacy input sizing")?;
+    }
+    let legacy = sized.context("legacy transactions measuring 124,001 bytes")?;
+    let attrs = legacy_attrs(&legacy);
     assert_eq!(attrs.max_block_bytes, Some(124_000));
     let mut full = base.clone();
     full.block = app.engine().build_block(parent.parent.hash, attrs).await?;
-    // Four of them fit (about 121 kB); the fifth would pass the limit.
     let included = full.block.transactions.len();
     ensure!(
-        (2..legacy.len()).contains(&included) &&
-            full.block.transactions.iter().all(|tx| tx[0] >= 0xc0),
-        "the EL fills the block with legacy transactions up to the byte limit: {included} included"
+        full.block.transactions.iter().all(|tx| tx[0] >= 0xc0),
+        "the block holds only the offered legacy transactions"
     );
-    ensure!(full.block.length() <= 124_000, "byte-full block measures {}", full.block.length());
+    ensure!(
+        abci::app::check_execution_size(&full.block).is_ok(),
+        "the EL included {included} of {LEGACY} legacy transactions in a {}-byte executionBlock, \
+         over the 124,000-byte limit",
+        full.block.length()
+    );
     let Response::ProcessProposal(verdict) =
         app.handle(Request::ProcessProposal(process_request(&full, time))).await?
     else {
