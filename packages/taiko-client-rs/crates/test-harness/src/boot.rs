@@ -264,6 +264,8 @@ pub(crate) async fn boot(
             "/usr/bin/cometbft",
             &cmt_image,
             "start",
+            "--home",
+            "/cometbft",
         ];
         docker.run(&cmt_names[i], &args).await?;
         // Comet owns the listener and waits for PubKey before its ABCI handshake.

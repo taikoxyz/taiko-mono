@@ -123,6 +123,8 @@ impl ContractConsensus {
                         "/usr/bin/cometbft",
                         &image,
                         "start",
+                        "--home",
+                        "/cometbft",
                     ],
                 )
                 .await?;
