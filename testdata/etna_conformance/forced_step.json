@@ -1,0 +1,1097 @@
+{
+  "schema": "etna-client-conformance-1",
+  "family": "forced_step",
+  "generator": "formal/etna: lake exe etna-vectors --write testdata/etna_conformance",
+  "constants": {
+    "maxForcedTxBytes": 8192,
+    "entryTimestamp": 1700000000,
+    "forcedInclusionDelay": 3600
+  },
+  "txKinds": [
+    {"name": "empty", "bytes": 0, "canonical": false},
+    {"name": "txA", "bytes": 100, "canonical": true},
+    {"name": "txB", "bytes": 100, "canonical": true},
+    {"name": "junk", "bytes": 32, "canonical": false},
+    {"name": "junkMax", "bytes": 8192, "canonical": false},
+    {"name": "junkOver", "bytes": 8193, "canonical": false},
+    {"name": "txBig", "bytes": 8300, "canonical": true}
+  ],
+  "vectorCount": 151,
+  "vectors": [
+    {
+      "id": "forced_step.exhausted.cursor0.tail0.no-witness",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 0, "tail": 0, "anchorTimestamp": 1700007200, "delay": 3600, "witness": null, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 0}
+    },
+    {
+      "id": "forced_step.exhausted.cursor0.tail0.witness",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 0, "tail": 0, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 0, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.exhausted.cursor5.tail5.no-witness",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 5, "tail": 5, "anchorTimestamp": 1700007200, "delay": 3600, "witness": null, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 5}
+    },
+    {
+      "id": "forced_step.exhausted.cursor5.tail5.witness",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 5, "tail": 5, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 5, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.exhausted.cursor5.tail2.no-witness",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 5, "tail": 2, "anchorTimestamp": 1700007200, "delay": 3600, "witness": null, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 5}
+    },
+    {
+      "id": "forced_step.exhausted.cursor5.tail2.witness",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 5, "tail": 2, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 5, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.pending.no-witness",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": null, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.pending.index-above-cursor",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 3, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.pending.index-below-cursor",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 1, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.pending.unauthenticated",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": false, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.pending.unauthenticated-included",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": false, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-omitted.first-none.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-omitted.first-none.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-omitted.first-none.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-omitted.first-entry.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-omitted.first-entry.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-omitted.first-entry.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-omitted.first-other.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "txB", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-omitted.first-other.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "txB", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-omitted.first-other.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "txB", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-same.first-none.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-same.first-none.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-same.first-none.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-same.first-entry.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-same.first-entry.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-same.first-entry.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-same.first-other.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txB", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-same.first-other.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txB", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-same.first-other.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txB", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-other.first-none.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txB"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-other.first-none.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txB"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-other.first-none.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txB"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-other.first-entry.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txB"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-other.first-entry.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txB"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-other.first-entry.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txB"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-other.first-other.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txB"}, "firstTx": "txB", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-other.first-other.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txB"}, "firstTx": "txB", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.txA.raw-other.first-other.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txB"}, "firstTx": "txB", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-omitted.first-none.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-omitted.first-none.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-omitted.first-none.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-omitted.first-entry.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "junk", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-omitted.first-entry.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "junk", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-omitted.first-entry.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "junk", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-omitted.first-other.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-omitted.first-other.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-omitted.first-other.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-same.first-none.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junk"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-same.first-none.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junk"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-same.first-none.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junk"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-same.first-entry.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junk"}, "firstTx": "junk", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-same.first-entry.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junk"}, "firstTx": "junk", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-same.first-entry.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junk"}, "firstTx": "junk", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-same.first-other.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junk"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-same.first-other.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junk"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-same.first-other.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junk"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-other.first-none.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-other.first-none.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-other.first-none.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-other.first-entry.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "junk", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-other.first-entry.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "junk", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-other.first-entry.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "junk", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-other.first-other.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-other.first-other.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junk.raw-other.first-other.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.empty.raw-omitted.first-none.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "empty", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    },
+    {
+      "id": "forced_step.decide.empty.raw-omitted.first-none.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "empty", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.empty.raw-omitted.first-none.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "empty", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.empty.raw-omitted.first-entry.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "empty", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "empty", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    },
+    {
+      "id": "forced_step.decide.empty.raw-omitted.first-entry.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "empty", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "empty", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.empty.raw-omitted.first-entry.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "empty", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "empty", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.empty.raw-omitted.first-other.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "empty", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    },
+    {
+      "id": "forced_step.decide.empty.raw-omitted.first-other.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "empty", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.empty.raw-omitted.first-other.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "empty", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.empty.raw-other.first-none.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "empty", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.empty.raw-other.first-none.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "empty", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.empty.raw-other.first-none.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "empty", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.empty.raw-other.first-entry.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "empty", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "empty", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.empty.raw-other.first-entry.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "empty", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "empty", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.empty.raw-other.first-entry.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "empty", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "empty", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.empty.raw-other.first-other.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "empty", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.empty.raw-other.first-other.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "empty", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.empty.raw-other.first-other.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "empty", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-omitted.first-none.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-omitted.first-none.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-omitted.first-none.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-omitted.first-entry.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "junkMax", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-omitted.first-entry.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "junkMax", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-omitted.first-entry.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "junkMax", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-omitted.first-other.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-omitted.first-other.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-omitted.first-other.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-same.first-none.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junkMax"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-same.first-none.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junkMax"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-same.first-none.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junkMax"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-same.first-entry.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junkMax"}, "firstTx": "junkMax", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-same.first-entry.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junkMax"}, "firstTx": "junkMax", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-same.first-entry.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junkMax"}, "firstTx": "junkMax", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-same.first-other.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junkMax"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-same.first-other.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junkMax"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-same.first-other.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junkMax"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-other.first-none.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-other.first-none.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-other.first-none.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-other.first-entry.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "junkMax", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-other.first-entry.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "junkMax", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-other.first-entry.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "junkMax", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-other.first-other.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-other.first-other.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.decide.junkMax.raw-other.first-other.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.singleton.unavailable.first-none.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "unavailable"},
+      "expect": {"result": "waiting"}
+    },
+    {
+      "id": "forced_step.singleton.unavailable.first-none.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "unavailable"},
+      "expect": {"result": "waiting"}
+    },
+    {
+      "id": "forced_step.singleton.unavailable.first-other.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txB", "singleton": "unavailable"},
+      "expect": {"result": "waiting"}
+    },
+    {
+      "id": "forced_step.singleton.unavailable.first-other.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txB", "singleton": "unavailable"},
+      "expect": {"result": "waiting"}
+    },
+    {
+      "id": "forced_step.singleton.completedRetained.first-none.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "completedRetained"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.singleton.completedRetained.first-none.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "completedRetained"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.singleton.completedRetained.first-other.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txB", "singleton": "completedRetained"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.singleton.completedRetained.first-other.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txB", "singleton": "completedRetained"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.singleton.completedEmpty.first-none.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.singleton.completedEmpty.first-none.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.singleton.completedEmpty.first-other.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txB", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.singleton.completedEmpty.first-other.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txB", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.singleton.inconsistent.first-none.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "inconsistent"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.singleton.inconsistent.first-none.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "inconsistent"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.singleton.inconsistent.first-other.exact",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txB", "singleton": "inconsistent"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.singleton.inconsistent.first-other.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txB", "singleton": "inconsistent"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.size.raw-over-limit.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkOver", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junkOver"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.size.raw-over-limit.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkOver", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junkOver"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.size.raw-omitted-over-limit-entry.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkOver", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.size.raw-at-limit.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junkMax", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junkMax"}, "firstTx": null, "singleton": "unavailable"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.size.big-first-tx.early",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txBig", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "txBig", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    },
+    {
+      "id": "forced_step.size.big-first-tx.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txBig", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "txBig", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.size.big-raw-tx.late",
+      "family": "forced_step",
+      "source": "generated",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txBig", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txBig"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.hw.exhausted-queue-forbids-witness",
+      "family": "forced_step",
+      "source": "handwritten",
+      "spec": "EN L401",
+      "input": {"cursor": 3, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 3, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.hw.pending-entry-needs-witness",
+      "family": "forced_step",
+      "source": "handwritten",
+      "spec": "EN L401",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": null, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.hw.only-entry-c",
+      "family": "forced_step",
+      "source": "handwritten",
+      "spec": "EN L400",
+      "input": {"cursor": 2, "tail": 4, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 3, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.hw.due-at-48-bit-entry-timestamp.before",
+      "family": "forced_step",
+      "source": "handwritten",
+      "spec": "EN L402",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 562949953421310, "delay": 281474976710656, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 281474976710655, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    },
+    {
+      "id": "forced_step.hw.due-at-48-bit-entry-timestamp.at",
+      "family": "forced_step",
+      "source": "handwritten",
+      "spec": "EN L402",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 562949953421311, "delay": 281474976710656, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 281474976710655, "entryBlock": 70, "tx": "junk"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.hw.included-before-due",
+      "family": "forced_step",
+      "source": "handwritten",
+      "spec": "EN L412",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.hw.not-included-not-due-keeps-cursor",
+      "family": "forced_step",
+      "source": "handwritten",
+      "spec": "EN L413",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "txB", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    },
+    {
+      "id": "forced_step.hw.due-ineligible-skips-without-el",
+      "family": "forced_step",
+      "source": "handwritten",
+      "spec": "EN L414",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "junk", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junk"}, "firstTx": null, "singleton": "unavailable"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.hw.due-eligible-empty-build-skips",
+      "family": "forced_step",
+      "source": "handwritten",
+      "spec": "EN L415",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.hw.due-eligible-retained-build-rejects",
+      "family": "forced_step",
+      "source": "handwritten",
+      "spec": "EN L415",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "completedRetained"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.hw.transient-build-failure-waits",
+      "family": "forced_step",
+      "source": "handwritten",
+      "spec": "EN L420",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "unavailable"},
+      "expect": {"result": "waiting"}
+    },
+    {
+      "id": "forced_step.hw.build-for-another-context-rejects",
+      "family": "forced_step",
+      "source": "handwritten",
+      "spec": "EN L420",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": null, "singleton": "inconsistent"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.hw.only-position-zero-counts",
+      "family": "forced_step",
+      "source": "handwritten",
+      "spec": "EN L423",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "txA"}, "firstTx": "txB", "singleton": "completedRetained"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.hw.due-skip-needs-raw-bytes",
+      "family": "forced_step",
+      "source": "handwritten",
+      "spec": "EN L428",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.hw.nonempty-raw-bytes-must-match",
+      "family": "forced_step",
+      "source": "handwritten",
+      "spec": "EN L428",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "junk"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "rejected"}
+    },
+    {
+      "id": "forced_step.hw.inclusion-omits-raw-bytes",
+      "family": "forced_step",
+      "source": "handwritten",
+      "spec": "EN L428",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700007200, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "txA", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": "txA", "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.hw.blanked-entry-due-skips-without-el",
+      "family": "forced_step",
+      "source": "handwritten",
+      "spec": "EN L432",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003600, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "empty", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "unavailable"},
+      "expect": {"result": "accepted", "cursor": 3}
+    },
+    {
+      "id": "forced_step.hw.blanked-entry-not-due",
+      "family": "forced_step",
+      "source": "handwritten",
+      "spec": "EN L432",
+      "input": {"cursor": 2, "tail": 3, "anchorTimestamp": 1700003599, "delay": 3600, "witness": {"index": 2, "authenticated": true, "entry": "empty", "entryTimestamp": 1700000000, "entryBlock": 70, "tx": "empty"}, "firstTx": null, "singleton": "completedEmpty"},
+      "expect": {"result": "accepted", "cursor": 2}
+    }
+  ]
+}

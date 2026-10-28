@@ -1,0 +1,2278 @@
+{
+  "schema": "etna-conformance-1",
+  "family": "registry",
+  "generator": "formal/etna: lake exe etna-vectors --write testdata/etna_conformance",
+  "constants": {
+    "gridInterval": 6,
+    "registeredAt": 10,
+    "initAt": 11,
+    "timestampBase": 1700000000,
+    "timestampStep": 12,
+    "genesisKey": 1,
+    "genesisOwner": 1,
+    "epochLenL2": 10,
+    "forcedInclusionDelay": 3600,
+    "maxAnchorAge": 7200,
+    "vpUnit": 1000000000,
+    "sMin": 1000000000,
+    "nMax": 128,
+    "referenceHash": 7
+  },
+  "vectorCount": 74,
+  "vectors": [
+    {
+      "id": "registry.register.below-min.fresh-key",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "register", "args": {"caller": 2, "key": 2, "amount": 9}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.register.below-min.live-key",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "register", "args": {"caller": 2, "key": 1, "amount": 9}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.register.min.fresh-key",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "register", "args": {"caller": 2, "key": 2, "amount": 10}},
+      "expect": {
+        "revert": false,
+        "result": {"bondId": 1},
+        "observable": {
+          "registry": {
+            "entryCount": 2,
+            "freeCount": 0,
+            "stakeHeld": 20,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 2,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10},
+              {"activeFrom": 22, "confirmedAt": 0, "exitAt": 281474976710655, "id": 1, "key": 2, "owner": 2, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.register.min.live-key",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "register", "args": {"caller": 2, "key": 1, "amount": 10}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.register.above-min.fresh-key",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "register", "args": {"caller": 2, "key": 2, "amount": 11}},
+      "expect": {
+        "revert": false,
+        "result": {"bondId": 1},
+        "observable": {
+          "registry": {
+            "entryCount": 2,
+            "freeCount": 0,
+            "stakeHeld": 21,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 2,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10},
+              {"activeFrom": 22, "confirmedAt": 0, "exitAt": 281474976710655, "id": 1, "key": 2, "owner": 2, "stake": 11}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.register.above-min.live-key",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "register", "args": {"caller": 2, "key": 1, "amount": 11}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.register.reuses-freed-slot",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 5,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "register", "args": {"caller": 2, "key": 2, "amount": 10}},
+          {"block": 13, "timestamp": 1700000156, "fn": "requestExit", "args": {"caller": 2, "bondId": 1}},
+          {"block": 43, "timestamp": 1700000516, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 42, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 42, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 44, "timestamp": 1700000528, "fn": "confirmExit", "args": {"caller": 9, "bondId": 1}},
+          {"block": 74, "timestamp": 1700000888, "fn": "withdraw", "args": {"caller": 2, "bondId": 1, "to": 2}}
+        ]
+      },
+      "call": {"block": 75, "timestamp": 1700000900, "fn": "register", "args": {"caller": 3, "key": 3, "amount": 10}},
+      "expect": {
+        "revert": false,
+        "result": {"bondId": 1},
+        "observable": {
+          "registry": {
+            "entryCount": 2,
+            "freeCount": 0,
+            "stakeHeld": 20,
+            "checkpointCount": 5,
+            "lastCheckpointBlock": 75,
+            "lastCheckpointCount": 2,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10},
+              {"activeFrom": 85, "confirmedAt": 0, "exitAt": 281474976710655, "id": 1, "key": 3, "owner": 3, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.hw.key-registered-once-ever",
+      "family": "registry",
+      "source": "handwritten",
+      "spec": "EN L129",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 5,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "register", "args": {"caller": 2, "key": 2, "amount": 10}},
+          {"block": 13, "timestamp": 1700000156, "fn": "requestExit", "args": {"caller": 2, "bondId": 1}},
+          {"block": 43, "timestamp": 1700000516, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 42, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 42, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 44, "timestamp": 1700000528, "fn": "confirmExit", "args": {"caller": 9, "bondId": 1}},
+          {"block": 74, "timestamp": 1700000888, "fn": "withdraw", "args": {"caller": 2, "bondId": 1, "to": 2}}
+        ]
+      },
+      "call": {"block": 75, "timestamp": 1700000900, "fn": "register", "args": {"caller": 3, "key": 2, "amount": 10}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 2,
+            "freeCount": 1,
+            "stakeHeld": 10,
+            "checkpointCount": 4,
+            "lastCheckpointBlock": 74,
+            "lastCheckpointCount": 2,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10},
+              {"activeFrom": 0, "confirmedAt": 0, "exitAt": 0, "id": 1, "key": 0, "owner": 0, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.hw.register-before-inbox-init",
+      "family": "registry",
+      "source": "handwritten",
+      "spec": "EN L156",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": false, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 11, "timestamp": 1700000132, "fn": "register", "args": {"caller": 2, "key": 2, "amount": 10}},
+      "expect": {
+        "revert": false,
+        "result": {"bondId": 1},
+        "observable": {
+          "registry": {
+            "entryCount": 2,
+            "freeCount": 0,
+            "stakeHeld": 20,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 11,
+            "lastCheckpointCount": 2,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10},
+              {"activeFrom": 21, "confirmedAt": 0, "exitAt": 281474976710655, "id": 1, "key": 2, "owner": 2, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.hw.free-slot-reuse-order",
+      "family": "registry",
+      "source": "handwritten",
+      "spec": "EN L139",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 10,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "register", "args": {"caller": 2, "key": 2, "amount": 10}},
+          {"block": 13, "timestamp": 1700000156, "fn": "register", "args": {"caller": 3, "key": 3, "amount": 10}},
+          {"block": 14, "timestamp": 1700000168, "fn": "requestExit", "args": {"caller": 2, "bondId": 1}},
+          {"block": 43, "timestamp": 1700000516, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 42, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 42, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 44, "timestamp": 1700000528, "fn": "confirmExit", "args": {"caller": 9, "bondId": 1}},
+          {"block": 74, "timestamp": 1700000888, "fn": "withdraw", "args": {"caller": 2, "bondId": 1, "to": 2}},
+          {"block": 75, "timestamp": 1700000900, "fn": "requestExit", "args": {"caller": 3, "bondId": 2}},
+          {"block": 96, "timestamp": 1700001152, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 95, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 95, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 97, "timestamp": 1700001164, "fn": "confirmExit", "args": {"caller": 9, "bondId": 2}},
+          {"block": 127, "timestamp": 1700001524, "fn": "withdraw", "args": {"caller": 3, "bondId": 2, "to": 3}}
+        ]
+      },
+      "call": {"block": 128, "timestamp": 1700001536, "fn": "register", "args": {"caller": 4, "key": 4, "amount": 10}},
+      "expect": {
+        "revert": false,
+        "result": {"bondId": 1},
+        "observable": {
+          "registry": {
+            "entryCount": 3,
+            "freeCount": 1,
+            "stakeHeld": 20,
+            "checkpointCount": 8,
+            "lastCheckpointBlock": 128,
+            "lastCheckpointCount": 3,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10},
+              {"activeFrom": 138, "confirmedAt": 0, "exitAt": 281474976710655, "id": 1, "key": 4, "owner": 4, "stake": 10},
+              {"activeFrom": 0, "confirmedAt": 0, "exitAt": 0, "id": 2, "key": 0, "owner": 0, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.hw.one-checkpoint-per-block",
+      "family": "registry",
+      "source": "handwritten",
+      "spec": "EN L155",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 1,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "register", "args": {"caller": 2, "key": 2, "amount": 10}}
+        ]
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "register", "args": {"caller": 3, "key": 3, "amount": 10}},
+      "expect": {
+        "revert": false,
+        "result": {"bondId": 2},
+        "observable": {
+          "registry": {
+            "entryCount": 3,
+            "freeCount": 0,
+            "stakeHeld": 30,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 3,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10},
+              {"activeFrom": 22, "confirmedAt": 0, "exitAt": 281474976710655, "id": 1, "key": 2, "owner": 2, "stake": 10},
+              {"activeFrom": 22, "confirmedAt": 0, "exitAt": 281474976710655, "id": 2, "key": 3, "owner": 3, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.requestExit.owner.before-activation",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}},
+      "expect": {
+        "revert": false,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 40, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.requestExit.owner.before-activation.exit-already-set",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 1,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 40, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.requestExit.owner.after-activation",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 25, "timestamp": 1700000300, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}},
+      "expect": {
+        "revert": false,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 25,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 45, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.requestExit.owner.after-activation.exit-already-set",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 1,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 25, "timestamp": 1700000300, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 40, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.requestExit.stranger.before-activation",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 2, "bondId": 0}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.requestExit.stranger.before-activation.exit-already-set",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 1,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 2, "bondId": 0}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 40, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.requestExit.stranger.after-activation",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 25, "timestamp": 1700000300, "fn": "requestExit", "args": {"caller": 2, "bondId": 0}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.requestExit.stranger.after-activation.exit-already-set",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 1,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 25, "timestamp": 1700000300, "fn": "requestExit", "args": {"caller": 2, "bondId": 0}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 40, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.requestExit.unknown-bond",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 3}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.requestExit.released-bond",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 5,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "register", "args": {"caller": 2, "key": 2, "amount": 10}},
+          {"block": 13, "timestamp": 1700000156, "fn": "requestExit", "args": {"caller": 2, "bondId": 1}},
+          {"block": 43, "timestamp": 1700000516, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 42, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 42, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 44, "timestamp": 1700000528, "fn": "confirmExit", "args": {"caller": 9, "bondId": 1}},
+          {"block": 74, "timestamp": 1700000888, "fn": "withdraw", "args": {"caller": 2, "bondId": 1, "to": 2}}
+        ]
+      },
+      "call": {"block": 75, "timestamp": 1700000900, "fn": "requestExit", "args": {"caller": 2, "bondId": 1}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 2,
+            "freeCount": 1,
+            "stakeHeld": 10,
+            "checkpointCount": 4,
+            "lastCheckpointBlock": 74,
+            "lastCheckpointCount": 2,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10},
+              {"activeFrom": 0, "confirmedAt": 0, "exitAt": 0, "id": 1, "key": 0, "owner": 0, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.hw.exit-request-after-slash",
+      "family": "registry",
+      "source": "handwritten",
+      "spec": "EN L140",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 1,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}}}
+        ]
+      },
+      "call": {"block": 13, "timestamp": 1700000156, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 0,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 12, "id": 0, "key": 1, "owner": 1, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.confirmExit.snapshot-below-exit",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 2,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}},
+          {"block": 42, "timestamp": 1700000504, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 41, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 39, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
+        ]
+      },
+      "call": {"block": 43, "timestamp": 1700000516, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 40, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.confirmExit.snapshot-at-exit",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 2,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}},
+          {"block": 42, "timestamp": 1700000504, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 41, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 40, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
+        ]
+      },
+      "call": {"block": 43, "timestamp": 1700000516, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}},
+      "expect": {
+        "revert": false,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 43, "exitAt": 40, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.confirmExit.snapshot-above-exit",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 2,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}},
+          {"block": 42, "timestamp": 1700000504, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 41, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 41, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
+        ]
+      },
+      "call": {"block": 43, "timestamp": 1700000516, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}},
+      "expect": {
+        "revert": false,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 43, "exitAt": 40, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.confirmExit.inbox-uninitialized.exit-set",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": false, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 1,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 41, "timestamp": 1700000492, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 40, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.confirmExit.inbox-uninitialized.no-exit",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": false, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 41, "timestamp": 1700000492, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.confirmExit.no-exit",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 1,
+        "calls": [
+          {"block": 52, "timestamp": 1700000624, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 51, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 50, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
+        ]
+      },
+      "call": {"block": 53, "timestamp": 1700000636, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.confirmExit.unknown-bond",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "confirmExit", "args": {"caller": 9, "bondId": 4}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.confirmExit.released-bond",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 5,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "register", "args": {"caller": 2, "key": 2, "amount": 10}},
+          {"block": 13, "timestamp": 1700000156, "fn": "requestExit", "args": {"caller": 2, "bondId": 1}},
+          {"block": 43, "timestamp": 1700000516, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 42, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 42, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 44, "timestamp": 1700000528, "fn": "confirmExit", "args": {"caller": 9, "bondId": 1}},
+          {"block": 74, "timestamp": 1700000888, "fn": "withdraw", "args": {"caller": 2, "bondId": 1, "to": 2}}
+        ]
+      },
+      "call": {"block": 75, "timestamp": 1700000900, "fn": "confirmExit", "args": {"caller": 9, "bondId": 1}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 2,
+            "freeCount": 1,
+            "stakeHeld": 10,
+            "checkpointCount": 4,
+            "lastCheckpointBlock": 74,
+            "lastCheckpointCount": 2,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10},
+              {"activeFrom": 0, "confirmedAt": 0, "exitAt": 0, "id": 1, "key": 0, "owner": 0, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.hw.confirm-is-idempotent",
+      "family": "registry",
+      "source": "handwritten",
+      "spec": "EN L141",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 3,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}},
+          {"block": 41, "timestamp": 1700000492, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 40, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 40, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 42, "timestamp": 1700000504, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 47, "timestamp": 1700000564, "fn": "confirmExit", "args": {"caller": 8, "bondId": 0}},
+      "expect": {
+        "revert": false,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 42, "exitAt": 40, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.withdraw.staked.owner.early",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 3,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}},
+          {"block": 41, "timestamp": 1700000492, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 40, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 40, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 42, "timestamp": 1700000504, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 71, "timestamp": 1700000852, "fn": "withdraw", "args": {"caller": 1, "bondId": 0, "to": 1}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 42, "exitAt": 40, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.withdraw.staked.owner.due",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 3,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}},
+          {"block": 41, "timestamp": 1700000492, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 40, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 40, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 42, "timestamp": 1700000504, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 72, "timestamp": 1700000864, "fn": "withdraw", "args": {"caller": 1, "bondId": 0, "to": 1}},
+      "expect": {
+        "revert": false,
+        "result": {"paid": 10},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 1,
+            "stakeHeld": 0,
+            "checkpointCount": 3,
+            "lastCheckpointBlock": 72,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 0, "confirmedAt": 0, "exitAt": 0, "id": 0, "key": 0, "owner": 0, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.withdraw.staked.owner.late",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 3,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}},
+          {"block": 41, "timestamp": 1700000492, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 40, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 40, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 42, "timestamp": 1700000504, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 73, "timestamp": 1700000876, "fn": "withdraw", "args": {"caller": 1, "bondId": 0, "to": 1}},
+      "expect": {
+        "revert": false,
+        "result": {"paid": 10},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 1,
+            "stakeHeld": 0,
+            "checkpointCount": 3,
+            "lastCheckpointBlock": 73,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 0, "confirmedAt": 0, "exitAt": 0, "id": 0, "key": 0, "owner": 0, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.withdraw.staked.stranger.early",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 3,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}},
+          {"block": 41, "timestamp": 1700000492, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 40, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 40, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 42, "timestamp": 1700000504, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 71, "timestamp": 1700000852, "fn": "withdraw", "args": {"caller": 2, "bondId": 0, "to": 2}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 42, "exitAt": 40, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.withdraw.staked.stranger.due",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 3,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}},
+          {"block": 41, "timestamp": 1700000492, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 40, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 40, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 42, "timestamp": 1700000504, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 72, "timestamp": 1700000864, "fn": "withdraw", "args": {"caller": 2, "bondId": 0, "to": 2}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 42, "exitAt": 40, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.withdraw.staked.stranger.late",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 3,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}},
+          {"block": 41, "timestamp": 1700000492, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 40, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 40, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 42, "timestamp": 1700000504, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 73, "timestamp": 1700000876, "fn": "withdraw", "args": {"caller": 2, "bondId": 0, "to": 2}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 42, "exitAt": 40, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.withdraw.slashed.owner.early",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 3,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+          {"block": 13, "timestamp": 1700000156, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 12, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 12, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 14, "timestamp": 1700000168, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 43, "timestamp": 1700000516, "fn": "withdraw", "args": {"caller": 1, "bondId": 0, "to": 1}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 0,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 14, "exitAt": 12, "id": 0, "key": 1, "owner": 1, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.withdraw.slashed.owner.due",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 3,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+          {"block": 13, "timestamp": 1700000156, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 12, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 12, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 14, "timestamp": 1700000168, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 44, "timestamp": 1700000528, "fn": "withdraw", "args": {"caller": 1, "bondId": 0, "to": 1}},
+      "expect": {
+        "revert": false,
+        "result": {"paid": 0},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 1,
+            "stakeHeld": 0,
+            "checkpointCount": 3,
+            "lastCheckpointBlock": 44,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 0, "confirmedAt": 0, "exitAt": 0, "id": 0, "key": 0, "owner": 0, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.withdraw.slashed.owner.late",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 3,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+          {"block": 13, "timestamp": 1700000156, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 12, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 12, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 14, "timestamp": 1700000168, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 45, "timestamp": 1700000540, "fn": "withdraw", "args": {"caller": 1, "bondId": 0, "to": 1}},
+      "expect": {
+        "revert": false,
+        "result": {"paid": 0},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 1,
+            "stakeHeld": 0,
+            "checkpointCount": 3,
+            "lastCheckpointBlock": 45,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 0, "confirmedAt": 0, "exitAt": 0, "id": 0, "key": 0, "owner": 0, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.withdraw.slashed.stranger.early",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 3,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+          {"block": 13, "timestamp": 1700000156, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 12, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 12, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 14, "timestamp": 1700000168, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 43, "timestamp": 1700000516, "fn": "withdraw", "args": {"caller": 2, "bondId": 0, "to": 2}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 0,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 14, "exitAt": 12, "id": 0, "key": 1, "owner": 1, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.withdraw.slashed.stranger.due",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 3,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+          {"block": 13, "timestamp": 1700000156, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 12, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 12, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 14, "timestamp": 1700000168, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 44, "timestamp": 1700000528, "fn": "withdraw", "args": {"caller": 2, "bondId": 0, "to": 2}},
+      "expect": {
+        "revert": false,
+        "result": {"paid": 0},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 1,
+            "stakeHeld": 0,
+            "checkpointCount": 3,
+            "lastCheckpointBlock": 44,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 0, "confirmedAt": 0, "exitAt": 0, "id": 0, "key": 0, "owner": 0, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.withdraw.slashed.stranger.late",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 3,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+          {"block": 13, "timestamp": 1700000156, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 12, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 12, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 14, "timestamp": 1700000168, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 45, "timestamp": 1700000540, "fn": "withdraw", "args": {"caller": 2, "bondId": 0, "to": 2}},
+      "expect": {
+        "revert": false,
+        "result": {"paid": 0},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 1,
+            "stakeHeld": 0,
+            "checkpointCount": 3,
+            "lastCheckpointBlock": 45,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 0, "confirmedAt": 0, "exitAt": 0, "id": 0, "key": 0, "owner": 0, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.withdraw.unconfirmed",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 1,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 100, "timestamp": 1700001200, "fn": "withdraw", "args": {"caller": 1, "bondId": 0, "to": 1}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 40, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.withdraw.twice",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 4,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}},
+          {"block": 41, "timestamp": 1700000492, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 40, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 40, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 42, "timestamp": 1700000504, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}},
+          {"block": 72, "timestamp": 1700000864, "fn": "withdraw", "args": {"caller": 1, "bondId": 0, "to": 1}}
+        ]
+      },
+      "call": {"block": 73, "timestamp": 1700000876, "fn": "withdraw", "args": {"caller": 1, "bondId": 0, "to": 1}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 1,
+            "stakeHeld": 0,
+            "checkpointCount": 3,
+            "lastCheckpointBlock": 72,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 0, "confirmedAt": 0, "exitAt": 0, "id": 0, "key": 0, "owner": 0, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.withdraw.unknown-bond",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "withdraw", "args": {"caller": 1, "bondId": 3, "to": 1}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.hw.withdraw-to-zero-address",
+      "family": "registry",
+      "source": "handwritten",
+      "spec": "EN L142",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 3,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}},
+          {"block": 41, "timestamp": 1700000492, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 40, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 40, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 42, "timestamp": 1700000504, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 72, "timestamp": 1700000864, "fn": "withdraw", "args": {"caller": 1, "bondId": 0, "to": 0}},
+      "expect": {
+        "revert": false,
+        "result": {"paid": 10},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 1,
+            "stakeHeld": 0,
+            "checkpointCount": 3,
+            "lastCheckpointBlock": 72,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 0, "confirmedAt": 0, "exitAt": 0, "id": 0, "key": 0, "owner": 0, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.hw.slashed-slot-released-by-anyone",
+      "family": "registry",
+      "source": "handwritten",
+      "spec": "EN L142",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 3,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+          {"block": 13, "timestamp": 1700000156, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 12, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 12, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 14, "timestamp": 1700000168, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 44, "timestamp": 1700000528, "fn": "withdraw", "args": {"caller": 7, "bondId": 0, "to": 7}},
+      "expect": {
+        "revert": false,
+        "result": {"paid": 0},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 1,
+            "stakeHeld": 0,
+            "checkpointCount": 3,
+            "lastCheckpointBlock": 44,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 0, "confirmedAt": 0, "exitAt": 0, "id": 0, "key": 0, "owner": 0, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.withdraw.to-another-account",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 3,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}},
+          {"block": 41, "timestamp": 1700000492, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 40, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 40, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 42, "timestamp": 1700000504, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 72, "timestamp": 1700000864, "fn": "withdraw", "args": {"caller": 1, "bondId": 0, "to": 6}},
+      "expect": {
+        "revert": false,
+        "result": {"paid": 10},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 1,
+            "stakeHeld": 0,
+            "checkpointCount": 3,
+            "lastCheckpointBlock": 72,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 0, "confirmedAt": 0, "exitAt": 0, "id": 0, "key": 0, "owner": 0, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.hw.withdraw-at-block-2pow48-minus1",
+      "family": "registry",
+      "source": "handwritten",
+      "spec": "EN L754",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 3,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}},
+          {"block": 41, "timestamp": 1700000492, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 40, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 40, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 42, "timestamp": 1700000504, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 281474976710655, "timestamp": 3377701420527860, "fn": "withdraw", "args": {"caller": 1, "bondId": 0, "to": 1}},
+      "expect": {
+        "revert": false,
+        "result": {"paid": 10},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 1,
+            "stakeHeld": 0,
+            "checkpointCount": 3,
+            "lastCheckpointBlock": 281474976710655,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 0, "confirmedAt": 0, "exitAt": 0, "id": 0, "key": 0, "owner": 0, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.hw.confirm-at-block-2pow48-minus1",
+      "family": "registry",
+      "source": "handwritten",
+      "spec": "EN L758",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 2,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}},
+          {"block": 41, "timestamp": 1700000492, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 40, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 40, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
+        ]
+      },
+      "call": {"block": 281474976710655, "timestamp": 3377701420527860, "fn": "confirmExit", "args": {"caller": 9, "bondId": 0}},
+      "expect": {
+        "revert": false,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 281474976710655, "exitAt": 40, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.slash.precommit-conflict",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+      "expect": {
+        "revert": false,
+        "result": {"bounty": 1, "toSink": 9},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 0,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 12, "id": 0, "key": 1, "owner": 1, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.slash.prevote-conflict",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 1, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 1, "round": 3, "signer": 1}}},
+      "expect": {
+        "revert": false,
+        "result": {"bounty": 1, "toSink": 9},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 0,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 12, "id": 0, "key": 1, "owner": 1, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.slash.nil-against-block",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 0, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+      "expect": {
+        "revert": false,
+        "result": {"bounty": 1, "toSink": 9},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 0,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 12, "id": 0, "key": 1, "owner": 1, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.slash.same-block",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.slash.type-mismatch",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 1, "round": 3, "signer": 1}}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.slash.height-mismatch",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1001, "kind": 2, "round": 3, "signer": 1}}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.slash.round-mismatch",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 4, "signer": 1}}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.slash.generation-mismatch",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 1, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.slash.vote-type-3",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 3, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 3, "round": 3, "signer": 1}}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.slash.future-generation",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 1, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 1, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.slash.other-deployment",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": true, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": true, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.slash.vote-a-wrong-key",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 2}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.slash.vote-b-wrong-key",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 2}}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.slash.inbox-uninitialized",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": false, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 11, "timestamp": 1700000132, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.slash.unknown-bond",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 4, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.slash.released-bond",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 5,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "register", "args": {"caller": 2, "key": 2, "amount": 10}},
+          {"block": 13, "timestamp": 1700000156, "fn": "requestExit", "args": {"caller": 2, "bondId": 1}},
+          {"block": 43, "timestamp": 1700000516, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 42, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 42, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 44, "timestamp": 1700000528, "fn": "confirmExit", "args": {"caller": 9, "bondId": 1}},
+          {"block": 74, "timestamp": 1700000888, "fn": "withdraw", "args": {"caller": 2, "bondId": 1, "to": 2}}
+        ]
+      },
+      "call": {"block": 75, "timestamp": 1700000900, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 1, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 2}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 2}}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 2,
+            "freeCount": 1,
+            "stakeHeld": 10,
+            "checkpointCount": 4,
+            "lastCheckpointBlock": 74,
+            "lastCheckpointCount": 2,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10},
+              {"activeFrom": 0, "confirmedAt": 0, "exitAt": 0, "id": 1, "key": 0, "owner": 0, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.slash.already-slashed",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 1,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}}}
+        ]
+      },
+      "call": {"block": 13, "timestamp": 1700000156, "fn": "slashDoubleSign", "args": {"caller": 6, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 0,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 12,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 12, "id": 0, "key": 1, "owner": 1, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.hw.slash-moves-exit-earlier",
+      "family": "registry",
+      "source": "handwritten",
+      "spec": "EN L151",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 1,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 30, "timestamp": 1700000360, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+      "expect": {
+        "revert": false,
+        "result": {"bounty": 1, "toSink": 9},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 0,
+            "checkpointCount": 3,
+            "lastCheckpointBlock": 30,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 30, "id": 0, "key": 1, "owner": 1, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.hw.slash-keeps-earlier-exit",
+      "family": "registry",
+      "source": "handwritten",
+      "spec": "EN L151",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 1,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "requestExit", "args": {"caller": 1, "bondId": 0}}
+        ]
+      },
+      "call": {"block": 50, "timestamp": 1700000600, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+      "expect": {
+        "revert": false,
+        "result": {"bounty": 1, "toSink": 9},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 0,
+            "checkpointCount": 3,
+            "lastCheckpointBlock": 50,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 40, "id": 0, "key": 1, "owner": 1, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.hw.slash-historical-generation",
+      "family": "registry",
+      "source": "handwritten",
+      "spec": "EN L149",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 1,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 0, "exclusionCount": 0, "exclusions": [], "fiToClear": []}}
+        ]
+      },
+      "call": {"block": 13, "timestamp": 1700000156, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+      "expect": {
+        "revert": false,
+        "result": {"bounty": 1, "toSink": 9},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 0,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 13,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 13, "id": 0, "key": 1, "owner": 1, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.slash.after-recovery.generation1",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 1,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 0, "exclusionCount": 0, "exclusions": [], "fiToClear": []}}
+        ]
+      },
+      "call": {"block": 13, "timestamp": 1700000156, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 1, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 1, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+      "expect": {
+        "revert": false,
+        "result": {"bounty": 1, "toSink": 9},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 0,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 13,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 13, "id": 0, "key": 1, "owner": 1, "stake": 0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.slash.after-recovery.generation2",
+      "family": "registry",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 1,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 0, "exclusionCount": 0, "exclusions": [], "fiToClear": []}}
+        ]
+      },
+      "call": {"block": 13, "timestamp": 1700000156, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 2, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 2, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 10,
+            "checkpointCount": 1,
+            "lastCheckpointBlock": 10,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 10}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "registry.hw.slash-at-block-2pow48-minus1",
+      "family": "registry",
+      "source": "handwritten",
+      "spec": "EN L151",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 0,
+        "calls": []
+      },
+      "call": {"block": 281474976710655, "timestamp": 3377701420527860, "fn": "slashDoubleSign", "args": {"caller": 5, "bondId": 0, "voteA": {"blockId": 11, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}, "voteB": {"blockId": 12, "foreign": false, "generation": 0, "height": 1000, "kind": 2, "round": 3, "signer": 1}}},
+      "expect": {
+        "revert": false,
+        "result": {"bounty": 1, "toSink": 9},
+        "observable": {
+          "registry": {
+            "entryCount": 1,
+            "freeCount": 0,
+            "stakeHeld": 0,
+            "checkpointCount": 2,
+            "lastCheckpointBlock": 281474976710655,
+            "lastCheckpointCount": 1,
+            "bonds": [
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 281474976710655, "id": 0, "key": 1, "owner": 1, "stake": 0}
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
