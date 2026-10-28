@@ -27,10 +27,10 @@ func main() {
 
 	_ = godotenv.Load(envFile)
 
-	app.Name = "Taiko EventIndexer"
-	app.Usage = "The taiko eventindexing software command line interface"
+	app.Name = "Taiko NFT Indexer"
+	app.Usage = "NFT indexing and holdings query API"
 	app.Copyright = "Copyright 2021-2023 Taiko Labs"
-	app.Description = "Eventindexer implementation in Golang for Taiko protocol"
+	app.Description = "Ordered ERC721/ERC1155 indexing and NFT holdings queries"
 	app.Authors = []*cli.Author{{Name: "Taiko Labs", Email: "info@taiko.xyz"}}
 	app.EnableBashCompletion = true
 
@@ -46,8 +46,8 @@ func main() {
 		{
 			Name:        "indexer",
 			Flags:       flags.IndexerFlags,
-			Usage:       "Starts the indexer software",
-			Description: "Taiko indexer software",
+			Usage:       "Starts the NFT indexer",
+			Description: "Taiko NFT indexer",
 			Action:      utils.SubcommandAction(new(indexer.Indexer)),
 		},
 	}

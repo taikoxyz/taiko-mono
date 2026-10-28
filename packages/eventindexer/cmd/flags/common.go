@@ -7,7 +7,6 @@ import (
 var (
 	commonCategory  = "COMMON"
 	indexerCategory = "INDEXER"
-	txmgrCategory   = "TX_MANAGER"
 )
 
 var (
@@ -71,14 +70,6 @@ var (
 		Value:    6061,
 		EnvVars:  []string{"METRICS_HTTP_PORT"},
 	}
-	Layer = &cli.StringFlag{
-		Name:     "layer",
-		Usage:    "Which layer indexing is occurring on",
-		Required: false,
-		Value:    "l1",
-		Category: indexerCategory,
-		EnvVars:  []string{"LAYER"},
-	}
 )
 
 // All common flags.
@@ -92,7 +83,6 @@ var CommonFlags = []cli.Flag{
 	DatabaseConnMaxLifetime,
 	DatabaseMaxOpenConns,
 	MetricsHTTPPort,
-	Layer,
 }
 
 // MergeFlags merges the given flag slices.
