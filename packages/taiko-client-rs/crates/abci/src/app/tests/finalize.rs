@@ -168,6 +168,62 @@ async fn finalize_without_process_revalidates_and_executes() {
     assert_eq!(proposer.pending, validator.pending, "same next state");
 }
 
+/// A cold node whose EL lost its tail below the moved anchor's checkpoint (restored from an older
+/// backup while the app stayed at its committed parent) cannot check the checkpoint ancestry, and
+/// the EL backfills only once a forkchoice update names a head. Each wait for the missing block
+/// points the EL at the committed parent with unknown safe and finalized, a failed nudge included;
+/// once the block is back the decided block is checked and executed.
+#[tokio::test(start_paused = true)]
+async fn cold_finalize_points_an_el_missing_the_checkpoint_block_at_the_committed_head() {
+    let fx = Fixture::genesis(2);
+    let (proposer_dir, validator_dir) =
+        (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let mut proposer = anchor_moving(&fx, proposer_dir.path()).await;
+    let env = propose(&mut proposer).await;
+    let (_, req) = judge(&mut proposer, &env).await;
+
+    let mut validator = anchor_moving(&fx, validator_dir.path()).await;
+    let checkpoint_height = fx.genesis.genesis_height + 3;
+    let parent = validator.state().unwrap().parent.hash;
+    {
+        let mut engine = validator.engine().state();
+        let lost = engine.chain.split_off(&checkpoint_height);
+        assert!(lost.contains_key(&checkpoint_height), "the checkpoint block is lost");
+        assert!(!engine.known.contains_key(&parent), "the EL does not hold the committed parent");
+        for header in lost.values() {
+            engine.known.remove(&header.hash_slow());
+        }
+        engine.backfill = lost;
+        engine.forkchoice_script.push_back(Err(EngineError::Transport("down".into())));
+    }
+    let before = validator.engine().calls().len();
+    let finalizing = finalize(&mut validator, finalize_req(&req));
+    let out = tokio::time::timeout(FINALIZE_RETRY_ESCALATE, finalizing)
+        .await
+        .expect("the EL backfills once pointed at the committed head")
+        .expect("finalizes");
+
+    let nudge = EngineCall::Forkchoice { head: parent, safe: B256::ZERO, finalized: B256::ZERO };
+    let hash = env.block.header.hash_slow();
+    let checkpoint = fx.inbox_with(checkpoint_height).last_checkpoint_hash;
+    assert_eq!(
+        engine_calls_since(&validator, before),
+        [
+            EngineCall::HeaderByNumber(checkpoint_height),
+            nudge.clone(),
+            EngineCall::HeaderByNumber(checkpoint_height),
+            nudge,
+            EngineCall::HeaderByNumber(checkpoint_height),
+            EngineCall::NewPayload(hash),
+            EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized: checkpoint },
+        ],
+        "missing, nudge fails; missing, nudge backfills; then checked and executed"
+    );
+    assert!(validator.halt.is_none(), "a missing local block is waited for, never halted on");
+    assert_eq!(finalize(&mut proposer, finalize_req(&req)).await.expect("finalizes"), out);
+    assert_eq!(proposer.pending, validator.pending, "same next state");
+}
+
 /// A later local finalized head must not turn an accepted block into a different replay
 /// result. The cold node has no verdict, so it independently validates the original anchor.
 #[tokio::test]

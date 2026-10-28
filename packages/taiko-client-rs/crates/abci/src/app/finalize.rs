@@ -303,6 +303,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// A conflict is a safety halt: the decided history's L1 facts settle another chain. While the
     /// EL lacks the block at that height, is unreachable or answers a retryable error, the block
     /// waits with the [`Backoff`] schedule; a malformed EL answer or any other engine error halts.
+    /// An EL that lacks the block (e.g. it lost its tail below the checkpoint) only backfills once
+    /// a forkchoice update names a head, which `settle` would send only after this check, so each
+    /// wait for a missing block first points the EL at the committed parent
+    /// ([`App::nudge_committed_head`]).
     async fn confirm_checkpoint(
         &self,
         state: &AppState,
@@ -315,6 +319,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 Ok(()) => return Ok(()),
                 Err(conflict) if conflict.is_checkpoint_conflict() => {
                     return Err(invalid_block(height, &conflict));
+                }
+                Err(missing @ Rejection::LocalBlockMissing(_)) => {
+                    let nudge = self.nudge_committed_head(height, state).await?;
+                    format!("{missing}; {nudge}")
                 }
                 Err(wait) if wait.retryable_dependency() && !wait.requires_dependency_repair() => {
                     wait.to_string()
@@ -329,6 +337,28 @@ impl<L: L1Source, E: Engine> App<L, E> {
             };
             backoff.wait("checkpoint ancestry", &reason).await;
         }
+    }
+
+    /// Points the EL at the committed parent with unknown safe and finalized, the sync nudge the
+    /// trust session sends for a missing committed head, and describes the answer. Whatever it
+    /// answers, the caller re-reads the local chain on its next attempt. `INVALID` and a
+    /// non-retryable engine error halt ([`App::el_call`]); a retryable failure or an elapsed
+    /// deadline is part of the description.
+    async fn nudge_committed_head(
+        &self,
+        height: u64,
+        state: &AppState,
+    ) -> Result<String, AbciError> {
+        let nudge = self.engine.forkchoice(state.parent.hash, B256::ZERO, B256::ZERO);
+        Ok(match self.el_call(height, FCU, nudge).await? {
+            Settled::Valid => "pointed the execution engine at the committed head".into(),
+            Settled::Syncing => {
+                "the execution engine is syncing to the committed head it was pointed at".into()
+            }
+            Settled::Retry(error) => {
+                format!("pointing the execution engine at the committed head failed: {error}")
+            }
+        })
     }
 
     /// One read of the own L1 about the anchor `header`, which must be final. Above the own
