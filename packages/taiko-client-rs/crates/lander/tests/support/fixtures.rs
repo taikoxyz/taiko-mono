@@ -474,9 +474,6 @@ impl lander::comet::CometSource for FixtureChain {
             .cloned()
             .ok_or_else(|| lander::error::LanderError::Unavailable("fixture block".into()))
     }
-    async fn committee(&self, _: u64) -> lander::error::Result<abci::CommitteeState> {
-        panic!("production builder must derive from L1, never trust committee hints")
-    }
 }
 
 struct FixtureLanding {
