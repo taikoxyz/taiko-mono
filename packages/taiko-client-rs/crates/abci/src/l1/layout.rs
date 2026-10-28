@@ -296,8 +296,8 @@ mod tests {
     }
 
     /// Entry `i` of the `queue` mapping at slot 280 is a `ForcedInclusion` struct at
-    /// `keccak256(abi.encode(i, 280))`: `feeInGwei`, then the `BlobSlice` (its `blobHashes`
-    /// length, then `offset | timestamp`), and `blobHashes[0]` at `keccak256` of the length slot.
+    /// `keccak256(abi.encode(i, 280))`: `txHash`, then `timestamp | l1Block << 48` (two
+    /// `uint48`s) in the next slot.
     #[test]
     fn forced_inclusion_entry_slots_follow_solidity_layout() {
         let slots = inbox::forced_inclusion_entry_slots(7);

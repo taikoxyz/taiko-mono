@@ -7,15 +7,16 @@ contract InboxSetter {
     event ForcedInclusionSaved(uint48 indexed index, bytes tx, uint256 feeWei);
 
     /// @notice Plants a forced transaction and emits its protocol admission event.
-    /// @dev Records the timestamp and block number of the transaction that writes the entry.
+    /// @dev Writes the Inbox's `ForcedInclusion` entry: the transaction hash, then the timestamp
+    /// (bits 0-47) and block number (bits 48-95) of the transaction that writes the entry. The
+    /// entry holds no fee; the fee appears only in the event.
     /// @param _index The queue index to populate.
     /// @param _tx The raw transaction bytes.
-    /// @param _feeInGwei The admission fee in gwei.
+    /// @param _feeInGwei The admission fee in gwei, emitted in wei.
     function plantForcedTransaction(uint48 _index, bytes calldata _tx, uint64 _feeInGwei) external {
         bytes32 base = keccak256(abi.encode(_index, uint256(280)));
         bytes32 txHash = keccak256(_tx);
-        uint256 packed =
-            uint256(uint48(block.timestamp)) | (uint256(uint64(block.number)) << 48) | (uint256(_feeInGwei) << 112);
+        uint256 packed = uint256(uint48(block.timestamp)) | (uint256(uint48(block.number)) << 48);
         assembly {
             sstore(base, txHash)
             sstore(add(base, 1), packed)

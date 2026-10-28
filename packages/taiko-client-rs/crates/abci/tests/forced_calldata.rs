@@ -56,6 +56,12 @@ async fn forced_transaction_event_provenance() -> Result<()> {
         assert_eq!(keccak256(&fetched), proven.tx_hash);
         assert_eq!((proven.timestamp, proven.l1_block), (header.timestamp(), e.l1_block));
         assert_eq!((e.timestamp, e.tx_hash), (proven.timestamp, proven.tx_hash));
+        // The planted entry's second word is the real Inbox's: the two uint48s and nothing else.
+        let metadata_slot = abci::l1::layout::inbox::forced_inclusion_entry_slots(e.index)[1];
+        assert_eq!(
+            d.planter().inbox_word(metadata_slot).await?,
+            U256::from(e.timestamp) | (U256::from(e.l1_block) << 48)
+        );
         let logs:serde_json::Value=d.l1().raw_request("eth_getLogs".into(),(serde_json::json!({"address":d.params().inbox,"fromBlock":format!("{:#x}",e.l1_block),"toBlock":format!("{:#x}",e.l1_block),"topics":[keccak256("ForcedInclusionSaved(uint48,bytes,uint256)"),B256::from(U256::from(e.index))]}),)).await?;
         let logs = logs.as_array().context("logs array")?;
         assert_eq!(logs.len(), 1);
