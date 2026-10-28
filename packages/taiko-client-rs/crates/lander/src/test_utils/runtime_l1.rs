@@ -306,23 +306,25 @@ pub(crate) async fn snapshot_rpc(reorg: bool, before_raw: bool, malformed: bool)
     snapshot_rpc_with(reorg, before_raw, malformed, 0).await
 }
 
-/// As [`snapshot_rpc`], but the first `stale_proofs` head proofs come from the other trie, as an
-/// endpoint answers while the next block is still extending the head's state.
+/// As [`snapshot_rpc`], but the first `stale_proofs` head proofs carry a storage value that does
+/// not verify under the head's header, as an endpoint answers while the next block is still
+/// extending the head's state.
 pub(crate) async fn snapshot_rpc_with(
     reorg: bool,
     before_raw: bool,
     malformed: bool,
     stale_proofs: usize,
 ) -> SnapshotRpc {
-    snapshot_rpc_with_delay(reorg, before_raw, malformed, stale_proofs, Duration::ZERO).await
+    snapshot_rpc_with_delay(reorg, before_raw, malformed, 0..stale_proofs, Duration::ZERO).await
 }
 
-/// A source whose first proof response arrives after a controlled latency.
+/// A source whose `eth_getProof` answers with an index in `stale_calls` carry a storage value the
+/// head's header does not prove, and whose first proof response arrives after a controlled latency.
 async fn snapshot_rpc_with_delay(
     reorg: bool,
     before_raw: bool,
     malformed: bool,
-    stale_proofs: usize,
+    stale_calls: std::ops::Range<usize>,
     first_proof_delay: Duration,
 ) -> SnapshotRpc {
     let fixture_a = crate::test_utils::consensus_mpt::Fixture::new(0, 2);
@@ -340,7 +342,7 @@ async fn snapshot_rpc_with_delay(
     assert_ne!(a.l1_header.state_root(), b.l1_header.state_root());
     let (answer_a, answer_b) = (a.clone(), b.clone());
     let switched = Mutex::new(false);
-    let stale = Mutex::new(stale_proofs);
+    let proof_calls = Mutex::new(0usize);
     let first_proof_delay = Mutex::new(Some(first_proof_delay));
     let l1 = rpc(move |request| {
         let mut switched = switched.lock().unwrap();
@@ -371,11 +373,12 @@ async fn snapshot_rpc_with_delay(
                 if *switched && selector == &json!({"blockHash": answer_a.l1_block_hash, "requireCanonical": true}) {
                     return json!({"__rpc_error": {"code": -32000, "message": "block is not canonical"}});
                 }
-                let mut stale = stale.lock().unwrap();
-                let from_b = *switched || *stale > 0;
-                *stale = stale.saturating_sub(1);
-                let mut witness = if from_b { answer_b.inbox_witness.clone() } else { answer_a.inbox_witness.clone() };
+                let mut call = proof_calls.lock().unwrap();
+                let stale = stale_calls.contains(&*call);
+                *call += 1;
+                let mut witness = if *switched { answer_b.inbox_witness.clone() } else { answer_a.inbox_witness.clone() };
                 witness.storage.retain(|s| request["params"][1].as_array().unwrap().contains(&json!(s.slot)));
+                if stale { witness.storage[0].value += U256::from(1); }
                 if malformed { witness.account_proof.clear(); }
                 proof_json(&witness)
             }
@@ -447,7 +450,7 @@ async fn snapshot_rereads_a_head_proof_served_from_state_still_being_extended() 
 
 #[tokio::test]
 async fn snapshot_grace_starts_when_a_slow_first_proof_is_observed_inconsistent() {
-    let rpc = snapshot_rpc_with_delay(false, false, false, 1, Duration::from_millis(50)).await;
+    let rpc = snapshot_rpc_with_delay(false, false, false, 0..1, Duration::from_millis(50)).await;
     let source = rpc.source.as_ref().clone().with_head_proof_grace(Duration::from_millis(20));
     assert_eq!(source.snapshot().await.unwrap(), rpc.a);
     let calls = rpc.l1.requests.lock().unwrap();
@@ -461,6 +464,27 @@ async fn zero_head_proof_grace_reports_the_first_invalid_proof_without_rereading
     assert!(matches!(source.snapshot().await, Err(LanderError::Safety(_))));
     let calls = rpc.l1.requests.lock().unwrap();
     assert_eq!(calls.iter().filter(|call| call["method"] == "eth_getProof").count(), 1);
+}
+
+#[tokio::test]
+async fn snapshot_rereads_when_only_the_landing_slot_proof_sees_state_still_being_extended() {
+    // The head's first proof verifies; the landing-slot proof that follows it does not.
+    let rpc = snapshot_rpc_with_delay(false, false, false, 1..2, Duration::ZERO).await;
+    assert_eq!(rpc.source.snapshot().await.unwrap(), rpc.a);
+    let calls = rpc.l1.requests.lock().unwrap();
+    assert_eq!(calls.iter().filter(|call| call["method"] == "eth_getProof").count(), 4);
+    assert_eq!(calls.iter().filter(|call| call["method"] == "debug_getRawHeader").count(), 2);
+}
+
+#[tokio::test]
+async fn zero_head_proof_grace_reports_an_invalid_landing_slot_proof_without_rereading() {
+    let rpc = snapshot_rpc_with_delay(false, false, false, 1..2, Duration::ZERO).await;
+    let source = rpc.source.as_ref().clone().with_head_proof_grace(Duration::ZERO);
+    let error = source.snapshot().await.unwrap_err();
+    assert!(matches!(error, LanderError::Safety(_)), "{error}");
+    assert!(error.to_string().contains("Inbox snapshot proof"), "{error}");
+    let calls = rpc.l1.requests.lock().unwrap();
+    assert_eq!(calls.iter().filter(|call| call["method"] == "eth_getProof").count(), 2);
 }
 
 #[tokio::test]

@@ -135,6 +135,27 @@ impl RpcLandingSource {
         self
     }
 
+    /// Whether the head may be re-read after an Inbox proof that does not verify under the head's
+    /// own header ([`HEAD_PROOF_GRACE`]). Both proofs of one snapshot share `deadline`, which the
+    /// first such observation starts: `true` after a retry pause while it runs, `false` once it has
+    /// elapsed. A nonzero grace always permits at least one re-read, even after a slow response.
+    async fn reread_within_grace(
+        &self,
+        deadline: &mut Option<tokio::time::Instant>,
+        l1_block: u64,
+    ) -> bool {
+        let now = tokio::time::Instant::now();
+        if now >= *deadline.get_or_insert(now + self.head_proof_grace) {
+            return false;
+        }
+        tracing::warn!(
+            l1_block,
+            "Inbox proof does not verify under the head's own header; re-reading the head"
+        );
+        tokio::time::sleep(HEAD_PROOF_RETRY).await;
+        true
+    }
+
     /// Decode and independently hash one public EL header.
     async fn el_header(&self, number: u64) -> Result<Header> {
         let response: Option<serde_json::Value> = self
@@ -218,19 +239,9 @@ impl LandingSource for RpcLandingSource {
                 .map_err(anchor_error)?;
             let unverifiable = witness.address == self.params.inbox &&
                 verify_account_witness(raw.state_root(), &witness, &snapshot_slots()).is_err();
-            if unverifiable {
-                let now = tokio::time::Instant::now();
-                // Preserve the first suspicion's deadline across every head re-read. A nonzero
-                // grace always permits at least one re-read, even if the first response was slow.
-                let deadline = *proof_mismatch_deadline.get_or_insert(now + self.head_proof_grace);
-                if now < deadline {
-                    tracing::warn!(
-                        l1_block = latest,
-                        "Inbox proof does not verify under the head's own header; re-reading the head"
-                    );
-                    tokio::time::sleep(HEAD_PROOF_RETRY).await;
-                    continue;
-                }
+            if unverifiable && self.reread_within_grace(&mut proof_mismatch_deadline, latest).await
+            {
+                continue;
             }
             let storage = verify_account_witness(raw.state_root(), &witness, &snapshot_slots())
                 .map_err(|e| LanderError::Safety(format!("Inbox snapshot proof: {e}")))?;
@@ -238,15 +249,19 @@ impl LandingSource for RpcLandingSource {
                 storage.get(inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT)).expect("verified slot"),
                 0,
             );
+            let landing_slots = snapshot_landing_slots(height);
             let witness = self
                 .anchors
-                .account_witness_hash_canonical(
-                    self.params.inbox,
-                    &snapshot_landing_slots(height),
-                    raw.hash(),
-                )
+                .account_witness_hash_canonical(self.params.inbox, &landing_slots, raw.hash())
                 .await
                 .map_err(anchor_error)?;
+            // The second proof can see the same not-yet-stored head state as the first.
+            let unverifiable = witness.address == self.params.inbox &&
+                verify_account_witness(raw.state_root(), &witness, &landing_slots).is_err();
+            if unverifiable && self.reread_within_grace(&mut proof_mismatch_deadline, latest).await
+            {
+                continue;
+            }
             return decode_snapshot(raw, witness, l1_chain_id, l2_chain_id, &self.params);
         }
     }
