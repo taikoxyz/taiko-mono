@@ -155,11 +155,10 @@ impl Schedule {
     }
 
     /// Checks `epoch_len >= 3` and `epoch_len + 1 <= UINT48_MAX`, independently of U.
-    /// The retained unsettled-cap argument does not constrain the schedule.
     /// Also requires `l1_0 <= UINT48_MAX`: every anchor is at or above
     /// `l1_0` and the `extraData` encodes it as a `uint48`. Returns the first violation.
     /// `InitChain` and every load of `AppState` must call this before using the schedule.
-    pub fn validate(&self, _unsettled_cap: u64) -> Result<(), ScheduleError> {
+    pub fn validate(&self) -> Result<(), ScheduleError> {
         if self.epoch_len < 3 {
             return Err(ScheduleError::EpochTooShort { epoch_len: self.epoch_len });
         }
@@ -244,9 +243,9 @@ mod tests {
         assert_eq!(schedule(900).next_switch_target(u64::MAX), None);
         assert_eq!(schedule(900).switch_target(u64::MAX - 1), None);
         let last = schedule(UINT48_MAX - 1);
-        assert_eq!(last.validate(3600), Ok(()));
+        assert_eq!(last.validate(), Ok(()));
         assert_eq!(last.h_first(1), UINT48_MAX);
-        assert!(schedule(UINT48_MAX).validate(3600).is_err());
+        assert!(schedule(UINT48_MAX).validate().is_err());
     }
 
     #[test]
@@ -347,40 +346,33 @@ mod tests {
 
     #[test]
     fn validate_accepts_minimal_and_test_schedules() {
-        schedule(3).validate(0).unwrap();
-        schedule(20).validate(17).unwrap();
-        schedule(13).validate(10).unwrap();
-        schedule(3).validate(0).unwrap();
+        schedule(3).validate().unwrap();
+        schedule(13).validate().unwrap();
+        schedule(20).validate().unwrap();
     }
 
     #[test]
     fn validate_rejects_short_epochs() {
         for l in [0, 1, 2] {
-            assert_eq!(schedule(l).validate(0), Err(ScheduleError::EpochTooShort { epoch_len: l }));
+            assert_eq!(schedule(l).validate(), Err(ScheduleError::EpochTooShort { epoch_len: l }));
         }
-    }
-
-    #[test]
-    fn validate_does_not_couple_epoch_length_to_unsettled_cap() {
-        assert_eq!(schedule(3).validate(3600), Ok(()));
-        assert_eq!(schedule(20).validate(u64::MAX), Ok(()));
     }
 
     #[test]
     fn validate_accepts_epochs_above_the_removed_score_cap() {
         let old_score_cap = u64::from(u32::MAX) / 10_000;
-        assert_eq!(schedule(old_score_cap + 1).validate(10), Ok(()));
+        assert_eq!(schedule(old_score_cap + 1).validate(), Ok(()));
     }
 
     #[test]
     fn validate_keeps_the_first_transition_in_the_uint48_ranges() {
         // h_first(1) = L + 1 may be the last height `land` accepts, not one above it.
         let s = Schedule { epoch_len: UINT48_MAX - 1, ..schedule(20) };
-        assert_eq!(s.validate(10), Ok(()));
+        assert_eq!(s.validate(), Ok(()));
         assert_eq!(s.h_first(1), UINT48_MAX);
         for epoch_len in [UINT48_MAX, u64::MAX - 1, u64::MAX] {
             assert_eq!(
-                Schedule { epoch_len, ..schedule(20) }.validate(10),
+                Schedule { epoch_len, ..schedule(20) }.validate(),
                 Err(ScheduleError::FirstEpochBeyondHeightRange { epoch_len }),
                 "L={epoch_len}"
             );
@@ -388,10 +380,10 @@ mod tests {
 
         // L1_0 may be the last anchor extraData encodes, not one above it.
         let s = Schedule { l1_0: UINT48_MAX, ..schedule(20) };
-        assert_eq!(s.validate(10), Ok(()));
+        assert_eq!(s.validate(), Ok(()));
         for l1_0 in [UINT48_MAX + 1, u64::MAX] {
             assert_eq!(
-                Schedule { l1_0, ..schedule(20) }.validate(10),
+                Schedule { l1_0, ..schedule(20) }.validate(),
                 Err(ScheduleError::ActivationBeyondAnchorRange { l1_0 }),
                 "L1_0={l1_0}"
             );

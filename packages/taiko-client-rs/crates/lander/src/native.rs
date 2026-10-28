@@ -76,10 +76,6 @@ impl CommitSig {
             Self::BlockIdFlagNil { validator_address, .. } => Some(*validator_address),
         }
     }
-    /// Whether the slot contributes no vote.
-    pub fn is_absent(&self) -> bool {
-        matches!(self, Self::BlockIdFlagAbsent)
-    }
 }
 impl TryFrom<RawCommitSig> for CommitSig {
     /// Malformed flag, address, timestamp or native signature width.
@@ -801,7 +797,10 @@ mod tests {
             assert!(Commit::try_from(raw).is_err(), "malformed certificate mutation {mutation}");
         }
         let raw = RawCommitSig::from(super::CommitSig::BlockIdFlagAbsent);
-        assert!(super::CommitSig::try_from(raw).unwrap().is_absent());
+        assert!(matches!(
+            super::CommitSig::try_from(raw).unwrap(),
+            super::CommitSig::BlockIdFlagAbsent
+        ));
     }
 
     #[test]

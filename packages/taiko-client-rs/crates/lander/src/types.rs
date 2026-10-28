@@ -6,7 +6,7 @@ use abci::{
     GenesisRecord, RawL1Header,
 };
 use alloy_consensus::Header;
-use alloy_primitives::{Address, B256, Bytes, U256, aliases::U48};
+use alloy_primitives::{Address, B256, Bytes, U256};
 use prost::Message;
 use serde::{Deserialize, Serialize};
 use tendermint_proto::v0_38::types::Commit as RawCommit;
@@ -108,19 +108,6 @@ pub struct LandingSnapshot {
     pub l1_header: RawL1Header,
     /// Inbox account and storage proof for the complete snapshot slot set.
     pub inbox_witness: AccountWitness,
-}
-
-impl LandingSnapshot {
-    /// The stored forced inclusion head as the Inbox's `uint48`; storage decoding cannot produce
-    /// a wider value, so one is an inconsistent snapshot.
-    pub fn forced_inclusion_head_u48(&self) -> Result<U48> {
-        U48::try_from(self.forced_inclusion_head).map_err(|_| {
-            LanderError::Safety(format!(
-                "forced inclusion head {} exceeds uint48",
-                self.forced_inclusion_head
-            ))
-        })
-    }
 }
 
 /// One independently derived committee's authenticated registry witness provenance.
@@ -427,7 +414,7 @@ impl PreparedBatch {
         let invalid =
             || LanderError::Journal("job active committee snapshot provenance mismatch".into());
         let schedule = abci::Schedule::from_genesis(&self.snapshot.genesis);
-        schedule.validate(0).map_err(|_| invalid())?;
+        schedule.validate().map_err(|_| invalid())?;
         let terminal = headers.last().ok_or_else(invalid)?;
         if self.input.lastHeight != terminal.number ||
             terminal.hash_slow() != self.input.lastBlockHash ||
@@ -547,7 +534,6 @@ mod rlp_serde {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::protocol::request;
 
     #[test]
     fn prepared_statement_rejects_every_terminal_comet_bit_even_with_rebound_digest() {
@@ -574,14 +560,5 @@ mod tests {
         let mut changed = request.batch;
         changed.input.lastCometHash = B256::ZERO;
         assert!(changed.validate_statement().is_err());
-    }
-
-    #[test]
-    fn forced_inclusion_head_converts_exactly_up_to_uint48() {
-        let mut snapshot = request().batch.snapshot;
-        snapshot.forced_inclusion_head = (1 << 48) - 1;
-        assert_eq!(snapshot.forced_inclusion_head_u48().unwrap(), U48::MAX);
-        snapshot.forced_inclusion_head = 1 << 48;
-        assert!(matches!(snapshot.forced_inclusion_head_u48(), Err(LanderError::Safety(_))));
     }
 }

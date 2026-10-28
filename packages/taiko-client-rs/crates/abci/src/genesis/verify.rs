@@ -53,7 +53,7 @@ pub(crate) fn verify_context(
     if local != genesis.committee_config_hash {
         return Err(GenesisError::ConfigMismatch { local, proven: genesis.committee_config_hash });
     }
-    Schedule::from_genesis(&genesis).validate(params.unsettled_cap())?;
+    Schedule::from_genesis(&genesis).validate()?;
     Ok(GenesisContext { genesis, anchor: anchor_state(header, facts), committee_hash })
 }
 

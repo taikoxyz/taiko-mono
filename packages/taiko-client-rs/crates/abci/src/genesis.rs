@@ -189,10 +189,18 @@ pub fn decode_app_state(bytes: &[u8]) -> Result<GenesisWitness, GenesisError> {
     Ok(witness)
 }
 
+impl From<&GenesisWitness> for AppStateJson {
+    /// The `app_state` carrying `rlp(w)`.
+    fn from(w: &GenesisWitness) -> Self {
+        Self { witness: alloy_rlp::encode(w).into() }
+    }
+}
+
 /// Encodes `w` as the genesis `app_state` JSON `{"witness": "0x<hex rlp(w)>"}`.
-pub fn encode_app_state(w: &GenesisWitness) -> Vec<u8> {
-    let json = AppStateJson { witness: alloy_rlp::encode(w).into() };
-    serde_json::to_vec(&json).expect("a struct with one byte-string field always serializes")
+#[cfg(test)]
+pub(crate) fn encode_app_state(w: &GenesisWitness) -> Vec<u8> {
+    serde_json::to_vec(&AppStateJson::from(w))
+        .expect("a struct with one byte-string field always serializes")
 }
 
 #[cfg(test)]

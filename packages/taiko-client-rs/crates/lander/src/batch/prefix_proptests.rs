@@ -231,8 +231,7 @@ proptest! {
         let builder = builder(chain.clone(), limits, max_batch_blocks, deflate_bytes);
         let runtime = tokio::runtime::Builder::new_current_thread().build()?;
         let snapshot = protocol::request().batch.snapshot;
-        let schedule = abci::Schedule::from_genesis(&snapshot.genesis);
-        match runtime.block_on(builder.publishable_prefix(&snapshot, &schedule, decided as u64)) {
+        match runtime.block_on(builder.publishable_prefix(&snapshot, decided as u64)) {
             Ok(prefix) => {
                 let selected = prefix.blocks.len();
                 prop_assert!(selected <= cap.min(decided));

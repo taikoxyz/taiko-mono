@@ -72,11 +72,10 @@ pub use envelope::{
 pub use genesis::{
     AppStateJson, CommitteeRecordError, GenesisCommitteeRecord, GenesisDoc, GenesisError,
     GenesisValidator, GenesisWitness, build_committee_record, build_genesis, decode_app_state,
-    encode_app_state,
 };
 pub use l1::{
     CommitteeL1Source, FetchError, L1Error, L1HeaderError, L1Source, RawL1Header, RpcL1Source,
-    build_committee_witness, build_committee_witness_at_cutoff, header_at, is_final_canonical,
+    build_committee_witness_at_cutoff, header_at, is_final_canonical,
 };
 pub use metrics::AbciMetrics;
 pub use rules::{ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation};

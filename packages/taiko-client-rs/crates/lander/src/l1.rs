@@ -129,7 +129,8 @@ impl RpcLandingSource {
     }
 
     /// Override [`HEAD_PROOF_GRACE`], the re-read window for an unverifiable head proof.
-    pub fn with_head_proof_grace(mut self, grace: Duration) -> Self {
+    #[cfg(test)]
+    pub(crate) fn with_head_proof_grace(mut self, grace: Duration) -> Self {
         self.head_proof_grace = grace;
         self
     }
@@ -575,7 +576,7 @@ fn decode_snapshot(
         ));
     }
     Schedule::from_genesis(&genesis)
-        .validate(params.unsettled_cap())
+        .validate()
         .map_err(|e| LanderError::Configuration(format!("Inbox epoch parameters: {e}")))?;
     let head_tail = word(inbox::FORCED_INCLUSION_HEAD_TAIL);
     let slots = inbox::landing_slots(height);

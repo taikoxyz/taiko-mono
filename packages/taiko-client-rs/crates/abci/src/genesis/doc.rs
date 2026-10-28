@@ -215,7 +215,7 @@ impl GenesisDoc {
                     .value
                     .to_be_bytes::<32>(),
             ),
-            app_state: AppStateJson { witness: alloy_rlp::encode(w).into() },
+            app_state: AppStateJson::from(w),
         })
     }
 

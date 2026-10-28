@@ -104,19 +104,9 @@ struct Reads {
     batches: HashMap<(u64, Range<u64>), Vec<RegistryEntry>>,
 }
 
-/// Builds the committee witness for `target_epoch` against the parent anchor `parent_anchor`,
-/// reading the node's own L1 without deadlines.
-///
-/// In order:
-/// - the supplied committed parent anchor number as the snapshot cutoff;
-/// - the last registry checkpoint at or before it, found by binary search;
-/// - the complete entries read at the proving block or just before the successor checkpoint;
-/// - checkpoint and successor storage proofs at the proving block.
-///
-/// Every result is independently checked by the pure committee verifier. Historical entry
-/// discovery may need archive RPC; an explicit historical snapshot is never advanced by its later
-/// proving block.
-pub async fn build_committee_witness<L: L1Source + ?Sized>(
+/// [`build_committee_witness_within`] without read deadlines or retained progress.
+#[cfg(test)]
+pub(crate) async fn build_committee_witness<L: L1Source + ?Sized>(
     l1: &L,
     params: &ChainParams,
     parent_anchor: u64,
@@ -128,9 +118,10 @@ pub async fn build_committee_witness<L: L1Source + ?Sized>(
         .await
 }
 
-/// [`build_committee_witness`] with the given explicit historical `cutoff`:
-/// the snapshot is the last checkpoint with `l1Block <= cutoff` (no lag, no grid), and every read
-/// [`build_committee_witness`] makes at the parent anchor is made at L1 block `block`.
+/// The committee witness for `target_epoch` with the given explicit historical `cutoff`, reading
+/// the node's own L1 without deadlines: the snapshot is the last checkpoint with
+/// `l1Block <= cutoff` (no lag, no grid), and every read [`build_committee_witness_within`] makes
+/// at the parent anchor is made at L1 block `block`.
 ///
 /// This builds the genesis committee `e_0`'s witness, with `block = L1_0` and
 /// `cutoff = genesisCutoff`, as
@@ -155,9 +146,19 @@ pub async fn build_committee_witness_at_cutoff<L: L1Source + ?Sized>(
         .await
 }
 
-/// [`build_committee_witness`], bounding every single L1 read by `read_timeout`
-/// ([`FetchError::Timeout`] otherwise) and resuming from, and adding to, the reads `progress`
-/// kept for `parent_anchor`.
+/// Builds the committee witness for `target_epoch` against the parent anchor `parent_anchor`,
+/// bounding every single L1 read by `read_timeout` ([`FetchError::Timeout`] otherwise) and
+/// resuming from, and adding to, the reads `progress` kept for `parent_anchor`.
+///
+/// In order:
+/// - the supplied committed parent anchor number as the snapshot cutoff;
+/// - the last registry checkpoint at or before it, found by binary search;
+/// - the complete entries read at the proving block or just before the successor checkpoint;
+/// - checkpoint and successor storage proofs at the proving block.
+///
+/// Every result is independently checked by the pure committee verifier. Historical entry
+/// discovery may need archive RPC; an explicit historical snapshot is never advanced by its later
+/// proving block.
 ///
 /// A failed read (an RPC error, an unknown block or a read past its deadline) keeps `progress`;
 /// any other end clears it ([`DiscoveryProgress`]).
@@ -190,8 +191,8 @@ struct Discovery<'a, L: ?Sized> {
 
 impl<L: L1Source + ?Sized> Discovery<'_, L> {
     /// The committee witness for `target` against the parent anchor `n_p` (see
-    /// [`build_committee_witness`]): resumes from the kept reads of `n_p` (forgetting those of
-    /// another parent anchor), and forgets them again unless a read failed.
+    /// [`build_committee_witness_within`]): resumes from the kept reads of `n_p` (forgetting those
+    /// of another parent anchor), and forgets them again unless a read failed.
     async fn witness(&self, n_p: u64, target: u64) -> Result<CommitteeWitness, FetchError> {
         {
             let mut reads = self.progress.lock();
@@ -211,7 +212,7 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
         result
     }
 
-    /// The discovery steps of [`build_committee_witness`].
+    /// The discovery steps of [`build_committee_witness_within`].
     async fn discover(&self, n_p: u64, target: u64) -> Result<CommitteeWitness, FetchError> {
         let params = self.params;
         let cutoff = self.cutoff.unwrap_or(n_p);

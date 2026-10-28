@@ -23,8 +23,10 @@ pub mod source;
 pub mod witness;
 
 pub use archive::CommitteeL1Source;
+#[cfg(test)]
+pub(crate) use fetch::build_committee_witness;
 pub(crate) use fetch::{DiscoveryProgress, build_committee_witness_within};
-pub use fetch::{FetchError, build_committee_witness, build_committee_witness_at_cutoff};
+pub use fetch::{FetchError, build_committee_witness_at_cutoff};
 pub use header::{L1HeaderError, RawL1Header};
 pub use mpt::{MptError, VerifiedStorage, verify_account_witness};
 pub use source::{L1Error, L1Source, RpcL1Source, header_at, is_final_canonical};

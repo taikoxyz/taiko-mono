@@ -49,6 +49,7 @@ pub mod inbox {
     /// 0–47) and `maxAnchorAge` (`uint48` seconds, bits 48–95).
     pub const FORCED_INCLUSION_CONFIG: u64 = 282;
     /// Proof-bound active committee snapshot: `uint64` L1 block number, bits 0–63.
+    #[cfg(test)]
     pub const ACTIVE_COMMITTEE_SNAPSHOT: u64 = 284;
     /// Checkpoint landing records, keyed by endpoint height, three words each.
     pub const LANDINGS: u64 = 285;
@@ -204,6 +205,7 @@ pub fn word_u48(word: U256, bit_offset: usize) -> u64 {
 /// The `uint32` packed at `bit_offset` (low-order-first) in a storage word.
 ///
 /// Bits beyond the word's end read as zero.
+#[cfg(test)]
 pub fn word_u32(word: U256, bit_offset: usize) -> u32 {
     (word >> bit_offset).wrapping_to::<u32>()
 }
