@@ -544,10 +544,17 @@ or config opening differs.
    Repair the underlying cause and review durable evidence before explicitly removing it.
    Missing registered signing state fails closed; startup never creates replacement HRS.
    Before spawning a new local Unix pair, after the old children are reaped, the supervisor
-   removes only a disconnected socket directly inside `<comet-home>/run`. Live listeners,
-   symlinks, non-socket files, changed inodes and uncertain connection errors fail closed.
-   This cleans stale transport left by stock Comet without touching signing state, WAL,
-   app history, the private trust socket or the durable halt latch.
+   atomically moves a disconnected socket from `<comet-home>/run` into a fresh supervisor-owned
+   0700 `.etna-transport-*` directory and verifies the selected inode before deleting it.
+   Live listeners, symlinks, non-socket files, changed inodes and uncertain connection errors
+   fail closed. A raced replacement is preserved as `endpoint` in that private directory;
+   restoring its original name never removes this protected backup. Empty directories after
+   successful cleanup are retained too, avoiding unsafe name-based directory deletion.
+   This adds a small directory/inode per stale-socket restart; old directories are never
+   reused. Optional manual cleanup requires the validator fully stopped and each directory
+   inspected; preserve mismatch evidence for repair. No automatic garbage collector runs.
+   Signing state, WAL, app history, the private trust socket and the durable halt latch remain
+   untouched.
 
    On restart, CometBFT replays missing app commits while signing stays closed until the app
    authenticates its own latest finalized-L1 checkpoint and links it to durable committed

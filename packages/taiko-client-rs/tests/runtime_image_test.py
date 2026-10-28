@@ -1,5 +1,6 @@
 """Smoke the actual Linux runtime-tools stage without compiling the Rust app."""
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -11,6 +12,7 @@ import tempfile
 import threading
 import time
 import tomllib
+from unittest.mock import patch
 
 assert os.getuid() == 0, "supported supervisor uses root to drop Comet privileges"
 assert os.environ["ETNA_COMET_UID"] == os.environ["ETNA_COMET_GID"] == "10001"
@@ -148,6 +150,47 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
     unused = json.loads((home / "config/priv_validator_key.json").read_bytes())
     assert unused["pub_key"] != native
     assert json.loads((home / "data/priv_validator_state.json").read_bytes())["height"] == "0"
+    empty_quarantines = list((home / "run").glob(".etna-transport-*"))
+    assert empty_quarantines, "successful stale cleanup must retain its empty private directory"
+    for quarantine in empty_quarantines:
+        assert not list(quarantine.iterdir())
+        assert quarantine.stat().st_uid == 0 and quarantine.stat().st_mode & 0o777 == 0o700
+    # Reproduce the reviewed race with an actual unprivileged Comet-UID writer.
+    spec = importlib.util.spec_from_file_location("etna_validator_under_test", "/app/script/etna_validator.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    transport = home / "run/signer.sock"
+    directory = transport.parent.stat()
+    real_fstat = os.fstat
+    replaced = []
+    def replace_after_endpoint_stat(descriptor):
+        observed_directory = real_fstat(descriptor)
+        if not replaced and (observed_directory.st_dev, observed_directory.st_ino) == (directory.st_dev, directory.st_ino):
+            subprocess.run(["python3", "-c",
+                            "import os,pathlib,sys; assert os.getuid()==10001; "
+                            "assert int(next(l.split()[1] for l in pathlib.Path('/proc/self/status').read_text().splitlines() if l.startswith('CapEff:')),16)==0; "
+                            "p=pathlib.Path(sys.argv[1]); p.unlink(); p.write_text('raced replacement')", str(transport)],
+                           user=10001, group=10001, extra_groups=[], check=True)
+            replaced.append(transport.stat().st_ino)
+        return observed_directory
+    with patch.dict(os.environ, environment), patch.object(module.os, "fstat", replace_after_endpoint_stat):
+        try:
+            module.Supervisor().prepare_transport()
+        except ValueError as error:
+            assert "preserved at" in str(error), error
+        else:
+            raise AssertionError("changed endpoint must refuse startup")
+    assert replaced and transport.read_text() == "raced replacement"
+    retained = list((home / "run").glob(".etna-transport-*/endpoint"))
+    assert len(retained) == 1 and retained[0].stat().st_ino == replaced[0]
+    assert retained[0].parent.stat().st_uid == 0 and retained[0].parent.stat().st_mode & 0o777 == 0o700
+    denied = subprocess.run(["python3", "-c", "import os,sys; os.unlink(sys.argv[1])", str(retained[0])],
+                            user=10001, group=10001, extra_groups=[], capture_output=True)
+    assert denied.returncode != 0 and b"PermissionError" in denied.stderr
+    subprocess.run(["python3", "-c", "import os,sys; os.unlink(sys.argv[1])", str(transport)],
+                   user=10001, group=10001, extra_groups=[], check=True)
+    assert retained[0].read_text() == "raced replacement", "protected backup must survive loss of restored public name"
+    assert before == (key.read_bytes(), state.read_bytes())
     for missing in [key, state]:
         saved = missing.with_suffix(".saved")
         missing.rename(saved)
@@ -161,4 +204,5 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
                           publicKey=public["publicKey"], child_uids=observed,
                           comet_cannot_read_registered_key=True, HRS_unchanged=True,
                           unused_local_identity_never_signed=True, stock_unix_restart_with_retained_authority=True,
+                          replacement_preserved_against_unprivileged_writer=True,
                           missing_key_or_HRS_aborts_before_Comet=True)))

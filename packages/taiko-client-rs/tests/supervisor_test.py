@@ -1,4 +1,5 @@
 """Real child-process supervision with a controlled private trust peer."""
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -9,6 +10,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -268,6 +270,62 @@ class UnixSupervisorTests(SupervisorTests):
         inode = outside.lstat().st_ino
         self.assert_refused()
         self.assertEqual(outside.lstat().st_ino, inode)
+
+    def assert_replacement_after_final_stat_survives(self, kind):
+        self.stop_supervisor()
+        spec = importlib.util.spec_from_file_location("etna_validator_under_test", ROOT / "script/etna_validator.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        real_fstat = os.fstat
+        replaced = []
+        directory = self.transport.parent.stat()
+        with socket.socket(socket.AF_UNIX) as listener:
+            def replace_after_endpoint_stat(descriptor):
+                observed = real_fstat(descriptor)
+                if not replaced and (observed.st_dev, observed.st_ino) == (directory.st_dev, directory.st_ino):
+                    # fstat is the final directory check, after endpoint identity
+                    # validation. Exercise a real replacement in that exact gap.
+                    self.transport.unlink()
+                    if kind == "file":
+                        self.transport.write_text("concurrent replacement must survive")
+                    elif kind == "symlink":
+                        self.transport.symlink_to(self.key)
+                    else:
+                        listener.bind(str(self.transport))
+                        listener.listen()
+                    replaced.append(self.transport.lstat().st_ino)
+                return observed
+            with patch.dict(os.environ, self.env), patch.object(module.os, "fstat", replace_after_endpoint_stat):
+                supervisor = module.Supervisor()
+                with self.assertRaisesRegex(ValueError, "preserved at"):
+                    supervisor.prepare_transport()
+            self.assertTrue(replaced, "replacement interleaving was not exercised")
+            self.assertEqual(self.transport.lstat().st_ino, replaced[0])
+            if kind == "file":
+                self.assertEqual(self.transport.read_text(), "concurrent replacement must survive")
+            elif kind == "symlink":
+                self.assertTrue(self.transport.is_symlink())
+            else:
+                with socket.socket(socket.AF_UNIX) as peer:
+                    peer.connect(str(self.transport))
+            backups = list(self.transport.parent.glob(".etna-transport-*/endpoint"))
+            self.assertEqual(len(backups), 1)
+            self.assertEqual(backups[0].lstat().st_ino, replaced[0])
+            # A writer can remove the restored public name; protected evidence
+            # must still survive for operator diagnosis.
+            self.transport.unlink()
+            self.assertEqual(backups[0].lstat().st_ino, replaced[0])
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
+        self.assertEqual(self.key.read_text(), "existing key")
+
+    def test_file_replacement_after_final_stat_survives(self):
+        self.assert_replacement_after_final_stat_survives("file")
+
+    def test_symlink_replacement_after_final_stat_survives(self):
+        self.assert_replacement_after_final_stat_survives("symlink")
+
+    def test_live_socket_replacement_after_final_stat_survives(self):
+        self.assert_replacement_after_final_stat_survives("socket")
 
     def test_symlinked_run_directory_is_never_followed(self):
         self.stop_supervisor()
