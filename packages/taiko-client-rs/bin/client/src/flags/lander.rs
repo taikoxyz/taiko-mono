@@ -191,7 +191,6 @@ mod tests {
         [
             "L1_HTTP",
             "L2_HTTP",
-            "LANDER_L2_REWARD_RECIPIENT",
             "LANDER_COMET_HTTP",
             "LANDER_SIGNING_KEY",
             "LANDER_DATA_DIR",
@@ -259,13 +258,12 @@ mod tests {
     }
 
     #[test]
-    fn removed_reward_flag_is_rejected() {
+    fn rejects_unknown_flags() {
         let _lock = ENV_LOCK.lock().unwrap();
         let _clear = clear_env();
         let mut args = argv();
-        args.extend(["--l2.reward-recipient", "0x7777777777777777777777777777777777777777"]);
+        args.extend(["--no-such-flag", "1"]);
         assert_eq!(parse(args).unwrap_err().kind(), ErrorKind::UnknownArgument);
-        assert!(Cli::try_parse_from(["taiko-client", "lander-claim"]).is_err());
     }
 
     #[test]

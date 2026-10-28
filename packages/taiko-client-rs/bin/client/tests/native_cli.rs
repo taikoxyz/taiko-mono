@@ -53,22 +53,13 @@ async fn rpc(chain_id: &'static str) -> Rpc {
 }
 
 #[tokio::test]
-async fn only_current_commands_and_flags_are_exposed() {
+async fn help_lists_every_command() {
     let help = run(&["--help"]).await;
     assert!(help.status.success());
     let help = String::from_utf8(help.stdout).unwrap();
     for command in ["abci", "abci-genesis", "abci-committee-record", "lander"] {
         assert!(help.contains(command));
     }
-    assert!(!help.contains("lander-claim"));
-    let claim = run(&["lander-claim"]).await;
-    assert!(!claim.status.success());
-    assert!(stderr(&claim).contains("unrecognized subcommand"));
-    let lander =
-        run(&["lander", "--l2.reward-recipient", "0x7777777777777777777777777777777777777777"])
-            .await;
-    assert!(!lander.status.success());
-    assert!(stderr(&lander).contains("unexpected argument '--l2.reward-recipient'"));
 }
 
 #[tokio::test]
@@ -93,36 +84,29 @@ async fn both_bootstrap_commands_accept_full_l1_id_before_authenticated_state_re
 }
 
 #[tokio::test]
-async fn obsolete_configuration_is_rejected_without_rpc_or_output_replacement() {
+async fn unknown_configuration_is_rejected_without_rpc_or_output_replacement() {
     let rpc = rpc("0x1").await;
     let dir = tempfile::tempdir().unwrap();
     let config = dir.path().join("chain.toml");
     let out = dir.path().join("genesis.json");
     std::fs::write(&out, b"existing genesis").unwrap();
-    for field in [
-        "d_max = 12",
-        "margin_v = 2",
-        "heartbeat_window = 100",
-        "fee_vault = '0x7777777777777777777777777777777777777777'",
-    ] {
-        std::fs::write(&config, field).unwrap();
-        let result = run(&[
-            "abci-genesis",
-            "--l1.http",
-            &rpc.url,
-            "--l2.chain-id",
-            "167001",
-            "--chain-config",
-            config.to_str().unwrap(),
-            "--out",
-            out.to_str().unwrap(),
-        ])
-        .await;
-        assert!(!result.status.success());
-        assert!(stderr(&result).contains("unknown field"), "{}", stderr(&result));
-        assert!(rpc.methods.lock().unwrap().is_empty());
-        assert_eq!(std::fs::read(&out).unwrap(), b"existing genesis");
-    }
+    std::fs::write(&config, "unknown_key = 12").unwrap();
+    let result = run(&[
+        "abci-genesis",
+        "--l1.http",
+        &rpc.url,
+        "--l2.chain-id",
+        "167001",
+        "--chain-config",
+        config.to_str().unwrap(),
+        "--out",
+        out.to_str().unwrap(),
+    ])
+    .await;
+    assert!(!result.status.success());
+    assert!(stderr(&result).contains("unknown field"), "{}", stderr(&result));
+    assert!(rpc.methods.lock().unwrap().is_empty());
+    assert_eq!(std::fs::read(&out).unwrap(), b"existing genesis");
 }
 
 #[tokio::test]

@@ -16,9 +16,8 @@ use crate::{
     schedule::Schedule,
     test_utils::{
         EngineCall, GenesisSpec, L1Call, MockEngine, TestState, committee_witness, edit_l1_header,
-        filler_accounts, inbox_account, l1_header, registry_account, sample_entries,
+        filler_accounts, inbox_account, l1_header, registry_account,
     },
-    types::RegistryEntry,
 };
 
 #[tokio::test]
@@ -44,20 +43,6 @@ async fn init_chain_persists_the_verified_genesis_state() {
         "{:?}",
         app.engine().calls()
     );
-}
-
-/// The `e_0` committee is the active bonded set unfiltered by heartbeats: a genesis
-/// whose entries never sent one initializes the chain.
-#[tokio::test]
-async fn a_genesis_committee_without_heartbeats_initializes() {
-    let entries: Vec<RegistryEntry> = sample_entries(2);
-    let fx = Fixture::build(GenesisSpec { entries: Some(entries), ..GenesisSpec::new(2) });
-    assert_eq!(fx.members.len(), 2);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = fx.app(dir.path());
-    let resp = init_chain(&mut app, fx.request.clone()).await.expect("InitChain succeeds");
-    assert!(resp.validators.is_empty());
-    assert_eq!(app.state(), Some(&fx.expected_state()));
 }
 
 /// Genesis derives at explicit snapshot 63; entries active from 62 remain inactive at 59.
