@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "renderer": {
+    "name": "marked",
+    "version": "17.0.5"
+  },
+  "pages": [
+    {
+      "name": "design-spec",
+      "title": "Etna PoS + ZK Design Spec",
+      "url": "https://app.notion.com/p/3fe9673143d6817a9f0fdaaf1b965d7a",
+      "pageId": "3fe96731-43d6-817a-9f0f-daaf1b965d7a",
+      "lastEditedAt": "2026-10-28T08:47:22.317Z",
+      "source": "design-spec.notion.md",
+      "sha256": "f75f9c7f1e5ab74c8d0612cf9caf1c4b551ff70e15086f2d09c333994bb40784"
+    },
+    {
+      "name": "acceptance",
+      "title": "Etna Acceptance and Launch Checklist",
+      "url": "https://app.notion.com/p/4059673143d6817fbd80ec6bec24b95b",
+      "pageId": "40596731-43d6-817f-bd80-ec6bec24b95b",
+      "lastEditedAt": "2026-10-27T02:33:26.010Z",
+      "source": "acceptance.notion.md",
+      "sha256": "035efd128b470e01625b2c87ac6be111876e2ae8ebf630108827e9009a2860bd"
+    }
+  ]
+}

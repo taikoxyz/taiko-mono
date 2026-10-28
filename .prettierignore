@@ -17,3 +17,9 @@ yarn.lock
 
 # ignore changelog because release-please-action manages it
 CHANGELOG.md
+
+# Preserve retained Notion bodies and deterministic Etna document exports.
+packages/protocol/docs/Etna/pos-zk/sources/*.notion.md
+packages/protocol/docs/Etna/pos-zk/SPEC.md
+packages/protocol/docs/Etna/pos-zk/ACCEPTANCE.md
+packages/protocol/docs/Etna/pos-zk/spec/*.html
