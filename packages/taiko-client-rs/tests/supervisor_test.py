@@ -19,7 +19,7 @@ class SupervisorTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.home = self.root / "comet"
         (self.home / "config").mkdir(parents=True)
-        (self.home / "config/config.toml").write_text('priv_validator_laddr = "tcp://127.0.0.1:26659"\n')
+        self.configure_transport()
         (self.home / "config/genesis.json").write_text('{"chain_id":"etna-test"}')
         self.store = self.root / "app"
         self.store.mkdir()
@@ -44,7 +44,7 @@ class SupervisorTests(unittest.TestCase):
         self.bin = self.root / "bin"
         self.bin.mkdir()
         for name, body in {
-            "cometbft": 'from pathlib import Path\nimport os,time\np=Path(os.environ["STARTS"])\np.open("a").write("start\\n")\nPath(os.environ["COMET_PID"]).write_text(str(os.getpid()))\ntime.sleep(60)',
+            "cometbft": self.comet_body(),
             "signer": 'import time\ntime.sleep(60)',
         }.items():
             path = self.bin / name
@@ -58,7 +58,17 @@ class SupervisorTests(unittest.TestCase):
         self.log = (self.root / "runtime.log").open("w+")
         self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")], env=self.env,
                                      stdout=self.log, stderr=self.log)
-        self.wait(lambda: self.starts() == 1)
+        try:
+            self.wait(lambda: self.starts() == 1)
+        except Exception:
+            self.tearDown()
+            raise
+
+    def configure_transport(self):
+        (self.home / "config/config.toml").write_text('priv_validator_laddr = "tcp://127.0.0.1:26659"\n')
+
+    def comet_body(self):
+        return 'from pathlib import Path\nimport os,time\np=Path(os.environ["STARTS"])\np.open("a").write("start\\n")\nPath(os.environ["COMET_PID"]).write_text(str(os.getpid()))\ntime.sleep(60)'
 
     def serve(self):
         while not self.done.is_set():
@@ -186,6 +196,87 @@ class SupervisorTests(unittest.TestCase):
         time.sleep(.4)
         self.assertEqual(self.starts(), 1)
         self.assertIsNone(self.proc.poll())
+
+
+class UnixSupervisorTests(SupervisorTests):
+    """Repeat lifecycle gates with a real listener which leaves its socket inode."""
+
+    def configure_transport(self):
+        (self.home / "run").mkdir()
+        self.transport = self.home / "run/signer.sock"
+        (self.home / "config/config.toml").write_text(f'priv_validator_laddr = "unix://{self.transport}"\n')
+
+    def comet_body(self):
+        # Like stock Comet, this listener leaves its transport inode after exit.
+        return (f'import socket\ns=socket.socket(socket.AF_UNIX)\ns.bind({str(self.transport)!r})\ns.listen()\n'
+                + super().comet_body())
+
+    def stop_supervisor(self):
+        self.proc.terminate()
+        self.proc.wait(timeout=5)
+        self.assertTrue(self.transport.is_socket())
+
+    def restart_supervisor(self):
+        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
+                                     env=self.env, stdout=self.log, stderr=self.log)
+
+    def assert_refused(self):
+        self.restart_supervisor()
+        self.assertNotEqual(self.proc.wait(timeout=5), 0)
+        self.assertEqual(self.starts(), 1)
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
+        self.assertEqual(self.key.read_text(), "existing key")
+
+    def test_stale_socket_restart_retains_authority(self):
+        self.stop_supervisor()
+        self.restart_supervisor()
+        self.wait(lambda: self.starts() == 2)
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
+        self.assertEqual(self.key.read_text(), "existing key")
+        self.assertFalse((self.store / "validator-supervisor.halted").exists())
+
+    def test_live_socket_is_never_removed(self):
+        self.stop_supervisor()
+        self.transport.unlink()
+        with socket.socket(socket.AF_UNIX) as listener:
+            listener.bind(str(self.transport))
+            listener.listen()
+            inode = self.transport.lstat().st_ino
+            self.assert_refused()
+            self.assertEqual(self.transport.lstat().st_ino, inode)
+
+    def test_regular_file_is_never_removed(self):
+        self.stop_supervisor()
+        self.transport.unlink()
+        self.transport.write_text("foreign transport file")
+        self.assert_refused()
+        self.assertEqual(self.transport.read_text(), "foreign transport file")
+
+    def test_symlink_is_never_followed_or_removed(self):
+        self.stop_supervisor()
+        self.transport.unlink()
+        self.transport.symlink_to(self.key)
+        self.assert_refused()
+        self.assertTrue(self.transport.is_symlink())
+
+    def test_outside_run_socket_is_never_removed(self):
+        self.stop_supervisor()
+        outside = self.root / "foreign.sock"
+        with socket.socket(socket.AF_UNIX) as listener:
+            listener.bind(str(outside))
+        (self.home / "config/config.toml").write_text(f'priv_validator_laddr = "unix://{outside}"\n')
+        inode = outside.lstat().st_ino
+        self.assert_refused()
+        self.assertEqual(outside.lstat().st_ino, inode)
+
+    def test_symlinked_run_directory_is_never_followed(self):
+        self.stop_supervisor()
+        directory = self.home / "run"
+        moved = self.home / "real-run"
+        directory.rename(moved)
+        directory.symlink_to(moved, target_is_directory=True)
+        self.assert_refused()
+        self.assertTrue((moved / "signer.sock").is_socket())
 
 
 if __name__ == "__main__":

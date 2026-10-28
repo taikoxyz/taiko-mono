@@ -507,7 +507,7 @@ or config opening differs.
    as root and drops the stock Comet child to UID/GID10001 (`ETNA_COMET_UID/GID`). Prepare
    its persistent home and signer-listener directory owned by10001; keep registered key/HRS
    root-owned0600 in a private directory outside that home. Put the Unix signer listener
-   under the Comet-owned home, not the app's0700 private store. This prevents the Comet
+   directly inside `<comet-home>/run`, not the app's0700 private store. This prevents the Comet
    child from reading registered signing secrets. Supervisor needs root with SETUID, SETGID,
    KILL and DAC_OVERRIDE capabilities: the root signer must connect to the Comet-owned Unix
    socket. Comet runs as UID10001 with zero effective capabilities. Persistent Comet volume
@@ -543,6 +543,11 @@ or config opening differs.
    shutdown revocations wait for a fresh app incarnation; they never authorize signing.
    Repair the underlying cause and review durable evidence before explicitly removing it.
    Missing registered signing state fails closed; startup never creates replacement HRS.
+   Before spawning a new local Unix pair, after the old children are reaped, the supervisor
+   removes only a disconnected socket directly inside `<comet-home>/run`. Live listeners,
+   symlinks, non-socket files, changed inodes and uncertain connection errors fail closed.
+   This cleans stale transport left by stock Comet without touching signing state, WAL,
+   app history, the private trust socket or the durable halt latch.
 
    On restart, CometBFT replays missing app commits while signing stays closed until the app
    authenticates its own latest finalized-L1 checkpoint and links it to durable committed

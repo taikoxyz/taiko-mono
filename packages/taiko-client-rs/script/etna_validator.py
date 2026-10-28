@@ -5,11 +5,13 @@ Only private observation and signer refusal events trigger recovery. Neither is
 signing authorization: every new transport still obtains a fresh closed session.
 A durable terminal latch keeps restartAlways containers quiescent until repair.
 """
+import errno
 import json
 import os
 from pathlib import Path
 import signal
 import socket
+import stat
 import subprocess
 import sys
 import time
@@ -33,6 +35,7 @@ class Supervisor:
         if json.loads((self.home / "config/genesis.json").read_text())["chain_id"] != self.chain:
             raise ValueError("signer chain ID differs from Comet genesis")
         self.container = os.environ.get("ETNA_COMET_CONTAINER")  # host Docker test adapter
+        self.transport = Path(address[7:]) if not self.container and address.startswith("unix://") else None
         address = os.environ.get("ETNA_SIGNER_ADDR", address)
         self.events = Path(os.environ.get("ETNA_DENIAL_FILE", str(self.store / "signer-denial.json")))
         self.latch = self.store / "validator-supervisor.halted"
@@ -87,7 +90,51 @@ class Supervisor:
                 self.signer.wait()
             self.signer = None
 
+    def prepare_transport(self):
+        """Remove only a disconnected local transport inode after old children are reaped."""
+        if self.transport is None:
+            return  # TCP and the host Docker adapter own no local Unix endpoint.
+        directory = self.home / "run"
+        if (not self.transport.is_absolute() or self.transport.parent.is_symlink()
+                or self.transport.parent.resolve() != directory):
+            raise ValueError("Unix signer transport must be directly inside Comet home/run")
+        self.transport = directory / self.transport.name
+        if self.comet is not None or self.signer is not None:
+            raise ValueError("Unix transport cleanup requires reaped children")
+        # Do not follow a substituted run directory, or unlink through a path
+        # which changes while checking a potentially foreign listener.
+        descriptor = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            try:
+                original = os.stat(self.transport.name, dir_fd=descriptor, follow_symlinks=False)
+            except FileNotFoundError:
+                return
+            if not stat.S_ISSOCK(original.st_mode):
+                raise ValueError("Unix signer transport is not a socket")
+            with socket.socket(socket.AF_UNIX) as peer:
+                peer.settimeout(1)
+                try:
+                    peer.connect(str(self.transport))
+                except OSError as error:
+                    if error.errno != errno.ECONNREFUSED:
+                        raise  # Timeouts, permissions and all uncertainty fail closed.
+                else:
+                    raise ValueError("Unix signer transport still has a live listener")
+            current = os.stat(self.transport.name, dir_fd=descriptor, follow_symlinks=False)
+            current_directory = directory.lstat()
+            opened_directory = os.fstat(descriptor)
+            if (not stat.S_ISSOCK(current.st_mode)
+                    or (original.st_dev, original.st_ino) != (current.st_dev, current.st_ino)
+                    or not stat.S_ISDIR(current_directory.st_mode)
+                    or (current_directory.st_dev, current_directory.st_ino)
+                    != (opened_directory.st_dev, opened_directory.st_ino)):
+                raise ValueError("Unix signer transport changed during stale-socket check")
+            os.unlink(self.transport.name, dir_fd=descriptor)
+        finally:
+            os.close(descriptor)
+
     def start(self):
+        self.prepare_transport()
         # Each signer incarnation numbers refusals from zero. Discard only its observation
         # file after both old children have been reaped; this is never signing state.
         self.events.unlink(missing_ok=True)
