@@ -120,10 +120,11 @@ async fn the_verdict_cache_is_bounded_and_an_evicted_block_still_finalizes() {
     assert_eq!(
         engine_calls_since(&app, before),
         [
+            EngineCall::HeaderByNumber(fx.genesis.genesis_height + 3),
             EngineCall::NewPayload(hash),
             EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized: checkpoint },
         ],
-        "re-validated and executed, as on a cold start"
+        "re-validated, its checkpoint ancestry checked and executed, as on a cold start"
     );
     assert_eq!(app.pending.as_ref().map(|s| s.parent.hash), Some(hash));
 }
@@ -149,9 +150,11 @@ async fn finalize_without_process_revalidates_and_executes() {
     assert_eq!(
         engine_calls_since(&validator, before),
         [
+            EngineCall::HeaderByNumber(fx.genesis.genesis_height + 3),
             EngineCall::NewPayload(hash),
             EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized: checkpoint },
-        ]
+        ],
+        "the moved anchor's checkpoint is checked against the local chain before execution"
     );
     assert_eq!(
         validator.l1().calls(),
@@ -235,7 +238,7 @@ async fn finalize_updates_parent_anchor_and_committees() {
     assert_eq!(state.committees, expected.committees);
 
     // A moved anchor replaces the anchor facts.
-    let inbox = fx.inbox_with(h0);
+    let inbox = fx.inbox_at_checkpoint(h0, expected.parent.hash);
     fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
     step(&mut app).await;
     assert_eq!(app.state().unwrap().anchor, fx.anchor_state(app.l1(), 66));
@@ -313,14 +316,14 @@ async fn forkchoice_finalizes_the_anchored_checkpoint() {
     let fcu = EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized: fx.genesis_hash() };
     assert_eq!(engine_calls_since(&app, before).last(), Some(&fcu));
 
-    // An Inbox with no checkpoint hash keeps `finalized` at zero.
-    let mut inbox = fx.inbox_with(fx.genesis.genesis_height + 1);
-    inbox.last_checkpoint_hash = B256::ZERO;
+    // A moved anchor whose checkpoint is H_0 finalizes H_0.
+    let h0 = env.block.header.hash_slow();
+    let inbox = fx.inbox_at_checkpoint(env.block.header.number, h0);
     fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
     let before = app.engine().calls().len();
     let env = step(&mut app).await;
     let hash = env.block.header.hash_slow();
-    let fcu = EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized: B256::ZERO };
+    let fcu = EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized: h0 };
     assert_eq!(engine_calls_since(&app, before).last(), Some(&fcu));
 }
 
@@ -813,6 +816,54 @@ async fn a_cold_block_without_an_anchor_witness_needs_no_l1() {
     }
     finalize(&mut app, req).await.expect("finalizes without L1");
     assert!(app.l1().calls().is_empty());
+}
+
+/// A decided block this node never judged whose moved anchor proves a `lastCheckpoint` other
+/// than the local chain's block at its height, or above the parent: the decided history's L1
+/// facts settle another chain, a safety halt before the block executes.
+#[tokio::test]
+async fn cold_finalize_halts_on_an_anchored_checkpoint_conflicting_with_the_local_chain() {
+    let fx = Fixture::genesis(1);
+    let parent = fx.genesis.genesis_height + 5;
+    let conflicting =
+        [fx.inbox_at_checkpoint(3, B256::repeat_byte(0xc4)), fx.inbox_with(parent + 1)];
+    for (number, inbox) in (66..).zip(conflicting) {
+        let height = inbox.last_checkpoint_height;
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = mid_epoch(&fx, dir.path(), 5).await;
+        fx.advance_l1(app.l1(), number, &inbox, &fx.registry);
+        let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), number)), None);
+        let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+        let committed = app.state().cloned();
+        let msg = safety_halt(finalize(&mut app, req).await);
+        assert!(msg.contains("lastCheckpoint"), "checkpoint {height}: {msg}");
+        assert!(
+            !app.engine().calls().iter().any(|call| matches!(call, EngineCall::NewPayload(_))),
+            "never executed"
+        );
+        assert_eq!(app.state().cloned(), committed);
+        assert!(app.pending.is_none());
+    }
+}
+
+/// While the EL does not serve the block an anchored checkpoint names yet, a cold decided block
+/// waits instead of halting, and finalizes once the EL serves it.
+#[tokio::test(start_paused = true)]
+async fn cold_finalize_waits_until_the_el_serves_the_checkpoint_block() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    fx.advance_l1(app.l1(), 66, &fx.inbox_with(3), &fx.registry);
+    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)), None);
+    let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+    let block = app.engine().state().chain.remove(&3).expect("the local chain holds block 3");
+    let waited = tokio::time::timeout(Duration::from_secs(60), finalize(&mut app, req.clone()));
+    assert!(waited.await.is_err(), "waits for the EL");
+    assert!(app.pending.is_none());
+
+    app.engine().state().chain.insert(3, block);
+    finalize(&mut app, req).await.expect("finalizes once the EL serves the block");
+    assert_eq!(app.pending.as_ref().map(|s| s.parent.hash), Some(env.block.header.hash_slow()));
 }
 
 /// Two different records for one epoch: a safety halt.

@@ -254,11 +254,24 @@ impl Fixture {
     }
 
     /// The genesis Inbox storage with the last checkpoint moved to `last_checkpoint_height`
-    /// (hash derived from the height) with the bootstrap committee unchanged.
+    /// with the bootstrap committee unchanged. Its hash is the local chain's block there in tests
+    /// that move the committed state with `jump`: the genesis hash at `B*`, a
+    /// [`committed_block`] above it.
     pub(crate) fn inbox_with(&self, last_checkpoint_height: u64) -> InboxStorage {
+        let hash = if last_checkpoint_height == self.genesis.genesis_height {
+            self.genesis_hash()
+        } else {
+            committed_block(last_checkpoint_height).hash_slow()
+        };
+        self.inbox_at_checkpoint(last_checkpoint_height, hash)
+    }
+
+    /// The genesis Inbox storage with the last checkpoint moved to `(height, hash)` with the
+    /// bootstrap committee unchanged.
+    pub(crate) fn inbox_at_checkpoint(&self, height: u64, hash: B256) -> InboxStorage {
         let mut inbox = self.inbox.clone();
-        inbox.last_checkpoint_height = last_checkpoint_height;
-        inbox.last_checkpoint_hash = B256::from(U256::from(last_checkpoint_height) + U256::from(1));
+        inbox.last_checkpoint_height = height;
+        inbox.last_checkpoint_hash = hash;
         inbox
     }
 
@@ -429,6 +442,13 @@ pub(crate) fn validator_updates(members: &[Member]) -> Vec<crate::wire::Validato
             power: vote::Power::try_from(m.power).expect("power fits i64"),
         })
         .collect()
+}
+
+/// A stand-in for the local chain's committed EL block `number` above genesis, for tests that
+/// move the committed state there without building every block: its hash is the committed parent
+/// hash at that height and, below the parent, the EL's canonical block there.
+pub(crate) fn committed_block(number: u64) -> Header {
+    Header { number, extra_data: Bytes::from_static(b"committed"), ..Header::default() }
 }
 
 /// An EL genesis header with a base fee and zk gas (difficulty).

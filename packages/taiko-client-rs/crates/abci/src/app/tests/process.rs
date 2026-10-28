@@ -203,7 +203,7 @@ async fn wrong_inbox_proof_is_rejected() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
-    fx.advance_l1(app.l1(), 66, &fx.inbox_with(1_002), &fx.registry);
+    fx.advance_l1(app.l1(), 66, &fx.inbox_with(fx.genesis.genesis_height + 3), &fx.registry);
     let env = propose(&mut app).await;
 
     let mut bad = env.clone();
@@ -216,6 +216,93 @@ async fn wrong_inbox_proof_is_rejected() {
     let mut bad = env.clone();
     bad.anchor.as_mut().unwrap().inbox.address = fx.params.registry;
     assert_eq!(rejected(&mut app, &bad).await, "anchor_witness");
+}
+
+/// The EL header reads `app` made after its first `from` engine calls.
+fn header_reads_since(app: &App<MockL1, MockEngine>, from: usize) -> Vec<u64> {
+    app.engine().calls()[from..]
+        .iter()
+        .filter_map(|call| match call {
+            EngineCall::HeaderByNumber(number) => Some(*number),
+            _ => None,
+        })
+        .collect()
+}
+
+/// A moved anchor's proven `lastCheckpoint` names the local chain's block at its height: the
+/// genesis and parent hashes come from the committed state, a height between them from the EL.
+#[tokio::test]
+async fn anchored_checkpoint_on_the_local_chain_is_accepted() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let parent = app.state().unwrap().last_height;
+    for (number, checkpoint, reads) in
+        [(66, fx.genesis.genesis_height, vec![]), (67, 3, vec![3]), (68, parent, vec![])]
+    {
+        fx.advance_l1(app.l1(), number, &fx.inbox_with(checkpoint), &fx.registry);
+        let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), number)), None);
+        let before = app.engine().calls().len();
+        let (resp, _) = judge(&mut app, &env).await;
+        assert_eq!(resp, response::ProcessProposal::Accept, "checkpoint {checkpoint}");
+        assert_eq!(header_reads_since(&app, before), reads, "checkpoint {checkpoint}");
+    }
+}
+
+/// A moved anchor whose proven `lastCheckpoint` is above the committed parent, or names another
+/// block than the local chain's at its height, is rejected under its own label before the EL
+/// executes it, although it is deterministically valid.
+#[tokio::test]
+async fn anchored_checkpoint_conflicting_with_the_local_chain_is_rejected() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let parent = app.state().unwrap().last_height;
+
+    fx.advance_l1(app.l1(), 66, &fx.inbox_with(parent + 1), &fx.registry);
+    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)), None);
+    assert!(validate(&app, &env).is_ok(), "deterministically valid");
+    let before = app.engine().calls().len();
+    assert_eq!(rejected(&mut app, &env).await, "checkpoint_above_parent");
+    assert!(app.engine().calls()[before..].is_empty(), "refused without any EL call");
+
+    for (number, height) in [(67, 3), (68, parent)] {
+        let inbox = fx.inbox_at_checkpoint(height, B256::repeat_byte(0xc4));
+        fx.advance_l1(app.l1(), number, &inbox, &fx.registry);
+        let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), number)), None);
+        let before = app.engine().calls().len();
+        assert_eq!(rejected(&mut app, &env).await, "checkpoint_conflict", "height {height}");
+        assert!(
+            !app.engine().calls()[before..]
+                .iter()
+                .any(|call| matches!(call, EngineCall::NewPayload(_))),
+            "never executed"
+        );
+    }
+    assert!(app.verdicts.is_empty());
+}
+
+/// An EL that does not serve the checkpoint's block yet, fails in transport or misses its
+/// deadline keeps the proposal pending; it is accepted once the EL answers.
+#[tokio::test(start_paused = true)]
+async fn checkpoint_lookup_failures_wait_without_a_false_rejection() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    fx.advance_l1(app.l1(), 66, &fx.inbox_with(3), &fx.registry);
+    let env = propose(&mut app).await;
+    assert!(env.anchor.is_some(), "the anchor moves");
+    {
+        let mut engine = app.engine().state();
+        engine.delay_script.push_back(app.opts.engine_timeout + Duration::from_secs(1));
+        engine.header_script.extend([Ok(None), Err(EngineError::Transport("down".into()))]);
+    }
+    let before = app.engine().calls().len();
+    let (resp, _) = judge(&mut app, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
+    assert!(app.engine().state().delay_script.is_empty(), "the first read ran out of time");
+    // The mock records a read once its delay ends, so the timed-out one is not listed.
+    assert_eq!(header_reads_since(&app, before), [3, 3, 3], "missing, down, then served");
 }
 
 #[tokio::test]

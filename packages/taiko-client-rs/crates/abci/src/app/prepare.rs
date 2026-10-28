@@ -78,7 +78,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Builds the encoded envelope of the block at `req.height` on top of `state`.
     ///
     /// Chooses `max(parent anchor, own finalized - extra depth)`, authenticates a changed anchor
-    /// or the forced H0 anchor, checks progress, generation and back-pressure, derives
+    /// or the forced H0 anchor, checks progress, generation, back-pressure and checkpoint
+    /// ancestry (keeping the parent anchor when a moved one conflicts, see
+    /// [`App::choose_anchor`]), derives
     /// the header and checks that its timestamp keeps the anchor fresh (an anchor older than
     /// `maxAnchorAge` proposes nothing until L1 finalizes a newer block). At `H(t)-2`, discovers
     /// or reuses committee `t` at the committed parent's cutoff under the candidate anchor's state
@@ -103,42 +105,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
         let finalized = self.l1_read("L1 finalized read", self.l1.finalized_number()).await?;
         set_u64(AbciMetrics::l1_finality_lag(), finalized.saturating_sub(state.anchor.number));
-        let n = state.anchor.number.max(finalized.saturating_sub(params.l1_finality_extra_depth));
-        let anchor = if n != state.anchor.number || height == schedule.h0() {
-            let known = if n == state.anchor.number {
-                Some(state.anchor.clone())
-            } else {
-                self.preparation_cache()
-                    .anchor
-                    .as_ref()
-                    .filter(|witness| witness.l1_header.number() == n)
-                    .and_then(|witness| verify_anchor_witness(witness, params.inbox).ok())
-            };
-            let witness = if let Some(known) =
-                known.filter(|anchor| state.forced_cursor < anchor.inbox.forced_inclusion_tail)
-            {
-                // A known non-empty queue permits an independent entry proof while the
-                // header/anchor are refreshed. The eventual chosen root still keys reuse.
-                let (witness, _) = tokio::join!(
-                    self.anchor_witness(n),
-                    self.forced_entry(&known, state.forced_cursor),
-                );
-                witness?
-            } else {
-                self.anchor_witness(n).await?
-            };
-            Some(witness)
-        } else {
-            None
-        };
-        let candidate = Candidate {
-            anchor: anchor.as_ref(),
-            committee: None,
-
-            extra_generation: state.generation,
-            extra_anchor: n,
-        };
-        let anchor_state = check_candidate_anchor(state, params, height, &candidate)?;
+        let newest =
+            state.anchor.number.max(finalized.saturating_sub(params.l1_finality_extra_depth));
+        let (anchor, anchor_state) = self.choose_anchor(state, height, newest).await?;
         let expected = expected_header(
             state,
             params,
@@ -280,6 +249,96 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
         check_execution_size(&envelope.block)?;
         Ok(encoded)
+    }
+
+    /// The anchor of the block at `height` on top of `state`: the newest own-finalized L1 block
+    /// `newest` (never below the parent's), with its witness when the anchor moves or at `H0`
+    /// ([`App::anchor_candidate`]).
+    ///
+    /// A moved anchor whose proven `lastCheckpoint` conflicts with the local chain
+    /// ([`App::check_anchor_checkpoint`]) is never proposed, since every honest validator rejects
+    /// it: the parent's still-valid anchor is kept instead, and the conflict is logged at ERROR
+    /// and counted in `abci_proposal_fallbacks_total` as an alert. Any other failure of the check
+    /// (a dependency that is not ready, say) refuses the proposal.
+    async fn choose_anchor(
+        &self,
+        state: &AppState,
+        height: u64,
+        newest: u64,
+    ) -> Result<(Option<AnchorWitness>, AnchorState), Rejection> {
+        let (witness, anchor) = self.anchor_candidate(state, height, newest).await?;
+        if witness.is_none() {
+            return Ok((witness, anchor));
+        }
+        match self.check_anchor_checkpoint(state, &anchor).await {
+            Ok(()) => Ok((witness, anchor)),
+            Err(conflict) if conflict.is_checkpoint_conflict() && newest != state.anchor.number => {
+                tracing::error!(
+                    height,
+                    anchor = newest,
+                    parent_anchor = state.anchor.number,
+                    reason = conflict.label(),
+                    error = %conflict,
+                    "the finalized anchor's lastCheckpoint conflicts with the local chain; \
+                     proposing on the parent anchor"
+                );
+                AbciMetrics::proposal_fallbacks().with_label_values(&[conflict.label()]).inc();
+                let (witness, anchor) =
+                    self.anchor_candidate(state, height, state.anchor.number).await?;
+                if witness.is_some() {
+                    self.check_anchor_checkpoint(state, &anchor).await?;
+                }
+                Ok((witness, anchor))
+            }
+            Err(other) => Err(other),
+        }
+    }
+
+    /// A candidate anchored at L1 block `n`: its witness, fetched when the anchor moves to `n` or
+    /// the height is `H0`, and the anchor that [`check_candidate_anchor`] proves (progress,
+    /// generation and back-pressure) or inherits.
+    async fn anchor_candidate(
+        &self,
+        state: &AppState,
+        height: u64,
+        n: u64,
+    ) -> Result<(Option<AnchorWitness>, AnchorState), Rejection> {
+        let params = &self.params;
+        let witness = if n != state.anchor.number || height == state.schedule().h0() {
+            let known = if n == state.anchor.number {
+                Some(state.anchor.clone())
+            } else {
+                self.preparation_cache()
+                    .anchor
+                    .as_ref()
+                    .filter(|witness| witness.l1_header.number() == n)
+                    .and_then(|witness| verify_anchor_witness(witness, params.inbox).ok())
+            };
+            let witness = if let Some(known) =
+                known.filter(|anchor| state.forced_cursor < anchor.inbox.forced_inclusion_tail)
+            {
+                // A known non-empty queue permits an independent entry proof while the
+                // header/anchor are refreshed. The eventual chosen root still keys reuse.
+                let (witness, _) = tokio::join!(
+                    self.anchor_witness(n),
+                    self.forced_entry(&known, state.forced_cursor),
+                );
+                witness?
+            } else {
+                self.anchor_witness(n).await?
+            };
+            Some(witness)
+        } else {
+            None
+        };
+        let candidate = Candidate {
+            anchor: witness.as_ref(),
+            committee: None,
+            extra_generation: state.generation,
+            extra_anchor: n,
+        };
+        let anchor = check_candidate_anchor(state, params, height, &candidate)?;
+        Ok((witness, anchor))
     }
 
     /// The committee witness of `target_epoch` against `state`'s fixed parent anchor: a

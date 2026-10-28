@@ -579,6 +579,13 @@ or config opening differs.
   lowered by a lagging L1 answer; after a restart, the loaded state's authenticated anchor is
   the initial floor. Once trusted, ordinary advances of the L1 finalized head never expire an
   accepted proposal and are not a block-validity rule.
+- Checkpoint ancestry: whenever a block carries an anchor witness, the anchor's proven
+  `lastCheckpoint` must be at most the parent height and equal the local chain's EL block hash
+  at that height. `ProcessProposal` rejects a conflict (`checkpoint_conflict` or
+  `checkpoint_above_parent` in `abci_process_rejected_total`, logged at ERROR), a proposer
+  keeps the parent anchor instead of proposing one (`abci_proposal_fallbacks_total`), and a
+  cold `FinalizeBlock` halts on it. An EL that does not serve that block yet only makes the
+  node wait.
 - Checkpoint fence: `FinalizeBlock` passes the `lastCheckpoint.hash` proven by the block's
   anchor as forkchoice `finalized`. alethia-reth rejects a head that does not descend from it
   with `-38002` (invalid forkchoice state), and the app stops with a safety halt. With

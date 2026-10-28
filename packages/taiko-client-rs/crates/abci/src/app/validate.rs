@@ -160,6 +160,10 @@ pub enum Rejection {
     /// ¹ The EL cannot execute the block yet (`SYNCING`/`ACCEPTED`).
     #[error("execution engine is syncing")]
     PayloadSyncing,
+    /// ¹ The local EL serves no canonical block at a committed height the anchor's
+    /// `lastCheckpoint` names, so checkpoint ancestry cannot be checked yet.
+    #[error("execution engine has no canonical block at committed height {0}")]
+    LocalBlockMissing(u64),
     /// ¹ An external call exceeded its deadline.
     #[error("{0} timed out")]
     Timeout(&'static str),
@@ -223,7 +227,7 @@ impl Rejection {
                 !error.is_integrity_failure() &&
                     !matches!(error, L1Error::UnsupportedHeaderFormat { .. })
             }
-            Self::Timeout(_) | Self::PayloadSyncing => true,
+            Self::Timeout(_) | Self::PayloadSyncing | Self::LocalBlockMissing(_) => true,
             _ => false,
         }
     }
@@ -252,6 +256,7 @@ impl Rejection {
             Self::Engine(_) => "engine_error",
             Self::PayloadInvalid(_) => "payload_invalid",
             Self::PayloadSyncing => "payload_syncing",
+            Self::LocalBlockMissing(_) => "local_block_missing",
             Self::Timeout(_) => "timeout",
             Self::Registry(_) => "registry_discovery",
             Self::CommitteeCache(_) => "committee_cache_error",
@@ -263,10 +268,18 @@ impl Rejection {
         }
     }
 
-    /// Whether the refusal reports a local build fault at ERROR; expected liveness waits and
-    /// malformed proposals log at WARN.
+    /// Whether the refusal reports a local build fault or an anchored checkpoint conflicting
+    /// with the local chain (an alert) at ERROR; expected liveness waits and malformed proposals
+    /// log at WARN.
     pub fn logs_at_error(&self) -> bool {
-        matches!(self, Self::Oversize { .. } | Self::BuiltHeader(_) | Self::CommitteeCache(_))
+        matches!(self, Self::Oversize { .. } | Self::BuiltHeader(_) | Self::CommitteeCache(_)) ||
+            self.is_checkpoint_conflict()
+    }
+
+    /// Whether the anchor's proven `lastCheckpoint` contradicts the local chain
+    /// ([`RuleViolation::is_checkpoint_conflict`]).
+    pub fn is_checkpoint_conflict(&self) -> bool {
+        matches!(self, Self::Rule(rule) if rule.is_checkpoint_conflict())
     }
 }
 
