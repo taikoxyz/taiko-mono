@@ -298,6 +298,9 @@ pub(crate) struct MockEngineState {
     pub(crate) chain: BTreeMap<u64, Header>,
     /// Every block the EL holds, canonical or not, by hash.
     pub(crate) known: HashMap<B256, Header>,
+    /// Canonical blocks the EL lost (e.g. its tail) and backfills, all at once, when an
+    /// unscripted `forkchoice` names a head it does not hold.
+    pub(crate) backfill: BTreeMap<u64, Header>,
     /// Scripted `header_by_number` answers (before falling back to `chain`).
     pub(crate) header_script: VecDeque<Result<Option<Header>, EngineError>>,
     /// Scripted `build_block` answers (an empty queue builds [`simple_block`]).
@@ -491,7 +494,8 @@ impl Engine for MockEngine {
     }
 
     /// Pops `forkchoice_script`; when empty, a known `head` becomes canonical (`Valid`) and an
-    /// unknown one answers `Syncing`. A scripted `Valid` for a known head also canonicalizes it.
+    /// unknown one answers `Syncing`, after which the `backfill` blocks are canonical and known
+    /// again. A scripted `Valid` for a known head also canonicalizes it.
     async fn forkchoice(
         &self,
         head: B256,
@@ -505,7 +509,13 @@ impl Engine for MockEngine {
         let verdict = match state.forkchoice_script.pop_front() {
             Some(scripted) => scripted?,
             None if known.is_some() => PayloadVerdict::Valid,
-            None => PayloadVerdict::Syncing,
+            None => {
+                for (number, header) in std::mem::take(&mut state.backfill) {
+                    state.known.insert(header.hash_slow(), header.clone());
+                    state.chain.insert(number, header);
+                }
+                PayloadVerdict::Syncing
+            }
         };
         if let (PayloadVerdict::Valid, Some(header)) = (&verdict, known) {
             state.canonicalize(&header);
