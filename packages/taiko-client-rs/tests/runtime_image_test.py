@@ -4,9 +4,11 @@ import json
 import os
 from pathlib import Path
 import signal
+import socket
 import struct
 import subprocess
 import tempfile
+import threading
 import time
 import tomllib
 
@@ -52,7 +54,7 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
     (home / "data").mkdir()
     (home / "run").mkdir()
     chain = "etna-runtime-smoke"
-    config = f'proxy_app = "tcp://127.0.0.1:26658"\npriv_validator_laddr = "unix://{home}/run/signer.sock"\n'
+    config = f'proxy_app = "kvstore"\npriv_validator_laddr = "unix://{home}/run/signer.sock"\n'
     (home / "config/config.toml").write_text(config)
     assert tomllib.loads(config)["priv_validator_laddr"].startswith("unix://")
     # Only public registered metadata is installed in the Comet home.
@@ -70,36 +72,76 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
     assert denied.returncode != 0 and b"PermissionError" in denied.stderr
     environment = dict(os.environ, ETNA_COMET_HOME=str(home), ETNA_APP_STORE=str(app),
                        ETNA_PRIV_KEY=str(key), ETNA_PRIV_STATE=str(state), ETNA_CHAIN_ID=chain)
-    with (root / "runtime.log").open("w+") as log:
-        supervisor = subprocess.Popen(["python3", "/app/script/etna_validator.py"],
-                                      env=environment, stdout=log, stderr=log)
-        try:
-            deadline = time.monotonic() + 8
-            observed = {}
-            while time.monotonic() < deadline:
-                assert supervisor.poll() is None, "supervisor exited during image smoke"
-                children = Path(f"/proc/{supervisor.pid}/task/{supervisor.pid}/children").read_text().split()
-                for pid in children:
-                    try:
-                        name = Path(f"/proc/{pid}/comm").read_text().strip()
-                        status = Path(f"/proc/{pid}/status").read_text().splitlines()
-                        uid = next(line for line in status if line.startswith("Uid:")).split()[1]
-                        observed[name] = uid
-                    except FileNotFoundError:
-                        pass
-                if observed.get("cometbft") == "10001" and observed.get("etna-signer") == "0":
-                    break
-                time.sleep(.05)
-            assert observed.get("cometbft") == "10001" and observed.get("etna-signer") == "0", observed
-            time.sleep(.3)
-            assert not (app / "validator-supervisor.halted").exists(), "runtime child failed during smoke"
-            assert len(Path(f"/proc/{supervisor.pid}/task/{supervisor.pid}/children").read_text().split()) == 2
-        finally:
-            supervisor.send_signal(signal.SIGTERM)
-            supervisor.wait(timeout=20)
-            log.seek(0)
-            diagnostics = log.read()
-        assert supervisor.returncode == 0, diagnostics
+    # The stock node uses its built-in kvstore only to complete startup. This
+    # private peer always closes/denies signing trust; no synthetic authorization.
+    control = socket.socket(socket.AF_UNIX)
+    control.bind(str(app / "checkpoint-trust.sock"))
+    control.listen()
+    control.settimeout(.1)
+    done = threading.Event()
+    sessions = []
+    def serve_control():
+        while not done.is_set():
+            try:
+                peer, _ = control.accept()
+            except socket.timeout:
+                continue
+            with peer:
+                request = json.loads(peer.makefile("rb").readline())
+                if request["op"] == "begin_session":
+                    sessions.append(len(sessions) + 1)
+                response = dict(schema_version=1, session_id=f"closed-{len(sessions)}",
+                                chain_id=chain, generation=0, trust_ready=False, syncing=True,
+                                phase="acquiring", target=None, committed_head=None,
+                                trusted_consensus_head=None, reason="image smoke denies signing")
+                peer.sendall((json.dumps(response) + "\n").encode())
+    server = threading.Thread(target=serve_control, daemon=True)
+    server.start()
+    # Actual stock Comet must bind again over the same retained home and authority.
+    for incarnation in range(2):
+        with (root / "runtime.log").open("w+") as log:
+            supervisor = subprocess.Popen(["python3", "/app/script/etna_validator.py"],
+                                          env=environment, stdout=log, stderr=log)
+            try:
+                deadline = time.monotonic() + 8
+                observed = {}
+                while time.monotonic() < deadline:
+                    assert supervisor.poll() is None, "supervisor exited during image smoke"
+                    children = Path(f"/proc/{supervisor.pid}/task/{supervisor.pid}/children").read_text().split()
+                    for pid in children:
+                        try:
+                            name = Path(f"/proc/{pid}/comm").read_text().strip()
+                            status = Path(f"/proc/{pid}/status").read_text().splitlines()
+                            uid = next(line for line in status if line.startswith("Uid:")).split()[1]
+                            observed[name] = uid
+                        except FileNotFoundError:
+                            pass
+                    listening = any(line.split()[-1] == str(home / "run/signer.sock")
+                                    and line.split()[3] == "00010000"
+                                    for line in Path("/proc/net/unix").read_text().splitlines()[1:])
+                    if listening and observed.get("cometbft") == "10001" and observed.get("etna-signer") == "0":
+                        break
+                    time.sleep(.05)
+                assert observed.get("cometbft") == "10001" and observed.get("etna-signer") == "0", observed
+                assert listening, "stock Comet did not open its Unix signer listener"
+                time.sleep(.3)
+                assert not (app / "validator-supervisor.halted").exists(), "runtime child failed during smoke"
+                assert len(Path(f"/proc/{supervisor.pid}/task/{supervisor.pid}/children").read_text().split()) == 2
+            except BaseException:
+                log.flush()
+                log.seek(0)
+                print(log.read(), flush=True)
+                raise
+            finally:
+                supervisor.send_signal(signal.SIGTERM)
+                supervisor.wait(timeout=20)
+                log.seek(0)
+                diagnostics = log.read()
+            assert supervisor.returncode == 0, diagnostics
+    done.set()
+    server.join(timeout=2)
+    control.close()
+    assert len(sessions) >= 2, "each stock Unix incarnation must open a fresh closed session"
     assert before == (key.read_bytes(), state.read_bytes()), "runtime must not reset HRS"
     # Stock DefaultNewNode creates a dummy FilePV before replacing it with SocketPV.
     # It must be an unregistered identity and must never sign or substitute for the helper.
@@ -118,4 +160,5 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
                           comet_sha256=hashlib.sha256(Path("/usr/bin/cometbft").read_bytes()).hexdigest(),
                           publicKey=public["publicKey"], child_uids=observed,
                           comet_cannot_read_registered_key=True, HRS_unchanged=True,
-                          unused_local_identity_never_signed=True, missing_key_or_HRS_aborts_before_Comet=True)))
+                          unused_local_identity_never_signed=True, stock_unix_restart_with_retained_authority=True,
+                          missing_key_or_HRS_aborts_before_Comet=True)))
