@@ -172,10 +172,21 @@ async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> 
         timeout.ready_when_delayed.load(std::sync::atomic::Ordering::SeqCst),
         "the actual app stayed Ready at the failed signer-specific query"
     );
-    assert!(
-        c.signing_state(0)?["height"].as_str().unwrap().parse::<u64>()? >=
-            hrs["height"].as_str().unwrap().parse::<u64>()?
-    );
+    // The supervisor starts Comet only after the fresh session is Ready; recovery is complete
+    // once that Comet serves again and its signer signs above the refused step, with no
+    // further refusal and restart.
+    let refused_height = hrs["height"].as_str().unwrap().parse::<u64>()?;
+    wait_until(
+        "recovered validator signs above the refused step",
+        Duration::from_secs(60),
+        Duration::from_millis(200),
+        || async {
+            let serving = c.peers[0].latest_height().await.is_ok();
+            let signed = c.signing_state(0)?["height"].as_str().unwrap().parse::<u64>()?;
+            Ok((serving && signed > refused_height).then_some(()))
+        },
+    )
+    .await?;
     drop(timeout);
     let (first, _) = land(&f, &c).await?;
     assert!(first.batch.input.lastHeight >= U256::from(fi_height));
