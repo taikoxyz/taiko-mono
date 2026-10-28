@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/erc1155"
-	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -51,26 +50,18 @@ func (i *Indexer) indexNFTTransfers(
 	chainID *big.Int,
 	logs []types.Log,
 ) error {
-	nftWg, ctx := errgroup.WithContext(ctx)
+	for _, log := range orderedTransferLogs(logs) {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 
-	for _, vLog := range logs {
-		l := vLog
+		if !i.isERC721Transfer(ctx, log) && !i.isERC1155Transfer(ctx, log) {
+			continue
+		}
 
-		nftWg.Go(func() error {
-			if !i.isERC721Transfer(ctx, l) && !i.isERC1155Transfer(ctx, l) {
-				return nil
-			}
-
-			if err := i.saveNFTTransfer(ctx, chainID, l); err != nil {
-				return errors.Wrap(err, "i.saveNFTTransfer")
-			}
-
-			return nil
-		})
-	}
-
-	if err := nftWg.Wait(); err != nil {
-		return err
+		if err := i.saveNFTTransfer(ctx, chainID, log); err != nil {
+			return errors.Wrap(err, "i.saveNFTTransfer")
+		}
 	}
 
 	return nil
@@ -87,6 +78,11 @@ func (i *Indexer) isERC1155Transfer(_ context.Context, vLog types.Log) bool {
 	// this is how people are expected to look up which event is which.
 	if vLog.Topics[0].Hex() != transferSingleSignatureHash.Hex() &&
 		vLog.Topics[0].Hex() != transferBatchSignatureHash.Hex() {
+		return false
+	}
+
+	if len(vLog.Topics) != 4 {
+		warnMalformedERC1155(vLog, fmt.Sprintf("expected 4 topics, got %d", len(vLog.Topics)))
 		return false
 	}
 
@@ -179,6 +175,11 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 // saveERC1155Transfer parses and saves either a TransferSingle or TransferBatch event to
 // the database and updates the user's balances
 func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLog types.Log) error {
+	if len(vLog.Topics) != 4 {
+		warnMalformedERC1155(vLog, fmt.Sprintf("expected 4 topics, got %d", len(vLog.Topics)))
+		return nil
+	}
+
 	from := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[2].Bytes()[12:]))
 	to := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[3].Bytes()[12:]))
 
@@ -204,7 +205,8 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 
 		err = erc1155ABI.UnpackIntoInterface(&t, "TransferSingle", []byte(vLog.Data))
 		if err != nil {
-			return err
+			warnMalformedERC1155(vLog, err.Error())
+			return nil
 		}
 
 		increaseOpts := eventindexer.UpdateNFTBalanceOpts{
@@ -247,7 +249,13 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 
 		err = erc1155ABI.UnpackIntoInterface(&t, "TransferBatch", []byte(vLog.Data))
 		if err != nil {
-			return err
+			warnMalformedERC1155(vLog, err.Error())
+			return nil
+		}
+
+		if len(t.Ids) != len(t.Values) {
+			warnMalformedERC1155(vLog, fmt.Sprintf("ids and values lengths differ: %d != %d", len(t.Ids), len(t.Values)))
+			return nil
 		}
 
 		for idx, id := range t.Ids {
@@ -297,4 +305,15 @@ func nftTransferRef(chainID *big.Int, vLog types.Log, batchIndex uint) eventinde
 		BatchIndex: batchIndex,
 		Kind:       eventindexer.TransferKindNFT,
 	}
+}
+
+// warnMalformedERC1155 identifies invalid wire logs that cannot produce balance updates.
+func warnMalformedERC1155(vLog types.Log, reason string) {
+	slog.Warn("skipping malformed ERC1155 transfer",
+		"contractAddress", vLog.Address.Hex(),
+		"blockNumber", vLog.BlockNumber,
+		"txHash", vLog.TxHash.Hex(),
+		"logIndex", vLog.Index,
+		"reason", reason,
+	)
 }

@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/big"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -23,8 +24,14 @@ type BalanceMonitor struct {
 	addresses          []common.Address
 	erc20Addresses     []common.Address
 	interval           time.Duration
-	erc20DecimalsCache map[common.Address]uint8
+	erc20DecimalsCache map[tokenDecimalsKey]uint8
 	ctx                context.Context
+	wg                 sync.WaitGroup
+}
+
+type tokenDecimalsKey struct {
+	chain   string
+	address common.Address
 }
 
 // InitFromCli inits a new Indexer from command line or environment variables.
@@ -53,7 +60,7 @@ func InitFromConfig(ctx context.Context, b *BalanceMonitor, cfg *Config) (err er
 	b.addresses = cfg.Addresses
 	b.erc20Addresses = cfg.ERC20Addresses
 	b.interval = cfg.Interval
-	b.erc20DecimalsCache = make(map[common.Address]uint8)
+	b.erc20DecimalsCache = make(map[tokenDecimalsKey]uint8)
 	b.ctx = ctx
 
 	return nil
@@ -64,6 +71,10 @@ func (b *BalanceMonitor) Name() string {
 }
 
 func (b *BalanceMonitor) Close(ctx context.Context) {
+	// Wait for the background event loop to exit before closing the RPC
+	// clients, so we never close a client that the loop is still using.
+	b.wg.Wait()
+
 	if b.l1EthClient != nil {
 		b.l1EthClient.Close()
 	}
@@ -72,14 +83,29 @@ func (b *BalanceMonitor) Close(ctx context.Context) {
 	}
 }
 
+// Start launches the balance-checking loop in a background goroutine and returns
+// immediately. The previous implementation ran the loop on the caller's
+// goroutine and only returned once the context was cancelled, which deadlocked
+// graceful shutdown: the CLI wrapper registers signal handling and the deferred
+// Close only after Start returns, but Start could only return after that same
+// Close cancelled the context.
 func (b *BalanceMonitor) Start() error {
+	b.wg.Add(1)
+	go b.eventLoop()
+
+	return nil
+}
+
+func (b *BalanceMonitor) eventLoop() {
+	defer b.wg.Done()
+
 	ticker := time.NewTicker(b.interval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-b.ctx.Done():
-			return nil
+			return
 		case <-ticker.C:
 			for _, address := range b.addresses {
 				// Create context with timeout for RPC calls to ensure graceful shutdown
@@ -114,18 +140,7 @@ func (b *BalanceMonitor) checkEthBalance(ctx context.Context, client *ethclient.
 }
 
 func (b *BalanceMonitor) checkErc20Balance(ctx context.Context, client *ethclient.Client, clientLabel string, tokenAddress, holderAddress common.Address) float64 {
-	// Check the cache for the token decimals
-	tokenDecimals, ok := b.erc20DecimalsCache[tokenAddress]
-	if !ok {
-		// If not in the cache, fetch the decimals from the contract
-		tokenDecimals, err := b.getErc20Decimals(ctx, client, tokenAddress)
-		if err != nil {
-			slog.Warn(fmt.Sprintf("Failed to get %s ERC-20 decimals for token. Use default value: 18", clientLabel), "tokenAddress", tokenAddress.Hex(), "error", err)
-			tokenDecimals = 18
-		}
-		// Cache the fetched decimals
-		b.erc20DecimalsCache[tokenAddress] = tokenDecimals
-	}
+	tokenDecimals := b.getCachedErc20Decimals(ctx, client, clientLabel, tokenAddress)
 
 	var tokenBalanceFloat float64 = 0
 	tokenBalance, err := b.getErc20Balance(ctx, client, tokenAddress, holderAddress)
@@ -148,6 +163,24 @@ func (b *BalanceMonitor) checkErc20Balance(ctx context.Context, client *ethclien
 	balance := tokenBalanceFloat + tokenBondBalanceFloat
 	slog.Info(fmt.Sprintf("%s ERC-20 Balance", clientLabel), "tokenAddress", tokenAddress.Hex(), "address", holderAddress.Hex(), "balance", balance)
 	return balance
+}
+
+func (b *BalanceMonitor) getCachedErc20Decimals(ctx context.Context, client *ethclient.Client, clientLabel string, tokenAddress common.Address) uint8 {
+	// Token decimals can differ for the same address on different chains.
+	cacheKey := tokenDecimalsKey{chain: clientLabel, address: tokenAddress}
+	tokenDecimals, ok := b.erc20DecimalsCache[cacheKey]
+	if !ok {
+		// If not in the cache, fetch the decimals from the contract
+		var err error
+		tokenDecimals, err = b.getErc20Decimals(ctx, client, tokenAddress)
+		if err != nil {
+			slog.Warn(fmt.Sprintf("Failed to get %s ERC-20 decimals for token. Use default value: 18", clientLabel), "tokenAddress", tokenAddress.Hex(), "error", err)
+			tokenDecimals = 18
+		}
+		// Cache the fetched decimals
+		b.erc20DecimalsCache[cacheKey] = tokenDecimals
+	}
+	return tokenDecimals
 }
 
 const erc20BalanceOfABI = `[{"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"type":"function"}]`
