@@ -307,11 +307,6 @@ impl Devnet {
         self.signers[i].state()
     }
 
-    /// Stops a signing helper while leaving Comet alive to serve retained history.
-    pub fn signer_stop(&self, i: usize) {
-        self.signers[i].stop();
-    }
-
     /// Swaps existing test identities between Comet peers without replacing either node's
     /// WAL or the real FilePV state. The previous helper is stopped before the new one starts.
     pub fn signer_swap_identity(&self, destination: usize, source: usize) {

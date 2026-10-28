@@ -195,12 +195,6 @@ impl CmtClient {
         Ok(Some(STANDARD.decode(value)?))
     }
 
-    /// Etna's local checkpoint-trust snapshot, separate from stock Comet syncing status.
-    pub async fn trust_status(&self) -> Result<Value> {
-        let bytes = self.abci_query("/trust").await?.context("the app rejected /trust")?;
-        Ok(serde_json::from_slice(&bytes)?)
-    }
-
     /// The app's `/status`.
     pub async fn abci_status(&self) -> Result<Status> {
         let bytes = self.abci_query("/status").await?.context("the app rejected /status")?;
