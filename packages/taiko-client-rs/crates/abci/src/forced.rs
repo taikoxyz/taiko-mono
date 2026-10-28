@@ -9,7 +9,7 @@
 
 use alloy_consensus::{Transaction, TxEnvelope, transaction::SignerRecoverable};
 use alloy_eips::eip2718::{Decodable2718, Encodable2718};
-use alloy_primitives::{Address, B256, Bytes, U256, keccak256};
+use alloy_primitives::{Address, B256, Bytes, keccak256};
 use alloy_rlp::{Decodable, RlpEncodable};
 
 use crate::{
@@ -110,18 +110,6 @@ pub struct ForcedContext<'a> {
     pub block_gas_limit: u64,
 }
 
-/// Two storage slots of `queue[index]`: the transaction hash followed by packed metadata.
-///
-/// `base = keccak256(abi.encode(uint256(index), uint256(280)))`; the second slot is
-/// `base + 1`, with addition wrapping in 256 bits as in Solidity.
-pub fn entry_slots(index: u64) -> [B256; 2] {
-    let mut preimage = [0u8; 64];
-    preimage[..32].copy_from_slice(&U256::from(index).to_be_bytes::<32>());
-    preimage[32..].copy_from_slice(&U256::from(inbox::FORCED_INCLUSION_QUEUE).to_be_bytes::<32>());
-    let base = U256::from_be_bytes(keccak256(preimage).0);
-    [base.into(), base.wrapping_add(U256::from(1)).into()]
-}
-
 /// Decodes exactly one canonical EIP-2718 transaction with no trailing bytes.
 ///
 /// Re-encoding equality rejects alternative encodings of the same transaction. Empty, malformed
@@ -169,7 +157,7 @@ pub fn verify_entry(
             witness.address
         )));
     }
-    let slots = entry_slots(index);
+    let slots = inbox::forced_inclusion_entry_slots(index);
     let storage = verify_account_witness(state_root, witness, &slots)
         .map_err(|e| ForcedError::Entry(e.to_string()))?;
     let [hash, metadata] =

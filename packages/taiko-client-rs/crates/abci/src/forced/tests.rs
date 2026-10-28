@@ -15,7 +15,7 @@ const DELAY: u64 = 3_600;
 const INDEX: u64 = 7;
 
 fn fixture(tx: Bytes) -> (AnchorState, ForcedWitness) {
-    let slots = entry_slots(INDEX);
+    let slots = inbox::forced_inclusion_entry_slots(INDEX);
     let metadata = U256::from(T0) | (U256::from(70) << 48);
     let state = TestState::new(vec![(
         INBOX,
@@ -182,8 +182,14 @@ fn entry_slots_match_solidity_mapping_layout() {
     preimage[62] = 1;
     preimage[63] = 24;
     let base = keccak256(preimage);
-    assert_eq!(entry_slots(INDEX), [base, B256::from(U256::from_be_bytes(base.0) + U256::from(1))]);
-    assert_ne!(entry_slots(INDEX), entry_slots(INDEX + 1));
+    assert_eq!(
+        inbox::forced_inclusion_entry_slots(INDEX),
+        [base, B256::from(U256::from_be_bytes(base.0) + U256::from(1))]
+    );
+    assert_ne!(
+        inbox::forced_inclusion_entry_slots(INDEX),
+        inbox::forced_inclusion_entry_slots(INDEX + 1)
+    );
 }
 
 #[test]
@@ -197,7 +203,7 @@ fn authenticated_entry_decodes_packed_metadata() {
 
 #[test]
 fn authenticated_entry_masks_field_widths_and_ignores_padding() {
-    let slots = entry_slots(INDEX);
+    let slots = inbox::forced_inclusion_entry_slots(INDEX);
     let timestamp = (1_u64 << 48) - 1;
     let state = TestState::new(vec![(
         INBOX,

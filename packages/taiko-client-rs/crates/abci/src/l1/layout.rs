@@ -55,13 +55,15 @@ pub mod inbox {
     /// Immutable generation origins, keyed by generation, three words each.
     pub const ORIGINS: u64 = 290;
 
-    /// Returns the three consecutive words at a Solidity mapping element.
-    fn mapping_words(mapping: u64, key: u64) -> [B256; 3] {
+    /// Returns the `N` consecutive words at a Solidity mapping element: `base =
+    /// keccak256(abi.encode(uint256(key), uint256(mapping)))` and the words after it, with
+    /// addition wrapping in 256 bits as in Solidity.
+    fn mapping_words<const N: usize>(mapping: u64, key: u64) -> [B256; N] {
         let base = U256::from_be_bytes(
             alloy_primitives::keccak256([slot(key).as_slice(), slot(mapping).as_slice()].concat())
                 .0,
         );
-        [0, 1, 2].map(|offset| B256::from(base.wrapping_add(U256::from(offset))))
+        std::array::from_fn(|offset| B256::from(base.wrapping_add(U256::from(offset))))
     }
 
     /// Packed parent/generation/head, EL hash and Comet hash for a landed endpoint.
@@ -115,9 +117,10 @@ pub mod inbox {
         slots
     }
 
-    /// The two calldata queue slots: transaction hash and packed uint48 timestamp/L1 block.
+    /// The two slots of forced inclusion `queue[index]`: the transaction hash, then the packed
+    /// uint48 timestamp/L1 block.
     pub fn forced_inclusion_entry_slots(index: u64) -> [B256; 2] {
-        crate::forced::entry_slots(index)
+        mapping_words(FORCED_INCLUSION_QUEUE, index)
     }
 }
 
