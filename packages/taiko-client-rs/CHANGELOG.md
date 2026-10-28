@@ -1,10 +1,5 @@
 # Changelog
 
-## Unreleased
-
-- Align the fresh Etna ABCI core with V1 native secp256k1eth domains, direct committee configuration, canonical storage, FI eligibility, and the pinned b046734 Engine boundary.
-- Enforce the 124000-byte execution limit and fee-sharing byte 100; authenticate EL and Comet checkpoint hashes on every startup/session and persist fatal evidence. Existing state requires a fresh deployment; no recovery bootstrap or real proof guest is provided.
-
 ## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.2.0...taiko-alethia-client-rs-v2.3.0) (2026-09-28)
 
 
