@@ -23,7 +23,7 @@ fn vector_record() -> CommitteeRecord {
     }
 }
 fn vectors() -> serde_json::Value {
-    serde_json::from_str(include_str!("../../testdata/v1-vectors.json")).unwrap()
+    serde_json::from_str(include_str!("../../../../../../testdata/etna_vectors/vectors.json")).unwrap()
 }
 fn key(v: &serde_json::Value) -> ConsensusKey {
     let mut bytes = [0; 33];
