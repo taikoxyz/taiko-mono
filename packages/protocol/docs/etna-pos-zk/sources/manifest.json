@@ -10,18 +10,18 @@
       "title": "Etna PoS + ZK Design Spec",
       "url": "https://app.notion.com/p/3fe9673143d6817a9f0fdaaf1b965d7a",
       "pageId": "3fe96731-43d6-817a-9f0f-daaf1b965d7a",
-      "lastEditedAt": "2026-10-28T08:47:22.317Z",
+      "lastEditedAt": "2026-10-28T12:18:10.133Z",
       "source": "design-spec.notion.md",
-      "sha256": "f75f9c7f1e5ab74c8d0612cf9caf1c4b551ff70e15086f2d09c333994bb40784"
+      "sha256": "3a0e3694a7bde7f92544414e62cd7bc3a8893b3e9c4d49577b767f1f2c64d96b"
     },
     {
       "name": "acceptance",
       "title": "Etna Acceptance and Launch Checklist",
       "url": "https://app.notion.com/p/4059673143d6817fbd80ec6bec24b95b",
       "pageId": "40596731-43d6-817f-bd80-ec6bec24b95b",
-      "lastEditedAt": "2026-10-27T02:33:26.010Z",
+      "lastEditedAt": "2026-10-28T12:18:24.105Z",
       "source": "acceptance.notion.md",
-      "sha256": "035efd128b470e01625b2c87ac6be111876e2ae8ebf630108827e9009a2860bd"
+      "sha256": "e165e02b48847b72e781ac13fda45b2f4ef8752cadeda2be44045994ad8251d7"
     }
   ]
 }

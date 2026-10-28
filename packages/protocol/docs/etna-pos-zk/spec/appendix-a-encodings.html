@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Appendix A: Encodings · Etna PoS + ZK</title>
+<link rel="stylesheet" href="spec.css">
+<script src="reader.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site">
+  <a class="brand" href="index.html">Etna PoS + ZK</a>
+  <span class="tag">design specification</span>
+  <span class="tag">Notion snapshot 2026-10-28</span>
+  <nav aria-label="Specification pages">
+    <a href="index.html">Overview</a>
+    <a href="01-positioning.html">1 Positioning</a>
+    <a href="02-components.html">2 Components</a>
+    <a href="03-consensus.html">3 Consensus</a>
+    <a href="04-staking.html">4 Staking</a>
+    <a href="05-data.html">5 Data &amp; DA</a>
+    <a href="06-landing.html">6 Landing</a>
+    <a href="07-forced-inclusion.html">7 Forced inclusion</a>
+    <a href="08-recovery.html">8 Recovery</a>
+    <a href="09-sync.html">9 Sync</a>
+    <a href="10-startup.html">10 Startup</a>
+    <a href="11-parameters.html">11 Parameters</a>
+    <a href="12-limitations.html">12 Limitations</a>
+    <a href="appendix-a-encodings.html" aria-current="page">A Encodings</a>
+    <a href="appendix-b-storage.html">B Storage</a>
+    <a href="appendix-c-funding.html">C Funding</a>
+    <a href="acceptance.html">Checklist</a>
+  </nav>
+</header>
+<main id="main" tabindex="-1">
+<h1 id="appendix-a-encodings" data-source>Appendix A: Encodings</h1>
+<article id="document" data-source>
+<p><b>Versions</b>: APP_VERSION=1, and every versioned domain tag is V1; the outer envelope/payload prefix is 0x06. Config has seven words/224 bytes; CommitteeRecord has five fields. Slot 285 has three words (appendix B). Bind real guest-image/verifier acceptance to the config; until the upgrade mechanism is complete, changing clients or registering an image does not activate new rules.</p>
+<p><b>Shared vectors</b>: every encoding, interface, storage layout and boundary condition needs accept/reject vectors shared by nodes, contracts and both guests; the list is in <a href="acceptance.html">Etna Acceptance and Launch Checklist</a>.</p>
+<p>Protocol hashes are keccak256 over <code>abi.encode</code>, with domain tags as right-zero-padded <code>bytes32</code> ASCII; the exceptions are the inner nodes of <code>entriesRoot</code> (plain concatenation) and the blob hash list and the cut leaf list (<code>abi.encodePacked</code>).</p>
+<pre><code class="language-txt">chainDomain = keccak256(abi.encode(bytes32(&quot;ETNA_COMET_DOMAIN_V1&quot;),
+                uint256(l1ChainId), uint256(l2ChainId), address(inbox), uint48(generation)))
+chain_id    = &quot;etna-&quot; + base64url_no_padding(chainDomain)  // raw 32-byte digest -&gt; 43 chars; total 48 ASCII bytes
+  // RFC 4648 section 5 alphabet, canonical zero pad bits, no &quot;=&quot; or whitespace; case-sensitive
+  // inbox is the EtnaInbox proxy address; generation starts at 0 and never wraps or decreases
+extraData  = 0x64 || uint48_be(generation) || uint48_be(anchorNumber)   // 13 bytes
+
+envelope   = 0x06 || rlp([block, anchor, committee, forced])
+  block     = [elHeader, [tx, ...]]                    // tx: RLP byte string of its EIP-2718 encoding, legacy included
+  anchor    = [] or [[rawL1Header, inboxWitness]]       // rawL1Header: byte string holding the L1 header&#39;s raw RLP, decoded per 3.3
+  committee = [] or [[record, registryWitness, [entry, ...]]]
+  forced    = [] or [[index, entryWitness, tx]]         // tx may be empty; if nonempty its hash must match; required for skips
+  // Strict decoding (identical for nodes and guests; any violation makes the proposal invalid): the envelope is exactly 0x06 plus one RLP list, with no trailing bytes;
+  // every list has exactly the items above, and anchor/committee/forced are empty or hold exactly one item; integers use minimal big-endian encoding, 0 is the empty string, no leading zeros;
+  // fixed-length byte strings (hashes, stateRoots, slots) have exactly their length (slots 32 bytes, addresses 20 bytes); no extra items or unknown fields
+  // Field types: hashes, stateRoots and slots are 32-byte strings and addresses 20-byte strings; RegistryEntry.ckX is a 32-byte string (leading zeros kept), ckPrefix and the other numbers are integers;
+  // storage values always use minimal integer encoding, including slots that hold hashes; RLP length prefixes must also be minimal; a released slot&#39;s entry has all-zero fields;
+  // AccountWitness.address must be the expected contract: the Inbox for anchor and forced witnesses, the registry for the committee witness
+  // committee-witness account/storage proofs are always verified under this block&#39;s anchor stateRoot (new or inherited), i.e. parentBeaconBlockRoot (4.3)
+
+payload    = 0x06 || zlib(rlp([rlp([elHeader, [tx, ...]]), ...]))
+
+AccountWitness  = [address, nonce, balance, storageRoot, codeHash, accountProof, [[slot, value, proof], ...]]
+  Prove exactly in order: anchor [268, 270, 271, 281]; forced entry [base,base+1], base=keccak256(abi.encode(i,280));
+  registry snapshot [R, cp(i), cp(i) + 1], plus cp(i + 1) if i + 1 &lt; length, where cp(i) = keccak256(R) + 2i
+  // accountProof and each storage proof are exactly the ordered MPT path from the root to the leaf (or to the node proving absence), with no extra nodes;
+  // value uses minimal big-endian encoding (0 is the empty string) and equals the proven value; the account fields match the account RLP in the proof
+CommitteeRecord = [targetEpoch, cutoffL1Block, checkpointIndex, setRoot, totalPower]
+RegistryEntry   = [ckPrefix, ckX, effStake, activeFromL1, exitEffectiveL1]
+</code></pre>
+<pre><code class="language-txt">cutLeaf(x)  = keccak256(abi.encode(uint256(x), blockHash(x), cometHash(x), forcedHead(x)))   // 4 words
+  // blockHash(x) and cometHash(x) are the bytes32 EL and CometBFT block hashes at L2 height x,
+  //   forcedHead(x) is the uint256 FI cursor at x
+K           // grid interval: a protocol constant with 1 &lt;= K &lt;= 6 whose value is not fixed yet (section 11);
+            //   heights count from the Etna start (block 0); landings end only at multiples of K, so every
+            //   checkpoint height, including generation starts, is one
+cutHash     = keccak256(abi.encode(bytes32(&quot;ETNA_LAND_CUTS_V1&quot;),
+                uint256(generation), uint256(p), uint256(h),
+                keccak256(abi.encodePacked(cutLeaf(p+K), cutLeaf(p+2K), .., cutLeaf(h-K)))))
+  // the inner list has the (h-p)/K - 1 grid-point leaves strictly between p and h, in height order;
+  //   it is empty, hashed as keccak256(&quot;&quot;), when h = p+K
+  // land(input, leaves, proof): leaves = that list; calldata = 32 bytes per leaf
+  // execution: require p % K == 0, h % K == 0 and leaves.length == (h-p)/K - 1 (c &gt;= h is rejected as
+  //   already settled); if c &gt; p, leaves[(c-p)/K - 1] must equal cutLeaf(c) computed from c&#39;s slot 285
+  //   record; the FI cursor in that record must equal the current FI head; all of these run before
+  //   proof verification
+
+statement = keccak256(abi.encode(
+  bytes32(&quot;TAIKO_ETNA_LAND_V1&quot;), l1ChainId, l2ChainId, inbox, registry,
+  generation, parentHeight, parentHash, parentCometHash, committeeConfigHash,
+  lastHeight, lastBlockHash, lastCometHash, lastStateRoot,
+  l1ReferenceBlockNumber, l1ReferenceBlockHash, keccak256(abi.encodePacked(blobHashes)),
+  forcedInclusionHeadBefore, forcedInclusionHeadAfter, activeCommitteeSnapshot,
+  cutHash))  // 21 static ABI words, 672 bytes
+  // parentHeight/hash/CometHash and headBefore are taken at proof origin p
+</code></pre>
+<pre><code class="language-txt">committeeConfigHash = keccak256(abi.encode(bytes32(&quot;ETNA_PARENT_ANCHOR_V1&quot;), l2ChainId, registry,
+  vp_unit, s_min, n_max, U))  // 7 words, 224 bytes
+
+regLeaf(j)  = keccak256(abi.encode(&quot;ETNA_REG_ENTRY_V1&quot;, j, ckPrefix, ckX, effStake, activeFromL1,
+                exitEffectiveL1))
+entriesRoot = leaves zero-padded to a power of two, inner nodes keccak256(left || right); one entry gives its leaf, none gives 0
+
+setKey(ck)  = keccak256(abi.encode(&quot;ETNA_SET_KEY_V1&quot;, l2ChainId, ckPrefix, ckX))
+setLeaf(i)  = keccak256(abi.encode(&quot;ETNA_SET_LEAF_V1&quot;, l2ChainId, k, i, ckPrefix, ckX, effStake, assignedPower))
+setNode     = keccak256(abi.encode(&quot;ETNA_SET_NODE&quot;, l2ChainId, k, left, right))  // an odd last node is promoted unchanged
+record      = keccak256(abi.encode(&quot;ETNA_COMMITTEE_V1&quot;, l2ChainId, targetEpoch, cutoffL1Block,
+                checkpointIndex, setRoot, totalPower))
+k           = targetEpoch + 1
+</code></pre>
+<pre><code class="language-txt">voteSignBytes = uvarint(len(cv)) || cv                  // same as CometBFT VoteSignBytes
+cv = [0x08 varint type]                                 // 1 = prevote, 2 = precommit
+  || [0x11 int64_le(height)]                            // 8 bytes little-endian
+  || [0x19 int64_le(round)]
+  || [0x22 len blockId]                                 // omitted for a nil vote (hash, total, partsHash all zero)
+  || 0x2a len timestamp                                 // always written
+  || 0x32 len chainId                                   // exact 48-byte chain_id computed above
+  blockId   = [0x0a len hash] || 0x12 len psh
+  psh       = [0x08 varint total] || [0x12 len partsHash]
+  timestamp = [0x08 varint seconds] || [0x10 varint nanos]
+  // fields in [ ] are omitted when zero or empty; len is a uvarint length prefix
+signer   = ecrecover(keccak256(voteSignBytes), V + 27, R, S)   // 65-byte R‖S‖V, V ∈ {0,1}, S ≤ n/2
+// register(bytes publicKey, uint256 amount, bytes popSig)
+// publicKey is exactly 33 raw bytes: ckPrefix (0x02/0x03) || uint256_be(ckX).
+// Decode internally; reject noncanonical input rather than reducing coordinates.
+require len(publicKey) == 33 and publicKey[0] in {0x02,0x03}
+ckPrefix = publicKey[0]
+p        = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
+ckX      = parse_uint256_be(publicKey[1:33]); require ckX &lt; p
+a        = (ckX^3 + 7) mod p       // all field operations are exact modular arithmetic
+y0       = powmod(a, (p + 1) / 4, p); require 0 &lt;= y0 &lt; p and (y0^2 mod p) == a
+ckY      = y0 if (y0 mod 2) == (ckPrefix - 2) else p - y0
+// Require ckY &lt; p, the requested parity, a finite curve point, and exact recompression.
+// Any modular-exponentiation failure or malformed result rejects; never truncate or wrap.
+ckAddr   = keccak256(uint256_be(ckX) || uint256_be(ckY))[12:]
+// The 0x04 uncompressed prefix is not hashed. Require nonzero matching PoP recovery.
+// Store ckPrefix/ckX only. slashDoubleSign(bondId,voteA,voteB) derives Y from that stored key.
+
+registerDigest  = keccak256(0x1901 || domainSeparator ||
+                    keccak256(abi.encode(keccak256(&quot;Register(address owner)&quot;), owner)))
+domainSeparator = EIP-712 domain: name &quot;EtnaStakingRegistry&quot;, version &quot;1&quot;, chainId = L1 chain id, verifyingContract = registry
+// popSig: exactly 65 bytes R || S || V; V in {0,1}, 0 &lt; R &lt; n, 0 &lt; S &lt;= n/2.
+popSigner = ecrecover(registerDigest, V + 27, R, S)
+require popSigner != address(0) and popSigner == ckAddr
+
+// Recovery call: recover(expectedGeneration, expectedC,
+//                        Exclusion[] exclusions, uint256[] fiToClear)
+// Exclusion = (uint256 bondId, bytes32 entryKey), sorted strictly by bondId.
+// entryKey = keccak256(abi.encode(ckPrefix, ckX)) identifies the slot&#39;s current occupant.
+// Only the Inbox owner may call recover. It requires the two expected values (8.3).
+</code></pre>
+</article>
+<nav class="pager" aria-label="Previous and next page"><a rel="prev" href="12-limitations.html">← 12. Known limitations and open items</a><a rel="next" href="appendix-b-storage.html">Appendix B: L1 storage layout →</a></nav>
+</main>
+<footer class="site"><p>Generated from the Notion page <a href="https://app.notion.com/p/3fe9673143d6817a9f0fdaaf1b965d7a">Etna PoS + ZK Design Spec</a>, last edited <time datetime="2026-10-28T12:18:10.133Z">2026-10-28 12:18 UTC</time>. Retained source SHA-256 <code>3a0e3694a7bde7f92544414e62cd7bc3a8893b3e9c4d49577b767f1f2c64d96b</code>. The Notion page is authoritative; see <a href="../README.md">README.md</a> to refresh this copy.</p></footer>
+</body>
+</html>

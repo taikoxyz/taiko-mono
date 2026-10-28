@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>7. Forced inclusion · Etna PoS + ZK</title>
+<link rel="stylesheet" href="spec.css">
+<script src="reader.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site">
+  <a class="brand" href="index.html">Etna PoS + ZK</a>
+  <span class="tag">design specification</span>
+  <span class="tag">Notion snapshot 2026-10-28</span>
+  <nav aria-label="Specification pages">
+    <a href="index.html">Overview</a>
+    <a href="01-positioning.html">1 Positioning</a>
+    <a href="02-components.html">2 Components</a>
+    <a href="03-consensus.html">3 Consensus</a>
+    <a href="04-staking.html">4 Staking</a>
+    <a href="05-data.html">5 Data &amp; DA</a>
+    <a href="06-landing.html">6 Landing</a>
+    <a href="07-forced-inclusion.html" aria-current="page">7 Forced inclusion</a>
+    <a href="08-recovery.html">8 Recovery</a>
+    <a href="09-sync.html">9 Sync</a>
+    <a href="10-startup.html">10 Startup</a>
+    <a href="11-parameters.html">11 Parameters</a>
+    <a href="12-limitations.html">12 Limitations</a>
+    <a href="appendix-a-encodings.html">A Encodings</a>
+    <a href="appendix-b-storage.html">B Storage</a>
+    <a href="appendix-c-funding.html">C Funding</a>
+    <a href="acceptance.html">Checklist</a>
+  </nav>
+</header>
+<main id="main" tabindex="-1">
+<div class="tools" hidden><button type="button" data-action="expand">Expand all details</button><button type="button" data-action="collapse">Collapse all details</button><button type="button" data-action="print">Print</button></div>
+<h1 id="7-forced-inclusion" data-source>7. Forced inclusion</h1>
+<nav class="page-toc" aria-label="On this page"><p class="eyebrow">On this page</p><ul><li class="depth-3"><a href="#71-submission">7.1 Submission</a></li><li class="depth-3"><a href="#72-consumption-rules">7.2 Consumption rules</a></li><li class="depth-3"><a href="#73-guarantees-and-bounds">7.3 Guarantees and bounds</a></li></ul></nav>
+<article id="document" data-source>
+<h2 id="71-submission"><a class="anchor" href="#71-submission">7.1 Submission</a></h2>
+<p><code>saveForcedInclusion(bytes tx)</code>: at most 8,192 bytes, with a fee of <code>fee × (threshold + pending) / threshold</code> gwei, where pending is the number of entries on L1 not yet consumed by a landing (<code>tail − head</code>; while settlement lags this includes entries already consumed on L2 but not yet landed); overpayment is refunded. Each entry stores only <code>keccak256(tx)</code>, the L1 timestamp and the L1 block number. The enqueue event records the entry index, raw transaction bytes and actual fee charged in wei, excluding refunded overpayment; encoding is not checked at submission. On successful enqueue, the fee calculated and collected using the formula becomes protocol revenue and stays in the Inbox. The fee buys queue admission, not successful execution: inclusion, valid skipping, governance blanking and replay after a settlement rollback neither refund it, charge it again nor pay it to a lander. Historical per-entry charges are recorded only in enqueue events, not used as consumption or recovery inputs. If the submission transaction reverts, neither enqueueing nor charging takes effect.</p>
+<details>
+<summary>Details: sweeping protocol fees</summary>
+
+
+<p><b>Sweeping protocol fees</b>: deployment fixes a nonzero DAO treasury address, <code>protocolFeeRecipient</code> (an Inbox immutable), and publishes it in the deployment manifest. Only <code>saveForcedInclusion</code> accepts ETH (overpayment is refunded in the same transaction) and every other Inbox entry point rejects ETH, so, apart from force-sent ETH, the Inbox balance is the FI fees not yet swept. Anyone may call <code>sweepProtocolFees()</code> to transfer the Inbox&#39;s entire ETH balance to that address; a failed transfer reverts. Force-sent ETH is swept with it. Neither <code>saveForcedInclusion</code> nor <code>land</code> transfers funds to the treasury, so a treasury receipt failure affects only the sweep. Sweeping does not depend on the queue head or landing and does not modify FI entries or queue progress.</p>
+</details>
+
+<h2 id="72-consumption-rules"><a class="anchor" href="#72-consumption-rules">7.2 Consumption rules</a></h2>
+<ul>
+<li>L2 state keeps a cursor c (the number of entries consumed, initially 0). Each block consumes at most one entry, and only entry c. After a landing, the Inbox&#39;s head equals c at the checkpoint.</li>
+<li>Each block uses its own anchor A: if <code>c ≥ tail(A)</code>, it carries no forced witness; otherwise it must carry entry c&#39;s witness, a storage proof under A&#39;s stateRoot.</li>
+<li><b>Due</b>: <code>A.timestamp ≥ entry.timestamp + forcedInclusionDelay</code>, evaluated without overflow. Entries never expire.</li>
+</ul>
+<details>
+<summary>Eligible transaction: exactly one canonical EIP-2718 transaction (detailed rules)</summary>
+
+
+<ul>
+<li><b>Eligible transaction</b>: the raw bytes are exactly one canonical EIP-2718 transaction. Canonicity depends only on the raw bytes, never on state, and nodes and guests implement it against the same shared accept/reject vectors rather than any library&#39;s decoder: decoding consumes all input and re-encoding reproduces the bytes; the type is a non-blob type accepted by the pinned EL version (type 3 and unknown types are ineligible); a typed transaction&#39;s chain_id equals the L2 chain id and its y_parity is 0 or 1, and a legacy transaction&#39;s v is 27, 28, 2·l2ChainId + 35 or 2·l2ChainId + 36; nonce and gas are below 2^64, each fee field is below 2^128, and value is below 2^256; the signature&#39;s r and s lie in [1, n − 1] (n is the secp256k1 order) with s ≤ n/2 and recover a sender; and gas is at most <code>L2_BLOCK_GAS_LIMIT</code>. These checks cover only the transaction&#39;s own fields and signature: type-4 authorization tuples need only the field widths EIP-7702 requires, and an invalid tuple signature or chain id makes the EL skip that tuple without affecting eligibility. Eligibility ignores fees: a transaction whose <code>maxFeePerGas</code> (<code>gasPrice</code> for type 0/1) is below the block&#39;s base fee has an empty singleton build, so it may be legitimately skipped. A proposer can push the base fee to the 1 gwei cap at no cost (3.2), so an FI transaction should set <code>maxFeePerGas</code> to at least 1 gwei to be sure it is not skipped for its fee.</li>
+</ul>
+</details>
+
+<div class="table-scroll" role="region" aria-label="Scrollable table" tabindex="0"><table><thead><tr>
+<th>Case</th>
+<th>Handling</th>
+</tr>
+</thead><tbody><tr>
+<td>Transaction 0 of the execution block is the entry (canonical, at most 8,192 bytes, same hash)</td>
+<td>Included, c + 1, before or after due. Ordinary transactions may follow, and ordinary EVM revert/OOG counts as inclusion; a zk-aborted transaction absent from the final body does not</td>
+</tr>
+<tr>
+<td>Not included, not due</td>
+<td>c unchanged</td>
+</tr>
+<tr>
+<td>Not included, due, raw bytes ineligible</td>
+<td>Skipped, c + 1, no EL needed</td>
+</tr>
+<tr>
+<td>Not included, due, raw bytes eligible</td>
+<td>Skippable, with c + 1, only if a complete build of <code>[tx]</code> on the committed parent with the same attributes, in alethia&#39;s given-list mode, yields an empty block; the result is judged under &quot;Given-list build&quot; below</td>
+</tr>
+</tbody></table></div>
+<details>
+<summary>Details: given-list build (deciding whether a skip is legal)</summary>
+
+
+<ul>
+<li><b>Given-list build</b>: the build returns only after completing the deterministic build decision for <code>[tx]</code>, and has exactly two possible results: a block containing the transaction, or an empty block. It must not return a placeholder from before the build completes. If an eligible transaction cannot execute for any transaction-level reason (nonce, balance, intrinsic gas and so on), the result is an empty block, never an error. Transient infrastructure failures such as timeouts, a dropped connection or a SYNCING response from newPayload are not results: ProcessProposal and FinalizeBlock both wait and retry until a result exists, and never reject a proposal, judge a block invalid or skip because of them; while waiting, that node processes no new consensus messages. If the EL definitively cannot build on that parent (for example because the historical state was pruned), the node halts for safety under section 8 and restarts after the state is restored. An eligible transaction&#39;s gas is at most one block&#39;s limit, so each build does bounded work. This singleton build starts from that parent with the same attributes and candidate list <code>[tx]</code> only, with full EVM-gas and zk-gas block budgets; ordinary transactions may not consume them first. A completed empty result after fully discarding <code>tx</code> for zk-limit exceedance/metering overflow under the shared rules is deterministic and reproducible. An included ordinary EVM revert/OOG is not empty. Nodes and guests make the same complete determination; a host timeout, exhausted prover resources or a smaller local budget cannot justify skipping.</li>
+</ul>
+</details>
+
+<ul>
+<li>A block at or after due that neither includes nor legally skips the entry is invalid. Only position 0 counts as inclusion: a replacement transaction with the same sender and nonce, or the transaction placed later in the block, does not count.</li>
+</ul>
+<details>
+<summary>Details: raw bytes in the witness and fetching them</summary>
+
+
+<ul>
+<li>The raw bytes in the witness may be empty; if nonempty, their hash must match the entry. A skip must carry the raw bytes, and empty bytes can only prove that the submission itself was empty. For an inclusion the guest authenticates transaction 0 of the execution block directly, so proposers leave the bytes empty to save data.</li>
+<li>The proposer fetches the raw bytes with <code>eth_getLogs</code> at the entry&#39;s L1 block and checks the hash. Before due, if they cannot be fetched it may propose an ordinary block; after due, it cannot propose without them.</li>
+</ul>
+</details>
+
+<ul>
+<li><b>Blanked entries</b>: after submission, an entry&#39;s <code>txHash</code> changes only when step 3 of governance recovery (section 8) overwrites it with the hash of the empty byte string, <code>keccak256(&quot;&quot;)</code>. Under an anchor that shows this value, the raw bytes are the empty string and need no <code>eth_getLogs</code>; such an entry can never be included, and once due it is skipped as ineligible, without the EL.</li>
+</ul>
+<h2 id="73-guarantees-and-bounds"><a class="anchor" href="#73-guarantees-and-bounds">7.3 Guarantees and bounds</a></h2>
+<ul>
+<li>A due queue-head entry must be included or legally skipped under 7.2; there is no age-only deletion. For the current queue-head entry, any valid block with <code>block.timestamp ≥ entry.timestamp + forcedInclusionDelay + maxAnchorAge</code> necessarily sees it as due, using overflow-safe arithmetic. This is a block-time implication, not a wall-clock inclusion deadline. Wall-clock progress also depends on the BFT-time assumptions in 3.4, L1 finality, queue backlog and settlement.</li>
+<li>Senders must hold a balance of gasLimit × <code>maxFeePerGas</code>; the queue consumes at most one entry per block, and the fee rises linearly with the queue length.</li>
+<li><b>Backlog cost accounting</b>: let F be the fees actually paid for an attacker&#39;s enqueues. With fees belonging to the protocol, no share of successful landings lets the attacker recover F by consuming those entries. Add L1 submission gas, proving/landing/blob costs the attacker chooses to incur, and the L2 gas actually executed separately; account for other rewards or proceeds separately as well. Production fees, threshold, service rate under sustained attack and honest-user costs require evaluation; <a href="acceptance.html">Etna Acceptance and Launch Checklist</a> gives an illustrative calculation.</li>
+</ul>
+</article>
+<nav class="pager" aria-label="Previous and next page"><a rel="prev" href="06-landing.html">← 6. Landing and settlement</a><a rel="next" href="08-recovery.html">8. Halts and recovery →</a></nav>
+</main>
+<footer class="site"><p>Generated from the Notion page <a href="https://app.notion.com/p/3fe9673143d6817a9f0fdaaf1b965d7a">Etna PoS + ZK Design Spec</a>, last edited <time datetime="2026-10-28T12:18:10.133Z">2026-10-28 12:18 UTC</time>. Retained source SHA-256 <code>3a0e3694a7bde7f92544414e62cd7bc3a8893b3e9c4d49577b767f1f2c64d96b</code>. The Notion page is authoritative; see <a href="../README.md">README.md</a> to refresh this copy.</p></footer>
+</body>
+</html>

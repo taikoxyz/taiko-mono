@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Appendix C: Operating funding and cost assumptions · Etna PoS + ZK</title>
+<link rel="stylesheet" href="spec.css">
+<script src="reader.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site">
+  <a class="brand" href="index.html">Etna PoS + ZK</a>
+  <span class="tag">design specification</span>
+  <span class="tag">Notion snapshot 2026-10-28</span>
+  <nav aria-label="Specification pages">
+    <a href="index.html">Overview</a>
+    <a href="01-positioning.html">1 Positioning</a>
+    <a href="02-components.html">2 Components</a>
+    <a href="03-consensus.html">3 Consensus</a>
+    <a href="04-staking.html">4 Staking</a>
+    <a href="05-data.html">5 Data &amp; DA</a>
+    <a href="06-landing.html">6 Landing</a>
+    <a href="07-forced-inclusion.html">7 Forced inclusion</a>
+    <a href="08-recovery.html">8 Recovery</a>
+    <a href="09-sync.html">9 Sync</a>
+    <a href="10-startup.html">10 Startup</a>
+    <a href="11-parameters.html">11 Parameters</a>
+    <a href="12-limitations.html">12 Limitations</a>
+    <a href="appendix-a-encodings.html">A Encodings</a>
+    <a href="appendix-b-storage.html">B Storage</a>
+    <a href="appendix-c-funding.html" aria-current="page">C Funding</a>
+    <a href="acceptance.html">Checklist</a>
+  </nav>
+</header>
+<main id="main" tabindex="-1">
+<h1 id="appendix-c-operating-funding-and-cost-assumptions" data-source>Appendix C: Operating funding and cost assumptions</h1>
+<article id="document" data-source>
+<p>This appendix states operating requirements, not validity rules.</p>
+<ul>
+<li><b>The DAO funds operations</b>: validators, proving, landing, historical data and on-call service, including low/zero transaction load, FI consumption, repeated DA, discarded competitive work and retries. Landing has no protocol revenue (base fees and tips go to proposers, FI fees to the protocol); this operating budget covers all landing and proving costs.</li>
+<li><b>How funding is paid</b>: funding grants no exclusive landing permission. Landers do not receive FI fees, and funding is not paid per FI entry consumed or by FI fee value, so an attacker cannot recover its FI fees through funding (7.3). land binds no recipient and a public blob transaction can be copied, so DAO compensation must not be a per-landing bounty paid to the submitting address; fund named operators or attribute work off chain.</li>
+<li><b>Fund the sustained worst case</b>: measure and fund the budget for the operating targets of approximately 4 s blocks and at most 20 min between L1 inclusions of successive successful landings (6.4); cost estimates alone are not evidence that funding is in place. A proposer pays no net fee for any load in its own blocks (3.2), whether zk-heavy or data-heavy; such load is bounded only by the per-block gas, zk-gas and 124,000-byte (3.4) limits. Without zk-to-charged-gas conversion, a zk-heavy workload with low EVM gas may use almost the whole per-block zk-gas limit. The data worst case is every block filled with incompressible data. A landing carries at most six blobs, hence six blocks, and must end at a grid point, so each covers m blocks, where m is the largest multiple of K not above 6: about 900/m landings an hour, which is about 150 when K divides 6, about 225 at K = 4 and about 180 at K = 5. Whatever K is, that is 3 blobs per L1 slot. Fund that sustained worst case explicitly in the proving, blob and landing budgets.</li>
+</ul>
+<p><a href="acceptance.html">Etna Acceptance and Launch Checklist</a></p>
+</article>
+<nav class="pager" aria-label="Previous and next page"><a rel="prev" href="appendix-b-storage.html">← Appendix B: L1 storage layout</a><a rel="next" href="acceptance.html">Etna Acceptance and Launch Checklist →</a></nav>
+</main>
+<footer class="site"><p>Generated from the Notion page <a href="https://app.notion.com/p/3fe9673143d6817a9f0fdaaf1b965d7a">Etna PoS + ZK Design Spec</a>, last edited <time datetime="2026-10-28T12:18:10.133Z">2026-10-28 12:18 UTC</time>. Retained source SHA-256 <code>3a0e3694a7bde7f92544414e62cd7bc3a8893b3e9c4d49577b767f1f2c64d96b</code>. The Notion page is authoritative; see <a href="../README.md">README.md</a> to refresh this copy.</p></footer>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Appendix B: L1 storage layout · Etna PoS + ZK</title>
+<link rel="stylesheet" href="spec.css">
+<script src="reader.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site">
+  <a class="brand" href="index.html">Etna PoS + ZK</a>
+  <span class="tag">design specification</span>
+  <span class="tag">Notion snapshot 2026-10-28</span>
+  <nav aria-label="Specification pages">
+    <a href="index.html">Overview</a>
+    <a href="01-positioning.html">1 Positioning</a>
+    <a href="02-components.html">2 Components</a>
+    <a href="03-consensus.html">3 Consensus</a>
+    <a href="04-staking.html">4 Staking</a>
+    <a href="05-data.html">5 Data &amp; DA</a>
+    <a href="06-landing.html">6 Landing</a>
+    <a href="07-forced-inclusion.html">7 Forced inclusion</a>
+    <a href="08-recovery.html">8 Recovery</a>
+    <a href="09-sync.html">9 Sync</a>
+    <a href="10-startup.html">10 Startup</a>
+    <a href="11-parameters.html">11 Parameters</a>
+    <a href="12-limitations.html">12 Limitations</a>
+    <a href="appendix-a-encodings.html">A Encodings</a>
+    <a href="appendix-b-storage.html" aria-current="page">B Storage</a>
+    <a href="appendix-c-funding.html">C Funding</a>
+    <a href="acceptance.html">Checklist</a>
+  </nav>
+</header>
+<main id="main" tabindex="-1">
+<h1 id="appendix-b-l1-storage-layout" data-source>Appendix B: L1 storage layout</h1>
+<article id="document" data-source>
+<div class="table-scroll" role="region" aria-label="Scrollable table" tabindex="0"><table><thead><tr>
+<th><code>EtnaInbox</code> slot</th>
+<th>Content</th>
+</tr>
+</thead><tbody><tr>
+<td>258</td>
+<td>Initialization status (3 after initialization); not in the anchor witness</td>
+</tr>
+<tr>
+<td>268 / 269</td>
+<td><code>recoveryGeneration</code> / <code>committeeConfigHash</code></td>
+</tr>
+<tr>
+<td>270 / 271</td>
+<td><code>lastCheckpoint</code> height / hash</td>
+</tr>
+<tr>
+<td>272 / 273 / 274</td>
+<td><code>[genesisHeight, L1_0, L]</code> / genesis hash / genesis stateRoot</td>
+</tr>
+<tr>
+<td>278 / 279</td>
+<td>Committee 0 record hash / <code>genesisCutoff</code></td>
+</tr>
+<tr>
+<td>280 / 281</td>
+<td>Forced inclusion queue (two words per entry: <code>txHash</code>; packed timestamp and L1 block number, with the remaining bits zero and unused. No charge is stored. <code>txHash</code> changes only when governance recovery in section 8 overwrites it with <code>keccak256(&quot;&quot;)</code>) / <code>head</code>, <code>tail</code></td>
+</tr>
+<tr>
+<td>282</td>
+<td><code>forcedInclusionDelay</code>, <code>maxAnchorAge</code> (seconds)</td>
+</tr>
+<tr>
+<td>283 / 284</td>
+<td>Reserved: no reads, writes or reuse / activeCommitteeSnapshot (set to genesisCutoff at Inbox initialization)</td>
+</tr>
+<tr>
+<td>285</td>
+<td>landing mapping, lastHeight → three words: word 1 packs actual parentHeight=c, generation and head; words 2/3 are EL/Comet hashes. Initialize block 0 with parent/generation/head=0, EL hash = genesis hash and Comet hash=0. Retain original recovery-origin records; proof origin p never replaces actual parent. Historical parent links and old-p records serve overlapping proofs and public reconstruction and are never pruned</td>
+</tr>
+<tr>
+<td>286 / 287</td>
+<td>Reserved: no reads, writes or reuse</td>
+</tr>
+<tr>
+<td>288</td>
+<td>Reserved: no reads, writes or reuse</td>
+</tr>
+<tr>
+<td>289</td>
+<td>Reserved: no reads, writes or reuse</td>
+</tr>
+<tr>
+<td>290</td>
+<td>Fixed per-generation origin mapping: (startHeight,l1BlockNumber,l1Timestamp), each a uint256 word with height/block/timestamp range checks; store three consecutive words from the mapping base keyed by generation. Includes generation 0 under 8.4, with no latest cache and no ordinary anchor-witness addition</td>
+</tr>
+<tr>
+<td>291</td>
+<td>Reserved: no reads, writes or reuse</td>
+</tr>
+</tbody></table></div>
+<p>Nodes verify the latest checkpoint under 3.3/3.4, its slot 285 record under section 9, and slot 290 for startup, recovery and proving under 8.4. Reserved slots 283, 286–289 and 291 are neither read nor written. Slot 284 serves exit confirmation; 285 retains the history needed for overlapping proofs and reconstruction.</p>
+<p>Inbox stores no recovery queue, scheduling records or cancellation state (8.3). Provide shared vectors for the layout and interfaces; other layouts are neither decoded nor migrated in place.</p>
+<p>The registry uses the ERC-7201 namespace <code>taiko.etna.registry</code> with base slot R. Nodes read only two things: <code>checkpoints</code> at <code>R</code> (two words each: packed <code>l1Block</code> and <code>count</code>, then <code>entriesRoot</code>) and <code>entries</code> at <code>R + 1</code> (three words each: <code>ckX</code>, <code>effStake</code>, packed <code>ckPrefix</code>/<code>activeFromL1</code>/<code>exitEffectiveL1</code>). exitEffectiveL1 = 2^48 − 1 means no exit is set.</p>
+<p><b>Packed words</b>: where this appendix packs several fields into one word (Inbox slots 272, 281 and 282, the second word of each 280 entry and the first word of 285; the registry&#39;s first checkpoint word and third entry word), the fields are laid out in the listed order from the least-significant bit. ckPrefix takes 8 bits and every other field 48 bits; unused high bits are zero. Writing a value wider than its field reverts.</p>
+<p>Exit confirmations use a separate ERC-7201 namespace, <code>taiko.etna.registry.exit-confirmations</code>, mapping bond id to <code>exitConfirmedAtL1</code> (0 means not confirmed). This does not use the entry layout, enter regLeaf/entriesRoot or create a committee checkpoint; clear it on slot release. The owner lives in a separate namespace, <code>taiko.etna.registry.owners</code>, indexed by bond id: written at registration and cleared on slot release. It also stays out of entriesRoot, and nodes do not read it. Validate the concrete layout, including slot 290, through layout checks and shared vectors.</p>
+</article>
+<nav class="pager" aria-label="Previous and next page"><a rel="prev" href="appendix-a-encodings.html">← Appendix A: Encodings</a><a rel="next" href="appendix-c-funding.html">Appendix C: Operating funding and cost assumptions →</a></nav>
+</main>
+<footer class="site"><p>Generated from the Notion page <a href="https://app.notion.com/p/3fe9673143d6817a9f0fdaaf1b965d7a">Etna PoS + ZK Design Spec</a>, last edited <time datetime="2026-10-28T12:18:10.133Z">2026-10-28 12:18 UTC</time>. Retained source SHA-256 <code>3a0e3694a7bde7f92544414e62cd7bc3a8893b3e9c4d49577b767f1f2c64d96b</code>. The Notion page is authoritative; see <a href="../README.md">README.md</a> to refresh this copy.</p></footer>
+</body>
+</html>

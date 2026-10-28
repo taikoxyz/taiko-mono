@@ -1,3 +1,5 @@
 # Auto-generated files - always use local branch version during merges
 packages/protocol/gas-reports/* merge=ours
 packages/protocol/layout/* merge=ours
+# Generated Etna specification pages (packages/protocol/docs/etna-pos-zk/scripts/render.mjs)
+packages/protocol/docs/etna-pos-zk/spec/*.html linguist-generated=true
