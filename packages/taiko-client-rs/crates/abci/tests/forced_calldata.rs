@@ -587,8 +587,5 @@ async fn raw_execution_boundary_124000_accepts_124001_rejects() -> Result<()> {
     assert_eq!(exact.block.length(), 124_000);
     accept(&mut app, &exact, time).await?;
     assert_eq!(d.l2_provider(0).get_block_number().await?, exact.block.header.number);
-    eprintln!(
-        "ACCEPTANCE raw124000=accepted raw124001=processRejectedAndFinalizeHalted realEL=true"
-    );
     d.stop().await
 }
