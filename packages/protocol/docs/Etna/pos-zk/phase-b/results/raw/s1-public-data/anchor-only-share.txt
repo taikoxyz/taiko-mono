@@ -1,0 +1,6 @@
+n = 12961 blocks
+  gasUsed == 112,068          : 9407 = 72.58%
+  gasUsed == 112,056          : 2372 = 18.30%
+  anchor-only (either value)  : 11779 = 90.88%
+  exactly one transaction     : 12193 = 94.07%
+  more than one transaction   : 768 = 5.93%

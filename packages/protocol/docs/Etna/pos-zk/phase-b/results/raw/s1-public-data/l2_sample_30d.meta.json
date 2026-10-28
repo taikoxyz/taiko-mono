@@ -1,0 +1,1 @@
+{"rpc": "https://rpc.taiko.xyz", "lo": 11072005, "hi": 12368005, "step": 100, "samples": 12961, "out": "l2_sample_30d.jsonl", "elapsedSec": 146.0, "command": "sample_l2.py https://rpc.taiko.xyz 11072005 12368005 100 l2_sample_30d.jsonl"}

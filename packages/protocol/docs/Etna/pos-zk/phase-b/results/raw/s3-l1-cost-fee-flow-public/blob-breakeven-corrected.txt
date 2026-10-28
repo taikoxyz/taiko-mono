@@ -1,0 +1,18 @@
+8 batches in the sampled hour, 1048576 blob gas
+  L2 fees            0.001949445151 ETH
+  propose total      0.000850212063 ETH
+  propose exec-only  0.000827752150 ETH
+  amortised proving  0.000866845819 ETH
+
+reported figure (fees - exec)                    = 1069729806 wei = 1.0697 gwei
+corrected, F8 per-batch model (- proving)        = 243041212 wei = 0.2430 gwei
+corrected, aggregate L1-total basis              = 221621770 wei = 0.2216 gwei
+reported / corrected ratio                       = 4.40x
+
+consequence: window max blob fee 427395399 wei = 0.4274 gwei
+  one blob at that fee                            = 0.000056019570 ETH
+  margin left after execution + proving, per batch= 0.000031855898 ETH
+  peak blob cost / per-batch margin               = 1.759x
+  max fee / corrected break-even                  = 1.759x
+  max fee / reported break-even                   = 0.400x
+  coverage at the peak blob fee, other terms held = 0.910x

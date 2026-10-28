@@ -1,0 +1,16 @@
+{
+ "source": "l2_payload_500.jsonl",
+ "window": [
+  12367506,
+  12367927
+ ],
+ "blocks": 422,
+ "anchor_only_blocks": 383,
+ "anchor_only_pct": 90.75829383886256,
+ "mean_frame_bytes": 278.4194312796209,
+ "median_frame_bytes": 218.0,
+ "max_frame_bytes": 2068,
+ "mean_gas_used": 134344.08767772513,
+ "b_payload_mean": 0.0020724353121330855,
+ "file_rows": 422
+}

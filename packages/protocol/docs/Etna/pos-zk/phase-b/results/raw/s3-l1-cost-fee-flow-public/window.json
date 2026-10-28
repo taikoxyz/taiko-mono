@@ -1,0 +1,15 @@
+{
+ "inbox": "0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f",
+ "topic_proposed": "0x7c4c4523e17533e451df15762a093e0693a2cd8b279fe54c6cd3777ed5771213",
+ "topic_proved": "0xa274dcaff3629ec7d69d144038e97732516ff306fcbf8a2bc9423d106779a2f0",
+ "window": {
+  "start_ts": 1790726400,
+  "end_ts": 1791331200,
+  "start_block": 26086570,
+  "end_block": 26136782,
+  "start_block_ts": 1790726411,
+  "end_block_plus1_ts": 1791331211,
+  "head": 26140796,
+  "collected_at": "2026-10-07T13:26:04Z"
+ }
+}

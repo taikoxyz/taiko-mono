@@ -1,0 +1,62 @@
+{
+ "source": "l2_sample_30d.jsonl (every 100th L2 block, 30 days)",
+ "n_blocks": 12961,
+ "gasUsed_112068": {
+  "count": 9407,
+  "pct": 72.58
+ },
+ "gasUsed_112056": {
+  "count": 2372,
+  "pct": 18.3
+ },
+ "anchor_only_either_gas": {
+  "count": 11779,
+  "pct": 90.88
+ },
+ "single_transaction_blocks": {
+  "count": 12193,
+  "pct": 94.07
+ },
+ "multi_transaction_blocks": {
+  "count": 768,
+  "pct": 5.93
+ },
+ "top_gasUsed_values": [
+  [
+   112068,
+   9407
+  ],
+  [
+   112056,
+   2372
+  ],
+  [
+   112044,
+   322
+  ],
+  [
+   169995,
+   45
+  ],
+  [
+   133068,
+   37
+  ],
+  [
+   238068,
+   35
+  ]
+ ],
+ "txs_histogram": {
+  "1": 12193,
+  "2": 590,
+  "3": 41,
+  "4": 14,
+  "5": 24,
+  "6": 33,
+  "7": 54,
+  "8": 6,
+  "9": 3,
+  "10": 3
+ }
+}

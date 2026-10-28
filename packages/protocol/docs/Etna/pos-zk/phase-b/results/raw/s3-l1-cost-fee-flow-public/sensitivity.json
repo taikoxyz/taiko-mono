@@ -1,0 +1,81 @@
+{
+ "assumptions": [
+  "propose and prove pay the same L1 effective gas price percentile",
+  "L2 per-batch fee revenue = measured 2026-10-06 12:00-13:00 UTC aggregate / 8 proposals",
+  "L2 base fee 75% to proposer / 25% to treasury (docs.taiko.xyz + taiko-geth source)"
+ ],
+ "inputs": {
+  "propose_gas_median": 75594.0,
+  "prove_gas_median": 399414.0,
+  "per_batch_l2_fees_eth": 0.000243680643817479,
+  "per_batch_l2_base_eth": 0.00023067548625000002,
+  "per_batch_l2_priority_eth": 1.300515756747899e-05
+ },
+ "points": [
+  {
+   "point": "p10",
+   "propose_egp_wei": 1069509816.0,
+   "prove_egp_wei": 1068511395.0,
+   "l1_propose_eth": 8.0848525030704e-05,
+   "l1_prove_amortized_eth": 8.5355682064506e-05,
+   "l1_total_eth": 0.00016620420709521,
+   "l2_fees_eth": 0.000243680643817479,
+   "coverage_all_fees": 1.4661520792785148,
+   "coverage_base_fee_only": 1.3879040144745414,
+   "proposer_only_revenue_eth": 0.00018601177225497902,
+   "coverage_proposer_only": 1.1191760756598794
+  },
+  {
+   "point": "p50",
+   "propose_egp_wei": 1125879441.0,
+   "prove_egp_wei": 1127608251.0,
+   "l1_propose_eth": 8.5109730462954e-05,
+   "l1_prove_amortized_eth": 9.00765043929828e-05,
+   "l1_total_eth": 0.0001751862348559368,
+   "l2_fees_eth": 0.000243680643817479,
+   "coverage_all_fees": 1.390980541467017,
+   "coverage_base_fee_only": 1.3167443574530522,
+   "proposer_only_revenue_eth": 0.00018601177225497902,
+   "coverage_proposer_only": 1.0617944521037541
+  },
+  {
+   "point": "p90",
+   "propose_egp_wei": 1834207367.6,
+   "prove_egp_wei": 1837599293.2000015,
+   "l1_propose_eth": 0.0001386550717463544,
+   "l1_prove_amortized_eth": 0.00014679257681883708,
+   "l1_total_eth": 0.00028544764856519144,
+   "l2_fees_eth": 0.000243680643817479,
+   "coverage_all_fees": 0.853678932169681,
+   "coverage_base_fee_only": 0.8081183621917895,
+   "proposer_only_revenue_eth": 0.00018601177225497902,
+   "coverage_proposer_only": 0.6516493416217337
+  },
+  {
+   "point": "p99",
+   "propose_egp_wei": 3919518855.14,
+   "prove_egp_wei": 4049115402.8600116,
+   "l1_propose_eth": 0.0002962921083354531,
+   "l1_prove_amortized_eth": 0.00032345467590358574,
+   "l1_total_eth": 0.0006197467842390388,
+   "l2_fees_eth": 0.000243680643817479,
+   "coverage_all_fees": 0.3931938817829999,
+   "coverage_base_fee_only": 0.3722092508043213,
+   "proposer_only_revenue_eth": 0.00018601177225497902,
+   "coverage_proposer_only": 0.30014156908191963
+  },
+  {
+   "point": "max",
+   "propose_egp_wei": 9623706438.0,
+   "prove_egp_wei": 9228933653.0,
+   "l1_propose_eth": 0.000727494464474172,
+   "l1_prove_amortized_eth": 0.0007372330612158684,
+   "l1_total_eth": 0.0014647275256900404,
+   "l2_fees_eth": 0.000243680643817479,
+   "coverage_all_fees": 0.1663658527224576,
+   "coverage_base_fee_only": 0.15748696068323537,
+   "proposer_only_revenue_eth": 0.00018601177225497902,
+   "coverage_proposer_only": 0.12699411255164877
+  }
+ ]
+}

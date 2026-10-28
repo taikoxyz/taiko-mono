@@ -1,0 +1,76 @@
+== D30 (last 30 days) ==
+  window: 2026-09-07T13:11:35Z .. 2026-10-07T13:09:59Z (30.00 days), L1 blocks 25925690..26140717
+  proposals: 6713 (223.8/day); proofs: 1345 (44.8/day)
+  proposal interval s: {'n': 6712, 'min': 12, 'p50': 384.0, 'p90': 396, 'p95': 396, 'max': 1416, 'mean': 386.2}
+  proof interval s:    {'n': 1344, 'min': 156, 'p50': 1932.0, 'p90': 2280, 'p95': 2700, 'max': 5076, 'mean': 1928.4}
+  proposals newly proven per proof: {'n': 1345, 'min': 1, 'p50': 5, 'p90': 5, 'p95': 5, 'max': 5, 'mean': 5.0}
+  latency firstNew->proof s: {'n': 1345, 'min': 1812, 'p50': 2220, 'p90': 3444, 'p95': 4104, 'max': 8520, 'mean': 2468.2}
+  latency last->proof s:     {'n': 1345, 'min': 276, 'p50': 684, 'p90': 1896, 'p95': 2580, 'max': 6972, 'mean': 924.9}
+  latency over all covered  s: {'n': 6721, 'min': 276, 'p50': 1560, 'p90': 2832, 'p95': 3468, 'max': 8520, 'mean': 1695.4}
+  proposals in window never covered by a proof: 2 (ids 40472..40473)
+
+== D7 (last 7 days) ==
+  window: 2026-09-30T13:15:47Z .. 2026-10-07T13:09:59Z (7.00 days), L1 blocks 26090533..26140717
+  proposals: 1575 (225.1/day); proofs: 316 (45.2/day)
+  proposal interval s: {'n': 1574, 'min': 312, 'p50': 384.0, 'p90': 384, 'p95': 396, 'max': 468, 'mean': 384}
+  proof interval s:    {'n': 315, 'min': 348, 'p50': 1932, 'p90': 2052, 'p95': 2148, 'max': 4128, 'mean': 1919.5}
+  proposals newly proven per proof: {'n': 316, 'min': 5, 'p50': 5.0, 'p90': 5, 'p95': 5, 'max': 5, 'mean': 5}
+  latency firstNew->proof s: {'n': 316, 'min': 2112, 'p50': 2244.0, 'p90': 2496, 'p95': 2628, 'max': 4968, 'mean': 2311.4}
+  latency last->proof s:     {'n': 316, 'min': 564, 'p50': 708.0, 'p90': 960, 'p95': 1092, 'max': 3444, 'mean': 775.6}
+  latency over all covered  s: {'n': 1580, 'min': 564, 'p50': 1488.0, 'p90': 2256, 'p95': 2388, 'max': 4968, 'mean': 1543.6}
+  proposals in window never covered by a proof: 2 (ids 40472..40473)
+
+== UNZEN (since 2026-08-03) ==
+  window: 2026-08-03T12:50:11Z .. 2026-10-07T13:09:59Z (65.01 days), L1 blocks 25674477..26140717
+  proposals: 14589 (224.4/day); proofs: 2922 (44.9/day)
+  proposal interval s: {'n': 14588, 'min': 12, 'p50': 384.0, 'p90': 396, 'p95': 396, 'max': 1416, 'mean': 385.1}
+  proof interval s:    {'n': 2921, 'min': 156, 'p50': 1920, 'p90': 2136, 'p95': 2532, 'max': 5892, 'mean': 1922.6}
+  proposals newly proven per proof: {'n': 2922, 'min': 1, 'p50': 5.0, 'p90': 5, 'p95': 5, 'max': 5, 'mean': 5.0}
+  latency firstNew->proof s: {'n': 2922, 'min': 1548, 'p50': 2064.0, 'p90': 3312, 'p95': 3972, 'max': 8832, 'mean': 2367.8}
+  latency last->proof s:     {'n': 2922, 'min': 276, 'p50': 528.0, 'p90': 1776, 'p95': 2460, 'max': 7308, 'mean': 830.5}
+  latency over all covered  s: {'n': 14589, 'min': 276, 'p50': 1524, 'p90': 2652, 'p95': 3312, 'max': 8832, 'mean': 1596.7}
+  proposals in window never covered by a proof: 2 (ids 40472..40473)
+
+== ALL (since inbox activation) ==
+  window: 2026-04-02T13:18:23Z .. 2026-10-07T13:09:59Z (187.99 days), L1 blocks 24792175..26140717
+  proposals: 40474 (215.3/day); proofs: 8224 (43.7/day)
+  proposal interval s: {'n': 40473, 'min': 12, 'p50': 384, 'p90': 396, 'p95': 396, 'max': 688032, 'mean': 401.3}
+  proof interval s:    {'n': 8223, 'min': 24, 'p50': 1920, 'p90': 2100, 'p95': 2340, 'max': 650364, 'mean': 1965.4}
+  proposals newly proven per proof: {'n': 8224, 'min': 1, 'p50': 5.0, 'p90': 5, 'p95': 5, 'max': 10, 'mean': 4.9}
+  latency firstNew->proof s: {'n': 8224, 'min': 12, 'p50': 2004.0, 'p90': 3000, 'p95': 3828, 'max': 689184, 'mean': 3589.0}
+  latency last->proof s:     {'n': 8224, 'min': 12, 'p50': 468.0, 'p90': 1464, 'p95': 2316, 'max': 676884, 'mean': 1995.4}
+  latency over all covered  s: {'n': 40537, 'min': 12, 'p50': 1464, 'p90': 2448, 'p95': 3132, 'max': 689184, 'mean': 2842.7}
+  proposals in window never covered by a proof: 3 (ids 0..40473)
+
+== per-day (last 30 days) ==
+  2026-09-07  proposals  101  proofs   21
+  2026-09-08  proposals  223  proofs   45
+  2026-09-09  proposals  222  proofs   45
+  2026-09-10  proposals  223  proofs   45
+  2026-09-11  proposals  223  proofs   45
+  2026-09-12  proposals  222  proofs   44
+  2026-09-13  proposals  223  proofs   45
+  2026-09-14  proposals  223  proofs   44
+  2026-09-15  proposals  222  proofs   45
+  2026-09-16  proposals  224  proofs   44
+  2026-09-17  proposals  223  proofs   45
+  2026-09-18  proposals  222  proofs   44
+  2026-09-19  proposals  223  proofs   45
+  2026-09-20  proposals  223  proofs   45
+  2026-09-21  proposals  222  proofs   44
+  2026-09-22  proposals  223  proofs   44
+  2026-09-23  proposals  223  proofs   45
+  2026-09-24  proposals  224  proofs   45
+  2026-09-25  proposals  225  proofs   44
+  2026-09-26  proposals  225  proofs   45
+  2026-09-27  proposals  225  proofs   46
+  2026-09-28  proposals  225  proofs   45
+  2026-09-29  proposals  225  proofs   45
+  2026-09-30  proposals  225  proofs   45
+  2026-10-01  proposals  225  proofs   45
+  2026-10-02  proposals  225  proofs   45
+  2026-10-03  proposals  225  proofs   45
+  2026-10-04  proposals  225  proofs   45
+  2026-10-05  proposals  225  proofs   45
+  2026-10-06  proposals  225  proofs   45
+  2026-10-07  proposals  124  proofs   25

@@ -1,0 +1,17 @@
+cluster                      hardware                                         n    med_s   cyc/gas     Mgas/s  5090  GPUs
+Axiom 16x5090                16x NVIDIA 5090s                                20     2.24      6.50     12.644  True    16
+Airbender v3 4x5090          4x5090                                          20     2.43      7.13     11.420  True     4
+Zisk 8x5090                  ?                                               20     3.45      2.37      7.999  True     8
+Airbender v3 2x5090          2x5090                                          20     3.97      7.13      7.020  True     2
+ZisK 2x5090                  2x NVIDIA 5090 32GB GPUs, AMD Ryzen Threadripp   2     6.33      2.46      3.905  True     2
+Zilkworm Airbender 2x5090    2x NVIDIA RTX 5090, AMD Ryzen Threadripper 996   2     8.71     11.37      2.845  True     2
+ZKM                          ?                                               14    16.52      7.70      1.764 False  None
+Succinct Twin Peaks 2x5090   2 x NVIDIA GeForce RTX 5090                      2    23.55     12.95      1.051  True     2
+Pico 2x5090                  2x NVIDIA GeForce RTX 5090 32GB GPUs             2    25.85     14.91      0.958  True     2
+cysic                        NVIDIA 4090 24GB GPU, AMD EPYC 7773X 64-Core P   3    93.57     11.62      0.345 False  None
+
+RTX-5090 cluster medians: 0.957646 - 12.644434 Mgas/s (8 clusters)
+RTX-5090 record level:    0.940021 - 16.195875 Mgas/s
+RTX-5090 cluster sizes:   2x, 4x, 8x, 16x
+records 108, with gas+time+cycles 105, distinct blocks 40 (all) / 37 (complete subset)
+block gasUsed: min 4210109 median 27832443 max 51342486

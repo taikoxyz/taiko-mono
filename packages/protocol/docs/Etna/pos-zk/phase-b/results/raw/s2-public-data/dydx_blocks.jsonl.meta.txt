@@ -1,0 +1,2 @@
+2026-10-07T13:23:00Z START cometbft url=https://dydx-rpc.publicnode.com network=dydx-mainnet-1 version=0.38.5 moniker=Tendermint tip=108447205 n=1000
+2026-10-07T13:23:30Z END cometbft blocks=1000 validators=21 (total=21)

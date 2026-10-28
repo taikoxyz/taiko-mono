@@ -1,0 +1,481 @@
+2026-10-07T13:13:13Z START blocks url=https://rpc.taiko.xyz from=12347771 to=12367770 batch=100 full=False
+2026-10-07T13:13:14Z blocks 12347771-12347870 ok (100 headers) cumulative=100
+2026-10-07T13:13:15Z blocks 12347871-12347970 ok (100 headers) cumulative=200
+2026-10-07T13:13:16Z blocks 12347971-12348070 ok (100 headers) cumulative=300
+2026-10-07T13:13:17Z blocks 12348071-12348170 ok (100 headers) cumulative=400
+2026-10-07T13:13:18Z blocks 12348171-12348270 ok (100 headers) cumulative=500
+2026-10-07T13:13:19Z blocks 12348271-12348370 ok (100 headers) cumulative=600
+2026-10-07T13:13:20Z blocks 12348371-12348470 ok (100 headers) cumulative=700
+2026-10-07T13:13:20Z blocks 12348471-12348570 ok (100 headers) cumulative=800
+2026-10-07T13:13:21Z blocks 12348571-12348670 ok (100 headers) cumulative=900
+2026-10-07T13:13:22Z blocks 12348671-12348770 ok (100 headers) cumulative=1000
+2026-10-07T13:13:23Z blocks 12348771-12348870 ok (100 headers) cumulative=1100
+2026-10-07T13:13:24Z blocks 12348871-12348970 ok (100 headers) cumulative=1200
+2026-10-07T13:13:25Z blocks 12348971-12349070 ok (100 headers) cumulative=1300
+2026-10-07T13:13:26Z blocks 12349071-12349170 ok (100 headers) cumulative=1400
+2026-10-07T13:13:26Z blocks 12349171-12349270 ok (100 headers) cumulative=1500
+2026-10-07T13:13:27Z blocks 12349271-12349370 ok (100 headers) cumulative=1600
+2026-10-07T13:13:28Z blocks 12349371-12349470 ok (100 headers) cumulative=1700
+2026-10-07T13:13:29Z blocks 12349471-12349570 ok (100 headers) cumulative=1800
+2026-10-07T13:13:29Z blocks 12349571-12349670 ok (100 headers) cumulative=1900
+2026-10-07T13:13:30Z blocks 12349671-12349770 ok (100 headers) cumulative=2000
+2026-10-07T13:13:31Z blocks 12349771-12349870 ok (100 headers) cumulative=2100
+2026-10-07T13:13:32Z blocks 12349871-12349970 ok (100 headers) cumulative=2200
+2026-10-07T13:13:33Z blocks 12349971-12350070 ok (100 headers) cumulative=2300
+2026-10-07T13:13:34Z blocks 12350071-12350170 ok (100 headers) cumulative=2400
+2026-10-07T13:13:34Z blocks 12350171-12350270 ok (100 headers) cumulative=2500
+2026-10-07T13:13:35Z blocks 12350271-12350370 ok (100 headers) cumulative=2600
+2026-10-07T13:13:36Z blocks 12350371-12350470 ok (100 headers) cumulative=2700
+2026-10-07T13:13:37Z blocks 12350471-12350570 ok (100 headers) cumulative=2800
+2026-10-07T13:13:37Z blocks 12350571-12350670 ok (100 headers) cumulative=2900
+2026-10-07T13:13:38Z blocks 12350671-12350770 ok (100 headers) cumulative=3000
+2026-10-07T13:13:39Z blocks 12350771-12350870 ok (100 headers) cumulative=3100
+2026-10-07T13:13:40Z blocks 12350871-12350970 ok (100 headers) cumulative=3200
+2026-10-07T13:13:40Z blocks 12350971-12351070 ok (100 headers) cumulative=3300
+2026-10-07T13:13:41Z blocks 12351071-12351170 ok (100 headers) cumulative=3400
+2026-10-07T13:13:42Z blocks 12351171-12351270 ok (100 headers) cumulative=3500
+2026-10-07T13:13:44Z blocks 12351271-12351370 ok (100 headers) cumulative=3600
+2026-10-07T13:13:44Z blocks 12351371-12351470 ok (100 headers) cumulative=3700
+2026-10-07T13:13:58Z START blocks url=https://rpc.taiko.xyz from=12347771 to=12367770 batch=50 full=False
+2026-10-07T13:13:58Z RESUME at block 12351519
+2026-10-07T13:13:58Z blocks 12351519-12351568 ok (50 headers) cumulative=3798
+2026-10-07T13:13:59Z blocks 12351569-12351618 ok (50 headers) cumulative=3848
+2026-10-07T13:13:59Z blocks 12351619-12351668 ok (50 headers) cumulative=3898
+2026-10-07T13:14:00Z blocks 12351669-12351718 ok (50 headers) cumulative=3948
+2026-10-07T13:14:00Z blocks 12351719-12351768 ok (50 headers) cumulative=3998
+2026-10-07T13:14:02Z blocks 12351769-12351818 ok (50 headers) cumulative=4048
+2026-10-07T13:14:02Z blocks 12351819-12351868 ok (50 headers) cumulative=4098
+2026-10-07T13:14:03Z blocks 12351869-12351918 ok (50 headers) cumulative=4148
+2026-10-07T13:14:03Z blocks 12351919-12351968 ok (50 headers) cumulative=4198
+2026-10-07T13:14:04Z blocks 12351969-12352018 ok (50 headers) cumulative=4248
+2026-10-07T13:14:04Z blocks 12352019-12352068 ok (50 headers) cumulative=4298
+2026-10-07T13:14:05Z blocks 12352069-12352118 ok (50 headers) cumulative=4348
+2026-10-07T13:14:06Z blocks 12352119-12352168 ok (50 headers) cumulative=4398
+2026-10-07T13:14:06Z blocks 12352169-12352218 ok (50 headers) cumulative=4448
+2026-10-07T13:14:07Z blocks 12352219-12352268 ok (50 headers) cumulative=4498
+2026-10-07T13:14:07Z blocks 12352269-12352318 ok (50 headers) cumulative=4548
+2026-10-07T13:14:08Z blocks 12352319-12352368 ok (50 headers) cumulative=4598
+2026-10-07T13:14:09Z blocks 12352369-12352418 ok (50 headers) cumulative=4648
+2026-10-07T13:14:09Z blocks 12352419-12352468 ok (50 headers) cumulative=4698
+2026-10-07T13:14:10Z blocks 12352469-12352518 ok (50 headers) cumulative=4748
+2026-10-07T13:14:10Z blocks 12352519-12352568 ok (50 headers) cumulative=4798
+2026-10-07T13:14:11Z blocks 12352569-12352618 ok (50 headers) cumulative=4848
+2026-10-07T13:14:11Z blocks 12352619-12352668 ok (50 headers) cumulative=4898
+2026-10-07T13:14:12Z blocks 12352669-12352718 ok (50 headers) cumulative=4948
+2026-10-07T13:14:12Z blocks 12352719-12352768 ok (50 headers) cumulative=4998
+2026-10-07T13:14:13Z blocks 12352769-12352818 ok (50 headers) cumulative=5048
+2026-10-07T13:14:14Z blocks 12352819-12352868 ok (50 headers) cumulative=5098
+2026-10-07T13:14:15Z blocks 12352869-12352918 ok (50 headers) cumulative=5148
+2026-10-07T13:14:16Z blocks 12352919-12352968 ok (50 headers) cumulative=5198
+2026-10-07T13:14:16Z blocks 12352969-12353018 ok (50 headers) cumulative=5248
+2026-10-07T13:14:17Z blocks 12353019-12353068 ok (50 headers) cumulative=5298
+2026-10-07T13:14:17Z blocks 12353069-12353118 ok (50 headers) cumulative=5348
+2026-10-07T13:14:18Z blocks 12353119-12353168 ok (50 headers) cumulative=5398
+2026-10-07T13:14:19Z blocks 12353169-12353218 ok (50 headers) cumulative=5448
+2026-10-07T13:14:20Z blocks 12353219-12353268 ok (50 headers) cumulative=5498
+2026-10-07T13:14:20Z blocks 12353269-12353318 ok (50 headers) cumulative=5548
+2026-10-07T13:14:21Z blocks 12353319-12353368 ok (50 headers) cumulative=5598
+2026-10-07T13:14:21Z blocks 12353369-12353418 ok (50 headers) cumulative=5648
+2026-10-07T13:14:22Z blocks 12353419-12353468 ok (50 headers) cumulative=5698
+2026-10-07T13:14:22Z blocks 12353469-12353518 ok (50 headers) cumulative=5748
+2026-10-07T13:14:23Z blocks 12353519-12353568 ok (50 headers) cumulative=5798
+2026-10-07T13:14:23Z blocks 12353569-12353618 ok (50 headers) cumulative=5848
+2026-10-07T13:14:24Z blocks 12353619-12353668 ok (50 headers) cumulative=5898
+2026-10-07T13:14:25Z blocks 12353669-12353718 ok (50 headers) cumulative=5948
+2026-10-07T13:14:25Z blocks 12353719-12353768 ok (50 headers) cumulative=5998
+2026-10-07T13:14:26Z blocks 12353769-12353818 ok (50 headers) cumulative=6048
+2026-10-07T13:14:26Z blocks 12353819-12353868 ok (50 headers) cumulative=6098
+2026-10-07T13:14:27Z blocks 12353869-12353918 ok (50 headers) cumulative=6148
+2026-10-07T13:14:28Z blocks 12353919-12353968 ok (50 headers) cumulative=6198
+2026-10-07T13:14:28Z blocks 12353969-12354018 ok (50 headers) cumulative=6248
+2026-10-07T13:14:29Z blocks 12354019-12354068 ok (50 headers) cumulative=6298
+2026-10-07T13:14:30Z blocks 12354069-12354118 ok (50 headers) cumulative=6348
+2026-10-07T13:14:30Z blocks 12354119-12354168 ok (50 headers) cumulative=6398
+2026-10-07T13:14:31Z blocks 12354169-12354218 ok (50 headers) cumulative=6448
+2026-10-07T13:14:31Z blocks 12354219-12354268 ok (50 headers) cumulative=6498
+2026-10-07T13:14:33Z blocks 12354269-12354318 ok (50 headers) cumulative=6548
+2026-10-07T13:14:33Z blocks 12354319-12354368 ok (50 headers) cumulative=6598
+2026-10-07T13:14:34Z blocks 12354369-12354418 ok (50 headers) cumulative=6648
+2026-10-07T13:14:35Z blocks 12354419-12354468 ok (50 headers) cumulative=6698
+2026-10-07T13:14:36Z blocks 12354469-12354518 ok (50 headers) cumulative=6748
+2026-10-07T13:14:36Z blocks 12354519-12354568 ok (50 headers) cumulative=6798
+2026-10-07T13:14:37Z blocks 12354569-12354618 ok (50 headers) cumulative=6848
+2026-10-07T13:14:38Z blocks 12354619-12354668 ok (50 headers) cumulative=6898
+2026-10-07T13:14:38Z blocks 12354669-12354718 ok (50 headers) cumulative=6948
+2026-10-07T13:14:39Z blocks 12354719-12354768 ok (50 headers) cumulative=6998
+2026-10-07T13:14:39Z blocks 12354769-12354818 ok (50 headers) cumulative=7048
+2026-10-07T13:14:40Z blocks 12354819-12354868 ok (50 headers) cumulative=7098
+2026-10-07T13:14:40Z blocks 12354869-12354918 ok (50 headers) cumulative=7148
+2026-10-07T13:14:41Z blocks 12354919-12354968 ok (50 headers) cumulative=7198
+2026-10-07T13:14:41Z blocks 12354969-12355018 ok (50 headers) cumulative=7248
+2026-10-07T13:14:42Z blocks 12355019-12355068 ok (50 headers) cumulative=7298
+2026-10-07T13:14:42Z blocks 12355069-12355118 ok (50 headers) cumulative=7348
+2026-10-07T13:14:43Z blocks 12355119-12355168 ok (50 headers) cumulative=7398
+2026-10-07T13:14:43Z blocks 12355169-12355218 ok (50 headers) cumulative=7448
+2026-10-07T13:14:44Z blocks 12355219-12355268 ok (50 headers) cumulative=7498
+2026-10-07T13:14:45Z blocks 12355269-12355318 ok (50 headers) cumulative=7548
+2026-10-07T13:14:46Z blocks 12355319-12355368 ok (50 headers) cumulative=7598
+2026-10-07T13:14:46Z blocks 12355369-12355418 ok (50 headers) cumulative=7648
+2026-10-07T13:14:47Z blocks 12355419-12355468 ok (50 headers) cumulative=7698
+2026-10-07T13:14:48Z blocks 12355469-12355518 ok (50 headers) cumulative=7748
+2026-10-07T13:14:48Z blocks 12355519-12355568 ok (50 headers) cumulative=7798
+2026-10-07T13:14:49Z blocks 12355569-12355618 ok (50 headers) cumulative=7848
+2026-10-07T13:14:49Z blocks 12355619-12355668 ok (50 headers) cumulative=7898
+2026-10-07T13:14:50Z blocks 12355669-12355718 ok (50 headers) cumulative=7948
+2026-10-07T13:14:50Z blocks 12355719-12355768 ok (50 headers) cumulative=7998
+2026-10-07T13:14:51Z blocks 12355769-12355818 ok (50 headers) cumulative=8048
+2026-10-07T13:14:51Z blocks 12355819-12355868 ok (50 headers) cumulative=8098
+2026-10-07T13:14:52Z blocks 12355869-12355918 ok (50 headers) cumulative=8148
+2026-10-07T13:14:53Z blocks 12355919-12355968 ok (50 headers) cumulative=8198
+2026-10-07T13:14:53Z blocks 12355969-12356018 ok (50 headers) cumulative=8248
+2026-10-07T13:14:54Z blocks 12356019-12356068 ok (50 headers) cumulative=8298
+2026-10-07T13:14:54Z blocks 12356069-12356118 ok (50 headers) cumulative=8348
+2026-10-07T13:14:54Z blocks 12356119-12356168 ok (50 headers) cumulative=8398
+2026-10-07T13:14:55Z blocks 12356169-12356218 ok (50 headers) cumulative=8448
+2026-10-07T13:14:56Z blocks 12356219-12356268 ok (50 headers) cumulative=8498
+2026-10-07T13:14:56Z blocks 12356269-12356318 ok (50 headers) cumulative=8548
+2026-10-07T13:14:57Z blocks 12356319-12356368 ok (50 headers) cumulative=8598
+2026-10-07T13:14:57Z blocks 12356369-12356418 ok (50 headers) cumulative=8648
+2026-10-07T13:14:58Z blocks 12356419-12356468 ok (50 headers) cumulative=8698
+2026-10-07T13:14:59Z blocks 12356469-12356518 ok (50 headers) cumulative=8748
+2026-10-07T13:15:00Z blocks 12356519-12356568 ok (50 headers) cumulative=8798
+2026-10-07T13:15:00Z blocks 12356569-12356618 ok (50 headers) cumulative=8848
+2026-10-07T13:15:00Z blocks 12356619-12356668 ok (50 headers) cumulative=8898
+2026-10-07T13:15:01Z blocks 12356669-12356718 ok (50 headers) cumulative=8948
+2026-10-07T13:15:02Z blocks 12356719-12356768 ok (50 headers) cumulative=8998
+2026-10-07T13:15:02Z blocks 12356769-12356818 ok (50 headers) cumulative=9048
+2026-10-07T13:15:03Z blocks 12356819-12356868 ok (50 headers) cumulative=9098
+2026-10-07T13:15:03Z blocks 12356869-12356918 ok (50 headers) cumulative=9148
+2026-10-07T13:15:04Z blocks 12356919-12356968 ok (50 headers) cumulative=9198
+2026-10-07T13:15:04Z blocks 12356969-12357018 ok (50 headers) cumulative=9248
+2026-10-07T13:15:05Z blocks 12357019-12357068 ok (50 headers) cumulative=9298
+2026-10-07T13:15:05Z blocks 12357069-12357118 ok (50 headers) cumulative=9348
+2026-10-07T13:15:06Z blocks 12357119-12357168 ok (50 headers) cumulative=9398
+2026-10-07T13:15:07Z blocks 12357169-12357218 ok (50 headers) cumulative=9448
+2026-10-07T13:15:08Z blocks 12357219-12357268 ok (50 headers) cumulative=9498
+2026-10-07T13:15:08Z blocks 12357269-12357318 ok (50 headers) cumulative=9548
+2026-10-07T13:15:09Z blocks 12357319-12357368 ok (50 headers) cumulative=9598
+2026-10-07T13:15:10Z blocks 12357369-12357418 ok (50 headers) cumulative=9648
+2026-10-07T13:15:11Z blocks 12357419-12357468 ok (50 headers) cumulative=9698
+2026-10-07T13:15:11Z blocks 12357469-12357518 ok (50 headers) cumulative=9748
+2026-10-07T13:15:12Z blocks 12357519-12357568 ok (50 headers) cumulative=9798
+2026-10-07T13:15:12Z blocks 12357569-12357618 ok (50 headers) cumulative=9848
+2026-10-07T13:15:13Z blocks 12357619-12357668 ok (50 headers) cumulative=9898
+2026-10-07T13:15:13Z blocks 12357669-12357718 ok (50 headers) cumulative=9948
+2026-10-07T13:15:14Z blocks 12357719-12357768 ok (50 headers) cumulative=9998
+2026-10-07T13:15:15Z blocks 12357769-12357818 ok (50 headers) cumulative=10048
+2026-10-07T13:15:15Z blocks 12357819-12357868 ok (50 headers) cumulative=10098
+2026-10-07T13:15:16Z blocks 12357869-12357918 ok (50 headers) cumulative=10148
+2026-10-07T13:15:16Z blocks 12357919-12357968 ok (50 headers) cumulative=10198
+2026-10-07T13:15:17Z blocks 12357969-12358018 ok (50 headers) cumulative=10248
+2026-10-07T13:15:17Z blocks 12358019-12358068 ok (50 headers) cumulative=10298
+2026-10-07T13:15:19Z blocks 12358069-12358118 ok (50 headers) cumulative=10348
+2026-10-07T13:15:19Z blocks 12358119-12358168 ok (50 headers) cumulative=10398
+2026-10-07T13:15:20Z blocks 12358169-12358218 ok (50 headers) cumulative=10448
+2026-10-07T13:15:20Z blocks 12358219-12358268 ok (50 headers) cumulative=10498
+2026-10-07T13:15:21Z blocks 12358269-12358318 ok (50 headers) cumulative=10548
+2026-10-07T13:15:22Z blocks 12358319-12358368 ok (50 headers) cumulative=10598
+2026-10-07T13:15:22Z blocks 12358369-12358418 ok (50 headers) cumulative=10648
+2026-10-07T13:15:23Z blocks 12358419-12358468 ok (50 headers) cumulative=10698
+2026-10-07T13:15:23Z blocks 12358469-12358518 ok (50 headers) cumulative=10748
+2026-10-07T13:15:24Z blocks 12358519-12358568 ok (50 headers) cumulative=10798
+2026-10-07T13:15:24Z blocks 12358569-12358618 ok (50 headers) cumulative=10848
+2026-10-07T13:15:25Z blocks 12358619-12358668 ok (50 headers) cumulative=10898
+2026-10-07T13:15:26Z blocks 12358669-12358718 ok (50 headers) cumulative=10948
+2026-10-07T13:15:27Z blocks 12358719-12358768 ok (50 headers) cumulative=10998
+2026-10-07T13:15:28Z blocks 12358769-12358818 ok (50 headers) cumulative=11048
+2026-10-07T13:15:29Z blocks 12358819-12358868 ok (50 headers) cumulative=11098
+2026-10-07T13:15:29Z blocks 12358869-12358918 ok (50 headers) cumulative=11148
+2026-10-07T13:15:30Z blocks 12358919-12358968 ok (50 headers) cumulative=11198
+2026-10-07T13:15:30Z blocks 12358969-12359018 ok (50 headers) cumulative=11248
+2026-10-07T13:15:32Z blocks 12359019-12359068 ok (50 headers) cumulative=11298
+2026-10-07T13:15:35Z individual retry ok block 12359103 attempt 1
+2026-10-07T13:15:37Z individual retry ok block 12359104 attempt 1
+2026-10-07T13:15:39Z individual retry ok block 12359105 attempt 1
+2026-10-07T13:15:42Z individual retry ok block 12359106 attempt 1
+2026-10-07T13:15:44Z individual retry ok block 12359107 attempt 1
+2026-10-07T13:15:46Z individual retry ok block 12359108 attempt 1
+2026-10-07T13:15:48Z individual retry ok block 12359115 attempt 1
+2026-10-07T13:15:51Z individual retry ok block 12359116 attempt 1
+2026-10-07T13:15:53Z individual retry ok block 12359117 attempt 1
+2026-10-07T13:15:53Z blocks 12359069-12359118 ok (41 headers) cumulative=11348
+2026-10-07T13:15:54Z blocks 12359119-12359168 ok (50 headers) cumulative=11398
+2026-10-07T13:15:54Z blocks 12359169-12359218 ok (50 headers) cumulative=11448
+2026-10-07T13:15:55Z blocks 12359219-12359268 ok (50 headers) cumulative=11498
+2026-10-07T13:15:57Z individual retry ok block 12359269 attempt 1
+2026-10-07T13:16:00Z individual retry ok block 12359270 attempt 1
+2026-10-07T13:16:03Z individual retry ok block 12359271 attempt 1
+2026-10-07T13:16:05Z individual retry ok block 12359272 attempt 1
+2026-10-07T13:16:07Z individual retry ok block 12359273 attempt 1
+2026-10-07T13:16:09Z individual retry ok block 12359274 attempt 1
+2026-10-07T13:16:12Z individual retry ok block 12359275 attempt 1
+2026-10-07T13:16:14Z individual retry ok block 12359276 attempt 1
+2026-10-07T13:16:16Z individual retry ok block 12359277 attempt 1
+2026-10-07T13:16:19Z individual retry ok block 12359278 attempt 1
+2026-10-07T13:16:21Z individual retry ok block 12359279 attempt 1
+2026-10-07T13:16:24Z individual retry ok block 12359280 attempt 1
+2026-10-07T13:16:27Z individual retry ok block 12359281 attempt 1
+2026-10-07T13:16:29Z individual retry ok block 12359282 attempt 1
+2026-10-07T13:16:31Z individual retry ok block 12359283 attempt 1
+2026-10-07T13:16:34Z individual retry ok block 12359284 attempt 1
+2026-10-07T13:16:36Z individual retry ok block 12359285 attempt 1
+2026-10-07T13:16:38Z individual retry ok block 12359286 attempt 1
+2026-10-07T13:16:40Z individual retry ok block 12359287 attempt 1
+2026-10-07T13:16:43Z individual retry ok block 12359288 attempt 1
+2026-10-07T13:16:45Z individual retry ok block 12359289 attempt 1
+2026-10-07T13:16:47Z individual retry ok block 12359290 attempt 1
+2026-10-07T13:16:49Z individual retry ok block 12359291 attempt 1
+2026-10-07T13:16:52Z individual retry ok block 12359292 attempt 1
+2026-10-07T13:16:54Z individual retry ok block 12359293 attempt 1
+2026-10-07T13:16:56Z individual retry ok block 12359294 attempt 1
+2026-10-07T13:16:59Z individual retry ok block 12359295 attempt 1
+2026-10-07T13:17:01Z individual retry ok block 12359296 attempt 1
+2026-10-07T13:17:03Z individual retry ok block 12359297 attempt 1
+2026-10-07T13:17:05Z individual retry ok block 12359298 attempt 1
+2026-10-07T13:17:08Z individual retry ok block 12359299 attempt 1
+2026-10-07T13:17:10Z individual retry ok block 12359300 attempt 1
+2026-10-07T13:17:12Z individual retry ok block 12359301 attempt 1
+2026-10-07T13:17:15Z individual retry ok block 12359302 attempt 1
+2026-10-07T13:17:18Z individual retry ok block 12359303 attempt 1
+2026-10-07T13:17:20Z individual retry ok block 12359304 attempt 1
+2026-10-07T13:17:22Z individual retry ok block 12359305 attempt 1
+2026-10-07T13:17:24Z individual retry ok block 12359306 attempt 1
+2026-10-07T13:17:27Z individual retry ok block 12359307 attempt 1
+2026-10-07T13:17:29Z individual retry ok block 12359308 attempt 1
+2026-10-07T13:17:31Z individual retry ok block 12359309 attempt 1
+2026-10-07T13:17:34Z individual retry ok block 12359310 attempt 1
+2026-10-07T13:17:36Z individual retry ok block 12359311 attempt 1
+2026-10-07T13:17:38Z individual retry ok block 12359312 attempt 1
+2026-10-07T13:17:40Z individual retry ok block 12359313 attempt 1
+2026-10-07T13:17:43Z individual retry ok block 12359314 attempt 1
+2026-10-07T13:17:45Z individual retry ok block 12359315 attempt 1
+2026-10-07T13:17:47Z individual retry ok block 12359316 attempt 1
+2026-10-07T13:17:50Z individual retry ok block 12359317 attempt 1
+2026-10-07T13:17:52Z individual retry ok block 12359318 attempt 1
+2026-10-07T13:17:52Z blocks 12359269-12359318 ok (0 headers) cumulative=11548
+2026-10-07T13:17:52Z blocks 12359319-12359368 ok (50 headers) cumulative=11598
+2026-10-07T13:17:53Z blocks 12359369-12359418 ok (50 headers) cumulative=11648
+2026-10-07T13:17:54Z blocks 12359419-12359468 ok (50 headers) cumulative=11698
+2026-10-07T13:17:54Z blocks 12359469-12359518 ok (50 headers) cumulative=11748
+2026-10-07T13:17:57Z individual retry ok block 12359530 attempt 1
+2026-10-07T13:17:59Z individual retry ok block 12359543 attempt 1
+2026-10-07T13:18:02Z individual retry ok block 12359544 attempt 1
+2026-10-07T13:18:04Z individual retry ok block 12359545 attempt 1
+2026-10-07T13:18:06Z individual retry ok block 12359546 attempt 1
+2026-10-07T13:18:08Z individual retry ok block 12359547 attempt 1
+2026-10-07T13:18:11Z individual retry ok block 12359548 attempt 1
+2026-10-07T13:18:13Z individual retry ok block 12359561 attempt 1
+2026-10-07T13:18:15Z individual retry ok block 12359562 attempt 1
+2026-10-07T13:18:18Z individual retry ok block 12359563 attempt 1
+2026-10-07T13:18:20Z individual retry ok block 12359564 attempt 1
+2026-10-07T13:18:22Z individual retry ok block 12359565 attempt 1
+2026-10-07T13:18:24Z individual retry ok block 12359566 attempt 1
+2026-10-07T13:18:27Z individual retry ok block 12359567 attempt 1
+2026-10-07T13:18:27Z blocks 12359519-12359568 ok (36 headers) cumulative=11798
+2026-10-07T13:18:27Z blocks 12359569-12359618 ok (50 headers) cumulative=11848
+2026-10-07T13:18:28Z blocks 12359619-12359668 ok (50 headers) cumulative=11898
+2026-10-07T13:18:28Z blocks 12359669-12359718 ok (50 headers) cumulative=11948
+2026-10-07T13:18:29Z blocks 12359719-12359768 ok (50 headers) cumulative=11998
+2026-10-07T13:18:30Z blocks 12359769-12359818 ok (50 headers) cumulative=12048
+2026-10-07T13:18:30Z blocks 12359819-12359868 ok (50 headers) cumulative=12098
+2026-10-07T13:18:31Z blocks 12359869-12359918 ok (50 headers) cumulative=12148
+2026-10-07T13:18:32Z blocks 12359919-12359968 ok (50 headers) cumulative=12198
+2026-10-07T13:18:32Z blocks 12359969-12360018 ok (50 headers) cumulative=12248
+2026-10-07T13:18:33Z blocks 12360019-12360068 ok (50 headers) cumulative=12298
+2026-10-07T13:18:33Z blocks 12360069-12360118 ok (50 headers) cumulative=12348
+2026-10-07T13:18:34Z blocks 12360119-12360168 ok (50 headers) cumulative=12398
+2026-10-07T13:18:35Z blocks 12360169-12360218 ok (50 headers) cumulative=12448
+2026-10-07T13:18:35Z blocks 12360219-12360268 ok (50 headers) cumulative=12498
+2026-10-07T13:18:36Z blocks 12360269-12360318 ok (50 headers) cumulative=12548
+2026-10-07T13:18:36Z blocks 12360319-12360368 ok (50 headers) cumulative=12598
+2026-10-07T13:18:38Z blocks 12360369-12360418 ok (50 headers) cumulative=12648
+2026-10-07T13:18:38Z blocks 12360419-12360468 ok (50 headers) cumulative=12698
+2026-10-07T13:18:39Z blocks 12360469-12360518 ok (50 headers) cumulative=12748
+2026-10-07T13:18:39Z blocks 12360519-12360568 ok (50 headers) cumulative=12798
+2026-10-07T13:18:40Z blocks 12360569-12360618 ok (50 headers) cumulative=12848
+2026-10-07T13:18:40Z blocks 12360619-12360668 ok (50 headers) cumulative=12898
+2026-10-07T13:18:41Z blocks 12360669-12360718 ok (50 headers) cumulative=12948
+2026-10-07T13:18:42Z blocks 12360719-12360768 ok (50 headers) cumulative=12998
+2026-10-07T13:18:42Z blocks 12360769-12360818 ok (50 headers) cumulative=13048
+2026-10-07T13:18:43Z blocks 12360819-12360868 ok (50 headers) cumulative=13098
+2026-10-07T13:18:43Z blocks 12360869-12360918 ok (50 headers) cumulative=13148
+2026-10-07T13:18:44Z blocks 12360919-12360968 ok (50 headers) cumulative=13198
+2026-10-07T13:18:45Z blocks 12360969-12361018 ok (50 headers) cumulative=13248
+2026-10-07T13:18:46Z blocks 12361019-12361068 ok (50 headers) cumulative=13298
+2026-10-07T13:18:46Z blocks 12361069-12361118 ok (50 headers) cumulative=13348
+2026-10-07T13:18:47Z blocks 12361119-12361168 ok (50 headers) cumulative=13398
+2026-10-07T13:18:47Z blocks 12361169-12361218 ok (50 headers) cumulative=13448
+2026-10-07T13:18:48Z blocks 12361219-12361268 ok (50 headers) cumulative=13498
+2026-10-07T13:18:49Z blocks 12361269-12361318 ok (50 headers) cumulative=13548
+2026-10-07T13:18:49Z blocks 12361319-12361368 ok (50 headers) cumulative=13598
+2026-10-07T13:18:50Z blocks 12361369-12361418 ok (50 headers) cumulative=13648
+2026-10-07T13:18:50Z blocks 12361419-12361468 ok (50 headers) cumulative=13698
+2026-10-07T13:18:51Z blocks 12361469-12361518 ok (50 headers) cumulative=13748
+2026-10-07T13:18:52Z blocks 12361519-12361568 ok (50 headers) cumulative=13798
+2026-10-07T13:18:53Z blocks 12361569-12361618 ok (50 headers) cumulative=13848
+2026-10-07T13:18:53Z blocks 12361619-12361668 ok (50 headers) cumulative=13898
+2026-10-07T13:18:54Z blocks 12361669-12361718 ok (50 headers) cumulative=13948
+2026-10-07T13:18:54Z blocks 12361719-12361768 ok (50 headers) cumulative=13998
+2026-10-07T13:18:55Z blocks 12361769-12361818 ok (50 headers) cumulative=14048
+2026-10-07T13:18:56Z blocks 12361819-12361868 ok (50 headers) cumulative=14098
+2026-10-07T13:18:56Z blocks 12361869-12361918 ok (50 headers) cumulative=14148
+2026-10-07T13:18:57Z blocks 12361919-12361968 ok (50 headers) cumulative=14198
+2026-10-07T13:18:57Z blocks 12361969-12362018 ok (50 headers) cumulative=14248
+2026-10-07T13:18:59Z blocks 12362019-12362068 ok (50 headers) cumulative=14298
+2026-10-07T13:18:59Z blocks 12362069-12362118 ok (50 headers) cumulative=14348
+2026-10-07T13:19:00Z blocks 12362119-12362168 ok (50 headers) cumulative=14398
+2026-10-07T13:19:00Z blocks 12362169-12362218 ok (50 headers) cumulative=14448
+2026-10-07T13:19:01Z blocks 12362219-12362268 ok (50 headers) cumulative=14498
+2026-10-07T13:19:01Z blocks 12362269-12362318 ok (50 headers) cumulative=14548
+2026-10-07T13:19:02Z blocks 12362319-12362368 ok (50 headers) cumulative=14598
+2026-10-07T13:19:03Z blocks 12362369-12362418 ok (50 headers) cumulative=14648
+2026-10-07T13:19:03Z blocks 12362419-12362468 ok (50 headers) cumulative=14698
+2026-10-07T13:19:04Z blocks 12362469-12362518 ok (50 headers) cumulative=14748
+2026-10-07T13:19:04Z blocks 12362519-12362568 ok (50 headers) cumulative=14798
+2026-10-07T13:19:05Z blocks 12362569-12362618 ok (50 headers) cumulative=14848
+2026-10-07T13:19:06Z blocks 12362619-12362668 ok (50 headers) cumulative=14898
+2026-10-07T13:19:06Z blocks 12362669-12362718 ok (50 headers) cumulative=14948
+2026-10-07T13:19:07Z blocks 12362719-12362768 ok (50 headers) cumulative=14998
+2026-10-07T13:19:07Z blocks 12362769-12362818 ok (50 headers) cumulative=15048
+2026-10-07T13:19:08Z blocks 12362819-12362868 ok (50 headers) cumulative=15098
+2026-10-07T13:19:08Z blocks 12362869-12362918 ok (50 headers) cumulative=15148
+2026-10-07T13:19:09Z blocks 12362919-12362968 ok (50 headers) cumulative=15198
+2026-10-07T13:19:10Z blocks 12362969-12363018 ok (50 headers) cumulative=15248
+2026-10-07T13:19:10Z blocks 12363019-12363068 ok (50 headers) cumulative=15298
+2026-10-07T13:19:11Z blocks 12363069-12363118 ok (50 headers) cumulative=15348
+2026-10-07T13:19:11Z blocks 12363119-12363168 ok (50 headers) cumulative=15398
+2026-10-07T13:19:12Z blocks 12363169-12363218 ok (50 headers) cumulative=15448
+2026-10-07T13:19:12Z blocks 12363219-12363268 ok (50 headers) cumulative=15498
+2026-10-07T13:19:13Z blocks 12363269-12363318 ok (50 headers) cumulative=15548
+2026-10-07T13:19:13Z blocks 12363319-12363368 ok (50 headers) cumulative=15598
+2026-10-07T13:19:14Z blocks 12363369-12363418 ok (50 headers) cumulative=15648
+2026-10-07T13:19:15Z blocks 12363419-12363468 ok (50 headers) cumulative=15698
+2026-10-07T13:19:15Z blocks 12363469-12363518 ok (50 headers) cumulative=15748
+2026-10-07T13:19:16Z blocks 12363519-12363568 ok (50 headers) cumulative=15798
+2026-10-07T13:19:16Z blocks 12363569-12363618 ok (50 headers) cumulative=15848
+2026-10-07T13:19:17Z blocks 12363619-12363668 ok (50 headers) cumulative=15898
+2026-10-07T13:19:18Z blocks 12363669-12363718 ok (50 headers) cumulative=15948
+2026-10-07T13:19:18Z blocks 12363719-12363768 ok (50 headers) cumulative=15998
+2026-10-07T13:19:19Z blocks 12363769-12363818 ok (50 headers) cumulative=16048
+2026-10-07T13:19:19Z blocks 12363819-12363868 ok (50 headers) cumulative=16098
+2026-10-07T13:19:20Z blocks 12363869-12363918 ok (50 headers) cumulative=16148
+2026-10-07T13:19:21Z blocks 12363919-12363968 ok (50 headers) cumulative=16198
+2026-10-07T13:19:21Z blocks 12363969-12364018 ok (50 headers) cumulative=16248
+2026-10-07T13:19:22Z blocks 12364019-12364068 ok (50 headers) cumulative=16298
+2026-10-07T13:19:22Z blocks 12364069-12364118 ok (50 headers) cumulative=16348
+2026-10-07T13:19:23Z blocks 12364119-12364168 ok (50 headers) cumulative=16398
+2026-10-07T13:19:23Z blocks 12364169-12364218 ok (50 headers) cumulative=16448
+2026-10-07T13:19:24Z blocks 12364219-12364268 ok (50 headers) cumulative=16498
+2026-10-07T13:19:25Z blocks 12364269-12364318 ok (50 headers) cumulative=16548
+2026-10-07T13:19:25Z blocks 12364319-12364368 ok (50 headers) cumulative=16598
+2026-10-07T13:19:26Z blocks 12364369-12364418 ok (50 headers) cumulative=16648
+2026-10-07T13:19:27Z blocks 12364419-12364468 ok (50 headers) cumulative=16698
+2026-10-07T13:19:28Z blocks 12364469-12364518 ok (50 headers) cumulative=16748
+2026-10-07T13:19:29Z blocks 12364519-12364568 ok (50 headers) cumulative=16798
+2026-10-07T13:19:30Z blocks 12364569-12364618 ok (50 headers) cumulative=16848
+2026-10-07T13:19:30Z blocks 12364619-12364668 ok (50 headers) cumulative=16898
+2026-10-07T13:19:31Z blocks 12364669-12364718 ok (50 headers) cumulative=16948
+2026-10-07T13:19:31Z blocks 12364719-12364768 ok (50 headers) cumulative=16998
+2026-10-07T13:19:32Z blocks 12364769-12364818 ok (50 headers) cumulative=17048
+2026-10-07T13:19:32Z blocks 12364819-12364868 ok (50 headers) cumulative=17098
+2026-10-07T13:19:33Z blocks 12364869-12364918 ok (50 headers) cumulative=17148
+2026-10-07T13:19:34Z blocks 12364919-12364968 ok (50 headers) cumulative=17198
+2026-10-07T13:19:34Z blocks 12364969-12365018 ok (50 headers) cumulative=17248
+2026-10-07T13:19:35Z blocks 12365019-12365068 ok (50 headers) cumulative=17298
+2026-10-07T13:19:35Z blocks 12365069-12365118 ok (50 headers) cumulative=17348
+2026-10-07T13:19:36Z blocks 12365119-12365168 ok (50 headers) cumulative=17398
+2026-10-07T13:19:37Z blocks 12365169-12365218 ok (50 headers) cumulative=17448
+2026-10-07T13:19:38Z blocks 12365219-12365268 ok (50 headers) cumulative=17498
+2026-10-07T13:19:38Z blocks 12365269-12365318 ok (50 headers) cumulative=17548
+2026-10-07T13:19:39Z blocks 12365319-12365368 ok (50 headers) cumulative=17598
+2026-10-07T13:19:40Z blocks 12365369-12365418 ok (50 headers) cumulative=17648
+2026-10-07T13:19:41Z blocks 12365419-12365468 ok (50 headers) cumulative=17698
+2026-10-07T13:19:41Z blocks 12365469-12365518 ok (50 headers) cumulative=17748
+2026-10-07T13:19:42Z blocks 12365519-12365568 ok (50 headers) cumulative=17798
+2026-10-07T13:19:42Z blocks 12365569-12365618 ok (50 headers) cumulative=17848
+2026-10-07T13:19:43Z blocks 12365619-12365668 ok (50 headers) cumulative=17898
+2026-10-07T13:19:43Z blocks 12365669-12365718 ok (50 headers) cumulative=17948
+2026-10-07T13:19:44Z blocks 12365719-12365768 ok (50 headers) cumulative=17998
+2026-10-07T13:19:45Z blocks 12365769-12365818 ok (50 headers) cumulative=18048
+2026-10-07T13:19:45Z blocks 12365819-12365868 ok (50 headers) cumulative=18098
+2026-10-07T13:19:46Z blocks 12365869-12365918 ok (50 headers) cumulative=18148
+2026-10-07T13:19:46Z blocks 12365919-12365968 ok (50 headers) cumulative=18198
+2026-10-07T13:19:49Z individual retry ok block 12365972 attempt 1
+2026-10-07T13:19:51Z individual retry ok block 12365973 attempt 1
+2026-10-07T13:19:54Z individual retry ok block 12365974 attempt 1
+2026-10-07T13:19:56Z individual retry ok block 12365975 attempt 1
+2026-10-07T13:19:58Z individual retry ok block 12365976 attempt 1
+2026-10-07T13:20:00Z individual retry ok block 12365977 attempt 1
+2026-10-07T13:20:03Z individual retry ok block 12365978 attempt 1
+2026-10-07T13:20:05Z individual retry ok block 12365979 attempt 1
+2026-10-07T13:20:07Z individual retry ok block 12365980 attempt 1
+2026-10-07T13:20:10Z individual retry ok block 12365981 attempt 1
+2026-10-07T13:20:12Z individual retry ok block 12365982 attempt 1
+2026-10-07T13:20:14Z individual retry ok block 12365983 attempt 1
+2026-10-07T13:20:16Z individual retry ok block 12365989 attempt 1
+2026-10-07T13:20:19Z individual retry ok block 12365990 attempt 1
+2026-10-07T13:20:21Z individual retry ok block 12365991 attempt 1
+2026-10-07T13:20:23Z individual retry ok block 12365992 attempt 1
+2026-10-07T13:20:26Z individual retry ok block 12365993 attempt 1
+2026-10-07T13:20:28Z individual retry ok block 12365994 attempt 1
+2026-10-07T13:20:30Z individual retry ok block 12365995 attempt 1
+2026-10-07T13:20:32Z individual retry ok block 12365996 attempt 1
+2026-10-07T13:20:35Z individual retry ok block 12365997 attempt 1
+2026-10-07T13:20:37Z individual retry ok block 12365998 attempt 1
+2026-10-07T13:20:39Z individual retry ok block 12365999 attempt 1
+2026-10-07T13:20:42Z individual retry ok block 12366000 attempt 1
+2026-10-07T13:20:44Z individual retry ok block 12366001 attempt 1
+2026-10-07T13:20:46Z individual retry ok block 12366002 attempt 1
+2026-10-07T13:20:48Z individual retry ok block 12366003 attempt 1
+2026-10-07T13:20:51Z individual retry ok block 12366004 attempt 1
+2026-10-07T13:20:53Z individual retry ok block 12366005 attempt 1
+2026-10-07T13:20:55Z individual retry ok block 12366006 attempt 1
+2026-10-07T13:20:58Z individual retry ok block 12366007 attempt 1
+2026-10-07T13:21:00Z individual retry ok block 12366008 attempt 1
+2026-10-07T13:21:02Z individual retry ok block 12366009 attempt 1
+2026-10-07T13:21:04Z individual retry ok block 12366010 attempt 1
+2026-10-07T13:21:07Z individual retry ok block 12366011 attempt 1
+2026-10-07T13:21:09Z individual retry ok block 12366012 attempt 1
+2026-10-07T13:21:11Z individual retry ok block 12366013 attempt 1
+2026-10-07T13:21:14Z individual retry ok block 12366014 attempt 1
+2026-10-07T13:21:16Z individual retry ok block 12366015 attempt 1
+2026-10-07T13:21:19Z individual retry ok block 12366016 attempt 1
+2026-10-07T13:21:22Z individual retry ok block 12366017 attempt 1
+2026-10-07T13:21:22Z blocks 12365969-12366018 ok (9 headers) cumulative=18248
+2026-10-07T13:21:22Z blocks 12366019-12366068 ok (50 headers) cumulative=18298
+2026-10-07T13:21:23Z blocks 12366069-12366118 ok (50 headers) cumulative=18348
+2026-10-07T13:21:23Z blocks 12366119-12366168 ok (50 headers) cumulative=18398
+2026-10-07T13:21:25Z blocks 12366169-12366218 ok (50 headers) cumulative=18448
+2026-10-07T13:21:25Z blocks 12366219-12366268 ok (50 headers) cumulative=18498
+2026-10-07T13:21:27Z blocks 12366269-12366318 ok (50 headers) cumulative=18548
+2026-10-07T13:21:27Z blocks 12366319-12366368 ok (50 headers) cumulative=18598
+2026-10-07T13:21:28Z blocks 12366369-12366418 ok (50 headers) cumulative=18648
+2026-10-07T13:21:29Z blocks 12366419-12366468 ok (50 headers) cumulative=18698
+2026-10-07T13:21:29Z blocks 12366469-12366518 ok (50 headers) cumulative=18748
+2026-10-07T13:21:30Z blocks 12366519-12366568 ok (50 headers) cumulative=18798
+2026-10-07T13:21:30Z blocks 12366569-12366618 ok (50 headers) cumulative=18848
+2026-10-07T13:21:31Z blocks 12366619-12366668 ok (50 headers) cumulative=18898
+2026-10-07T13:21:31Z blocks 12366669-12366718 ok (50 headers) cumulative=18948
+2026-10-07T13:21:32Z blocks 12366719-12366768 ok (50 headers) cumulative=18998
+2026-10-07T13:21:32Z blocks 12366769-12366818 ok (50 headers) cumulative=19048
+2026-10-07T13:21:33Z blocks 12366819-12366868 ok (50 headers) cumulative=19098
+2026-10-07T13:21:33Z blocks 12366869-12366918 ok (50 headers) cumulative=19148
+2026-10-07T13:21:34Z blocks 12366919-12366968 ok (50 headers) cumulative=19198
+2026-10-07T13:21:34Z blocks 12366969-12367018 ok (50 headers) cumulative=19248
+2026-10-07T13:21:35Z blocks 12367019-12367068 ok (50 headers) cumulative=19298
+2026-10-07T13:21:35Z blocks 12367069-12367118 ok (50 headers) cumulative=19348
+2026-10-07T13:21:36Z blocks 12367119-12367168 ok (50 headers) cumulative=19398
+2026-10-07T13:21:36Z blocks 12367169-12367218 ok (50 headers) cumulative=19448
+2026-10-07T13:21:37Z blocks 12367219-12367268 ok (50 headers) cumulative=19498
+2026-10-07T13:21:38Z blocks 12367269-12367318 ok (50 headers) cumulative=19548
+2026-10-07T13:21:38Z blocks 12367319-12367368 ok (50 headers) cumulative=19598
+2026-10-07T13:21:39Z blocks 12367369-12367418 ok (50 headers) cumulative=19648
+2026-10-07T13:21:39Z blocks 12367419-12367468 ok (50 headers) cumulative=19698
+2026-10-07T13:21:40Z blocks 12367469-12367518 ok (50 headers) cumulative=19748
+2026-10-07T13:21:40Z blocks 12367519-12367568 ok (50 headers) cumulative=19798
+2026-10-07T13:21:41Z blocks 12367569-12367618 ok (50 headers) cumulative=19848
+2026-10-07T13:21:41Z blocks 12367619-12367668 ok (50 headers) cumulative=19898
+2026-10-07T13:21:42Z blocks 12367669-12367718 ok (50 headers) cumulative=19948
+2026-10-07T13:21:43Z blocks 12367719-12367768 ok (50 headers) cumulative=19998
+2026-10-07T13:21:43Z blocks 12367769-12367770 ok (2 headers) cumulative=20000
+2026-10-07T13:21:43Z END blocks n=20000 elapsed=465.3s

@@ -1,0 +1,84 @@
+{
+ "n_batches": 8,
+ "blob_gas": 1048576,
+ "l2_fees_eth": 0.001949445150539832,
+ "l2_base_fees_eth": 0.0018454038900000001,
+ "l1_propose_total_eth": 0.000850212062770044,
+ "l1_propose_exec_only_eth": 0.0008277521499554521,
+ "residual_all_fees_eth": 0.00112169300058438,
+ "break_even_blob_base_fee_wei": 1069729805.549984,
+ "rows": [
+  {
+   "proposalId": 40239,
+   "l1_block": 26133250,
+   "l2_fees_eth": 0.00023548369,
+   "l2_base_fees_eth": 0.00022694625,
+   "propose_total_eth": 0.00010840059950153,
+   "blob_cost_eth": 2.853510447104e-06,
+   "propose_exec_eth": 0.000105547089054426
+  },
+  {
+   "proposalId": 40240,
+   "l1_block": 26133282,
+   "l2_fees_eth": 0.000232466930052608,
+   "l2_base_fees_eth": 0.0002244061,
+   "propose_total_eth": 0.00011169022854481,
+   "blob_cost_eth": 3.557857951744e-06,
+   "propose_exec_eth": 0.000108132370593066
+  },
+  {
+   "proposalId": 40241,
+   "l1_block": 26133314,
+   "l2_fees_eth": 0.000240879360059481,
+   "l2_base_fees_eth": 0.0002317456,
+   "propose_total_eth": 0.000105756014959606,
+   "blob_cost_eth": 2.67776622592e-06,
+   "propose_exec_eth": 0.00010307824873368601
+  },
+  {
+   "proposalId": 40242,
+   "l1_block": 26133346,
+   "l2_fees_eth": 0.00025937186,
+   "l2_base_fees_eth": 0.00022983358,
+   "propose_total_eth": 0.000103787014872376,
+   "blob_cost_eth": 2.748777496576e-06,
+   "propose_exec_eth": 0.0001010382373758
+  },
+  {
+   "proposalId": 40243,
+   "l1_block": 26133378,
+   "l2_fees_eth": 0.000249611090059493,
+   "l2_base_fees_eth": 0.00023313018,
+   "propose_total_eth": 0.000107870026740706,
+   "blob_cost_eth": 2.748775923712e-06,
+   "propose_exec_eth": 0.000105121250816994
+  },
+  {
+   "proposalId": 40244,
+   "l1_block": 26133410,
+   "l2_fees_eth": 0.000241460600059481,
+   "l2_base_fees_eth": 0.00023013077,
+   "propose_total_eth": 0.00010716858274451,
+   "blob_cost_eth": 3.109763416064e-06,
+   "propose_exec_eth": 0.000104058819328446
+  },
+  {
+   "proposalId": 40245,
+   "l1_block": 26133442,
+   "l2_fees_eth": 0.000246050515249276,
+   "l2_base_fees_eth": 0.00023550516,
+   "propose_total_eth": 0.000101052693248644,
+   "blob_cost_eth": 2.297163808768e-06,
+   "propose_exec_eth": 9.8755529439876e-05
+  },
+  {
+   "proposalId": 40246,
+   "l1_block": 26133473,
+   "l2_fees_eth": 0.000244121105059493,
+   "l2_base_fees_eth": 0.00023370625,
+   "propose_total_eth": 0.000104486902157862,
+   "blob_cost_eth": 2.466297544704e-06,
+   "propose_exec_eth": 0.00010202060461315799
+  }
+ ]
+}

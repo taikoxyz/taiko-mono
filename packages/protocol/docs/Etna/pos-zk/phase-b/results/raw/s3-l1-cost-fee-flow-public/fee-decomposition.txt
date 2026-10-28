@@ -1,0 +1,13 @@
+all 1,575 batches:
+  base fee (burned)   0.040346 ETH  24.7%
+  priority fee        0.119218 ETH  72.9%
+  blob data           0.003864 ETH  2.4%
+  TOTAL               0.163428 ETH  100.0%
+the 1,542-row subset:
+  base fee (burned)   0.039333 ETH  24.6%
+  priority fee        0.116723 ETH  73.0%
+  blob data           0.003760 ETH  2.4%
+  TOTAL               0.159816 ETH  100.0%
+
+33 backfilled rows: exec 0.003508 ETH (2.15% of the week's cost); base 0.001013 / priority 0.002495 ETH
+

@@ -1,0 +1,257 @@
+[
+ {
+  "block": 26140717,
+  "blockTimestamp": 1791378599,
+  "blobGasUsed": 1310720,
+  "excessBlobGas": 205331000,
+  "blockBlobs": 10,
+  "slot": 15379548,
+  "beaconUrl": "https://ethereum-beacon-api.publicnode.com",
+  "sidecars": 10,
+  "checks": [
+   {
+    "index": 0,
+    "blobBytes": 131072,
+    "commitmentBytes": 48,
+    "proofBytes": 48,
+    "proof_is_c0_placeholder": true,
+    "proof_hex": "c0000000000000000000...",
+    "versionedHash_matches_block": true,
+    "commitment_recomputed_from_blob": true,
+    "served_proof_verifies": false,
+    "fresh_proof_verifies": true,
+    "served_proof_equals_fresh": false
+   },
+   {
+    "index": 1,
+    "blobBytes": 131072,
+    "commitmentBytes": 48,
+    "proofBytes": 48,
+    "proof_is_c0_placeholder": true,
+    "proof_hex": "c0000000000000000000...",
+    "versionedHash_matches_block": true,
+    "commitment_recomputed_from_blob": true,
+    "served_proof_verifies": false,
+    "fresh_proof_verifies": true,
+    "served_proof_equals_fresh": false
+   },
+   {
+    "index": 2,
+    "blobBytes": 131072,
+    "commitmentBytes": 48,
+    "proofBytes": 48,
+    "proof_is_c0_placeholder": true,
+    "proof_hex": "c0000000000000000000...",
+    "versionedHash_matches_block": true,
+    "commitment_recomputed_from_blob": true,
+    "served_proof_verifies": false,
+    "fresh_proof_verifies": true,
+    "served_proof_equals_fresh": false
+   }
+  ]
+ },
+ {
+  "block": 26135739,
+  "blockTimestamp": 1791318659,
+  "blobGasUsed": 1441792,
+  "excessBlobGas": 200570055,
+  "blockBlobs": 11,
+  "slot": 15374553,
+  "beaconUrl": "https://ethereum-beacon-api.publicnode.com",
+  "sidecars": 11,
+  "checks": [
+   {
+    "index": 0,
+    "blobBytes": 131072,
+    "commitmentBytes": 48,
+    "proofBytes": 48,
+    "proof_is_c0_placeholder": true,
+    "proof_hex": "c0000000000000000000...",
+    "versionedHash_matches_block": true,
+    "commitment_recomputed_from_blob": true,
+    "served_proof_verifies": false,
+    "fresh_proof_verifies": true,
+    "served_proof_equals_fresh": false
+   },
+   {
+    "index": 1,
+    "blobBytes": 131072,
+    "commitmentBytes": 48,
+    "proofBytes": 48,
+    "proof_is_c0_placeholder": true,
+    "proof_hex": "c0000000000000000000...",
+    "versionedHash_matches_block": true,
+    "commitment_recomputed_from_blob": true,
+    "served_proof_verifies": false,
+    "fresh_proof_verifies": true,
+    "served_proof_equals_fresh": false
+   },
+   {
+    "index": 2,
+    "blobBytes": 131072,
+    "commitmentBytes": 48,
+    "proofBytes": 48,
+    "proof_is_c0_placeholder": true,
+    "proof_hex": "c0000000000000000000...",
+    "versionedHash_matches_block": true,
+    "commitment_recomputed_from_blob": true,
+    "served_proof_verifies": false,
+    "fresh_proof_verifies": true,
+    "served_proof_equals_fresh": false
+   }
+  ]
+ },
+ {
+  "block": 26120000,
+  "blockTimestamp": 1791129035,
+  "blobGasUsed": 1310720,
+  "excessBlobGas": 186724339,
+  "blockBlobs": 10,
+  "slot": 15358751,
+  "beaconUrl": "https://ethereum-beacon-api.publicnode.com",
+  "sidecars": 10,
+  "checks": [
+   {
+    "index": 0,
+    "blobBytes": 131072,
+    "commitmentBytes": 48,
+    "proofBytes": 48,
+    "proof_is_c0_placeholder": true,
+    "proof_hex": "c0000000000000000000...",
+    "versionedHash_matches_block": true,
+    "commitment_recomputed_from_blob": true,
+    "served_proof_verifies": false,
+    "fresh_proof_verifies": true,
+    "served_proof_equals_fresh": false
+   },
+   {
+    "index": 1,
+    "blobBytes": 131072,
+    "commitmentBytes": 48,
+    "proofBytes": 48,
+    "proof_is_c0_placeholder": true,
+    "proof_hex": "c0000000000000000000...",
+    "versionedHash_matches_block": true,
+    "commitment_recomputed_from_blob": true,
+    "served_proof_verifies": false,
+    "fresh_proof_verifies": true,
+    "served_proof_equals_fresh": false
+   },
+   {
+    "index": 2,
+    "blobBytes": 131072,
+    "commitmentBytes": 48,
+    "proofBytes": 48,
+    "proof_is_c0_placeholder": true,
+    "proof_hex": "c0000000000000000000...",
+    "versionedHash_matches_block": true,
+    "commitment_recomputed_from_blob": true,
+    "served_proof_verifies": false,
+    "fresh_proof_verifies": true,
+    "served_proof_equals_fresh": false
+   }
+  ]
+ },
+ {
+  "block": 26100000,
+  "blockTimestamp": 1790888219,
+  "blobGasUsed": 393216,
+  "excessBlobGas": 209667295,
+  "blockBlobs": 3,
+  "slot": 15338683,
+  "beaconUrl": "https://ethereum-beacon-api.publicnode.com",
+  "sidecars": 3,
+  "checks": [
+   {
+    "index": 0,
+    "blobBytes": 131072,
+    "commitmentBytes": 48,
+    "proofBytes": 48,
+    "proof_is_c0_placeholder": true,
+    "proof_hex": "c0000000000000000000...",
+    "versionedHash_matches_block": true,
+    "commitment_recomputed_from_blob": true,
+    "served_proof_verifies": false,
+    "fresh_proof_verifies": true,
+    "served_proof_equals_fresh": false
+   },
+   {
+    "index": 1,
+    "blobBytes": 131072,
+    "commitmentBytes": 48,
+    "proofBytes": 48,
+    "proof_is_c0_placeholder": true,
+    "proof_hex": "c0000000000000000000...",
+    "versionedHash_matches_block": true,
+    "commitment_recomputed_from_blob": true,
+    "served_proof_verifies": false,
+    "fresh_proof_verifies": true,
+    "served_proof_equals_fresh": false
+   },
+   {
+    "index": 2,
+    "blobBytes": 131072,
+    "commitmentBytes": 48,
+    "proofBytes": 48,
+    "proof_is_c0_placeholder": true,
+    "proof_hex": "c0000000000000000000...",
+    "versionedHash_matches_block": true,
+    "commitment_recomputed_from_blob": true,
+    "served_proof_verifies": false,
+    "fresh_proof_verifies": true,
+    "served_proof_equals_fresh": false
+   }
+  ]
+ },
+ {
+  "block": 26000002,
+  "blockTimestamp": 1789681787,
+  "blobGasUsed": 524288,
+  "excessBlobGas": 175002738,
+  "blockBlobs": 4,
+  "slot": 15238147,
+  "beaconUrl": "https://ethereum-beacon-api.publicnode.com",
+  "sidecars": 4,
+  "checks": [
+   {
+    "index": 0,
+    "blobBytes": 131072,
+    "commitmentBytes": 48,
+    "proofBytes": 48,
+    "proof_is_c0_placeholder": true,
+    "proof_hex": "c0000000000000000000...",
+    "versionedHash_matches_block": true,
+    "commitment_recomputed_from_blob": true,
+    "served_proof_verifies": false,
+    "fresh_proof_verifies": true,
+    "served_proof_equals_fresh": false
+   },
+   {
+    "index": 1,
+    "blobBytes": 131072,
+    "commitmentBytes": 48,
+    "proofBytes": 48,
+    "proof_is_c0_placeholder": true,
+    "proof_hex": "c0000000000000000000...",
+    "versionedHash_matches_block": true,
+    "commitment_recomputed_from_blob": true,
+    "served_proof_verifies": false,
+    "fresh_proof_verifies": true,
+    "served_proof_equals_fresh": false
+   },
+   {
+    "index": 2,
+    "blobBytes": 131072,
+    "commitmentBytes": 48,
+    "proofBytes": 48,
+    "proof_is_c0_placeholder": true,
+    "proof_hex": "c0000000000000000000...",
+    "versionedHash_matches_block": true,
+    "commitment_recomputed_from_blob": true,
+    "served_proof_verifies": false,
+    "fresh_proof_verifies": true,
+    "served_proof_equals_fresh": false
+   }
+  ]
+ }
+]

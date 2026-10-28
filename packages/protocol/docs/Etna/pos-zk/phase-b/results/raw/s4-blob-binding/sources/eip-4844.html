@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  
+    
+      <title>EIP-4844: Shard Blob Transactions</title>
+      <meta property="og:title" content="EIP-4844: Shard Blob Transactions" />
+    
+    <meta name="description" content="Shard Blob Transactions scale data-availability of Ethereum in a simple, forwards-compatible manner." />
+    <meta property="og:description" content="Shard Blob Transactions scale data-availability of Ethereum in a simple, forwards-compatible manner." />
+    <meta name="twitter:description" content="Shard Blob Transactions scale data-availability of Ethereum in a simple, forwards-compatible manner." />
+  
+  <meta name="generator" content="Jekyll" />
+  <meta property="og:locale" content="en_US" />
+  <link rel="canonical" href="https://eips.ethereum.org/EIPS/eip-4844" />
+  <meta property="og:url" content="https://eips.ethereum.org/EIPS/eip-4844" />
+  <meta property="og:site_name" content="Ethereum Improvement Proposals" />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="https://eips.ethereum.org/assets/images/eip-og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://eips.ethereum.org/assets/images/eip-og-image.png" />
+  <meta name="twitter:site" content="@" />
+  <script type="application/ld+json">
+    {
+      "@type": "WebSite",
+      "url": "https://eips.ethereum.org",
+      "name": "Ethereum Improvement Proposals",
+      "description": "Ethereum Improvement Proposals (EIPs) describe standards for the Ethereum platform, such as core protocol specifications.",
+      "@context": "https://schema.org"
+    }
+  </script>
+  <link rel="stylesheet" href="/assets/css/style.css" />
+  <link rel="icon" type="image/png" href="/assets/images/favicon.png" /><link type="application/atom+xml" rel="alternate" href="https://eips.ethereum.org/feed.xml" title="Ethereum Improvement Proposals" /><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
+  <link rel="stylesheet" href="/assets/css/override.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js" integrity="sha384-oBqDVmMz9ATKxIep9tiCxS/Z9fNfEXiDAYTujMAeBAsjFuCZSmKbSSUnQlmh/jp3" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.min.js" integrity="sha384-Rx+T1VzGupg4BHQYs2gCW9It+akI2MM/mndMCy36UVfodzcJcF0GGLxZIzObiEfa" crossorigin="anonymous"></script>
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", (event) => {
+      const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
+      const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
+    });
+  </script>
+  <script type="text/javascript">
+    window.MathJax = {
+      loader: {
+        load: ['input/tex-base', 'output/chtml']
+      },
+      tex: {
+        inlineMath: [['$', '$']],
+        displayMath: [['$$', '$$']],
+        processEscapes: true,
+        processEnvironments: false,
+        processRefs: false
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js" integrity="sha384-/1zmJ1mBdfKIOnwPxpdG6yaRrxP6qu3eVYm0cz2nOx+AcL4d3AqEFrwcqGZVVroG" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/citation-js/0.6.7/citation.min.js" integrity="sha512-N+LDFMa9owHXGS+CyMrBvuxq2QuGl3fiB/7cys3aUEL7K6P1soHGqsS0sjHXZpwNd9Kz0m3R4IPy1HYRi6ROEQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script type="text/javascript">
+    addEventListener('DOMContentLoaded', async () => {
+      const Cite = window.require('citation-js');
+      const citationElements = document.querySelectorAll('.language-csl-json');
+      for (let citationElement of citationElements) {
+        try {
+          const citation = await Cite.async(citationElement);
+          const template = document.createElement('template');
+          template.innerHTML = citation.format('bibliography', {
+            format: 'html',
+            template: 'apa',
+            lang: 'en-US'
+          });
+          if (citationElement.parentElement && citationElement.parentElement.matches('pre')) {
+            citationElement.parentElement.replaceWith(template.content);
+          } else {
+            citationElement.replaceWith(template.content);
+          }
+        } catch (e) {
+          console.error("unable to render citation", e);
+        }
+      }
+    });
+  </script>
+</head>
+<body><header class="site-header" role="banner">
+  <div class="wrapper"><a class="site-title" rel="author" href="/">Ethereum Improvement Proposals</a><nav class="site-nav d-flex">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger row p-2"><a class="page-link col" href="/all">All</a><a class="page-link col" href="/core">Core</a><a class="page-link col" href="/networking">Networking</a><a class="page-link col" href="/interface">Interface</a><a class="page-link col" href="/erc">ERC</a><a class="page-link col" href="/meta">Meta</a><a class="page-link col" href="/informational">Informational</a></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="bi-megaphone-fill" fill="currentColor" viewBox="0 0 16 16">
+    <title>Alert</title>
+    <path d="M13 2.5a1.5 1.5 0 0 1 3 0v11a1.5 1.5 0 0 1-3 0v-11zm-1 .724c-2.067.95-4.539 1.481-7 1.656v6.237a25.222 25.222 0 0 1 1.088.085c2.053.204 4.038.668 5.912 1.56V3.224zm-8 7.841V4.934c-.68.027-1.399.043-2.008.053A2.02 2.02 0 0 0 0 7v2c0 1.106.896 1.996 1.994 2.009a68.14 68.14 0 0 1 .496.008 64 64 0 0 1 1.51.048zm1.39 1.081c.285.021.569.047.85.078l.253 1.69a1 1 0 0 1-.983 1.187h-.548a1 1 0 0 1-.916-.599l-1.314-2.48a65.81 65.81 0 0 1 1.692.064c.327.017.65.037.966.06z"/>
+  </symbol>
+  <symbol id="bi-code" fill="currentColor" viewBox="0 0 16 16">
+    <title>Source</title>
+    <path d="M5.854 4.854a.5.5 0 1 0-.708-.708l-3.5 3.5a.5.5 0 0 0 0 .708l3.5 3.5a.5.5 0 0 0 .708-.708L2.707 8l3.147-3.146zm4.292 0a.5.5 0 0 1 .708-.708l3.5 3.5a.5.5 0 0 1 0 .708l-3.5 3.5a.5.5 0 0 1-.708-.708L13.293 8l-3.147-3.146z"/>
+  </symbol>
+  <svg id="bi-chat" fill="currentColor" viewBox="0 0 16 16">
+    <title>Discuss</title>
+    <path d="M2.678 11.894a1 1 0 0 1 .287.801 10.97 10.97 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8.06 8.06 0 0 0 8 14c3.996 0 7-2.807 7-6 0-3.192-3.004-6-7-6S1 4.808 1 8c0 1.468.617 2.83 1.678 3.894zm-.493 3.905a21.682 21.682 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a9.68 9.68 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9.06 9.06 0 0 1-2.347-.306c-.52.263-1.639.742-3.468 1.105z"/>
+  </svg>
+</svg>
+
+<div class="home">
+  
+  
+  
+ 
+  <span class="h5">
+    
+    
+    
+    
+    
+      <span class="badge text-light bg-success" data-bs-toggle="tooltip" data-bs-title="This EIP is finalized and is added as an Ethereum Standard. "> 🎉 Final</span>
+    
+       
+    
+      <a class="badge text-light bg-primary" data-bs-toggle="tooltip" data-bs-title="Improvements requiring a consensus fork, as well as changes that are not necessarily consensus critical but may be relevant to “core dev” discussions." href="../core">Standards Track: Core</a>
+    
+  </span>
+  <h1 class="page-heading">
+    EIP-4844: Shard Blob Transactions
+    <a href="https://ethereum-magicians.org/t/eip-4844-shard-blob-transactions/8430" class="no-underline">
+      <svg role="img" aria-label="Discuss" class="inline-svg" xmlns="https://www.w3.org/2000/svg" viewBox="0 0 16 16">
+        <use xlink:href="#bi-chat"/>
+      </svg>
+    </a>
+    <a href="https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4844.md" class="no-underline">
+      <svg role="img" aria-label="Source" class="inline-svg" xmlns="https://www.w3.org/2000/svg" viewBox="0 0 16 16">
+        <use xlink:href="#bi-code"/>
+      </svg>
+    </a>
+  </h1>
+  <h3>Shard Blob Transactions scale data-availability of Ethereum in a simple, forwards-compatible manner.</h3>
+  <table class="table table-borderless preamble">
+    <tbody>
+      <tr>
+        <th scope="row">Authors</th>
+        <td>Vitalik Buterin&nbsp;(<a href="https://github.com/vbuterin">@vbuterin</a>), Dankrad Feist&nbsp;(<a href="https://github.com/dankrad">@dankrad</a>), Diederik Loerakker&nbsp;(<a href="https://github.com/protolambda">@protolambda</a>), George Kadianakis&nbsp;(<a href="https://github.com/asn-d6">@asn-d6</a>), Matt Garnett&nbsp;(<a href="https://github.com/lightclient">@lightclient</a>), Mofi Taiwo&nbsp;(<a href="https://github.com/Inphi">@Inphi</a>), Ansgar Dietrichs&nbsp;(<a href="https://github.com/adietrichs">@adietrichs</a>)</td>
+      </tr>
+      
+        <tr>
+          <th scope="row">Created</th>
+          <td>2022-02-25</td>
+        </tr>
+      
+      
+             
+      
+      
+        <tr>
+          <th scope="row">Requires</th>
+          <td>
+
+  <a href="eip-1559">EIP-1559</a>, 
+
+  <a href="eip-2718">EIP-2718</a>, 
+
+  <a href="eip-2930">EIP-2930</a>, 
+
+  <a href="eip-4895">EIP-4895</a>
+
+</td>
+        </tr>
+      
+    </tbody>
+  </table>
+  <br/>
+
+  
+
+  <div class="toc">
+    <h2>Table of Contents</h2>
+    <ul>
+  <li><a href="#abstract">Abstract</a></li>
+  <li><a href="#motivation">Motivation</a></li>
+  <li><a href="#specification">Specification</a>
+    <ul>
+      <li><a href="#parameters">Parameters</a></li>
+      <li><a href="#type-aliases">Type aliases</a></li>
+      <li><a href="#cryptographic-helpers">Cryptographic Helpers</a></li>
+      <li><a href="#helpers">Helpers</a></li>
+      <li><a href="#blob-transaction">Blob transaction</a></li>
+      <li><a href="#header-extension">Header extension</a></li>
+      <li><a href="#gas-accounting">Gas accounting</a></li>
+      <li><a href="#opcode-to-get-versioned-hashes">Opcode to get versioned hashes</a></li>
+      <li><a href="#point-evaluation-precompile">Point evaluation precompile</a></li>
+      <li><a href="#consensus-layer-validation">Consensus layer validation</a></li>
+      <li><a href="#execution-layer-validation">Execution layer validation</a></li>
+      <li><a href="#networking">Networking</a></li>
+    </ul>
+  </li>
+  <li><a href="#rationale">Rationale</a>
+    <ul>
+      <li><a href="#on-the-path-to-sharding">On the path to sharding</a></li>
+      <li><a href="#how-rollups-would-function">How rollups would function</a></li>
+      <li><a href="#versioned-hashes--precompile-return-data">Versioned hashes &amp; precompile return data</a></li>
+      <li><a href="#base-fee-per-blob-gas-update-rule">Base fee per blob gas update rule</a></li>
+      <li><a href="#throughput">Throughput</a></li>
+    </ul>
+  </li>
+  <li><a href="#backwards-compatibility">Backwards Compatibility</a>
+    <ul>
+      <li><a href="#blob-non-accessibility">Blob non-accessibility</a></li>
+      <li><a href="#mempool-issues">Mempool issues</a></li>
+    </ul>
+  </li>
+  <li><a href="#test-cases">Test Cases</a></li>
+  <li><a href="#security-considerations">Security Considerations</a></li>
+  <li><a href="#copyright">Copyright</a></li>
+</ul>
+
+  </div>
+
+  <h2 id="abstract">
+      
+      
+        <a href="#abstract" class="anchor-link"></a> Abstract
+      
+      
+    </h2>
+
+<p>Introduce a new transaction format for “blob-carrying transactions” which contain a large amount of data that cannot be
+accessed by EVM execution, but whose commitment can be accessed.
+The format is intended to be fully compatible with the format that will be used in full sharding.</p>
+  
+    <h2 id="motivation">
+      
+      
+        <a href="#motivation" class="anchor-link"></a> Motivation
+      
+      
+    </h2>
+
+<p>Rollups are in the short and medium term, and possibly in the long term, the only trustless scaling solution for Ethereum.
+Transaction fees on L1 have been very high for months and there is greater urgency in doing anything required to help facilitate an ecosystem-wide move to rollups.
+Rollups are significantly reducing fees for many Ethereum users: Optimism and Arbitrum frequently provide fees that are ~3-8x lower than the Ethereum base layer itself,
+and ZK rollups, which have better data compression and can avoid including signatures, have fees ~40-100x lower than the base layer.</p>
+
+<p>However, even these fees are too expensive for many users. The long-term solution to the long-term inadequacy of rollups
+by themselves has always been data sharding, which would add ~16 MB per block of dedicated data space to the chain that rollups could use.
+However, data sharding will still take a considerable amount of time to finish implementing and deploying.</p>
+
+<p>This EIP provides a stop-gap solution until that point by implementing the <em>transaction format</em> that would be used in sharding,
+but not actually sharding those transactions. Instead, the data from this transaction format is simply part of the beacon chain and is fully downloaded
+by all consensus nodes (but can be deleted after only a relatively short delay).
+Compared to full data sharding, this EIP has a reduced cap on the number of these transactions that can be included, corresponding to a target of ~0.375 MB per block and a limit of ~0.75 MB.</p>
+  
+    <h2 id="specification">
+      
+      
+        <a href="#specification" class="anchor-link"></a> Specification
+      
+      
+    </h2>
+  
+    <h3 id="parameters">
+      
+      
+        <a href="#parameters" class="anchor-link"></a> Parameters
+      
+      
+    </h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Constant</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BLOB_TX_TYPE</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Bytes1(0x03)</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BYTES_PER_FIELD_ELEMENT</code></td>
+      <td><code class="language-plaintext highlighter-rouge">32</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">FIELD_ELEMENTS_PER_BLOB</code></td>
+      <td><code class="language-plaintext highlighter-rouge">4096</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BLS_MODULUS</code></td>
+      <td><code class="language-plaintext highlighter-rouge">52435875175126190479447740508185965837690552500527637822603658699938581184513</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">VERSIONED_HASH_VERSION_KZG</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Bytes1(0x01)</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">POINT_EVALUATION_PRECOMPILE_ADDRESS</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Bytes20(0x0A)</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">POINT_EVALUATION_PRECOMPILE_GAS</code></td>
+      <td><code class="language-plaintext highlighter-rouge">50000</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">MAX_BLOB_GAS_PER_BLOCK</code></td>
+      <td><code class="language-plaintext highlighter-rouge">786432</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">TARGET_BLOB_GAS_PER_BLOCK</code></td>
+      <td><code class="language-plaintext highlighter-rouge">393216</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">MIN_BASE_FEE_PER_BLOB_GAS</code></td>
+      <td><code class="language-plaintext highlighter-rouge">1</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BLOB_BASE_FEE_UPDATE_FRACTION</code></td>
+      <td><code class="language-plaintext highlighter-rouge">3338477</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">GAS_PER_BLOB</code></td>
+      <td><code class="language-plaintext highlighter-rouge">2**17</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">HASH_OPCODE_BYTE</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Bytes1(0x49)</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">HASH_OPCODE_GAS</code></td>
+      <td><code class="language-plaintext highlighter-rouge">3</code></td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/ethereum/consensus-specs/blob/4de1d156c78b555421b72d6067c73b614ab55584/configs/mainnet.yaml#L148"><code class="language-plaintext highlighter-rouge">MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS</code></a></td>
+      <td><code class="language-plaintext highlighter-rouge">4096</code></td>
+    </tr>
+  </tbody>
+</table>
+  
+    <h3 id="type-aliases">
+      
+      
+        <a href="#type-aliases" class="anchor-link"></a> Type aliases
+      
+      
+    </h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Base type</th>
+      <th>Additional checks</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Blob</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ByteVector[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB]</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">VersionedHash</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Bytes32</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">KZGCommitment</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Bytes48</code></td>
+      <td>Perform IETF BLS signature “KeyValidate” check but do allow the identity point</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">KZGProof</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Bytes48</code></td>
+      <td>Same as for <code class="language-plaintext highlighter-rouge">KZGCommitment</code></td>
+    </tr>
+  </tbody>
+</table>
+  
+    <h3 id="cryptographic-helpers">
+      
+      
+        <a href="#cryptographic-helpers" class="anchor-link"></a> Cryptographic Helpers
+      
+      
+    </h3>
+
+<p>Throughout this proposal we use cryptographic methods and classes defined in the corresponding <a href="https://github.com/ethereum/consensus-specs/blob/86fb82b221474cc89387fa6436806507b3849d88/specs/deneb">consensus 4844 specs</a>.</p>
+
+<p>Specifically, we use the following methods from <a href="https://github.com/ethereum/consensus-specs/blob/86fb82b221474cc89387fa6436806507b3849d88/specs/deneb/polynomial-commitments.md"><code class="language-plaintext highlighter-rouge">polynomial-commitments.md</code></a>:</p>
+
+<ul>
+  <li><a href="https://github.com/ethereum/consensus-specs/blob/86fb82b221474cc89387fa6436806507b3849d88/specs/deneb/polynomial-commitments.md#verify_kzg_proof"><code class="language-plaintext highlighter-rouge">verify_kzg_proof()</code></a></li>
+  <li><a href="https://github.com/ethereum/consensus-specs/blob/86fb82b221474cc89387fa6436806507b3849d88/specs/deneb/polynomial-commitments.md#verify_blob_kzg_proof_batch"><code class="language-plaintext highlighter-rouge">verify_blob_kzg_proof_batch()</code></a></li>
+</ul>
+  
+    <h3 id="helpers">
+      
+      
+        <a href="#helpers" class="anchor-link"></a> Helpers
+      
+      
+    </h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">kzg_to_versioned_hash</span><span class="p">(</span><span class="n">commitment</span><span class="p">:</span> <span class="n">KZGCommitment</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VersionedHash</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">VERSIONED_HASH_VERSION_KZG</span> <span class="o">+</span> <span class="n">sha256</span><span class="p">(</span><span class="n">commitment</span><span class="p">)[</span><span class="mi">1</span><span class="p">:]</span>
+</code></pre></div></div>
+
+<p>Approximates <code class="language-plaintext highlighter-rouge">factor * e ** (numerator / denominator)</code> using Taylor expansion:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">fake_exponential</span><span class="p">(</span><span class="n">factor</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">numerator</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">denominator</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">numerator_accum</span> <span class="o">=</span> <span class="n">factor</span> <span class="o">*</span> <span class="n">denominator</span>
+    <span class="k">while</span> <span class="n">numerator_accum</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">output</span> <span class="o">+=</span> <span class="n">numerator_accum</span>
+        <span class="n">numerator_accum</span> <span class="o">=</span> <span class="p">(</span><span class="n">numerator_accum</span> <span class="o">*</span> <span class="n">numerator</span><span class="p">)</span> <span class="o">//</span> <span class="p">(</span><span class="n">denominator</span> <span class="o">*</span> <span class="n">i</span><span class="p">)</span>
+        <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">output</span> <span class="o">//</span> <span class="n">denominator</span>
+</code></pre></div></div>
+  
+    <h3 id="blob-transaction">
+      
+      
+        <a href="#blob-transaction" class="anchor-link"></a> Blob transaction
+      
+      
+    </h3>
+
+<p>We introduce a new type of <a href="/EIPS/eip-2718">EIP-2718</a> transaction, “blob transaction”, where the <code class="language-plaintext highlighter-rouge">TransactionType</code> is <code class="language-plaintext highlighter-rouge">BLOB_TX_TYPE</code> and the <code class="language-plaintext highlighter-rouge">TransactionPayload</code> is the RLP serialization of the following <code class="language-plaintext highlighter-rouge">TransactionPayloadBody</code>:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[chain_id, nonce, max_priority_fee_per_gas, max_fee_per_gas, gas_limit, to, value, data, access_list, max_fee_per_blob_gas, blob_versioned_hashes, y_parity, r, s]
+</code></pre></div></div>
+
+<p>The fields <code class="language-plaintext highlighter-rouge">chain_id</code>, <code class="language-plaintext highlighter-rouge">nonce</code>, <code class="language-plaintext highlighter-rouge">max_priority_fee_per_gas</code>, <code class="language-plaintext highlighter-rouge">max_fee_per_gas</code>, <code class="language-plaintext highlighter-rouge">gas_limit</code>, <code class="language-plaintext highlighter-rouge">value</code>, <code class="language-plaintext highlighter-rouge">data</code>, and <code class="language-plaintext highlighter-rouge">access_list</code> follow the same semantics as <a href="/EIPS/eip-1559">EIP-1559</a>.</p>
+
+<p>The field <code class="language-plaintext highlighter-rouge">to</code> deviates slightly from the semantics with the exception that it MUST NOT be <code class="language-plaintext highlighter-rouge">nil</code> and therefore must always represent a 20-byte address. This means that blob transactions cannot have the form of a create transaction.</p>
+
+<p>The field <code class="language-plaintext highlighter-rouge">max_fee_per_blob_gas</code> is a <code class="language-plaintext highlighter-rouge">uint256</code> and the field <code class="language-plaintext highlighter-rouge">blob_versioned_hashes</code> represents a list of hash outputs from <code class="language-plaintext highlighter-rouge">kzg_to_versioned_hash</code>.</p>
+
+<p>The <a href="/EIPS/eip-2718">EIP-2718</a> <code class="language-plaintext highlighter-rouge">ReceiptPayload</code> for this transaction is <code class="language-plaintext highlighter-rouge">rlp([status, cumulative_transaction_gas_used, logs_bloom, logs])</code>.</p>
+  
+    <h4 id="signature">
+      
+      
+        <a href="#signature" class="anchor-link"></a> Signature
+      
+      
+    </h4>
+
+<p>The signature values <code class="language-plaintext highlighter-rouge">y_parity</code>, <code class="language-plaintext highlighter-rouge">r</code>, and <code class="language-plaintext highlighter-rouge">s</code> are calculated by constructing a secp256k1 signature over the following digest:</p>
+
+<p><code class="language-plaintext highlighter-rouge">keccak256(BLOB_TX_TYPE || rlp([chain_id, nonce, max_priority_fee_per_gas, max_fee_per_gas, gas_limit, to, value, data, access_list, max_fee_per_blob_gas, blob_versioned_hashes]))</code>.</p>
+  
+    <h3 id="header-extension">
+      
+      
+        <a href="#header-extension" class="anchor-link"></a> Header extension
+      
+      
+    </h3>
+
+<p>The current header encoding is extended with two new 64-bit unsigned integer fields:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">blob_gas_used</code> is the total amount of blob gas consumed by the transactions within the block.</li>
+  <li><code class="language-plaintext highlighter-rouge">excess_blob_gas</code> is a running total of blob gas consumed in excess of the target, prior to the block. Blocks with above-target blob gas consumption increase this value, blocks with below-target blob gas consumption decrease it (bounded at 0).</li>
+</ul>
+
+<p>The resulting RLP encoding of the header is therefore:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rlp([
+    parent_hash,
+    0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347, # ommers hash
+    coinbase,
+    state_root,
+    txs_root,
+    receipts_root,
+    logs_bloom,
+    0, # difficulty
+    number,
+    gas_limit,
+    gas_used,
+    timestamp,
+    extradata,
+    prev_randao,
+    0x0000000000000000, # nonce
+    base_fee_per_gas,
+    withdrawals_root,
+    blob_gas_used,
+    excess_blob_gas,
+])
+</code></pre></div></div>
+
+<p>The value of <code class="language-plaintext highlighter-rouge">excess_blob_gas</code> can be calculated using the parent header.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">calc_excess_blob_gas</span><span class="p">(</span><span class="n">parent</span><span class="p">:</span> <span class="n">Header</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">parent</span><span class="p">.</span><span class="n">excess_blob_gas</span> <span class="o">+</span> <span class="n">parent</span><span class="p">.</span><span class="n">blob_gas_used</span> <span class="o">&lt;</span> <span class="n">TARGET_BLOB_GAS_PER_BLOCK</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">parent</span><span class="p">.</span><span class="n">excess_blob_gas</span> <span class="o">+</span> <span class="n">parent</span><span class="p">.</span><span class="n">blob_gas_used</span> <span class="o">-</span> <span class="n">TARGET_BLOB_GAS_PER_BLOCK</span>
+</code></pre></div></div>
+
+<p>For the first post-fork block, both <code class="language-plaintext highlighter-rouge">parent.blob_gas_used</code> and <code class="language-plaintext highlighter-rouge">parent.excess_blob_gas</code> are evaluated as <code class="language-plaintext highlighter-rouge">0</code>.</p>
+  
+    <h3 id="gas-accounting">
+      
+      
+        <a href="#gas-accounting" class="anchor-link"></a> Gas accounting
+      
+      
+    </h3>
+
+<p>We introduce blob gas as a new type of gas. It is independent of normal gas and follows its own targeting rule, similar to EIP-1559.
+We use the <code class="language-plaintext highlighter-rouge">excess_blob_gas</code> header field to store persistent data needed to compute the blob gas base fee. For now, only blobs are priced in blob gas.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">calc_blob_fee</span><span class="p">(</span><span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span> <span class="n">tx</span><span class="p">:</span> <span class="n">Transaction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">get_total_blob_gas</span><span class="p">(</span><span class="n">tx</span><span class="p">)</span> <span class="o">*</span> <span class="n">get_base_fee_per_blob_gas</span><span class="p">(</span><span class="n">header</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">get_total_blob_gas</span><span class="p">(</span><span class="n">tx</span><span class="p">:</span> <span class="n">Transaction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">GAS_PER_BLOB</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">tx</span><span class="p">.</span><span class="n">blob_versioned_hashes</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">get_base_fee_per_blob_gas</span><span class="p">(</span><span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">fake_exponential</span><span class="p">(</span>
+        <span class="n">MIN_BASE_FEE_PER_BLOB_GAS</span><span class="p">,</span>
+        <span class="n">header</span><span class="p">.</span><span class="n">excess_blob_gas</span><span class="p">,</span>
+        <span class="n">BLOB_BASE_FEE_UPDATE_FRACTION</span>
+    <span class="p">)</span>
+</code></pre></div></div>
+
+<p>The block validity conditions are modified to include blob gas checks (see the <a href="#execution-layer-validation">Execution layer validation</a> section below).</p>
+
+<p>The actual <code class="language-plaintext highlighter-rouge">blob_fee</code> as calculated via <code class="language-plaintext highlighter-rouge">calc_blob_fee</code> is deducted from the sender balance before transaction execution and burned, and is not refunded in case of transaction failure.</p>
+  
+    <h3 id="opcode-to-get-versioned-hashes">
+      
+      
+        <a href="#opcode-to-get-versioned-hashes" class="anchor-link"></a> Opcode to get versioned hashes
+      
+      
+    </h3>
+
+<p>We add an instruction <code class="language-plaintext highlighter-rouge">BLOBHASH</code> (with opcode <code class="language-plaintext highlighter-rouge">HASH_OPCODE_BYTE</code>) which reads <code class="language-plaintext highlighter-rouge">index</code> from the top of the stack
+as big-endian <code class="language-plaintext highlighter-rouge">uint256</code>, and replaces it on the stack with <code class="language-plaintext highlighter-rouge">tx.blob_versioned_hashes[index]</code>
+if <code class="language-plaintext highlighter-rouge">index &lt; len(tx.blob_versioned_hashes)</code>, and otherwise with a zeroed <code class="language-plaintext highlighter-rouge">bytes32</code> value.
+The opcode has a gas cost of <code class="language-plaintext highlighter-rouge">HASH_OPCODE_GAS</code>.</p>
+  
+    <h3 id="point-evaluation-precompile">
+      
+      
+        <a href="#point-evaluation-precompile" class="anchor-link"></a> Point evaluation precompile
+      
+      
+    </h3>
+
+<p>Add a precompile at <code class="language-plaintext highlighter-rouge">POINT_EVALUATION_PRECOMPILE_ADDRESS</code> that verifies a KZG proof which claims that a blob
+(represented by a commitment) evaluates to a given value at a given point.</p>
+
+<p>The precompile costs <code class="language-plaintext highlighter-rouge">POINT_EVALUATION_PRECOMPILE_GAS</code> and executes the following logic:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">point_evaluation_precompile</span><span class="p">(</span><span class="nb">input</span><span class="p">:</span> <span class="n">Bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Bytes</span><span class="p">:</span>
+    <span class="s">"""
+    Verify p(z) = y given commitment that corresponds to the polynomial p(x) and a KZG proof.
+    Also verify that the provided commitment matches the provided versioned_hash.
+    """</span>
+    <span class="c1"># The data is encoded as follows: versioned_hash | z | y | commitment | proof | with z and y being padded 32 byte big endian values
+</span>    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span> <span class="o">==</span> <span class="mi">192</span>
+    <span class="n">versioned_hash</span> <span class="o">=</span> <span class="nb">input</span><span class="p">[:</span><span class="mi">32</span><span class="p">]</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="nb">input</span><span class="p">[</span><span class="mi">32</span><span class="p">:</span><span class="mi">64</span><span class="p">]</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="nb">input</span><span class="p">[</span><span class="mi">64</span><span class="p">:</span><span class="mi">96</span><span class="p">]</span>
+    <span class="n">commitment</span> <span class="o">=</span> <span class="nb">input</span><span class="p">[</span><span class="mi">96</span><span class="p">:</span><span class="mi">144</span><span class="p">]</span>
+    <span class="n">proof</span> <span class="o">=</span> <span class="nb">input</span><span class="p">[</span><span class="mi">144</span><span class="p">:</span><span class="mi">192</span><span class="p">]</span>
+
+    <span class="c1"># Verify commitment matches versioned_hash
+</span>    <span class="k">assert</span> <span class="n">kzg_to_versioned_hash</span><span class="p">(</span><span class="n">commitment</span><span class="p">)</span> <span class="o">==</span> <span class="n">versioned_hash</span>
+
+    <span class="c1"># Verify KZG proof with z and y in big endian format
+</span>    <span class="k">assert</span> <span class="n">verify_kzg_proof</span><span class="p">(</span><span class="n">commitment</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">proof</span><span class="p">)</span>
+
+    <span class="c1"># Return FIELD_ELEMENTS_PER_BLOB and BLS_MODULUS as padded 32 byte big endian values
+</span>    <span class="k">return</span> <span class="n">Bytes</span><span class="p">(</span><span class="n">U256</span><span class="p">(</span><span class="n">FIELD_ELEMENTS_PER_BLOB</span><span class="p">).</span><span class="n">to_be_bytes32</span><span class="p">()</span> <span class="o">+</span> <span class="n">U256</span><span class="p">(</span><span class="n">BLS_MODULUS</span><span class="p">).</span><span class="n">to_be_bytes32</span><span class="p">())</span>
+</code></pre></div></div>
+
+<p>The precompile MUST reject non-canonical field elements (i.e. provided field elements MUST be strictly less than <code class="language-plaintext highlighter-rouge">BLS_MODULUS</code>).</p>
+  
+    <h3 id="consensus-layer-validation">
+      
+      
+        <a href="#consensus-layer-validation" class="anchor-link"></a> Consensus layer validation
+      
+      
+    </h3>
+
+<p>On the consensus layer the blobs are referenced, but not fully encoded, in the beacon block body.
+Instead of embedding the full contents in the body, the blobs are propagated separately, as “sidecars”.</p>
+
+<p>This “sidecar” design provides forward compatibility for further data increases by black-boxing <code class="language-plaintext highlighter-rouge">is_data_available()</code>:
+with full sharding <code class="language-plaintext highlighter-rouge">is_data_available()</code> can be replaced by data-availability-sampling (DAS) thus avoiding all blobs being downloaded by all beacon nodes on the network.</p>
+
+<p>Note that the consensus layer is tasked with persisting the blobs for data availability, the execution layer is not.</p>
+
+<p>The <code class="language-plaintext highlighter-rouge">ethereum/consensus-specs</code> repository defines the following consensus layer changes involved in this EIP:</p>
+
+<ul>
+  <li>Beacon chain: process updated beacon blocks and ensure blobs are available.</li>
+  <li>P2P network: gossip and sync updated beacon block types and new blob sidecars.</li>
+  <li>Honest validator: produce beacon blocks with blobs; sign and publish the associated blob sidecars.</li>
+</ul>
+  
+    <h3 id="execution-layer-validation">
+      
+      
+        <a href="#execution-layer-validation" class="anchor-link"></a> Execution layer validation
+      
+      
+    </h3>
+
+<p>On the execution layer, the block validity conditions are extended as follows:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">validate_block</span><span class="p">(</span><span class="n">block</span><span class="p">:</span> <span class="n">Block</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+    <span class="p">...</span>
+
+    <span class="c1"># check that the excess blob gas was updated correctly
+</span>    <span class="k">assert</span> <span class="n">block</span><span class="p">.</span><span class="n">header</span><span class="p">.</span><span class="n">excess_blob_gas</span> <span class="o">==</span> <span class="n">calc_excess_blob_gas</span><span class="p">(</span><span class="n">block</span><span class="p">.</span><span class="n">parent</span><span class="p">.</span><span class="n">header</span><span class="p">)</span>
+
+    <span class="n">blob_gas_used</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">for</span> <span class="n">tx</span> <span class="ow">in</span> <span class="n">block</span><span class="p">.</span><span class="n">transactions</span><span class="p">:</span>
+        <span class="p">...</span>
+
+        <span class="c1"># modify the check for sufficient balance
+</span>        <span class="n">max_total_fee</span> <span class="o">=</span> <span class="n">tx</span><span class="p">.</span><span class="n">gas</span> <span class="o">*</span> <span class="n">tx</span><span class="p">.</span><span class="n">max_fee_per_gas</span>
+        <span class="k">if</span> <span class="n">get_tx_type</span><span class="p">(</span><span class="n">tx</span><span class="p">)</span> <span class="o">==</span> <span class="n">BLOB_TX_TYPE</span><span class="p">:</span>
+            <span class="n">max_total_fee</span> <span class="o">+=</span> <span class="n">get_total_blob_gas</span><span class="p">(</span><span class="n">tx</span><span class="p">)</span> <span class="o">*</span> <span class="n">tx</span><span class="p">.</span><span class="n">max_fee_per_blob_gas</span>
+        <span class="k">assert</span> <span class="n">signer</span><span class="p">(</span><span class="n">tx</span><span class="p">).</span><span class="n">balance</span> <span class="o">&gt;=</span> <span class="n">max_total_fee</span>
+
+        <span class="p">...</span>
+
+        <span class="c1"># add validity logic specific to blob txs
+</span>        <span class="k">if</span> <span class="n">get_tx_type</span><span class="p">(</span><span class="n">tx</span><span class="p">)</span> <span class="o">==</span> <span class="n">BLOB_TX_TYPE</span><span class="p">:</span>
+            <span class="c1"># there must be at least one blob
+</span>            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">tx</span><span class="p">.</span><span class="n">blob_versioned_hashes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+
+            <span class="c1"># all versioned blob hashes must start with VERSIONED_HASH_VERSION_KZG
+</span>            <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">tx</span><span class="p">.</span><span class="n">blob_versioned_hashes</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="n">h</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">VERSIONED_HASH_VERSION_KZG</span>
+
+            <span class="c1"># ensure that the user was willing to at least pay the current blob base fee
+</span>            <span class="k">assert</span> <span class="n">tx</span><span class="p">.</span><span class="n">max_fee_per_blob_gas</span> <span class="o">&gt;=</span> <span class="n">get_base_fee_per_blob_gas</span><span class="p">(</span><span class="n">block</span><span class="p">.</span><span class="n">header</span><span class="p">)</span>
+
+            <span class="c1"># keep track of total blob gas spent in the block
+</span>            <span class="n">blob_gas_used</span> <span class="o">+=</span> <span class="n">get_total_blob_gas</span><span class="p">(</span><span class="n">tx</span><span class="p">)</span>
+
+    <span class="c1"># ensure the total blob gas spent is at most equal to the limit
+</span>    <span class="k">assert</span> <span class="n">blob_gas_used</span> <span class="o">&lt;=</span> <span class="n">MAX_BLOB_GAS_PER_BLOCK</span>
+
+    <span class="c1"># ensure blob_gas_used matches header
+</span>    <span class="k">assert</span> <span class="n">block</span><span class="p">.</span><span class="n">header</span><span class="p">.</span><span class="n">blob_gas_used</span> <span class="o">==</span> <span class="n">blob_gas_used</span>
+
+</code></pre></div></div>
+  
+    <h3 id="networking">
+      
+      
+        <a href="#networking" class="anchor-link"></a> Networking
+      
+      
+    </h3>
+
+<p>Blob transactions have two network representations. During transaction gossip responses (<code class="language-plaintext highlighter-rouge">PooledTransactions</code>), the EIP-2718 <code class="language-plaintext highlighter-rouge">TransactionPayload</code> of the blob transaction is wrapped to become:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rlp([tx_payload_body, blobs, commitments, proofs])
+</code></pre></div></div>
+
+<p>Each of these elements are defined as follows:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">tx_payload_body</code> - is the <code class="language-plaintext highlighter-rouge">TransactionPayloadBody</code> of standard EIP-2718 <a href="#blob-transaction">blob transaction</a></li>
+  <li><code class="language-plaintext highlighter-rouge">blobs</code> - list of <code class="language-plaintext highlighter-rouge">Blob</code> items</li>
+  <li><code class="language-plaintext highlighter-rouge">commitments</code> - list of <code class="language-plaintext highlighter-rouge">KZGCommitment</code> of the corresponding <code class="language-plaintext highlighter-rouge">blobs</code></li>
+  <li><code class="language-plaintext highlighter-rouge">proofs</code> - list of <code class="language-plaintext highlighter-rouge">KZGProof</code> of the corresponding <code class="language-plaintext highlighter-rouge">blobs</code> and <code class="language-plaintext highlighter-rouge">commitments</code></li>
+</ul>
+
+<p>The node MUST validate <code class="language-plaintext highlighter-rouge">tx_payload_body</code> and verify the wrapped data against it. To do so, ensure that:</p>
+
+<ul>
+  <li>There are an equal number of <code class="language-plaintext highlighter-rouge">tx_payload_body.blob_versioned_hashes</code>, <code class="language-plaintext highlighter-rouge">blobs</code>, <code class="language-plaintext highlighter-rouge">commitments</code>, and <code class="language-plaintext highlighter-rouge">proofs</code>.</li>
+  <li>The KZG <code class="language-plaintext highlighter-rouge">commitments</code> hash to the versioned hashes, i.e. <code class="language-plaintext highlighter-rouge">kzg_to_versioned_hash(commitments[i]) == tx_payload_body.blob_versioned_hashes[i]</code></li>
+  <li>The KZG <code class="language-plaintext highlighter-rouge">commitments</code> match the corresponding <code class="language-plaintext highlighter-rouge">blobs</code> and <code class="language-plaintext highlighter-rouge">proofs</code>. (Note: this can be optimized using <code class="language-plaintext highlighter-rouge">verify_blob_kzg_proof_batch</code>, with a proof for a
+random evaluation at a point derived from the commitment and blob data for each blob)</li>
+</ul>
+
+<p>For body retrieval responses (<code class="language-plaintext highlighter-rouge">BlockBodies</code>), the standard EIP-2718 blob transaction <code class="language-plaintext highlighter-rouge">TransactionPayload</code> is used.</p>
+
+<p>Nodes MUST NOT automatically broadcast blob transactions to their peers.
+Instead, those transactions are only announced using <code class="language-plaintext highlighter-rouge">NewPooledTransactionHashes</code> messages, and can then be manually requested via <code class="language-plaintext highlighter-rouge">GetPooledTransactions</code>.</p>
+  
+    <h2 id="rationale">
+      
+      
+        <a href="#rationale" class="anchor-link"></a> Rationale
+      
+      
+    </h2>
+  
+    <h3 id="on-the-path-to-sharding">
+      
+      
+        <a href="#on-the-path-to-sharding" class="anchor-link"></a> On the path to sharding
+      
+      
+    </h3>
+
+<p>This EIP introduces blob transactions in the same format in which they are expected to exist in the final sharding specification.
+This provides a temporary but significant scaling relief for rollups by allowing them to initially scale to 0.375 MB per slot,
+with a separate fee market allowing fees to be very low while usage of this system is limited.</p>
+
+<p>The core goal of rollup scaling stopgaps is to provide temporary scaling relief,
+without imposing extra development burdens on rollups to take advantage of this relief.
+Today, rollups use calldata. In the future, rollups will have no choice but to use sharded data (also called “blobs”)
+because sharded data will be much cheaper.
+Hence, rollups cannot avoid making a large upgrade to how they process data at least once along the way.
+But what we <em>can</em> do is ensure that rollups need to <em>only</em> upgrade once.
+This immediately implies that there are exactly two possibilities for a stopgap: (i) reducing the gas costs of existing calldata,
+and (ii) bringing forward the format that will be used for sharded data, but not yet actually sharding it.
+Previous EIPs were all a solution of category (i); this EIP is a solution of category (ii).</p>
+
+<p>The main tradeoff in designing this EIP is that of implementing more now versus having to implement more later:
+do we implement 25% of the work on the way to full sharding, or 50%, or 75%?</p>
+
+<p>The work that is already done in this EIP includes:</p>
+
+<ul>
+  <li>A new transaction type, of the exact same format that will need to exist in “full sharding”</li>
+  <li><em>All</em> of the execution-layer logic required for full sharding</li>
+  <li><em>All</em> of the execution / consensus cross-verification logic required for full sharding</li>
+  <li>Layer separation between <code class="language-plaintext highlighter-rouge">BeaconBlock</code> verification and data availability sampling blobs</li>
+  <li>Most of the <code class="language-plaintext highlighter-rouge">BeaconBlock</code> logic required for full sharding</li>
+  <li>A self-adjusting independent base fee for blobs</li>
+</ul>
+
+<p>The work that remains to be done to get to full sharding includes:</p>
+
+<ul>
+  <li>A low-degree extension of the <code class="language-plaintext highlighter-rouge">commitments</code> in the consensus layer to allow 2D sampling</li>
+  <li>An actual implementation of data availability sampling</li>
+  <li>PBS (proposer/builder separation), to avoid requiring individual validators to process 32 MB of data in one slot</li>
+  <li>Proof of custody or similar in-protocol requirement for each validator to verify a particular part of the sharded data in each block</li>
+</ul>
+
+<p>This EIP also sets the stage for longer-term protocol cleanups. For example, its (cleaner) gas base fee update rule could be applied to the primary basefee calculation.</p>
+  
+    <h3 id="how-rollups-would-function">
+      
+      
+        <a href="#how-rollups-would-function" class="anchor-link"></a> How rollups would function
+      
+      
+    </h3>
+
+<p>Instead of putting rollup block data in transaction calldata, rollups would expect rollup block submitters
+to put the data into blobs. This guarantees availability (which is what rollups need) but would be much cheaper than calldata.
+Rollups need data to be available once, long enough to ensure honest actors can construct the rollup state, but not forever.</p>
+
+<p>Optimistic rollups only need to actually provide the underlying data when fraud proofs are being submitted.
+The fraud proof can verify the transition in smaller steps, loading at most a few values of the blob at a time through calldata.
+For each value it would provide a KZG proof and use the point evaluation precompile to verify the value against the versioned hash that was submitted before,
+and then perform the fraud proof verification on that data as is done today.</p>
+
+<p>ZK rollups would provide two commitments to their transaction or state delta data:
+the blob commitment (which the protocol ensures points to available data) and the ZK rollup’s own commitment using whatever proof system the rollup uses internally.
+They would use a proof of equivalence protocol, using the point evaluation precompile,
+to prove that the two commitments refer to the same data.</p>
+  
+    <h3 id="versioned-hashes--precompile-return-data">
+      
+      
+        <a href="#versioned-hashes--precompile-return-data" class="anchor-link"></a> Versioned hashes &amp; precompile return data
+      
+      
+    </h3>
+
+<p>We use versioned hashes (rather than commitments) as references to blobs in the execution layer to ensure forward compatibility with future changes.
+For example, if we need to switch to Merkle trees + STARKs for quantum-safety reasons, then we would add a new version,
+allowing the point evaluation precompile to work with the new format.
+Rollups would not have to make any EVM-level changes to how they work;
+sequencers would simply have to switch over to using a new transaction type at the appropriate time.</p>
+
+<p>However, the point evaluation happens inside a finite field, and it is only well defined if the field modulus is known. Smart contracts could contain a table mapping the commitment version to a modulus, but this would not allow smart contract to take into account future upgrades to a modulus that is not known yet. By allowing access to the modulus inside the EVM, the smart contract can be built so that it can use future commitments and proofs, without ever needing an upgrade.</p>
+
+<p>In the interest of not adding another precompile, we return the modulus and the polynomial degree directly from the point evaluation precompile. It can then be used by the caller. It is also “free” in that the caller can just ignore this part of the return value without incurring an extra cost – systems that remain upgradable for the foreseeable future will likely use this route for now.</p>
+  
+    <h3 id="base-fee-per-blob-gas-update-rule">
+      
+      
+        <a href="#base-fee-per-blob-gas-update-rule" class="anchor-link"></a> Base fee per blob gas update rule
+      
+      
+    </h3>
+
+<p>The base fee per blob gas update rule is intended to approximate the formula <code class="language-plaintext highlighter-rouge">base_fee_per_blob_gas = MIN_BASE_FEE_PER_BLOB_GAS * e**(excess_blob_gas / BLOB_BASE_FEE_UPDATE_FRACTION)</code>,
+where <code class="language-plaintext highlighter-rouge">excess_blob_gas</code> is the total “extra” amount of blob gas that the chain has consumed relative to the “targeted” number (<code class="language-plaintext highlighter-rouge">TARGET_BLOB_GAS_PER_BLOCK</code> per block).
+Like EIP-1559, it’s a self-correcting formula: as the excess goes higher, the <code class="language-plaintext highlighter-rouge">base_fee_per_blob_gas</code> increases exponentially, reducing usage and eventually forcing the excess back down.</p>
+
+<p>The block-by-block behavior is roughly as follows.
+If block <code class="language-plaintext highlighter-rouge">N</code> consumes <code class="language-plaintext highlighter-rouge">X</code> blob gas, then in block <code class="language-plaintext highlighter-rouge">N+1</code> <code class="language-plaintext highlighter-rouge">excess_blob_gas</code> increases by <code class="language-plaintext highlighter-rouge">X - TARGET_BLOB_GAS_PER_BLOCK</code>,
+and so the <code class="language-plaintext highlighter-rouge">base_fee_per_blob_gas</code> of block <code class="language-plaintext highlighter-rouge">N+1</code> increases by a factor of <code class="language-plaintext highlighter-rouge">e**((X - TARGET_BLOB_GAS_PER_BLOCK) / BLOB_BASE_FEE_UPDATE_FRACTION)</code>.
+Hence, it has a similar effect to the existing EIP-1559, but is more “stable” in the sense that it responds in the same way to the same total usage regardless of how it’s distributed.</p>
+
+<p>The parameter <code class="language-plaintext highlighter-rouge">BLOB_BASE_FEE_UPDATE_FRACTION</code> controls the maximum rate of change of the base fee per blob gas. It is chosen to target a maximum change rate of <code class="language-plaintext highlighter-rouge">e**(TARGET_BLOB_GAS_PER_BLOCK / BLOB_BASE_FEE_UPDATE_FRACTION) ≈ 1.125</code> per block.</p>
+  
+    <h3 id="throughput">
+      
+      
+        <a href="#throughput" class="anchor-link"></a> Throughput
+      
+      
+    </h3>
+
+<p>The values for <code class="language-plaintext highlighter-rouge">TARGET_BLOB_GAS_PER_BLOCK</code> and <code class="language-plaintext highlighter-rouge">MAX_BLOB_GAS_PER_BLOCK</code> are chosen to correspond to a target of 3 blobs (0.375 MB) and maximum of 6 blobs (0.75 MB) per block. These small initial limits are intended to minimize the strain on the network created by this EIP and are expected to be increased in future upgrades as the network demonstrates reliability under larger blocks.</p>
+  
+    <h2 id="backwards-compatibility">
+      
+      
+        <a href="#backwards-compatibility" class="anchor-link"></a> Backwards Compatibility
+      
+      
+    </h2>
+  
+    <h3 id="blob-non-accessibility">
+      
+      
+        <a href="#blob-non-accessibility" class="anchor-link"></a> Blob non-accessibility
+      
+      
+    </h3>
+
+<p>This EIP introduces a transaction type that has a distinct mempool version and execution-payload version,
+with only one-way convertibility between the two. The blobs are in the network representation and not in the consensus representation;
+instead, they are coupled with the beacon block. This means that there is now a part of a transaction that will not be accessible from the web3 API.</p>
+  
+    <h3 id="mempool-issues">
+      
+      
+        <a href="#mempool-issues" class="anchor-link"></a> Mempool issues
+      
+      
+    </h3>
+
+<p>Blob transactions have a large data size at the mempool layer, which poses a mempool DoS risk,
+though not an unprecedented one as this also applies to transactions with large amounts of calldata.</p>
+
+<p>By only broadcasting announcements for blob transactions, receiving nodes will have control over which and how many transactions to receive,
+allowing them to throttle throughput to an acceptable level.
+<a href="/EIPS/eip-5793">EIP-5793</a> will give further fine-grained control to nodes by extending the <code class="language-plaintext highlighter-rouge">NewPooledTransactionHashes</code> announcement messages to include the transaction type and size.</p>
+
+<p>In addition, we recommend including a 1.1x base fee per blob gas bump requirement to the mempool transaction replacement rules.</p>
+  
+    <h2 id="test-cases">
+      
+      
+        <a href="#test-cases" class="anchor-link"></a> Test Cases
+      
+      
+    </h2>
+
+<p>Execution layer test cases for this EIP can be found in the <a href="https://github.com/ethereum/execution-spec-tests/tree/1983444bbe1a471886ef7c0e82253ffe2a4053e1/tests/cancun/eip4844_blobs"><code class="language-plaintext highlighter-rouge">eip4844_blobs</code></a> of the <code class="language-plaintext highlighter-rouge">ethereum/execution-spec-tests</code> repository. Consensus layer test cases can be found <a href="https://github.com/ethereum/consensus-specs/tree/2297c09b7e457a13f7b2261a28cb45777be82f83/tests/core/pyspec/eth2spec/test/deneb">here</a>.</p>
+  
+    <h2 id="security-considerations">
+      
+      
+        <a href="#security-considerations" class="anchor-link"></a> Security Considerations
+      
+      
+    </h2>
+
+<p>This EIP increases the bandwidth requirements per beacon block by a maximum of ~0.75 MB.
+This is 40% larger than the theoretical maximum size of a block today (30M gas / 16 gas per calldata byte = 1.875M bytes), and so it will not greatly increase worst-case bandwidth.
+Post-merge, block times are static rather than an unpredictable Poisson distribution, giving a guaranteed period of time for large blocks to propagate.</p>
+
+<p>The <em>sustained</em> load of this EIP is much lower than alternatives that reduce calldata costs, even if the calldata is limited,
+because there is no expectation that the blobs need to be stored for as long as an execution payload.
+This makes it possible to implement a policy that these blobs must be kept for at least a certain period. The specific value chosen is <code class="language-plaintext highlighter-rouge">MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS</code> epochs, which is around 18 days, 
+a much shorter delay compared to proposed (but yet to be implemented) one-year rotation times for execution payload history.</p>
+  
+    <h2 id="copyright">
+      
+      
+        <a href="#copyright" class="anchor-link"></a> Copyright
+      
+      
+    </h2>
+
+<p>Copyright and related rights waived via <a href="/LICENSE">CC0</a>.</p>
+
+  <h2>Citation</h2>
+  <p>Please cite this document as:</p>
+  
+  <p>Vitalik Buterin&nbsp;(<a href="https://github.com/vbuterin">@vbuterin</a>), Dankrad Feist&nbsp;(<a href="https://github.com/dankrad">@dankrad</a>), Diederik Loerakker&nbsp;(<a href="https://github.com/protolambda">@protolambda</a>), George Kadianakis&nbsp;(<a href="https://github.com/asn-d6">@asn-d6</a>), Matt Garnett&nbsp;(<a href="https://github.com/lightclient">@lightclient</a>), Mofi Taiwo&nbsp;(<a href="https://github.com/Inphi">@Inphi</a>), Ansgar Dietrichs&nbsp;(<a href="https://github.com/adietrichs">@adietrichs</a>), "EIP-4844: Shard Blob Transactions," <em>Ethereum Improvement Proposals</em>, no. 4844, February 2022. Available: https://eips.ethereum.org/EIPS/eip-4844.</p>
+</div>
+
+<script type="application/ld+json">
+  {
+    "@context": "http://schema.org",
+    "@type": "TechArticle",
+    "headline": "EIP-4844: Shard Blob Transactions",
+    "name": "EIP-4844: Shard Blob Transactions",
+    "author": "Vitalik Buterin (@vbuterin), Dankrad Feist (@dankrad), Diederik Loerakker (@protolambda), George Kadianakis (@asn-d6), Matt Garnett (@lightclient), Mofi Taiwo (@Inphi), Ansgar Dietrichs (@adietrichs)",
+    "dateCreated": "2022-02-25",
+    "datePublished": "2022-02-25",
+    
+    "discussionUrl": "https://ethereum-magicians.org/t/eip-4844-shard-blob-transactions/8430",
+    
+    "inLanguage": "en-US",
+    "license": "#copyright",
+    "copyrightYear": "2022"
+  }
+</script>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/"></data>
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">Ethereum Improvement Proposals</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li class="p-name">Ethereum Improvement Proposals</li></ul>
+      </div>
+
+      <div class="footer-col footer-col-2"><ul class="social-media-list"><li><a href="https://github.com/ethereum/EIPs"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#github"></use></svg> <span class="username">ethereum/EIPs</span></a></li></ul>
+</div>
+
+      <div class="footer-col footer-col-3">
+        <p>Ethereum Improvement Proposals (EIPs) describe standards for the Ethereum platform, such as core protocol specifications.</p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>

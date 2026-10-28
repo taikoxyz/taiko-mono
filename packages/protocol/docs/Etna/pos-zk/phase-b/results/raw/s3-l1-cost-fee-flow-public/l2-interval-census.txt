@@ -1,0 +1,9 @@
+rows 86356  range 12257702-12344057  contiguous=True  nulls=0  proposals=451
+within_batch   : 85904/85905 at exactly 2 s = 99.9988%   non-2 s {'8': 1}
+all_consecutive: 86352/86355 at exactly 2 s = 99.9965%   non-2 s {'4': 1, '8': 1, '82': 1}
+total L2 gas 11168016854 -> mean 129325.31, median 112068.0
+
+non-2 s intervals (all consecutive):
+  L2 12273358 -> 12273359  8 s  proposalId 39982 -> 39982
+  L2 12276573 -> 12276574  82 s  proposalId 39998 -> 39999
+  L2 12333749 -> 12333750  4 s  proposalId 40296 -> 40297

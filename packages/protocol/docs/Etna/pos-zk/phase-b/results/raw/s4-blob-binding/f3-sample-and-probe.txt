@@ -1,0 +1,7 @@
+census: 40474 logs, 40474 distinct blocks, 24792175..26140714
+  every-20th sample: n=2024, last block 26140297
+headers-sample.jsonl: n=2020, 24792175..26137748 (last ts 1791342839)
+  present in every-20th set: 2020; missing: 4 (first missing 26138386)
+price_stats_headers_sample_only: n=2020 min=1668134 p50=6991223 p90[artifact]=33430313 p90[nearest]=33158382 p90[interp]=33185575.1 max=675350452
+price_stats_committed_script_combined: n=2162 min=1668134 p50=6838873 p90[artifact]=32784583 p90[nearest]=32784583 p90[interp]=32774197.0 max=675350452
+probe: 24 blocks 24792175..26084522, mean gap 56189.0, era ends 26140714 -> unprobed tail 56192 blocks (~7.8 days at 12 s)

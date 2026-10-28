@@ -1,0 +1,60 @@
+# raw/s1-public-data/commands.log
+#
+# Reconstruction of the S1 public-data pipeline's commands.
+#
+# PB-AR-09: proving-throughput.md cited this file as its reproduction path
+# ("exact commands in commands.log"), but no commands.log had been committed.
+# It is reconstructed here from (a) the "command" fields the collectors recorded
+# in the *.meta.json files, marked [recorded] below and verbatim; (b) the
+# script/output table in README.md; and (c) each script's own Usage string or
+# argument parsing. Scripts that parse no arguments read and write fixed
+# filenames in this directory. Nothing here is invented; the endpoints are the
+# ones README.md documents.
+#
+# Run from raw/s1-public-data/ unless a line says otherwise. Python 3.9+,
+# standard library only; rpc.py is the local JSON-RPC helper with retry/backoff.
+
+## 1. Fetches
+[recorded] python3 fetch_inbox_logs.py https://gateway.tenderly.co/public/mainnet 0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f 24585332 26140717 50000 inbox_logs_full.jsonl
+[recorded] python3 sample_l2.py https://rpc.taiko.xyz 11072005 12368005 100 l2_sample_30d.jsonl
+python3 tx_blocks.py                                  # resolve inbox deployment/upgrade txs to blocks
+python3 l2_payload.py https://rpc.taiko.xyz 12367506 12367927 l2_payload_500.jsonl
+python3 l2_payload_busy.py https://rpc.taiko.xyz busy_blocks.txt l2_payload_busy.jsonl
+python3 fetch_block_times_blockscout.py needed_blocks_30d.txt block_times_30d.jsonl 6
+
+## 2. Decode and derive
+python3 decode_events.py            # -> proposed_events.csv, proved_events.csv, needed_blocks.txt
+# NOTE (PR size, 2026-10-08): proposed_events.csv (40,474 data rows, 8,432,694 B) is NOT
+# committed. It is re-created offline from the committed log dump, no RPC needed:
+#   gunzip -c inbox_logs_full.jsonl.gz > inbox_logs_full.jsonl && python3 decode_events.py
+# proved_events.csv and every aggregate/script remain committed. See ../../README.md.
+python3 verify_block_timestamps.py  # cross-check log blockTimestamp vs Blockscout (stdout)
+python3 analyze_cadence.py          # -> cadence_analysis.txt
+python3 analyze_l2_sample.py        # -> stdout (gas/block, anchor-only share)
+python3 derive_live_rates.py        # -> stdout (b_billed, G_L2_TARGET)
+python3 check_l1_regular.py         # negative result, kept for the record
+python3 check_window_relation.py
+python3 check_window_relation2.py
+
+## 3. Third-party extraction (archived pages under thirdparty/)
+cd thirdparty
+python3 extract_ethproofs.py         # -> ethproofs_provers_extract.json
+python3 extract_ethproofs_blocks.py  # -> ethproofs_blocks_extract.json
+python3 ethproofs_gas_join2.py       # -> ethproofs_block_gas.json, ethproofs_blocks_with_gas.json
+python3 ethproofs_stats.py           # -> ethproofs_blocks_joined.json
+python3 check_ethproofs_units.py
+cd ..
+python3 thirdparty/succinct_blocks_sample.py  # -> thirdparty/succinct_16gpu_blocks_sample.json
+python3 thirdparty/fetch_ethresear.py         # -> thirdparty/ethresear_ch_opcode_proving.{html,txt}
+
+## 4. Review re-derivations (2026-10-07; arithmetic and labels re-review)
+python3 anchor_only_share.py                  # -> anchor-only-share.json/.txt   (PB-AR-08)
+python3 anchor_only_recount.py                # -> anchor-only-recount.json/.txt (PB-L-12)
+python3 thirdparty/ethproofs_5090_medians.py  # -> thirdparty/ethproofs_5090_medians.json/.txt (PB-AR-04)
+
+## 5. Sources NOT retained locally (PB-AR-09)
+# The Succinct blog (2025-11-18 / 2025-12-18), the a16z crypto Lattice-Jolt post
+# (2026-09-09) and the Boundless post (2026-01-06), quoted in section 3.9, have
+# no snapshot under thirdparty/ and are not re-checkable from this directory.
+# The ethproofs.org pages and the Nethermind/Taiko-funded per-opcode study ARE
+# archived there.

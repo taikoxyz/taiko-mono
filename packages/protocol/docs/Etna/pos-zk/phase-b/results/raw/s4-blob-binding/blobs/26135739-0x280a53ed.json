@@ -1,0 +1,38 @@
+{
+ "block": 26135739,
+ "txHash": "0x280a53ed92b0b9f2be001e74cd707b44dbd84fb6dfe4a1b05760a2e8cc15afd6",
+ "blockHash": "0xe3db8dbfcac3408fa71f9d71495eb76b693f657f8cc3635b08d65ca8f990044d",
+ "blockTimestamp": 1791318659,
+ "excessBlobGas": 200570055,
+ "blobGasUsed_block": 1441792,
+ "slot": 15374553,
+ "blockBlobHashes": 11,
+ "txBlobOrdinals": [
+  0
+ ],
+ "beaconUrl": "https://ethereum-beacon-api.publicnode.com",
+ "checks": [
+  {
+   "ordinal": 0,
+   "versionedHash_tx": "0x01b66fffdb5314564a6264c6e9cae69c7effcbd8e56588e771a233da3dc51c6a",
+   "versionedHash_recomputed": "0x01b66fffdb5314564a6264c6e9cae69c7effcbd8e56588e771a233da3dc51c6a",
+   "versionedHash_match": true,
+   "blobBytes": 131072,
+   "commitmentBytes": 48,
+   "proofBytes": 48,
+   "ckzg_verify_blob_kzg_proof": false,
+   "ckzg_computed_y": "0x25e184e9736e6f66b11cd9a25d0f6717b4746b2bb2865bf8fea5a9e46a1ecbca",
+   "ckzg_computed_proof_matches_sidecar": false,
+   "python_eval_y": "0x25e184e9736e6f66b11cd9a25d0f6717b4746b2bb2865bf8fea5a9e46a1ecbca",
+   "python_eval_seconds": 0.36,
+   "python_y_matches_ckzg_y": true,
+   "precompile_0x0A_call": {
+    "url": "https://rpc.mevblocker.io",
+    "inputBytes": 192,
+    "result": "0x000000000000000000000000000000000000000000000000000000000000100073eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001"
+   },
+   "precompile_0x0A_return_expected": "0x000000000000000000000000000000000000000000000000000000000000100073eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
+   "precompile_0x0A_ok": true
+  }
+ ]
+}

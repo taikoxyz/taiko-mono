@@ -1,0 +1,5 @@
+fetched series  n=182  min 2561.15 median 2696.28 max 2755.00
+in-window hours n=168  min 2660.79 median 2697.22 max 2755.00
+out-of-window series minimum close(s): {1791378000: 2561.15}
+REWARD_QUOTE floor 0.0002146 ETH = $0.571 - $0.591 at in-window closes
+8 sampled batches: prices [2715.24] USD range $0.5686 - $0.5975

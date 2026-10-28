@@ -1,0 +1,458 @@
+[
+ {
+  "block": 24792175,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 189741610,
+  "blobGasUsed": 131072,
+  "nBlobTxs": 1,
+  "blobGasPrice_measured": [
+   11279605
+  ],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 4819831732443639707396652,
+   "prague_5007716": 28533361679815453,
+   "bpo1_8346193": 7468134984,
+   "bpo2_11684671": 11279605
+  },
+  "timestamp": 1775135903,
+  "matching_fraction": [
+   "bpo2_11684671"
+  ]
+ },
+ {
+  "block": 24848364,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 177931933,
+  "blobGasUsed": 0,
+  "nBlobTxs": 0,
+  "blobGasPrice_measured": [],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 140197175282750601980363,
+   "prague_5007716": 2698720874180790,
+   "bpo1_8346193": 1814241723,
+   "bpo2_11684671": 4105378
+  },
+  "timestamp": 1775812523,
+  "matching_fraction": []
+ },
+ {
+  "block": 24904553,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 187399633,
+  "blobGasUsed": 131072,
+  "nBlobTxs": 1,
+  "blobGasPrice_measured": [
+   9230975
+  ],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 2389844779715779095238514,
+   "prague_5007716": 17874950187161778,
+   "bpo1_8346193": 5640885617,
+   "bpo2_11684671": 9230975
+  },
+  "timestamp": 1776488831,
+  "matching_fraction": [
+   "bpo2_11684671"
+  ]
+ },
+ {
+  "block": 24960742,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 190663260,
+  "blobGasUsed": 393216,
+  "nBlobTxs": 1,
+  "blobGasPrice_measured": [
+   12205334
+  ],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 6352243229382551148018554,
+   "prague_5007716": 34299129265557281,
+   "bpo1_8346193": 8340080703,
+   "bpo2_11684671": 12205334
+  },
+  "timestamp": 1777164947,
+  "matching_fraction": [
+   "bpo2_11684671"
+  ]
+ },
+ {
+  "block": 25016931,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 196373485,
+  "blobGasUsed": 1179648,
+  "nBlobTxs": 3,
+  "blobGasPrice_measured": [
+   19896957
+  ],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 35136348112135060089565433,
+   "prague_5007716": 107276035092587144,
+   "bpo1_8346193": 16531110781,
+   "bpo2_11684671": 19896957
+  },
+  "timestamp": 1777840919,
+  "matching_fraction": [
+   "bpo2_11684671"
+  ]
+ },
+ {
+  "block": 25073120,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 220870956,
+  "blobGasUsed": 131072,
+  "nBlobTxs": 1,
+  "blobGasPrice_measured": [
+   161921977
+  ],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 54022413913471018227286803700,
+   "prague_5007716": 14290499578834855107,
+   "bpo1_8346193": 311192345395,
+   "bpo2_11684671": 161921977
+  },
+  "timestamp": 1778517671,
+  "matching_fraction": [
+   "bpo2_11684671"
+  ]
+ },
+ {
+  "block": 25129309,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 189050889,
+  "blobGasUsed": 0,
+  "nBlobTxs": 0,
+  "blobGasPrice_measured": [],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 3919021400753231928636972,
+   "prague_5007716": 24857080545970891,
+   "bpo1_8346193": 6874964574,
+   "bpo2_11684671": 10632154
+  },
+  "timestamp": 1779194195,
+  "matching_fraction": []
+ },
+ {
+  "block": 25185498,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 185017928,
+  "blobGasUsed": 131072,
+  "nBlobTxs": 1,
+  "blobGasPrice_measured": [
+   7528780
+  ],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 1170952806549440640335615,
+   "prague_5007716": 11109418463716019,
+   "bpo1_8346193": 4240481569,
+   "bpo2_11684671": 7528780
+  },
+  "timestamp": 1779870803,
+  "matching_fraction": [
+   "bpo2_11684671"
+  ]
+ },
+ {
+  "block": 25241687,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 194223599,
+  "blobGasUsed": 0,
+  "nBlobTxs": 0,
+  "blobGasPrice_measured": [],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 18453684762256683255835751,
+   "prague_5007716": 69831877157126295,
+   "bpo1_8346193": 12777109991,
+   "bpo2_11684671": 16553123
+  },
+  "timestamp": 1780547879,
+  "matching_fraction": []
+ },
+ {
+  "block": 25297876,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 183637325,
+  "blobGasUsed": 0,
+  "nBlobTxs": 0,
+  "blobGasPrice_measured": [],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 774354902564994524901144,
+   "prague_5007716": 8432540672647432,
+   "bpo1_8346193": 3593978281,
+   "bpo2_11684671": 6689760
+  },
+  "timestamp": 1781225027,
+  "matching_fraction": []
+ },
+ {
+  "block": 25354065,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 187338167,
+  "blobGasUsed": 131072,
+  "nBlobTxs": 1,
+  "blobGasPrice_measured": [
+   9182544
+  ],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 2346246996257799966357676,
+   "prague_5007716": 17656889436470741,
+   "bpo1_8346193": 5599495601,
+   "bpo2_11684671": 9182544
+  },
+  "timestamp": 1781901467,
+  "matching_fraction": [
+   "bpo2_11684671"
+  ]
+ },
+ {
+  "block": 25410254,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 183087226,
+  "blobGasUsed": 131072,
+  "nBlobTxs": 1,
+  "blobGasPrice_measured": [
+   6382113
+  ],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 656718105902999894502397,
+   "prague_5007716": 7555288882599239,
+   "bpo1_8346193": 3364736235,
+   "bpo2_11684671": 6382113
+  },
+  "timestamp": 1782578675,
+  "matching_fraction": [
+   "bpo2_11684671"
+  ]
+ },
+ {
+  "block": 25466443,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 176869930,
+  "blobGasUsed": 131072,
+  "nBlobTxs": 1,
+  "blobGasPrice_measured": [
+   3748701
+  ],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 101996632918828045462514,
+   "prague_5007716": 2183009833222053,
+   "bpo1_8346193": 1597473941,
+   "bpo2_11684671": 3748701
+  },
+  "timestamp": 1783255955,
+  "matching_fraction": [
+   "bpo2_11684671"
+  ]
+ },
+ {
+  "block": 25522632,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 179347378,
+  "blobGasUsed": 655360,
+  "nBlobTxs": 3,
+  "blobGasPrice_measured": [
+   4634067
+  ],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 214225475489275073189756,
+   "prague_5007716": 3580243162006644,
+   "bpo1_8346193": 2149551660,
+   "bpo2_11684671": 4634067
+  },
+  "timestamp": 1783932743,
+  "matching_fraction": [
+   "bpo2_11684671"
+  ]
+ },
+ {
+  "block": 25578821,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 171819475,
+  "blobGasUsed": 0,
+  "nBlobTxs": 0,
+  "blobGasPrice_measured": [],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 22469025292408157891066,
+   "prague_5007716": 796259574759132,
+   "bpo1_8346193": 872234293,
+   "bpo2_11684671": 2433134
+  },
+  "timestamp": 1784609483,
+  "matching_fraction": []
+ },
+ {
+  "block": 25635010,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 171369455,
+  "blobGasUsed": 1048576,
+  "nBlobTxs": 4,
+  "blobGasPrice_measured": [
+   2341206
+  ],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 19635511026277988677411,
+   "prague_5007716": 727824473711421,
+   "bpo1_8346193": 826449552,
+   "bpo2_11684671": 2341206
+  },
+  "timestamp": 1785286187,
+  "matching_fraction": [
+   "bpo2_11684671"
+  ]
+ },
+ {
+  "block": 25691199,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 185817556,
+  "blobGasUsed": 393216,
+  "nBlobTxs": 1,
+  "blobGasPrice_measured": [
+   8062043
+  ],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 1487856629398372463488417,
+   "prague_5007716": 13032841508492048,
+   "bpo1_8346193": 4666850130,
+   "bpo2_11684671": 8062043
+  },
+  "timestamp": 1785962675,
+  "matching_fraction": [
+   "bpo2_11684671"
+  ]
+ },
+ {
+  "block": 25747388,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 191485026,
+  "blobGasUsed": 0,
+  "nBlobTxs": 0,
+  "blobGasPrice_measured": [],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 8125099554614847063236348,
+   "prague_5007716": 40415764898227229,
+   "bpo1_8346193": 9203030881,
+   "bpo2_11684671": 13094622
+  },
+  "timestamp": 1786639607,
+  "matching_fraction": []
+ },
+ {
+  "block": 25803577,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 198113598,
+  "blobGasUsed": 786432,
+  "nBlobTxs": 1,
+  "blobGasPrice_measured": [
+   23092076
+  ],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 59173022910846567511896293,
+   "prague_5007716": 151849764230104184,
+   "bpo1_8346193": 20363334013,
+   "bpo2_11684671": 23092076
+  },
+  "timestamp": 1787316107,
+  "matching_fraction": [
+   "bpo2_11684671"
+  ]
+ },
+ {
+  "block": 25859766,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 172717005,
+  "blobGasUsed": 393216,
+  "nBlobTxs": 1,
+  "blobGasPrice_measured": [
+   2627395
+  ],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 29399623075257247125338,
+   "prague_5007716": 952561474058267,
+   "bpo1_8346193": 971261483,
+   "bpo2_11684671": 2627395
+  },
+  "timestamp": 1787992703,
+  "matching_fraction": [
+   "bpo2_11684671"
+  ]
+ },
+ {
+  "block": 25915955,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 179826662,
+  "blobGasUsed": 786432,
+  "nBlobTxs": 2,
+  "blobGasPrice_measured": [
+   4828100
+  ],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 247297669628302896574806,
+   "prague_5007716": 3939838853553297,
+   "bpo1_8346193": 2276603760,
+   "bpo2_11684671": 4828100
+  },
+  "timestamp": 1788669431,
+  "matching_fraction": [
+   "bpo2_11684671"
+  ]
+ },
+ {
+  "block": 25972144,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 174965352,
+  "blobGasUsed": 917504,
+  "nBlobTxs": 3,
+  "blobGasPrice_measured": [
+   3184869
+  ],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 57653256358850476424948,
+   "prague_5007716": 1492385587581680,
+   "bpo1_8346193": 1271536968,
+   "bpo2_11684671": 3184869
+  },
+  "timestamp": 1789346219,
+  "matching_fraction": [
+   "bpo2_11684671"
+  ]
+ },
+ {
+  "block": 26028333,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 196229227,
+  "blobGasUsed": 917504,
+  "nBlobTxs": 2,
+  "blobGasPrice_measured": [
+   19652821
+  ],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 33650416448704792851978834,
+   "prague_5007716": 104229806041170487,
+   "bpo1_8346193": 16247837450,
+   "bpo2_11684671": 19652821
+  },
+  "timestamp": 1790023331,
+  "matching_fraction": [
+   "bpo2_11684671"
+  ]
+ },
+ {
+  "block": 26084522,
+  "url": "https://rpc.mevblocker.io",
+  "excessBlobGas": 209671406,
+  "blobGasUsed": 1310720,
+  "nBlobTxs": 3,
+  "blobGasPrice_measured": [
+   62092942
+  ],
+  "blobGasPrice_formula": {
+   "cancun_3338477": 1886476215256014855933293258,
+   "prague_5007716": 1526742307149798674,
+   "bpo1_8346193": 81331705602,
+   "bpo2_11684671": 62092942
+  },
+  "timestamp": 1790701751,
+  "matching_fraction": [
+   "bpo2_11684671"
+  ]
+ }
+]
