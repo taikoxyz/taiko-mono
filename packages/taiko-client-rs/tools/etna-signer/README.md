@@ -85,8 +85,19 @@ The supported supervisor adds `--denial-file <app-store>/signer-denial.json`.
 It is a private atomic observation, not signing state or authorization: sequence zero
 publishes a fresh session ID, and positive sequence increments capture every signing
 refusal, including a local-control timeout while the app remains Ready. The supervisor
-uses nonmutating schema-1 `observe`, waits for exact private Ready, then reaps and restarts
-Comet and the signer with unchanged HRS/WAL/history. Every new transport still begins a
+uses nonmutating schema-1 `observe`, waits for exact private Ready, then reaps Comet and
+the signer with unchanged HRS/WAL/history. Stock Comet never retries a refused request;
+only a restarted Comet's WAL replay asks for that step again. So the supervisor first
+restarts the signer alone with `--await-trust`: it begins the fresh closed session for its
+first transport and dials Comet only after that session passes the same check as every
+signature. Until then each dial attempt fails and is retried on the same session; it begins
+another only when the app reports a different current session, for example after an app
+restart. Once `observe` reports the published session Ready, the supervisor starts Comet,
+whose WAL replay then gets the refused step signed. Later reconnects of that process dial
+at once, as without the flag: a request made while no signer is connected would fail
+inside Comet unreported, whereas a refusal reaches the supervisor. Never pass
+`--await-trust` on a first start: Comet's startup needs the signer connected, and a node
+that is behind regains trust only after Comet syncs. Every new transport still begins a
 closed session. Terminal trust/domain failures persist a latch and leave the supervisor
 alive and quiescent, including after container restart. See the package README for the
 supported combined image and separate app/supervisor container commands.

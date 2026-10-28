@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -282,6 +283,177 @@ func TestDialBeginsEachTransportAndRearmsAppRestart(t *testing.T) {
 		t.Fatal("app restart did not rearm")
 	}
 }
+
+// appSessions answers like the app's trust handle: begin_session allocates a new closed
+// session and check_session reports the current session, which the app authenticates later.
+type appSessions struct {
+	mu          sync.Mutex
+	current     string
+	ready       bool
+	begins      int
+	unavailable bool
+}
+
+func (a *appSessions) reply(req map[string]any) any {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.unavailable {
+		return map[string]any{"error": "unavailable"}
+	}
+	if req["op"] == "begin_session" {
+		a.begins++
+		a.current = fmt.Sprintf("test:%d", a.begins)
+		a.ready = false
+	}
+	r := snapshot(a.ready)
+	r["session_id"] = a.current
+	return r
+}
+func (a *appSessions) set(change func(*appSessions)) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	change(a)
+}
+func (a *appSessions) beginCount() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.begins
+}
+func observation(t *testing.T, path string) (uint64, string) {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var event struct {
+		Sequence uint64 `json:"sequence"`
+		Session  string `json:"session_id"`
+	}
+	if err = json.Unmarshal(data, &event); err != nil {
+		t.Fatal(err)
+	}
+	return event.Sequence, event.Session
+}
+
+// The app authenticates a fresh session asynchronously. In await mode Comet must not see the
+// first transport, and so cannot replay a refused step, until that very session is trusted.
+func TestAwaitTrustDialsCometOnlyAfterFreshSessionIsTrusted(t *testing.T) {
+	app := &appSessions{}
+	path := control(t, app.reply)
+	g := newGate(path, time.Second)
+	g.denialPath = filepath.Join(t.TempDir(), "denial.json")
+	var dials atomic.Int64
+	var peers []net.Conn
+	defer func() {
+		for _, p := range peers {
+			p.Close()
+		}
+	}()
+	dial := g.trustedDialer(func() (net.Conn, error) { dials.Add(1); a, b := net.Pipe(); peers = append(peers, b); return a, nil }, chain)
+	expect := func(begins int, session string) {
+		t.Helper()
+		if _, err := dial(); err == nil {
+			t.Fatal("connected to Comet before the fresh session was trusted")
+		}
+		sequence, published := observation(t, g.denialPath)
+		if dials.Load() != 0 || app.beginCount() != begins || sequence != 0 || published != session {
+			t.Fatalf("dials %d begins %d observation %d %q", dials.Load(), app.beginCount(), sequence, published)
+		}
+	}
+	// Delayed authentication: retries poll one pending session instead of restarting the check.
+	for range 5 {
+		expect(1, "test:1")
+	}
+	// Briefly unavailable control keeps the pending session.
+	app.set(func(a *appSessions) { a.unavailable = true })
+	if _, err := dial(); err == nil {
+		t.Fatal("connected without a trust answer")
+	}
+	app.set(func(a *appSessions) { a.unavailable = false })
+	expect(1, "test:1")
+	// An app restart while waiting replaces the session, which then can never become Ready.
+	app.set(func(a *appSessions) { a.current = "restarted:0"; a.ready = true })
+	expect(2, "test:2")
+	expect(2, "test:2")
+	app.set(func(a *appSessions) { a.ready = true })
+	conn, err := dial()
+	if err != nil || dials.Load() != 1 || app.beginCount() != 2 {
+		t.Fatalf("trusted session did not connect once: %v dials %d begins %d", err, dials.Load(), app.beginCount())
+	}
+	signer, _, _ := filePV(t)
+	res, err := g.handle(signer, voteRequest(tm.PrecommitType, 0, false), chain)
+	if err != nil || res.GetSignedVoteResponse().Error != nil {
+		t.Fatalf("first signing request after connecting was refused: %v %v", res, err)
+	}
+	if sequence, session := observation(t, g.denialPath); sequence != 0 || session != "test:2" {
+		t.Fatalf("observation after authorized signature: %d %q", sequence, session)
+	}
+	conn.Close()
+	// A reconnect while Comet runs dials at once with its own fresh closed session, so a
+	// refusal reaches the supervisor instead of an unreported connection failure in Comet.
+	conn, err = dial()
+	if err != nil || dials.Load() != 2 || app.beginCount() != 3 {
+		t.Fatalf("reconnect: %v dials %d begins %d", err, dials.Load(), app.beginCount())
+	}
+	defer conn.Close()
+	if _, err = g.handle(signer, voteRequest(tm.PrecommitType, 1, false), chain); err == nil {
+		t.Fatal("reconnected transport signed before its fresh session was trusted")
+	}
+	if sequence, session := observation(t, g.denialPath); sequence != 1 || session != "test:3" {
+		t.Fatalf("reconnect refusal was not published: %d %q", sequence, session)
+	}
+}
+
+// Over the official wire, the listener that stands in for Comet gets no connection while the
+// session is unauthenticated, and its first signing request after connecting is signed.
+func TestAwaitTrustOfficialWireFirstSignatureAuthorized(t *testing.T) {
+	app := &appSessions{}
+	path := control(t, app.reply)
+	g := newGate(path, time.Second)
+	signer, _, _ := filePV(t)
+	addr := filepath.Join(shortTemp(t), "comet.sock")
+	raw, err := net.Listen("unix", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	endpoint := privval.NewSignerListenerEndpoint(log.NewNopLogger(), privval.NewUnixListener(raw))
+	client, err := privval.NewSignerClient(endpoint, chain)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dialer := privval.NewSignerDialerEndpoint(log.NewNopLogger(), g.trustedDialer(privval.DialUnixFn(addr), chain), privval.SignerDialerEndpointConnRetries(250), privval.SignerDialerEndpointRetryWaitInterval(20*time.Millisecond))
+	server := privval.NewSignerServer(dialer, chain, signer)
+	server.SetRequestHandler(g.handle)
+	if err = server.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { server.Stop(); endpoint.Stop() }()
+	if err = client.WaitForConnection(500 * time.Millisecond); err == nil {
+		t.Fatal("Comet saw the transport before its session was trusted")
+	}
+	if app.beginCount() != 1 {
+		t.Fatalf("dial retries began %d sessions", app.beginCount())
+	}
+	app.set(func(a *appSessions) { a.ready = true })
+	if err = client.WaitForConnection(3 * time.Second); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = client.GetPubKey(); err != nil {
+		t.Fatal(err)
+	}
+	request := voteRequest(tm.PrecommitType, 0, false)
+	vote := request.GetSignVoteRequest().Vote
+	if err = client.SignVote(chain, vote); err != nil || len(vote.Signature) != 65 {
+		t.Fatalf("first signing request after connecting: %v", err)
+	}
+	g.observation.Lock()
+	denials := g.denials
+	g.observation.Unlock()
+	if session := g.session.Load(); denials != 0 || app.beginCount() != 1 || session == nil || *session != "test:1" {
+		t.Fatalf("denials %d begins %d session %v", denials, app.beginCount(), session)
+	}
+}
+
 func TestNilAndWrongChainRequests(t *testing.T) {
 	g := armed("missing")
 	signer, _, _ := filePV(t)

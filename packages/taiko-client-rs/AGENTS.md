@@ -81,6 +81,9 @@
   guarded signer. Run `python3 /app/script/etna_validator.py` separately from the app using
   shared private/persistent mounts. Private `observe` is nonmutating, never authorization;
   signer event sequence zero establishes session identity and positive sequences record
-  denial/timeout. Recovery starts a fresh closed session only after private trust returns.
+  denial/timeout. Stock Comet never retries a refused request, so recovery waits for private
+  trust, restarts only the signer with `--await-trust` (it connects to Comet once its fresh
+  session is Ready), then starts Comet, whose WAL replay re-requests the refused step. First
+  starts run the signer without that flag together with Comet.
   Terminal trust/domain failures durably latch and quiesce across restartAlways restarts.
   Include `just supervisor-test` in the full verification gate.
