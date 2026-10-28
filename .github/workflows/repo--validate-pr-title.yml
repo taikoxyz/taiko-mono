@@ -34,7 +34,7 @@ jobs:
             ejector
             eventindexer
             fork-diff
-            formal-spec
+            formal
             geth-rpc-gateway
             protocol
             relayer

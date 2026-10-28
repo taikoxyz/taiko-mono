@@ -8,7 +8,7 @@
 /packages/protocol/contracts/layer1/preconf/** @dantaik @davidtaikocha @smtmfft
 
 # Formal specification
-/packages/formal-spec/**        @dantaik @davidtaikocha @smtmfft
+/formal/derivation/**           @dantaik @davidtaikocha @smtmfft
 
 # Client services
 /packages/taiko-client/**       @davidtaikocha @smtmfft

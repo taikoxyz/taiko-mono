@@ -1,4 +1,4 @@
-name: "Formal Spec CI"
+name: "Derivation Formal Verification"
 
 permissions:
   contents: read
@@ -7,14 +7,18 @@ on:
   push:
     branches: [main]
     paths:
-      - "packages/formal-spec/**"
+      - "formal/derivation/**"
       - "testdata/derivation_vectors/**"
+      - "packages/protocol/docs/Derivation.md"
+      - "packages/protocol/docs/etna-anchorless/DESIGN.md"
       - ".github/workflows/formal-spec--test.yml"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - "packages/formal-spec/**"
+      - "formal/derivation/**"
       - "testdata/derivation_vectors/**"
+      - "packages/protocol/docs/Derivation.md"
+      - "packages/protocol/docs/etna-anchorless/DESIGN.md"
       - ".github/workflows/formal-spec--test.yml"
 
 concurrency:
@@ -29,27 +33,26 @@ jobs:
     timeout-minutes: 20
     defaults:
       run:
-        working-directory: packages/formal-spec
+        working-directory: formal/derivation
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - name: Reject proof escape hatches
-        run: bash scripts/gate.sh
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
 
-      - name: Build the spec, proofs and tests, and replay the spec in Lean's kernel
-        # SECURITY: pinned to a released tag, like the repo's other third-party actions.
+      - name: Reject source, import and specification drift before building
+        run: python3 scripts/check.py
+
+      - name: Set up Lean and build the five libraries
         uses: leanprover/lean-action@v1
         with:
-          lake-package-directory: packages/formal-spec
+          lake-package-directory: formal/derivation
           use-mathlib-cache: false
-          leanchecker: true
-          leanchecker-args: TaikoSpec
 
-      - name: Check that proofs use only Lean's standard axioms
-        run: lake exe checkaxioms
-
-      - name: Run the shared derivation vectors
-        run: lake exe vectors ../../testdata/derivation_vectors/manifest_cases.json
+      - name: Audit claims, premises and axioms, replay all libraries and run vectors
+        run: bash scripts/gate.sh

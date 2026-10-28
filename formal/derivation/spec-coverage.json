@@ -1,0 +1,104 @@
+{
+  "sources": [
+    {
+      "path": "packages/protocol/docs/Derivation.md",
+      "revision": "cf338b1d76eed3736645f4163293f343cc10ad23",
+      "sha256": "7bba79852b87c8073886b4c577331c379e2e491ff091c509f7108749c8f9a4fa"
+    },
+    {
+      "path": "packages/protocol/docs/etna-anchorless/DESIGN.md",
+      "revision": "cf338b1d76eed3736645f4163293f343cc10ad23",
+      "sha256": "1436ad3ae0c3f9085fde7dc89b1ec47de8da7f38282a7ebb3b5c1dc3f9fd6ac2"
+    }
+  ],
+  "claims": {
+    "DerivationSafety": {
+      "statement": "TaikoSpec.Derivation.Statements.DerivationSafety",
+      "theorem": "TaikoSpec.Derivation.Proofs.derivation_safety",
+      "sections": [
+        {
+          "path": "packages/protocol/docs/Derivation.md",
+          "heading": "Metadata Validation and Computation"
+        },
+        {
+          "path": "packages/protocol/docs/Derivation.md",
+          "heading": "Per-Source Manifest Extraction"
+        }
+      ]
+    },
+    "HeaderSafety": {
+      "statement": "TaikoSpec.Derivation.Statements.HeaderSafety",
+      "theorem": "TaikoSpec.Derivation.Proofs.header_safety",
+      "sections": [
+        {
+          "path": "packages/protocol/docs/Derivation.md",
+          "heading": "Fork-Dependent Header Fields"
+        },
+        {
+          "path": "packages/protocol/docs/Derivation.md",
+          "heading": "Etna: Blocks Without an Anchor Transaction"
+        },
+        {
+          "path": "packages/protocol/docs/etna-anchorless/DESIGN.md",
+          "heading": "2. Header"
+        },
+        {
+          "path": "packages/protocol/docs/etna-anchorless/DESIGN.md",
+          "heading": "8. Fork and migration"
+        }
+      ]
+    },
+    "ForcedInclusionSafety": {
+      "statement": "TaikoSpec.Derivation.Statements.ForcedInclusionSafety",
+      "theorem": "TaikoSpec.Derivation.Proofs.forced_inclusion_safety",
+      "sections": [
+        {
+          "path": "packages/protocol/docs/Derivation.md",
+          "heading": "Default Source Manifest"
+        },
+        {
+          "path": "packages/protocol/docs/Derivation.md",
+          "heading": "Forced Inclusion Submission Requirements"
+        },
+        {
+          "path": "packages/protocol/docs/Derivation.md",
+          "heading": "ProposalManifest Construction"
+        }
+      ]
+    },
+    "Claims": {
+      "statement": "TaikoSpec.Derivation.Statements.Claims",
+      "theorem": "TaikoSpec.Derivation.Proofs.claims",
+      "sections": [
+        {
+          "path": "packages/protocol/docs/Derivation.md",
+          "heading": "Metadata Preparation"
+        },
+        {
+          "path": "packages/protocol/docs/Derivation.md",
+          "heading": "Metadata Application"
+        },
+        {
+          "path": "packages/protocol/docs/etna-anchorless/DESIGN.md",
+          "heading": "2. Header"
+        },
+        {
+          "path": "packages/protocol/docs/etna-anchorless/DESIGN.md",
+          "heading": "8. Fork and migration"
+        }
+      ]
+    }
+  },
+  "exclusions": [
+    "Authenticated L1 inputs, blob field-element decoding and data availability.",
+    "Execution, sender filtering, zk gas, base fee, mixHash, Engine API and signed system-anchor encoding.",
+    "EIP-4788 state updates, bridge verification, proof/bond settlement, consensus security and guaranteed eventual inclusion.",
+    "Whole-client equivalence and decoder resource bounds."
+  ],
+  "drift": [
+    "Version words below 2^64 with low 32 bits equal to 1 are accepted by the modeled clients.",
+    "Proposer anchor 0 is validated normally; it does not request inherited metadata.",
+    "Forced sources can default when inherited metadata fails validation; no inclusion deadline is proved.",
+    "Zlib/RLP and transaction grammar use explicit checked decoder behavior beyond prose detail."
+  ]
+}
