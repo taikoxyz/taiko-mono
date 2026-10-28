@@ -229,12 +229,7 @@ fn state_with_queue(
         let [hash, metadata] = inbox::forced_inclusion_entry_slots(entry.index);
         slots.extend([
             (hash, entry.tx_hash.into()),
-            (
-                metadata,
-                U256::from(entry.timestamp) |
-                    (U256::from(entry.l1_block) << 48) |
-                    (U256::from(1_000 + entry.index) << 112),
-            ),
+            (metadata, U256::from(entry.timestamp) | (U256::from(entry.l1_block) << 48)),
         ]);
     }
     let checkpoint = registry::checkpoint_slots(0);

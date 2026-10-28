@@ -81,9 +81,10 @@ pub enum ForcedDecision {
     Ordinary,
     /// The canonical transaction at position zero consumes this queue index.
     Included(u64),
-    /// Due bytes are malformed or below the execution fee floor, consuming the index directly.
+    /// Due bytes are not an eligible transaction ([`decode_eligible`]), consuming the index
+    /// directly.
     SkippedInvalid(u64),
-    /// A due canonical transaction meeting the fee floor needs an authenticated skip decision.
+    /// A due eligible transaction, whatever its fee cap, needs an authenticated skip decision.
     NeedsSkip {
         /// Pending queue index; this classification alone does not authorize consumption.
         index: u64,
@@ -154,8 +155,8 @@ pub fn decode_eligible(bytes: &[u8], l2_chain_id: u64, block_gas_limit: u64) -> 
 /// Authenticates `index` at `inbox` under `state_root` and decodes the two storage words.
 ///
 /// Returns [`ForcedError::Entry`] for another account, a non-exact slot set or an invalid MPT
-/// proof. Metadata packs timestamp at bit 0 and L1 block at bit 48. The L1-only fee at bit 112
-/// and high padding bits are authenticated with the word but do not participate in L2 rules.
+/// proof. Metadata packs the `uint48` timestamp at bit 0 and the `uint48` L1 block at bit 48;
+/// higher bits are authenticated with the word but do not participate in L2 rules.
 pub fn verify_entry(
     state_root: B256,
     witness: &AccountWitness,

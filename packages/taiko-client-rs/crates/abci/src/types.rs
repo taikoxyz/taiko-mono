@@ -190,7 +190,7 @@ pub struct ParentInfo {
     pub gas_used: u64,
     /// Base fee per gas, in wei.
     pub base_fee: u64,
-    /// Header `difficulty`; under alethia-reth #251 this carries the block's zk gas.
+    /// Header `difficulty`; under alethia-reth this carries the block's zk gas.
     pub difficulty: U256,
     /// Timestamp of the parent's parent, in seconds (EIP-4396 base-fee input).
     pub grandparent_timestamp: u64,

@@ -312,8 +312,8 @@ pub struct EnvelopeContext<'a> {
 /// Validates all existing ABCI pure rules using authenticated parent and chain context.
 ///
 /// The forced inclusion rule ([`abci::forced::check`]) runs last, on the parent's cursor and the
-/// block's anchor: it verifies the entry proof and, for a forced inclusion block, the carried
-/// blob's versioned hash and manifest, but executes nothing.
+/// block's anchor: it verifies the entry proof and checks the block's first transaction, or the
+/// carried skip preimage, against the entry's calldata `txHash`, but executes nothing.
 pub fn verify_envelope(
     envelope: EtnaEnvelope,
     context: EnvelopeContext<'_>,

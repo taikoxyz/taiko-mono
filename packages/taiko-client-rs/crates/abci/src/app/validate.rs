@@ -496,8 +496,9 @@ fn candidate_anchor(
     }
 }
 
-/// Derives committee `t` only at its switch height `H(t)-2`, using the committed parent's
-/// authenticated anchor. Non-switch heights forbid runtime committee witnesses.
+/// Derives committee `t` only at its switch height `H(t)-2`: the snapshot cutoff is the committed
+/// parent's anchor number and the registry proofs verify against this block's own anchor
+/// `stateRoot`. Non-switch heights forbid runtime committee witnesses.
 fn candidate_committee(
     state: &AppState,
     params: &ChainParams,

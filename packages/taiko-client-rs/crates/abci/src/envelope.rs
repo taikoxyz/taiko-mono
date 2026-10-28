@@ -40,7 +40,7 @@ const FORCED_FIELD: &str = "forced";
 /// are empty and no transaction carries blobs.
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable, RlpDecodable)]
 pub struct ExecutionBlock {
-    /// The full EL header (under alethia-reth #251 `difficulty` carries the block's zk gas).
+    /// The full EL header (under alethia-reth `difficulty` carries the block's zk gas).
     pub header: Header,
     /// EIP-2718 encoded transactions, carried as opaque byte strings in block order.
     pub transactions: Vec<Bytes>,
@@ -61,8 +61,8 @@ pub struct AnchorWitness {
 
 /// The committee witness carried only at the target epoch's switch height `H(t)-2`.
 ///
-/// RLP: `[record, registry, entries]`. The registry proofs verify against the parent's anchor
-/// `stateRoot`.
+/// RLP: `[record, registry, entries]`. The registry proofs verify against the switch block's own
+/// anchor `stateRoot`.
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable, RlpDecodable)]
 pub struct CommitteeWitness {
     /// The committee record the switch block claims for the incoming epoch.

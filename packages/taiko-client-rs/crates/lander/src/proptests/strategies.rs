@@ -126,26 +126,22 @@ fn anchor_witness() -> impl Strategy<Value = AnchorWitness> {
 
 /// A committee witness with an arbitrary record, registry witness and up to three entries.
 fn committee_witness() -> impl Strategy<Value = CommitteeWitness> {
-    let record = (uint(), uint(), uint(), hash(), word(), uint(), any::<u8>()).prop_map(
-        |(target_epoch, cutoff, index, set_root, _total_stake, total_power, _version)| {
-            CommitteeRecord {
-                target_epoch,
-                cutoff_l1_block: cutoff,
-                checkpoint_index: index,
-                set_root,
-                total_power,
-            }
+    let record = (uint(), uint(), uint(), hash(), uint()).prop_map(
+        |(target_epoch, cutoff, index, set_root, total_power)| CommitteeRecord {
+            target_epoch,
+            cutoff_l1_block: cutoff,
+            checkpoint_index: index,
+            set_root,
+            total_power,
         },
     );
-    let entry = (hash(), word(), uint(), uint(), uint(), uint()).prop_map(
-        |(pubkey, eff_stake, active_from_l1, exit_effective_l1, _heartbeat_at, _heartbeat_seq)| {
-            RegistryEntry {
-                ck_prefix: 2,
-                ck_x: pubkey,
-                eff_stake,
-                active_from_l1,
-                exit_effective_l1,
-            }
+    let entry = (hash(), word(), uint(), uint()).prop_map(
+        |(pubkey, eff_stake, active_from_l1, exit_effective_l1)| RegistryEntry {
+            ck_prefix: 2,
+            ck_x: pubkey,
+            eff_stake,
+            active_from_l1,
+            exit_effective_l1,
         },
     );
     (record, account_witness(), vec(entry, 0..=3))

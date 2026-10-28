@@ -140,7 +140,7 @@ pub(crate) const fn payload_bound(list_len: usize) -> usize {
 pub(crate) struct PayloadList {
     /// Bounds applied to every appended block and to the whole list.
     limits: Limits,
-    /// Encoded `[header_proto, execution]` items, without the outer list header.
+    /// Encoded `ExecutionBlock` items, without the outer list header.
     items: Vec<u8>,
     /// End offset in `items` of each block's item.
     ends: Vec<usize>,
