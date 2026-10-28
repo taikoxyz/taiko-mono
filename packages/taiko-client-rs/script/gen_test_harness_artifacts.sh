@@ -75,7 +75,7 @@ if [[ -n "${1:-}" ]]; then
 python3 - "$1" "$CONTRACT_DIR" <<'PYTHON'
 import hashlib, json, pathlib, subprocess, sys
 checkout, output = map(pathlib.Path, sys.argv[1:])
-revision = "b046734a0a47b17ca66c33ccbc7c9087cbbf9b1e"
+revision = "6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4"
 if subprocess.check_output(["git", "-C", str(checkout), "rev-parse", "HEAD"], text=True).strip() != revision:
     raise SystemExit("EL checkout must match pinned revision " + revision)
 paths = ["crates/chainspec/src/genesis/devnet.json", "crates/node/tests/fixtures/etna-genesis.json"]

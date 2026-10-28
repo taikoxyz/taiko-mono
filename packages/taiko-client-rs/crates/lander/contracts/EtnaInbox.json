@@ -1391,11 +1391,6 @@
     },
     {
       "inputs": [],
-      "name": "InvalidFeeDoubleThreshold",
-      "type": "error"
-    },
-    {
-      "inputs": [],
       "name": "InvalidForcedInclusionDelay",
       "type": "error"
     },
@@ -1447,11 +1442,6 @@
     {
       "inputs": [],
       "name": "OffGrid",
-      "type": "error"
-    },
-    {
-      "inputs": [],
-      "name": "OriginAlreadyWritten",
       "type": "error"
     },
     {

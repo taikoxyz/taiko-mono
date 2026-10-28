@@ -58,9 +58,9 @@ alloy-trie = { version = "0.9.5", default-features = false }
 k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
 
 # taiko
-alethia-reth-chainspec = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-chainspec", rev = "b046734a0a47b17ca66c33ccbc7c9087cbbf9b1e", default-features = false }
-alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "b046734a0a47b17ca66c33ccbc7c9087cbbf9b1e", default-features = false }
-alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "b046734a0a47b17ca66c33ccbc7c9087cbbf9b1e", default-features = false, features = [
+alethia-reth-chainspec = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-chainspec", rev = "6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4", default-features = false }
+alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4", default-features = false }
+alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4", default-features = false, features = [
     "serde",
 ] }
 
