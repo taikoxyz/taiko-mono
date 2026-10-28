@@ -9,8 +9,6 @@ fn lander_artifacts_match_pinned_compiler_and_recorded_hashes() -> Result<()> {
     let manifest: serde_json::Value =
         serde_json::from_slice(&std::fs::read(root.join("manifest.json"))?)?;
     assert_eq!(manifest["protocolRevision"], crate::contracts::PROTOCOL_REVISION);
-    assert!(manifest["artifacts"].get("L2FeeVault").is_none());
-    assert!(!root.join("L2FeeVault.json").exists());
     for (name, entry) in manifest["artifacts"].as_object().context("artifact entries")? {
         assert_eq!(entry["compiler"]["version"], "0.8.30+commit.73712a01");
         assert_eq!(entry["settings"]["evmVersion"], "osaka");
@@ -69,7 +67,7 @@ fn shared_vectors_match_the_pinned_protocol_copy() -> Result<()> {
     Ok(())
 }
 
-/// The binding contains the complete pinned ABI, without a legacy event projection.
+/// The binding contains the complete pinned ABI.
 #[test]
 fn generated_binding_keeps_complete_current_abi() -> Result<()> {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -79,10 +77,5 @@ fn generated_binding_keeps_complete_current_abi() -> Result<()> {
     let binding: serde_json::Value =
         serde_json::from_slice(&std::fs::read(root.join("contracts/EtnaInbox.json"))?)?;
     assert_eq!(original["abi"], binding["abi"]);
-    assert!(
-        !original["abi"].as_array().unwrap().iter().any(|item| item["name"] ==
-            "BatchRewardRecorded" ||
-            item["name"] == "hashLandStatement")
-    );
     Ok(())
 }

@@ -47,8 +47,6 @@ artifacts = {
     "MockLandProofVerifier": "EtnaInboxTestBase.sol/MockLandProofVerifier.json",
     "TestERC20": "TestERC20.sol/TestERC20.json",
 }
-for stale in ["EtnaRewardPool.json", "L2FeeVault.json"]:
-    (output / stale).unlink(missing_ok=True)
 manifest = {
     "protocolRevision": revision,
     "generator": "script/gen_lander_artifacts.sh",
@@ -99,12 +97,11 @@ for name, relative in artifacts.items():
         "settings": settings,
         "sources": sources,
     }
-# The V1 ABI has no reward-event projection; retain every current Inbox ABI entry.
+# The binding is the complete Inbox ABI.
 inbox_artifact = json.loads((output / "EtnaInbox.json").read_text())
 bindings_path = client / "crates/lander/contracts/EtnaInbox.json"
 bindings_path.write_text(json.dumps({"abi": inbox_artifact["abi"]}, indent=2, sort_keys=True) + "\n")
 subprocess.run(["pnpm", "exec", "prettier", "--write", str(bindings_path)], cwd=checkout, check=True)
-(client / "crates/lander/contracts/BatchRewardRecorded.sol").unlink(missing_ok=True)
 manifest["bindings"] = {
     "sourceArtifact": "EtnaInbox.json",
     "projection": {"path": "contracts/EtnaInbox.json", "sha256": hashlib.sha256(bindings_path.read_bytes()).hexdigest()},

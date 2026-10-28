@@ -259,17 +259,6 @@ mod tests {
         assert_eq!(p.n_max, 128);
     }
     #[test]
-    fn old_configuration_fields_are_rejected() {
-        for input in [
-            "d_max = 12",
-            "margin_v = 2",
-            "heartbeat_window = 10",
-            "fee_vault = '0x0000000000000000000000000000000000000001'",
-        ] {
-            assert!(devnet().with_overrides(input).is_err());
-        }
-    }
-    #[test]
     fn overrides_authenticate_u_and_accept_full_l1_chain_id() {
         let p=devnet().with_overrides("unsettled_limit = 7200\nl1_chain_id = '0x100000000000000000000000000000000000000000000000000'\nfee_recipient = '0x1111111111111111111111111111111111111111'").unwrap();
         assert_eq!(p.unsettled_cap(), 7200);

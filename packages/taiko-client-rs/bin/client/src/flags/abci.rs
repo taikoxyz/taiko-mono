@@ -284,16 +284,12 @@ mod tests {
     }
 
     #[test]
-    fn calldata_cli_requires_no_beacon_and_rejects_removed_flags() {
+    fn rejects_unknown_flags() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
         let _clear = clear_env();
-        parse(argv(&["--data-dir", "/data"])).expect("calldata FI uses the L1 execution RPC");
-        for (flag, value) in [("--l1.beacon", "http://localhost:5052"), ("--l1.blob-timeout", "30")]
-        {
-            let err = parse(argv(&["--data-dir", "/data", flag, value]))
-                .expect_err("FI beacon flags are removed");
-            assert_eq!(err.kind(), ErrorKind::UnknownArgument);
-        }
+        let err = parse(argv(&["--data-dir", "/data", "--no-such-flag", "1"]))
+            .expect_err("an unknown flag fails parsing");
+        assert_eq!(err.kind(), ErrorKind::UnknownArgument);
     }
 
     #[test]

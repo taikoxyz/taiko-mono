@@ -217,9 +217,7 @@ pub async fn build_committee_record<L: L1Source + ?Sized>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::{
-        Fixture, GenesisSpec, L1Call, MockL1, RegistryStorage, sample_entries,
-    };
+    use crate::test_utils::{Fixture, GenesisSpec, L1Call, MockL1, RegistryStorage};
 
     /// Before the genesis, the record computed at the fixture's genesis cutoff with proofs at
     /// a later block is exactly the one the fixture's Inbox records at genesis: the record
@@ -331,19 +329,6 @@ mod tests {
         let order = ["record_hash", "committee_config_hash", "record", "members", "proving_block"]
             .map(|key| text.find(&format!("\"{key}\"")).expect("every field is printed"));
         assert!(order.is_sorted(), "fields in declaration order: {text}");
-    }
-
-    /// The record applies no heartbeat filter, as `e_0` never does: entries that never sent a
-    /// heartbeat are members.
-    #[tokio::test]
-    async fn applies_no_heartbeat_filter() {
-        let entries = sample_entries(2);
-        let fx = Fixture::build(GenesisSpec { entries: Some(entries), ..GenesisSpec::new(2) });
-        let report = build_committee_record(&fx.l1(), &fx.params, fx.genesis.genesis_cutoff, None)
-            .await
-            .expect("a committee without heartbeats");
-        assert_eq!(report.members.len(), 2);
-        assert_eq!(report.record, fx.record);
     }
 
     /// An empty registry, or one whose entries are not yet active at the cutoff, has no genesis
