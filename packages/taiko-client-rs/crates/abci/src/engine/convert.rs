@@ -3,8 +3,8 @@
 //! An `engine_getPayloadV5` payload omits the header fields alethia-reth fixes for every
 //! Etna block, and the two it sets per block travel beside it: the zk gas (as `blockValue`, sent
 //! back to `engine_newPayloadV4` as `headerDifficulty`) and the parent beacon block root (the
-//! anchor's L1 state root). [`block_from_payload`] rebuilds the full header exactly as alethia-reth's
-//! block assembler and `newPayload` validator do (`crates/block/src/assembler.rs`,
+//! anchor's L1 state root). [`block_from_payload`] rebuilds the full header exactly as
+//! alethia-reth's block assembler and `newPayload` validator do (`crates/block/src/assembler.rs`,
 //! `crates/rpc/src/engine/validator.rs`); [`payload_from_block`] is its inverse.
 
 use alloy_consensus::{
