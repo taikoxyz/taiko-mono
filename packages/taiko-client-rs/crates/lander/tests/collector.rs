@@ -33,8 +33,7 @@ async fn lander_live_comet_collector_preserves_and_authenticates_certificates() 
         })?
     );
     assert!(status.height >= 5);
-    let committee = source.committee(0).await?;
-    assert_eq!(Some(committee.clone()), devnet.cmt(0).committee(0).await?);
+    let committee = devnet.cmt(0).committee(0).await?.context("genesis committee")?;
     let onchain = devnet
         .l1()
         .get_storage_at(

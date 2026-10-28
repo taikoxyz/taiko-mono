@@ -3,9 +3,7 @@
 use std::time::Duration;
 
 use crate::native::{Commit, RawBlock};
-use abci::CommitteeState;
 use async_trait::async_trait;
-use base64::{Engine as _, engine::general_purpose::STANDARD};
 use futures::StreamExt;
 use serde::{Deserialize, de::DeserializeOwned};
 use serde_json::{Value, json};
@@ -27,15 +25,13 @@ pub struct CometStatus {
     pub height: u64,
 }
 
-/// Read-only block/certificate and full committee-hint source.
+/// Read-only block and certificate source.
 #[async_trait]
 pub trait CometSource: Send + Sync {
     /// Reads chain identity and available decided progress.
     async fn status(&self) -> Result<CometStatus>;
     /// Reads a complete block and its decision certificate at exactly `height`.
     async fn block(&self, height: u64) -> Result<CertifiedBlock>;
-    /// Reads an untrusted ABCI committee hint; callers must authenticate its full record.
-    async fn committee(&self, epoch: u64) -> Result<CommitteeState>;
 }
 
 /// A typed HTTP adapter that bounds the complete response body before JSON decoding.
@@ -145,27 +141,6 @@ struct SignedHeader {
     /// Decision certificate for that header.
     #[serde(deserialize_with = "deserialize_commit")]
     commit: Commit,
-}
-
-/// ABCI query result envelope.
-#[derive(Deserialize)]
-struct QueryResponse {
-    /// ABCI-level success/failure independent of JSON-RPC transport success.
-    response: QueryResult,
-}
-
-/// Only the fields necessary for an authenticated committee hint.
-#[derive(Deserialize)]
-struct QueryResult {
-    /// Zero denotes success.
-    #[serde(default)]
-    code: u32,
-    /// Error detail from ABCI.
-    #[serde(default)]
-    log: String,
-    /// JSON committee bytes, base64 encoded by the CometBFT RPC.
-    #[serde(default)]
-    value: String,
 }
 
 impl HttpCometSource {
@@ -294,30 +269,6 @@ impl CometSource for HttpCometSource {
             )));
         }
         Ok(pair)
-    }
-
-    async fn committee(&self, epoch: u64) -> Result<CommitteeState> {
-        let response: QueryResponse = self
-            .rpc("abci_query", json!({"path":format!("/committee/{epoch}"),"prove":false}))
-            .await?;
-        if response.response.code != 0 {
-            return Err(LanderError::Unavailable(format!(
-                "committee epoch {epoch}: ABCI code {} {}",
-                response.response.code, response.response.log
-            )));
-        }
-        let value = STANDARD
-            .decode(response.response.value)
-            .map_err(|e| LanderError::Encoding(format!("committee epoch {epoch} base64: {e}")))?;
-        let state: CommitteeState = serde_json::from_slice(&value)
-            .map_err(|e| LanderError::Encoding(format!("committee epoch {epoch} JSON: {e}")))?;
-        if state.record.target_epoch != epoch {
-            return Err(LanderError::Safety(format!(
-                "committee response epoch {} differs from requested {epoch}",
-                state.record.target_epoch
-            )));
-        }
-        Ok(state)
     }
 }
 
@@ -622,32 +573,6 @@ mod tests {
         let error = rpc.block(7).await.unwrap_err();
         assert!(matches!(error, LanderError::Unavailable(_)));
         assert!(error.to_string().contains("height 7"));
-    }
-
-    #[tokio::test]
-    async fn committee_queries_reject_abci_errors_bad_base64_and_wrong_epochs() {
-        let (_, committee, _) = committee(&[1], 0);
-        let encoded = STANDARD.encode(serde_json::to_vec(&committee.state).unwrap());
-        let rpc = source(
-            vec![success(json!({"response":{"code":0,"value":encoded}}))],
-            8192,
-            Duration::from_secs(2),
-        )
-        .await;
-        assert_eq!(rpc.committee(0).await.unwrap(), committee.state);
-        for (value, expected) in [
-            (json!({"response":{"code":1,"log":"unknown committee"}}), "unavailable"),
-            (json!({"response":{"code":0,"value":"?invalid"}}), "encoding"),
-            (json!({"response":{"code":0,"value":encoded}}), "safety"),
-        ] {
-            let rpc = source(vec![success(value)], 8192, Duration::from_secs(2)).await;
-            let error = rpc.committee(1).await.unwrap_err();
-            match expected {
-                "unavailable" => assert!(matches!(error, LanderError::Unavailable(_))),
-                "encoding" => assert!(matches!(error, LanderError::Encoding(_))),
-                _ => assert!(matches!(error, LanderError::Safety(_))),
-            }
-        }
     }
 
     #[tokio::test]

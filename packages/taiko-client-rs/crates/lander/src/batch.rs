@@ -1182,10 +1182,6 @@ mod tests {
         async fn block(&self, height: u64) -> Result<CertifiedBlock> {
             self.fixture().block(height).await
         }
-
-        async fn committee(&self, epoch: u64) -> Result<abci::CommitteeState> {
-            self.fixture().committee(epoch).await
-        }
     }
 
     #[async_trait]
@@ -2203,9 +2199,7 @@ mod tests {
         for (checkpoint, tip, last) in
             [(18, 30, 30), (24, 30, 30), (30, 39, 36), (18, 36, 36), (24, 36, 36)]
         {
-            let mut fixture = Fixture::new(checkpoint, tip);
-            fixture.reject_committee_hints = true;
-            let fixture = Arc::new(fixture);
+            let fixture = Arc::new(Fixture::new(checkpoint, tip));
             let request = builder(fixture.clone(), limits(20))
                 .prepare(fixture.snapshot.clone())
                 .await

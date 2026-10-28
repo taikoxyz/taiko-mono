@@ -4,9 +4,7 @@
 
 use std::sync::Arc;
 
-use abci::{
-    AnchorState, AnchorWitness, ChainParams, CommitteeState, CommitteeWitness, RawL1Header,
-};
+use abci::{AnchorState, AnchorWitness, ChainParams, CommitteeWitness, RawL1Header};
 use alloy_primitives::B256;
 use async_trait::async_trait;
 use proptest::{collection::vec, prelude::*};
@@ -45,10 +43,6 @@ impl CometSource for Decided {
             .and_then(|index| self.0.get(index))
             .cloned()
             .ok_or_else(|| LanderError::Unavailable(format!("no decided block at height {height}")))
-    }
-
-    async fn committee(&self, _: u64) -> Result<CommitteeState> {
-        Err(unread("committee hints"))
     }
 }
 

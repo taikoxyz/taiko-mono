@@ -146,7 +146,6 @@ pub struct Fixture {
     pub headers: BTreeMap<u64, Header>,
     pub l1_headers: BTreeMap<u64, RawL1Header>,
     pub mismatch_statement: AtomicBool,
-    pub reject_committee_hints: bool,
     pub witness_mutation: Option<u8>,
     pub starting_proof_mutation: Option<u8>,
     pub parent_anchor_override: Option<AnchorState>,
@@ -793,7 +792,6 @@ impl Fixture {
             headers,
             l1_headers,
             mismatch_statement: AtomicBool::new(false),
-            reject_committee_hints: false,
             witness_mutation: None,
             starting_proof_mutation: None,
             parent_anchor_override: None,
@@ -815,13 +813,6 @@ impl CometSource for Fixture {
             .get(&height)
             .cloned()
             .ok_or_else(|| LanderError::Unavailable(format!("height {height} pruned")))
-    }
-    async fn committee(&self, epoch: u64) -> Result<CommitteeState> {
-        assert!(!self.reject_committee_hints, "a Comet committee hint cannot be authority");
-        self.committees
-            .get(&epoch)
-            .map(|committee| committee.state.clone())
-            .ok_or_else(|| LanderError::Unavailable(format!("committee epoch {epoch}")))
     }
 }
 #[async_trait]
