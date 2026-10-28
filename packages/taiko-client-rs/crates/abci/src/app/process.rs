@@ -174,13 +174,13 @@ impl<L: L1Source, E: Engine> App<L, E> {
         Ok(())
     }
 
-    /// ¹ Requires the anchor header of `w` to be final and canonical in the own L1 view (with
-    /// the chain's extra finality depth), within the L1 deadline.
+    /// ¹ Requires the anchor header of `w` to be final and canonical in the own L1 view, within
+    /// the L1 deadline.
     async fn check_anchor_final(&self, w: &AnchorWitness) -> Result<(), Rejection> {
         let is_final = deadline(
             "L1 finality check",
             self.opts.l1_timeout,
-            is_final_canonical(self.l1(), &w.l1_header, self.params.l1_finality_extra_depth),
+            is_final_canonical(self.l1(), &w.l1_header),
         )
         .await?;
         if is_final {

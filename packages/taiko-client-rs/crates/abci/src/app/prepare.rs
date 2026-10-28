@@ -77,7 +77,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// Builds the encoded envelope of the block at `req.height` on top of `state`.
     ///
-    /// Chooses `max(parent anchor, own finalized - extra depth)`, authenticates a changed anchor
+    /// Chooses `max(parent anchor, own finalized)`, authenticates a changed anchor
     /// or the forced H0 anchor, checks progress, generation, back-pressure and checkpoint
     /// ancestry (keeping the parent anchor when a moved one conflicts, see
     /// [`App::choose_anchor`]), derives
@@ -105,8 +105,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
         let finalized = self.l1_read("L1 finalized read", self.l1.finalized_number()).await?;
         set_u64(AbciMetrics::l1_finality_lag(), finalized.saturating_sub(state.anchor.number));
-        let newest =
-            state.anchor.number.max(finalized.saturating_sub(params.l1_finality_extra_depth));
+        let newest = state.anchor.number.max(finalized);
         let (anchor, anchor_state) = self.choose_anchor(state, height, newest).await?;
         let expected = expected_header(
             state,
@@ -152,7 +151,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             let tail = if gas_limit == 0 || max_bytes == 0 {
                 Vec::new()
             } else {
-                deadline(
+                let selected = deadline(
                     "pool selection",
                     self.opts.engine_timeout,
                     self.engine.pool_transactions(crate::engine::PoolSelection {
@@ -163,7 +162,20 @@ impl<L: L1Source, E: Engine> App<L, E> {
                         min_tip: 0,
                     }),
                 )
-                .await?
+                .await;
+                // Pool candidates never reach consensus on their own: the EL executes whatever
+                // list is built, and validators judge only the block. A failed or malformed
+                // selection therefore costs the tail, never the forced transaction or the node.
+                selected.unwrap_or_else(|error| {
+                    tracing::warn!(
+                        height,
+                        reason = error.label(),
+                        %error,
+                        "pool selection failed; proposing the forced transaction alone"
+                    );
+                    AbciMetrics::proposal_fallbacks().with_label_values(&["pool_selection"]).inc();
+                    Vec::new()
+                })
             };
             Some(protocol::shasta::encode_transactions(
                 &std::iter::once(transaction).chain(tail).collect::<Vec<_>>(),

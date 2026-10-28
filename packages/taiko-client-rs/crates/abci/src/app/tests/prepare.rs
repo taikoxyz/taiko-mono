@@ -165,15 +165,12 @@ async fn slow_engine_proposes_nothing() {
 }
 
 #[tokio::test]
-async fn proposer_anchors_at_finalized_minus_the_extra_depth() {
-    let mut spec = GenesisSpec::new(1);
-    spec.params.l1_finality_extra_depth = 2;
-    let fx = Fixture::build(spec);
+async fn proposer_anchors_at_the_own_finalized_block() {
+    let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
-    assert_eq!(app.l1().state().finalized, fx.genesis.l1_0 + 2);
     let header = fx.advance_l1(app.l1(), 70, &fx.inbox, &fx.registry);
-    assert_eq!(app.l1().state().finalized, 72);
+    assert_eq!(app.l1().state().finalized, 70);
 
     let env = propose(&mut app).await;
     assert_eq!(env.anchor.as_ref().map(|w| &w.l1_header), Some(&header));
@@ -944,6 +941,58 @@ async fn mixed_forced_inclusion_works_before_and_after_due() {
         accept_and_commit(&mut app, &env).await;
         assert_eq!(app.state().unwrap().forced_cursor, 1);
     }
+}
+
+/// A failed or malformed pool selection, such as a reply the EL client cannot decode, costs the
+/// mixed block its tail and nothing else: the forced transaction is proposed alone at position 0,
+/// the node keeps running and validators accept the block.
+#[tokio::test]
+async fn failed_pool_selection_proposes_the_forced_transaction_alone() {
+    let failures = [
+        EngineError::BadReply("taikoAuth_txPoolContentWithMinTip: invalid reply".into()),
+        EngineError::Transport("connection refused".into()),
+        EngineError::ErrorReply { call: "pool".into(), code: -32601, message: "no".into() },
+    ];
+    for failure in failures {
+        let fx = Fixture::genesis(1);
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = mid_epoch(&fx, dir.path(), 5).await;
+        let txs = sample_transactions();
+        let tx: Bytes = txs[0].encoded_2718().into();
+        plant_input(&fx, &app, tx.clone(), true);
+        app.engine().state().pool = vec![txs[1].clone()];
+        app.engine().state().pool_script.push_back(Err(failure.clone()));
+        let env = propose(&mut app).await;
+        assert_eq!(env.block.transactions, [tx], "{failure}: the forced transaction alone");
+        assert_eq!(app.halt, None, "{failure}");
+        accept_and_commit(&mut app, &env).await;
+        assert_eq!(app.state().unwrap().forced_cursor, 1, "{failure}: the entry is consumed");
+    }
+}
+
+/// A due entry that governance recovery blanked (its txHash is `keccak256("")`) has empty raw
+/// bytes: the proposer reads no admission log for it and skips it as ineligible, which
+/// validators accept.
+#[tokio::test]
+async fn blanked_due_entry_is_skipped_without_reading_its_admission_log() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    plant_input(&fx, &app, Bytes::new(), true);
+    {
+        let mut l1 = app.l1().state();
+        l1.forced_transactions.clear();
+        l1.forced_transaction_fail = Some(L1Error::Rpc("no admission log".into()));
+    }
+    let env = propose(&mut app).await;
+    assert!(
+        !app.l1().calls().iter().any(|call| matches!(call, L1Call::ForcedTransaction { .. })),
+        "no admission log is read"
+    );
+    assert_eq!(env.forced.as_ref().map(|w| (w.index, w.tx.is_empty())), Some((0, true)));
+    assert!(built_tx_list(&app).is_none(), "an ordinary build");
+    accept_and_commit(&mut app, &env).await;
+    assert_eq!(app.state().unwrap().forced_cursor, 1, "skipped as ineligible");
 }
 
 #[tokio::test]

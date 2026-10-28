@@ -108,17 +108,11 @@ pub enum GenesisError {
         active = inbox::ETNA_ACTIVE
     )]
     NotActive(u8),
-    /// The initialization block `L1_0` is not yet final with the chain's extra depth:
-    /// `L1_0 + l1_finality_extra_depth > finalized`.
-    #[error(
-        "genesis L1 block {l1_0} is not final: finalized is {finalized}, extra depth \
-         {extra_depth}"
-    )]
+    /// The initialization block `L1_0` is above the own L1 node's `finalized` block.
+    #[error("genesis L1 block {l1_0} is not final: finalized is {finalized}")]
     InitializationNotFinal {
         /// `L1_0` read from the initialized Inbox.
         l1_0: u64,
-        /// The chain's `l1_finality_extra_depth` (`F_L1`).
-        extra_depth: u64,
         /// The L1 node's `finalized` block number.
         finalized: u64,
     },

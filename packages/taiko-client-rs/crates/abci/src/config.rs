@@ -32,8 +32,6 @@ pub struct ChainParams {
     pub s_min: U256,
     /// `N_MAX`: maximum committee size; in `1..=`[`MAX_N_MAX`].
     pub n_max: usize,
-    /// `F_L1`: extra L1 depth required on top of the own L1 node's `finalized` block.
-    pub l1_finality_extra_depth: u64,
     /// `L2_BLOCK_GAS_LIMIT`: gas limit of every L2 block, in gas; `> 0`.
     pub block_gas_limit: u64,
 }
@@ -120,7 +118,6 @@ impl ChainParams {
                 vp_unit: U256::from(1_000_000_000u64),
                 s_min: U256::from(1_000_000_000_000_000_000u64),
                 n_max: 128,
-                l1_finality_extra_depth: 0,
                 block_gas_limit: 45_000_000,
             }),
             chain_id => Err(ConfigError::NotConfigured { chain_id }),
@@ -152,8 +149,6 @@ impl ChainParams {
         self.vp_unit = o.vp_unit.map_or(self.vp_unit, |v| v.0);
         self.s_min = o.s_min.map_or(self.s_min, |v| v.0);
         self.n_max = o.n_max.unwrap_or(self.n_max);
-        self.l1_finality_extra_depth =
-            o.l1_finality_extra_depth.unwrap_or(self.l1_finality_extra_depth);
         self.block_gas_limit = o.block_gas_limit.unwrap_or(self.block_gas_limit);
         Ok(self)
     }
@@ -219,8 +214,6 @@ struct Overrides {
     s_min: Option<U256String>,
     /// See [`ChainParams::n_max`].
     n_max: Option<usize>,
-    /// See [`ChainParams::l1_finality_extra_depth`].
-    l1_finality_extra_depth: Option<u64>,
     /// See [`ChainParams::block_gas_limit`].
     block_gas_limit: Option<u64>,
 }
@@ -293,6 +286,7 @@ mod tests {
             "inbox = '0x1234'",
             "unsettled_limit = -1",
             "epoch_len = 12",
+            "l1_finality_extra_depth = 0",
             "l2_chain_id = 1",
             "block_gas_limit = 10",
         ] {

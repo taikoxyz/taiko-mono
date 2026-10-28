@@ -17,13 +17,12 @@ use crate::{
 ///
 /// In order: reads, unproven, the Inbox's `migrationState` and genesis word at the L1
 /// `finalized` block and requires `ETNA_ACTIVE` ([`GenesisError::NotActive`]); requires the
-/// initialization block `L1_0` to be final with the chain's extra depth
-/// ([`GenesisError::InitializationNotFinal`]); takes the canonical header of `L1_0` and the Inbox
-/// proofs of `genesis_slots()` there, and verifies them as `InitChain` will (the record must
-/// name the same `L1_0`, `genesisCutoff` must lie before it, the schedule must be valid); builds
-/// the `e_0` committee witness with the explicit snapshot at `genesisCutoff` and its proofs
-/// at `L1_0`, and requires the committee it proves to hash to
-/// `genesisCommitteeRecordHash` ([`GenesisError::CommitteeRecordMismatch`]).
+/// initialization block `L1_0` to be at most that block ([`GenesisError::InitializationNotFinal`]);
+/// takes the canonical header of `L1_0` and the Inbox proofs of `genesis_slots()` there, and
+/// verifies them as `InitChain` will (the record must name the same `L1_0`, `genesisCutoff` must
+/// lie before it, the schedule must be valid); builds the `e_0` committee witness with the explicit
+/// snapshot at `genesisCutoff` and its proofs at `L1_0`, and requires the committee it proves to
+/// hash to `genesisCommitteeRecordHash` ([`GenesisError::CommitteeRecordMismatch`]).
 ///
 /// The registry entries of that snapshot are read at the newest block that still holds it, which
 /// can be as old as `genesisCutoff`: the L1 node must serve that state (an archive node once it
@@ -44,9 +43,8 @@ pub async fn build_genesis<L: L1Source + ?Sized>(
         return Err(GenesisError::NotActive(status));
     }
     let l1_0 = word_u48(inbox_word(inbox::GENESIS_PACKED).await?, 48);
-    let extra_depth = params.l1_finality_extra_depth;
-    if l1_0.checked_add(extra_depth).is_none_or(|bound| bound > finalized) {
-        return Err(GenesisError::InitializationNotFinal { l1_0, extra_depth, finalized });
+    if l1_0 > finalized {
+        return Err(GenesisError::InitializationNotFinal { l1_0, finalized });
     }
 
     let l1_header = header_at(l1, l1_0).await?;
@@ -132,14 +130,13 @@ mod tests {
     /// The witness is read at `L1_0` while the record is read at the finalized block.
     #[tokio::test]
     async fn reads_the_record_at_finalized_and_the_proofs_at_l1_0() {
-        let mut spec = GenesisSpec::new(2);
-        spec.params.l1_finality_extra_depth = 2;
-        let fx = Fixture::build(spec);
+        let fx = Fixture::build(GenesisSpec::new(2));
         let l1 = fx.l1();
         let finalized = fx.genesis.l1_0 + 2;
         fx.plant_l1_block(&l1, finalized, &fx.inbox, &fx.registry);
+        l1.set_finalized(finalized);
 
-        let doc = build_genesis(&l1, &fx.params).await.expect("final with the extra depth");
+        let doc = build_genesis(&l1, &fx.params).await.expect("L1_0 is final");
         assert_eq!(init_chain_from(&doc).app_state_bytes, fx.request.app_state_bytes);
         let calls = l1.calls();
         assert_eq!(calls[0], L1Call::Finalized);
@@ -220,18 +217,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn initialization_not_final_with_the_extra_depth_is_rejected() {
-        let mut spec = GenesisSpec::new(1);
-        spec.params.l1_finality_extra_depth = 2;
-        let fx = Fixture::build(spec);
+    async fn initialization_above_the_finalized_block_is_rejected() {
+        let fx = Fixture::build(GenesisSpec::new(1));
         let l1 = fx.l1();
         let l1_0 = fx.genesis.l1_0;
-        fx.plant_l1_block(&l1, l1_0 + 1, &fx.inbox, &fx.registry);
-        l1.set_finalized(l1_0 + 1);
+        // An Inbox at the finalized block claiming a later initialization block.
+        fx.plant_l1_block(&l1, l1_0 - 1, &fx.inbox, &fx.registry);
+        l1.set_finalized(l1_0 - 1);
         let err = build_genesis(&l1, &fx.params).await.unwrap_err();
         assert!(
-            matches!(err, GenesisError::InitializationNotFinal { l1_0: n, extra_depth: 2, finalized }
-                if n == l1_0 && finalized == l1_0 + 1),
+            matches!(err, GenesisError::InitializationNotFinal { l1_0: n, finalized }
+                if n == l1_0 && finalized == l1_0 - 1),
             "{err:?}"
         );
         assert!(!l1.calls().iter().any(|c| matches!(c, L1Call::Header(_))), "no proof read");

@@ -88,9 +88,7 @@ pub async fn anchor_ready(devnet: &Devnet, block: u64, timestamp: u64) -> Result
         Duration::from_secs(40),
         Duration::from_millis(100),
         || async {
-            let n = test_harness::finalized_number(devnet.l1())
-                .await?
-                .saturating_sub(devnet.params().l1_finality_extra_depth);
+            let n = test_harness::finalized_number(devnet.l1()).await?;
             let header = devnet.l1().get_block_by_number(n.into()).await?.context("L1 header")?;
             Ok((n >= block && header.header.timestamp >= timestamp).then_some(()))
         },

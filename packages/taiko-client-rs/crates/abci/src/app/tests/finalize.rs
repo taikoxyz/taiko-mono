@@ -569,6 +569,29 @@ async fn a_decided_block_failing_validation_is_a_safety_halt() {
     assert_eq!(app.pending, None);
 }
 
+/// A safety halt stands even when its evidence cannot be persisted: the store failure is logged
+/// and the caller still receives the halt that stops the node.
+#[tokio::test]
+async fn a_safety_halt_survives_a_failure_to_persist_its_evidence() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let mut env = propose(&mut app).await;
+    env.block.header.timestamp += 1;
+    let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+    // A directory where the evidence file belongs makes every read and write of it fail.
+    std::fs::create_dir(dir.path().join("fatal-evidence.txt")).unwrap();
+    let logs = LogCapture::start();
+    let msg = safety_halt(finalize(&mut app, req).await);
+    assert!(msg.contains("timestamp"), "{msg}");
+    assert!(app.store.fatal_evidence().is_err(), "the evidence could not be persisted");
+    assert!(
+        logs.at("ERROR").iter().any(|line| line.contains("could not persist the fatal evidence")),
+        "{}",
+        logs.text()
+    );
+}
+
 /// A decided block whose anchor is more than `maxAnchorAge` older than it, finalized by a node
 /// that never judged it (crash replay, block sync): a safety halt before the EL moves.
 #[tokio::test]
@@ -727,12 +750,11 @@ async fn cold_forced_skip_retries_an_unknown_payload_id() {
     assert_eq!(app.pending.as_ref().map(|s| s.parent.hash), Some(env.block.header.hash_slow()));
 }
 
-/// With an extra finality depth, the own L1 must have finalized the anchor's number plus that
-/// depth: a node whose L1 finalized only one block past the anchor waits for the second.
+/// The own L1's finalized block is the whole finality bound: a node whose L1 finalized exactly
+/// the anchor's block confirms it at once.
 #[tokio::test(start_paused = true)]
-async fn cold_finalize_waits_for_the_extra_finality_depth() {
-    let mut fx = Fixture::genesis(1);
-    fx.params.l1_finality_extra_depth = 2;
+async fn cold_finalize_confirms_an_anchor_at_the_own_finalized_block() {
+    let fx = Fixture::genesis(1);
     let (proposer_dir, node_dir) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
     let mut proposer = anchor_moving(&fx, proposer_dir.path()).await;
     let env = propose(&mut proposer).await;
@@ -741,16 +763,13 @@ async fn cold_finalize_waits_for_the_extra_finality_depth() {
     let mut node = anchor_moving(&fx, node_dir.path()).await;
     {
         let mut l1 = node.l1().state();
-        l1.finalized_script.push_back(Ok(67));
+        l1.finalized_script.push_back(Ok(66));
         l1.calls.clear();
     }
     let start = tokio::time::Instant::now();
-    finalize(&mut node, finalize_req(&req)).await.expect("finalizes at depth 2");
-    assert_eq!(start.elapsed(), Duration::from_millis(100), "one backoff pause");
-    assert_eq!(
-        node.l1().calls(),
-        [L1Call::Finalized, L1Call::Finalized, L1Call::CanonicalHash(66)]
-    );
+    finalize(&mut node, finalize_req(&req)).await.expect("finalizes at the finalized block");
+    assert_eq!(start.elapsed(), Duration::ZERO, "no backoff pause");
+    assert_eq!(node.l1().calls(), [L1Call::Finalized, L1Call::CanonicalHash(66)]);
 }
 
 /// An anchor numbered beyond the own L1's finalized block whose timestamp no real block there can
@@ -778,26 +797,6 @@ async fn an_anchor_beyond_the_own_l1_head_with_an_impossible_timestamp_halts() {
         tokio::time::timeout(Duration::from_secs(600), wait).await.is_err(),
         "still waiting for the own L1 to reach block 1066"
     );
-}
-
-/// An anchor number so large that no finality bound exists for it: a safety halt without any L1
-/// read.
-#[tokio::test]
-async fn an_anchor_number_beyond_any_finality_bound_halts() {
-    let mut fx = Fixture::genesis(1);
-    fx.params.l1_finality_extra_depth = 2;
-    let dir = tempfile::tempdir().unwrap();
-    let node = mid_epoch(&fx, dir.path(), 5).await;
-    node.l1().state().calls.clear();
-    let forged = RawL1Header::from(&l1_header(u64::MAX, 0));
-    match tokio::time::timeout(Duration::from_secs(60), node.confirm_anchor(7, &forged))
-        .await
-        .expect("halts at once")
-    {
-        Err(AbciError::SafetyHalt(msg)) => assert!(msg.contains("finality bound"), "{msg}"),
-        other => panic!("expected a safety halt, got {other:?}"),
-    }
-    assert!(node.l1().calls().is_empty());
 }
 
 /// A decided block carrying no anchor witness introduces no L1 fact: a node that never judged it

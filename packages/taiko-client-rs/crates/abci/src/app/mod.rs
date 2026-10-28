@@ -437,12 +437,22 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Methods without app logic answer at once: `Echo` echoes, `Flush` flushes, vote
     /// extensions are empty and accepted (disabled), and the snapshot methods answer empty
     /// defaults (state sync is disabled).
+    ///
+    /// A safety halt or store failure revokes trust and is recorded as fatal evidence. The
+    /// error itself is always returned, so the halt stops the node even when its evidence cannot
+    /// be persisted; that failure is logged at ERROR instead.
     pub async fn handle(&mut self, req: Request) -> Result<Response, AbciError> {
         let result = self.dispatch(req).await;
         if let Err(error) = &result {
             if matches!(error, AbciError::SafetyHalt(_) | AbciError::Store(_)) {
                 self.trust.revoke(error.to_string());
-                self.store.record_fatal(&error.to_string())?;
+                if let Err(persist) = self.store.record_fatal(&error.to_string()) {
+                    tracing::error!(
+                        %error,
+                        persist_error = %persist,
+                        "could not persist the fatal evidence; the halt stands"
+                    );
+                }
             } else {
                 // Network/initialization failures close authorization but must allow a later
                 // successful handshake to recover without requiring a signed block.
