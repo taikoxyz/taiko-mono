@@ -290,7 +290,7 @@ impl InboxStorage {
         if let Some(hash) = self.genesis_committee_hash {
             slots.push((inbox::slot(inbox::GENESIS_COMMITTEE_HASH), hash.into()));
         }
-        // Fees are L1-only; all client-rule fixtures plant a nonzero seven-gwei fee.
+        // Each queue entry: its `txHash` word and the `timestamp | l1Block << 48` metadata word.
         for entry in &self.forced_inclusion_queue {
             let [hash, metadata] = inbox::forced_inclusion_entry_slots(entry.index);
             slots.extend([
@@ -484,12 +484,11 @@ pub(crate) struct RegistryStorage {
 
 impl RegistryStorage {
     /// The `(slot, word)` pairs of this storage: `checkpoints.length` at `R`, then per
-    /// checkpoint the packed `l1Block | count << 64` word and `entriesRoot`, then the live
+    /// checkpoint the packed `l1Block | count << 48` word and `entriesRoot`, then the live
     /// `entries` array (see `layout::registry`) holding the LAST checkpoint's entries:
-    /// `entries.length` at `R + 1` and per entry its `pubkey`, `effStake` and packed
-    /// `activeFromL1 | exitEffectiveL1 << 64 | lastHeartbeatAt << 128 | lastHeartbeatSeq << 192`
-    /// words. Zero words are
-    /// included (the trie drops them, so they read back through exclusion proofs).
+    /// `entries.length` at `R + 1` and per entry its key x coordinate, `effStake` and packed
+    /// `ckPrefix | activeFromL1 << 8 | exitEffectiveL1 << 56` words. Zero words are included
+    /// (the trie drops them, so they read back through exclusion proofs).
     ///
     /// A state built from this storage is the registry as of the last checkpoint's L1 block, so
     /// a proposer reading entries there sees the last checkpoint's snapshot. Tests that need an
@@ -552,10 +551,9 @@ pub(crate) fn committee_witness(
     }
 }
 
-/// `n` registry entries that are eligible at any cutoff below `2^63` under the devnet
-/// parameters: deterministic, distinct pubkeys `keccak256("etna validator <i>")`, stake
-/// `(i + 1)` TAIKO, active from L1 block 0, no exit, one heartbeat naming window 0 (start 0,
-/// sequence 1: every L1 block is in window 0 under the devnet heartbeat window).
+/// `n` registry entries that are eligible at any cutoff below `2^48 - 1` under the devnet
+/// parameters: deterministic, distinct keys [`test_key`]`(i + 1)`, stake `(i + 1)` TAIKO,
+/// active from L1 block 0 and no exit (`exitEffectiveL1` is the `uint48` maximum).
 pub(crate) fn sample_entries(n: usize) -> Vec<RegistryEntry> {
     (0..n)
         .map(|i| {
@@ -979,7 +977,6 @@ mod tests {
                 &[
                     ("timestamp", U256::from(queued.timestamp)),
                     ("l1_block", U256::from(queued.l1_block)),
-                    // The planter's fixed L1-only fee, seven gwei.
                 ]
             )
         );

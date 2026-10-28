@@ -64,9 +64,9 @@ pub enum WitnessError {
         "forced inclusion delay {delay} s must be positive and maximum anchor age {max_anchor_age} s at least 1152"
     )]
     InvalidForcedInclusionConfig {
-        /// The proven `forcedInclusionDelay` (slot 282, bits 0–63).
+        /// The proven `forcedInclusionDelay` (slot 282, `uint48`, bits 0–47).
         delay: u64,
-        /// The proven `maxAnchorAge` (slot 282, bits 64–127).
+        /// The proven `maxAnchorAge` (slot 282, `uint48`, bits 48–95).
         max_anchor_age: u64,
     },
 }

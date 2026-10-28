@@ -318,7 +318,7 @@ pub(crate) struct MockEngineState {
 }
 
 /// The block a simple EL builds on `parent_hash` from `attrs`: every attribute-derived field as
-/// alethia-reth #251 assembles it (Etna body commitments included), the transactions of an
+/// alethia-reth assembles it (Etna body commitments included), the transactions of an
 /// explicit `tx_list` ([`provided_transactions`]) or else none, and deterministic execution
 /// results.
 pub(crate) fn simple_block(parent_hash: B256, attrs: &TaikoPayloadAttributes) -> ExecutionBlock {

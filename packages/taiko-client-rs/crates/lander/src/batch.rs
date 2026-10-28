@@ -1635,7 +1635,7 @@ mod tests {
         }
     }
 
-    /// A complete prefix may cross epoch boundaries without a reward settlement cutoff.
+    /// A complete prefix that crosses epoch boundaries is published whole.
     #[tokio::test]
     async fn no_freeze_cutoff_in_complete_prefix() {
         for checkpoint in [18, 24, 30] {

@@ -203,7 +203,7 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
         source.finalized_number().await? >= exit_block,
         "exit must be finalized before S is constructed"
     );
-    // A later prefix crosses the epoch boundary without a reward-freeze cut.
+    // A later prefix crosses the epoch boundary and lands in one batch.
     let h = schedule.h_first(1);
     for last in [18, 24] {
         mine_l1_blocks(p, 3).await?;
@@ -285,10 +285,10 @@ async fn lander_out_of_gas_landing_is_rebuilt_and_lands() -> Result<()> {
     fixture.anvil.stop().await
 }
 
-/// A user stores a forced inclusion on the real Inbox; the decided chain's next block after its
-/// L1 block is final consumes it with a real entry proof and its blob, and landing that batch moves
-/// the queue head and pays the entry's fee to the batch's `feeRecipient`, the lander's sending
-/// address.
+/// A user stores a forced inclusion, its transaction as calldata, on the real Inbox; a decided
+/// block whose anchor holds the entry consumes it with a real entry proof and carries the
+/// transaction first, and landing that batch moves the queue head. The fee stays in the Inbox
+/// until `sweepProtocolFees` pays it to the treasury.
 #[tokio::test]
 #[ignore = "requires Docker: actual Etna contracts on Osaka anvil"]
 async fn lander_actual_contract_forced_inclusion_lands_and_pays_fee() -> Result<()> {

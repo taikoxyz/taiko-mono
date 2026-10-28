@@ -652,13 +652,10 @@ async fn genesis_and_restart_authenticate_chain_specific_backpressure_parameters
     info(&mut reopened).await.unwrap();
     assert_eq!(reopened.state(), Some(&expected));
     drop(reopened);
-    for field in ["d_max", "margin_v"] {
+    let limit = fx.params.unsettled_limit;
+    for (case, unsettled_limit) in [("smaller", limit - 6), ("larger", limit + 6)] {
         let mut wrong = fx.clone();
-        match field {
-            "d_max" => wrong.params.unsettled_limit -= 6,
-            "margin_v" => wrong.params.unsettled_limit += 6,
-            _ => unreachable!(),
-        }
+        wrong.params.unsettled_limit = unsettled_limit;
         let empty_dir = tempfile::tempdir().unwrap();
         let mut app = wrong.app(empty_dir.path());
         assert!(
@@ -666,7 +663,7 @@ async fn genesis_and_restart_authenticate_chain_specific_backpressure_parameters
                 init_chain(&mut app, fx.request.clone()).await,
                 Err(AbciError::Genesis(GenesisError::ConfigMismatch { .. }))
             ),
-            "wrong {field} opened genesis"
+            "a {case} unsettled limit opened genesis"
         );
         assert_not_initialized(&app, empty_dir.path());
         let error = App::new(
@@ -680,7 +677,7 @@ async fn genesis_and_restart_authenticate_chain_specific_backpressure_parameters
         assert!(
             matches!(error, AbciError::StoredState(message)
             if message.contains("configuration opening")),
-            "wrong {field} opened persisted state"
+            "a {case} unsettled limit opened persisted state"
         );
     }
 }

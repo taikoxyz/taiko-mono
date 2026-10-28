@@ -77,7 +77,7 @@ pub struct ExpectedHeader {
     pub extra_data: Bytes,
     /// The anchor's L1 state root.
     pub parent_beacon_block_root: B256,
-    /// `L2_BLOCK_GAS_LIMIT`, in gas: a chain constant (alethia-reth #251 has no parent-delta
+    /// `L2_BLOCK_GAS_LIMIT`, in gas: a chain constant (alethia-reth has no parent-delta
     /// gas-limit rule).
     pub gas_limit: u64,
     /// EIP-4396 base fee per gas, in wei.
@@ -254,9 +254,10 @@ pub fn block_timestamp(parent_ts: u64, bft_secs: u64, anchor_ts: u64) -> u64 {
     parent_ts.saturating_add(1).max(bft_secs).max(anchor_ts)
 }
 
-/// Encodes the 13-byte Etna `extraData` `[0 | generation u48 BE | anchor u48 BE]`: the
-/// unused proposal-id slot carries the recovery generation, so the EL block hash an L1
-/// checkpoint pins commits to it.
+/// Encodes the 13-byte Etna `extraData`
+/// `[BASEFEE_SHARING_PCTG (100) | generation u48 BE | anchor u48 BE]`: the unused proposal-id
+/// slot carries the recovery generation, so the EL block hash an L1 checkpoint pins commits to
+/// it.
 ///
 /// Fails with [`RuleViolation::ExtraDataOverflow`] when `generation` or `anchor` exceeds
 /// `uint48`.

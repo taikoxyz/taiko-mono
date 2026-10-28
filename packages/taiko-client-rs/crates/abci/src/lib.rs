@@ -18,7 +18,7 @@
 pub mod app;
 /// Committee derivation from staking-registry snapshots, set roots and record hashes.
 pub mod committee;
-/// zlib helpers shared with landing payload V5, and the capacity of one landing.
+/// zlib helpers shared with the V6 landing payload codec, and the capacity of one landing.
 pub mod compression;
 /// Chain parameters (built-in per L2 chain id, optional TOML override).
 pub mod config;
@@ -26,7 +26,7 @@ pub mod config;
 pub mod domain;
 /// Execution-layer sync to a trusted head over devp2p.
 pub mod elsync;
-/// The execution-engine adapter (Engine API) and payload conversion for alethia-reth #251.
+/// The execution-engine adapter (Engine API) and payload conversion for alethia-reth.
 pub mod engine;
 /// The CometBFT block envelope codec (`0x06 || rlp([block, anchor, committee, forced])`).
 pub mod envelope;

@@ -16,7 +16,7 @@ const INDEX: u64 = 7;
 
 fn fixture(tx: Bytes) -> (AnchorState, ForcedWitness) {
     let slots = entry_slots(INDEX);
-    let metadata = U256::from(T0) | (U256::from(70) << 48) | (U256::from(1_000) << 112);
+    let metadata = U256::from(T0) | (U256::from(70) << 48);
     let state = TestState::new(vec![(
         INBOX,
         1,

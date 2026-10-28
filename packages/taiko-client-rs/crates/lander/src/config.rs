@@ -178,12 +178,12 @@ impl LanderConfig {
         {
             return Err(LanderError::Configuration("poll interval must be positive and at most one hour; confirmations must be nonzero".into()));
         }
-        // The ABCI landing capacity guard admits any block that fits this many blobs on its own;
-        // fewer could leave a decided block unlandable.
+        // Batches are sized for the six blobs Fusaka permits per transaction; the 124,000-byte
+        // block rule keeps every decided block within one blob.
         if self.limits.max_blobs != MAX_LANDING_BLOBS {
             return Err(LanderError::Configuration(format!(
-                "maximum blobs must equal {MAX_LANDING_BLOBS}: one decided block may need six, \
-                 and Fusaka permits at most six blobs per transaction"
+                "maximum blobs must equal {MAX_LANDING_BLOBS}, the blobs Fusaka permits per \
+                 transaction"
             )));
         }
         Ok(())
@@ -308,7 +308,7 @@ mod tests {
         }
     }
 
-    /// A block the landing capacity guard admits may need every one of `MAX_LANDING_BLOBS` blobs.
+    /// The lander takes exactly `MAX_LANDING_BLOBS` blobs; fewer are refused.
     #[test]
     fn rejects_fewer_blobs_than_one_landing_needs() {
         let mut c = valid();

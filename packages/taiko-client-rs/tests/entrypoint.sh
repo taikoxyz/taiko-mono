@@ -72,7 +72,7 @@ trap 'exit 143' TERM
 # Pinned to the anvil release the scenarios are verified with: a moving tag could change its
 # JSON-RPC behaviour under them (e.g. whether it serves debug_getRawHeader).
 export ANVIL_IMAGE=${ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:v1.5.1}
-# Reviewed taikoxyz/alethia-reth#251 supports canonical-config alloc-only Etna genesis.
+# The reviewed alethia-reth image supports canonical-config alloc-only Etna genesis.
 # Real contracts require canonical zero-storage proofs and modern EIP-7594 wrappers.
 export LANDER_ANVIL_IMAGE=${LANDER_ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:v1.8.5}
 export ALETHIA_RETH_IMAGE=${ALETHIA_RETH_IMAGE:-us-docker.pkg.dev/evmchain/images/alethia-reth:sha-b046734@sha256:2cb3b5f4afbd4e792f6d487af3d8d0eb8843ebec94180a845b277ab30fed4fd5}
