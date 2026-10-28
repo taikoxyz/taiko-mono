@@ -545,13 +545,15 @@ or config opening differs.
    Missing registered signing state fails closed; startup never creates replacement HRS.
    Before spawning a new local Unix pair, after the old children are reaped, the supervisor
    atomically moves a disconnected socket from `<comet-home>/run` into a fresh supervisor-owned
-   0700 `.etna-transport-*` directory and verifies the selected inode before deleting it.
+   0700 `capture` directory inside a held private `.etna-transport-*` directory, and verifies
+   the selected inode before deleting it. A nonempty outer directory is refused; the fresh
+   inner capture destination is created only under its protected parent.
    Live listeners, symlinks, non-socket files, changed inodes and uncertain connection errors
-   fail closed. A raced replacement is preserved as `endpoint` in that private directory;
-   restoring its original name never removes this protected backup. Empty directories after
+   fail closed. A raced replacement is preserved as `capture/endpoint` in that private directory;
+   restoring its original name never removes this protected backup. Both directories after
    successful cleanup are retained too, avoiding unsafe name-based directory deletion.
-   This adds a small directory/inode per stale-socket restart; old directories are never
-   reused. Optional manual cleanup requires the validator fully stopped and each directory
+   This adds two small directories per stale-socket restart; capture directories are
+   always newly created and prior outer contents are never reused. Optional manual cleanup requires the validator fully stopped and each directory
    inspected; preserve mismatch evidence for repair. No automatic garbage collector runs.
    Signing state, WAL, app history, the private trust socket and the durable halt latch remain
    untouched.

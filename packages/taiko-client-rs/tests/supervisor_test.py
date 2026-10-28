@@ -308,7 +308,7 @@ class UnixSupervisorTests(SupervisorTests):
             else:
                 with socket.socket(socket.AF_UNIX) as peer:
                     peer.connect(str(self.transport))
-            backups = list(self.transport.parent.glob(".etna-transport-*/endpoint"))
+            backups = list(self.transport.parent.glob(".etna-transport-*/capture/endpoint"))
             self.assertEqual(len(backups), 1)
             self.assertEqual(backups[0].lstat().st_ino, replaced[0])
             # A writer can remove the restored public name; protected evidence
@@ -326,6 +326,39 @@ class UnixSupervisorTests(SupervisorTests):
 
     def test_live_socket_replacement_after_final_stat_survives(self):
         self.assert_replacement_after_final_stat_survives("socket")
+
+    def test_substituted_quarantine_preserves_prior_evidence(self):
+        self.stop_supervisor()
+        spec = importlib.util.spec_from_file_location("etna_validator_under_test", ROOT / "script/etna_validator.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        old = self.transport.parent / "retained-quarantine"
+        old.mkdir(mode=0o700)
+        (old / "endpoint").write_text("prior mismatch evidence")
+        evidence_inode = (old / "endpoint").stat().st_ino
+        socket_inode = self.transport.stat().st_ino
+        real_open = os.open
+        substituted = []
+        def substitute_before_open(path, flags, *args, **kwargs):
+            if not substituted and isinstance(path, str) and path.startswith(".etna-transport-"):
+                descriptor = kwargs["dir_fd"]
+                os.rename(old.name, path, src_dir_fd=descriptor, dst_dir_fd=descriptor)
+                substituted.append(old.parent / path)
+            return real_open(path, flags, *args, **kwargs)
+        with patch.dict(os.environ, self.env), patch.object(module.os, "open", substitute_before_open):
+            error = None
+            try:
+                module.Supervisor().prepare_transport()
+            except (OSError, ValueError) as failure:
+                error = failure
+        self.assertTrue(substituted, "mkdir-to-open substitution was not exercised")
+        evidence = substituted[0] / "endpoint"
+        self.assertTrue(evidence.exists(), "cleanup overwrote prior quarantine evidence")
+        self.assertEqual(evidence.read_text(), "prior mismatch evidence")
+        self.assertEqual(evidence.stat().st_ino, evidence_inode)
+        self.assertIsNotNone(error, "startup must refuse a nonempty substituted quarantine")
+        self.assertEqual(self.transport.stat().st_ino, socket_inode)
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
 
     def test_symlinked_run_directory_is_never_followed(self):
         self.stop_supervisor()
