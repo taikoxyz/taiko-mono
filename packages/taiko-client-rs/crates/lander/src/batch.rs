@@ -7,7 +7,7 @@ use abci::engine::{
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use abci::{
-    AnchorState, ChainParams, ParentInfo, Schedule,
+    AnchorState, ChainParams, GRID_INTERVAL, ParentInfo, Schedule,
     committee::{record_hash, verify_committee_witness_at_cutoff},
     rules,
 };
@@ -385,8 +385,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 Err(error) => return Err(error),
             }
         }
-        // A capacity boundary may split a segment. Retain only complete K=6 segments.
-        while !blocks.len().is_multiple_of(6) {
+        // A capacity boundary may split a segment. Retain only complete grid segments.
+        while !blocks.len().is_multiple_of(GRID_INTERVAL as usize) {
             blocks.pop();
             list.pop();
             payload = None;
@@ -838,7 +838,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         for pair in blocks {
             self.authenticate_block(snapshot, schedule, &mut state, committees, pair).await?;
             anchors.push(state.anchor.clone());
-            if state.parent.number % 6 == 0 &&
+            if state.parent.number.is_multiple_of(GRID_INTERVAL) &&
                 blocks
                     .last()
                     .is_some_and(|last| last.block.header.height.value() != state.parent.number)

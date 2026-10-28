@@ -7,6 +7,10 @@ use serde::{Deserialize, Deserializer, de};
 /// The largest committee size accepted by the registry discovery and consensus bounds.
 pub const MAX_N_MAX: usize = 4096;
 
+/// `K`, the landing grid interval in L2 blocks (the Inbox's `GRID_INTERVAL`): every landed
+/// checkpoint height, every batch boundary and the unsettled limit `U` are multiples of it.
+pub const GRID_INTERVAL: u64 = 6;
+
 /// Per-chain constants consumed by consensus.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ChainParams {
@@ -65,8 +69,8 @@ pub enum ConfigError {
     /// Back-pressure must allow at least the first block.
     #[error("unsettled_limit must be positive")]
     ZeroUnsettledLimit,
-    /// U must be a K=6 grid multiple within the protocol unsettled-depth bounds.
-    #[error("unsettled_limit must be a multiple of 6 in 6..=65536")]
+    /// U must be a [`GRID_INTERVAL`] multiple within the protocol unsettled-depth bounds.
+    #[error("unsettled_limit must be a multiple of {k} in {k}..=65536", k = GRID_INTERVAL)]
     InvalidUnsettledLimit,
     /// Voting power units must respect the token-supply safety bound.
     #[error("vp_unit must be at least 867361738 base units")]
@@ -159,14 +163,15 @@ impl ChainParams {
         self.unsettled_limit
     }
 
-    /// Checks K=6 grid depth bounds, token-supply voting-power safety, committee capacity,
-    /// positive block gas limit and s_min >= vp_unit. Returns the first invalid deployment
-    /// parameter.
+    /// Checks [`GRID_INTERVAL`] grid depth bounds, token-supply voting-power safety, committee
+    /// capacity, positive block gas limit and s_min >= vp_unit. Returns the first invalid
+    /// deployment parameter.
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.unsettled_limit == 0 {
             return Err(ConfigError::ZeroUnsettledLimit);
         }
-        if !(6..=65_536).contains(&self.unsettled_limit) || !self.unsettled_limit.is_multiple_of(6)
+        if !(GRID_INTERVAL..=65_536).contains(&self.unsettled_limit) ||
+            !self.unsettled_limit.is_multiple_of(GRID_INTERVAL)
         {
             return Err(ConfigError::InvalidUnsettledLimit);
         }

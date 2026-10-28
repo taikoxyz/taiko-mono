@@ -798,10 +798,11 @@ fn overlapping_frontier(
             ));
         }
     } else {
-        if !current.checkpoint_height.is_multiple_of(6) {
+        if !current.checkpoint_height.is_multiple_of(abci::GRID_INTERVAL) {
             return Err(LanderError::Safety("checkpoint is not a grid endpoint".into()));
         }
-        let index = (current.checkpoint_height - prepared.checkpoint_height) / 6 - 1;
+        let index =
+            (current.checkpoint_height - prepared.checkpoint_height) / abci::GRID_INTERVAL - 1;
         let leaf = crate::statement::cut_leaf(
             current.checkpoint_height,
             current.checkpoint_hash,

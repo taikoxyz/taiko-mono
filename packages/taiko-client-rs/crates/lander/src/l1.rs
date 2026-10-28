@@ -383,7 +383,8 @@ impl LandingSource for RpcLandingSource {
         Ok(headers)
     }
 
-    /// Read actual current ABI boundaries at one canonical L1 block; no hashing RPC exists.
+    /// Read actual current ABI boundaries at one canonical L1 block; no hashing RPC exists. An
+    /// Inbox whose `GRID_INTERVAL` is not [`abci::GRID_INTERVAL`] is a configuration error.
     async fn deployment_identity(&self, snapshot: &LandingSnapshot) -> Result<B256> {
         authenticate_snapshot(snapshot, &self.params)?;
         let mut identity = Vec::new();
@@ -411,6 +412,13 @@ impl LandingSource for RpcLandingSource {
         let chain = read!(l2ChainIdCall);
         let registry = read!(stakingRegistryCall);
         let config = read!(committeeConfigHashCall);
+        let grid = read!(GRID_INTERVALCall);
+        if grid != U256::from(abci::GRID_INTERVAL) {
+            return Err(LanderError::Configuration(format!(
+                "Inbox GRID_INTERVAL {grid} differs from this client's {}",
+                abci::GRID_INTERVAL
+            )));
+        }
         if version != 1 ||
             !initialized ||
             chain != snapshot.l2_chain_id ||
@@ -588,7 +596,7 @@ fn decode_snapshot(
     if landing >> 144 != U256::ZERO ||
         head_tail >> 96 != U256::ZERO ||
         generation != 0 ||
-        height % 6 != 0 ||
+        !height.is_multiple_of(abci::GRID_INTERVAL) ||
         el_hash != B256::from(word(inbox::LAST_CHECKPOINT_HASH)) ||
         word_u48(landing, 48) != generation ||
         word_u48(landing, 96) != word_u48(head_tail, 0) ||

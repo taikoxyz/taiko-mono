@@ -108,6 +108,12 @@ impl LanderSubCommand {
         let landing = Arc::new(RpcLandingSource::new(l1, l2, params.clone()));
         let snapshot =
             retry_bootstrap(config.poll_interval, retry_max_delay, || landing.snapshot()).await?;
+        // The deployment reads refuse an Inbox this client cannot land on, such as one whose
+        // GRID_INTERVAL differs from abci::GRID_INTERVAL, before anything else starts.
+        retry_bootstrap(config.poll_interval, retry_max_delay, || {
+            landing.deployment_identity(&snapshot)
+        })
+        .await?;
         let identity = JournalIdentity {
             l1_chain_id: snapshot.l1_chain_id,
             l2_chain_id: snapshot.l2_chain_id,
