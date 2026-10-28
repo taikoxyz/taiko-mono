@@ -12,7 +12,7 @@ APP_VERSION 1, except the explicitly named `app_version_7` wire-preservation cas
 checks lossless transport only; it does not authorize another Etna application version.
 
 `vectors.json` contains six evidence cases. `differential.json` contains twelve named edge cases
-and 48 cases from seeded PCG(22280, 2026), including partial/nil certificates, Unix-epoch and
+and 8 cases from seeded PCG(22280, 2026), including partial/nil certificates, Unix-epoch and
 Go-zero timestamps, int32-extreme rounds, duplicate-vote extensions, a 120-validator set, and
 foreign generic-secp keys inside light-client attack evidence. Native keys occur throughout the
 ordinary validator sets and light-client evidence. The non-cryptographic execution envelope is
