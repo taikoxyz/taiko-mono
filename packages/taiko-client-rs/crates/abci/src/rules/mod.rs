@@ -55,7 +55,7 @@ pub struct HeaderInputs<'a> {
     /// Recovery generation bound into the deployment chain-id digest.
     pub generation: u64,
     /// Locally chosen beneficiary; validators accept the certified block's beneficiary.
-    pub reward_recipient: Address,
+    pub beneficiary: Address,
     /// Chain constants (block gas limit).
     pub params: &'a ChainParams,
     /// EIP-4396 minimum base fee clamp of the L2 chain, in wei
@@ -351,7 +351,7 @@ pub fn expected_header(i: &HeaderInputs<'_>) -> Result<ExpectedHeader, RuleViola
         number: i.height,
         parent_hash: parent.hash,
         timestamp: block_timestamp(parent.timestamp, i.bft_time_secs, i.anchor.timestamp),
-        beneficiary: i.reward_recipient,
+        beneficiary: i.beneficiary,
         extra_data: encode_extra_data(i.generation, i.anchor.number)?,
         parent_beacon_block_root: i.anchor.state_root,
         gas_limit: i.params.block_gas_limit,

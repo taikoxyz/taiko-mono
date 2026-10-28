@@ -1711,11 +1711,10 @@ mod tests {
 
     /// A complete prefix that crosses epoch boundaries is published whole.
     #[tokio::test]
-    async fn no_freeze_cutoff_in_complete_prefix() {
+    async fn complete_prefix_across_epochs_is_published_whole() {
         for checkpoint in [18, 24, 30] {
             let fixture = Arc::new(Fixture::new(checkpoint, 36));
             let builder = builder(fixture.clone(), limits(20));
-            builder.schedule(&fixture.snapshot).unwrap();
             let prefix = builder.publishable_prefix(&fixture.snapshot, 36).await.unwrap();
             assert_eq!(prefix.blocks.len(), (36 - checkpoint) as usize, "{checkpoint}");
         }

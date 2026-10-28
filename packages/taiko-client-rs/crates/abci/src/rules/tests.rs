@@ -59,7 +59,7 @@ fn inputs<'a>(
         generation: GENERATION,
         params,
         min_base_fee: min_base_fee_for_chain(params.l2_chain_id),
-        reward_recipient: Address::repeat_byte(0x77),
+        beneficiary: Address::repeat_byte(0x77),
     }
 }
 

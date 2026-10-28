@@ -319,7 +319,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_fewer_blobs_than_one_landing_needs() {
+    fn rejects_fewer_blobs_than_one_transaction_permits() {
         let _lock = ENV_LOCK.lock().unwrap();
         let _clear = clear_env();
         let mut args = argv();

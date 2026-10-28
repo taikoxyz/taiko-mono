@@ -468,7 +468,6 @@ pub(crate) fn expected_header(
     if !rules::is_committee_proposer(&committee.members, proposer) {
         return Err(Rejection::ProposerUnknown(proposer));
     }
-    let reward_recipient = params.fee_recipient;
     rules::expected_header(&HeaderInputs {
         height,
         parent: chain.parent,
@@ -477,7 +476,7 @@ pub(crate) fn expected_header(
         generation: chain.generation,
         params,
         min_base_fee: min_base_fee_for_chain(params.l2_chain_id),
-        reward_recipient,
+        beneficiary: params.fee_recipient,
     })
     .map_err(Into::into)
 }

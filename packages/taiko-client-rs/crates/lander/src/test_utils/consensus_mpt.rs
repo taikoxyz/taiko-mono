@@ -642,7 +642,7 @@ impl Fixture {
             );
             let expected = rules::expected_header(&HeaderInputs {
                 height,
-                reward_recipient: super::consensus::BATCH_RECIPIENT,
+                beneficiary: super::consensus::BATCH_RECIPIENT,
                 parent: &parent,
                 anchor: &a,
                 bft_time_secs: if max_anchor_age < 7200 { 1261 + height } else { 100 + height },
