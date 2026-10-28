@@ -1,40 +1,32 @@
 # Etna PoS + ZK design specification
 
-The Etna PoS + ZK design specification and its acceptance and launch
-checklist, as HTML pages: one per section, an index and the checklist.
+- [SPEC.md](SPEC.md): the design specification, sections 1–12 and appendices A–C.
+- [ACCEPTANCE.md](ACCEPTANCE.md): the acceptance and launch checklist.
 
 In Etna, a committee of TAIKO stakers produces blocks with stock CometBFT and
 finalizes them instantly; anyone can land a proven batch on L1, and funds on L1
 recognize only landed checkpoints. The target is Stage 0.
 
-## Reading
+## Reading map
 
-GitHub shows HTML files as source, so clone or download this directory and open
-`spec/index.html` in a browser. The pages need no network, server or build step:
-they load only the adjacent `spec.css` and an optional `reader.js`, which adds
-expand/collapse/print buttons and opens every detail block for printing and for
-Ctrl/Cmd+F. Without JavaScript, all text and navigation still work; open detail
-blocks by hand before printing.
-
-| Page                                                        | Contents                                                        |
-| ----------------------------------------------------------- | --------------------------------------------------------------- |
-| [index.html](spec/index.html)                               | Summary, scope, contents of every page and source files         |
-| [01-positioning.html](spec/01-positioning.html)             | 1. Positioning and security model                               |
-| [02-components.html](spec/02-components.html)               | 2. Components                                                   |
-| [03-consensus.html](spec/03-consensus.html)                 | 3. Consensus and blocks: engine, header, anchor, validity       |
-| [04-staking.html](spec/04-staking.html)                     | 4. Staking and committees: registry, epochs, derivation         |
-| [05-data.html](spec/05-data.html)                           | 5. Data formats and DA: envelope, blob payload, reconstruction  |
-| [06-landing.html](spec/06-landing.html)                     | 6. Landing and settlement: land, proofs, batches, back-pressure |
-| [07-forced-inclusion.html](spec/07-forced-inclusion.html)   | 7. Forced inclusion                                             |
-| [08-recovery.html](spec/08-recovery.html)                   | 8. Halts and recovery                                           |
-| [09-sync.html](spec/09-sync.html)                           | 9. Sync and weak subjectivity                                   |
-| [10-startup.html](spec/10-startup.html)                     | 10. Startup and deployment                                      |
-| [11-parameters.html](spec/11-parameters.html)               | 11. Parameters                                                  |
-| [12-limitations.html](spec/12-limitations.html)             | 12. Known limitations and open items (18 items)                 |
-| [appendix-a-encodings.html](spec/appendix-a-encodings.html) | Appendix A: encodings                                           |
-| [appendix-b-storage.html](spec/appendix-b-storage.html)     | Appendix B: L1 storage layout                                   |
-| [appendix-c-funding.html](spec/appendix-c-funding.html)     | Appendix C: operating funding and cost assumptions              |
-| [acceptance.html](spec/acceptance.html)                     | Acceptance and launch checklist                                 |
+| Section                                                                                    | Covers                                                                    |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| [1. Positioning and security model](SPEC.md#1-positioning-and-security-model)              | Security model and trust assumptions                                      |
+| [2. Components](SPEC.md#2-components)                                                      | Roles and components                                                      |
+| [3. Consensus and blocks](SPEC.md#3-consensus-and-blocks)                                  | Stock CometBFT, EL integration, anchors, validity and size limits         |
+| [4. Staking and committees](SPEC.md#4-staking-and-committees)                              | Registration, exits, double-sign evidence, epochs and committee selection |
+| [5. Data formats and DA](SPEC.md#5-data-formats-and-da)                                    | Private envelopes, public blobs and public EL reconstruction              |
+| [6. Landing and settlement](SPEC.md#6-landing-and-settlement)                              | Landing checks, two proofs, grid cuts, overlapping jobs and back-pressure |
+| [7. Forced inclusion](SPEC.md#7-forced-inclusion)                                          | Queue admission, singleton builds, legal skipping and protocol fees       |
+| [8. Halts and recovery](SPEC.md#8-halts-and-recovery)                                      | Pauses, safety halts, verifier failure and DAO recovery                   |
+| [9. Sync and weak subjectivity](SPEC.md#9-sync-and-weak-subjectivity)                      | L1 checkpoint trust, guarded signing and consensus-history availability   |
+| [10. Startup and deployment](SPEC.md#10-startup-and-deployment)                            | Genesis, deployment constraints and upgrade boundaries                    |
+| [11. Parameters](SPEC.md#11-parameters)                                                    | Parameter sources, constraints and reference values                       |
+| [12. Known limitations and open items](SPEC.md#12-known-limitations-and-open-items)        | All 18 limitations and open items                                         |
+| [Appendix A: Encodings](SPEC.md#appendix-a-encodings)                                      | Domains, encodings, ABI and reference examples                            |
+| [Appendix B: L1 storage layout](SPEC.md#appendix-b-l1-storage-layout)                      | Inbox and registry slots, packing and namespaces                          |
+| [Appendix C: Operating funding](SPEC.md#appendix-c-operating-funding-and-cost-assumptions) | DAO operating funding and worst-case cost assumptions                     |
+| [Acceptance and launch checklist](ACCEPTANCE.md)                                           | Resource, latency and recovery acceptance, shared vectors, launch gate    |
 
 ## Key review points
 
@@ -66,46 +58,5 @@ blocks by hand before printing.
   proving capacity behind it (6.3, section 11) are set by the checklist's
   resource acceptance, as are the real-guest, signer, recovery and launch checks.
 
-These points are reading aids. The specification pages hold the validity rules,
-and the checklist holds the acceptance and launch requirements.
-
-## Sources and regeneration
-
-`sources/spec.md` and `sources/acceptance.md` hold the text. They are Markdown
-with two block tags: `<callout>` for a note, and `<toggle>` for a collapsible
-block whose first line is its title. A plain `<toggle>` becomes a detail block;
-`<toggle heading="h2">` or `<toggle heading="h3">` becomes a heading. Links to
-`index.html` and `acceptance.html` point at the generated pages.
-`sources/manifest.json` records the revision date, the SHA-256 of each source
-and the renderer version.
-
-To change the spec, edit the sources, set `revision` in the manifest, and
-regenerate from the monorepo root. If a top-level section is added, removed or
-renamed, also update `SPEC_PAGES` in both `scripts/render.mjs` and
-`scripts/verify.py`. Marked stays in a temporary directory, so the workspace
-dependencies and lockfile are untouched:
-
-```sh
-npm --prefix /tmp/etna-docs-tools install marked@17.0.5
-export MARKED_MODULE=/tmp/etna-docs-tools/node_modules/marked/lib/marked.esm.js
-node packages/protocol/docs/etna-pos-zk/scripts/render.mjs
-node packages/protocol/docs/etna-pos-zk/scripts/render.mjs --check
-python3 -I packages/protocol/docs/etna-pos-zk/scripts/verify.py
-```
-
-The renderer changes presentation only. Review the diff of `sources/` together
-with the regenerated pages.
-
-## What the checks cover
-
-- `render.mjs --check` (Node.js 20 or later): the sources match the manifest
-  hashes, the loaded Marked version matches the manifest, and every page
-  in `spec/` is byte-identical to a fresh render, with no stale pages.
-- `verify.py` (Python standard library only) compares the pages with the
-  sources themselves rather than with other generated files: every word and
-  punctuation mark in order, each code example byte for byte, heading levels and
-  titles, detail titles, table shapes and ordered-list numbering. It also checks
-  that every local link and fragment resolves, that external links use https to
-  `github.com`, that pages contain only expected tags with no inline scripts,
-  styles or event handlers, and that each page names the revision and its source
-  hash.
+These points are reading aids. SPEC.md holds the validity rules, and
+ACCEPTANCE.md holds the acceptance and launch requirements.

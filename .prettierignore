@@ -17,7 +17,3 @@ yarn.lock
 
 # ignore changelog because release-please-action manages it
 CHANGELOG.md
-
-# Prettier would rewrite the Etna spec sources' tables and escapes; keep them and the generated pages as is.
-packages/protocol/docs/etna-pos-zk/sources/*.md
-packages/protocol/docs/etna-pos-zk/spec/*.html
