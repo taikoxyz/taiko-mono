@@ -28,11 +28,11 @@ specification; appendix A is its encodings and appendix B its L1 storage layout.
   every spec 10 deployment constraint it can see, checks that the registry's fixed Inbox is this
   proxy and that both use the same L2 chain id, writes the appendix B initial values and saves
   the block-0 SignalService checkpoint.
-- `land(input, leaves, proof)`: the spec 6.1 reference Solidity, check for check, plus an
-  initialization check. With K = 6, p, c and h are grid points; `leaves` are the cut leaves at
-  the grid points inside (p, h), and if c > p the leaf at c is compared with c's slot 285 record
-  before the immutable verifier checks the 21-word statement with
-  `verifyProof(0, statement, proof)` (0: no proposal age applies).
+- `land(input, leaves, proof)`: the spec 6.1 reference Solidity, check for check. Before `init`
+  no landing passes, because `landings[0]` is unwritten. With K = 6, p, c and h are grid points;
+  `leaves` are the cut leaves at the grid points inside (p, h), and if c > p the leaf at c is
+  compared with c's slot 285 record before the immutable verifier checks the 21-word statement
+  with `verifyProof(0, statement, proof)` (0: no proposal age applies).
   The landing then moves the checkpoint, `activeCommitteeSnapshot` and the queue head, writes
   `landings[h]` with the actual parent c, saves the SignalService checkpoint and emits `Landed`.
   It pays nothing to anyone.
@@ -62,32 +62,28 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
   and the Inbox-only `forceExit` follow spec 4.1 and 8 step 2. Confirming an exit needs an
   initialized Inbox whose `activeCommitteeSnapshot` reaches the exit block; `slashDoubleSign`
   needs an initialized Inbox and accepts votes from the current or an earlier generation.
+  `confirmExit` and `withdraw` revert while the Inbox holds its reentrancy lock (spec 8.3).
 - `forceExit(bondId, entryKey)` derives the recovery execution block from `block.number`.
 - Every L1 block that changes an entry ends with exactly one checkpoint
   (`l1Block`, `count`, `entriesRoot`). The Inbox proxy and the L2 chain id are immutables.
 
+## Difference from the spec
+
+- `init` takes `vp_unit`, `s_min`, `n_max` and `U` instead of the config hash (spec 10 step 5),
+  checks their bounds and computes `committeeConfigHash` itself, so a configuration outside the
+  spec bounds cannot be stored.
+
 ## Choices the spec leaves open
 
-- Every domain tag is `bytes32` right-zero-padded ASCII, including the unversioned
-  `ETNA_SET_NODE`.
 - The Inbox proxy starts on `EtnaInboxBootstrap`, so its address exists before the registry that
   fixes it. Once the registry exists, the owner calls `upgradeToAndCall(EtnaInbox, init(...))`,
   and `init` also requires the owner. Slot 258 then reads 3.
-- `init` takes `vp_unit`, `s_min`, `n_max` and `U`, checks their bounds and computes
-  `committeeConfigHash` itself, so a configuration outside the spec bounds cannot be stored.
-- `land` adds only an initialization check to the reference Solidity, and in particular no bound
-  on the snapshot.
 - `Landed` carries `VERSION = 1`; `Recovered` carries the new generation, c, R's number and
   timestamp, and both lists.
 - Each field of a slot 290 origin is below 2^48.
 - Evidence votes have type 1 or 2, a height in [1, 2^63), a round below 2^31, timestamp seconds
   read as an int64 within CometBFT's Timestamp range (negative values included), nanoseconds
-  below 10^9 and a 65-byte low-s signature with V in {0, 1}. An all-zero block id is a nil vote,
-  and a nil and a non-nil vote in the same round conflict.
-- `confirmExit` and `withdraw` revert while the Inbox holds its reentrancy lock, so no exit
-  confirmation or withdrawal can run inside a landing or a recovery.
-- A released slot's leaf is the leaf of an all-zero entry, not zero.
-- A repeated `confirmExit` succeeds and never moves `exitConfirmedAtL1`.
+  below 10^9 and a 65-byte low-s signature with V in {0, 1}.
 - The registry checks each exclusion's `entryKey` inside `forceExit`; a mismatch or a released
   slot reverts the whole `recover`.
 - Registry storage that appendix B does not name (tree nodes, free slots, used keys) lives in the
@@ -95,7 +91,9 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
 - `minStake` and `s_min` are independent; the deploy script defaults `minStake` to `s_min`.
 - `activationDelay`, `exitDelay` and `withdrawalDelay` are each in [1, 2^32), so an oversized
   delay cannot make every registration or exit request revert.
-- `maxBatchBlocks` is at least 6, with no multiple-of-6 rule.
+- `maxBatchBlocks` is in [6, 65,532], with no multiple-of-6 rule. The upper end is the maximum U,
+  and at that size the leaf calldata still fits one transaction's gas cap at today's EIP-7623
+  calldata floor (spec 11).
 
 ## Storage
 
@@ -129,7 +127,10 @@ forge script $S --sig 'deployInbox()' --rpc-url "$L1_RPC" --broadcast
 ```
 
 `deployInbox()` deploys the SignalService and the `EtnaInbox` implementation, then upgrades and
-initializes the proxy if the deployer owns it, or logs that call for the owner.
+initializes the proxy if the deployer owns it, or logs that call for the owner. No contract
+checks two spec 11 bounds, so the operator must: `REGISTRY_WITHDRAWAL_DELAY` no shorter than the
+double-sign evidence window (suggested at least 50,400 L1 blocks, about 7 days) and
+`MAX_ANCHOR_AGE` above the L1 finality delay.
 `script/layer2/build_etna_genesis.py --base <genesis.json> --output <file>` adds the EIP-4788 and
 EIP-2935 system contracts to the L2 genesis alloc (spec 10 step 3); the 100% base-fee share is
 the per-block `extraData[0] = 100` rule that nodes and guests enforce, not a genesis field.

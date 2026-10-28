@@ -24,7 +24,8 @@ interface IEtnaInbox {
         address stakingRegistry;
         /// @notice The chain id of the Etna L2; non-zero.
         uint64 l2ChainId;
-        /// @notice The maximum `h - p` of one landing; at least 6, one grid segment (spec 10).
+        /// @notice The maximum `h - p` of one landing; at least 6, one grid segment, and at most
+        /// 65,532, so that the leaf calldata fits one transaction (spec 11).
         uint64 maxBatchBlocks;
         /// @notice The forced inclusion fee in Gwei with an empty queue (spec 7.1); non-zero.
         uint64 forcedInclusionFeeInGwei;
@@ -245,9 +246,9 @@ interface IEtnaInbox {
     function init(InitParams calldata _params) external;
 
     /// @notice Lands a proven batch: settles `(c, h]` with a proof covering `(p, h]` (spec 6.1).
-    /// @dev Permissionless and nonpayable; shares `recover`'s reentrancy lock and reverts
-    /// `NotInitialized` before `init`. With K = 6 and `c` the latest checkpoint height read at
-    /// execution, it requires, before any state change:
+    /// @dev Permissionless and nonpayable; shares `recover`'s reentrancy lock. Before `init` no
+    /// landing passes check 2, because landings[0] is unwritten. With K = 6 and `c` the latest
+    /// checkpoint height read at execution, it requires, before any state change:
     /// 1. generationStartHeight() <= p <= c < h < 2^48 (c >= h means already settled), p and h
     ///    multiples of K, and h - p <= maxBatchBlocks;
     /// 2. landings[p].elHash != 0, and landings[p].generation == recoveryGeneration unless p is
@@ -299,14 +300,14 @@ interface IEtnaInbox {
     /// _expectedGeneration == recoveryGeneration() (`GenerationMismatch`) and
     /// _expectedC == lastCheckpoint().height (`CheckpointMismatch`); the new generation,
     /// block.number and block.timestamp each below 2^48 (`ValueOverflow`); exclusions sorted
-    /// strictly by bond id and fiToClear strictly increasing within [head, tail); and no origin
-    /// written yet for the new generation (`OriginAlreadyWritten`). With R = block.number, the
-    /// registry checks each exclusion's entry key and sets its exitEffectiveL1 to min(existing,
-    /// R) (`IEtnaStakingRegistry.forceExit`), so any otherwise valid exclusion reverts
-    /// `InvalidEventBlock` at block.number == 2^48 - 1, the registry's no-exit sentinel. Each
-    /// listed queue entry's txHash becomes keccak256(""). Increments the generation, writes
-    /// origins[generation] = (c, R, block.timestamp) once and emits `Recovered`. The checkpoint,
-    /// its landing record, the queue head and activeCommitteeSnapshot are kept.
+    /// strictly by bond id and fiToClear strictly increasing within [head, tail). With
+    /// R = block.number, the registry checks each exclusion's entry key and sets its
+    /// exitEffectiveL1 to min(existing, R) (`IEtnaStakingRegistry.forceExit`), so any otherwise
+    /// valid exclusion reverts `InvalidEventBlock` at block.number == 2^48 - 1, the registry's
+    /// no-exit sentinel. Each listed queue entry's txHash becomes keccak256(""). Increments the
+    /// generation, writes origins[generation] = (c, R, block.timestamp) once and emits
+    /// `Recovered`. The checkpoint, its landing record, the queue head and activeCommitteeSnapshot
+    /// are kept.
     /// @param _expectedGeneration The recovery generation the call was authorized for.
     /// @param _expectedC The checkpoint height the call was authorized for.
     /// @param _exclusions The entries to force out, sorted strictly by bond id.
@@ -453,7 +454,7 @@ interface IEtnaInbox {
 
     /// @notice The Inbox is not initialized.
     error NotInitialized();
-    /// @notice `maxBatchBlocks` is below 6.
+    /// @notice `maxBatchBlocks` is below 6 or above 65,532.
     error InvalidMaxBatchBlocks();
     /// @notice The forced inclusion fee is zero.
     error ForcedInclusionFeeZero();
@@ -516,8 +517,6 @@ interface IEtnaInbox {
     error FiToClearNotSorted();
     /// @notice A forced inclusion index to clear is outside [head, tail).
     error FiIndexOutOfRange();
-    /// @notice The new generation's origin is already written.
-    error OriginAlreadyWritten();
     /// @notice The entry point does not accept ETH.
     error EtherNotAccepted();
 }

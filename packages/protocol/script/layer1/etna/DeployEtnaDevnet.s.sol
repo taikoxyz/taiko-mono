@@ -36,7 +36,7 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// SLASH_BOUNTY_BPS (at most 10,000); SLASH_SINK (non-zero); L2_CHAIN_ID.
 /// `deployInbox()`: INBOX_PROXY; STAKING_REGISTRY; ETNA_PROOF_VERIFIER, which must have code;
 /// REMOTE_SIGNAL_SERVICE (the L2 SignalService); L1_CHAIN_ID, which must equal this chain's id;
-/// L2_CHAIN_ID, which must equal the registry's; MAX_BATCH_BLOCKS (at least 6);
+/// L2_CHAIN_ID, which must equal the registry's; MAX_BATCH_BLOCKS (in [6, 65,532]);
 /// FORCED_INCLUSION_FEE_GWEI and FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD (non-zero);
 /// PROTOCOL_FEE_RECIPIENT (the DAO treasury, non-zero); GENESIS_BLOCK_HASH and GENESIS_STATE_ROOT
 /// (L2 block 0); EPOCH_LEN_L2 (L, with L >= 3 and L + 1 < 2^48); GENESIS_CUTOFF;
@@ -47,9 +47,11 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// The script checks only ETNA_PROOF_VERIFIER's code and L1_CHAIN_ID itself; the constructors
 /// and `init` check the other bounds listed above, so a logged owner call is validated when the
 /// owner sends it. Nothing on chain checks the rest, which the operator must ensure:
-/// MAX_ANCHOR_AGE above the L1 finality delay (spec 11), genesis values that match the L2
-/// genesis, and nodes and guests using the same configuration. A verifier that accepts every
-/// proof is for ephemeral devnets only.
+/// MAX_ANCHOR_AGE above the L1 finality delay (spec 11), REGISTRY_WITHDRAWAL_DELAY no shorter
+/// than the double-sign evidence window (spec 11 suggests at least 50,400 L1 blocks, about 7 days;
+/// a shorter delay lets a double signer withdraw before the evidence reaches L1), genesis values
+/// that match the L2 genesis, and nodes and guests using the same configuration. A verifier that
+/// accepts every proof is for ephemeral devnets only.
 /// @custom:security-contact security@taiko.xyz
 contract DeployEtnaDevnet is Script {
     // ---------------------------------------------------------------

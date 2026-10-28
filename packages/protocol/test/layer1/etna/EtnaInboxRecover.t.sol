@@ -456,26 +456,6 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         _assertOrigin(1, 0, _NO_EXIT, _LEAN_R_TIMESTAMP);
     }
 
-    /// @dev Unreachable through `recover`: the next generation's origin is never written before
-    /// the generation starts. Each of its three words is planted in turn: any non-zero word counts
-    /// as written, checked before any exclusion reaches the registry. Cleared, it executes.
-    function test_recover_RevertWhen_OriginAlreadyWritten() external {
-        vm.expectCall(
-            address(registry), abi.encodePacked(IEtnaStakingRegistry.forceExit.selector), 0
-        );
-        uint256 slot = _originSlot(1);
-        for (uint256 w; w < 3; ++w) {
-            _storeInboxWord(slot + w, bytes32(uint256(1)));
-            _expectRecoverRevert(
-                0, 0, _exclusions(1, _BOB_PK), _indices(0), IEtnaInbox.OriginAlreadyWritten.selector
-            );
-            _storeInboxWord(slot + w, 0);
-        }
-
-        _recover(0, 0, _noExclusions(), _indices(0));
-        _assertOrigin(1, 0, _LEAN_R, _LEAN_R_TIMESTAMP);
-    }
-
     /// @dev Before `init` the proxy on the `EtnaInbox` implementation rejects the owner's
     /// recovery, lists included, and nothing is written in the Inbox or the registry.
     function test_recover_RevertWhen_NotInitialized() external {

@@ -28,7 +28,8 @@ interface IEtnaStakingRegistry {
         /// exit takes effect; in [1, 2^32).
         uint256 exitDelay;
         /// @notice The L1 blocks from the exit confirmation until the slot can be released; in
-        /// [1, 2^32).
+        /// [1, 2^32). Spec 11 also asks for no less than the double-sign evidence window
+        /// (suggested at least 50,400 L1 blocks), which the constructor does not check.
         uint256 withdrawalDelay;
         /// @notice The share of a slashed stake paid to the reporter, in basis points; at most
         /// 10,000.

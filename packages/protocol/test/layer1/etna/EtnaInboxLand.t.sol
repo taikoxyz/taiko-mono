@@ -192,13 +192,13 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
     }
 
     /// @dev `h < 2^48` is part of the range check: 2^48 + 2, the first grid point at or above
-    /// 2^48, is rejected even with an unbounded batch size, and from a checkpoint just below the
-    /// limit only 2^48 - 4 lands.
+    /// 2^48, is rejected by the range check before the batch size check, even at the largest
+    /// allowed batch size, and from a checkpoint just below the limit only 2^48 - 4 lands.
     function test_land_RevertWhen_HeightReaches2Pow48() external {
         bytes32[] memory none = new bytes32[](0);
         uint256 h = _TWO_POW_48 + 2;
         assertEq(h % K, 0, "2^48 + 2 is a grid point");
-        _upgradeWithMaxBatchBlocks(type(uint64).max);
+        _upgradeWithMaxBatchBlocks(65_532);
         _expectLandRevert(_input(0, h), none, IEtnaInbox.InvalidRange.selector);
         // The range check runs before the grid check.
         _expectLandRevert(_input(0, _TWO_POW_48), none, IEtnaInbox.InvalidRange.selector);
@@ -581,14 +581,14 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
     }
 
     /// @dev Before `init` the proxy on the `EtnaInbox` implementation rejects `land` and nothing
-    /// is written.
+    /// is written: c = 0 forces p = 0, and landings[0] is unwritten.
     function test_land_RevertWhen_NotInitialized() external {
         _deployFreshInbox(false);
         _inbox().upgradeTo(address(inboxImpl));
         assertFalse(_inbox().isInitialized(), "not initialized");
 
         vm.blobhashes(blobHashes);
-        vm.expectRevert(IEtnaInbox.NotInitialized.selector);
+        vm.expectRevert(IEtnaInbox.MissingOrigin.selector);
         vm.prank(Bob);
         _inbox().land(_input(0, 6), new bytes32[](0), PROOF);
 
