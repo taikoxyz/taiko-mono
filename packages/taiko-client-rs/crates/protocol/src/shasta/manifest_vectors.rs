@@ -118,23 +118,10 @@ fn zlib_drains_small_output_chunks() {
         let payload = hex::decode(v.payload_hex).unwrap();
         let expected = hex::decode(v.expected_manifest_rlp_hex).unwrap();
         for chunk_size in [1, 7, 8192] {
-            let chunk = &mut vec![0; chunk_size];
             assert_eq!(
-                decompress_manifest_zlib(&payload[64..], chunk, usize::MAX).unwrap(),
+                decompress_manifest_zlib(&payload[64..], &mut vec![0; chunk_size]).unwrap(),
                 expected,
                 "{} chunk size {chunk_size}",
-                v.name
-            );
-            // The output cap is exact however the output is chunked.
-            assert_eq!(
-                decompress_manifest_zlib(&payload[64..], chunk, expected.len()).unwrap(),
-                expected,
-                "{} chunk size {chunk_size} at cap",
-                v.name
-            );
-            assert!(
-                decompress_manifest_zlib(&payload[64..], chunk, expected.len() - 1).is_err(),
-                "{} chunk size {chunk_size} over cap",
                 v.name
             );
         }
@@ -150,9 +137,6 @@ fn zlib_rejects_invalid_distances_and_incomplete_trees() {
         "789c04a0810800000000e46f7d00c012939201024d0127",
         "789c0d80014100000082b602ff3f68d8010608140250",
     ] {
-        assert!(
-            decompress_manifest_zlib(&hex::decode(encoded).unwrap(), &mut [0; 8192], usize::MAX)
-                .is_err()
-        );
+        assert!(decompress_manifest_zlib(&hex::decode(encoded).unwrap(), &mut [0; 8192]).is_err());
     }
 }
