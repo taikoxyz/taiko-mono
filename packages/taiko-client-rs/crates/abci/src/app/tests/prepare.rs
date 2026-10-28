@@ -1240,7 +1240,8 @@ async fn preparation_proposer_change_rebuilds_for_payout_and_reuses_raw_proofs()
             app.l1().calls().iter().all(|call| match call {
                 L1Call::ForcedTransaction { .. } => false,
                 L1Call::AccountWitness { address, slots, .. } =>
-                    *address != fx.params.inbox || *slots != crate::forced::entry_slots(0),
+                    *address != fx.params.inbox ||
+                        *slots != crate::l1::layout::inbox::forced_inclusion_entry_slots(0),
                 _ => true,
             }),
             "{:?}",
@@ -1290,7 +1291,8 @@ async fn preparation_proposer_change_reuses_cancelled_authenticated_io() {
         app.l1().calls().iter().all(|call| match call {
             L1Call::ForcedTransaction { .. } => false,
             L1Call::AccountWitness { address, slots, .. } =>
-                *address != fx.params.inbox || *slots != crate::forced::entry_slots(0),
+                *address != fx.params.inbox ||
+                    *slots != crate::l1::layout::inbox::forced_inclusion_entry_slots(0),
             _ => true,
         }),
         "the new proposer reuses only authenticated raw reads: {:?}",

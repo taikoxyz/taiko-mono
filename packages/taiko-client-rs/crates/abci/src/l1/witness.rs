@@ -34,6 +34,12 @@ pub enum WitnessError {
     /// Genesis only: the Inbox's initialization status is not `ETNA_ACTIVE`.
     #[error("inbox status is {0}, expected ETNA_ACTIVE ({active})", active = inbox::ETNA_ACTIVE)]
     NotInitialized(u8),
+    /// Genesis only: a packed genesis slot sets bits above its fields.
+    #[error("inbox slot {slot} sets reserved bits")]
+    ReservedBits {
+        /// The plain Inbox slot number ([`inbox::slot`]).
+        slot: u64,
+    },
     /// The authenticated generation-zero origin differs from the genesis record or exceeds its
     /// widths.
     #[error("invalid generation-zero origin")]
@@ -114,10 +120,12 @@ pub(crate) fn anchor_state(header: &RawL1Header, inbox: InboxFacts) -> AnchorSta
 /// block's number and hash) and an empty forced inclusion queue (head = tail = 0: Etna
 /// starts with an empty queue, slot 281 is not part of the genesis witness, and the first block
 /// always carries its own anchor witness). Rejects, in this order: `status != ETNA_ACTIVE`, a
-/// zero genesis hash, a zero bootstrap committee hash, a zero
-/// epoch length, `genesisCutoff >= L1_0`, a forced inclusion delay outside
-/// a positive delay and maximum anchor age of at least 1152 seconds. The remaining schedule bounds
-/// are checked by [`crate::Schedule::validate`].
+/// set reserved bit above the fields of the status, generation, activation record, genesis
+/// cutoff or forced inclusion configuration slot, a generation-zero origin other than
+/// `(0, L1_0)`, a nonzero genesis height, a zero genesis hash, a zero bootstrap committee hash, a
+/// zero epoch length, `genesisCutoff >= L1_0`, and a forced inclusion configuration without a
+/// positive delay and a maximum anchor age of at least 1152 seconds. The remaining schedule
+/// bounds are checked by [`crate::Schedule::validate`].
 pub fn verify_genesis_inbox(
     state_root: B256,
     w: &AccountWitness,
@@ -129,6 +137,17 @@ pub fn verify_genesis_inbox(
     let status = word_u8(inbox_word(&storage, inbox::STATUS), 0);
     if status != inbox::ETNA_ACTIVE {
         return Err(WitnessError::NotInitialized(status));
+    }
+    for (slot, bits) in [
+        (inbox::STATUS, 8),
+        (inbox::RECOVERY_GENERATION, 48),
+        (inbox::GENESIS_PACKED, 144),
+        (inbox::GENESIS_CUTOFF, 48),
+        (inbox::FORCED_INCLUSION_CONFIG, 96),
+    ] {
+        if inbox_word(&storage, slot) >> bits != U256::ZERO {
+            return Err(WitnessError::ReservedBits { slot });
+        }
     }
     let packed = inbox_word(&storage, inbox::GENESIS_PACKED);
     let forced_config = inbox_word(&storage, inbox::FORCED_INCLUSION_CONFIG);
@@ -475,21 +494,41 @@ mod tests {
         assert_eq!(record, committee_e0());
     }
 
-    /// Bits 192–255 of the activation word are unused; the decoder does not read them.
+    /// Bits 144–255 of the activation word are reserved and must be zero.
     #[test]
-    fn genesis_ignores_the_unused_activation_bits() {
-        let genesis = sample_genesis_record();
-        let mut words = InboxStorage::genesis(genesis.clone(), committee_e0()).slots();
+    fn genesis_rejects_the_unused_activation_bits() {
+        let mut words = InboxStorage::genesis(sample_genesis_record(), committee_e0()).slots();
         let activation = inbox::slot(inbox::GENESIS_PACKED);
         let (_, word) = words.iter_mut().find(|(slot, _)| *slot == activation).unwrap();
-        *word |= U256::from((1u64 << 48) - 1) << 192;
+        *word |= U256::from(1) << 144;
         let mut accounts = filler_accounts();
         accounts.push((INBOX, 1, U256::ZERO, keccak256(b"etna inbox code"), words));
         let state = TestState::new(accounts);
 
         let w = state.witness(INBOX, &inbox::genesis_slots());
-        let (decoded, _, _) = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap();
-        assert_eq!(decoded, genesis);
+        assert_eq!(
+            verify_genesis_inbox(state.state_root(), &w, INBOX),
+            Err(WitnessError::ReservedBits { slot: inbox::GENESIS_PACKED })
+        );
+    }
+
+    /// Bits above the status and the recovery generation are reserved and must be zero.
+    #[test]
+    fn genesis_rejects_bits_above_the_status_and_the_generation() {
+        for (slot, bit) in [(inbox::STATUS, 8), (inbox::RECOVERY_GENERATION, 48)] {
+            let mut words = InboxStorage::genesis(sample_genesis_record(), committee_e0()).slots();
+            let key = inbox::slot(slot);
+            let (_, word) = words.iter_mut().find(|(s, _)| *s == key).unwrap();
+            *word |= U256::from(1) << bit;
+            let mut accounts = filler_accounts();
+            accounts.push((INBOX, 1, U256::ZERO, keccak256(b"etna inbox code"), words));
+            let state = TestState::new(accounts);
+            let w = state.witness(INBOX, &inbox::genesis_slots());
+            assert_eq!(
+                verify_genesis_inbox(state.state_root(), &w, INBOX),
+                Err(WitnessError::ReservedBits { slot })
+            );
+        }
     }
 
     /// A valid storage proof cannot make a non-genesis L2 height a supported bootstrap.
@@ -638,9 +677,9 @@ mod tests {
         }
     }
 
-    /// Variables packed above `maxAnchorAge` in slot 282 do not leak into it.
+    /// Bits above `maxAnchorAge` in slot 282 are reserved and must be zero.
     #[test]
-    fn genesis_ignores_bits_above_the_max_anchor_age() {
+    fn genesis_rejects_bits_above_the_max_anchor_age() {
         let storage = InboxStorage::genesis(sample_genesis_record(), committee_e0());
         let config_slot = inbox::slot(inbox::FORCED_INCLUSION_CONFIG);
         let slots = storage
@@ -654,13 +693,15 @@ mod tests {
         accounts.push((INBOX, 1, U256::ZERO, keccak256(b"code"), slots));
         let state = TestState::new(accounts);
         let w = state.witness(INBOX, &inbox::genesis_slots());
-        let (decoded, _, _) = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap();
-        assert_eq!(decoded, sample_genesis_record());
+        assert_eq!(
+            verify_genesis_inbox(state.state_root(), &w, INBOX),
+            Err(WitnessError::ReservedBits { slot: inbox::FORCED_INCLUSION_CONFIG })
+        );
     }
 
-    /// Variables packed above `genesisCutoff` in slot 279 do not leak into it.
+    /// Bits above `genesisCutoff` in slot 279 are reserved and must be zero.
     #[test]
-    fn genesis_ignores_bits_above_the_genesis_cutoff() {
+    fn genesis_rejects_bits_above_the_genesis_cutoff() {
         let storage = InboxStorage::genesis(sample_genesis_record(), committee_e0());
         let cutoff_slot = inbox::slot(inbox::GENESIS_CUTOFF);
         let slots = storage
@@ -674,8 +715,10 @@ mod tests {
         accounts.push((INBOX, 1, U256::ZERO, keccak256(b"code"), slots));
         let state = TestState::new(accounts);
         let w = state.witness(INBOX, &inbox::genesis_slots());
-        let (decoded, _, _) = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap();
-        assert_eq!(decoded, sample_genesis_record());
+        assert_eq!(
+            verify_genesis_inbox(state.state_root(), &w, INBOX),
+            Err(WitnessError::ReservedBits { slot: inbox::GENESIS_CUTOFF })
+        );
     }
 
     #[test]

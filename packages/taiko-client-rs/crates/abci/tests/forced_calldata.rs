@@ -44,7 +44,11 @@ async fn forced_transaction_event_provenance() -> Result<()> {
     for (e, tx) in std::iter::once((singles, first)).chain(entries.into_iter().zip(batch)) {
         let header = source.header(e.l1_block).await?;
         let proof = source
-            .account_witness(d.params().inbox, &forced::entry_slots(e.index), e.l1_block)
+            .account_witness(
+                d.params().inbox,
+                &abci::l1::layout::inbox::forced_inclusion_entry_slots(e.index),
+                e.l1_block,
+            )
             .await?;
         let proven = forced::verify_entry(header.state_root(), &proof, d.params().inbox, e.index)?;
         let fetched = source.forced_transaction(d.params().inbox, e.index, e.l1_block).await?;

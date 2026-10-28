@@ -9,7 +9,7 @@ use abci::{
         layout::{inbox, word_u48, word_u64},
         mpt::verify_account_witness,
         source::{L1Source as AnchorSource, RpcL1Source},
-        witness::verify_anchor_witness,
+        witness::{WitnessError, verify_anchor_witness, verify_genesis_inbox},
     },
 };
 use alloy::sol_types::SolCall;
@@ -286,17 +286,19 @@ impl LandingSource for RpcLandingSource {
         let number = if parent.header.number == 0 {
             snapshot.genesis.l1_0
         } else {
-            let bytes = parent.header.extra_data.as_ref();
-            if bytes.len() != 13 || bytes[0] != abci::rules::BASEFEE_SHARING_PCTG {
-                return Err(LanderError::Safety("EL checkpoint has invalid Etna extraData".into()));
-            }
-            let generation = bytes[1..7].iter().fold(0u64, |n, b| (n << 8) | u64::from(*b));
+            let (generation, anchor) = abci::rules::decode_extra_data(&parent.header.extra_data)
+                .ok()
+                .filter(|(pctg, ..)| *pctg == abci::rules::BASEFEE_SHARING_PCTG)
+                .map(|(_, generation, anchor)| (generation, anchor))
+                .ok_or_else(|| {
+                    LanderError::Safety("EL checkpoint has invalid Etna extraData".into())
+                })?;
             if generation != snapshot.generation {
                 return Err(LanderError::Safety(
                     "EL checkpoint generation differs from Inbox".into(),
                 ));
             }
-            bytes[7..13].iter().fold(0u64, |n, b| (n << 8) | u64::from(*b))
+            anchor
         };
         let anchor = self.anchor_at(number).await?;
         if parent.header.number != 0 &&
@@ -546,53 +548,30 @@ fn decode_snapshot(
         verify_account_witness(raw.state_root(), &witness, &snapshot_landing_slots(height))
             .map_err(|e| LanderError::Safety(format!("Inbox snapshot proof: {e}")))?;
     let word = |slot| storage.get(inbox::slot(slot)).expect("verified snapshot slot");
-    if word(inbox::STATUS) != U256::from(inbox::ETNA_ACTIVE) {
-        return Err(LanderError::Configuration("Inbox is not active".into()));
-    }
-    let config: B256 = word(inbox::COMMITTEE_CONFIG_HASH).into();
-    if config != abci::committee::committee_config_hash(params) || config.is_zero() {
-        return Err(LanderError::Configuration("Inbox committee config opening mismatch".into()));
-    }
-    let packed = word(inbox::GENESIS_PACKED);
-    let forced_config = word(inbox::FORCED_INCLUSION_CONFIG);
-    let genesis = GenesisRecord {
-        committee_config_hash: config,
-        genesis_height: word_u48(packed, 0),
-        l1_0: word_u48(packed, 48),
-        epoch_len: word_u48(packed, 96),
-        genesis_hash: word(inbox::GENESIS_BLOCK_HASH).into(),
-        genesis_state_root: word(inbox::GENESIS_STATE_ROOT).into(),
-        genesis_cutoff: word_u64(word(inbox::GENESIS_CUTOFF), 0),
-        forced_inclusion_delay: word_u48(forced_config, 0),
-        max_anchor_age: word_u48(forced_config, 48),
-    };
-    let bootstrap: B256 = word(inbox::GENESIS_COMMITTEE_HASH).into();
-    if genesis.genesis_height != 0 ||
-        genesis.genesis_hash.is_zero() ||
-        genesis.genesis_state_root.is_zero() ||
-        genesis.genesis_cutoff >= genesis.l1_0 ||
-        genesis.forced_inclusion_delay == 0 ||
-        genesis.max_anchor_age < 1152 ||
-        bootstrap.is_zero()
-    {
-        return Err(LanderError::Configuration("Inbox genesis record is invalid".into()));
-    }
-    let (verified_genesis, _, verified_bootstrap) = abci::l1::witness::verify_genesis_inbox(
+    let (genesis, _, bootstrap) = verify_genesis_inbox(
         raw.state_root(),
         &project_witness(&witness, &inbox::genesis_slots()),
         params.inbox,
     )
-    .map_err(|e| LanderError::Safety(format!("snapshot genesis/origin proof: {e}")))?;
-    if verified_genesis != genesis ||
-        verified_bootstrap != bootstrap ||
-        packed >> 144 != U256::ZERO ||
-        forced_config >> 96 != U256::ZERO ||
-        word(inbox::LAST_CHECKPOINT_HEIGHT) >> 48 != U256::ZERO ||
-        word(inbox::RECOVERY_GENERATION) >> 48 != U256::ZERO ||
-        word(inbox::GENESIS_CUTOFF) >> 48 != U256::ZERO
-    {
+    .map_err(|e| match e {
+        WitnessError::Mpt(_) |
+        WitnessError::WrongContract { .. } |
+        WitnessError::ReservedBits { .. } |
+        WitnessError::InvalidOrigin => {
+            LanderError::Safety(format!("snapshot genesis/origin proof: {e}"))
+        }
+        _ => LanderError::Configuration(format!("Inbox genesis record is invalid: {e}")),
+    })?;
+    let config = genesis.committee_config_hash;
+    if config != abci::committee::committee_config_hash(params) || config.is_zero() {
+        return Err(LanderError::Configuration("Inbox committee config opening mismatch".into()));
+    }
+    if genesis.genesis_state_root.is_zero() {
+        return Err(LanderError::Configuration("Inbox genesis record is invalid".into()));
+    }
+    if word(inbox::LAST_CHECKPOINT_HEIGHT) >> 48 != U256::ZERO {
         return Err(LanderError::Safety(
-            "snapshot genesis or packed storage identity mismatch".into(),
+            "snapshot packed checkpoint height sets reserved bits".into(),
         ));
     }
     Schedule::from_genesis(&genesis)
