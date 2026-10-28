@@ -132,7 +132,7 @@ class Supervisor:
                 raise ValueError("Unix signer transport changed during stale-socket check")
             # Atomically select the actual object before destroying anything.
             # The Comet UID can replace names in run/, but cannot mutate entries
-            # in this fresh supervisor-owned directory, even if it renames it.
+            # in a supervisor-owned private capture directory.
             quarantine = ".etna-transport-" + uuid.uuid4().hex
             os.mkdir(quarantine, mode=0o700, dir_fd=descriptor)
             private = os.open(quarantine, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
@@ -143,22 +143,34 @@ class Supervisor:
                         or stat.S_IMODE(owned.st_mode) != 0o700
                         or owned.st_dev != opened_directory.st_dev):
                     raise ValueError("unsafe Unix transport quarantine")
-                os.rename(self.transport.name, "endpoint", src_dir_fd=descriptor, dst_dir_fd=private)
-                selected = os.stat("endpoint", dir_fd=private, follow_symlinks=False)
-                if (not stat.S_ISSOCK(selected.st_mode)
-                        or (selected.st_dev, selected.st_ino) != (original.st_dev, original.st_ino)):
-                    # Restore the public name only if still absent. Retain the
-                    # protected backup even when this succeeds: another writer
-                    # can unlink the restored name immediately afterwards.
-                    try:
-                        os.link("endpoint", self.transport.name, src_dir_fd=private,
-                                dst_dir_fd=descriptor, follow_symlinks=False)
-                    except OSError:
-                        pass
-                    raise ValueError(f"Unix transport changed; preserved at {directory / quarantine / 'endpoint'}")
-                os.unlink("endpoint", dir_fd=private)
-                # Do not recursively clean quarantine contents or unlink through
-                # its mutable parent name. An empty private directory is harmless.
+                # A writer can substitute an older root-owned outer directory
+                # between mkdir and open. Never reuse its contents. Create the
+                # actual capture destination only under this held private parent,
+                # where the Comet UID cannot replace its name or prefill it.
+                if os.listdir(private):
+                    raise ValueError(f"nonempty Unix quarantine; preserved at {directory / quarantine}")
+                os.mkdir("capture", mode=0o700, dir_fd=private)
+                capture = os.open("capture", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                                  dir_fd=private)
+                try:
+                    os.rename(self.transport.name, "endpoint", src_dir_fd=descriptor, dst_dir_fd=capture)
+                    selected = os.stat("endpoint", dir_fd=capture, follow_symlinks=False)
+                    if (not stat.S_ISSOCK(selected.st_mode)
+                            or (selected.st_dev, selected.st_ino) != (original.st_dev, original.st_ino)):
+                        # Restore the public name only if still absent. Retain the
+                        # protected backup even when this succeeds: another writer
+                        # can unlink the restored name immediately afterwards.
+                        try:
+                            os.link("endpoint", self.transport.name, src_dir_fd=capture,
+                                    dst_dir_fd=descriptor, follow_symlinks=False)
+                        except OSError:
+                            pass
+                        raise ValueError(f"Unix transport changed; preserved at {directory / quarantine / 'capture' / 'endpoint'}")
+                    os.unlink("endpoint", dir_fd=capture)
+                    # Do not recursively clean quarantine contents or unlink through
+                    # its mutable parent name. Empty private directories are retained.
+                finally:
+                    os.close(capture)
             finally:
                 os.close(private)
         finally:
