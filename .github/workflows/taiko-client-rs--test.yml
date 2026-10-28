@@ -61,7 +61,7 @@ jobs:
   lockfile:
     if: ${{ github.event.pull_request.draft == false }}
     name: Lockfile
-    runs-on: [arc-runner-set]
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
@@ -78,7 +78,7 @@ jobs:
   lint:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
     name: Lint
-    runs-on: [arc-runner-set]
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
@@ -144,11 +144,6 @@ jobs:
         with:
           just-version: 1.5.0
 
-      - name: Install cargo-sort
-        uses: taiki-e/install-action@v2.87.1
-        with:
-          tool: cargo-sort
-
       - name: Check formatting
         working-directory: packages/taiko-client-rs
         run: just fmt-check
@@ -162,7 +157,7 @@ jobs:
   unit:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     name: Unit Tests
-    runs-on: [arc-runner-set]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
@@ -249,7 +244,7 @@ jobs:
   test:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     name: Tests
-    runs-on: [arc-runner-set]
+    runs-on: ubuntu-latest
     timeout-minutes: 50
 
     steps:
@@ -361,7 +356,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: "22.23.4"
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 

@@ -14,6 +14,7 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/relayer/**"
+      - ".github/workflows/relayer--test.yml"
       - "go.mod"
       - "go.sum"
       - "!**/*.md"
@@ -32,22 +33,9 @@ jobs:
       || (github.event.pull_request.draft == false
           && !startsWith(github.head_ref, 'release-please')
           && !startsWith(github.head_ref, 'dependabot'))
-    # SECURITY: route fork PRs to a hosted runner where the first step exits 1.
-    # The required check turns red for fork PRs (instead of silently skipping
-    # as success) without ever running PR-controlled code on arc-runner-set.
-    runs-on: >-
-      ${{
-        (github.event_name == 'pull_request'
-         && github.event.pull_request.head.repo.fork == true)
-        && 'ubuntu-latest' || 'arc-runner-set'
-      }}
+    # GitHub-hosted: fresh VM per job, so fork PRs get real CI (with no secrets and a read-only token).
+    runs-on: ubuntu-latest
     steps:
-      - name: Block fork PR CI on self-hosted runners
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true
-        run: |
-          echo "::error::Fork PR CI on self-hosted runners is disabled for security."
-          echo "::error::A maintainer must move this CI to a hosted-runner job or trigger from a trusted ref."
-          exit 1
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -75,22 +63,12 @@ jobs:
       || (github.event.pull_request.draft == false
           && !startsWith(github.head_ref, 'release-please')
           && !startsWith(github.head_ref, 'dependabot'))
-    # SECURITY: see lint-relayer for the dynamic runs-on rationale.
-    runs-on: >-
-      ${{
-        (github.event_name == 'pull_request'
-         && github.event.pull_request.head.repo.fork == true)
-        && 'ubuntu-latest' || 'arc-runner-set'
-      }}
+    # GitHub-hosted: fresh VM per job, so fork PRs get real CI (with no secrets and a read-only token).
+    runs-on: ubuntu-latest
     steps:
-      - name: Block fork PR CI on self-hosted runners
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true
-        run: |
-          echo "::error::Fork PR CI on self-hosted runners is disabled for security."
-          echo "::error::A maintainer must move this CI to a hosted-runner job or trigger from a trusted ref."
-          exit 1
-
       - name: Cancel Previous Runs
+        # Fork PRs get a read-only token, so cancelling needs actions: write they do not have.
+        if: github.event.pull_request.head.repo.fork != true
         uses: styfle/cancel-workflow-action@0.13.1
         with:
           access_token: ${{ github.token }}

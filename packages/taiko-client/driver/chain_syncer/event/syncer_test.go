@@ -181,7 +181,17 @@ func (s *EventSyncerTestSuite) TestTreasuryIncomeAllAnchors() {
 	s.Nil(err)
 
 	s.Greater(headAfter, headBefore)
-	s.Equal(1, balanceAfter.Cmp(balance))
+
+	// The treasury receives the share of the basefee the inbox does not pay to the coinbase, so it
+	// only gains when `basefeeSharingPctg` is below 100.
+	shastaCfg, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)
+	s.Nil(err)
+
+	if shastaCfg.BasefeeSharingPctg < 100 {
+		s.Equal(1, balanceAfter.Cmp(balance))
+	} else {
+		s.Zero(balanceAfter.Cmp(balance))
+	}
 }
 
 func (s *EventSyncerTestSuite) TestTreasuryIncome() {
@@ -204,11 +214,16 @@ func (s *EventSyncerTestSuite) TestTreasuryIncome() {
 	s.Nil(err)
 
 	s.Greater(headAfter, headBefore)
-	s.True(balanceAfter.Cmp(balance) > 0)
 
 	var hasNoneAnchorTxs bool
 	shastaCfg, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)
 	s.Nil(err)
+
+	// At `basefeeSharingPctg` == 100 the whole basefee goes to the coinbase and the treasury gains
+	// nothing; the per-transaction reconciliation below covers both cases.
+	if shastaCfg.BasefeeSharingPctg < 100 {
+		s.True(balanceAfter.Cmp(balance) > 0)
+	}
 
 	for i := headBefore + 1; i <= headAfter; i++ {
 		block, err := s.RPCClient.L2.BlockByNumber(context.Background(), new(big.Int).SetUint64(i))

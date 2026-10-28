@@ -46,7 +46,7 @@
 
 - ens: `bridge.based.taiko.eth`
 - proxy: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
-- impl: `0x1c94D798CFA08F396E5BA9F81697289c53273381`
+- impl: `0xe6BF63dCc936063caD2300f32DaA67d9eE5c57b6`
 - owner: `controller.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -65,12 +65,13 @@
   - Upgrade impl to `0x2705B12a971dA766A3f9321a743d61ceAD67dA2F` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
   - Change owner to controller @tx`0x6348cbb8f4c907bd72ded06cb9ba587d4ca794a546dab7e7ab6f0281a9c48c2c`
   - upgraded to `0x1c94D798CFA08F396E5BA9F81697289c53273381` on Jun 29, 2026 @commit`b73608696` @tx`0xae7122add731c935d54d726ebe542e7d4f9f7321e3bdf4ec794309f813d981f7` (Proposal0017)
+  - upgraded to `0xA15dca0A72da684f20e0FC708DECFb230a715462` on Oct 8, 2026 @commit`cd847999b` @tx`0x17c27b257bb1445a512d4426c962de5c5f4b282f459c7e851c413702ad11d10c` (Proposal0024)
+  - upgraded to `0xe6BF63dCc936063caD2300f32DaA67d9eE5c57b6` on Oct 12, 2026 @commit`3ef2366f6` @tx`0x935e4a93cf26e7bef2ac3c445815e253496d82d51e4205e7073a3d511a9111f4` (Proposal0025)
 
 #### quota_manager
 
 - address: `0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC`
 - owner: `admin.taiko.eth` (`0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F`)
-- note: immutable (no proxy), verified `QuotaManager`; deployed with the Proposal0017 Bridge/ERC20Vault implementations as their constructor `QUOTA_MANAGER`. The live Bridge (`0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`) and ERC20Vault (`0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab`) are its only quota consumers (`quotaManager()` on both returns this address). Replaces the previous upgradeable QuotaManager proxy `0x91f67118DD47d502B1f0C354D0611997B022f29E`.
 - quota (configured maxima, read on-chain 2026-07-07):
   - Quota Period: 24 hours
   - ETH: 250 ETH
@@ -85,7 +86,7 @@
 
 - ens: `v20.based.taiko.eth`
 - proxy: `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab`
-- impl: `0x024253C6FDC27d3161aFd43fb0241411A28dDc3c`
+- impl: `0xd429A698d19b5789ce6Eb72d8B3ae9fad3b28A92`
 - owner: `controller.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -97,14 +98,15 @@
   - upgraded from `0x7ACFBb369a552C45d402448A4d64b9da54C3FF30` to `0xb20C8Ffc2dD49596508d262b6E8B6817e9790E63` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
   - change owner to controller.taiko.eth @tx`0xc67a1ab94e6c4ccc5a357269c54a15b99f64ac9ed0c089b853d634772dbe40e0`
   - upgraded to `0x024253C6FDC27d3161aFd43fb0241411A28dDc3c` on Jun 29, 2026 @commit`b73608696` @tx`0xae7122add731c935d54d726ebe542e7d4f9f7321e3bdf4ec794309f813d981f7` (Proposal0017)
+  - upgraded to `0x32E47c04E8c329E8c10062731448e7658aDEEB8e` on Oct 8, 2026 @commit`fda424de5` @tx`0x17c27b257bb1445a512d4426c962de5c5f4b282f459c7e851c413702ad11d10c` (Proposal0024)
+  - upgraded to `0xd429A698d19b5789ce6Eb72d8B3ae9fad3b28A92` on Oct 12, 2026 @commit`3ef2366f6` @tx`0x935e4a93cf26e7bef2ac3c445815e253496d82d51e4205e7073a3d511a9111f4` (Proposal0025)
 
 #### erc721_vault
 
 - ens: `v721.based.taiko.eth`
 - proxy: `0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa`
-- impl: `0xA4C5c20aB33C96B1c281Dca37D03E23609274C49`
+- impl: `0x611f3Dc278A14b6ED14410Cd9d56E1721cf33802`
 - owner: `controller.taiko.eth`
-- note: `addressManager()` points at the legacy shared_address_manager `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa` (SAM), superseded by shared_resolver `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`; the bridge and erc20_vault were migrated to it, these NFT vaults were not.
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - upgraded from `0xEC04849E7722Fd69797a155796Db75aC8F94f692` to `0x41A7BDD153a5AfFb10Ed1AD3D6a4e5ad001495FA` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
@@ -113,14 +115,14 @@
   - upgraded from `0x55B5df6B53466446221180498BfD1C59e54732c4` to `0xD961e3Ef2D7DF58cDc67BFd9055255430E5e3fEc` @commit`bb2abc5` @tx`0x7d584f0a645cad61e634f64ffaf7e1bbfb92749878eb25b39ce0e5cf698897c7`
   - upgraded from `0xD961e3Ef2D7DF58cDc67BFd9055255430E5e3fEc` to `0xA4C5c20aB33C96B1c281Dca37D03E23609274C49` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
   - change owner to controller.taiko.eth @tx`0xc67a1ab94e6c4ccc5a357269c54a15b99f64ac9ed0c089b853d634772dbe40e0`
+  - upgraded to `0x611f3Dc278A14b6ED14410Cd9d56E1721cf33802` on Oct 12, 2026 @commit`3ef2366f6` @tx`0x935e4a93cf26e7bef2ac3c445815e253496d82d51e4205e7073a3d511a9111f4` (Proposal0025)
 
 #### erc1155_vault
 
 - ens: `v1155.based.taiko.eth`
 - proxy: `0xaf145913EA4a56BE22E120ED9C24589659881702`
-- impl: `0x838ed469db456b67EB3b0B74D759Be4DA999b9c8`
+- impl: `0xca775D0Bb8CEFe388E344f75De91Aebd0E73c58E`
 - owner: `controller.taiko.eth`
-- note: `addressManager()` points at the legacy shared_address_manager `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa` (SAM), superseded by shared_resolver `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`; the bridge and erc20_vault were migrated to it, these NFT vaults were not.
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - upgraded from `0x7748dA086A2e6EDd8Db97eD236840910013c6396` to `0xd90b5fcf8d00d333d107E4Ab7F94c0c0A41CDcfE` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
@@ -129,25 +131,29 @@
   - upgraded from `0xca92880829139b310B6b0CB41f66D566Db1a59C8` to `0x89C68Bc7028f8b1e69A91382b0a4b1825085617b` @commit`bb2abc5` @tx`0x7d584f0a645cad61e634f64ffaf7e1bbfb92749878eb25b39ce0e5cf698897c7`
   - upgraded from `0x89C68Bc7028f8b1e69A91382b0a4b1825085617b` to `0x838ed469db456b67EB3b0B74D759Be4DA999b9c8` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
   - change owner to controller.taiko.eth @tx`0xc67a1ab94e6c4ccc5a357269c54a15b99f64ac9ed0c089b853d634772dbe40e0`
+  - upgraded to `0xca775D0Bb8CEFe388E344f75De91Aebd0E73c58E` on Oct 12, 2026 @commit`3ef2366f6` @tx`0x935e4a93cf26e7bef2ac3c445815e253496d82d51e4205e7073a3d511a9111f4` (Proposal0025)
 
 #### bridged_erc20
 
-- impl: `0x65666141a541423606365123Ed280AB16a09A2e1`
+- impl: `0x9ccB9eBa4335096c5B64f050C3c734632D497c3b`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - deployed on Jul 25, 2024 @commit`ba6bf94`
+  - `BridgedERC20V2` `0x9ccB9eBa4335096c5B64f050C3c734632D497c3b` registered as `bridged_erc20` on shared_resolver on Oct 8, 2026 @commit`fda424de5` @tx`0x17c27b257bb1445a512d4426c962de5c5f4b282f459c7e851c413702ad11d10c` (Proposal0024)
 
 #### bridged_erc721
 
-- impl: `0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7`
+- impl: `0xD9c9dB7519011437C54BCD32495c0347A410bc4D`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
+  - `BridgedERC721` `0xD9c9dB7519011437C54BCD32495c0347A410bc4D` registered as `bridged_erc721` on shared_resolver on Oct 12, 2026 @commit`3ef2366f6` @tx`0x935e4a93cf26e7bef2ac3c445815e253496d82d51e4205e7073a3d511a9111f4` (Proposal0025)
 
 #### bridged_erc1155
 
-- impl: `0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40`
+- impl: `0x35001aB6f53CF9fE583653Ca3F56cae75E8C385e`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
+  - `BridgedERC1155` `0x35001aB6f53CF9fE583653Ca3F56cae75E8C385e` registered as `bridged_erc1155` on shared_resolver on Oct 12, 2026 @commit`3ef2366f6` @tx`0x935e4a93cf26e7bef2ac3c445815e253496d82d51e4205e7073a3d511a9111f4` (Proposal0025)
 
 #### shared_resolver
 
@@ -167,12 +173,15 @@
   - erc721_vault@167000: `0x1670000000000000000000000000000000000003`
   - erc1155_vault: `0xaf145913EA4a56BE22E120ED9C24589659881702`
   - erc1155_vault@167000: `0x1670000000000000000000000000000000000004`
-  - bridged_erc20: `0x65666141a541423606365123Ed280AB16a09A2e1`
-  - bridged_erc721: `0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7`
-  - bridged_erc1155: `0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40`
+  - bridged_erc20: `0x9ccB9eBa4335096c5B64f050C3c734632D497c3b`
+  - bridged_erc721: `0xD9c9dB7519011437C54BCD32495c0347A410bc4D`
+  - bridged_erc1155: `0x35001aB6f53CF9fE583653Ca3F56cae75E8C385e`
 - logs:
   - deployed on May 15, 2025 @commit`cf55838b2` @tx `0x0a48a276897935e7406b4cc8f17a9b1480c56cb866d6504fd28184ac8e79e8a0`
   - remove `bridge_watchdog` on May 16, 2025 @tx`0x48961d6d5c2a3301f6d6b5e0a78f1ddee396bf55b3b654a5067d0768d61f978b`
+  - register `bridged_erc20` to `0x9ccB9eBa4335096c5B64f050C3c734632D497c3b` on Oct 8, 2026 @tx`0x17c27b257bb1445a512d4426c962de5c5f4b282f459c7e851c413702ad11d10c` (Proposal0024)
+  - register `bridged_erc721` to `0xD9c9dB7519011437C54BCD32495c0347A410bc4D` on Oct 12, 2026 @tx`0x935e4a93cf26e7bef2ac3c445815e253496d82d51e4205e7073a3d511a9111f4` (Proposal0025)
+  - register `bridged_erc1155` to `0x35001aB6f53CF9fE583653Ca3F56cae75E8C385e` on Oct 12, 2026 @tx`0x935e4a93cf26e7bef2ac3c445815e253496d82d51e4205e7073a3d511a9111f4` (Proposal0025)
 
 #### shared_address_manager (sam)
 
@@ -180,7 +189,6 @@
 - proxy: `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa`
 - impl: `0xEC1a9aa1C648F047752fe4eeDb2C21ceab0c6449`
 - owner : `controller.taiko.eth`
-- note: legacy shared AddressManager (pre-`DefaultResolver`). Kept because `erc721_vault` + `erc1155_vault` still resolve through it via `addressManager()` (their `resolver()` reverts) — verified on-chain: `getAddress(1,"erc721_vault")` returns the vault, `getAddress(1,"bridge")` returns the bridge. `bridge` + `erc20_vault` were migrated to shared_resolver `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`.
 - names:
   - taiko_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
   - signal_service: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
@@ -213,7 +221,7 @@
 ### inbox
 
 - proxy : `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f`
-- impl : `0x5253D4C91e80b880DdB54B78E74082Abe066F6b9`
+- impl : `0xA18431d42C8dF9778905fBEa912aCF1881b49D2e`
 - logs:
   - implementation deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x8a7c1e426b8fb8d7c00c7ffd9d1c41e3ce907f57f696f18fe3718abcd234a6de`
   - proxy deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x7576f1179250453948b37648a748aaade28c40b33e358fa0cbe21be6b0368601`
@@ -221,6 +229,7 @@
   - Unzen implementation deployed on Jul 10, 2026 @commit`907827890` @tx`0xa02d9efd2c2543727e801516d9c3184b2b2da0050ab948f3cb85bdefc5c1749e`
   - upgraded to `0x5253D4C91e80b880DdB54B78E74082Abe066F6b9` on Aug 3, 2026 @commit`907827890` @tx`0x64875b5b84b41b520551854696c0ce408fb3e0aa2ede604cc95a5919b6140ea7` (Proposal0019 — Unzen)
   - called `init3()` in the same bundle @commit`907827890` @tx`0x64875b5b84b41b520551854696c0ce408fb3e0aa2ede604cc95a5919b6140ea7`
+  - upgraded to `0xA18431d42C8dF9778905fBEa912aCF1881b49D2e` on Oct 19, 2026 @commit`9deb5b590` @tx`0x3f8f55e6651184d5794e4362661ebe709ae3a33df2424f664dc2bf235465859f` (Proposal0026)
 
 #### automata_dcap_attestation
 
@@ -243,6 +252,9 @@
   - rotated the trusted MRENCLAVEs to raiko2 v0.8.0-rc1 on Sep 21, 2026 @commit`5738ba13f` @tx`0x4a761524f4fe9377a63233971eb3ce7b2101832371f19e1f5e0cf126bae0bf7d` (Proposal0021). The trusted MRSIGNER allowlist is unchanged.
     - untrusted: `0x90c79e65d6d0f83d658ff96cd0ef1204438f20b406c93cf1d4fafa0cff29842e` (non-EDMM), `0x041cadb0541bf8249c368482172d218608f3693975b65f74beb2ed6f0044f951` (EDMM)
     - trusted: `0x3564b6a30089fcb3e2f69c19b22d23f84ce148387cd7a15f5c1df165b2ae5847` (non-EDMM), `0xae2c7b92b2a71238226cb624ecd1171b66bf943cc372314affca0e6748ccecdf` (EDMM)
+  - rotated the trusted MRENCLAVEs to raiko2 v0.9.0 on Oct 19, 2026 @commit`6d1d62741` @tx`0x3f8f55e6651184d5794e4362661ebe709ae3a33df2424f664dc2bf235465859f` (Proposal0026). The trusted MRSIGNER allowlist is unchanged.
+    - untrusted: `0x3564b6a30089fcb3e2f69c19b22d23f84ce148387cd7a15f5c1df165b2ae5847` (non-EDMM), `0xae2c7b92b2a71238226cb624ecd1171b66bf943cc372314affca0e6748ccecdf` (EDMM)
+    - trusted: `0xfeabd725eb5bb621b5c6a5071d1702bcbe06a643b42a0db8f381d5bc07dd81bf` (non-EDMM), `0x6f3c8c55ec62fe48b83e57463e8717aa9f8594418203c9520f0f80e6f4fc4d87` (EDMM)
 
 #### sgx_geth_automata
 
@@ -257,6 +269,9 @@
   - rotated the trusted MRENCLAVE to raiko2 v0.8.0-rc1 on Sep 21, 2026 @commit`5738ba13f` @tx`0x4a761524f4fe9377a63233971eb3ce7b2101832371f19e1f5e0cf126bae0bf7d` (Proposal0021). The trusted MRSIGNER allowlist is unchanged.
     - untrusted: `0x2d2216efbe9d8e80ba24b86606ccd5ce9faf11033d31ad9e5d3c5c89965c8a57`
     - trusted: `0x5f7da556f3b75dcc71465030e1b7274e82df9e9120c0b3eaf5bb76246a514005`
+  - rotated the trusted MRENCLAVE to raiko2 v0.9.0 on Oct 19, 2026 @commit`6d1d62741` @tx`0x3f8f55e6651184d5794e4362661ebe709ae3a33df2424f664dc2bf235465859f` (Proposal0026). The trusted MRSIGNER allowlist is unchanged.
+    - untrusted: `0x5f7da556f3b75dcc71465030e1b7274e82df9e9120c0b3eaf5bb76246a514005`
+    - trusted: `0x8c23c79045b9b6bb827eab208e0fe58d7446a57a55f3dfc825c90e904953105b`
 
 ### token_unlock
 
@@ -276,6 +291,8 @@
   - registered the raiko2 v0.6.0 replacement instance on Aug 3, 2026 @tx`0x47d1568c2a3577b1f7204144ed98940c87363f61c68b476ed70eccec28d2ab67` — instance ID `1`, signer `0xcad44B58dc58c825b107F8C772C3D2aedd9f2153`, attesting the non-EDMM MRENCLAVE.
   - deleted instance ID `1` on Sep 21, 2026 @commit`5738ba13f` @tx`0x4a761524f4fe9377a63233971eb3ce7b2101832371f19e1f5e0cf126bae0bf7d` (Proposal0021) — removed the sole registered instance, signer `0xcad44B58dc58c825b107F8C772C3D2aedd9f2153`.
   - registered the raiko2 v0.8.0-rc1 replacement instance on Sep 21, 2026 @tx`0x448987a9cd34dadf7fffbaa6cec9934aaf73a6dcfbcaad440fe8da9916c7b87e` — instance ID `2`, signer `0x3f35EF8639dca43d9c03a7Ab3737161F75EDE069`, attesting the non-EDMM MRENCLAVE.
+  - deleted instance ID `2` on Oct 19, 2026 @commit`6d1d62741` @tx`0x3f8f55e6651184d5794e4362661ebe709ae3a33df2424f664dc2bf235465859f` (Proposal0026) — removed the sole registered instance, signer `0x3f35EF8639dca43d9c03a7Ab3737161F75EDE069`.
+  - registered the raiko2 v0.9.0 replacement instance on Oct 19, 2026 @tx`0xa77469188a70c255cf8bad84f3248eef7b67ed0e03db763b0f008d4410278bf9` — instance ID `3`, signer `0x538432c550cC507d429C84Aa05c2D63b0CA5fE55`, attesting the non-EDMM MRENCLAVE.
 
 ### sgx_verifier_geth
 
@@ -287,6 +304,8 @@
   - registered the raiko2 v0.6.0 replacement instance on Aug 3, 2026 @tx`0x47d1568c2a3577b1f7204144ed98940c87363f61c68b476ed70eccec28d2ab67` — instance ID `1`, signer `0x38652b8e4cDF1BE4F86bAeBB145db1269e758479`.
   - deleted instance ID `1` on Sep 21, 2026 @commit`5738ba13f` @tx`0x4a761524f4fe9377a63233971eb3ce7b2101832371f19e1f5e0cf126bae0bf7d` (Proposal0021) — removed the sole registered instance, signer `0x38652b8e4cDF1BE4F86bAeBB145db1269e758479`.
   - registered the raiko2 v0.8.0-rc1 replacement instance on Sep 21, 2026 @tx`0x448987a9cd34dadf7fffbaa6cec9934aaf73a6dcfbcaad440fe8da9916c7b87e` — instance ID `2`, signer `0x51901a17b3D2b546C0AD816090215Ea35DBE7E7D`.
+  - deleted instance ID `2` on Oct 19, 2026 @commit`6d1d62741` @tx`0x3f8f55e6651184d5794e4362661ebe709ae3a33df2424f664dc2bf235465859f` (Proposal0026) — removed the sole registered instance, signer `0x51901a17b3D2b546C0AD816090215Ea35DBE7E7D`.
+  - registered the raiko2 v0.9.0 replacement instance on Oct 19, 2026 @tx`0xa77469188a70c255cf8bad84f3248eef7b67ed0e03db763b0f008d4410278bf9` — instance ID `3`, signer `0x4671851681a276f8beb88d998F10be21b8E5ac95`.
 
 ### risc0_verifier
 
@@ -301,6 +320,9 @@
   - rotated the trusted image IDs to raiko2 v0.8.0-rc1 on Sep 21, 2026 @commit`5738ba13f` @tx`0x4a761524f4fe9377a63233971eb3ce7b2101832371f19e1f5e0cf126bae0bf7d` (Proposal0021)
     - untrusted (raiko2 v0.6.0): proposal `0x5a818b4c7dc80e9ba85d55492c20c263c67238724e3982f76d15a158e501210b`, aggregation `0x9cfcc1b34a98853c3c5873a4d456726e528246f7f03a4ea35f27c2543aa6e7f0`
     - trusted (raiko2 v0.8.0-rc1): proposal `0xd6ab71c22201c23ef512b706f2e2d720f6da1b559fb76834aa9d4e35276f6e10`, aggregation `0xdd9b8abff96c409ae2418edfb51d893ea2bd10f4873a0226f17a6998c1afc1b7`
+  - rotated the trusted image IDs to raiko2 v0.9.0 on Oct 19, 2026 @commit`6d1d62741` @tx`0x3f8f55e6651184d5794e4362661ebe709ae3a33df2424f664dc2bf235465859f` (Proposal0026)
+    - untrusted (raiko2 v0.8.0-rc1): proposal `0xd6ab71c22201c23ef512b706f2e2d720f6da1b559fb76834aa9d4e35276f6e10`, aggregation `0xdd9b8abff96c409ae2418edfb51d893ea2bd10f4873a0226f17a6998c1afc1b7`
+    - trusted (raiko2 v0.9.0): proposal `0x88712dad7dc78126ee7bb592282d3102569c706f1b9db80580a582e5ffd1dfb0`, aggregation `0x04480b22e244d60165f3d0898bc61ea084d9c76221464a8a3c3343c74889040a`
 
 ### sp1_verifier
 
@@ -315,11 +337,14 @@
   - rotated the trusted program vkeys to raiko2 v0.8.0-rc1 on Sep 21, 2026 @commit`5738ba13f` @tx`0x4a761524f4fe9377a63233971eb3ce7b2101832371f19e1f5e0cf126bae0bf7d` (Proposal0021)
     - untrusted (raiko2 v0.6.0): proposal bn256 `0x00ad090221a8fa0f09e1be7a53feb67be010f01310d4b2314a69d10152ee1ce0`, proposal hash-bytes `0x568481106a3e83c23c37cf4a3feb67be008780984352c8c514d3a20252ee1ce0`, aggregation bn256 `0x000b11691352e55fcf64f62620cefaa700161600093f2751032fe71ea912264d`, aggregation hash-bytes `0x0588b48954b957f36c9ec4c40cefaa7000b0b00024fc9d44065fce3d2912264d`
     - trusted (raiko2 v0.8.0-rc1): proposal bn256 `0x0025425c22e827507428a3d9c7b0f89635be5462f34bb6780563e3d6086be7c7`, proposal hash-bytes `0x12a12e113a09d41d05147b387b0f89632df2a3174d2ed9e00ac7c7ac086be7c7`, aggregation bn256 `0x0051ac1d9e8cfd4196e37f9cfefd08e9b0f7ce653bad4634cd1ee84b71ca3be6`, aggregation hash-bytes `0x28d60ecf233f50655c6ff39f6fd08e9b07be73296eb518d31a3dd09671ca3be6`
+  - rotated the trusted program vkeys to raiko2 v0.9.0 on Oct 19, 2026 @commit`6d1d62741` @tx`0x3f8f55e6651184d5794e4362661ebe709ae3a33df2424f664dc2bf235465859f` (Proposal0026)
+    - untrusted (raiko2 v0.8.0-rc1): proposal bn256 `0x0025425c22e827507428a3d9c7b0f89635be5462f34bb6780563e3d6086be7c7`, proposal hash-bytes `0x12a12e113a09d41d05147b387b0f89632df2a3174d2ed9e00ac7c7ac086be7c7`, aggregation bn256 `0x0051ac1d9e8cfd4196e37f9cfefd08e9b0f7ce653bad4634cd1ee84b71ca3be6`, aggregation hash-bytes `0x28d60ecf233f50655c6ff39f6fd08e9b07be73296eb518d31a3dd09671ca3be6`
+    - trusted (raiko2 v0.9.0): proposal bn256 `0x0012b97234e59f2319d44202c7b093fed9c9a51b2068e38d26625c139d668c97`, proposal hash-bytes `0x095cb91a3967c8c63a8840587b093fed4e4d28d901a38e344cc4b8271d668c97`, aggregation bn256 `0x0017912dfd72308e2e2cd4211b05ed73a97eb7f576816adec2606a37507de51e`, aggregation hash-bytes `0x0bc896fe5c8c238b459a8423305ed73a4bf5bfab5a05ab7b04c0d46e507de51e`
 
 ### mainnet_verifier
 
 - impl : `0x7284aaC05555Ae6559bdAd8B4221eC9584254Eec`
-- sub-verifier addresses (unchanged since Proposal0017; Proposal0019 and Proposal0021 rotate their trusted image IDs, program vkeys and MRENCLAVEs and delete both SGX instances — see the sections above):
+- sub-verifier addresses (unchanged since Proposal0017; their trust rotations and SGX instance changes are logged in the sections above):
   - sgx_geth: `0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee`
   - sgx_reth: `0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8`
   - risc0_reth: `0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b`

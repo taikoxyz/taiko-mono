@@ -21,10 +21,8 @@ type Config struct {
 	DatabaseMaxIdleConns    uint64
 	DatabaseMaxOpenConns    uint64
 	DatabaseMaxConnLifetime uint64
-	RPCUrl                  string
 	HTTPPort                uint64
 	MetricsHTTPPort         uint64
-	ETHClientTimeout        uint64
 	CORSOrigins             []string
 	OpenDBFunc              func() (db.DB, error)
 }
@@ -46,7 +44,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		HTTPPort:                c.Uint64(flags.HTTPPort.Name),
 		MetricsHTTPPort:         c.Uint64(flags.MetricsHTTPPort.Name),
 		CORSOrigins:             cors,
-		RPCUrl:                  c.String(flags.APIRPCUrl.Name),
 		OpenDBFunc: func() (db.DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),

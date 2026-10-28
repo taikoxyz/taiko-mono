@@ -13,4 +13,9 @@ library LibRisc0Constants {
         0xd6ab71c22201c23ef512b706f2e2d720f6da1b559fb76834aa9d4e35276f6e10;
     bytes32 internal constant V0_8_0_RC1_AGGREGATION_IMAGE_ID =
         0xdd9b8abff96c409ae2418edfb51d893ea2bd10f4873a0226f17a6998c1afc1b7;
+
+    bytes32 internal constant V0_9_0_PROPOSAL_IMAGE_ID =
+        0x88712dad7dc78126ee7bb592282d3102569c706f1b9db80580a582e5ffd1dfb0;
+    bytes32 internal constant V0_9_0_AGGREGATION_IMAGE_ID =
+        0x04480b22e244d60165f3d0898bc61ea084d9c76221464a8a3c3343c74889040a;
 }

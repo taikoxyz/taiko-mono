@@ -1,13 +1,13 @@
 use alethia_reth_consensus::validation::ANCHOR_V3_V4_GAS_LIMIT;
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy::{
-    eips::{BlockNumberOrTag, eip7685::EMPTY_REQUESTS_HASH},
+    eips::{BlockNumberOrTag, NumHash, eip7685::EMPTY_REQUESTS_HASH},
     primitives::{Address, B256, U256, keccak256},
     providers::Provider,
 };
 use alloy_consensus::{Header, TxEnvelope};
 use alloy_rpc_types::Transaction as RpcTransaction;
-use alloy_rpc_types_engine::PayloadId;
+use alloy_rpc_types_engine::{ForkchoiceState, PayloadId};
 use protocol::shasta::{
     PayloadAttributesInput, build_payload_attributes_with_id, calculate_shasta_mix_hash,
     encode_extra_data, encode_transactions,
@@ -18,7 +18,10 @@ use protocol::shasta::{
 use crate::{
     derivation::DerivationError,
     metrics::DriverMetrics,
-    sync::engine::{EngineBlockOutcome, PayloadApplier},
+    sync::{
+        engine::{EngineBlockOutcome, PayloadApplier, ensure_valid_forkchoice_status},
+        is_finalized_block_not_found,
+    },
 };
 use protocol::shasta::AnchorV4Input;
 
@@ -166,15 +169,17 @@ struct VerifiedCanonicalBlock {
 }
 
 impl ShastaDerivationPipeline {
-    /// Resolve the hash of the last finalized proposal's block if available.
+    /// Resolve the last finalized proposal's canonical block height and hash if available.
     ///
-    /// Errors are logged but never propagated so payload application can proceed even when the
-    /// mapping is unavailable.
-    async fn finalized_block_hash_for(
+    /// Missing checkpoint data returns `Ok(None)`. RPC errors propagate so finality refresh can
+    /// retry instead of marking the proposal as successfully processed.
+    async fn finalized_block_for(
         &self,
         maybe_last_finalized_proposal_id: Option<u64>,
-    ) -> Option<B256> {
-        let last_finalized_proposal_id = maybe_last_finalized_proposal_id?;
+    ) -> Result<Option<NumHash>, DerivationError> {
+        let Some(last_finalized_proposal_id) = maybe_last_finalized_proposal_id else {
+            return Ok(None);
+        };
 
         let block_number = match self
             .rpc
@@ -187,7 +192,7 @@ impl ShastaDerivationPipeline {
                     proposal_id = last_finalized_proposal_id,
                     "no batch-to-block mapping for finalized proposal id"
                 );
-                return None;
+                return Ok(None);
             }
             Err(err) => {
                 warn!(
@@ -195,7 +200,7 @@ impl ShastaDerivationPipeline {
                     error = %err,
                     "failed to query finalized proposal block id"
                 );
-                return None;
+                return Err(err.into());
             }
         };
 
@@ -208,14 +213,14 @@ impl ShastaDerivationPipeline {
                     block_hash = ?block.header.hash,
                     "resolved finalized block hash from proposal core state"
                 );
-                Some(block.header.hash)
+                Ok(Some(NumHash::new(block.header.number, block.header.hash)))
             }
             Ok(None) => {
                 warn!(
                     proposal_id = last_finalized_proposal_id,
                     block_number, "missing block for finalized proposal id"
                 );
-                None
+                Ok(None)
             }
             Err(err) => {
                 warn!(
@@ -224,9 +229,24 @@ impl ShastaDerivationPipeline {
                     error = %err,
                     "failed to fetch finalized block by number"
                 );
-                None
+                Err(err.into())
             }
         }
+    }
+
+    /// Resolve a finalized hash without blocking payload building on checkpoint RPC failures.
+    ///
+    /// The checkpoint lookup logs errors before they are discarded here. Canonical finality
+    /// refresh uses the fallible lookup directly so its failures remain retryable.
+    async fn finalized_block_hash_for(
+        &self,
+        maybe_last_finalized_proposal_id: Option<u64>,
+    ) -> Option<B256> {
+        self.finalized_block_for(maybe_last_finalized_proposal_id)
+            .await
+            .ok()
+            .flatten()
+            .map(|block| block.hash)
     }
 
     /// Process all manifest segments in order, materialising blocks via the execution engine.
@@ -658,7 +678,7 @@ impl ShastaDerivationPipeline {
         Ok(Some(known_blocks))
     }
 
-    /// Update the L1 origin metadata for a proposal that already lives on the canonical chain.
+    /// Refresh origins and forkchoice finality for a proposal already on the canonical chain.
     pub(super) async fn update_canonical_proposal_origins(
         &self,
         meta: &BundleMeta,
@@ -667,6 +687,46 @@ impl ShastaDerivationPipeline {
         for block in blocks {
             self.sync_l1_origin(meta, &block.payload, &block.outcome, block.is_final_block).await?;
         }
+        self.refresh_finalized_forkchoice(meta.last_finalized_proposal_id).await
+    }
+
+    /// Advance finality without rebuilding known blocks or rewinding the current unsafe head.
+    ///
+    /// Missing checkpoint metadata is non-blocking. Replay never lowers finalized, and RPC or
+    /// engine failures propagate so the canonical proposal can be retried.
+    async fn refresh_finalized_forkchoice(
+        &self,
+        last_finalized_proposal_id: Option<u64>,
+    ) -> Result<(), DerivationError> {
+        let Some(checkpoint) = self.finalized_block_for(last_finalized_proposal_id).await? else {
+            return Ok(());
+        };
+        let finalized =
+            match self.rpc.l2_provider.get_block_by_number(BlockNumberOrTag::Finalized).await {
+                Ok(block) => block,
+                Err(err)
+                    if err.as_error_resp().is_some_and(|payload| {
+                        is_finalized_block_not_found(payload.code, payload.message.as_ref())
+                    }) =>
+                {
+                    None
+                }
+                Err(err) => return Err(err.into()),
+            };
+        if finalized.is_some_and(|block| block.header.number >= checkpoint.number) {
+            return Ok(());
+        }
+        let head =
+            self.rpc.l2_provider.get_block_by_number(BlockNumberOrTag::Latest).await?.ok_or_else(
+                || anyhow::anyhow!("missing execution head for finalized forkchoice update"),
+            )?;
+        let state = ForkchoiceState {
+            head_block_hash: head.header.hash,
+            safe_block_hash: checkpoint.hash,
+            finalized_block_hash: checkpoint.hash,
+        };
+        let response = self.rpc.engine_forkchoice_updated_v2(state, None).await?;
+        ensure_valid_forkchoice_status(head.header.number, response.payload_status.status)?;
         Ok(())
     }
 
@@ -1002,3 +1062,6 @@ mod tests {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod finality_tests;

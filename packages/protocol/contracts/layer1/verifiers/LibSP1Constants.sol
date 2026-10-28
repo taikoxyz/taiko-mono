@@ -21,4 +21,13 @@ library LibSP1Constants {
         0x0051ac1d9e8cfd4196e37f9cfefd08e9b0f7ce653bad4634cd1ee84b71ca3be6;
     bytes32 internal constant V0_8_0_RC1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES =
         0x28d60ecf233f50655c6ff39f6fd08e9b07be73296eb518d31a3dd09671ca3be6;
+
+    bytes32 internal constant V0_9_0_PROPOSAL_PROGRAM_VKEY_BN254 =
+        0x0012b97234e59f2319d44202c7b093fed9c9a51b2068e38d26625c139d668c97;
+    bytes32 internal constant V0_9_0_PROPOSAL_PROGRAM_VKEY_HASH_BYTES =
+        0x095cb91a3967c8c63a8840587b093fed4e4d28d901a38e344cc4b8271d668c97;
+    bytes32 internal constant V0_9_0_AGGREGATION_PROGRAM_VKEY_BN254 =
+        0x0017912dfd72308e2e2cd4211b05ed73a97eb7f576816adec2606a37507de51e;
+    bytes32 internal constant V0_9_0_AGGREGATION_PROGRAM_VKEY_HASH_BYTES =
+        0x0bc896fe5c8c238b459a8423305ed73a4bf5bfab5a05ab7b04c0d46e507de51e;
 }

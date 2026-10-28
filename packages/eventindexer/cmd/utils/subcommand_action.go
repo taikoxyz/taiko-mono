@@ -8,7 +8,7 @@ import (
 
 	"log/slog"
 
-	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/metrics"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/metrics"
 	"github.com/urfave/cli/v2"
 )
 
@@ -28,17 +28,10 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 			return err
 		}
 
-		slog.Info("Starting Taiko relayer application", "name", app.Name())
+		slog.Info("Starting NFT indexer application", "name", app.Name())
 
 		if err := app.Start(); err != nil {
 			slog.Error("Starting application error", "name", app.Name(), "error", err)
-			return err
-		}
-
-		_, startMetrics := metrics.Serve(ctx, c)
-
-		if err := startMetrics(); err != nil {
-			slog.Error("Starting metrics server error", "error", err)
 			return err
 		}
 
@@ -48,6 +41,17 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 			slog.Info("Application stopped", "name", app.Name())
 		}()
 
+		_, startMetrics := metrics.Serve(ctx, c)
+
+		// Echo's Start blocks until the server is shut down, so serving the metrics
+		// endpoint inline would keep the signal handler below from ever being
+		// installed and the application could not be stopped gracefully.
+		go func() {
+			if err := startMetrics(); err != nil {
+				slog.Error("Starting metrics server error", "error", err)
+			}
+		}()
+
 		quitCh := make(chan os.Signal, 1)
 		signal.Notify(quitCh, []os.Signal{
 			os.Interrupt,
@@ -55,7 +59,18 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 			syscall.SIGTERM,
 			syscall.SIGQUIT,
 		}...)
-		<-quitCh
+		defer signal.Stop(quitCh)
+
+		var fatalErrors <-chan error
+		if source, ok := app.(interface{ FatalErrors() <-chan error }); ok {
+			fatalErrors = source.FatalErrors()
+		}
+
+		select {
+		case <-quitCh:
+		case err := <-fatalErrors:
+			return err
+		}
 
 		return nil
 	}

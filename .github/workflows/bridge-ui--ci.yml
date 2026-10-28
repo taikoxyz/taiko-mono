@@ -7,12 +7,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: >-
-      ${{
-        (github.event_name == 'pull_request'
-         && github.event.pull_request.head.repo.fork == true)
-        && 'ubuntu-latest' || 'arc-runner-set'
-      }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
