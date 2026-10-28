@@ -10,7 +10,9 @@ use alloy_provider::{
     Provider, RootProvider,
     transport::{RpcError, TransportError},
 };
-use alloy_rpc_types_engine::{ForkchoiceState, ForkchoiceUpdated, PayloadStatusEnum};
+use alloy_rpc_types_engine::{
+    ForkchoiceState, ForkchoiceUpdated, PayloadStatus, PayloadStatusEnum,
+};
 use async_trait::async_trait;
 use rpc::{
     RpcClientError,
@@ -103,55 +105,46 @@ impl RpcEngine {
         client_error(format!("{method} at {}", self.auth_endpoint), err)
     }
 
-    /// Accepts an INVALID build reply without diagnostic text, which Alloy requires, while
-    /// still validating every FCU field. Other malformed own-EL replies remain integrity errors.
-    fn build_forkchoice_reply(
-        &self,
-        error: RpcClientError,
-    ) -> Result<ForkchoiceUpdated, EngineError> {
-        if let RpcClientError::Rpc(RpcError::DeserError { text, .. }) = &error {
-            let repaired =
-                serde_json::from_str::<serde_json::Value>(text).ok().and_then(|mut reply| {
-                    let status = reply.get_mut("payloadStatus")?.as_object_mut()?;
-                    if status.get("status")?.as_str()? != "INVALID" ||
-                        status.get("validationError").is_some_and(|reason| !reason.is_null())
-                    {
-                        return None;
-                    }
-                    status.insert(
-                        "validationError".into(),
-                        serde_json::Value::String("INVALID".into()),
-                    );
-                    serde_json::from_value(reply).ok()
-                });
-            if let Some(reply) = repaired {
-                return Ok(reply);
-            }
-        }
-        Err(self.auth_error("engine_forkchoiceUpdatedV3", error))
-    }
-
-    /// The verdict of a payload status reply of `method` that alloy's strict decoding refused,
-    /// decoded leniently ([`LenientStatus`]) from the raw result `status_of` extracts it from;
-    /// otherwise `err` as an [`EngineError`] ([`RpcEngine::auth_error`]).
-    fn lenient_verdict(
+    /// The reply of `method` that alloy's strict decoding refused, accepted only when it is an
+    /// `INVALID` status without diagnostic text ([`repair_invalid`]); every field is still decoded
+    /// strictly. Any other malformed own-EL reply is `err` as an integrity error
+    /// ([`RpcEngine::auth_error`]).
+    fn repaired_reply<T: serde::de::DeserializeOwned>(
         &self,
         method: &str,
         err: RpcClientError,
-        status_of: fn(serde_json::Value) -> Option<serde_json::Value>,
-    ) -> Result<PayloadVerdict, EngineError> {
-        if let RpcClientError::Rpc(RpcError::DeserError { text, .. }) = &err {
-            let lenient = serde_json::from_str(text)
-                .ok()
-                .and_then(status_of)
-                .and_then(|status| serde_json::from_value::<LenientStatus>(status).ok())
-                .and_then(LenientStatus::verdict);
-            if let Some(verdict) = lenient {
-                return Ok(verdict);
-            }
+        status_key: Option<&str>,
+    ) -> Result<T, EngineError> {
+        if let RpcClientError::Rpc(RpcError::DeserError { text, .. }) = &err &&
+            let Some(reply) = repair_invalid(text, status_key)
+        {
+            return Ok(reply);
         }
         Err(self.auth_error(method, err))
     }
+}
+
+/// `text` decoded strictly as `T` after supplying the `validationError` that an `INVALID` payload
+/// status omitted or sent as `null` (alloy's [`PayloadStatusEnum`] requires a string; engines also
+/// send `null` or nothing). `status_key` names the field holding the status (`None`: the reply is
+/// the status). `None` for any other status, or when the repaired reply still does not decode.
+fn repair_invalid<T: serde::de::DeserializeOwned>(
+    text: &str,
+    status_key: Option<&str>,
+) -> Option<T> {
+    let mut reply: serde_json::Value = serde_json::from_str(text).ok()?;
+    let status = match status_key {
+        Some(key) => reply.get_mut(key)?,
+        None => &mut reply,
+    }
+    .as_object_mut()?;
+    if status.get("status")?.as_str()? != "INVALID" ||
+        status.get("validationError").is_some_and(|reason| !reason.is_null())
+    {
+        return None;
+    }
+    status.insert("validationError".into(), serde_json::Value::String("INVALID".into()));
+    serde_json::from_value(reply).ok()
 }
 
 /// How many characters of a non-JSON reply body an [`EngineError::Transport`] quotes.
@@ -193,40 +186,14 @@ fn client_error(call: String, err: RpcClientError) -> EngineError {
 fn verdict(status: PayloadStatusEnum) -> PayloadVerdict {
     match status {
         PayloadStatusEnum::Valid => PayloadVerdict::Valid,
-        PayloadStatusEnum::Invalid { validation_error } => invalid(Some(validation_error)),
-        PayloadStatusEnum::Syncing | PayloadStatusEnum::Accepted => PayloadVerdict::Syncing,
-    }
-}
-
-/// [`PayloadVerdict::Invalid`] with the engine's `validationError`, or `"INVALID"` when it gave
-/// none (absent, `null` or empty).
-fn invalid(validation_error: Option<String>) -> PayloadVerdict {
-    PayloadVerdict::Invalid(
-        validation_error.filter(|e| !e.is_empty()).unwrap_or_else(|| "INVALID".to_string()),
-    )
-}
-
-/// A payload status as engines may send it: alloy's [`PayloadStatusEnum`] requires a string
-/// `validationError` with `INVALID`, but engines also send `null` or omit it.
-#[derive(serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct LenientStatus {
-    /// `VALID`, `INVALID`, `SYNCING` or `ACCEPTED`.
-    status: String,
-    /// The engine's reason for `INVALID`, if it gave one.
-    #[serde(default)]
-    validation_error: Option<String>,
-}
-
-impl LenientStatus {
-    /// The verdict this status carries; `None` for an unknown status.
-    fn verdict(self) -> Option<PayloadVerdict> {
-        match self.status.as_str() {
-            "VALID" => Some(PayloadVerdict::Valid),
-            "INVALID" => Some(invalid(self.validation_error)),
-            "SYNCING" | "ACCEPTED" => Some(PayloadVerdict::Syncing),
-            _ => None,
+        // An empty `validationError` reads as the bare status, like an omitted one.
+        PayloadStatusEnum::Invalid { validation_error } if validation_error.is_empty() => {
+            PayloadVerdict::Invalid("INVALID".into())
         }
+        PayloadStatusEnum::Invalid { validation_error } => {
+            PayloadVerdict::Invalid(validation_error)
+        }
+        PayloadStatusEnum::Syncing | PayloadStatusEnum::Accepted => PayloadVerdict::Syncing,
     }
 }
 
@@ -274,7 +241,11 @@ impl Engine for RpcEngine {
         };
         let updated = match self.auth.engine_forkchoice_updated_v3(state, Some(attrs)).await {
             Ok(updated) => updated,
-            Err(error) => self.build_forkchoice_reply(error)?,
+            Err(error) => self.repaired_reply::<ForkchoiceUpdated>(
+                "engine_forkchoiceUpdatedV3",
+                error,
+                Some("payloadStatus"),
+            )?,
         };
         let payload_id = match (updated.payload_status.status, updated.payload_id) {
             (PayloadStatusEnum::Valid, Some(id)) => id,
@@ -289,17 +260,19 @@ impl Engine for RpcEngine {
     }
 
     /// [`payload_from_block`], then `engine_newPayloadV4`; an `INVALID` status without a
-    /// `validationError` is still [`PayloadVerdict::Invalid`] ([`LenientStatus`]).
+    /// `validationError` is still [`PayloadVerdict::Invalid`] ([`repair_invalid`]).
     async fn new_payload(&self, block: &ExecutionBlock) -> Result<PayloadVerdict, EngineError> {
         let (payload, difficulty, root) = payload_from_block(block)?;
         match self.auth.engine_new_payload_v4(&payload, difficulty, root).await {
             Ok(status) => Ok(verdict(status.status)),
-            Err(e) => self.lenient_verdict("engine_newPayloadV4", e, Some),
+            Err(e) => self
+                .repaired_reply::<PayloadStatus>("engine_newPayloadV4", e, None)
+                .map(|status| verdict(status.status)),
         }
     }
 
     /// `engine_forkchoiceUpdatedV3` without attributes; an `INVALID` status without a
-    /// `validationError` is still [`PayloadVerdict::Invalid`] ([`LenientStatus`]).
+    /// `validationError` is still [`PayloadVerdict::Invalid`] ([`repair_invalid`]).
     async fn forkchoice(
         &self,
         head: B256,
@@ -313,9 +286,13 @@ impl Engine for RpcEngine {
         };
         match self.auth.engine_forkchoice_updated_v3(state, None).await {
             Ok(updated) => Ok(verdict(updated.payload_status.status)),
-            Err(e) => self.lenient_verdict("engine_forkchoiceUpdatedV3", e, |mut reply| {
-                reply.get_mut("payloadStatus").map(serde_json::Value::take)
-            }),
+            Err(e) => self
+                .repaired_reply::<ForkchoiceUpdated>(
+                    "engine_forkchoiceUpdatedV3",
+                    e,
+                    Some("payloadStatus"),
+                )
+                .map(|updated| verdict(updated.payload_status.status)),
         }
     }
 
@@ -727,6 +704,35 @@ mod tests {
                 Ok(PayloadVerdict::Invalid("INVALID".into())),
                 "forkchoice {reply}"
             );
+        }
+    }
+
+    /// Only an `INVALID` status without diagnostic text is repaired; every other field is still
+    /// decoded strictly, so a malformed `latestValidHash` is a non-retryable bad reply whatever
+    /// the status says, never a verdict.
+    #[tokio::test]
+    async fn malformed_status_fields_are_bad_replies() {
+        let malformed = |status: &str| json!({ "status": status, "latestValidHash": "malformed", "validationError": null });
+        for reply in [malformed("VALID"), malformed("INVALID"), malformed("SYNCING")] {
+            let m = mocked();
+            m.auth.push_success(&reply);
+            let err = m.engine.new_payload(&golden_block()).await.unwrap_err();
+            assert!(
+                matches!(&err, EngineError::BadReply(msg) if msg.contains("engine_newPayloadV4")),
+                "newPayload {reply}: {err:?}"
+            );
+            assert!(!err.is_retryable(), "newPayload {reply}");
+
+            let m = mocked();
+            m.auth.push_success(&fcu(reply.clone(), None));
+            let head = B256::repeat_byte(0x0a);
+            let err = m.engine.forkchoice(head, head, B256::ZERO).await.unwrap_err();
+            assert!(
+                matches!(&err, EngineError::BadReply(msg)
+                    if msg.contains("engine_forkchoiceUpdatedV3")),
+                "forkchoice {reply}: {err:?}"
+            );
+            assert!(!err.is_retryable(), "forkchoice {reply}");
         }
     }
 
