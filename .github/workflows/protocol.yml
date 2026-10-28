@@ -31,9 +31,6 @@ jobs:
   build-protocol:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
     runs-on: ubuntu-latest
-    env:
-      # Full invariant campaigns in CI; local runs default to 64 (foundry.toml).
-      FOUNDRY_INVARIANT_RUNS: 256
     permissions:
       # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
       contents: write
@@ -106,6 +103,14 @@ jobs:
         env:
           PYTHONDONTWRITEBYTECODE: "1"
         run: python3 -m unittest discover -s ../../testdata/etna_vectors -p 'test_vectors.py' -v
+
+      # Full invariant campaigns in their own step. The gas snapshot below keeps the 64-run
+      # default from foundry.toml, so its invariant lines match a local snapshot.
+      - name: Run Etna invariant campaigns at 256 runs
+        working-directory: ./packages/protocol
+        env:
+          FOUNDRY_INVARIANT_RUNS: 256
+        run: pnpm test:l1 --match-contract 'Etna.*Invariant'
 
       - name: Test L1 contracts
         working-directory: ./packages/protocol

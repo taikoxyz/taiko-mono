@@ -98,6 +98,12 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev The maximum `U`, the largest multiple of 6 below 2^16 (spec 10).
     uint256 private constant _MAX_UNSETTLED_LIMIT = 65_532;
 
+    /// @dev The maximum `maxBatchBlocks` (spec 11). L2 height never exceeds c + U (spec 6.4), so a
+    /// landing from c never needs more. At this limit the 10,921 leaves are 349,472 calldata
+    /// bytes, about 14.0M gas at today's EIP-7623 floor of 40 gas per non-zero byte, within the
+    /// EIP-7825 per-transaction cap of 2^24 gas. A higher calldata floor would need a lower limit.
+    uint256 private constant _MAX_BATCH_BLOCKS_LIMIT = _MAX_UNSETTLED_LIMIT;
+
     /// @dev The domain tag of the landing statement (appendix A).
     bytes32 private constant _LAND_STATEMENT_TAG = bytes32("TAIKO_ETNA_LAND_V1");
 
@@ -213,15 +219,19 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     // ---------------------------------------------------------------
 
     /// @notice Sets the implementation's immutable parameters.
-    /// @param _config The configuration: non-zero addresses and L2 chain id, `maxBatchBlocks` of
-    /// at least 6 and non-zero forced inclusion fee parameters.
+    /// @param _config The configuration: non-zero addresses and L2 chain id, `maxBatchBlocks` in
+    /// [6, 65,532] and non-zero forced inclusion fee parameters.
     constructor(Config memory _config) {
         require(_config.proofVerifier != address(0), ZERO_ADDRESS());
         require(_config.signalService != address(0), ZERO_ADDRESS());
         require(_config.stakingRegistry != address(0), ZERO_ADDRESS());
         require(_config.protocolFeeRecipient != address(0), ZERO_ADDRESS());
         require(_config.l2ChainId != 0, ZERO_VALUE());
-        require(_config.maxBatchBlocks >= GRID_INTERVAL, InvalidMaxBatchBlocks());
+        require(
+            _config.maxBatchBlocks >= GRID_INTERVAL
+                && _config.maxBatchBlocks <= _MAX_BATCH_BLOCKS_LIMIT,
+            InvalidMaxBatchBlocks()
+        );
         require(_config.forcedInclusionFeeInGwei != 0, ForcedInclusionFeeZero());
         require(
             _config.forcedInclusionFeeDoubleThreshold != 0, ForcedInclusionFeeDoubleThresholdZero()
@@ -292,8 +302,9 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     }
 
     /// @inheritdoc IEtnaInbox
-    /// @dev Requires initialization, then follows the spec 6.1 reference Solidity: its checks in
-    /// its order, all before any write. Unaffected by pause. The only external calls are the proof
+    /// @dev Follows the spec 6.1 reference Solidity: its checks in its order, all before any
+    /// write. Before `init` it needs no extra check: c = 0 forces p = 0, and the unwritten
+    /// landings[0] fails step 2. Unaffected by pause. The only external calls are the proof
     /// verifier and the EIP-2935 history contract (both static) and the SignalService.
     function land(
         LandInput calldata _input,
@@ -303,7 +314,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         external
         nonReentrant
     {
-        require(_initStatus == INITIALIZED_STATUS, NotInitialized());
         uint48 generation = _recoveryGeneration;
         uint256 c = _lastCheckpoint.height;
 
@@ -367,13 +377,15 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @inheritdoc IEtnaInbox
     /// @dev The Inbox makes all of its own checks (initialization, the expected values, the 48-bit
-    /// bounds, both lists and the unwritten origin) before any effect. The effects then run in
-    /// this order: `forceExit` per exclusion, the blanking, the generation and origin writes, then
-    /// the event. The registry checks each exclusion inside its `forceExit`, after the earlier
-    /// exclusions have been applied; the call is atomic, so a failing `forceExit` reverts them
-    /// all. Unaffected by pause. The only external calls are `forceExit` on the fixed registry. At
-    /// block.number == 2^48 - 1 recovery passes its own bound but any exclusion reverts in the
-    /// registry, which stores no L1 block at its no-exit sentinel.
+    /// bounds and both lists) before any effect. The new generation's origin is always unwritten:
+    /// only `init` (generation 0) and this function (generation + 1) write origins, and the
+    /// generation only grows by one. The effects then run in this order: `forceExit` per
+    /// exclusion, the blanking, the generation and origin writes, then the event. The registry
+    /// checks each exclusion inside its `forceExit`, after the earlier exclusions have been
+    /// applied; the call is atomic, so a failing `forceExit` reverts them all. Unaffected by
+    /// pause. The only external calls are `forceExit` on the fixed registry. At block.number ==
+    /// 2^48 - 1 recovery passes its own bound but any exclusion reverts in the registry, which
+    /// stores no L1 block at its no-exit sentinel.
     function recover(
         uint48 _expectedGeneration,
         uint256 _expectedC,
@@ -397,11 +409,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             block.number <= type(uint48).max && block.timestamp <= type(uint48).max, ValueOverflow()
         );
         _checkRecoveryLists(_exclusions, _fiToClear);
-        Origin storage origin = _origins[newGeneration];
-        require(
-            origin.startHeight == 0 && origin.l1BlockNumber == 0 && origin.l1Timestamp == 0,
-            OriginAlreadyWritten()
-        );
 
         for (uint256 i; i < _exclusions.length; ++i) {
             _stakingRegistry.forceExit(_exclusions[i].bondId, _exclusions[i].entryKey);

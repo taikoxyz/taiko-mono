@@ -70,7 +70,7 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         _newInboxImpl(cfg);
     }
 
-    function test_constructor_RevertWhen_MaxBatchBlocksBelowSix() external {
+    function test_constructor_RevertWhen_MaxBatchBlocksOutOfRange() external {
         IEtnaInbox.Config memory cfg = _defaultConfig();
         cfg.maxBatchBlocks = 0;
         vm.expectRevert(IEtnaInbox.InvalidMaxBatchBlocks.selector);
@@ -80,11 +80,33 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         vm.expectRevert(IEtnaInbox.InvalidMaxBatchBlocks.selector);
         _newInboxImpl(cfg);
 
-        // One grid segment is the minimum; the limit need not be a multiple of six.
+        cfg.maxBatchBlocks = 65_533;
+        vm.expectRevert(IEtnaInbox.InvalidMaxBatchBlocks.selector);
+        _newInboxImpl(cfg);
+
+        cfg.maxBatchBlocks = type(uint64).max;
+        vm.expectRevert(IEtnaInbox.InvalidMaxBatchBlocks.selector);
+        _newInboxImpl(cfg);
+
+        // One grid segment is the minimum and the maximum U is the maximum; the limit need not
+        // be a multiple of six.
         cfg.maxBatchBlocks = 6;
         assertEq(_newInboxImpl(cfg).maxBatchBlocks(), 6);
         cfg.maxBatchBlocks = 7;
         assertEq(_newInboxImpl(cfg).maxBatchBlocks(), 7);
+        cfg.maxBatchBlocks = 65_532;
+        assertEq(_newInboxImpl(cfg).maxBatchBlocks(), 65_532);
+    }
+
+    /// @dev A landing at the `maxBatchBlocks` limit carries 65,532 / 6 - 1 = 10,921 leaves. With
+    /// a 4 KiB proof (generous for the two sub-proofs) and every calldata byte priced as non-zero
+    /// at the EIP-7623 floor, the transaction stays below the EIP-7825 cap of 2^24 gas.
+    function test_maxBatchBlocksLimit_FitsOneTransaction() external pure {
+        IEtnaInbox.LandInput memory input;
+        bytes memory data = abi.encodeCall(
+            IEtnaInbox.land, (input, new bytes32[](65_532 / 6 - 1), new bytes(4096))
+        );
+        assertLt(21_000 + 40 * data.length, 2 ** 24, "calldata floor");
     }
 
     function test_constructor_RevertWhen_ForcedInclusionFeeOrThresholdIsZero() external {

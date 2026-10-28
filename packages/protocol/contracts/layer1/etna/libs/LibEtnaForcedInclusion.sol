@@ -28,10 +28,11 @@ library LibEtnaForcedInclusion {
     // ---------------------------------------------------------------
 
     /// @dev Returns `baseFee * (threshold + pending) / threshold`, capped at `type(uint64).max`.
-    /// Reproduces `LibForcedInclusion.getCurrentForcedInclusionFee`.
+    /// Reproduces `LibForcedInclusion.getCurrentForcedInclusionFee` for a non-zero threshold.
     /// @param $ The forced inclusion queue.
     /// @param _baseFeeInGwei The fee in Gwei with an empty queue.
-    /// @param _feeDoubleThreshold The number of pending entries at which the fee doubles.
+    /// @param _feeDoubleThreshold The number of pending entries at which the fee doubles; non-zero
+    /// (the Inbox constructor rejects zero).
     /// @return feeInGwei_ The fee in Gwei for the next entry.
     function currentFee(
         Storage storage $,
@@ -42,8 +43,6 @@ library LibEtnaForcedInclusion {
         view
         returns (uint64 feeInGwei_)
     {
-        require(_feeDoubleThreshold > 0, InvalidFeeDoubleThreshold());
-
         (uint48 head, uint48 tail) = ($.head, $.tail);
         uint256 numPending = uint256(tail - head);
 
@@ -76,10 +75,4 @@ library LibEtnaForcedInclusion {
             inclusions_[i] = $.queue[i + _start];
         }
     }
-
-    // ---------------------------------------------------------------
-    // Custom Errors
-    // ---------------------------------------------------------------
-
-    error InvalidFeeDoubleThreshold();
 }
