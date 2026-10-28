@@ -4,7 +4,7 @@ use super::consensus::{SigningKey, pair_with_envelope, parameters, public_key};
 use crate::{
     batch::verify_reference_chain,
     comet::{CometSource, CometStatus},
-    committee::{AuthenticatedCommittee, authenticate},
+    committee::AuthenticatedCommittee,
     error::{LanderError, Result},
     l1::{Deployment, LandingSource, ParentContext},
     types::{CertifiedBlock, LandingSnapshot},
@@ -545,10 +545,9 @@ impl Fixture {
                 12
             };
             let (record, members) = derive(&snapshot, cutoff, epoch, &params).unwrap();
-            let hash = record_hash(params.l2_chain_id, &record);
             committees.insert(
                 epoch,
-                authenticate(CommitteeState { record, members }, epoch, hash, &params).unwrap(),
+                AuthenticatedCommittee::new(CommitteeState { record, members }).unwrap(),
             );
         }
         let planted = plan.planted();
@@ -1362,10 +1361,8 @@ fn authenticates_301_members_from_registry_proof_through_comet_certificate() {
     assert_eq!(members, expected_members);
     assert_eq!(members.len(), COUNT);
     assert_eq!(members.iter().map(|member| member.pubkey).collect::<BTreeSet<_>>().len(), COUNT);
-    let hash = record_hash(params.l2_chain_id, &verified_record);
     let authenticated =
-        authenticate(CommitteeState { record: verified_record, members }, 0, hash, &params)
-            .unwrap();
+        AuthenticatedCommittee::new(CommitteeState { record: verified_record, members }).unwrap();
     assert_eq!(authenticated.validators.validators().len(), COUNT);
     assert_eq!(authenticated.validators.total_voting_power(), 301);
 
@@ -1375,13 +1372,6 @@ fn authenticates_301_members_from_registry_proof_through_comet_certificate() {
     assert!(matches!(
         verify_committee_witness_at_cutoff(state.root, 1, &params, &tampered, 0),
         Err(CommitteeError::EntriesRootMismatch { .. })
-    ));
-    let mut tampered_set = authenticated.state.clone();
-    tampered_set.members[COUNT - 1].pubkey =
-        public_key(&SigningKey::from_slice(&[99; 32]).unwrap());
-    assert!(matches!(
-        authenticate(tampered_set, 0, hash, &params),
-        Err(crate::committee::CommitteeError::Invalid("member root mismatch"))
     ));
 
     let mut block = pair(1, B256::ZERO, &authenticated, &keys, None);

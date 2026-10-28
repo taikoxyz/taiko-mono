@@ -9,7 +9,7 @@ use anyhow::{Context, Result};
 use lander::{
     codec,
     comet::{CometSource, HttpCometSource},
-    committee::authenticate,
+    committee::AuthenticatedCommittee,
     validate::{verify_commit, verify_structure},
 };
 use test_harness::{Devnet, DevnetSpec};
@@ -44,7 +44,7 @@ async fn lander_live_comet_collector_preserves_and_authenticates_certificates() 
         .await?;
     let hash = record_hash(devnet.params().l2_chain_id, &committee.record);
     assert_eq!(U256::from_be_bytes(hash.0), onchain);
-    let authenticated = authenticate(committee, 0, hash, devnet.params())?;
+    let authenticated = AuthenticatedCommittee::new(committee)?;
     let genesis = devnet
         .l2_provider(0)
         .get_block_by_number(BlockNumberOrTag::Number(0))

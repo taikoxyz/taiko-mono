@@ -8,7 +8,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use abci::{
     AnchorState, EtnaEnvelope, ExecutionBlock, ForcedWitness, ParentInfo, Schedule,
-    committee::{record_hash, verify_committee_witness_at_cutoff},
+    committee::verify_committee_witness_at_cutoff,
     envelope::AnchorWitness,
     l1::{
         fetch::build_committee_witness_at_cutoff,
@@ -25,7 +25,7 @@ use alloy_provider::Provider;
 use anyhow::{Context, Result, ensure};
 use lander::{
     CertifiedBlock, LandingSnapshot, Limits, ProofRequest, SidecarMode,
-    committee::{AuthenticatedCommittee, authenticate},
+    committee::AuthenticatedCommittee,
     l1::{LandingSource, RpcLandingSource},
     validate::{EnvelopeContext, commit_hash, verify_commit, verify_envelope, verify_structure},
 };
@@ -76,8 +76,7 @@ impl FixtureChain {
             &AnchorWitness { l1_header: header, inbox: witness },
             fixture.inbox,
         )?;
-        let hash = record_hash(L2_CHAIN_ID, &fixture.committee.record);
-        let committee = authenticate(fixture.committee.clone(), 0, hash, &fixture.params)?;
+        let committee = AuthenticatedCommittee::new(fixture.committee.clone())?;
         Ok(Self {
             chain_id: abci::domain::chain_id(&abci::domain::DeploymentDomain {
                 l1_chain_id: fixture.params.l1_chain_id,
@@ -165,15 +164,9 @@ impl FixtureChain {
                     w,
                     target,
                 )?;
-                let hash = record_hash(L2_CHAIN_ID, &record);
                 self.committees.insert(
                     target,
-                    authenticate(
-                        abci::CommitteeState { record, members },
-                        target,
-                        hash,
-                        &fixture.params,
-                    )?,
+                    AuthenticatedCommittee::new(abci::CommitteeState { record, members })?,
                 );
             }
             let parent_info = ParentInfo {
@@ -265,8 +258,7 @@ impl FixtureChain {
             );
             if let Some(derived) = facts.derived {
                 let epoch = derived.record.target_epoch;
-                let hash = record_hash(L2_CHAIN_ID, &derived.record);
-                self.committees.insert(epoch, authenticate(derived, epoch, hash, &fixture.params)?);
+                self.committees.insert(epoch, AuthenticatedCommittee::new(derived)?);
             }
             self.blocks.push(pair);
             self.headers.push(header);
