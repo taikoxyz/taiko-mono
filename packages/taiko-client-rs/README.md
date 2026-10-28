@@ -194,8 +194,9 @@ refuses an Inbox whose grid interval differs from 6, and caps every batch at the
 `--max-blocks` and `maxBatchBlocks`, rounded down to whole segments (logging when the Inbox
 lowers it), refusing to start when that is below one segment. `--max-blobs` is exactly 6.
 `--min-blocks` defaults to 1 and `--max-batch-wait` to 30 seconds, but neither permits a partial
-segment. The minimum is 1 through `--max-blocks`; wait expiry or consensus pressure can flush
-an available complete prefix below it. Batches can cross epoch transitions; batch timing and
+segment. The minimum is 1 through that batch cap: the lander refuses to start with a higher
+one, which no batch could reach. Wait expiry or consensus pressure can flush an available
+complete prefix below it. Batches can cross epoch transitions; batch timing and
 back-pressure follow spec sections 6.3 (Batches) and 6.4 (Back-pressure).
 
 `--chain-config` uses the same authenticated parameters as ABCI. L1 identity is read as full
