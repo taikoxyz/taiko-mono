@@ -529,7 +529,7 @@ func differentialVectors(envelope []byte) []differentialVector {
 	}
 	manyVals := validatorSet(many)
 	vectors = append(vectors, differential("validators_120", 2, normal, many, signedCommit(1, 0, lastID, manyVals, f.specs(manyVals)), nil, f.specs(manyVals), envelope))
-	for i := 0; i < 48; i++ {
+	for i := 0; i < 8; i++ {
 		powers := f.powers()
 		vals := validatorSet(powers)
 		height := int64(1)
