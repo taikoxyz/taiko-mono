@@ -484,7 +484,7 @@ impl Runner {
         reference_hash: alloy_primitives::B256,
     ) -> Result<()> {
         let batch = &job.request.batch;
-        let identity = self.l1.deployment_identity(snapshot).await?;
+        let identity = self.l1.deployment(snapshot).await?.identity;
         if identity != batch.deployment_identity ||
             crate::statement::hash(
                 &batch.snapshot,

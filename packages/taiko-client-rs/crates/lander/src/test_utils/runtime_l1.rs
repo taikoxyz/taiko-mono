@@ -754,16 +754,17 @@ async fn v1_deployment_identity_uses_real_pinned_boundaries_and_ignores_pause_an
     .await;
     let source =
         RpcLandingSource::new(server.provider.clone(), server.provider.clone(), fixture.params);
-    let original = source.deployment_identity(&fixture.snapshot).await.unwrap();
+    let original = source.deployment(&fixture.snapshot).await.unwrap();
+    assert_eq!(original.max_batch_blocks, 120, "the deployed maxBatchBlocks is kept");
     mode.store(1, Ordering::Relaxed);
-    assert_eq!(source.deployment_identity(&fixture.snapshot).await.unwrap(), original);
-    assert_eq!(source.deployment_identity(&advanced.snapshot).await.unwrap(), original);
+    assert_eq!(source.deployment(&fixture.snapshot).await.unwrap(), original);
+    assert_eq!(source.deployment(&advanced.snapshot).await.unwrap(), original);
     mode.store(2, Ordering::Relaxed);
-    assert_ne!(source.deployment_identity(&fixture.snapshot).await.unwrap(), original);
+    assert_ne!(source.deployment(&fixture.snapshot).await.unwrap().identity, original.identity);
     for invalid in [3, 4, 5, 6, 7] {
         mode.store(invalid, Ordering::Relaxed);
         assert!(matches!(
-            source.deployment_identity(&fixture.snapshot).await,
+            source.deployment(&fixture.snapshot).await,
             Err(LanderError::Configuration(_))
         ));
     }

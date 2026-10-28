@@ -44,7 +44,8 @@ pub struct LanderArgs {
     /// Existing chain-parameter TOML override, used for the same chain as the L2 RPC.
     #[clap(long = "chain-config", env = "LANDER_CHAIN_CONFIG")]
     pub chain_config: Option<PathBuf>,
-    /// Maximum complete blocks per batch; must respect the deployed Inbox limit.
+    /// Maximum complete blocks per batch; batches also stay within the deployed Inbox's
+    /// `maxBatchBlocks`, read at startup.
     #[clap(long = "max-blocks", env = "LANDER_MAX_BLOCKS", required = true, value_parser = positive_usize)]
     pub max_blocks: usize,
     /// Minimum complete blocks before submission; wait expiry or consensus may require earlier

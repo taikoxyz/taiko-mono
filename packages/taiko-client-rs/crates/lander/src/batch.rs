@@ -199,6 +199,26 @@ pub struct BatchBuilderConfig {
     pub engine: Arc<dyn Engine>,
     /// Positive, bounded deadline for a singleton check.
     pub engine_timeout: Duration,
+    /// The executing Inbox's `maxBatchBlocks` ([`crate::l1::Deployment::max_batch_blocks`]), read
+    /// at startup; batch selection never exceeds it nor `limits.max_blocks` ([`batch_cap`]).
+    pub max_batch_blocks: u64,
+}
+
+/// The most blocks one batch selects: the configured `max_blocks` or the Inbox's
+/// `max_batch_blocks`, whichever is lower, rounded down to whole grid segments
+/// ([`GRID_INTERVAL`]). A cap below one segment can never land: a configuration error, which
+/// the lander checks before it starts.
+pub fn batch_cap(max_blocks: usize, max_batch_blocks: u64) -> Result<usize> {
+    let grid = GRID_INTERVAL as usize;
+    let deployed = usize::try_from(max_batch_blocks).unwrap_or(usize::MAX);
+    let cap = max_blocks.min(deployed) / grid * grid;
+    if cap < grid {
+        return Err(LanderError::Configuration(format!(
+            "batches of at most {max_blocks} configured and {max_batch_blocks} deployed \
+             (maxBatchBlocks) blocks cannot hold one {GRID_INTERVAL}-block grid segment"
+        )));
+    }
+    Ok(cap)
 }
 
 /// Collector-backed builder; no proof computation or transaction mutation occurs here.
@@ -215,6 +235,8 @@ pub struct BatchBuilder<C: ?Sized, L: ?Sized> {
     params: ChainParams,
     /// Explicit codec, complete-block and transaction blob bounds.
     limits: Limits,
+    /// The Inbox's `maxBatchBlocks`, read at startup: no batch selects more blocks.
+    max_batch_blocks: u64,
     /// Operator-selected target L1 sidecar representation.
     mode: SidecarMode,
     /// Uncompressed list bytes one batch may select ([`MAX_BATCH_LIST_BYTES`]).
@@ -229,7 +251,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     /// Create a builder after validating operator and consensus limits. Execution beneficiaries
     /// remain authenticated header fields; the V1 landing input contains no payout recipient.
     pub fn new(comet: Arc<C>, l1: Arc<L>, config: BatchBuilderConfig) -> Result<Self> {
-        let BatchBuilderConfig { params, limits, mode, engine, engine_timeout } = config;
+        let BatchBuilderConfig { params, limits, mode, engine, engine_timeout, max_batch_blocks } =
+            config;
         if engine_timeout.is_zero() ||
             engine_timeout > Duration::from_secs(crate::config::MAX_TIMEOUT_SECS)
         {
@@ -246,6 +269,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             engine_timeout,
             params,
             limits,
+            max_batch_blocks,
             mode,
             list_budget: MAX_BATCH_LIST_BYTES,
             deflate_budget: MAX_SELECTION_DEFLATE_BYTES,
@@ -334,8 +358,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         let mut blocks = Vec::new();
         let mut payload = None;
         let mut deflated = 0usize;
-        let stop = decided_height
-            .min(snapshot.checkpoint_height.saturating_add(self.limits.max_blocks as u64));
+        let most = self.max_batch_blocks.min(self.limits.max_blocks as u64);
+        let stop = decided_height.min(snapshot.checkpoint_height.saturating_add(most));
         for height in snapshot.checkpoint_height + 1..=stop {
             let pair = self.comet.block(height).await?;
             if pair.block.header.height.value() != height {
@@ -970,7 +994,15 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
         let blobs = blob::build(&payload, &self.limits, self.mode)?;
         let hash =
             statement::hash(&snapshot, &input, reference.hash(), &blobs.versioned_hashes, &leaves);
-        let deployment_identity = self.l1.deployment_identity(&snapshot).await?;
+        let deployment = self.l1.deployment(&snapshot).await?;
+        if blocks.len() as u64 > deployment.max_batch_blocks {
+            // The Inbox changed since startup; the next start selects under the new value.
+            return Err(LanderError::Configuration(format!(
+                "the Inbox maxBatchBlocks is now {}, below this {}-block batch; restart to apply it",
+                deployment.max_batch_blocks,
+                blocks.len()
+            )));
+        }
         Ok(Some(ProofRequest {
             batch: PreparedBatch {
                 snapshot,
@@ -989,7 +1021,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
                 committees: committees.into_values().map(|committee| committee.state).collect(),
                 input,
                 leaves,
-                deployment_identity,
+                deployment_identity: deployment.identity,
                 blobs,
                 statement_hash: hash,
             },
@@ -1095,14 +1127,16 @@ pub fn verify_reference_chain(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::consensus_mpt::Fixture;
+    use crate::test_utils::consensus_mpt::{Fixture, MAX_BATCH_BLOCKS};
     use std::sync::{
         RwLock,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
     };
 
     struct TrackingSource {
         fixture: RwLock<Arc<Fixture>>,
+        /// The `maxBatchBlocks` the Inbox reports now, which a builder read at startup.
+        max_batch_blocks: AtomicU64,
         history_reads: AtomicUsize,
         inbox_reads: AtomicUsize,
         committee_reads: AtomicUsize,
@@ -1117,6 +1151,7 @@ mod tests {
         fn new(fixture: Fixture) -> Arc<Self> {
             Arc::new(Self {
                 fixture: RwLock::new(Arc::new(fixture)),
+                max_batch_blocks: AtomicU64::new(MAX_BATCH_BLOCKS),
                 history_reads: AtomicUsize::new(0),
                 inbox_reads: AtomicUsize::new(0),
                 committee_reads: AtomicUsize::new(0),
@@ -1144,6 +1179,7 @@ mod tests {
                         test_harness::unavailable_engine::UnavailableEngine,
                     ),
                     engine_timeout: std::time::Duration::from_secs(1),
+                    max_batch_blocks: MAX_BATCH_BLOCKS,
                 },
             )
             .unwrap()
@@ -1220,8 +1256,10 @@ mod tests {
             self.fixture().reference(snapshot, anchors).await
         }
 
-        async fn deployment_identity(&self, snapshot: &LandingSnapshot) -> Result<B256> {
-            self.fixture().deployment_identity(snapshot).await
+        async fn deployment(&self, snapshot: &LandingSnapshot) -> Result<crate::l1::Deployment> {
+            let deployment = self.fixture().deployment(snapshot).await?;
+            let max_batch_blocks = self.max_batch_blocks.load(Ordering::Relaxed);
+            Ok(crate::l1::Deployment { max_batch_blocks, ..deployment })
         }
         async fn canonical_hash(&self, number: u64) -> Result<alloy_primitives::B256> {
             let fixture = self.fixture();
@@ -1396,6 +1434,15 @@ mod tests {
         }
     }
     fn builder(fixture: Arc<Fixture>, limits: Limits) -> BatchBuilder<Fixture, Fixture> {
+        builder_with(fixture, limits, MAX_BATCH_BLOCKS)
+    }
+
+    /// A builder over `fixture` that read `max_batch_blocks` from the Inbox at startup.
+    fn builder_with(
+        fixture: Arc<Fixture>,
+        limits: Limits,
+        max_batch_blocks: u64,
+    ) -> BatchBuilder<Fixture, Fixture> {
         BatchBuilder::new(
             fixture.clone(),
             fixture.clone(),
@@ -1405,9 +1452,57 @@ mod tests {
                 mode: SidecarMode::Eip4844,
                 engine: std::sync::Arc::new(test_harness::unavailable_engine::UnavailableEngine),
                 engine_timeout: std::time::Duration::from_secs(1),
+                max_batch_blocks,
             },
         )
         .unwrap()
+    }
+
+    #[test]
+    fn batch_cap_is_the_lower_limit_in_whole_grid_segments() {
+        assert_eq!(batch_cap(16, u64::MAX).unwrap(), 12);
+        assert_eq!(batch_cap(100, 120).unwrap(), 96);
+        assert_eq!(batch_cap(100, 13).unwrap(), 12);
+        assert_eq!(batch_cap(6, 6).unwrap(), 6);
+        for (max_blocks, max_batch_blocks) in [(5, 120), (100, 5), (0, 0)] {
+            assert!(
+                matches!(
+                    batch_cap(max_blocks, max_batch_blocks),
+                    Err(LanderError::Configuration(_))
+                ),
+                "{max_blocks} configured, {max_batch_blocks} deployed"
+            );
+        }
+    }
+
+    /// However many blocks `--max-blocks` allows, observation and selection never exceed the
+    /// deployed Inbox's `maxBatchBlocks`, rounded down to whole grid segments, so a landing never
+    /// reverts `BatchTooLarge`.
+    #[tokio::test]
+    async fn selection_never_exceeds_the_deployed_max_batch_blocks() {
+        let fixture = Arc::new(Fixture::new(0, 18));
+        for (max_batch_blocks, expected) in [(120, 18), (17, 12), (12, 12), (7, 6)] {
+            let builder = builder_with(fixture.clone(), limits(18), max_batch_blocks);
+            let observed = builder.observe(&fixture.snapshot).await.unwrap();
+            assert_eq!(observed.publishable_blocks, expected, "maxBatchBlocks {max_batch_blocks}");
+            let batch = builder.prepare(fixture.snapshot.clone()).await.unwrap().unwrap().batch;
+            assert_eq!(batch.blocks.len(), expected, "maxBatchBlocks {max_batch_blocks}");
+            assert_eq!(batch.input.lastHeight, U256::from(expected));
+        }
+    }
+
+    /// An Inbox whose `maxBatchBlocks` dropped below the selection since startup refuses the
+    /// batch before it is proved, so a restart can select under the new value.
+    #[tokio::test]
+    async fn a_lowered_max_batch_blocks_refuses_the_batch_before_proving() {
+        let source = TrackingSource::new(Fixture::new(0, 18));
+        let builder = source.builder(18);
+        let snapshot = source.fixture().snapshot.clone();
+        source.max_batch_blocks.store(12, Ordering::Relaxed);
+        assert!(matches!(
+            builder.prepare(snapshot).await,
+            Err(LanderError::Configuration(reason)) if reason.contains("maxBatchBlocks")
+        ));
     }
 
     #[tokio::test]

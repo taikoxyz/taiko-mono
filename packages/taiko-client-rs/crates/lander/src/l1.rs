@@ -47,6 +47,17 @@ pub struct ParentContext {
     pub grandparent_timestamp: u64,
 }
 
+/// What the deployment reads establish about the executing Inbox.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Deployment {
+    /// Hash of every deployment boundary read and of the implementation code: code or
+    /// configuration changes change it, pauses and landing progress do not.
+    pub identity: B256,
+    /// The Inbox's `maxBatchBlocks`: the most blocks one landing may cover, above which it reverts
+    /// `BatchTooLarge`.
+    pub max_batch_blocks: u64,
+}
+
 /// Read-only L1/L2 boundary used by batch assembly and transaction reconciliation.
 #[async_trait]
 pub trait LandingSource: Send + Sync {
@@ -78,7 +89,7 @@ pub trait LandingSource: Send + Sync {
         anchors: &[AnchorState],
     ) -> Result<Vec<RawL1Header>>;
     /// Authenticate V1 initialization/configuration and identify the executing deployment.
-    async fn deployment_identity(&self, snapshot: &LandingSnapshot) -> Result<B256>;
+    async fn deployment(&self, snapshot: &LandingSnapshot) -> Result<Deployment>;
     /// The canonical L1 hash at a requested number, including receipt blocks.
     async fn canonical_hash(&self, number: u64) -> Result<B256>;
     /// Reject a reference that is no longer canonical, past, or retained.
@@ -385,7 +396,7 @@ impl LandingSource for RpcLandingSource {
 
     /// Read actual current ABI boundaries at one canonical L1 block; no hashing RPC exists. An
     /// Inbox whose `GRID_INTERVAL` is not [`abci::GRID_INTERVAL`] is a configuration error.
-    async fn deployment_identity(&self, snapshot: &LandingSnapshot) -> Result<B256> {
+    async fn deployment(&self, snapshot: &LandingSnapshot) -> Result<Deployment> {
         authenticate_snapshot(snapshot, &self.params)?;
         let mut identity = Vec::new();
         macro_rules! read {
@@ -435,7 +446,7 @@ impl LandingSource for RpcLandingSource {
         }
         let _ = read!(proofVerifierCall);
         let _ = read!(signalServiceCall);
-        let _ = read!(maxBatchBlocksCall);
+        let max_batch_blocks = read!(maxBatchBlocksCall);
         let _ = read!(forcedInclusionFeeInGweiCall);
         let _ = read!(forcedInclusionFeeDoubleThresholdCall);
         let _ = read!(protocolFeeRecipientCall);
@@ -450,7 +461,7 @@ impl LandingSource for RpcLandingSource {
         }
         identity.extend_from_slice(alloy_primitives::keccak256(code).as_slice());
         identity.extend_from_slice(snapshot.inbox_witness.code_hash.as_slice());
-        Ok(alloy_primitives::keccak256(identity))
+        Ok(Deployment { identity: alloy_primitives::keccak256(identity), max_batch_blocks })
     }
 
     async fn canonical_hash(&self, number: u64) -> Result<B256> {

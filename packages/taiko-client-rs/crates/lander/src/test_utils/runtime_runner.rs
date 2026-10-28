@@ -243,12 +243,13 @@ impl LandingSource for MockL1 {
     async fn reference(&self, _: &LandingSnapshot, _: &[AnchorState]) -> Result<Vec<RawL1Header>> {
         Ok(vec![])
     }
-    async fn deployment_identity(&self, _: &LandingSnapshot) -> Result<B256> {
-        Ok(if self.control.lock().unwrap().helper_mismatch {
+    async fn deployment(&self, _: &LandingSnapshot) -> Result<crate::l1::Deployment> {
+        let identity = if self.control.lock().unwrap().helper_mismatch {
             B256::ZERO
         } else {
             self.request.batch.deployment_identity
-        })
+        };
+        Ok(crate::l1::Deployment { identity, max_batch_blocks: u64::MAX })
     }
     async fn canonical_hash(&self, number: u64) -> Result<B256> {
         let control = self.control.lock().unwrap();

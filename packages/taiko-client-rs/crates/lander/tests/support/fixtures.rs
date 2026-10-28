@@ -359,7 +359,8 @@ impl FixtureChain {
             chain: chain.clone(),
             rpc: RpcLandingSource::new(p.clone(), p.clone(), fixture.params.clone()),
         });
-        use lander::batch::BatchSource;
+        use lander::{batch::BatchSource, l1::LandingSource};
+        let max_batch_blocks = adapter.deployment(&snapshot).await?.max_batch_blocks;
         lander::batch::BatchBuilder::new(
             chain,
             adapter,
@@ -369,6 +370,7 @@ impl FixtureChain {
                 mode,
                 engine: std::sync::Arc::new(test_harness::unavailable_engine::UnavailableEngine),
                 engine_timeout: std::time::Duration::from_secs(1),
+                max_batch_blocks,
             },
         )?
         .prepare(snapshot)
@@ -541,8 +543,11 @@ impl LandingSource for FixtureLanding {
     ) -> lander::error::Result<Vec<abci::RawL1Header>> {
         self.rpc.reference(snapshot, anchors).await
     }
-    async fn deployment_identity(&self, snapshot: &LandingSnapshot) -> lander::error::Result<B256> {
-        self.rpc.deployment_identity(snapshot).await
+    async fn deployment(
+        &self,
+        snapshot: &LandingSnapshot,
+    ) -> lander::error::Result<lander::l1::Deployment> {
+        self.rpc.deployment(snapshot).await
     }
     async fn canonical_hash(&self, number: u64) -> lander::error::Result<B256> {
         self.rpc.canonical_hash(number).await

@@ -188,8 +188,11 @@ taiko-client lander --l1.http http://l1-node:8545 \
   --max-fee-per-blob-gas "$LANDER_MAX_FEE_PER_BLOB_GAS"
 ```
 
-The deployed Inbox must permit the selected maximum. A batch must fit a complete K=6 segment,
-so `--max-blocks` must be at least 6; endpoints are grid heights. `--max-blobs` is exactly 6.
+A batch must fit a complete K=6 segment, so `--max-blocks` must be at least 6; endpoints are
+grid heights. At startup the lander reads the Inbox's `maxBatchBlocks` and `GRID_INTERVAL`: it
+refuses an Inbox whose grid interval differs from 6, and caps every batch at the lower of
+`--max-blocks` and `maxBatchBlocks`, rounded down to whole segments (logging when the Inbox
+lowers it), refusing to start when that is below one segment. `--max-blobs` is exactly 6.
 `--min-blocks` defaults to 1 and `--max-batch-wait` to 30 seconds, but neither permits a partial
 segment. The minimum is 1 through `--max-blocks`; wait expiry or consensus pressure can flush
 an available complete prefix below it. Batches can cross epoch transitions; batch timing and

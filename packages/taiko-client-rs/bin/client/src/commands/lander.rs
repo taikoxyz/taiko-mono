@@ -109,11 +109,22 @@ impl LanderSubCommand {
         let snapshot =
             retry_bootstrap(config.poll_interval, retry_max_delay, || landing.snapshot()).await?;
         // The deployment reads refuse an Inbox this client cannot land on, such as one whose
-        // GRID_INTERVAL differs from abci::GRID_INTERVAL, before anything else starts.
-        retry_bootstrap(config.poll_interval, retry_max_delay, || {
-            landing.deployment_identity(&snapshot)
+        // GRID_INTERVAL differs from abci::GRID_INTERVAL, before anything else starts. Its
+        // maxBatchBlocks caps batch selection together with --max-blocks.
+        let deployment = retry_bootstrap(config.poll_interval, retry_max_delay, || {
+            landing.deployment(&snapshot)
         })
         .await?;
+        let batch_cap =
+            lander::batch::batch_cap(config.limits.max_blocks, deployment.max_batch_blocks)?;
+        if deployment.max_batch_blocks < config.limits.max_blocks as u64 {
+            info!(
+                max_blocks = config.limits.max_blocks,
+                max_batch_blocks = deployment.max_batch_blocks,
+                batch_cap,
+                "the Inbox maxBatchBlocks caps batches below --max-blocks"
+            );
+        }
         let identity = JournalIdentity {
             l1_chain_id: snapshot.l1_chain_id,
             l2_chain_id: snapshot.l2_chain_id,
@@ -147,6 +158,7 @@ impl LanderSubCommand {
                 mode: config.sidecar_mode,
                 engine,
                 engine_timeout: config.timeouts.engine,
+                max_batch_blocks: deployment.max_batch_blocks,
             },
         )?);
         let mut runner = Runner::new(
