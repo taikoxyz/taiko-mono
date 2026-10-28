@@ -24,7 +24,7 @@ import (
 // Exercise the guarded FilePV boundary against independent pinned wire/signature
 // vectors, including nil votes, generation/domain changes and signed timestamps.
 func TestGuardedFilePVMatchesCanonicalVoteVectors(t *testing.T) {
-	raw, err := os.ReadFile("../../crates/abci/testdata/v1-vectors.json")
+	raw, err := os.ReadFile("../../../../testdata/etna_vectors/vectors.json")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -110,8 +110,8 @@ func fromHex(t *testing.T, s string) []byte {
 
 func TestPopMatchesCanonicalContractVectorsAndRecoversEthereumAddress(t *testing.T) {
 	binary := buildSigner(t)
-	// This is the schema-4 fixture copied verbatim from the pinned protocol commit by Task 1.
-	raw, err := os.ReadFile("../../crates/abci/testdata/v1-vectors.json")
+	// The shared Etna vectors at the repository root, which the contracts check too.
+	raw, err := os.ReadFile("../../../../testdata/etna_vectors/vectors.json")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -16,7 +16,7 @@ use crate::types::RegistryEntry;
 pub(crate) fn vectors() -> &'static Value {
     static VECTORS: OnceLock<Value> = OnceLock::new();
     VECTORS.get_or_init(|| {
-        serde_json::from_str(include_str!("../../testdata/v1-vectors.json"))
+        serde_json::from_str(include_str!("../../../../../../testdata/etna_vectors/vectors.json"))
             .expect("the shared Etna vectors are valid JSON")
     })
 }
