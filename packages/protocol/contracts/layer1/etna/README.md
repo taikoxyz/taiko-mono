@@ -2,8 +2,9 @@
 
 Etna is a proof-of-stake validity rollup. A committee of TAIKO stakers orders and finalizes L2
 blocks with stock CometBFT, anyone can land a proven batch on L1, and L1 recognizes only landed
-checkpoints. These are its L1 contracts. Section numbers refer to the Etna PoS + ZK design
-specification; appendix A is its encodings and appendix B its L1 storage layout.
+checkpoints. These are its L1 contracts. Section numbers refer to the
+[Etna PoS + ZK design specification](../../../docs/etna-pos-zk/README.md); appendix A is its
+encodings and appendix B its L1 storage layout.
 
 ## Contracts
 
