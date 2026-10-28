@@ -4,7 +4,8 @@ The Rust consensus-side node of the Taiko Etna PoS chain, starting from L2 genes
 blocks; the `taiko-client abci` ABCI++ application builds and validates them and drives
 alethia-reth through the Engine API. The independent `taiko-client lander` publishes decided batches to L1.
 
-The protocol rules are specified in the [Etna PoS ZK Design Spec](https://app.notion.com/p/taikoxyz/Etna-PoS-ZK-Design-Spec-3fe9673143d6817a9f0fdaaf1b965d7a);
+The protocol rules are specified in the
+[Etna PoS + ZK design specification](../protocol/docs/etna-pos-zk/README.md);
 "spec section N" below refers to it. This README covers building, running and operating the
 client, and names the spec section where an operator needs a rule.
 
