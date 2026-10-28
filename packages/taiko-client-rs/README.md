@@ -467,8 +467,8 @@ or config opening differs.
   validators use for committee switch witnesses, so give them the same L1 proof access.
   Proposers also need exact-block historical admission logs for pending forced entries.
 - **Validators** also build proposals, so their L1 node must serve `eth_getProof` (EIP-1186) for
-  historical blocks. A proposal proves Inbox storage at its anchor, which is at least
-  `l1_finality_extra_depth` blocks behind L1 `finalized`. At a switch height the proposer also
+  historical blocks. A proposal proves Inbox storage at its anchor, the own L1 node's
+  `finalized` block when the anchor moves. At a switch height the proposer also
   reconstructs the registry entries at the committed parent anchor. The selected registry
   checkpoint can be older than that anchor. The state window or cached history must cover
   those historical entry reads as well as the parent-anchor proofs. Landers starting mid-epoch
@@ -478,9 +478,8 @@ or config opening differs.
   parent's anchor unless it carries a newer one. An L1 finality stall keeps that anchor for up to
   `maxAnchorAge` (planned 2 h, about 600 L1 blocks), far beyond a geth full node's 128-block state window, so nodes
   discover the witness as soon as they commit the anchor (see the sidecar below). That needs the
-  L1 proof window to cover the finality lag plus `l1_finality_extra_depth` plus one discovery
-  and its retries; a deeper extra depth, or a node that was not live when the anchor was
-  adopted, still needs historical state. Configure historical proof/state retention to cover the
+  L1 proof window to cover the finality lag plus one discovery and its retries; a node that was
+  not live when the anchor was adopted still needs historical state. Configure historical proof/state retention to cover the
   required history, or supply `--l1.archive` (`ABCI_L1_ARCHIVE`) as an HTTP(S) archive fallback
   for committee registry reads. Archive state reads use the exact requested block; their
   complete witness still verifies under the anchor's state root. Finality, canonical

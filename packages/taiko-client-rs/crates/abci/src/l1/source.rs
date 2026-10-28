@@ -414,20 +414,15 @@ pub async fn header_at<L: L1Source + ?Sized>(l1: &L, number: u64) -> Result<RawL
 }
 
 /// Whether `header` is final and canonical in the node's own L1 view: the node's `finalized`
-/// number is at least `header.number() + extra_depth` (`F_L1`) and the node's canonical block
-/// hash at `header.number()` is `header.hash()`, i.e. `keccak256` of the raw header.
+/// number is at least `header.number()` and the node's canonical block hash at
+/// `header.number()` is `header.hash()`, i.e. `keccak256` of the raw header.
 ///
-/// An overflowing `header.number() + extra_depth` is never final. The canonical hash is only
-/// fetched once the finality bound holds.
+/// The canonical hash is only fetched once the header's number is final.
 pub async fn is_final_canonical<L: L1Source + ?Sized>(
     l1: &L,
     header: &RawL1Header,
-    extra_depth: u64,
 ) -> Result<bool, L1Error> {
-    let Some(bound) = header.number().checked_add(extra_depth) else {
-        return Ok(false);
-    };
-    if l1.finalized_number().await? < bound {
+    if l1.finalized_number().await? < header.number() {
         return Ok(false);
     }
     Ok(l1.canonical_hash(header.number()).await? == header.hash())
@@ -775,8 +770,10 @@ mod tests {
         let l1 = MockL1::new(12);
         l1.insert_header(header.clone());
 
-        assert_eq!(is_final_canonical(&l1, &header, 0).await, Ok(true));
-        assert_eq!(is_final_canonical(&l1, &header, 2).await, Ok(true), "finalized == n + F_L1");
+        assert_eq!(is_final_canonical(&l1, &header).await, Ok(true));
+        let at_finalized = RawL1Header::from(&l1_header(12, 124));
+        l1.insert_header(at_finalized.clone());
+        assert_eq!(is_final_canonical(&l1, &at_finalized).await, Ok(true), "finalized == n");
         assert!(
             l1.calls().iter().all(|call| !matches!(call, L1Call::Header(_))),
             "only the canonical hash is read, never the raw header"
@@ -785,21 +782,20 @@ mod tests {
 
     #[tokio::test]
     async fn header_above_the_finality_bound_is_not_final() {
-        let header = RawL1Header::from(&l1_header(10, 100));
         let l1 = MockL1::new(12);
-        l1.insert_header(header.clone());
-
-        assert_eq!(is_final_canonical(&l1, &header, 3).await, Ok(false));
-        assert_eq!(is_final_canonical(&l1, &header, u64::MAX).await, Ok(false), "overflow");
         let later = RawL1Header::from(&l1_header(13, 100));
-        assert_eq!(is_final_canonical(&l1, &later, 0).await, Ok(false));
+        l1.insert_header(later.clone());
+
+        assert_eq!(is_final_canonical(&l1, &later).await, Ok(false));
+        let last = RawL1Header::from(&l1_header(u64::MAX, 100));
+        assert_eq!(is_final_canonical(&l1, &last).await, Ok(false));
         assert!(
             !l1.calls().iter().any(|call| matches!(call, L1Call::CanonicalHash(_))),
             "no canonical hash read before finality holds"
         );
 
         l1.set_finalized(13);
-        assert_eq!(is_final_canonical(&l1, &header, 3).await, Ok(true), "finality advanced");
+        assert_eq!(is_final_canonical(&l1, &later).await, Ok(true), "finality advanced");
     }
 
     #[tokio::test]
@@ -810,14 +806,14 @@ mod tests {
 
         let fork = RawL1Header::from(&l1_header(10, 101));
         assert_ne!(fork.hash(), canonical.hash());
-        assert_eq!(is_final_canonical(&l1, &fork, 0).await, Ok(false));
+        assert_eq!(is_final_canonical(&l1, &fork).await, Ok(false));
     }
 
     #[tokio::test]
     async fn unknown_canonical_header_is_an_error() {
         let l1 = MockL1::new(12);
         assert_eq!(
-            is_final_canonical(&l1, &RawL1Header::from(&l1_header(10, 100)), 0).await,
+            is_final_canonical(&l1, &RawL1Header::from(&l1_header(10, 100))).await,
             Err(L1Error::BlockNotFound(BlockNumberOrTag::Number(10)))
         );
     }
@@ -829,6 +825,6 @@ mod tests {
         let l1 = MockL1::new(5);
         l1.insert_header(header.clone());
         let dyn_l1: &dyn L1Source = &l1;
-        assert_eq!(is_final_canonical(dyn_l1, &header, 0).await, Ok(true));
+        assert_eq!(is_final_canonical(dyn_l1, &header).await, Ok(true));
     }
 }

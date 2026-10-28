@@ -249,19 +249,6 @@ async fn genesis_l1_block_above_finalized_is_rejected() {
 }
 
 #[tokio::test]
-async fn genesis_l1_block_within_the_extra_depth_is_rejected() {
-    let fx = Fixture::genesis(2);
-    let (l1, engine, mut params, req) = fx.parts();
-    params.l1_finality_extra_depth = 1;
-    l1.set_finalized(fx.genesis.l1_0);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
-    let err = init_chain(&mut app, req).await.expect_err("not final");
-    assert!(matches!(err, AbciError::GenesisNotFinal { .. }), "{err:?}");
-    assert_not_initialized(&app, dir.path());
-}
-
-#[tokio::test]
 async fn non_canonical_genesis_l1_header_is_rejected() {
     let fx = Fixture::genesis(2);
     let (l1, engine, params, req) = fx.parts();

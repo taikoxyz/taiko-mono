@@ -102,7 +102,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let is_final = within(
             "L1 finality check of the genesis header",
             self.opts.l1_timeout,
-            is_final_canonical(self.l1(), l1_header, params.l1_finality_extra_depth),
+            is_final_canonical(self.l1(), l1_header),
         )
         .await?;
         if !is_final {

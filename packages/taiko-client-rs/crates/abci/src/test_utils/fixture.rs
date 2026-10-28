@@ -209,7 +209,7 @@ impl Fixture {
 
     /// An L1 whose canonical, finalized block `L1_0` is the witness header over `l1_state`.
     pub(crate) fn l1(&self) -> MockL1 {
-        let l1 = MockL1::new(self.genesis.l1_0 + self.params.l1_finality_extra_depth);
+        let l1 = MockL1::new(self.genesis.l1_0);
         l1.insert_header(self.witness.l1_header.clone());
         l1.state().states.insert(self.genesis.l1_0, self.l1_state.clone());
         l1
@@ -289,7 +289,7 @@ impl Fixture {
     }
 
     /// Plants L1 block `number` (see [`Fixture::plant_l1_block`]) and moves `l1`'s finalized
-    /// block so that it is final with the chain's extra depth: a proposer then anchors there.
+    /// block to it, so that it is final: a proposer then anchors there.
     pub(crate) fn advance_l1(
         &self,
         l1: &MockL1,
@@ -298,7 +298,7 @@ impl Fixture {
         registry: &RegistryStorage,
     ) -> RawL1Header {
         let header = self.plant_l1_block(l1, number, inbox, registry);
-        l1.set_finalized(number + self.params.l1_finality_extra_depth);
+        l1.set_finalized(number);
         header
     }
 

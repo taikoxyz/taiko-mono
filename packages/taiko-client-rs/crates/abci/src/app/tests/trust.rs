@@ -12,7 +12,7 @@ use crate::{
 };
 use alloy_primitives::B256;
 
-/// Provides real proofs at the exact finalized snapshot, without subtracting extra depth.
+/// Provides real proofs at the exact finalized snapshot.
 fn target(app: &App<MockL1, MockEngine>, fx: &Fixture, height: u64, hash: B256) {
     let inbox = InboxStorage {
         last_checkpoint_height: height,
@@ -344,7 +344,7 @@ async fn higher_generation_proposal_revokes_even_without_finalize_error() {
     let mut inbox = fx.inbox.clone();
     inbox.recovery_generation = 1;
     fx.plant_l1_block(app.l1(), 101, &inbox, &fx.registry);
-    app.l1().set_finalized(101 + fx.params.l1_finality_extra_depth);
+    app.l1().set_finalized(101);
     let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 101)), None);
     let (response, _) = super::proposal::judge(&mut app, &env).await;
     assert_eq!(response, response::ProcessProposal::Reject);

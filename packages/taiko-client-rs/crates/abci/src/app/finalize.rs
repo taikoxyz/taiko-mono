@@ -250,17 +250,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// Confirms, for the decided block at `height` this node never judged, that its anchor
     /// `header` is final and canonical in the own L1 view, the check `ProcessProposal` makes: the
-    /// own L1 must have finalized the header's number plus the chain's extra finality depth, and
-    /// hold this very header there.
+    /// own L1 must have finalized the header's number and hold this very header there.
     ///
     /// While the own L1 is unreachable or has not finalized that far, the block waits with the
     /// [`Backoff`] schedule and is neither finalized nor halted on. [`Rejection::AnchorOffChain`],
     /// a safety halt, needs consecutive off-chain reads spanning at least five seconds (so a
     /// briefly stale or sticky backend is given time to recover) showing the header cannot be on
     /// the own L1 chain: a different own-L1 block at its number, or a number beyond the own
-    /// finalized block with a timestamp no block there can have ([`App::read_anchor`]). A
-    /// number beyond any finality bound halts at once. The node is then being fed a history
-    /// whose L1 facts its own L1 does not have.
+    /// finalized block with a timestamp no block there can have ([`App::read_anchor`]). The node
+    /// is then being fed a history whose L1 facts its own L1 does not have.
     pub(super) async fn confirm_anchor(
         &self,
         height: u64,
@@ -270,13 +268,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let off_chain = |detail: String| {
             invalid_block(height, &Rejection::AnchorOffChain { number, hash, detail })
         };
-        let Some(bound) = number.checked_add(self.params.l1_finality_extra_depth) else {
-            return Err(off_chain("its number is beyond any finality bound".into()));
-        };
         let mut backoff = Backoff::new(height);
         let mut suspect_since = None;
         loop {
-            let reason = match self.read_anchor(header, bound).await {
+            let reason = match self.read_anchor(header).await {
                 AnchorRead::Confirmed => return Ok(()),
                 AnchorRead::Integrity(reason) => return Err(AbciError::SafetyHalt(reason)),
                 AnchorRead::OffChain(detail) => {
@@ -330,17 +325,17 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
     }
 
-    /// One read of the own L1 about the anchor `header`, which must be final at `bound` (its
-    /// number plus the extra finality depth). Above the own finalized block, L1 timestamps rising
-    /// by at least a second per block bound how early a real block at the header's number can be:
-    /// a header older than that is off the chain, a later one is waited for.
-    async fn read_anchor(&self, header: &RawL1Header, bound: u64) -> AnchorRead {
+    /// One read of the own L1 about the anchor `header`, which must be final. Above the own
+    /// finalized block, L1 timestamps rising by at least a second per block bound how early a
+    /// real block at the header's number can be: a header older than that is off the chain, a
+    /// later one is waited for.
+    async fn read_anchor(&self, header: &RawL1Header) -> AnchorRead {
         let (number, limit) = (header.number(), self.opts.l1_timeout);
         let finalized = match deadline("L1 finalized", limit, self.l1.finalized_number()).await {
             Ok(finalized) => finalized,
             Err(rejection) => return AnchorRead::failed(rejection),
         };
-        if finalized >= bound {
+        if finalized >= number {
             return match deadline("L1 canonical hash", limit, self.l1.canonical_hash(number)).await
             {
                 Ok(own) if own == header.hash() => AnchorRead::Confirmed,
@@ -348,21 +343,19 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 Err(rejection) => AnchorRead::failed(rejection),
             };
         }
-        if number > finalized {
-            let own = match deadline("L1 header", limit, self.l1.header(finalized)).await {
-                Ok(own) => own,
-                Err(rejection) => return AnchorRead::failed(rejection),
-            };
-            let earliest = own.timestamp().saturating_add(number - finalized);
-            if header.timestamp() < earliest {
-                return AnchorRead::OffChain(format!(
-                    "its timestamp {} is below {earliest}, the earliest a block {number} can have \
-                     after the own finalized block {finalized}",
-                    header.timestamp()
-                ));
-            }
+        let own = match deadline("L1 header", limit, self.l1.header(finalized)).await {
+            Ok(own) => own,
+            Err(rejection) => return AnchorRead::failed(rejection),
+        };
+        let earliest = own.timestamp().saturating_add(number - finalized);
+        if header.timestamp() < earliest {
+            return AnchorRead::OffChain(format!(
+                "its timestamp {} is below {earliest}, the earliest a block {number} can have \
+                 after the own finalized block {finalized}",
+                header.timestamp()
+            ));
         }
-        AnchorRead::Pending(format!("own L1 finalized {finalized}, anchor {number} needs {bound}"))
+        AnchorRead::Pending(format!("own L1 finalized {finalized}, below the anchor {number}"))
     }
 
     /// Completes a cold forced decision before deriving the next cursor. Included transactions,

@@ -27,7 +27,7 @@ use crate::{
 /// One authenticated checkpoint at an immutable finalized L1 snapshot.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CheckpointTarget {
-    /// Own finalized L1 block number used for the proof (without extra depth subtraction).
+    /// Own finalized L1 block number used for the proof.
     pub l1_number: u64,
     /// Hash of the raw header authenticating the proof's state root.
     pub l1_hash: B256,

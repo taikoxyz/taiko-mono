@@ -194,7 +194,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
     }
 
     /// Retrieves exact admission bytes and authenticates them before retaining a completed read.
+    /// An entry that governance recovery blanked (its hash is `keccak256("")`) has the empty
+    /// string as its bytes, known without reading its admission log.
     pub(super) async fn forced_transaction(&self, entry: ForcedEntry) -> Result<Bytes, Rejection> {
+        if entry.tx_hash == alloy_consensus::constants::KECCAK_EMPTY {
+            return Ok(Bytes::new());
+        }
         let result = {
             let mut cache = self.preparation_cache();
             if let Some((_, tx)) = cache.transaction.as_ref().filter(|(known, _)| *known == entry) {
