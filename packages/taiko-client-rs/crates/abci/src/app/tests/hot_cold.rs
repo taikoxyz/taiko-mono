@@ -236,7 +236,7 @@ impl Run {
 
         // The deterministic checks classify the block as the generator meant it.
         let verdict = validate::validate_block(
-            &committed,
+            &committed.chain_context(),
             &self.hot.params,
             &block.env,
             height,
@@ -464,7 +464,7 @@ fn envelope(
     };
     let height = state.last_height + 1;
     let expected = validate::expected_header(
-        state,
+        &state.chain_context(),
         &app.params,
         height,
         &anchor_state,

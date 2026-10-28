@@ -1,16 +1,19 @@
-//! Deterministic block validation shared by `ProcessProposal` and `FinalizeBlock`: every check
-//! of a proposal except the node-local ones, marked ¹ here (anchor finality in the node's own L1
-//! view, EL execution), which affect liveness only.
+//! Deterministic block validation shared by `ProcessProposal`, `FinalizeBlock` and the lander:
+//! every check of a proposal except the node-local ones, marked ¹ here (anchor finality in the
+//! node's own L1 view, checkpoint ancestry in the local EL, EL execution), which affect liveness
+//! only.
 //!
-//! [`validate_block`] judges a decoded envelope against the committed [`AppState`] alone: no L1,
-//! no EL, in its steps (a)–(j). [`check_candidate`] holds the witness steps (b)–(h);
+//! [`validate_block`] judges a decoded envelope against a [`ChainContext`] alone: no L1, no EL,
+//! in its steps (a)–(j). The app fills the context from its committed [`AppState`]
+//! ([`AppState::chain_context`]); the lander fills it from the chain it authenticates from L1
+//! and certified CometBFT blocks. [`check_candidate`] holds the witness steps (b)–(h);
 //! `PrepareProposal` runs its two halves ([`check_candidate_anchor`], [`finish_candidate`]) on
 //! its own witnesses before it asks the EL to build.
 //! All consensus handlers enforce the raw execution block RLP limit of 124000 bytes.
 //! The authenticated forced decision is completed by the shared asynchronous singleton checker
 //! before any handler advances the queue cursor. Ordinary execution remains independent.
 
-use std::fmt;
+use std::{collections::BTreeMap, fmt};
 
 use alloy_consensus::Header;
 use alloy_primitives::B256;
@@ -24,9 +27,70 @@ use crate::{
     forced::{self, ForcedContext, ForcedDecision, ForcedError},
     l1::{FetchError, L1Error, WitnessError, layout::inbox, verify_anchor_witness},
     rules::{self, ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation},
+    schedule::Schedule,
     store::{AppState, CommitteeState},
-    types::AnchorState,
+    types::{AnchorState, GenesisRecord, ParentInfo},
 };
+
+/// The committed chain a block is validated on top of: the facts both the app (from its
+/// [`AppState`]) and the lander (from L1 and certified CometBFT blocks) authenticate.
+#[derive(Clone, Copy)]
+pub struct ChainContext<'a> {
+    /// The genesis record: the epoch schedule, `L1_0`, `maxAnchorAge` and the forced inclusion
+    /// delay `D`.
+    pub genesis: &'a GenesisRecord,
+    /// The chain's recovery generation.
+    pub generation: u64,
+    /// The committed parent block; the block must be at `parent.number + 1`.
+    pub parent: &'a ParentInfo,
+    /// The parent's anchor and the Inbox facts proven at it.
+    pub anchor: &'a AnchorState,
+    /// The forced inclusion cursor after the parent: the queue entries the chain has consumed.
+    pub forced_cursor: u64,
+    /// The committees known by epoch.
+    pub committees: &'a (dyn CommitteeLookup + Sync),
+}
+
+impl ChainContext<'_> {
+    /// The epoch schedule of the genesis record.
+    pub fn schedule(&self) -> Schedule {
+        Schedule::from_genesis(self.genesis)
+    }
+}
+
+/// Committees by epoch, as a [`ChainContext`] looks them up.
+pub trait CommitteeLookup {
+    /// The committee of `epoch`, if known.
+    fn committee(&self, epoch: u64) -> Option<&CommitteeState>;
+}
+
+impl<C: AsRef<CommitteeState>> CommitteeLookup for BTreeMap<u64, C> {
+    /// The map entry of `epoch`.
+    fn committee(&self, epoch: u64) -> Option<&CommitteeState> {
+        self.get(&epoch).map(AsRef::as_ref)
+    }
+}
+
+impl AsRef<CommitteeState> for CommitteeState {
+    /// The committee itself.
+    fn as_ref(&self) -> &CommitteeState {
+        self
+    }
+}
+
+impl AppState {
+    /// The committed chain the next block extends, for [`validate_block`].
+    pub fn chain_context(&self) -> ChainContext<'_> {
+        ChainContext {
+            genesis: &self.genesis,
+            generation: self.generation,
+            parent: &self.parent,
+            anchor: &self.anchor,
+            forced_cursor: self.forced_cursor,
+            committees: &self.committees,
+        }
+    }
+}
 
 /// A block that passed [`validate_block`], with everything `FinalizeBlock` needs to commit it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -319,18 +383,19 @@ pub(crate) struct CandidateFacts {
     pub(crate) derived: Option<(u64, CommitteeState)>,
 }
 
-/// Validates `env` as the block at `height` on top of `state` (every check but the ¹ ones);
+/// Validates `env` as the block at `height` on top of `chain` (every check but the ¹ ones);
 /// `bft_secs` is the block's BFT time in whole seconds.
 ///
-/// In order: (a) `height == state.last_height + 1`, the header's number and parent hash;
+/// In order: the raw block size ([`check_execution_size`]); (a) `height == chain.parent.number +
+/// 1`, the header's number and parent hash;
 /// (b)–(h) [`check_candidate`] with the generation and anchor number decoded from the header's
 /// `extraData`; (i) the derived header ([`rules::expected_header`]), whose timestamp must keep
 /// the anchor within the genesis `maxAnchorAge` ([`rules::check_anchor_freshness`]) and whose
 /// every field the header must carry ([`rules::check_header`]); (j) the forced inclusion rule
 /// ([`forced::check`]) on the committed cursor, the block's anchor (its own witness's or the
 /// parent's), the genesis delay and the envelope's forced witness. Reports the first failure.
-pub(crate) fn validate_block(
-    state: &AppState,
+pub fn validate_block(
+    chain: &ChainContext<'_>,
     params: &ChainParams,
     env: &EtnaEnvelope,
     height: u64,
@@ -339,14 +404,14 @@ pub(crate) fn validate_block(
 ) -> Result<Validated, Rejection> {
     check_execution_size(&env.block)?;
     let header = &env.block.header;
-    if state.last_height.checked_add(1) != Some(height) {
-        return Err(RuleViolation::HeightMismatch { height, parent: state.last_height }.into());
+    if chain.parent.number.checked_add(1) != Some(height) {
+        return Err(RuleViolation::HeightMismatch { height, parent: chain.parent.number }.into());
     }
-    check_link(header, height, state.parent.hash)?;
+    check_link(header, height, chain.parent.hash)?;
 
     let (_, extra_generation, extra_anchor) = rules::decode_extra_data(&header.extra_data)?;
     let facts = check_candidate(
-        state,
+        chain,
         params,
         height,
         &Candidate {
@@ -357,19 +422,19 @@ pub(crate) fn validate_block(
         },
     )?;
 
-    let mut expected = expected_header(state, params, height, &facts.anchor, bft_secs, proposer)?;
+    let mut expected = expected_header(chain, params, height, &facts.anchor, bft_secs, proposer)?;
     expected.beneficiary = header.beneficiary;
     rules::check_anchor_freshness(
         expected.timestamp,
         facts.anchor.timestamp,
-        state.genesis.max_anchor_age,
+        chain.genesis.max_anchor_age,
     )?;
     rules::check_header(header, &expected)?;
     let decision = forced::check(
         ForcedContext {
-            cursor: state.forced_cursor,
+            cursor: chain.forced_cursor,
             anchor: &facts.anchor,
-            delay: state.genesis.forced_inclusion_delay,
+            delay: chain.genesis.forced_inclusion_delay,
             inbox: params.inbox,
             l2_chain_id: params.l2_chain_id,
             block_gas_limit: params.block_gas_limit,
@@ -380,7 +445,7 @@ pub(crate) fn validate_block(
     Ok(Validated {
         envelope_hash: alloy_primitives::keccak256(env.encode()),
         proposer,
-        parent_cursor: state.forced_cursor,
+        parent_cursor: chain.forced_cursor,
         block: env.block.clone(),
         anchor: facts.anchor,
         derived: facts.derived,
@@ -391,29 +456,29 @@ pub(crate) fn validate_block(
     })
 }
 
-/// The derived header fields of the block at `height` on top of `state` with `anchor` and BFT
+/// The derived header fields of the block at `height` on top of `chain` with `anchor` and BFT
 /// time `bft_secs` ([`rules::expected_header`]), with the chain's minimum base fee and the
 /// local fee recipient, after authenticating the certified proposer in this block's committee.
 pub(crate) fn expected_header(
-    state: &AppState,
+    chain: &ChainContext<'_>,
     params: &ChainParams,
     height: u64,
     anchor: &AnchorState,
     bft_secs: u64,
     proposer: tendermint::account::Id,
 ) -> Result<ExpectedHeader, Rejection> {
-    let epoch = state.schedule().epoch_of(height);
-    let committee = state.committees.get(&epoch).ok_or(Rejection::CommitteeUnknown(epoch))?;
+    let epoch = chain.schedule().epoch_of(height);
+    let committee = chain.committees.committee(epoch).ok_or(Rejection::CommitteeUnknown(epoch))?;
     if !rules::is_committee_proposer(&committee.members, proposer) {
         return Err(Rejection::ProposerUnknown(proposer));
     }
     let reward_recipient = params.fee_recipient;
     rules::expected_header(&HeaderInputs {
         height,
-        parent: &state.parent,
+        parent: chain.parent,
         anchor,
         bft_time_secs: bft_secs,
-        generation: state.generation,
+        generation: chain.generation,
         params,
         min_base_fee: min_base_fee_for_chain(params.l2_chain_id),
         reward_recipient,
@@ -424,32 +489,32 @@ pub(crate) fn expected_header(
 /// Steps (b)–(h) of [`validate_block`] on a candidate's witnesses and `extraData` claims:
 /// [`check_candidate_anchor`], then [`finish_candidate`].
 fn check_candidate(
-    state: &AppState,
+    chain: &ChainContext<'_>,
     params: &ChainParams,
     height: u64,
     c: &Candidate<'_>,
 ) -> Result<CandidateFacts, Rejection> {
-    let anchor = check_candidate_anchor(state, params, height, c)?;
-    finish_candidate(state, params, height, c.committee, anchor)
+    let anchor = check_candidate_anchor(chain, params, height, c)?;
+    finish_candidate(chain, params, height, c.committee, anchor)
 }
 
 /// Authenticates a supplied anchor or inherits the parent's anchor, then checks anchor progress,
 /// generation and the authenticated back-pressure cap before registry discovery.
 /// Anchor witnesses are forced only on anchor moves and H0, independently of switch heights.
 pub(crate) fn check_candidate_anchor(
-    state: &AppState,
+    chain: &ChainContext<'_>,
     params: &ChainParams,
     height: u64,
     c: &Candidate<'_>,
 ) -> Result<AnchorState, Rejection> {
-    let anchor = candidate_anchor(state, params, height, c)?;
-    rules::check_anchor_progress(state.anchor.number, anchor.number, state.genesis.l1_0)?;
+    let anchor = candidate_anchor(chain, params, height, c)?;
+    rules::check_anchor_progress(chain.anchor.number, anchor.number, chain.genesis.l1_0)?;
 
     let inbox_generation = anchor.inbox.recovery_generation;
-    if rules::check_generation(state.generation, c.extra_generation, inbox_generation)? ==
+    if rules::check_generation(chain.generation, c.extra_generation, inbox_generation)? ==
         GenerationCheck::Superseded
     {
-        return Err(Rejection::Superseded { chain: state.generation, inbox: inbox_generation });
+        return Err(Rejection::Superseded { chain: chain.generation, inbox: inbox_generation });
     }
     rules::check_back_pressure(
         height,
@@ -463,15 +528,15 @@ pub(crate) fn check_candidate_anchor(
 /// committee to exist. No L1 committee publication or checkpoint coverage of a prior derivation
 /// is required; back-pressure was already checked on the anchor.
 pub(crate) fn finish_candidate(
-    state: &AppState,
+    chain: &ChainContext<'_>,
     params: &ChainParams,
     height: u64,
     committee: Option<&CommitteeWitness>,
     anchor: AnchorState,
 ) -> Result<CandidateFacts, Rejection> {
-    let derived = candidate_committee(state, params, height, committee, &anchor)?;
-    if let Some(t) = state.schedule().switch_target(height) &&
-        !state.committees.contains_key(&(t - 1))
+    let derived = candidate_committee(chain, params, height, committee, &anchor)?;
+    if let Some(t) = chain.schedule().switch_target(height) &&
+        chain.committees.committee(t - 1).is_none()
     {
         return Err(Rejection::CommitteeUnknown(t - 1));
     }
@@ -491,18 +556,18 @@ fn check_link(header: &Header, height: u64, parent: B256) -> Result<(), RuleViol
 
 /// Step (b): the candidate's anchor, proven by its witness or inherited from the parent.
 fn candidate_anchor(
-    state: &AppState,
+    chain: &ChainContext<'_>,
     params: &ChainParams,
     height: u64,
     c: &Candidate<'_>,
 ) -> Result<AnchorState, Rejection> {
-    let forced = height == state.schedule().h0();
+    let forced = height == chain.schedule().h0();
     match c.anchor {
-        None if forced || c.extra_anchor != state.anchor.number => {
+        None if forced || c.extra_anchor != chain.anchor.number => {
             Err(Rejection::MissingWitness(WitnessKind::Anchor))
         }
-        None => Ok(state.anchor.clone()),
-        Some(w) if !forced && w.l1_header.number() == state.anchor.number => {
+        None => Ok(chain.anchor.clone()),
+        Some(w) if !forced && w.l1_header.number() == chain.anchor.number => {
             Err(Rejection::UnexpectedWitness(WitnessKind::Anchor))
         }
         Some(w) => Ok(verify_anchor_witness(w, params.inbox)?),
@@ -513,20 +578,20 @@ fn candidate_anchor(
 /// parent's anchor number and the registry proofs verify against this block's own anchor
 /// `stateRoot`. Non-switch heights forbid runtime committee witnesses.
 fn candidate_committee(
-    state: &AppState,
+    chain: &ChainContext<'_>,
     params: &ChainParams,
     height: u64,
     w: Option<&CommitteeWitness>,
     anchor: &AnchorState,
 ) -> Result<Option<(u64, CommitteeState)>, Rejection> {
-    match (state.schedule().switch_target(height), w) {
+    match (chain.schedule().switch_target(height), w) {
         (None, None) => Ok(None),
         (None, Some(_)) => Err(Rejection::UnexpectedWitness(WitnessKind::Committee)),
         (Some(_), None) => Err(Rejection::MissingWitness(WitnessKind::Committee)),
         (Some(target), Some(w)) => {
             let (record, members) = verify_committee_witness_at_cutoff(
                 anchor.state_root,
-                state.anchor.number.max(state.genesis.l1_0),
+                chain.anchor.number.max(chain.genesis.l1_0),
                 params,
                 w,
                 target,
@@ -537,7 +602,7 @@ fn candidate_committee(
 }
 
 /// Rejects raw execution blocks above the consensus bound, before validation or execution.
-pub(crate) fn check_execution_size(block: &crate::ExecutionBlock) -> Result<(), Rejection> {
+pub fn check_execution_size(block: &crate::ExecutionBlock) -> Result<(), Rejection> {
     use alloy_rlp::Encodable;
     let bytes = block.length();
     if bytes > 124_000 {

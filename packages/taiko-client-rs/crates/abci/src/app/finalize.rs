@@ -77,9 +77,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 return Err(invalid_block(height, &Rejection::from(error)));
             }
         };
-        let fresh =
-            validate_block(state, &self.params, &env, height, bft_secs, req.proposer_address)
-                .map_err(|e| invalid_block(height, &e))?;
+        let fresh = validate_block(
+            &state.chain_context(),
+            &self.params,
+            &env,
+            height,
+            bft_secs,
+            req.proposer_address,
+        )
+        .map_err(|e| invalid_block(height, &e))?;
         let cached = self.verdicts.remove(&req.hash).filter(|v| {
             v.proposer == fresh.proposer &&
                 v.envelope_hash == fresh.envelope_hash &&

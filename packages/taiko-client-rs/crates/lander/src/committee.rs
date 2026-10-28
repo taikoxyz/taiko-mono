@@ -43,6 +43,13 @@ pub struct AuthenticatedCommittee {
     pub provenance: Option<crate::types::CommitteeContext>,
 }
 
+impl AsRef<CommitteeState> for AuthenticatedCommittee {
+    /// The committee record and members the validator set was built from.
+    fn as_ref(&self) -> &CommitteeState {
+        &self.state
+    }
+}
+
 /// Native validator metadata in the exact ordered certificate slot.
 #[derive(Clone, Debug)]
 pub struct Validator {

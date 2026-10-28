@@ -361,10 +361,9 @@ pub fn expected_header(i: &HeaderInputs<'_>) -> Result<ExpectedHeader, RuleViola
 
 /// Checks a proposed header against its derived fields and the Etna body commitments.
 ///
-/// Compares, in order, the nine [`ExpectedHeader`] fields, then `withdrawals_root ==
-/// EMPTY_ROOT_HASH`, `blob_gas_used == 0`, `excess_blob_gas == 0`, `requests_hash ==
-/// EMPTY_REQUESTS_HASH`, `ommers_hash == EMPTY_OMMER_ROOT_HASH` and `nonce == 0`, and reports the
-/// first mismatch as [`RuleViolation::HeaderField`]. Execution results are left to the EL.
+/// Compares, in order, the nine [`ExpectedHeader`] fields, then the fixed fields of
+/// [`check_fixed_fields`], and reports the first mismatch as [`RuleViolation::HeaderField`].
+/// Execution results are left to the EL.
 pub fn check_header(h: &Header, e: &ExpectedHeader) -> Result<(), RuleViolation> {
     field_eq("number", e.number, h.number)?;
     field_eq("parent_hash", e.parent_hash, h.parent_hash)?;
@@ -379,7 +378,15 @@ pub fn check_header(h: &Header, e: &ExpectedHeader) -> Result<(), RuleViolation>
     field_eq("gas_limit", e.gas_limit, h.gas_limit)?;
     field_eq("base_fee_per_gas", Some(e.base_fee), h.base_fee_per_gas)?;
     field_eq("mix_hash", e.mix_hash, h.mix_hash)?;
+    check_fixed_fields(h)
+}
 
+/// Checks the header fields every Etna block carries with the same value, in order:
+/// `withdrawals_root == EMPTY_ROOT_HASH`, `blob_gas_used == 0`, `excess_blob_gas == 0`,
+/// `requests_hash == EMPTY_REQUESTS_HASH`, `ommers_hash == EMPTY_OMMER_ROOT_HASH`, no
+/// `block_access_list_hash`, no `slot_number` and `nonce == 0`. Reports the first mismatch as
+/// [`RuleViolation::HeaderField`].
+pub fn check_fixed_fields(h: &Header) -> Result<(), RuleViolation> {
     field_eq("withdrawals_root", Some(EMPTY_ROOT_HASH), h.withdrawals_root)?;
     field_eq("blob_gas_used", Some(0), h.blob_gas_used)?;
     field_eq("excess_blob_gas", Some(0), h.excess_blob_gas)?;
