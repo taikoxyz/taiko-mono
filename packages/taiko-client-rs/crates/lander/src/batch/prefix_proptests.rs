@@ -85,7 +85,7 @@ impl LandingSource for Decided {
         Err(unread("L1"))
     }
 
-    async fn deployment_identity(&self, _: &LandingSnapshot) -> Result<B256> {
+    async fn deployment(&self, _: &LandingSnapshot) -> Result<crate::l1::Deployment> {
         Err(unread("L1"))
     }
     async fn canonical_hash(&self, _: u64) -> Result<B256> {
@@ -158,10 +158,12 @@ fn room() -> impl Strategy<Value = Room> {
     ]
 }
 
-/// A builder selecting from `chain` under `limits` and the deflate budget `deflate_bytes`.
+/// A builder selecting from `chain` under `limits`, the deployed `max_batch_blocks` and the
+/// deflate budget `deflate_bytes`.
 fn builder(
     chain: Vec<CertifiedBlock>,
     limits: Limits,
+    max_batch_blocks: u64,
     deflate_bytes: usize,
 ) -> BatchBuilder<Decided, Decided> {
     let decided = Arc::new(Decided(chain));
@@ -171,6 +173,7 @@ fn builder(
         mode: SidecarMode::Eip4844,
         engine: Arc::new(test_harness::unavailable_engine::UnavailableEngine),
         engine_timeout: std::time::Duration::from_secs(1),
+        max_batch_blocks,
     };
     BatchBuilder::new(decided.clone(), decided, config)
         .expect("valid limits")
@@ -181,7 +184,7 @@ proptest! {
     #![proptest_config(ProptestConfig { cases: 32, ..ProptestConfig::default() })]
 
     /// Selection returns an exact consecutive prefix ending on a grid point within every capacity
-    /// bound.
+    /// bound, never above the configured or the deployed batch limit.
     /// Admitting the first block prevents a first-block capacity error; admitting all six candidate
     /// prefixes with enough deflate work guarantees a nonempty grid segment. Random capacities
     /// and work budgets also exercise the legitimate empty result below the next grid endpoint.
@@ -192,6 +195,7 @@ proptest! {
         blob_bound in any::<bool>(),
         spare_blob in any::<bool>(),
         max_blocks in 1usize..=12,
+        max_batch_blocks in prop_oneof![Just(u64::MAX), 1u64..=18],
         deflate_bytes in 0usize..=2 << 20,
     ) {
         let measure = guard_measure(&chain[0].block.data[0]);
@@ -208,7 +212,8 @@ proptest! {
         // and even charging
         // every candidate's entire inflated list stays inside the deflate-work budget.
         let grid = abci::GRID_INTERVAL as usize;
-        let mut segment_admitted = max_blocks >= grid;
+        let cap = max_blocks.min(usize::try_from(max_batch_blocks).unwrap_or(usize::MAX));
+        let mut segment_admitted = cap >= grid;
         let mut work = 0;
         for count in 1..=grid {
             match codec::encode(&chain[..count], &limits) {
@@ -220,14 +225,14 @@ proptest! {
         }
         segment_admitted &= work <= deflate_bytes;
         let decided = chain.len();
-        let builder = builder(chain.clone(), limits, deflate_bytes);
+        let builder = builder(chain.clone(), limits, max_batch_blocks, deflate_bytes);
         let runtime = tokio::runtime::Builder::new_current_thread().build()?;
         let snapshot = protocol::request().batch.snapshot;
         let schedule = abci::Schedule::from_genesis(&snapshot.genesis);
         match runtime.block_on(builder.publishable_prefix(&snapshot, &schedule, decided as u64)) {
             Ok(prefix) => {
                 let selected = prefix.blocks.len();
-                prop_assert!(selected <= max_blocks.min(decided));
+                prop_assert!(selected <= cap.min(decided));
                 prop_assert_eq!(selected % grid, 0);
                 prop_assert!(!segment_admitted || selected >= grid);
                 if selected == 0 { return Ok(()); }

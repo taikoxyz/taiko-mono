@@ -30,6 +30,7 @@ async fn land(f: &ContractFixture, c: &ContractConsensus) -> Result<(ProofReques
         f.l2.provider.clone(),
         f.params.clone(),
     ));
+    let snapshot = source.snapshot().await?;
     let builder = BatchBuilder::new(
         Arc::new(HttpCometSource::new(c.cmt.url(), Duration::from_secs(10), 16 * 1024 * 1024)?),
         source.clone(),
@@ -39,10 +40,10 @@ async fn land(f: &ContractFixture, c: &ContractConsensus) -> Result<(ProofReques
             mode: SidecarMode::Eip7594,
             engine: Arc::new(f.l2.engine()?),
             engine_timeout: Duration::from_secs(10),
+            max_batch_blocks: source.deployment(&snapshot).await?.max_batch_blocks,
         },
     )?;
-    let request =
-        builder.prepare(source.snapshot().await?).await?.context("nonempty grid batch")?;
+    let request = builder.prepare(snapshot).await?.context("nonempty grid batch")?;
     f.expect_statement(request.batch.statement_hash).await?;
     let transport = RpcTransactionTransport::new(
         f.anvil.provider.clone(),

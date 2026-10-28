@@ -6,7 +6,7 @@ use crate::{
     comet::{CometSource, CometStatus},
     committee::{AuthenticatedCommittee, authenticate},
     error::{LanderError, Result},
-    l1::{LandingSource, ParentContext},
+    l1::{Deployment, LandingSource, ParentContext},
     types::{CertifiedBlock, LandingSnapshot},
 };
 use abci::{
@@ -133,6 +133,9 @@ impl State {
         }
     }
 }
+
+/// The `maxBatchBlocks` the [`Fixture`] Inbox reports.
+pub const MAX_BATCH_BLOCKS: u64 = 120;
 
 pub struct Fixture {
     pub params: ChainParams,
@@ -929,11 +932,11 @@ impl LandingSource for Fixture {
         verify_reference_chain(&headers, anchors)?;
         Ok(headers)
     }
-    async fn deployment_identity(&self, _: &LandingSnapshot) -> Result<B256> {
+    async fn deployment(&self, _: &LandingSnapshot) -> Result<Deployment> {
         if self.mismatch_statement.load(Ordering::Relaxed) {
             return Err(LanderError::Configuration("deployment identity mismatch".into()));
         }
-        Ok(B256::repeat_byte(0xdd))
+        Ok(Deployment { identity: B256::repeat_byte(0xdd), max_batch_blocks: MAX_BATCH_BLOCKS })
     }
     async fn canonical_hash(&self, number: u64) -> Result<B256> {
         Ok(self.l1_headers[&number].hash())
@@ -982,6 +985,7 @@ mod readiness {
                 mode: SidecarMode::Eip4844,
                 engine: std::sync::Arc::new(test_harness::unavailable_engine::UnavailableEngine),
                 engine_timeout: std::time::Duration::from_secs(1),
+                max_batch_blocks: MAX_BATCH_BLOCKS,
             },
         )
         .unwrap()
