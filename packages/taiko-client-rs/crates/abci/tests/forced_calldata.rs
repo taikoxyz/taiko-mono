@@ -8,7 +8,7 @@ use abci::{
     wire::{Request, Response, response},
 };
 use alloy::{
-    consensus::{SignableTransaction, TxEip1559, TxEnvelope},
+    consensus::{SignableTransaction, TxEip1559, TxEnvelope, TxLegacy},
     signers::SignerSync,
 };
 use alloy_eips::eip2718::Encodable2718;
@@ -190,6 +190,10 @@ async fn forced_same_nonce_replacement_rejected() -> Result<()> {
 fn sign_tx(tx: TxEip1559) -> Result<TxEnvelope> {
     let sig = dev_signer().sign_hash_sync(&tx.signature_hash())?;
     Ok(TxEnvelope::Eip1559(tx.into_signed(sig)))
+}
+fn sign_legacy(tx: TxLegacy) -> Result<TxEnvelope> {
+    let sig = dev_signer().sign_hash_sync(&tx.signature_hash())?;
+    Ok(TxEnvelope::Legacy(tx.into_signed(sig)))
 }
 async fn deploy_fixture(d: &Devnet) -> Result<Address> {
     let artifact: serde_json::Value =
@@ -510,7 +514,8 @@ async fn frozen_comet_is_reaped_before_parent_read_and_recovers() -> Result<()> 
     d.stop().await
 }
 
-/// Exercise the raw cap against executable blocks built by the pinned real EL.
+/// Exercise the raw cap against executable blocks built by the pinned real EL, including a block
+/// the EL fills with legacy transactions under the production byte limit.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
 async fn raw_execution_boundary_124000_accepts_124001_rejects() -> Result<()> {
@@ -566,6 +571,46 @@ async fn raw_execution_boundary_124000_accepts_124001_rejects() -> Result<()> {
         }
         blocks.push(found.context("exact executable raw boundary")?);
     }
+
+    // The EL measures every transaction, legacy included, as an RLP byte string of its EIP-2718
+    // bytes, like the envelope. Offered more legacy transactions than fit, it fills the block
+    // under the production limit with a measure the client accepts.
+    let legacy = (0..5u64)
+        .map(|i| {
+            sign_legacy(TxLegacy {
+                chain_id: Some(d.params().l2_chain_id),
+                nonce: nonce + i,
+                gas_price: 10_000_000_000,
+                gas_limit: 1_000_000,
+                to: TxKind::Call(RECIPIENT),
+                value: U256::ZERO,
+                input: Bytes::from(vec![0; 30_000]),
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let attrs = rules::payload_attributes(
+        &expected(&base),
+        anchor,
+        Some(protocol::shasta::encode_transactions(&legacy)),
+    );
+    assert_eq!(attrs.max_block_bytes, Some(124_000));
+    let mut full = base.clone();
+    full.block = app.engine().build_block(parent.parent.hash, attrs).await?;
+    // Four of them fit (about 121 kB); the fifth would pass the limit.
+    let included = full.block.transactions.len();
+    ensure!(
+        (2..legacy.len()).contains(&included) &&
+            full.block.transactions.iter().all(|tx| tx[0] >= 0xc0),
+        "the EL fills the block with legacy transactions up to the byte limit: {included} included"
+    );
+    ensure!(full.block.length() <= 124_000, "byte-full block measures {}", full.block.length());
+    let Response::ProcessProposal(verdict) =
+        app.handle(Request::ProcessProposal(process_request(&full, time))).await?
+    else {
+        anyhow::bail!("process response")
+    };
+    assert_eq!(verdict, response::ProcessProposal::Accept, "{:?}", app.status());
+
     let mut over = base.clone();
     over.block = blocks.pop().unwrap();
     assert_eq!(over.block.length(), 124_001);

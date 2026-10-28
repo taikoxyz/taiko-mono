@@ -480,6 +480,9 @@ pub fn payload_attributes(
         },
         &e.parent_hash,
     );
+    // The EL enforces the consensus block size bound while it selects transactions, measuring
+    // the block as `check_execution_size` does: every transaction, legacy included, counts as
+    // an RLP byte string of its EIP-2718 bytes, like the envelope.
     attrs.max_block_bytes = Some(124_000);
     attrs.l1_origin.build_payload_args_id =
         alethia_reth_primitives::payload::builder::payload_id_taiko(

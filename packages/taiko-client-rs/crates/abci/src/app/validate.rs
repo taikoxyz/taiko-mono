@@ -566,4 +566,60 @@ mod v1_size_tests {
         assert_eq!(block.length(), 124001);
         assert!(check_execution_size(&block).is_err());
     }
+
+    /// The length of an RLP string or list header for a payload of `len` bytes.
+    fn rlp_header_len(len: usize) -> usize {
+        if len < 56 { 1 } else { 1 + (usize::BITS - len.leading_zeros()).div_ceil(8) as usize }
+    }
+
+    /// A signed legacy transaction carrying `input` calldata bytes, as its EIP-2718 bytes.
+    fn legacy(input: usize) -> Bytes {
+        use alloy_consensus::{SignableTransaction, TxEnvelope, TxLegacy};
+        use alloy_eips::eip2718::Encodable2718;
+        use alloy_primitives::{Address, Signature, TxKind, U256};
+        let tx = TxLegacy {
+            chain_id: Some(167_001),
+            nonce: 7,
+            gas_price: 1_000_000_000,
+            gas_limit: 3_000_000,
+            to: TxKind::Call(Address::repeat_byte(0x33)),
+            value: U256::from(1),
+            input: Bytes::from(vec![0xab; input]),
+        }
+        .into_signed(Signature::new(U256::from(1), U256::from(1), false));
+        TxEnvelope::Legacy(tx).encoded_2718().into()
+    }
+
+    /// A legacy transaction's EIP-2718 bytes are its bare RLP list, yet the block measure
+    /// counts it like any other transaction, as an RLP byte string: its bytes plus a string
+    /// header. The EL's byte limit uses the same measure.
+    #[test]
+    fn legacy_transactions_count_as_rlp_byte_strings() {
+        for input in [0, 40, 1_000, 60_000] {
+            let tx = legacy(input);
+            assert!(tx[0] >= 0xc0, "a legacy transaction is an RLP list");
+            let block = crate::ExecutionBlock {
+                header: Default::default(),
+                transactions: vec![tx.clone(), tx.clone()],
+            };
+            let item = rlp_header_len(tx.len()) + tx.len();
+            let list = rlp_header_len(2 * item) + 2 * item;
+            let payload = alloy_rlp::encode(&block.header).len() + list;
+            assert_eq!(block.length(), rlp_header_len(payload) + payload, "input {input}");
+        }
+
+        // At the bound, the string headers decide: the same block is in, one byte more is out.
+        let mut input = 123_000;
+        let block = |input| crate::ExecutionBlock {
+            header: Default::default(),
+            transactions: vec![legacy(input)],
+        };
+        while block(input).length() < 124_000 {
+            input += 1;
+        }
+        assert_eq!(block(input).length(), 124_000);
+        assert!(check_execution_size(&block(input)).is_ok());
+        assert_eq!(block(input + 1).length(), 124_001);
+        assert!(check_execution_size(&block(input + 1)).is_err());
+    }
 }
