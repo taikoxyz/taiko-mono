@@ -1,28 +1,146 @@
-[![Event Indexer](https://app.codecov.io/gh/taikoxyz/taiko-mono/flags/main?flags%5B0%5D=eventindexer)](https://codecov.io/gh/taikoxyz/taiko-mono)
+# NFT indexer
 
-# Indexer
+Indexes ERC721 and ERC1155 TransferSingle/TransferBatch logs and serves the NFT
+holdings used by bridge-ui. The only business API is `GET /nftsByAddress`;
+`/healthz` and `/` remain for probes, with metrics on the configured metrics port.
+The query API needs a database connection and does not require RPC.
 
-Catches events, stores them in the database to be queried via API.
+## Running
 
-## Running the app
+Copy `.default.env` to `.env` and configure the database and source-chain RPC.
+Apply the existing SQL migrations before starting either process. From this
+package directory, run `go run ./cmd api` for queries or `go run ./cmd indexer`
+for NFT indexing. `EVENTINDEXER_ENV_FILE` selects a different env file.
 
-run `cp .default.env .env`, and configure your environment variables. You need to be running a MySQL instance, and replace all the `MYSQL_` env vars with yours.
+The indexer requires `INDEX_NFTS=true`, a positive `BLOCK_BATCH_SIZE`, and
+`SYNC_MODE=sync` or `resync`. Disabled NFT indexing fails before opening DB/RPC;
+retire old L1 event-only deployments instead of upgrading them to this binary.
+The `LAYER`, Inbox/Bridge, ERC20, subscription/backoff and transaction-manager
+options are retired. Existing enabled L2 NFT deployment settings remain valid.
 
-Run `go run cmd/main.go --help` to see the available configuration flags. Configure the database, source-chain RPC, and layer-specific variables before starting the indexer.
+## Query API
 
-## Layer-specific Inbox configuration
+`GET /nftsByAddress?address=0x...&chainID=167000&page=0&size=100` retains the
+existing paginated JSON response and NFT fields. CORS/request logging remain
+available. Set `--http.corsOrigins` when the default `*` is inappropriate.
 
-Set `LAYER=l1` with `SHASTA_INBOX_ADDRESS` pointing to the Shasta Inbox on the
-source L1. The L1 indexer uses this binding to filter `Proposed` and `Proved`
-events. A checkpointed `SYNC_MODE=sync` resumes from the database without
-calling `activationTimestamp()`; a fresh sync or `resync` uses that timestamp
-to find the first Shasta block.
+Event/statistics, proposal/proof, ERC20, Galxe and chart endpoints are removed
+and return 404. Swagger documents only the NFT query and probes; regenerate it
+with `GOTOOLCHAIN=go1.26.0 sh scripts/swagger.sh`.
 
-Set `LAYER=l2` without `SHASTA_INBOX_ADDRESS`. The L2 indexer starts from its
-database checkpoint or block zero and never queries an L1 Inbox.
+## Writer and replay behavior
 
-# Block data
+NFT logs are applied sequentially by block, transaction index and log index.
+A dedicated MySQL session holds a chain/database-scoped `GET_LOCK` and executes
+the NFT balance transactions. A second guarded writer fails startup; session
+loss prevents pooled fallback writes and returns a fatal CLI error after cleanup
+so the supervisor can restart. Configure at least two open DB connections or an
+unlimited pool, and stop older unguarded writers before upgrading.
 
-1. parse data
-2. store
-3. cron job that updates every 24 hours
+Per-transfer claims remain atomic with balance updates and make restart replay
+idempotent. Each successfully completed batch, including an empty batch, updates
+one `NFTIndexerCheckpoint` marker per chain in the existing `events` table using
+the same locked MySQL session. Startup resumes at the completed block plus one;
+block zero is a valid checkpoint. If a batch or checkpoint write fails, the memory
+cursor stays unchanged and retry uses transfer claims to avoid duplicate balances.
+After validating a clean `resync`, startup commits checkpoint zero on the locked
+session before launching the event loop or applying any NFT transfer. A `sync`
+with no retained NFT balances, NFT claims or checkpoint does the same, even when
+historical business events exist. Those event rows do not establish processed NFT
+history. A retained legacy NFT snapshot without a checkpoint keeps the existing
+one-block rewind for compatibility; its first completed batch establishes a marker.
+
+`resync` requires no retained NFT balances, NFT transfer claims or NFT checkpoint
+for that chain. A rebuild must reconcile and clear these three together. `sync`
+also rejects NFT claims without any balance rows: already claimed transfers are
+skipped, so they cannot reconstruct balances that were deleted independently. It
+refuses genesis replay when balances exist without either an NFT checkpoint or a
+legacy events watermark, regardless of claims or `ALLOW_UNCLAIMED_BALANCE_REPLAY`.
+The existing recency check remains for the narrow legacy bootstrap overlap: the
+escape hatch accepts its possible single overcount, not an unsafe clean rebuild.
+Malformed recognized ERC1155 logs warn and skip; valid later logs continue, while
+repository and RPC errors fail the batch.
+
+### Rebuilding one chain
+
+Stop every indexer for the selected chain and back up/reconcile its NFT state.
+Do not clear only balances or truncate shared tables. The following MySQL example
+clears the three NFT state sets for Mainnet while preserving other chains and
+historical business events; select the intended chain before executing it:
+
+```sql
+SET @nft_chain_id = 167000;
+START TRANSACTION;
+DELETE FROM nft_balances WHERE chain_id = @nft_chain_id;
+DELETE FROM processed_transfer_logs
+WHERE chain_id = @nft_chain_id AND kind = 'nft';
+DELETE FROM events
+WHERE chain_id = @nft_chain_id AND event = 'NFTIndexerCheckpoint';
+COMMIT;
+```
+
+Start the empty state with `INDEX_NFTS=true` and `SYNC_MODE=resync`. Before changing
+the deployment environment to `SYNC_MODE=sync`, confirm exactly one checkpoint row
+exists for the selected chain:
+
+```sql
+SET @nft_chain_id = 167000;
+SELECT emitted_block_id FROM events
+WHERE chain_id = @nft_chain_id AND event = 'NFTIndexerCheckpoint';
+```
+
+A returned height of zero is a valid checkpoint, not an absent row. Startup now
+commits this row before the first 10-second polling tick and before balance writes,
+so switching mode or resuming an interrupted first batch continues from block one
+with claim deduplication. Change the environment before any restart after confirming
+the row; do not clear state again merely because retained `resync` is refused.
+If no checkpoint exists, do not infer safe continuation from legacy business
+events. Reconcile and perform the coordinated clean rebuild with `resync` instead
+of blindly switching retained data to `sync`.
+
+### Deliberately skipping a blocked range
+
+Repair RPC/database failures before choosing to omit history. If an operator
+decides to skip through block N, stop every writer and back up the selected
+chain's state first. Confirm N exists on the selected chain and does not exceed
+its current RPC head. With an existing checkpoint, this example advances Mainnet
+through block 20000000; check that exactly one row changed:
+
+```sql
+UPDATE events
+SET emitted_block_id = 20000000, transacted_at = NOW()
+WHERE chain_id = 167000 AND event = 'NFTIndexerCheckpoint'
+  AND emitted_block_id < 20000000;
+SELECT ROW_COUNT();
+```
+
+If no checkpoint exists, do not treat an update affecting zero rows as success.
+After reconciling the intended starting position, a stopped writer permits this
+guarded initial marker insertion; expect one inserted row, and verify the marker:
+
+```sql
+INSERT INTO events
+  (name, event, chain_id, data, emitted_block_id, transacted_at)
+SELECT 'NFTIndexerCheckpoint', 'NFTIndexerCheckpoint', 167000, '{}', 20000000, NOW()
+WHERE NOT EXISTS (
+  SELECT 1 FROM events
+  WHERE chain_id = 167000 AND event = 'NFTIndexerCheckpoint'
+);
+SELECT ROW_COUNT();
+SELECT emitted_block_id FROM events
+WHERE chain_id = 167000 AND event = 'NFTIndexerCheckpoint';
+```
+
+Restart in
+`SYNC_MODE=sync`: filtering begins at N+1, and the omitted range will not update
+NFT balances. Those omissions require separate reconciliation. Moving a marker
+backward does not rebuild balances while transfer claims remain.
+
+The `eventindexer_nft_indexer_lag_blocks{chain_id="..."}` metric reports the last
+observed RPC head minus the successfully checkpointed position, clamped at zero.
+It stays positive when a batch fails; it is not a proof of current RPC health.
+
+All historical migrations remain unchanged for installed database and Goose
+version compatibility; no tables or existing data are dropped. Historical
+incorrect balances/duplicates require separate reconciliation. Unused runtime
+code and bindings are removed rather than kept as disabled features.

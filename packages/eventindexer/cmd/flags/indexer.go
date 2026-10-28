@@ -15,28 +15,6 @@ var (
 
 // optional flags
 var (
-	ETHClientTimeout = &cli.Uint64Flag{
-		Name:     "ethClientTimeout",
-		Usage:    "Timeout for eth client and contract binding calls",
-		Category: indexerCategory,
-		Required: false,
-		Value:    10,
-		EnvVars:  []string{"ETH_CLIENT_TIMEOUT"},
-	}
-	ShastaInboxAddress = &cli.StringFlag{
-		Name:     "shastaInboxAddress",
-		Usage:    "Address of the Shasta Inbox contract",
-		Required: false,
-		Category: indexerCategory,
-		EnvVars:  []string{"SHASTA_INBOX_ADDRESS"},
-	}
-	BridgeAddress = &cli.StringFlag{
-		Name:     "bridgeAddress",
-		Usage:    "Address of the Bridge contract",
-		Required: false,
-		Category: indexerCategory,
-		EnvVars:  []string{"BRIDGE_ADDRESS"},
-	}
 	BlockBatchSize = &cli.Uint64Flag{
 		Name:     "blockBatchSize",
 		Usage:    "Block batch size when iterating through blocks",
@@ -45,14 +23,7 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"BLOCK_BATCH_SIZE"},
 	}
-	SubscriptionBackoff = &cli.Uint64Flag{
-		Name:     "subscriptionBackoff",
-		Usage:    "Subscription backoff in seconds",
-		Value:    30,
-		Required: false,
-		Category: indexerCategory,
-		EnvVars:  []string{"SUBSCRIPTION_BACKOFF_IN_SECONDS"},
-	}
+
 	SyncMode = &cli.StringFlag{
 		Name:     "syncMode",
 		Usage:    "Mode of syncing. Pass in 'sync' to continue, and 'resync' to start from genesis again.",
@@ -75,25 +46,13 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"ALLOW_UNCLAIMED_BALANCE_REPLAY"},
 	}
-	IndexERC20s = &cli.BoolFlag{
-		Name:     "indexERC20s",
-		Usage:    "Whether to index erc20 transfer events or not",
-		Required: false,
-		Category: indexerCategory,
-		EnvVars:  []string{"INDEX_ERC20S"},
-	}
 )
 
 var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	IndexerRPCUrl,
 	// optional
-	ETHClientTimeout,
-	ShastaInboxAddress,
-	BridgeAddress,
 	BlockBatchSize,
-	SubscriptionBackoff,
 	SyncMode,
 	IndexNFTs,
-	IndexERC20s,
 	AllowUnclaimedBalanceReplay,
 })

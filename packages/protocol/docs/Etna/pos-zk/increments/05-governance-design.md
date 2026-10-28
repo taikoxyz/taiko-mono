@@ -12,9 +12,19 @@ two consecutive rounds come back with no Critical and no High, and its ship reco
 
 **Scope.** This increment revives the **timelocked, resume-only governance stall resolution of D-15**
 (`GOV-04`, with its analysis family `REC-02`/`REC-03`/`REC-04`) as a live, rule-bound action: a single
-queued governance entry, a stored timelock, a permissionless execution that **consumes the entry**, a
-full-range discard of history strictly above the latest L1-accepted checkpoint, and a signed generation
-increment that makes the discarded branch unlandable. It adds **no permissionless recovery, no bond, no
+queued governance entry, a stored timelock, a permissionless execution that **consumes the entry**, and a
+signed generation increment. The action **resumes settlement on the same chain**: it leaves the checkpoint
+and everything at or below it untouched; it invalidates a superseded certificate **only as a batch's head
+evidence** — a superseded certificate cannot serve as the head certificate of an extending batch, which is
+exactly what the enforced checks say, since the head certificate, its contributing votes and the head header
+must carry the current generation; the range above the latest L1-accepted checkpoint remains **valid history
+that can be extended under the new generation**, and nothing in the rule invalidates or forbids a block on
+account of the generation in its own header; and the class above the checkpoint is unprotected for a
+different and narrower reason than erasure — the user's signals are not carried into the settlement the
+resumed chain produces, so they must be resubmitted, with no compensation. *R5R2-C-01: the "full-range
+discard" and "unlandable" forms this scope first carried are corrected here and MUST NOT be restored.*
+
+It adds **no permissionless recovery, no bond, no
 reward, no invoker, no certificate bundle, no retirement record, no history-editing power and no new
 entry point on the exit or inclusion paths**. It does **not** revive `CONS-16` (the rotation) or `D-13`
 (aggregation), and it does not reopen a v1 decision.
@@ -121,8 +131,10 @@ governance-driven residue is stated as **F-GOV-3** (§7) rather than denied.
 
 **The defect as reviewed.** `GOV-04(d)` claimed `T_GOV_RESUME` "MUST be long enough that **every user**
 can exit via `MEM-15`", repeated in `REC-02`, `HALT-04`, `LIM-01`'s `A-GOV-2` row and the index. Round 6
-showed the claim is unsatisfiable for the class the resolution discards: value above the last accepted
-checkpoint has **no L1-provable claim** (`MEM-15(4)`) and cannot create one, so no window protects it;
+showed the claim is unsatisfiable for the class above the checkpoint: value there has **no L1-provable
+claim** (`MEM-15(4)`) and cannot create one, so no window protects it, and the resolution does not erase it —
+it resumes settlement on the same chain, leaving that value's signals outside the settlement the resumed
+chain produces (*R5R2-C-01*);
 and at the round-6 snapshot a root at or above the user's height required a **newly settled epoch
 boundary**, while settlement advancing **voids the entry** — the two branches were complementary, so the
 window could not be the thing that creates the exit.
@@ -145,9 +157,12 @@ remains is the **claim**, which is still false, and the **scope**, which was nev
   proving work, `L1-13(5)`), plus `WITHDRAWAL_DELAY` measured from the root's own record, plus an
   unexpired `T_VETO`, plus a margin — all on the L1 clock, none of which requires settlement progress.
   The relation is registered and unmeasured (Phase B) and is a constructor-time assertion.
-- The window is **not** claimed for value above the checkpoint. Such value is discarded by rule; the
-  holder's notice is the queued entry and the trigger window, and the remedy is resubmission, with no
-  protocol compensation (ECON-11). The sentence "the timelock gives every user the exit window of
+- The window is **not** claimed for value above the checkpoint. Such value is unprotected by rule for a
+  narrower reason than erasure: the execution does not carry its signals into the settlement the resumed
+  chain produces, so the remedy is resubmission, with no protocol compensation (ECON-11), and the range
+  itself remains valid history that a later batch may extend under the new generation. The holder's notice
+  is the queued entry and the trigger window. *(R5R2-C-01: "discarded by rule" is corrected to "unprotected
+  because the resumed settlement does not carry its signals".)* The sentence "the timelock gives every user the exit window of
   `MEM-15`" is **withdrawn** wherever it appears.
 - The delta also states the stronger property the window claim does not need: **the execution removes no
   claim at or below the checkpoint**, because it rewrites nothing there (`REC-01`), so the root from the
@@ -173,8 +188,11 @@ the one value that decides whether the resumed chain can cross a boundary witnes
    carry the generation of the block they are about.
 2. **Head case (unchanged).** A certificate presented as the finality evidence of a batch extending the
    current checkpoint MUST carry the current generation, every contributing vote MUST carry it, and the
-   head header MUST carry it. This is the anti-relanding rule: a discarded branch's certificate carries
-   the superseded generation and cannot be a head certificate.
+   head header MUST carry it. This is the anti-relanding rule, in its enforced form: a certificate of a
+   block above the checkpoint produced under the superseded generation cannot be a batch's **head**
+   certificate — and the rule is **head-only**: the block is not invalidated by the generation in its own
+   header and may be carried as an ancestor of a batch whose head is produced and certified under the new
+   generation *(R5R2-C-01)*.
 3. **Historical case (new).** A certificate for a block **at or below the last accepted checkpoint** MUST
    carry the generation of that block's own header, and every contributing vote MUST carry the same
    value; it MUST NOT be compared with the current generation. This is not witness-supplied: the block's
@@ -183,9 +201,11 @@ the one value that decides whether the resumed chain can cross a boundary witnes
    L1 already fixes.
 4. **Anchor case (explicit).** When a batch opens an epoch, `B_anchor` is the block whose hash equals
    `prevBlockHash`; the guest MUST verify its certificate under the historical case and MUST recompute
-   `cert_hash` into the header's `epoch_anchor`. The discarded branch can be neither the head (its
-   generation is superseded) nor the anchor (`B_anchor` is pinned by L1 to the restored checkpoint
-   block, which the discard does not replace).
+   `cert_hash` into the header's `epoch_anchor`. A block of the range above the checkpoint that carries the
+   superseded generation can be neither the head (its certificate cannot be the batch's head certificate)
+   nor the anchor (`B_anchor` is pinned by L1 to the restored checkpoint block, which the resolution
+   leaves untouched); as an ancestor it remains valid history, and a batch may carry it under a head
+   produced and certified under the new generation *(R5R2-C-01)*.
 5. **Why the first post-resolution epoch-opening batch is provable** is derived in §5: the anchor
    certificate is judged under `B_anchor`'s own generation (the pre-resolution value), while the batch's
    head certificate, head header and votes are judged under the new value. The two checks read two
@@ -280,8 +300,11 @@ checkpoint, never chosen and never stored; the checkpoint record itself is left 
 below the checkpoint is read, written, re-judged or discarded. **The generation is incremented nowhere
 else**: no other function, initialiser, upgrade, governance call, cancellation or client path may
 increment it, and no path may increment it while the state is not `queued` or increment it a second
-time for one entry. A completed stall resolution is the only sanctioned replacement of history above the
-latest L1-accepted checkpoint, and it may not touch history at or below it (`REC-01`, `L1-06`).
+time for one entry. A completed stall resolution is the only sanctioned action on history above the
+latest L1-accepted checkpoint: it resumes settlement on the same chain, it may not touch history at or below
+the checkpoint (`REC-01`, `L1-06`), and it invalidates a superseded certificate only as a batch's head
+evidence, so the range above the checkpoint remains valid history that can be extended under the new
+generation *(R5R2-C-01)*.
 
 **(d) The states, and what a caller can and cannot do.** The table is the rule; prose below it is the
 same obligation restated.
@@ -355,15 +378,19 @@ chooses no configuration value.
 **(h) The generation is a signed field, not a retirement record.** *(preserved, with the two-case rule
 of §5.)* `recoveryGeneration` is a field of the signed vote and block-header bytes, so validators sign
 the generation they are certifying under; the action of (c) increments it; validators sign the new
-generation; a batch extending the checkpoint MUST carry the current generation and every contributing
-vote and the head header MUST carry it; a certificate at or below the checkpoint MUST carry the
+generation; a batch extending the checkpoint MUST carry the current generation in its head certificate,
+in every contributing vote and in the head header — no other header's generation is compared with the
+current generation, and a header produced under an earlier generation is not invalid for it
+(`CONS-10(7)`) *(R5R2-C-01)*; a certificate at or below the checkpoint MUST carry the
 generation of the block it certifies and MUST NOT be compared with the current generation. No height is
 retired, no retirement record exists, and no `max(lastLandedHeight + 1, resumeHeight)` form survives.
 
 **(i) Disclosed assumptions.** *(preserved, sharpened.)* Clearing a settlement stall depends on
 governance liveness with no protocol bound: the trigger fixes when an entry may be queued, not that it
 will be. A captured or coerced governance can also act opportunistically within this rule, waiting for a
-genuine stall and having an unfavourable provisional range discarded; and a **live** governance can queue
+genuine stall and having an unfavourable provisional range's in-flight certificates superseded, so its
+signals are not carried into the settlement the resumed chain produces and must be resubmitted
+*(R5R2-C-01)*; and a **live** governance can queue
 a fresh entry as soon as one has executed (the trigger still holds, because execution does not advance
 the checkpoint), so generations can be churned at up to one per stored window. Each churn costs a DAO
 transaction and a full window; none of it is permissionless. The assumption is named `A-GOV-2` and is
@@ -420,7 +447,7 @@ generation is superseded is not a finalized block for this purpose, exactly as `
   generation.** At or below the last accepted checkpoint no path may change the history at all. Every
   rule that the draft keeps as "dormant"/"historical" under the constant-generation reading becomes live
   in exactly the form it already carries: `CONS-04(2)` (a lock formed under a superseded generation is
-  void at every discarded height and is not a halt condition), `CONS-11` (a pair whose signed
+  void at every height above the restored checkpoint and is not a halt condition; R5R2-C-01: the range is superseded, not erased), `CONS-11` (a pair whose signed
   generations differ is not a conflict), `CONS-15(2)` (the halt trigger is a certificate conflicting
   with the lock under the current generation), and `CONS-02`'s signing-store scoping (a resolution's
   scoping change disregards superseded-generation entries for **new signing** and never erases the
@@ -602,7 +629,10 @@ whole by waiting — falsifies this delta.
 
 A certificate carries the generation of the history it certifies. A batch that **extends the current
 checkpoint** is new history: its head header, its votes and its head certificate MUST carry the current
-generation `g_now`, and only such a certificate can be its finality evidence. A block **at or below the
+generation `g_now`, and only such a certificate can be its finality evidence. The constraint is on the
+head certificate, its contributing votes and the head header; no other header's generation is compared
+with `g_now`, and a header produced under an earlier generation is not thereby invalid (`CONS-10(7)`)
+*(R5R2-C-01)*. A block **at or below the
 last accepted checkpoint** is settled history: a certificate for it MUST carry the generation in that
 block's own header, and MUST NOT be compared with `g_now`. The anchor certificate of an epoch-opening
 batch is judged by the second rule, because `B_anchor` is the predecessor block at `prevHeight =
@@ -628,10 +658,18 @@ Let the last accepted checkpoint be at height `H` with generation `g`, and let a
    - verifies the batch's own head certificate, head header and votes under `CONS-05(2)(a)` with `g+1`.
    The two checks read two different objects (the historical anchor vs. the current batch), so both are
    satisfiable in the same proof.
-4. **Discarded-branch re-entry is rejected.** A block of the discarded branch is above `H`. To be
-   re-landed it would have to be the head of a batch extending the checkpoint, and its certificate
-   carries the superseded generation, so `CONS-05(2)(a)` rejects it. It cannot be masqueraded as the
-   anchor, because the anchor is pinned by L1 to the block at `H`, and the discard left `H` untouched.
+4. **What the generation rule rejects, exactly.** *R5R2-C-01: the earlier form of this step said a
+   discarded block "would have to be the head of a batch extending the checkpoint"; the enforced effect is
+   narrower — a superseded certificate cannot be head evidence, and the range stays landable as ancestors.*
+   A certificate that carries the superseded generation cannot be the **head certificate** of a batch
+   extending the checkpoint (`CONS-05(2)(a)`: the head certificate, every contributing vote and the head
+   header must carry the current generation). It does **not** follow that the range above `H` is discarded
+   or unlandable: a block above `H` is not invalidated by the generation in its own header
+   (`CONS-10(7)`), so a batch may carry it as an **ancestor** and settle it with a head produced and
+   certified under `g+1`. The superseded range remains valid history that the resumed chain extends; what
+   it loses is the ability to supply the head evidence, and the signals in it are not carried into the
+   settlement the resumed chain produces, so they must be resubmitted. It cannot be masqueraded as the
+   anchor, because the anchor is pinned by L1 to the block at `H`, which the resolution leaves untouched.
 5. **Robustness to repetition and to reorgs.** A second resolution changes `g_now` but not the bytes of
    `B_anchor`'s header, so the anchor case is judged under the same `g` however many resolutions run;
    no "previous generation" value or per-checkpoint generation record is needed. An L1 reorg carries the
@@ -651,9 +689,11 @@ with its own migration accounting.
 
 ### 6.1 v1's checkpoint boundary (`REC-01`)
 
-Unchanged and load-bearing. The resolution reads the checkpoint, writes none, and discards only what is
-strictly above it; nothing at or below it is read, written, re-judged or delayed. The resolution is the
-**only** sanctioned replacement above the checkpoint (`REC-01(d)`, `GOV-03(e)`); an upgrade still may not
+Unchanged and load-bearing. The resolution reads the checkpoint, writes none, and leaves the range above
+it valid history rather than erasing it: nothing at or below the checkpoint is read, written, re-judged or
+delayed, a superseded certificate cannot be a batch's head evidence, and the range above the checkpoint
+can be extended under the new generation *(R5R2-C-01)*. The resolution is the
+**only** sanctioned action on the range above the checkpoint (`REC-01(d)`, `GOV-03(e)`); an upgrade still may not
 perform it.
 
 ### 6.2 Increment 2's constant-generation assumption (`MEM-13` / `CONS-12`)
@@ -679,9 +719,9 @@ perform it.
 The obligation must not be reset, re-clocked, stalled or made unprovable by a resolution. The rule is
 §2's `FI-14` clause, and it holds structurally: the register, the settlement frontier, the prune cursor
 and `forcedBoundary` are L1 state a resolution never reads or writes; deadlines are L1-block-derived and
-unaffected by an L2 discard; and the first post-resolution batch is judged against the register at its
+unaffected by a generation change; and the first post-resolution batch is judged against the register at its
 own anchored view exactly as any other batch. A position that was resolved by a batch whose range is
-later discarded is **not** un-resolved in the register — the register holds no per-height resolution —
+later superseded is **not** un-resolved in the register — the register holds no per-height resolution —
 so the new range must resolve the same prefix, and the walk applies unchanged. Conversely, the `FI_*`
 obligation gates no resolution state: the trigger and the entry read only the checkpoint clock and the
 checkpoint height.
@@ -710,7 +750,7 @@ draft must be re-based to name it — §9).
 
 | ID | Statement | Status | What would close it |
 |---|---|---|---|
-| **F-GOV-1** | Clearing a stall depends on governance liveness with no protocol bound: if governance never queues, or queues and never has the entry executed, the stall persists and the chain stays halted. A captured or coerced governance can also wait for a genuine stall and have an unfavourable provisional range discarded. | **Open** (carried; the same class as `A-GOV-2`/F2) | Nothing in-protocol; a bound would require a different trust model. This is the price D-15 chose over a permissionless recovery. |
+| **F-GOV-1** | Clearing a stall depends on governance liveness with no protocol bound: if governance never queues, or queues and never has the entry executed, the stall persists and the chain stays halted. A captured or coerced governance can also wait for a genuine stall and have an unfavourable provisional range's in-flight certificates superseded, so its signals are not carried into the settlement the resumed chain produces and must be resubmitted (R5R2-C-01). | **Open** (carried; the same class as `A-GOV-2`/F2) | Nothing in-protocol; a bound would require a different trust model. This is the price D-15 chose over a permissionless recovery. |
 | **F-GOV-2** | The window relation of `GOV-04(f)` is unmeasured and conditional: `W_root` (the worst-case time to produce and record the checkpoint's `k` attestations), `WITHDRAWAL_DELAY`, `T_VETO` and `MARGIN` are Phase-B measurements, and an unfunded proving market or unretained inputs (`MEM-15(2b)`) can make the window unattainable for class A. | **Open** (unmeasured; inherited condition) | Phase B's exit-time measurement against the recorded value, and a funded proving market with retained inputs. Note that the window is not load-bearing for class A's value: missing it costs nothing, because execution removes no claim at or below the checkpoint. |
 | **F-GOV-3** | Governance-driven churn: after an execution the trigger still holds (the checkpoint did not advance), so a live governance can queue a fresh entry and increment the generation again once per stored window, voiding the in-flight certificates and proofs of the then-current provisional range each time. Only governance can pay it, and each increment costs a DAO transaction plus a full window. | **Disclosed** (the residue of closing G-1 by consumption; same actor class as F2) | A "progress-earned" queue rule — e.g. no new entry until the checkpoint advances past the previous execution's restore point — would remove the pure churn, but it **deadlocks** the case this mechanism exists for: a certified-but-unprovable range above a stationary checkpoint needs the next generation to be discarded, and L1 cannot decide whether such a range exists (the `h_close` referent class that gates `CONS-16`, F7). The candidate is recorded and **not adopted**; §10.1 returns it to the owner. |
 | **F-GOV-4** | Future-entry parameter discretion: one published rules change may move `T_STALL_GOV` and `T_GOV_RESUME` to their conforming minima for entries queued afterwards. The queue entry's own deadline is now stored and protected, and the relations are constructor-asserted, but the choice of future values is governance policy. | **Disclosed** (named; `GOV-02` requires the change to be published as a rules change) | A registered floor stronger than the stated relations, or an explicit owner decision that the discretion is acceptable. The relation's minimum is the D6 envelope plus the window relation; both terms are unmeasured. |
@@ -724,8 +764,10 @@ draft must be re-based to name it — §9).
 2. **One additional stored field** (`govResumeExecutableAt`) and the slot-268 re-derivation (§3.1);
    the migration audit owns the layout and MUST NOT carve it from a deprecated slot.
 3. **One generation increment per execution**, with the consequences already stated (in-flight proofs
-   and certificates of the current provisional range become void; transactions above the checkpoint must
-   be resubmitted).
+   of the then-current provisional range are rejected at acceptance and its certificates cannot serve as a
+   batch's head evidence, while the range remains valid history that must be extended under the new
+   generation; transactions above the checkpoint must be resubmitted). *(R5R2-C-01: the range is not
+   erased.)*
 4. **No new entry point anywhere else**: the resolution adds no function to the exit path, the inclusion
    path, the staking path or the proof path.
 
@@ -753,7 +795,9 @@ draft must be re-based to name it — §9).
 - It does **not** reduce, discount or remove any validator's weight, and it does not rotate a set.
 - It does **not** gate, delay or accelerate the exit, the withdrawal root, the veto, forced inclusion,
   settlement, staking exits or `land`.
-- It does **not** retire a height, store a resume point, or keep a discarded block's record.
+- It does **not** retire a height, store a resume point, keep a record of any block, or erase the range
+  above the checkpoint; it invalidates a superseded certificate only as a batch's head evidence
+  *(R5R2-C-01)*.
 - It does **not** bound the number of resolutions by protocol rule; the pacing is the DAO transaction
   plus the stored window (F-GOV-3, disclosed).
 - It does **not** revive `CONS-16` or aggregation, and it does not supply the `h_close` referent.
@@ -815,7 +859,8 @@ approximate and refer to the draft the delta was written against.
    - `L1-05` row 31 (~L207): restate as a live, signed, L1-derived value with the two-case rule; row 33
      (`resumeHeight`) stays withdrawn (`resumeHeight` is derived, not stored).
    - `L1-06` (~L216): re-base "no height is permanently retired" to "no height is retired, and the only
-     replacement above the checkpoint is the executed `GOV-04` action"; keep monotonicity and no-gate.
+     action on the range above the checkpoint is the executed `GOV-04` action, which resumes settlement on
+     the same chain and never erases the range (R5R2-C-01)"; keep monotonicity and no-gate.
    - `FI-14` (~L742): replace the "no recovery path / no generation increment" sentences with §2's
      non-interaction clause and delete the "no resolution exists" justification.
    - `L1-13` (~L460–500) and `MSG-03` (~L812–830): unchanged; add the sentence that a resolution gates
@@ -835,7 +880,11 @@ approximate and refer to the draft the delta was written against.
 8. **`spec/10-assurance.html`** — `LIVE-01` (~L163) and `LIM-01` (~L325+): re-base the liveness rows
    ("no recovery path of any kind", "clearing the stall requires a future protocol update"), state
    `F-GOV-1`–`F-GOV-6` with the Open/disclosed split, and re-scope `A-GOV-2`'s exit sentence to class A
-   with `MEM-15(2b)`'s dependencies.
+   with `MEM-15(2b)`'s dependencies. **(R5R2-C-01)** The rows that state the action's effect MUST say
+   resume, not erasure: the checkpoint and everything at or below it untouched; a superseded certificate
+   invalid only as a batch's head evidence; the range above the checkpoint valid history extendable under
+   the new generation; and the class above the checkpoint unprotected because its signals are not carried
+   into the resumed settlement, not because a range was discarded.
 9. **`spec/01-system-model.html`** — re-base every "no recovery path of any kind" / "no stall-resolution
    entry point" sentence (approximately ~L164, 220, 225, 327, 346, 350, 553–560, 587–589, 607, 624) so
    that the one named runtime governance action is the revived `GOV-04`, with its trigger, stored
@@ -868,7 +917,10 @@ approximate and refer to the draft the delta was written against.
     post-resolution epoch-opening batch is provable, and an anchor certificate whose generation differs
     from `B_anchor`'s header generation is rejected; (v) a resolution leaves the register, frontier,
     `forcedBoundary`, root attestation, veto and exit eligibility unchanged; (vi) an L1 reorg of the
-    executing transaction restores the entry to `queued` and the generation to its previous value.
+    executing transaction restores the entry to `queued` and the generation to its previous value; (vii) a
+    batch whose intermediate headers carry the pre-resolution generation and whose head is produced and
+    certified under the new generation verifies and lands — the head-only scope of the generation rule,
+    which a client MUST NOT reject on account of an ancestor's header generation (R5R2-C-01).
 
 ---
 
@@ -918,10 +970,10 @@ delta does not create one.
 | GOV-04(a) trigger | predicate over L1 state; queue reverts while false | kept verbatim in substance | it was not the defect |
 | GOV-04(b) entry | `govResumeState = queued`; one pending; three fields | three-state machine; **stored deadline** added; queueing allowed into `none`/`executed`/a **void** entry; only a live entry blocks | G-1 and its mirror reading |
 | GOV-04(c) effect | permissionless execute; sets `resumeHeight`; increments generation; entry not consumed | **execute consumes**: requires `queued`, sets `executed`, increments exactly once, writes nothing else | G-1 Critical |
-| GOV-04(d) timelock | "MUST be long enough that every user can exit" | notice window; **class-A exit window** with a registered relation; class C stated unprotected; stored deadline; no "every user" | G-2, round-5 F1/F2 |
+| GOV-04(f) timelock | "MUST be long enough that every user can exit" | notice window; **class-A exit window** with a registered relation; class C stated unprotected; stored deadline; no "every user" | G-2, round-5 F1/F2 |
 | GOV-04(e) void-on-progress | execution reverts; any account cancels | kept, plus **queue-over-void** | the mirror reading that a void entry blocks the mechanism |
-| GOV-04(f) generation | signed field; old certificates void at acceptance | kept, plus the two-case rule (`CONS-05(2)`) and the anchor case | G-3 |
-| GOV-04(g) disclosure | governance liveness; opportunistic use | kept, plus repetition paced by a fresh DAO transaction and a full window (F-GOV-3) | G-1's residue stated honestly |
+| GOV-04(h) generation | signed field; old certificates void at acceptance | kept, plus the two-case rule (`CONS-05(2)`) and the anchor case; the rule constrains the head certificate, the contributing votes and the head header only, so the range stays landable as ancestors (R5R2-C-01) | G-3 |
+| GOV-04(i) disclosure | governance liveness; opportunistic use | kept, plus repetition paced by a fresh DAO transaction and a full window (F-GOV-3) | G-1's residue stated honestly |
 | GOV-03(e) upgrade survival | queued entry, remaining term, generation survive | executed entry survives too; stored deadline cannot move; no re-opening | G-1, G-4 |
 | CONS-05 validity | generation equals the Inbox's (at acceptance) | two cases: current generation for extending batches; the block's own header generation at or below the checkpoint | G-3 |
 | CONS-05 halt sentence | conflicting finalized block at `H`, unqualified | "under the current generation" | G-6 |
@@ -936,23 +988,25 @@ delta does not create one.
 | 09 rows | `T_STALL_GOV`/`T_GOV_RESUME`/`govResume*` withdrawn, MUST NOT use | revived, plus `govResumeExecutableAt`, constructor assertions and the window relation | D-16's register entry |
 | HALT-04, GOV-01/02, index, LIM-01 | "no recovery path of any kind / no exception" | the one named exception is the revived `GOV-04`; everything else unchanged | consistency |
 
+*Label correction only: the `GOV-04` clause letters in this table use the **applied** numbering of `spec/08` — timelock (f), generation (h), disclosure (i). The preserved text lettered the same clauses (d), (f) and (g). This aligns labels, not rule text: the generation clause is (h) in the applied rule and in §2, and the difference is not a rule question.*
+
 ## Appendix B — Every previously-found attack vector against the check that now rejects it
 
 | # | Vector (finding) | Now rejected by |
 |---|---|---|
 | 1 | Re-execution of the unconsumed entry by any account, each call incrementing the generation — the permissionless, gas-priced settlement-denial loop (**G-1, Critical**) | §3: `execute()` MUST revert unless the state is `queued`; success atomically increments once and sets `executed`; SM-1 (single-writer) and SM-3 (terminal `executed`) leave no second route; SM-2 makes one entry one execution |
 | 2 | The mirror reading: a stored `queued` value is "pending", so after one execution every later queue reverts and the mechanism is unusable (**G-1, mirror**) | §2 GOV-04(b)/(d)/(e): `executed` is not pending; a **void** entry may be cancelled or replaced by the next queue; only a live `queued` entry blocks |
-| 3 | A stale queued entry executed to discard a range the trigger never justified (preserved GOV-04 failure mode) | SM-7 and §2(e): the trigger can become false only by the acceptance that voids the entry; execution requires a live, non-void, past-deadline entry |
+| 3 | A stale queued entry executed to supersede the generation over a range the trigger never justified (preserved GOV-04 failure mode) | SM-7 and §2(e): the trigger can become false only by the acceptance that voids the entry; execution requires a live, non-void, past-deadline entry |
 | 4 | The timelock shortened after queueing so the exit window disappears (preserved) | §2(g): the deadline is stored in the entry and no upgrade or parameter change may move it; `GOV-03(e)` carries it |
 | 5 | The timelock claimed as the exit window for users it cannot protect (**G-2, High**, round-5 F1/F2) | §4: the window is scoped to class A, its length is the registered relation, the class-C non-protection is stated, and the "every user" sentence is withdrawn; the availability half rests on the post-round-6 `L1-13(1)`/`(3)` widening, which is cited rather than re-derived |
 | 6 | The first post-resolution epoch-opening batch unprovable because the anchor certificate is judged under the new generation (**G-3, High**) | §5 and `CONS-05(2)(b)`, `PRF-05(ii)(a)`: the anchor certificate is judged under `B_anchor`'s own header generation, the head under the current one; `cert_hash` must recompute into `epoch_anchor` |
 | 7 | The charitable reading: the anchor's generation taken from the witness certificate, dropping the equality (**G-3**) | §5: the anchor header's bytes are pinned by `prevBlockHash` (`L1-05` row 4, `L1-07`) and the certificate's generation must equal the header's; the value is not witness-supplied |
-| 8 | The discarded branch re-landed as an extending batch | `CONS-05(2)(a)`: a head certificate and every contributing vote must carry the current generation; the discarded branch carries the superseded one. It cannot be the anchor either: `B_anchor` is pinned by L1 to the restored checkpoint block, which the discard leaves untouched |
+| 8 | A superseded certificate presented as the head certificate of an extending batch | `CONS-05(2)(a)`: a head certificate, every contributing vote and the head header must carry the current generation; a certificate of the range above the checkpoint carries the superseded one and cannot be head evidence. The range itself remains valid history and may be carried as ancestors under a head produced under the new generation (R5R2-C-01). It cannot be the anchor either: `B_anchor` is pinned by L1 to the restored checkpoint block, which the resolution leaves untouched |
 | 9 | An upgrade moves `T_STALL_GOV`/`T_GOV_RESUME` to their minima for future entries while claiming no discretion (**G-4, Medium**) | §2(g): stored deadline for existing entries; constructor-time assertions of the relations; a change is a published rules change; the "chooses no configuration value" claim is withdrawn and the discretion named (F-GOV-4) |
 | 10 | The certificate tuple omits the generation its validity predicate reads (**G-5, Medium**) | Already closed by `R9-CC-01` in the current draft: the tuple carries `recovery_generation`; this increment keeps it |
 | 11 | A node holding an old-generation "finalized" block halts and refuses to adopt the restored chain (**G-6, Medium**) | Change list §9 item 3: the halt sentence is scoped to "under the current generation", as `CONS-04(2)`/`CONS-15(2)` already are |
 | 12 | `PRF-02(4)` describes the withdrawn recovery-restart form as live (**G-7, Low**) | Already re-based in the current draft; this increment states the anchor inputs it uses without adding a journal field |
-| 13 | Governance picks which provisional transactions survive (preserved failure mode) | §2(b)/(c): the entry names nothing, `resumeHeight` is derived, the discard is the whole range above the checkpoint |
+| 13 | Governance picks which provisional transactions survive (preserved failure mode) | §2(b)/(c): the entry names nothing, `resumeHeight` is derived, and the action selects nothing — it resumes the same chain and invalidates a superseded certificate only as a batch's head evidence, so no subset is chosen and the whole class above the checkpoint is unprotected (R5R2-C-01) |
 | 14 | An upgrade is used as a substitute for the resolution | §2(j): `GOV-03(e)` extended; the executed entry and the generation survive, and no upgrade may perform the resume |
 | 15 | A resolution clears, voids, re-clocks or suppresses forced-inclusion records, or makes a range unprovable | §2 FI-14 clause: no `FI_*` state is read or written; deadlines are L1-block-derived; the next batch is judged against the register at its own anchored view |
 | 16 | A resolution gates, delays or accelerates the exit | §2 MEM-15 clause and §6.4: the withdrawal path reads no resolution state; the root from the restored checkpoint remains attestable after execution |
@@ -1112,4 +1166,58 @@ after its own review rounds are clean.
 *The numbered four-item summary this section carried before this correction was a paraphrase of D-19's
 owner decisions, not the decision text; it is superseded by the quoted block and MUST NOT be cited as
 D-19. Nothing above reopens D-15, D-16 or any v1 decision.*
+
+---
+
+## Review corrections (increment 5, round 2 — R5R2-C-01)
+
+**RC-R5R2-C-01 — the effect of the stall resolution is stated in its enforced form: the mechanism resumes,
+it does not erase; the generation rule is head-only. The owner has ruled on round 2's Medium R5R2-C-01
+(claim-versus-rule mismatch: the preamble and the G-3 derivation claimed a "full-range discard" and an
+"unlandable" branch that the operative checks do not enforce).**
+
+**The corrected statement of the effect, binding on this delta and on every text that summarises it:**
+
+> The resolution resumes settlement on the same chain: it leaves the checkpoint and everything at or below
+> it untouched; it invalidates a superseded certificate **only as a batch's head evidence** — a superseded
+> certificate cannot serve as the head certificate of an extending batch, which is exactly what the
+> enforced checks say, since the head certificate, its contributing votes and the head header must carry
+> the current generation (`CONS-05(2)(a)`, `PRF-04(i)`); the range above the latest L1-accepted checkpoint
+> remains **valid history that can be extended under the new generation**, and nothing in the rule
+> invalidates or forbids a block on account of the generation in its own header (`CONS-10(7)`: the
+> generation is part of the header bytes, so every other header legitimately carries the generation it was
+> produced under); and the class above the checkpoint is unprotected for a different and narrower reason
+> than erasure: the user's signals are not carried into the settlement the resumed chain produces, so they
+> must be resubmitted, with no compensation (`ECON-11`).
+
+**The reason.** Making the range genuinely unlandable would ADD a history-rewriting power that `REC-01` and
+the boundary design forbid, and would contradict the guarantee this mechanism exists to provide. The
+mechanism resumes; it does not erase. The operative checks constrain only the head certificate, the
+contributing votes and the head header — every other header legitimately carries the generation it was
+produced under — and no rule invalidates a block whose header carries an older generation or forbids such a
+block inside a batch. A batch whose intermediate blocks are the provisional range (headers under the old
+generation) and whose head is a new block under the new generation therefore satisfies every check and
+settles that range; a validator that reads an overstated preamble and rejects it diverges from the rules.
+The range-wide alternative was considered and **not adopted**: it is a substantive rule change, and the
+owner's decision is the resume form.
+
+**Consequences recorded, so the superseded forms cannot be restored.** (i) The words "a full-range discard
+of everything strictly above the latest L1-accepted checkpoint" and "a generation increment that makes the
+discarded branch unlandable" (this delta's scope paragraph, the applied `GOV-04` preamble and their echoes)
+are **withdrawn**; the corrections are applied in place in this delta, in `spec/08`'s `GOV-04` and its
+other statements of the action's effect, in `spec/02`'s superseded-generation clauses, and in `spec/10`'s
+trust-model and limitation text, each marked R5R2-C-01. (ii) This delta's §5.2 step 4 is corrected: the
+premise that a block of the range "would have to be the head of a batch extending the checkpoint" was
+false — it may be an **ancestor**, and only its certificate's use as head evidence is rejected. (iii) The
+client-divergence half is closed where a validator reads it: `GOV-04`'s preamble and clause (h) state
+plainly what the action does enforce, including that intermediate headers are not compared with the current
+generation, and §9 item 16(vii) adds the conformance vector — a batch with pre-resolution ancestor headers
+and a head certified under the new generation MUST verify and land. (iv) The class above the checkpoint is
+stated as **unprotected because its signals are not carried into the resumed settlement**, not because
+governance erases it; no compensation is promised (`ECON-11`). (v) Within the quoted D-19 block above, the
+descriptive words "discarded by rule" and "cannot be re-landed" are read with this ruling: they describe
+the class as unprotected and a superseded certificate as unusable head evidence. D-19's operative content —
+the consumed entry, the stored deadline, the two-case generation rule, the anchor case — is unchanged, and
+`DECISIONS.md` remains the authority for D-19; a note carrying this reading belongs there, and this delta's
+verbatim reproduction MUST NOT be edited to carry it.
 

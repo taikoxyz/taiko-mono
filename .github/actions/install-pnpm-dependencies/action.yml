@@ -23,7 +23,7 @@ runs:
     - name: Install Node.js
       uses: actions/setup-node@v5
       with:
-        node-version: 20
+        node-version: "22.23.4"
         cache: pnpm
         cache-dependency-path: ${{ inputs.cache-dependency-path || '' }}
 

@@ -202,7 +202,7 @@ removal of data-first submission as a structural change rather than a configurat
 | Q-A5 | Are all D5/D7/D3 obligations preserved by the migration rules? | review round 1 (compliance) |
 | F1 | Epoch-handoff lock carry-over argument | review round 1 |
 | F2 | In-guest blob evaluation cost | measurement gate |
-| F3 | 2 s cadence under a permissionless global set | measurement gate |
+| F3 | 4 s cadence under a permissionless global set (the 2 s of the pre-decision text superseded by the Phase B cadence decision of 2026-10-07, conditioned on the intended validator count staying near or below 128) <em>(the register carries this same item as Open (F-CADENCE-1); F-CADENCE-1 governs for the register and F3 remains this log's id of record — one item, two spellings, not two falsifiers)</em> | measurement gate |
 | F4 | Throughput inequality inputs (cycles per L2 gas; proven cycles/s per machine) | measurement gate |
 
 ---
@@ -963,6 +963,8 @@ data or an economics stall.
 
 **Status:** decided; specification, register, index and course changes in flight. The increment ships only
 after its own review rounds are clean.
+
+**Further addendum (increment 05 review round 2, R5R2-C-01: the effect is resume, not erasure).** The entry above stands as the historical record; this addendum records the owner's ruling on round 2's Medium R5R2-C-01, which corrects the *description* of the effect while leaving D-19's operative content — the consumed entry, the stored deadline, the two-case generation rule and the anchor case — unchanged. **The corrected statement of the effect, binding on D-19 and on every text that summarises it:** the resolution **resumes settlement**; it does **not** erase. It leaves the checkpoint and everything at or below it untouched; it invalidates a superseded certificate **only as a batch's head evidence** — the head certificate, its contributing votes and the head header must carry the current generation (`CONS-05(2)(a)`, `PRF-04(i)`); the range above the latest L1-accepted checkpoint remains **valid history that can be extended under the new generation**, and nothing invalidates or forbids a block on account of the generation in its own header (`CONS-10(7)`); and the class above the checkpoint is unprotected for a narrower reason than erasure — the user's signals are not carried into the settlement the resumed chain produces, so they must be resubmitted, with no compensation (`ECON-11`). **The reason:** a range-wide generation rule would ADD a history-rewriting power that `REC-01` and the boundary forbid, and would contradict the guarantee the mechanism exists to provide; the range-wide alternative was considered and **not adopted**. **Where D-19's descriptive wording and this ruling differ, the ruling governs:** the phrases "only history strictly above the latest L1-accepted checkpoint is discarded" (the state machine paragraph), "is discarded by rule" (class C) and "cannot be re-landed" (the head case) are read as "the class is unprotected because its signals are not carried into the resumed settlement" and "a superseded certificate cannot serve as a batch's head evidence"; D-19's operative decisions are not reopened, and the withdrawn forms — a "full-range discard", a branch "made unlandable" and the like — **MUST NOT be restored**. The increment delta's §11 reproduces D-19 verbatim and **MUST NOT be edited** to absorb this reading; the note belongs here. *(R5R2-C-01: the mechanism resumes; it does not erase, and the generation rule is head-only.)*
 
 ---
 

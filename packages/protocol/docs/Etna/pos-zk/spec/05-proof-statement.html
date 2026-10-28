@@ -375,8 +375,14 @@ payload is fixed before <code>z</code>. In the correct experiment the prover sea
 payloads and wins only when a hash output lands on a root of <code>(p_D - p_B)</code>; for any fixed
 candidate the probability is at most <code>4095/|F| &asymp; 2<sup>-243</sup></code>
 <span class="pill derived">derived</span>, so a search over <code>q</code> hash outputs succeeds with
-probability at most <code>q &middot; 2<sup>-243</sup></code> (plus the
-<code>2<sup>-254.9</sup></code> modular-reduction bias). <code>D</code> is not a free variable in any
+probability at most <code>q &middot; 2<sup>-243</sup></code> (plus the modular reduction's per-value
+bound <code>ceil(2^256 / BLS_MODULUS) / 2^256 = 3 / 2^256 &asymp; 2<sup>-254.4</sup></code> against the
+ideal <code>1 / BLS_MODULUS &asymp; 2<sup>-254.9</sup></code>, so the 4,095-root union bound re-bases to
+at most <code>4,095 &middot; 3 / 2^256 &asymp; 2<sup>-242.4</sup></code> against the ideal
+<code>4,095 / BLS_MODULUS &asymp; 2<sup>-242.9</sup></code> &mdash; under half a bit, and the
+<code>2<sup>-243</sup></code> headline is unaffected) <em>(Phase B S4 public-data report &sect;3 F10: the
+reduction figure is recomputed from <code>BLS_MODULUS &asymp; 2^254.86</code>; the union bound is
+unchanged.)</em>. <code>D</code> is not a free variable in any
 case: the executed payload is bound to the certified header chain — the certificate covers the head
 block id, the header chain links to the predecessor, and each header's transaction root fixes its
 transactions (<a href="#PRF-04">PRF-04</a>(v), <a href="#PRF-06">PRF-06</a>) — so a prover cannot vary
