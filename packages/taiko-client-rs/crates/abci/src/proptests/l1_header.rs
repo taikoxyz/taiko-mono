@@ -9,10 +9,10 @@ use super::{
     mutate::{mutate, mutation},
     strategies::{el_header, raw_with_fields, rlp_item, rlp_list},
 };
-use crate::l1::header::RawL1Header;
+use crate::l1::header::{MIN_FIELDS, RawL1Header};
 
-/// Arbitrary bytes, a list of arbitrary RLP items (around the 15 fields a header has at least),
-/// or a mutated alloy header with arbitrary items appended.
+/// Arbitrary bytes, a list of arbitrary RLP items (around the [`MIN_FIELDS`] a header has at
+/// least), or a mutated alloy header with arbitrary items appended.
 fn raw_header_bytes() -> impl Strategy<Value = Vec<u8>> {
     prop_oneof![
         vec(any::<u8>(), 0..=700),
@@ -77,7 +77,7 @@ proptest! {
 }
 
 /// Checks that accepted `bytes` have an L1 header's shape: one RLP list with nothing after it, of
-/// at least the 15 fields of a pre-London header, whose items at Ethereum's positions of
+/// at least [`MIN_FIELDS`] items, whose items at Ethereum's positions of
 /// `parentHash` (0), `stateRoot` (3), `number` (8) and `timestamp` (11) decode to `header`'s
 /// accessors.
 fn assert_l1_header_shape(bytes: &[u8], header: &RawL1Header) -> Result<(), TestCaseError> {
@@ -86,7 +86,7 @@ fn assert_l1_header_shape(bytes: &[u8], header: &RawL1Header) -> Result<(), Test
         return Err(TestCaseError::fail("accepted bytes that are not one RLP list"));
     };
     prop_assert!(rest.is_empty(), "accepted {} bytes after the list", rest.len());
-    prop_assert!(items.len() >= 15, "accepted a list of {} items", items.len());
+    prop_assert!(items.len() >= MIN_FIELDS, "accepted a list of {} items", items.len());
     prop_assert_eq!(alloy_rlp::decode_exact::<B256>(items[0]), Ok(header.parent_hash()));
     prop_assert_eq!(alloy_rlp::decode_exact::<B256>(items[3]), Ok(header.state_root()));
     prop_assert_eq!(alloy_rlp::decode_exact::<u64>(items[8]), Ok(header.number()));
