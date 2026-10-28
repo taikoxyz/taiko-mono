@@ -61,14 +61,6 @@ async fn land(f: &ContractFixture, c: &ContractConsensus) -> Result<(ProofReques
     let event = landed.decoded_log::<EtnaInbox::Landed>().context("real Landed event")?;
     assert_eq!(event.data.lastHeight, request.batch.input.lastHeight);
     assert_eq!(f.checkpoint().await?.0, request.batch.input.lastHeight.to::<u64>());
-    eprintln!(
-        "ACCEPTANCE dummy=0x00 land={} range=({},{}] statement={} leaves={}",
-        tx.hash,
-        request.batch.input.parentHeight,
-        request.batch.input.lastHeight,
-        request.batch.statement_hash,
-        request.batch.leaves.len()
-    );
     Ok((request, tx.hash))
 }
 
@@ -111,28 +103,19 @@ async fn recover_landed_execution(
 async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> Result<()> {
     test_harness::init_tracing();
     let f = ContractFixture::deploy_validators(4).await?;
-    let report = abci::build_committee_record(
+    abci::build_committee_record(
         &abci::RpcL1Source::new(f.anvil.provider.clone()),
         &f.params,
         f.genesis.genesis_cutoff,
         None,
     )
     .await?;
-    let report_json = report.to_json_pretty();
-    std::fs::write("/tmp/etna-task3c2-acceptance-committee.json", &report_json)?;
-    eprintln!("ACCEPTANCE committeeRecord={report_json}");
     let p = &f.anvil.provider;
     let l2 = &f.l2.provider;
     set_interval_mining(p, 1).await?;
     let dirs = (0..4).map(|i| f.signer_storage.path().join(i.to_string())).collect();
     let mut c =
         ContractConsensus::start(f.anvil.http.clone(), &f.l2, f.params.clone(), dirs).await?;
-    let genesis_hash = alloy_primitives::keccak256(c.genesis_json.as_bytes());
-    std::fs::write("/tmp/etna-task3c2-acceptance-genesis.json", &c.genesis_json)?;
-    eprintln!(
-        "ACCEPTANCE bootstrap inbox={} registry={} EL={} stateRoot={} cometGenesisKeccak={genesis_hash}",
-        f.inbox, f.registry, f.genesis.genesis_hash, f.genesis.genesis_state_root
-    );
     assert_eq!(c.cmt.validators(Some(1)).await?.len(), 4);
     let ordinary = test_harness::sign_transfer(
         l2,
@@ -146,7 +129,6 @@ async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> 
     let payment = *l2.send_raw_transaction(&ordinary).await?.tx_hash();
     c.broadcast_to_peers(&ordinary).await?;
     let transfer = receipt(l2, payment).await.context("ordinary pool transaction inclusion")?;
-    eprintln!("ACCEPTANCE normal receipt={payment}");
     assert!(transfer.status());
     let h = transfer.block_number.context("normal height")?;
     c.wait_for_height(h + 1).await?;
@@ -179,16 +161,12 @@ async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> 
     let epoch = c.cmt.committee(1).await?.context("native epoch 1")?;
     assert_eq!(epoch.members.len(), 4);
     assert_eq!(c.cmt.validators(Some(f.genesis.epoch_len + 1)).await?.len(), 4);
-    eprintln!(
-        "ACCEPTANCE normal={} at={} fee={} FI={} at={} epoch=1 nativeMembers=4",
-        payment, h, fee, forced_hash, fi_height
-    );
     let trust_path = c.app_dir(0).join("checkpoint-trust.sock");
     let before_timeout = trust_timeout::observe(&trust_path).await?;
     let old_session = before_timeout["session_id"].as_str().context("pre-timeout session")?;
     let hrs = c.signing_state(0)?;
     let timeout = trust_timeout::TrustTimeout::install(&c.app_dir(0)).await?;
-    let new_session = timeout.wait_recovered(old_session).await?;
+    timeout.wait_recovered(old_session).await?;
     assert!(
         timeout.ready_when_delayed.load(std::sync::atomic::Ordering::SeqCst),
         "the actual app stayed Ready at the failed signer-specific query"
@@ -198,9 +176,6 @@ async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> 
             hrs["height"].as_str().unwrap().parse::<u64>()?
     );
     drop(timeout);
-    eprintln!(
-        "ACCEPTANCE signerTimeout appWasReady=true automaticRestart=true oldSession={old_session} newSession={new_session} HRSNotReset=true"
-    );
     let (first, _) = land(&f, &c).await?;
     assert!(first.batch.input.lastHeight >= U256::from(fi_height));
     assert_eq!(f.forced_inclusion_state().await?, (1, 1));
@@ -238,11 +213,6 @@ async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> 
     assert_eq!(std::fs::read(key_path)?, key);
     assert_eq!(std::fs::read(history)?, saved_history);
     assert!(c.signing_state(3)?["height"].as_str().unwrap().parse::<u64>()? >= old_height);
-    eprintln!(
-        "ACCEPTANCE restart node=3 oldHRSHeight={old_height} checkpoint={} caughtUp={} sameKey=true samePrivateHistory=true WALRetained=true",
-        second.batch.input.lastHeight,
-        c.peers[3].latest_height().await?
-    );
     let recovery = lander::codec::LandedRange {
         parent_height: 0,
         parent_hash: f.genesis.genesis_hash,

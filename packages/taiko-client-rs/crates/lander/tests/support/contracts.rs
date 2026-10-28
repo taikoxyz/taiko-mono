@@ -158,12 +158,6 @@ impl ContractFixture {
                 "explicit keygen failed: {}",
                 String::from_utf8_lossy(&generated.stderr)
             );
-            if count == 4 {
-                eprintln!(
-                    "ACCEPTANCE keygen node={i} {}",
-                    String::from_utf8_lossy(&generated.stdout).trim()
-                );
-            }
             let key = ValidatorKey::from_file(&key_file)?;
             let proof = Command::new(&binary)
                 .arg("pop")
@@ -180,9 +174,6 @@ impl ContractFixture {
                 .output()?;
             ensure!(proof.status.success(), "registration PoP failed");
             let pop: serde_json::Value = serde_json::from_slice(&proof.stdout)?;
-            if count == 4 {
-                eprintln!("ACCEPTANCE pop node={i} {pop}");
-            }
             let registered = transact(
                 p,
                 owner,
