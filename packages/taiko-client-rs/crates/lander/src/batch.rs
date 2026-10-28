@@ -720,15 +720,13 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             EnvelopeContext {
                 bft_time_secs: bft_secs,
                 proposer: pair.block.header.proposer_address,
-                members: &committees[&epoch].state.members,
+                committees,
                 parent: &state.parent,
                 parent_anchor: &state.anchor,
                 generation: snapshot.generation,
-                schedule,
+                genesis: &snapshot.genesis,
                 params: &self.params,
-                max_anchor_age: snapshot.genesis.max_anchor_age,
                 forced_cursor: state.forced_cursor,
-                forced_inclusion_delay: snapshot.genesis.forced_inclusion_delay,
             },
         )
         .map_err(|e| LanderError::Safety(e.to_string()))?;
@@ -2151,7 +2149,7 @@ mod tests {
             .await
             .unwrap_err();
         assert!(matches!(error, LanderError::Safety(_)));
-        assert!(error.to_string().contains("committee witness presence"));
+        assert!(error.to_string().contains("required committee witness"));
         let mut fixture = Fixture::new(18, 30);
         let extra =
             abci::EtnaEnvelope::decode(&fixture.blocks[&23].block.data[0]).unwrap().committee;
@@ -2513,7 +2511,7 @@ mod tests {
 
             let mut fixture = forced();
             alter_envelope(&mut fixture, 23, |envelope| envelope.committee = None);
-            assert_safety(fixture, "committee witness presence").await;
+            assert_safety(fixture, "required committee witness").await;
             let mut fixture = forced();
             alter_envelope(&mut fixture, 23, |envelope| {
                 let witness = envelope.forced.as_mut().unwrap();

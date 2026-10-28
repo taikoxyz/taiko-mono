@@ -19,7 +19,7 @@ pub const MAX_DECOMPRESSED_BYTES: usize = 64 * 1024 * 1024;
 use abci::compression::{
     InflateError, zlib_compress, zlib_compress_best, zlib_compress_split, zlib_inflate_exact,
 };
-use alloy_rlp::{Decodable, Encodable, Header};
+use alloy_rlp::{Decodable, Header};
 use prost::Message;
 use tendermint_proto::v0_38::types::Commit as RawCommit;
 
@@ -369,29 +369,23 @@ pub fn decode_landed(payload: &[u8], range: &LandedRange) -> Result<Vec<Publishe
     Ok(blocks)
 }
 
-/// Enforce context-free Etna admission rules before authenticated DA import or reconstruction.
+/// Enforce context-free Etna admission rules before authenticated DA import or reconstruction:
+/// the ABCI app's raw block size limit ([`abci::app::check_execution_size`]) and its fixed header
+/// fields ([`abci::rules::check_fixed_fields`]), with a base fee and a parent beacon block root.
 /// Certificate, committee, anchor and deterministic header validation remain the builder's job.
 pub(crate) fn validate_execution(block: &abci::ExecutionBlock) -> Result<()> {
-    if block.length() > 124_000 {
-        return Err(LanderError::Capacity("raw execution block exceeds 124000 bytes".into()));
-    }
+    abci::app::check_execution_size(block).map_err(|e| LanderError::Capacity(e.to_string()))?;
     let header = &block.header;
-    if header.base_fee_per_gas.is_none() ||
-        header.withdrawals_root != Some(alloy_consensus::EMPTY_ROOT_HASH) ||
-        header.blob_gas_used != Some(0) ||
-        header.excess_blob_gas != Some(0) ||
-        header.parent_beacon_block_root.is_none() ||
-        header.requests_hash != Some(alloy_eips::eip7685::EMPTY_REQUESTS_HASH) ||
-        header.ommers_hash != alloy_consensus::EMPTY_OMMER_ROOT_HASH ||
-        header.nonce != alloy_primitives::B64::ZERO ||
-        header.block_access_list_hash.is_some() ||
-        header.slot_number.is_some()
-    {
-        return Err(LanderError::Encoding(
-            "execution header is not canonical Etna Unzen shape".into(),
-        ));
-    }
-    Ok(())
+    let shape = if header.base_fee_per_gas.is_none() || header.parent_beacon_block_root.is_none() {
+        Err("a base fee and a parent beacon block root are required".to_owned())
+    } else {
+        abci::rules::check_fixed_fields(header).map_err(|e| e.to_string())
+    };
+    shape.map_err(|reason| {
+        LanderError::Encoding(format!(
+            "execution header is not canonical Etna Unzen shape: {reason}"
+        ))
+    })
 }
 
 /// Translate canonical RLP errors into the shared codec error category.

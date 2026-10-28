@@ -247,15 +247,13 @@ impl FixtureChain {
                 EnvelopeContext {
                     bft_time_secs: time,
                     proposer: pair.block.header.proposer_address,
-                    members: &current.state.members,
+                    committees: &self.committees,
                     parent: &parent_info,
                     parent_anchor,
                     generation: 0,
-                    schedule: &schedule,
+                    genesis: &fixture.genesis,
                     params: &fixture.params,
-                    max_anchor_age: fixture.genesis.max_anchor_age,
                     forced_cursor: index,
-                    forced_inclusion_delay: fixture.genesis.forced_inclusion_delay,
                 },
             )?;
             ensure!(

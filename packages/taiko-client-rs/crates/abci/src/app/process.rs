@@ -105,18 +105,23 @@ impl<L: L1Source, E: Engine> App<L, E> {
             }
         };
         let (height, bft_secs) = (req.height.value(), unix_secs(req.time));
-        let mut validated =
-            match validate_block(state, &self.params, &env, height, bft_secs, req.proposer_address)
-            {
-                Err(l1_fact @ Rejection::Superseded { .. }) => {
-                    // Without a witness the facts are the committed parent's, already trusted.
-                    if let Some(w) = &env.anchor {
-                        self.check_anchor_final(w).await?;
-                    }
-                    return Err(l1_fact);
+        let mut validated = match validate_block(
+            &state.chain_context(),
+            &self.params,
+            &env,
+            height,
+            bft_secs,
+            req.proposer_address,
+        ) {
+            Err(l1_fact @ Rejection::Superseded { .. }) => {
+                // Without a witness the facts are the committed parent's, already trusted.
+                if let Some(w) = &env.anchor {
+                    self.check_anchor_final(w).await?;
                 }
-                other => other?,
-            };
+                return Err(l1_fact);
+            }
+            other => other?,
+        };
         if let (Some((target_epoch, _)), Some(witness)) = (&validated.derived, &env.committee) {
             self.cache_candidate_committee_witness(
                 state,

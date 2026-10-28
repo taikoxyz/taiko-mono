@@ -53,7 +53,7 @@ mod prepare;
 mod process;
 /// Node-local startup checkpoint authentication and signing readiness.
 pub mod trust;
-/// Deterministic block validation shared by `ProcessProposal` and `FinalizeBlock`.
+/// Deterministic block validation shared by `ProcessProposal`, `FinalizeBlock` and the lander.
 mod validate;
 
 #[cfg(test)]
@@ -62,7 +62,10 @@ mod tests;
 use committee_cache::{CachedCommittee, CommitteePrefetch, load_cached_committee};
 
 pub use info::{CHECK_TX_LOG, CODE_REJECTED};
-pub use validate::{Rejection, Validated, WitnessKind};
+pub use validate::{
+    ChainContext, CommitteeLookup, Rejection, Validated, WitnessKind, check_execution_size,
+    validate_block,
+};
 
 /// The application name reported in `Info.data`.
 pub const APP_NAME: &str = "taiko-abci";

@@ -108,7 +108,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let newest = state.anchor.number.max(finalized);
         let (anchor, anchor_state) = self.choose_anchor(state, height, newest).await?;
         let expected = expected_header(
-            state,
+            &state.chain_context(),
             params,
             height,
             &anchor_state,
@@ -128,7 +128,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
             None => None,
         };
         let witness = committee.as_ref().map(|(_, w)| w);
-        let facts = finish_candidate(state, params, height, witness, anchor_state)?;
+        let facts =
+            finish_candidate(&state.chain_context(), params, height, witness, anchor_state)?;
         if let Some((target_epoch, witness)) = &committee {
             self.cache_candidate_committee_witness(state, &facts.anchor, *target_epoch, witness)?;
         }
@@ -349,7 +350,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             extra_generation: state.generation,
             extra_anchor: n,
         };
-        let anchor = check_candidate_anchor(state, params, height, &candidate)?;
+        let anchor = check_candidate_anchor(&state.chain_context(), params, height, &candidate)?;
         Ok((witness, anchor))
     }
 

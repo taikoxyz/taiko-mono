@@ -1,11 +1,10 @@
 //! Pure certificate, CometBFT body-commitment and Etna envelope validation.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use abci::{
-    AnchorState, ChainParams, CommitteeState, EtnaEnvelope, ParentInfo, Schedule,
-    l1::witness::verify_anchor_witness,
-    rules::{self, GenerationCheck, HeaderInputs},
+    AnchorState, ChainParams, CommitteeState, EtnaEnvelope, GenesisRecord, ParentInfo,
+    app::ChainContext, rules,
 };
 use alloy_primitives::B256;
 use prost::Message;
@@ -282,133 +281,60 @@ pub fn verify_structure(
     Ok(envelope)
 }
 
-/// Immutable authenticated context for existing ABCI pure envelope rules.
-#[derive(Clone, Copy, Debug)]
+/// Authenticated context of one certified block for [`verify_envelope`].
+#[derive(Clone, Copy)]
 pub struct EnvelopeContext<'a> {
     /// Whole seconds of the CometBFT block timestamp.
     pub bft_time_secs: u64,
     /// Original proposer from the certified CometBFT block header.
     pub proposer: tendermint::account::Id,
-    /// Authenticated committee for this block's epoch, including its first height.
-    pub members: &'a [abci::types::Member],
+    /// Authenticated committees by epoch, including the block's own epoch.
+    pub committees: &'a BTreeMap<u64, AuthenticatedCommittee>,
     /// Execution facts of the authenticated parent.
     pub parent: &'a ParentInfo,
     /// Exact historic anchor consumed by that parent.
     pub parent_anchor: &'a AnchorState,
     /// Authenticated recovery generation.
     pub generation: u64,
-    /// Validated epoch schedule from the Inbox genesis record.
-    pub schedule: &'a Schedule,
+    /// Authenticated genesis record of the Inbox: schedule, `maxAnchorAge` and forced inclusion
+    /// delay.
+    pub genesis: &'a GenesisRecord,
     /// Shared chain constants.
     pub params: &'a ChainParams,
-    /// Genesis `maxAnchorAge`, in seconds: how much older than a block its anchor may be.
-    pub max_anchor_age: u64,
     /// The forced inclusion cursor after the parent: the queue entries the chain has consumed.
     pub forced_cursor: u64,
-    /// Genesis forced inclusion delay `D`, in seconds.
-    pub forced_inclusion_delay: u64,
 }
 
-/// Validates all existing ABCI pure rules using authenticated parent and chain context.
+/// Validates the envelope with the ABCI app's own block rules ([`abci::app::validate_block`])
+/// on the authenticated parent and chain context.
 ///
-/// The forced inclusion rule ([`abci::forced::check`]) runs last, on the parent's cursor and the
-/// block's anchor: it verifies the entry proof and checks the block's first transaction, or the
-/// carried skip preimage, against the entry's calldata `txHash`, but executes nothing.
+/// The forced inclusion rule runs last, on the parent's cursor and the block's anchor: it
+/// verifies the entry proof and checks the block's first transaction, or the carried skip
+/// preimage, against the entry's calldata `txHash`, but executes nothing.
 pub fn verify_envelope(
     envelope: EtnaEnvelope,
     context: EnvelopeContext<'_>,
 ) -> Result<BlockFacts, ValidationError> {
-    crate::codec::validate_execution(&envelope.block)
-        .map_err(|e| ValidationError::Etna(e.to_string()))?;
-    let EnvelopeContext {
-        bft_time_secs,
-        proposer,
-        members,
-        parent,
-        parent_anchor,
-        generation,
-        schedule,
-        params,
-        max_anchor_age,
-        forced_cursor,
-        forced_inclusion_delay,
-    } = context;
-    let height = envelope.block.header.number;
-    let (_, extra_generation, extra_anchor) =
-        rules::decode_extra_data(&envelope.block.header.extra_data)
-            .map_err(|e| ValidationError::Etna(e.to_string()))?;
-    let switch = schedule.switch_target(height);
-    let forced = height == 1;
-    let anchor = match envelope.anchor.as_ref() {
-        None if forced || extra_anchor != parent_anchor.number => {
-            return Err(ValidationError::Etna("required anchor witness is missing".into()))
-        }
-        None => parent_anchor.clone(),
-        Some(w) if !forced && w.l1_header.number() == parent_anchor.number => {
-            return Err(ValidationError::Etna("unexpected unchanged anchor witness".into()))
-        }
-        Some(w) => verify_anchor_witness(w, params.inbox)
-            .map_err(|e| ValidationError::Etna(e.to_string()))?,
+    let chain = ChainContext {
+        genesis: context.genesis,
+        generation: context.generation,
+        parent: context.parent,
+        anchor: context.parent_anchor,
+        forced_cursor: context.forced_cursor,
+        committees: context.committees,
     };
-    rules::check_anchor_progress(parent_anchor.number, anchor.number, schedule.l1_0)
-        .map_err(|e| ValidationError::Etna(e.to_string()))?;
-    let generation_check =
-        rules::check_generation(generation, extra_generation, anchor.inbox.recovery_generation)
-            .map_err(|e| ValidationError::Etna(e.to_string()))?;
-    if generation_check != GenerationCheck::Ok {
-        return Err(ValidationError::Etna("superseded generation or inactive Inbox".into()));
-    }
-    rules::check_back_pressure(height, anchor.inbox.last_checkpoint_height, params.unsettled_cap())
-        .map_err(|e| ValidationError::Etna(e.to_string()))?;
-    let derived = match (switch, envelope.committee.as_ref()) {
-        (None, None) => None,
-        (Some(target), Some(w)) => {
-            let (record, members) = abci::committee::verify_committee_witness_at_cutoff(
-                anchor.state_root,
-                parent_anchor.number.max(schedule.l1_0),
-                params,
-                w,
-                target,
-            )
-            .map_err(|e| ValidationError::Etna(e.to_string()))?;
-            Some(CommitteeState { record, members })
-        }
-        _ => return Err(ValidationError::Etna("committee witness presence mismatch".into())),
-    };
-    if !members.iter().any(|member| member.pubkey.address().as_slice() == proposer.as_bytes()) {
-        return Err(ValidationError::Etna("unknown certified proposer".into()));
-    }
-    let expected = rules::expected_header(&HeaderInputs {
-        height,
-        parent,
-        anchor: &anchor,
-        bft_time_secs,
-        generation,
-        params,
-        min_base_fee: protocol::shasta::constants::min_base_fee_for_chain(params.l2_chain_id),
-        reward_recipient: envelope.block.header.beneficiary,
-    })
-    .map_err(|e| ValidationError::Etna(e.to_string()))?;
-    rules::check_anchor_freshness(expected.timestamp, anchor.timestamp, max_anchor_age)
-        .map_err(|e| ValidationError::Etna(e.to_string()))?;
-    rules::check_header(&envelope.block.header, &expected)
-        .map_err(|e| ValidationError::Etna(e.to_string()))?;
-    let forced_index = abci::forced::check(
-        abci::forced::ForcedContext {
-            cursor: forced_cursor,
-            anchor: &anchor,
-            delay: forced_inclusion_delay,
-            inbox: params.inbox,
-            l2_chain_id: params.l2_chain_id,
-            block_gas_limit: params.block_gas_limit,
-        },
-        envelope.forced.as_ref(),
-        envelope.block.transactions.first().map(|tx| tx.as_ref()),
+    let validated = abci::app::validate_block(
+        &chain,
+        context.params,
+        &envelope,
+        envelope.block.header.number,
+        context.bft_time_secs,
+        context.proposer,
     )
     .map_err(|e| ValidationError::Etna(e.to_string()))?;
     let header = &envelope.block.header;
     let next_parent = ParentInfo {
-        number: height,
+        number: header.number,
         hash: header.hash_slow(),
         timestamp: header.timestamp,
         gas_limit: header.gas_limit,
@@ -417,15 +343,15 @@ pub fn verify_envelope(
             .base_fee_per_gas
             .ok_or_else(|| ValidationError::Etna("missing base fee".into()))?,
         difficulty: header.difficulty,
-        grandparent_timestamp: parent.timestamp,
+        grandparent_timestamp: context.parent.timestamp,
     };
     Ok(BlockFacts {
         envelope,
-        anchor,
-        derived,
+        anchor: validated.anchor,
+        derived: validated.derived.map(|(_, committee)| committee),
         parent: next_parent,
-        forced: forced_index,
-        expected,
+        forced: validated.decision,
+        expected: validated.expected,
     })
 }
 
@@ -655,25 +581,25 @@ mod tests {
             difficulty: genesis.difficulty,
             grandparent_timestamp: 0,
         };
-        let schedule = Schedule::from_genesis(&fixture.snapshot.genesis);
         let envelope = EtnaEnvelope::decode(&fixture.blocks[&1].block.data[0]).unwrap();
-        let context = |max_anchor_age| EnvelopeContext {
+        let genesis =
+            |max_anchor_age| GenesisRecord { max_anchor_age, ..fixture.snapshot.genesis.clone() };
+        let (fresh, stale) = (genesis(91), genesis(90));
+        let context = |genesis| EnvelopeContext {
             bft_time_secs: 101,
             proposer: fixture.blocks[&1].block.header.proposer_address,
-            members: &fixture.committees[&schedule.epoch_of(1)].state.members,
+            committees: &fixture.committees,
             parent: &parent,
             parent_anchor: &fixture.anchors[&0],
             generation: 0,
-            schedule: &schedule,
+            genesis,
             params: &fixture.params,
-            max_anchor_age,
             forced_cursor: 0,
-            forced_inclusion_delay: fixture.snapshot.genesis.forced_inclusion_delay,
         };
 
-        let facts = verify_envelope(envelope.clone(), context(91)).unwrap();
+        let facts = verify_envelope(envelope.clone(), context(&fresh)).unwrap();
         assert_eq!(facts.envelope.block.header.timestamp - facts.anchor.timestamp, 91);
-        let error = verify_envelope(envelope, context(90)).unwrap_err();
+        let error = verify_envelope(envelope, context(&stale)).unwrap_err();
         let violation = rules::RuleViolation::AnchorTooOld { age: 91, max: 90 };
         assert!(
             matches!(&error, ValidationError::Etna(m) if *m == violation.to_string()),
@@ -696,22 +622,19 @@ mod tests {
             difficulty: genesis.difficulty,
             grandparent_timestamp: 0,
         };
-        let schedule = Schedule::from_genesis(&fixture.snapshot.genesis);
         let envelope = EtnaEnvelope::decode(&fixture.blocks[&1].block.data[0]).unwrap();
         let original = fixture.blocks[&1].block.header.proposer_address;
-        let members = &fixture.committees[&schedule.epoch_of(1)].state.members;
+        let genesis = GenesisRecord { max_anchor_age: 7200, ..fixture.snapshot.genesis.clone() };
         let context = |proposer| EnvelopeContext {
             bft_time_secs: 101,
             proposer,
-            members,
+            committees: &fixture.committees,
             parent: &parent,
             parent_anchor: &fixture.anchors[&0],
             generation: 0,
-            schedule: &schedule,
+            genesis: &genesis,
             params: &fixture.params,
-            max_anchor_age: 7200,
             forced_cursor: 0,
-            forced_inclusion_delay: fixture.snapshot.genesis.forced_inclusion_delay,
         };
         let facts = verify_envelope(envelope.clone(), context(original)).unwrap();
         assert_eq!(facts.expected.beneficiary, envelope.block.header.beneficiary);

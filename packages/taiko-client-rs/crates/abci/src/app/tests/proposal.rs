@@ -130,7 +130,14 @@ pub(super) fn validate(
     env: &EtnaEnvelope,
 ) -> Result<Validated, Rejection> {
     let state = app.state().expect("initialized");
-    validate::validate_block(state, &app.params, env, next_height(app), bft_time(app), proposer())
+    validate::validate_block(
+        &state.chain_context(),
+        &app.params,
+        env,
+        next_height(app),
+        bft_time(app),
+        proposer(),
+    )
 }
 
 /// The `FinalizeBlock` request CometBFT sends once the block `p` proposed is decided.
@@ -288,7 +295,7 @@ fn hand_built(
         None => state.anchor.clone(),
     };
     let expected = validate::expected_header(
-        state,
+        &state.chain_context(),
         &app.params,
         height,
         &anchor_state,
