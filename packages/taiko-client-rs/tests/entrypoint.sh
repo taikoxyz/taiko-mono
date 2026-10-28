@@ -75,7 +75,7 @@ export ANVIL_IMAGE=${ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:v1.5.1}
 # The reviewed alethia-reth image supports canonical-config alloc-only Etna genesis.
 # Real contracts require canonical zero-storage proofs and modern EIP-7594 wrappers.
 export LANDER_ANVIL_IMAGE=${LANDER_ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:v1.8.5}
-export ALETHIA_RETH_IMAGE=${ALETHIA_RETH_IMAGE:-us-docker.pkg.dev/evmchain/images/alethia-reth:sha-b046734@sha256:2cb3b5f4afbd4e792f6d487af3d8d0eb8843ebec94180a845b277ab30fed4fd5}
+export ALETHIA_RETH_IMAGE=${ALETHIA_RETH_IMAGE:-us-docker.pkg.dev/evmchain/images/alethia-reth:sha-6ac93d4@sha256:a92fca2305a657d4a9267e61ba198531db52c3a173d236fc3dc14984d66d2e3d}
 export COMETBFT_IMAGE=${COMETBFT_IMAGE:-cometbft/cometbft:v0.40.0@sha256:0703fb881dac0987c8e41a5810cc09dbcb503bb59ac91705f6936c4b972ac798}
 
 # Pull before the first scenario so downloads don't eat into its readiness deadlines.

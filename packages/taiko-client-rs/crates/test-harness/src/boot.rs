@@ -35,7 +35,7 @@ use crate::{
 /// Default anvil image (override with `ANVIL_IMAGE`), pinned like `tests/entrypoint.sh`'s.
 const ANVIL_IMAGE: &str = "ghcr.io/foundry-rs/foundry:v1.5.1";
 /// Default reviewed alethia-reth image (override with `ALETHIA_RETH_IMAGE`).
-pub(crate) const RETH_IMAGE: &str = "us-docker.pkg.dev/evmchain/images/alethia-reth:sha-b046734@sha256:2cb3b5f4afbd4e792f6d487af3d8d0eb8843ebec94180a845b277ab30fed4fd5";
+pub(crate) const RETH_IMAGE: &str = "us-docker.pkg.dev/evmchain/images/alethia-reth:sha-6ac93d4@sha256:a92fca2305a657d4a9267e61ba198531db52c3a173d236fc3dc14984d66d2e3d";
 /// Default CometBFT image (override with `COMETBFT_IMAGE`).
 const COMETBFT_IMAGE: &str = "cometbft/cometbft:v0.40.0@sha256:0703fb881dac0987c8e41a5810cc09dbcb503bb59ac91705f6936c4b972ac798";
 

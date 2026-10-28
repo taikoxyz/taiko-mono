@@ -66,9 +66,9 @@ asks the app's private control socket before every signature (see
 ## Fresh deployment
 
 The client starts a fresh Etna chain at generation zero only; it migrates no earlier state
-format. It is aligned with protocol commit `23963b68e43b4cbeaf83113eeb61fbc1bddb4c46` (the
+format. It is aligned with protocol commit `836105cf7ccd4e8bff075624fd7f58c5561f710b` (the
 Inbox, staking registry and the pinned contract artifacts) and alethia-reth commit
-`b046734a0a47b17ca66c33ccbc7c9087cbbf9b1e`. Start the EL and verify its block 0 before the Inbox
+`6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4`. Start the EL and verify its block 0 before the Inbox
 is initialized (spec section 10, Startup and deployment). The proof provider is a dummy `0x00`,
 so run the client only on disposable development chains.
 
