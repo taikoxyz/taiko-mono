@@ -1,6 +1,6 @@
 //! Property test of complete-prefix selection ([`BatchBuilder::publishable_prefix`]) over decided
 //! chains of blocks of random sizes and contents, under payload capacities around the first
-//! block's landing guard measure and random deflate budgets.
+//! block's own payload size and random deflate budgets.
 
 use std::sync::Arc;
 
@@ -19,10 +19,7 @@ use crate::{
     config::COMET_BLOCK_MAX_BYTES,
     error::{LanderError, Result},
     l1::{LandingSource, ParentContext},
-    proptests::{
-        guard_measure,
-        strategies::{bytes, envelope_with, payload},
-    },
+    proptests::strategies::{bytes, envelope_with, payload},
     test_utils::{consensus, protocol},
     types::{CertifiedBlock, LandingSnapshot, Limits, SidecarMode},
 };
@@ -103,6 +100,18 @@ fn capacity(limits: &Limits) -> usize {
     limits.max_payload_bytes.min(limits.max_blobs * PAYLOAD_BYTES_PER_BLOB)
 }
 
+/// Limits under which any one decided block encodes alone: a landing's blobs and CometBFT-sized
+/// messages.
+fn unbounded() -> Limits {
+    Limits {
+        max_blocks: 1,
+        max_blobs: blob::MAX_LANDING_BLOBS,
+        max_payload_bytes: blob::MAX_LANDING_BLOBS * PAYLOAD_BYTES_PER_BLOB,
+        max_message_bytes: COMET_BLOCK_MAX_BYTES,
+        max_decompressed_bytes: COMET_BLOCK_MAX_BYTES,
+    }
+}
+
 /// One to four decided blocks from height 1, each carrying as its first transaction a payload of
 /// up to 150 kB, 75 kB or 37.5 kB.
 fn decided_chain() -> impl Strategy<Value = Vec<CertifiedBlock>> {
@@ -127,10 +136,10 @@ fn decided_chain() -> impl Strategy<Value = Vec<CertifiedBlock>> {
     })
 }
 
-/// Where a payload bound sits against the first block's landing guard measure `g`.
+/// Where a payload bound sits against the first block's own payload size `g`.
 #[derive(Clone, Copy, Debug)]
 enum Room {
-    /// `g - n` bytes: the guard would not admit the first block against it.
+    /// `g - n` bytes: too few for the first block.
     Below(usize),
     /// `g + n` bytes, `n` at most 64: just room for the first block.
     At(usize),
@@ -139,7 +148,7 @@ enum Room {
 }
 
 impl Room {
-    /// The payload bound for a first block of guard measure `measure`.
+    /// The payload bound for a first block whose own payload is `measure` bytes.
     fn bound(self, measure: usize) -> usize {
         match self {
             Self::Below(n) => measure.saturating_sub(n).max(1),
@@ -149,7 +158,7 @@ impl Room {
     }
 }
 
-/// A [`Room`]: below, at or (most often) above the first block's guard measure.
+/// A [`Room`]: below, at or (most often) above the first block's own payload size.
 fn room() -> impl Strategy<Value = Room> {
     prop_oneof![
         1 => (1usize..=2_048).prop_map(Room::Below),
@@ -198,7 +207,7 @@ proptest! {
         max_batch_blocks in prop_oneof![Just(u64::MAX), 1u64..=18],
         deflate_bytes in 0usize..=2 << 20,
     ) {
-        let measure = guard_measure(&chain[0].block.data[0]);
+        let measure = codec::encode(&chain[..1], &unbounded()).expect("one block encodes").len();
         let bound = room.bound(measure);
         let limits = Limits {
             max_blocks,
@@ -218,7 +227,7 @@ proptest! {
         for count in 1..=grid {
             match codec::encode(&chain[..count], &limits) {
                 Ok(payload) if blob::required_blobs(payload.len()) <= limits.max_blobs => {
-                    work += abci::compression::zlib_inflate_exact(&payload[1..], usize::MAX)?.len();
+                    work += crate::compression::zlib_inflate_exact(&payload[1..], usize::MAX)?.len();
                 }
                 _ => segment_admitted = false,
             }

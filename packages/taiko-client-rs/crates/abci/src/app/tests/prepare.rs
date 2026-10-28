@@ -1168,7 +1168,7 @@ async fn pending_junk_preimage_is_omitted_from_proposal_data() {
     assert!(redundant.encode().len() - env.encode().len() >= 8192);
 
     // Repeat full envelopes separated by a busy execution block, outside deflate's 32 KiB
-    // history. Use the landing guard's pinned compressor and the genuine entry proof above.
+    // history. Use the landing payload's default zlib level and the genuine entry proof above.
     use alloy_consensus::{SignableTransaction, TxEnvelope, TxLegacy};
     let transaction = TxEnvelope::Legacy(
         TxLegacy { gas_limit: 2_000_000, input: noise.slice(8191..), ..Default::default() }
@@ -1184,7 +1184,11 @@ async fn pending_junk_preimage_is_omitted_from_proposal_data() {
         alloy_consensus::proofs::ordered_trie_root_encoded(&compact.block.transactions);
     redundant.block = compact.block.clone();
     let compressed = |envelope: &EtnaEnvelope| {
-        crate::compression::zlib_compress(&alloy_rlp::encode(vec![envelope.encode(); 4])).len()
+        use std::io::Write;
+        let mut encoder =
+            flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+        encoder.write_all(&alloy_rlp::encode(vec![envelope.encode(); 4])).unwrap();
+        encoder.finish().unwrap().len()
     };
     let saved = compressed(&redundant) - compressed(&compact);
     eprintln!("four busy envelopes omit {saved} compressed FI-preimage bytes");

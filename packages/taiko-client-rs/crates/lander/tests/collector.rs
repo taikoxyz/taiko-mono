@@ -78,18 +78,14 @@ async fn lander_live_comet_collector_preserves_and_authenticates_certificates() 
         previous = Some(pair.clone());
         blocks.push(pair);
     }
-    let limits = lander::Limits {
-        max_blocks: 5,
-        max_blobs: 6,
-        max_payload_bytes: 700_000,
-        max_message_bytes: 700_000,
-        max_decompressed_bytes: 5 * 700_000,
-    };
-    let payload = codec::encode(&blocks, &limits)?;
     let published = blocks
         .iter()
         .map(|pair| codec::PublishedBlock::try_from(pair).unwrap())
         .collect::<Vec<_>>();
+    let executions = published.iter().map(|published| &published.block).collect::<Vec<_>>();
+    let payload =
+        [vec![codec::VERSION], lander::compression::zlib_compress(&alloy_rlp::encode(executions))]
+            .concat();
     assert_eq!(
         codec::decode_landed(
             &payload,

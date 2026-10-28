@@ -3,17 +3,15 @@
 
 use std::sync::LazyLock;
 
-use abci::{
-    EtnaEnvelope,
-    compression::{MAX_LANDING_BLOBS, zlib_compress, zlib_inflate_exact},
-};
+use abci::EtnaEnvelope;
 use alloy_primitives::B256;
 use proptest::{collection::vec, prelude::*, sample::Index};
 
 use super::strategies::{bytes, envelope_with};
 use crate::{
-    blob::PAYLOAD_BYTES_PER_BLOB,
+    blob::{MAX_LANDING_BLOBS, PAYLOAD_BYTES_PER_BLOB},
     codec::{self, PublishedBlock, VERSION},
+    compression::{zlib_compress, zlib_inflate_exact},
     config::COMET_BLOCK_MAX_BYTES,
     test_utils::consensus,
     types::{CertifiedBlock, Limits},

@@ -387,7 +387,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 break;
             }
             deflated = deflated.saturating_add(list_len);
-            match compress(list.to_list(), limits, blocks.is_empty()).await {
+            match compress(list.to_list(), limits).await {
                 Ok(encoded) if blob::required_blobs(encoded.len()) <= limits.max_blobs => {
                     blocks.push(pair);
                     payload = Some(encoded);
@@ -430,10 +430,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     async fn payload(&self, prefix: PublishablePrefix) -> Result<(Vec<CertifiedBlock>, Vec<u8>)> {
         let payload = match prefix.payload {
             Some(payload) => payload,
-            None => {
-                compress(prefix.list.to_list(), self.selection_limits(), prefix.blocks.len() == 1)
-                    .await?
-            }
+            None => compress(prefix.list.to_list(), self.selection_limits()).await?,
         };
         Ok((prefix.blocks, payload))
     }
@@ -1028,16 +1025,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
 
 /// Compresses `list` into a V6 payload on the blocking pool, keeping deflate off the async
 /// workers.
-async fn compress(list: Vec<u8>, limits: Limits, single_block: bool) -> Result<Vec<u8>> {
-    match tokio::task::spawn_blocking(move || {
-        if single_block {
-            codec::compress_single(&list, &limits)
-        } else {
-            codec::compress(&list, &limits)
-        }
-    })
-    .await
-    {
+async fn compress(list: Vec<u8>, limits: Limits) -> Result<Vec<u8>> {
+    match tokio::task::spawn_blocking(move || codec::compress(&list, &limits)).await {
         Ok(payload) => payload,
         Err(error) if error.is_panic() => std::panic::resume_unwind(error.into_panic()),
         Err(error) => {
@@ -2054,9 +2043,7 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
-        let list = abci::compression::zlib_inflate_exact(&first[1..], usize::MAX).unwrap();
-        let best_size = abci::compression::zlib_compress_best(&list).len() + 1;
-        bound.max_payload_bytes = first.len().min(best_size) - 1;
+        bound.max_payload_bytes = first.len() - 1;
         let error =
             builder(fixture.clone(), bound).prepare(fixture.snapshot.clone()).await.unwrap_err();
         assert!(matches!(error, LanderError::Capacity(_)));
