@@ -1,11 +1,7 @@
 # Etna PoS + ZK design specification
 
-An offline HTML copy of the
-[Etna PoS + ZK Design Spec](https://app.notion.com/p/3fe9673143d6817a9f0fdaaf1b965d7a)
-and its
-[Etna Acceptance and Launch Checklist](https://app.notion.com/p/4059673143d6817fbd80ec6bec24b95b),
-one page per section. The Notion pages are authoritative; this directory holds
-the snapshot listed under [Provenance](#provenance).
+The Etna PoS + ZK design specification and its acceptance and launch
+checklist, as HTML pages: one per section, an index and the checklist.
 
 In Etna, a committee of TAIKO stakers produces blocks with stock CometBFT and
 finalizes them instantly; anyone can land a proven batch on L1, and funds on L1
@@ -22,7 +18,7 @@ blocks by hand before printing.
 
 | Page                                                        | Contents                                                        |
 | ----------------------------------------------------------- | --------------------------------------------------------------- |
-| [index.html](spec/index.html)                               | Summary, scope, contents of every page and snapshot details     |
+| [index.html](spec/index.html)                               | Summary, scope, contents of every page and source files         |
 | [01-positioning.html](spec/01-positioning.html)             | 1. Positioning and security model                               |
 | [02-components.html](spec/02-components.html)               | 2. Components                                                   |
 | [03-consensus.html](spec/03-consensus.html)                 | 3. Consensus and blocks: engine, header, anchor, validity       |
@@ -73,37 +69,21 @@ blocks by hand before printing.
 These points are reading aids. The specification pages hold the validity rules,
 and the checklist holds the acceptance and launch requirements.
 
-## Provenance
+## Sources and regeneration
 
-| Source                                                                                            | Last edited in Notion (UTC) |
-| ------------------------------------------------------------------------------------------------- | --------------------------- |
-| [Etna PoS + ZK Design Spec](https://app.notion.com/p/3fe9673143d6817a9f0fdaaf1b965d7a)            | 2026-10-28T12:18:10.133Z    |
-| [Etna Acceptance and Launch Checklist](https://app.notion.com/p/4059673143d6817fbd80ec6bec24b95b) | 2026-10-28T12:18:24.105Z    |
+`sources/spec.md` and `sources/acceptance.md` hold the text. They are Markdown
+with two block tags: `<callout>` for a note, and `<toggle>` for a collapsible
+block whose first line is its title. A plain `<toggle>` becomes a detail block;
+`<toggle heading="h2">` or `<toggle heading="h3">` becomes a heading. Links to
+`index.html` and `acceptance.html` point at the generated pages.
+`sources/manifest.json` records the revision date, the SHA-256 of each source
+and the renderer version.
 
-`sources/` keeps each page body exactly as Notion returned it, and
-`sources/manifest.json` records the page identities, edit times, SHA-256 hashes
-and renderer version. The renderer changes presentation only: callouts become
-notes, ordinary toggles become native detail blocks, heading toggles become
-headings, links to the two Notion pages point to the local copies, and comment
-markers are dropped while their text stays. Section numbers and order follow
-Notion. Raise any protocol question against the Notion page, not this copy.
-
-## Refreshing the snapshot
-
-1. Fetch each page with the Notion MCP server's `notion-fetch` tool. It returns
-   Notion-flavored Markdown (`<toggle>`, `<callout>`, `<mention>` and `<page>`
-   tags), which the renderer expects; Notion's Export → Markdown produces a
-   different format.
-2. Save the text between `<content>` and `</content>`, without the line break
-   that follows `<content>` or the one before `</content>`, plus one final newline,
-   as `sources/design-spec.notion.md` or `sources/acceptance.notion.md`.
-3. Set each page's `lastEditedAt` in `sources/manifest.json` to the fetch's
-   `page_last_edited_at`, and update the table above. The renderer fills in the
-   hashes.
-4. If Notion added, removed or renamed a top-level section, update `SPEC_PAGES`
-   in both `scripts/render.mjs` and `scripts/verify.py`.
-5. Regenerate and check from the monorepo root. Marked stays in a temporary
-   directory, so the workspace dependencies and lockfile are untouched:
+To change the spec, edit the sources, set `revision` in the manifest, and
+regenerate from the monorepo root. If a top-level section is added, removed or
+renamed, also update `SPEC_PAGES` in both `scripts/render.mjs` and
+`scripts/verify.py`. Marked stays in a temporary directory, so the workspace
+dependencies and lockfile are untouched:
 
 ```sh
 npm --prefix /tmp/etna-docs-tools install marked@17.0.5
@@ -113,18 +93,19 @@ node packages/protocol/docs/etna-pos-zk/scripts/render.mjs --check
 python3 -I packages/protocol/docs/etna-pos-zk/scripts/verify.py
 ```
 
-Review the diff of `sources/` together with the regenerated pages.
+The renderer changes presentation only. Review the diff of `sources/` together
+with the regenerated pages.
 
 ## What the checks cover
 
-- `render.mjs --check` (Node.js 20 or later): the retained sources match the
-  manifest hashes, the loaded Marked version matches the manifest, and every page
+- `render.mjs --check` (Node.js 20 or later): the sources match the manifest
+  hashes, the loaded Marked version matches the manifest, and every page
   in `spec/` is byte-identical to a fresh render, with no stale pages.
-- `verify.py` (Python standard library only) compares the pages with the Notion
+- `verify.py` (Python standard library only) compares the pages with the
   sources themselves rather than with other generated files: every word and
   punctuation mark in order, each code example byte for byte, heading levels and
   titles, detail titles, table shapes and ordered-list numbering. It also checks
   that every local link and fragment resolves, that external links use https to
-  `app.notion.com` or `github.com`, that no Notion link is left in the protocol
-  text, that pages contain only expected tags with no inline scripts, styles or
-  event handlers, and that each page names its source edit time and hash.
+  `github.com`, that pages contain only expected tags with no inline scripts,
+  styles or event handlers, and that each page names the revision and its source
+  hash.

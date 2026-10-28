@@ -1,4 +1,4 @@
-This page collects the acceptance, shared vectors and launch gate for <mention url="https://app.notion.com/p/3fe9673143d6817a9f0fdaaf1b965d7a">Etna PoS + ZK Design Spec</mention>; the spec body remains authoritative for validity rules.
+This page collects the acceptance, shared vectors and launch gate for [Etna PoS + ZK Design Spec](index.html); the spec body remains authoritative for validity rules.
 
 ## 1. Resource and latency acceptance (spec 6.4)
 

@@ -1,16 +1,16 @@
-"""Check the generated HTML specification against the retained Notion sources.
+"""Check the generated HTML specification against its sources.
 
 Standard library only:
     python3 -I packages/protocol/docs/etna-pos-zk/scripts/verify.py
 
-Every check compares the HTML pages with the Notion source itself, not with
+Every check compares the HTML pages with the source text itself, not with
 another generated file:
   - text: every word and punctuation mark, in order, across the pages;
   - code: each fenced example byte for byte;
   - structure: heading levels and titles, detail titles, table shapes and
     ordered-list numbering;
-  - links: every local file and fragment resolves, external links are https to
-    an allowed host, and no Notion link is left in the protocol text;
+  - links: every local file and fragment resolves and external links are https
+    to github.com;
   - safety: only expected tags, no inline scripts, styles or event handlers;
   - provenance: manifest hashes match the sources and every page names them.
 Exits with status 1 and lists every problem it finds.
@@ -57,7 +57,7 @@ ALLOWED_TAGS = {
     "thead", "tbody", "tr", "th", "td", "details", "summary", "blockquote",
     "br", "hr", "time", "button",
 }
-ALLOWED_HOSTS = {"app.notion.com", "github.com"}
+ALLOWED_HOSTS = {"github.com"}
 BLOCK = {"p", "li", "td", "th", "tr", "h1", "h2", "h3", "h4", "summary", "br",
          "blockquote", "details", "div", "pre", "ul", "ol", "table", "article"}
 VOID = {"meta", "link", "br", "hr"}
@@ -70,7 +70,7 @@ def problem(message):
 
 
 class Source:
-    """Plain text and structure of a retained Notion body."""
+    """Plain text and structure of a source file."""
 
     def __init__(self, text):
         blocks = []
@@ -95,7 +95,7 @@ class Source:
                 out.append(" ".join(c.strip() for c in cells))
                 continue
             table = None
-            if re.fullmatch(r"\s*<table-of-contents\s*/>\s*|\s*</?callout[^>]*>\s*|\s*</toggle>\s*", line):
+            if re.fullmatch(r"\s*</?callout>\s*|\s*</toggle>\s*", line):
                 continue
             toggle = re.fullmatch(r'<toggle(?: heading="h([23])")?>', line)
             if toggle:
@@ -121,10 +121,8 @@ class Source:
 
 
 def clean(text, keep_space=False):
-    text = re.sub(r'<mention url="[^"]*">(.*?)</mention>', r"\1", text, flags=re.S)
-    text = re.sub(r'<page url="[^"]*">\s*(.*?)\s*</page>', r"\1", text, flags=re.S)
     text = MD_LINK.sub(r"\1", text)
-    text = re.sub(r"</?(?:b|code)>|<span\b[^>]*>|</span>", "", text)
+    text = re.sub(r"</?(?:b|code)>", "", text)
     text = ESCAPE.sub(r"\1", text)
     return text if keep_space else " ".join(text.split())
 
@@ -137,7 +135,7 @@ class Page(HTMLParser):
         self.path = path
         self.ids, self.links, self.assets = [], [], []
         self.parts, self.code, self.headings, self.summaries = [], [], [], []
-        self.tables, self.numbers, self.region_links = [], [], []
+        self.tables, self.numbers = [], []
         self.depth = 0  # >0 while inside a data-source element
         self.stack, self.capture, self.pre, self.lists = [], None, None, []
         self.feed(path.read_text(encoding="utf-8"))
@@ -156,8 +154,6 @@ class Page(HTMLParser):
             self.ids.append(a["id"])
         if tag == "a" and "href" in a:
             self.links.append(a["href"])
-            if self.depth:
-                self.region_links.append(a["href"])
         if tag == "link":
             self.assets.append(a.get("href", ""))
         if tag == "script":
@@ -254,9 +250,6 @@ def check_document(name, source, pages, level_shift):
         summaries += page.summaries
         tables += page.tables
         numbers += page.numbers
-        for link in page.region_links:
-            if urlsplit(link).netloc == "app.notion.com":
-                problem(f"{page.path.name}: Notion link left in protocol text: {link}")
     compare(name, "text", source.tokens, text)
     if code != source.code:
         problem(f"{name}: code blocks differ from the source ({len(code)} vs {len(source.code)})")
@@ -284,8 +277,6 @@ def check_link(origin, link, asset=False):
             problem(f"{origin.name}: remote asset {link}")
         elif parts.scheme != "https" or parts.netloc not in ALLOWED_HOSTS:
             problem(f"{origin.name}: link outside the allowed https hosts: {link}")
-        elif parts.netloc == "app.notion.com" and parts.path not in NOTION_PAGES:
-            problem(f"{origin.name}: link to an unexpected Notion page: {link}")
         return 0
     target = (origin.parent / unquote(parts.path)).resolve() if parts.path else origin
     if not target.is_relative_to(ROOT):
@@ -298,9 +289,8 @@ def check_link(origin, link, asset=False):
 
 
 manifest = json.loads((ROOT / "sources/manifest.json").read_text(encoding="utf-8"))
-NOTION_PAGES = {urlsplit(p["url"]).path for p in manifest["pages"]}
 sources = {}
-for entry in manifest["pages"]:
+for entry in manifest["documents"]:
     data = (ROOT / "sources" / entry["source"]).read_bytes()
     if hashlib.sha256(data).hexdigest() != entry["sha256"]:
         problem(f"{entry['source']}: SHA-256 differs from the manifest")
@@ -317,11 +307,11 @@ if problems:
     sys.exit(1)
 
 pages = {name: Page(SPEC / name) for name in sorted(expected)}
-spec_entry, spec_source = sources["design-spec"]
+spec_entry, spec_source = sources["spec"]
 check_entry, check_source = sources["acceptance"]
 # Spec section pages use h1 for a "##" section and h2 for "###"; elsewhere levels match.
 shift = {name: 1 for name in SPEC_PAGES[1:]}
-check_document("design-spec", spec_source, [pages[n] for n in SPEC_PAGES], shift)
+check_document("spec", spec_source, [pages[n] for n in SPEC_PAGES], shift)
 check_document("acceptance", check_source, [pages[CHECKLIST]], {})
 
 links = 0
@@ -329,12 +319,12 @@ for name, page in pages.items():
     if len(page.ids) != len(set(page.ids)):
         problem(f"{name}: duplicate ids")
     raw = page.path.read_text(encoding="utf-8")
-    for marker in ("<toggle", "<mention", "<callout", "<page ", "<table-of-contents", "discussion://"):
+    for marker in ("<toggle", "<callout"):
         if marker in raw:
-            problem(f"{name}: leftover Notion markup {marker!r}")
+            problem(f"{name}: leftover source markup {marker!r}")
     entry = check_entry if name == CHECKLIST else spec_entry
-    if entry["lastEditedAt"] not in raw or entry["sha256"] not in raw:
-        problem(f"{name}: footer does not name its source edit time and hash")
+    if f"Revision {manifest['revision']}." not in raw or entry["sha256"] not in raw:
+        problem(f"{name}: footer does not name the revision and source hash")
     for link in page.links:
         links += check_link(page.path, link)
     for asset in page.assets:
