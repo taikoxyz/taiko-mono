@@ -53,6 +53,7 @@ type gate struct {
 	timeout     time.Duration
 	session     atomic.Pointer[string]
 	authorized  func(*trustResponse)
+	connecting  func(*trustResponse)
 	denialPath  string
 	denials     uint64
 	observation sync.Mutex
@@ -159,6 +160,20 @@ func canonicalHex(s string, n int) bool {
 	return err == nil
 }
 func validHead(h *blockRef) bool { return h != nil && h.Height != nil && canonicalHex(h.Hash, 32) }
+
+// trusted is the one readiness rule: authorize applies it to every signing request and
+// trustedDialer before exposing a transport to Comet. Callers first check that r answers
+// for their own session.
+func trusted(r *trustResponse, chain string) error {
+	if r.ChainID == nil || *r.ChainID != chain || !r.Ready || r.Syncing || r.Phase != "ready" || r.Generation == nil || r.Target == nil || !validHead(r.Committed) || !validHead(r.Trusted) {
+		return errors.New("checkpoint trust is closed or belongs to another session/chain")
+	}
+	t := r.Target
+	if t.Generation == nil || *t.Generation != *r.Generation || t.Height == nil || t.L1Number == nil || !canonicalHex(t.L1Hash, 32) || !canonicalHex(t.Hash, 32) || !canonicalHex(t.CometHash, 32) || !canonicalHex(t.Inbox, 20) || *r.Committed.Height < *t.Height || *r.Committed.Height != *r.Trusted.Height || r.Committed.Hash != r.Trusted.Hash || (*r.Committed.Height == *t.Height && r.Committed.Hash != t.Hash) {
+		return errors.New("inconsistent trusted checkpoint")
+	}
+	return nil
+}
 func (g *gate) authorize(chain string) error {
 	sessionPtr := g.session.Load()
 	if sessionPtr == nil {
@@ -174,12 +189,8 @@ func (g *gate) authorize(chain string) error {
 		g.begin()
 		return errors.New("trust session changed; rearmed closed for next request")
 	}
-	if r.ChainID == nil || *r.ChainID != chain || !r.Ready || r.Syncing || r.Phase != "ready" || r.Generation == nil || r.Target == nil || !validHead(r.Committed) || !validHead(r.Trusted) {
-		return errors.New("checkpoint trust is closed or belongs to another session/chain")
-	}
-	t := r.Target
-	if t.Generation == nil || *t.Generation != *r.Generation || t.Height == nil || t.L1Number == nil || !canonicalHex(t.L1Hash, 32) || !canonicalHex(t.Hash, 32) || !canonicalHex(t.CometHash, 32) || !canonicalHex(t.Inbox, 20) || *r.Committed.Height < *t.Height || *r.Committed.Height != *r.Trusted.Height || r.Committed.Hash != r.Trusted.Hash || (*r.Committed.Height == *t.Height && r.Committed.Hash != t.Hash) {
-		return errors.New("inconsistent trusted checkpoint")
+	if err = trusted(r, chain); err != nil {
+		return err
 	}
 	if g.authorized != nil {
 		g.authorized(r)
@@ -213,20 +224,23 @@ func (g *gate) publishObservation(denied bool) {
 }
 
 // BeginSession follows the official transport handshake and precedes exposing the
-// transport to SignerServer, including every reconnection.
-func (g *gate) begin() error {
+// transport to SignerServer, including every reconnection. It returns the new session.
+func (g *gate) begin() (string, error) {
 	g.session.Store(nil)
 	response, err := g.query("begin_session", "")
 	if err != nil {
-		return err
+		return "", err
 	}
 	if response.Ready || !response.Syncing {
-		return errors.New("begin_session did not close trust")
+		return "", errors.New("begin_session did not close trust")
 	}
 	g.session.Store(&response.SessionID)
 	g.publishObservation(false)
-	return nil
+	return response.SessionID, nil
 }
+
+// dialer connects to Comet first and then begins the transport's session, so Comet's
+// startup GetPubKey succeeds even when trust can only return after Comet has synced.
 func (g *gate) dialer(base privval.SocketDialer) privval.SocketDialer {
 	return func() (net.Conn, error) {
 		g.session.Store(nil)
@@ -234,11 +248,60 @@ func (g *gate) dialer(base privval.SocketDialer) privval.SocketDialer {
 		if err != nil {
 			return nil, err
 		}
-		if err = g.begin(); err != nil {
+		if _, err = g.begin(); err != nil {
 			conn.Close()
 			return nil, err
 		}
 		return &reconnectingConn{Conn: conn}, nil
+	}
+}
+
+// trustedDialer serves --await-trust, which the supervisor uses only for its restart after
+// a refused or timed-out signing request, once trust has returned. Stock Comet never
+// retries a refused request; only a restarted Comet's WAL replay asks for that step again,
+// and that request must not race the app's asynchronous check of the fresh session. So the
+// first transport begins its session but is exposed to Comet only after that session
+// passes trusted; until then dialing fails and SignerDialerEndpoint retries. One pending
+// session spans those retries, because every begin_session restarts the app's check. It is
+// begun again only when the app reports another current session, as after an app restart.
+// Comet is not running yet, so nothing is lost meanwhile. Later reconnects dial at once, as
+// without the flag: a running Comet's request made while no signer is connected fails as a
+// connection error after Comet's own retries, which the signer never sees or reports,
+// whereas a refusal on a closed session is published for the supervisor's recovery.
+func (g *gate) trustedDialer(base privval.SocketDialer, chain string) privval.SocketDialer {
+	reconnect := g.dialer(base)
+	pending, connected := "", false // pending: begun, not yet exposed to Comet
+	return func() (net.Conn, error) {
+		if connected {
+			return reconnect()
+		}
+		if pending != "" {
+			r, err := g.query("check_session", pending)
+			if err != nil {
+				return nil, err // Keep the session: the app may be briefly unavailable.
+			}
+			if r.SessionID == pending {
+				if err = trusted(r, chain); err != nil {
+					return nil, fmt.Errorf("awaiting checkpoint trust before connecting to Comet: %w", err)
+				}
+				conn, err := base()
+				if err != nil {
+					return nil, err
+				}
+				connected = true
+				if g.connecting != nil {
+					g.connecting(r)
+				}
+				return &reconnectingConn{Conn: conn}, nil
+			}
+			// Another current session means this one can never become Ready.
+		}
+		session, err := g.begin()
+		pending = session
+		if err != nil {
+			return nil, err
+		}
+		return nil, errors.New("began a fresh trust session; awaiting checkpoint trust before connecting to Comet")
 	}
 }
 func (g *gate) handle(signer types.PrivValidator, req pv.Message, chain string) (pv.Message, error) {

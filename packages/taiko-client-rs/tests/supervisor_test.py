@@ -35,6 +35,7 @@ class SupervisorTests(unittest.TestCase):
         self.phase = "ready"
         self.generation = 0
         self.session = "same-session"
+        self.extra = {}
         self.ops = []
         self.socket = socket.socket(socket.AF_UNIX)
         self.socket.bind(str(self.store / "checkpoint-trust.sock"))
@@ -47,7 +48,7 @@ class SupervisorTests(unittest.TestCase):
         self.bin.mkdir()
         for name, body in {
             "cometbft": self.comet_body(),
-            "signer": 'import time\ntime.sleep(60)',
+            "signer": 'import json,os,sys,time\nopen(os.environ["SIGNERS"],"a").write(json.dumps(dict(pid=os.getpid(),argv=sys.argv[1:]))+"\\n")\ntime.sleep(60)',
         }.items():
             path = self.bin / name
             path.write_text("#!/usr/bin/env python3\n" + body + "\n")
@@ -56,12 +57,14 @@ class SupervisorTests(unittest.TestCase):
                         ETNA_PRIV_KEY=str(self.key), ETNA_PRIV_STATE=str(self.state),
                         ETNA_CHAIN_ID="etna-test", ETNA_SIGNER_BIN=str(self.bin / "signer"),
                         ETNA_DENIAL_FILE=str(self.events), STARTS=str(self.count), COMET_PID=str(self.root / "comet.pid"),
+                        SIGNERS=str(self.root / "signers"),
                         PATH=str(self.bin) + os.pathsep + os.environ["PATH"])
         self.log = (self.root / "runtime.log").open("w+")
         self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")], env=self.env,
                                      stdout=self.log, stderr=self.log)
         try:
-            self.wait(lambda: self.starts() == 1)
+            # The recovery tests count signer incarnations, so wait for the first one too.
+            self.wait(lambda: self.starts() == 1 and len(self.signers()) == 1)
         except Exception:
             self.tearDown()
             raise
@@ -83,11 +86,30 @@ class SupervisorTests(unittest.TestCase):
                 self.ops.append(request["op"])
                 response = dict(schema_version=1, session_id=self.session, chain_id="etna-test",
                                 generation=self.generation, phase=self.phase, trust_ready=self.ready,
-                                syncing=not self.ready)
+                                syncing=not self.ready, **self.extra)
                 peer.sendall((json.dumps(response) + "\n").encode())
 
     def starts(self):
         return len(self.count.read_text().splitlines()) if self.count.exists() else 0
+
+    def publish(self, sequence, session):
+        """Publish a signer observation atomically, as the real signer does."""
+        temporary = self.events.with_name(self.events.name + ".tmp")
+        temporary.write_text(json.dumps(dict(sequence=sequence, session_id=session)))
+        os.replace(temporary, self.events)
+
+    def signers(self):
+        path = self.root / "signers"
+        return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+
+    def publish_recovery_session(self, session="recovered-session", ready=True, phase=None):
+        """Play the recovery signer, which begins a fresh session and publishes it."""
+        self.wait(lambda: len(self.signers()) == 2)
+        self.assertIn("--await-trust", self.signers()[1]["argv"])
+        self.ready = ready
+        self.phase = phase or ("ready" if ready else "acquiring")
+        self.session = session
+        self.publish(0, session)
 
     def wait(self, predicate):
         deadline = time.monotonic() + 5
@@ -109,7 +131,8 @@ class SupervisorTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_signer_timeout_recovers_even_if_app_stayed_ready(self):
-        self.events.write_text(json.dumps(dict(sequence=1, session_id=self.session)))
+        self.publish(1, self.session)
+        self.publish_recovery_session()
         self.wait(lambda: self.starts() == 2)
         time.sleep(.4)
         self.assertEqual(self.starts(), 2)
@@ -119,14 +142,14 @@ class SupervisorTests(unittest.TestCase):
 
     def test_initial_transport_session_does_not_restart_healthy_comet(self):
         self.session = "fresh-session"
-        self.events.write_text('{"sequence":0,"session_id":"fresh-session"}')
+        self.publish(0, "fresh-session")
         time.sleep(.6)
         self.assertEqual(self.starts(), 1)
 
     def test_refusal_waits_for_trust_and_halt_never_restarts(self):
         self.ready = False
         self.phase = "acquiring"
-        self.events.write_text(json.dumps(dict(sequence=1, session_id=self.session)))
+        self.publish(1, self.session)
         time.sleep(.5)
         self.assertEqual(self.starts(), 1)
         self.phase = "halted"
@@ -158,22 +181,19 @@ class SupervisorTests(unittest.TestCase):
         self.assertFalse(self.state.exists())
 
     def test_fresh_session_closes_trust_until_revalidated(self):
-        self.events.write_text('{"sequence":1,"session_id":"same-session"}')
+        self.publish(1, "same-session")
         self.ready = False
         self.phase = "acquiring"
         time.sleep(.3)
         self.assertEqual(self.starts(), 1)
         self.ready = True
         self.phase = "ready"
-        self.wait(lambda: self.starts() == 2)
-        self.ready = False
-        self.phase = "acquiring"
-        self.session = "new-session"
-        self.events.write_text('{"sequence":0,"session_id":"new-session"}')
+        self.publish_recovery_session("new-session", ready=False)
         time.sleep(.3)
-        self.assertEqual(self.starts(), 2)
+        self.assertEqual(self.starts(), 1)
         self.ready = True
         self.phase = "ready"
+        self.wait(lambda: self.starts() == 2)
         time.sleep(.4)
         self.assertEqual(self.starts(), 2)
         self.assertEqual(self.state.read_text(), "authoritative HRS")
@@ -188,6 +208,7 @@ class SupervisorTests(unittest.TestCase):
         self.assertEqual(self.starts(), 1)
         self.ready = True
         self.phase = "ready"
+        self.publish_recovery_session()
         self.wait(lambda: self.starts() == 2)
         self.assertEqual(self.state.read_text(), "authoritative HRS")
 
@@ -198,6 +219,62 @@ class SupervisorTests(unittest.TestCase):
         time.sleep(.4)
         self.assertEqual(self.starts(), 1)
         self.assertIsNone(self.proc.poll())
+
+    def test_initial_start_runs_signer_and_comet_together(self):
+        # A node that is behind regains trust only after Comet syncs: never await it here.
+        self.ready = False
+        self.phase = "acquiring"
+        time.sleep(.3)
+        self.assertEqual(self.starts(), 1)
+        self.assertEqual(len(self.signers()), 1)
+        self.assertNotIn("--await-trust", self.signers()[0]["argv"])
+
+    def test_recovery_starts_comet_only_after_fresh_session_is_trusted(self):
+        # The refused step is replayed only by a restarted Comet, so the app must have
+        # authenticated the new transport's session before Comet can ask again.
+        self.publish(1, self.session)
+        self.wait(lambda: len(self.signers()) == 2)
+        self.assertIn("--await-trust", self.signers()[1]["argv"])
+        # Before the signer publishes its session, Ready trust of the old one is no signal.
+        time.sleep(.3)
+        self.assertEqual(self.starts(), 1)
+        self.publish_recovery_session(ready=False)
+        # Delayed authentication: the app checks the new session for several ticks.
+        time.sleep(.6)
+        self.assertEqual(self.starts(), 1)
+        self.assertFalse((self.store / "validator-supervisor.halted").exists())
+        self.ready = True
+        self.phase = "ready"
+        self.wait(lambda: self.starts() == 2)
+        time.sleep(.6)
+        self.assertEqual(self.starts(), 2)
+        self.assertEqual(len(self.signers()), 2)
+        self.assertFalse((self.store / "validator-supervisor.halted").exists())
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
+
+    def test_signer_exit_while_awaiting_trust_halts(self):
+        self.publish(1, self.session)
+        self.publish_recovery_session(ready=False)
+        os.kill(self.signers()[1]["pid"], signal.SIGTERM)
+        self.wait(lambda: (self.store / "validator-supervisor.halted").exists())
+        self.ready = True
+        self.phase = "ready"
+        time.sleep(.4)
+        self.assertEqual(self.starts(), 1)
+        self.assertEqual(len(self.signers()), 2)
+        self.assertIsNone(self.proc.poll())
+
+    def test_checkpoint_above_committed_head_starts_comet_without_waiting(self):
+        # Only Comet can commit up to such a checkpoint, so awaiting trust could never end.
+        self.publish(1, self.session)
+        self.extra = dict(target=dict(height=10), committed_head=dict(height=5))
+        self.publish_recovery_session(ready=False, phase="catching_up")
+        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 3)
+        time.sleep(.4)
+        self.assertEqual(self.starts(), 2)
+        self.assertEqual(len(self.signers()), 3)
+        self.assertNotIn("--await-trust", self.signers()[2]["argv"])
+        self.assertFalse((self.store / "validator-supervisor.halted").exists())
 
 
 class UnixSupervisorTests(SupervisorTests):

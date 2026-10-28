@@ -4,6 +4,22 @@
 Only private observation and signer refusal events trigger recovery. Neither is
 signing authorization: every new transport still obtains a fresh closed session.
 A durable terminal latch keeps restartAlways containers quiescent until repair.
+
+Stock Comet never retries a refused or timed-out signing request; only the WAL
+replay of a restarted Comet asks for that step again. Recovery therefore runs in
+this order: a refusal, then waiting for Ready trust, then a stop of both children
+and a restart of only the signer with --await-trust. That signer begins a fresh
+session and connects to Comet's priv_validator_laddr only once the app has
+authenticated it. Comet starts once the app reports that published session Ready,
+and its WAL replay then requests the refused step again. A first start instead
+runs the signer without --await-trust together with Comet: a node that is behind
+regains trust only after Comet syncs, and Comet's startup needs the signer.
+
+While the recovery signer waits, trust staying closed only keeps it waiting,
+logged, without a restart: another restart would begin another session and
+restart the app's check. The exception is a pinned checkpoint above the committed
+head, which only Comet can reach; the supervisor then starts the signer and Comet
+together as on a first start, and a refusal there recovers again once Ready.
 """
 import errno
 import json
@@ -17,6 +33,9 @@ import sys
 import time
 import tomllib
 import uuid
+
+# These exact process-lifecycle revocations are transient only across app restart.
+APP_LIFECYCLE_STOPS = ("ABCI server stopped", "app worker stopped", "checkpoint control listener stopped")
 
 
 class Supervisor:
@@ -54,6 +73,7 @@ class Supervisor:
         self.session = None
         self.observed_loss = False
         self.was_ready = False
+        self.awaiting = None  # last logged wait state of a recovery signer
 
     def observe(self):
         with socket.socket(socket.AF_UNIX) as peer:
@@ -176,13 +196,24 @@ class Supervisor:
         finally:
             os.close(descriptor)
 
-    def start(self):
+    def start(self, await_trust=False):
+        """Start a fresh signer, and Comet with it unless the signer must first be trusted."""
         self.prepare_transport()
         # Each signer incarnation numbers refusals from zero. Discard only its observation
         # file after both old children have been reaped; this is never signing state.
         self.events.unlink(missing_ok=True)
         self.last_event = None
-        self.signer = subprocess.Popen(self.signer_command)
+        self.signer = subprocess.Popen(self.signer_command + (["--await-trust"] if await_trust else []))
+        self.pending = False
+        self.session = None
+        self.observed_loss = False
+        self.was_ready = False
+        self.awaiting = None
+        if not await_trust:
+            self.start_comet()
+        print("etna_supervisor_started", flush=True)
+
+    def start_comet(self):
         command = self.comet_command
         if self.container:
             running = subprocess.check_output(["docker", "inspect", "-f", "{{.State.Running}}", self.container], text=True).strip()
@@ -194,11 +225,6 @@ class Supervisor:
             identity = dict(user=int(os.environ["ETNA_COMET_UID"]),
                             group=int(os.environ["ETNA_COMET_GID"]), extra_groups=[])
         self.comet = subprocess.Popen(command, **identity)
-        self.pending = False
-        self.session = None
-        self.observed_loss = False
-        self.was_ready = False
-        print("etna_supervisor_started", flush=True)
 
     def halt(self, reason):
         if not self.latch.exists():
@@ -234,6 +260,9 @@ class Supervisor:
         if self.signer.poll() is not None:
             self.halt("signer exited; inspect diagnostics")
             return
+        if self.comet is None:
+            self.start_comet_once_trusted()
+            return
         comet_exited = self.comet.poll() is not None
         try:
             status = self.observe()
@@ -241,13 +270,12 @@ class Supervisor:
             self.observed_loss = True
             self.pending = self.pending or comet_exited
             return  # Unavailable observation never authorizes recovery.
-        # These exact process-lifecycle revocations are transient only across app restart.
-        # Authenticated contradictions and every other halted reason remain sticky.
+        # Authenticated contradictions and every halted reason but an app lifecycle stop
+        # remain sticky.
         if status.get("generation") not in (None, 0) or status.get("chain_id") not in (None, self.chain):
             self.halt("terminal deployment identity")
             return
-        lifecycle_stop = status.get("reason") in (
-            "ABCI server stopped", "app worker stopped", "checkpoint control listener stopped")
+        lifecycle_stop = status.get("reason") in APP_LIFECYCLE_STOPS
         if status.get("phase") == "halted" and lifecycle_stop:
             self.observed_loss = True
             self.pending = True
@@ -259,7 +287,7 @@ class Supervisor:
         session = status["session_id"]
         if self.session is not None and session != self.session:
             self.pending = True
-        ready = status.get("trust_ready") is True and status.get("syncing") is False and status.get("phase") == "ready" and status.get("chain_id") == self.chain and status.get("generation") == 0
+        ready = self.ready(status)
         if not ready and self.was_ready:
             self.observed_loss = True
         if comet_exited:
@@ -273,8 +301,51 @@ class Supervisor:
                 self.observed_loss = False
         if self.pending and ready:
             self.stop()
-            self.start()
+            self.start(await_trust=True)
+            print("etna_supervisor_awaiting_trust: Comet starts after the signer's fresh session is Ready", flush=True)
+
+    def ready(self, status):
+        return (status.get("trust_ready") is True and status.get("syncing") is False
+                and status.get("phase") == "ready" and status.get("chain_id") == self.chain
+                and status.get("generation") == 0)
+
+    def start_comet_once_trusted(self):
+        """Recovery: start Comet only when the signer's own published session is Ready.
+
+        Comet is stopped, so no step can be refused meanwhile. Unavailable observation and
+        app shutdown keep waiting; the signer begins a new session on a fresh app.
+        """
+        try:
+            status = self.observe()
+        except (OSError, ValueError, KeyError):
+            return  # Unavailable observation never authorizes starting Comet.
+        if status.get("generation") not in (None, 0) or status.get("chain_id") not in (None, self.chain):
+            self.halt("terminal deployment identity")
+            return
+        if status.get("phase") == "halted":
+            if status.get("reason") not in APP_LIFECYCLE_STOPS:
+                self.halt("terminal app trust or deployment identity")
+            return
+        if self.session is None or status["session_id"] != self.session:
+            return  # The signer has not published the session it begins for this transport.
+        if self.ready(status):
+            self.start_comet()
+            self.was_ready = True  # A later trust loss explains a Comet exit.
             print("etna_supervisor_recovered_after_refusal", flush=True)
+            return
+        target, head = status.get("target"), status.get("committed_head")
+        if (status.get("phase") == "catching_up" and isinstance(target, dict) and isinstance(head, dict)
+                and isinstance(target.get("height"), int) and isinstance(head.get("height"), int)
+                and head["height"] < target["height"]):
+            # Only Comet can commit up to this checkpoint, so waiting could never end.
+            print("etna_supervisor_trust_needs_comet: starting signer and Comet together", flush=True)
+            self.stop()
+            self.start()
+            return
+        state = (self.session, status.get("phase"), status.get("reason"))
+        if self.awaiting is None or self.awaiting[0] != state or time.monotonic() - self.awaiting[1] > 60:
+            self.awaiting = (state, time.monotonic())
+            print(f"etna_supervisor_awaiting_trust: session={state[0]} phase={state[1]} reason={state[2]}", flush=True)
 
     def run(self):
         def shutdown(_signal, _frame):

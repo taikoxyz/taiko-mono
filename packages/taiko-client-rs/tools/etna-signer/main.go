@@ -69,6 +69,7 @@ func run() error {
 	state := flag.String("priv-state", "", "existing Comet FilePV anti-double-sign state (never reset)")
 	denial := flag.String("denial-file", "", "private atomic refusal event file for the local supervisor")
 	timeout := flag.Duration("trust-timeout", time.Second, "per-request private control deadline (0 < timeout <= 10s)")
+	await := flag.Bool("await-trust", false, "recovery restart after a refused signing request, once trust has returned: connect to Comet only after the first transport's fresh trust session is Ready, so WAL replay's re-request of the refused step is authorized; later reconnects dial at once; never for a first start, where trust may return only after Comet syncs")
 	flag.Parse()
 	if flag.NArg() != 0 || *addr == "" || *control == "" || *chain == "" || *key == "" || *state == "" || *timeout <= 0 || *timeout > 10*time.Second {
 		return errors.New("all addresses, chain ID and existing key/state paths are required; timeout must be in (0,10s]")
@@ -111,7 +112,14 @@ func run() error {
 	gate.authorized = func(r *trustResponse) {
 		logger.Info("checkpoint_trust_authorized", "session", r.SessionID, "committed_height", *r.Committed.Height, "target_height", *r.Target.Height)
 	}
-	endpoint := privval.NewSignerDialerEndpoint(logger, gate.dialer(dial), privval.SignerDialerEndpointConnRetries(math.MaxInt), privval.SignerDialerEndpointRetryWaitInterval(250*time.Millisecond))
+	gate.connecting = func(r *trustResponse) {
+		logger.Info("checkpoint_trust_ready_connected_to_comet", "session", r.SessionID, "committed_height", *r.Committed.Height, "target_height", *r.Target.Height)
+	}
+	dialer := gate.dialer(dial)
+	if *await {
+		dialer = gate.trustedDialer(dial, *chain)
+	}
+	endpoint := privval.NewSignerDialerEndpoint(logger, dialer, privval.SignerDialerEndpointConnRetries(math.MaxInt), privval.SignerDialerEndpointRetryWaitInterval(250*time.Millisecond))
 	server := privval.NewSignerServer(endpoint, *chain, signer)
 	server.SetRequestHandler(gate.handle)
 	if err := server.Start(); err != nil {

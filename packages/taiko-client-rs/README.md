@@ -410,10 +410,19 @@ or config opening differs.
    The helper atomically publishes private `signer-denial.json` observations: sequence zero
    establishes the current session; a positive sequence records a refused or timed-out
    signing request. The supervisor's private `observe` request neither rearms the session
-   nor authorizes signing. A denial triggers bounded stop/reap and a fresh signer/Comet pair
-   only after exact deployment identity and private trust return Ready. This also handles a
-   signer timeout while the app stays Ready. The new transport initially closes trust;
-   PubKey/Ping and safe catchup remain available while signing waits for revalidation.
+   nor authorizes signing. Stock Comet never retries a refused or timed-out signing request;
+   only a restarted Comet's WAL replay asks for that step again. So once exact deployment
+   identity and private trust return Ready, a denial triggers a bounded stop/reap of both
+   children and a restart in this order: the signer alone with `--await-trust`, which begins
+   a fresh closed session and connects to `priv_validator_laddr` only after the app has
+   authenticated it; then Comet, once `observe` reports that published session Ready; then
+   WAL replay requests the refused step again and it is signed. This also handles a signer
+   timeout while the app stays Ready. While the signer waits, closed trust keeps it waiting,
+   logged, without another restart, except that a pinned checkpoint above the committed head,
+   which only Comet can reach, starts the signer and Comet together. A first start always
+   runs both together without `--await-trust`: a node that is behind regains trust only after
+   Comet syncs, and Comet's startup needs the signer. Its new transport initially closes
+   trust; PubKey/Ping and safe catchup remain available while signing waits for revalidation.
    Halted trust, stale generation/domain, signer exit, or unexplained Comet exit creates
    `<data-dir>/validator-supervisor.halted` and leaves the supervisor alive and quiescent.
    The latch survives container restart: `restartAlways` cannot reopen the signing path.
