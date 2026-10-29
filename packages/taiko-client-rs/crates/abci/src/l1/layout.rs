@@ -247,7 +247,7 @@ mod tests {
     #[test]
     fn inbox_slots_match_the_shared_vectors() {
         let slots = vectors::at("/layout/inbox/slots").as_object().expect("named slots");
-        assert_eq!(slots.len(), 16);
+        assert_eq!(slots.len(), 17);
         for name in slots.keys() {
             let constant = match name.as_str() {
                 "initialization_status" => inbox::STATUS,
@@ -266,6 +266,8 @@ mod tests {
                 "landings" => inbox::LANDINGS,
                 "origins" => inbox::ORIGINS,
                 "active_committee_snapshot" => inbox::ACTIVE_COMMITTEE_SNAPSHOT,
+                // Governance authorization state is deliberately absent from node witnesses.
+                "recovery_nonce" => 292,
                 other => panic!("the node reads no Inbox slot named {other}"),
             };
             assert_eq!(constant, vectors::u64_at(&format!("/layout/inbox/slots/{name}")), "{name}");
@@ -278,6 +280,7 @@ mod tests {
             vectors::u64s_at(pointer).into_iter().map(inbox::slot).collect()
         };
         assert_eq!(inbox::anchor_slots(), listed("/layout/inbox/anchor_slots"));
+        assert!(!inbox::anchor_slots().contains(&inbox::slot(292)));
         for (table, key, slots_fn) in [
             ("origin_slots", "generation", inbox::origin_slots as fn(u64) -> [B256; 3]),
             ("landing_slots", "height", inbox::landing_slots),
