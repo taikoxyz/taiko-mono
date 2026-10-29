@@ -117,8 +117,7 @@ jobs:
           # Only generated outputs travel in the patch. Formatting changes are left out on purpose:
           # commit-generated-artifacts reruns forge fmt itself instead of trusting this job's output.
           git diff --cached --binary --no-renames -- \
-            packages/protocol/gas-reports packages/protocol/snapshots packages/protocol/layout \
-            packages/protocol/.gas-snapshot ':(glob)packages/protocol/**/*_Layout.sol' \
+            packages/protocol/gas-reports packages/protocol/snapshots packages/protocol/.gas-snapshot \ ':(glob)packages/protocol/**/*_Layout.sol' \
             > "$RUNNER_TEMP/generated.patch"
           # Wake the commit job only for what it can push: generated outputs or .sol files that
           # its own forge fmt run may reformat.
@@ -151,7 +150,7 @@ jobs:
     needs: build-protocol
     if: needs.build-protocol.outputs.changes == 'true' && github.event.pull_request.head.repo.fork == false
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     # SECURITY: the only job that sees TAIKO_KITTY_TOKEN. It never runs PR code or dependency
     # scripts: it applies the patch from build-protocol (generated outputs only, comment-only layout
     # files) onto a fresh checkout, reruns forge fmt itself, and pushes the result.
@@ -166,7 +165,22 @@ jobs:
 
       - name: Read Foundry version
         id: foundry-version
-        run: echo "version=$(grep foundry packages/protocol/.tool-versions | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          # Read from the base branch, not the PR: this job holds the PAT, so the PR must not pick
+          # which forge binary runs here. A PR that bumps Foundry is formatted with the base
+          # branch's version until it merges.
+          version=$(gh api -H "Accept: application/vnd.github.raw" \
+            "repos/${GITHUB_REPOSITORY}/contents/packages/protocol/.tool-versions?ref=${BASE_REF}" \
+            | awk '$1 == "foundry" { print $2 }')
+          if [ -z "$version" ]; then
+            echo "No foundry version in packages/protocol/.tool-versions on ${BASE_REF}." >&2
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@50d5a8956f2e319df19e6b57539d7e2acb9f8c1e # v1.5.0
@@ -196,7 +210,7 @@ jobs:
             exit 1
           }
           # Generated outputs: storage layout files, gas reports and snapshots.
-          generated='^packages/protocol/([^ ]+_Layout[.]sol|gas-reports/[^ ]+|snapshots/[^ ]+|layout/[^ ]+|[.]gas-snapshot)$'
+          generated='^packages/protocol/([^ ]+_Layout[.]sol|gas-reports/[^ ]+|snapshots/[^ ]+|[.]gas-snapshot)$'
           # Files forge fmt may modify in place.
           formatted='^packages/protocol/[^ ]+[.]sol$'
           if [ -s "$PATCH" ]; then
@@ -273,8 +287,12 @@ jobs:
           echo "::add-mask::$auth"
           # Deliberately not forced: the commit's parent is BASE_SHA, so if the branch moved while
           # this job ran, the push is rejected as a non-fast-forward instead of landing stale output.
-          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" \
-            push origin "HEAD:refs/heads/${HEAD_REF}"
+          # The header goes through git's environment config rather than -c, so the credential
+          # never appears in the process list.
+          GIT_CONFIG_COUNT=1 \
+            GIT_CONFIG_KEY_0="http.https://github.com/.extraheader" \
+            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic ${auth}" \
+            git push origin "HEAD:refs/heads/${HEAD_REF}"
 
   genesis-docker:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
