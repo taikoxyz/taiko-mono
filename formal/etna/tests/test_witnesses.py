@@ -28,7 +28,7 @@ def load(name, path):
 AUDIT = load('witnesses_audit', 'scripts/audit_proofs.py')
 
 COUNTEREXAMPLES = ['NoVerifierSoundness', 'UntrustedRollback', 'RecoveryCapture', 'ForcedPoisonResubmit',
-                   'StaleDaoAuthorization']
+                   'StaleDaoAuthorization', 'HistoricalEscrow']
 MODULES = ['EtnaWitnesses.NonVacuity.Premises'] + [f'EtnaWitnesses.Counterexamples.{n}' for n in COUNTEREXAMPLES]
 EXPECTED = {
     'Etna.Design.NonVacuity.premises_satisfiable', 'Etna.Design.NonVacuity.finality_hypothesis_satisfiable',
@@ -39,6 +39,7 @@ EXPECTED = {
     'Etna.Design.ForcedPoisonResubmit.cleared_poison_resubmitted',
     'Etna.Design.StaleDaoAuthorization.stale_authorization_never_revives',
     'Etna.Design.StaleDaoAuthorization.stale_authorization_rejected_on_every_future',
+    'Etna.Design.HistoricalEscrow.ordinary_exit_and_historical_validity',
 }
 
 # What each module exists to show, restated independently of its manifest entry.

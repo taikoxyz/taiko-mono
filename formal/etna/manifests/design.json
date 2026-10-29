@@ -10739,6 +10739,1723 @@
         "EN-3f7463f0f1df5094"
       ],
       "scope": "Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.attempt_failure",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {α : Type} (before : α), Etna.Design.Accounting.attempt before Option.none = (before, Etna.Design.Accounting.Flow.zero)",
+      "assumptions": [
+        "Generic Option failure stutter; no protocol clause is an obligation of this algebraic identity. No source clause or proof claim is backed by this correspondence/arithmetic lemma."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [],
+      "scope": "Generic Option failure stutter; no protocol clause is an obligation of this algebraic identity. No source clause or proof claim is backed by this correspondence/arithmetic lemma."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.bondEffect_balance",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {r : Etna.Design.RegistryHistory.State} {inbox : Etna.Design.State} {now : Nat} {b out : Etna.Design.Staking.Bond} {action : Etna.Design.RegistryHistory.Edit} {f : Etna.Design.Accounting.Flow}, Etna.Design.Accounting.bondEffect r inbox now b action = Option.some (out, f) → out.balance + f.outgoing = b.balance + f.deposits",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "EN-3ce5781807da58ba",
+        "EN-ab1db15120198ccd",
+        "EN-fb39b71e9b4c760c",
+        "EN-fd0557c2630191c6",
+        "EN-1922bc4f51f2158c",
+        "EN-bf78b9d3bc888c6c"
+      ],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.bondEffect_project",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ (r : Etna.Design.RegistryHistory.State) (inbox : Etna.Design.State) (now : Nat) (b : Etna.Design.Staking.Bond) (action : Etna.Design.RegistryHistory.Edit), Option.map Prod.fst (Etna.Design.Accounting.bondEffect r inbox now b action) = Etna.Design.RegistryHistory.editBond r inbox now b action",
+      "assumptions": [
+        "Payout-observer projection to the existing bond function; modelling correspondence, not a spec obligation. No source clause or proof claim is backed by this correspondence/arithmetic lemma."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [],
+      "scope": "Payout-observer projection to the existing bond function; modelling correspondence, not a spec obligation. No source clause or proof claim is backed by this correspondence/arithmetic lemma."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.bondEffect_released_zero",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {r : Etna.Design.RegistryHistory.State} {inbox : Etna.Design.State} {now : Nat} {b out : Etna.Design.Staking.Bond} {action : Etna.Design.RegistryHistory.Edit} {f : Etna.Design.Accounting.Flow}, (b.released = Bool.true → b.balance = 0) → Etna.Design.Accounting.bondEffect r inbox now b action = Option.some (out, f) → out.released = Bool.true → out.balance = 0",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-fd0557c2630191c6", "EN-1922bc4f51f2158c"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.editEffect_conserves",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {s t : Etna.Design.RegistryHistory.State} {inbox : Etna.Design.State} {id now : Nat} {action : Etna.Design.RegistryHistory.Edit} {f : Etna.Design.Accounting.Flow}, Etna.Design.Accounting.editEffect s inbox id now action = Option.some (t, f) → Etna.Design.Accounting.held t + f.outgoing = Etna.Design.Accounting.held s + f.deposits",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "EN-3ce5781807da58ba",
+        "EN-ab1db15120198ccd",
+        "EN-fb39b71e9b4c760c",
+        "EN-fd0557c2630191c6",
+        "EN-1922bc4f51f2158c",
+        "EN-bf78b9d3bc888c6c"
+      ],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.editEffect_lift",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {s t : Etna.Design.RegistryHistory.State} {inbox : Etna.Design.State} {id now : Nat} {action : Etna.Design.RegistryHistory.Edit}, Etna.Design.RegistryHistory.edit s inbox id now action = Option.some t → ∃ f, Etna.Design.Accounting.editEffect s inbox id now action = Option.some (t, f)",
+      "assumptions": [
+        "Existing accepted registry edit lifts to the payout observer; modelling correspondence, not a spec obligation. No source clause or proof claim is backed by this correspondence/arithmetic lemma."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [],
+      "scope": "Existing accepted registry edit lifts to the payout observer; modelling correspondence, not a spec obligation. No source clause or proof claim is backed by this correspondence/arithmetic lemma."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.editEffect_preserves_released_zero",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {s t : Etna.Design.RegistryHistory.State} {inbox : Etna.Design.State} {id now : Nat} {action : Etna.Design.RegistryHistory.Edit} {f : Etna.Design.Accounting.Flow}, Etna.Design.Accounting.ReleasedZero s → Etna.Design.Accounting.editEffect s inbox id now action = Option.some (t, f) → Etna.Design.Accounting.ReleasedZero t",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-fd0557c2630191c6", "EN-1922bc4f51f2158c"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.editEffect_preserves_unallocated_zero",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {s t : Etna.Design.RegistryHistory.State} {inbox : Etna.Design.State} {id now : Nat} {action : Etna.Design.RegistryHistory.Edit} {f : Etna.Design.Accounting.Flow}, Etna.Design.Accounting.UnallocatedZero s → Etna.Design.Accounting.editEffect s inbox id now action = Option.some (t, f) → Etna.Design.Accounting.UnallocatedZero t",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-471ef75c3d545157", "EN-fd0557c2630191c6"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.editEffect_project",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ (s : Etna.Design.RegistryHistory.State) (inbox : Etna.Design.State) (id now : Nat) (action : Etna.Design.RegistryHistory.Edit), Option.map Prod.fst (Etna.Design.Accounting.editEffect s inbox id now action) = Etna.Design.RegistryHistory.edit s inbox id now action",
+      "assumptions": [
+        "Payout-observer projection to the existing registry edit; modelling correspondence, not a spec obligation. No source clause or proof claim is backed by this correspondence/arithmetic lemma."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [],
+      "scope": "Payout-observer projection to the existing registry edit; modelling correspondence, not a spec obligation. No source clause or proof claim is backed by this correspondence/arithmetic lemma."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.editEffect_success",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {s t : Etna.Design.RegistryHistory.State} {inbox : Etna.Design.State} {id now : Nat} {action : Etna.Design.RegistryHistory.Edit} {f : Etna.Design.Accounting.Flow}, Etna.Design.Accounting.editEffect s inbox id now action = Option.some (t, f) → id < s.nextId ∧ ∃ b, Etna.Design.Accounting.bondEffect s inbox now (s.slots id) action = Option.some (b, f) ∧ t = Etna.Design.Accounting.edited s id now action b",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-e11112a7ad1b77fd"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.empty_released_zero",
+      "module": "EtnaProofs.Accounting",
+      "type": "Etna.Design.Accounting.ReleasedZero Etna.Design.RegistryHistory.empty",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-471ef75c3d545157", "EN-fd0557c2630191c6"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.empty_slot_good",
+      "module": "EtnaProofs.Accounting",
+      "type": "Etna.Design.Accounting.SlotGood Etna.Design.RegistryHistory.empty",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-471ef75c3d545157", "EN-fd0557c2630191c6"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.exclusions_conserve",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ (s : Etna.Design.RegistryHistory.State) (xs : List Etna.Design.Recovery.Exclusion) (now : Nat), Etna.Design.Accounting.held (Etna.Design.RegistryHistory.forceExclusions s xs now) = Etna.Design.Accounting.held s",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-a291bb263ea08b0c"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.exclusions_preserve_released_zero",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ (s : Etna.Design.RegistryHistory.State) (xs : List Etna.Design.Recovery.Exclusion) (now : Nat), Etna.Design.Accounting.ReleasedZero s → Etna.Design.Accounting.ReleasedZero (Etna.Design.RegistryHistory.forceExclusions s xs now)",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-a291bb263ea08b0c"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.exclusions_preserve_unallocated_zero",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ (s : Etna.Design.RegistryHistory.State) (xs : List Etna.Design.Recovery.Exclusion) (now : Nat), Etna.Design.Accounting.UnallocatedZero s → Etna.Design.Accounting.UnallocatedZero (Etna.Design.RegistryHistory.forceExclusions s xs now)",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-471ef75c3d545157", "EN-fd0557c2630191c6"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.failed_edit_zero",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {s : Etna.Design.RegistryHistory.State} {inbox : Etna.Design.State} {id now : Nat} {action : Etna.Design.RegistryHistory.Edit}, Etna.Design.RegistryHistory.edit s inbox id now action = Option.none → Etna.Design.Accounting.attempt s (Etna.Design.Accounting.editEffect s inbox id now action) = (s, Etna.Design.Accounting.Flow.zero)",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-dfa9bd8671e60f08"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.failed_registration_zero",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {s : Etna.Design.RegistryHistory.State} {key owner amount now : Nat}, Etna.Design.RegistryHistory.register s key owner amount now = Option.none → Etna.Design.Accounting.attempt s (Etna.Design.Accounting.registerEffect s key owner amount now) = (s, Etna.Design.Accounting.Flow.zero)",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-3ce5781807da58ba"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.future_trace_preserves_slot_good",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {first s : Etna.Design.RegistryHistory.State} {cutoff : Nat}, Etna.Design.Accounting.SlotGood first → Etna.Design.RegistryHistory.FutureTrace cutoff first s → Etna.Design.Accounting.SlotGood s",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-471ef75c3d545157", "EN-fd0557c2630191c6"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.protocol_conservation_from_empty",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {first last : Etna.Design.ProtocolState.World}, first.registry = Etna.Design.RegistryHistory.empty → Etna.Design.ProtocolState.Trace first last → ∃ f, Etna.Design.Accounting.Trace first last f ∧ Etna.Design.Accounting.SlotGood last.registry ∧ f.deposits = Etna.Design.Accounting.held last.registry + f.withdrawals + f.bounty + f.sink",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "EN-3ce5781807da58ba",
+        "EN-ab1db15120198ccd",
+        "EN-fb39b71e9b4c760c",
+        "EN-fd0557c2630191c6",
+        "EN-1922bc4f51f2158c",
+        "EN-bf78b9d3bc888c6c"
+      ],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.protocol_slot_good_from_empty",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {first last : Etna.Design.ProtocolState.World}, first.registry = Etna.Design.RegistryHistory.empty → Etna.Design.ProtocolState.Trace first last → Etna.Design.Accounting.SlotGood last.registry",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-471ef75c3d545157", "EN-fd0557c2630191c6"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.protocol_trace_preserves_slot_good",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {first last : Etna.Design.ProtocolState.World}, Etna.Design.Accounting.SlotGood first.registry → Etna.Design.ProtocolState.Trace first last → Etna.Design.Accounting.SlotGood last.registry",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-471ef75c3d545157", "EN-fd0557c2630191c6"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.protocol_trajectory_conservation",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {first last : Etna.Design.ProtocolState.World}, Etna.Design.Accounting.ReleasedZero first.registry → Etna.Design.ProtocolState.Trace first last → ∃ f, Etna.Design.Accounting.Trace first last f ∧ Etna.Design.Accounting.held first.registry + f.deposits = Etna.Design.Accounting.held last.registry + f.withdrawals + f.bounty + f.sink",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "EN-3ce5781807da58ba",
+        "EN-ab1db15120198ccd",
+        "EN-fb39b71e9b4c760c",
+        "EN-fd0557c2630191c6",
+        "EN-1922bc4f51f2158c",
+        "EN-bf78b9d3bc888c6c"
+      ],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.recheck_conserves",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ (s : Etna.Design.RegistryHistory.State) (snapshot : Nat), Etna.Design.Accounting.held (Etna.Design.RegistryHistory.recheckAll s snapshot) = Etna.Design.Accounting.held s",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-d04a236579cc9990"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.recheck_preserves_released_zero",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ (s : Etna.Design.RegistryHistory.State) (snapshot : Nat), Etna.Design.Accounting.ReleasedZero s → Etna.Design.Accounting.ReleasedZero (Etna.Design.RegistryHistory.recheckAll s snapshot)",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-d04a236579cc9990"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.recheck_preserves_unallocated_zero",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ (s : Etna.Design.RegistryHistory.State) (snapshot : Nat), Etna.Design.Accounting.UnallocatedZero s → Etna.Design.Accounting.UnallocatedZero (Etna.Design.RegistryHistory.recheckAll s snapshot)",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-471ef75c3d545157", "EN-fd0557c2630191c6"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.register_conserves",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {s t : Etna.Design.RegistryHistory.State} {key owner amount now : Nat}, Etna.Design.Accounting.ReleasedZero s → Etna.Design.RegistryHistory.register s key owner amount now = Option.some t → Etna.Design.Accounting.held t = Etna.Design.Accounting.held s + amount",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "EN-3ce5781807da58ba",
+        "EN-471ef75c3d545157",
+        "EN-fd0557c2630191c6"
+      ],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.register_preserves_released_zero",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {s t : Etna.Design.RegistryHistory.State} {key owner amount now : Nat}, Etna.Design.Accounting.ReleasedZero s → Etna.Design.RegistryHistory.register s key owner amount now = Option.some t → Etna.Design.Accounting.ReleasedZero t",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-3ce5781807da58ba", "EN-fd0557c2630191c6"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.register_preserves_unallocated_zero",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {s t : Etna.Design.RegistryHistory.State} {key owner amount now : Nat}, Etna.Design.Accounting.UnallocatedZero s → Etna.Design.RegistryHistory.register s key owner amount now = Option.some t → Etna.Design.Accounting.UnallocatedZero t",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-471ef75c3d545157", "EN-fd0557c2630191c6"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.registry_step_preserves_released_zero",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {s t : Etna.Design.RegistryHistory.State}, Etna.Design.Accounting.ReleasedZero s → Etna.Design.RegistryHistory.Step s t → Etna.Design.Accounting.ReleasedZero t",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-fd0557c2630191c6", "EN-1922bc4f51f2158c"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.registry_step_preserves_slot_good",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {s t : Etna.Design.RegistryHistory.State}, Etna.Design.Accounting.SlotGood s → Etna.Design.RegistryHistory.Step s t → Etna.Design.Accounting.SlotGood t",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-471ef75c3d545157", "EN-fd0557c2630191c6"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.released_zero_from_empty",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {s : Etna.Design.RegistryHistory.State}, Etna.Design.RegistryHistory.Trace Etna.Design.RegistryHistory.empty s → Etna.Design.Accounting.ReleasedZero s",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-fd0557c2630191c6", "EN-1922bc4f51f2158c"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.rollback_bond_principal",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ (b : Etna.Design.Staking.Bond) (snapshot : Nat), (Etna.Design.Staking.rollbackBySnapshot snapshot b).balance = b.balance ∧ (Etna.Design.Staking.rollbackBySnapshot snapshot b).released = b.released",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-d04a236579cc9990"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.slot_good_from_empty",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {s : Etna.Design.RegistryHistory.State}, Etna.Design.RegistryHistory.Trace Etna.Design.RegistryHistory.empty s → Etna.Design.Accounting.SlotGood s",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-471ef75c3d545157", "EN-fd0557c2630191c6"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.step_conserves",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World} {f : Etna.Design.Accounting.Flow}, Etna.Design.Accounting.ReleasedZero w.registry → Etna.Design.Accounting.Step w t f → Etna.Design.Accounting.held t.registry + f.outgoing = Etna.Design.Accounting.held w.registry + f.deposits",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "EN-3ce5781807da58ba",
+        "EN-ab1db15120198ccd",
+        "EN-fb39b71e9b4c760c",
+        "EN-fd0557c2630191c6",
+        "EN-1922bc4f51f2158c",
+        "EN-bf78b9d3bc888c6c"
+      ],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.step_lift",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.Step w t → ∃ f, Etna.Design.Accounting.Step w t f",
+      "assumptions": [
+        "Every original step has an observer step; modelling completeness only. No source clause or proof claim is backed by this correspondence/arithmetic lemma."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [],
+      "scope": "Every original step has an observer step; modelling completeness only. No source clause or proof claim is backed by this correspondence/arithmetic lemma."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.step_preserves_released_zero",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World} {f : Etna.Design.Accounting.Flow}, Etna.Design.Accounting.ReleasedZero w.registry → Etna.Design.Accounting.Step w t f → Etna.Design.Accounting.ReleasedZero t.registry",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-fd0557c2630191c6", "EN-1922bc4f51f2158c"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.step_preserves_slot_good",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World} {f : Etna.Design.Accounting.Flow}, Etna.Design.Accounting.SlotGood w.registry → Etna.Design.Accounting.Step w t f → Etna.Design.Accounting.SlotGood t.registry",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-471ef75c3d545157", "EN-fd0557c2630191c6"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.step_project",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World} {f : Etna.Design.Accounting.Flow}, Etna.Design.Accounting.Step w t f → w = t ∨ Etna.Design.ProtocolState.Step w t",
+      "assumptions": [
+        "Every observer step is an original step or a failed-call stutter; modelling correspondence only. No source clause or proof claim is backed by this correspondence/arithmetic lemma."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [],
+      "scope": "Every observer step is an original step or a failed-call stutter; modelling correspondence only. No source clause or proof claim is backed by this correspondence/arithmetic lemma."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.sumBalances_congr",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {f g : Nat → Nat} {n : Nat}, (∀ (i : Nat), i < n → f i = g i) → Etna.Design.Accounting.sumBalances f n = Etna.Design.Accounting.sumBalances g n",
+      "assumptions": [
+        "Finite-sum congruence helper; no protocol clause is an obligation of this arithmetic identity. No source clause or proof claim is backed by this correspondence/arithmetic lemma."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [],
+      "scope": "Finite-sum congruence helper; no protocol clause is an obligation of this arithmetic identity. No source clause or proof claim is backed by this correspondence/arithmetic lemma."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.sumBalances_update",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ (f : Nat → Nat) (n id value : Nat), id < n → Etna.Design.Accounting.sumBalances (fun i => if i = id then value else f i) n + f id = Etna.Design.Accounting.sumBalances f n + value",
+      "assumptions": [
+        "Finite-sum update helper; no protocol clause is an obligation of this arithmetic identity. No source clause or proof claim is backed by this correspondence/arithmetic lemma."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [],
+      "scope": "Finite-sum update helper; no protocol clause is an obligation of this arithmetic identity. No source clause or proof claim is backed by this correspondence/arithmetic lemma."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.trace_lift",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {first last : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.Trace first last → ∃ f, Etna.Design.Accounting.Trace first last f",
+      "assumptions": [
+        "Every original trace has an observer trace; modelling completeness only. No source clause or proof claim is backed by this correspondence/arithmetic lemma."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [],
+      "scope": "Every original trace has an observer trace; modelling completeness only. No source clause or proof claim is backed by this correspondence/arithmetic lemma."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.trace_preserves_released_zero",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {first last : Etna.Design.ProtocolState.World} {f : Etna.Design.Accounting.Flow}, Etna.Design.Accounting.ReleasedZero first.registry → Etna.Design.Accounting.Trace first last f → Etna.Design.Accounting.ReleasedZero last.registry",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-fd0557c2630191c6", "EN-1922bc4f51f2158c"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.trace_preserves_slot_good",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {first last : Etna.Design.ProtocolState.World} {f : Etna.Design.Accounting.Flow}, Etna.Design.Accounting.SlotGood first.registry → Etna.Design.Accounting.Trace first last f → Etna.Design.Accounting.SlotGood last.registry",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-471ef75c3d545157", "EN-fd0557c2630191c6"],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.trace_project",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {first last : Etna.Design.ProtocolState.World} {f : Etna.Design.Accounting.Flow}, Etna.Design.Accounting.Trace first last f → Etna.Design.ProtocolState.Trace first last",
+      "assumptions": [
+        "Observer traces project to original traces after removing stutters; modelling correspondence only. No source clause or proof claim is backed by this correspondence/arithmetic lemma."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [],
+      "scope": "Observer traces project to original traces after removing stutters; modelling correspondence only. No source clause or proof claim is backed by this correspondence/arithmetic lemma."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.trajectory_conservation",
+      "module": "EtnaProofs.Accounting",
+      "type": "∀ {first last : Etna.Design.ProtocolState.World} {f : Etna.Design.Accounting.Flow}, Etna.Design.Accounting.ReleasedZero first.registry → Etna.Design.Accounting.Trace first last f → Etna.Design.Accounting.held first.registry + f.deposits = Etna.Design.Accounting.held last.registry + f.withdrawals + f.bounty + f.sink",
+      "assumptions": [
+        "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "EN-3ce5781807da58ba",
+        "EN-ab1db15120198ccd",
+        "EN-fb39b71e9b4c760c",
+        "EN-fd0557c2630191c6",
+        "EN-1922bc4f51f2158c",
+        "EN-bf78b9d3bc888c6c"
+      ],
+      "scope": "Logical TAIKO liabilities over allocated slots: flows use accepted inputs and actual staking payouts; conservation is derived, never assumed. Released slots must hold zero initially (proved from empty trajectories). Actual ERC20 custody/transfers and EVM failure atomicity remain external; ETH is separate."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.confirmed_key_absent_later_cutoff",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {initial w t : Etna.Design.ProtocolState.World} {id c h : Nat} {cfg : Etna.Design.HistoricalContext.Parameters} {archive : List Nat} {ctx : Etna.Design.Consensus.Context}, Etna.Design.ProtocolState.Trace initial w → Etna.Design.ProtocolState.Core initial → initial.registry.nextId = 0 → Etna.Design.ProtocolState.Trace w t → id < w.registry.nextId → (w.registry.slots id).confirmedAt = Option.some c → Etna.Design.SigningEscrow.Covered w → (w.registry.slots id).key ≠ 0 → (w.registry.slots id).exitAt ≠ Etna.Design.Staking.noExit → Etna.Design.HistoricalContext.build t.inbox t.registry cfg archive = Option.some ctx → w.inbox.snapshot ≤ (Etna.Design.Consensus.activeAt ctx h).cutoff → ∀ (e : Etna.Design.Committee.Entry), e ∈ (Etna.Design.Consensus.activeAt ctx h).members → e.key ≠ (w.registry.slots id).key",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-4651c537a506e6fd", "EN-d7e07b7ea27ed4a3"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.confirmed_key_excluded_forever",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World} {id c key : Nat}, Etna.Design.ProtocolState.Trace w t → (w.registry.slots id).confirmedAt = Option.some c → Etna.Design.SigningEscrow.Covered w → w.inbox.snapshot ≤ w.l1Block → (w.registry.slots id).key = key → key ≠ 0 → (∀ (other : Nat), other < w.registry.nextId → (w.registry.slots other).key = key → other = id) → key ∈ w.registry.usedKeys → Etna.Design.RegistryHistory.CurrentSnapshot w.registry → Etna.Design.RegistryHistory.lastBlock w.registry ≤ w.l1Block → Etna.Design.SigningEscrow.HistoryExcluded key w.l1Block t.registry",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-e11112a7ad1b77fd",
+        "EN-d7e07b7ea27ed4a3"
+      ],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.edit_confirmation_origin",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {r : Etna.Design.RegistryHistory.State} {inbox : Etna.Design.State} {now c : Nat} {b out : Etna.Design.Staking.Bond} {action : Etna.Design.RegistryHistory.Edit}, Etna.Design.RegistryHistory.editBond r inbox now b action = Option.some out → out.confirmedAt = Option.some c → b.confirmedAt = Option.some c ∧ out.exitAt ≤ b.exitAt ∨ c = now ∧ out.exitAt ≤ inbox.snapshot",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-4651c537a506e6fd"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.edit_exit_time",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {r : Etna.Design.RegistryHistory.State} {inbox : Etna.Design.State} {now : Nat} {b out : Etna.Design.Staking.Bond} {action : Etna.Design.RegistryHistory.Edit}, Etna.Design.RegistryHistory.editBond r inbox now b action = Option.some out → out.key ≠ 0 → out.exitAt = b.exitAt ∨ now ≤ out.exitAt",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "EN-9d61587bb0f5f183",
+        "EN-1922bc4f51f2158c",
+        "EN-61545df98f0ad68f",
+        "EN-a291bb263ea08b0c"
+      ],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.edit_key_exit",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {r : Etna.Design.RegistryHistory.State} {inbox : Etna.Design.State} {now key : Nat} {b out : Etna.Design.Staking.Bond} {action : Etna.Design.RegistryHistory.Edit}, key ≠ 0 → Etna.Design.RegistryHistory.editBond r inbox now b action = Option.some out → out.key = key → b.key = key ∧ out.exitAt ≤ b.exitAt",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "EN-9d61587bb0f5f183",
+        "EN-1922bc4f51f2158c",
+        "EN-61545df98f0ad68f",
+        "EN-a291bb263ea08b0c"
+      ],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.effective_exit_excluded_forever",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {initial w t : Etna.Design.ProtocolState.World} {id : Nat}, Etna.Design.ProtocolState.Trace initial w → Etna.Design.ProtocolState.Core initial → initial.registry = Etna.Design.RegistryHistory.empty → Etna.Design.ProtocolState.Trace w t → id < w.registry.nextId → (w.registry.slots id).key ≠ 0 → (w.registry.slots id).exitAt ≠ Etna.Design.Staking.noExit → Etna.Design.SigningEscrow.HistoryExcluded (w.registry.slots id).key (w.registry.slots id).exitAt t.registry",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-e11112a7ad1b77fd", "EN-d7e07b7ea27ed4a3"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.empty_keys_well_formed",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "Etna.Design.SigningEscrow.KeysWellFormed Etna.Design.RegistryHistory.empty",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-aee6e06c2b0041ee", "EN-d7e07b7ea27ed4a3"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.empty_start_confirmed_exclusion",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {initial w t : Etna.Design.ProtocolState.World} {id c : Nat}, Etna.Design.ProtocolState.Trace initial w → initial.registry = Etna.Design.RegistryHistory.empty → Etna.Design.ProtocolState.Trace w t → id < w.registry.nextId → (w.registry.slots id).confirmedAt = Option.some c → (w.registry.slots id).key ≠ 0 → Etna.Design.SigningEscrow.Covered w → w.inbox.snapshot ≤ w.l1Block → Etna.Design.RegistryHistory.CurrentSnapshot w.registry → Etna.Design.RegistryHistory.lastBlock w.registry ≤ w.l1Block → Etna.Design.SigningEscrow.HistoryExcluded (w.registry.slots id).key w.l1Block t.registry",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-e11112a7ad1b77fd",
+        "EN-d7e07b7ea27ed4a3"
+      ],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.empty_trace_exit_visible",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.Trace w t → Etna.Design.ProtocolState.Core w → w.registry = Etna.Design.RegistryHistory.empty → Etna.Design.SigningEscrow.ExitVisible t.registry",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-e11112a7ad1b77fd", "EN-d7e07b7ea27ed4a3"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.empty_trace_keys_well_formed",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.Trace w t → w.registry = Etna.Design.RegistryHistory.empty → Etna.Design.SigningEscrow.KeysWellFormed t.registry",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-aee6e06c2b0041ee", "EN-d7e07b7ea27ed4a3"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.history_excluded_of_current",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {r : Etna.Design.RegistryHistory.State} {key floor : Nat}, Etna.Design.SigningEscrow.Excluded key floor r → Etna.Design.RegistryHistory.CurrentSnapshot r → Etna.Design.RegistryHistory.lastBlock r ≤ floor → Etna.Design.SigningEscrow.HistoryExcluded key floor r",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-e11112a7ad1b77fd", "EN-d7e07b7ea27ed4a3"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.recheck_confirmation_origin",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ (b : Etna.Design.Staking.Bond) (snapshot c : Nat), (Etna.Design.Staking.rollbackBySnapshot snapshot b).confirmedAt = Option.some c → b.confirmedAt = Option.some c",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-d04a236579cc9990"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.retired_generation_never_revives",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {s t : Etna.Design.Signer.State}, Etna.Design.SigningEscrow.SignerTrace s t → ∀ (r : Etna.Design.Signer.Request) (signature : Etna.Design.Hash) (persisted : Bool), r.generation ∈ s.retired → Etna.Design.Signer.sign t r signature persisted = Option.none",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-6478ed58606b3c3b", "EN-992ca84f0e185f57"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.rollback_covered",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ (w : Etna.Design.ProtocolState.World) (cp : Etna.Design.Checkpoint) (snapshot now : Nat), Etna.Design.SigningEscrow.Covered (Etna.Design.ProtocolState.applyRollback w cp snapshot now)",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-d04a236579cc9990"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.selected_excludes_confirmed_key",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {s : Etna.Design.State} {registry : Etna.Design.RegistryHistory.State} {cfg : Etna.Design.HistoricalContext.Parameters} {archive : List Nat} {ctx : Etna.Design.Consensus.Context} {key floor h : Nat}, Etna.Design.HistoricalContext.build s registry cfg archive = Option.some ctx → Etna.Design.SigningEscrow.HistoryExcluded key floor registry → floor ≤ (Etna.Design.Consensus.activeAt ctx h).cutoff → ∀ (e : Etna.Design.Committee.Entry), e ∈ (Etna.Design.Consensus.activeAt ctx h).members → e.key ≠ key",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-e11112a7ad1b77fd", "EN-d7e07b7ea27ed4a3"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.signer_step_retirement",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {s t : Etna.Design.Signer.State}, Etna.Design.SigningEscrow.SignerStep s t → ∀ (generation : Nat), generation ∈ s.retired → generation ∈ t.retired",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-6478ed58606b3c3b", "EN-992ca84f0e185f57"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.signer_trace_retirement",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {s t : Etna.Design.Signer.State}, Etna.Design.SigningEscrow.SignerTrace s t → ∀ (generation : Nat), generation ∈ s.retired → generation ∈ t.retired",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-6478ed58606b3c3b", "EN-992ca84f0e185f57"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.snapshot_trace_projects",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.SigningEscrow.SnapshotTrace w t → Etna.Design.ProtocolState.Trace w t",
+      "assumptions": [
+        "Snapshot-disciplined trace projects to the original machine; modelling correspondence only. No source clause or proof claim is backed by this correspondence/arithmetic lemma."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [],
+      "scope": "Snapshot-disciplined trace projects to the original machine; modelling correspondence only. No source clause or proof claim is backed by this correspondence/arithmetic lemma."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.step_clocked",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.Step w t → Etna.Design.SigningEscrow.Clocked w → Etna.Design.SigningEscrow.Clocked t",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-4651c537a506e6fd"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.step_confirmation_predicate",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World} {P : Nat → Prop}, Etna.Design.ProtocolState.Step w t → (∀ (id c : Nat), (w.registry.slots id).confirmedAt = Option.some c → P c) → P t.l1Block → ∀ (id c : Nat), (t.registry.slots id).confirmedAt = Option.some c → P c",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-4651c537a506e6fd"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.step_covered",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.Step w t → Etna.Design.SigningEscrow.SnapshotUpdate w t → Etna.Design.SigningEscrow.Covered w → Etna.Design.SigningEscrow.Covered t",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-4651c537a506e6fd", "EN-d04a236579cc9990"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.step_excluded",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World} {key cutoff : Nat}, Etna.Design.ProtocolState.Step w t → key ≠ 0 → key ∈ w.registry.usedKeys → Etna.Design.SigningEscrow.Excluded key cutoff w.registry → Etna.Design.SigningEscrow.Excluded key cutoff t.registry",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-aee6e06c2b0041ee", "EN-d7e07b7ea27ed4a3"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.step_exit_link",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.Step w t → ∀ (id : Nat), id < t.registry.nextId → (t.registry.slots id).key ≠ 0 → (t.registry.slots id).exitAt ≠ Etna.Design.Staking.noExit → id < w.registry.nextId ∧ (t.registry.slots id).key = (w.registry.slots id).key ∧ (t.registry.slots id).exitAt = (w.registry.slots id).exitAt ∨ t.l1Block ≤ (t.registry.slots id).exitAt",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "EN-9d61587bb0f5f183",
+        "EN-1922bc4f51f2158c",
+        "EN-61545df98f0ad68f",
+        "EN-a291bb263ea08b0c"
+      ],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.step_exit_visible",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.Step w t → Etna.Design.ProtocolState.Core w → Etna.Design.SigningEscrow.KeysWellFormed w.registry → Etna.Design.SigningEscrow.ExitVisible w.registry → Etna.Design.SigningEscrow.ExitVisible t.registry",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-e11112a7ad1b77fd", "EN-d7e07b7ea27ed4a3"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.step_history_excluded",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World} {key floor : Nat}, Etna.Design.ProtocolState.Step w t → key ≠ 0 → key ∈ w.registry.usedKeys → Etna.Design.SigningEscrow.Excluded key floor w.registry → Etna.Design.SigningEscrow.HistoryExcluded key floor w.registry → Etna.Design.SigningEscrow.HistoryExcluded key floor t.registry",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-e11112a7ad1b77fd", "EN-d7e07b7ea27ed4a3"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.step_keys_well_formed",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.Step w t → Etna.Design.SigningEscrow.KeysWellFormed w.registry → Etna.Design.SigningEscrow.KeysWellFormed t.registry",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-aee6e06c2b0041ee", "EN-d7e07b7ea27ed4a3"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.trace_clocked",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.Trace w t → Etna.Design.SigningEscrow.Clocked w → Etna.Design.SigningEscrow.Clocked t",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-4651c537a506e6fd"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.trace_confirmation_lower_bound",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.Trace w t → (∀ (id : Nat), (w.registry.slots id).confirmedAt = Option.none) → ∀ (id c : Nat), (t.registry.slots id).confirmedAt = Option.some c → w.l1Block ≤ c",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-4651c537a506e6fd"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.trace_covered",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.SigningEscrow.SnapshotTrace w t → Etna.Design.SigningEscrow.Covered w → Etna.Design.SigningEscrow.Covered t",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-4651c537a506e6fd", "EN-d04a236579cc9990"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.trace_excluded",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World} {key cutoff : Nat}, Etna.Design.ProtocolState.Trace w t → key ≠ 0 → key ∈ w.registry.usedKeys → Etna.Design.SigningEscrow.Excluded key cutoff w.registry → Etna.Design.SigningEscrow.Excluded key cutoff t.registry",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-aee6e06c2b0041ee", "EN-d7e07b7ea27ed4a3"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.trace_exit_visible",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.Trace w t → Etna.Design.ProtocolState.Core w → Etna.Design.SigningEscrow.KeysWellFormed w.registry → Etna.Design.SigningEscrow.ExitVisible w.registry → Etna.Design.SigningEscrow.ExitVisible t.registry",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-e11112a7ad1b77fd", "EN-d7e07b7ea27ed4a3"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.trace_history_excluded",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World} {key floor : Nat}, Etna.Design.ProtocolState.Trace w t → key ≠ 0 → key ∈ w.registry.usedKeys → Etna.Design.SigningEscrow.Excluded key floor w.registry → Etna.Design.SigningEscrow.HistoryExcluded key floor w.registry → Etna.Design.SigningEscrow.HistoryExcluded key floor t.registry",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-e11112a7ad1b77fd", "EN-d7e07b7ea27ed4a3"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.trace_keys_well_formed",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.Trace w t → Etna.Design.SigningEscrow.KeysWellFormed w.registry → Etna.Design.SigningEscrow.KeysWellFormed t.registry",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-aee6e06c2b0041ee", "EN-d7e07b7ea27ed4a3"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.trace_withdrawal_lower_bound",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World} {id caller now amount : Nat} {out : Etna.Design.Staking.Bond}, Etna.Design.ProtocolState.Trace w t → (∀ (i : Nat), (w.registry.slots i).confirmedAt = Option.none) → Etna.Design.Staking.withdraw t.inbox (t.registry.slots id) caller now t.registry.withdrawalDelay = Option.some (out, amount) → w.l1Block + t.registry.withdrawalDelay ≤ now",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-4651c537a506e6fd", "EN-fd0557c2630191c6"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.unallocated_effective_exit_excluded_forever",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {initial w t : Etna.Design.ProtocolState.World} {id : Nat}, Etna.Design.ProtocolState.Trace initial w → Etna.Design.ProtocolState.Core initial → initial.registry.nextId = 0 → Etna.Design.ProtocolState.Trace w t → id < w.registry.nextId → (w.registry.slots id).key ≠ 0 → (w.registry.slots id).exitAt ≠ Etna.Design.Staking.noExit → Etna.Design.SigningEscrow.HistoryExcluded (w.registry.slots id).key (w.registry.slots id).exitAt t.registry",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-e11112a7ad1b77fd", "EN-d7e07b7ea27ed4a3"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.unallocated_keys_well_formed",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ (r : Etna.Design.RegistryHistory.State), r.nextId = 0 → Etna.Design.SigningEscrow.KeysWellFormed r",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-aee6e06c2b0041ee", "EN-d7e07b7ea27ed4a3"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.unallocated_trace_exit_visible",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.Trace w t → Etna.Design.ProtocolState.Core w → w.registry.nextId = 0 → Etna.Design.SigningEscrow.ExitVisible t.registry",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-e11112a7ad1b77fd", "EN-d7e07b7ea27ed4a3"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.unallocated_trace_keys_well_formed",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.Trace w t → w.registry.nextId = 0 → Etna.Design.SigningEscrow.KeysWellFormed t.registry",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-aee6e06c2b0041ee", "EN-d7e07b7ea27ed4a3"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.unconfirmed_never_withdraws",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ (s : Etna.Design.State) (b : Etna.Design.Staking.Bond) (caller now delay : Nat), b.confirmedAt = Option.none → Etna.Design.Staking.withdraw s b caller now delay = Option.none",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-4651c537a506e6fd", "EN-fd0557c2630191c6"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.withdrawal_window",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w : Etna.Design.ProtocolState.World} {id caller now : Nat} {out : Etna.Design.Staking.Bond} {amount : Nat}, Etna.Design.SigningEscrow.Covered w → Etna.Design.Staking.withdraw w.inbox (w.registry.slots id) caller now w.registry.withdrawalDelay = Option.some (out, amount) → ∃ c, (w.registry.slots id).confirmedAt = Option.some c ∧ c + w.registry.withdrawalDelay ≤ now ∧ (w.registry.slots id).exitAt ≤ w.inbox.snapshot ∧ amount = (w.registry.slots id).balance ∧ out.balance = 0",
+      "assumptions": [
+        "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-4651c537a506e6fd", "EN-fd0557c2630191c6"],
+      "scope": "Supplemental decoded trajectory property under the stated structural initialization, typed history and snapshot/cutoff premises. These do not strengthen H1-H3 or prove authenticated fresh signing, evidence delivery, positive current capital backing or trusted rollback provenance."
+    },
+    {
+      "declaration": "Etna.Design.HistoricalEscrow.ordinary_exit_and_historical_validity",
+      "module": "EtnaWitnesses.Counterexamples.HistoricalEscrow",
+      "type": "Etna.Design.ProtocolState.Trace Etna.Design.NonVacuity.world0 Etna.Design.HistoricalEscrow.worldE ∧ Etna.Design.BlockValidity.Chain Etna.Design.HistoricalEscrow.rules Etna.Design.NonVacuity.genesisHeader Etna.Design.HistoricalEscrow.blocks ∧ Etna.Design.HistoricalEscrow.worldC.inbox.checkpoint.height = 12 ∧ Etna.Design.HistoricalEscrow.worldC.inbox.snapshot = 24 ∧ List.map Etna.Design.Committee.Entry.key (Etna.Design.Consensus.activeAt Etna.Design.HistoricalEscrow.rules.consensus 11).members = [8] ∧ (Etna.Design.HistoricalEscrow.worldD.registry.slots 0).exitAt = 17 ∧ (Etna.Design.HistoricalEscrow.worldD.registry.slots 0).confirmedAt = Option.some 29 ∧ Etna.Design.Staking.withdraw Etna.Design.HistoricalEscrow.worldD.inbox (Etna.Design.HistoricalEscrow.worldD.registry.slots 0) 51 29 Etna.Design.HistoricalEscrow.worldD.registry.withdrawalDelay = Option.none ∧ Etna.Design.Staking.withdraw Etna.Design.HistoricalEscrow.worldD.inbox (Etna.Design.HistoricalEscrow.worldD.registry.slots 0) 51 30 Etna.Design.HistoricalEscrow.worldD.registry.withdrawalDelay = Option.some (Etna.Design.RegistryHistory.vacant, 1000000000000000000) ∧ (Etna.Design.HistoricalEscrow.worldE.registry.slots 0).balance = 0 ∧ (Etna.Design.HistoricalEscrow.worldE.registry.slots 0).released = Bool.true ∧ Etna.Statements.Built Etna.Design.HistoricalEscrow.fixture Etna.Design.HistoricalEscrow.worldE Etna.Design.HistoricalEscrow.historicalRules ∧ Etna.Design.Consensus.CommitValid Etna.Design.HistoricalEscrow.historicalRules.consensus Etna.Design.HistoricalEscrow.historicalRules.signature 1 0 101 [Etna.Design.NonVacuity.vote 0 1 101] ∧ ¬Etna.Design.Consensus.CommitValid Etna.Design.HistoricalEscrow.historicalRules.consensus Etna.Design.HistoricalEscrow.historicalRules.signature 13 0 113 [Etna.Design.NonVacuity.vote 0 13 113]",
+      "assumptions": [
+        "Initialized ordinary rotation with a valid decoded chain, confirmation and full withdrawal delay. Historical signature validity survives withdrawal while the old key alone cannot commit at fresh height 13. Intended weak-subjectivity boundary, no fresh-signing withdrawal attack; full external storage/crypto/EL authentication remains abstract."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-179bc07a1f6d0129",
+        "EN-9ee888f78091a2fe"
+      ],
+      "scope": "Initialized ordinary rotation with a valid decoded chain, confirmation and full withdrawal delay. Historical signature validity survives withdrawal while the old key alone cannot commit at fresh height 13. Intended weak-subjectivity boundary, no fresh-signing withdrawal attack; full external storage/crypto/EL authentication remains abstract."
+    },
+    {
+      "declaration": "Etna.Design.HistoricalEscrow.ordinary_exit_trace",
+      "module": "EtnaWitnesses.Counterexamples.HistoricalEscrow",
+      "type": "Etna.Design.ProtocolState.Trace Etna.Design.NonVacuity.world0 Etna.Design.HistoricalEscrow.worldE",
+      "assumptions": [
+        "Initialized ordinary rotation with a valid decoded chain, confirmation and full withdrawal delay. Historical signature validity survives withdrawal while the old key alone cannot commit at fresh height 13. Intended weak-subjectivity boundary, no fresh-signing withdrawal attack; full external storage/crypto/EL authentication remains abstract."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-179bc07a1f6d0129",
+        "EN-9ee888f78091a2fe"
+      ],
+      "scope": "Initialized ordinary rotation with a valid decoded chain, confirmation and full withdrawal delay. Historical signature validity survives withdrawal while the old key alone cannot commit at fresh height 13. Intended weak-subjectivity boundary, no fresh-signing withdrawal attack; full external storage/crypto/EL authentication remains abstract."
+    },
+    {
+      "declaration": "Etna.Design.HistoricalEscrow.ordinary_rotation_chain",
+      "module": "EtnaWitnesses.Counterexamples.HistoricalEscrow",
+      "type": "Etna.Design.BlockValidity.Chain Etna.Design.HistoricalEscrow.rules Etna.Design.NonVacuity.genesisHeader Etna.Design.HistoricalEscrow.blocks",
+      "assumptions": [
+        "Initialized ordinary rotation with a valid decoded chain, confirmation and full withdrawal delay. Historical signature validity survives withdrawal while the old key alone cannot commit at fresh height 13. Intended weak-subjectivity boundary, no fresh-signing withdrawal attack; full external storage/crypto/EL authentication remains abstract."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-179bc07a1f6d0129",
+        "EN-9ee888f78091a2fe"
+      ],
+      "scope": "Initialized ordinary rotation with a valid decoded chain, confirmation and full withdrawal delay. Historical signature validity survives withdrawal while the old key alone cannot commit at fresh height 13. Intended weak-subjectivity boundary, no fresh-signing withdrawal attack; full external storage/crypto/EL authentication remains abstract."
+    },
+    {
+      "declaration": "Etna.Design.HistoricalEscrow.snapshot_exit_trace",
+      "module": "EtnaWitnesses.Counterexamples.HistoricalEscrow",
+      "type": "Etna.Design.SigningEscrow.SnapshotTrace Etna.Design.NonVacuity.world0 Etna.Design.HistoricalEscrow.worldE",
+      "assumptions": [
+        "Initialized ordinary rotation with a valid decoded chain, confirmation and full withdrawal delay. Historical signature validity survives withdrawal while the old key alone cannot commit at fresh height 13. Intended weak-subjectivity boundary, no fresh-signing withdrawal attack; full external storage/crypto/EL authentication remains abstract."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-179bc07a1f6d0129",
+        "EN-9ee888f78091a2fe"
+      ],
+      "scope": "Initialized ordinary rotation with a valid decoded chain, confirmation and full withdrawal delay. Historical signature validity survives withdrawal while the old key alone cannot commit at fresh height 13. Intended weak-subjectivity boundary, no fresh-signing withdrawal attack; full external storage/crypto/EL authentication remains abstract."
+    },
+    {
+      "declaration": "Etna.Design.HistoricalEscrow.trajectory_invariants",
+      "module": "EtnaWitnesses.Counterexamples.HistoricalEscrow",
+      "type": "Etna.Design.SigningEscrow.Clocked Etna.Design.HistoricalEscrow.worldE ∧ Etna.Design.SigningEscrow.Covered Etna.Design.HistoricalEscrow.worldE",
+      "assumptions": [
+        "Initialized ordinary rotation with a valid decoded chain, confirmation and full withdrawal delay. Historical signature validity survives withdrawal while the old key alone cannot commit at fresh height 13. Intended weak-subjectivity boundary, no fresh-signing withdrawal attack; full external storage/crypto/EL authentication remains abstract."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-179bc07a1f6d0129",
+        "EN-9ee888f78091a2fe"
+      ],
+      "scope": "Initialized ordinary rotation with a valid decoded chain, confirmation and full withdrawal delay. Historical signature validity survives withdrawal while the old key alone cannot commit at fresh height 13. Intended weak-subjectivity boundary, no fresh-signing withdrawal attack; full external storage/crypto/EL authentication remains abstract."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.activation",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w2 Etna.Design.Accounting.Regression.w3 Etna.Design.Accounting.Flow.zero",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-543ce5a6713613f1"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.confirmation1",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w5 Etna.Design.Accounting.Regression.w6 Etna.Design.Accounting.Flow.zero",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-4651c537a506e6fd"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.confirmation2",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w16 Etna.Design.Accounting.Regression.w17 Etna.Design.Accounting.Flow.zero",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-4651c537a506e6fd"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.confirmation3",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w19 Etna.Design.Accounting.Regression.w20 Etna.Design.Accounting.Flow.zero",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-4651c537a506e6fd"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.deposit",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.first Etna.Design.Accounting.Regression.w1 { deposits := 100 }",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-3ce5781807da58ba"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.deposit2",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w11 Etna.Design.Accounting.Regression.w12 { deposits := 40 }",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-3ce5781807da58ba"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.deposit3",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w12 Etna.Design.Accounting.Regression.w13 { deposits := 1 }",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-3ce5781807da58ba"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.double_slash",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w10 Etna.Design.Accounting.Regression.w11 { bounty := 22, sink := 203 }",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-fb39b71e9b4c760c", "EN-1922bc4f51f2158c"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.enqueue",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w21 Etna.Design.Accounting.Regression.w22 Etna.Design.Accounting.Flow.zero",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-eb5074ad77d4a985"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.failed_after_rollback",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w18 Etna.Design.Accounting.Regression.w18 Etna.Design.Accounting.Flow.zero",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-d04a236579cc9990"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.failed_after_slash",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w11 Etna.Design.Accounting.Regression.w11 Etna.Design.Accounting.Flow.zero",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-1922bc4f51f2158c"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.failed_before_maturity",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w2 Etna.Design.Accounting.Regression.w2 Etna.Design.Accounting.Flow.zero",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-543ce5a6713613f1"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.failed_before_withdrawal_delay",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w6 Etna.Design.Accounting.Regression.w6 Etna.Design.Accounting.Flow.zero",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-fd0557c2630191c6"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.failed_calls_have_zero_flow",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "(Etna.Design.Accounting.attempt Etna.Design.Accounting.Regression.w2.registry (Etna.Design.Accounting.editEffect Etna.Design.Accounting.Regression.w2.registry Etna.Design.Accounting.Regression.w2.inbox 0 2 Etna.Design.RegistryHistory.Edit.activateTopUp)).snd = Etna.Design.Accounting.Flow.zero ∧ (Etna.Design.Accounting.attempt Etna.Design.Accounting.Regression.w6.registry (Etna.Design.Accounting.editEffect Etna.Design.Accounting.Regression.w6.registry Etna.Design.Accounting.Regression.w6.inbox 0 6 (Etna.Design.RegistryHistory.Edit.withdraw 9))).snd = Etna.Design.Accounting.Flow.zero ∧ (Etna.Design.Accounting.attempt Etna.Design.Accounting.Regression.w18.registry (Etna.Design.Accounting.editEffect Etna.Design.Accounting.Regression.w18.registry Etna.Design.Accounting.Regression.w18.inbox 1 18 (Etna.Design.RegistryHistory.Edit.withdraw 9))).snd = Etna.Design.Accounting.Flow.zero ∧ (Etna.Design.Accounting.attempt Etna.Design.Accounting.Regression.w1.registry (Etna.Design.Accounting.registerEffect Etna.Design.Accounting.Regression.w1.registry 7 9 100 2)).snd = Etna.Design.Accounting.Flow.zero ∧ (Etna.Design.Accounting.attempt Etna.Design.Accounting.Regression.w3.registry (Etna.Design.Accounting.editEffect Etna.Design.Accounting.Regression.w3.registry Etna.Design.Accounting.Regression.w3.inbox 0 4 (Etna.Design.RegistryHistory.Edit.forfeit 7 50 100 4 Bool.true Bool.false))).snd = Etna.Design.Accounting.Flow.zero",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-dfa9bd8671e60f08"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.full_forfeit",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w14 Etna.Design.Accounting.Regression.w15 { sink := 1 }",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-bf78b9d3bc888c6c"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.initial_slot_good",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.SlotGood Etna.Design.Accounting.Regression.first.registry",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-471ef75c3d545157", "EN-fd0557c2630191c6"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.invalidation",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w23 Etna.Design.Accounting.Regression.last Etna.Design.Accounting.Flow.zero",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-3f7463f0f1df5094"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.landing1",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w4 Etna.Design.Accounting.Regression.w5 Etna.Design.Accounting.Flow.zero",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-4651c537a506e6fd"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.landing2",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w15 Etna.Design.Accounting.Regression.w16 Etna.Design.Accounting.Flow.zero",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-4651c537a506e6fd"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.landing3",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w18 Etna.Design.Accounting.Regression.w19 Etna.Design.Accounting.Flow.zero",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-4651c537a506e6fd"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.malformed_unreachable_from_empty",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "¬Etna.Design.RegistryHistory.Trace Etna.Design.RegistryHistory.empty Etna.Design.Accounting.Regression.malformed",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-471ef75c3d545157", "EN-fd0557c2630191c6"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.mixed_protocol_trace",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.ProtocolState.Trace Etna.Design.Accounting.Regression.first Etna.Design.Accounting.Regression.last",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-fb39b71e9b4c760c",
+        "EN-fd0557c2630191c6",
+        "EN-1922bc4f51f2158c",
+        "EN-bf78b9d3bc888c6c"
+      ],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.mixed_run_conserves",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.held Etna.Design.Accounting.Regression.first.registry = 0 ∧ Etna.Design.Accounting.held Etna.Design.Accounting.Regression.last.registry = 0 ∧ 412 = Etna.Design.Accounting.held Etna.Design.Accounting.Regression.last.registry + 148 + 22 + 242 ∧ Etna.Design.Accounting.SlotGood Etna.Design.Accounting.Regression.last.registry",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-fb39b71e9b4c760c",
+        "EN-fd0557c2630191c6",
+        "EN-1922bc4f51f2158c",
+        "EN-bf78b9d3bc888c6c"
+      ],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.mixed_trace",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Trace Etna.Design.Accounting.Regression.first Etna.Design.Accounting.Regression.last { deposits := 412, withdrawals := 148, bounty := 22, sink := 242 }",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-fb39b71e9b4c760c",
+        "EN-fd0557c2630191c6",
+        "EN-1922bc4f51f2158c",
+        "EN-bf78b9d3bc888c6c"
+      ],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.partial_forfeit",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w3 Etna.Design.Accounting.Regression.w4 { sink := 13 }",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-bf78b9d3bc888c6c"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.partial_forfeit2",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w9 Etna.Design.Accounting.Regression.w10 { sink := 25 }",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-bf78b9d3bc888c6c"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.raw_released_principal_is_an_initialization_boundary",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "¬Etna.Design.Accounting.ReleasedZero Etna.Design.Accounting.Regression.malformed ∧ (Etna.Design.RegistryHistory.register Etna.Design.Accounting.Regression.malformed 8 9 5 1).isSome = Bool.true ∧ Etna.Design.Accounting.held Etna.Design.Accounting.Regression.malformed = 13 ∧ Etna.Design.Accounting.held Etna.Design.Accounting.Regression.overwritten = 5 ∧ Etna.Design.Accounting.held Etna.Design.Accounting.Regression.overwritten ≠ Etna.Design.Accounting.held Etna.Design.Accounting.Regression.malformed + 5",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-471ef75c3d545157", "EN-fd0557c2630191c6"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.recovery",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w13 Etna.Design.Accounting.Regression.w14 Etna.Design.Accounting.Flow.zero",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-d04a236579cc9990", "EN-a291bb263ea08b0c"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.reuse",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w7 Etna.Design.Accounting.Regression.w8 { deposits := 200 }",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-471ef75c3d545157", "EN-fd0557c2630191c6"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.reuse_does_not_resurrect_principal",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.held Etna.Design.Accounting.Regression.w7.registry = 0 ∧ Etna.Design.Accounting.held Etna.Design.Accounting.Regression.w8.registry = 200 ∧ Etna.Design.Accounting.Regression.w8.registry.nextId = 1 ∧ (Etna.Design.Accounting.Regression.w8.registry.slots 0).pendingTopUp = 0 ∧ (Etna.Design.Accounting.Regression.w8.registry.slots 0).confirmedAt = Option.none",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-471ef75c3d545157", "EN-fd0557c2630191c6"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.rollback",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w17 Etna.Design.Accounting.Regression.w18 Etna.Design.Accounting.Flow.zero",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-d04a236579cc9990"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.rollback_and_recovery_keep_economic_effects",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.held Etna.Design.Accounting.Regression.w13.registry = 41 ∧ Etna.Design.Accounting.held Etna.Design.Accounting.Regression.w14.registry = 41 ∧ (Etna.Design.Accounting.Regression.w14.registry.slots 1).exitAt = 14 ∧ Etna.Design.Accounting.held Etna.Design.Accounting.Regression.w17.registry = 40 ∧ Etna.Design.Accounting.held Etna.Design.Accounting.Regression.w18.registry = 40 ∧ (Etna.Design.Accounting.Regression.w17.registry.slots 1).confirmedAt = Option.some 16 ∧ (Etna.Design.Accounting.Regression.w18.registry.slots 1).confirmedAt = Option.none ∧ Etna.Design.Accounting.Regression.w18.registry.forfeited = [10, 8, 7] ∧ Etna.Design.Accounting.Regression.w18.inbox.ethBalance = 0 ∧ Etna.Design.Accounting.Regression.last.inbox.swept = 1000000000",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-d04a236579cc9990", "EN-a291bb263ea08b0c"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.sweep",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w22 Etna.Design.Accounting.Regression.w23 Etna.Design.Accounting.Flow.zero",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-f3138a4a28d8137f"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.topup",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w1 Etna.Design.Accounting.Regression.w2 { deposits := 21 }",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-ab1db15120198ccd"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.topup2",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w8 Etna.Design.Accounting.Regression.w9 { deposits := 50 }",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-ab1db15120198ccd"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.withdrawal1",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w6 Etna.Design.Accounting.Regression.w7 { withdrawals := 108 }",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-fd0557c2630191c6"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.Accounting.Regression.withdrawal2",
+      "module": "EtnaWitnesses.Regressions.Accounting",
+      "type": "Etna.Design.Accounting.Step Etna.Design.Accounting.Regression.w20 Etna.Design.Accounting.Regression.w21 { withdrawals := 40 }",
+      "assumptions": [
+        "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-fd0557c2630191c6"],
+      "scope": "Concrete independently recorded principal-flow regression, or raw malformed initialization boundary unreachable from empty. The comprehensive fixture covers every public step kind but is not itself a full deployment/valid-chain witness; TrajectoryRegression separately checks initialized ordinary rotation. No source coverage or claim evidence."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrowRegression.current_voting_power_survives_full_slash",
+      "module": "EtnaWitnesses.Regressions.SigningEscrow",
+      "type": "Etna.Design.ProtocolState.Step Etna.Design.NonVacuity.minorityWorld Etna.Design.SigningEscrowRegression.afterBurn ∧ Etna.Design.ProtocolState.Trace Etna.Design.NonVacuity.minorityWorld Etna.Design.SigningEscrowRegression.afterBurn ∧ Etna.Statements.Premises Etna.Design.NonVacuity.minorityWorld Etna.Design.NonVacuity.minorityEnv ∧ Etna.Statements.Built Etna.Design.NonVacuity.minorityEnv Etna.Design.SigningEscrowRegression.afterBurn Etna.Design.SigningEscrowRegression.rules ∧ Etna.Design.SigningEscrowRegression.afterBurn.inbox.checkpoint.height = 0 ∧ Etna.Design.SigningEscrowRegression.afterBurn.inbox.generation = 0 ∧ Etna.Design.SigningEscrowRegression.rules.consensus.generation = Etna.Design.SigningEscrowRegression.afterBurn.inbox.generation ∧ Etna.Design.SigningEscrowRegression.afterBurn.inbox.checkpoint.height < 1 ∧ Etna.Design.NonVacuity.member9 ∈ (Etna.Design.Consensus.activeAt Etna.Design.SigningEscrowRegression.rules.consensus 1).members ∧ Etna.Design.Committee.power Etna.Design.SigningEscrowRegression.rules.consensus.unit Etna.Design.NonVacuity.member9 = 1000000000 ∧ (Etna.Design.SigningEscrowRegression.afterBurn.registry.slots 2).key = 9 ∧ (Etna.Design.SigningEscrowRegression.afterBurn.registry.slots 2).released = Bool.false ∧ (Etna.Design.SigningEscrowRegression.afterBurn.registry.slots 2).balance = 0 ∧ (Etna.Design.SigningEscrowRegression.afterBurn.registry.slots 2).confirmedAt = Option.none ∧ Etna.Design.Consensus.CommitValid Etna.Design.SigningEscrowRegression.rules.consensus Etna.Design.SigningEscrowRegression.rules.signature 1 0 101 [Etna.Design.NonVacuity.minorityVote 7 101, Etna.Design.NonVacuity.minorityVote 8 101, Etna.Design.NonVacuity.minorityVote 9 101] ∧ Etna.Design.Staking.withdraw Etna.Design.SigningEscrowRegression.afterBurn.inbox (Etna.Design.SigningEscrowRegression.afterBurn.registry.slots 2) 53 1000000 1 = Option.none",
+      "assumptions": [
+        "Concrete current-generation/future-height fixed committee power after accepted full slashing, or permanent signer retirement. No timestamped new signature event is modeled and the Byzantine minority finality premise is not violated."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-1922bc4f51f2158c", "EN-179bc07a1f6d0129"],
+      "scope": "Concrete current-generation/future-height fixed committee power after accepted full slashing, or permanent signer retirement. No timestamped new signature event is modeled and the Byzantine minority finality premise is not violated."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrowRegression.retired_generation_stays_closed_after_reopening",
+      "module": "EtnaWitnesses.Regressions.SigningEscrow",
+      "type": "Etna.Design.SigningEscrowRegression.signer1.ready = Bool.false ∧ Etna.Design.SigningEscrowRegression.signer1.retired = [0] ∧ (Etna.Design.Signer.openSession Etna.Design.SigningEscrowRegression.signer1 1 Bool.true Bool.true).ready = Bool.true ∧ Etna.Design.Signer.sign (Etna.Design.Signer.openSession Etna.Design.SigningEscrowRegression.signer1 1 Bool.true Bool.true) { domain := Etna.Design.FirstBatch.deployment, generation := 0, trusted := Bool.true, position := { height := 3, round := 0, step := 2 }, bytes := 101 } 55 Bool.true = Option.none ∧ (Etna.Design.Signer.sign (Etna.Design.Signer.openSession Etna.Design.SigningEscrowRegression.signer1 1 Bool.true Bool.true) { domain := Etna.Design.FirstBatch.deployment, generation := 1, trusted := Bool.true, position := { height := 3, round := 0, step := 2 }, bytes := 101 } 55 Bool.true).isSome = Bool.true",
+      "assumptions": [
+        "Concrete current-generation/future-height fixed committee power after accepted full slashing, or permanent signer retirement. No timestamped new signature event is modeled and the Byzantine minority finality premise is not violated."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-6478ed58606b3c3b", "EN-992ca84f0e185f57"],
+      "scope": "Concrete current-generation/future-height fixed committee power after accepted full slashing, or permanent signer retirement. No timestamped new signature event is modeled and the Byzantine minority finality premise is not violated."
+    },
+    {
+      "declaration": "Etna.Design.TrajectoryRegression.initial_released_zero",
+      "module": "EtnaWitnesses.Regressions.Trajectory",
+      "type": "Etna.Design.Accounting.ReleasedZero Etna.Design.NonVacuity.world0.registry",
+      "assumptions": [
+        "The observer applies to an initialized deployment with a valid decoded ordinary rotation chain: standby deposit equals old-validator withdrawal and remaining principal is conserved. External token/storage/crypto/EL implementations are not verified."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-3ce5781807da58ba",
+        "EN-fd0557c2630191c6",
+        "EN-179bc07a1f6d0129"
+      ],
+      "scope": "The observer applies to an initialized deployment with a valid decoded ordinary rotation chain: standby deposit equals old-validator withdrawal and remaining principal is conserved. External token/storage/crypto/EL implementations are not verified."
+    },
+    {
+      "declaration": "Etna.Design.TrajectoryRegression.initialized_rotation_principal_conserved",
+      "module": "EtnaWitnesses.Regressions.Trajectory",
+      "type": "Etna.Design.Deployment.Genesis Etna.Design.NonVacuity.world0 Etna.Design.NonVacuity.genesisHeader.elHash Etna.Design.NonVacuity.genesisHeader.stateRoot ∧ Etna.Design.BlockValidity.Chain Etna.Design.HistoricalEscrow.rules Etna.Design.NonVacuity.genesisHeader Etna.Design.HistoricalEscrow.blocks ∧ Etna.Design.Accounting.held Etna.Design.NonVacuity.world0.registry = 1000000000000000000 ∧ Etna.Design.Accounting.held Etna.Design.HistoricalEscrow.worldE.registry = 1000000000000000000 ∧ Etna.Design.Accounting.held Etna.Design.NonVacuity.world0.registry + 1000000000000000000 = Etna.Design.Accounting.held Etna.Design.HistoricalEscrow.worldE.registry + 1000000000000000000",
+      "assumptions": [
+        "The observer applies to an initialized deployment with a valid decoded ordinary rotation chain: standby deposit equals old-validator withdrawal and remaining principal is conserved. External token/storage/crypto/EL implementations are not verified."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-3ce5781807da58ba",
+        "EN-fd0557c2630191c6",
+        "EN-179bc07a1f6d0129"
+      ],
+      "scope": "The observer applies to an initialized deployment with a valid decoded ordinary rotation chain: standby deposit equals old-validator withdrawal and remaining principal is conserved. External token/storage/crypto/EL implementations are not verified."
+    },
+    {
+      "declaration": "Etna.Design.TrajectoryRegression.ordinary_exit_accounted",
+      "module": "EtnaWitnesses.Regressions.Trajectory",
+      "type": "Etna.Design.Accounting.Trace Etna.Design.NonVacuity.world0 Etna.Design.HistoricalEscrow.worldE { deposits := 1000000000000000000, withdrawals := 1000000000000000000 }",
+      "assumptions": [
+        "The observer applies to an initialized deployment with a valid decoded ordinary rotation chain: standby deposit equals old-validator withdrawal and remaining principal is conserved. External token/storage/crypto/EL implementations are not verified."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-3ce5781807da58ba",
+        "EN-fd0557c2630191c6",
+        "EN-179bc07a1f6d0129"
+      ],
+      "scope": "The observer applies to an initialized deployment with a valid decoded ordinary rotation chain: standby deposit equals old-validator withdrawal and remaining principal is conserved. External token/storage/crypto/EL implementations are not verified."
+    },
+    {
+      "declaration": "Etna.Design.SigningEscrow.trace_withdrawal_window",
+      "module": "EtnaProofs.SigningEscrow",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World} {id caller now amount : Nat} {out : Etna.Design.Staking.Bond}, Etna.Design.ProtocolState.Trace w t → Etna.Design.SigningEscrow.Clocked w → Etna.Design.SigningEscrow.Covered t → Etna.Design.Staking.withdraw t.inbox (t.registry.slots id) caller now t.registry.withdrawalDelay = Option.some (out, amount) → ∃ c, (t.registry.slots id).confirmedAt = Option.some c ∧ c ≤ t.l1Block ∧ c + t.registry.withdrawalDelay ≤ now ∧ (t.registry.slots id).exitAt ≤ t.inbox.snapshot ∧ amount = (t.registry.slots id).balance ∧ out.balance = 0",
+      "assumptions": [
+        "Whole original-trajectory confirmation-clock induction combined with the actual successful withdrawal result: recorded clock, full delay, covered effective exit, exact remaining-principal payout and zero post-balance. Snapshot coverage is explicit; real custody, evidence delivery and authenticated signing-prefix/cutoff linkage remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-4651c537a506e6fd", "EN-fd0557c2630191c6"],
+      "scope": "Whole original-trajectory confirmation-clock induction combined with the actual successful withdrawal result: recorded clock, full delay, covered effective exit, exact remaining-principal payout and zero post-balance. Snapshot coverage is explicit; real custody, evidence delivery and authenticated signing-prefix/cutoff linkage remain external."
     }
   ]
 }

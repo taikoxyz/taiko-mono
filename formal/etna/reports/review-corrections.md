@@ -526,3 +526,30 @@ cases as before; only their `spec` line citations changed.
   remain historical at c9708e761. Add independent numerical/ordering vector assertions.
 
 Earlier sections describe their original revisions and retain historical counts/citations.
+
+## 2026-10-29: whole-trajectory principal and signing/exit assurance
+
+- Add an independently computed TAIKO receipt observer with exact projection/lifting for
+  every original protocol transition, plus genuine zero-flow failed-call stutters. Derive
+  whole-trace principal conservation from slot initialization, including all effective and
+  pending funds, payouts, slashing, forfeiture, recovery, rollback and slot reuse. Prove the
+  initialization invariant from empty lifecycle states and distinguish a malformed raw-state
+  counterexample from reachable behavior. Keep actual ERC20 settlement external and ETH fees
+  separate.
+- Derive confirmation clocks, full withdrawal windows, lifetime key uniqueness and exact
+  effective-exit historical exclusion through arbitrary later original traces. Derive
+  identity/history premises from configured zero-slot states; state snapshot coverage and
+  the selected signing-cutoff bridge explicitly. Prove permanent generation retirement.
+- Add an initialized ordinary-rotation/valid-chain accounting witness, an ordinary historical
+  validity-after-withdrawal witness, and a still-current fixed-power-after-full-slash witness.
+  Continuous positive collateral backing is a design limit; authentic fresh signing-prefix
+  linkage and real signing events remain model boundaries. No fresh-signing withdrawal
+  exploit or evidence-delivery guarantee is claimed.
+- Register 851 exact theorem contracts (142 property, 3 constant, 403 supporting, 303
+  regression), 21 scoped claims and 311 source clauses (71 partial, 237 deferred,
+  3 design-pending). Generic sum and observer-correspondence helpers back no source clauses.
+- Central clean build and strict audit pass, including standard axioms only, fresh kernel
+  replay, nine silent Lean regression modules, all 164 Python tests, unchanged seven-field premise use, vector
+  freshness and deterministic source/artifact checks. Independent semantic review found no
+  Critical/Important findings. See trajectory-assurance.md and signing-escrow-analysis.md for
+  statements, counterexamples, initialization and external-effect boundaries.

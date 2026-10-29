@@ -15,7 +15,7 @@ premise record, `Premises`. To trust the result, read the statements and the pre
 proofs. The package says nothing about the production contracts, client or guests beyond the
 conformance vectors below.
 
-The clause inventory (311 source clauses), the theorem roles and the 18 narrow claims in
+The clause inventory (311 source clauses), the theorem roles and the 21 narrow claims in
 `spec-coverage.json` are a **traceability report, not the verification result**. They record
 which spec clauses some theorem speaks to, and CI keeps them consistent. A clause marked
 partial is not proved.
@@ -205,7 +205,7 @@ The audit fails if any field is read by no headline proof.
   (parentBeaconBlockRoot); the other anchor fields agree only because both headers read them
   from that authenticated L1 block. `hashSeparation` is Keccak
   separation over uint256 openings (the unbounded `Deployment.opening_unique` is vacuous:
-  `opening_separation_unsatisfiable`). Proof completeness (spec L16), durable signer and node
+  `opening_separation_unsatisfiable`). Proof completeness (spec L16), complete durable signer and node
   trust (8.2), and PoS issuance and market-economic guarantees remain out of scope. The launch-capital
   arithmetic below is separately checked under supplied valuation and committee inputs.
 - **Rollback trust (a dropped premise).** A `trustedRollback` premise was considered: the
@@ -249,9 +249,8 @@ it), with the chain-of-custody property at every World.
 
 ### Counterexamples
 
-`EtnaWitnesses/Counterexamples/` holds four scope counterexamples and the repaired
-`StaleDaoAuthorization` regression. Four modules use the non-vacuity deployment; `RecoveryCapture` has its own (n_max 5, four honest parties). The four counterexamples are not failures of H1-H3: they show what a premise carries or
-what remains outside the claims. The fifth module checks the repaired nonce rule.
+`EtnaWitnesses/Counterexamples/` holds five scope counterexamples and the repaired
+`StaleDaoAuthorization` regression. `RecoveryCapture` has its own deployment (n_max 5, four honest parties); the others use the non-vacuity deployment. These are not failures of H1-H3: they show what a premise carries or what remains outside the claims.
 
 - **`NoVerifierSoundness`.** If both proof backends accept a false statement, a checkpoint lands
   that no valid chain reaches, and SignalService publishes its fake state root. Every other
@@ -281,6 +280,34 @@ what remains outside the claims. The fifth module checks the repaired nonce rule
   now proves rejection. `consumed_authorization_never_revives` proves rejection along every
   future whole-machine trace. Deadline equality, initialization and uint256 overflow are
   covered by kernel-checked regressions.
+- **`HistoricalEscrow`.** An ordinary initialized rotation, without recovery or rollback,
+  excludes an exiting key, confirms it and pays its remaining principal after the full delay.
+  Historical height-1 signatures still verify; the old key alone cannot commit at fresh height 13. This is the intended checkpoint/weak-subjectivity boundary, not a fresh-signing exploit.
+
+## Trajectory conservation and signing/exit consistency
+
+`Accounting.protocol_trajectory_conservation` covers every original protocol trace. Given
+zero principal in initially released slots, it proves initial held TAIKO plus accepted deposits
+equals final effective/pending principal plus withdrawals, slash bounty and slash/forfeit sink
+payouts. Receipts come from accepted inputs and actual staking results, not balance differences.
+The initialization condition is derived from empty lifecycle states. Recovery and rollback
+do not recreate payouts; genuine failed calls add zero-flow stutters. ETH fees remain a separate
+conserved asset under the existing `Core` invariant. Exact real token transfers remain external.
+
+`SigningEscrow` proves confirmation clocks, the full block-based withdrawal delay, lifetime
+key uniqueness, and permanent historical exclusion at every cutoff from a finite effective
+exit onward, including after withdrawal/reuse/recovery/rollback. Snapshot coverage needs an
+explicit snapshot discipline; a built committee's exclusion additionally needs its cutoff to
+follow the covered snapshot. Signer-generation retirement holds across arbitrary later signer
+operations. None of these changes the headline premises.
+
+Two limits remain explicit: a fully slashed member can retain current fixed committee power,
+so continuous positive collateral backing is false; and actual trusted signing prefixes,
+selected cutoffs and real signing events are not yet linked in the model. An available evidence
+period also does not guarantee timely evidence delivery or governance action. See
+[trajectory assurance](reports/trajectory-assurance.md) and
+[signing/escrow analysis](reports/signing-escrow-analysis.md) for precise statements and checked
+counterexamples.
 
 ## Registry, recovery and capital alignment
 
@@ -431,7 +458,7 @@ What the audit checks, each with its documented limit:
 
 - **Headline.** `Etna.Proofs.claims` and the three headline theorems have exactly their claim
   types and only the standard axioms.
-- **Exact types.** Each of the 718 manifest entries carries a full expected type, parsed as one
+- **Exact types.** Each of the 851 manifest entries carries a full expected type, parsed as one
   term (no `by`, `sorry` or `%`-elaborators) and compared with the kernel's. The manifest is a
   reviewed artifact; the gate does not compare it with prose.
 - **Rule P** (needed for the `property` role). The statement is quantified, and every conjunct,
@@ -507,21 +534,21 @@ namespace (for example `EtnaModel/Deployment.lean` and `EtnaProofs/Deployment.le
   proofs of H1, H2, H3 and `claims`. `EtnaProofs/Deployment.lean` imports
   `EtnaStatements.Premises` for `Representable`.
 - `EtnaWitnesses/`: `Regressions/` (concrete traces), `Headline/` (the H1 run),
-  `NonVacuity/` (the premise witness) and `Counterexamples/` (four scope counterexamples and the repaired nonce regression).
+  `NonVacuity/` (the premise witness) and `Counterexamples/` (five scope counterexamples and the repaired nonce regression).
 - `EtnaVectors/`: the conformance-vector generator (`lake exe etna-vectors`). It imports only
   the model and nothing imports it; the lint lets only its plain string literals contain `{`,
   and the audit admits its root `main` as the one declaration outside `Etna`.
 - `manifests/design.json`: the theorem contracts; `manifests/shadowing-allowlist.json`.
-- `spec-coverage.json`: the 18 narrow claims (traceability).
+- `spec-coverage.json`: the 21 narrow claims (traceability).
 - `scripts/`, `tests/`: the gate and its tests. `reports/`: review history. `legacy/v9`:
   historical V9 material outside the build.
 
 ## Numbers
 
-- 718 theorem contracts: 101 property, 3 constant, 358 supporting, 256 regression.
-- 101 property derivation chains, checked against the live proof terms.
-- 311 source clauses: 62 partial, 246 deferred, 3 design-pending; 18 narrow claims.
-- 156 Python mutation/regression tests, plus kernel-replayed Lean regression modules.
+- 851 theorem contracts: 142 property, 3 constant, 403 supporting, 303 regression.
+- 142 property derivation chains, checked against the live proof terms.
+- 311 source clauses: 71 partial, 237 deferred, 3 design-pending; 21 narrow claims.
+- 164 Python mutation/regression tests, plus kernel-replayed Lean regression modules.
 - Current vectors: 414 Inbox/registry and 340 client rule vectors. Historical production
   comparisons: 334 contracts (6 divergences) and 340 client (1 divergence).
 

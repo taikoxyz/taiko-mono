@@ -14,6 +14,10 @@ import EtnaWitnesses.Counterexamples.UntrustedRollback
 import EtnaWitnesses.Counterexamples.RecoveryCapture
 import EtnaWitnesses.Counterexamples.ForcedPoisonResubmit
 import EtnaWitnesses.Counterexamples.StaleDaoAuthorization
+import EtnaWitnesses.Counterexamples.HistoricalEscrow
+import EtnaWitnesses.Regressions.Accounting
+import EtnaWitnesses.Regressions.SigningEscrow
+import EtnaWitnesses.Regressions.Trajectory
 
 /-! Etna witnesses: kernel-checked regression traces over concrete Worlds, the non-vacuity
 witness of the headline premises (`NonVacuity`) and scope counterexamples (`Counterexamples`):

@@ -18,6 +18,8 @@ import EtnaModel.HistoricalContext
 import EtnaModel.ProtocolState
 import EtnaModel.Deployment
 import EtnaModel.Accountability
+import EtnaModel.Accounting
+import EtnaModel.SigningEscrow
 
 /-! Etna model: the definitions, structures and transitions the claims and proofs are
 stated over. It holds no theorems except those listed in `scripts/check_imports.py`. -/

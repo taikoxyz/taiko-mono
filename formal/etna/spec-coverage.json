@@ -8,14 +8,15 @@
     "sha256": "8fe38cbd0acb08e0ec838ac064de198e2c32494d9ca2f71b4d0f773804cf37d5"
   },
   "boundaries": {
-    "context": "HistoricalContext derives origin, latest-at-cutoff registry entries and covered anchor lookups from typed authenticated inputs. RegistryHistory models lifetime identities and entry checkpoints; actual root/key-byte validation, genesis provenance and complete evidence/token accounting remain external.",
+    "context": "HistoricalContext derives origin, latest-at-cutoff registry entries and covered anchor lookups from typed inputs. RegistryHistory models lifetime identities and entry checkpoints; actual root/key-byte validation, authenticated signer-prefix/cutoff linkage, genesis provenance and evidence delivery remain external.",
     "l1": "Real raw-header ancestry, canonicality/finality, storage/MPT parsing and authentication are external.",
     "signature": "The signature relation authenticates decoded vote fields and key; actual low-s/ecrecover/sign-byte encoding is external. Full Comet lock/round safety is not derived here.",
     "payload": "Envelope/tx0/raw/singleton bindings and full-range blob-to-payload equality are external named relations, not actual guest proofs.",
     "el": "Complete deterministic EL execution, header/body fields and zk-gas semantics remain external relations.",
     "hash": "Opaque/free hash terms, actual cryptographic separation and canonical encodings remain external.",
     "journal": "ProtocolState composes decoded landing/registry/FI/recovery/rollback transactions under nondecreasing L1 time and structural initial invariants. EVM atomicity, trusted rollback target/snapshot, authenticated DAO-owner calls and node trust remain external; irreversible payouts are not restored.",
-    "deployment": "Stored initialized L, genesisCutoff, K, maxAnchorAge and forcedInclusionDelay, the committee-0 and config commitments, and their authenticated ghost openings: the 4-field config opening (vp_unit, s_min, n_max, U), which the config commitment hashes as seven ABI words together with the domain tag, l2ChainId and registry, and the committee-0 record; plus the World's fixed hash adapters. Every modeled transition preserves them and no transaction input chooses them. Opening authentication and real hash/preimage separation are explicit external assumptions (the representable_opening_unique premise; Premises.hashSeparation for the deployment's own commitment), not proven by a free Rules field."
+    "deployment": "Stored initialized L, genesisCutoff, K, maxAnchorAge and forcedInclusionDelay, the committee-0 and config commitments, and their authenticated ghost openings: the 4-field config opening (vp_unit, s_min, n_max, U), which the config commitment hashes as seven ABI words together with the domain tag, l2ChainId and registry, and the committee-0 record; plus the World's fixed hash adapters. Every modeled transition preserves them and no transaction input chooses them. Opening authentication and real hash/preimage separation are explicit external assumptions (the representable_opening_unique premise; Premises.hashSeparation for the deployment's own commitment), not proven by a free Rules field.",
+    "accounting": "Logical TAIKO principal over allocated slots and successful nominal receipt values; ReleasedZero is required initially and proved from empty lifecycle states. ERC20 custody equality additionally requires exact incoming/outgoing transfers, atomic failure and an initial endowment matching liabilities. ETH fees are separate. No fee-on-transfer, rebase or token callback implementation is verified."
   },
   "design_pending": [
     "EN-fac3b57a8c83d321",
@@ -393,6 +394,70 @@
       "evidence": {
         "EN-61545df98f0ad68f": [
           "Etna.Design.RegistryHistory.future_trace_never_clears_forfeiture"
+        ]
+      }
+    },
+    {
+      "id": "DV-19",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Every original protocol trace lifts to an observer that records accepted deposit inputs and actual staking payout results. Given initially zero principal in released slots, initial held TAIKO plus cumulative deposits equals final held effective and pending principal plus withdrawals, slash bounty and slash/forfeit sink payouts. Failed-call stutters have zero flow; recovery and rollback do not recreate payments.",
+      "assumptions": ["accounting", "journal"],
+      "evidence": {
+        "EN-3ce5781807da58ba": [
+          "Etna.Design.Accounting.protocol_trajectory_conservation"
+        ],
+        "EN-ab1db15120198ccd": [
+          "Etna.Design.Accounting.protocol_trajectory_conservation"
+        ],
+        "EN-fb39b71e9b4c760c": [
+          "Etna.Design.Accounting.protocol_trajectory_conservation"
+        ],
+        "EN-fd0557c2630191c6": [
+          "Etna.Design.Accounting.protocol_trajectory_conservation"
+        ],
+        "EN-1922bc4f51f2158c": [
+          "Etna.Design.Accounting.protocol_trajectory_conservation"
+        ],
+        "EN-bf78b9d3bc888c6c": [
+          "Etna.Design.Accounting.protocol_trajectory_conservation"
+        ]
+      }
+    },
+    {
+      "id": "DV-20",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Starting with no future-dated confirmations, retained confirmation clocks never exceed the current L1 block along original traces. An initially unconfirmed trajectory cannot backdate new confirmations; actual withdrawal requires its recorded confirmation plus the full fixed delay. Coverage by the current snapshot additionally requires the explicit SnapshotTrace discipline, including rollback rechecks; no evidence delivery deadline is proved.",
+      "assumptions": ["context", "journal"],
+      "evidence": {
+        "EN-4651c537a506e6fd": [
+          "Etna.Design.SigningEscrow.trace_clocked",
+          "Etna.Design.SigningEscrow.trace_confirmation_lower_bound",
+          "Etna.Design.SigningEscrow.trace_withdrawal_window"
+        ],
+        "EN-fd0557c2630191c6": [
+          "Etna.Design.SigningEscrow.trace_withdrawal_lower_bound",
+          "Etna.Design.SigningEscrow.trace_withdrawal_window"
+        ],
+        "EN-d04a236579cc9990": ["Etna.Design.SigningEscrow.trace_covered"]
+      }
+    },
+    {
+      "id": "DV-21",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "From a structurally well-formed zero-slot initial world, each nonzero lifetime key with finite effective exit E remains ineligible in typed historical registry selections at every cutoff at least E through all later protocol steps, including withdrawal, slot reuse, recovery and rollback. A built committee excludes a confirmed key when its cutoff is at least the covered confirmation-state snapshot; authentic fresh signer-prefix/cutoff and real signing-event linkage remain explicit external obligations.",
+      "assumptions": ["context", "l1", "journal", "signature"],
+      "evidence": {
+        "EN-e11112a7ad1b77fd": [
+          "Etna.Design.SigningEscrow.unallocated_effective_exit_excluded_forever"
+        ],
+        "EN-4651c537a506e6fd": [
+          "Etna.Design.SigningEscrow.confirmed_key_absent_later_cutoff"
+        ],
+        "EN-d7e07b7ea27ed4a3": [
+          "Etna.Design.SigningEscrow.confirmed_key_absent_later_cutoff"
         ]
       }
     }

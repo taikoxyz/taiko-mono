@@ -46,6 +46,17 @@ UNSOURCED = {
                              'an obligation of no clause (it used to cite the whole 6.1 land clause)',
     'Etna.Proofs.trace_run': 'Trace ⊆ Run for an environment that submits every landing land accepts on a '
                              "trace-reachable World: Run's side condition excludes nothing; an obligation of no clause",
+    'Etna.Design.Accounting.bondEffect_project': 'Payout-observer projection to the existing bond function; modelling correspondence, not a spec obligation',
+    'Etna.Design.Accounting.editEffect_project': 'Payout-observer projection to the existing registry edit; modelling correspondence, not a spec obligation',
+    'Etna.Design.Accounting.editEffect_lift': 'Existing accepted registry edit lifts to the payout observer; modelling correspondence, not a spec obligation',
+    'Etna.Design.Accounting.attempt_failure': 'Generic Option failure stutter; no protocol clause is an obligation of this algebraic identity',
+    'Etna.Design.Accounting.sumBalances_congr': 'Finite-sum congruence helper; no protocol clause is an obligation of this arithmetic identity',
+    'Etna.Design.Accounting.sumBalances_update': 'Finite-sum update helper; no protocol clause is an obligation of this arithmetic identity',
+    'Etna.Design.Accounting.step_project': 'Every observer step is an original step or a failed-call stutter; modelling correspondence only',
+    'Etna.Design.Accounting.step_lift': 'Every original step has an observer step; modelling completeness only',
+    'Etna.Design.Accounting.trace_project': 'Observer traces project to original traces after removing stutters; modelling correspondence only',
+    'Etna.Design.Accounting.trace_lift': 'Every original trace has an observer trace; modelling completeness only',
+    'Etna.Design.SigningEscrow.snapshot_trace_projects': 'Snapshot-disciplined trace projects to the original machine; modelling correspondence only',
 }
 
 

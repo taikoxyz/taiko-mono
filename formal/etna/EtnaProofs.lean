@@ -19,6 +19,8 @@ import EtnaProofs.HistoricalContext
 import EtnaProofs.ProtocolState
 import EtnaProofs.Deployment
 import EtnaProofs.Accountability
+import EtnaProofs.Accounting
+import EtnaProofs.SigningEscrow
 import EtnaProofs.Lifecycle
 import EtnaProofs.Contracts
 import EtnaProofs.Derived
