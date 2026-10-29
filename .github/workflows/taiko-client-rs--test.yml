@@ -241,7 +241,9 @@ jobs:
         with:
           just-version: 1.5.0
 
-      - uses: taiki-e/install-action@d042af60014eb018fcd01f57f4f62118b69e3ea6 # nextest
+      - uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
+        with:
+          tool: nextest
 
       - name: Run unit tests
         working-directory: packages/taiko-client-rs
@@ -377,7 +379,9 @@ jobs:
         working-directory: packages/taiko-client-rs
         run: just check-features
 
-      - uses: taiki-e/install-action@d042af60014eb018fcd01f57f4f62118b69e3ea6 # nextest
+      - uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
+        with:
+          tool: nextest
 
       # Deploy the PR's own protocol contracts: a second checkout pinned to `main`
       # would test different contracts on every re-run and never exercise a PR
