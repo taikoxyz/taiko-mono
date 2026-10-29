@@ -95,11 +95,13 @@ jobs:
             const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
             // Model + token budget are configurable via repo variables.
-            // NOTE: deepseek-v4-pro is a reasoning model — reasoning tokens
-            // count against max_tokens, so a small budget (e.g. 4096) can be
-            // fully consumed before any visible content is produced, yielding
-            // an empty review. Default high (65536) to leave room for output.
-            const model = process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro';
+            // Default to DeepSeek's current default model, `deepseek-flash`.
+            // It is a thinking model (thinking on by default, effort `high`)
+            // like `deepseek-v4-pro`, so reasoning tokens count against
+            // max_tokens: a small budget (e.g. 4096) can be fully consumed
+            // before any visible content is produced, yielding an empty
+            // review. Default high (65536) to leave room for output.
+            const model = process.env.DEEPSEEK_MODEL || 'deepseek-flash';
             const maxTokens = intFromEnv('DEEPSEEK_MAX_TOKENS', 8192 * 8);
 
             // Sticky comment, matched on a hidden marker with the visible
@@ -172,10 +174,10 @@ jobs:
               // the post-time staleness check compares against.
               const reviewedSha = pr.data.head.sha;
 
-              // Truncate the diff if too large. deepseek-v4-pro has a large
-              // context window, so default high and allow overriding via a repo
-              // variable. Declared here because the files-API fallback below
-              // stops assembling once it has this much.
+              // Truncate the diff if too large. DeepSeek's models have a large
+              // context window (1,048,576 tokens), so default high and allow
+              // overriding via a repo variable. Declared here because the
+              // files-API fallback below stops assembling once it has this much.
               const MAX_DIFF = intFromEnv('DEEPSEEK_MAX_DIFF', 2000000);
 
               // The diff media type refuses PRs over 20000 diff lines with a
