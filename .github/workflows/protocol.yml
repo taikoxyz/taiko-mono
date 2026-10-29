@@ -117,8 +117,8 @@ jobs:
           # Only generated outputs travel in the patch. Formatting changes are left out on purpose:
           # commit-generated-artifacts reruns forge fmt itself instead of trusting this job's output.
           git diff --cached --binary --no-renames -- \
-            packages/protocol/gas-reports packages/protocol/snapshots packages/protocol/.gas-snapshot \
-            ':(glob)packages/protocol/**/*_Layout.sol' \
+            ':(glob)packages/protocol/gas-reports/*' ':(glob)packages/protocol/snapshots/*' \
+            packages/protocol/.gas-snapshot ':(glob)packages/protocol/**/*_Layout.sol' \
             > "$RUNNER_TEMP/generated.patch"
           # Wake the commit job only for what it can push: generated outputs or .sol files that
           # its own forge fmt run may reformat.
@@ -223,15 +223,15 @@ jobs:
             git apply --index "$PATCH"
             # Validate what was actually staged, both sides of every change, not what the patch
             # claims: --numstat on the patch only reports a rename's destination.
-            # Only regular files (no symlinks or gitlinks, before or after) at generated paths may
-            # come from the patch.
+            # Only non-executable regular files (no symlinks, gitlinks or exec bits, before or
+            # after) at generated paths may come from the patch.
             # Read from a file, not a pipe, so refuse exits this shell rather than a subshell.
             git diff --cached --raw --no-renames -z > "$RUNNER_TEMP/staged"
             while IFS= read -r -d '' meta && IFS= read -r -d '' path; do
               read -r old_mode new_mode _ <<< "${meta#:}"
               for mode in "$old_mode" "$new_mode"; do
                 case "$mode" in
-                  000000 | 100644 | 100755) ;;
+                  000000 | 100644) ;;
                   *) refuse "non-regular file (mode $mode): $path" ;;
                 esac
               done
@@ -251,7 +251,15 @@ jobs:
           fi
           # Formatting is redone here rather than taken from build-protocol, so a compromised
           # dependency there cannot get source changes committed as "formatting".
-          (cd packages/protocol && forge fmt)
+          # The base branch's forge may not parse syntax from a PR that bumps Foundry; then skip
+          # formatting and still push the generated outputs.
+          if ! (cd packages/protocol && forge fmt); then
+            echo "::warning::forge fmt failed with the base branch's Foundry; pushing generated outputs without formatting."
+            sol=':(glob)packages/protocol/**/*.sol'
+            if [ -n "$(git ls-files -- "$sol")" ]; then
+              git checkout -- "$sol"
+            fi
+          fi
           # build-protocol generates layout files after formatting, so keep them exactly as the
           # validated patch left them (forge fmt would strip their trailing whitespace).
           layouts=':(glob)packages/protocol/**/*_Layout.sol'
