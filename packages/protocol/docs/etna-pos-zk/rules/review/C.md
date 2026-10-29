@@ -6,10 +6,10 @@
 
 These statements in Appendix C carry no ID, deliberately:
 
-| Sentence | Why it has no ID | Verdict proposed |
-|---|---|---|
-| "This appendix states operating requirements, not validity rules." | the type declaration that makes every COST ID an `assumption`; it is a statement about the appendix, not an assumption about the world | keep un-numbered |
-| the closing navigation line to Etna Acceptance and Launch Checklist | a link, not a statement | keep un-numbered |
+| Sentence                                                            | Why it has no ID                                                                                                                       | Verdict proposed |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| "This appendix states operating requirements, not validity rules."  | the type declaration that makes every COST ID an `assumption`; it is a statement about the appendix, not an assumption about the world | keep un-numbered |
+| the closing navigation line to Etna Acceptance and Launch Checklist | a link, not a statement                                                                                                                | keep un-numbered |
 
 ## Q-C-1
 

@@ -32,13 +32,16 @@ A review comment like "section 7.2 has a problem" cannot be resolved, tested or 
 
 **An ID means "this statement is precise and citable". Whether it binds is recorded separately**, in the `Type` column of `INDEX.md`. Not everything worth citing is a rule: section 12 lists limitations and Appendix C lists assumptions, and both deserve a stable reference even though nothing conforms to them.
 
-| Type | Binds | Where | Vectors |
-|---|---|---|---|
-| `rule` | **yes** | numbered sections, Appendices A and B | required |
-| `limitation` | no | 12. Known limitations and open items | none — nothing conforms to a limit |
-| `assumption` | no | Appendix C. Operating funding and cost assumptions | none — an assumption is falsified by measurement, not by an implementation |
+| Type         | Binds   | Where                                              | Vectors                                                                        |
+| ------------ | ------- | -------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `rule`       | **yes** | numbered sections, Appendices A and B              | required                                                                       |
+| `limitation` | no      | 12. Known limitations and open items               | none — nothing conforms to a limit                                             |
+| `assumption` | no      | Appendix C. Operating funding and cost assumptions | none — an assumption is falsified by measurement, not by an implementation     |
+| `retired`    | n/a     | a deleted rule's row, kept in `INDEX.md`           | none — nothing to conform to; the row exists so a stale citation fails visibly |
 
 A statement with **no** ID is explanatory, contextual, or guidance. The un-numbered guidance in 7.2 ("an FI transaction should set `maxFeePerGas` to at least 1 gwei") is advice; nothing conforms or fails against it.
+
+**Scope.** This distinction applies to sections that have been annotated. Text that is un-numbered because its section has not been converted yet keeps its original normative status — do not read an un-annotated requirement as guidance. Annotate the section before relying on the ID/guidance split, and list the sentences you deliberately leave without an ID in that section's _Normativity boundary_ note.
 
 Why a type column and not an RFC-2119 keyword convention: repeating MUST/MUST NOT through prose written to be read would hurt readability without adding precision. The real problem was never a missing "must" — it was that **binding and non-binding statements are indistinguishable**. A citation handle plus a declared type fixes that, is greppable (`[FI-7.2-`), and leaves the prose alone.
 
@@ -66,19 +69,19 @@ Why not restructure the blocks into tables now: that is a change to the specific
 
 `rules/vectors/<section>.md` and `rules/review/<section>.md` are deliberately separate. They have different authors, different lifetimes, and different normative standing, and mixing them is how an open question gets mistaken for a settled rule.
 
-| | `vectors/<section>.md` | `review/<section>.md` |
-|---|---|---|
-| **Holds** | Observable consequences of rules: given this block or landing, accept or reject | Questions the text does not settle |
-| **Nature** | Determined. Derived from a rule; checkable by anyone | Undetermined. No answer yet |
-| **Normative standing** | Conforms to a rule — a failure is a real failure | **None.** Nothing can be conformed to or failed against |
-| **Lifetime** | Durable. Feeds `ACCEPTANCE.md` section 3 and the guests' shared vectors | Transient. A closed question is deleted |
-| **Primary owner** | Spec author; consumed by implementers, prover/guest authors, test authors | Raised by reviewers/implementers/auditors; decided by the spec owner |
-| **When it changes** | Whenever the rule it encodes changes | Whenever someone finds an ambiguity, or a decision is made |
+|                        | `vectors/<section>.md`                                                          | `review/<section>.md`                                                |
+| ---------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| **Holds**              | Observable consequences of rules: given this block or landing, accept or reject | Questions the text does not settle                                   |
+| **Nature**             | Determined. Derived from a rule; checkable by anyone                            | Undetermined. No answer yet                                          |
+| **Normative standing** | Conforms to a rule — a failure is a real failure                                | **None.** Nothing can be conformed to or failed against              |
+| **Lifetime**           | Durable. Feeds `ACCEPTANCE.md` section 3 and the guests' shared vectors         | Transient. A closed question is deleted                              |
+| **Primary owner**      | Spec author; consumed by implementers, prover/guest authors, test authors       | Raised by reviewers/implementers/auditors; decided by the spec owner |
+| **When it changes**    | Whenever the rule it encodes changes                                            | Whenever someone finds an ambiguity, or a decision is made           |
 
 ### `vectors/<section>.md` — how to write it
 
 - **One entry per rule ID.** Every ID needs at least one **accept** vector and, where meaningful, one **reject** vector. If a rule has no observable reject case, say why in the file rather than leaving it blank.
-- **Assert only what the text states.** This is the hard rule. If the text states a *requirement* but not the *consequence of violating it*, the vector says **"violates FI-7.2-X"** — it does **not** invent "block invalid", "reverted", "slashed" or any other outcome. Inventing the consequence is a guess, and a guess in a vector becomes a test that locks in an interpretation nobody decided.
+- **Assert only what the text states.** This is the hard rule. If the text states a _requirement_ but not the _consequence of violating it_, the vector says **"violates FI-7.2-X"** — it does **not** invent "block invalid", "reverted", "slashed" or any other outcome. Inventing the consequence is a guess, and a guess in a vector becomes a test that locks in an interpretation nobody decided.
 - **Unclear ⇒ `review/`.** If you cannot tell what the expected result is, you do not write a vector for it. You open a question in `review/<section>.md` and leave a pointer in the vectors file's "Not covered" table. This is why the vectors file has that table.
 - **Sub-labels.** Sub-claims of one rule use `.a`, `.b`, … (`FI-7.2-1.a`). The rule ID stays the citation; the sub-label names the case.
 - **Ownership on change.** The spec author is the content authority; whoever changes a rule must update its vectors in the same change. A vector that changes is a signal that dependent code and the guests' shared vectors must change too — that coupling is the point, not overhead.
@@ -100,27 +103,28 @@ python3 rules/tools/check.py --base <revision-before-IDs>
 
 Five checks, and what each one actually proves:
 
-| Check | What it proves | When it applies |
-|---|---|---|
-| `purity` | stripping every marker from `SPEC.md` reproduces the base revision **byte for byte** | **Only for the change that introduces IDs**, or any change that claims to be marker-only. Once rule text is amended, the text legitimately differs — name the revision you are editing from, or omit `--base`. |
-| `markers` | IDs are unique, contiguous within their section, and in document order | always |
-| `index` | markers and `INDEX.md` are 1:1, and each ID's section matches its row | always |
-| `assets` | every section has a vectors and a review file; every `rule` has a vector heading; every cited question exists | always |
-| `links` | relative links and `#fragments` resolve; markdown tables have consistent columns | always |
+| Check     | What it proves                                                                                                                                                       | When it applies                                                                                                                                                                                                                             |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `purity`  | stripping every marker from `SPEC.md` reproduces `--base` after normalising line ends and markdown table padding                                                     | **Only when you pass `--base`**: it is a migration check, not an invariant. The repository's prettier hook owns whitespace, so a byte-exact comparison would fail by design; the normalisation tolerates re-padding but not a changed word. |
+| `markers` | IDs are unique, in document order, and contiguous per section; a suffix ID (`FI-7.2-3a`) attaches to its parent number, and a gap left by a `retired` row is allowed | always                                                                                                                                                                                                                                      |
+| `index`   | every marker has exactly one `INDEX.md` row and every live row has a marker; a `retired` row must not still carry a marker                                           | always                                                                                                                                                                                                                                      |
+| `assets`  | every section has a vectors and a review file; every live `rule` has a vector heading; no heading names an unknown ID                                                | always                                                                                                                                                                                                                                      |
+| `links`   | relative links and `#fragments` resolve; tables have consistent columns (pipes inside code spans and escaped pipes are not separators)                               | always                                                                                                                                                                                                                                      |
 
-Exit code is non-zero if any check fails, one line per problem. With no `--base` it falls back to `merge-base HEAD origin/HEAD` and skips `purity` when that ref does not exist.
+Exit code is non-zero if any check fails, one line per problem. **Omitting `--base` skips `purity` and runs the other four** — the normal mode after the ID migration and after any intentional rule amendment.
 
-**A `purity` failure is not automatically a defect.** It means the stripped text differs from the revision you named. If you changed a rule on purpose, name the current base or omit `--base`; if you changed nothing but markers, the markers moved — fix that before committing.
+**A `purity` failure is not automatically a defect.** It means the stripped text differs from the revision you named. If you changed a rule on purpose, name the revision you edited from, or omit `--base`; if you changed nothing but markers, the markers moved — fix that before committing.
+
 ## Responsibility matrix
 
-| Activity | Reviewer / implementer / auditor | Spec author |
-|---|---|---|
-| Insert or amend rule IDs | — | **owns** |
-| Write or update vectors | may propose | **owns** |
-| Raise a review question | **owns** | may raise |
-| Fill in a decision on a review question | **must not** | **owns** |
-| Delete a closed review question | may, after the rule change lands | **owns** |
-| Decide whether a question is worth blocking on | proposes | **decides** |
+| Activity                                       | Reviewer / implementer / auditor | Spec author |
+| ---------------------------------------------- | -------------------------------- | ----------- |
+| Insert or amend rule IDs                       | —                                | **owns**    |
+| Write or update vectors                        | may propose                      | **owns**    |
+| Raise a review question                        | **owns**                         | may raise   |
+| Fill in a decision on a review question        | **must not**                     | **owns**    |
+| Delete a closed review question                | may, after the rule change lands | **owns**    |
+| Decide whether a question is worth blocking on | proposes                         | **decides** |
 
 ## Attribution of a review question
 
@@ -132,6 +136,7 @@ Every question ends with an attribution line:
 - **Attribution confers no authority.** The `Decision` line is still owner-only, and a reviewer must never fill it (see the matrix above). An attributed question is still only a question.
 - Do not leave it as a bare `reviewer`. A question with no known author cannot be followed up, and an anonymous question is easy to discount.
 - If a question is re-raised or materially amended after discussion, add a second attribution line rather than replacing the first.
+
 ## Lifecycle
 
 ```text
