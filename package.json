@@ -8,7 +8,7 @@
     "remove:ignores": "bash scripts/remove-local-ignores.sh"
   },
   "devDependencies": {
-    "lefthook": "^1.6.10",
-    "prettier": "^3.2.5"
+    "lefthook": "^1.13.6",
+    "prettier": "^3.9.10"
   }
 }
