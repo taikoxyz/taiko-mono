@@ -37,7 +37,7 @@ jobs:
       contents: read
     outputs:
       changes: ${{ steps.export.outputs.changes }}
-      base_sha: ${{ steps.export.outputs.base_sha }}
+      build_sha: ${{ steps.export.outputs.build_sha }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -112,12 +112,13 @@ jobs:
         if: github.event.pull_request.head.repo.fork == false
         run: |
           set -euo pipefail
-          echo "base_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "build_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           git add -A packages/protocol
           # Only generated outputs travel in the patch. Formatting changes are left out on purpose:
           # commit-generated-artifacts reruns forge fmt itself instead of trusting this job's output.
           git diff --cached --binary --no-renames -- \
-            packages/protocol/gas-reports packages/protocol/snapshots packages/protocol/.gas-snapshot \ ':(glob)packages/protocol/**/*_Layout.sol' \
+            packages/protocol/gas-reports packages/protocol/snapshots packages/protocol/.gas-snapshot \
+            ':(glob)packages/protocol/**/*_Layout.sol' \
             > "$RUNNER_TEMP/generated.patch"
           # Wake the commit job only for what it can push: generated outputs or .sol files that
           # its own forge fmt run may reformat.
@@ -193,15 +194,15 @@ jobs:
           name: protocol-generated-patch
           path: ${{ runner.temp }}/patch
 
+      # No token in this step: forge fmt parses PR-authored Solidity here.
       - name: Commit generated protocol artifacts
+        id: commit
         env:
-          PUSH_TOKEN: ${{ secrets.TAIKO_KITTY_TOKEN }}
-          HEAD_REF: ${{ github.head_ref }}
-          BASE_SHA: ${{ needs.build-protocol.outputs.base_sha }}
+          BUILD_SHA: ${{ needs.build-protocol.outputs.build_sha }}
           PATCH: ${{ runner.temp }}/patch/generated.patch
         run: |
           set -euo pipefail
-          if [ "$(git rev-parse HEAD)" != "$BASE_SHA" ]; then
+          if [ "$(git rev-parse HEAD)" != "$BUILD_SHA" ]; then
             echo "Branch moved since the build ran; the newer push regenerates the artifacts."
             exit 0
           fi
@@ -210,7 +211,7 @@ jobs:
             exit 1
           }
           # Generated outputs: storage layout files, gas reports and snapshots.
-          generated='^packages/protocol/([^ ]+_Layout[.]sol|gas-reports/[^ ]+|snapshots/[^ ]+|[.]gas-snapshot)$'
+          generated='^packages/protocol/([^ ]+_Layout[.]sol|gas-reports/[^/ ]+|snapshots/[^/ ]+|[.]gas-snapshot)$'
           # Files forge fmt may modify in place.
           formatted='^packages/protocol/[^ ]+[.]sol$'
           if [ -s "$PATCH" ]; then
@@ -283,10 +284,20 @@ jobs:
           git -c user.name="github-actions[bot]" \
             -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -m "Update protocol generated artifacts"
+          echo "push=true" >> "$GITHUB_OUTPUT"
+
+      - name: Push generated protocol artifacts
+        if: steps.commit.outputs.push == 'true'
+        env:
+          PUSH_TOKEN: ${{ secrets.TAIKO_KITTY_TOKEN }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
           auth=$(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 -w0)
           echo "::add-mask::$auth"
-          # Deliberately not forced: the commit's parent is BASE_SHA, so if the branch moved while
-          # this job ran, the push is rejected as a non-fast-forward instead of landing stale output.
+          # Deliberately not forced: the commit's parent is the build's head SHA, so if the branch
+          # moved while this job ran, the push is rejected as a non-fast-forward instead of landing
+          # stale output.
           # The header goes through git's environment config rather than -c, so the credential
           # never appears in the process list.
           GIT_CONFIG_COUNT=1 \
