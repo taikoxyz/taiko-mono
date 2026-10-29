@@ -5,6 +5,9 @@ on:
   issue_comment:
     types: [created]
 
+permissions:
+  contents: read
+
 jobs:
   gate:
     # SECURITY: only owners/members/collaborators can trigger this: issue_comment runs with repo

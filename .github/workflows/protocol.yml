@@ -24,40 +24,37 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   build-protocol:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
     runs-on: ubuntu-latest
+    # SECURITY: this job runs PR code and dependency install scripts, so it holds no secrets and a
+    # read-only token. Generated artifacts are handed to commit-generated-artifacts as a patch.
     permissions:
-      # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
-      contents: write
+      contents: read
+    outputs:
+      changes: ${{ steps.export.outputs.changes }}
+      base_sha: ${{ steps.export.outputs.base_sha }}
     steps:
-      - name: Cancel previous runs
-        # Fork PRs get a read-only token, so cancelling needs actions: write they do not have.
-        if: github.event.pull_request.head.repo.fork != true
-        uses: styfle/cancel-workflow-action@0.13.1
-        with:
-          access_token: ${{ github.token }}
-
-      - name: Fetch owner/repo of pull request
-        uses: alessbell/pull-request-comment-branch@v2.1.0
-        id: comment-branch
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # account for forked repos case
-          ref: ${{ steps.comment-branch.outputs.head_ref }}
-          repository: ${{ steps.comment-branch.outputs.head_owner }}/${{ steps.comment-branch.outputs.head_repo }}
+          ref: ${{ github.head_ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
           # Fetch more history for better git operations
           fetch-depth: 0
-          token: ${{ github.event.pull_request.head.repo.fork == false && secrets.TAIKO_KITTY_TOKEN || github.token }}
+          persist-credentials: false
 
       - name: Read Foundry version
         id: foundry-version
         run: echo "version=$(grep foundry packages/protocol/.tool-versions | awk '{print $2}')" >> $GITHUB_OUTPUT
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1.5.0
+        uses: foundry-rs/foundry-toolchain@50d5a8956f2e319df19e6b57539d7e2acb9f8c1e # v1.5.0
         with:
           version: ${{ steps.foundry-version.outputs.version }}
 
@@ -110,23 +107,27 @@ jobs:
       #   env:
       #     CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-      - name: Check for changes
-        id: git_status
+      - name: Export generated protocol artifacts
+        id: export
+        if: github.event.pull_request.head.repo.fork == false
         run: |
-          git add -N .  # Simulate staging to detect untracked files
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "changes=true" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          echo "base_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git add -A packages/protocol
+          git diff --cached --binary --no-renames > "$RUNNER_TEMP/generated.patch"
+          if [ -s "$RUNNER_TEMP/generated.patch" ]; then
+            echo "changes=true" >> "$GITHUB_OUTPUT"
           else
-            echo "changes=false" >> $GITHUB_OUTPUT
+            echo "changes=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Commit generated protocol artifacts
-        if: steps.git_status.outputs.changes == 'true' && github.event.pull_request.head.repo.fork == false
-        uses: stefanzweifel/git-auto-commit-action@v7
+      - name: Upload generated protocol artifacts
+        if: steps.export.outputs.changes == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          commit_message: "Update protocol generated artifacts"
-          branch: ${{ github.head_ref }}
-          push_options: "--force-with-lease"
+          name: protocol-generated-patch
+          path: ${{ runner.temp }}/generated.patch
+          retention-days: 1
 
       - name: L1-Deploy contracts
         working-directory: ./packages/protocol
@@ -138,31 +139,82 @@ jobs:
           done
           pnpm test:deploy:l1
 
+  commit-generated-artifacts:
+    needs: build-protocol
+    if: needs.build-protocol.outputs.changes == 'true' && github.event.pull_request.head.repo.fork == false
+    runs-on: ubuntu-latest
+    # SECURITY: the only job that sees TAIKO_KITTY_TOKEN. It never runs PR code: it applies the
+    # patch from build-protocol, restricted to generated paths, onto a fresh checkout and pushes it.
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.head_ref }}
+          persist-credentials: false
+
+      - name: Download generated protocol artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: protocol-generated-patch
+          path: ${{ runner.temp }}/patch
+
+      - name: Commit generated protocol artifacts
+        env:
+          PUSH_TOKEN: ${{ secrets.TAIKO_KITTY_TOKEN }}
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_SHA: ${{ needs.build-protocol.outputs.base_sha }}
+          PATCH: ${{ runner.temp }}/patch/generated.patch
+        run: |
+          set -euo pipefail
+          if [ "$(git rev-parse HEAD)" != "$BASE_SHA" ]; then
+            echo "Branch moved since the build ran; the newer push regenerates the artifacts."
+            exit 0
+          fi
+          # build-protocol exports plain diffs (--no-renames, regular files), so rename/copy or symlink
+          # headers mean the patch did not come from the exporter.
+          if grep -qE '^(rename|copy) (from|to) |^[a-z ]*mode 120000$' "$PATCH"; then
+            echo "Refusing to apply a patch with rename, copy or symlink entries." >&2
+            exit 1
+          fi
+          git apply --index "$PATCH"
+          # Validate what was actually staged, both sides of every change, not what the patch claims:
+          # --numstat on the patch only reports a rename's destination.
+          # Only generated files may be pushed: formatted/layout .sol files, gas reports and snapshots.
+          allowed='^packages/protocol/([^ ]+[.]sol|gas-reports/[^ ]+|snapshots/[^ ]+|layout/[^ ]+|[.]gas-snapshot)$'
+          git diff --cached --name-only --no-renames -z | while IFS= read -r -d '' path; do
+            if [[ ! "$path" =~ $allowed ]]; then
+              echo "Refusing to push unexpected path: $path" >&2
+              exit 1
+            fi
+          done
+          git -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "Update protocol generated artifacts"
+          auth=$(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 -w0)
+          echo "::add-mask::$auth"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" \
+            push origin "HEAD:refs/heads/${HEAD_REF}"
+
   genesis-docker:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
     runs-on: [taiko-runner]
     permissions:
-      # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
-      contents: write
+      contents: read
     steps:
-      - name: Cancel previous runs
-        # Fork PRs get a read-only token, so cancelling needs actions: write they do not have.
-        if: github.event.pull_request.head.repo.fork != true
-        uses: styfle/cancel-workflow-action@0.13.1
-        with:
-          access_token: ${{ github.token }}
-
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
+          persist-credentials: false
 
       - name: Read Foundry version
         id: foundry-version
         run: echo "version=$(grep foundry packages/protocol/.tool-versions | awk '{print $2}')" >> $GITHUB_OUTPUT
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1.5.0
+        uses: foundry-rs/foundry-toolchain@50d5a8956f2e319df19e6b57539d7e2acb9f8c1e # v1.5.0
         with:
           version: ${{ steps.foundry-version.outputs.version }}
 
