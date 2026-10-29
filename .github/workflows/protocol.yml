@@ -114,8 +114,13 @@ jobs:
           set -euo pipefail
           echo "base_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           git add -A packages/protocol
-          git diff --cached --binary --no-renames -- packages/protocol > "$RUNNER_TEMP/generated.patch"
-          if [ -s "$RUNNER_TEMP/generated.patch" ]; then
+          # Only generated outputs travel in the patch. Formatting changes are left out on purpose:
+          # commit-generated-artifacts reruns forge fmt itself instead of trusting this job's output.
+          git diff --cached --binary --no-renames -- \
+            packages/protocol/gas-reports packages/protocol/snapshots packages/protocol/layout \
+            packages/protocol/.gas-snapshot ':(glob)packages/protocol/**/*_Layout.sol' \
+            > "$RUNNER_TEMP/generated.patch"
+          if ! git diff --cached --quiet -- packages/protocol; then
             echo "changes=true" >> "$GITHUB_OUTPUT"
           else
             echo "changes=false" >> "$GITHUB_OUTPUT"
@@ -144,8 +149,9 @@ jobs:
     if: needs.build-protocol.outputs.changes == 'true' && github.event.pull_request.head.repo.fork == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # SECURITY: the only job that sees TAIKO_KITTY_TOKEN. It never runs PR code: it applies the
-    # patch from build-protocol, restricted to generated paths, onto a fresh checkout and pushes it.
+    # SECURITY: the only job that sees TAIKO_KITTY_TOKEN. It never runs PR code or dependency
+    # scripts: it applies the patch from build-protocol (generated outputs only, comment-only layout
+    # files) onto a fresh checkout, reruns forge fmt itself, and pushes the result.
     permissions:
       contents: read
     steps:
@@ -154,6 +160,15 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
           persist-credentials: false
+
+      - name: Read Foundry version
+        id: foundry-version
+        run: echo "version=$(grep foundry packages/protocol/.tool-versions | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@50d5a8956f2e319df19e6b57539d7e2acb9f8c1e # v1.5.0
+        with:
+          version: ${{ steps.foundry-version.outputs.version }}
 
       - name: Download generated protocol artifacts
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -173,38 +188,54 @@ jobs:
             echo "Branch moved since the build ran; the newer push regenerates the artifacts."
             exit 0
           fi
-          # build-protocol exports plain diffs (--no-renames), so rename/copy headers mean the patch
-          # did not come from the exporter.
-          if grep -qE '^(rename|copy) (from|to) ' "$PATCH"; then
-            echo "Refusing to apply a patch with rename or copy entries." >&2
+          refuse() {
+            echo "Refusing to push: $*" >&2
             exit 1
-          fi
-          git apply --index "$PATCH"
-          if git diff --cached --quiet; then
-            echo "Patch staged no changes; nothing to push." >&2
-            exit 1
-          fi
-          # Validate what was actually staged, both sides of every change, not what the patch claims:
-          # --numstat on the patch only reports a rename's destination.
-          # Only regular files (no symlinks or gitlinks, before or after) at generated paths may be
-          # pushed: formatted/layout .sol files, gas reports and snapshots.
-          allowed='^packages/protocol/([^ ]+[.]sol|gas-reports/[^ ]+|snapshots/[^ ]+|layout/[^ ]+|[.]gas-snapshot)$'
-          git diff --cached --raw --no-renames -z | while IFS= read -r -d '' meta && IFS= read -r -d '' path; do
-            read -r old_mode new_mode _ <<< "${meta#:}"
-            for mode in "$old_mode" "$new_mode"; do
-              case "$mode" in
-                000000 | 100644 | 100755) ;;
-                *)
-                  echo "Refusing to push non-regular file (mode $mode): $path" >&2
-                  exit 1
-                  ;;
-              esac
-            done
-            if [[ ! "$path" =~ $allowed ]]; then
-              echo "Refusing to push unexpected path: $path" >&2
-              exit 1
+          }
+          if [ -s "$PATCH" ]; then
+            # build-protocol exports plain diffs (--no-renames), so rename/copy headers mean the
+            # patch did not come from the exporter.
+            if grep -qE '^(rename|copy) (from|to) ' "$PATCH"; then
+              refuse "patch has rename or copy entries"
             fi
-          done
+            git apply --index "$PATCH"
+            # Validate what was actually staged, both sides of every change, not what the patch
+            # claims: --numstat on the patch only reports a rename's destination.
+            # Only regular files (no symlinks or gitlinks, before or after) at generated paths may
+            # be pushed: storage layout files, gas reports and snapshots.
+            allowed='^packages/protocol/([^ ]+_Layout[.]sol|gas-reports/[^ ]+|snapshots/[^ ]+|layout/[^ ]+|[.]gas-snapshot)$'
+            # Read from a file, not a pipe, so refuse exits this shell rather than a subshell.
+            git diff --cached --raw --no-renames -z > "$RUNNER_TEMP/staged"
+            while IFS= read -r -d '' meta && IFS= read -r -d '' path; do
+              read -r old_mode new_mode _ <<< "${meta#:}"
+              for mode in "$old_mode" "$new_mode"; do
+                case "$mode" in
+                  000000 | 100644 | 100755) ;;
+                  *) refuse "non-regular file (mode $mode): $path" ;;
+                esac
+              done
+              [[ "$path" =~ $allowed ]] || refuse "unexpected path: $path"
+              # gen-layouts.sh writes layouts as comments plus SPDX/pragma lines; any other line
+              # would be Solidity source smuggled in under a generated file name.
+              if [[ "$path" == *_Layout.sol && "$new_mode" != 000000 ]]; then
+                rc=0
+                grep -qvE '^[[:space:]]*(//.*)?$|^pragma solidity [^;]+;$' "$path" || rc=$?
+                case "$rc" in
+                  1) ;;
+                  0) refuse "layout file has non-comment content: $path" ;;
+                  *) refuse "could not read layout file: $path" ;;
+                esac
+              fi
+            done < "$RUNNER_TEMP/staged"
+          fi
+          # Formatting is redone here rather than taken from build-protocol, so a compromised
+          # dependency there cannot get source changes committed as "formatting".
+          (cd packages/protocol && forge fmt)
+          git add -u -- packages/protocol
+          if git diff --cached --quiet; then
+            echo "No generated changes to push."
+            exit 0
+          fi
           git -c user.name="github-actions[bot]" \
             -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -m "Update protocol generated artifacts"
