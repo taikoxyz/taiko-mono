@@ -226,8 +226,8 @@ sees them:
 
 ## Not covered by the Inbox families
 
-ABI and storage encodings, events, ERC-7201 namespace byte layouts, actual token transfers,
-key/signature formats (`../etna_vectors/vectors.json`), committee election, and real guests
+ABI and storage encodings, events, ERC-7201 namespace byte layouts, actual ERC20 transfers,
+consensus-key and signature formats (`../etna_vectors/vectors.json`), committee election, and real guests
 remain separate conformance obligations. Logical fields and decoded atomic-effect adapters do
 not prove those implementations. The client-rule families below cover only their listed pure
 rules. Actual verifier-replacement upgrades, trusted rollback-target provenance, deployment

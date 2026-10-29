@@ -512,7 +512,7 @@ namespace (for example `EtnaModel/Deployment.lean` and `EtnaProofs/Deployment.le
   the model and nothing imports it; the lint lets only its plain string literals contain `{`,
   and the audit admits its root `main` as the one declaration outside `Etna`.
 - `manifests/design.json`: the theorem contracts; `manifests/shadowing-allowlist.json`.
-- `spec-coverage.json`: the 16 narrow claims (traceability).
+- `spec-coverage.json`: the 18 narrow claims (traceability).
 - `scripts/`, `tests/`: the gate and its tests. `reports/`: review history. `legacy/v9`:
   historical V9 material outside the build.
 
