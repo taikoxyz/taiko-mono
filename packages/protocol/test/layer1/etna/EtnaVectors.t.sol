@@ -48,6 +48,9 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
     function test_layout_InboxWordSlotsAreWhatTheGettersRead() external {
         string memory j = LibEtnaVectors.load();
         assertEq(_inboxSlot(j, "recovery_generation"), RECOVERY_GENERATION_SLOT);
+        assertEq(_inboxSlot(j, "recovery_nonce"), 292);
+        _storeInbox(j, "recovery_nonce", bytes32(type(uint256).max));
+        assertEq(inbox.recoveryNonce(), type(uint256).max, "292 full uint256");
         assertEq(_inboxSlot(j, "committee_config_hash"), COMMITTEE_CONFIG_HASH_SLOT);
         assertEq(_inboxSlot(j, "last_checkpoint_height"), LAST_CHECKPOINT_HEIGHT_SLOT);
         assertEq(_inboxSlot(j, "last_checkpoint_hash"), LAST_CHECKPOINT_HASH_SLOT);
@@ -1139,6 +1142,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
     /// whose hash it sets, attaches its blobs and plants slot 258 = 3 and the vector config hash.
     function _etchVectorInbox(string memory _j, string memory _in) private returns (address at_) {
         at_ = _address(_j, ".deployment.", "inbox");
+        vm.etch(_address(_j, ".deployment.", "registry"), registry.impl().code);
         assertEq(_address(_j, _in, "inbox"), at_, "statement inbox");
         assertEq(_address(_j, _in, "registry"), _address(_j, ".deployment.", "registry"));
         vm.chainId(_uint(_j, _in, "l1_chain_id"));

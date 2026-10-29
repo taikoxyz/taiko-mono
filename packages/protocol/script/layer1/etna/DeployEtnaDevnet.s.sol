@@ -33,7 +33,8 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// defaults to ETNA_S_MIN if unset, empty or zero (the two are independent parameters);
 /// REGISTRY_ACTIVATION_DELAY, REGISTRY_EXIT_DELAY and REGISTRY_WITHDRAWAL_DELAY in L1 blocks, each
 /// in [1, 2^32);
-/// SLASH_BOUNTY_BPS (at most 10,000); SLASH_SINK (non-zero); L2_CHAIN_ID.
+/// SLASH_BOUNTY_BPS (at most 10,000); SLASH_SINK (non-zero); L2_CHAIN_ID;
+/// REGISTRY_FORFEIT_BPS (required, in [1, 10,000], with no production default).
 /// `deployInbox()`: INBOX_PROXY; STAKING_REGISTRY; ETNA_PROOF_VERIFIER, which must have code;
 /// REMOTE_SIGNAL_SERVICE (the L2 SignalService); L1_CHAIN_ID, which must equal this chain's id;
 /// L2_CHAIN_ID, which must equal the registry's; MAX_BATCH_BLOCKS (in [6, 65,532]);
@@ -185,7 +186,8 @@ contract DeployEtnaDevnet is Script {
             slashBountyBps: vm.envUint("SLASH_BOUNTY_BPS"),
             slashSink: vm.envAddress("SLASH_SINK"),
             l2ChainId: _envUint64("L2_CHAIN_ID"),
-            inbox: vm.envAddress("INBOX_PROXY")
+            inbox: vm.envAddress("INBOX_PROXY"),
+            forfeitBps: vm.envUint("REGISTRY_FORFEIT_BPS")
         });
     }
 

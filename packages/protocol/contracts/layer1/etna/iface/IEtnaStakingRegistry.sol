@@ -40,6 +40,8 @@ interface IEtnaStakingRegistry {
         uint64 l2ChainId;
         /// @notice The Etna Inbox proxy; must have code.
         address inbox;
+        /// @notice The responsibility-forfeiture rate in basis points, in [1, 10,000].
+        uint256 forfeitBps;
     }
 
     /// @notice The registry at the end of an L1 block that changed an entry (array at slot R, two
@@ -123,6 +125,31 @@ interface IEtnaStakingRegistry {
     /// @param exitEffectiveL1 The L1 block at which the exit takes effect.
     event ExitRequested(uint256 indexed bondId, uint48 exitEffectiveL1);
 
+    /// @notice Emitted when an owner deposits delayed principal (spec 4.1).
+    /// @param bondId The entry's slot.
+    /// @param amount The deposited TAIKO base units.
+    /// @param readyAtL1 The first L1 block at which activation may be called.
+    event TopUpDeposited(uint256 indexed bondId, uint256 amount, uint48 readyAtL1);
+
+    /// @notice Emitted when pending principal becomes effective stake.
+    /// @param bondId The entry's slot.
+    /// @param amount The activated TAIKO base units.
+    event TopUpActivated(uint256 indexed bondId, uint256 amount);
+
+    /// @notice Emitted when the DAO deducts principal and forces an exit (spec 4.4).
+    /// @param bondId The entry's slot.
+    /// @param entryKey The lifetime consensus-key identity.
+    /// @param incidentId The DAO's published attribution identifier; not globally unique.
+    /// @param balanceBefore The effective and pending principal at execution.
+    /// @param penalty The amount sent to slashSink.
+    event Forfeited(
+        uint256 indexed bondId,
+        bytes32 indexed entryKey,
+        bytes32 incidentId,
+        uint256 balanceBefore,
+        uint256 penalty
+    );
+
     /// @notice Emitted when an exit is first confirmed.
     /// @param bondId The entry's bond id.
     /// @param exitConfirmedAtL1 The L1 block of the confirmation, where the withdrawal delay
@@ -202,6 +229,58 @@ interface IEtnaStakingRegistry {
     /// @param _bondId The bond id.
     function requestExit(uint256 _bondId) external;
 
+    /// @notice Deposits principal into an active entry without using a registry slot (spec 4.1).
+    /// @dev Only its owner, with positive effective stake, no exit and no pending deposit.
+    /// Transfers `_amount` TAIKO and records readiness after activationDelay L1 blocks.
+    /// Pending principal has no voting power and changes no entry checkpoint. Available before
+    /// Inbox initialization; a ready deposit still requires explicit activation.
+    /// @param _bondId The unreleased entry's slot.
+    /// @param _amount The positive TAIKO base units approved to this registry.
+    function topUp(uint256 _bondId, uint256 _amount) external;
+
+    /// @notice Activates all pending principal once its L1 readiness block is reached.
+    /// @dev Anyone may call, with a pending deposit and no exit set. Clears pending state and
+    /// writes the usual entry checkpoint; historical snapshots and committees remain unchanged.
+    /// @param _bondId The unreleased entry's slot.
+    function activateTopUp(uint256 _bondId) external;
+
+    /// @notice Deducts a fixed fraction of remaining principal and forces exit (spec 4.4).
+    /// @dev Registry owner only after Inbox initialization, once per lifetime entryKey, through
+    /// any DAO execution path. Checks the current slot identity, positive effective plus pending
+    /// principal, and block.timestamp <= _validUntil. Deducts ceil(balance * forfeitBps / 10000)
+    /// from effective stake first, then pending funds; pays only slashSink. Preserves any exit
+    /// confirmation. No nonce, revocation, freeze or additional delay; landing and recovery do
+    /// not invalidate an unexecuted authorization. Attribution is a governance responsibility.
+    /// @param _bondId The unreleased entry's slot, including requested or confirmed exits.
+    /// @param _entryKey keccak256(abi.encode(ckPrefix, ckX)) of the expected occupant.
+    /// @param _incidentId The published attribution identifier.
+    /// @param _validUntil The inclusive L1 Unix timestamp deadline in seconds.
+    function forfeit(
+        uint256 _bondId,
+        bytes32 _entryKey,
+        bytes32 _incidentId,
+        uint256 _validUntil
+    )
+        external;
+
+    /// @notice Returns pending principal and its readiness block, both zero after release.
+    /// @param _bondId The entry's slot.
+    /// @return pendingTopUp_ Pending TAIKO base units, excluded from voting power.
+    /// @return readyAtL1_ The L1 readiness block, or zero without pending principal.
+    function topUpOf(uint256 _bondId)
+        external
+        view
+        returns (uint256 pendingTopUp_, uint48 readyAtL1_);
+
+    /// @notice Returns the lifetime forfeiture flag, never reset by release or recovery.
+    /// @param _entryKey The consensus-key identity.
+    /// @return forfeited_ Whether responsibility forfeiture already executed for this key.
+    function forfeited(bytes32 _entryKey) external view returns (bool forfeited_);
+
+    /// @notice Returns the deployment's fixed responsibility-forfeiture rate.
+    /// @return forfeitBps_ The basis points, in [1, 10,000].
+    function forfeitBps() external view returns (uint256 forfeitBps_);
+
     /// @notice Records the exit confirmation that starts the withdrawal delay (spec 4.1).
     /// @dev Callable by anyone. Reverts `InboxLocked` whenever the Inbox holds its reentrancy
     /// lock, which it does throughout `land`, `recover`, `saveForcedInclusion` (including the
@@ -216,10 +295,11 @@ interface IEtnaStakingRegistry {
     /// (spec 4.1).
     /// @dev Reverts `InboxLocked` whenever the Inbox holds its reentrancy lock (see
     /// `confirmExit`). Requires a confirmed exit and block.number >= exitConfirmedAtL1 +
-    /// withdrawalDelay. With a positive stake only the bond owner may call and the stake goes to
+    /// withdrawalDelay. Principal includes both effStake and pendingTopUp. With positive
+    /// principal only the bond owner may call and the principal goes to
     /// a non-zero `_to`; a slashed entry is released by anyone without payment. Zeros the entry,
-    /// clears its owner and confirmation, frees the slot and writes the current block's
-    /// checkpoint; the key stays used.
+    /// clears its owner, confirmation and pending fields, frees the slot and writes the current
+    /// block's checkpoint; the key stays used and its lifetime forfeiture flag is retained.
     /// @param _bondId The bond id.
     /// @param _to The recipient of the stake.
     function withdraw(uint256 _bondId, address _to) external;
@@ -230,8 +310,9 @@ interface IEtnaStakingRegistry {
     /// generation is at most the Inbox's recoveryGeneration. Each signature recovers, over
     /// keccak256 of the vote's sign bytes under this deployment's chain id for that generation
     /// (appendix A), to the address of the entry's stored key. The entry must be unreleased with a
-    /// positive stake. Sets effStake to zero and exitEffectiveL1 to min(existing, block.number),
-    /// pays slashBountyBps of the stake to the caller and the rest to slashSink, and writes the
+    /// positive effective plus pending principal. Clears both balances and top-up readiness,
+    /// sets exitEffectiveL1 to min(existing, block.number), pays slashBountyBps of all principal
+    /// to the caller and the rest to slashSink, and writes the
     /// current block's checkpoint.
     /// @param _bondId The bond id.
     /// @param _voteA One vote.
@@ -361,4 +442,10 @@ interface IEtnaStakingRegistry {
     error UnknownCheckpoint();
     /// @notice The caller is not the Inbox.
     error NotInbox();
+    error TopUpNotAllowed();
+    error InvalidTopUpAmount();
+    error TopUpPending();
+    error TopUpNotReady();
+    error AlreadyForfeited();
+    error AuthorizationExpired();
 }

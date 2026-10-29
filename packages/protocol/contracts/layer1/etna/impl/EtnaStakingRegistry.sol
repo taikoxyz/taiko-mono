@@ -15,7 +15,7 @@ import "./EtnaStakingRegistry_Layout.sol"; // DO NOT DELETE
 
 /// @title EtnaStakingRegistry
 /// @notice The TAIKO staking registry of the Etna PoS chain; see `IEtnaStakingRegistry`.
-/// @dev All state lives in three ERC-7201 namespaces (spec appendix B). `taiko.etna.registry`
+/// @dev All state lives in five ERC-7201 namespaces (spec appendix B). `taiko.etna.registry`
 /// holds, from its base R: `checkpoints` (R) and `entries` (R + 1), the only slots nodes read,
 /// then the storage appendix B does not name: the tree nodes, the free slot list and the used key
 /// addresses.
@@ -55,6 +55,22 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         mapping(uint256 bondId => uint256 l1Block) exitConfirmedAtL1;
     }
 
+    /// @dev Principal awaiting explicit activation, outside the entries root.
+    struct TopUp {
+        uint256 pendingTopUp;
+        uint48 readyAtL1;
+    }
+
+    /// @custom:storage-location erc7201:taiko.etna.registry.top-ups
+    struct TopUpsStorage {
+        mapping(uint256 bondId => TopUp topUp) topUps;
+    }
+
+    /// @custom:storage-location erc7201:taiko.etna.registry.forfeitures
+    struct ForfeituresStorage {
+        mapping(bytes32 entryKey => bool forfeited) forfeitures;
+    }
+
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -83,6 +99,14 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// @dev `erc7201("taiko.etna.registry.exit-confirmations")`.
     bytes32 private constant _EXIT_CONFIRMATIONS_STORAGE_SLOT =
         0x25e74f824855a18216fe2fa8b7d9dcc76ad83f6de1a344c666c3293e57124900;
+
+    /// @dev erc7201("taiko.etna.registry.top-ups").
+    bytes32 private constant _TOP_UPS_STORAGE_SLOT =
+        0x3a1aea98c955969894fa1164a9cf4fb395d732d0191953a25567edb8a7c00400;
+
+    /// @dev erc7201("taiko.etna.registry.forfeitures").
+    bytes32 private constant _FORFEITURES_STORAGE_SLOT =
+        0xdfeb3c25dc200ebc2d2e4944bf5b28b239af40d34f2491dee100754230b61400;
 
     /// @dev The EIP-712 domain type hash.
     bytes32 private constant _DOMAIN_TYPEHASH = keccak256(
@@ -125,6 +149,9 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     address public immutable slashSink;
 
     /// @inheritdoc IEtnaStakingRegistry
+    uint256 public immutable override forfeitBps;
+
+    /// @inheritdoc IEtnaStakingRegistry
     uint64 public immutable override l2ChainId;
 
     /// @inheritdoc IEtnaStakingRegistry
@@ -147,6 +174,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         require(_config.slashSink != address(0), InvalidConfig());
         require(_config.l2ChainId != 0, InvalidConfig());
         require(_config.inbox.code.length != 0, InvalidConfig());
+        require(_config.forfeitBps != 0 && _config.forfeitBps <= _BPS, InvalidConfig());
 
         token = IERC20(_config.token);
         minStake = _config.minStake;
@@ -157,6 +185,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         slashSink = _config.slashSink;
         l2ChainId = _config.l2ChainId;
         inbox = _config.inbox;
+        forfeitBps = _config.forfeitBps;
     }
 
     // ---------------------------------------------------------------
@@ -180,6 +209,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         nonReentrant
         returns (uint256 bondId_)
     {
+        _checkInboxUnlocked();
         require(_amount >= minStake, StakeTooLow());
         (uint8 prefix, bytes32 x, bytes32 y) = LibEtnaKeys.parsePublicKey(_publicKey);
         address ckAddr = LibEtnaKeys.ckAddr(x, y);
@@ -214,7 +244,8 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
 
     /// @inheritdoc IEtnaStakingRegistry
     /// @dev Unaffected by pause.
-    function requestExit(uint256 _bondId) external {
+    function requestExit(uint256 _bondId) external nonReentrant {
+        _checkInboxUnlocked();
         RegistryStorage storage $ = _registryStorage();
         // Existence comes before ownership: an unknown or released slot has no owner.
         Entry memory entry = _unreleasedEntry($, _bondId);
@@ -229,7 +260,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
 
     /// @inheritdoc IEtnaStakingRegistry
     /// @dev Unaffected by pause.
-    function confirmExit(uint256 _bondId) external {
+    function confirmExit(uint256 _bondId) external nonReentrant {
         _checkInboxUnlocked();
         require(IEtnaInbox(inbox).isInitialized(), InboxNotInitialized());
         uint48 exitEffectiveL1 = _unreleasedEntry(_registryStorage(), _bondId).exitEffectiveL1;
@@ -256,7 +287,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
 
         RegistryStorage storage $ = _registryStorage();
         mapping(uint256 => address) storage owners = _ownersStorage().owners;
-        uint256 amount = $.entries[_bondId].effStake;
+        uint256 amount = $.entries[_bondId].effStake + _topUpsStorage().topUps[_bondId].pendingTopUp;
         if (amount != 0) {
             require(owners[_bondId] == msg.sender, NotBondOwner());
             require(_to != address(0), ZERO_ADDRESS());
@@ -264,6 +295,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
 
         delete owners[_bondId];
         delete confirmations[_bondId];
+        delete _topUpsStorage().topUps[_bondId];
         Entry memory released;
         _commit($, _bondId, released);
         $.freeSlots.push(_bondId);
@@ -276,7 +308,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// @dev Checks in order: the Inbox's initialization, both votes' ranges, the pair (same type,
     /// height, round and generation, different block ids), the generation, the entry and its
     /// stake, then both signatures. The slash is written before either transfer. Unaffected by
-    /// pause, and by the Inbox's reentrancy lock.
+    /// pause. The Inbox lock rejects callbacks into slashing during landing or recovery.
     function slashDoubleSign(
         uint256 _bondId,
         Vote calldata _voteA,
@@ -285,6 +317,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         external
         nonReentrant
     {
+        _checkInboxUnlocked();
         require(IEtnaInbox(inbox).isInitialized(), InboxNotInitialized());
         Vote memory voteA = _voteA;
         Vote memory voteB = _voteB;
@@ -300,7 +333,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
 
         RegistryStorage storage $ = _registryStorage();
         Entry memory entry = _unreleasedEntry($, _bondId);
-        uint256 amount = entry.effStake;
+        uint256 amount = entry.effStake + _topUpsStorage().topUps[_bondId].pendingTopUp;
         require(amount != 0, NothingToSlash());
 
         // The key was validated at registration, so it decompresses.
@@ -316,11 +349,12 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         );
 
         entry.effStake = 0;
+        delete _topUpsStorage().topUps[_bondId];
         // At most the stored exit, so it fits in 48 bits.
         entry.exitEffectiveL1 = uint48(Math.min(entry.exitEffectiveL1, block.number));
         _commit($, _bondId, entry);
 
-        uint256 bounty = amount * slashBountyBps / _BPS;
+        uint256 bounty = Math.mulDiv(amount, slashBountyBps, _BPS);
         token.safeTransfer(msg.sender, bounty);
         token.safeTransfer(slashSink, amount - bounty);
         emit DoubleSignSlashed(
@@ -351,6 +385,91 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         entry.exitEffectiveL1 = r;
         _commit($, _bondId, entry);
         emit ExitForced(_bondId, r);
+    }
+
+    /// @inheritdoc IEtnaStakingRegistry
+    function topUp(uint256 _bondId, uint256 _amount) external nonReentrant {
+        _checkInboxUnlocked();
+        Entry storage entry = _unreleasedEntry(_registryStorage(), _bondId);
+        require(_ownersStorage().owners[_bondId] == msg.sender, NotBondOwner());
+        require(block.number >= entry.activeFromL1 && entry.effStake != 0, TopUpNotAllowed());
+        require(entry.exitEffectiveL1 == NO_EXIT, ExitAlreadySet());
+        require(_amount != 0, InvalidTopUpAmount());
+        TopUp storage pending = _topUpsStorage().topUps[_bondId];
+        require(pending.pendingTopUp == 0, TopUpPending());
+        // The eventual combined balance must remain representable as uint256.
+        require(_amount <= type(uint256).max - entry.effStake, InvalidTopUpAmount());
+        uint48 readyAt = _toEventBlock(block.number + activationDelay);
+        pending.pendingTopUp = _amount;
+        pending.readyAtL1 = readyAt;
+        token.safeTransferFrom(msg.sender, address(this), _amount);
+        emit TopUpDeposited(_bondId, _amount, readyAt);
+    }
+
+    /// @inheritdoc IEtnaStakingRegistry
+    function activateTopUp(uint256 _bondId) external nonReentrant {
+        _checkInboxUnlocked();
+        RegistryStorage storage $ = _registryStorage();
+        Entry memory entry = _unreleasedEntry($, _bondId);
+        require(entry.exitEffectiveL1 == NO_EXIT, ExitAlreadySet());
+        TopUp memory pending = _topUpsStorage().topUps[_bondId];
+        require(pending.pendingTopUp != 0 && block.number >= pending.readyAtL1, TopUpNotReady());
+        entry.effStake += pending.pendingTopUp;
+        delete _topUpsStorage().topUps[_bondId];
+        _commit($, _bondId, entry);
+        emit TopUpActivated(_bondId, pending.pendingTopUp);
+    }
+
+    /// @inheritdoc IEtnaStakingRegistry
+    function forfeit(
+        uint256 _bondId,
+        bytes32 _entryKey,
+        bytes32 _incidentId,
+        uint256 _validUntil
+    )
+        external
+        onlyOwner
+        nonReentrant
+    {
+        _checkInboxUnlocked();
+        require(IEtnaInbox(inbox).isInitialized(), InboxNotInitialized());
+        require(block.timestamp <= _validUntil, AuthorizationExpired());
+        RegistryStorage storage $ = _registryStorage();
+        Entry memory entry = _unreleasedEntry($, _bondId);
+        require(_entryKey == LibEtnaKeys.entryKey(entry.ckPrefix, entry.ckX), EntryKeyMismatch());
+        ForfeituresStorage storage flags = _forfeituresStorage();
+        require(!flags.forfeitures[_entryKey], AlreadyForfeited());
+        TopUp storage pending = _topUpsStorage().topUps[_bondId];
+        uint256 balance = entry.effStake + pending.pendingTopUp;
+        require(balance != 0, NothingToSlash());
+        uint256 penalty = Math.mulDiv(balance, forfeitBps, _BPS, Math.Rounding.Up);
+        uint256 fromEffective = Math.min(penalty, entry.effStake);
+        entry.effStake -= fromEffective;
+        pending.pendingTopUp -= penalty - fromEffective;
+        if (pending.pendingTopUp == 0) pending.readyAtL1 = 0;
+        flags.forfeitures[_entryKey] = true;
+        uint48 exit = uint48(Math.min(entry.exitEffectiveL1, _toEventBlock(block.number)));
+        if (fromEffective != 0 || exit != entry.exitEffectiveL1) {
+            entry.exitEffectiveL1 = exit;
+            _commit($, _bondId, entry);
+        }
+        token.safeTransfer(slashSink, penalty);
+        emit Forfeited(_bondId, _entryKey, _incidentId, balance, penalty);
+    }
+
+    /// @inheritdoc IEtnaStakingRegistry
+    function topUpOf(uint256 _bondId)
+        external
+        view
+        returns (uint256 pendingTopUp_, uint48 readyAtL1_)
+    {
+        TopUp storage pending = _topUpsStorage().topUps[_bondId];
+        return (pending.pendingTopUp, pending.readyAtL1);
+    }
+
+    /// @inheritdoc IEtnaStakingRegistry
+    function forfeited(bytes32 _entryKey) external view returns (bool forfeited_) {
+        return _forfeituresStorage().forfeitures[_entryKey];
     }
 
     /// @inheritdoc IEtnaStakingRegistry
@@ -498,8 +617,8 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
 
     /// @dev Reverts with `InboxLocked` whenever the Inbox holds its reentrancy lock (during `land`
     /// and `recover`, and also during `saveForcedInclusion`, its refund included, and
-    /// `sweepProtocolFees`, its transfer included), so no exit confirmation or withdrawal can run
-    /// inside a landing or a recovery.
+    /// `sweepProtocolFees`, its transfer included), so entry mutations cannot run inside Inbox
+    /// execution. Only the Inbox-authorized forceExit deliberately skips this reciprocal check.
     function _checkInboxUnlocked() private view {
         require(!EssentialContract(inbox).inNonReentrant(), InboxLocked());
     }
@@ -541,6 +660,22 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     function _exitConfirmationsStorage() private pure returns (ExitConfirmationsStorage storage $) {
         assembly {
             $.slot := _EXIT_CONFIRMATIONS_STORAGE_SLOT
+        }
+    }
+
+    /// @dev Returns delayed principal in its independent namespace.
+    /// @return $ The top-up storage.
+    function _topUpsStorage() private pure returns (TopUpsStorage storage $) {
+        assembly {
+            $.slot := _TOP_UPS_STORAGE_SLOT
+        }
+    }
+
+    /// @dev Returns lifetime flags in their independent namespace; flags are never deleted.
+    /// @return $ The forfeiture storage.
+    function _forfeituresStorage() private pure returns (ForfeituresStorage storage $) {
+        assembly {
+            $.slot := _FORFEITURES_STORAGE_SLOT
         }
     }
 }

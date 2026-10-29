@@ -10,7 +10,7 @@ encodings and appendix B its L1 storage layout.
 
 - `iface/IEtnaInbox.sol`, `impl/EtnaInbox.sol`: genesis `init` (spec 10 step 5), `land` (6.1),
   the forced inclusion queue and the protocol fee sweep (7.1), governance `recover` (8, 8.3, 8.4)
-  and Inbox slots 258–291 (appendix B).
+  and Inbox slots 258–292 (appendix B).
 - `impl/EtnaInboxBootstrap.sol`: the Inbox proxy's first implementation; it only sets the owner,
   so the proxy address exists before the registry that fixes it (10 step 1).
 - `iface/IEtnaStakingRegistry.sol`, `impl/EtnaStakingRegistry.sol`: registration, exits,
@@ -42,13 +42,20 @@ encodings and appendix B its L1 storage layout.
   hash, the L1 timestamp and the L1 block.
 - `sweepProtocolFees()`: anyone sends the Inbox's whole balance to the immutable
   `protocolFeeRecipient`, the DAO treasury.
-- `recover(expectedGeneration, expectedC, exclusions, fiToClear)`: owner only and atomic. With
+- `recover(expectedGeneration, expectedC, expectedRecoveryNonce, validUntil, exclusions, fiToClear)`:
+  owner only after initialization, with all expected values matching current state and
+  `block.timestamp <= validUntil`. Recovery increments the uint256 authorization nonce. With
   R = `block.number`, each excluded entry's exit moves to min(existing, R) in the registry, each
   listed queue entry's hash becomes `keccak256("")`, the generation increments and its origin
   (c, R's number, R's timestamp) is written once to slot 290. The checkpoint, its record, the
   queue head and `activeCommitteeSnapshot` are kept.
+- `invalidateRecoveryNonce(expectedRecoveryNonce)`: owner only after initialization; checks and
+  increments the nonce without wrapping, invalidating all unexecuted authorizations carrying it.
+  Landing does not consume the nonce. A future verifier-failure rollback upgrade must preserve
+  and increment its current value, so restoring an old checkpoint cannot revive authorization.
 
-`land`, `recover`, `saveForcedInclusion` and `sweepProtocolFees` share one reentrancy lock.
+`land`, `recover`, `invalidateRecoveryNonce`, `saveForcedInclusion` and `sweepProtocolFees`
+share one reentrancy lock and reject callbacks from registry mutations.
 Pause affects none of these entry points, nor the registry's (spec 1 requires this for `land`,
 `saveForcedInclusion` and the registry). Only `saveForcedInclusion` accepts ETH;
 `upgradeToAndCall` rejects it too.
@@ -63,7 +70,21 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
   and the Inbox-only `forceExit` follow spec 4.1 and 8 step 2. Confirming an exit needs an
   initialized Inbox whose `activeCommitteeSnapshot` reaches the exit block; `slashDoubleSign`
   needs an initialized Inbox and accepts votes from the current or an earlier generation.
-  `confirmExit` and `withdraw` revert while the Inbox holds its reentrancy lock (spec 8.3).
+  Registry mutations revert while the Inbox holds its lock, except its authorized `forceExit`.
+- `topUp(bondId, amount)`: the active entry's owner deposits one positive pending amount, even
+  with all slots occupied or before Inbox initialization. It has no voting power or checkpoint
+  effect. `activateTopUp(bondId)` is permissionless at readiness, after `activationDelay` L1
+  blocks; activation writes the normal checkpoint and does not change historical committees.
+  No deposit or activation is allowed after exit is set. Withdrawal and double-sign slashing
+  account for **all** remaining effective and pending principal, clearing pending state on release.
+- `forfeit(bondId, entryKey, incidentId, validUntil)`: registry owner only after initialization,
+  once per lifetime entry key, with an inclusive timestamp deadline. Deducts
+  `ceil((effStake + pendingTopUp) * forfeitBps / 10000)` from effective stake first, then pending
+  funds, pays only `slashSink` and forces exit without resetting an existing confirmation clock.
+  The flag survives withdrawal, slot reuse, recovery and verifier-failure rollback. There is no
+  forfeiture nonce, revocation method, freeze or extra delay. Landing and recovery leave an
+  unexecuted authorization usable until expiry; attribution and timely execution belong to DAO
+  governance. Double-sign evidence can still take the remainder.
 - `forceExit(bondId, entryKey)` derives the recovery execution block from `block.number`.
 - Every L1 block that changes an entry ends with exactly one checkpoint
   (`l1Block`, `count`, `entriesRoot`). The Inbox proxy and the L2 chain id are immutables.
@@ -98,7 +119,7 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
 
 ## Storage
 
-- Inbox: appendix B exactly. The named slots are 258, 268–274, 278–282, 284, 285 and 290;
+- Inbox: appendix B exactly. The named slots are 258, 268–274, 278–282, 284, 285, 290 and 292;
   reserved slots 283, 286–289 and 291 are never read or written, and slots 251–257, 259–267 and
   275–277 are unused padding.
 - Registry: the ERC-7201 namespace `taiko.etna.registry` with base R holds `checkpoints` at R
@@ -106,6 +127,9 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
   used keys. Bond owners and exit confirmations live in the separate namespaces
   `taiko.etna.registry.owners` and `taiko.etna.registry.exit-confirmations`, outside
   `entriesRoot`.
+- Pending deposits use `taiko.etna.registry.top-ups`, a bond-id mapping with a uint256 amount
+  and a uint48 readiness block in the next word. Lifetime bool flags use an entry-key mapping
+  in `taiko.etna.registry.forfeitures`. Neither enters the entries root or ordinary witnesses.
 - Packed words in both contracts lay out their fields from the least-significant bit: `ckPrefix`
   takes 8 bits, every other field 48, and a wider value reverts.
 - The machine-readable layout, with every slot, mapping derivation and packing table, is the
@@ -132,6 +156,20 @@ initializes the proxy if the deployer owns it, or logs that call for the owner. 
 checks two spec 11 bounds, so the operator must: `REGISTRY_WITHDRAWAL_DELAY` no shorter than the
 double-sign evidence window (suggested at least 50,400 L1 blocks, about 7 days) and
 `MAX_ANCHOR_AGE` above the L1 finality delay.
+`REGISTRY_FORFEIT_BPS` is an explicit deployment input in [1, 10,000], with no production default.
+The launch manifest must also pin independent `C_CAP_MIN`, conservative per-TAIKO `P_REF` in the
+same currency, its source/haircut/expiry/review frequency and responsible owner. Require positive,
+current values and compute `S_MIN_TOTAL = ceil(3 * C_CAP_MIN * 10^18 / P_REF)`. At the actual
+committee-0 snapshot require selected effective stake at least that floor and
+`ceil(totalPower / 3) * vp_unit * P_REF >= C_CAP_MIN * 10^18`; pending and unselected funds do not
+count. Every entry and known common controller must remain strictly below one third of power.
+The client's committee-record report supplies the selected stake and integer powers for review.
+These are launch acceptance checks, not a price oracle or consensus/signing gate. During operation
+and recovery, shortfalls or expired valuation require alerts, disclosure and replenishment rather
+than blocked recovery or signing. Owners can top up existing entries even in a full registry;
+DAO funding does not bypass owner-only deposits. Exercise detection, attribution, governance and
+L1-inclusion budgets against the fastest lawful withdrawal: the suggested seven days is not
+automatically enough for forfeiture execution. See SPEC 4.4/8.3/11 and ACCEPTANCE 4.
 `script/layer2/build_etna_genesis.py --base <genesis.json> --output <file>` adds the EIP-4788 and
 EIP-2935 system contracts to the L2 genesis alloc (spec 10 step 3); the 100% base-fee share is
 the per-block `extraData[0] = 100` rule that nodes and guests enforce, not a genesis field.

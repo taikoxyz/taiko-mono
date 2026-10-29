@@ -36,4 +36,5 @@ pragma solidity ^0.8.26;
 //   __reserved286                  | uint256[4]                                         | Slot: 286  | Offset: 0    | Bytes: 128 
 //   _origins                       | mapping(uint256 => struct IEtnaInbox.Origin)       | Slot: 290  | Offset: 0    | Bytes: 32  
 //   __reserved291                  | uint256                                            | Slot: 291  | Offset: 0    | Bytes: 32  
-//   __gap                          | uint256[9]                                         | Slot: 292  | Offset: 0    | Bytes: 288 
+//   _recoveryNonce                 | uint256                                            | Slot: 292  | Offset: 0    | Bytes: 32  
+//   __gap                          | uint256[8]                                         | Slot: 293  | Offset: 0    | Bytes: 256 

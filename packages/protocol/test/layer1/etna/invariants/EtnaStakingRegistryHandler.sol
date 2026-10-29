@@ -49,6 +49,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
         /// @dev The occupant's consensus private key.
         uint256 pk;
         uint256 registeredAt;
+        uint256 pendingTopUp;
+        uint48 topUpReadyAtL1;
         /// @dev The block of the exit request and the exit it set; 0 and `NO_EXIT` without one.
         uint256 requestedAt;
         uint256 requestedExit;
@@ -254,6 +256,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
     uint256 public paidToOwners;
     uint256 public paidToRecipient;
     uint256 public slashedTotal;
+    uint256 public forfeitedTotal;
+    mapping(bytes32 entryKey => bool) public lifetimeForfeited;
     uint256 public bountiesPaid;
     uint256 public sinkPaid;
 
@@ -481,10 +485,13 @@ contract EtnaStakingRegistryHandler is CommonBase {
         Slot storage s = _slots[bondId];
         address caller = s.owner;
         address to = _rand(_seed, "to") % 2 == 0 ? caller : recipient;
-        if (caller == address(0) || (s.entry.effStake == 0 && _rand(_seed, "caller") % 2 == 0)) {
+        if (
+            caller == address(0)
+                || (s.entry.effStake + s.pendingTopUp == 0 && _rand(_seed, "caller") % 2 == 0)
+        ) {
             caller = _anyone(_seed);
         }
-        if (s.entry.effStake == 0) {
+        if (s.entry.effStake + s.pendingTopUp == 0) {
             // Anyone releases a slashed entry, to any address.
             uint256 toKind = _rand(_seed, "to kind") % 3;
             to = toKind == 0 ? address(0) : toKind == 1 ? recipient : caller;
@@ -498,7 +505,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
     /// generation, each signed with the bond's key under this deployment's chain id for a past or
     /// the current generation, against an entry with stake: three times in four one with no exit
     /// set, otherwise any, confirmed ones included. Sometimes the Inbox lock is held, which
-    /// slashing ignores. One call in four is broken instead: the Inbox uninitialized, a vote
+    /// must reject the slash without effects. One call in four is broken instead: the Inbox uninitialized, a vote
     /// field out of range, no double sign, a future generation, an unknown bond, a released slot,
     /// a slashed entry or a wrong signature.
     function slash(uint256 _seed) external {
@@ -559,6 +566,100 @@ contract EtnaStakingRegistryHandler is CommonBase {
         _forceExit(bondId, entryKey, defect == FORCE_NOT_INBOX);
         // Boundary calls must revert without advancing the campaign into overflowing arithmetic.
         if (defect == FORCE_BLOCK_OVERFLOW) vm.roll(executionBlock);
+    }
+
+    /// @notice Deposits additional owner principal without changing the entry or checkpoint.
+    function topUp(uint256 _seed) external {
+        (bool found, uint256 bondId) = _pick(_seed, NO_EXIT_SET);
+        if (!found) return;
+        Slot storage s = _slots[bondId];
+        if (s.entry.effStake == 0 || block.number < s.entry.activeFromL1 || s.pendingTopUp != 0) {
+            return;
+        }
+        uint256 amount = 1 + _seed % minStake;
+        if (token.balanceOf(s.owner) < amount) return;
+        uint256 checkpointsBefore = registry.checkpointCount();
+        bytes32 rootBefore = registry.entriesRoot();
+        vm.prank(s.owner);
+        try registry.topUp(bondId, amount) {
+            if (!_isTouchedSlot[bondId]) {
+                _isTouchedSlot[bondId] = true;
+                _touchedSlots.push(bondId);
+            }
+            s.pendingTopUp = amount;
+            s.topUpReadyAtL1 = uint48(block.number + activationDelay);
+            staked += amount;
+            deposited += amount;
+            if (
+                registry.checkpointCount() != checkpointsBefore
+                    || registry.entriesRoot() != rootBefore
+            ) _violate(Property.History, "deposit changed committee checkpoint");
+        } catch (bytes memory reason) {
+            _checkRevert(Property.Balance, "", reason, "topUp");
+        }
+    }
+
+    /// @notice Activates the entire matured deposit, leaving historical checkpoints immutable.
+    function activateTopUp(uint256 _seed) external {
+        if (slotCount == 0) return;
+        uint256 bondId = _seed % slotCount;
+        Slot storage s = _slots[bondId];
+        if (s.entry.ckPrefix == 0 || s.pendingTopUp == 0 || s.entry.exitEffectiveL1 != NO_EXIT) {
+            return;
+        }
+        if (_seed % 2 == 0 && block.number < s.topUpReadyAtL1) vm.roll(s.topUpReadyAtL1);
+        bool ready = block.number >= s.topUpReadyAtL1;
+        try registry.activateTopUp(bondId) {
+            if (!ready) _violate(Property.Timing, "early activation accepted");
+            s.entry.effStake += s.pendingTopUp;
+            s.pendingTopUp = 0;
+            s.topUpReadyAtL1 = 0;
+            _commit(bondId, Property.Balance);
+        } catch (bytes memory reason) {
+            _checkRevert(
+                Property.Timing,
+                ready ? bytes("") : _err(IEtnaStakingRegistry.TopUpNotReady.selector),
+                reason,
+                "activateTopUp"
+            );
+        }
+    }
+
+    /// @notice DAO forfeiture models ceiling arithmetic, balance sources, exits and lifetime replay.
+    function forfeit(uint256 _seed) external {
+        (bool found, uint256 bondId) = _pick(_seed, ANY_UNRELEASED);
+        if (!found) return;
+        Slot storage s = _slots[bondId];
+        bytes32 key = _entryKeyOf(s.entry.ckPrefix, s.entry.ckX);
+        uint256 principal = s.entry.effStake + s.pendingTopUp;
+        bytes memory expected;
+        if (lifetimeForfeited[key]) {
+            expected = _err(IEtnaStakingRegistry.AlreadyForfeited.selector);
+        } else if (principal == 0) {
+            expected = _err(IEtnaStakingRegistry.NothingToSlash.selector);
+        }
+        address dao = registry.owner();
+        vm.prank(dao);
+        try registry.forfeit(bondId, key, bytes32(_seed % 3), block.timestamp) {
+            if (expected.length != 0) {
+                _violate(Property.Balance, "invalid forfeiture accepted");
+                return;
+            }
+            uint256 penalty = (principal * registry.forfeitBps() + 9999) / 10_000;
+            uint256 fromEffective = penalty < s.entry.effStake ? penalty : s.entry.effStake;
+            s.entry.effStake -= fromEffective;
+            s.pendingTopUp -= penalty - fromEffective;
+            if (s.pendingTopUp == 0) s.topUpReadyAtL1 = 0;
+            lifetimeForfeited[key] = true;
+            forfeitedTotal += penalty;
+            sinkPaid += penalty;
+            staked -= penalty;
+            s.forcedExit = _min(s.forcedExit, block.number);
+            _setExit(bondId, _min(s.entry.exitEffectiveL1, block.number));
+            _commit(bondId, Property.Balance);
+        } catch (bytes memory reason) {
+            _checkRevert(Property.Balance, expected, reason, "forfeit");
+        }
     }
 
     /// @notice Raises the Inbox's landed snapshot, never above the current block: to the current
@@ -979,7 +1080,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
 
     function _withdraw(uint256 _bondId, address _caller, address _to, bool _locked) internal {
         Slot storage s = _slots[_bondId];
-        uint256 amount = s.entry.effStake;
+        uint256 amount = s.entry.effStake + s.pendingTopUp;
         bytes memory expected;
         if (_locked) {
             expected = _err(IEtnaStakingRegistry.InboxLocked.selector);
@@ -1019,7 +1120,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         internal
     {
         Slot storage s = _slots[_bondId];
-        uint256 amount = s.entry.effStake;
+        uint256 amount = s.entry.effStake + s.pendingTopUp;
         if (token.balanceOf(address(registry)) != _before.registry - amount) {
             _violate(Property.Balance, "withdraw moved another amount out of the registry");
         }
@@ -1054,6 +1155,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
         s.owner = address(0);
         s.pk = 0;
         s.registeredAt = 0;
+        s.pendingTopUp = 0;
+        s.topUpReadyAtL1 = 0;
         s.requestedAt = 0;
         s.requestedExit = 0;
         s.slashedAt = 0;
@@ -1245,6 +1348,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
     /// @dev The slash's expected revert data in the registry's check order (Inbox, vote ranges,
     /// pair, generation, entry, stake, signatures), or empty.
     function _expectSlash(SlashAttempt memory _a) internal view returns (bytes memory) {
+        if (_a.locked) return _err(IEtnaStakingRegistry.InboxLocked.selector);
         if (_a.uninitialized) return _err(IEtnaStakingRegistry.InboxNotInitialized.selector);
         if (!_inRange(_a.voteA) || !_inRange(_a.voteB)) {
             return _err(IEtnaStakingRegistry.InvalidVote.selector);
@@ -1265,14 +1369,16 @@ contract EtnaStakingRegistryHandler is CommonBase {
         Slot storage s = _slots[_a.bondId];
         if (_a.bondId >= slotCount) return _err(IEtnaStakingRegistry.UnknownBond.selector);
         if (s.entry.ckPrefix == 0) return _err(IEtnaStakingRegistry.SlotReleased.selector);
-        if (s.entry.effStake == 0) return _err(IEtnaStakingRegistry.NothingToSlash.selector);
+        if (s.entry.effStake + s.pendingTopUp == 0) {
+            return _err(IEtnaStakingRegistry.NothingToSlash.selector);
+        }
         if (!_a.signaturesValid) return _err(IEtnaStakingRegistry.InvalidSignature.selector);
         return "";
     }
 
     function _recordSlash(SlashAttempt memory _a, Balances memory _before) internal {
         Slot storage s = _slots[_a.bondId];
-        uint256 amount = s.entry.effStake;
+        uint256 amount = s.entry.effStake + s.pendingTopUp;
         uint256 bounty = amount * slashBountyBps / BPS;
         if (
             token.balanceOf(_a.reporter) != _before.reporter + bounty
@@ -1302,6 +1408,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
         sinkPaid += amount - bounty;
 
         s.entry.effStake = 0;
+        s.pendingTopUp = 0;
+        s.topUpReadyAtL1 = 0;
         s.slashedAt = block.number;
         _setExit(_a.bondId, _min(s.entry.exitEffectiveL1, block.number));
         _commit(_a.bondId, Property.Balance);
@@ -1537,7 +1645,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         bool ready = s.confirmedAt != 0 && block.number >= s.confirmedAt + withdrawalDelay;
         if (_want == ANY_UNRELEASED) return true;
         if (_want == NO_EXIT_SET) return exit == NO_EXIT;
-        if (_want == STAKED) return s.entry.effStake != 0;
+        if (_want == STAKED) return s.entry.effStake + s.pendingTopUp != 0;
         if (_want == UNCONFIRMED) return s.confirmedAt == 0;
         if (_want == EXITING) return exit != NO_EXIT;
         if (_want == COVERED) return exit <= ghostSnapshot;
@@ -1545,8 +1653,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
         if (_want == CONFIRMED) return s.confirmedAt != 0;
         if (_want == READY) return ready;
         if (_want == UNREADY) return s.confirmedAt != 0 && !ready;
-        if (_want == READY_STAKED) return ready && s.entry.effStake != 0;
-        return s.entry.effStake == 0; // SLASHED
+        if (_want == READY_STAKED) return ready && s.entry.effStake + s.pendingTopUp != 0;
+        return s.entry.effStake + s.pendingTopUp == 0; // SLASHED
     }
 
     function _pickReleased(uint256 _seed) internal view returns (bool, uint256) {

@@ -91,6 +91,8 @@ contract EtnaInboxHandler is CommonBase {
         address caller;
         uint48 expectedGeneration;
         uint256 expectedC;
+        uint256 expectedNonce;
+        uint256 validUntil;
         IEtnaInbox.Exclusion[] exclusions;
         uint256[] fiToClear;
         bytes expectedError;
@@ -129,7 +131,9 @@ contract EtnaInboxHandler is CommonBase {
     uint256 internal constant FI_OUT_OF_RANGE = 6;
     uint256 internal constant ENTRY_KEY_MISMATCH = 7;
     uint256 internal constant UNKNOWN_BOND = 8;
-    uint256 internal constant RECOVERY_MODES = 9;
+    uint256 internal constant NONCE_MISMATCH = 9;
+    uint256 internal constant AUTHORIZATION_EXPIRED = 10;
+    uint256 internal constant RECOVERY_MODES = 11;
 
     /// @dev The EIP-2935 history storage contract and its runtime code.
     address internal constant HISTORY_STORAGE = 0x0000F90827F1C53a10cb7A02335B175320002935;
@@ -177,6 +181,7 @@ contract EtnaInboxHandler is CommonBase {
     mapping(uint256 height => Cut) internal _cuts;
 
     uint48 public ghostGeneration;
+    uint256 public ghostRecoveryNonce;
     mapping(uint256 generation => IEtnaInbox.Origin) internal _origins;
 
     uint48 public ghostHead;
@@ -316,6 +321,8 @@ contract EtnaInboxHandler is CommonBase {
         attempt.caller = owner;
         attempt.expectedGeneration = ghostGeneration;
         attempt.expectedC = _checkpoints[_checkpoints.length - 1];
+        attempt.expectedNonce = ghostRecoveryNonce;
+        attempt.validUntil = block.timestamp;
         attempt.exclusions = _validExclusions(_rand(_seed, "exclusions"));
         attempt.fiToClear = _validFiToClear(_rand(_seed, "fiToClear"));
         attempt.defect = _rand(_seed, "mode") % 3 != 0
@@ -329,7 +336,12 @@ contract EtnaInboxHandler is CommonBase {
 
         vm.prank(attempt.caller);
         try inbox.recover(
-            attempt.expectedGeneration, attempt.expectedC, attempt.exclusions, attempt.fiToClear
+            attempt.expectedGeneration,
+            attempt.expectedC,
+            attempt.expectedNonce,
+            attempt.validUntil,
+            attempt.exclusions,
+            attempt.fiToClear
         ) {
             if (attempt.expectedError.length != 0) {
                 _violate(Property.Generations, "a recovery the model rejects was accepted");
@@ -339,6 +351,26 @@ contract EtnaInboxHandler is CommonBase {
         } catch (bytes memory reason) {
             _checkRevert(Property.Generations, attempt.expectedError, reason, "recover");
             ++rejectedRecoveries[attempt.defect];
+        }
+    }
+
+    /// @notice Exercises explicit revocation independently of generation and settlement.
+    function invalidateRecoveryNonce(uint256 _seed) external {
+        bool valid = _seed % 3 != 0;
+        uint256 expected = valid ? ghostRecoveryNonce : ghostRecoveryNonce + 1;
+        vm.prank(owner);
+        try inbox.invalidateRecoveryNonce(expected) {
+            if (!valid) _violate(Property.Generations, "stale nonce invalidation accepted");
+            else ++ghostRecoveryNonce;
+        } catch (bytes memory reason) {
+            _checkRevert(
+                Property.Generations,
+                valid
+                    ? bytes("")
+                    : abi.encodeWithSelector(IEtnaInbox.RecoveryNonceMismatch.selector),
+                reason,
+                "invalidateRecoveryNonce"
+            );
         }
     }
 
@@ -983,6 +1015,12 @@ contract EtnaInboxHandler is CommonBase {
             _attempt.expectedC =
                 _seed % 2 == 0 || c == 0 ? c + 1 + (_seed >> 1) % (3 * K) : (_seed >> 1) % c;
             selector = IEtnaInbox.CheckpointMismatch.selector;
+        } else if (defect == NONCE_MISMATCH) {
+            _attempt.expectedNonce = ghostRecoveryNonce + 1;
+            selector = IEtnaInbox.RecoveryNonceMismatch.selector;
+        } else if (defect == AUTHORIZATION_EXPIRED) {
+            _attempt.validUntil = block.timestamp - 1;
+            selector = IEtnaInbox.AuthorizationExpired.selector;
         } else if (defect == EXCLUSIONS_UNSORTED) {
             _unsortExclusions(_attempt, _seed);
             selector = IEtnaInbox.ExclusionsNotSorted.selector;
@@ -1061,6 +1099,7 @@ contract EtnaInboxHandler is CommonBase {
             l1Timestamp: block.timestamp
         });
         ghostGeneration = generation;
+        ++ghostRecoveryNonce;
         for (uint256 i; i < _attempt.fiToClear.length; ++i) {
             _saved[_attempt.fiToClear[i]].blanked = true;
         }

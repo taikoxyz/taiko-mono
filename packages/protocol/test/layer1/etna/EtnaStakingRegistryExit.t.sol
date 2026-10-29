@@ -443,7 +443,7 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
         assertEq(reentrant.balanceOf(address(registry)), MIN_STAKE, "stake kept");
 
         reentrant.armReentry(address(registry), abi.encodeCall(registry.confirmExit, (0)));
-        vm.expectRevert(IEtnaStakingRegistry.SlotReleased.selector);
+        vm.expectRevert(EssentialContract.REENTRANT_CALL.selector);
         vm.prank(Alice);
         registry.withdraw(0, Alice);
     }

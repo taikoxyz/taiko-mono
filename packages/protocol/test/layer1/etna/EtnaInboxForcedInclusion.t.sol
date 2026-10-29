@@ -523,7 +523,8 @@ contract EtnaInboxForcedInclusionTest is EtnaInboxTestBase {
         _assertRejectsEther(abi.encodeCall(IEtnaInbox.land, (input, new bytes32[](0), "")), "land");
         _assertRejectsEther(
             abi.encodeCall(
-                IEtnaInbox.recover, (0, 0, new IEtnaInbox.Exclusion[](0), new uint256[](0))
+                IEtnaInbox.recover,
+                (0, 0, 0, type(uint256).max, new IEtnaInbox.Exclusion[](0), new uint256[](0))
             ),
             "recover"
         );

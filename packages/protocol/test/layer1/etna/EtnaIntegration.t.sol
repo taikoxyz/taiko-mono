@@ -49,6 +49,9 @@ contract RefundExitConfirmer {
 /// `forceExit` makes two calls to the real registry while `recover` holds the Inbox lock and
 /// records what each returns.
 contract RecoverRegistryProbe {
+    function inNonReentrant() external pure returns (bool) {
+        return false;
+    }
     address private immutable _registry;
     bytes private _firstCall;
     bytes private _secondCall;
@@ -75,7 +78,7 @@ contract RecoverRegistryProbe {
 /// @notice The staking registry and the Inbox together, both real (spec 4.1, 6.1, 7.1 and 8): exits
 /// confirm only against landed committees, a bootstrap proxy keeps confirmation and slashing
 /// closed, recovery's exclusions and generations reach the registry, the Inbox lock closes
-/// confirmation and withdrawal but not slashing, and pausing stops neither contract.
+/// every mutation except authorized recovery exclusions, and pausing stops neither contract.
 /// @dev Runs on the Lean example chain of `EtnaLandTestBase`: L1 block 11, Alice's bond 0
 /// (`VALIDATOR_PK`, registered at block 1, active from block 11, no exit), the genesis cutoff 1
 /// as the landed snapshot, three forced inclusions queued and reference block 10. Every registry
@@ -380,11 +383,9 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         _assertReleased(0);
     }
 
-    /// @dev `slashDoubleSign` does not check the Inbox lock (only `confirmExit` and `withdraw` do).
-    /// Under the harness's lock Alice's double sign slashes her whole stake, the bounty going to
-    /// the caller, the Inbox proxy. A landing then covers the exit the slash set, yet confirming it
-    /// under the lock reverts `InboxLocked`; outside the lock Carol confirms it.
-    function test_slashDoubleSign_IgnoresTheInboxLock() external {
+    /// @dev Slashing shares the Inbox exclusion barrier: it cannot change principal or exits
+    /// while the Inbox is executing. The identical evidence succeeds once the lock is released.
+    function test_slashDoubleSign_RevertWhen_InboxLockHeld() external {
         EtnaInboxLockHarness harness = _upgradeToLockHarness();
         // One block past Alice's activation (11), so the exit the slash sets differs from it.
         vm.roll(block.number + 1);
@@ -392,20 +393,17 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
             _doubleSign(VALIDATOR_PK, 0);
         uint256 bounty = MIN_STAKE * registry.slashBountyBps() / _BPS;
 
-        vm.expectEmit(address(registry));
-        emit IEtnaStakingRegistry.DoubleSignSlashed(
-            0, inboxProxy, MIN_STAKE, bounty, 0, _HEIGHT, _ROUND, 2
-        );
         (bool ok, bytes memory ret) = harness.lockedCall(
             address(registry), abi.encodeCall(IEtnaStakingRegistry.slashDoubleSign, (0, a, b))
         );
-        assertTrue(ok, "slashed under the lock");
-        assertEq(ret.length, 0, "no return data");
+        assertFalse(ok, "slash under Inbox lock rejected");
+        assertEq(ret, abi.encodeWithSelector(IEtnaStakingRegistry.InboxLocked.selector));
+        assertEq(registry.entryAt(0).effStake, MIN_STAKE, "stake unchanged under lock");
+        registry.slashDoubleSign(0, a, b);
         IEtnaStakingRegistry.Entry memory entry = registry.entryAt(0);
-        assertEq(entry.effStake, 0, "stake slashed");
-        assertEq(entry.exitEffectiveL1, block.number, "exit at the slash");
-        assertEq(taikoToken.balanceOf(inboxProxy), bounty, "bounty to the caller");
-        assertEq(taikoToken.balanceOf(registry.slashSink()), MIN_STAKE - bounty, "sink");
+        assertEq(entry.effStake, 0, "slash outside lock succeeds");
+        assertEq(taikoToken.balanceOf(address(this)), bounty);
+        assertEq(taikoToken.balanceOf(registry.slashSink()), MIN_STAKE - bounty);
 
         _landWithSnapshot(0, 6, entry.exitEffectiveL1);
         (ok, ret) = harness.lockedCall(
@@ -561,7 +559,15 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
     )
         private
     {
-        _inbox().recover(_generation, _c, _exclusions, new uint256[](0));
+        _inbox()
+            .recover(
+                _generation,
+                _c,
+                uint256(vm.load(inboxProxy, bytes32(uint256(292)))),
+                type(uint256).max,
+                _exclusions,
+                new uint256[](0)
+            );
         assertEq(_inbox().recoveryGeneration(), _generation + 1, "next generation");
     }
 

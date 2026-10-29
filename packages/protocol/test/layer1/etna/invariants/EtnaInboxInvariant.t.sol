@@ -79,13 +79,14 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
             })
         );
 
-        bytes4[] memory selectors = new bytes4[](6);
+        bytes4[] memory selectors = new bytes4[](7);
         selectors[0] = EtnaInboxHandler.saveForcedInclusion.selector;
         selectors[1] = EtnaInboxHandler.land.selector;
         selectors[2] = EtnaInboxHandler.recover.selector;
         selectors[3] = EtnaInboxHandler.sweep.selector;
         selectors[4] = EtnaInboxHandler.forceEther.selector;
         selectors[5] = EtnaInboxHandler.advanceBlocks.selector;
+        selectors[6] = EtnaInboxHandler.invalidateRecoveryNonce.selector;
         targetContract(address(handler));
         targetSelector(FuzzSelector({ addr: address(handler), selectors: selectors }));
         // Foundry refunds a call's unused gas to its sender, so a fuzzed sender that happened to
@@ -258,6 +259,8 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
     /// @dev Asserts that the handler recorded no broken property and no call whose outcome
     /// (success or revert data) differed from the model's prediction.
     function _assertModelHeld() internal view {
+        assertEq(inbox.recoveryNonce(), handler.ghostRecoveryNonce(), "modelled recovery nonce");
+        assertEq(uint256(_word(292)), handler.ghostRecoveryNonce(), "slot 292 nonce");
         for (uint8 p; p <= uint8(type(EtnaInboxHandler.Property).max); ++p) {
             EtnaInboxHandler.Property property = EtnaInboxHandler.Property(p);
             assertEq(handler.violations(property), 0, handler.firstViolation(property));

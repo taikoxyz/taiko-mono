@@ -47,7 +47,7 @@ abstract contract EtnaStakingRegistryInvariantBase is EtnaStakingRegistryTestBas
         handler =
             new EtnaStakingRegistryHandler(registry, mockInbox, stakers, _keepSnapshotLeaves());
 
-        bytes4[] memory selectors = new bytes4[](9);
+        bytes4[] memory selectors = new bytes4[](12);
         selectors[0] = EtnaStakingRegistryHandler.register.selector;
         selectors[1] = EtnaStakingRegistryHandler.requestExit.selector;
         selectors[2] = EtnaStakingRegistryHandler.confirmExit.selector;
@@ -57,6 +57,9 @@ abstract contract EtnaStakingRegistryInvariantBase is EtnaStakingRegistryTestBas
         selectors[6] = EtnaStakingRegistryHandler.settle.selector;
         selectors[7] = EtnaStakingRegistryHandler.advanceBlocks.selector;
         selectors[8] = EtnaStakingRegistryHandler.advanceToWithdrawal.selector;
+        selectors[9] = EtnaStakingRegistryHandler.topUp.selector;
+        selectors[10] = EtnaStakingRegistryHandler.activateTopUp.selector;
+        selectors[11] = EtnaStakingRegistryHandler.forfeit.selector;
         targetContract(address(handler));
         targetSelector(FuzzSelector({ addr: address(handler), selectors: selectors }));
         targetSender(makeAddr("invariant sender"));
@@ -205,6 +208,20 @@ abstract contract EtnaStakingRegistryInvariantBase is EtnaStakingRegistryTestBas
         assertEq(entry.exitEffectiveL1, slot.entry.exitEffectiveL1, "modelled exit");
         assertEq(registry.ownerOf(_bondId), slot.owner, "modelled owner");
         assertEq(registry.exitConfirmedAtL1(_bondId), slot.confirmedAt, "modelled confirmation");
+        (uint256 pending, uint48 ready) = registry.topUpOf(_bondId);
+        assertEq(pending, slot.pendingTopUp, "modelled pending principal");
+        assertEq(ready, slot.topUpReadyAtL1, "modelled readiness");
+        if (entry.ckPrefix != 0) {
+            bytes32 key = keccak256(abi.encode(entry.ckPrefix, entry.ckX));
+            assertEq(registry.forfeited(key), handler.lifetimeForfeited(key), "lifetime flag");
+        }
+        if (slot.formerEntryKey != 0) {
+            assertEq(
+                registry.forfeited(slot.formerEntryKey),
+                handler.lifetimeForfeited(slot.formerEntryKey),
+                "former lifetime flag survives reuse"
+            );
+        }
     }
 
     /// @dev Reads entry `_index` from its three raw slot R + 1 words, checking that the packed
@@ -538,10 +555,13 @@ contract EtnaStakingRegistryInvariantTest is EtnaStakingRegistryInvariantBase {
         uint256 sum;
         for (uint256 i; i < count; ++i) {
             uint256 stake = _load(_entrySlot(i) + 1);
-            sum += stake;
+            (uint256 pending,) = registry.topUpOf(i);
+            sum += stake + pending;
             EtnaStakingRegistryHandler.Slot memory slot = handler.slotAt(i);
             if (slot.entry.ckPrefix != 0) {
-                assertEq(stake == 0, slot.slashedAt != 0, "no stake exactly when slashed");
+                if (slot.slashedAt != 0) {
+                    assertEq(stake + pending, 0, "slashing consumes all principal");
+                }
                 assertEq(stake, slot.entry.effStake, "the deposit until a slash");
             }
         }
@@ -549,11 +569,12 @@ contract EtnaStakingRegistryInvariantTest is EtnaStakingRegistryInvariantBase {
         assertEq(sum, handler.staked(), "modelled stake");
         assertEq(
             handler.deposited(),
-            sum + handler.paidToOwners() + handler.paidToRecipient() + handler.slashedTotal(),
+            sum + handler.paidToOwners() + handler.paidToRecipient() + handler.slashedTotal()
+                + handler.forfeitedTotal(),
             "deposits = stake + withdrawals + slashes"
         );
         assertEq(
-            handler.slashedTotal(),
+            handler.slashedTotal() + handler.forfeitedTotal(),
             handler.bountiesPaid() + handler.sinkPaid(),
             "slashed = bounties + sink"
         );

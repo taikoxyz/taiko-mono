@@ -663,6 +663,11 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
                 seen |= 4;
             } else if (a.account == signalImpl) {
                 assertEq(uint8(a.kind), uint8(VmSafe.AccountAccessKind.DelegateCall), "signal impl");
+            } else if (a.account == address(registry)) {
+                assertEq(uint8(a.kind), uint8(VmSafe.AccountAccessKind.StaticCall));
+                assertEq(a.data, abi.encodeWithSignature("inNonReentrant()"));
+            } else if (a.account == registry.impl()) {
+                assertEq(uint8(a.kind), uint8(VmSafe.AccountAccessKind.DelegateCall));
             } else {
                 revert(string.concat("unexpected call to ", vm.toString(a.account)));
             }

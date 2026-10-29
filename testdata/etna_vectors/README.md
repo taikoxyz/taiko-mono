@@ -10,6 +10,12 @@ Schema version is `"4"`. All integers are decimal strings, so values above 2^53 
 JSON parser. Hex values are `0x`-prefixed. Clients must decode every input exactly: a decoder
 consumes all of its input and rejects trailing bytes, as the reject cases below require.
 
+`governance_abi` encodes delayed top-ups, lifetime forfeiture, nonce/deadline-bound recovery
+and explicit recovery invalidation. `forfeitures` pins effective-first rounded-up deductions,
+including pending-only and uint256 boundary balances. The layout includes Inbox nonce slot 292
+and the separate `taiko.etna.registry.top-ups` and `taiko.etna.registry.forfeitures` namespaces;
+ordinary node witness slots remain unchanged.
+
 ## Sections
 
 | Section             | Spec           | What it pins                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |

@@ -85,6 +85,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         vm.setEnv("REGISTRY_EXIT_DELAY", vm.toString(EXIT_DELAY));
         vm.setEnv("REGISTRY_WITHDRAWAL_DELAY", vm.toString(WITHDRAWAL_DELAY));
         vm.setEnv("SLASH_BOUNTY_BPS", vm.toString(SLASH_BOUNTY_BPS));
+        vm.setEnv("REGISTRY_FORFEIT_BPS", vm.toString(FORFEIT_BPS));
         vm.setEnv("SLASH_SINK", vm.toString(SLASH_SINK));
         vm.setEnv("L2_CHAIN_ID", vm.toString(L2_CHAIN_ID));
         vm.setEnv("STAKING_REGISTRY", vm.toString(address(0)));
@@ -142,6 +143,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(deployed.inbox(), proxy, "fixed to the bootstrap proxy");
         assertFalse(IEtnaInbox(deployed.inbox()).isInitialized(), "Inbox not initialized yet");
         assertEq(deployed.l2ChainId(), L2_CHAIN_ID, "L2 chain id");
+        assertEq(deployed.forfeitBps(), FORFEIT_BPS, "explicit forfeiture rate");
         assertEq(deployed.minStake(), sMin, "minimum stake defaults to s_min");
         assertEq(address(deployed.token()), address(taikoToken), "stake token");
         assertEq(deployed.activationDelay(), ACTIVATION_DELAY, "activation delay");

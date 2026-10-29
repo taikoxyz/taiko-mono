@@ -165,7 +165,7 @@ contract EtnaInboxRecoverGasTest is EtnaInboxGasBase {
         IEtnaInbox.Exclusion[] memory exclusionList = exclusions;
         uint256[] memory blanks = fiToClear;
         vm.startSnapshotGas("recover_1_exclusion_1_blank");
-        target.recover(0, 6, exclusionList, blanks);
+        target.recover(0, 6, 0, type(uint256).max, exclusionList, blanks);
         _stopSnapshot("recover_1_exclusion_1_blank");
 
         assertEq(_inbox().recoveryGeneration(), 1, "generation");

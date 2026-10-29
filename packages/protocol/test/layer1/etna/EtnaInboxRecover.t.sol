@@ -14,6 +14,9 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 /// @notice A registry stand-in that records, while `recover` forces an exit, whether the Inbox
 /// holds its reentrancy lock and what re-entries into `land` and `recover` return.
 contract LockProbeRegistry {
+    function inNonReentrant() external pure returns (bool) {
+        return false;
+    }
     bytes public landCall;
     bytes public recoverCall;
     uint256 public forceExits;
@@ -145,7 +148,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
                 if (s.account != inboxProxy || !s.isWrite || s.reverted) continue;
                 uint256 slot = uint256(s.slot);
                 assertTrue(
-                    slot == RECOVERY_GENERATION_SLOT || slot == _originSlot(1)
+                    slot == RECOVERY_GENERATION_SLOT || slot == 292 || slot == _originSlot(1)
                         || slot == _originSlot(1) + 1 || slot == _originSlot(1) + 2
                         || slot == _queueSlot(2),
                     string.concat("unexpected Inbox write to slot ", vm.toString(s.slot))
@@ -153,7 +156,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
                 ++writes;
             }
         }
-        assertEq(writes, 5, "five Inbox writes");
+        assertEq(writes, 6, "six Inbox writes including recovery nonce");
     }
 
     /// @dev Lean `exclusion_and_fi_clear_atomic`: excluding Bob and blanking entry 0 in one call.
@@ -466,9 +469,25 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         bytes32 root = registry.entriesRoot();
 
         vm.expectRevert(IEtnaInbox.NotInitialized.selector);
-        _inbox().recover(0, 0, _noExclusions(), _noIndices());
+        _inbox()
+            .recover(
+                0,
+                0,
+                uint256(vm.load(inboxProxy, bytes32(uint256(292)))),
+                type(uint256).max,
+                _noExclusions(),
+                _noIndices()
+            );
         vm.expectRevert(IEtnaInbox.NotInitialized.selector);
-        _inbox().recover(0, 0, _exclusions(0, VALIDATOR_PK), _indices(0));
+        _inbox()
+            .recover(
+                0,
+                0,
+                uint256(vm.load(inboxProxy, bytes32(uint256(292)))),
+                type(uint256).max,
+                _exclusions(0, VALIDATOR_PK),
+                _indices(0)
+            );
 
         for (uint256 slot = 251; slot < 301; ++slot) {
             assertEq(_inboxWord(slot), 0, string.concat("slot ", vm.toString(slot)));
@@ -499,7 +518,9 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         (bool ok, bytes memory ret) = EtnaInboxLockHarness(inboxProxy)
             .lockedCall(
                 inboxProxy,
-                abi.encodeCall(IEtnaInbox.recover, (0, 0, _noExclusions(), _noIndices()))
+                abi.encodeCall(
+                    IEtnaInbox.recover, (0, 0, 0, type(uint256).max, _noExclusions(), _noIndices())
+                )
             );
         assertFalse(ok, "recover under the lock");
         assertEq(ret, reentrant, "recover: REENTRANT_CALL");
@@ -533,7 +554,9 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         _inbox().acceptOwnership();
         probe.setReentryCalls(
             abi.encodeCall(IEtnaInbox.land, (_input(0, 6), new bytes32[](0), PROOF)),
-            abi.encodeCall(IEtnaInbox.recover, (0, 0, _noExclusions(), _noIndices()))
+            abi.encodeCall(
+                IEtnaInbox.recover, (0, 0, 0, type(uint256).max, _noExclusions(), _noIndices())
+            )
         );
 
         _recover(0, 0, _exclusions(0, VALIDATOR_PK), _noIndices());
@@ -559,7 +582,15 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         address registryImpl = registry.impl();
 
         vm.startStateDiffRecording();
-        _inbox().recover(0, 0, everyone, _indices(0));
+        _inbox()
+            .recover(
+                0,
+                0,
+                uint256(vm.load(inboxProxy, bytes32(uint256(292)))),
+                type(uint256).max,
+                everyone,
+                _indices(0)
+            );
         VmSafe.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
 
         uint256 forceExits;
@@ -573,8 +604,16 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
             } else if (a.account == address(inboxImpl)) {
                 assertEq(uint8(a.kind), uint8(VmSafe.AccountAccessKind.DelegateCall), "Inbox impl");
             } else if (a.account == address(registry)) {
-                assertEq(uint8(a.kind), uint8(VmSafe.AccountAccessKind.Call), "registry");
                 assertEq(a.accessor, inboxProxy, "called by the Inbox");
+                if (a.kind == VmSafe.AccountAccessKind.StaticCall) {
+                    assertEq(
+                        a.data,
+                        abi.encodeWithSignature("inNonReentrant()"),
+                        "reciprocal registry lock check"
+                    );
+                    continue;
+                }
+                assertEq(uint8(a.kind), uint8(VmSafe.AccountAccessKind.Call), "registry forceExit");
                 IEtnaInbox.Exclusion memory x = everyone[forceExits++];
                 assertEq(
                     a.data,
@@ -759,7 +798,15 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
             _generation + 1, _c, block.number, block.timestamp, _exclusionList, _fiToClear
         );
         vm.prank(_inbox().owner());
-        _inbox().recover(_generation, _c, _exclusionList, _fiToClear);
+        _inbox()
+            .recover(
+                _generation,
+                _c,
+                uint256(vm.load(inboxProxy, bytes32(uint256(292)))),
+                type(uint256).max,
+                _exclusionList,
+                _fiToClear
+            );
     }
 
     /// @dev Expects the owner's recovery to revert with `_selector`, writing nothing.
@@ -798,7 +845,15 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         bytes32[] memory before = _recoveryState();
         vm.expectRevert(_revertData);
         vm.prank(_caller);
-        _inbox().recover(_generation, _c, _exclusionList, _fiToClear);
+        _inbox()
+            .recover(
+                _generation,
+                _c,
+                uint256(vm.load(inboxProxy, bytes32(uint256(292)))),
+                type(uint256).max,
+                _exclusionList,
+                _fiToClear
+            );
         bytes32[] memory afterRevert = _recoveryState();
         assertEq(afterRevert.length, before.length, "state shape");
         for (uint256 i; i < before.length; ++i) {
@@ -812,9 +867,10 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         uint256 c = _inbox().lastCheckpoint().height;
         (, uint48 tail) = _inbox().getForcedInclusionState();
         uint256 bonds = registry.entryCount();
-        words_ = new bytes32[](16 + tail + bonds);
+        words_ = new bytes32[](17 + tail + bonds);
         uint256 n;
         words_[n++] = _inboxWord(RECOVERY_GENERATION_SLOT);
+        words_[n++] = _inboxWord(292);
         words_[n++] = _inboxWord(LAST_CHECKPOINT_HEIGHT_SLOT);
         words_[n++] = _inboxWord(LAST_CHECKPOINT_HASH_SLOT);
         words_[n++] = _inboxWord(FORCED_INCLUSION_HEAD_TAIL_SLOT);

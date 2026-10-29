@@ -597,8 +597,8 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
     }
 
     /// @dev The lock taken by `slashDoubleSign` stops a token that re-enters it from `transfer`.
-    /// The slash is written before any stake moves: a `confirmExit` re-entered from the bounty
-    /// transfer already sees the exit the slash set.
+    /// The slash is written before any stake moves, but cross-function confirmation callbacks
+    /// also hit that lock and roll back the complete slash.
     function test_slashDoubleSign_RevertWhen_TokenReenters() external {
         ReentrantERC20 reentrant = new ReentrantERC20();
         registry = _deployRegistry(address(reentrant), address(mockInbox));
@@ -617,10 +617,13 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
 
         mockInbox.setActiveCommitteeSnapshot(block.number);
         reentrant.armReentry(address(registry), abi.encodeCall(registry.confirmExit, (0)));
-        _slash(0, a, b);
-        assertEq(registry.exitConfirmedAtL1(0), block.number, "confirmed during the bounty");
-        assertEq(reentrant.balanceOf(Bob), _BOUNTY, "bounty");
-        assertEq(reentrant.balanceOf(SLASH_SINK), _TO_SINK, "sink");
+        _assertSlashReverts(
+            0, a, b, EssentialContract.REENTRANT_CALL.selector, "confirmation callback"
+        );
+        assertEq(registry.exitConfirmedAtL1(0), 0, "callback confirmation rolled back");
+        assertEq(registry.entryAt(0).effStake, MIN_STAKE, "principal rolled back");
+        assertEq(reentrant.balanceOf(Bob), 0, "bounty rolled back");
+        assertEq(reentrant.balanceOf(SLASH_SINK), 0, "sink transfer rolled back");
     }
 
     // ---------------------------------------------------------------

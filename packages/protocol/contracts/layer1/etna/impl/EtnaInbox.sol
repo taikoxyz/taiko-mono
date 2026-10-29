@@ -212,7 +212,10 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev Slot 291: reserved; never read or written.
     uint256 private __reserved291;
 
-    uint256[9] private __gap;
+    /// @dev Slot 292: monotonic recovery authorization nonce, never restored from history.
+    uint256 private _recoveryNonce;
+
+    uint256[8] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -256,6 +259,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// holds zero in every other Inbox slot, which is the remaining initial state (generation 0,
     /// checkpoint height 0, an empty queue and the zero fields of landings[0] and origins[0]).
     function init(InitParams calldata _params) external reinitializer(2) onlyOwner {
+        _checkRegistryUnlocked();
         _validateInitParams(_params);
 
         bytes32 configHash = _hashCommitteeConfig(_params.committeeConfig);
@@ -314,6 +318,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         external
         nonReentrant
     {
+        _checkRegistryUnlocked();
         uint48 generation = _recoveryGeneration;
         uint256 c = _lastCheckpoint.height;
 
@@ -343,6 +348,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev Unaffected by pause. The refund is the last step, after every write and the event, and
     /// a failed refund reverts the whole submission.
     function saveForcedInclusion(bytes calldata _tx) external payable nonReentrant {
+        _checkRegistryUnlocked();
         require(_initStatus == INITIALIZED_STATUS, NotInitialized());
         require(_tx.length <= MAX_FORCED_TX_BYTES, ForcedTransactionTooLarge());
 
@@ -370,6 +376,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev Also sweeps ETH forced into the Inbox without a call. A zero balance transfers nothing.
     /// Unaffected by pause.
     function sweepProtocolFees() external nonReentrant {
+        _checkRegistryUnlocked();
         uint256 amount = address(this).balance;
         emit ProtocolFeesSwept(amount);
         protocolFeeRecipient.sendEtherAndVerify(amount);
@@ -389,6 +396,8 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     function recover(
         uint48 _expectedGeneration,
         uint256 _expectedC,
+        uint256 _expectedRecoveryNonce,
+        uint256 _validUntil,
         Exclusion[] calldata _exclusions,
         uint256[] calldata _fiToClear
     )
@@ -396,11 +405,15 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         onlyOwner
         nonReentrant
     {
+        _checkRegistryUnlocked();
         require(_initStatus == INITIALIZED_STATUS, NotInitialized());
         uint48 generation = _recoveryGeneration;
         require(_expectedGeneration == generation, GenerationMismatch());
         uint48 c = _lastCheckpoint.height;
         require(_expectedC == c, CheckpointMismatch());
+        require(_expectedRecoveryNonce == _recoveryNonce, RecoveryNonceMismatch());
+        require(block.timestamp <= _validUntil, AuthorizationExpired());
+        uint256 nextNonce = _recoveryNonce + 1;
 
         // The new generation (slot 268) and the origin's L1 block number and timestamp must fit
         // 48 bits; c already does.
@@ -417,10 +430,30 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             _forcedInclusions.queue[_fiToClear[i]].txHash = _BLANK_TX_HASH;
         }
         _recoveryGeneration = newGeneration;
+        _recoveryNonce = nextNonce;
         _origins[newGeneration] =
             Origin({ startHeight: c, l1BlockNumber: block.number, l1Timestamp: block.timestamp });
 
         emit Recovered(newGeneration, c, block.number, block.timestamp, _exclusions, _fiToClear);
+    }
+
+    /// @inheritdoc IEtnaInbox
+    function invalidateRecoveryNonce(uint256 _expectedRecoveryNonce)
+        external
+        onlyOwner
+        nonReentrant
+    {
+        _checkRegistryUnlocked();
+        require(_initStatus == INITIALIZED_STATUS, NotInitialized());
+        require(_expectedRecoveryNonce == _recoveryNonce, RecoveryNonceMismatch());
+        uint256 nextNonce = _recoveryNonce + 1;
+        _recoveryNonce = nextNonce;
+        emit RecoveryNonceInvalidated(_expectedRecoveryNonce, nextNonce);
+    }
+
+    /// @inheritdoc IEtnaInbox
+    function recoveryNonce() external view returns (uint256 nonce_) {
+        return _recoveryNonce;
     }
 
     /// @inheritdoc IEtnaInbox
@@ -863,5 +896,11 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
                 _config.unsettledLimit
             )
         );
+    }
+
+    /// @dev Rejects callbacks from token transfers and other registry mutations. The reciprocal
+    /// registry check blocks mutations during Inbox execution, except its authorized forceExit.
+    function _checkRegistryUnlocked() private view {
+        require(!EssentialContract(address(_stakingRegistry)).inNonReentrant(), RegistryLocked());
     }
 }

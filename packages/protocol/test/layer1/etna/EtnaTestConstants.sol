@@ -13,6 +13,7 @@ abstract contract EtnaTestConstants {
     uint256 internal constant EXIT_DELAY = 20;
     uint256 internal constant WITHDRAWAL_DELAY = 30;
     uint256 internal constant SLASH_BOUNTY_BPS = 1000;
+    uint256 internal constant FORFEIT_BPS = 1000;
     address internal constant SLASH_SINK = address(0x5151);
 
     /// @dev The registry configuration with these parameters, staking `_token` and fixed to
@@ -34,7 +35,8 @@ abstract contract EtnaTestConstants {
             slashBountyBps: SLASH_BOUNTY_BPS,
             slashSink: SLASH_SINK,
             l2ChainId: L2_CHAIN_ID,
-            inbox: _inbox
+            inbox: _inbox,
+            forfeitBps: FORFEIT_BPS
         });
     }
 }

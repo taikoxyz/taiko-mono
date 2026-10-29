@@ -5,7 +5,7 @@ pragma solidity ^0.8.26;
 /// @notice The L1 Inbox of an Etna PoS chain: it records L2 genesis, lands proven batches that end
 /// at grid points, keeps the forced inclusion queue and runs governance recovery.
 /// @dev Section numbers refer to the Etna specification. Nodes, guests and landers read the
-/// storage layout of spec appendix B (slots 258-291) with EIP-1186 proofs; each struct names the
+/// storage layout of spec appendix B (slots 258-292) with EIP-1186 proofs; each struct names the
 /// slots it occupies. Every packed word lays its fields out in declaration order from the
 /// least-significant bit. This file has no imports so clients can copy it as is.
 /// @custom:security-contact security@taiko.xyz
@@ -210,6 +210,11 @@ interface IEtnaInbox {
     /// @param amount The amount swept in wei.
     event ProtocolFeesSwept(uint256 amount);
 
+    /// @notice Emitted when the owner invalidates unexecuted recovery authorizations.
+    /// @param oldNonce The previously current authorization nonce.
+    /// @param newNonce The new nonce, exactly oldNonce + 1.
+    event RecoveryNonceInvalidated(uint256 oldNonce, uint256 newNonce);
+
     /// @notice Emitted when governance recovery starts a new generation (spec 8).
     /// @param newGeneration The new recovery generation.
     /// @param checkpointHeight `c`, the checkpoint the generation starts from.
@@ -298,7 +303,9 @@ interface IEtnaInbox {
     /// @dev Only the owner; shares `land`'s reentrancy lock and is atomic: any failure reverts
     /// every effect. Reverts `NotInitialized` before `init`. Requires
     /// _expectedGeneration == recoveryGeneration() (`GenerationMismatch`) and
-    /// _expectedC == lastCheckpoint().height (`CheckpointMismatch`); the new generation,
+    /// _expectedC == lastCheckpoint().height (`CheckpointMismatch`), an exact recovery nonce
+    /// (`RecoveryNonceMismatch`) and block.timestamp <= _validUntil (`AuthorizationExpired`).
+    /// Increments the authorization nonce without wrapping on success. The new generation,
     /// block.number and block.timestamp each below 2^48 (`ValueOverflow`); exclusions sorted
     /// strictly by bond id and fiToClear strictly increasing within [head, tail). With
     /// R = block.number, the registry checks each exclusion's entry key and sets its
@@ -310,15 +317,31 @@ interface IEtnaInbox {
     /// are kept.
     /// @param _expectedGeneration The recovery generation the call was authorized for.
     /// @param _expectedC The checkpoint height the call was authorized for.
+    /// @param _expectedRecoveryNonce The exact current authorization nonce (slot 292).
+    /// @param _validUntil The inclusive L1 Unix timestamp deadline in seconds.
     /// @param _exclusions The entries to force out, sorted strictly by bond id.
     /// @param _fiToClear The queue indices to blank, strictly increasing.
     function recover(
         uint48 _expectedGeneration,
         uint256 _expectedC,
+        uint256 _expectedRecoveryNonce,
+        uint256 _validUntil,
         Exclusion[] calldata _exclusions,
         uint256[] calldata _fiToClear
     )
         external;
+
+    /// @notice Invalidates all unexecuted recovery authorizations carrying the current nonce.
+    /// @dev Owner only after initialization, under the Inbox lock. Requires an exact nonce and
+    /// increments it without wrapping. Neither landing nor registry forfeiture changes it.
+    /// Verifier-failure rollback upgrades must preserve and increment the current nonce rather
+    /// than restore a historical value (spec 8.3).
+    /// @param _expectedRecoveryNonce The nonce to invalidate.
+    function invalidateRecoveryNonce(uint256 _expectedRecoveryNonce) external;
+
+    /// @notice Returns the monotonically increasing uint256 recovery authorization nonce.
+    /// @return nonce_ Slot 292, initially zero; incremented by recovery or explicit invalidation.
+    function recoveryNonce() external view returns (uint256 nonce_);
 
     /// @notice Returns whether `init` has run.
     /// @dev Slot 258 holds 3 once initialized.
@@ -454,6 +477,9 @@ interface IEtnaInbox {
 
     /// @notice The Inbox is not initialized.
     error NotInitialized();
+    error RecoveryNonceMismatch();
+    error AuthorizationExpired();
+    error RegistryLocked();
     /// @notice `maxBatchBlocks` is below 6 or above 65,532.
     error InvalidMaxBatchBlocks();
     /// @notice The forced inclusion fee is zero.
