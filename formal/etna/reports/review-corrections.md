@@ -553,3 +553,22 @@ Earlier sections describe their original revisions and retain historical counts/
   freshness and deterministic source/artifact checks. Independent semantic review found no
   Critical/Important findings. See trajectory-assurance.md and signing-escrow-analysis.md for
   statements, counterexamples, initialization and external-effect boundaries.
+
+## 2026-10-29: actual signer and authenticated prefix connection
+
+- Add a typed prefix, full checkpoint hash/cursor matching, snapshot provenance and actual
+  Signer.sign observation with exact message, immutable key and signature-adapter binding.
+  Derive request cutoff ordering from the accepted source and real replay inclusion, rather
+  than assuming the desired cutoff inequality. Cover fresh durable-log writes separately
+  from cached retries and preserve covered cutoffs under future archive append.
+- Instantiate the composed theorem from a genuine initialized deployment through ordinary
+  rotation, confirmation and withdrawal. Add a full typed stale-view fresh nil-signature
+  witness with an authoritative HRS log; both newer checkpoint inclusion and causal
+  confirmation-to-view ordering are unavailable. Distinguish this from an extension above
+  the latest global checkpoint and report exact freshness, adapter and rollback conditions.
+- Register 894 exact contracts (154 property, 3 constant, 410 supporting, 327 regression),
+  preserving all prior 851 contracts. Traceability: 311 clauses, 73 partial, 235 deferred,
+  3 design-pending, 22 narrow claims. Add seven negative kernel binding mutations plus a
+  silent baseline; all 172 Python tests and 12 Lean regression modules passed.
+- Independent semantic review found no Critical/Important findings. Full central gate results
+  are recorded in README; no production/spec changes or superpowers planning documents.

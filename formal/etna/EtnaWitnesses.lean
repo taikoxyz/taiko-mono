@@ -15,6 +15,8 @@ import EtnaWitnesses.Counterexamples.RecoveryCapture
 import EtnaWitnesses.Counterexamples.ForcedPoisonResubmit
 import EtnaWitnesses.Counterexamples.StaleDaoAuthorization
 import EtnaWitnesses.Counterexamples.HistoricalEscrow
+import EtnaWitnesses.Regressions.SigningBridge
+import EtnaWitnesses.Counterexamples.SigningViewLag
 import EtnaWitnesses.Regressions.Accounting
 import EtnaWitnesses.Regressions.SigningEscrow
 import EtnaWitnesses.Regressions.Trajectory

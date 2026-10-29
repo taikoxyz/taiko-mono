@@ -16,7 +16,8 @@
     "hash": "Opaque/free hash terms, actual cryptographic separation and canonical encodings remain external.",
     "journal": "ProtocolState composes decoded landing/registry/FI/recovery/rollback transactions under nondecreasing L1 time and structural initial invariants. EVM atomicity, trusted rollback target/snapshot, authenticated DAO-owner calls and node trust remain external; irreversible payouts are not restored.",
     "deployment": "Stored initialized L, genesisCutoff, K, maxAnchorAge and forcedInclusionDelay, the committee-0 and config commitments, and their authenticated ghost openings: the 4-field config opening (vp_unit, s_min, n_max, U), which the config commitment hashes as seven ABI words together with the domain tag, l2ChainId and registry, and the committee-0 record; plus the World's fixed hash adapters. Every modeled transition preserves them and no transaction input chooses them. Opening authentication and real hash/preimage separation are explicit external assumptions (the representable_opening_unique premise; Premises.hashSeparation for the deployment's own commitment), not proven by a free Rules field.",
-    "accounting": "Logical TAIKO principal over allocated slots and successful nominal receipt values; ReleasedZero is required initially and proved from empty lifecycle states. ERC20 custody equality additionally requires exact incoming/outgoing transfers, atomic failure and an initial endowment matching liabilities. ETH fees are separate. No fee-on-transfer, rebase or token callback implementation is verified."
+    "accounting": "Logical TAIKO principal over allocated slots and successful nominal receipt values; ReleasedZero is required initially and proved from empty lifecycle states. ERC20 custody equality additionally requires exact incoming/outgoing transfers, atomic failure and an initial endowment matching liabilities. ETH fees are separate. No fee-on-transfer, rebase or token callback implementation is verified.",
+    "signing": "ObservedCall contains the actual existing Signer.sign result and decoded message/key/signature bindings. TrustedPrefix authenticates a typed own-finalized view and matching replay, EngineRequest states the producer refinement. Real adapters/engine enforcement remain external. A confirmation must causally precede that view and be included in the common replay/source; global L1 freshness does not follow from ready/trusted. Cached returns, unrestricted rollback and continuous positive collateral are separate."
   },
   "design_pending": [
     "EN-fac3b57a8c83d321",
@@ -458,6 +459,24 @@
         ],
         "EN-d7e07b7ea27ed4a3": [
           "Etna.Design.SigningEscrow.confirmed_key_absent_later_cutoff"
+        ]
+      }
+    },
+    {
+      "id": "DV-22",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "A successful fresh stock-signer call bound to the actual next-height member request on a typed trusted prefix that causally follows and includes an exit confirmation derives its selection-cutoff bound from actual accepted snapshot provenance, prefix replay and selector monotonicity. The returned signature/log entry is bound to its decoded request and the confirmed lifetime key is excluded. Producer/adapter refinement and confirmation-view inclusion remain explicit; own-finalized view does not imply global freshness.",
+      "assumptions": ["context", "l1", "signature", "journal", "signing"],
+      "evidence": {
+        "EN-4651c537a506e6fd": [
+          "Etna.Design.SigningBridge.fresh_signing_connection"
+        ],
+        "EN-9ee888f78091a2fe": [
+          "Etna.Design.SigningBridge.fresh_signing_connection"
+        ],
+        "EN-2b238db781615e6e": [
+          "Etna.Design.SigningBridge.fresh_signing_connection"
         ]
       }
     }

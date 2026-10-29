@@ -57,6 +57,7 @@ UNSOURCED = {
     'Etna.Design.Accounting.trace_project': 'Observer traces project to original traces after removing stutters; modelling correspondence only',
     'Etna.Design.Accounting.trace_lift': 'Every original trace has an observer trace; modelling completeness only',
     'Etna.Design.SigningEscrow.snapshot_trace_projects': 'Snapshot-disciplined trace projects to the original machine; modelling correspondence only',
+    'Etna.Design.SigningBridge.valid_chain_split': 'Concatenated valid-chain decomposition is modelling plumbing; it is not evidence for a spec clause',
 }
 
 

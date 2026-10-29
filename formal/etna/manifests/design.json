@@ -12456,6 +12456,697 @@
       "role": "property",
       "sources": ["EN-4651c537a506e6fd", "EN-fd0557c2630191c6"],
       "scope": "Whole original-trajectory confirmation-clock induction combined with the actual successful withdrawal result: recorded clock, full delay, covered effective exit, exact remaining-principal payout and zero post-balance. Snapshot coverage is explicit; real custody, evidence delivery and authenticated signing-prefix/cutoff linkage remain external."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridge.event_excludes_confirmed_key",
+      "module": "EtnaProofs.SigningBridge",
+      "type": "∀ {initial confirmed view : Etna.Design.ProtocolState.World} {id c : Nat}, Etna.Design.ProtocolState.Trace initial confirmed → Etna.Design.ProtocolState.Core initial → initial.registry.nextId = 0 → Etna.Design.ProtocolState.Trace confirmed view → ∀ (p : Etna.Design.SigningBridge.TrustedPrefix view) (seen : Etna.Design.SigningBridge.IncludedCheckpoint confirmed p) (call : Etna.Design.SigningBridge.ObservedCall p), Etna.Design.SigningBridge.EngineRequest p call.device.key call.message → id < confirmed.registry.nextId → (confirmed.registry.slots id).confirmedAt = Option.some c → Etna.Design.SigningEscrow.Covered confirmed → (confirmed.registry.slots id).key ≠ 0 → (confirmed.registry.slots id).exitAt ≠ Etna.Design.Staking.noExit → call.device.key ≠ (confirmed.registry.slots id).key",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridge.event_excludes_visible_key",
+      "module": "EtnaProofs.SigningBridge",
+      "type": "∀ {initial confirmed view : Etna.Design.ProtocolState.World} {id c : Nat}, Etna.Design.ProtocolState.Trace initial confirmed → Etna.Design.ProtocolState.Core initial → Etna.Design.SigningEscrow.KeysWellFormed initial.registry → Etna.Design.SigningEscrow.ExitVisible initial.registry → Etna.Design.ProtocolState.Trace confirmed view → ∀ (p : Etna.Design.SigningBridge.TrustedPrefix view) (seen : Etna.Design.SigningBridge.IncludedCheckpoint confirmed p) (call : Etna.Design.SigningBridge.ObservedCall p), Etna.Design.SigningBridge.EngineRequest p call.device.key call.message → id < confirmed.registry.nextId → (confirmed.registry.slots id).confirmedAt = Option.some c → Etna.Design.SigningEscrow.Covered confirmed → (confirmed.registry.slots id).key ≠ 0 → (confirmed.registry.slots id).exitAt ≠ Etna.Design.Staking.noExit → call.device.key ≠ (confirmed.registry.slots id).key",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridge.fresh_return_binds_message",
+      "module": "EtnaProofs.SigningBridge",
+      "type": "∀ {view : Etna.Design.ProtocolState.World} {p : Etna.Design.SigningBridge.TrustedPrefix view} (call : Etna.Design.SigningBridge.ObservedCall p), call.after.log ≠ call.device.state.log → call.returned = call.supplied ∧ call.after.log = { generation := call.message.generation, position := call.request.position, bytes := call.request.bytes, signature := call.supplied } :: call.device.state.log",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-6478ed58606b3c3b", "EN-2b238db781615e6e"],
+      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridge.fresh_signing_connection",
+      "module": "EtnaProofs.SigningBridge",
+      "type": "∀ {initial confirmed view : Etna.Design.ProtocolState.World} {id c : Nat}, Etna.Design.ProtocolState.Trace initial confirmed → Etna.Design.ProtocolState.Core initial → Etna.Design.SigningEscrow.KeysWellFormed initial.registry → Etna.Design.SigningEscrow.ExitVisible initial.registry → Etna.Design.ProtocolState.Trace confirmed view → ∀ (p : Etna.Design.SigningBridge.TrustedPrefix view) (seen : Etna.Design.SigningBridge.IncludedCheckpoint confirmed p) (call : Etna.Design.SigningBridge.ObservedCall p), Etna.Design.SigningBridge.EngineRequest p call.device.key call.message → call.after.log ≠ call.device.state.log → id < confirmed.registry.nextId → (confirmed.registry.slots id).confirmedAt = Option.some c → Etna.Design.SigningEscrow.Covered confirmed → (confirmed.registry.slots id).key ≠ 0 → (confirmed.registry.slots id).exitAt ≠ Etna.Design.Staking.noExit → call.device.state.ready = Bool.true ∧ call.request.trusted = Bool.true ∧ call.request.position.height = p.tip.height + 1 ∧ confirmed.inbox.snapshot ≤ (Etna.Design.Consensus.activeAt p.rules.consensus call.request.position.height).cutoff ∧ call.returned = call.supplied ∧ call.after.log = { generation := call.message.generation, position := call.request.position, bytes := call.request.bytes, signature := call.supplied } :: call.device.state.log ∧ call.device.key ≠ (confirmed.registry.slots id).key",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridge.genesis_snapshot_source",
+      "module": "EtnaProofs.SigningBridge",
+      "type": "∀ {w : Etna.Design.ProtocolState.World} {hash root : Etna.Design.Hash} {cfg : Etna.Design.Deployment.Config} {archive : List Nat} {template r : Etna.Design.BlockValidity.Rules}, Etna.Design.Deployment.Genesis w hash root → Etna.Design.Deployment.build w cfg archive template = Option.some r → Etna.Design.SigningBridge.SnapshotSource w.inbox r.consensus",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-a18ead0048bf2b66"],
+      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridge.header_matches_contract",
+      "module": "EtnaProofs.SigningBridge",
+      "type": "∀ (cp : Etna.Design.Checkpoint) (h : Etna.Design.BlockValidity.Header), Etna.Design.SigningBridge.headerMatches cp h ↔ h.height = cp.height ∧ h.elHash = cp.elHash ∧ h.cometHash = cp.cometHash ∧ h.cursor = cp.cursor",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-9ee888f78091a2fe"],
+      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridge.included_checkpoint_reached",
+      "module": "EtnaProofs.SigningBridge",
+      "type": "∀ {confirmed view : Etna.Design.ProtocolState.World} (p : Etna.Design.SigningBridge.TrustedPrefix view) (seen : Etna.Design.SigningBridge.IncludedCheckpoint confirmed p), confirmed.inbox.checkpoint.height ≤ p.tip.height",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-9ee888f78091a2fe"],
+      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridge.included_snapshot_bound",
+      "module": "EtnaProofs.SigningBridge",
+      "type": "∀ {confirmed view : Etna.Design.ProtocolState.World} (p : Etna.Design.SigningBridge.TrustedPrefix view) (seen : Etna.Design.SigningBridge.IncludedCheckpoint confirmed p) (m : Etna.Design.SigningBridge.SignMessage), m.height = p.tip.height + 1 → confirmed.inbox.snapshot ≤ (Etna.Design.Consensus.activeAt p.rules.consensus m.height).cutoff",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-9ee888f78091a2fe", "EN-2b238db781615e6e"],
+      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridge.message_request_contract",
+      "module": "EtnaProofs.SigningBridge",
+      "type": "∀ (encode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash) (m : Etna.Design.SigningBridge.SignMessage) (trusted : Bool), Etna.Design.SigningBridge.messageRequest encode m trusted = { domain := m.domain, generation := m.generation, trusted := trusted, position := { height := m.height, round := m.round, step := Etna.Design.SigningBridge.phaseStep m.phase }, bytes := encode m }",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-2b238db781615e6e"],
+      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridge.prefix_reaches_checkpoint",
+      "module": "EtnaProofs.SigningBridge",
+      "type": "∀ {view : Etna.Design.ProtocolState.World} (p : Etna.Design.SigningBridge.TrustedPrefix view), view.inbox.checkpoint.height ≤ p.tip.height",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-9ee888f78091a2fe"],
+      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridge.request_snapshot_bound",
+      "module": "EtnaProofs.SigningBridge",
+      "type": "∀ {view : Etna.Design.ProtocolState.World} (p : Etna.Design.SigningBridge.TrustedPrefix view) (m : Etna.Design.SigningBridge.SignMessage), m.height = p.tip.height + 1 → view.inbox.snapshot ≤ (Etna.Design.Consensus.activeAt p.rules.consensus m.height).cutoff",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-9ee888f78091a2fe", "EN-2b238db781615e6e"],
+      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridge.same_history_cutoff",
+      "module": "EtnaProofs.SigningBridge",
+      "type": "∀ {a b : Etna.Design.Consensus.Context}, Etna.Design.SigningBridge.SameSigningHistory a b → ∀ (h : Nat), (Etna.Design.Consensus.activeAt a h).cutoff = (Etna.Design.Consensus.activeAt b h).cutoff",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-179bc07a1f6d0129"],
+      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridge.source_snapshot_bound",
+      "module": "EtnaProofs.SigningBridge",
+      "type": "∀ {s : Etna.Design.State} {ctx : Etna.Design.Consensus.Context} {registry : Etna.Design.RegistryHistory.State} {cfg : Etna.Design.HistoricalContext.Parameters} {archive : List Nat} {view : Etna.Design.State} {h : Nat}, Etna.Design.SigningBridge.SnapshotSource s ctx → Etna.Design.HistoricalContext.build view registry cfg archive = Option.some ctx → s.checkpoint.height ≤ h → s.snapshot ≤ (Etna.Design.Consensus.activeAt ctx h).cutoff",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-179bc07a1f6d0129", "EN-4651c537a506e6fd"],
+      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridge.successful_call_requires_trust",
+      "module": "EtnaProofs.SigningBridge",
+      "type": "∀ {view : Etna.Design.ProtocolState.World} {p : Etna.Design.SigningBridge.TrustedPrefix view} (call : Etna.Design.SigningBridge.ObservedCall p), call.device.state.ready = Bool.true ∧ call.request.trusted = Bool.true",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-2b238db781615e6e"],
+      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridge.valid_chain_split",
+      "module": "EtnaProofs.SigningBridge",
+      "type": "∀ {r : Etna.Design.BlockValidity.Rules} {origin : Etna.Design.BlockValidity.Header} {before after : List Etna.Design.BlockValidity.Block}, Etna.Design.BlockValidity.Chain r origin (before ++ after) → Etna.Design.BlockValidity.Chain r origin before ∧ Etna.Design.BlockValidity.Chain r (Etna.Design.BlockValidity.terminal origin before) after",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [],
+      "scope": "Concatenated valid-chain decomposition is modelling plumbing; it is not evidence for a spec clause. Audited but backs no source clause or claim."
+    },
+    {
+      "declaration": "Etna.Design.SigningPrefix.accepted_land_cutoff_bound",
+      "module": "EtnaProofs.SigningPrefix",
+      "type": "∀ {s t : Etna.Design.State} {i : Etna.Design.LandInput} {leaves : List Etna.Design.Leaf} {e : Etna.Design.LandingEnv} {r : Etna.Design.BlockValidity.Rules} {p : Etna.Design.BlockValidity.Header} {bs : List Etna.Design.BlockValidity.Block} {blobs : List Etna.Design.Hash} {registry : Etna.Design.RegistryHistory.State} {cfg : Etna.Design.HistoricalContext.Parameters} {archive : List Nat} {h : Nat}, Etna.Design.land s i leaves e = Option.some t → Etna.Design.Settlement.BatchValid r p bs blobs → e.certificate = Etna.Design.Settlement.statement r p bs blobs → Etna.Design.HistoricalContext.build s registry cfg archive = Option.some r.consensus → i.lastHeight ≤ h → t.snapshot ≤ (Etna.Design.Consensus.activeAt r.consensus h).cutoff",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-179bc07a1f6d0129", "EN-4651c537a506e6fd"],
+      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
+    },
+    {
+      "declaration": "Etna.Design.SigningPrefix.built_active_cutoff_monotone",
+      "module": "EtnaProofs.SigningPrefix",
+      "type": "∀ {s : Etna.Design.State} {registry : Etna.Design.RegistryHistory.State} {cfg : Etna.Design.HistoricalContext.Parameters} {archive : List Nat} {ctx : Etna.Design.Consensus.Context} {a b : Nat}, Etna.Design.HistoricalContext.build s registry cfg archive = Option.some ctx → a ≤ b → (Etna.Design.Consensus.activeAt ctx a).cutoff ≤ (Etna.Design.Consensus.activeAt ctx b).cutoff",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-179bc07a1f6d0129"],
+      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
+    },
+    {
+      "declaration": "Etna.Design.SigningPrefix.extended_archive_cutoff",
+      "module": "EtnaProofs.SigningPrefix",
+      "type": "∀ (s : Etna.Design.State) (oldRegistry newRegistry : Etna.Design.RegistryHistory.State) (cfg : Etna.Design.HistoricalContext.Parameters) (archive more : List Nat) (h : Nat), h < archive.length → (Etna.Design.Consensus.activeAt (Etna.Design.HistoricalContext.derive s oldRegistry cfg archive) h).cutoff = (Etna.Design.Consensus.activeAt (Etna.Design.HistoricalContext.derive s newRegistry cfg (archive ++ more)) h).cutoff",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-e11112a7ad1b77fd", "EN-179bc07a1f6d0129"],
+      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
+    },
+    {
+      "declaration": "Etna.Design.SigningPrefix.switch_schedule_agrees",
+      "module": "EtnaProofs.SigningPrefix",
+      "type": "∀ (ctx : Etna.Design.Consensus.Context) (t : Nat) (previous : Etna.Design.Committee.Schedule),\n  0 < t →\n    3 ≤ ctx.epochLen →\n      ctx.originHeight < Etna.Design.Consensus.switchHeight ctx t →\n        Etna.Design.Committee.authority previous (Etna.Design.Consensus.switchHeight ctx t) = Etna.Design.Consensus.activeAt ctx (Etna.Design.Consensus.switchHeight ctx t) →\n          have switch := Etna.Design.Consensus.switchHeight ctx t;\n          have schedule := Etna.Design.Committee.announce previous switch (Etna.Design.Consensus.normal ctx t);\n          Etna.Design.Committee.authority schedule switch = Etna.Design.Consensus.activeAt ctx switch ∧ Etna.Design.Committee.authority schedule (switch + 1) = Etna.Design.Consensus.activeAt ctx (switch + 1) ∧ Etna.Design.Committee.authority schedule (switch + 2) = Etna.Design.Consensus.activeAt ctx (switch + 2)",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-179bc07a1f6d0129"],
+      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
+    },
+    {
+      "declaration": "Etna.Design.SigningViewLag.confirmation_not_observed",
+      "module": "EtnaWitnesses.Counterexamples.SigningViewLag",
+      "type": "¬Etna.Design.ProtocolState.Trace Etna.Design.HistoricalEscrow.worldD Etna.Design.SigningViewLag.view",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Concrete reachable lagging own-finalized view, authoritative HRS, full typed prefix and real fresh nil signing call after newer ordinary withdrawal. Confirmation-to-view causality and checkpoint inclusion are unavailable. No extension above latest global checkpoint, same-round attack or production exploit is claimed; decoding/crypto/L1 authenticity remain external."
+    },
+    {
+      "declaration": "Etna.Design.SigningViewLag.current_checkpoint_not_included",
+      "module": "EtnaWitnesses.Counterexamples.SigningViewLag",
+      "type": "¬Nonempty (Etna.Design.SigningBridge.IncludedCheckpoint Etna.Design.SigningViewLag.current Etna.Design.SigningViewLag.typedPrefix)",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Concrete reachable lagging own-finalized view, authoritative HRS, full typed prefix and real fresh nil signing call after newer ordinary withdrawal. Confirmation-to-view causality and checkpoint inclusion are unavailable. No extension above latest global checkpoint, same-round attack or production exploit is claimed; decoding/crypto/L1 authenticity remain external."
+    },
+    {
+      "declaration": "Etna.Design.SigningViewLag.lagging_view_fresh_nil_signature",
+      "module": "EtnaWitnesses.Counterexamples.SigningViewLag",
+      "type": "Etna.Design.ProtocolState.Trace Etna.Design.NonVacuity.world0 Etna.Design.SigningViewLag.current ∧ Etna.Design.ProtocolState.Trace Etna.Design.SigningViewLag.view Etna.Design.SigningViewLag.current ∧ Etna.Design.SigningViewLag.current.inbox.checkpoint.height = 12 ∧ Etna.Design.SigningViewLag.current.inbox.snapshot = 24 ∧ (Etna.Design.SigningViewLag.current.registry.slots 0).balance = 0 ∧ (Etna.Design.SigningViewLag.current.registry.slots 0).released = Bool.true ∧ Etna.Design.SigningViewLag.session.ready = Bool.true ∧ Etna.Design.SigningViewLag.request.trusted = Bool.true ∧ Etna.Design.SigningViewLag.session.domain = Etna.Design.SigningViewLag.view.inbox.domain ∧ Etna.Design.SigningViewLag.request.domain = Etna.Design.SigningViewLag.session.domain ∧ Etna.Design.SigningViewLag.request.generation = Etna.Design.SigningViewLag.session.activeGeneration ∧ Etna.Design.SigningViewLag.request.generation = Etna.Design.SigningViewLag.current.inbox.generation ∧ Etna.Design.Signer.latest Etna.Design.SigningViewLag.session Etna.Design.SigningViewLag.request.generation = Option.some Etna.Design.SigningViewLag.previous ∧ Etna.Design.Signer.before Etna.Design.SigningViewLag.previous.position Etna.Design.SigningViewLag.request.position = Bool.true ∧ Etna.Design.SigningViewLag.request.position.height < Etna.Design.SigningViewLag.current.inbox.checkpoint.height ∧ Etna.Design.Signer.sign Etna.Design.SigningViewLag.session Etna.Design.SigningViewLag.request 777 Bool.true = Option.some (Etna.Design.SigningViewLag.after, 777) ∧ Etna.Design.SigningViewLag.after.log = Etna.Design.SigningViewLag.created :: Etna.Design.SigningViewLag.session.log ∧ Etna.Design.SigningViewLag.after.log.length = Etna.Design.SigningViewLag.session.log.length + 1 ∧ Etna.Design.SigningViewLag.after.log ≠ Etna.Design.SigningViewLag.session.log",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Concrete reachable lagging own-finalized view, authoritative HRS, full typed prefix and real fresh nil signing call after newer ordinary withdrawal. Confirmation-to-view causality and checkpoint inclusion are unavailable. No extension above latest global checkpoint, same-round attack or production exploit is claimed; decoding/crypto/L1 authenticity remain external."
+    },
+    {
+      "declaration": "Etna.Design.SigningViewLag.old_view_and_local_height",
+      "module": "EtnaWitnesses.Counterexamples.SigningViewLag",
+      "type": "Etna.Design.BlockValidity.Chain Etna.Design.HistoricalEscrow.rules Etna.Design.NonVacuity.genesisHeader Etna.Design.SigningViewLag.localPrefix ∧ Etna.Design.SigningViewLag.tip.height = 9 ∧ Etna.Design.SigningViewLag.request.position.height = Etna.Design.SigningViewLag.tip.height + 1 ∧ Etna.Design.SigningViewLag.view.inbox.checkpoint.height = 0 ∧ Etna.Design.SigningViewLag.view.inbox.snapshot = 12 ∧ (Etna.Design.HistoricalEscrow.header Etna.Design.SigningViewLag.view.inbox.checkpoint.height).elHash = Etna.Design.SigningViewLag.view.inbox.checkpoint.elHash ∧ (Etna.Design.HistoricalEscrow.header Etna.Design.SigningViewLag.view.inbox.checkpoint.height).cometHash = Etna.Design.SigningViewLag.view.inbox.checkpoint.cometHash ∧ (Etna.Design.Consensus.activeAt Etna.Design.HistoricalEscrow.rules.consensus Etna.Design.SigningViewLag.request.position.height).cutoff = 12 ∧ Etna.Design.SigningViewLag.key ∈ List.map Etna.Design.Committee.Entry.key (Etna.Design.Consensus.activeAt Etna.Design.HistoricalEscrow.rules.consensus Etna.Design.SigningViewLag.request.position.height).members ∧ 12 < (Etna.Design.SigningViewLag.view.registry.slots 0).exitAt ∧ Etna.Design.SigningViewLag.view.l1Block = 26 ∧ (∀ (b : Etna.Design.BlockValidity.Block), b ∈ Etna.Design.SigningViewLag.localPrefix → b.header.anchor.number ≤ Etna.Design.SigningViewLag.view.l1Block) ∧ (Etna.Design.HistoricalEscrow.block 10).header.anchor.number ≤ Etna.Design.SigningViewLag.view.l1Block ∧ Etna.Design.SigningViewLag.view.l1Block < Etna.Design.SigningViewLag.current.l1Block",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Concrete reachable lagging own-finalized view, authoritative HRS, full typed prefix and real fresh nil signing call after newer ordinary withdrawal. Confirmation-to-view causality and checkpoint inclusion are unavailable. No extension above latest global checkpoint, same-round attack or production exploit is claimed; decoding/crypto/L1 authenticity remain external."
+    },
+    {
+      "declaration": "Etna.Design.SigningViewLag.request_binding_and_prior_vote",
+      "module": "EtnaWitnesses.Counterexamples.SigningViewLag",
+      "type": "(Etna.Design.HistoricalEscrow.block 10).votes = [Etna.Design.SigningViewLag.previousVote] ∧ Etna.Design.Consensus.VoteValid Etna.Design.HistoricalEscrow.rules.consensus Etna.Design.HistoricalEscrow.rules.signature 10 0 110 Etna.Design.SigningViewLag.previousVote ∧ Etna.Design.SigningViewLag.request.domain = Etna.Design.SigningViewLag.nilVote.domain ∧ Etna.Design.SigningViewLag.request.generation = Etna.Design.SigningViewLag.nilVote.generation ∧ Etna.Design.SigningViewLag.request.position.height = Etna.Design.SigningViewLag.nilVote.height ∧ Etna.Design.SigningViewLag.request.position.round = Etna.Design.SigningViewLag.nilVote.round ∧ Etna.Design.SigningViewLag.request.position.step = Etna.Design.SigningViewLag.nilVote.kind + 1 ∧ Etna.Design.SigningViewLag.request.bytes = Etna.Design.SigningViewLag.nilVote.blockId ∧ Etna.Design.SigningViewLag.nilVote.kind = 2 ∧ Etna.Design.SigningViewLag.nilVote.blockId = 0 ∧ Etna.Design.SigningViewLag.nilVote.key = 7 ∧ Etna.Design.Consensus.VoteValid Etna.Design.HistoricalEscrow.historicalRules.consensus Etna.Design.HistoricalEscrow.historicalRules.signature 10 1 0 Etna.Design.SigningViewLag.nilVote ∧ Etna.Design.Staking.doubleSign Etna.Design.FirstBatch.deployment Etna.Design.SigningViewLag.current.inbox.generation (Etna.Design.Accountability.evidence Etna.Design.SigningViewLag.previousVote) (Etna.Design.Accountability.evidence Etna.Design.SigningViewLag.nilVote) = Bool.false",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Concrete reachable lagging own-finalized view, authoritative HRS, full typed prefix and real fresh nil signing call after newer ordinary withdrawal. Confirmation-to-view causality and checkpoint inclusion are unavailable. No extension above latest global checkpoint, same-round attack or production exploit is claimed; decoding/crypto/L1 authenticity remain external."
+    },
+    {
+      "declaration": "Etna.Design.SigningViewLag.typed_authoritative_hrs",
+      "module": "EtnaWitnesses.Counterexamples.SigningViewLag",
+      "type": "Etna.Design.SigningViewLag.typedCall.device.key = 7 ∧ Etna.Design.SigningViewLag.typedCall.device.state.ready = Bool.true ∧ Etna.Design.SigningViewLag.typedCall.device.state.log.length = 10 ∧ Etna.Design.Signer.latest Etna.Design.SigningViewLag.typedCall.device.state Etna.Design.SigningViewLag.typedCall.request.generation = Option.some Etna.Design.SigningViewLag.typedPrevious ∧ Etna.Design.Signer.before Etna.Design.SigningViewLag.typedPrevious.position Etna.Design.SigningViewLag.typedCall.request.position = Bool.true ∧ (Etna.Design.SigningViewLag.typedPriorMessage 10).domain = Etna.Design.SigningViewLag.previousVote.domain ∧ (Etna.Design.SigningViewLag.typedPriorMessage 10).generation = Etna.Design.SigningViewLag.previousVote.generation ∧ (Etna.Design.SigningViewLag.typedPriorMessage 10).height = Etna.Design.SigningViewLag.previousVote.height ∧ (Etna.Design.SigningViewLag.typedPriorMessage 10).round = Etna.Design.SigningViewLag.previousVote.round ∧ (Etna.Design.SigningViewLag.typedPriorMessage 10).blockId = Etna.Design.SigningViewLag.previousVote.blockId",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Concrete reachable lagging own-finalized view, authoritative HRS, full typed prefix and real fresh nil signing call after newer ordinary withdrawal. Confirmation-to-view causality and checkpoint inclusion are unavailable. No extension above latest global checkpoint, same-round attack or production exploit is claimed; decoding/crypto/L1 authenticity remain external."
+    },
+    {
+      "declaration": "Etna.Design.SigningViewLag.typed_call_fresh",
+      "module": "EtnaWitnesses.Counterexamples.SigningViewLag",
+      "type": "Etna.Design.SigningViewLag.typedCall.after.log ≠ Etna.Design.SigningViewLag.typedCall.device.state.log",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Concrete reachable lagging own-finalized view, authoritative HRS, full typed prefix and real fresh nil signing call after newer ordinary withdrawal. Confirmation-to-view causality and checkpoint inclusion are unavailable. No extension above latest global checkpoint, same-round attack or production exploit is claimed; decoding/crypto/L1 authenticity remain external."
+    },
+    {
+      "declaration": "Etna.Design.SigningViewLag.typed_engine_request",
+      "module": "EtnaWitnesses.Counterexamples.SigningViewLag",
+      "type": "Etna.Design.SigningBridge.EngineRequest Etna.Design.SigningViewLag.typedPrefix Etna.Design.SigningViewLag.typedCall.device.key Etna.Design.SigningViewLag.typedCall.message",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Concrete reachable lagging own-finalized view, authoritative HRS, full typed prefix and real fresh nil signing call after newer ordinary withdrawal. Confirmation-to-view causality and checkpoint inclusion are unavailable. No extension above latest global checkpoint, same-round attack or production exploit is claimed; decoding/crypto/L1 authenticity remain external."
+    },
+    {
+      "declaration": "Etna.Design.SigningViewLag.typed_fresh_event_with_missing_inclusion",
+      "module": "EtnaWitnesses.Counterexamples.SigningViewLag",
+      "type": "Etna.Design.SigningBridge.EngineRequest Etna.Design.SigningViewLag.typedPrefix Etna.Design.SigningViewLag.typedCall.device.key Etna.Design.SigningViewLag.typedCall.message ∧ Etna.Design.SigningViewLag.typedCall.observed = Etna.Design.SigningViewLag.current ∧ Etna.Design.SigningViewLag.typedCall.device.key = 7 ∧ Etna.Design.SigningViewLag.typedCall.message.phase = Etna.Design.SigningBridge.SignPhase.precommitMsg ∧ Etna.Design.SigningViewLag.typedCall.message.blockId = 0 ∧ Etna.Design.SigningViewLag.typedCall.after.log ≠ Etna.Design.SigningViewLag.typedCall.device.state.log ∧ (Etna.Design.SigningViewLag.typedCall.observed.registry.slots 0).balance = 0 ∧ (Etna.Design.SigningViewLag.typedCall.observed.registry.slots 0).released = Bool.true ∧ ¬Nonempty (Etna.Design.SigningBridge.IncludedCheckpoint Etna.Design.SigningViewLag.current Etna.Design.SigningViewLag.typedPrefix)",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Concrete reachable lagging own-finalized view, authoritative HRS, full typed prefix and real fresh nil signing call after newer ordinary withdrawal. Confirmation-to-view causality and checkpoint inclusion are unavailable. No extension above latest global checkpoint, same-round attack or production exploit is claimed; decoding/crypto/L1 authenticity remain external."
+    },
+    {
+      "declaration": "Etna.Design.SigningViewLag.view_reachable",
+      "module": "EtnaWitnesses.Counterexamples.SigningViewLag",
+      "type": "Etna.Design.ProtocolState.Trace Etna.Design.NonVacuity.world0 Etna.Design.SigningViewLag.view",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Concrete reachable lagging own-finalized view, authoritative HRS, full typed prefix and real fresh nil signing call after newer ordinary withdrawal. Confirmation-to-view causality and checkpoint inclusion are unavailable. No extension above latest global checkpoint, same-round attack or production exploit is claimed; decoding/crypto/L1 authenticity remain external."
+    },
+    {
+      "declaration": "Etna.Design.SigningViewLag.view_to_withdrawal",
+      "module": "EtnaWitnesses.Counterexamples.SigningViewLag",
+      "type": "Etna.Design.ProtocolState.Trace Etna.Design.SigningViewLag.view Etna.Design.SigningViewLag.current",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Concrete reachable lagging own-finalized view, authoritative HRS, full typed prefix and real fresh nil signing call after newer ordinary withdrawal. Confirmation-to-view causality and checkpoint inclusion are unavailable. No extension above latest global checkpoint, same-round attack or production exploit is claimed; decoding/crypto/L1 authenticity remain external."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridgeRegression.actual_event_excludes_old_key",
+      "module": "EtnaWitnesses.Regressions.SigningBridge",
+      "type": "∀ (phase : Etna.Design.SigningBridge.SignPhase) (nil : Bool), (Etna.Design.SigningBridgeRegression.call phase nil).device.key ≠ (Etna.Design.HistoricalEscrow.worldD.registry.slots 0).key",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Positive typed-prefix/actual-signing nonvacuity from a genuine initialized deployment, valid ordinary rotation, exit/withdrawal and next-height engine requests. Computable fixture adapters bind all message fields and key but do not implement real canonical bytes/crypto/EL/L1 authentication."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridgeRegression.call_fresh",
+      "module": "EtnaWitnesses.Regressions.SigningBridge",
+      "type": "∀ (phase : Etna.Design.SigningBridge.SignPhase) (nil : Bool), (Etna.Design.SigningBridgeRegression.call phase nil).after.log ≠ (Etna.Design.SigningBridgeRegression.call phase nil).device.state.log",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Positive typed-prefix/actual-signing nonvacuity from a genuine initialized deployment, valid ordinary rotation, exit/withdrawal and next-height engine requests. Computable fixture adapters bind all message fields and key but do not implement real canonical bytes/crypto/EL/L1 authentication."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridgeRegression.confirmation_covered",
+      "module": "EtnaWitnesses.Regressions.SigningBridge",
+      "type": "Etna.Design.SigningEscrow.Covered Etna.Design.HistoricalEscrow.worldD",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Positive typed-prefix/actual-signing nonvacuity from a genuine initialized deployment, valid ordinary rotation, exit/withdrawal and next-height engine requests. Computable fixture adapters bind all message fields and key but do not implement real canonical bytes/crypto/EL/L1 authentication."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridgeRegression.confirmation_trajectory",
+      "module": "EtnaWitnesses.Regressions.SigningBridge",
+      "type": "Etna.Design.SigningEscrow.SnapshotTrace Etna.Design.NonVacuity.world0 Etna.Design.HistoricalEscrow.worldD",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Positive typed-prefix/actual-signing nonvacuity from a genuine initialized deployment, valid ordinary rotation, exit/withdrawal and next-height engine requests. Computable fixture adapters bind all message fields and key but do not implement real canonical bytes/crypto/EL/L1 authentication."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridgeRegression.confirmed_prefix_and_old_key_absent",
+      "module": "EtnaWitnesses.Regressions.SigningBridge",
+      "type": "Etna.Design.SigningBridge.headerMatches Etna.Design.HistoricalEscrow.worldD.inbox.checkpoint Etna.Design.SigningBridgeRegression.trustedPrefix.tip ∧ Etna.Design.HistoricalEscrow.worldD.inbox.snapshot = 24 ∧ (Etna.Design.HistoricalEscrow.worldD.registry.slots 0).confirmedAt = Option.some 29 ∧ List.map Etna.Design.Committee.Entry.key (Etna.Design.Consensus.activeAt Etna.Design.SigningBridgeRegression.trustedPrefix.rules.consensus 13).members = [8] ∧ (Etna.Design.HistoricalEscrow.worldE.registry.slots 0).released = Bool.true",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Positive typed-prefix/actual-signing nonvacuity from a genuine initialized deployment, valid ordinary rotation, exit/withdrawal and next-height engine requests. Computable fixture adapters bind all message fields and key but do not implement real canonical bytes/crypto/EL/L1 authentication."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridgeRegression.engine_request",
+      "module": "EtnaWitnesses.Regressions.SigningBridge",
+      "type": "∀ (phase : Etna.Design.SigningBridge.SignPhase) (nil : Bool), Etna.Design.SigningBridge.EngineRequest Etna.Design.SigningBridgeRegression.trustedPrefix (Etna.Design.SigningBridgeRegression.call phase nil).device.key (Etna.Design.SigningBridgeRegression.call phase nil).message",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Positive typed-prefix/actual-signing nonvacuity from a genuine initialized deployment, valid ordinary rotation, exit/withdrawal and next-height engine requests. Computable fixture adapters bind all message fields and key but do not implement real canonical bytes/crypto/EL/L1 authentication."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridgeRegression.fresh_call_binding",
+      "module": "EtnaWitnesses.Regressions.SigningBridge",
+      "type": "∀ (phase : Etna.Design.SigningBridge.SignPhase) (nil : Bool), (Etna.Design.SigningBridgeRegression.call phase nil).returned = (Etna.Design.SigningBridgeRegression.call phase nil).supplied ∧ (Etna.Design.SigningBridgeRegression.call phase nil).after.log = { generation := (Etna.Design.SigningBridgeRegression.call phase nil).message.generation, position := (Etna.Design.SigningBridgeRegression.call phase nil).request.position, bytes := (Etna.Design.SigningBridgeRegression.call phase nil).request.bytes, signature := (Etna.Design.SigningBridgeRegression.call phase nil).supplied } :: (Etna.Design.SigningBridgeRegression.call phase nil).device.state.log",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Positive typed-prefix/actual-signing nonvacuity from a genuine initialized deployment, valid ordinary rotation, exit/withdrawal and next-height engine requests. Computable fixture adapters bind all message fields and key but do not implement real canonical bytes/crypto/EL/L1 authentication."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridgeRegression.initial_keys",
+      "module": "EtnaWitnesses.Regressions.SigningBridge",
+      "type": "Etna.Design.SigningEscrow.KeysWellFormed Etna.Design.NonVacuity.world0.registry",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Positive typed-prefix/actual-signing nonvacuity from a genuine initialized deployment, valid ordinary rotation, exit/withdrawal and next-height engine requests. Computable fixture adapters bind all message fields and key but do not implement real canonical bytes/crypto/EL/L1 authentication."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridgeRegression.initial_visible",
+      "module": "EtnaWitnesses.Regressions.SigningBridge",
+      "type": "Etna.Design.SigningEscrow.ExitVisible Etna.Design.NonVacuity.world0.registry",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Positive typed-prefix/actual-signing nonvacuity from a genuine initialized deployment, valid ordinary rotation, exit/withdrawal and next-height engine requests. Computable fixture adapters bind all message fields and key but do not implement real canonical bytes/crypto/EL/L1 authentication."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridgeRegression.next_request_snapshot_bound",
+      "module": "EtnaWitnesses.Regressions.SigningBridge",
+      "type": "∀ (phase : Etna.Design.SigningBridge.SignPhase) (nil : Bool), Etna.Design.HistoricalEscrow.worldE.inbox.snapshot ≤ (Etna.Design.Consensus.activeAt Etna.Design.SigningBridgeRegression.trustedPrefix.rules.consensus (Etna.Design.SigningBridgeRegression.message phase nil).height).cutoff",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Positive typed-prefix/actual-signing nonvacuity from a genuine initialized deployment, valid ordinary rotation, exit/withdrawal and next-height engine requests. Computable fixture adapters bind all message fields and key but do not implement real canonical bytes/crypto/EL/L1 authentication."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridgeRegression.snapshotSource",
+      "module": "EtnaWitnesses.Regressions.SigningBridge",
+      "type": "Etna.Design.SigningBridge.SnapshotSource Etna.Design.HistoricalEscrow.worldE.inbox Etna.Design.HistoricalEscrow.historicalRules.consensus",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Positive typed-prefix/actual-signing nonvacuity from a genuine initialized deployment, valid ordinary rotation, exit/withdrawal and next-height engine requests. Computable fixture adapters bind all message fields and key but do not implement real canonical bytes/crypto/EL/L1 authentication."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridgeRegression.successful_fresh_signing_event",
+      "module": "EtnaWitnesses.Regressions.SigningBridge",
+      "type": "∃ event : Etna.Design.SigningBridge.ObservedCall Etna.Design.SigningBridgeRegression.trustedPrefix, Etna.Design.SigningBridge.EngineRequest Etna.Design.SigningBridgeRegression.trustedPrefix event.device.key event.message ∧ event.after.log ≠ event.device.state.log ∧ event.message.phase = Etna.Design.SigningBridge.SignPhase.precommitMsg ∧ event.message.blockId = 113 ∧ event.device.key ≠ (Etna.Design.HistoricalEscrow.worldD.registry.slots 0).key",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Positive typed-prefix/actual-signing nonvacuity from a genuine initialized deployment, valid ordinary rotation, exit/withdrawal and next-height engine requests. Computable fixture adapters bind all message fields and key but do not implement real canonical bytes/crypto/EL/L1 authentication."
+    },
+    {
+      "declaration": "Etna.Design.SigningBridgeRegression.withdrawal_trajectory",
+      "module": "EtnaWitnesses.Regressions.SigningBridge",
+      "type": "Etna.Design.ProtocolState.Trace Etna.Design.HistoricalEscrow.worldD Etna.Design.HistoricalEscrow.worldE",
+      "assumptions": [
+        "typed authenticated L1/header/EL/registry and signature adapters; actual Comet producer/key/bytes refinement",
+        "explicit causal confirmation view and same-prefix source where required; no global freshness assumption hidden in trusted"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Positive typed-prefix/actual-signing nonvacuity from a genuine initialized deployment, valid ordinary rotation, exit/withdrawal and next-height engine requests. Computable fixture adapters bind all message fields and key but do not implement real canonical bytes/crypto/EL/L1 authentication."
     }
   ]
 }

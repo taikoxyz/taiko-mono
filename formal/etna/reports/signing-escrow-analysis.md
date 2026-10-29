@@ -41,7 +41,17 @@ This is a real limitation of a stronger proposed invariant that every currently 
 
 The witness establishes **future-height current-generation voting authority**, not a timestamped new cryptographic signing event: `World` does not record actual EL tips or signature creation time, and the accepted signature relation includes already-cast votes. This distinction is necessary; no absent fresh-signing model bridge is silently assumed.
 
-## Remaining authenticated signing bridge
+## Follow-up: typed signer/prefix connection
+
+The following section records the bridge obligations identified by this trajectory batch.
+The later [signer/prefix connection](signing-prefix-connection.md) now models the local prefix
+and actual Signer.sign event explicitly, derives the cutoff bound, and supplies initialized
+positive and typed stale-view witnesses. The remaining obligations are real adapter/producer
+refinement, causal view freshness and inclusion relative to confirmation, and authentic
+rollback/session revalidation. The older `Built`/World/headline premises alone still do not
+supply them.
+
+### Original boundary inventory
 
 SPEC 4.3, 8 and 9 require more than `Built`:
 
@@ -55,7 +65,7 @@ SPEC 4.3, 8 and 9 require more than `Built`:
 
 The generation/domain result separately prevents a retired full chain-id generation from returning via signer operations. It does not implement L1 authentication, key fencing or a complete node/EL forkchoice process.
 
-## Verification
+## Verification of the trajectory batch
 
 Pinned Lean 4.35.0-rc4. The central integration build and strict audit passed: 851 exact theorem contracts, mechanically checked roles, standard axioms only, fresh kernel replay of the full import closure, unchanged seven-field headline premise use, fresh vectors and nine silent Lean regression modules. `trace_withdrawal_window` also combines the whole-trajectory clock result with the exact recorded confirmation, full withdrawal delay and principal payout.
 
