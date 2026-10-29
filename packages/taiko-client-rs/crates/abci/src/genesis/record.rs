@@ -15,7 +15,7 @@ use crate::{
 /// The genesis committee an genesis with a given `genesisCutoff` records, as
 /// [`build_committee_record`] derives it.
 ///
-/// Serializes with every `U256` (the record's `total_stake`, each member's `eff_stake`) as a
+/// Serializes with every `U256` (selected effective stake and each member's `eff_stake`) as a
 /// decimal string, as the plain-text report prints them; alloy's own `U256` serialization is `0x`
 /// hex.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -32,6 +32,10 @@ pub struct GenesisCommitteeRecord {
     /// The members, in set-key order; their powers become the genesis validator set.
     #[serde(serialize_with = "serialize_members")]
     pub members: Vec<Member>,
+    /// Sum of selected effective stake in TAIKO base units, excluding pending and unselected
+    /// principal. This supports off-chain launch acceptance; it is not a consensus threshold.
+    #[serde(serialize_with = "serialize_decimal")]
+    pub selected_eff_stake: U256,
     /// The L1 block the registry snapshot was read and proven at (the proving block).
     pub proving_block: u64,
 }
@@ -209,6 +213,9 @@ pub async fn build_committee_record<L: L1Source + ?Sized>(
         record_hash: record_hash(params.l2_chain_id, &record),
         committee_config_hash: crate::committee::committee_config_hash(params),
         record,
+        selected_eff_stake: crate::committee::member_totals(&members)
+            .map_err(|e| CommitteeRecordError::Committee(Box::new(e)))?
+            .1,
         members,
         proving_block: at,
     })
@@ -240,6 +247,7 @@ mod tests {
             "the recorded committee[e_0]"
         );
         assert_eq!(report.record.cutoff_l1_block, cutoff);
+        assert_eq!(report.selected_eff_stake, U256::from(6_000_000_000_000_000_000u64));
         assert_eq!(l1.calls()[0], L1Call::Finalized);
         let json: serde_json::Value = serde_json::from_str(&report.to_json_pretty()).unwrap();
         assert_eq!(json["record_hash"], report.record_hash.to_string());
@@ -268,6 +276,19 @@ mod tests {
         assert_eq!(at_later.proving_block, later);
         assert_eq!(at_later.record_hash, report.record_hash);
         assert_eq!(l1.calls()[0], L1Call::Finalized);
+    }
+
+    /// Launch reporting counts only the highest-stake entries actually selected by n_max.
+    #[tokio::test]
+    async fn selected_stake_excludes_unselected_registry_principal() {
+        let mut fx = Fixture::genesis(3);
+        fx.params.n_max = 1;
+        let report = build_committee_record(&fx.l1(), &fx.params, fx.genesis.genesis_cutoff, None)
+            .await
+            .unwrap();
+        assert_eq!(report.members.len(), 1);
+        assert_eq!(report.selected_eff_stake, U256::from(3_000_000_000_000_000_000u64));
+        assert_eq!(report.record.total_power, 3_000_000_000);
     }
 
     /// The report describes the chosen snapshot without suggesting a later initialization gate.
@@ -302,6 +323,7 @@ mod tests {
                 power: 7,
             }],
             proving_block: 64,
+            selected_eff_stake: stake,
         };
         let json: serde_json::Value = serde_json::from_str(&report.to_json_pretty()).unwrap();
         let decimal = "1000000000000000000000000000000";
@@ -323,6 +345,7 @@ mod tests {
                     "power": 7,
                 }],
                 "proving_block": 64,
+                "selected_eff_stake": decimal,
             })
         );
         let text = report.to_json_pretty();

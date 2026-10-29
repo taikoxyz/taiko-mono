@@ -481,6 +481,19 @@
       "type": "function"
     },
     {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_expectedRecoveryNonce",
+          "type": "uint256"
+        }
+      ],
+      "name": "invalidateRecoveryNonce",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
       "inputs": [],
       "name": "isInitialized",
       "outputs": [
@@ -802,6 +815,16 @@
           "type": "uint256"
         },
         {
+          "internalType": "uint256",
+          "name": "_expectedRecoveryNonce",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_validUntil",
+          "type": "uint256"
+        },
+        {
           "components": [
             {
               "internalType": "uint256",
@@ -837,6 +860,19 @@
           "internalType": "uint48",
           "name": "",
           "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "recoveryNonce",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "nonce_",
+          "type": "uint256"
         }
       ],
       "stateMutability": "view",
@@ -1258,6 +1294,25 @@
       "inputs": [
         {
           "indexed": false,
+          "internalType": "uint256",
+          "name": "oldNonce",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "newNonce",
+          "type": "uint256"
+        }
+      ],
+      "name": "RecoveryNonceInvalidated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
           "internalType": "address",
           "name": "account",
           "type": "address"
@@ -1287,6 +1342,11 @@
     {
       "inputs": [],
       "name": "AlreadySettled",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "AuthorizationExpired",
       "type": "error"
     },
     {
@@ -1451,7 +1511,17 @@
     },
     {
       "inputs": [],
+      "name": "RecoveryNonceMismatch",
+      "type": "error"
+    },
+    {
+      "inputs": [],
       "name": "ReferenceBlockUnavailable",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "RegistryLocked",
       "type": "error"
     },
     {

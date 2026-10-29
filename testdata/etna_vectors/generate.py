@@ -1927,6 +1927,7 @@ INBOX_SLOTS = {
     "active_committee_snapshot": 284,
     "landings": 285,
     "origins": 290,
+    "recovery_nonce": 292,
 }
 RESERVED_SLOTS = (283, 286, 287, 288, 289, 291)
 ANCHOR_SLOTS = (268, 270, 271, 281)
@@ -2003,8 +2004,63 @@ def layout():
         ],
         "owners": namespace("taiko.etna.registry.owners"),
         "exit_confirmations": namespace("taiko.etna.registry.exit-confirmations"),
+        "top_ups": namespace("taiko.etna.registry.top-ups"),
+        "forfeitures": {
+            "namespace": "taiko.etna.registry.forfeitures",
+            "base": cast("index-erc7201", "taiko.etna.registry.forfeitures"),
+            "slots": [
+                {
+                    "entry_key": entry_key,
+                    "slot": cast("index", "bytes32", entry_key, cast("index-erc7201", "taiko.etna.registry.forfeitures")),
+                }
+                for entry_key in (word(0), word(1))
+            ],
+        },
     }
+    for entry in registry["top_ups"]["slots"]:
+        entry["ready_slot"] = word(int(entry["slot"], 16) + 1)
     return decimals({"inbox": inbox, "registry": registry})
+
+
+def governance_abi(key_list):
+    """Executable appendix A governance calldata, independently checked by contract consumers."""
+    entry_key = key_list[0]["entry_key"]
+    calls = {
+        "top_up": ("topUp(uint256,uint256)", [0, 100]),
+        "activate_top_up": ("activateTopUp(uint256)", [0]),
+        "forfeit": ("forfeit(uint256,bytes32,bytes32,uint256)", [0, entry_key, word(42), 1700000123]),
+        "recover": ("recover(uint48,uint256,uint256,uint256,(uint256,bytes32)[],uint256[])", [2, 12, 7, 1700000123, f"[(0,{entry_key})]", "[3,5]"]),
+        "invalidate_recovery_nonce": ("invalidateRecoveryNonce(uint256)", [7]),
+    }
+    return {
+        name: {"signature": signature, "selector": cast("sig", signature), "calldata": cast("calldata", signature, *args)}
+        for name, (signature, args) in calls.items()
+    }
+
+
+def forfeitures():
+    """Principal deductions, including pending-only and overflowing intermediate products."""
+    out = []
+    for effective, pending, rate in ((100, 0, 1000), (2, 98, 1000), (1, 0, 1), (0, 3, 10000), (WORD_MOD - 1, 0, 10000)):
+        balance = effective + pending
+        penalty = (balance * rate + 9999) // 10000
+        from_effective = min(effective, penalty)
+        out.append({"eff_stake": effective, "pending_top_up": pending, "forfeit_bps": rate, "penalty": penalty, "eff_stake_after": effective - from_effective, "pending_top_up_after": pending - (penalty - from_effective)})
+    return decimals(out)
+
+
+def governance_events(key_list):
+    """Event topics and non-indexed ABI data, including explicit nonce invalidation."""
+    definitions = {
+        "top_up_deposited": ("TopUpDeposited(uint256,uint256,uint48)", [word(0)], "f(uint256,uint48)", [100, 42]),
+        "top_up_activated": ("TopUpActivated(uint256,uint256)", [word(0)], "f(uint256)", [100]),
+        "forfeited": ("Forfeited(uint256,bytes32,bytes32,uint256,uint256)", [word(0), key_list[0]["entry_key"]], "f(bytes32,uint256,uint256)", [word(42), 100, 10]),
+        "recovery_nonce_invalidated": ("RecoveryNonceInvalidated(uint256,uint256)", [], "f(uint256,uint256)", [7, 8]),
+    }
+    return {
+        name: {"signature": signature, "topic0": keccak(signature), "indexed_topics": topics, "data": abi_encode(encoding, *args)}
+        for name, (signature, topics, encoding, args) in definitions.items()
+    }
 
 
 def main():
@@ -2035,6 +2091,9 @@ def main():
         "packed_words": packed_words(),
         "origin_words": origin_words(),
         "layout": layout(),
+        "governance_abi": governance_abi(key_list),
+        "forfeitures": forfeitures(),
+        "governance_events": governance_events(key_list),
     }
     OUTPUT.write_text(json.dumps(vectors, indent=2) + "\n")
     subprocess.run(["pnpm", "exec", "prettier", "--write", str(OUTPUT)], cwd=ROOT, check=True)

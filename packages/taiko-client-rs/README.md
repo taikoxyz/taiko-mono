@@ -67,7 +67,7 @@ asks the app's private control socket before every signature (see
 ## Fresh deployment
 
 The client starts a fresh Etna chain at generation zero only; it migrates no earlier state
-format. It is aligned with protocol commit `836105cf7ccd4e8bff075624fd7f58c5561f710b` (the
+format. It is aligned with protocol commit `1b14b634c8d213b5b30d8fc61ca6f6dcec344389` (the
 Inbox, staking registry and the pinned contract artifacts) and alethia-reth commit
 `6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4`. Start the EL and verify its block 0 before the Inbox
 is initialized (spec section 10, Startup and deployment). The proof provider is a dummy `0x00`,
@@ -270,14 +270,39 @@ proposal's hash.
 | `--json`           | Print the report as JSON instead of plain text                                       |
 
 The report gives the record hash, the cutoff, the snapshot's checkpoint index, the proving block,
-every member's compressed 33-byte public key and voting power, total voting power, and the committee
+every member's compressed 33-byte public key and voting power, total voting power, selected effective
+stake in TAIKO base units, and the committee
 config hash required by Inbox initialization. A cutoff after the L1 node's `finalized` block
 is refused, as the initialization fixes it irreversibly, and so is a cutoff at which no entry is eligible: initializing with it would leave the chain
 without validators. `--json` prints each member's effective stake as a decimal string. Its top-level fields are
-`record_hash`, `committee_config_hash`, `record`, `members`, `proving_block`. The record has
+`record_hash`, `committee_config_hash`, `record`, `members`, `selected_eff_stake`, `proving_block`. The record has
 `target_epoch`, `cutoff_l1_block`, `checkpoint_index`, `set_root`, `total_power`; each member has
 `pubkey`, `eff_stake`, `power`. Logs go to
 standard error.
+
+For launch acceptance (SPEC 4.1/4.4/11 and ACCEPTANCE 4), pin an independent `C_CAP_MIN`,
+conservative per-TAIKO `P_REF` in the same currency, price source, haircut, expiry, review frequency
+and responsible owner in the deployment manifest. With positive and current inputs, compute
+`S_MIN_TOTAL = ceil(3 * C_CAP_MIN * 10^18 / P_REF)`. Check the report's selected effective stake
+against that floor and require `ceil(totalPower / 3) * vp_unit * P_REF >= C_CAP_MIN * 10^18`.
+Pending and unselected funds do not count; each entry and known common controller must be strictly
+below one third of power. This report supports operator review, not a price oracle or consensus
+threshold. Preserve the separate real-two-proof and resource acceptance requirements.
+
+Owners may `topUp` active entries without free slots; funds become effective only through explicit
+`activateTopUp` after the L1 delay, then affect selection snapshots that include that checkpoint.
+They cannot activate after an exit is set. The DAO's `forfeit` deducts the deployment's explicit
+`forfeitBps` fraction of effective plus pending principal, forces exit and records a lifetime key
+flag, with no forfeiture nonce or registry revocation. The authorization has an inclusive L1
+timestamp deadline and remains usable across landing and recovery. Withdrawal and double-sign
+slashing cover both balances. Exercise the response budget before lawful withdrawal; seven days
+is not automatically enough for governance execution.
+
+Recovery now binds `expectedRecoveryNonce` and `validUntil` in addition to generation and c;
+the owner may invalidate the nonce explicitly. Recovery does not punish principal itself or
+invalidate forfeiture authorization. Estimate recovery economics before authorization and reassess
+finalized R, including activated top-ups. Economic shortfalls or expired valuation require alerts,
+public disclosure and replenishment, without adding a signing, rotation or recovery veto.
 
 ```sh
 taiko-client abci-committee-record --l1.http http://l1-node:8545 --l2.chain-id 167001 \

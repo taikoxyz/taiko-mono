@@ -112,6 +112,7 @@ impl ContractFixture {
                     slashSink: admin,
                     l2ChainId: L2_CHAIN_ID,
                     inbox,
+                    forfeitBps: U256::from(1000),
                 },
             }
             .abi_encode(),

@@ -119,6 +119,7 @@ fn render_text(report: &GenesisCommitteeRecord) -> String {
         let _ = writeln!(out, "  {} power {}", member.pubkey, member.power);
     }
     let _ = write!(out, "totalPower:          {}", record.total_power);
+    let _ = write!(out, "\nselectedEffStake:    {}", report.selected_eff_stake);
     out
 }
 
@@ -256,6 +257,7 @@ mod tests {
                 member(1, "2000000000000000000", 2_000_000_000),
             ],
             proving_block: 64,
+            selected_eff_stake: "3000000000000000000".parse().unwrap(),
         };
         let text = render_text(&report);
         let lines: Vec<&str> = text.lines().collect();
@@ -268,7 +270,8 @@ mod tests {
         assert_eq!(lines[6], format!("  {} power 1000000000", report.members[0].pubkey));
         assert_eq!(lines[7], format!("  {} power 2000000000", report.members[1].pubkey));
         assert_eq!(lines[8], "totalPower:          3000000000");
-        assert_eq!(lines.len(), 9);
+        assert_eq!(lines[9], "selectedEffStake:    3000000000000000000");
+        assert_eq!(lines.len(), 10);
         assert!(!text.ends_with('\n'));
     }
 }

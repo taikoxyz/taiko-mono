@@ -529,6 +529,52 @@ def fi_static_failures(tx_type, fields, chain_id, gas_limit):
 
 
 class VectorsTest(unittest.TestCase):
+    def test_governance_authorization_and_principal_vectors(self):
+        self.assertIn("governance_abi", V)
+        calls = V["governance_abi"]
+        self.assertEqual(set(calls), {"top_up", "activate_top_up", "forfeit", "recover", "invalidate_recovery_nonce"})
+        for call in calls.values():
+            self.assertEqual(call["calldata"][:10], call["selector"])
+            self.assertEqual(len(hexbytes(call["selector"])), 4)
+        recovery = words("0x" + calls["recover"]["calldata"][10:])
+        self.assertEqual([int(w, 16) for w in recovery[:6]], [2, 12, 7, 1700000123, 192, 288])
+        self.assertEqual(int(recovery[6], 16), 1)
+        self.assertEqual(int(recovery[9], 16), 2)
+        self.assertEqual([int(w, 16) for w in recovery[10:]], [3, 5])
+        cases = V["forfeitures"]
+        expected = [(100, 0, 1000, 10, 90, 0), (2, 98, 1000, 10, 0, 90), (1, 0, 1, 1, 0, 0), (0, 3, 10000, 3, 0, 0)]
+        self.assertEqual([tuple(int(c[k]) for k in ("eff_stake", "pending_top_up", "forfeit_bps", "penalty", "eff_stake_after", "pending_top_up_after")) for c in cases[:4]], expected)
+        large = cases[4]
+        self.assertEqual(int(large["eff_stake"]), 2**256 - 1)
+        self.assertEqual(int(large["penalty"]), 2**256 - 1)
+        self.assertEqual(int(large["eff_stake_after"]), 0)
+
+    def test_top_up_and_lifetime_forfeiture_namespaces(self):
+        registry = V["layout"]["registry"]
+        self.assertIn("top_ups", registry)
+        self.assertIn("forfeitures", registry)
+        self.assertEqual(registry["top_ups"]["namespace"], "taiko.etna.registry.top-ups")
+        for entry in registry["top_ups"]["slots"]:
+            self.assertEqual(int(entry["ready_slot"], 16), int(entry["slot"], 16) + 1)
+        self.assertEqual(registry["forfeitures"]["namespace"], "taiko.etna.registry.forfeitures")
+        for entry in registry["forfeitures"]["slots"]:
+            self.assertEqual(len(hexbytes(entry["entry_key"])), 32)
+        self.assertEqual(V["layout"]["inbox"]["slots"]["recovery_nonce"], "292")
+
+    def test_governance_event_payloads(self):
+        self.assertTrue("governance_events" in V, "new events must be shared with ABI consumers")
+        events = V["governance_events"]
+        expected = {
+            "top_up_deposited": [100, 42],
+            "top_up_activated": [100],
+            "forfeited": [42, 100, 10],
+            "recovery_nonce_invalidated": [7, 8],
+        }
+        self.assertEqual(set(events), set(expected))
+        for name, values in expected.items():
+            self.assertEqual([int(w, 16) for w in words(events[name]["data"])], values)
+            self.assertEqual(len(hexbytes(events[name]["topic0"])), 32)
+
     def test_schema_version_is_4(self):
         self.assertEqual(V["schema_version"], "4")
 
@@ -1045,6 +1091,7 @@ class VectorsTest(unittest.TestCase):
                 "active_committee_snapshot": "284",
                 "landings": "285",
                 "origins": "290",
+                "recovery_nonce": "292",
             },
         )
         used = set(inbox["slots"].values())
