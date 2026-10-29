@@ -13,6 +13,75 @@ coverage = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(coverage)
 
 
+class PinnedSourceTests(unittest.TestCase):
+    """A redirected pin or an edit to either authority must fail before evidence loads."""
+    def check_sources(self, mutate=None):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            root = repo/'formal/etna'
+            root.mkdir(parents=True)
+            directory = 'packages/protocol/docs/etna-pos-zk'
+            shutil.copytree(coverage.REPO/directory, repo/directory)
+            value = {
+                'source': {
+                    'path': directory+'/SPEC.md', 'revision': '2026-10-29',
+                    'commit': '39ebefbf33a2702b750e0fb0db7d2a40ff8e8480',
+                    'sha256': '8fe38cbd0acb08e0ec838ac064de198e2c32494d9ca2f71b4d0f773804cf37d5',
+                },
+                'acceptance_source': {
+                    'path': directory+'/ACCEPTANCE.md', 'revision': '2026-10-29',
+                    'commit': '39ebefbf33a2702b750e0fb0db7d2a40ff8e8480',
+                    'sha256': '876f89892acc91508fd322b4df676a0eb19550b39c9a43490376b4a3b4863c60',
+                },
+            }
+            if mutate:
+                mutate(repo, value)
+            (root/'spec-coverage.json').write_text(json.dumps(value))
+            return coverage.source_rows(root, repo)
+
+    def test_current_sources_need_no_external_manifest(self):
+        rows = self.check_sources()
+        self.assertTrue(any(r['id'].startswith('EN-') for r in rows))
+        self.assertTrue(any(r['id'].startswith('ACCEPTANCE-') for r in rows))
+
+    def test_spec_edit_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'spec digest mismatch'):
+            self.check_sources(lambda repo, value:
+                (repo/'packages/protocol/docs/etna-pos-zk/SPEC.md').write_text('changed'))
+
+    def test_acceptance_edit_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'acceptance digest mismatch'):
+            self.check_sources(lambda repo, value:
+                (repo/'packages/protocol/docs/etna-pos-zk/ACCEPTANCE.md').write_text('changed'))
+
+    def test_spec_pin_cannot_redirect_to_identical_bytes(self):
+        def redirect(repo, value):
+            target = repo/'copied-spec.md'
+            shutil.copyfile(repo/value['source']['path'], target)
+            value['source']['path'] = 'copied-spec.md'
+        with self.assertRaisesRegex(ValueError, 'the spec source must be'):
+            self.check_sources(redirect)
+
+    def test_acceptance_pin_cannot_redirect_to_identical_bytes(self):
+        def redirect(repo, value):
+            target = repo/'copied-acceptance.md'
+            shutil.copyfile(repo/value['acceptance_source']['path'], target)
+            value['acceptance_source']['path'] = 'copied-acceptance.md'
+        with self.assertRaisesRegex(ValueError, 'the acceptance source must be'):
+            self.check_sources(redirect)
+
+    def test_both_reviewed_hashes_are_required(self):
+        for key, diagnostic in [('source', 'spec digest mismatch'),
+                                ('acceptance_source', 'acceptance digest mismatch')]:
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, diagnostic):
+                self.check_sources(lambda repo, value: value[key].update(sha256='0'*64))
+
+    def test_both_sources_require_a_full_reviewed_commit(self):
+        for key in ('source', 'acceptance_source'):
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, 'full Git commit'):
+                self.check_sources(lambda repo, value: value[key].update(commit='39ebefb'))
+
+
 class SpecCoverageTests(unittest.TestCase):
     def check(self,mutate=None):
         """Run the checker on copies: `root` is formal/etna inside a scratch repo holding the spec."""
@@ -73,13 +142,9 @@ class SpecCoverageTests(unittest.TestCase):
     def test_spec_bytes_are_pinned(self):
         self.rejected(lambda r:(r.parents[1]/coverage.SPEC_PATH).write_text('changed'),'spec digest mismatch')
 
-    def test_pinned_revision_matches_spec_manifest(self):
-        def bump(root):
-            file = root.parents[1]/coverage.SPEC_DIR/'manifest.json'
-            value = json.loads(file.read_text())
-            value['revision'] = '2000-01-01'
-            file.write_text(json.dumps(value))
-        self.rejected(bump,'pinned spec revision differs')
+    def test_reviewed_source_revision_is_required(self):
+        self.rejected(lambda r:self.edit(r,'spec-coverage.json',lambda x:x['source'].update(revision='unreviewed')),
+                      'ISO revision date')
 
     def test_spec_source_path_is_fixed(self):
         self.rejected(lambda r:self.edit(r,'spec-coverage.json',lambda x:x['source'].update(path='spec.md')),
@@ -129,7 +194,7 @@ class ReviewedMappingTests(unittest.TestCase):
         phrases = ('Reject a latest checkpoint conflicting with local history','Before authorizing')
         rows = [r for r in coverage.inventory() if any(p in r['summary'] for p in phrases)]
         # Exact node-fence and DAO pre-check paragraphs, without line-number IDs.
-        rows = [r for r in rows if r['summary'].startswith(('- <b>Reject','- <b>Before'))]
+        rows = [r for r in rows if r['summary'].startswith(('- **Reject','- **Before'))]
         self.assertEqual(len(rows),2)
         for row in rows: self.assertEqual(row['status'],'deferred',row['id'])
 

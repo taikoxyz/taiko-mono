@@ -112,7 +112,7 @@ class GeneratorTests(unittest.TestCase):
     def test_vectors_are_well_formed(self):
         for family in FAMILIES:
             document = json.loads(self.first[f'{family}.json'])
-            self.assertEqual(document['schema'], 'etna-conformance-1')
+            self.assertEqual(document['schema'], 'etna-conformance-2')
             self.assertEqual(document['family'], family)
             vectors = document['vectors']
             self.assertEqual(document['vectorCount'], len(vectors))

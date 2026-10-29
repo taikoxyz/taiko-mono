@@ -100,7 +100,7 @@ theorem deployed_sound_trace : ProtocolState.SoundTrace ThirdBatch.deployed Thir
       (by decide +kernel) (by decide +kernel) (by decide +kernel))
 
 /-- A second recovery at the generation-1 checkpoint, with R = (1, 30, 30). -/
-def request2 : Recovery.Request := ⟨1,1,[],[]⟩
+def request2 : Recovery.Request := ⟨1,1,[],[],1,limit256-1⟩
 def origin2 : Origin := ⟨1,30,30⟩
 def recovered2 : ProtocolState.World :=
   (ProtocolState.recover ThirdBatch.landedWorld1 request2 origin2 true true).getD ThirdBatch.landedWorld1

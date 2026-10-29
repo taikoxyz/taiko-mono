@@ -37,7 +37,8 @@ EXPECTED = {
     'Etna.Design.UntrustedRollback.untrusted_snapshot_frees_committee_stake',
     'Etna.Design.RecoveryCapture.late_stake_captures_recovery_committee',
     'Etna.Design.ForcedPoisonResubmit.cleared_poison_resubmitted',
-    'Etna.Design.StaleDaoAuthorization.stale_authorization_revives',
+    'Etna.Design.StaleDaoAuthorization.stale_authorization_never_revives',
+    'Etna.Design.StaleDaoAuthorization.stale_authorization_rejected_on_every_future',
 }
 
 # What each module exists to show, restated independently of its manifest entry.
@@ -115,11 +116,21 @@ example : ProtocolState.Trace NonVacuity.world0 worldAgain ∧ Blanks worldP wor
   exact ⟨trace,blanks,_,_,again,same,head,tail⟩
 
 open Etna.Design Etna.Statements StaleDaoAuthorization in
-/-- Revived authorization: the authorization a landing voided executes after a rollback. -/
+/-- Non-revival: the same restored checkpoint and generation still reject the old
+authorization because rollback consumed its nonce. -/
 example : (∀ r owner externalOK, ProtocolState.recover NoVerifierSoundness.forgedWorld request r owner externalOK = none) ∧
-    ProtocolState.Trace NonVacuity.world0 revived ∧ revived.inbox.generation = 1 := by
-  obtain ⟨_,voided,_,_,_,trace,generation,_⟩ := stale_authorization_revives
-  exact ⟨voided,trace,generation⟩
+    ProtocolState.Trace NonVacuity.world0 rolledBack ∧
+    rolledBack.inbox.checkpoint = NonVacuity.world0.inbox.checkpoint ∧
+    ProtocolState.recover rolledBack request origin true true = none ∧
+    rolledBack.inbox.recoveryNonce = NonVacuity.world0.inbox.recoveryNonce+1 := by
+  obtain ⟨_,voided,checkpoint,_,_,trace,rejected,nonce⟩ := stale_authorization_never_revives
+  exact ⟨voided,trace,checkpoint,rejected,nonce⟩
+
+open Etna.Design Etna.Statements StaleDaoAuthorization in
+/-- The consumed authorization remains rejected over every future machine trace. -/
+example {w : ProtocolState.World} (trace : ProtocolState.Trace rolledBack w)
+    (r : Origin) (owner externalOK : Bool) : ProtocolState.recover w request r owner externalOK = none :=
+  stale_authorization_rejected_on_every_future trace r owner externalOK
 '''
 
 

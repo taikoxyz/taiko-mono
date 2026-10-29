@@ -208,7 +208,73 @@ theorem withdrawable_iff (s : _root_.Etna.Design.State) (b : _root_.Etna.Design.
     (atL1 caller now delay : _root_.Nat) :
     _root_.Etna.Design.Staking.Withdrawable s b atL1 caller now delay ↔
       s.entered = _root_.Bool.false ∧ b.released = _root_.Bool.false ∧ atL1+delay ≤ now ∧
-      atL1+delay < _root_.Etna.Design.limit256 ∧ (b.stake = 0 ∨ caller = b.owner) := Iff.rfl
+      atL1+delay < _root_.Etna.Design.limit256 ∧ (b.stake+b.pendingTopUp = 0 ∨ caller = b.owner) := Iff.rfl
+
+/-- Pending deposits remain principal for all liability and payment operations. -/
+theorem bond_balance_eq (b : _root_.Etna.Design.Staking.Bond) :
+    _root_.Etna.Design.Staking.Bond.balance b = b.stake+b.pendingTopUp := rfl
+
+/-- Deposit guards and metadata update; no Inbox-initialization or free-slot requirement. -/
+theorem top_up_eq (s : _root_.Etna.Design.State) (b : _root_.Etna.Design.Staking.Bond)
+    (caller amount now activationDelay : _root_.Nat) :
+    _root_.Etna.Design.Staking.topUp s b caller amount now activationDelay =
+      if s.entered = _root_.Bool.false ∧ caller = b.owner ∧ b.released = _root_.Bool.false ∧ b.activeFrom ≤ now ∧
+          0 < b.stake ∧ b.exitAt = _root_.Etna.Design.Staking.noExit ∧ b.pendingTopUp = 0 ∧ 0 < amount ∧
+          b.stake+b.pendingTopUp+amount < _root_.Etna.Design.limit256 ∧
+          0 < activationDelay ∧ now+activationDelay < _root_.Etna.Design.limit48 then
+        _root_.Option.some { b with pendingTopUp := amount,topUpReadyAtL1 := now+activationDelay }
+      else _root_.Option.none := rfl
+
+theorem activate_top_up_eq (s : _root_.Etna.Design.State) (b : _root_.Etna.Design.Staking.Bond)
+    (now : _root_.Nat) :
+    _root_.Etna.Design.Staking.activateTopUp s b now =
+      if s.entered = _root_.Bool.false ∧ b.released = _root_.Bool.false ∧ 0 < b.pendingTopUp ∧
+          b.exitAt = _root_.Etna.Design.Staking.noExit ∧ b.topUpReadyAtL1 ≤ now ∧
+          b.stake+b.pendingTopUp < _root_.Etna.Design.limit256 then
+        _root_.Option.some { b with stake := b.stake+b.pendingTopUp,pendingTopUp := 0,topUpReadyAtL1 := 0 }
+      else _root_.Option.none := rfl
+
+theorem withdraw_eq (s : _root_.Etna.Design.State) (b : _root_.Etna.Design.Staking.Bond)
+    (caller now delay : _root_.Nat) :
+    _root_.Etna.Design.Staking.withdraw s b caller now delay =
+      match b.confirmedAt with
+      | .none => _root_.Option.none
+      | .some atL1 => if _root_.Etna.Design.Staking.Withdrawable s b atL1 caller now delay then
+          _root_.Option.some (⟨0,0,0,0,0,_root_.Bool.true,_root_.Option.none,0,0⟩,b.stake+b.pendingTopUp)
+        else _root_.Option.none := rfl
+
+/-- The bounty and sink split consume effective plus pending principal. -/
+theorem slash_double_eq (s : _root_.Etna.Design.State) (b : _root_.Etna.Design.Staking.Bond)
+    (now bountyBps : _root_.Nat) :
+    _root_.Etna.Design.Staking.slashDouble s b now bountyBps =
+      if _root_.Etna.Design.Staking.inboxInitialized s = _root_.Bool.true ∧
+          b.released = _root_.Bool.false ∧ 0 < b.stake+b.pendingTopUp ∧ bountyBps ≤ 10000 then
+        _root_.Option.some
+          ({ b with stake := 0,pendingTopUp := 0,topUpReadyAtL1 := 0,exitAt := _root_.Min.min b.exitAt now },
+            _root_.Etna.Design.Staking.fraction (b.stake+b.pendingTopUp) bountyBps,
+            b.stake+b.pendingTopUp-_root_.Etna.Design.Staking.fraction (b.stake+b.pendingTopUp) bountyBps)
+      else _root_.Option.none := rfl
+
+theorem forfeit_penalty_eq (balance bps : _root_.Nat) :
+    _root_.Etna.Design.Staking.forfeitPenalty balance bps = (balance*bps+9999)/10000 := rfl
+
+/-- Fixed-rate, one-shot authenticated forfeiture deducts effective stake first and pays
+the sink; readiness clears only when pending principal is exhausted. -/
+theorem forfeit_eq (s : _root_.Etna.Design.State) (b : _root_.Etna.Design.Staking.Bond)
+    (entryKey now timestamp validUntil bps : _root_.Nat) (owner unused externalOK : _root_.Bool) :
+    _root_.Etna.Design.Staking.forfeit s b entryKey now timestamp validUntil bps owner unused externalOK =
+      if _root_.Etna.Design.Staking.inboxInitialized s = _root_.Bool.true ∧
+          s.entered = _root_.Bool.false ∧ owner = _root_.Bool.true ∧ b.released = _root_.Bool.false ∧
+          b.key = entryKey ∧ unused = _root_.Bool.true ∧ 0 < b.stake+b.pendingTopUp ∧
+          timestamp ≤ validUntil ∧ 0 < bps ∧ bps ≤ 10000 ∧ externalOK = _root_.Bool.true then
+        let penalty := _root_.Etna.Design.Staking.forfeitPenalty (b.stake+b.pendingTopUp) bps
+        let pending := b.pendingTopUp-(penalty-b.stake)
+        _root_.Option.some
+          ({ b with
+            stake := b.stake-penalty,pendingTopUp := pending,
+            topUpReadyAtL1 := (if pending = 0 then 0 else b.topUpReadyAtL1),
+            exitAt := _root_.Min.min b.exitAt now },penalty)
+      else _root_.Option.none := rfl
 
 theorem register_allowed_iff (s : _root_.Etna.Design.RegistryHistory.State) (key amount now : _root_.Nat) :
     _root_.Etna.Design.RegistryHistory.RegisterAllowed s key amount now ↔
@@ -341,7 +407,8 @@ theorem registry_transitions_eq (s r : _root_.Etna.Design.RegistryHistory.State)
       (if _root_.Etna.Design.RegistryHistory.RegisterAllowed s key amount now then
         _root_.Option.some (_root_.Etna.Design.RegistryHistory.finish s now
           { _root_.Etna.Design.RegistryHistory.writeSlot s (_root_.Etna.Design.RegistryHistory.allocation s).1
-              ⟨key,owner,amount,now+s.activationDelay,_root_.Etna.Design.Staking.noExit,_root_.Bool.false,_root_.Option.none⟩ with
+              ⟨key,owner,amount,now+s.activationDelay,_root_.Etna.Design.Staking.noExit,_root_.Bool.false,
+                _root_.Option.none,0,0⟩ with
             nextId := (_root_.Etna.Design.RegistryHistory.allocation s).2.2,
             free := (_root_.Etna.Design.RegistryHistory.allocation s).2.1,usedKeys := key :: s.usedKeys })
       else _root_.Option.none) ∧
@@ -350,6 +417,15 @@ theorem registry_transitions_eq (s r : _root_.Etna.Design.RegistryHistory.State)
     _root_.Etna.Design.RegistryHistory.editBond r inbox now b .confirm = _root_.Etna.Design.Staking.confirmExit inbox b now ∧
     _root_.Etna.Design.RegistryHistory.editBond r inbox now b (.withdraw caller) =
       (_root_.Etna.Design.Staking.withdraw inbox b caller now r.withdrawalDelay).map _root_.Prod.fst ∧
+    _root_.Etna.Design.RegistryHistory.editBond r inbox now b (.topUp caller amount) =
+      _root_.Etna.Design.Staking.topUp inbox b caller amount now r.activationDelay ∧
+    _root_.Etna.Design.RegistryHistory.editBond r inbox now b .activateTopUp =
+      _root_.Etna.Design.Staking.activateTopUp inbox b now ∧
+    (∀ entryKey incidentId validUntil timestamp registryOwner externalOK,
+      _root_.Etna.Design.RegistryHistory.editBond r inbox now b
+        (.forfeit entryKey incidentId validUntil timestamp registryOwner externalOK) =
+      (_root_.Etna.Design.Staking.forfeit inbox b entryKey now timestamp validUntil r.forfeitBps registryOwner
+        (_root_.Decidable.decide (entryKey ∉ r.forfeited)) externalOK).map _root_.Prod.fst) ∧
     _root_.Etna.Design.RegistryHistory.editBond r inbox now b (.slash a v sigA sigB) =
       (if r.verify b.key a sigA = _root_.Bool.true ∧ r.verify b.key v sigB = _root_.Bool.true ∧
           _root_.Etna.Design.Staking.doubleSign inbox.domain inbox.generation a v = _root_.Bool.true then
@@ -360,13 +436,18 @@ theorem registry_transitions_eq (s r : _root_.Etna.Design.RegistryHistory.State)
       else _root_.Option.none) ∧
     _root_.Etna.Design.RegistryHistory.editBond r inbox now b (.recheck snapshot) =
       _root_.Option.some (_root_.Etna.Design.Staking.rollbackBySnapshot snapshot b) ∧
+    _root_.Etna.Design.RegistryHistory.forfeitFlags s action =
+      (match action with
+        | .forfeit entryKey _ _ _ _ _ => entryKey :: s.forfeited
+        | _ => s.forfeited) ∧
     _root_.Etna.Design.RegistryHistory.edit s inbox id now action =
-      if id < s.nextId ∧ _root_.Etna.Design.RegistryHistory.lastBlock s ≤ now then
+      if id < s.nextId ∧ _root_.Etna.Design.RegistryHistory.lastBlock s ≤ now ∧ inbox.entered = _root_.Bool.false then
         (_root_.Etna.Design.RegistryHistory.editBond s inbox now (s.slots id) action).map fun x =>
           _root_.Etna.Design.RegistryHistory.finish s now
             { _root_.Etna.Design.RegistryHistory.writeSlot s id x with
-              free := if x.released && !(s.slots id).released then s.free ++ [id] else s.free }
-      else _root_.Option.none := ⟨rfl,rfl,rfl,rfl,rfl,rfl,rfl,rfl⟩
+              free := if x.released && !(s.slots id).released then s.free ++ [id] else s.free,
+              forfeited := _root_.Etna.Design.RegistryHistory.forfeitFlags s action }
+      else _root_.Option.none := ⟨rfl,rfl,rfl,rfl,rfl,rfl,fun _ _ _ _ _ _ => rfl,rfl,rfl,rfl,by cases action <;> rfl,rfl⟩
 
 /-- The combined recovery reads the fixed Keccak constants from the World's adapters. -/
 theorem recover_eq (w : _root_.Etna.Design.ProtocolState.World) (a : _root_.Etna.Design.Recovery.Request)
@@ -375,8 +456,40 @@ theorem recover_eq (w : _root_.Etna.Design.ProtocolState.World) (a : _root_.Etna
       (_root_.Etna.Design.Recovery.recover (_root_.Etna.Design.ProtocolState.recoveryView w) a w.adapters.recovery r
         owner externalOK).map (_root_.Etna.Design.ProtocolState.recovered w a r) := rfl
 
-/-- Recovery's execution-time checks (8.3): owner, the two expected values, generation and
-origin bounds, list validity and the FI-clear range. -/
+/-- Nonce and expiry are checked against current state and execution-time Unix seconds. -/
+theorem authorization_allowed_iff (s : _root_.Etna.Design.State)
+    (a : _root_.Etna.Design.Recovery.Request) (timestamp : _root_.Nat) :
+    _root_.Etna.Design.Recovery.AuthorizationAllowed s a timestamp ↔
+      _root_.Etna.Design.Staking.inboxInitialized s = _root_.Bool.true ∧ a.nonce = s.recoveryNonce ∧
+      s.recoveryNonce+1 < _root_.Etna.Design.limit256 ∧ a.validUntil < _root_.Etna.Design.limit256 ∧
+      timestamp ≤ a.validUntil := Iff.rfl
+
+theorem nonce_mutable_iff (s : _root_.Etna.Design.State) :
+    _root_.Etna.Design.Recovery.NonceMutable s ↔
+      _root_.Etna.Design.Staking.inboxInitialized s = _root_.Bool.true ∧ s.entered = _root_.Bool.false ∧
+      s.recoveryNonce+1 < _root_.Etna.Design.limit256 := Iff.rfl
+
+theorem invalidation_eq (s : _root_.Etna.Design.State) (w : _root_.Etna.Design.ProtocolState.World)
+    (expected now : _root_.Nat) (owner : _root_.Bool) :
+    _root_.Etna.Design.Recovery.applyInvalidation s = { s with recoveryNonce := s.recoveryNonce+1 } ∧
+    _root_.Etna.Design.Recovery.invalidateRecoveryNonce s expected owner =
+      (if owner = _root_.Bool.true ∧ expected = s.recoveryNonce ∧ _root_.Etna.Design.Recovery.NonceMutable s then
+        _root_.Option.some (_root_.Etna.Design.Recovery.applyInvalidation s)
+      else _root_.Option.none) ∧
+    _root_.Etna.Design.ProtocolState.invalidateRecoveryNonce w expected now owner =
+      (_root_.Etna.Design.Recovery.invalidateRecoveryNonce w.inbox expected owner).map
+        (fun t => _root_.Etna.Design.ProtocolState.landed w t now) := ⟨rfl,rfl,rfl⟩
+
+/-- The public rollback boundary fails atomically at initialization/reentrancy/nonce failure. -/
+theorem checked_rollback_eq (w : _root_.Etna.Design.ProtocolState.World)
+    (trusted : _root_.Etna.Design.Checkpoint) (snapshot now : _root_.Nat) :
+    _root_.Etna.Design.ProtocolState.rollback w trusted snapshot now =
+      if _root_.Etna.Design.Recovery.NonceMutable w.inbox then
+        _root_.Option.some (_root_.Etna.Design.ProtocolState.applyRollback w trusted snapshot now)
+      else _root_.Option.none := rfl
+
+/-- Recovery's execution-time checks (8.3): owner, expected state, generation and
+origin bounds, list validity, FI-clear range and nonce/expiry authorization. -/
 theorem recovery_allowed_iff (w : _root_.Etna.Design.Recovery.World) (a : _root_.Etna.Design.Recovery.Request)
     (cfg : _root_.Etna.Design.Recovery.Config) (r : _root_.Etna.Design.Origin) (owner : _root_.Bool) :
     _root_.Etna.Design.Recovery.Allowed w a cfg r owner ↔
@@ -392,7 +505,8 @@ theorem recovery_allowed_iff (w : _root_.Etna.Design.Recovery.World) (a : _root_
       (a.exclusions.all (fun x => x.entryKey != cfg.releasedKey) = _root_.Bool.true) ∧
       a.fiToClear.Pairwise (· < ·) ∧
       (∀ i ∈ a.fiToClear, w.inbox.head ≤ i ∧ i < w.inbox.tail ∧
-        (w.queue.map _root_.Prod.fst).contains i = _root_.Bool.true) := Iff.rfl
+        (w.queue.map _root_.Prod.fst).contains i = _root_.Bool.true) ∧
+      _root_.Etna.Design.Recovery.AuthorizationAllowed w.inbox a r.timestamp := Iff.rfl
 
 /-- Recovery's transition (8 steps 2-5) and the combined-machine wrappers it runs through: the
 exclusion and FI-clear updates, the R election, the new schedule and origin, the journaled
@@ -419,7 +533,7 @@ theorem recovery_eq (w : _root_.Etna.Design.Recovery.World) (pw : _root_.Etna.De
     _root_.Etna.Design.Committee.recoverySchedule record = ⟨record,_root_.Option.none⟩ ∧
     _root_.Etna.Design.Recovery.applyRecovery w a cfg r =
       { inbox := { w.inbox with
-          generation := w.inbox.generation+1,
+          generation := w.inbox.generation+1,recoveryNonce := w.inbox.recoveryNonce+1,
           origin := r,origins := w.inbox.origins ++ [(w.inbox.generation+1,r)] },
         registry := _root_.Etna.Design.Recovery.excludedRegistry w a.exclusions r.l1Block,
         queue := _root_.Etna.Design.Recovery.clearedQueue w a.fiToClear cfg.emptyHash,
@@ -453,13 +567,14 @@ confirmation re-check against the restored snapshot. -/
 theorem rollback_eq (w : _root_.Etna.Design.ProtocolState.World) (s : _root_.Etna.Design.State)
     (registry : _root_.Etna.Design.RegistryHistory.State) (trusted : _root_.Etna.Design.Checkpoint)
     (snapshot now : _root_.Nat) (b : _root_.Etna.Design.Staking.Bond) :
-    _root_.Etna.Design.ProtocolState.rollback w trusted snapshot now =
+    _root_.Etna.Design.ProtocolState.applyRollback w trusted snapshot now =
       { w with
         inbox := _root_.Etna.Design.Recovery.rollbackInbox w.inbox trusted snapshot,
         registry := _root_.Etna.Design.RegistryHistory.recheckAll w.registry snapshot,
         l1Block := now } ∧
     _root_.Etna.Design.Recovery.rollbackInbox s trusted snapshot =
       { s with
+        recoveryNonce := s.recoveryNonce+1,
         checkpoint := trusted,head := trusted.cursor,snapshot := snapshot,
         records := s.records.filter (fun r => r.height ≤ trusted.height),
         signals := s.signals.filter (fun g => g.height ≤ trusted.height) } ∧
@@ -579,9 +694,9 @@ theorem history_lookup_eq (floor a h cutoff : _root_.Nat) (rest archive : _root_
         _root_.Etna.Design.RegistryHistory.Snapshot.entries).getD [] :=
   ⟨by cases h <;> rfl,rfl,rfl,rfl,rfl⟩
 
-/-- Constructor set of the combined machine: `Step w t` holds exactly when one of the seven
+/-- Constructor set of the combined machine: `Step w t` holds exactly when one of the eight
 transactions (landing, registration, public registry edit, FI enqueue, sweep, recovery,
-rollback) with its premises produces `t`. Adding, removing or weakening a constructor, or
+nonce invalidation, rollback) with its premises produces `t`. Adding, removing or weakening a constructor, or
 changing the World it produces, breaks this characterization. -/
 theorem step_iff (w t : _root_.Etna.Design.ProtocolState.World) :
     _root_.Etna.Design.ProtocolState.Step w t ↔
@@ -611,9 +726,14 @@ theorem step_iff (w t : _root_.Etna.Design.ProtocolState.World) :
         _root_.Etna.Design.Recovery.recover (_root_.Etna.Design.ProtocolState.recoveryView w) a w.adapters.recovery r
           owner externalOK = _root_.Option.some s ∧
         t = _root_.Etna.Design.ProtocolState.recovered w a r s) ∨
+      (∃ (s : _root_.Etna.Design.State) (expected now : _root_.Nat) (owner : _root_.Bool),
+        w.l1Block ≤ now ∧
+        _root_.Etna.Design.Recovery.invalidateRecoveryNonce w.inbox expected owner = _root_.Option.some s ∧
+        t = _root_.Etna.Design.ProtocolState.landed w s now) ∨
       (∃ (trusted : _root_.Etna.Design.Checkpoint) (snapshot now : _root_.Nat),
         w.l1Block ≤ now ∧ _root_.Etna.Design.recordAt w.inbox trusted.height = _root_.Option.some trusted ∧
-        t = _root_.Etna.Design.ProtocolState.rollback w trusted snapshot now) := by
+        _root_.Etna.Design.Recovery.NonceMutable w.inbox ∧
+        t = _root_.Etna.Design.ProtocolState.applyRollback w trusted snapshot now) := by
   constructor
   · intro change
     cases change with
@@ -624,18 +744,21 @@ theorem step_iff (w t : _root_.Etna.Design.ProtocolState.World) :
       exact .inr (.inr (.inr (.inl ⟨_,_,_,_,_,_,_,time,blockRange,timestampRange,ok,rfl⟩)))
     | sweep time ok => exact .inr (.inr (.inr (.inr (.inl ⟨_,_,_,time,ok,rfl⟩))))
     | recovery time ok => exact .inr (.inr (.inr (.inr (.inr (.inl ⟨_,_,_,_,_,time,ok,rfl⟩)))))
-    | rollback trusted snapshot now time retained =>
-      exact .inr (.inr (.inr (.inr (.inr (.inr ⟨trusted,snapshot,now,time,retained,rfl⟩)))))
+    | invalidation time ok => exact .inr (.inr (.inr (.inr (.inr (.inr (.inl ⟨_,_,_,_,time,ok,rfl⟩))))))
+    | rollback trusted snapshot now time retained authorized =>
+      exact .inr (.inr (.inr (.inr (.inr (.inr (.inr ⟨trusted,snapshot,now,time,retained,authorized,rfl⟩))))))
   · rintro (⟨s,i,leaves,e,time,ok,rfl⟩ | ⟨s,key,owner,amount,now,time,ok,rfl⟩ |
       ⟨s,id,now,action,time,callable,ok,rfl⟩ | ⟨s,hash,timestamp,now,raw,paid,refund,time,blockRange,timestampRange,ok,rfl⟩ |
-      ⟨s,now,transfer,time,ok,rfl⟩ | ⟨s,a,r,owner,externalOK,time,ok,rfl⟩ | ⟨trusted,snapshot,now,time,retained,rfl⟩)
+      ⟨s,now,transfer,time,ok,rfl⟩ | ⟨s,a,r,owner,externalOK,time,ok,rfl⟩ |
+      ⟨s,expected,now,owner,time,ok,rfl⟩ | ⟨trusted,snapshot,now,time,retained,authorized,rfl⟩)
     · exact .landing time ok
     · exact .registration time ok
     · exact .modification time callable ok
     · exact .enqueue time blockRange timestampRange ok
     · exact .sweep time ok
     · exact .recovery time ok
-    · exact .rollback trusted snapshot now time retained
+    · exact .invalidation time ok
+    · exact .rollback trusted snapshot now time retained authorized
 
 /-- Constructor set of combined traces: reflexive, or a trace followed by one `Step`. -/
 theorem trace_iff (first t : _root_.Etna.Design.ProtocolState.World) :
@@ -663,18 +786,20 @@ theorem sound_step_iff (w t : _root_.Etna.Design.ProtocolState.World) :
         t = _root_.Etna.Design.ProtocolState.landed w s e.blockNumber) ∨
       (∃ (trusted : _root_.Etna.Design.Checkpoint) (snapshot now : _root_.Nat),
         w.l1Block ≤ now ∧ _root_.Etna.Design.recordAt w.inbox trusted.height = _root_.Option.some trusted ∧
-        snapshot < now ∧ t = _root_.Etna.Design.ProtocolState.rollback w trusted snapshot now) ∨
+        snapshot < now ∧ _root_.Etna.Design.Recovery.NonceMutable w.inbox ∧
+        t = _root_.Etna.Design.ProtocolState.applyRollback w trusted snapshot now) ∨
       (_root_.Etna.Design.ProtocolState.Step w t ∧ t.inbox.snapshot = w.inbox.snapshot) := by
   constructor
   · intro change
     cases change with
     | landing time ok certified => exact .inl ⟨_,_,_,_,time,ok,certified,rfl⟩
-    | rollback trusted snapshot now time retained written =>
-      exact .inr (.inl ⟨trusted,snapshot,now,time,retained,written,rfl⟩)
+    | rollback trusted snapshot now time retained written authorized =>
+      exact .inr (.inl ⟨trusted,snapshot,now,time,retained,written,authorized,rfl⟩)
     | framed change same => exact .inr (.inr ⟨change,same⟩)
-  · rintro (⟨s,i,leaves,e,time,ok,certified,rfl⟩ | ⟨trusted,snapshot,now,time,retained,written,rfl⟩ | ⟨change,same⟩)
+  · rintro (⟨s,i,leaves,e,time,ok,certified,rfl⟩ |
+      ⟨trusted,snapshot,now,time,retained,written,authorized,rfl⟩ | ⟨change,same⟩)
     · exact .landing time ok certified
-    · exact .rollback trusted snapshot now time retained written
+    · exact .rollback trusted snapshot now time retained written authorized
     · exact .framed change same
 
 /-- Constructor set of sound traces: reflexive, or a sound trace followed by one `SoundStep`. -/

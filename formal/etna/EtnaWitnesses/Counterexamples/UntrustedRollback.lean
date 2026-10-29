@@ -4,11 +4,11 @@ import EtnaWitnesses.NonVacuity.Premises
 failure of H1–H3; it shows that H2's "slashable" conclusion only bites while the stake is live,
 and that the stake stays live only if the rollback restores a trusted snapshot.
 
-§8 "Verifier failure" (spec L457): the rollback restores "activeCommitteeSnapshot (284) to the
+§8 "Verifier failure" (spec L487): the rollback restores "activeCommitteeSnapshot (284) to the
 values written by the last trusted landing ... if there is none, restore the initialization
 values", and "the registry re-checks every exit confirmation against the restored snapshot".
-4.1 (spec L141): "confirmExit ... the Inbox must have activeCommitteeSnapshot ≥ exitEffectiveL1";
-4.1 (spec L142): "Confirmation requires that a landed committee no longer includes the stake".
+4.1 (spec L151): "confirmExit ... the Inbox must have activeCommitteeSnapshot ≥ exitEffectiveL1";
+4.1 (spec L152): "Confirmation requires that a landed committee no longer includes the stake".
 The model's rollback step takes any snapshot (`ProtocolState.Step.rollback`): which value the DAO
 restores is a governance trust boundary. A `trustedRollback` premise (`SoundStep.rollback`:
 snapshot below the rollback's block) was considered and dropped because H1–H3 do not use it; the spec's real
@@ -36,10 +36,10 @@ def exitRequested : RegistryHistory.State :=
 def worldA : ProtocolState.World := ProtocolState.registered world0 exitRequested 15
 
 /-- L1 block 16: a rollback to checkpoint 0 that restores slot 284 = 1000. -/
-def worldB : ProtocolState.World := ProtocolState.rollback worldA record0 1000 16
+def worldB : ProtocolState.World := ProtocolState.applyRollback worldA record0 1000 16
 
 /-- The same rollback restoring the trusted value, genesisCutoff 12 (no landing yet). -/
-def trustedB : ProtocolState.World := ProtocolState.rollback worldA record0 12 16
+def trustedB : ProtocolState.World := ProtocolState.applyRollback worldA record0 12 16
 
 /-- L1 block 16: anyone confirms the exit. -/
 def confirmed : RegistryHistory.State := (RegistryHistory.edit worldB.registry worldB.inbox 0 16 .confirm).getD worldB.registry
@@ -60,7 +60,7 @@ instance : DecidablePred rulesD.signature := fun v => inferInstanceAs (Decidable
 private theorem rollback_trace : ProtocolState.Trace world0 worldD :=
   .step (.step (.step (.step (.refl _)
     (.modification (id := 0) (action := .requestExit 51) (by decide) rfl (by rfl)))
-    (.rollback record0 1000 16 (by decide) (by decide +kernel)))
+    (.rollback record0 1000 16 (by decide) (by decide +kernel) (by decide +kernel)))
     (.modification (id := 0) (action := .confirm) (by decide) rfl (by rfl)))
     (.modification (id := 0) (action := .withdraw 51) (by decide) rfl (by rfl))
 
@@ -75,12 +75,12 @@ theorem untrusted_snapshot_frees_committee_stake :
     ProtocolState.Trace world0 worldD ∧ worldB.l1Block ≤ worldB.inbox.snapshot ∧ trustedB.inbox.snapshot < trustedB.l1Block ∧
     (RegistryHistory.edit trustedB.registry trustedB.inbox 0 16 .confirm).isNone = true ∧
     (RegistryHistory.edit worldB.registry worldB.inbox 0 16 .confirm).isSome = true ∧
-    worldD.registry.nextId = 1 ∧ worldD.registry.slots 0 = ⟨0,0,0,0,0,true,none⟩ ∧
+    worldD.registry.nextId = 1 ∧ worldD.registry.slots 0 = ⟨0,0,0,0,0,true,none,0,0⟩ ∧
     (∀ a b sigA sigB, RegistryHistory.edit worldD.registry worldD.inbox 0 18 (.slash a b sigA sigB) = none) ∧
     Built byzantine worldD rulesD ∧ (Consensus.activeAt rulesD.consensus 1).members.map Committee.Entry.key = [7] ∧
     Consensus.CommitValid rulesD.consensus rulesD.signature 1 0 201 [vote 0 1 201] ∧
     Consensus.CommitValid rulesD.consensus rulesD.signature 1 0 202 [vote 0 1 202] := by
-  have slot : worldD.registry.slots 0 = ⟨0,0,0,0,0,true,none⟩ := by decide +kernel
+  have slot : worldD.registry.slots 0 = ⟨0,0,0,0,0,true,none,0,0⟩ := by decide +kernel
   refine ⟨rollback_trace,by decide +kernel,by decide +kernel,by decide +kernel,by decide +kernel,by decide +kernel,slot,?_,
     ⟨archiveD,16,1600,build_rulesFor (by decide +kernel) (by decide +kernel)⟩,by decide +kernel,by decide +kernel,
     by decide +kernel⟩

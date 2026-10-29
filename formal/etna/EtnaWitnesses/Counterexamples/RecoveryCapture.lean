@@ -3,22 +3,23 @@ import EtnaWitnesses.NonVacuity.Premises
 /-! Scope counterexample (an open design issue): stake registered after the DAO authorizes a
 governance recovery can join, and here capture, the recovery committee.
 
-8.1 (spec L470): before authorizing, the DAO "checks a nonempty intended set, more than 2/3 online
-power, no party at or above 1/3"; 8 step 5 (spec L463): nodes "select the committee directly from
+8.1 (spec L500): before authorizing, the DAO "checks a nonempty intended set, more than 2/3 online
+power, no party at or above 1/3"; 8 step 5 (spec L493): nodes "select the committee directly from
 the registry snapshot at execution block R under 4.3 ... other already active candidates may
-enter"; 4.1 (spec L128): a registration activates after `activationDelay` L1 blocks, which §10
-only requires to be positive. The call `recover(expectedGeneration, expectedC, exclusions,
-fiToClear)` binds no registry bound, so the committee the DAO checked and the one R elects can
+enter"; 4.1 (spec L134): a registration activates after `activationDelay` L1 blocks, which §10
+only requires to be positive. The call's expected generation, checkpoint, nonce, deadline,
+exclusions and FI list bind no registry bound, so the committee the DAO checked and the one R elects can
 differ by every registration that activates between authorization and execution. The exclusion
 list cannot help: it is fixed at authorization, and each entry must still match an existing,
-unreleased bond (8 step 2, spec L460), which the late stake was not yet. L470 asks for the check
-"before scheduling and executing", but a check at execution cannot change the outcome: the DAO
-cannot stop a scheduled call then (Taiko's DAO has no cancel for an approved proposal; see
-`StaleDaoAuthorization`), and the call's exclusion list is fixed.
+unreleased bond (8 step 2, spec L490), which the late stake was not yet. Nonce invalidation can
+revoke the authorization, and expiry limits its life, but neither changes the election of an
+authorization that remains fresh and executes before its deadline. The witness below uses
+nonce 0 and a valid deadline; no invalidation occurs between authorization and execution.
 
 The deployment: n_max = 5, and four honest parties (keys 7-10) with 1 TAIKO each make up
 committee 0. The run:
-1. L1 block 14: the DAO authorizes `recover(0, 0, [], [])`. The committee R would elect then is
+1. L1 block 14: the DAO authorizes generation 0, checkpoint 0, nonce 0, a live deadline and
+   empty exclusion/FI lists. The committee R would elect then is
    the four parties, nonempty and each holding 1/4 of the power, below 1/3: L470's check passes
    (online power is not modelled). Key 66 has never registered.
 2. L1 block 15: key 66 registers 9 TAIKO (active from block 17).
@@ -64,7 +65,7 @@ def deployed : ProtocolState.World :=
   ⟨inboxD,honestRegistry,[],Committee.recoverySchedule zeroRecordR,14,⟨configHash,fun _ => 12,SecondBatch.recoveryConfig⟩⟩
 
 /-- The DAO's authorization: generation 0, checkpoint 0, no exclusions, no FI blanking. -/
-def request : Recovery.Request := ⟨0,0,[],[]⟩
+def request : Recovery.Request := ⟨0,0,[],[],0,limit256-1⟩
 
 /-- L1 block 15: key 66 (owner 99) registers 9 TAIKO. -/
 def lateRegistry : RegistryHistory.State :=
@@ -178,7 +179,7 @@ private theorem genesis_elected :
 private theorem deployed_genesis : Deployment.Genesis deployed genesisHeader.elHash genesisHeader.stateRoot := by
   refine ⟨rfl,rfl,rfl,rfl,rfl,rfl,rfl,rfl,rfl,by decide,rfl,by unfold FeeConserved; decide +kernel,
     ⟨?_,?_,?_,?_,by decide +kernel⟩,rfl,by decide +kernel,by decide +kernel,by decide +kernel,rfl,rfl,rfl,
-    genesis_elected,by decide +kernel⟩
+    genesis_elected,by decide +kernel,rfl⟩
   · unfold RegistryHistory.KeysValid
     decide +kernel
   · unfold RegistryHistory.IdentitiesValid

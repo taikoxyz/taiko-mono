@@ -6,12 +6,17 @@ decisions that do not depend on hash values. They live outside `../etna_vectors/
 client's lander pins that directory's exact file list and hashes
 (`packages/taiko-client-rs/crates/lander/src/test_utils/artifacts.rs`). There are two kinds:
 
-- **Inbox families** (schema `etna-conformance-1`): concrete call sequences, whether each call is
+- **Inbox families** (schema `etna-conformance-2`): concrete call sequences, whether each call is
   accepted or reverts, what it returns and the state a contract exposes afterwards. The Etna
   contracts must do the same.
 - **Client-rule families** (schema `etna-client-conformance-1`): the whole input of one pure node
   rule and the model's decision on it. The Rust client (`packages/taiko-client-rs`) must decide the
   same; see [Client-rule families](#client-rule-families-etna-client-conformance-1).
+
+The current authority is `SPEC.md` and `ACCEPTANCE.md` at commit
+`39ebefbf33a2702b750e0fb0db7d2a40ff8e8480`, independently byte-pinned in
+`formal/etna/spec-coverage.json`. Schema 2 vectors require downstream harness adoption;
+regenerating these model outputs does not establish current contract or client conformance.
 
 The files record only what the model decides. Neither implementation reads this directory: each
 keeps its own copy next to its harness, stamped with `"provenance": {"formalCommit": "<sha>"}`,
@@ -21,16 +26,16 @@ name a vector of its family and must differ from the model's decision, so a fixe
 fails the harness until its entry is removed. An implementation fix therefore needs no change
 here.
 
-| File | Family | Covered |
-| --- | --- | --- |
-| `forced.json` | `forced` | `saveForcedInclusion` (fee formula and doubling threshold, size limit, refund, queue indices), `sweepProtocolFees` |
-| `registry.json` | `registry` | `register`, `requestExit`, `confirmExit`, `withdraw`, `slashDoubleSign` |
-| `land.json` | `land` | `land` with a verifier that accepts every proof |
-| `recover.json` | `recover` | `recover` |
-| `forced_step.json` | `forced_step` | one block's forced-inclusion decision (`Forced.step`, 7.2) |
-| `schedule.json` | `schedule` | the committee active at a height and its election (`Consensus.activeAt`, `ElectionValid`, 4.2-4.3), and the switch blocks (`WitnessValid`) |
-| `block_rules.json` | `block_rules` | the hash-independent block-validity rules of 3.2-3.4 (`HeaderValid`, `AnchorValid`) |
-| `block_size.json` | `block_size` | the 124,000-byte block size bound of 3.4 (the `blockBytes` conjunct of `HeaderValid`) |
+| File               | Family        | Covered                                                                                                                                           |
+| ------------------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `forced.json`      | `forced`      | `saveForcedInclusion` (fee formula and doubling threshold, size limit, refund, queue indices), `sweepProtocolFees`                                |
+| `registry.json`    | `registry`    | `register`, delayed `topUp`/`activateTopUp`, `requestExit`, `confirmExit`, total-principal `withdraw`/`slashDoubleSign`, responsibility `forfeit` |
+| `land.json`        | `land`        | `land` with a verifier that accepts every proof                                                                                                   |
+| `recover.json`     | `recover`     | nonce/expiry-bound `recover`, `invalidateRecoveryNonce`, decoded verifier-replacement rollback                                                    |
+| `forced_step.json` | `forced_step` | one block's forced-inclusion decision (`Forced.step`, 7.2)                                                                                        |
+| `schedule.json`    | `schedule`    | the committee active at a height and its election (`Consensus.activeAt`, `ElectionValid`, 4.2-4.3), and the switch blocks (`WitnessValid`)        |
+| `block_rules.json` | `block_rules` | the hash-independent block-validity rules of 3.2-3.4 (`HeaderValid`, `AnchorValid`)                                                               |
+| `block_size.json`  | `block_size`  | the 124,000-byte block size bound of 3.4 (the `blockBytes` conjunct of `HeaderValid`)                                                             |
 
 ## Generating and running
 
@@ -94,7 +99,7 @@ made from a local commit is refreshed again when that commit is pushed). The har
 that the stamp is a 40-digit commit, not which commit it is; that a copy equals this directory
 at its stamp is checked by the refresh itself, not by CI.
 
-## Schema (`etna-conformance-1`)
+## Schema (`etna-conformance-2`)
 
 Each file is one object: `schema`, `family`, `generator`, `provenance` (the copies only),
 `constants` (the fixed deployment below), `vectorCount` and `vectors`. A vector:
@@ -104,7 +109,7 @@ Each file is one object: `schema`, `family`, `generator`, `provenance` (the copi
   "id": "registry.hw.slashed-slot-released-by-anyone",
   "family": "registry",
   "source": "handwritten",
-  "spec": "spec L142",
+  "spec": "spec L152",
   "setup": {"deployment": {...}, "callCount": 3, "calls": [<call>, ...]},
   "call": <call>,
   "expect": {"revert": false, "result": {"paid": 0}, "observable": {"registry": {...}}}
@@ -113,11 +118,17 @@ Each file is one object: `schema`, `family`, `generator`, `provenance` (the copi
 
 - `source` is `generated` (an enumerated grid) or `handwritten` (an edge case taken from the spec
   text). Only hand-written vectors have `spec`, a line of
-  `packages/protocol/docs/etna-pos-zk/sources/spec.md` at the revision `formal/etna` pins.
+  `packages/protocol/docs/etna-pos-zk/SPEC.md` at the revision `formal/etna` pins.
 - `setup.deployment` sets the immutables a vector varies: `initialized` (false leaves the Inbox
   proxy on its bootstrap implementation), `maxBatchBlocks`, `feeGwei`, `threshold`,
   `recipientAccepts` (false makes `protocolFeeRecipient` a contract that rejects ETH),
-  `minStake`, `activationDelay`, `exitDelay`, `withdrawalDelay`, `bountyBps` and `unsettled` (U).
+  `minStake`, `activationDelay`, `exitDelay`, `withdrawalDelay`, `bountyBps`, `forfeitBps` and
+  `unsettled` (U). Two explicit bootstrap fixtures are separate from protocol deployment inputs:
+  `recoveryNonce` defaults to 0, with a persistent-state override for uint256 boundary tests;
+  `registrySize` defaults to 1, or bootstraps keys/owners 1 through N as same-block registrations
+  at block 10 (N≤4096), each with `minStake` and activation block `10 + activationDelay`. The capacity case uses
+  N=4096. A harness must establish these states before replay; the nonce override is not a
+  claim that a short public trace reaches 2^256−1.
 - Every setup call succeeded in the model and must succeed in the contract. Then `call` runs.
 - A call is `{"block", "timestamp", "fn", "args"}`: roll L1 to `block`, set the timestamp and
   call `fn`. The functions and their `args`:
@@ -130,8 +141,18 @@ Each file is one object: `schema`, `family`, `generator`, `provenance` (the copi
     (msg.value in wei), `refundOK` (false: the caller is a contract that rejects the refund).
   - `sweepProtocolFees`: `caller`. `forceETH`: `amount` wei forced into the Inbox.
   - `recover`: `owner` (false: a non-owner calls), `expectedGeneration`, `expectedC`,
-    `exclusions` (`{bondId, key}`: `entryKey` of registry key `key`, the released-slot key for 0),
+    `expectedRecoveryNonce`, `validUntil` (absolute L1 Unix seconds), `exclusions` (`{bondId, key}`: `entryKey` of registry key `key`, the released-slot key for 0),
     `fiToClear`.
+  - `invalidateRecoveryNonce`: `owner`, `expectedRecoveryNonce`.
+    `verifierFailureRollback` is an explicit upgrade fixture, not a contract function: restore
+    the trusted initialization checkpoint and snapshot through the decoded checked rollback,
+    retaining registry principal/flags and incrementing the current nonce. The actual upgrade,
+    verifier replacement and trusted-target authentication remain external obligations.
+  - `topUp`: `caller`, `bondId`, `amount`, `transferOK` (the authenticated token-transfer result).
+    `activateTopUp`: `caller`, `bondId` (any caller).
+    `forfeit`: `owner` (registry-owner authentication), `bondId`, `entryKey`, `incidentId`,
+    `validUntil` (L1 Unix seconds), `externalOK` (authenticated effect success). These adapter
+    booleans exercise atomic failure decisions, not ERC20 callbacks or actual DAO attribution.
   - `register`: `caller`, `key`, `amount`. `requestExit`, `confirmExit`: `caller`, `bondId`.
     `withdraw`: `caller`, `bondId`, `to`.
   - `slashDoubleSign`: `caller`, `bondId`, `voteA`, `voteB`, each
@@ -142,15 +163,31 @@ Each file is one object: `schema`, `family`, `generator`, `provenance` (the copi
   returns or moves: `bondId`, `feeWei` (kept by the Inbox), `refund`, `swept`, `paid` (to `to`),
   `bounty` (to the caller) and `toSink`. `expect.observable` is the state after the call (the
   state before it when it reverts):
-  - `inbox`: `checkpointHeight`, `checkpointHash`, `generation`, FI `head` and `tail`,
+  - `inbox`: `checkpointHeight`, `checkpointHash`, `generation`, `recoveryNonce`, FI `head` and `tail`,
     `snapshot` (slot 284), `ethBalance`, `swept` (the recipient's balance), `feeGwei` (the next
     fee), `records` (slot 285 by height), `signals` (SignalService checkpoints), `origins`
     (slot 290 by generation) and `queue` (`blank` means `txHash == keccak256("")`).
-  - `registry`: `entryCount`, `freeCount`, `stakeHeld` (the registry's token balance),
-    `checkpointCount`, `lastCheckpointBlock`, `lastCheckpointCount` and `bonds`
-    (`exitAt` 2^48 - 1 is no exit; `confirmedAt` 0 is unconfirmed; a released slot is all zero).
+  - `registry`: `entryCount`, `freeCount`, `stakeHeld` (effective plus pending principal held by the registry),
+    `checkpointCount`, `lastCheckpointBlock`, `lastCheckpointCount`, full `checkpoints`
+    (newest first, election entries contain effective stake only), lifetime `forfeitedKeys`
+    (newest first) and `bonds` (`stake`, `pendingTopUp`, `topUpReadyAtL1` plus identity/exit metadata;
+    `exitAt` 2^48 - 1 is no exit; `confirmedAt` 0 is unconfirmed; a released slot is all zero).
 - Objects inside arrays list their keys alphabetically, so a forge harness decodes each array
-  into a struct array in one read. Every number is below 2^53.
+  into a struct array in one read. JSON numbers are below 2^53. Schema 2 encodes larger uint256
+  amounts, balances, results, nonces and deadlines as canonical unsigned decimal strings;
+  consumers must parse both exact numbers and decimal strings without a floating-point step.
+  There is no negative, fractional, exponent or leading-zero form. Calls, keys and array shapes
+  remain explicit; old labels are retained for unchanged cases.
+
+The new registry cases exercise pre-initialization deposits and activation, one pending
+amount, exact readiness and overflow, deposits with all 4096 slots allocated, checkpoints only
+on activation, total-principal withdrawal/slashing, pending-only balances, ceiling forfeiture,
+expiry equality, owner/key guards, transfer failure, release/reuse and ordering with exits,
+withdrawal, double-sign evidence, landing, nonce invalidation, recovery and rollback. Recovery
+cases exercise expiry equality, initialization, exact/replayed/stale nonces, last-successful and
+overflow increments, unchanged landing nonce and rollback non-revival. The authenticated
+owner/effect adapters leave DAO execution paths, attribution and callback/reentrancy execution
+for downstream acceptance; they do not establish those implementation properties.
 
 ## Mapping model values to contract values
 
@@ -189,13 +226,15 @@ sees them:
 
 ## Not covered by the Inbox families
 
-Encodings, keys and signature formats (`../etna_vectors/vectors.json`), committee election, the
-guest and node rules (block validity, forced-inclusion due and skip rules, U back-pressure on L2
-height; the client-rule families below cover those), the verifier-failure rollback (a DAO
-upgrade, not a call), Inbox calls before initialization and the initialization inputs (the
-registry's calls against an uninitialized Inbox are covered), reference blocks 257 to 8,191
-blocks old whose hash the EIP-2935 history contract still serves (an unavailable hash at age
-257 and age 8,192 are covered), the registry's 4,096-slot capacity and reentrancy locks.
+ABI and storage encodings, events, ERC-7201 namespace byte layouts, actual token transfers,
+key/signature formats (`../etna_vectors/vectors.json`), committee election, and real guests
+remain separate conformance obligations. Logical fields and decoded atomic-effect adapters do
+not prove those implementations. The client-rule families below cover only their listed pure
+rules. Actual verifier-replacement upgrades, trusted rollback-target provenance, deployment
+initialization validation, DAO standard/emergency execution, and callback/reentrancy execution
+remain external. Initialization guards for recover/invalidation and the registry calls are
+covered, rather than every Inbox function. Available EIP-2935 hashes at ages 257–8191 are not
+covered (an unavailable hash at age 257 and age 8192 are).
 
 ## Client-rule families (`etna-client-conformance-1`)
 
@@ -243,11 +282,11 @@ requires exactly that. The harness lists every mismatch of a family before faili
 - `contexts` (shared), generation 0: `epochLen` (L), `originBlock` (`L1_0`), `genesisCutoff`,
   `unit` (vp_unit), `minimum` (s_min), `nMax`, `snapshots` (registry checkpoints, oldest first,
   each `{block, entries}` with entries by bond id: `{key, stake, activeFrom, exitAt,
-  staleHeartbeat}`; `exitAt` 2^48 - 1 is no exit, a released slot is all zero) and `archive`
+staleHeartbeat}`; `exitAt` 2^48 - 1 is no exit, a released slot is all zero) and `archive`
   (element x is the anchor of L2 block x).
 - `input`: `context` and `height`.
 - `expect`: `targetEpoch`, `cutoff`, `valid` (the election succeeds), `members` (`{key, stake,
-  power}` in key order; compared only when valid) and `switchTarget` (the epoch t a switch block
+power}` in key order; compared only when valid) and `switchTarget` (the epoch t a switch block
   S(t) derives, or `null` when the height is no switch block).
 - Client mapping: `Schedule::epoch_of`, `derivation_parent_height` and `switch_target`, the cutoff
   at the derivation parent's anchor (`genesisCutoff` for epoch 0), the latest checkpoint at the
@@ -284,7 +323,7 @@ requires exactly that. The harness lists every mismatch of a family before faili
 - Client mapping: a block whose RLP item has exactly `blockBytes` bytes (one opaque transaction
   of filler), judged by `app::check_execution_size`, the bound `validate_block` checks first.
 
-### Not covered and known divergences
+### Not covered and historical divergences
 
 Not covered by the client families: the lander's landing grid and cut leaves, hash-dependent
 rules (parent hash, `chain_id`, witnesses, MPT binding), recovery generations (the schedule
@@ -292,14 +331,23 @@ family is generation 0 only) and the application's request handlers (`validate_b
 ProcessProposal, FinalizeBlock), which need a committed app state and an execution engine; the
 harness composes the public rules in `validate_block`'s order instead.
 
-Known divergences, as listed in each harness:
+The table below preserves the **historical schema-1** divergence record from formal head
+`c9708e76159bb8da701f8bc20c07ff2e46537642`, against the old exported source revision
+2026-10-28. Its Inbox inventory was 334 cases (114 forced, 98 land, 48 recover, 74 registry)
+and its client inventory was 340 cases (151 forced_step, 83 schedule, 92 block_rules, 14
+block_size). Source line numbers in this historical table belong to old `sources/spec.md`.
+These recorded implementation behaviours are not new results for schema 2 or the current
+specification. No production harness was run by this regeneration; consumers must adopt the
+new fields/operations, refresh a pushed-commit copy and rerun their complete acceptance.
 
-| Implementation | Vector | Spec | Model | Implementation | Kind |
-| --- | --- | --- | --- | --- | --- |
-| contracts | `registry.hw.free-slot-reuse-order` | spec L139 | reuses the oldest freed slot (bond 1) | reuses the most recent (bond 2) | spec ambiguity, reachable |
-| contracts | `registry.hw.withdraw-to-zero-address` | spec L142 | accepts (no recipient) | reverts `ZERO_ADDRESS` | spec ambiguity, reachable |
-| contracts | `registry.hw.withdraw-at-block-2pow48-minus1` | spec L751, L753 | accepts | reverts `InvalidEventBlock` | unreachable block |
-| contracts | `registry.hw.slash-at-block-2pow48-minus1` | spec L151, L751 | accepts; the entry keeps no exit | reverts `InvalidEventBlock` | unreachable block |
-| contracts | `recover.hw.exclusion-at-block-2pow48-minus1` | spec L460, L751 | accepts; the entry stays eligible | reverts (`forceExit`) | unreachable block |
-| contracts | `recover.hw.origin-timestamp-2pow48` | spec L744 | accepts (word bound 2^256) | reverts `ValueOverflow` (2^48) | spec ambiguity, unreachable |
-| client | `block_rules.hw.height-2pow48` | spec L266 | rejects: `HeaderValid` requires height < 2^48 | accepts: 3.4 states no height bound | spec ambiguity, unreachable |
+Historical divergences, as listed in the earlier harnesses:
+
+| Implementation | Vector                                        | Spec            | Model                                         | Implementation                      | Kind                        |
+| -------------- | --------------------------------------------- | --------------- | --------------------------------------------- | ----------------------------------- | --------------------------- |
+| contracts      | `registry.hw.free-slot-reuse-order`           | spec L139       | reuses the oldest freed slot (bond 1)         | reuses the most recent (bond 2)     | spec ambiguity, reachable   |
+| contracts      | `registry.hw.withdraw-to-zero-address`        | spec L142       | accepts (no recipient)                        | reverts `ZERO_ADDRESS`              | spec ambiguity, reachable   |
+| contracts      | `registry.hw.withdraw-at-block-2pow48-minus1` | spec L751, L753 | accepts                                       | reverts `InvalidEventBlock`         | unreachable block           |
+| contracts      | `registry.hw.slash-at-block-2pow48-minus1`    | spec L151, L751 | accepts; the entry keeps no exit              | reverts `InvalidEventBlock`         | unreachable block           |
+| contracts      | `recover.hw.exclusion-at-block-2pow48-minus1` | spec L460, L751 | accepts; the entry stays eligible             | reverts (`forceExit`)               | unreachable block           |
+| contracts      | `recover.hw.origin-timestamp-2pow48`          | spec L744       | accepts (word bound 2^256)                    | reverts `ValueOverflow` (2^48)      | spec ambiguity, unreachable |
+| client         | `block_rules.hw.height-2pow48`                | spec L266       | rejects: `HeaderValid` requires height < 2^48 | accepts: 3.4 states no height bound | spec ambiguity, unreachable |

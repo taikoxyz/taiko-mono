@@ -64,11 +64,14 @@ theorem trace_run {env : Environment} {w0 w : ProtocolState.World} {hash root : 
       · cases ok
         exact Nat.le_refl _
       · contradiction
+    | invalidation time ok =>
+      obtain ⟨_,rfl⟩ := Recovery.invalidation_success ok
+      exact .other ih (.invalidation time ok) (Nat.le_refl _)
     | recovery time ok =>
       refine .other ih (.recovery time ok) ?_
       exact Nat.le_of_eq (congrArg Checkpoint.height (Recovery.recovery_preserves_settled_prefix ok).1)
-    | rollback trusted snapshot now time retained =>
-      refine .other ih (.rollback trusted snapshot now time retained) ?_
+    | rollback trusted snapshot now time retained authorized =>
+      refine .other ih (.rollback trusted snapshot now time retained authorized) ?_
       show trusted.height ≤ _
       exact core.inbox.settled.2.2.2.2 trusted (List.mem_of_find?_eq_some retained)
 
@@ -206,10 +209,11 @@ private theorem chain_of_custody_other {env : Environment} {w0 w t : ProtocolSta
     · cases ok
       exact frame rfl rfl
     · contradiction
+  | invalidation _ ok => obtain ⟨_,rfl⟩ := Recovery.invalidation_success ok; exact frame rfl rfl
   | recovery _ ok =>
     have kept := Recovery.recovery_preserves_settled_prefix ok
     exact frame kept.2.1 kept.2.2.2.2.1
-  | rollback trusted snapshot now _ _ =>
+  | rollback trusted snapshot now _ _ _ =>
     apply chain_of_custody_restrict custody
     · intro c mem
       exact (List.mem_filter.mp mem).1

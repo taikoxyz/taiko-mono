@@ -828,10 +828,27 @@ class CoverageRoleTests(unittest.TestCase):
             self.inventory(change_manifest=unknown)
 
     def test_linked_duplicate_text_clause_rejected(self):
-        def link(m):
-            m['theorems'][0]['sources'] += ['EN-831f11e7d7026bc2-2']
-        with self.assertRaisesRegex(ValueError, 'EN-831f11e7d7026bc2-2 .*order-dependent'):
-            self.inventory(change_manifest=link)
+        # Current Markdown has no duplicated wrapper clauses. Construct reviewed bytes
+        # with duplicate real text, then require the linked occurrence ID to fail closed.
+        with scratch() as tmp:
+            repo = Path(tmp)
+            root = repo/'formal/etna'
+            root.mkdir(parents=True)
+            shutil.copytree(ROOT/'manifests', root/'manifests')
+            shutil.copytree(COVERAGE.REPO/COVERAGE.SPEC_DIR, repo/COVERAGE.SPEC_DIR)
+            spec = json.loads((ROOT/'spec-coverage.json').read_text())
+            source = repo/COVERAGE.SPEC_PATH
+            text = source.read_text()+'\nAudit duplicate clause.\n\nAudit duplicate clause.\n'
+            source.write_text(text)
+            spec['source']['sha256'] = COVERAGE.digest(source.read_bytes())
+            (root/'spec-coverage.json').write_text(json.dumps(spec))
+            duplicate = [r for r in COVERAGE.clauses(text, 'en') if r['summary']=='Audit duplicate clause.']
+            self.assertEqual(len(duplicate), 2)
+            manifest = json.loads((root/'manifests/design.json').read_text())
+            manifest['theorems'][0]['sources'].append(duplicate[-1]['id'])
+            (root/'manifests/design.json').write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(ValueError, duplicate[-1]['id']+' .*order-dependent'):
+                COVERAGE.inventory(root, repo)
 
     def test_unsupported_domain_tag_edge_removed(self):
         rows = [r for r in self.inventory() if 'ETNA_COMET_DOMAIN_V1' in r['summary']]

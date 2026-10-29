@@ -17,10 +17,10 @@ theorem trace_keeps_inbox_initialized {w t : ProtocolState.World} (trace : Proto
 /-- Exact §8 re-check: every slot is unchanged when the restored snapshot covers its exit
 and otherwise loses only its confirmation. -/
 theorem rollback_confirmation_exact (w : ProtocolState.World) (trusted : Checkpoint) (snapshot now id : Nat) :
-    (ProtocolState.rollback w trusted snapshot now).registry.slots id =
+    (ProtocolState.applyRollback w trusted snapshot now).registry.slots id =
       if (w.registry.slots id).exitAt ≤ snapshot then w.registry.slots id
       else { w.registry.slots id with confirmedAt := none } := by
-  simp only [rollback,RegistryHistory.recheckAll,Staking.rollbackBySnapshot]
+  simp only [applyRollback,RegistryHistory.recheckAll,Staking.rollbackBySnapshot]
   split
   · split
     · rw [ite_eq_right (by omega)]
@@ -34,7 +34,7 @@ theorem rollback_confirmation_exact (w : ProtocolState.World) (trusted : Checkpo
 snapshot survives the rollback unchanged. -/
 theorem rollback_keeps_covered_confirmation (w : ProtocolState.World) (trusted : Checkpoint) (snapshot now id atL1 : Nat)
     (confirmed : (w.registry.slots id).confirmedAt = some atL1) (covered : (w.registry.slots id).exitAt ≤ snapshot) :
-    ((ProtocolState.rollback w trusted snapshot now).registry.slots id).confirmedAt = some atL1 := by
+    ((ProtocolState.applyRollback w trusted snapshot now).registry.slots id).confirmedAt = some atL1 := by
   rw [rollback_confirmation_exact,ite_eq_left covered]
   exact confirmed
 

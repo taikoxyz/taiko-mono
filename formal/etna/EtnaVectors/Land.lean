@@ -83,16 +83,16 @@ def envGrid : List Scenario := [
   envCase "proof-rejected" 1 true 1 false]
 
 def landHandwritten : List Scenario := [
-  landCase "land.hw.generation-start-reuses-older-record" landS2 (landFrom 12 24) (spec := some "spec L274"),
-  landCase "land.hw.below-generation-start" landS2 (landFrom 6 24) (spec := some "spec L266"),
-  landCase "land.hw.own-generation-record" landS2 (landFrom 18 24) (spec := some "spec L274"),
-  landCase "land.hw.previous-generation-start" landS3 (landFrom 12 24) (spec := some "spec L266"),
-  landCase "land.hw.second-recovery-start" landS3 (landFrom 18 24) (spec := some "spec L274"),
-  landCase "land.hw.two-recoveries-at-one-checkpoint" landS4 (landFrom 12 18) (spec := some "spec L274"),
-  landCase "land.hw.record-parent-is-actual-checkpoint" landS1 (landFrom 0 18) (spec := some "spec L315"),
-  landCase "land.hw.max-batch-blocks-6.one-segment" landS0 (landFrom 0 6) { maxBatchBlocks := 6 } (some "spec L267"),
-  landCase "land.hw.max-batch-blocks-6.two-segments" landS0 (landFrom 0 12) { maxBatchBlocks := 6 } (some "spec L267"),
-  landCase "land.hw.inbox-does-not-enforce-unsettled-limit" [] (landFrom 0 18) { unsettled := 6 } (some "spec L372")]
+  landCase "land.hw.generation-start-reuses-older-record" landS2 (landFrom 12 24) (spec := some "spec L295"),
+  landCase "land.hw.below-generation-start" landS2 (landFrom 6 24) (spec := some "spec L287"),
+  landCase "land.hw.own-generation-record" landS2 (landFrom 18 24) (spec := some "spec L295"),
+  landCase "land.hw.previous-generation-start" landS3 (landFrom 12 24) (spec := some "spec L287"),
+  landCase "land.hw.second-recovery-start" landS3 (landFrom 18 24) (spec := some "spec L295"),
+  landCase "land.hw.two-recoveries-at-one-checkpoint" landS4 (landFrom 12 18) (spec := some "spec L295"),
+  landCase "land.hw.record-parent-is-actual-checkpoint" landS1 (landFrom 0 18) (spec := some "spec L336"),
+  landCase "land.hw.max-batch-blocks-6.one-segment" landS0 (landFrom 0 6) { maxBatchBlocks := 6 } (some "spec L288"),
+  landCase "land.hw.max-batch-blocks-6.two-segments" landS0 (landFrom 0 12) { maxBatchBlocks := 6 } (some "spec L288"),
+  landCase "land.hw.inbox-does-not-enforce-unsettled-limit" [] (landFrom 0 18) { unsettled := 6 } (some "spec L396")]
 
 def landScenarios : List Scenario := rangeGrid ++ headGrid ++ leafGrid ++ envGrid ++ landHandwritten
 

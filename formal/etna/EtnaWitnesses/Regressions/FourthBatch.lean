@@ -51,7 +51,7 @@ stateRoot 10000). -/
 theorem deployed_genesis : Deployment.Genesis ThirdBatch.deployed 1000 10000 := by
   refine ⟨rfl,rfl,rfl,rfl,rfl,rfl,rfl,rfl,rfl,by decide,rfl,by unfold FeeConserved; decide +kernel,
     ⟨?_,?_,?_,?_,by decide +kernel⟩,rfl,by decide +kernel,by decide +kernel,by decide +kernel,rfl,rfl,rfl,
-    by unfold Deployment.GenesisElected; decide +kernel,by decide +kernel⟩
+    by unfold Deployment.GenesisElected; decide +kernel,by decide +kernel,rfl⟩
   · unfold RegistryHistory.KeysValid
     decide +kernel
   · unfold RegistryHistory.IdentitiesValid
@@ -160,7 +160,7 @@ theorem multi_member_build : Deployment.build worldM cfgM archiveM SecondBatch.h
     rfl
   refine ⟨?_,⟨rfl,rfl,rfl,rfl,rfl,rfl,rfl,rfl,rfl,by decide,rfl,by unfold FeeConserved; decide +kernel,
     ⟨?_,?_,?_,?_,by decide +kernel⟩,rfl,by decide +kernel,by decide +kernel,by decide +kernel,rfl,rfl,rfl,elected,
-    by decide +kernel⟩⟩
+    by decide +kernel,rfl⟩⟩
   · unfold Deployment.build
     rw [ite_eq_left (⟨by decide +kernel,rfl,by decide +kernel,genesis,elected,rfl,by decide +kernel⟩ :
       Deployment.Constraints worldM.inbox cfgM ∧ cfgM = worldM.inbox.configuration ∧

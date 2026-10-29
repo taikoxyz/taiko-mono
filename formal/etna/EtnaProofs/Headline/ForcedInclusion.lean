@@ -40,6 +40,7 @@ theorem queue_step_keeps_entries {w t : ProtocolState.World} (change : ProtocolS
       exact Or.inr ⟨a,r,owner,externalOK,s,ok,rfl,List.contains_iff_mem.mp listed,kept⟩
     · rw [ite_eq_right listed] at kept
       exact Or.inl kept
+  | invalidation => exact Or.inl mem
   | rollback => exact Or.inl mem
 
 /-- The landing records' FI cursors are monotone in record height. -/
@@ -100,6 +101,7 @@ private theorem step_cursors_monotone {w t : ProtocolState.World} (core : Protoc
     show CursorsMonotone s.inbox.records
     rw [(Recovery.recovery_preserves_settled_prefix ok).2.1]
     exact monotone
+  | invalidation _ ok => obtain ⟨_,rfl⟩ := Recovery.invalidation_success ok; exact monotone
   | rollback =>
     intro a ma b mb le
     exact monotone a (List.mem_filter.mp ma).1 b (List.mem_filter.mp mb).1 le
@@ -147,8 +149,9 @@ theorem head_advances_only_in_landings {w0 w t : ProtocolState.World} {hash root
     · cases ok
       exact Nat.le_refl _
     · contradiction
+  | invalidation _ ok => obtain ⟨_,rfl⟩ := Recovery.invalidation_success ok; exact Nat.le_refl _
   | recovery _ ok => exact Nat.le_of_eq (Recovery.recovery_preserves_settled_prefix ok).2.2.1
-  | rollback trusted _ _ _ retained =>
+  | rollback trusted _ _ _ retained _ =>
     show trusted.cursor ≤ w.inbox.head
     exact cursors_below_head core.inbox.settled monotone trusted (List.mem_of_find?_eq_some retained)
 

@@ -86,6 +86,8 @@ structure State where
   gridK : Nat
   entered : Bool := false
   generation : Nat
+  /-- Slot 292: monotone recovery-authorization nonce, never restored from history. -/
+  recoveryNonce : Nat := 0
   origin : Origin
   origins : List (Nat × Origin)
   checkpoint : Checkpoint

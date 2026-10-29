@@ -80,7 +80,7 @@ def recoveryConfig : Recovery.Config := ⟨99,0⟩
 def initialWorld : ProtocolState.World :=
   ⟨sourceInbox,registered,[],Committee.recoverySchedule ⟨0,12,[Staking.toEntry (registered.slots 0)]⟩,14,
     ⟨fun _ => 77,Committee.Record.cutoff,recoveryConfig⟩⟩
-def recoveryRequest : Recovery.Request := ⟨0,0,[],[]⟩
+def recoveryRequest : Recovery.Request := ⟨0,0,[],[],0,limit256-1⟩
 def recoveryOrigin : Origin := ⟨0,20,20⟩
 def afterRecovery : ProtocolState.World := (ProtocolState.recover initialWorld recoveryRequest recoveryOrigin true true).getD initialWorld
 
@@ -144,7 +144,7 @@ theorem snapshot_comes_from_typed_history : landedWorld.inbox.snapshot = 12 := b
     (by decide +kernel) ⟨by decide +kernel,rfl⟩ rfl historical_context_builds (by decide)
   exact result.1
 
-def aboveRequest : Recovery.Request := ⟨0,1,[],[]⟩
+def aboveRequest : Recovery.Request := ⟨0,1,[],[],0,limit256-1⟩
 def aboveOrigin : Origin := ⟨1,20,20⟩
 def aboveRecovered : ProtocolState.World := (ProtocolState.recover landedWorld aboveRequest aboveOrigin true true).getD landedWorld
 
@@ -154,15 +154,15 @@ theorem above_recovery_step : ProtocolState.Step landedWorld aboveRecovered := b
     (a := aboveRequest) (r := aboveOrigin) (owner := true) (externalOK := true)
     (by decide) (by decide +kernel)
 
-def restored : ProtocolState.World := ProtocolState.rollback aboveRecovered FirstBatch.genesisRecord 12 21
+def restored : ProtocolState.World := ProtocolState.applyRollback aboveRecovered FirstBatch.genesisRecord 12 21
 
 theorem rollback_step : ProtocolState.Step aboveRecovered restored := by
-  exact ProtocolState.Step.rollback FirstBatch.genesisRecord 12 21 (by decide) (by decide +kernel)
+  exact ProtocolState.Step.rollback FirstBatch.genesisRecord 12 21 (by decide) (by decide +kernel) (by decide +kernel)
 
 theorem rollback_requires_new_recovery : restored.inbox.origin.height = 1 ∧ restored.inbox.checkpoint.height = 0 ∧
     Etna.Design.land restored.inbox historicalStatement.input [] historicalEnv = none := by decide +kernel
 
-def againRequest : Recovery.Request := ⟨1,0,[],[]⟩
+def againRequest : Recovery.Request := ⟨1,0,[],[],2,limit256-1⟩
 def againOrigin : Origin := ⟨0,22,22⟩
 def again : ProtocolState.World := (ProtocolState.recover restored againRequest againOrigin true true).getD restored
 
@@ -208,6 +208,11 @@ theorem mixed_generation_and_queue : nextWorld.inbox.generation = 2 ∧
     nextWorld.inbox.origins.map Prod.fst = [0,1,2] ∧ nextWorld.queue.map Prod.fst = [0] ∧
     nextWorld.inbox.ethBalance = 0 ∧ nextWorld.inbox.swept = 1000000000 := by decide +kernel
 
+theorem mixed_trace_advances_recovery_nonce :
+    initialWorld.inbox.recoveryNonce = 0 ∧ aboveRecovered.inbox.recoveryNonce = 1 ∧
+    restored.inbox.recoveryNonce = 2 ∧ againRequest.nonce = 2 ∧ nextWorld.inbox.recoveryNonce = 3 := by
+  decide +kernel
+
 def editedRegistry : RegistryHistory.State :=
   (RegistryHistory.edit nextWorld.registry nextWorld.inbox 0 26 (.requestExit 51)).getD nextWorld.registry
 def editedWorld : ProtocolState.World := ProtocolState.registered nextWorld editedRegistry 26
@@ -222,17 +227,17 @@ theorem mixed_lifecycle_core : ProtocolState.Core editedWorld :=
   ProtocolState.trace_preserves_core initial_world_core mixed_lifecycle_trace
 
 def confirmationWorld : ProtocolState.World := { initialWorld with inbox := settled,registry := confirmed }
-def confirmationRollback : ProtocolState.World := ProtocolState.rollback confirmationWorld FirstBatch.genesisRecord 12 15
+def confirmationRollback : ProtocolState.World := ProtocolState.applyRollback confirmationWorld FirstBatch.genesisRecord 12 15
 
 theorem rollback_clears_uncovered_confirmation : (confirmationWorld.registry.slots 0).confirmedAt = some 14 ∧
     (confirmationRollback.registry.slots 0).confirmedAt = none ∧
     confirmationRollback.registry.usedKeys = confirmationWorld.registry.usedKeys ∧
     confirmationRollback.registry.history = confirmationWorld.registry.history := by decide +kernel
 
--- Inbox pair binding alone cannot permanently invalidate an authorization across rollback.
-def restoredWithoutRecovery : ProtocolState.World := ProtocolState.rollback landedWorld FirstBatch.genesisRecord 12 18
+-- Rollback advances the nonce, so restoring the generation/checkpoint cannot revive an old authorization.
+def restoredWithoutRecovery : ProtocolState.World := ProtocolState.applyRollback landedWorld FirstBatch.genesisRecord 12 18
 
-theorem rollback_revives_pair_without_dao_cancellation :
+theorem rollback_nonce_prevents_authorization_revival :
     (ProtocolState.recover landedWorld recoveryRequest ⟨0,19,19⟩ true true).isNone = true ∧
-    (ProtocolState.recover restoredWithoutRecovery recoveryRequest ⟨0,19,19⟩ true true).isSome = true := by decide +kernel
+    (ProtocolState.recover restoredWithoutRecovery recoveryRequest ⟨0,19,19⟩ true true).isNone = true := by decide +kernel
 end Etna.Design.SecondBatch

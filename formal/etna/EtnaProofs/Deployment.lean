@@ -24,7 +24,7 @@ theorem constraints_contract (s : State) (cfg : Config) :
 
 theorem registry_constraints_contract (r : _root_.Etna.Design.RegistryHistory.State) :
     _root_.Etna.Design.Deployment.RegistryConstraints r ↔
-      0 < r.activationDelay ∧ 0 < r.exitDelay ∧ r.slashBountyBps ≤ 10000 := Iff.rfl
+      0 < r.activationDelay ∧ 0 < r.exitDelay ∧ r.slashBountyBps ≤ 10000 ∧ 0 < r.forfeitBps ∧ r.forfeitBps ≤ 10000 := Iff.rfl
 
 theorem definitions_contract (s : State) (registry : RegistryHistory.State) (cfg : Config) (archive : List Nat) :
     _root_.Etna.Design.Deployment.words s cfg = _root_.Etna.Design.Encoding.configWords s.domain.l2ChainId
@@ -127,7 +127,7 @@ theorem build_initialization_constraints {w : ProtocolState.World} {cfg : Config
       (HistoricalContext.registryAt w.registry w.inbox.genesisCutoff) = some w.inbox.committeeZeroRecord.members ∧
     (RegistryHistory.latestSnapshot w.registry.history w.inbox.genesisCutoff).isSome = true := by
   obtain ⟨⟨grid,delay,delayBound,age,ageBound,head,height,past,l1,n1,n2,unit,minimum,batch,fee,threshold,recipient⟩,
-    _,_,_,elected,_,⟨activation,exit,bounty⟩,_⟩ := build_success ok
+    _,_,_,elected,_,⟨activation,exit,bounty,_⟩,_⟩ := build_success ok
   have k := of_decide_eq_true grid
   exact ⟨k.1,k.2.1,k.2.2.1,k.2.2.2.1,k.2.2.2.2.1,k.2.2.2.2.2.1,k.2.2.2.2.2.2,delay,delayBound,age,ageBound,
     head,height,past,l1,n1,n2,unit,minimum,batch,fee,threshold,recipient,activation,exit,bounty,elected,
@@ -193,7 +193,7 @@ theorem trace_preserves_registry_constraints {w t : ProtocolState.World} (trace 
     (initialized : RegistryConstraints w.registry) : RegistryConstraints t.registry := by
   obtain ⟨_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,bounty,_,activation,exit,_⟩ := ProtocolState.trace_preserves_immutables trace
   unfold RegistryConstraints at *
-  rw [bounty,activation,exit]
+  rw [bounty,activation,exit,ProtocolState.trace_forfeit_rate trace]
   exact initialized
 
 /-- Explicit idealized preimage separation, not a theorem about real keccak. Vacuous: no
@@ -276,7 +276,7 @@ theorem genesis_contract (w : _root_.Etna.Design.ProtocolState.World) (hash root
       w.inbox.committeeZeroRecord.targetEpoch = 0 ∧ w.inbox.committeeZeroRecord.cutoff = w.inbox.genesisCutoff ∧
       _root_.Etna.Design.Deployment.GenesisElected w.inbox w.registry w.inbox.configuration ∧
       (_root_.Etna.Design.RegistryHistory.latestSnapshot w.registry.history w.inbox.genesisCutoff).isSome =
-        _root_.Bool.true := Iff.rfl
+        _root_.Bool.true ∧ w.inbox.recoveryNonce = 0 := Iff.rfl
 
 /-- An initialized World satisfies the combined structural invariant: block 0 is the retained
 grid record at c with cursor = head, the queue indices are empty, fees conserve and the
@@ -335,7 +335,7 @@ theorem genesis_builds {w : ProtocolState.World} {hash root : Hash} (init : Gene
     · rw [checkpoint]
       exact covered
     · simp only [generation,↓reduceIte]
-      exact checkpointed
+      exact checkpointed.1
     · simp only [generation,↓reduceIte]
       show (Committee.election w.inbox.configuration.unit w.inbox.configuration.minimum w.inbox.genesisCutoff
         w.inbox.configuration.nMax (HistoricalContext.registryAt w.registry w.inbox.genesisCutoff)).isSome = true

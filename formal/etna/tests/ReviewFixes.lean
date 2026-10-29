@@ -124,7 +124,7 @@ def recoverAtSix (l : Nat) : Option ProtocolState.World :=
   ProtocolState.recover
     { SecondBatch.initialWorld with
       inbox := { SecondBatch.sourceInbox with epochLen := l,checkpoint := { FirstBatch.genesisRecord with height := 6 } } }
-    ⟨0,6,[],[]⟩ ⟨6,20,20⟩ true true
+    ⟨0,6,[],[],0,limit256-1⟩ ⟨6,20,20⟩ true true
 
 theorem recovery_reads_stored_deployment :
     (recoverOn { SecondBatch.sourceInbox with epochLen := 2 }).isNone = true ∧

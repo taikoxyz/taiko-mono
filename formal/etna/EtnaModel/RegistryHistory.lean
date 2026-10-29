@@ -25,7 +25,7 @@ def Ordered (history : List Snapshot) : Prop := history.Pairwise (fun a b => b.b
 instance (history : List Snapshot) : Decidable (Ordered history) :=
   inferInstanceAs (Decidable (history.Pairwise (fun a b => b.block < a.block)))
 
-def vacant : Staking.Bond := ⟨0,0,0,0,0,true,none⟩
+def vacant : Staking.Bond := ⟨0,0,0,0,0,true,none,0,0⟩
 
 structure State where
   nextId : Nat
@@ -45,6 +45,10 @@ structure State where
   activationDelay : Nat := 1
   exitDelay : Nat := 1
   withdrawalDelay : Nat := 50400
+  /-- Fixed responsibility-forfeiture rate, validated at deployment and execution. -/
+  forfeitBps : Nat := 1000
+  /-- Lifetime entry-key flags; release, reuse and rollback never clear them. -/
+  forfeited : List Hash := []
 
 def empty : State := { nextId := 0,free := [],slots := fun _ => vacant,usedKeys := [],history := [] }
 
@@ -83,7 +87,7 @@ minimum and activation delay are registry immutables, not call inputs. -/
 def register (s : State) (key owner amount now : Nat) : Option State :=
   if RegisterAllowed s key amount now then
     let (id,free,next) := allocation s
-    let fresh : Staking.Bond := ⟨key,owner,amount,now+s.activationDelay,Staking.noExit,false,none⟩
+    let fresh : Staking.Bond := ⟨key,owner,amount,now+s.activationDelay,Staking.noExit,false,none,0,0⟩
     some (finish s now { writeSlot s id fresh with nextId := next,free := free,usedKeys := key :: s.usedKeys })
   else none
 
@@ -93,6 +97,9 @@ inductive Edit where
   | requestExit (caller : Nat)
   | confirm
   | withdraw (caller : Nat)
+  | topUp (caller amount : Nat)
+  | activateTopUp
+  | forfeit (entryKey incidentId validUntil timestamp : Nat) (owner externalOK : Bool)
   | slash (a b : Staking.Vote) (sigA sigB : Hash)
   | forceExit
   | recheck (snapshot : Nat)
@@ -106,6 +113,11 @@ def editBond (r : State) (inbox : Etna.Design.State) (now : Nat) (b : Staking.Bo
   | .requestExit caller => Staking.requestExit b caller now r.exitDelay
   | .confirm => Staking.confirmExit inbox b now
   | .withdraw caller => (Staking.withdraw inbox b caller now r.withdrawalDelay).map Prod.fst
+  | .topUp caller amount => Staking.topUp inbox b caller amount now r.activationDelay
+  | .activateTopUp => Staking.activateTopUp inbox b now
+  | .forfeit key _ validUntil timestamp owner externalOK =>
+      (Staking.forfeit inbox b key now timestamp validUntil r.forfeitBps owner
+        (decide (key ∉ r.forfeited)) externalOK).map Prod.fst
   | .slash a v sigA sigB =>
       if r.verify b.key a sigA = true ∧ r.verify b.key v sigB = true ∧ Staking.doubleSign inbox.domain inbox.generation a v = true then
         (Staking.slashDouble inbox b now r.slashBountyBps).map (fun x => x.1)
@@ -113,11 +125,18 @@ def editBond (r : State) (inbox : Etna.Design.State) (now : Nat) (b : Staking.Bo
   | .forceExit => if b.released = false then some (Staking.exclude b now) else none
   | .recheck snapshot => some (Staking.rollbackBySnapshot snapshot b)
 
+/-- Called only after the corresponding bond edit succeeds; attribution identifiers do
+not deduplicate separate entries. Every other operation preserves the lifetime flags. -/
+def forfeitFlags (s : State) : Edit → List Hash
+  | .forfeit key _ _ _ _ _ => key :: s.forfeited
+  | _ => s.forfeited
+
 def edit (s : State) (inbox : Etna.Design.State) (id now : Nat) (action : Edit) : Option State :=
-  if id < s.nextId ∧ lastBlock s ≤ now then
+  if id < s.nextId ∧ lastBlock s ≤ now ∧ inbox.entered = false then
     (editBond s inbox now (s.slots id) action).map fun b =>
       finish s now { writeSlot s id b with
-        free := if b.released && !(s.slots id).released then s.free ++ [id] else s.free }
+        free := if b.released && !(s.slots id).released then s.free ++ [id] else s.free,
+        forfeited := forfeitFlags s action }
   else none
 
 /-- Registry-side rollback changes confirmation metadata only; it never rewinds entries,

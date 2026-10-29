@@ -292,7 +292,7 @@ def world2 : ProtocolState.World := ProtocolState.landed world1 (applyLanding wo
 /-! L1 block 20: governance recovery at checkpoint 2 (R = L1 block 20), nothing excluded or
 blanked. -/
 
-def request1 : Recovery.Request := ⟨0,2,[],[]⟩
+def request1 : Recovery.Request := ⟨0,2,[],[],0,limit256-1⟩
 def origin1 : Origin := ⟨2,20,20⟩
 def world3 : ProtocolState.World :=
   ProtocolState.recovered world2 request1 origin1
@@ -347,7 +347,7 @@ theorem premises : Premises world0 env where
   genesis := by
     refine ⟨⟨rfl,rfl,rfl,rfl,rfl,rfl,rfl,rfl,rfl,by decide,rfl,by unfold FeeConserved; decide +kernel,
       ⟨?_,?_,?_,?_,by decide +kernel⟩,rfl,by decide +kernel,by decide +kernel,by decide +kernel,rfl,rfl,rfl,
-      by unfold Deployment.GenesisElected; decide +kernel,by decide +kernel⟩,rfl,rfl,rfl⟩
+      by unfold Deployment.GenesisElected; decide +kernel,by decide +kernel,rfl⟩,rfl,rfl,rfl⟩
     · unfold RegistryHistory.KeysValid
       decide +kernel
     · unfold RegistryHistory.IdentitiesValid

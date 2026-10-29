@@ -449,6 +449,7 @@ Spec lines are written `spec L<n>` and renumbered to the new file.
 
 **Changed clauses with links.** The text of 16 linked clauses changed. Ten changed only in
 wording and keep their links. Those edits are:
+
 - links to the acceptance checklist;
 - "must"/"should";
 - "per block";
@@ -457,6 +458,7 @@ wording and keep their links. Those edits are:
 - how the block-size rule counts transactions.
 
 Six changed in meaning:
+
 - Blob budget (spec L118). The bound is now zlib's default-settings `deflateBound`, not a
   stored-zlib fallback. As `0x06 ‖ zlib`, one maximum-size block takes at most 124,055 bytes and
   six take at most 744,244, within six blobs (780,264).
@@ -492,3 +494,35 @@ mechanical roles and the headline checks; every premise field is still read by a
 proof, and **140** Python tests pass. Inventory: **308** clauses, **56 partial, 249 deferred,
 3 design-pending**; none is fully proved. 16 claims. The conformance vectors decide the same
 cases as before; only their `spec` line citations changed.
+
+## 2026-10-29: align with SPEC/ACCEPTANCE at 39ebefbf33a2702b750e0fb0db7d2a40ff8e8480
+
+- Merge the latest #22303 base and replace removed source/manifest paths with separately
+  pinned SPEC.md and ACCEPTANCE.md bytes. Review 118 linked clause correspondences, including
+  11 semantic changes; the complete mapping is in source-alignment.md. Inventory schema 4
+  includes both authorities and fails closed on an unreviewed edit to either.
+- Add pending top-ups, explicit delayed activation, checkpoint-history preservation,
+  remaining-principal withdrawal and double-sign slashing. H2 now quantifies over positive
+  remaining balance, including pending principal, and proves that entire balance slashable.
+- Add fixed-rate ceiling DAO forfeiture with effective-first deduction, independent expiry,
+  forced exit, preserved confirmation clock and a lifetime entryKey flag. No forfeiture
+  nonce, cancellation or added delay is introduced. Ownership, attribution, token effects
+  and EVM journaling remain the stated decoded boundaries.
+- Add recovery nonce/deadline/init checks, owner invalidation, and current-nonce increments
+  on recovery and verifier rollback, with uint256 overflow rejection. Extend whole-machine
+  traces and H1-H3 to include invalidation and the new registry actions. Checked rollback
+  wraps a named success-state transformer, as recover already wraps applyRecovery.
+- Replace the stale-authorization revival counterexample with concrete rejection and general
+  future-trace non-revival proofs. Preserve four independent scope counterexamples; recovery
+  committee capture now explicitly assumes no timely nonce invalidation by the DAO.
+- Verify the checklist's independent capital-floor and integer blocking-power arithmetic and
+  strict concentration bounds under supplied selected-committee/valuation/control evidence.
+  Economic shortfalls are never machine guards.
+- Register 718 exact theorem contracts (101 property, 3 constant, 358 supporting, 256
+  regression), 18 scoped traceability claims and 311 source clauses (62 partial, 246
+  deferred, 3 design-pending). Roles are checked mechanically against live types/proofs.
+- Generate schema-2 Inbox vectors with 414 cases and retain 340 client-rule cases. New
+  schema2 production harness conformance is pending; earlier 334-contract/340-client results
+  remain historical at c9708e761. Add independent numerical/ordering vector assertions.
+
+Earlier sections describe their original revisions and retain historical counts/citations.

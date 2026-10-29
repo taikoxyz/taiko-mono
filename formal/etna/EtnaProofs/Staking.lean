@@ -45,7 +45,7 @@ theorem confirm_requires_inbox_init (s : State) (b : Bond) (now : Nat)
 theorem withdraw_waits_for_confirmation {s : State} {b out : Bond} {caller now delay amount : Nat}
     (ok : withdraw s b caller now delay = some (out,amount)) :
     ∃ atL1, b.confirmedAt = some atL1 ∧ atL1+delay ≤ now ∧
-      amount = b.stake ∧ out.confirmedAt = none ∧ out.released = true ∧ out.stake = 0 := by
+      amount = b.balance ∧ out.confirmedAt = none ∧ out.released = true ∧ out.stake = 0 := by
   cases h : b.confirmedAt with
   | none => simp [withdraw,h] at ok
   | some atL1 =>
@@ -57,7 +57,7 @@ theorem withdraw_waits_for_confirmation {s : State} {b out : Bond} {caller now d
     · contradiction
 
 theorem positive_payout_owner {s : State} {b out : Bond} {caller now delay amount : Nat}
-    (ok : withdraw s b caller now delay = some (out,amount)) (positive : 0 < b.stake) :
+    (ok : withdraw s b caller now delay = some (out,amount)) (positive : 0 < b.balance) :
     caller = b.owner := by
   cases h : b.confirmedAt with
   | none => simp [withdraw,h] at ok
@@ -70,7 +70,7 @@ theorem positive_payout_owner {s : State} {b out : Bond} {caller now delay amoun
       · exact owner
     · contradiction
 
-/-- Withdrawal does not re-read the landed snapshot (4.1, spec L142: "withdrawal does not re-check it"). -/
+/-- Withdrawal does not re-read the landed snapshot (4.1, spec L152: "withdrawal does not re-check it"). -/
 theorem withdraw_ignores_snapshot (s : State) (b : Bond) (caller now delay x : Nat) :
     withdraw { s with snapshot := x } b caller now delay = withdraw s b caller now delay := by
   cases h : b.confirmedAt with
@@ -116,13 +116,13 @@ theorem fraction_bounded (remaining bps : Nat) (cap : bps ≤ 10000) : fraction 
 
 theorem double_sign_conserves {inbox : State} {b out : Bond} {now bps bounty sink : Nat}
     (ok : slashDouble inbox b now bps = some (out,bounty,sink)) :
-    bounty+sink = b.stake ∧ out.stake = 0 ∧ out.exitAt ≤ now ∧ out.exitAt ≤ b.exitAt ∧
+    bounty+sink = b.balance ∧ out.stake = 0 ∧ out.exitAt ≤ now ∧ out.exitAt ≤ b.exitAt ∧
     out.key = b.key ∧ out.confirmedAt = b.confirmedAt := by
   unfold slashDouble at ok
   split at ok
   · rename_i h
     cases ok
-    have := fraction_bounded b.stake bps h.2.2.2
+    have := fraction_bounded b.balance bps h.2.2.2
     exact ⟨by omega,rfl,Nat.min_le_right _ _,Nat.min_le_left _ _,rfl,rfl⟩
   · contradiction
 
@@ -180,5 +180,131 @@ theorem evidence_domain {deployment : Domain} {generation : Nat} {a b : Vote}
     a.domain = deployment ∧ b.domain = deployment ∧ a.generation = b.generation ∧ a.generation ≤ generation := by
   have h := of_decide_eq_true ok
   exact ⟨h.1,h.2.1,h.2.2.1,h.2.2.2.1⟩
+
+/-- Depositing principal changes neither election encoding nor the original identity
+and activation block. Only the explicit pending accounting and ready block change. -/
+theorem top_up_accounting {s : State} {b out : Bond} {caller amount now delay : Nat}
+    (ok : topUp s b caller amount now delay = some out) :
+    toEntry out = toEntry b ∧ out.owner = b.owner ∧ out.confirmedAt = b.confirmedAt ∧
+    out.pendingTopUp = amount ∧ out.topUpReadyAtL1 = now+delay ∧
+    out.balance = b.balance+amount ∧ out.balance < limit256 ∧ out.topUpReadyAtL1 < limit48 := by
+  unfold topUp at ok
+  split at ok
+  · rename_i guard
+    cases ok
+    obtain ⟨_,_,_,_,_,_,empty,_,bounded,_,ready⟩ := guard
+    refine ⟨rfl,rfl,rfl,rfl,rfl,?_,?_,ready⟩
+    · simp [Bond.balance,empty]
+    · simpa [Bond.balance,empty] using bounded
+  · contradiction
+
+/-- Maturity is only a guard on explicit activation. Activation transfers all pending
+principal into effective stake and preserves the sum and the occupant identity. -/
+theorem activation_preserves_principal {s : State} {b out : Bond} {now : Nat}
+    (ok : activateTopUp s b now = some out) :
+    b.topUpReadyAtL1 ≤ now ∧ out.stake = b.balance ∧ out.balance = b.balance ∧
+    out.pendingTopUp = 0 ∧ out.topUpReadyAtL1 = 0 ∧ out.key = b.key ∧
+    out.owner = b.owner ∧ out.activeFrom = b.activeFrom ∧ out.confirmedAt = b.confirmedAt := by
+  unfold activateTopUp at ok
+  split at ok
+  · rename_i guard
+    cases ok
+    exact ⟨guard.2.2.2.2.1,rfl,Nat.add_zero _,rfl,rfl,rfl,rfl,rfl,rfl⟩
+  · contradiction
+
+theorem exit_blocks_top_ups (s : State) (b : Bond) (caller amount now delay : Nat)
+    (exited : b.exitAt ≠ noExit) :
+    topUp s b caller amount now delay = none ∧ activateTopUp s b now = none := by
+  simp [topUp,activateTopUp,exited]
+
+theorem exclusion_preserves_principal (b : Bond) (now : Nat) :
+    (exclude b now).balance = b.balance ∧ (exclude b now).pendingTopUp = b.pendingTopUp ∧
+    (exclude b now).topUpReadyAtL1 = b.topUpReadyAtL1 := ⟨rfl,rfl,rfl⟩
+
+theorem withdrawal_clears_principal {s : State} {b out : Bond} {caller now delay amount : Nat}
+    (ok : withdraw s b caller now delay = some (out,amount)) :
+    amount = b.balance ∧ out.balance = 0 ∧ out.pendingTopUp = 0 ∧ out.topUpReadyAtL1 = 0 := by
+  cases h : b.confirmedAt with
+  | none => simp [withdraw,h] at ok
+  | some atL1 =>
+    simp only [withdraw,h] at ok
+    split at ok
+    · cases ok
+      exact ⟨rfl,rfl,rfl,rfl⟩
+    · contradiction
+
+/-- A pending-only bond remains fully liable; bounty plus sink consumes its full sum. -/
+theorem double_sign_entire_balance {s : State} {b out : Bond} {now bps bounty sink : Nat}
+    (ok : slashDouble s b now bps = some (out,bounty,sink)) :
+    bounty+sink = b.balance ∧ out.balance = 0 ∧ out.pendingTopUp = 0 ∧ out.topUpReadyAtL1 = 0 := by
+  refine ⟨(double_sign_conserves ok).1,?_⟩
+  unfold slashDouble at ok
+  split at ok
+  · cases ok
+    exact ⟨rfl,rfl,rfl⟩
+  · contradiction
+
+/-- The integer penalty is exactly the upward rounding of the fixed-rate fraction. -/
+theorem forfeit_penalty_ceiling (balance bps : Nat) :
+    balance*bps ≤ forfeitPenalty balance bps*10000 ∧
+    forfeitPenalty balance bps*10000 < balance*bps+10000 := by
+  have rem := Nat.mod_lt (balance*bps+9999) (by decide : 0 < 10000)
+  have div := Nat.mod_add_div (balance*bps+9999) 10000
+  unfold forfeitPenalty
+  omega
+
+theorem forfeit_penalty_bounded (balance bps : Nat) (cap : bps ≤ 10000) :
+    forfeitPenalty balance bps ≤ balance := by
+  have mul := Nat.mul_le_mul_left balance cap
+  have ceiling := forfeit_penalty_ceiling balance bps
+  omega
+
+theorem forfeit_penalty_positive (balance bps : Nat) (principal : 0 < balance) (rate : 0 < bps) :
+    0 < forfeitPenalty balance bps := by
+  have mul := Nat.mul_pos principal rate
+  have ceiling := forfeit_penalty_ceiling balance bps
+  omega
+
+/-- Successful forfeiture derives every execution check, including timestamp expiry,
+the fixed rate, the lifetime-key read and the external-effect success boundary. -/
+theorem forfeit_execution_checks {s : State} {b out : Bond}
+    {key now timestamp validUntil bps penalty : Nat} {owner unused externalOK : Bool}
+    (ok : forfeit s b key now timestamp validUntil bps owner unused externalOK = some (out,penalty)) :
+    inboxInitialized s = true ∧ s.entered = false ∧ owner = true ∧
+    b.released = false ∧ b.key = key ∧ unused = true ∧ 0 < b.balance ∧
+    timestamp ≤ validUntil ∧ 0 < bps ∧ bps ≤ 10000 ∧ externalOK = true := by
+  unfold forfeit at ok
+  split at ok
+  · assumption
+  · contradiction
+
+/-- The entire penalty is paid to the sink. Effective stake is deducted first, the
+remaining principal is conserved, and neither identity nor confirmation clock changes. -/
+theorem forfeit_conserves_principal {s : State} {b out : Bond}
+    {key now timestamp validUntil bps penalty : Nat} {owner unused externalOK : Bool}
+    (ok : forfeit s b key now timestamp validUntil bps owner unused externalOK = some (out,penalty)) :
+    penalty = forfeitPenalty b.balance bps ∧ 0 < penalty ∧
+    out.balance+penalty = b.balance ∧ out.stake = b.stake-penalty ∧
+    out.pendingTopUp = b.pendingTopUp-(penalty-b.stake) ∧
+    (out.pendingTopUp = 0 → out.topUpReadyAtL1 = 0) ∧
+    out.exitAt ≤ now ∧ out.exitAt ≤ b.exitAt ∧ out.key = b.key ∧
+    out.owner = b.owner ∧ out.confirmedAt = b.confirmedAt := by
+  have checks := forfeit_execution_checks ok
+  have bounded := forfeit_penalty_bounded b.balance bps checks.2.2.2.2.2.2.2.2.2.1
+  have positive := forfeit_penalty_positive b.balance bps checks.2.2.2.2.2.2.1 checks.2.2.2.2.2.2.2.2.1
+  unfold forfeit at ok
+  split at ok
+  · cases ok
+    refine ⟨rfl,positive,?_,rfl,rfl,?_,Nat.min_le_right _ _,Nat.min_le_left _ _,rfl,rfl,rfl⟩
+    · simp only [Bond.balance] at bounded ⊢
+      omega
+    · intro empty
+      simp only at empty
+      simp [empty]
+  · contradiction
+
+theorem forfeit_external_failure (s : State) (b : Bond) (key now timestamp validUntil bps : Nat)
+    (owner unused : Bool) : forfeit s b key now timestamp validUntil bps owner unused false = none := by
+  simp [forfeit]
 
 end Etna.Design.Staking

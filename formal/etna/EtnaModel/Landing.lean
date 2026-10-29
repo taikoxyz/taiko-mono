@@ -146,7 +146,7 @@ def landedCheckpoint (s : State) (i : LandInput) : Checkpoint :=
 def landedSignal (i : LandInput) : Signal := ⟨i.lastHeight,i.lastBlockHash,i.lastStateRoot⟩
 
 /-- The update never depends on c's position among the grid points. The proven snapshot is
-stored as is (6.1, spec L318: `activeCommitteeSnapshot = input.activeCommitteeSnapshot`); no landing
+stored as is (6.1, spec L339: `activeCommitteeSnapshot = input.activeCommitteeSnapshot`); no landing
 timestamp is written. -/
 def applyLanding (s : State) (i : LandInput) : State :=
   { s with

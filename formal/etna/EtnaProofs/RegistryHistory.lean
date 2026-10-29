@@ -118,8 +118,8 @@ theorem slash_success_double_sign {r : State}
     a.domain = inbox.domain ∧ b.domain = inbox.domain ∧ a.generation = b.generation ∧
     a.generation ≤ inbox.generation ∧ a.height = b.height ∧ a.round = b.round ∧ a.kind = b.kind ∧
     (a.kind = 1 ∨ a.kind = 2) ∧ a.blockId ≠ b.blockId ∧
-    Staking.inboxInitialized inbox = true ∧ bond.released = false ∧ 0 < bond.stake ∧ r.slashBountyBps ≤ 10000 ∧
-    out = { bond with stake := 0,exitAt := min bond.exitAt now } := by
+    Staking.inboxInitialized inbox = true ∧ bond.released = false ∧ 0 < bond.balance ∧ r.slashBountyBps ≤ 10000 ∧
+    out = { bond with stake := 0,pendingTopUp := 0,topUpReadyAtL1 := 0,exitAt := min bond.exitAt now } := by
   simp only [editBond] at ok
   split at ok
   · rename_i valid
@@ -143,9 +143,9 @@ theorem slash_of_double_sign {r : State}
     (height : a.height = b.height) (round : a.round = b.round) (kind : a.kind = b.kind)
     (vote : a.kind = 1 ∨ a.kind = 2) (conflict : a.blockId ≠ b.blockId)
     (initialized : Staking.inboxInitialized inbox = true) (live : bond.released = false)
-    (staked : 0 < bond.stake) (cap : r.slashBountyBps ≤ 10000) :
+    (staked : 0 < bond.balance) (cap : r.slashBountyBps ≤ 10000) :
     editBond r inbox now bond (.slash a b sigA sigB) =
-      some { bond with stake := 0,exitAt := min bond.exitAt now } := by
+      some { bond with stake := 0,pendingTopUp := 0,topUpReadyAtL1 := 0,exitAt := min bond.exitAt now } := by
   have evidence : Staking.doubleSign inbox.domain inbox.generation a b = true :=
     decide_eq_true ⟨domainA,domainB,generation,past,height,round,kind,vote,conflict⟩
   simp [editBond,Staking.slashDouble,signedA,signedB,evidence,initialized,live,staked,cap]
@@ -162,7 +162,8 @@ theorem edit_success {s t : State} {inbox : Etna.Design.State} {id now : Nat} {a
     (ok : edit s inbox id now action = some t) :
     id < s.nextId ∧ lastBlock s ≤ now ∧ ∃ bond, editBond s inbox now (s.slots id) action = some bond ∧
       t = finish s now { writeSlot s id bond with
-        free := if bond.released && !(s.slots id).released then s.free ++ [id] else s.free } := by
+        free := if bond.released && !(s.slots id).released then s.free ++ [id] else s.free,
+        forfeited := forfeitFlags s action } := by
   unfold edit at ok
   split at ok
   · rename_i guard
@@ -170,7 +171,7 @@ theorem edit_success {s t : State} {inbox : Etna.Design.State} {id now : Nat} {a
     | none => simp [h] at ok
     | some bond =>
       simp only [h,Option.map_some,Option.some.injEq] at ok
-      exact ⟨guard.1,guard.2,bond,rfl,ok.symm⟩
+      exact ⟨guard.1,guard.2.1,bond,rfl,ok.symm⟩
   · contradiction
 
 /-- Registry-level slashing uses the stored occupant key, the registry's own verifier and
@@ -180,7 +181,7 @@ theorem edit_slash_double_sign {s t : State} {inbox : Etna.Design.State} {id now
     (ok : edit s inbox id now (.slash a b sigA sigB) = some t) :
     s.verify (s.slots id).key a sigA = true ∧ s.verify (s.slots id).key b sigB = true ∧
     Staking.doubleSign inbox.domain inbox.generation a b = true ∧
-    Staking.inboxInitialized inbox = true ∧ (s.slots id).released = false ∧ 0 < (s.slots id).stake ∧
+    Staking.inboxInitialized inbox = true ∧ (s.slots id).released = false ∧ 0 < (s.slots id).balance ∧
     (t.slots id).stake = 0 ∧ (t.slots id).key = (s.slots id).key ∧ (t.slots id).exitAt ≤ now := by
   obtain ⟨_,_,bond,changed,rfl⟩ := edit_success ok
   have facts := slash_success_double_sign changed
@@ -211,6 +212,28 @@ theorem edit_live_identity {r : State} {inbox : Etna.Design.State} {now : Nat} {
     (ok : editBond r inbox now before action = some after) (live : after.released = false) :
     before.released = false ∧ after.key = before.key := by
   cases action with
+  | topUp caller amount =>
+    simp only [editBond,Staking.topUp] at ok
+    split at ok
+    · rename_i guard
+      cases ok
+      exact ⟨guard.2.2.1,rfl⟩
+    · contradiction
+  | activateTopUp =>
+    simp only [editBond,Staking.activateTopUp] at ok
+    split at ok
+    · rename_i guard
+      cases ok
+      exact ⟨guard.2.1,rfl⟩
+    · contradiction
+  | forfeit key incident validUntil timestamp owner externalOK =>
+    simp only [editBond,Staking.forfeit] at ok
+    split at ok
+    · rename_i guard
+      simp only [Option.map_some,Option.some.injEq] at ok
+      subst after
+      exact ⟨guard.2.2.2.1,rfl⟩
+    · simp at ok
   | requestExit caller =>
     simp only [editBond,Staking.requestExit] at ok
     split at ok
@@ -517,5 +540,137 @@ theorem trace_preserves_registry {s t : State} (trace : Trace s t)
   induction trace with
   | refl => exact ⟨keys,identities,ordered⟩
   | step _ change ih => exact step_preserves_registry change ih.1 ih.2.1 ih.2.2
+
+/-- Recovery's entered guard blocks every registry mutation, including metadata edits. -/
+theorem edit_rejects_reentrancy (s : State) (inbox : Etna.Design.State) (id now : Nat) (action : Edit)
+    (entered : inbox.entered = true) : edit s inbox id now action = none := by
+  simp [edit,entered]
+
+/-- Public double-sign slashing empties effective and pending principal together. -/
+theorem edit_slash_balance {s t : State} {inbox : Etna.Design.State} {id now : Nat}
+    {a b : Staking.Vote} {sigA sigB : Nat}
+    (ok : edit s inbox id now (.slash a b sigA sigB) = some t) : (t.slots id).balance = 0 := by
+  obtain ⟨_,_,bond,changed,rfl⟩ := edit_success ok
+  have facts := slash_success_double_sign changed
+  obtain ⟨_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,rfl⟩ := facts
+  simp [finish,writeSlot,Staking.Bond.balance]
+
+/-- A deposit cannot affect election history even when every registry slot is allocated. -/
+theorem top_up_preserves_history {s t : State} {inbox : Etna.Design.State} {id now caller amount : Nat}
+    (ok : edit s inbox id now (.topUp caller amount) = some t) :
+    t.history = s.history ∧ entries t = entries s := by
+  obtain ⟨_,_,bond,changed,rfl⟩ := edit_success ok
+  have same := (Staking.top_up_accounting changed).1
+  have entriesSame : entries { writeSlot s id bond with
+      free := if bond.released && !(s.slots id).released then s.free ++ [id] else s.free,
+      forfeited := forfeitFlags s (.topUp caller amount) } = entries s := by
+    unfold entries
+    apply List.map_congr_left
+    intro i _
+    by_cases eq : i = id
+    · simpa [writeSlot,eq] using same
+    · simp [writeSlot,eq]
+  exact ⟨by simp only [finish,entriesSame,ite_true],entriesSame⟩
+
+/-- A successful forfeiture consumes the key's lifetime flag atomically, conserves the
+full remaining principal after the sink payment, and keeps an existing evidence clock. -/
+theorem edit_forfeit_success {s t : State} {inbox : Etna.Design.State}
+    {id now key incident validUntil timestamp : Nat} {owner externalOK : Bool}
+    (ok : edit s inbox id now (.forfeit key incident validUntil timestamp owner externalOK) = some t) :
+    key ∉ s.forfeited ∧ t.forfeited = key :: s.forfeited ∧
+    Staking.inboxInitialized inbox = true ∧ owner = true ∧ timestamp ≤ validUntil ∧
+    (s.slots id).key = key ∧ (t.slots id).key = key ∧
+    (t.slots id).confirmedAt = (s.slots id).confirmedAt ∧
+    (t.slots id).exitAt ≤ now ∧
+    ∃ penalty, penalty = Staking.forfeitPenalty (s.slots id).balance s.forfeitBps ∧
+      0 < penalty ∧ (t.slots id).balance+penalty = (s.slots id).balance := by
+  obtain ⟨_,_,bond,changed,rfl⟩ := edit_success ok
+  change (Staking.forfeit inbox (s.slots id) key now timestamp validUntil s.forfeitBps owner
+    (decide (key ∉ s.forfeited)) externalOK).map Prod.fst = some bond at changed
+  cases h : Staking.forfeit inbox (s.slots id) key now timestamp validUntil s.forfeitBps owner
+      (decide (key ∉ s.forfeited)) externalOK with
+  | none => simp only [h,Option.map_none] at changed; cases changed
+  | some result =>
+    rcases result with ⟨out,penalty⟩
+    simp only [h,Option.map_some,Option.some.injEq] at changed
+    subst bond
+    have checks := Staking.forfeit_execution_checks h
+    obtain ⟨rate,positive,conserved,_,_,_,exit,_,keyEq,_,clock⟩ := Staking.forfeit_conserves_principal h
+    refine ⟨of_decide_eq_true checks.2.2.2.2.2.1,rfl,checks.1,checks.2.2.1,
+      checks.2.2.2.2.2.2.2.1,checks.2.2.2.2.1,?_,?_,?_,penalty,rate,positive,?_⟩
+    · simpa [finish,writeSlot,keyEq] using checks.2.2.2.2.1
+    · simpa [finish,writeSlot] using clock
+    · simpa [finish,writeSlot] using exit
+    · simpa [finish,writeSlot] using conserved
+
+theorem forfeited_key_cannot_forfeit_again (s : State) (inbox : Etna.Design.State)
+    (id now key incident validUntil timestamp : Nat) (owner externalOK : Bool)
+    (used : key ∈ s.forfeited) :
+    edit s inbox id now (.forfeit key incident validUntil timestamp owner externalOK) = none := by
+  simp [edit,editBond,Staking.forfeit,used]
+
+/-- Failed external effects publish neither a changed slot nor a lifetime flag. -/
+theorem edit_forfeit_external_failure (s : State) (inbox : Etna.Design.State)
+    (id now key incident validUntil timestamp : Nat) (owner : Bool) :
+    edit s inbox id now (.forfeit key incident validUntil timestamp owner false) = none := by
+  simp [edit,editBond,Staking.forfeit_external_failure]
+
+theorem edit_never_clears_forfeiture {s t : State} {inbox : Etna.Design.State} {id now : Nat} {action : Edit}
+    (ok : edit s inbox id now action = some t) : ∀ key ∈ s.forfeited, key ∈ t.forfeited := by
+  obtain ⟨_,_,_,_,rfl⟩ := edit_success ok
+  intro key mem
+  change key ∈ forfeitFlags s action
+  cases action <;> simp only [forfeitFlags] <;> try exact mem
+  exact List.mem_cons_of_mem _ mem
+
+theorem registration_keeps_forfeiture {s t : State} {key owner amount now : Nat}
+    (ok : register s key owner amount now = some t) : t.forfeited = s.forfeited := by
+  unfold register at ok
+  split at ok
+  · cases ok; rfl
+  · contradiction
+
+theorem recovery_keeps_forfeiture (s : State) (xs : List Recovery.Exclusion) (now : Nat) :
+    (forceExclusions s xs now).forfeited = s.forfeited := rfl
+
+theorem rollback_keeps_forfeiture (s : State) (snapshot : Nat) :
+    (recheckAll s snapshot).forfeited = s.forfeited := rfl
+
+theorem step_never_clears_forfeiture {s t : State} (step : Step s t) :
+    ∀ key ∈ s.forfeited, key ∈ t.forfeited := by
+  cases step with
+  | registration ok => rw [registration_keeps_forfeiture ok]; exact fun _ h => h
+  | modification ok => exact edit_never_clears_forfeiture ok
+  | rollback => exact fun _ h => h
+
+theorem trace_never_clears_forfeiture {s t : State} (trace : Trace s t) :
+    ∀ key ∈ s.forfeited, key ∈ t.forfeited := by
+  induction trace with
+  | refl => exact fun _ h => h
+  | step _ change ih => exact fun key mem => step_never_clears_forfeiture change key (ih key mem)
+
+theorem future_trace_never_clears_forfeiture {cutoff : Nat} {s t : State} (trace : FutureTrace cutoff s t) :
+    ∀ key ∈ s.forfeited, key ∈ t.forfeited := by
+  induction trace with
+  | refl => exact fun _ h => h
+  | registration _ _ ok ih => rw [registration_keeps_forfeiture ok]; exact ih
+  | modification _ _ ok ih => exact fun key mem => edit_never_clears_forfeiture ok key (ih key mem)
+  | recovery _ _ _ _ ih => exact ih
+  | rollback _ _ ih => exact ih
+
+theorem step_preserves_forfeit_rate {s t : State} (step : Step s t) : t.forfeitBps = s.forfeitBps := by
+  cases step with
+  | registration ok =>
+    unfold register at ok
+    split at ok
+    · cases ok; rfl
+    · contradiction
+  | modification ok => obtain ⟨_,_,_,_,rfl⟩ := edit_success ok; rfl
+  | rollback => rfl
+
+theorem trace_preserves_forfeit_rate {s t : State} (trace : Trace s t) : t.forfeitBps = s.forfeitBps := by
+  induction trace with
+  | refl => rfl
+  | step _ change ih => exact (step_preserves_forfeit_rate change).trans ih
 
 end Etna.Design.RegistryHistory

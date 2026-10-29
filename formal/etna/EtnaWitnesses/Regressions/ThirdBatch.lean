@@ -103,21 +103,21 @@ def deployed : ProtocolState.World :=
 
 def origin1 : Origin := ⟨0,20,20⟩
 def recoveredWorld : ProtocolState.World :=
-  (ProtocolState.recover deployed ⟨0,0,[],[]⟩ origin1 true true).getD deployed
+  (ProtocolState.recover deployed ⟨0,0,[],[],0,limit256-1⟩ origin1 true true).getD deployed
 
 theorem deployed_recover :
-    ProtocolState.recover deployed ⟨0,0,[],[]⟩ origin1 true true = some recoveredWorld := by
-  have ok : (ProtocolState.recover deployed ⟨0,0,[],[]⟩ origin1 true true).isSome = true := by
+    ProtocolState.recover deployed ⟨0,0,[],[],0,limit256-1⟩ origin1 true true = some recoveredWorld := by
+  have ok : (ProtocolState.recover deployed ⟨0,0,[],[],0,limit256-1⟩ origin1 true true).isSome = true := by
     decide +kernel
   unfold recoveredWorld
-  cases h : ProtocolState.recover deployed ⟨0,0,[],[]⟩ origin1 true true with
+  cases h : ProtocolState.recover deployed ⟨0,0,[],[],0,limit256-1⟩ origin1 true true with
   | none => rw [h] at ok; contradiction
   | some w => rfl
 
 theorem deployed_recovery_step : ProtocolState.Step deployed recoveredWorld :=
   ProtocolState.Step.recovery (w := deployed)
-    (s := Recovery.applyRecovery (ProtocolState.recoveryView deployed) ⟨0,0,[],[]⟩ SecondBatch.recoveryConfig origin1)
-    (a := ⟨0,0,[],[]⟩) (r := origin1) (owner := true) (externalOK := true)
+    (s := Recovery.applyRecovery (ProtocolState.recoveryView deployed) ⟨0,0,[],[],0,limit256-1⟩ SecondBatch.recoveryConfig origin1)
+    (a := ⟨0,0,[],[],0,limit256-1⟩) (r := origin1) (owner := true) (externalOK := true)
     (by decide) (by decide +kernel)
 
 def archive1 : List Nat := [14,20]

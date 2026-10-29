@@ -153,29 +153,29 @@ def feeShareGrid : List RuleCase :=
     { label := "block_rules.fee-share." ++ Nat.repr f, rule := "feeShare", feeShare := f }
 
 def ruleHandwritten : List RuleCase := [
-  { label := "block_rules.hw.fee-share-is-100", spec := some "spec L75", rule := "feeShare", feeShare := 100 },
-  { label := "block_rules.hw.anchor-at-origin-in-a-later-epoch", spec := some "spec L162", rule := "anchor",
+  { label := "block_rules.hw.fee-share-is-100", spec := some "spec L79", rule := "feeShare", feeShare := 100 },
+  { label := "block_rules.hw.anchor-at-origin-in-a-later-epoch", spec := some "spec L173", rule := "anchor",
     parentHeight := 24, height := 25, parentAnchor := 100, anchor := 101, checkpoint := 20 },
-  { label := "block_rules.hw.inherited-origin-anchor-in-a-later-epoch", spec := some "spec L162", rule := "anchor",
+  { label := "block_rules.hw.inherited-origin-anchor-in-a-later-epoch", spec := some "spec L173", rule := "anchor",
     parentHeight := 34, height := 35, parentAnchor := 100, anchor := 100, checkpoint := 30 },
-  { label := "block_rules.hw.anchor-below-origin", spec := some "spec L101", rule := "anchor",
+  { label := "block_rules.hw.anchor-below-origin", spec := some "spec L106", rule := "anchor",
     parentAnchor := 99, anchor := 99 },
-  { label := "block_rules.hw.anchor-max-uint48", spec := some "spec L75", rule := "anchor",
+  { label := "block_rules.hw.anchor-max-uint48", spec := some "spec L79", rule := "anchor",
     parentAnchor := 110, anchor := limit48 - 1 },
-  { label := "block_rules.hw.anchor-2pow48", spec := some "spec L75", rule := "anchor",
+  { label := "block_rules.hw.anchor-2pow48", spec := some "spec L79", rule := "anchor",
     parentAnchor := 110, anchor := limit48 },
-  { label := "block_rules.hw.superseded-chain", spec := some "spec L102", rule := "generation", inbox := 1 },
-  { label := "block_rules.hw.inbox-behind-chain", spec := some "spec L102", rule := "generation",
+  { label := "block_rules.hw.superseded-chain", spec := some "spec L107", rule := "generation", inbox := 1 },
+  { label := "block_rules.hw.inbox-behind-chain", spec := some "spec L107", rule := "generation",
     chain := 1, extra := 1 },
-  { label := "block_rules.hw.back-pressure-at-u", spec := some "spec L103", rule := "backPressure",
+  { label := "block_rules.hw.back-pressure-at-u", spec := some "spec L108", rule := "backPressure",
     parentHeight := 19, height := 20, checkpoint := 14 },
-  { label := "block_rules.hw.freshness-at-max-age", spec := some "spec L105", rule := "freshness",
+  { label := "block_rules.hw.freshness-at-max-age", spec := some "spec L110", rule := "freshness",
     anchorTimestamp := 1700000004 - 7200 },
-  { label := "block_rules.hw.timestamp-strictly-increases", spec := some "spec L73", rule := "timestamp",
+  { label := "block_rules.hw.timestamp-strictly-increases", spec := some "spec L77", rule := "timestamp",
     bft := ruleT, anchorTimestamp := ruleT - 10, timestamp := some ruleT },
-  { label := "block_rules.hw.height-max-uint48", spec := some "spec L266", rule := "height",
+  { label := "block_rules.hw.height-max-uint48", spec := some "spec L287", rule := "height",
     epochLen := limit48 / 2, parentHeight := limit48 - 2, height := limit48 - 1, checkpoint := limit48 - 3 },
-  { label := "block_rules.hw.height-2pow48", spec := some "spec L266", rule := "height",
+  { label := "block_rules.hw.height-2pow48", spec := some "spec L287", rule := "height",
     epochLen := limit48 / 2, parentHeight := limit48 - 1, height := limit48, checkpoint := limit48 - 2 }]
 
 def ruleCases : List RuleCase :=
@@ -205,9 +205,9 @@ def sizeCases : List SizeCase :=
   ([1000, 123999, 124000, 124001, 200000, 780000].flatMap fun n => [true, false].map fun inc =>
     ({ label := "block_size.bytes" ++ Nat.repr n ++ (if inc then ".incompressible" else ".zeros"),
        blockBytes := n, incompressible := inc } : SizeCase)) ++
-  [{ label := "block_size.hw.compressible-block-over-bound", spec := some "spec L113", blockBytes := 500000,
+  [{ label := "block_size.hw.compressible-block-over-bound", spec := some "spec L118", blockBytes := 500000,
      incompressible := false },
-   { label := "block_size.hw.six-blob-block-over-bound", spec := some "spec L113", blockBytes := 700000,
+   { label := "block_size.hw.six-blob-block-over-bound", spec := some "spec L118", blockBytes := 700000,
      incompressible := true }]
 
 def blockSizeFile (provenance : Option String) : Except String String :=

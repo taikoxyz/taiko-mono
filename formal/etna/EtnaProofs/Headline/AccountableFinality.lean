@@ -34,7 +34,7 @@ for the current deployment and generation, then anyone can slash every live stak
 `k` in every later World, at any later block. -/
 theorem evidence_stays_slashable {w : ProtocolState.World} {a b : Staking.Vote} {sigA sigB k : Hash}
     (core : ProtocolState.Core w) (initialized : Staking.inboxInitialized w.inbox = true)
-    (bounds : Deployment.RegistryConstraints w.registry)
+    (bounds : Deployment.RegistryConstraints w.registry) (notEntered : w.inbox.entered = false)
     (signedA : w.registry.verify k a sigA = true) (signedB : w.registry.verify k b sigB = true)
     (double : Staking.doubleSign w.inbox.domain w.inbox.generation a b = true) :
     Slashable w a b sigA sigB k := by
@@ -46,11 +46,12 @@ theorem evidence_stays_slashable {w : ProtocolState.World} {a b : Staking.Vote} 
     (domainA.trans domain.symm) (domainB.trans domain.symm) generation
     (Nat.le_trans past (ProtocolState.trace_generation_monotone trace)) height round kind vote conflict
     (Lifecycle.trace_keeps_inbox_initialized trace initialized) live staked
-    (Deployment.trace_preserves_registry_constraints trace bounds).2.2
+    (Deployment.trace_preserves_registry_constraints trace bounds).2.2.1
+  have free : t.inbox.entered = false := (ProtocolState.trace_entered trace).trans notEntered
   have registered := Nat.le_trans (ProtocolState.trace_preserves_core core trace).registry.clock clock
   cases edited : RegistryHistory.edit t.registry t.inbox id now (.slash a b sigA sigB) with
-  | none => simp [RegistryHistory.edit,range,registered,bond] at edited
-  | some s => exact ⟨s,rfl,(RegistryHistory.edit_slash_double_sign edited).2.2.2.2.2.2.1⟩
+  | none => simp [RegistryHistory.edit,range,registered,free,bond] at edited
+  | some s => exact ⟨s,rfl,RegistryHistory.edit_slash_balance edited⟩
 
 /-- H2, accountable finality: see `Etna.Statements.AccountableFinality`. -/
 theorem accountable_finality : AccountableFinality := by
@@ -58,6 +59,9 @@ theorem accountable_finality : AccountableFinality := by
   obtain ⟨sig,agree⟩ := premises.signatureAgreement
   obtain ⟨core,_,bounds,initialized,_⟩ := Deployment.genesis_trace_invariants premises.genesis.1 trace
   obtain ⟨domain0,_,_,_,_,_,_,_,_,_,_,_,_,_,_,verify0,_⟩ := ProtocolState.trace_preserves_immutables trace
+  have startFree : w0.inbox.entered = false := by
+    obtain ⟨_,_,_,_,_,_,_,_,_,_,free,_⟩ := premises.genesis.1
+    exact free
   -- The built context belongs to this World and checks votes with the environment's signatures.
   have context : r.consensus.domain = w.inbox.domain ∧ r.consensus.generation = w.inbox.generation ∧
       r.signature = env.signature := by
@@ -110,7 +114,7 @@ theorem accountable_finality : AccountableFinality := by
     rw [keyA] at signedA
     rw [keyB] at signedB
     exact ⟨va,inA,vb,inB,keyA,keyB,sig va,sig vb,
-      evidence_stays_slashable core initialized bounds signedA signedB (double validA validB conflict)⟩
+      evidence_stays_slashable core initialized bounds ((ProtocolState.trace_entered trace).trans startFree) signedA signedB (double validA validB conflict)⟩
   · -- Finality: every common signer of two conflicting commits equivocates, so it is not honest;
     -- then the dishonest power would exceed 1/3, contradicting the minority bound.
     intro h round honest clean minority a b votesA votesB okA okB

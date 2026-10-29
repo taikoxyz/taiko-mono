@@ -183,10 +183,10 @@ theorem proposer_fee_routing :
     Fees.extraData 100 5 7 = [100,0,0,0,0,0,5,0,0,0,0,0,7] ∧
     Fees.blockCredits 100 25 [⟨41,2,21000⟩,⟨7,1,50000⟩] = (27*21000+26*50000,0) := by decide +kernel
 
-def bond : Staking.Bond := ⟨1,51,100,0,5,false,none⟩
+def bond : Staking.Bond := ⟨1,51,100,0,5,false,none,0,0⟩
 def settledInbox : State := { afterThree with snapshot := 6 }
 def confirmedBond : Staking.Bond := { bond with confirmedAt := some 100 }
-def cleared : Staking.Bond := ⟨0,0,0,0,0,true,none⟩
+def cleared : Staking.Bond := ⟨0,0,0,0,0,true,none,0,0⟩
 
 theorem confirmation_starts_new_timer :
     Staking.confirmExit settledInbox bond 100 = some confirmedBond ∧
@@ -211,12 +211,12 @@ theorem zero_stake_still_waits :
 /-- The released slot has no confirmation; a new occupant starts unconfirmed and cannot
 withdraw on the old occupant's timer. -/
 theorem slot_reuse_starts_fresh :
-    Staking.register cleared 7 52 200 200 5 = some ⟨7,52,200,205,Staking.noExit,false,none⟩ ∧
-    Staking.withdraw settledInbox ⟨7,52,200,205,Staking.noExit,false,none⟩ 52 10000 10 = none ∧
+    Staking.register cleared 7 52 200 200 5 = some ⟨7,52,200,205,Staking.noExit,false,none,0,0⟩ ∧
+    Staking.withdraw settledInbox ⟨7,52,200,205,Staking.noExit,false,none,0,0⟩ 52 10000 10 = none ∧
     Staking.register bond 7 52 200 200 5 = none := by decide +kernel
 
 theorem exit_request_rules :
-    let fresh : Staking.Bond := ⟨1,51,100,40,Staking.noExit,false,none⟩
+    let fresh : Staking.Bond := ⟨1,51,100,40,Staking.noExit,false,none,0,0⟩
     Staking.requestExit fresh 51 30 20 = some { fresh with exitAt := 60 } ∧
     Staking.requestExit fresh 52 30 20 = none ∧
     Staking.requestExit { fresh with exitAt := 60 } 51 30 20 = none ∧
@@ -236,7 +236,7 @@ against the restored snapshot 4 clears it. -/
 theorem rollback_compares_snapshots_not_blocks :
     let bad := { two with activeCommitteeSnapshot := 9 }
     let badEnv := { environment two with certificate := { certificate two with input := bad } }
-    let exiting : Staking.Bond := ⟨1,51,100,0,6,false,none⟩
+    let exiting : Staking.Bond := ⟨1,51,100,0,6,false,none,0,0⟩
     let confirmed := { exiting with confirmedAt := some 11 }
     (environment one).blockNumber = 11 ∧ badEnv.blockNumber = 11 ∧
     land afterOne bad (leavesFor two) badEnv = some (applyLanding afterOne bad) ∧
@@ -251,7 +251,7 @@ theorem rollback_compares_snapshots_not_blocks :
 def world : Recovery.World :=
   ⟨initial,[(0,alice),(1,bob)],[(0,⟨123,20,2⟩),(1,⟨124,21,3⟩),(2,⟨125,22,4⟩)],⟨active,some (3,pending)⟩⟩
 def cfg : Recovery.Config := ⟨77,88⟩
-def request : Recovery.Request := ⟨0,0,[],[]⟩
+def request : Recovery.Request := ⟨0,0,[],[],0,limit256-1⟩
 def origin : Origin := ⟨0,11,61⟩
 def recovered : Recovery.World := Recovery.applyRecovery world request cfg origin
 
@@ -260,7 +260,7 @@ the DAO's own authorization path delays it. -/
 theorem recover_needs_owner_and_expected_values :
     Recovery.recover world request cfg origin true true = some recovered ∧
     Recovery.recover world request cfg origin false true = none ∧
-    Recovery.recover world { request with generation := 1 } cfg origin true true = none :=
+    Recovery.recover world { request with generation := 1,nonce := 1 } cfg origin true true = none :=
   ⟨Recovery.recover_of_allowed (by decide +kernel),by decide +kernel,by decide +kernel⟩
 
 theorem landing_voids_old_authorization :
@@ -268,7 +268,7 @@ theorem landing_voids_old_authorization :
 
 theorem repeated_recovery_at_same_c_needs_new_generation :
     Recovery.recover recovered request cfg ⟨0,12,62⟩ true true = none ∧
-    (Recovery.recover recovered { request with generation := 1 } cfg ⟨0,12,62⟩ true true).isSome = true := by
+    (Recovery.recover recovered { request with generation := 1,nonce := 1 } cfg ⟨0,12,62⟩ true true).isSome = true := by
   decide +kernel
 
 def excludeBob : Recovery.Request := { request with exclusions := [⟨1,2⟩],fiToClear := [0] }
@@ -312,7 +312,7 @@ theorem empty_election_is_not_an_inbox_check :
     let t := Recovery.applyRecovery world excludeAll cfg origin
     Recovery.recover world excludeAll cfg origin true true = some t ∧
     Recovery.selection world excludeAll origin = none ∧
-    (Recovery.recover t { request with generation := 1 } cfg ⟨0,12,62⟩ true true).isSome = true := by
+    (Recovery.recover t { request with generation := 1,nonce := 1 } cfg ⟨0,12,62⟩ true true).isSome = true := by
   refine ⟨Recovery.recover_of_allowed (by decide +kernel),?_,by decide +kernel⟩
   simp [Recovery.selection,Recovery.excludedRegistry,Recovery.exclusionApplies,Committee.election,
     Committee.chosen,Committee.eligible,excludeAll,world,initial,request,origin,alice,bob]
@@ -333,12 +333,12 @@ untrusted and a recovery ran at c = 12 (generation 1, origin height 12). Restori
 generation 1, voids record 12 and its SignalService checkpoint, blocks landing (origin above c),
 and a new recovery from c = 6 into generation 2 is allowed. -/
 theorem rollback_then_recover_again :
-    let forged := (Recovery.applyRecovery { world with inbox := afterTwo } ⟨0,12,[],[]⟩ cfg ⟨12,12,62⟩).inbox
+    let forged := (Recovery.applyRecovery { world with inbox := afterTwo } ⟨0,12,[],[],0,limit256-1⟩ cfg ⟨12,12,62⟩).inbox
     let rolled := Recovery.rollbackInbox forged afterOne.checkpoint 4
     forged.generation = 1 ∧ rolled.generation = 1 ∧
     rolled.records.map (·.height) = [6,0] ∧ rolled.signals.map (·.height) = [0,6] ∧
     land rolled one (leavesFor one) (environment one) = none ∧
-    (Recovery.recover { world with inbox := rolled } ⟨1,6,[],[]⟩ cfg ⟨6,13,63⟩ true true).isSome = true := by
+    (Recovery.recover { world with inbox := rolled } ⟨1,6,[],[],2,limit256-1⟩ cfg ⟨6,13,63⟩ true true).isSome = true := by
   decide +kernel
 
 /-- §8 rollback target. Landing (0,6] passes a broken verifier with honest hashes and FI
@@ -353,7 +353,7 @@ theorem rollback_before_first_bad_discards_honest_settlement :
     let badEnv := { environment one with certificate := { certificate one with input := bad } }
     let afterBad := applyLanding initial bad
     let afterHonest := applyLanding afterBad two
-    let recovered := (Recovery.applyRecovery { world with inbox := afterHonest } ⟨0,12,[],[]⟩ cfg ⟨12,12,62⟩).inbox
+    let recovered := (Recovery.applyRecovery { world with inbox := afterHonest } ⟨0,12,[],[],0,limit256-1⟩ cfg ⟨12,12,62⟩).inbox
     land initial bad (leavesFor one) badEnv = some afterBad ∧
     land afterBad two (leavesFor two) (environment two) = some afterHonest ∧
     afterBad.snapshot = 9 ∧ afterHonest.snapshot = 4 ∧

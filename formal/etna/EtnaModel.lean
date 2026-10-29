@@ -1,3 +1,4 @@
+import EtnaModel.Capital
 import EtnaModel.Common
 import EtnaModel.Landing
 import EtnaModel.Encoding

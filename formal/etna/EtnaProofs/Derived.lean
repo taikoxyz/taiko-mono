@@ -52,15 +52,15 @@ theorem conflicting_commits_slashable {c : Consensus.Context} {signature : Conse
     (s : RegistryHistory.State) (inbox : State) (now : Nat) (sig : Consensus.Vote → Hash)
     (verifies : ∀ v ∈ votesA ++ votesB, signature v → s.verify v.key (Accountability.evidence v) (sig v) = true)
     (deployment : inbox.domain = c.domain) (current : c.generation ≤ inbox.generation)
-    (initialized : Staking.inboxInitialized inbox = true)
+    (initialized : Staking.inboxInitialized inbox = true) (notEntered : inbox.entered = false)
     (clock : RegistryHistory.lastBlock s ≤ now) (cap : s.slashBountyBps ≤ 10000) :
     ∃ k ∈ (Consensus.activeAt c h).members.map Committee.Entry.key,
       ∃ va ∈ votesA.filter (fun v => v.key == k), ∃ vb ∈ votesB.filter (fun v => v.key == k),
       ∀ id, id < s.nextId → (s.slots id).key = k → (s.slots id).released = false →
-        0 < (s.slots id).stake →
+        0 < (s.slots id).balance →
         ∃ t, RegistryHistory.edit s inbox id now
             (.slash (Accountability.evidence va) (Accountability.evidence vb) (sig va) (sig vb)) = some t ∧
-          (t.slots id).stake = 0 ∧ (t.slots id).key = k ∧ (t.slots id).exitAt ≤ now := by
+          (t.slots id).balance = 0 ∧ (t.slots id).key = k ∧ (t.slots id).exitAt ≤ now := by
   obtain ⟨k,member,va,inA,vb,inB,signedA,signedB,double⟩ :=
     Accountability.conflicting_commits_double_sign okA okB conflict
   refine ⟨k,member,va,inA,vb,inB,?_⟩
@@ -76,12 +76,12 @@ theorem conflicting_commits_slashable {c : Consensus.Context} {signature : Conse
     (Nat.le_trans past current) height round' kind vote different initialized live staked cap
   cases edited : RegistryHistory.edit s inbox id now
       (.slash (Accountability.evidence va) (Accountability.evidence vb) (sig va) (sig vb)) with
-  | none => simp [RegistryHistory.edit,range,clock,bond] at edited
+  | none => simp [RegistryHistory.edit,range,clock,notEntered,bond] at edited
   | some t =>
     refine ⟨t,rfl,?_⟩
     obtain ⟨_,_,out,changed,rfl⟩ := RegistryHistory.edit_success edited
     rw [bond] at changed
     cases changed
-    simp [RegistryHistory.finish,RegistryHistory.writeSlot,key,Nat.min_le_right]
+    simp [RegistryHistory.finish,RegistryHistory.writeSlot,Staking.Bond.balance,key,Nat.min_le_right]
 
 end Etna.Design.Derived

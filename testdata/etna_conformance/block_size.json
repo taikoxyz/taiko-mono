@@ -92,7 +92,7 @@
       "id": "block_size.hw.compressible-block-over-bound",
       "family": "block_size",
       "source": "handwritten",
-      "spec": "spec L113",
+      "spec": "spec L118",
       "input": {"blockBytes": 500000, "content": "zeros"},
       "expect": {"valid": false}
     },
@@ -100,7 +100,7 @@
       "id": "block_size.hw.six-blob-block-over-bound",
       "family": "block_size",
       "source": "handwritten",
-      "spec": "spec L113",
+      "spec": "spec L118",
       "input": {"blockBytes": 700000, "content": "incompressible"},
       "expect": {"valid": false}
     }

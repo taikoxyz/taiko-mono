@@ -2,7 +2,7 @@ import EtnaModel.Committee
 
 /-! Decoded specification authorization. Registry snapshots/anchor history and the
 signature predicate are authenticated input boundaries, not cryptographic implementations.
-`Entry.key` is the abstract consensus-key identity and stands for its set key (4.3, spec L169:
+`Entry.key` is the abstract consensus-key identity and stands for its set key (4.3, spec L180:
 keccak256 of the L2 chain id and the compressed key, fixed per key); elections order by it. Raw
 recovery entryKey values must decode to this identity. This module does not prove Comet's locking protocol. -/
 namespace Etna.Design.Consensus

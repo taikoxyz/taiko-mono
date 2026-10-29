@@ -1,5 +1,5 @@
 {
-  "schema": "etna-conformance-1",
+  "schema": "etna-conformance-2",
   "family": "land",
   "generator": "formal/etna: lake exe etna-vectors --write testdata/etna_conformance",
   "constants": {
@@ -25,7 +25,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -47,6 +47,7 @@
             "checkpointHeight": 0,
             "checkpointHash": 10000,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 0,
             "tail": 8,
             "snapshot": 10,
@@ -81,7 +82,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -103,6 +104,7 @@
             "checkpointHeight": 0,
             "checkpointHash": 10000,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 0,
             "tail": 8,
             "snapshot": 10,
@@ -137,7 +139,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -159,6 +161,7 @@
             "checkpointHeight": 6,
             "checkpointHash": 10006,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 0,
             "tail": 8,
             "snapshot": 10,
@@ -195,7 +198,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -217,6 +220,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 0,
             "tail": 8,
             "snapshot": 10,
@@ -253,7 +257,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -275,6 +279,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 10018,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 0,
             "tail": 8,
             "snapshot": 10,
@@ -311,7 +316,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -333,6 +338,7 @@
             "checkpointHeight": 0,
             "checkpointHash": 10000,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 0,
             "tail": 8,
             "snapshot": 10,
@@ -367,7 +373,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -391,6 +397,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -429,7 +436,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -453,6 +460,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -491,7 +499,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -515,6 +523,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 10018,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -555,7 +564,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -579,6 +588,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -617,7 +627,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -641,6 +651,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -679,7 +690,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -703,6 +714,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -741,7 +753,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -765,6 +777,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -803,7 +816,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -827,6 +840,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -865,7 +879,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -889,6 +903,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 10018,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -929,7 +944,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -953,6 +968,7 @@
             "checkpointHeight": 24,
             "checkpointHash": 10024,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -993,7 +1009,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1017,6 +1033,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -1055,7 +1072,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1079,6 +1096,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -1117,7 +1135,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1141,6 +1159,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -1179,7 +1198,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1203,6 +1222,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -1241,7 +1261,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1265,6 +1285,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -1303,7 +1324,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1327,6 +1348,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -1365,7 +1387,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1389,6 +1411,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -1427,7 +1450,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1451,6 +1474,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -1489,7 +1513,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1513,6 +1537,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -1551,7 +1576,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1575,6 +1600,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -1613,7 +1639,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1637,6 +1663,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 10018,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -1677,7 +1704,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1701,6 +1728,7 @@
             "checkpointHeight": 24,
             "checkpointHash": 10024,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -1741,7 +1769,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1765,6 +1793,7 @@
             "checkpointHeight": 30,
             "checkpointHash": 10030,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -1805,7 +1834,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1829,6 +1858,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -1867,7 +1897,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1880,7 +1910,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -1893,6 +1923,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -1934,7 +1965,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1947,7 +1978,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -1960,6 +1991,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -2001,7 +2033,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -2014,7 +2046,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -2027,6 +2059,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -2068,7 +2101,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -2081,7 +2114,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -2094,6 +2127,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -2135,7 +2169,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -2148,7 +2182,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -2161,6 +2195,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -2202,7 +2237,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -2215,7 +2250,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -2228,6 +2263,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -2269,7 +2305,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -2282,7 +2318,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -2295,6 +2331,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -2336,7 +2373,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -2349,7 +2386,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -2362,6 +2399,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -2403,7 +2441,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -2416,7 +2454,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -2429,6 +2467,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -2470,7 +2509,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -2483,7 +2522,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -2496,6 +2535,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -2537,7 +2577,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -2550,7 +2590,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -2563,6 +2603,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -2604,7 +2645,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -2617,7 +2658,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -2630,6 +2671,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -2671,7 +2713,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -2684,7 +2726,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -2697,6 +2739,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -2738,7 +2781,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -2751,7 +2794,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -2764,6 +2807,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -2805,7 +2849,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -2818,7 +2862,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -2831,6 +2875,7 @@
             "checkpointHeight": 24,
             "checkpointHash": 110024,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -2874,7 +2919,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -2887,7 +2932,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -2900,6 +2945,7 @@
             "checkpointHeight": 30,
             "checkpointHash": 110030,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -2943,7 +2989,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -2956,7 +3002,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -2969,6 +3015,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -3010,7 +3057,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -3023,7 +3070,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -3036,6 +3083,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -3077,7 +3125,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -3090,7 +3138,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -3103,6 +3151,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -3144,7 +3193,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -3157,7 +3206,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -3170,6 +3219,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -3211,7 +3261,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -3224,7 +3274,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -3237,6 +3287,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -3278,7 +3329,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -3291,7 +3342,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -3304,6 +3355,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -3345,7 +3397,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -3358,7 +3410,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -3371,6 +3423,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -3412,7 +3465,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -3425,7 +3478,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -3438,6 +3491,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -3479,7 +3533,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -3492,7 +3546,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -3505,6 +3559,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -3546,7 +3601,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -3559,7 +3614,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -3572,6 +3627,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -3613,7 +3669,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -3626,7 +3682,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -3639,6 +3695,7 @@
             "checkpointHeight": 24,
             "checkpointHash": 110024,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -3682,7 +3739,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -3695,7 +3752,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -3708,6 +3765,7 @@
             "checkpointHeight": 30,
             "checkpointHash": 110030,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -3751,7 +3809,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -3764,7 +3822,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -3777,6 +3835,7 @@
             "checkpointHeight": 36,
             "checkpointHash": 110036,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -3820,7 +3879,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -3833,7 +3892,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -3846,6 +3905,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -3887,7 +3947,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -3909,6 +3969,7 @@
             "checkpointHeight": 6,
             "checkpointHash": 10006,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 0,
             "tail": 8,
             "snapshot": 10,
@@ -3945,7 +4006,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -3967,6 +4028,7 @@
             "checkpointHeight": 6,
             "checkpointHash": 10006,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 1,
             "tail": 8,
             "snapshot": 10,
@@ -4003,7 +4065,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4025,6 +4087,7 @@
             "checkpointHeight": 6,
             "checkpointHash": 10006,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 6,
             "tail": 8,
             "snapshot": 10,
@@ -4061,7 +4124,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4083,6 +4146,7 @@
             "checkpointHeight": 0,
             "checkpointHash": 10000,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 0,
             "tail": 8,
             "snapshot": 10,
@@ -4117,7 +4181,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4141,6 +4205,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -4179,7 +4244,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4203,6 +4268,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 10018,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -4243,7 +4309,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4267,6 +4333,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 10018,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 8,
             "tail": 8,
             "snapshot": 10,
@@ -4307,7 +4374,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4331,6 +4398,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -4369,7 +4437,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4393,6 +4461,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 10018,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -4433,7 +4502,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4457,6 +4526,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -4495,7 +4565,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4519,6 +4589,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -4557,7 +4628,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4581,6 +4652,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -4619,7 +4691,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4643,6 +4715,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -4681,7 +4754,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4705,6 +4778,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -4743,7 +4817,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4767,6 +4841,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -4805,7 +4880,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4829,6 +4904,7 @@
             "checkpointHeight": 12,
             "checkpointHash": 10012,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -4867,7 +4943,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4891,6 +4967,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 10018,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -4931,7 +5008,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4953,6 +5030,7 @@
             "checkpointHeight": 0,
             "checkpointHash": 10000,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 0,
             "tail": 8,
             "snapshot": 10,
@@ -4987,7 +5065,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -5009,6 +5087,7 @@
             "checkpointHeight": 6,
             "checkpointHash": 10006,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 0,
             "tail": 8,
             "snapshot": 10,
@@ -5045,7 +5124,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -5067,6 +5146,7 @@
             "checkpointHeight": 0,
             "checkpointHash": 10000,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 0,
             "tail": 8,
             "snapshot": 10,
@@ -5101,7 +5181,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -5123,6 +5203,7 @@
             "checkpointHeight": 6,
             "checkpointHash": 10006,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 0,
             "tail": 8,
             "snapshot": 10,
@@ -5159,7 +5240,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -5181,6 +5262,7 @@
             "checkpointHeight": 0,
             "checkpointHash": 10000,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 0,
             "tail": 8,
             "snapshot": 10,
@@ -5215,7 +5297,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -5237,6 +5319,7 @@
             "checkpointHeight": 0,
             "checkpointHash": 10000,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 0,
             "tail": 8,
             "snapshot": 10,
@@ -5271,7 +5354,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -5293,6 +5376,7 @@
             "checkpointHeight": 0,
             "checkpointHash": 10000,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 0,
             "tail": 8,
             "snapshot": 10,
@@ -5327,7 +5411,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -5349,6 +5433,7 @@
             "checkpointHeight": 6,
             "checkpointHash": 10006,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 0,
             "tail": 8,
             "snapshot": 10,
@@ -5385,7 +5470,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -5407,6 +5492,7 @@
             "checkpointHeight": 6,
             "checkpointHash": 10006,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 0,
             "tail": 8,
             "snapshot": 10,
@@ -5443,7 +5529,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -5465,6 +5551,7 @@
             "checkpointHeight": 0,
             "checkpointHash": 10000,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 0,
             "tail": 8,
             "snapshot": 10,
@@ -5499,7 +5586,7 @@
       "family": "land",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -5521,6 +5608,7 @@
             "checkpointHeight": 0,
             "checkpointHash": 10000,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 0,
             "tail": 8,
             "snapshot": 10,
@@ -5554,9 +5642,9 @@
       "id": "land.hw.generation-start-reuses-older-record",
       "family": "land",
       "source": "handwritten",
-      "spec": "spec L274",
+      "spec": "spec L295",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -5569,7 +5657,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -5582,6 +5670,7 @@
             "checkpointHeight": 24,
             "checkpointHash": 110024,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -5624,9 +5713,9 @@
       "id": "land.hw.below-generation-start",
       "family": "land",
       "source": "handwritten",
-      "spec": "spec L266",
+      "spec": "spec L287",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -5639,7 +5728,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -5652,6 +5741,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -5692,9 +5782,9 @@
       "id": "land.hw.own-generation-record",
       "family": "land",
       "source": "handwritten",
-      "spec": "spec L274",
+      "spec": "spec L295",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -5707,7 +5797,7 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
         ]
       },
@@ -5720,6 +5810,7 @@
             "checkpointHeight": 24,
             "checkpointHash": 110024,
             "generation": 1,
+            "recoveryNonce": 1,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -5762,9 +5853,9 @@
       "id": "land.hw.previous-generation-start",
       "family": "land",
       "source": "handwritten",
-      "spec": "spec L266",
+      "spec": "spec L287",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 13,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -5777,9 +5868,9 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 24, "timestamp": 1700000288, "fn": "recover", "args": {"owner": true, "expectedGeneration": 1, "expectedC": 18, "exclusionCount": 0, "exclusions": [], "fiToClear": []}}
+          {"block": 24, "timestamp": 1700000288, "fn": "recover", "args": {"owner": true, "expectedGeneration": 1, "expectedC": 18, "expectedRecoveryNonce": 1, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}}
         ]
       },
       "call": {"block": 25, "timestamp": 1700000300, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 24, "lastBlockHash": 210024, "lastCometHash": 220024, "lastStateRoot": 230024, "l1ReferenceBlockNumber": 24, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 1, "leaves": [{"comet": 120018, "cut": true, "el": 110018, "head": 3, "height": 18, "word": 0}]}},
@@ -5791,6 +5882,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 110018,
             "generation": 2,
+            "recoveryNonce": 2,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -5832,9 +5924,9 @@
       "id": "land.hw.second-recovery-start",
       "family": "land",
       "source": "handwritten",
-      "spec": "spec L274",
+      "spec": "spec L295",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 13,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -5847,9 +5939,9 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
           {"block": 23, "timestamp": 1700000276, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 110018, "lastCometHash": 120018, "lastStateRoot": 130018, "l1ReferenceBlockNumber": 22, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 24, "timestamp": 1700000288, "fn": "recover", "args": {"owner": true, "expectedGeneration": 1, "expectedC": 18, "exclusionCount": 0, "exclusions": [], "fiToClear": []}}
+          {"block": 24, "timestamp": 1700000288, "fn": "recover", "args": {"owner": true, "expectedGeneration": 1, "expectedC": 18, "expectedRecoveryNonce": 1, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}}
         ]
       },
       "call": {"block": 25, "timestamp": 1700000300, "fn": "land", "args": {"parentHeight": 18, "lastHeight": 24, "lastBlockHash": 210024, "lastCometHash": 220024, "lastStateRoot": 230024, "l1ReferenceBlockNumber": 24, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
@@ -5861,6 +5953,7 @@
             "checkpointHeight": 24,
             "checkpointHash": 210024,
             "generation": 2,
+            "recoveryNonce": 2,
             "head": 3,
             "tail": 8,
             "snapshot": 10,
@@ -5904,9 +5997,9 @@
       "id": "land.hw.two-recoveries-at-one-checkpoint",
       "family": "land",
       "source": "handwritten",
-      "spec": "spec L274",
+      "spec": "spec L295",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -5919,8 +6012,8 @@
           {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
           {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
           {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
-          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
-          {"block": 23, "timestamp": 1700000276, "fn": "recover", "args": {"owner": true, "expectedGeneration": 1, "expectedC": 12, "exclusionCount": 0, "exclusions": [], "fiToClear": []}}
+          {"block": 22, "timestamp": 1700000264, "fn": "recover", "args": {"owner": true, "expectedGeneration": 0, "expectedC": 12, "expectedRecoveryNonce": 0, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}},
+          {"block": 23, "timestamp": 1700000276, "fn": "recover", "args": {"owner": true, "expectedGeneration": 1, "expectedC": 12, "expectedRecoveryNonce": 1, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "exclusionCount": 0, "exclusions": [], "fiToClear": []}}
         ]
       },
       "call": {"block": 24, "timestamp": 1700000288, "fn": "land", "args": {"parentHeight": 12, "lastHeight": 18, "lastBlockHash": 210018, "lastCometHash": 220018, "lastStateRoot": 230018, "l1ReferenceBlockNumber": 23, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
@@ -5932,6 +6025,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 210018,
             "generation": 2,
+            "recoveryNonce": 2,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -5973,9 +6067,9 @@
       "id": "land.hw.record-parent-is-actual-checkpoint",
       "family": "land",
       "source": "handwritten",
-      "spec": "spec L315",
+      "spec": "spec L336",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 10,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -5999,6 +6093,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 10018,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 2,
             "tail": 8,
             "snapshot": 10,
@@ -6038,9 +6133,9 @@
       "id": "land.hw.max-batch-blocks-6.one-segment",
       "family": "land",
       "source": "handwritten",
-      "spec": "spec L267",
+      "spec": "spec L288",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 6, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 6, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -6062,6 +6157,7 @@
             "checkpointHeight": 6,
             "checkpointHash": 10006,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 0,
             "tail": 8,
             "snapshot": 10,
@@ -6097,9 +6193,9 @@
       "id": "land.hw.max-batch-blocks-6.two-segments",
       "family": "land",
       "source": "handwritten",
-      "spec": "spec L267",
+      "spec": "spec L288",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 6, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 6, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 8,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -6121,6 +6217,7 @@
             "checkpointHeight": 0,
             "checkpointHash": 10000,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 0,
             "tail": 8,
             "snapshot": 10,
@@ -6154,9 +6251,9 @@
       "id": "land.hw.inbox-does-not-enforce-unsettled-limit",
       "family": "land",
       "source": "handwritten",
-      "spec": "spec L372",
+      "spec": "spec L396",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recipientAccepts": true, "threshold": 2, "unsettled": 6, "withdrawalDelay": 30},
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 6, "withdrawalDelay": 30},
         "callCount": 0,
         "calls": []
       },
@@ -6169,6 +6266,7 @@
             "checkpointHeight": 18,
             "checkpointHash": 10018,
             "generation": 0,
+            "recoveryNonce": 0,
             "head": 0,
             "tail": 0,
             "snapshot": 10,

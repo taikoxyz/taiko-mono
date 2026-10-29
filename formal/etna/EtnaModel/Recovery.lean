@@ -18,12 +18,14 @@ structure Exclusion where
   entryKey : Hash
   deriving DecidableEq, Repr
 
-/-- recover(expectedGeneration, expectedC, exclusions, fiToClear). -/
+/-- Recovery authorization: deployment-bound expected generation, checkpoint, nonce and expiry. -/
 structure Request where
   generation : Nat
   checkpoint : Nat
   exclusions : List Exclusion
   fiToClear : List Nat
+  nonce : Nat := 0
+  validUntil : Nat := limit256-1
   deriving DecidableEq, Repr
 
 /-- Fixed Keccak constants only: keccak256("") and the released-slot entryKey. The combined
@@ -54,8 +56,15 @@ def selection (w : World) (a : Request) (r : Origin) : Option (List Committee.En
   Committee.election w.inbox.configuration.unit w.inbox.configuration.minimum r.l1Block w.inbox.configuration.nMax
     ((excludedRegistry w a.exclusions r.l1Block).map Prod.snd)
 
-/-- Execution-time checks (8.3): owner only, the two expected values, list validity. There
-is no time threshold, withdrawal epoch, status flag or on-chain election. -/
+/-- §8.3 initialization, nonce and timestamp checks. There is no minimum stall duration. -/
+def AuthorizationAllowed (s : State) (a : Request) (timestamp : Nat) : Prop :=
+  Staking.inboxInitialized s = true ∧ a.nonce = s.recoveryNonce ∧
+  s.recoveryNonce+1 < limit256 ∧ a.validUntil < limit256 ∧ timestamp ≤ a.validUntil
+
+instance (s : State) (a : Request) (timestamp : Nat) : Decidable (AuthorizationAllowed s a timestamp) :=
+  inferInstanceAs (Decidable (_ ∧ _))
+
+/-- Execution-time checks (8.3): owner, expected state/nonce, expiry and atomic list validity. -/
 def Allowed (w : World) (a : Request) (cfg : Config) (r : Origin) (owner : Bool) : Prop :=
   owner = true ∧ w.inbox.entered = false ∧
   a.generation = w.inbox.generation ∧ a.checkpoint = w.inbox.checkpoint.height ∧
@@ -66,7 +75,8 @@ def Allowed (w : World) (a : Request) (cfg : Config) (r : Origin) (owner : Bool)
   (a.exclusions.all (fun x => w.registry.any (fun (id,e) => id == x.bondId && e.key == x.entryKey)) = true) ∧
   (a.exclusions.all (fun x => x.entryKey != cfg.releasedKey) = true) ∧
   a.fiToClear.Pairwise (· < ·) ∧
-  (∀ i ∈ a.fiToClear, w.inbox.head ≤ i ∧ i < w.inbox.tail ∧ (w.queue.map Prod.fst).contains i = true)
+  (∀ i ∈ a.fiToClear, w.inbox.head ≤ i ∧ i < w.inbox.tail ∧ (w.queue.map Prod.fst).contains i = true) ∧
+  AuthorizationAllowed w.inbox a r.timestamp
 
 instance (w : World) (a : Request) (cfg : Config) (r : Origin) (owner : Bool) :
     Decidable (Allowed w a cfg r owner) := inferInstanceAs (Decidable (_ ∧ _))
@@ -75,7 +85,7 @@ instance (w : World) (a : Request) (cfg : Config) (r : Origin) (owner : Bool) :
 SignalService) is untouched; old pending updates are void. -/
 def applyRecovery (w : World) (a : Request) (cfg : Config) (r : Origin) : World :=
   { inbox := { w.inbox with
-      generation := w.inbox.generation+1,
+      generation := w.inbox.generation+1,recoveryNonce := w.inbox.recoveryNonce+1,
       origin := r,origins := w.inbox.origins ++ [(w.inbox.generation+1,r)] },
     registry := excludedRegistry w a.exclusions r.l1Block,
     queue := clearedQueue w a.fiToClear cfg.emptyHash,
@@ -94,9 +104,23 @@ record and genesisCutoff if there is none); `rollback_record_consistent` needs `
 the retained record at its height. Generation, origins and the FI tail are untouched. -/
 def rollbackInbox (s : State) (trusted : Checkpoint) (trustedSnapshot : Nat) : State :=
   { s with
+    recoveryNonce := s.recoveryNonce+1,
     checkpoint := trusted,head := trusted.cursor,snapshot := trustedSnapshot,
     records := s.records.filter (fun r => r.height ≤ trusted.height),
     signals := s.signals.filter (fun g => g.height ≤ trusted.height) }
+
+/-- Common authorization-counter guard; overflow rejects rather than wrapping. -/
+def NonceMutable (s : State) : Prop :=
+  Staking.inboxInitialized s = true ∧ s.entered = false ∧ s.recoveryNonce+1 < limit256
+
+instance (s : State) : Decidable (NonceMutable s) := inferInstanceAs (Decidable (_ ∧ _))
+
+/-- Success-state transformer only. It changes no settlement or committee data. -/
+def applyInvalidation (s : State) : State := { s with recoveryNonce := s.recoveryNonce+1 }
+
+/-- Owner-only invalidation of all outstanding authorizations at the expected nonce. -/
+def invalidateRecoveryNonce (s : State) (expected : Nat) (owner : Bool) : Option State :=
+  if owner = true ∧ expected = s.recoveryNonce ∧ NonceMutable s then some (applyInvalidation s) else none
 
 /-- Certified fixed genesis; the latest L1 trust checkpoint is a separate input. -/
 structure Bootstrap where

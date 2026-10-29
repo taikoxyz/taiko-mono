@@ -5,8 +5,8 @@ governance recovery does not remove the content; anyone can enqueue the same tra
 right after.
 
 §1 "Censorship resistance" (spec L15): "the only exception is that governance recovery (section 8)
-can explicitly blank specified entries"; 8 step 3 (spec L461): blanking "is for handling
-unprovable content only"; 7.1 (spec L390): `saveForcedInclusion(bytes tx)` admits any transaction
+can explicitly blank specified entries"; 8 step 3 (spec L491): blanking "is for handling
+unprovable content only"; 7.1 (spec L415): `saveForcedInclusion(bytes tx)` admits any transaction
 of at most 8,192 bytes for the fee. Nothing remembers a blanked transaction, so recovery alone
 does not handle a poison input: the stall it caused can recur in the new generation. H3 is not
 violated: it allows exactly the blanking, and the new entry is an ordinary one.
@@ -34,7 +34,7 @@ def inboxP : State := (Forced.enqueue world0.inbox 100 1000000000 true).getD wor
 def worldP : ProtocolState.World := ProtocolState.enqueued world0 inboxP 666 15 15
 
 /-- L1 block 16: recovery at checkpoint 0 blanking entry 0. -/
-def request : Recovery.Request := ⟨0,0,[],[0]⟩
+def request : Recovery.Request := ⟨0,0,[],[0],0,limit256-1⟩
 def origin : Origin := ⟨0,16,16⟩
 def worldR : ProtocolState.World :=
   ProtocolState.recovered worldP request origin

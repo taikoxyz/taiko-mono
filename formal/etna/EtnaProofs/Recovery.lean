@@ -199,4 +199,40 @@ theorem bootstrap_fixed_origin {s : State} {r : Committee.Record} {b : Bootstrap
     cases ok
     exact ⟨rfl,rfl,rfl,rfl,cp,rfl,rfl⟩
 
+/-- Every accepted recovery consumes exactly its current authorization nonce. -/
+theorem recover_authorization {w t : World} {a : Request} {cfg : Config} {r : Origin} {owner ext : Bool}
+    (ok : recover w a cfg r owner ext = some t) :
+    AuthorizationAllowed w.inbox a r.timestamp ∧ t.inbox.recoveryNonce = w.inbox.recoveryNonce+1 := by
+  obtain ⟨h,rfl⟩ := recover_success ok
+  exact ⟨h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2,rfl⟩
+
+/-- A wrong nonce rejects, even if generation and checkpoint happen to match again. -/
+theorem stale_nonce_rejected (w : World) (a : Request) (cfg : Config) (r : Origin) (owner ext : Bool)
+    (stale : a.nonce ≠ w.inbox.recoveryNonce) : recover w a cfg r owner ext = none := by
+  by_cases h : Allowed w a cfg r owner ∧ ext = true
+  · exact False.elim (stale ((recover_authorization (recover_of_allowed (show Allowed w a cfg r true from by
+      simpa [h.1.1] using h.1))).1.2.1))
+  · simp [recover,h]
+
+/-- Expired authorizations cannot execute; equality with the deadline remains allowed. -/
+theorem expired_rejected (w : World) (a : Request) (cfg : Config) (r : Origin) (owner ext : Bool)
+    (expired : a.validUntil < r.timestamp) : recover w a cfg r owner ext = none := by
+  unfold recover
+  split
+  · rename_i h
+    have valid := h.1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2
+    have deadline := valid.2.2.2.2
+    omega
+  · rfl
+
+/-- Invalidation checks caller, exact nonce, initialization, reentrancy and overflow. -/
+theorem invalidation_success {s t : State} {expected : Nat} {owner : Bool}
+    (ok : invalidateRecoveryNonce s expected owner = some t) :
+    (owner = true ∧ expected = s.recoveryNonce ∧ NonceMutable s) ∧ t = applyInvalidation s := by
+  unfold invalidateRecoveryNonce at ok
+  split at ok
+  · rename_i h
+    exact ⟨h,(Option.some.inj ok).symm⟩
+  · contradiction
+
 end Etna.Design.Recovery

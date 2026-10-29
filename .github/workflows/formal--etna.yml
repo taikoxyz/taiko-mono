@@ -3,17 +3,19 @@ name: Etna formal verification
 on:
   pull_request:
     paths:
-      - 'formal/etna/**'
-      - 'testdata/etna_conformance/**'
-      - 'packages/protocol/docs/etna-pos-zk/sources/**'
-      - '.github/workflows/formal--etna.yml'
+      - "formal/etna/**"
+      - "testdata/etna_conformance/**"
+      - "packages/protocol/docs/etna-pos-zk/SPEC.md"
+      - "packages/protocol/docs/etna-pos-zk/ACCEPTANCE.md"
+      - ".github/workflows/formal--etna.yml"
   push:
     branches: [main]
     paths:
-      - 'formal/etna/**'
-      - 'testdata/etna_conformance/**'
-      - 'packages/protocol/docs/etna-pos-zk/sources/**'
-      - '.github/workflows/formal--etna.yml'
+      - "formal/etna/**"
+      - "testdata/etna_conformance/**"
+      - "packages/protocol/docs/etna-pos-zk/SPEC.md"
+      - "packages/protocol/docs/etna-pos-zk/ACCEPTANCE.md"
+      - ".github/workflows/formal--etna.yml"
   workflow_dispatch:
 
 permissions:

@@ -14,10 +14,10 @@ or not derived) and `regression` edges never do.
 The role text is not trusted: the proof audit (scripts/EtnaAudit.lean, checkContract)
 checks each `property`/`supporting` role both ways against the kernel type and proof term.
 
-The source is the in-repo spec, packages/protocol/docs/etna-pos-zk/sources/spec.md, pinned
-in spec-coverage.json by revision and SHA-256 and cross-checked against that directory's
-manifest.json. Any edit to the spec fails this check until the clause links are reviewed
-against the new text and the pin is updated.
+The authorities are the in-repo SPEC.md and ACCEPTANCE.md, independently pinned in
+spec-coverage.json by source path, reviewed Git commit, revision date and SHA-256.
+No editor-export manifest is needed. Any edit to either document fails this check
+until the clause links are reviewed against the new text and its pin is updated.
 
 Every theorem cites at least one clause, except the reviewed plumbing in UNSOURCED, which
 cites none: it is audited like any theorem but is the obligation of no clause.
@@ -32,8 +32,11 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = ROOT.parents[1]
-SPEC_DIR = 'packages/protocol/docs/etna-pos-zk/sources'
-SPEC_PATH = SPEC_DIR+'/spec.md'
+SPEC_DIR = 'packages/protocol/docs/etna-pos-zk'
+SPEC_PATH = SPEC_DIR+'/SPEC.md'
+ACCEPTANCE_PATH = SPEC_DIR+'/ACCEPTANCE.md'
+SOURCE_INPUTS = (('source', 'spec', SPEC_PATH, 'en'),
+                 ('acceptance_source', 'acceptance', ACCEPTANCE_PATH, 'acceptance'))
 ROLES = {'property', 'constant', 'supporting', 'regression'}
 PARTIAL_ROLES = {'property', 'constant'}
 SCOPE = 'conditional decoded specification property only'
@@ -86,7 +89,7 @@ def clauses(text, language):
         if not fence and heading:
             flush()
             section = heading[1]
-        elif not fence and (not line.strip() or re.fullmatch(r'</?toggle[^>]*>|<table-of-contents />', line)):
+        elif not fence and (not line.strip() or re.fullmatch(r'</?(?:toggle|details)[^>]*>|<summary>.*</summary>|<table-of-contents />', line.strip())):
             flush()
         else:
             if not fence and (re.match(r'^\s*(?:[-*] |[0-9]+\. )', line) or line.startswith('|')):
@@ -106,23 +109,37 @@ def content_key(identity):
 
 
 def source_rows(root=ROOT, repo=REPO):
-    source = json.loads((root/'spec-coverage.json').read_text())['source']
-    if source.get('path') != SPEC_PATH:
-        raise ValueError('the spec source must be '+SPEC_PATH)
-    data = (repo/SPEC_PATH).read_bytes()
-    if digest(data) != source['sha256']:
-        raise ValueError(f'spec digest mismatch: {SPEC_PATH} differs from the reviewed revision {source["revision"]}; '
-                         'review the clause links against the new text, then update source in spec-coverage.json')
-    manifest = json.loads((repo/SPEC_DIR/'manifest.json').read_text())
-    entry = next(d for d in manifest['documents'] if d['source'] == 'spec.md')
-    if manifest['revision'] != source['revision'] or entry['sha256'] != source['sha256']:
-        raise ValueError(f'pinned spec revision differs from {SPEC_DIR}/manifest.json')
-    return clauses(data.decode(),'en')
+    """Read only the reviewed authority paths and validate each independent byte pin.
+
+    The inventory is the reviewed record: revision/commit metadata identifies the
+    source of the pinned bytes, rather than requiring an editor manifest or local
+    Git history (a source checkout or scratch-copy test is sufficient).
+    """
+    spec = json.loads((root/'spec-coverage.json').read_text())
+    result = []
+    for key, label, path, language in SOURCE_INPUTS:
+        source = spec[key]
+        if source.get('path') != path:
+            raise ValueError(f'the {label} source must be '+path)
+        if not re.fullmatch(r'[0-9a-f]{40}', source.get('commit', '')):
+            raise ValueError(f'the {label} source requires a full Git commit')
+        if not re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', source.get('revision', '')):
+            raise ValueError(f'the {label} source requires an ISO revision date')
+        data = (repo/path).read_bytes()
+        if digest(data) != source.get('sha256'):
+            raise ValueError(f'{label} digest mismatch: {path} differs from the reviewed revision '
+                             f'{source["revision"]} ({source["commit"]}); review the clause links '
+                             'against the new text, then update its pin in spec-coverage.json')
+        rows = clauses(data.decode(), language)
+        for row in rows:
+            row.update(path=path, source_commit=source['commit'])
+        result.extend(rows)
+    return result
 
 
 def inventory(root=ROOT, repo=REPO):
     spec = json.loads((root/'spec-coverage.json').read_text())
-    if spec.get('schema_version') != 3 or spec.get('scope') != SCOPE:
+    if spec.get('schema_version') != 4 or spec.get('scope') != SCOPE:
         raise ValueError('unsupported inventory schema/scope')
     rows = source_rows(root, repo)
     ids = {r['id'] for r in rows}
@@ -211,7 +228,7 @@ def main():
     args = parser.parse_args()
     try:
         rows = inventory(args.root, args.repo)
-        print(f'Validated {len(rows)} spec clauses of {SPEC_PATH}, explicit claim edges and roles; '+str(dict(Counter(r['status'] for r in rows))))
+        print(f'Validated {len(rows)} source clauses of {SPEC_PATH} and {ACCEPTANCE_PATH}, explicit claim edges and roles; '+str(dict(Counter(r['status'] for r in rows))))
         return 0
     except (ValueError,KeyError,OSError,TypeError) as exc:
         print('spec coverage failed: '+str(exc),file=sys.stderr)

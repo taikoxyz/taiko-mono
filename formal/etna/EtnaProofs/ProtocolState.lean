@@ -104,7 +104,11 @@ theorem step_preserves_core {w t : World} (before : Core w) (change : Step w t) 
       ⟨registry.1,registry.2.1,registry.2.2,RegistryHistory.finish_current_snapshot _ _ _ before.registry.current,
         RegistryHistory.finish_block_bound _ _ _ clock⟩,?_⟩
     simpa only [recovered,Recovery.applyRecovery,recoveryView,queue_clear_keeps_indices] using before.queue
-  | rollback trusted snapshot now time retained =>
+  | invalidation time ok =>
+    obtain ⟨_,rfl⟩ := Recovery.invalidation_success ok
+    exact ⟨⟨before.inbox.settled,before.inbox.fees,before.inbox.headBound,before.inbox.recordCursors⟩,
+      registry_clock_advance before.registry time,before.queue⟩
+  | rollback trusted snapshot now time retained _ =>
     refine ⟨rollback_inbox_valid _ trusted snapshot before.inbox retained,
       ⟨before.registry.keys,RegistryHistory.recheck_preserves_identities _ snapshot before.registry.identities,
         before.registry.history,RegistryHistory.recheck_current_snapshot _ snapshot before.registry.current,
@@ -116,22 +120,22 @@ theorem trace_preserves_core {first last : World} (before : Core first) (trace :
   | step _ change ih => exact step_preserves_core ih change
 
 theorem rollback_rechecks_confirmations (w : World) (trusted : Checkpoint) (snapshot now id atL1 : Nat)
-    (kept : ((rollback w trusted snapshot now).registry.slots id).confirmedAt = some atL1) :
+    (kept : ((applyRollback w trusted snapshot now).registry.slots id).confirmedAt = some atL1) :
     (w.registry.slots id).exitAt ≤ snapshot := by
   apply Staking.rollbackBySnapshot_keeps_only_covered snapshot atL1 (w.registry.slots id)
-  simpa only [rollback,RegistryHistory.recheckAll] using kept
+  simpa only [applyRollback,RegistryHistory.recheckAll] using kept
 
 theorem rollback_origin_blocks_landing (w : World) (trusted : Checkpoint) (snapshot now : Nat)
     (i : LandInput) (leaves : List Leaf) (e : LandingEnv) (below : trusted.height < w.inbox.origin.height) :
-    Etna.Design.land (rollback w trusted snapshot now).inbox i leaves e = none :=
+    Etna.Design.land (applyRollback w trusted snapshot now).inbox i leaves e = none :=
   Recovery.origin_above_rollback_blocks_landing _ _ _ i leaves e below
 
 theorem rollback_keeps_lifetime_keys_and_history (w : World) (trusted : Checkpoint) (snapshot now : Nat) :
-    (rollback w trusted snapshot now).registry.usedKeys = w.registry.usedKeys ∧
-    (rollback w trusted snapshot now).registry.history = w.registry.history ∧
-    (rollback w trusted snapshot now).inbox.generation = w.inbox.generation ∧
-    (rollback w trusted snapshot now).inbox.origins = w.inbox.origins ∧
-    (rollback w trusted snapshot now).queue = w.queue := ⟨rfl,rfl,rfl,rfl,rfl⟩
+    (applyRollback w trusted snapshot now).registry.usedKeys = w.registry.usedKeys ∧
+    (applyRollback w trusted snapshot now).registry.history = w.registry.history ∧
+    (applyRollback w trusted snapshot now).inbox.generation = w.inbox.generation ∧
+    (applyRollback w trusted snapshot now).inbox.origins = w.inbox.origins ∧
+    (applyRollback w trusted snapshot now).queue = w.queue := ⟨rfl,rfl,rfl,rfl,rfl⟩
 
 /-- The stronger endpoint result now consumes a context built from actual typed registry
 history and the fixed origin; the caller cannot substitute an arbitrary registry oracle. -/
@@ -175,6 +179,7 @@ theorem step_generation_monotone {w t : World} (change : Step w t) : w.inbox.gen
     change w.inbox.generation ≤ s.inbox.generation
     rw [(Recovery.recovery_fixes_origin ok).1]
     exact Nat.le_succ _
+  | invalidation _ ok => obtain ⟨_,rfl⟩ := Recovery.invalidation_success ok; exact Nat.le_refl _
   | rollback => exact Nat.le_refl _
 
 theorem trace_generation_monotone {w t : World} (trace : Trace w t) : w.inbox.generation ≤ t.inbox.generation := by
@@ -199,7 +204,8 @@ theorem step_keeps_origin_archive {w t : World} (change : Step w t) :
     exact ⟨[],by simp [landed]⟩
   | @recovery s a r owner externalOK _ ok =>
     exact ⟨[(s.inbox.generation,r)],(Recovery.recovery_fixes_origin ok).2.2.2⟩
-  | rollback => exact ⟨[],by simp [rollback,Recovery.rollbackInbox]⟩
+  | invalidation _ ok => obtain ⟨_,rfl⟩ := Recovery.invalidation_success ok; exact ⟨[],by simp [landed,Recovery.applyInvalidation]⟩
+  | rollback => exact ⟨[],by simp [applyRollback,Recovery.rollbackInbox]⟩
 
 theorem trace_keeps_origin_archive {w t : World} (trace : Trace w t) :
     ∃ extra, t.inbox.origins = w.inbox.origins ++ extra := by
@@ -222,6 +228,7 @@ theorem step_keeps_used_keys {w t : World} (change : Step w t) : ∀ key ∈ w.r
   | enqueue => exact fun _ h => h
   | sweep => exact fun _ h => h
   | recovery => exact fun _ h => h
+  | invalidation => exact fun _ h => h
   | rollback => exact fun _ h => h
 
 theorem trace_keeps_used_keys {w t : World} (trace : Trace w t) : ∀ key ∈ w.registry.usedKeys, key ∈ t.registry.usedKeys := by
@@ -257,6 +264,7 @@ private theorem step_frozen {w t : World} (change : Step w t) : frozen t = froze
     · cases ok; rfl
     · contradiction
   | recovery _ ok => obtain ⟨_,rfl⟩ := Recovery.recover_success ok; rfl
+  | invalidation _ ok => obtain ⟨_,rfl⟩ := Recovery.invalidation_success ok; rfl
   | rollback => rfl
 
 /-- Initialized deployment values (domain, config/committee-0 commitments, K, L,
@@ -306,6 +314,7 @@ theorem step_preserves_old_snapshot {w t : World} (change : Step w t) (cutoff : 
   | enqueue => rfl
   | sweep => rfl
   | recovery time _ => exact RegistryHistory.finish_preserves_past _ _ _ _ (by omega)
+  | invalidation _ ok => obtain ⟨_,rfl⟩ := Recovery.invalidation_success ok; rfl
   | rollback => rfl
 
 theorem trace_preserves_old_snapshot {w t : World} (trace : Trace w t) (cutoff : Nat) (past : cutoff < w.l1Block) :
@@ -369,7 +378,7 @@ theorem snapshot_monotone_across_recovery {w t : World} {a : Recovery.Request} {
 theorem sound_step_is_step {w t : World} (change : SoundStep w t) : Step w t := by
   cases change with
   | landing time ok => exact .landing time ok
-  | rollback trusted snapshot now time retained => exact .rollback trusted snapshot now time retained
+  | rollback trusted snapshot now time retained _ authorized => exact .rollback trusted snapshot now time retained authorized
   | framed change => exact change
 
 theorem sound_trace_is_trace {w t : World} (trace : SoundTrace w t) : Trace w t := by
@@ -381,7 +390,7 @@ theorem sound_trace_is_trace {w t : World} (trace : SoundTrace w t) : Trace w t 
 theorem step_keeps_snapshot {w t : World} (change : Step w t) :
     t.inbox.snapshot = w.inbox.snapshot ∨
     (∃ s i leaves e, Etna.Design.land w.inbox i leaves e = some s ∧ t = landed w s e.blockNumber) ∨
-    (∃ trusted snapshot now, t = rollback w trusted snapshot now) := by
+    (∃ trusted snapshot now, t = applyRollback w trusted snapshot now) := by
   cases change with
   | landing _ ok => exact Or.inr (Or.inl ⟨_,_,_,_,ok,rfl⟩)
   | registration => exact Or.inl rfl
@@ -393,6 +402,7 @@ theorem step_keeps_snapshot {w t : World} (change : Step w t) :
     exact Or.inl rfl
   | sweep _ ok => unfold Forced.sweep at ok; split at ok <;> cases ok; exact Or.inl rfl
   | recovery _ ok => exact Or.inl (Recovery.recovery_preserves_settled_prefix ok).2.2.2.2.2.1
+  | invalidation _ ok => obtain ⟨_,rfl⟩ := Recovery.invalidation_success ok; exact Or.inl rfl
   | rollback trusted snapshot now => exact Or.inr (Or.inr ⟨trusted,snapshot,now,rfl⟩)
 
 /-- Slot 284 stays below the World's L1 clock along every sound trace that starts below it.
@@ -405,9 +415,81 @@ theorem sound_trace_snapshot_below {w t : World} (trace : SoundTrace w t) (below
   | step _ change ih =>
     cases change with
     | landing time ok certified => exact land_snapshot_below_block ok certified
-    | rollback trusted snapshot now _ _ written => exact written
+    | rollback trusted snapshot now _ _ written _ => exact written
     | framed change same =>
       rw [same]
       exact Nat.lt_of_lt_of_le ih (step_clock_monotone change)
+
+/-- Every successful transaction preserves the reentrancy state at its boundary. -/
+theorem step_entered {w t : World} (change : Step w t) : t.inbox.entered = w.inbox.entered := by
+  cases change with
+  | landing _ ok => obtain ⟨_,rfl⟩ := land_success ok; rfl
+  | registration => rfl
+  | modification => rfl
+  | enqueue _ _ _ ok => unfold Forced.enqueue at ok; dsimp only at ok; split at ok <;> cases ok; rfl
+  | sweep _ ok => unfold Forced.sweep at ok; split at ok <;> cases ok; rfl
+  | recovery _ ok => obtain ⟨_,rfl⟩ := Recovery.recover_success ok; rfl
+  | invalidation _ ok => obtain ⟨_,rfl⟩ := Recovery.invalidation_success ok; rfl
+  | rollback => rfl
+
+/-- Responsibility forfeiture rate is fixed for the entire deployment. -/
+theorem step_forfeit_rate {w t : World} (change : Step w t) : t.registry.forfeitBps = w.registry.forfeitBps := by
+  cases change with
+  | landing => rfl
+  | registration _ ok => unfold RegistryHistory.register at ok; split at ok <;> cases ok; rfl
+  | modification _ _ ok => obtain ⟨_,_,_,_,rfl⟩ := RegistryHistory.edit_success ok; rfl
+  | enqueue => rfl
+  | sweep => rfl
+  | recovery => rfl
+  | invalidation => rfl
+  | rollback => rfl
+
+/-- Every reachable World uses the original fixed forfeiture rate. -/
+theorem trace_forfeit_rate {w t : World} (trace : Trace w t) : t.registry.forfeitBps = w.registry.forfeitBps := by
+  induction trace with
+  | refl => rfl
+  | step _ change ih => exact (step_forfeit_rate change).trans ih
+
+/-- Reachable transaction boundaries cannot introduce a reentrant state. -/
+theorem trace_entered {w t : World} (trace : Trace w t) : t.inbox.entered = w.inbox.entered := by
+  induction trace with
+  | refl => rfl
+  | step _ change ih => exact (step_entered change).trans ih
+
+/-- No transaction restores an older authorization counter, including verifier rollback. -/
+theorem step_nonce_monotone {w t : World} (change : Step w t) : w.inbox.recoveryNonce ≤ t.inbox.recoveryNonce := by
+  cases change with
+  | landing _ ok => obtain ⟨_,rfl⟩ := land_success ok; exact Nat.le_refl _
+  | registration => exact Nat.le_refl _
+  | modification => exact Nat.le_refl _
+  | enqueue _ _ _ ok => unfold Forced.enqueue at ok; dsimp only at ok; split at ok <;> cases ok; exact Nat.le_refl _
+  | sweep _ ok => unfold Forced.sweep at ok; split at ok <;> cases ok; exact Nat.le_refl _
+  | recovery _ ok => obtain ⟨_,rfl⟩ := Recovery.recover_success ok; exact Nat.le_succ _
+  | invalidation _ ok => obtain ⟨_,rfl⟩ := Recovery.invalidation_success ok; exact Nat.le_succ _
+  | rollback => exact Nat.le_succ _
+
+/-- Monotonicity across arbitrary interleavings of all public transitions. -/
+theorem trace_nonce_monotone {w t : World} (trace : Trace w t) : w.inbox.recoveryNonce ≤ t.inbox.recoveryNonce := by
+  induction trace with
+  | refl => exact Nat.le_refl _
+  | step _ change ih => exact Nat.le_trans ih (step_nonce_monotone change)
+
+/-- An authorization whose nonce was consumed cannot revive anywhere later on a trace. -/
+theorem consumed_authorization_never_revives {w t : World} (trace : Trace w t)
+    (a : Recovery.Request) (r : Origin) (owner externalOK : Bool)
+    (consumed : a.nonce < w.inbox.recoveryNonce) : recover t a r owner externalOK = none := by
+  have monotone := trace_nonce_monotone trace
+  unfold recover
+  rw [Recovery.stale_nonce_rejected _ _ _ _ _ _ (by dsimp only [recoveryView]; omega)]
+  rfl
+
+/-- The checked rollback rejects counter overflow atomically. -/
+theorem rollback_nonce_overflow_rejected (w : World) (trusted : Checkpoint) (snapshot now : Nat)
+    (overflow : limit256 ≤ w.inbox.recoveryNonce+1) : rollback w trusted snapshot now = none := by
+  unfold rollback
+  split
+  · rename_i guard
+    exact False.elim (Nat.not_lt_of_ge overflow guard.2.2)
+  · rfl
 
 end Etna.Design.ProtocolState

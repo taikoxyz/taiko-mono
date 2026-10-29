@@ -4,7 +4,7 @@ import EtnaModel.Settlement
 /-! Combined initialized L1 specification machine. Step models transaction boundaries,
 including exceptional rollback; environment time ordering is not an added contract check.
 Core is structural safety, not whole-protocol cryptographic/economic safety. Rollback's
-trusted target/snapshot and actual DAO cancellation remain governance trust boundaries. -/
+trusted target/snapshot remains a governance trust boundary; nonce invalidation is enforced. -/
 namespace Etna.Design.ProtocolState
 
 /-- The deployment's fixed abstract hash adapters: Keccak over the seven config words and
@@ -52,8 +52,16 @@ def recovered (w : World) (a : Recovery.Request) (r : Origin) (s : Recovery.Worl
 def recover (w : World) (a : Recovery.Request) (r : Origin) (owner externalOK : Bool) : Option World :=
   (Recovery.recover (recoveryView w) a w.adapters.recovery r owner externalOK).map (recovered w a r)
 
-def rollback (w : World) (trusted : Checkpoint) (snapshot now : Nat) : World :=
+def applyRollback (w : World) (trusted : Checkpoint) (snapshot now : Nat) : World :=
   { w with inbox := Recovery.rollbackInbox w.inbox trusted snapshot, registry := RegistryHistory.recheckAll w.registry snapshot,l1Block := now }
+
+/-- Checked verifier-replacement rollback. `applyRollback` is its success transformer. -/
+def rollback (w : World) (trusted : Checkpoint) (snapshot now : Nat) : Option World :=
+  if Recovery.NonceMutable w.inbox then some (applyRollback w trusted snapshot now) else none
+
+/-- Owner invalidation changes no settlement or registry data. -/
+def invalidateRecoveryNonce (w : World) (expected now : Nat) (owner : Bool) : Option World :=
+  (Recovery.invalidateRecoveryNonce w.inbox expected owner).map (fun s => landed w s now)
 
 structure InboxValid (s : State) : Prop where
   settled : Settlement.StateValid s
@@ -96,9 +104,13 @@ inductive Step : World → World → Prop
       {owner externalOK : Bool} (time : w.l1Block ≤ r.l1Block)
       (ok : Recovery.recover (recoveryView w) a w.adapters.recovery r owner externalOK = some s) :
       Step w (recovered w a r s)
+  | invalidation {w : World} {s : State} {expected now : Nat} {owner : Bool}
+      (time : w.l1Block ≤ now)
+      (ok : Recovery.invalidateRecoveryNonce w.inbox expected owner = some s) : Step w (landed w s now)
   | rollback {w : World} (trusted : Checkpoint) (snapshot now : Nat)
-      (time : w.l1Block ≤ now) (retained : recordAt w.inbox trusted.height = some trusted) :
-      Step w (rollback w trusted snapshot now)
+      (time : w.l1Block ≤ now) (retained : recordAt w.inbox trusted.height = some trusted)
+      (authorized : Recovery.NonceMutable w.inbox) :
+      Step w (applyRollback w trusted snapshot now)
 
 inductive Trace : World → World → Prop
   | refl (w : World) : Trace w w
@@ -115,8 +127,9 @@ inductive SoundStep : World → World → Prop
       (time : w.l1Block ≤ e.blockNumber) (ok : Etna.Design.land w.inbox i leaves e = some s)
       (certified : i.activeCommitteeSnapshot ≤ i.l1ReferenceBlockNumber) : SoundStep w (landed w s e.blockNumber)
   | rollback {w : World} (trusted : Checkpoint) (snapshot now : Nat)
-      (time : w.l1Block ≤ now) (retained : recordAt w.inbox trusted.height = some trusted) (written : snapshot < now) :
-      SoundStep w (rollback w trusted snapshot now)
+      (time : w.l1Block ≤ now) (retained : recordAt w.inbox trusted.height = some trusted) (written : snapshot < now)
+      (authorized : Recovery.NonceMutable w.inbox) :
+      SoundStep w (applyRollback w trusted snapshot now)
   | framed {w t : World} (change : Step w t) (same : t.inbox.snapshot = w.inbox.snapshot) : SoundStep w t
 
 inductive SoundTrace : World → World → Prop

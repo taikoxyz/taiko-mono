@@ -14,7 +14,7 @@ from pathlib import Path
 import sys
 
 from audit_proofs import GRAPH, ROOT, load_shadow_allowlist, render_audit, validate_contract
-from check_spec_coverage import REPO, SPEC_DIR, inventory
+from check_spec_coverage import REPO, SOURCE_INPUTS, inventory
 
 
 def artifacts(root=ROOT, repo=REPO):
@@ -27,8 +27,8 @@ def artifacts(root=ROOT, repo=REPO):
     for directory, suffixes in [('manifests',{'.json'}),('scripts',{'.py','.lean'}),('tests',{'.py','.lean'})]:
         paths += [p for p in (root/directory).glob('*') if p.suffix in suffixes]
     hashes = {str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(set(paths))}
-    for name in ('spec.md','manifest.json'):
-        hashes[SPEC_DIR+'/'+name] = hashlib.sha256((repo/SPEC_DIR/name).read_bytes()).hexdigest()
+    for _, _, path, _ in SOURCE_INPUTS:
+        hashes[path] = hashlib.sha256((repo/path).read_bytes()).hexdigest()
     report = dict(generated=True,scope='source clauses are not atomic requirements or a coverage percentage',
                   clauses=rows,statuses=dict(Counter(r['status'] for r in rows)),source_sha256=hashes,
                   source_sha256_scope='informational input fingerprints; not validated against a reviewed record')

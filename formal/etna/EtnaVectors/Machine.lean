@@ -28,6 +28,11 @@ structure Deploy where
   exitDelay : Nat := 20
   withdrawalDelay : Nat := 30
   bountyBps : Nat := 1000
+  forfeitBps : Nat := 1000
+  /-- Fixture-only persistent nonce override for width-boundary tests; ordinary deployment is zero. -/
+  recoveryNonce : Nat := 0
+  /-- Bootstrap entries registered in one L1 block; default one, capacity fixture 4096. -/
+  registrySize : Nat := 1
   /-- U, committed in the committee configuration hash only. -/
   unsettled : Nat := 3600
 
@@ -70,7 +75,7 @@ def foreignDeployment : Domain := ⟨1, 5, 3, 4⟩
 def registry0 (d : Deploy) : RegistryHistory.State :=
   { RegistryHistory.empty with
     verify := fun key _ sig => sig == key, slashBountyBps := d.bountyBps, minStake := d.minStake,
-    activationDelay := d.activationDelay, exitDelay := d.exitDelay, withdrawalDelay := d.withdrawalDelay }
+    activationDelay := d.activationDelay, exitDelay := d.exitDelay, withdrawalDelay := d.withdrawalDelay, forfeitBps := d.forfeitBps }
 
 /-- The recovery constants: keccak256("") and the released-slot key (a released slot's key
 atom is 0). The two commitment hashes are not observed. -/
@@ -80,7 +85,7 @@ def adapters : ProtocolState.Adapters := ⟨fun _ => 0, fun _ => 0, ⟨blankHash
 def inbox0 (d : Deploy) : State :=
   let origin : Origin := if d.initialized then ⟨0, initAt, timestampOf initAt⟩ else ⟨0, 0, 0⟩
   let genesis : Checkpoint := ⟨0, elAtom 0 0, 0, 0, 0, 0⟩
-  { domain := deployment, committeeConfig := 0, gridK := landGrid, generation := 0, origin := origin,
+  { domain := deployment, committeeConfig := 0, gridK := landGrid, generation := 0, recoveryNonce := d.recoveryNonce, origin := origin,
     origins := if d.initialized then [(0, origin)] else [],
     checkpoint := genesis, records := if d.initialized then [genesis] else [],
     head := 0, tail := 0, snapshot := if d.initialized then registeredAt else 0,
@@ -91,12 +96,26 @@ def inbox0 (d : Deploy) : State :=
     maxBatchBlocks := d.maxBatchBlocks, forcedFee := d.feeGwei, forcedThreshold := d.threshold,
     protocolFeeRecipient := 1 }
 
-/-- The deployment: the genesis validator (key 1, owner 1, `minStake`) registers at block 10,
-then the Inbox is initialized at block 11 with genesis cutoff 10 (or stays uninitialized). -/
+/-- Uniform same-block registrations as a bootstrap fixture. This direct construction
+avoids repeatedly traversing a chain of 4096 slot-update closures; it has the same entry,
+key and single-checkpoint projection as registering every key at block 10. -/
+def bootstrapRegistry (d : Deploy) (r : RegistryHistory.State) : RegistryHistory.State :=
+  if d.registrySize = 1 then r else
+    let full : RegistryHistory.State := { r with
+      nextId := d.registrySize
+      slots := fun id => if id < d.registrySize then
+        { r.slots 0 with key := id+1, owner := id+1 } else RegistryHistory.vacant
+      usedKeys := ((List.range d.registrySize).map (·+1)).reverse }
+    { full with history := [⟨registeredAt, RegistryHistory.entries full⟩] }
+
+/-- The deployment fixture registers keys/owners 1 through registrySize at block 10,
+then initializes at block 11 with genesis cutoff 10 (or stays uninitialized). -/
 def world0 (d : Deploy) : Option ProtocolState.World :=
-  (RegistryHistory.register (registry0 d) genesisKey genesisOwner d.minStake registeredAt).map fun r =>
-    { inbox := inbox0 d, registry := r, queue := [], schedule := ⟨⟨0, registeredAt, []⟩, none⟩,
-      l1Block := if d.initialized then initAt else registeredAt, adapters := adapters }
+  if 1 ≤ d.registrySize ∧ d.registrySize ≤ 4096 then
+    (RegistryHistory.register (registry0 d) genesisKey genesisOwner d.minStake registeredAt).map fun r =>
+      { inbox := inbox0 d, registry := bootstrapRegistry d r, queue := [], schedule := ⟨⟨0, registeredAt, []⟩, none⟩,
+        l1Block := if d.initialized then initAt else registeredAt, adapters := adapters }
+  else none
 
 /-- A vote as the harness builds it. The model's vote carries the domain; `foreign` signs it
 under another deployment's chain id. `signer` is the model's signature atom: the harness signs
@@ -117,7 +136,13 @@ inductive Op where
   | sweep (caller : Nat)
   | forceETH (amount : Nat)
   | recover (owner : Bool) (request : Recovery.Request)
+  | invalidateRecoveryNonce (owner : Bool) (expected : Nat)
+  /-- Fixture upgrade restoring the trusted initialization checkpoint/snapshot. -/
+  | rollbackGenesis
   | register (caller key amount : Nat)
+  | topUp (caller bondId amount : Nat) (transferOK : Bool)
+  | activateTopUp (caller bondId : Nat)
+  | forfeit (owner : Bool) (bondId entryKey incidentId validUntil : Nat) (externalOK : Bool)
   | requestExit (caller bondId : Nat)
   | confirmExit (caller bondId : Nat)
   | withdraw (caller bondId recipient : Nat)
@@ -169,19 +194,32 @@ def exec (d : Deploy) (w : ProtocolState.World) (c : Call) (ts : Nat) : Outcome 
   | .recover owner a =>
     (ProtocolState.recover w a ⟨w.inbox.checkpoint.height, c.block, ts⟩ owner true).map
       fun t => (t, [])
+  | .invalidateRecoveryNonce owner expected =>
+    (ProtocolState.invalidateRecoveryNonce w expected c.block owner).map fun t => (t, [])
+  | .rollbackGenesis =>
+    (ProtocolState.rollback w (inbox0 d).checkpoint (inbox0 d).snapshot c.block).map fun t => (t, [])
   | .register caller key amount =>
     (RegistryHistory.register w.registry key caller amount c.block).map fun r =>
       (ProtocolState.registered w r c.block, [("bondId", (RegistryHistory.allocation w.registry).1)])
+  | .topUp caller id amount transferOK =>
+    if transferOK then editWith w id c.block (.topUp caller amount) [] else none
+  | .activateTopUp _ id => editWith w id c.block .activateTopUp []
+  | .forfeit owner id key incident validUntil externalOK =>
+    let penalty := Staking.forfeitPenalty (w.registry.slots id).balance w.registry.forfeitBps
+    editWith w id c.block (.forfeit key incident validUntil ts owner externalOK) [("toSink", penalty)]
   | .requestExit caller id => editWith w id c.block (.requestExit caller) []
   | .confirmExit _ id => editWith w id c.block .confirm []
-  | .withdraw caller id _ => editWith w id c.block (.withdraw caller) [("paid", (w.registry.slots id).stake)]
+  | .withdraw caller id _ => editWith w id c.block (.withdraw caller) [("paid", (w.registry.slots id).balance)]
   | .slash _ id a b =>
-    let stake := (w.registry.slots id).stake
+    let stake := (w.registry.slots id).balance
     let bounty := Staking.fraction stake w.registry.slashBountyBps
     editWith w id c.block (.slash (toVote a) (toVote b) a.signer b.signer) [("bounty", bounty), ("toSink", stake-bounty)]
 
 /-! Observable state. Keys of the objects inside arrays are in alphabetical order, so a
 Solidity harness can decode each array into a struct array in one read. -/
+
+/-- Schema 2 preserves exact uint256 boundaries without lossy JSON doubles. -/
+def uintJ (n : Nat) : JVal := if n < 9007199254740992 then jNat n else jStr (Nat.repr n)
 
 def currentFee (s : State) : Nat := Forced.admissionFee s.forcedFee s.forcedThreshold (s.tail-s.head)
 
@@ -203,25 +241,34 @@ def queueJ (e : Nat × Forced.Entry) : JVal :=
 def inboxJ (w : ProtocolState.World) : JVal :=
   let s := w.inbox
   jObj [("checkpointHeight", jNat s.checkpoint.height), ("checkpointHash", jNat s.checkpoint.elHash),
-    ("generation", jNat s.generation), ("head", jNat s.head), ("tail", jNat s.tail),
+    ("generation", jNat s.generation), ("recoveryNonce", uintJ s.recoveryNonce), ("head", jNat s.head), ("tail", jNat s.tail),
     ("snapshot", jNat s.snapshot), ("ethBalance", jNat s.ethBalance), ("swept", jNat s.swept),
     ("feeGwei", jNat (currentFee s / gwei)),
     ("records", jArr ((s.records.mergeSort fun a b => decide (a.height ≤ b.height)).map recordJ)),
     ("signals", jArr (s.signals.map signalJ)), ("origins", jArr (s.origins.map originJ)),
     ("queue", jArr (w.queue.map queueJ))]
 
-def sumStakes (r : RegistryHistory.State) : Nat := ((List.range r.nextId).map fun id => (r.slots id).stake).sum
+def sumBalances (r : RegistryHistory.State) : Nat := ((List.range r.nextId).map fun id => (r.slots id).balance).sum
 
 def bondJ (r : RegistryHistory.State) (id : Nat) : JVal :=
   let b := r.slots id
   jLine [("activeFrom", jNat b.activeFrom), ("confirmedAt", jNat (b.confirmedAt.getD 0)), ("exitAt", jNat b.exitAt),
-    ("id", jNat id), ("key", jNat b.key), ("owner", jNat b.owner), ("stake", jNat b.stake)]
+    ("id", jNat id), ("key", jNat b.key), ("owner", jNat b.owner), ("pendingTopUp", uintJ b.pendingTopUp),
+    ("stake", uintJ b.stake), ("topUpReadyAtL1", jNat b.topUpReadyAtL1)]
+
+/-- Election snapshots expose effective fields only; pending principal is metadata. -/
+def entryJ (e : Committee.Entry) : JVal :=
+  jLine [("activeFrom", jNat e.activeFrom), ("exitAt", jNat e.exitAt), ("key", jNat e.key), ("stake", uintJ e.stake)]
+
+def checkpointJ (cp : RegistryHistory.Snapshot) : JVal :=
+  jLine [("block", jNat cp.block), ("entries", jRow (cp.entries.map entryJ))]
 
 def registryJ (r : RegistryHistory.State) : JVal :=
   let last := r.history.head?.getD default
-  jObj [("entryCount", jNat r.nextId), ("freeCount", jNat r.free.length), ("stakeHeld", jNat (sumStakes r)),
+  jObj [("entryCount", jNat r.nextId), ("freeCount", jNat r.free.length), ("stakeHeld", uintJ (sumBalances r)),
     ("checkpointCount", jNat r.history.length), ("lastCheckpointBlock", jNat last.block),
-    ("lastCheckpointCount", jNat last.entries.length), ("bonds", jArr ((List.range r.nextId).map (bondJ r)))]
+    ("lastCheckpointCount", jNat last.entries.length), ("checkpoints", jArr (r.history.map checkpointJ)),
+    ("forfeitedKeys", jNats r.forfeited), ("bonds", jArr ((List.range r.nextId).map (bondJ r)))]
 
 /-! Calls as JSON. -/
 
@@ -249,11 +296,21 @@ def opJ : Op → String × List (String × JVal)
   | .forceETH amount => ("forceETH", [("amount", jNat amount)])
   | .recover owner a => ("recover",
       [("owner", jBool owner), ("expectedGeneration", jNat a.generation), ("expectedC", jNat a.checkpoint),
+       ("expectedRecoveryNonce", uintJ a.nonce), ("validUntil", uintJ a.validUntil),
        ("exclusionCount", jNat a.exclusions.length),
        ("exclusions", jRow (a.exclusions.map fun x => jLine [("bondId", jNat x.bondId), ("key", jNat x.entryKey)])),
        ("fiToClear", jNats a.fiToClear)])
+  | .invalidateRecoveryNonce owner expected => ("invalidateRecoveryNonce",
+      [("owner", jBool owner), ("expectedRecoveryNonce", uintJ expected)])
+  | .rollbackGenesis => ("verifierFailureRollback", [])
   | .register caller key amount => ("register",
-      [("caller", jNat caller), ("key", jNat key), ("amount", jNat amount)])
+      [("caller", jNat caller), ("key", jNat key), ("amount", uintJ amount)])
+  | .topUp caller id amount transferOK => ("topUp",
+      [("caller", jNat caller), ("bondId", jNat id), ("amount", uintJ amount), ("transferOK", jBool transferOK)])
+  | .activateTopUp caller id => ("activateTopUp", [("caller", jNat caller), ("bondId", jNat id)])
+  | .forfeit owner id key incident validUntil externalOK => ("forfeit",
+      [("owner", jBool owner), ("bondId", jNat id), ("entryKey", jNat key), ("incidentId", jNat incident),
+       ("validUntil", uintJ validUntil), ("externalOK", jBool externalOK)])
   | .requestExit caller id => ("requestExit", [("caller", jNat caller), ("bondId", jNat id)])
   | .confirmExit caller id => ("confirmExit", [("caller", jNat caller), ("bondId", jNat id)])
   | .withdraw caller id recipient => ("withdraw",
@@ -268,8 +325,8 @@ def callJ (c : Call) (ts : Nat) : JVal :=
 
 def deployJ (d : Deploy) : JVal :=
   jLine [("activationDelay", jNat d.activationDelay), ("bountyBps", jNat d.bountyBps), ("exitDelay", jNat d.exitDelay),
-    ("feeGwei", jNat d.feeGwei), ("initialized", jBool d.initialized), ("maxBatchBlocks", jNat d.maxBatchBlocks),
-    ("minStake", jNat d.minStake), ("recipientAccepts", jBool d.recipientAccepts), ("threshold", jNat d.threshold),
+    ("feeGwei", jNat d.feeGwei), ("forfeitBps", jNat d.forfeitBps), ("initialized", jBool d.initialized), ("maxBatchBlocks", jNat d.maxBatchBlocks),
+    ("minStake", uintJ d.minStake), ("recoveryNonce", uintJ d.recoveryNonce), ("registrySize", jNat d.registrySize), ("recipientAccepts", jBool d.recipientAccepts), ("threshold", jNat d.threshold),
     ("unsettled", jNat d.unsettled), ("withdrawalDelay", jNat d.withdrawalDelay)]
 
 /-! Scenarios. A step computes its call from the World it runs on, so a setup can land the
@@ -337,7 +394,7 @@ def release (id owner : Nat) : List CaseStep :=
 
 /-- The owner recovers at the next block with the current generation and checkpoint. -/
 def recoverNow (exclusions : List Recovery.Exclusion := []) (fi : List Nat := []) : CaseStep := fun w =>
-  ⟨w.l1Block+1, .recover true ⟨w.inbox.generation, w.inbox.checkpoint.height, exclusions, fi⟩⟩
+  ⟨w.l1Block+1, .recover true ⟨w.inbox.generation, w.inbox.checkpoint.height, exclusions, fi, w.inbox.recoveryNonce, limit256-1⟩⟩
 
 /-! Rendering. -/
 
@@ -350,7 +407,7 @@ def runSetup (d : Deploy) : ProtocolState.World → List CaseStep → Nat → Ex
       | none => .error ("setup call " ++ Nat.repr k ++ " is rejected by the model")
       | some (t, _) => (runSetup d t rest (k+1)).map fun (u, cs) => (u, c :: cs)
 
-def resultJ (xs : List (String × Nat)) : JVal := jLine (xs.map fun (k, v) => (k, jNat v))
+def resultJ (xs : List (String × Nat)) : JVal := jLine (xs.map fun (k, v) => (k, uintJ v))
 
 def observableJ (sc : Scenario) (w : ProtocolState.World) : JVal :=
   jObj ((if sc.inbox then [("inbox", inboxJ w)] else []) ++
@@ -390,7 +447,7 @@ def familyFile (family : String) (provenance : Option String) (scs : List Scenar
     if sc.spec.isNone && (sc.label.splitOn ".hw.").length > 1 then
       throw (sc.label ++ ": a hand-written vector needs a spec line")
   let vectors ← scs.mapM (renderScenario family)
-  let head : List (String × JVal) := [("schema", jStr "etna-conformance-1"), ("family", jStr family),
+  let head : List (String × JVal) := [("schema", jStr "etna-conformance-2"), ("family", jStr family),
     ("generator", jStr "formal/etna: lake exe etna-vectors --write testdata/etna_conformance")]
   let prov : List (String × JVal) := match provenance with
     | some sha => [("provenance", jLine [("formalCommit", jStr sha)])]

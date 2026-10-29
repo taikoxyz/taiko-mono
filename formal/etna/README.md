@@ -1,8 +1,10 @@
 # Etna design verification
 
 This package is a Lean 4 model of the Etna specification and the proofs about it. The
-specification is [`packages/protocol/docs/etna-pos-zk/sources/spec.md`](../../packages/protocol/docs/etna-pos-zk/sources/spec.md)
-at revision 2026-10-28, pinned by SHA-256 in `spec-coverage.json`. A spec line written `spec L…`
+specification is [`packages/protocol/docs/etna-pos-zk/SPEC.md`](../../packages/protocol/docs/etna-pos-zk/SPEC.md)
+at commit `39ebefbf33a2702b750e0fb0db7d2a40ff8e8480` (2026-10-29). Both it and
+[`ACCEPTANCE.md`](../../packages/protocol/docs/etna-pos-zk/ACCEPTANCE.md) are independently
+pinned by path, revision, source commit and SHA-256 in `spec-coverage.json`. A spec line written `spec L…`
 is a line of that file. Any edit to the spec fails the coverage check until the clause links are
 reviewed against the new text and the pin is updated.
 
@@ -13,7 +15,7 @@ premise record, `Premises`. To trust the result, read the statements and the pre
 proofs. The package says nothing about the production contracts, client or guests beyond the
 conformance vectors below.
 
-The clause inventory (308 spec clauses), the theorem roles and the 16 narrow claims in
+The clause inventory (311 source clauses), the theorem roles and the 18 narrow claims in
 `spec-coverage.json` are a **traceability report, not the verification result**. They record
 which spec clauses some theorem speaks to, and CI keeps them consistent. A clause marked
 partial is not proved.
@@ -112,7 +114,9 @@ Take any World that a trace reaches from the initialized World, and any rule set
 If two valid commits at the same height and round are for different blocks, the members whose
 keys signed both (`signedBoth`) hold more than 1/3 of the active committee's voting power, and
 each of them is `Slashable` from then on with one vote from each commit: in every later World,
-every live staked bond with that key can be slashed for its whole stake. So if the members that
+every live bond with positive remaining principal under that key can be slashed for its
+whole balance (effective stake plus pending top-up). Prior DAO forfeiture does not erase
+admissible double-sign evidence; only the principal still held can be slashed. So if the members that
 sign conflicting precommits at a height and round (`Equivocates`) hold less than 1/3 of the
 power, any two valid commits there are for the same block. This is same-round safety only, and
 it bites only on bonds that are still live.
@@ -149,7 +153,7 @@ The statement has three parts.
   entry pending and due.
 
 Part (b) covers only blocks inside landed segments, and it does not claim the maxAnchorAge bound
-of 7.3 (spec L436). Part (a) is about (index, entry) pairs staying present; that each index holds
+of 7.3 (spec L465). Part (a) is about (index, entry) pairs staying present; that each index holds
 one entry is the separate queue invariant of `ProtocolState.Core`.
 
 ## Premises
@@ -159,15 +163,15 @@ initialized World `w0` or the environment, never the records, signals or queue p
 claims are about. "Used by" is the audit's premise-use result: the headline proofs that read the
 field.
 
-| Field | What it assumes | Spec source | Used by |
-| --- | --- | --- | --- |
-| `genesis` | `w0` is the World right after Inbox initialization (`Deployment.Genesis`), made with block 0's EL hash and stateRoot from `env.genesisHeader`, which has height 0, CometBFT hash 0 and FI cursor 0. | §10 steps 4-5 (spec L531-L532); Appendix B slot 285 (spec L740); 6.1 (spec L273); 7.2 (spec L400) | H1, H2, H3 |
-| `verifierSound` | Two proofs, at least one sound: every proof pair the Inbox accepts contains a sound backend, and a sound backend approves a submitted landing only if its statement is `Certifies`, i.e. the statement of a batch valid under the rules `Deployment.build` derives from the guest's uint256 opening of the stored commitments. Equivalently: every submitted landing that lands is certified. | §1 "Funds" (spec L12); §1 "Upgrades and trust" (spec L16); §8 "Verifier failure" (spec L457) | H1, H3 |
-| `authenticatedInputs` | For a submitted landing that lands, an authenticated FI witness under an authenticated anchor, from the current generation's origin L1 block up to the landing's block, shows the World's real queue entry. | 3.3 (spec L86); 7.2 (spec L401) | H3 |
-| `hashSeparation` | The stored committeeConfigHash has exactly one uint256 opening (`Representable`): the deployment's own configuration. | 6.2 item 1 (spec L338) | H1, H3 |
-| `headerHashes` | An EL hash is the hash of the header it names: when the EL accepts a block on a parent, both EL hashes are `headerHash` of the decoded headers, and so is block 0's. | 3.4 rules 1 and 9 (spec L99, L107); 6.2 item 4 (spec L341) | H1 |
-| `headerSeparation` | Collision resistance, idealized: equal EL hashes mean equal height, stateRoot, timestamp and the whole decoded anchor. | 3.2 (spec L68, L72-L76); 6.2 item 4 (spec L341) | H1 |
-| `signatureAgreement` | The registry's signature check accepts every vote in this deployment's domain that the consensus signature relation accepts. | 3.1 (spec L42); 4.1 (spec L150) | H2 |
+| Field                 | What it assumes                                                                                                                                                                                                                                                                                                                                                                               | Spec source                                                                                       | Used by    |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ---------- |
+| `genesis`             | `w0` is the World right after Inbox initialization (`Deployment.Genesis`), made with block 0's EL hash and stateRoot from `env.genesisHeader`, which has height 0, CometBFT hash 0 and FI cursor 0.                                                                                                                                                                                           | §10 steps 4-5 (spec L556-L557); Appendix B slot 285 (spec L775); 6.1 (spec L294); 7.2 (spec L426) | H1, H2, H3 |
+| `verifierSound`       | Two proofs, at least one sound: every proof pair the Inbox accepts contains a sound backend, and a sound backend approves a submitted landing only if its statement is `Certifies`, i.e. the statement of a batch valid under the rules `Deployment.build` derives from the guest's uint256 opening of the stored commitments. Equivalently: every submitted landing that lands is certified. | §1 "Funds" (spec L12); §1 "Upgrades and trust" (spec L16); §8 "Verifier failure" (spec L487)      | H1, H3     |
+| `authenticatedInputs` | For a submitted landing that lands, an authenticated FI witness under an authenticated anchor, from the current generation's origin L1 block up to the landing's block, shows the World's real queue entry.                                                                                                                                                                                   | 3.3 (spec L90); 7.2 (spec L427)                                                                   | H3         |
+| `hashSeparation`      | The stored committeeConfigHash has exactly one uint256 opening (`Representable`): the deployment's own configuration.                                                                                                                                                                                                                                                                         | 6.2 item 1 (spec L360)                                                                            | H1, H3     |
+| `headerHashes`        | An EL hash is the hash of the header it names: when the EL accepts a block on a parent, both EL hashes are `headerHash` of the decoded headers, and so is block 0's.                                                                                                                                                                                                                          | 3.4 rules 1 and 9 (spec L104, L112); 6.2 item 4 (spec L363)                                       | H1         |
+| `headerSeparation`    | Collision resistance, idealized: equal EL hashes mean equal height, stateRoot, timestamp and the whole decoded anchor.                                                                                                                                                                                                                                                                        | 3.2 (spec L72, L76-L80); 6.2 item 4 (spec L363)                                                   | H1         |
+| `signatureAgreement`  | The registry's signature check accepts every vote in this deployment's domain that the consensus signature relation accepts.                                                                                                                                                                                                                                                                  | 3.1 (spec L43); 4.1 (spec L160)                                                                   | H2         |
 
 The audit fails if any field is read by no headline proof.
 
@@ -177,7 +181,7 @@ The audit fails if any field is read by no headline proof.
   spec L14).
 - **Cross-round safety.** H2 compares commits at one height and one round only. Commits at
   different rounds of one height are not compared, and CometBFT's locking rules are not
-  modelled (§1 "Slashing scope", spec L18: slashing covers only same-round double signing).
+  modelled (§1 "Slashing scope", spec L18: automatic double-sign slashing compares the same round; DAO forfeiture is separate).
 - **Checkpoint permanence.** No claim says a landed checkpoint stays. Governance recovery
   discards the blocks above the checkpoint, and the model's verifier-failure rollback may return
   to any retained record. H1 holds across both; §1's "nothing at or below a checkpoint can be
@@ -186,11 +190,10 @@ The audit fails if any field is read by no headline proof.
   (storage proofs, QuotaManager, pausing) is not modelled.
 - **What happens after verifier failure.** Without `verifierSound` nothing is claimed
   (`NoVerifierSoundness` shows the premise is needed). The containment of §8 (pausing, the
-  rollback upgrade restoring the last trusted values, cancelling pending recovery
-  authorizations) is not proved: the model's rollback step takes any retained record and any
+  rollback upgrade restoring the last trusted values) is not proved: the model's rollback step takes any retained record and any
   slot-284 snapshot.
 - **A wall-clock FI deadline.** H3 gives none, and §1 says the design gives none either
-  (spec L15). H3 does not claim the maxAnchorAge bound of 7.3 (spec L436).
+  (spec L15). H3 does not claim the maxAnchorAge bound of 7.3 (spec L465).
 - **Real cryptography, MPT, KZG and the EL.** Hashes are opaque numbers. Signatures, storage
   proofs, blob decoding, payload decoding and EL execution are relations of `Environment`. The
   premises idealize some of them and leave others open: history and committee authentication
@@ -203,7 +206,8 @@ The audit fails if any field is read by no headline proof.
   from that authenticated L1 block. `hashSeparation` is Keccak
   separation over uint256 openings (the unbounded `Deployment.opening_unique` is vacuous:
   `opening_separation_unsatisfiable`). Proof completeness (spec L16), durable signer and node
-  trust (8.2), and PoS issuance and economics are also out of scope.
+  trust (8.2), and PoS issuance and market-economic guarantees remain out of scope. The launch-capital
+  arithmetic below is separately checked under supplied valuation and committee inputs.
 - **Rollback trust (a dropped premise).** A `trustedRollback` premise was considered: the
   restored slot-284 snapshot is below the rollback's block (`SoundStep.rollback`). No headline
   proof needs it. H1 holds across any rollback to a retained record, because a rollback drops
@@ -212,7 +216,7 @@ The audit fails if any field is read by no headline proof.
   no landing wrote, and the committee confirms its exit and withdraws while it still signs; its
   conflicting commits are then unslashable. Even `snapshot < now` is too weak, since a later
   rollback can restore an untrusted value below its own block. A premise that protects H2 must
-  be the spec's duty (spec L457): the restored snapshot is a value a retained landing or the
+  be the spec's duty (spec L487): the restored snapshot is a value a retained landing or the
   initialization wrote.
 
 ## Witnesses
@@ -245,38 +249,69 @@ it), with the chain-of-custody property at every World.
 
 ### Counterexamples
 
-`EtnaWitnesses/Counterexamples/` holds five kernel-checked runs. Four start from the
-non-vacuity deployment; `RecoveryCapture` has its own (n_max 5, four honest parties). None is a
-failure of H1-H3: each shows what a premise carries or what an open design issue leaves outside
-the claims.
+`EtnaWitnesses/Counterexamples/` holds four scope counterexamples and the repaired
+`StaleDaoAuthorization` regression. Four modules use the non-vacuity deployment; `RecoveryCapture` has its own (n_max 5, four honest parties). The four counterexamples are not failures of H1-H3: they show what a premise carries or
+what remains outside the claims. The fifth module checks the repaired nonce rule.
 
 - **`NoVerifierSoundness`.** If both proof backends accept a false statement, a checkpoint lands
   that no valid chain reaches, and SignalService publishes its fake state root. Every other
   premise holds, so `verifierSound` is what H1 rests on. The spec already takes verifier
-  soundness as an assumption (spec L16, L457); no fix is needed.
+  soundness as an assumption (spec L16, L487); no fix is needed.
 - **`UntrustedRollback`.** A verifier-failure rollback restores slot 284 to a value no trusted
   landing wrote. The exit of the committee's only validator is then confirmed and its stake
   withdrawn while the built rules still make it the whole committee; its conflicting commits are
   valid and unslashable. A realistic withdrawalDelay only postpones this. Fix: the rollback duty
   above, stated as a premise if H2 is to cover rollbacks.
 - **`RecoveryCapture`.** Four honest validators each hold 1/4 of the power, so a recovery
-  authorization passes the modelled parts of the DAO's check (8.1, spec L470: nonempty, no party
+  authorization passes the modelled parts of the DAO's check (8.1, spec L500: nonempty, no party
   at or above 1/3). A newcomer registers 9 TAIKO between authorization and execution and ends up
-  with 9/13 (over 2/3) of the recovery committee, alone producing valid commits. The DAO cannot
-  stop the scheduled call at execution, and its exclusion list is fixed. Suggested fix: bind the
-  authorization to a registry bound, such as a `maxActiveFromL1` in the recover call.
+  with 9/13 (over 2/3) of the recovery committee, alone producing valid commits. The existing authorization executes if the DAO does not invalidate its nonce before
+  execution. Its exclusion list is fixed. The new invalidation API enables cancellation but
+  does not bind the authorized call to an earlier committee. The design requires economic
+  reassessment without adding a capital veto; binding a registry cutoff would be a further
+  protocol change, not something this formal update introduces.
 - **`ForcedPoisonResubmit`.** After a recovery blanks an unprovable ("poison") FI entry, anyone
   can enqueue the same transaction again for the normal fee and stall the cursor again.
   Suggested fix: let the guest skip unprovable content, or narrow the §1 and §8 wording. A
   blocklist of blanked hashes stops only a verbatim copy.
-- **`StaleDaoAuthorization`.** A landing voids a recovery authorization, but a later
-  verifier-failure rollback restores the checkpoint and the voided authorization becomes
-  executable again: the Inbox binds an authorization only to (generation, checkpoint), and the
-  spec relies on the DAO cancelling it, which Taiko's DAO cannot do for an approved proposal.
-  The model shows the Inbox side only. Suggested fix: an Inbox rollback counter or nonce that
-  recover must match.
+- **`StaleDaoAuthorization` (repaired).** The old model allowed an authorization voided by
+  a landing to revive after rollback. The current model increments the _current_ nonce on
+  rollback, recover and explicit invalidation, and checks that nonce plus expiry on execution.
+  `stale_authorization_never_revives` exercises the same forged-landing/rollback prefix and
+  now proves rejection. `consumed_authorization_never_revives` proves rejection along every
+  future whole-machine trace. Deadline equality, initialization and uint256 overflow are
+  covered by kernel-checked regressions.
+
+## Registry, recovery and capital alignment
+
+Top-ups have separate pending principal and a ready L1 block. Deposit and maturity do not
+change effective stake or its history; explicit activation writes a normal checkpoint.
+Withdrawal and double-sign slashing use all remaining principal, including pending funds.
+DAO forfeiture uses the deployment's fixed ceiling rate, consumes effective stake first,
+forces exit without resetting the confirmation clock, and leaves a lifetime entryKey flag.
+The registry models no forfeiture nonce, revocation or extra delay. Correct attribution,
+owner authentication, real token transfers and EVM journaling remain external boundaries.
+
+Recovery expiry is measured in L1 Unix seconds; readiness and evidence delays use L1 blocks.
+`ProtocolState.rollback` is the checked upgrade boundary and rejects nonce overflow.
+`applyRollback` and `Recovery.rollbackInbox` are success-state transformers, like
+`applyRecovery`; every rollback `Step` requires the checked initialization/reentrancy/nonce
+conditions. A raw transformer invocation alone does not establish an executable transaction.
+H1-H3 quantify over traces including top-ups, forfeiture and recovery-nonce invalidation.
+
+`EtnaModel/Capital.lean` and its proofs check the checklist's ceiling-derived S_MIN_TOTAL,
+integer blocking-power capital bound and strict entry/common-control concentration checks
+on supplied selected effective stake. Pending and unselected funds do not count. Snapshot
+provenance, price policy/current valuation and controller classification remain supplied
+operating evidence. These checks are not guards on build, rotation, recovery or signing;
+they prove neither acquisition cost, irreversible loss nor timely governance response.
 
 ## Conformance
+
+The current generator emits schema 2 for the Inbox/registry families, including new top-up,
+forfeiture and nonce cases; the client-family schema remains unchanged. Current vectors
+require downstream harness adoption and have not been run against production implementations
+in this update. The recorded implementation comparisons below are historical.
 
 The vectors in `testdata/etna_conformance/` are generated from the model (`EtnaVectors`) and
 record only what it decides on concrete inputs; that directory's README has the schema and how
@@ -284,7 +319,7 @@ to run them. Each implementation keeps its own copy, stamped with the formal com
 generated at, and its own list of known divergences next to its harness, so an implementation
 change never needs a generator change.
 
-**Contracts.** 334 rule-level vectors (285 generated from the model's transitions, 49
+**Historical contract conformance (revision `c9708e761`).** 334 rule-level vectors (285 generated from the model's transitions, 49
 hand-written from spec lines) in four families: forced 114, registry 74, land 98, recover 48. A
 Foundry harness in the Etna contracts PR (#22286),
 `packages/protocol/test/layer1/etna/conformance/EtnaConformance.t.sol`, runs them against
@@ -292,18 +327,18 @@ Foundry harness in the Etna contracts PR (#22286),
 divergences listed in that harness, none a contract bug. The first two are reachable; the other
 four need an L1 block at 2^48 − 1 or a timestamp at 2^48:
 
-1. Free-slot reuse order (spec L139): the model reuses the oldest freed slot, the contract the
+1. Free-slot reuse order (spec L146): the model reuses the oldest freed slot, the contract the
    most recent. The spec does not say; it should pick one (suggested: most recent), and the
-   model then follows. The set key is fixed per key (spec L169), so the choice decides only
+   model then follows. The set key is fixed per key (spec L180), so the choice decides only
    which bond id a registration gets, not elections.
-2. Withdrawal to address 0 (spec L142): any owner can call `withdraw(id, address(0))`; the
+2. Withdrawal to address 0 (spec L152): any owner can call `withdraw(id, address(0))`; the
    contract refuses (stricter), while the model, which has no recipient, accepts. The spec
    could say "to ≠ 0".
 3. Withdrawal at L1 block 2^48 − 1: the contract is stricter than the spec. Unreachable.
-4. Slash at L1 block 2^48 − 1 (spec L151): the spec's formula gives the no-exit value; the model
+4. Slash at L1 block 2^48 − 1 (spec L161): the spec's formula gives the no-exit value; the model
    follows it, the contract refuses (safer). Unreachable.
-5. Recovery exclusion at L1 block 2^48 − 1 (spec L460): the same kind. Unreachable.
-6. Recovery origin timestamp 2^48 (spec L744): the spec asks for "range checks" without naming
+5. Recovery exclusion at L1 block 2^48 − 1 (spec L490): the same kind. Unreachable.
+6. Recovery origin timestamp 2^48 (spec L779): the spec asks for "range checks" without naming
    the range; the contract uses 2^48, the model only the 2^256 word bound. The spec should name
    2^48. Unreachable.
 
@@ -314,14 +349,14 @@ Inbox are covered), reference blocks 257 to 8,191 blocks old whose hash the EIP-
 contract still serves (an unavailable hash at age 257 and age 8,192 are covered), the 4,096-slot
 registry capacity and encodings.
 
-**Rust client.** 340 vectors on pure node rules: forced_step 151, schedule 83, block_rules 92 and
+**Historical Rust client conformance (revision `c9708e761`).** 340 vectors on pure node rules: forced_step 151, schedule 83, block_rules 92 and
 block_size 14. A Rust harness in the Etna client PR (#22280),
 `packages/taiko-client-rs/crates/abci/tests/etna_conformance.rs`, runs them in `just unit`
 against the client's public rules: `forced::check` with `verify_forced` and a scripted engine,
 `Schedule` with `committee::derive`, the header and anchor rules of `rules`, and
 `check_execution_size`. All four families run. All vectors agree except one known divergence,
 listed in that harness: the model's `HeaderValid` rejects L2 height 2^48, while section 3.4
-states no height bound (only the Inbox's `land` bounds heights, spec L266) and the client accepts
+states no height bound (only the Inbox's `land` bounds heights, spec L287) and the client accepts
 it. It is a spec ambiguity at a height no chain reaches; the spec could state the bound in 3.4.
 
 Out of reach of the client vectors: the lander's landing grid and cut leaves, recovery
@@ -350,11 +385,16 @@ Modelling choices a reviewer should know:
   every transition keeps them.
 - Every value the spec fixes at deployment (L, genesisCutoff, K, maxAnchorAge, the FI delay,
   fee and threshold, maxBatchBlocks, protocolFeeRecipient, the registry's minimum stake, delays
-  and bounty) is an immutable of the World, never a per-call input.
+  bounty and forfeiture rate) is an immutable of the World, never a per-call input.
 - `Deployment.build` derives the rules from the World: it checks the config and committee-0
   openings against the stored commitments, recomputes committee 0 from registry history, and
   enforces the §10/§11 initialization constraints. The openings are ghost authenticated inputs,
   not storage slots. The registry's Inbox-address and chain-id check is not modelled.
+- Reentrancy is a decoded transaction boundary, not an ERC20 callback model. Registry
+  edits reject an entered Inbox; the low-level registration function has no Inbox argument.
+  All traces from initialized Worlds retain entered=false. Actual callback exclusion on
+  registration, transfer authenticity and Solidity modifier wiring remain implementation
+  conformance obligations, not conclusions of H1-H3.
 - `EtnaProofs/Contracts.lean` and the deployment and history proof modules pin the definitions
   the claims rest on (block, commit and node validity, the committee schedule and election,
   landing, forced inclusion, the registry, recovery, rollback, `Deployment.build`, `Genesis`,
@@ -391,7 +431,7 @@ What the audit checks, each with its documented limit:
 
 - **Headline.** `Etna.Proofs.claims` and the three headline theorems have exactly their claim
   types and only the standard axioms.
-- **Exact types.** Each of the 614 manifest entries carries a full expected type, parsed as one
+- **Exact types.** Each of the 718 manifest entries carries a full expected type, parsed as one
   term (no `by`, `sorry` or `%`-elaborators) and compared with the kernel's. The manifest is a
   reviewed artifact; the gate does not compare it with prose.
 - **Rule P** (needed for the `property` role). The statement is quantified, and every conjunct,
@@ -404,7 +444,7 @@ What the audit checks, each with its documented limit:
   cites an induction lemma counts, and a substantive result proved without induction does not.
   For example, H3 is `property` through part (a′): the recorded chain is
   `forced_inclusion_integrity -> head_advances_only_in_landings -> genesis_trace_invariants ->
-  trace_preserves_immutables -> Trace.rec`, an induction that preserves the deployment
+trace_preserves_immutables -> Trace.rec`, an induction that preserves the deployment
   immutables, which is itself an instance of this limit: the chain records only the first
   induction the proof uses. Part (a′) does rest on a real induction: its rollback case needs
   `trace_record_cursors_monotone` (record cursors are monotone in record height along every
@@ -467,7 +507,7 @@ namespace (for example `EtnaModel/Deployment.lean` and `EtnaProofs/Deployment.le
   proofs of H1, H2, H3 and `claims`. `EtnaProofs/Deployment.lean` imports
   `EtnaStatements.Premises` for `Representable`.
 - `EtnaWitnesses/`: `Regressions/` (concrete traces), `Headline/` (the H1 run),
-  `NonVacuity/` (the premise witness) and `Counterexamples/` (the five runs above).
+  `NonVacuity/` (the premise witness) and `Counterexamples/` (four scope counterexamples and the repaired nonce regression).
 - `EtnaVectors/`: the conformance-vector generator (`lake exe etna-vectors`). It imports only
   the model and nothing imports it; the lint lets only its plain string literals contain `{`,
   and the audit admits its root `main` as the one declaration outside `Etna`.
@@ -478,12 +518,12 @@ namespace (for example `EtnaModel/Deployment.lean` and `EtnaProofs/Deployment.le
 
 ## Numbers
 
-- 614 theorem contracts: 93 property, 3 constant, 301 supporting, 217 regression.
-- 93 property derivation chains (52 use induction directly, 41 through derived Etna theorems).
-- 308 spec clauses: 56 partial, 249 deferred, 3 design-pending; 16 narrow claims.
-- 140 formal tests.
-- Conformance: 334 contract vectors (6 known divergences), 340 client vectors (1 known
-  divergence).
+- 718 theorem contracts: 101 property, 3 constant, 358 supporting, 256 regression.
+- 101 property derivation chains, checked against the live proof terms.
+- 311 source clauses: 62 partial, 246 deferred, 3 design-pending; 18 narrow claims.
+- 156 Python mutation/regression tests, plus kernel-replayed Lean regression modules.
+- Current vectors: 414 Inbox/registry and 340 client rule vectors. Historical production
+  comparisons: 334 contracts (6 divergences) and 340 client (1 divergence).
 
 The clause counts and the claims are traceability: "partial" means some induction-derived
 theorem (or a closed constant) speaks to the clause, not that the clause is proved.

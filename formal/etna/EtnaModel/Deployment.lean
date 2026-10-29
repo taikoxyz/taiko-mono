@@ -26,7 +26,7 @@ def genesis (s : State) (registry : RegistryHistory.State) (cfg : Config) (archi
 def genesisOrigin (s : State) : Origin := ((s.origins.head?).map Prod.snd).getD ⟨0,0,0⟩
 
 /-- §10 initialization constraints expressible on the decoded state (EN "Deployment
-constraints", source L538): `configOK` is L ≥ 3, L+1 < 2^48, 1 ≤ K ≤ 6 and
+constraints", source L563): `configOK` is L ≥ 3, L+1 < 2^48, 1 ≤ K ≤ 6 and
 K ≤ U ≤ 65,536 with K ∣ U; forcedInclusionDelay > 0 and maxAnchorAge ≥ 1152 s (also L568),
 each fitting its 48-bit slot-282 field (L738, L753); the first origin is generation 0's
 (0, L1_0, ·) with L1_0 < 2^48 and a past genesisCutoff < L1_0 (L492, L529); 1 ≤ n_max ≤ 4096;
@@ -46,7 +46,7 @@ def Constraints (s : State) (cfg : Config) : Prop :=
 
 instance (s : State) (cfg : Config) : Decidable (Constraints s cfg) := inferInstanceAs (Decidable (_ ∧ _))
 
-/-- §10/§11 registry deployment bounds (spec L538, L574): positive activation and
+/-- §10/§11 registry deployment bounds (spec L563, L599): positive activation and
 exit delays and slashBountyBps ≤ 10000. withdrawalDelay's lower bound (the double-sign
 evidence window) and the nonzero slashSink are outside this state. L574's l2ChainId matching
 the Inbox and the fixed Inbox proxy address equal to the Inbox's own (also 4.1 L156, checked
@@ -54,7 +54,7 @@ at initialization, §10 step 5) are not modeled: `RegistryHistory.State` has no 
 Inbox-address field, and slashing reads the Inbox's own `domain` (`RegistryHistory.editBond`),
 which presumes that equality. -/
 def RegistryConstraints (r : RegistryHistory.State) : Prop :=
-  0 < r.activationDelay ∧ 0 < r.exitDelay ∧ r.slashBountyBps ≤ 10000
+  0 < r.activationDelay ∧ 0 < r.exitDelay ∧ r.slashBountyBps ≤ 10000 ∧ 0 < r.forfeitBps ∧ r.forfeitBps ≤ 10000
 
 instance (r : RegistryHistory.State) : Decidable (RegistryConstraints r) := inferInstanceAs (Decidable (_ ∧ _))
 
@@ -85,7 +85,7 @@ def build (w : ProtocolState.World) (cfg : Config) (archive : List Nat) (templat
         configHash := w.adapters.configHash,committeeHash := w.adapters.recordHash }
   else none
 
-/-- §10 step 5 (spec L532) with Appendix B slots 268/270/271/281/284/285/290 and 8.4:
+/-- §10 step 5 (spec L557) with Appendix B slots 268/270/271/281/284/285/290 and 8.4:
 the World right after the Inbox is initialized on genesis hash `hash` and stateRoot `root`.
 recoveryGeneration is 0; lastCheckpoint, its only slot-285 record and the only SignalService
 checkpoint are block 0 (EL hash = genesis hash, Comet hash 0, parent/generation/FI cursor 0);
@@ -114,6 +114,7 @@ def Genesis (w : ProtocolState.World) (hash root : Hash) : Prop :=
   w.inbox.committeeZero = w.adapters.recordHash w.inbox.committeeZeroRecord ∧
   w.inbox.committeeZeroRecord.targetEpoch = 0 ∧ w.inbox.committeeZeroRecord.cutoff = w.inbox.genesisCutoff ∧
   GenesisElected w.inbox w.registry w.inbox.configuration ∧
-  (RegistryHistory.latestSnapshot w.registry.history w.inbox.genesisCutoff).isSome = true
+  (RegistryHistory.latestSnapshot w.registry.history w.inbox.genesisCutoff).isSome = true ∧
+  w.inbox.recoveryNonce = 0
 
 end Etna.Design.Deployment

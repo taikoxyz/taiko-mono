@@ -1,3 +1,5 @@
+import EtnaWitnesses.Regressions.Capital
+import EtnaWitnesses.Regressions.StakingAlignment
 import EtnaProofs
 import EtnaWitnesses.Regressions.Examples
 import EtnaWitnesses.Regressions.FirstBatch

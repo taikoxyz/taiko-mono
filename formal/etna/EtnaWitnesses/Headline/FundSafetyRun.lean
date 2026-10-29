@@ -87,7 +87,7 @@ def world2 : ProtocolState.World := ProtocolState.landed world1 (applyLanding wo
 
 /-! Recovery at checkpoint 2 (R = L1 block 20), then generation 1 lands (2, 3]. -/
 
-def request : Recovery.Request := ⟨0,2,[],[]⟩
+def request : Recovery.Request := ⟨0,2,[],[],0,limit256-1⟩
 def origin1 : Origin := ⟨2,20,20⟩
 def world3 : ProtocolState.World :=
   ProtocolState.recovered world2 request origin1
@@ -110,7 +110,7 @@ def world4 : ProtocolState.World := ProtocolState.landed world3 (applyLanding wo
 def record1 : Checkpoint := ⟨1,block1.header.elHash,101,0,0,0⟩
 def record2 : Checkpoint := ⟨2,block2.header.elHash,102,0,0,1⟩
 def record3 : Checkpoint := ⟨3,block3.header.elHash,103,0,1,2⟩
-def world5 : ProtocolState.World := ProtocolState.rollback world4 record2 12 24
+def world5 : ProtocolState.World := ProtocolState.applyRollback world4 record2 12 24
 
 theorem steps_accepted :
     land world0.inbox statement1.input [] env1 = some (applyLanding world0.inbox statement1.input) ∧
@@ -134,7 +134,7 @@ theorem deployed_on_genesis_header :
     relations.genesisHeader.elHash = relations.headerHash relations.genesisHeader := by
   refine ⟨⟨⟨rfl,rfl,rfl,rfl,rfl,rfl,rfl,rfl,rfl,by decide,rfl,by unfold FeeConserved; decide +kernel,
     ⟨?_,?_,?_,?_,by decide +kernel⟩,rfl,by decide +kernel,by decide +kernel,by decide +kernel,rfl,rfl,rfl,
-    by unfold Deployment.GenesisElected; decide +kernel,by decide +kernel⟩,rfl,rfl,rfl⟩,
+    by unfold Deployment.GenesisElected; decide +kernel,by decide +kernel,rfl⟩,rfl,rfl,rfl⟩,
     fun _ _ accepted => of_decide_eq_true accepted,rfl⟩
   · unfold RegistryHistory.KeysValid
     decide +kernel
@@ -163,7 +163,7 @@ private theorem step3 {a : ProtocolState.World} (prior : Run env a world2) : Run
 private theorem step4 {a : ProtocolState.World} (prior : Run env a world3) : Run env a world4 :=
   .landing prior (Or.inr (Or.inr ⟨rfl,rfl,rfl,rfl⟩)) (by decide) steps_accepted.2.2.2.1
 private theorem step5 {a : ProtocolState.World} (prior : Run env a world4) : Run env a world5 :=
-  .other prior (.rollback record2 12 24 (by decide) steps_accepted.2.2.2.2) (by decide +kernel)
+  .other prior (.rollback record2 12 24 (by decide) steps_accepted.2.2.2.2 (by decide +kernel)) (by decide +kernel)
 
 /-- The rules of each landing are ones the deployment builds on the World it lands on. -/
 private theorem built_of {w : ProtocolState.World} {archive : List Nat} {number hash : Nat}

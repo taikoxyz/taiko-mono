@@ -1,3 +1,4 @@
+import EtnaProofs.Capital
 import EtnaStatements
 import EtnaProofs.Common
 import EtnaProofs.Landing

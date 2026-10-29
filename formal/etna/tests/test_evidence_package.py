@@ -15,13 +15,26 @@ spec.loader.exec_module(coverage)
 class EvidencePackageTests(unittest.TestCase):
     def test_claim_pairs_have_reviewed_edges(self):
         rows = coverage.inventory()
-        self.assertEqual(len(rows),308)
+        self.assertEqual(len(rows),311)
         # inventory() checks each explicit claim edge and its general-property role.
 
     def test_clause_ids_survive_line_insertion(self):
         text = (coverage.REPO/coverage.SPEC_PATH).read_text()
         self.assertEqual([c['id'] for c in coverage.clauses(text,'en')],
                          [c['id'] for c in coverage.clauses('\n\n'+text,'en')])
+
+    def test_details_wrappers_do_not_become_requirement_clauses(self):
+        text = "# Section\n\n<details>\n<summary>Explanation</summary>\n\n- Rule A\n\n</details>\n\n## Next\n\n- Rule B"
+        rows = coverage.clauses(text, 'en')
+        self.assertEqual([r['summary'] for r in rows], ['- Rule A', '- Rule B'])
+        self.assertEqual([r['section'] for r in rows], ['Section', 'Next'])
+        self.assertEqual([(r['start_line'], r['end_line']) for r in rows], [(6, 6), (12, 12)])
+
+    def test_details_markup_inside_fence_is_literal_requirement_text(self):
+        text = '## Encodings\n\n```txt\n<details>\n<summary>literal</summary>\n</details>\n```'
+        rows = coverage.clauses(text, 'en')
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['summary'], text.split('\n\n', 1)[1])
 
     def test_generated_duplicates_are_untracked(self):
         for name in ('Audit.lean','proof-policy.json','coverage.json'):
@@ -30,6 +43,19 @@ class EvidencePackageTests(unittest.TestCase):
     def test_normative_change_gets_new_identity(self):
         self.assertNotEqual(coverage.clauses('- Rule A','en')[0]['id'],
                             coverage.clauses('- Rule B','en')[0]['id'])
+
+    def test_generated_inventory_fingerprints_both_authorities(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as tmp:
+            result = subprocess.run(['python3', str(ROOT/'scripts/generate_artifacts.py'), '--out', tmp],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            hashes = json.loads((Path(tmp)/'coverage.json').read_text())['source_sha256']
+            self.assertEqual(hashes['packages/protocol/docs/etna-pos-zk/SPEC.md'],
+                             '8fe38cbd0acb08e0ec838ac064de198e2c32494d9ca2f71b4d0f773804cf37d5')
+            self.assertEqual(hashes['packages/protocol/docs/etna-pos-zk/ACCEPTANCE.md'],
+                             '876f89892acc91508fd322b4df676a0eb19550b39c9a43490376b4a3b4863c60')
+            self.assertNotIn('packages/protocol/docs/etna-pos-zk/sources/manifest.json', hashes)
 
     def test_generator_detects_stale_outputs(self):
         import subprocess
