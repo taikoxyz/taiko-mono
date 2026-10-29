@@ -225,7 +225,7 @@ jobs:
               # would be Solidity source smuggled in under a generated file name.
               if [[ "$path" == *_Layout.sol && "$new_mode" != 000000 ]]; then
                 rc=0
-                grep -qvE '^[[:space:]]*(//.*)?$|^pragma solidity [^;]+;$' "$path" || rc=$?
+                grep -qvE '^[[:space:]]*(//.*)?$|^[[:space:]]*pragma solidity [^;]+;[[:space:]]*$' -- "$path" || rc=$?
                 case "$rc" in
                   1) ;;
                   0) refuse "layout file has non-comment content: $path" ;;
@@ -237,6 +237,12 @@ jobs:
           # Formatting is redone here rather than taken from build-protocol, so a compromised
           # dependency there cannot get source changes committed as "formatting".
           (cd packages/protocol && forge fmt)
+          # build-protocol generates layout files after formatting, so keep them exactly as the
+          # validated patch left them (forge fmt would strip their trailing whitespace).
+          layouts=':(glob)packages/protocol/**/*_Layout.sol'
+          if [ -n "$(git ls-files -- "$layouts")" ]; then
+            git checkout -- "$layouts"
+          fi
           git add -u -- packages/protocol
           if git diff --cached --quiet; then
             echo "No generated changes to push."
@@ -265,6 +271,8 @@ jobs:
             commit -m "Update protocol generated artifacts"
           auth=$(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 -w0)
           echo "::add-mask::$auth"
+          # Deliberately not forced: the commit's parent is BASE_SHA, so if the branch moved while
+          # this job ran, the push is rejected as a non-fast-forward instead of landing stale output.
           git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" \
             push origin "HEAD:refs/heads/${HEAD_REF}"
 
