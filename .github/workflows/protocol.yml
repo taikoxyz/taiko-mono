@@ -114,7 +114,7 @@ jobs:
           set -euo pipefail
           echo "base_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           git add -A packages/protocol
-          git diff --cached --binary --no-renames > "$RUNNER_TEMP/generated.patch"
+          git diff --cached --binary --no-renames -- packages/protocol > "$RUNNER_TEMP/generated.patch"
           if [ -s "$RUNNER_TEMP/generated.patch" ]; then
             echo "changes=true" >> "$GITHUB_OUTPUT"
           else
@@ -143,6 +143,7 @@ jobs:
     needs: build-protocol
     if: needs.build-protocol.outputs.changes == 'true' && github.event.pull_request.head.repo.fork == false
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # SECURITY: the only job that sees TAIKO_KITTY_TOKEN. It never runs PR code: it applies the
     # patch from build-protocol, restricted to generated paths, onto a fresh checkout and pushes it.
     permissions:
@@ -172,18 +173,33 @@ jobs:
             echo "Branch moved since the build ran; the newer push regenerates the artifacts."
             exit 0
           fi
-          # build-protocol exports plain diffs (--no-renames, regular files), so rename/copy or symlink
-          # headers mean the patch did not come from the exporter.
-          if grep -qE '^(rename|copy) (from|to) |^[a-z ]*mode 120000$' "$PATCH"; then
-            echo "Refusing to apply a patch with rename, copy or symlink entries." >&2
+          # build-protocol exports plain diffs (--no-renames), so rename/copy headers mean the patch
+          # did not come from the exporter.
+          if grep -qE '^(rename|copy) (from|to) ' "$PATCH"; then
+            echo "Refusing to apply a patch with rename or copy entries." >&2
             exit 1
           fi
           git apply --index "$PATCH"
+          if git diff --cached --quiet; then
+            echo "Patch staged no changes; nothing to push." >&2
+            exit 1
+          fi
           # Validate what was actually staged, both sides of every change, not what the patch claims:
           # --numstat on the patch only reports a rename's destination.
-          # Only generated files may be pushed: formatted/layout .sol files, gas reports and snapshots.
+          # Only regular files (no symlinks or gitlinks, before or after) at generated paths may be
+          # pushed: formatted/layout .sol files, gas reports and snapshots.
           allowed='^packages/protocol/([^ ]+[.]sol|gas-reports/[^ ]+|snapshots/[^ ]+|layout/[^ ]+|[.]gas-snapshot)$'
-          git diff --cached --name-only --no-renames -z | while IFS= read -r -d '' path; do
+          git diff --cached --raw --no-renames -z | while IFS= read -r -d '' meta && IFS= read -r -d '' path; do
+            read -r old_mode new_mode _ <<< "${meta#:}"
+            for mode in "$old_mode" "$new_mode"; do
+              case "$mode" in
+                000000 | 100644 | 100755) ;;
+                *)
+                  echo "Refusing to push non-regular file (mode $mode): $path" >&2
+                  exit 1
+                  ;;
+              esac
+            done
             if [[ ! "$path" =~ $allowed ]]; then
               echo "Refusing to push unexpected path: $path" >&2
               exit 1
