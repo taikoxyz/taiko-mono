@@ -65,7 +65,7 @@ jobs:
         working-directory: ./packages/protocol
         run: |
           # Ensure directories exist and are writable in CI
-          mkdir -p gas-reports layout snapshots
+          mkdir -p gas-reports snapshots
           # Reset skip-worktree flags that might exist from local dev
           git ls-files gas-reports/ | xargs -r git update-index --no-skip-worktree || true
           git ls-files snapshots/ | xargs -r git update-index --no-skip-worktree || true
@@ -164,29 +164,20 @@ jobs:
           ref: ${{ github.head_ref }}
           persist-credentials: false
 
+      # The PR's own pin, as in build-protocol, so a Foundry bump PR gets its own reformatting.
+      # A compromised dependency in build-protocol has a read-only token and cannot change this
+      # fresh checkout, and a same-repo author already controls this workflow file.
       - name: Read Foundry version
         id: foundry-version
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BASE_REF: ${{ github.base_ref }}
-        run: |
-          set -euo pipefail
-          # Read from the base branch, not the PR: this job holds the PAT, so the PR must not pick
-          # which forge binary runs here. A PR that bumps Foundry is formatted with the base
-          # branch's version until it merges.
-          version=$(gh api -H "Accept: application/vnd.github.raw" \
-            "repos/${GITHUB_REPOSITORY}/contents/packages/protocol/.tool-versions?ref=${BASE_REF}" \
-            | awk '$1 == "foundry" { print $2 }')
-          if [ -z "$version" ]; then
-            echo "No foundry version in packages/protocol/.tool-versions on ${BASE_REF}." >&2
-            exit 1
-          fi
-          echo "version=${version}" >> "$GITHUB_OUTPUT"
+        run: echo "version=$(grep foundry packages/protocol/.tool-versions | awk '{print $2}')" >> "$GITHUB_OUTPUT"
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@50d5a8956f2e319df19e6b57539d7e2acb9f8c1e # v1.5.0
         with:
           version: ${{ steps.foundry-version.outputs.version }}
+          # SECURITY: no cache. Jobs in this PR share a cache scope, so build-protocol could plant
+          # an entry, and restoring it can write anywhere, including .git/hooks and git config.
+          cache: false
 
       - name: Download generated protocol artifacts
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -211,7 +202,7 @@ jobs:
             exit 1
           }
           # Generated outputs: storage layout files, gas reports and snapshots.
-          generated='^packages/protocol/([^ ]+_Layout[.]sol|gas-reports/[^/ ]+|snapshots/[^/ ]+|[.]gas-snapshot)$'
+          generated='^packages/protocol/([^ ]+_Layout[.]sol|(gas-reports|snapshots)/[^/ ]+[.](md|json|txt)|[.]gas-snapshot)$'
           # Files forge fmt may modify in place.
           formatted='^packages/protocol/[^ ]+[.]sol$'
           if [ -s "$PATCH" ]; then
@@ -239,6 +230,12 @@ jobs:
               # gen-layouts.sh writes layouts as comments plus SPDX/pragma lines; any other line
               # would be Solidity source smuggled in under a generated file name.
               if [[ "$path" == *_Layout.sol && "$new_mode" != 000000 ]]; then
+                # grep splits lines only on \n, but solc also ends a // comment at \r, so
+                # "// x\rcontract Evil {}" would pass as one comment line. Allow only tab and
+                # printable ASCII.
+                if LC_ALL=C grep -q $'[^\t -~]' -- "$path"; then
+                  refuse "non-printable byte in layout file: $path"
+                fi
                 rc=0
                 grep -qvE '^[[:space:]]*(//.*)?$|^[[:space:]]*pragma solidity [^;]+;[[:space:]]*$' -- "$path" || rc=$?
                 case "$rc" in
@@ -251,15 +248,7 @@ jobs:
           fi
           # Formatting is redone here rather than taken from build-protocol, so a compromised
           # dependency there cannot get source changes committed as "formatting".
-          # The base branch's forge may not parse syntax from a PR that bumps Foundry; then skip
-          # formatting and still push the generated outputs.
-          if ! (cd packages/protocol && forge fmt); then
-            echo "::warning::forge fmt failed with the base branch's Foundry; pushing generated outputs without formatting."
-            sol=':(glob)packages/protocol/**/*.sol'
-            if [ -n "$(git ls-files -- "$sol")" ]; then
-              git checkout -- "$sol"
-            fi
-          fi
+          (cd packages/protocol && forge fmt)
           # build-protocol generates layout files after formatting, so keep them exactly as the
           # validated patch left them (forge fmt would strip their trailing whitespace).
           layouts=':(glob)packages/protocol/**/*_Layout.sol'
@@ -289,9 +278,11 @@ jobs:
               refuse "unexpected change after forge fmt ($status): $path"
             fi
           done < "$RUNNER_TEMP/final"
+          # Authored by the PR actor and committed by the bot, as git-auto-commit-action did.
           git -c user.name="github-actions[bot]" \
             -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-            commit -m "Update protocol generated artifacts"
+            commit -m "Update protocol generated artifacts" \
+            --author="${GITHUB_ACTOR} <${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com>"
           echo "push=true" >> "$GITHUB_OUTPUT"
 
       - name: Push generated protocol artifacts
