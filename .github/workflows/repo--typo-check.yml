@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -32,8 +32,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y wget
 
       - name: Check for typos
-        # SECURITY: avoid @master. Pin to a released tag and follow up
-        # with a full commit SHA via Dependabot/Renovate.
-        uses: crate-ci/typos@v1
+        # SECURITY: pinned to a full commit SHA; Dependabot keeps it current.
+        uses: crate-ci/typos@7f9d0819ca1c008ade73f4b41fa9d258d48f605b # v1.51.1
         with:
           config: ${{github.workspace}}/_typos.toml
