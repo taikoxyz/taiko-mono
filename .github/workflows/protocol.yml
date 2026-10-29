@@ -120,7 +120,10 @@ jobs:
             packages/protocol/gas-reports packages/protocol/snapshots packages/protocol/layout \
             packages/protocol/.gas-snapshot ':(glob)packages/protocol/**/*_Layout.sol' \
             > "$RUNNER_TEMP/generated.patch"
-          if ! git diff --cached --quiet -- packages/protocol; then
+          # Wake the commit job only for what it can push: generated outputs or .sol files that
+          # its own forge fmt run may reformat.
+          if [ -s "$RUNNER_TEMP/generated.patch" ] \
+            || ! git diff --cached --quiet -- ':(glob)packages/protocol/**/*.sol'; then
             echo "changes=true" >> "$GITHUB_OUTPUT"
           else
             echo "changes=false" >> "$GITHUB_OUTPUT"
@@ -192,6 +195,10 @@ jobs:
             echo "Refusing to push: $*" >&2
             exit 1
           }
+          # Generated outputs: storage layout files, gas reports and snapshots.
+          generated='^packages/protocol/([^ ]+_Layout[.]sol|gas-reports/[^ ]+|snapshots/[^ ]+|layout/[^ ]+|[.]gas-snapshot)$'
+          # Files forge fmt may modify in place.
+          formatted='^packages/protocol/[^ ]+[.]sol$'
           if [ -s "$PATCH" ]; then
             # build-protocol exports plain diffs (--no-renames), so rename/copy headers mean the
             # patch did not come from the exporter.
@@ -202,8 +209,7 @@ jobs:
             # Validate what was actually staged, both sides of every change, not what the patch
             # claims: --numstat on the patch only reports a rename's destination.
             # Only regular files (no symlinks or gitlinks, before or after) at generated paths may
-            # be pushed: storage layout files, gas reports and snapshots.
-            allowed='^packages/protocol/([^ ]+_Layout[.]sol|gas-reports/[^ ]+|snapshots/[^ ]+|layout/[^ ]+|[.]gas-snapshot)$'
+            # come from the patch.
             # Read from a file, not a pipe, so refuse exits this shell rather than a subshell.
             git diff --cached --raw --no-renames -z > "$RUNNER_TEMP/staged"
             while IFS= read -r -d '' meta && IFS= read -r -d '' path; do
@@ -214,7 +220,7 @@ jobs:
                   *) refuse "non-regular file (mode $mode): $path" ;;
                 esac
               done
-              [[ "$path" =~ $allowed ]] || refuse "unexpected path: $path"
+              [[ "$path" =~ $generated ]] || refuse "unexpected path: $path"
               # gen-layouts.sh writes layouts as comments plus SPDX/pragma lines; any other line
               # would be Solidity source smuggled in under a generated file name.
               if [[ "$path" == *_Layout.sol && "$new_mode" != 000000 ]]; then
@@ -236,6 +242,24 @@ jobs:
             echo "No generated changes to push."
             exit 0
           fi
+          # Re-check the final staged set: on top of the validated patch, forge fmt may only have
+          # modified (never added or deleted) regular .sol files.
+          git diff --cached --raw --no-renames -z > "$RUNNER_TEMP/final"
+          while IFS= read -r -d '' meta && IFS= read -r -d '' path; do
+            read -r old_mode new_mode _ _ status <<< "${meta#:}"
+            for mode in "$old_mode" "$new_mode"; do
+              case "$mode" in
+                000000 | 100644 | 100755) ;;
+                *) refuse "non-regular file (mode $mode): $path" ;;
+              esac
+            done
+            if [[ "$path" =~ $generated ]]; then
+              continue
+            fi
+            if [[ "$status" != M || ! "$path" =~ $formatted ]]; then
+              refuse "unexpected change after forge fmt ($status): $path"
+            fi
+          done < "$RUNNER_TEMP/final"
           git -c user.name="github-actions[bot]" \
             -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -m "Update protocol generated artifacts"

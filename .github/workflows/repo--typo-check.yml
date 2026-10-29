@@ -32,8 +32,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y wget
 
       - name: Check for typos
-        # SECURITY: avoid @master. Pin to a released tag and follow up
-        # with a full commit SHA via Dependabot/Renovate.
+        # SECURITY: pinned to a full commit SHA; Dependabot keeps it current.
         uses: crate-ci/typos@53821664afd79bb88fcdd22fdc2f49d8d3f6cac9 # v1
         with:
           config: ${{github.workspace}}/_typos.toml
