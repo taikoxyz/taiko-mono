@@ -2,6 +2,8 @@ package indexer
 
 import (
 	"context"
+	"database/sql"
+	stderrors "errors"
 	"log/slog"
 	"sync"
 	"time"
@@ -12,8 +14,6 @@ import (
 	cliV2 "github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/shasta/inbox"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/repo"
 )
@@ -22,27 +22,22 @@ var (
 	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 )
 
-var (
-	Layer1 = "l1"
-	Layer2 = "l2"
-)
-
 type SyncMode string
 
 var (
 	Sync   SyncMode = "sync"
 	Resync SyncMode = "resync"
-	Modes           = []SyncMode{Sync, Resync}
 )
 
 type Indexer struct {
 	db db.DB
 
-	accountRepo      eventindexer.AccountRepository
-	eventRepo        eventindexer.EventRepository
-	nftBalanceRepo   eventindexer.NFTBalanceRepository
-	erc20BalanceRepo eventindexer.ERC20BalanceRepository
-	txRepo           eventindexer.TransactionRepository
+	writerConn     *sql.Conn
+	writerLockName string
+	fatalErrors    chan error
+
+	nftCursorRepo  eventindexer.NFTCursorRepository
+	nftBalanceRepo eventindexer.NFTBalanceRepository
 
 	ethClient  *ethclient.Client
 	srcChainID uint64
@@ -52,15 +47,7 @@ type Indexer struct {
 	// must be greater than this value.
 	latestIndexedBlockNumber uint64
 
-	blockBatchSize      uint64
-	subscriptionBackoff time.Duration
-
-	bridge *bridge.Bridge
-	inbox  *inbox.Inbox
-
-	indexNfts   bool
-	indexERC20s bool
-	layer       string
+	blockBatchSize uint64
 
 	allowUnclaimedBalanceReplay bool
 
@@ -68,22 +55,32 @@ type Indexer struct {
 	ctx context.Context
 
 	syncMode SyncMode
-
-	blockSaveMutex *sync.Mutex
-
-	contractToMetadata      map[common.Address]*eventindexer.ERC20Metadata
-	contractToMetadataMutex *sync.Mutex
 }
 
-func (i *Indexer) Start() error {
+func (i *Indexer) Start() (err error) {
+	if err = i.acquireWriterLock(i.ctx); err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			i.releaseWriterLock()
+		}
+	}()
+
 	if err := i.checkBalanceClaimBootstrap(i.ctx); err != nil {
 		return err
 	}
 
-	if err := i.setInitialIndexingBlockByMode(i.ctx, i.syncMode, i.getFirstShastaBlockHeight); err != nil {
+	if err := i.initializeNFTCheckpoint(i.ctx); err != nil {
+		return err
+	}
+
+	if err := i.setInitialIndexingBlockByMode(i.ctx, i.syncMode); err != nil {
 		return errors.Wrap(err, "i.setInitialIndexingBlockByMode")
 	}
 
+	i.fatalErrors = make(chan error, 1)
 	i.wg.Add(1)
 
 	go i.eventLoop(i.ctx)
@@ -93,6 +90,7 @@ func (i *Indexer) Start() error {
 
 func (i *Indexer) eventLoop(ctx context.Context) {
 	defer i.wg.Done()
+	defer i.releaseWriterLock()
 
 	t := time.NewTicker(10 * time.Second)
 
@@ -104,12 +102,36 @@ func (i *Indexer) eventLoop(ctx context.Context) {
 			slog.Info("event loop context done")
 			return
 		case <-t.C:
+			if err := i.checkWriterLock(ctx); err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+
+				slog.Error("stopping indexer after balance writer lock loss", "error", err)
+				i.fatalErrors <- err
+
+				return
+			}
+
 			if err := i.filter(ctx); err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+
 				slog.Error("error filtering", "error", err)
+
+				if stderrors.Is(err, errWriterLockLost) {
+					i.fatalErrors <- err
+					return
+				}
 			}
 		}
 	}
 }
+
+// FatalErrors lets the CLI exit when indexing can no longer continue safely.
+// Start initializes the buffered channel before launching the event loop.
+func (i *Indexer) FatalErrors() <-chan error { return i.fatalErrors }
 
 func (i *Indexer) Name() string {
 	return "indexer"
@@ -124,7 +146,6 @@ func (i *Indexer) InitFromCli(ctx context.Context, c *cliV2.Context) error {
 	return InitFromConfig(ctx, i, cfg)
 }
 
-// nolint: funlen
 func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	if err := cfg.validate(); err != nil {
 		return err
@@ -135,27 +156,12 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		return err
 	}
 
-	accountRepository, err := repo.NewAccountRepository(db)
-	if err != nil {
-		return err
-	}
-
-	eventRepository, err := repo.NewEventRepository(db)
+	nftCursorRepository, err := repo.NewNFTCursorRepository(db)
 	if err != nil {
 		return err
 	}
 
 	nftBalanceRepository, err := repo.NewNFTBalanceRepository(db)
-	if err != nil {
-		return err
-	}
-
-	erc20BalanceRepository, err := repo.NewERC20BalanceRepository(db)
-	if err != nil {
-		return err
-	}
-
-	txRepository, err := repo.NewTransactionRepository(db)
 	if err != nil {
 		return err
 	}
@@ -170,43 +176,14 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		return errors.Wrap(err, "i.ethClient.ChainID()")
 	}
 
-	var inboxContract *inbox.Inbox
-
-	if cfg.Layer == Layer1 {
-		slog.Info("setting shastaInboxAddress", "addr", cfg.ShastaInboxAddress.Hex())
-
-		inboxContract, err = inbox.NewInbox(cfg.ShastaInboxAddress, ethClient)
-		if err != nil {
-			return errors.Wrap(err, "inbox.NewInbox")
-		}
-	}
-
-	var bridgeContract *bridge.Bridge
-
-	if cfg.BridgeAddress.Hex() != ZeroAddress.Hex() {
-		slog.Info("setting bridgeAddress", "addr", cfg.BridgeAddress.Hex())
-
-		bridgeContract, err = bridge.NewBridge(cfg.BridgeAddress, ethClient)
-		if err != nil {
-			return errors.Wrap(err, "contracts.NewBridge")
-		}
-	}
-
 	i.db = db
-	i.blockSaveMutex = &sync.Mutex{}
-	i.accountRepo = accountRepository
-	i.eventRepo = eventRepository
+	i.nftCursorRepo = nftCursorRepository
 	i.nftBalanceRepo = nftBalanceRepository
-	i.erc20BalanceRepo = erc20BalanceRepository
-	i.txRepo = txRepository
 
 	i.srcChainID = chainID.Uint64()
 
 	i.ethClient = ethClient
-	i.inbox = inboxContract
-	i.bridge = bridgeContract
 	i.blockBatchSize = cfg.BlockBatchSize
-	i.subscriptionBackoff = time.Duration(cfg.SubscriptionBackoff) * time.Second
 
 	// Cancelled by SubcommandAction once a shutdown signal arrives, so the event
 	// loop stops and Close can return.
@@ -214,12 +191,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.wg = &sync.WaitGroup{}
 
 	i.syncMode = cfg.SyncMode
-	i.indexNfts = cfg.IndexNFTs
 	i.allowUnclaimedBalanceReplay = cfg.AllowUnclaimedBalanceReplay
-	i.indexERC20s = cfg.IndexERC20s
-	i.layer = cfg.Layer
-	i.contractToMetadata = make(map[common.Address]*eventindexer.ERC20Metadata, 0)
-	i.contractToMetadataMutex = &sync.Mutex{}
 
 	return nil
 }
@@ -233,53 +205,85 @@ func (i *Indexer) Close(ctx context.Context) {
 	}
 }
 
-// checkBalanceClaimBootstrap refuses to start when this process would replay
-// balance mutations that a previous process already applied.
-//
-// processed_transfer_logs makes replays idempotent, but only for logs claimed at
-// least once. Nothing records what a pre-claim process applied, so the indexer
-// cannot repair this by itself and the choice belongs to an operator: reset the
-// balances so they rebuild from claims, or accept a single overcount.
-func (i *Indexer) checkBalanceClaimBootstrap(ctx context.Context) error {
-	kinds := []struct {
-		kind    string
-		enabled bool
-	}{
-		{eventindexer.TransferKindNFT, i.indexNfts},
-		{eventindexer.TransferKindERC20, i.indexERC20s},
+// initializeNFTCheckpoint certifies genesis before the loop or any balance write.
+// Legacy business events are a fallback only when NFT state is retained.
+func (i *Indexer) initializeNFTCheckpoint(ctx context.Context) error {
+	switch i.syncMode {
+	case Sync, Resync:
+	default:
+		return eventindexer.ErrInvalidMode
 	}
 
-	for _, k := range kinds {
-		if !k.enabled {
-			continue
+	balances, claims, checkpoints, _, err := repo.NFTReplayState(ctx, i.db, i.srcChainID)
+	if err != nil {
+		return err
+	}
+
+	if balances == 0 && claims == 0 && checkpoints == 0 {
+		if err := i.nftCursorRepo.SaveCheckpoint(ctx, i.srcChainID, 0); err != nil {
+			return errors.Wrap(err, "initialize NFT genesis checkpoint")
 		}
-
-		atRisk, err := repo.UnclaimedBalanceReplayRisk(ctx, i.db, int64(i.srcChainID), k.kind)
-		if err != nil {
-			return errors.Wrap(err, "repo.UnclaimedBalanceReplayRisk")
-		}
-
-		if !atRisk {
-			continue
-		}
-
-		if i.allowUnclaimedBalanceReplay {
-			slog.Warn("starting with unclaimed balance replay allowed, this restart may double count once",
-				"kind", k.kind,
-				"chainID", i.srcChainID,
-			)
-
-			continue
-		}
-
-		return errors.Newf(
-			"%s balances for chain %d were written before transfer log claims existed, so this "+
-				"restart would replay and double count them once. Either reset those balances so "+
-				"they rebuild from claims, or set --allowUnclaimedBalanceReplay / "+
-				"ALLOW_UNCLAIMED_BALANCE_REPLAY=true to accept a single overcount",
-			k.kind, i.srcChainID,
-		)
 	}
 
 	return nil
+}
+
+// checkBalanceClaimBootstrap rejects retained state for resync and missing
+// watermarks for balances. The escape hatch applies only to legacy overlap.
+func (i *Indexer) checkBalanceClaimBootstrap(ctx context.Context) error {
+	balances, claims, checkpoints, legacy, err := repo.NFTReplayState(ctx, i.db, i.srcChainID)
+	if err != nil {
+		return err
+	}
+
+	if i.syncMode == Resync && (balances > 0 || claims > 0 || checkpoints > 0) {
+		if checkpoints > 0 {
+			return errors.Newf("NFT resync for chain %d requires a clean rebuild: "+
+				"to resume an existing checkpoint, continue with SYNC_MODE=sync; otherwise reconcile and remove chain-scoped "+
+				"NFT balances, NFT-kind claims and NFT checkpoint together, then start SYNC_MODE=resync", i.srcChainID)
+		}
+
+		return errors.Newf("NFT resync for chain %d has retained NFT state but no trustworthy NFT checkpoint; "+
+			"a clean rebuild requires operator reconciliation and removal of chain-scoped NFT balances, NFT-kind claims "+
+			"and NFT checkpoint together, then start SYNC_MODE=resync", i.srcChainID)
+	}
+
+	if i.syncMode == Sync && claims > 0 && balances == 0 {
+		return errors.Newf("missing NFT balances for chain %d with retained NFT claims; "+
+			"claimed logs cannot rebuild missing balances. After reconciliation, rebuild by removing chain-scoped "+
+			"NFT balances, NFT-kind claims and NFT checkpoint together, then start SYNC_MODE=resync; "+
+			"switch to SYNC_MODE=sync only after confirming the NFT checkpoint row", i.srcChainID)
+	}
+
+	if i.syncMode == Sync && balances > 0 && checkpoints == 0 && legacy == 0 {
+		return errors.Newf("NFT balances for chain %d have no NFT checkpoint or legacy watermark; "+
+			"refusing genesis replay regardless of claims or allowUnclaimedBalanceReplay", i.srcChainID)
+	}
+
+	if checkpoints > 0 {
+		return nil
+	}
+
+	atRisk, err := repo.UnclaimedNFTReplayRisk(ctx, i.db, int64(i.srcChainID))
+	if err != nil {
+		return errors.Wrap(err, "repo.UnclaimedNFTReplayRisk")
+	}
+
+	if !atRisk {
+		return nil
+	}
+
+	if i.allowUnclaimedBalanceReplay {
+		slog.Warn("starting with unclaimed NFT replay allowed, this restart may double count once", "chainID", i.srcChainID)
+		return nil
+	}
+
+	return errors.Newf(
+		"NFT balances for chain %d were written before transfer log claims existed, so this "+
+			"restart would replay and double count them once. After reconciliation, rebuild by removing chain-scoped NFT balances, "+
+			"NFT-kind claims and NFT checkpoint together, then start SYNC_MODE=resync and confirm the NFT checkpoint row "+
+			"before switching to SYNC_MODE=sync, or set --allowUnclaimedBalanceReplay / "+
+			"ALLOW_UNCLAIMED_BALANCE_REPLAY=true to accept a single overcount",
+		i.srcChainID,
+	)
 }

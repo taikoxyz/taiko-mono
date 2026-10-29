@@ -136,6 +136,17 @@ func (i *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
 
 // InitFromConfig inits a new Indexer from a provided Config struct
 func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
+	// errgroup.SetLimit(0) does not mean "unlimited": it makes every
+	// errgroup.Group.Go call block forever, so an indexer built with a zero
+	// limit would stop on the first event it has to handle.
+	if cfg.NumGoroutines == 0 {
+		return errors.New("maxNumGoroutines must be greater than zero")
+	}
+
+	if cfg.BlockBatchSize == 0 {
+		return errors.New("blockBatchSize must be greater than zero")
+	}
+
 	db, err := cfg.OpenDBFunc()
 	if err != nil {
 		return err
@@ -509,9 +520,8 @@ func (i *Indexer) checkReorg(ctx context.Context, emittedInBlockNumber uint64) e
 	return nil
 }
 
-// indexMessageProcessedEvents indexes `MessageProcessed` events on the bridge contract
-// and stores them to the database, and adds the message to the queue if it has not been
-// seen before.
+// indexMessageProcessedEvents fetches `MessageProcessed` events from the bridge
+// and handles them for database indexing. It does not publish messages to the queue.
 func (i *Indexer) indexMessageProcessedEvents(ctx context.Context,
 	filterOpts *bind.FilterOpts,
 ) error {
