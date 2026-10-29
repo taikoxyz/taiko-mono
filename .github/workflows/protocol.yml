@@ -267,7 +267,7 @@ jobs:
             read -r old_mode new_mode _ _ status <<< "${meta#:}"
             for mode in "$old_mode" "$new_mode"; do
               case "$mode" in
-                000000 | 100644 | 100755) ;;
+                000000 | 100644) ;;
                 *) refuse "non-regular file (mode $mode): $path" ;;
               esac
             done
