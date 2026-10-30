@@ -1,11 +1,9 @@
 # Derivation verification
 
 This package proves safety properties of an executable Lean model of Taiko block derivation.
-It is stacked on [#22189](https://github.com/taikoxyz/taiko-mono/pull/22189) and pins
-both specification files at revision `cf338b1d76eed3736645f4163293f343cc10ad23` in
+It pins both specification files at revision `d4d18d398936f3fb3fce43f34f0a3b3ebc917d00` in
 [`spec-coverage.json`](spec-coverage.json). Its five-library organization and review gates follow
 the delivery style of [#22292](https://github.com/taikoxyz/taiko-mono/pull/22292).
-Merge #22189 first, then retarget this PR from `docs/derivation-unzen-etna` to `main`.
 The theorems concern this model; they do not establish equivalence of production clients.
 
 ## Claims to review
@@ -68,8 +66,8 @@ Review these sections alongside the statements:
   and [forced inclusion submission requirements](../../packages/protocol/docs/Derivation.md#forced-inclusion-submission-requirements).
 - [Fork-dependent header fields](../../packages/protocol/docs/Derivation.md#fork-dependent-header-fields)
   and [Etna blocks](../../packages/protocol/docs/Derivation.md#etna-blocks-without-an-anchor-transaction).
-- [Etna header design](../../packages/protocol/docs/etna-anchorless/DESIGN.md#2-header)
-  and [fork/migration](../../packages/protocol/docs/etna-anchorless/DESIGN.md#8-fork-and-migration).
+- [Etna header design](../../packages/protocol/docs/etna/ANCHORLESS.md#2-header)
+  and [fork/migration](../../packages/protocol/docs/etna/ANCHORLESS.md#8-fork-and-migration).
 
 Outside scope: blob field-element decoding and availability; authenticating L1 events, chain
 configuration and parent inputs; signed system-anchor encoding; sender authentication and

@@ -10,7 +10,7 @@ on:
       - "formal/derivation/**"
       - "testdata/derivation_vectors/**"
       - "packages/protocol/docs/Derivation.md"
-      - "packages/protocol/docs/etna-anchorless/DESIGN.md"
+      - "packages/protocol/docs/etna/ANCHORLESS.md"
       - ".github/workflows/formal-spec--test.yml"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -18,7 +18,7 @@ on:
       - "formal/derivation/**"
       - "testdata/derivation_vectors/**"
       - "packages/protocol/docs/Derivation.md"
-      - "packages/protocol/docs/etna-anchorless/DESIGN.md"
+      - "packages/protocol/docs/etna/ANCHORLESS.md"
       - ".github/workflows/formal-spec--test.yml"
 
 concurrency:

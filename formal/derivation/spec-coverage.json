@@ -2,12 +2,12 @@
   "sources": [
     {
       "path": "packages/protocol/docs/Derivation.md",
-      "revision": "cf338b1d76eed3736645f4163293f343cc10ad23",
-      "sha256": "7bba79852b87c8073886b4c577331c379e2e491ff091c509f7108749c8f9a4fa"
+      "revision": "d4d18d398936f3fb3fce43f34f0a3b3ebc917d00",
+      "sha256": "947fee64bc62c65ecdd2a8b5c324d8d0b7ec1b223f1957b631d62627828c5197"
     },
     {
-      "path": "packages/protocol/docs/etna-anchorless/DESIGN.md",
-      "revision": "cf338b1d76eed3736645f4163293f343cc10ad23",
+      "path": "packages/protocol/docs/etna/ANCHORLESS.md",
+      "revision": "d4d18d398936f3fb3fce43f34f0a3b3ebc917d00",
       "sha256": "1436ad3ae0c3f9085fde7dc89b1ec47de8da7f38282a7ebb3b5c1dc3f9fd6ac2"
     }
   ],
@@ -39,11 +39,11 @@
           "heading": "Etna: Blocks Without an Anchor Transaction"
         },
         {
-          "path": "packages/protocol/docs/etna-anchorless/DESIGN.md",
+          "path": "packages/protocol/docs/etna/ANCHORLESS.md",
           "heading": "2. Header"
         },
         {
-          "path": "packages/protocol/docs/etna-anchorless/DESIGN.md",
+          "path": "packages/protocol/docs/etna/ANCHORLESS.md",
           "heading": "8. Fork and migration"
         }
       ]
@@ -79,11 +79,11 @@
           "heading": "Metadata Application"
         },
         {
-          "path": "packages/protocol/docs/etna-anchorless/DESIGN.md",
+          "path": "packages/protocol/docs/etna/ANCHORLESS.md",
           "heading": "2. Header"
         },
         {
-          "path": "packages/protocol/docs/etna-anchorless/DESIGN.md",
+          "path": "packages/protocol/docs/etna/ANCHORLESS.md",
           "heading": "8. Fork and migration"
         }
       ]

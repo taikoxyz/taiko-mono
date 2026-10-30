@@ -16,8 +16,8 @@ LIBRARIES = {
     'DerivationWitnesses': {'DerivationWitnesses', 'DerivationProofs', 'DerivationStatements', 'DerivationModel'},
     'DerivationVectors': {'DerivationVectors', 'DerivationModel'},
 }
-REVISION = 'cf338b1d76eed3736645f4163293f343cc10ad23'
-SPEC_PATHS = ['packages/protocol/docs/Derivation.md', 'packages/protocol/docs/etna-anchorless/DESIGN.md']
+REVISION = 'd4d18d398936f3fb3fce43f34f0a3b3ebc917d00'
+SPEC_PATHS = ['packages/protocol/docs/Derivation.md', 'packages/protocol/docs/etna/ANCHORLESS.md']
 CLAIMS = {'DerivationSafety': 'derivation_safety', 'HeaderSafety': 'header_safety',
           'ForcedInclusionSafety': 'forced_inclusion_safety', 'Claims': 'claims'}
 GUARDS = {'DerivationWitnesses.Tests.' + name for name in ['Derive', 'Etna', 'Manifest', 'Rlp', 'Zlib']}
