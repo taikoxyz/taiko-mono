@@ -7,13 +7,6 @@ DAO upgrade after verifier failure; this is that promise for every step other th
 rollback. -/
 namespace Etna.Design.ProtocolState
 
-/-- Ordinary traces compose. -/
-theorem OrdinaryTrace.trans {a b c : World} (first : OrdinaryTrace a b) (second : OrdinaryTrace b c) :
-    OrdinaryTrace a c := by
-  induction second with
-  | refl => exact first
-  | step _ change ordinary ih => exact .step ih change ordinary
-
 /-- A step other than verifier-failure rollback keeps every record at or below its starting
 lastCheckpoint: a landing writes only above it, and no other transaction touches the records. -/
 theorem ordinary_step_preserves_settled_records {w t : World} (change : Step w t)
