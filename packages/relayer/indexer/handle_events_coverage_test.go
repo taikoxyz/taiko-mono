@@ -61,7 +61,7 @@ func TestHandleCheckpointSavedEventSavesTheCheckpoint(t *testing.T) {
 	event := checkpointSavedEvent()
 
 	assert.Equal(t, event.BlockNumber.Uint64(), saved.BlockID,
-		"the synced block is what wait_header_synced gates every claim on")
+		"the synced block is what waitProofTarget gates every claim on before the Etna fork")
 	assert.Equal(t, event.Raw.BlockNumber, saved.EmittedBlockID)
 	assert.Equal(t, event.Raw.BlockNumber, saved.SyncedInBlockID)
 	assert.Equal(t, common.Hash(event.StateRoot).Hex(), saved.SyncData)

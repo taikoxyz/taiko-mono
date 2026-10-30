@@ -12,6 +12,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+// ErrStateRootMismatch means the source block at the proof's block number no longer has the state
+// root the caller expected, as after a source-chain reorg. A later attempt can succeed.
+var ErrStateRootMismatch = errors.New("source block state root does not match the expected root")
+
 type SignalProofParams struct {
 	ChainID              *big.Int
 	SignalServiceAddress common.Address
@@ -19,6 +23,11 @@ type SignalProofParams struct {
 	Blocker              blocker
 	Caller               relayer.Caller
 	BlockNumber          uint64
+	// BlockID, when non-zero, is the proof's blockId instead of BlockNumber. After the Etna fork,
+	// L2 verifies L1 signals by the timestamp of the L2 block that recorded the L1 state root.
+	BlockID uint64
+	// StateRoot, when non-zero, is the state root the block at BlockNumber must have.
+	StateRoot common.Hash
 }
 
 func (p *Prover) EncodedSignalProof(ctx context.Context,
@@ -30,6 +39,16 @@ func (p *Prover) EncodedSignalProof(ctx context.Context,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "p.blockHeader")
+	}
+
+	if params.StateRoot != (common.Hash{}) && block.Root() != params.StateRoot {
+		return nil, errors.Wrapf(ErrStateRootMismatch, "block %d has root %s, want %s",
+			params.BlockNumber, block.Root().Hex(), params.StateRoot.Hex())
+	}
+
+	blockID := block.NumberU64()
+	if params.BlockID != 0 {
+		blockID = params.BlockID
 	}
 
 	ethProof, err := p.getProof(
@@ -44,7 +63,7 @@ func (p *Prover) EncodedSignalProof(ctx context.Context,
 	}
 
 	encodedSignalProof, err := encoding.EncodeHopProofs([]encoding.HopProof{{
-		BlockID:      block.NumberU64(),
+		BlockID:      blockID,
 		ChainID:      params.ChainID.Uint64(),
 		RootHash:     block.Root(),
 		CacheOption:  0,
