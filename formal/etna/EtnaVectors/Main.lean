@@ -4,11 +4,13 @@ import EtnaVectors.Land
 import EtnaVectors.Recover
 import EtnaVectors.ForcedStep
 import EtnaVectors.Schedule
+import EtnaVectors.Random
 
 /-! `lake exe etna-vectors --write <dir> [--provenance <formal commit>] [--families <f>,…]` writes
 one JSON file per family: four Inbox families for the contracts and four client-rule families for
 the Rust client, or only the named families. The output depends only on the model and this
-generator, so two runs are byte-identical. -/
+generator, so two runs are byte-identical. `--random <seed> [--count <n>]` instead writes only the
+opt-in random files of `EtnaVectors.Random` (default count 100). -/
 namespace Etna.Vectors
 
 def families (provenance : Option String) : List (String × Except String String) := [
@@ -22,19 +24,29 @@ def families (provenance : Option String) : List (String × Except String String
   ("block_size.json", blockSizeFile provenance)]
 
 def usage : String :=
-  "usage: etna-vectors --write <dir> [--provenance <formal commit>] [--families <family>,...]"
+  "usage: etna-vectors --write <dir> [--provenance <formal commit>] [--families <family>,...] " ++
+  "| --write <dir> --random <seed> [--count <n>]"
 
 structure Options where
   dir : Option String := none
   provenance : Option String := none
   /-- none: every family. -/
   only : Option (List String) := none
+  /-- some seed: write only the random files. -/
+  random : Option Nat := none
+  count : Nat := 100
 
 def parseOptions : Options → List String → Option Options
   | o, [] => some o
   | o, "--write" :: d :: rest => parseOptions { o with dir := some d } rest
   | o, "--provenance" :: s :: rest => parseOptions { o with provenance := some s } rest
   | o, "--families" :: fs :: rest => parseOptions { o with only := some (fs.splitOn ",") } rest
+  | o, "--random" :: s :: rest => match s.toNat? with
+    | some n => parseOptions { o with random := some n } rest
+    | none => none
+  | o, "--count" :: s :: rest => match s.toNat? with
+    | some n => parseOptions { o with count := n } rest
+    | none => none
   | _, _ => none
 
 /-- `forced_step.json` names the family `forced_step`. -/
@@ -47,7 +59,12 @@ def run (args : List String) : IO UInt32 := do
   let some dir := o.dir
     | IO.eprintln usage
       return 2
-  let all := families o.provenance
+  if o.random.isSome && o.only.isSome then
+    IO.eprintln "etna-vectors: --families does not apply to --random"
+    return 2
+  let all := match o.random with
+    | some seed => randomFiles seed o.count
+    | none => families o.provenance
   let names := all.map fun (file, _) => familyName file
   let chosen := match o.only with
     | none => all
