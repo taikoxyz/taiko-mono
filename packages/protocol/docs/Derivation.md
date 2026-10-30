@@ -307,17 +307,17 @@ The validated metadata serves three critical functions in block construction:
 
 Metadata encoding into L2 block header fields facilitates efficient peer validation:
 
-| Metadata Component   | Type    | Header Field                           |
-| -------------------- | ------- | -------------------------------------- |
-| `number`             | uint256 | `number`                               |
-| `timestamp`          | uint256 | `timestamp`                            |
-| `difficulty`         | uint256 | `mixHash`                              |
-| `gasLimit`           | uint256 | `gasLimit`                             |
-| `basefeeSharingPctg` | uint8   | First byte in `extraData`              |
-| `proposalId`         | uint48  | Bytes 1..6 in `extraData`              |
-| `anchorBlockNumber`  | uint48  | Bytes 7..12 in `extraData` (Etna only) |
+| Metadata Component   | Type    | Header Field                            |
+| -------------------- | ------- | --------------------------------------- |
+| `number`             | uint256 | `number`                                |
+| `timestamp`          | uint256 | `timestamp`                             |
+| `difficulty`         | uint256 | `mixHash`                               |
+| `gasLimit`           | uint256 | `gasLimit`                              |
+| `basefeeSharingPctg` | uint8   | First byte in `extraData`               |
+| `proposalId`         | uint48  | Bytes 1..6 in `extraData` (before Etna) |
+| `anchorBlockNumber`  | uint48  | Bytes 7..12 in `extraData` (Etna only)  |
 
-For non-genesis blocks, Shasta/Unzen use 7-byte `extraData`; Etna uses exactly 13 bytes: `[basefeeSharingPctg(1) | proposalId(6) | anchorBlockNumber(6)]`. Offsets are zero-based and inclusive. Both `uint48` values are big-endian and must fit without truncation. Encode the final derived `anchorBlockNumber` after validation and inheritance.
+For non-genesis blocks, Shasta/Unzen use 7-byte `extraData`; Etna uses exactly 13 bytes as specified in [the Etna PoS + ZK spec, 3.2](./etna/SPEC.md#32-block-header): `[basefeeSharingPctg(1) | generation(6) | anchorBlockNumber(6)]`, with `basefeeSharingPctg` always 100. Offsets are zero-based and inclusive. Both `uint48` values are big-endian and must fit without truncation. Encode the final derived `anchorBlockNumber` after validation and inheritance.
 
 #### Additional Pre-Execution Block Header Fields
 

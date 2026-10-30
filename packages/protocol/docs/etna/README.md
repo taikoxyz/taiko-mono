@@ -53,7 +53,7 @@ The derivation rules for anchorless blocks are in
 | [9. Sync and weak subjectivity](SPEC.md#9-sync-and-weak-subjectivity)                      | L1 checkpoint trust, guarded signing and consensus-history availability          |
 | [10. Startup and deployment](SPEC.md#10-startup-and-deployment)                            | Genesis, deployment constraints and upgrade boundaries                           |
 | [11. Parameters](SPEC.md#11-parameters)                                                    | Parameter sources, constraints and reference values                              |
-| [12. Known limitations and open items](SPEC.md#12-known-limitations-and-open-items)        | All 18 limitations and open items                                                |
+| [12. Known limitations and open items](SPEC.md#12-known-limitations-and-open-items)        | All 20 limitations and open items                                                |
 | [Appendix A: Encodings](SPEC.md#appendix-a-encodings)                                      | Domains, encodings, ABI and reference examples                                   |
 | [Appendix B: L1 storage layout](SPEC.md#appendix-b-l1-storage-layout)                      | Inbox and registry slots, packing and namespaces                                 |
 | [Appendix C: Operating funding](SPEC.md#appendix-c-operating-funding-and-cost-assumptions) | DAO operating funding and worst-case cost assumptions                            |

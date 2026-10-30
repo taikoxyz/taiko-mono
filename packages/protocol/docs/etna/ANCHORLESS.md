@@ -26,9 +26,11 @@ Security does not come from the key, which is public. It comes from three rules:
 | Field                   | Before Etna                                        | From Etna on                                                                                                     |
 | ----------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `parentBeaconBlockRoot` | `0x0` (from Unzen on)                              | execution state root of the L1 block at the final derived `anchorBlockNumber`; never zero for non-genesis blocks |
-| `extraData`             | 7 bytes `[basefeeSharingPctg(1) \| proposalId(6)]` | 13 bytes `[basefeeSharingPctg(1) \| proposalId(6) \| anchorBlockNumber(6)]`, both numbers big-endian `uint48`    |
+| `extraData`             | 7 bytes `[basefeeSharingPctg(1) \| proposalId(6)]` | 13 bytes `[basefeeSharingPctg(1) \| generation(6) \| anchorBlockNumber(6)]`, both numbers big-endian `uint48`    |
 
 Every other header field is unchanged.
+
+Etna blocks are produced under the PoS + ZK design, which has no proposals, so bytes 0..6 of `extraData` follow [SPEC.md 3.2](SPEC.md#32-block-header): byte 0 is always 100 and bytes 1..6 hold the recovery generation. This design adds the anchor commitment: `parentBeaconBlockRoot` and bytes 7..12.
 
 - **Execution engine rule**: from the fork on, a non-genesis block must have a non-zero `parentBeaconBlockRoot` and exactly 13 bytes of `extraData`.
 - **Derivation and prover rule**: the root must be the state root of the L1 block at the derived `anchorBlockNumber`, and bytes 7..12 of `extraData` must encode that number. Provers authenticate the anchor block's header through the parent-hash chain of the L1 headers they are given; before Etna they apply the same check to the anchor calldata.
