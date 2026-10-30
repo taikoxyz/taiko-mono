@@ -13,10 +13,12 @@ client's lander pins that directory's exact file list and hashes
   rule and the model's decision on it. The Rust client (`packages/taiko-client-rs`) must decide the
   same; see [Client-rule families](#client-rule-families-etna-client-conformance-1).
 
-The current authority is `SPEC.md` and `ACCEPTANCE.md` at commit
-`39ebefbf33a2702b750e0fb0db7d2a40ff8e8480`, independently byte-pinned in
-`formal/etna/spec-coverage.json`. Schema 2 vectors require downstream harness adoption;
-regenerating these model outputs does not establish current contract or client conformance.
+The current authority is `SPEC.md` at commit `b7ca989c8e343073daa628771102bdee7fe7101b` and
+`ACCEPTANCE.md` at `39ebefbf33a2702b750e0fb0db7d2a40ff8e8480`, independently byte-pinned in
+`formal/etna/spec-coverage.json`; a `spec L…` reference is a line of `SPEC.md` with the rule
+markers removed (see `formal/etna/README.md`). Regenerating these files establishes nothing
+about an implementation; the harnesses below run a stamped copy, and their results are in
+`formal/etna/README.md`.
 
 The files record only what the model decides. Neither implementation reads this directory: each
 keeps its own copy next to its harness, stamped with `"provenance": {"formalCommit": "<sha>"}`,
@@ -325,20 +327,21 @@ power}` in key order; compared only when valid) and `switchTarget` (the epoch t 
 
 ### Not covered and historical divergences
 
-Not covered by the client families: the lander's landing grid and cut leaves, hash-dependent
-rules (parent hash, `chain_id`, witnesses, MPT binding), recovery generations (the schedule
-family is generation 0 only) and the application's request handlers (`validate_block`,
-ProcessProposal, FinalizeBlock), which need a committed app state and an execution engine; the
-harness composes the public rules in `validate_block`'s order instead.
+Not covered by the client families: the lander's landing grid and cut leaves, recovery
+generations (the schedule family is generation 0 only), and the checks ProcessProposal and
+FinalizeBlock add to `validate_block` (such as refusing a moved anchor whose checkpoint is above
+the parent's). The harness builds each vector as a whole envelope on a committed chain, with
+real L1 headers and EIP-1186 proofs, and judges it with `validate_block`, so hash-dependent
+rules (parent hash, `chain_id`, witnesses, MPT binding) hold by construction but no vector
+varies them.
 
 The table below preserves the **historical schema-1** divergence record from formal head
 `c9708e76159bb8da701f8bc20c07ff2e46537642`, against the old exported source revision
 2026-10-28. Its Inbox inventory was 334 cases (114 forced, 98 land, 48 recover, 74 registry)
 and its client inventory was 340 cases (151 forced_step, 83 schedule, 92 block_rules, 14
 block_size). Source line numbers in this historical table belong to old `sources/spec.md`.
-These recorded implementation behaviours are not new results for schema 2 or the current
-specification. No production harness was run by this regeneration; consumers must adopt the
-new fields/operations, refresh a pushed-commit copy and rerun their complete acceptance.
+These recorded implementation behaviours are not results for schema 2 or the current
+specification; the current results are in `formal/etna/README.md`.
 
 Historical divergences, as listed in the earlier harnesses:
 

@@ -425,10 +425,9 @@ they prove neither acquisition cost, irreversible loss nor timely governance res
 
 ## Conformance
 
-The current generator emits schema 2 for the Inbox/registry families, including new top-up,
-forfeiture and nonce cases; the client-family schema remains unchanged. Current vectors
-require downstream harness adoption and have not been run against production implementations
-in this update. The recorded implementation comparisons below are historical.
+The generator emits schema 2 for the Inbox/registry families (including top-up, forfeiture and
+nonce cases) and schema `etna-client-conformance-1` for the client-rule families. Both
+implementation PRs run these vectors, from a copy stamped with formal commit `4ec05bbe2`.
 
 `lake exe etna-vectors --write <dir> --random <seed> [--count <n>]` writes opt-in random
 vectors (`random-land.json`, `random-forced.json`) for differential testing: random call
@@ -446,51 +445,53 @@ to run them. Each implementation keeps its own copy, stamped with the formal com
 generated at, and its own list of known divergences next to its harness, so an implementation
 change never needs a generator change.
 
-**Historical contract conformance (revision `c9708e761`).** 334 rule-level vectors (285 generated from the model's transitions, 49
-hand-written from spec lines) in four families: forced 114, registry 74, land 98, recover 48. A
-Foundry harness in the Etna contracts PR (#22286),
-`packages/protocol/test/layer1/etna/conformance/EtnaConformance.t.sol`, runs them against
-`EtnaInbox`, `EtnaStakingRegistry` and `LibEtnaForcedInclusion`. All agree except six known
-divergences listed in that harness, none a contract bug. The first two are reachable; the other
-four need an L1 block at 2^48 − 1 or a timestamp at 2^48:
+**Contract conformance (#22286 at `050a917c1`).** 414 vectors in four families: forced 114,
+land 98, recover 70, registry 132. The Foundry harness
+`packages/protocol/test/layer1/etna/conformance/EtnaConformance.t.sol` deploys `EtnaInbox` and
+`EtnaStakingRegistry` per vector, replays the setup, and compares the call's revert decision,
+results and resulting state (the Inbox, the SignalService checkpoints and the whole registry,
+down to every checkpoint's entries root). Verifier-failure rollback is not a contract call, so
+the harness writes the model's rollback into the appendix-B slots as a fixture. 404 vectors
+agree; ten are known divergences listed in the harness, each with its recorded contract
+behaviour:
 
-1. Free-slot reuse order (spec L146): the model reuses the oldest freed slot, the contract the
-   most recent. The spec does not say; it should pick one (suggested: most recent), and the
-   model then follows. The set key is fixed per key (spec L180), so the choice decides only
-   which bond id a registration gets, not elections.
-2. Withdrawal to address 0 (spec L152): any owner can call `withdraw(id, address(0))`; the
-   contract refuses (stricter), while the model, which has no recipient, accepts. The spec
-   could say "to ≠ 0".
-3. Withdrawal at L1 block 2^48 − 1: the contract is stricter than the spec. Unreachable.
-4. Slash at L1 block 2^48 − 1 (spec L161): the spec's formula gives the no-exit value; the model
-   follows it, the contract refuses (safer). Unreachable.
-5. Recovery exclusion at L1 block 2^48 − 1 (spec L490): the same kind. Unreachable.
-6. Recovery origin timestamp 2^48 (spec L781): the spec asks for "range checks" without naming
-   the range; the contract uses 2^48, the model only the 2^256 word bound. The spec should name
-   2^48. Unreachable.
+1. Free-slot reuse order: the model reuses the oldest freed slot, the contract the most recent.
+   The spec does not say.
+2. Withdrawal to address 0: the contract refuses, the model (which has no recipient) accepts.
+   The spec does not restrict `to`.
+3. Withdrawal, slash, recovery exclusion and a top-up ready at L1 block 2^48 − 1 (four vectors):
+   the contract keeps every stored block below its no-exit sentinel and reverts. Unreachable.
+4. Recovery origin timestamp 2^48 (spec L781): "range checks" names no range; the contract uses
+   2^48, the model only the 2^256 word bound. Unreachable.
+5. Slashing an entry whose effective stake a forfeiture already zeroed: the entry is unchanged,
+   the model writes no checkpoint, and `slashDoubleSign` writes one repeating the previous count
+   and root (`forfeit` skips it). The spec does not say.
+6. Recovery and nonce invalidation before `init` (two vectors): a model artifact. The model's
+   uninitialized Inbox already holds the genesis checkpoint hash, while the contract's slot 271
+   is zero until `init`; both reject the call.
 
-Out of reach of these vectors: the verifier-failure rollback (a DAO upgrade, not a call), the
-guest and node rules for FI due and skip and for U back-pressure, reentrancy, Inbox calls before
-initialization and the initialization inputs (the registry's calls against an uninitialized
-Inbox are covered), reference blocks 257 to 8,191 blocks old whose hash the EIP-2935 history
-contract still serves (an unavailable hash at age 257 and age 8,192 are covered), the 4,096-slot
-registry capacity and encodings.
+Out of reach of these vectors: the guest and node rules for FI due and skip and for U
+back-pressure, reentrancy, the initialization inputs, reference blocks 257 to 8,191 blocks old
+whose hash the EIP-2935 history contract still serves (ages 257 and 8,192 are covered) and the
+encodings.
 
-**Historical Rust client conformance (revision `c9708e761`).** 340 vectors on pure node rules: forced_step 151, schedule 83, block_rules 92 and
-block_size 14. A Rust harness in the Etna client PR (#22280),
-`packages/taiko-client-rs/crates/abci/tests/etna_conformance.rs`, runs them in `just unit`
-against the client's public rules: `forced::check` with `verify_forced` and a scripted engine,
-`Schedule` with `committee::derive`, the header and anchor rules of `rules`, and
-`check_execution_size`. All four families run. All vectors agree except one known divergence,
-listed in that harness: the model's `HeaderValid` rejects L2 height 2^48, while section 3.4
-states no height bound (only the Inbox's `land` bounds heights, spec L287) and the client accepts
-it. It is a spec ambiguity at a height no chain reaches; the spec could state the bound in 3.4.
+**Rust client conformance (#22280 at `bce302828`).** 340 vectors on node rules: forced_step 151,
+schedule 83, block_rules 92 and block_size 14. The harness
+`packages/taiko-client-rs/crates/abci/tests/etna_conformance.rs` (part of `just unit`) builds
+each block vector as a whole envelope on a committed chain, with real L1 anchor headers,
+EIP-1186 Inbox and registry proofs and a committee holding the proposer, and judges it with
+`validate_block`, the validation ProcessProposal, FinalizeBlock and the lander share;
+`forced_step` adds `verify_forced` with an engine that builds the singleton, and `schedule`
+verifies real registry checkpoint witnesses with `verify_snapshot` and derives the committee
+with `committee::derive`. 339 vectors agree; one is a known divergence: the model's
+`HeaderValid` rejects L2 height 2^48, while section 3.4 states no height bound (only `land`
+bounds heights, spec L287) and the client accepts it. It is a spec ambiguity at a height no
+chain reaches.
 
 Out of reach of the client vectors: the lander's landing grid and cut leaves, recovery
-generations (the schedule family is generation 0 only), hash-dependent rules (parent hash,
-`chain_id`, witnesses, MPT binding) and the request handlers (`validate_block`, ProcessProposal,
-FinalizeBlock), which need a committed app state and an execution engine; the harness composes
-the public rules in `validate_block`'s order instead.
+generations (the schedule family is generation 0 only), the checks ProcessProposal and
+FinalizeBlock add to `validate_block`, and variations of the hash-dependent rules, which the
+harness satisfies by construction.
 
 ## Review surface
 
@@ -654,8 +655,8 @@ namespace (for example `EtnaModel/Deployment.lean` and `EtnaProofs/Deployment.le
 - 568 binding rule IDs: 141 partial, 7 partial through a reviewed override, 416 deferred, 4
   design-pending; 21 limitations and 11 assumptions, none partial.
 - 197 Python mutation/regression tests, plus kernel-replayed Lean regression modules.
-- Current vectors: 414 Inbox/registry and 340 client rule vectors. Historical production
-  comparisons: 334 contracts (6 divergences) and 340 client (1 divergence).
+- Current vectors: 414 Inbox/registry and 340 client rule vectors, run by the contracts
+  (404 agree, 10 known divergences) and the Rust client (339 agree, 1 known divergence).
 
 The clause counts and the claims are traceability: "partial" means some induction-derived
 theorem (or a closed constant) speaks to the clause, not that the clause is proved.
