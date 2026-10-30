@@ -12,25 +12,24 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   build-supplementary-contracts:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     runs-on: ubuntu-latest
+    permissions:
+      # Required by stefanzweifel/git-auto-commit-action, which pushes with the checkout credentials.
+      contents: write
     steps:
-      - name: Cancel previous runs
-        # Fork PRs get a read-only token, so cancelling needs actions: write they do not have.
-        if: github.event.pull_request.head.repo.fork != true
-        uses: styfle/cancel-workflow-action@0.13.1
-        with:
-          access_token: ${{ github.token }}
-
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
+        uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1.9.2
         with:
           version: nightly-2cb875799419c907cc3709e586ece2559e6b340e
 
@@ -46,6 +45,6 @@ jobs:
         run: pnpm layout &&  pnpm lint:sol
 
       - name: Commit contract layout table
-        uses: stefanzweifel/git-auto-commit-action@v7
+        uses: stefanzweifel/git-auto-commit-action@d0b01107b5db882071f96de5dd4b54961ea93f4c # v7.2.1
         with:
           commit_message: "forge fmt & update contract layout table"

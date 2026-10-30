@@ -24,40 +24,37 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   build-protocol:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
     runs-on: ubuntu-latest
+    # SECURITY: this job runs PR code and dependency install scripts, so it holds no secrets and a
+    # read-only token. Generated artifacts are handed to commit-generated-artifacts as a patch.
     permissions:
-      # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
-      contents: write
+      contents: read
+    outputs:
+      changes: ${{ steps.export.outputs.changes }}
+      build_sha: ${{ steps.export.outputs.build_sha }}
     steps:
-      - name: Cancel previous runs
-        # Fork PRs get a read-only token, so cancelling needs actions: write they do not have.
-        if: github.event.pull_request.head.repo.fork != true
-        uses: styfle/cancel-workflow-action@0.13.1
-        with:
-          access_token: ${{ github.token }}
-
-      - name: Fetch owner/repo of pull request
-        uses: alessbell/pull-request-comment-branch@v2.1.0
-        id: comment-branch
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # account for forked repos case
-          ref: ${{ steps.comment-branch.outputs.head_ref }}
-          repository: ${{ steps.comment-branch.outputs.head_owner }}/${{ steps.comment-branch.outputs.head_repo }}
+          ref: ${{ github.head_ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
           # Fetch more history for better git operations
           fetch-depth: 0
-          token: ${{ github.event.pull_request.head.repo.fork == false && secrets.TAIKO_KITTY_TOKEN || github.token }}
+          persist-credentials: false
 
       - name: Read Foundry version
         id: foundry-version
         run: echo "version=$(grep foundry packages/protocol/.tool-versions | awk '{print $2}')" >> $GITHUB_OUTPUT
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1.5.0
+        uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1.9.2
         with:
           version: ${{ steps.foundry-version.outputs.version }}
 
@@ -68,7 +65,7 @@ jobs:
         working-directory: ./packages/protocol
         run: |
           # Ensure directories exist and are writable in CI
-          mkdir -p gas-reports layout snapshots
+          mkdir -p gas-reports snapshots
           # Reset skip-worktree flags that might exist from local dev
           git ls-files gas-reports/ | xargs -r git update-index --no-skip-worktree || true
           git ls-files snapshots/ | xargs -r git update-index --no-skip-worktree || true
@@ -110,23 +107,35 @@ jobs:
       #   env:
       #     CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-      - name: Check for changes
-        id: git_status
+      - name: Export generated protocol artifacts
+        id: export
+        if: github.event.pull_request.head.repo.fork == false
         run: |
-          git add -N .  # Simulate staging to detect untracked files
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "changes=true" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          echo "build_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git add -A packages/protocol
+          # Only generated outputs travel in the patch. Formatting changes are left out on purpose:
+          # commit-generated-artifacts reruns forge fmt itself instead of trusting this job's output.
+          git diff --cached --binary --no-renames -- \
+            ':(glob)packages/protocol/gas-reports/*' ':(glob)packages/protocol/snapshots/*' \
+            packages/protocol/.gas-snapshot ':(glob)packages/protocol/**/*_Layout.sol' \
+            > "$RUNNER_TEMP/generated.patch"
+          # Wake the commit job only for what it can push: generated outputs or .sol files that
+          # its own forge fmt run may reformat.
+          if [ -s "$RUNNER_TEMP/generated.patch" ] \
+            || ! git diff --cached --quiet -- ':(glob)packages/protocol/**/*.sol'; then
+            echo "changes=true" >> "$GITHUB_OUTPUT"
           else
-            echo "changes=false" >> $GITHUB_OUTPUT
+            echo "changes=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Commit generated protocol artifacts
-        if: steps.git_status.outputs.changes == 'true' && github.event.pull_request.head.repo.fork == false
-        uses: stefanzweifel/git-auto-commit-action@v7
+      - name: Upload generated protocol artifacts
+        if: steps.export.outputs.changes == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          commit_message: "Update protocol generated artifacts"
-          branch: ${{ github.head_ref }}
-          push_options: "--force-with-lease"
+          name: protocol-generated-patch
+          path: ${{ runner.temp }}/generated.patch
+          retention-days: 1
 
       - name: L1-Deploy contracts
         working-directory: ./packages/protocol
@@ -138,31 +147,181 @@ jobs:
           done
           pnpm test:deploy:l1
 
+  commit-generated-artifacts:
+    needs: build-protocol
+    if: needs.build-protocol.outputs.changes == 'true' && github.event.pull_request.head.repo.fork == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # SECURITY: the only job that sees TAIKO_KITTY_TOKEN. It never runs PR code or dependency
+    # scripts: it applies the patch from build-protocol (generated outputs only, comment-only layout
+    # files) onto a fresh checkout, reruns forge fmt itself, and pushes the result.
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.head_ref }}
+          persist-credentials: false
+
+      # The PR's own pin, as in build-protocol, so a Foundry bump PR gets its own reformatting.
+      # A compromised dependency in build-protocol has a read-only token and cannot change this
+      # fresh checkout, and a same-repo author already controls this workflow file.
+      - name: Read Foundry version
+        id: foundry-version
+        run: echo "version=$(grep foundry packages/protocol/.tool-versions | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1.9.2
+        with:
+          version: ${{ steps.foundry-version.outputs.version }}
+          # SECURITY: no cache. Jobs in this PR share a cache scope, so build-protocol could plant
+          # an entry, and restoring it can write anywhere, including .git/hooks and git config.
+          cache: false
+
+      - name: Download generated protocol artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: protocol-generated-patch
+          path: ${{ runner.temp }}/patch
+
+      # No token in this step: forge fmt parses PR-authored Solidity here.
+      - name: Commit generated protocol artifacts
+        id: commit
+        env:
+          BUILD_SHA: ${{ needs.build-protocol.outputs.build_sha }}
+          PATCH: ${{ runner.temp }}/patch/generated.patch
+        run: |
+          set -euo pipefail
+          if [ "$(git rev-parse HEAD)" != "$BUILD_SHA" ]; then
+            echo "Branch moved since the build ran; the newer push regenerates the artifacts."
+            exit 0
+          fi
+          refuse() {
+            echo "Refusing to push: $*" >&2
+            exit 1
+          }
+          # Generated outputs: storage layout files, gas reports and snapshots.
+          generated='^packages/protocol/([^ ]+_Layout[.]sol|(gas-reports|snapshots)/[^/ ]+[.](md|json|txt)|[.]gas-snapshot)$'
+          # Files forge fmt may modify in place.
+          formatted='^packages/protocol/[^ ]+[.]sol$'
+          if [ -s "$PATCH" ]; then
+            # build-protocol exports plain diffs (--no-renames), so rename/copy headers mean the
+            # patch did not come from the exporter.
+            if grep -qE '^(rename|copy) (from|to) ' "$PATCH"; then
+              refuse "patch has rename or copy entries"
+            fi
+            git apply --index "$PATCH"
+            # Validate what was actually staged, both sides of every change, not what the patch
+            # claims: --numstat on the patch only reports a rename's destination.
+            # Only non-executable regular files (no symlinks, gitlinks or exec bits, before or
+            # after) at generated paths may come from the patch.
+            # Read from a file, not a pipe, so refuse exits this shell rather than a subshell.
+            git diff --cached --raw --no-renames -z > "$RUNNER_TEMP/staged"
+            while IFS= read -r -d '' meta && IFS= read -r -d '' path; do
+              read -r old_mode new_mode _ <<< "${meta#:}"
+              for mode in "$old_mode" "$new_mode"; do
+                case "$mode" in
+                  000000 | 100644) ;;
+                  *) refuse "non-regular file (mode $mode): $path" ;;
+                esac
+              done
+              [[ "$path" =~ $generated ]] || refuse "unexpected path: $path"
+              # gen-layouts.sh writes layouts as comments plus SPDX/pragma lines; any other line
+              # would be Solidity source smuggled in under a generated file name.
+              if [[ "$path" == *_Layout.sol && "$new_mode" != 000000 ]]; then
+                # grep splits lines only on \n, but solc also ends a // comment at \r, so
+                # "// x\rcontract Evil {}" would pass as one comment line. Allow only tab and
+                # printable ASCII.
+                if LC_ALL=C grep -q $'[^\t -~]' -- "$path"; then
+                  refuse "non-printable byte in layout file: $path"
+                fi
+                rc=0
+                grep -qvE '^[[:space:]]*(//.*)?$|^[[:space:]]*pragma solidity [^;]+;[[:space:]]*$' -- "$path" || rc=$?
+                case "$rc" in
+                  1) ;;
+                  0) refuse "layout file has non-comment content: $path" ;;
+                  *) refuse "could not read layout file: $path" ;;
+                esac
+              fi
+            done < "$RUNNER_TEMP/staged"
+          fi
+          # Formatting is redone here rather than taken from build-protocol, so a compromised
+          # dependency there cannot get source changes committed as "formatting".
+          (cd packages/protocol && forge fmt)
+          # build-protocol generates layout files after formatting, so keep them exactly as the
+          # validated patch left them (forge fmt would strip their trailing whitespace).
+          layouts=':(glob)packages/protocol/**/*_Layout.sol'
+          if [ -n "$(git ls-files -- "$layouts")" ]; then
+            git checkout -- "$layouts"
+          fi
+          git add -u -- packages/protocol
+          if git diff --cached --quiet; then
+            echo "No generated changes to push."
+            exit 0
+          fi
+          # Re-check the final staged set: on top of the validated patch, forge fmt may only have
+          # modified (never added or deleted) regular .sol files.
+          git diff --cached --raw --no-renames -z > "$RUNNER_TEMP/final"
+          while IFS= read -r -d '' meta && IFS= read -r -d '' path; do
+            read -r old_mode new_mode _ _ status <<< "${meta#:}"
+            for mode in "$old_mode" "$new_mode"; do
+              case "$mode" in
+                000000 | 100644) ;;
+                *) refuse "non-regular file (mode $mode): $path" ;;
+              esac
+            done
+            if [[ "$path" =~ $generated ]]; then
+              continue
+            fi
+            if [[ "$status" != M || ! "$path" =~ $formatted ]]; then
+              refuse "unexpected change after forge fmt ($status): $path"
+            fi
+          done < "$RUNNER_TEMP/final"
+          # Authored by the PR actor and committed by the bot, as git-auto-commit-action did.
+          git -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "Update protocol generated artifacts" \
+            --author="${GITHUB_ACTOR} <${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com>"
+          echo "push=true" >> "$GITHUB_OUTPUT"
+
+      - name: Push generated protocol artifacts
+        if: steps.commit.outputs.push == 'true'
+        env:
+          PUSH_TOKEN: ${{ secrets.TAIKO_KITTY_TOKEN }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          auth=$(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 -w0)
+          echo "::add-mask::$auth"
+          # Deliberately not forced: the commit's parent is the build's head SHA, so if the branch
+          # moved while this job ran, the push is rejected as a non-fast-forward instead of landing
+          # stale output.
+          # The header goes through git's environment config rather than -c, so the credential
+          # never appears in the process list.
+          GIT_CONFIG_COUNT=1 \
+            GIT_CONFIG_KEY_0="http.https://github.com/.extraheader" \
+            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic ${auth}" \
+            git push origin "HEAD:refs/heads/${HEAD_REF}"
+
   genesis-docker:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
     runs-on: [taiko-runner]
     permissions:
-      # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
-      contents: write
+      contents: read
     steps:
-      - name: Cancel previous runs
-        # Fork PRs get a read-only token, so cancelling needs actions: write they do not have.
-        if: github.event.pull_request.head.repo.fork != true
-        uses: styfle/cancel-workflow-action@0.13.1
-        with:
-          access_token: ${{ github.token }}
-
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
+          persist-credentials: false
 
       - name: Read Foundry version
         id: foundry-version
         run: echo "version=$(grep foundry packages/protocol/.tool-versions | awk '{print $2}')" >> $GITHUB_OUTPUT
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1.5.0
+        uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1.9.2
         with:
           version: ${{ steps.foundry-version.outputs.version }}
 

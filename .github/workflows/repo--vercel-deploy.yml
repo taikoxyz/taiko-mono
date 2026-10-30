@@ -24,6 +24,9 @@ env:
   VERCEL_ORG_ID: ${{ secrets.vercel_org_id }}
   VERCEL_PROJECT_ID: ${{ secrets.vercel_project_id }}
 
+permissions:
+  contents: read
+
 jobs:
   build-deploy:
     if: ${{ github.event_name != 'pull_request' || (!startsWith(github.head_ref, 'dependabot') && github.event.pull_request.head.repo.fork == false) }}
@@ -34,7 +37,9 @@ jobs:
           echo "Vercel Project ID: ${{ env.VERCEL_PROJECT_ID }}"
 
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
