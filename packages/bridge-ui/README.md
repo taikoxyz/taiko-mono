@@ -166,3 +166,16 @@ pnpm run build
 You can preview the production build with `pnpm run preview`.
 
 To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
+
+## Oath Wallet connection
+
+Oath is available directly in the existing Web3Modal wallet list on desktop and iOS.
+It uses the shared WalletConnect connector: desktop users scan the QR code with
+Oath on their iPhone, while iOS users can open the app through its registered
+`oathwallet://` scheme. The entry is hidden on Android because Oath is iOS-only.
+No bridge, signing, chain, or transaction handling is changed.
+
+The configuration and registration tests are in `src/libs/connect/oathWallet.test.ts`.
+For a configured local build, open Connect wallet, select Oath Wallet, verify the QR
+view, close it, and retry. Check that the generic WalletConnect option still works.
+Actual iPhone pairing and signing require a separate device check.

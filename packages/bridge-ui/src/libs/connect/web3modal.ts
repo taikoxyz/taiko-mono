@@ -4,6 +4,8 @@ import { PUBLIC_WALLETCONNECT_PROJECT_ID } from '$env/static/public';
 import { getChainImages } from '$libs/chain';
 import { config } from '$libs/wagmi';
 
+import { getOathWallets } from './oathWallet';
+
 const projectId = PUBLIC_WALLETCONNECT_PROJECT_ID;
 const chainImages = getChainImages();
 
@@ -11,6 +13,7 @@ export const web3modal = createWeb3Modal({
   wagmiConfig: config,
   projectId,
   featuredWalletIds: [],
+  customWallets: getOathWallets(),
   allowUnsupportedChain: true,
   excludeWalletIds: [],
   // chains,
