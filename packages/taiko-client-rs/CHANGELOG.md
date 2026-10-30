@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.4.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.3.0...taiko-alethia-client-rs-v2.4.0) (2026-10-30)
+
+
+### Features
+
+* **taiko-client-rs:** refresh finality for canonical proposals ([#22258](https://github.com/taikoxyz/taiko-mono/issues/22258)) ([d8daf29](https://github.com/taikoxyz/taiko-mono/commit/d8daf297906307e6f532cfbced1d1bccbb601ff5))
+* **taiko-client-rs:** support prefixed blob source endpoints ([#22277](https://github.com/taikoxyz/taiko-mono/issues/22277)) ([f04e8f3](https://github.com/taikoxyz/taiko-mono/commit/f04e8f3e887f4ea4fa22e92900c590c3ea966331))
+
+
+### Bug Fixes
+
+* **taiko-client-rs:** reject trailing bytes in transaction-list RLP ([#22180](https://github.com/taikoxyz/taiko-mono/issues/22180)) ([961bbd8](https://github.com/taikoxyz/taiko-mono/commit/961bbd8ff55a0f66f44ad04160eb51638d655b66))
+* **taiko-client-rs:** retry the finalized reconnect anchor instead of rewinding to the startup anchor ([#22300](https://github.com/taikoxyz/taiko-mono/issues/22300)) ([dea7d28](https://github.com/taikoxyz/taiko-mono/commit/dea7d286e32f4fc82d2ddb0167e7cdc3005a3a72))
+
+
+### Chores
+
+* **deps:** bump the cargo-security group across 2 directories with 2 updates ([#22309](https://github.com/taikoxyz/taiko-mono/issues/22309)) ([c913e71](https://github.com/taikoxyz/taiko-mono/commit/c913e715fa3b02de4f3657113eb604e9d8f48004))
+
 ## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.2.0...taiko-alethia-client-rs-v2.3.0) (2026-09-28)
 
 
