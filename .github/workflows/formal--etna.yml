@@ -5,16 +5,16 @@ on:
     paths:
       - "formal/etna/**"
       - "testdata/etna_conformance/**"
-      - "packages/protocol/docs/etna-pos-zk/SPEC.md"
-      - "packages/protocol/docs/etna-pos-zk/ACCEPTANCE.md"
+      - "packages/protocol/docs/etna/SPEC.md"
+      - "packages/protocol/docs/etna/ACCEPTANCE.md"
       - ".github/workflows/formal--etna.yml"
   push:
     branches: [main]
     paths:
       - "formal/etna/**"
       - "testdata/etna_conformance/**"
-      - "packages/protocol/docs/etna-pos-zk/SPEC.md"
-      - "packages/protocol/docs/etna-pos-zk/ACCEPTANCE.md"
+      - "packages/protocol/docs/etna/SPEC.md"
+      - "packages/protocol/docs/etna/ACCEPTANCE.md"
       - ".github/workflows/formal--etna.yml"
   workflow_dispatch:
 

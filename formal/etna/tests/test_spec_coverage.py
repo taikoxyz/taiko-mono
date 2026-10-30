@@ -20,7 +20,7 @@ class PinnedSourceTests(unittest.TestCase):
             repo = Path(tmp)
             root = repo/'formal/etna'
             root.mkdir(parents=True)
-            directory = 'packages/protocol/docs/etna-pos-zk'
+            directory = 'packages/protocol/docs/etna'
             shutil.copytree(coverage.REPO/directory, repo/directory)
             value = {
                 'source': {
@@ -47,12 +47,12 @@ class PinnedSourceTests(unittest.TestCase):
     def test_spec_edit_is_rejected(self):
         with self.assertRaisesRegex(ValueError, 'spec digest mismatch'):
             self.check_sources(lambda repo, value:
-                (repo/'packages/protocol/docs/etna-pos-zk/SPEC.md').write_text('changed'))
+                (repo/'packages/protocol/docs/etna/SPEC.md').write_text('changed'))
 
     def test_acceptance_edit_is_rejected(self):
         with self.assertRaisesRegex(ValueError, 'acceptance digest mismatch'):
             self.check_sources(lambda repo, value:
-                (repo/'packages/protocol/docs/etna-pos-zk/ACCEPTANCE.md').write_text('changed'))
+                (repo/'packages/protocol/docs/etna/ACCEPTANCE.md').write_text('changed'))
 
     def test_spec_pin_cannot_redirect_to_identical_bytes(self):
         def redirect(repo, value):

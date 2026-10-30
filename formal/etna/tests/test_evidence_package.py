@@ -59,11 +59,11 @@ class EvidencePackageTests(unittest.TestCase):
                                     capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             hashes = json.loads((Path(tmp)/'coverage.json').read_text())['source_sha256']
-            self.assertEqual(hashes['packages/protocol/docs/etna-pos-zk/SPEC.md'],
+            self.assertEqual(hashes['packages/protocol/docs/etna/SPEC.md'],
                              'a079ea510d85077697d4ca731202fe4717efcf7612dd6619a0838cbfaab97210')
-            self.assertEqual(hashes['packages/protocol/docs/etna-pos-zk/ACCEPTANCE.md'],
+            self.assertEqual(hashes['packages/protocol/docs/etna/ACCEPTANCE.md'],
                              '876f89892acc91508fd322b4df676a0eb19550b39c9a43490376b4a3b4863c60')
-            self.assertNotIn('packages/protocol/docs/etna-pos-zk/sources/manifest.json', hashes)
+            self.assertNotIn('packages/protocol/docs/etna/sources/manifest.json', hashes)
 
     def test_generator_detects_stale_outputs(self):
         import subprocess

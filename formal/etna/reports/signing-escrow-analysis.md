@@ -71,4 +71,4 @@ Pinned Lean 4.35.0-rc4. The central integration build and strict audit passed: 8
 
 The general trajectory goals were checked before and after their proofs, and kernel evaluation rejects positive collateral in both the ordinary-withdrawal final state and the still-current slashed-member state. Independent semantic review found no Critical/Important findings. The complete Python regression/mutation result and source inventory totals are recorded in the package README and the trajectory assurance report.
 
-Sources: [SPEC 4.1–4.3 and 8–9](../../../packages/protocol/docs/etna-pos-zk/SPEC.md), [ProtocolState](../EtnaModel/ProtocolState.lean), [HistoricalContext](../EtnaModel/HistoricalContext.lean), [Signer](../EtnaModel/Signer.lean), [existing untrusted rollback boundary](../EtnaWitnesses/Counterexamples/UntrustedRollback.lean).
+Sources: [SPEC 4.1–4.3 and 8–9](../../../packages/protocol/docs/etna/SPEC.md), [ProtocolState](../EtnaModel/ProtocolState.lean), [HistoricalContext](../EtnaModel/HistoricalContext.lean), [Signer](../EtnaModel/Signer.lean), [existing untrusted rollback boundary](../EtnaWitnesses/Counterexamples/UntrustedRollback.lean).

@@ -33,7 +33,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = ROOT.parents[1]
-SPEC_DIR = 'packages/protocol/docs/etna-pos-zk'
+SPEC_DIR = 'packages/protocol/docs/etna'
 SPEC_PATH = SPEC_DIR+'/SPEC.md'
 ACCEPTANCE_PATH = SPEC_DIR+'/ACCEPTANCE.md'
 SOURCE_INPUTS = (('source', 'spec', SPEC_PATH, 'en'),
@@ -70,7 +70,7 @@ def normalized(text):
     return ' '.join(text.split())
 
 
-# Rule-reference markers (packages/protocol/docs/etna-pos-zk/rules/README.md) are citation
+# Rule-reference markers (packages/protocol/docs/etna/rules/README.md) are citation
 # handles, not clause text: an inline `**[FI-7.2-1]** ` prefix, or a `// [ENC-A-6]` line above
 # a definition-block line. They are removed before the pin is checked and clauses are read,
 # so adding or moving a marker changes neither a clause identity nor a `spec L…` line number.

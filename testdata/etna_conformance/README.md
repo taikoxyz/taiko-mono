@@ -118,7 +118,7 @@ Each file is one object: `schema`, `family`, `generator`, `provenance` (the copi
 
 - `source` is `generated` (an enumerated grid) or `handwritten` (an edge case taken from the spec
   text). Only hand-written vectors have `spec`, a line of
-  `packages/protocol/docs/etna-pos-zk/SPEC.md` at the revision `formal/etna` pins.
+  `packages/protocol/docs/etna/SPEC.md` at the revision `formal/etna` pins.
 - `setup.deployment` sets the immutables a vector varies: `initialized` (false leaves the Inbox
   proxy on its bootstrap implementation), `maxBatchBlocks`, `feeGwei`, `threshold`,
   `recipientAccepts` (false makes `protocolFeeRecipient` a contract that rejects ETH),
