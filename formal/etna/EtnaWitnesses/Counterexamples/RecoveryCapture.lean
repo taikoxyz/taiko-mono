@@ -1,34 +1,40 @@
 import EtnaWitnesses.NonVacuity.Premises
 
-/-! Scope counterexample (an open design issue): stake registered after the DAO authorizes a
-governance recovery can join, and here capture, the recovery committee.
+/-! Scope counterexample for decoded recovery without the DAO's execution-time recheck:
+stake registered after authorization can join, and here capture, the recovery committee.
 
-8.1 (spec L500): before authorizing, the DAO "checks a nonempty intended set, more than 2/3 online
-power, no party at or above 1/3"; 8 step 5 (spec L493): nodes "select the committee directly from
-the registry snapshot at execution block R under 4.3 ... other already active candidates may
-enter"; 4.1 (spec L134): a registration activates after `activationDelay` L1 blocks, which §10
-only requires to be positive. The call's expected generation, checkpoint, nonce, deadline,
-exclusions and FI list bind no registry bound, so the committee the DAO checked and the one R elects can
-differ by every registration that activates between authorization and execution. The exclusion
-list cannot help: it is fixed at authorization, and each entry must still match an existing,
-unreleased bond (8 step 2, spec L490), which the late stake was not yet. Nonce invalidation can
-revoke the authorization, and expiry limits its life, but neither changes the election of an
-authorization that remains fresh and executes before its deadline. The witness below uses
-nonce 0 and a valid deadline; no invalidation occurs between authorization and execution.
+8.1 (spec L500) requires checks "Before scheduling and executing": a nonempty intended set,
+more than 2/3 online power, no party at or above 1/3, and available history and signers. These
+DAO duties are not guards in decoded `recover`. The witness establishes only the nonempty-set
+and concentration checks at authorization; it does not establish the required execution-time
+recheck. Online power is not modelled.
+
+8 step 5 (spec L493): nodes "select the committee directly from the registry snapshot at
+execution block R under 4.3 ... other already active candidates may enter"; 4.1 (spec L134): a
+registration activates after `activationDelay` L1 blocks, which §10 only requires to be positive.
+The call's expected generation, checkpoint, nonce, deadline, exclusions and FI list bind no
+registry bound. Registrations activating between authorization and execution can therefore
+change the committee the decoded call elects. The exclusion list is fixed at authorization,
+and each entry must match an existing, unreleased bond (8 step 2, spec L490). Nonce invalidation
+can revoke the authorization, and expiry limits its life. Here nonce 0 remains uninvalidated
+and the authorization executes before its deadline.
 
 The deployment: n_max = 5, and four honest parties (keys 7-10) with 1 TAIKO each make up
 committee 0. The run:
 1. L1 block 14: the DAO authorizes generation 0, checkpoint 0, nonce 0, a live deadline and
-   empty exclusion/FI lists. The committee R would elect then is
-   the four parties, nonempty and each holding 1/4 of the power, below 1/3: L470's check passes
-   (online power is not modelled). Key 66 has never registered.
+   empty exclusion/FI lists. The recovery would elect the four parties, nonempty and each
+   holding 1/4 of the power, below 1/3. Key 66 has never registered.
 2. L1 block 15: key 66 registers 9 TAIKO (active from block 17).
-3. L1 block 20: the same authorization executes with R = 20 (nothing it binds has changed).
-The model's own election at R (the recovery schedule, and the rules the deployment builds for
-generation 1) gives keys 7-10 and 66, and key 66 holds 9/13 of the power, more than 2/3: its
-precommit alone is a valid commit. A suggested spec fix: bind the authorization to a registry
-bound, e.g. a `maxActiveFromL1` in the recover call so that only entries active by the DAO's
-checked block are eligible at R. -/
+3. L1 block 20: the decoded call accepts the same authorization with R = 20; the DAO's
+   execution-time recheck is omitted from this trace.
+The model's election at R (the recovery schedule and the rules built for generation 1) gives
+keys 7-10 and 66. Key 66 holds 9/13 of the power, more than 2/3, so its precommit alone is a
+valid commit. That concentration would fail the required execution-time check. This witness
+therefore shows the decoded call's lack of a binding to the earlier committee, not a
+SPEC-compliant recovery-capture attack. A protocol-level ordering or activation attack would
+need a separate trace establishing that the required pre-execution recheck still passes.
+Binding a registry cutoff would be an additional protocol rule, not a fix this witness proves
+necessary. -/
 namespace Etna.Design.RecoveryCapture
 open Etna.Statements NonVacuity
 
@@ -211,13 +217,14 @@ private theorem built : Built attacker worldR rulesR := by
     rw [recovered_at_r,election_at_r]
     rfl
 
-/-- Stake registered after the DAO's recovery authorization captures the recovery committee.
-The deployment is initialized (committee 0 = the four parties). At authorization (L1 block 14)
-the recovery would elect the four parties, each below 1/3 of the power, and key 66 is
-unregistered. Key 66 registers; along a protocol trace the same authorization executes with
-R = 20 and starts generation 1. Its committee, both the recovery schedule and the rules the
-deployment builds for generation 1, is the four parties and key 66, which holds more than 2/3 of
-the power, so key 66's precommit alone is a valid commit. -/
+/-- Decoded recovery without the DAO's execution-time recheck admits a committee captured by
+stake registered after authorization. The deployment is initialized (committee 0 = the four
+parties). At authorization (L1 block 14) the recovery would elect the four parties, each below
+1/3 of the power, and key 66 is unregistered. Key 66 registers; along a protocol trace the same
+authorization executes with R = 20 and starts generation 1. Its committee, both the recovery
+schedule and the rules built for generation 1, is the four parties and key 66, which holds more
+than 2/3 of the power, so key 66's precommit alone is a valid commit. The required pre-execution
+concentration check would fail at R; this is not a SPEC-compliant attack trace. -/
 theorem late_stake_captures_recovery_committee :
     Deployment.Genesis deployed genesisHeader.elHash genesisHeader.stateRoot ∧
     (ProtocolState.recover deployed request ⟨0,14,14⟩ true true).isSome = true ∧

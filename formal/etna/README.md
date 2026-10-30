@@ -264,13 +264,17 @@ it), with the chain-of-custody property at every World.
   valid and unslashable. A realistic withdrawalDelay only postpones this. Fix: the rollback duty
   above, stated as a premise if H2 is to cover rollbacks.
 - **`RecoveryCapture`.** Four honest validators each hold 1/4 of the power, so a recovery
-  authorization passes the modelled parts of the DAO's check (8.1, spec L500: nonempty, no party
-  at or above 1/3). A newcomer registers 9 TAIKO between authorization and execution and ends up
-  with 9/13 (over 2/3) of the recovery committee, alone producing valid commits. The existing authorization executes if the DAO does not invalidate its nonce before
-  execution. Its exclusion list is fixed. The new invalidation API enables cancellation but
-  does not bind the authorized call to an earlier committee. The design requires economic
-  reassessment without adding a capital veto; binding a registry cutoff would be a further
-  protocol change, not something this formal update introduces.
+  authorization passes the modelled nonempty-set and concentration checks at authorization.
+  A newcomer registers 9 TAIKO before execution and receives 9/13 (over 2/3) of the committee
+  the decoded call elects at R, alone producing valid commits. SPEC 8.1 (spec L500) requires
+  these checks **before scheduling and executing**. This witness omits the execution-time
+  recheck, which would reject that concentration; it demonstrates that the decoded call is
+  not bound to the earlier committee, not a SPEC-compliant recovery-capture attack. Nonce
+  invalidation permits cancellation but does not bind a committee. The mandatory concentration
+  check remains separate from the economic reassessment that adds no capital veto. A
+  protocol-level ordering or activation attack needs a separate trace showing the required
+  pre-execution recheck still passes; binding a registry cutoff would be an additional
+  protocol rule, not a fix established by this witness.
 - **`ForcedPoisonResubmit`.** After a recovery blanks an unprovable ("poison") FI entry, anyone
   can enqueue the same transaction again for the normal fee and stall the cursor again.
   Suggested fix: let the guest skip unprovable content, or narrow the §1 and §8 wording. A
