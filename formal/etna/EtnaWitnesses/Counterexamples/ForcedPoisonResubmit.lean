@@ -1,8 +1,8 @@
 import EtnaWitnesses.NonVacuity.Premises
 
-/-! Scope counterexample (an open design issue): blanking a forced-inclusion entry in
-governance recovery does not remove the content; anyone can enqueue the same transaction again
-right after.
+/-! Scope counterexample (recorded as SPEC section 12 item 20): blanking a forced-inclusion
+entry in governance recovery does not remove the content; anyone can enqueue the same
+transaction again right after.
 
 §1 "Censorship resistance" (spec L15): "the only exception is that governance recovery (section 8)
 can explicitly blank specified entries"; 8 step 3 (spec L491): blanking "is for handling
@@ -17,9 +17,9 @@ from the non-vacuity deployment:
 1. L1 block 15: the poison transaction (hash 666, 100 bytes) is enqueued as entry 0.
 2. L1 block 16: governance recovery blanks entry 0 (`fiToClear = [0]`), starting generation 1.
 3. L1 block 17: the same transaction is enqueued again, as entry 1, for the same fee.
-Entry 1 is pending, and once due it stalls the cursor exactly as entry 0 did. A spec fix would
-remember blanked transaction hashes (refusing them in `saveForcedInclusion`, or letting the
-guest skip them) or narrow the §1 and §8 wording. A hash blocklist stops only a verbatim
+Entry 1 is pending, and once due it stalls the cursor exactly as entry 0 did. The spec now
+records this limitation and narrows §1 (spec L16); a fix would remember blanked transaction
+hashes (refusing them in `saveForcedInclusion`, or letting the guest skip them). A hash blocklist stops only a verbatim
 resubmission: the same poison with any byte changed (another nonce, another signature) has a new
 hash; a guest-side rule that skips unprovable content does not depend on the bytes. -/
 namespace Etna.Design.ForcedPoisonResubmit

@@ -116,6 +116,8 @@ def rule_rows(root=ROOT, repo=REPO, config=None):
         if target is None or target['status'] != 'partial':
             raise ValueError(f'narrowing names {clause_id}, which is not a partial clause')
         inside = {rule for rule in owner if owner[rule]['id'] == clause_id}
+        if len(inside) < 2:
+            raise ValueError(f'narrowing of {clause_id} needs a clause shared by several rules')
         # An empty list says the clause's theorems address none of its rule IDs.
         if not set(named) <= inside or set(named) == inside:
             raise ValueError(f'narrowing of {clause_id} must name a proper subset of its rules')

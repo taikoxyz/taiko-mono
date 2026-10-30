@@ -69,7 +69,7 @@ structure Premises (w0 : ProtocolState.World) (env : Environment) : Prop where
   genesisCutoff and generation 0's origin under 8.4"; step 4 (spec L556): "Compute block 0's hash
   and stateRoot with the EL". `w0` is the World right after that call (`Deployment.Genesis`),
   made with block 0's header's EL hash and stateRoot. That header has height 0, CometBFT hash 0
-  (Appendix B slot 285, spec L775: "Initialize block 0 with parent/generation/head=0, EL hash =
+  (Appendix B slot 285, spec L777: "Initialize block 0 with parent/generation/head=0, EL hash =
   genesis hash and Comet hash=0"; 6.1, spec L294: "block 0 stores the genesis hash; its Comet hash
   is 0") and FI cursor 0 (7.2, spec L426: "a cursor c ... initially 0"). -/
   genesis : Deployment.Genesis w0 env.genesisHeader.elHash env.genesisHeader.stateRoot ∧

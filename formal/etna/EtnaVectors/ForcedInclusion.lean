@@ -61,13 +61,13 @@ def forcedHandwritten : List Scenario := [
   { label := "forced.hw.entries-retained-after-consumption", spec := some "spec L426",
     setup := fill 3 ++ [landTo 6 2],
     call := fun w => ⟨w.l1Block+1, .enqueue 2 32 (currentFee w.inbox) true⟩ },
-  { label := "forced.hw.timestamp-2pow48-minus1", spec := some "spec L789",
+  { label := "forced.hw.timestamp-2pow48-minus1", spec := some "spec L791",
     call := fun w => ⟨w.l1Block+1, .enqueue 2 32 (currentFee w.inbox) true⟩, callTimestamp := some (limit48-1) },
-  { label := "forced.hw.timestamp-2pow48", spec := some "spec L789",
+  { label := "forced.hw.timestamp-2pow48", spec := some "spec L791",
     call := fun w => ⟨w.l1Block+1, .enqueue 2 32 (currentFee w.inbox) true⟩, callTimestamp := some limit48 },
-  { label := "forced.hw.block-2pow48-minus1", spec := some "spec L789",
+  { label := "forced.hw.block-2pow48-minus1", spec := some "spec L791",
     call := fun w => ⟨limit48-1, .enqueue 2 32 (currentFee w.inbox) true⟩, callTimestamp := some (timestampOf 20) },
-  { label := "forced.hw.block-2pow48", spec := some "spec L789",
+  { label := "forced.hw.block-2pow48", spec := some "spec L791",
     call := fun w => ⟨limit48, .enqueue 2 32 (currentFee w.inbox) true⟩, callTimestamp := some (timestampOf 20) }]
 
 def forcedScenarios : List Scenario := feeGrid ++ sizeGrid ++ consumedGrid ++ sweepGrid ++ forcedHandwritten

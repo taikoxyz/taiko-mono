@@ -9007,7 +9007,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "regression",
-      "sources": ["EN-806e818366c6b783", "EN-114c11b55a88713c"],
+      "sources": ["EN-806e818366c6b783", "EN-519f69d065c96fa9"],
       "scope": "Non-vacuity: every field of the premise record holds for one deployment and environment with concrete decidable adapters: an injective header code (headerSeparation), an injective config-word code (one representable opening), a fixed L1 history authenticating anchors and FI witnesses, a signature relation that accepts only the cast votes and a registry verifier that agrees, and landers whose certificates are exactly the certified statements on the run's landing Worlds."
     },
     {
@@ -9023,7 +9023,7 @@
         "EN-806e818366c6b783",
         "EN-c36e4d0d76a728b6",
         "EN-9e8e4c90054257e9",
-        "EN-114c11b55a88713c"
+        "EN-519f69d065c96fa9"
       ],
       "scope": "Non-vacuity of H1-H3: the premise record is satisfiable by a deployment and environment under which a run (every landing submitted) goes through an FI enqueue, two generation-0 landings (the first consuming the entry), a governance recovery and a generation-1 landing; its end has three landing records above block 0's, generation 1 and the FI head past the enqueued entry."
     },
@@ -9048,7 +9048,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "regression",
-      "sources": ["EN-806e818366c6b783", "EN-114c11b55a88713c"],
+      "sources": ["EN-806e818366c6b783", "EN-519f69d065c96fa9"],
       "scope": "Non-vacuity: the premise record also holds for a three-validator deployment (3, 2 and 1 TAIKO) whose signature relation includes a double sign by the smallest validator; its landers submit nothing."
     },
     {
@@ -9086,7 +9086,7 @@
       "role": "regression",
       "sources": [
         "EN-806e818366c6b783",
-        "EN-114c11b55a88713c",
+        "EN-519f69d065c96fa9",
         "EN-d04a236579cc9990"
       ],
       "scope": "Scope counterexample, not a failure of H1-H3: H1 needs Premises.verifierSound. With the non-vacuity deployment and relations every other premise field holds, yet a submitted landing with two accepting proofs lands EL hash 0 and stateRoot 666 for block 1, which no valid chain can end at; FundSafety's conclusion fails on that run, so (by H1) the verifier is not sound and the certificate is not certified."
@@ -9135,7 +9135,8 @@
       "sources": [
         "EN-9e8e4c90054257e9",
         "EN-eb5074ad77d4a985",
-        "EN-e83bfb4c2586fe1b"
+        "EN-e83bfb4c2586fe1b",
+        "EN-0b7dc528f6439e82"
       ],
       "scope": "Scope counterexample, not a failure of H1-H3: open design issue: a blanked FI entry can be enqueued again. A recovery blanks FI entry 0, and the same transaction is enqueued again right after as entry 1, pending in the new generation; once due, an unprovable singleton build stalls the cursor on the copy as on the original, so blanking alone does not handle unprovable content."
     },
@@ -12382,7 +12383,11 @@
       ],
       "bridge_level": "spec-proved",
       "role": "regression",
-      "sources": ["EN-1922bc4f51f2158c", "EN-179bc07a1f6d0129"],
+      "sources": [
+        "EN-1922bc4f51f2158c",
+        "EN-179bc07a1f6d0129",
+        "EN-95f0590cf84239d4"
+      ],
       "scope": "Concrete current-generation/future-height fixed committee power after accepted full slashing, or permanent signer retirement. No timestamped new signature event is modeled and the Byzantine minority finality premise is not violated."
     },
     {
@@ -13291,10 +13296,10 @@
     {
       "module": "EtnaProofs.RoundSafety",
       "declaration": "Etna.Design.Consensus.height_agreement",
-      "type": "∀ {c : Etna.Design.Consensus.Context} {signature : Etna.Design.Consensus.Vote → Prop} {violates honest : Etna.Design.Hash → Bool}, Etna.Design.Consensus.CrossRoundAccountable c signature violates → ∀ (h : Nat), (∀ (round : Nat), ∀ m ∈ (Etna.Design.Consensus.activeAt c h).members, honest m.key = true → ¬ Etna.Statements.Equivocates c signature h round m.key) → (∀ m ∈ (Etna.Design.Consensus.activeAt c h).members, honest m.key = true → violates m.key = false) → 3*Etna.Design.Committee.totalPower c.unit ((Etna.Design.Consensus.activeAt c h).members.filter fun m => !honest m.key) < Etna.Design.Committee.totalPower c.unit (Etna.Design.Consensus.activeAt c h).members → ∀ (ra rb a b : Nat) (votesA votesB : List Etna.Design.Consensus.Vote), Etna.Design.Consensus.CommitValid c signature h ra a votesA → Etna.Design.Consensus.CommitValid c signature h rb b votesB → a = b",
+      "type": "∀ {c : Etna.Design.Consensus.Context} {signature : Etna.Design.Consensus.Vote → Prop} {violates : Nat → Etna.Design.Hash → Bool} {honest : Etna.Design.Hash → Bool}, Etna.Design.Consensus.CrossRoundAccountable c signature violates → ∀ (h : Nat), (∀ (round : Nat), ∀ m ∈ (Etna.Design.Consensus.activeAt c h).members, honest m.key = true → ¬ Etna.Statements.Equivocates c signature h round m.key) → (∀ m ∈ (Etna.Design.Consensus.activeAt c h).members, honest m.key = true → violates h m.key = false) → 3*Etna.Design.Committee.totalPower c.unit ((Etna.Design.Consensus.activeAt c h).members.filter fun m => !honest m.key) < Etna.Design.Committee.totalPower c.unit (Etna.Design.Consensus.activeAt c h).members → ∀ (ra rb a b : Nat) (votesA votesB : List Etna.Design.Consensus.Vote), Etna.Design.Consensus.CommitValid c signature h ra a votesA → Etna.Design.Consensus.CommitValid c signature h rb b votesB → a = b",
       "assumptions": [
         "Decoded consensus votes and an abstract signature relation; CometBFT's locking rules are not modelled.",
-        "CometBFT's cross-round accountability for its locking rules is the explicit hypothesis CrossRoundAccountable; cross-round faults are not slashable (4.1, section 12 item 3)."
+        "CometBFT's cross-round accountability for its locking rules, per height, is the explicit hypothesis CrossRoundAccountable; cross-round faults are not slashable (4.1, section 12 item 3)."
       ],
       "bridge_level": "spec-proved",
       "role": "property",
@@ -13316,15 +13321,15 @@
     },
     {
       "module": "EtnaWitnesses.Regressions.TrustedSnapshot",
-      "declaration": "Etna.Design.TrustedSnapshotRegression.untrusted_rollback_not_trusted",
-      "type": "¬ Etna.Design.SigningEscrow.SnapshotTrusted Etna.Design.UntrustedRollback.rulesD.consensus Etna.Design.UntrustedRollback.worldD",
+      "declaration": "Etna.Design.TrustedSnapshotRegression.untrusted_confirmation_not_trusted",
+      "type": "Etna.Design.HistoricalContext.build Etna.Design.UntrustedRollback.worldC.inbox Etna.Design.UntrustedRollback.worldC.registry Etna.Design.TrustedSnapshotRegression.rollbackParameters Etna.Design.UntrustedRollback.archiveD = some Etna.Design.TrustedSnapshotRegression.rollbackContext ∧ (Etna.Design.UntrustedRollback.worldC.registry.slots 0).key = 7 ∧ (Etna.Design.UntrustedRollback.worldC.registry.slots 0).confirmedAt = some 16 ∧ ¬ Etna.Design.SigningEscrow.SnapshotTrusted Etna.Design.TrustedSnapshotRegression.rollbackContext Etna.Design.UntrustedRollback.worldC ∧ Etna.Design.UntrustedRollback.worldC.inbox.checkpoint.height ≤ 1 ∧ List.map Etna.Design.Committee.Entry.key (Etna.Design.Consensus.activeAt Etna.Design.TrustedSnapshotRegression.rollbackContext 1).members = [7]",
       "assumptions": [
-        "Concrete witness World of the untrusted-rollback counterexample."
+        "Concrete World of the untrusted-rollback counterexample right after the exit confirmation; the context is built on that World."
       ],
       "bridge_level": "spec-proved",
       "role": "regression",
-      "sources": ["EN-d04a236579cc9990"],
-      "scope": "Regression: the untrusted rollback (slot 284 = 1000, cutoff 12) violates SnapshotTrusted."
+      "sources": ["EN-d04a236579cc9990", "EN-4651c537a506e6fd"],
+      "scope": "Regression: without SnapshotTrusted the exclusion fails; the untrusted rollback (slot 284 = 1000, cutoff 12) lets key 7's exit be confirmed while key 7 stays the active committee at height 1."
     },
     {
       "module": "EtnaWitnesses.Regressions.TrustedSnapshot",

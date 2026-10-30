@@ -113,6 +113,13 @@ class RuleCoverageTests(unittest.TestCase):
             self.assertEqual(rows[f'BACKP-6.4-{n}']['status'], 'deferred')
             self.assertEqual(rows[f'BACKP-6.4-{n}']['theorems'], [])
 
+    def test_narrowing_needs_a_shared_clause(self):
+        """A clause with one rule ID is not narrowed: an empty list would silently demote it."""
+        def edit(config):
+            config['narrow']['EN-b88b6b1e1d0a93b8'] = []
+        with self.assertRaisesRegex(ValueError, 'shared by several rules'):
+            self.rows(edit_config=edit)
+
     def test_narrowed_rules_lose_their_theorems(self):
         rows = {r['rule']: r for r in self.rows()}
         self.assertEqual(rows['BACKP-6.4-2']['status'], 'deferred')

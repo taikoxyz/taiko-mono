@@ -15,7 +15,7 @@ spec.loader.exec_module(coverage)
 class EvidencePackageTests(unittest.TestCase):
     def test_claim_pairs_have_reviewed_edges(self):
         rows = coverage.inventory()
-        self.assertEqual(len(rows),311)
+        self.assertEqual(len(rows),313)
         # inventory() checks each explicit claim edge and its general-property role.
 
     def test_clause_ids_survive_line_insertion(self):
@@ -60,7 +60,7 @@ class EvidencePackageTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             hashes = json.loads((Path(tmp)/'coverage.json').read_text())['source_sha256']
             self.assertEqual(hashes['packages/protocol/docs/etna/SPEC.md'],
-                             'a079ea510d85077697d4ca731202fe4717efcf7612dd6619a0838cbfaab97210')
+                             '3957abeaf43d69d2b3fad937c5677b522305316388b9d47e099bef79a3da3a4b')
             self.assertEqual(hashes['packages/protocol/docs/etna/ACCEPTANCE.md'],
                              '876f89892acc91508fd322b4df676a0eb19550b39c9a43490376b4a3b4863c60')
             self.assertNotIn('packages/protocol/docs/etna/sources/manifest.json', hashes)

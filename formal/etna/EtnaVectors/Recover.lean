@@ -58,15 +58,15 @@ def recoverHandwritten : List Scenario := [
   recoverCase "recover.hw.excluding-slashed-entry" (recoverNow [⟨1, 2⟩] [])
     (recoverSetup ++ [later 1 (.slash 5 1 { signer := 2 } { blockId := 12, signer := 2 })]) (some "spec L490"),
   recoverCase "recover.hw.blank-twice" (recoverNow [] [1]) (recoverSetup ++ [recoverNow [] [1]]) (some "spec L491"),
-  { recoverCase "recover.hw.recovery-block-2pow48-minus1" (recoverAt (limit48-1) []) (spec := some "spec L779") with
+  { recoverCase "recover.hw.recovery-block-2pow48-minus1" (recoverAt (limit48-1) []) (spec := some "spec L781") with
     callTimestamp := some (timestampOf 200) },
-  { recoverCase "recover.hw.recovery-block-2pow48" (recoverAt limit48 []) (spec := some "spec L779") with
+  { recoverCase "recover.hw.recovery-block-2pow48" (recoverAt limit48 []) (spec := some "spec L781") with
     callTimestamp := some (timestampOf 200) },
   { recoverCase "recover.hw.exclusion-at-block-2pow48-minus1" (recoverAt (limit48-1) [⟨1, 2⟩]) (spec := some "spec L490") with
     callTimestamp := some (timestampOf 200) },
-  { recoverCase "recover.hw.origin-timestamp-2pow48-minus1" (recoverNow) (spec := some "spec L779") with
+  { recoverCase "recover.hw.origin-timestamp-2pow48-minus1" (recoverNow) (spec := some "spec L781") with
     callTimestamp := some (limit48-1) },
-  { recoverCase "recover.hw.origin-timestamp-2pow48" (recoverNow) (spec := some "spec L779") with
+  { recoverCase "recover.hw.origin-timestamp-2pow48" (recoverNow) (spec := some "spec L781") with
     callTimestamp := some limit48 }]
 
 /-- The fresh authorization is exact at `validUntil`; a deadline uses seconds, not blocks. -/

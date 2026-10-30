@@ -4,8 +4,8 @@
   "source": {
     "path": "packages/protocol/docs/etna/SPEC.md",
     "revision": "2026-10-30",
-    "commit": "90db8d05419db010512bcd6a8ae0ab01b97fe249",
-    "sha256": "f6c9f0a38f60e008b127e68100996fb21e25cd67ec4b116fa298cad60cdb76a5"
+    "commit": "b7ca989c8e343073daa628771102bdee7fe7101b",
+    "sha256": "1246b2b713975d6c5f9d3fceeec427af541796545b416eda7d25b7eed10f695f"
   },
   "boundaries": {
     "context": "HistoricalContext derives origin, latest-at-cutoff registry entries and covered anchor lookups from typed inputs. RegistryHistory models lifetime identities and entry checkpoints; actual root/key-byte validation, authenticated signer-prefix/cutoff linkage, genesis provenance and evidence delivery remain external.",

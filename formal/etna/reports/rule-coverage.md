@@ -13,7 +13,7 @@ other rules of that clause are `deferred`.
 | Type       | Count | partial | partial-via | deferred | design-pending |
 | ---------- | ----: | ------: | ----------: | -------: | -------------: |
 | rule       |   568 |     141 |           7 |      416 |              4 |
-| limitation |    19 |       0 |           0 |       18 |              1 |
+| limitation |    21 |       0 |           0 |       20 |              1 |
 | assumption |    11 |       0 |           0 |       11 |              0 |
 
 ## Rules by family
@@ -45,9 +45,9 @@ other rules of that clause are `deferred`.
 
 | ID            | Type       | Status         | Clause                                    | Shared | Theorems                                                                                                     |
 | ------------- | ---------- | -------------- | ----------------------------------------- | -----: | ------------------------------------------------------------------------------------------------------------ |
-| MODEL-1-1     | rule       | deferred       | EN-114c11b55a88713c                       |      3 |                                                                                                              |
-| MODEL-1-2     | rule       | deferred       | EN-114c11b55a88713c                       |      3 |                                                                                                              |
-| MODEL-1-3     | rule       | deferred       | EN-114c11b55a88713c                       |      3 |                                                                                                              |
+| MODEL-1-1     | rule       | deferred       | EN-519f69d065c96fa9                       |      3 |                                                                                                              |
+| MODEL-1-2     | rule       | deferred       | EN-519f69d065c96fa9                       |      3 |                                                                                                              |
+| MODEL-1-3     | rule       | deferred       | EN-519f69d065c96fa9                       |      3 |                                                                                                              |
 | COMP-2-1      | rule       | deferred       | EN-046ce7c90b2cdbf8                       |      1 |                                                                                                              |
 | COMP-2-2      | rule       | deferred       | EN-3be3023c387e6d01                       |      1 |                                                                                                              |
 | COMP-2-3      | rule       | deferred       | EN-5f06b696d532262b                       |      1 |                                                                                                              |
@@ -539,6 +539,8 @@ other rules of that clause are `deferred`.
 | LIMIT-12-16   | limitation | deferred       | EN-72760566fa614949                       |      1 |                                                                                                              |
 | LIMIT-12-17   | limitation | deferred       | EN-b743380dacb7f8f2                       |      1 |                                                                                                              |
 | LIMIT-12-18   | limitation | deferred       | EN-19741fe824208fdf                       |      1 |                                                                                                              |
+| LIMIT-12-19   | limitation | deferred       | EN-95f0590cf84239d4                       |      1 |                                                                                                              |
+| LIMIT-12-20   | limitation | deferred       | EN-0b7dc528f6439e82                       |      1 |                                                                                                              |
 | ENC-A-1       | rule       | partial        | EN-4856837d14522ac8                       |      4 | `domain_tags_are_ascii`                                                                                      |
 | ENC-A-2       | rule       | deferred       | EN-4856837d14522ac8                       |      4 |                                                                                                              |
 | ENC-A-3       | rule       | deferred       | EN-4856837d14522ac8                       |      4 |                                                                                                              |

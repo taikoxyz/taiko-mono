@@ -25,8 +25,8 @@ class PinnedSourceTests(unittest.TestCase):
             value = {
                 'source': {
                     'path': directory+'/SPEC.md', 'revision': '2026-10-30',
-                    'commit': '90db8d05419db010512bcd6a8ae0ab01b97fe249',
-                    'sha256': 'f6c9f0a38f60e008b127e68100996fb21e25cd67ec4b116fa298cad60cdb76a5',
+                    'commit': 'b7ca989c8e343073daa628771102bdee7fe7101b',
+                    'sha256': '1246b2b713975d6c5f9d3fceeec427af541796545b416eda7d25b7eed10f695f',
                 },
                 'acceptance_source': {
                     'path': directory+'/ACCEPTANCE.md', 'revision': '2026-10-29',

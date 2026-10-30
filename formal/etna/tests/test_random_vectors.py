@@ -52,6 +52,36 @@ class RandomVectorTests(unittest.TestCase):
         self.assertEqual(len(self.default), 8)
         self.assertFalse(any(name.startswith('random-') for name in self.default))
 
+    def test_random_header_names_seed_and_count(self):
+        for name, data in self.first.items():
+            self.assertIn('--random 7 --count 60', json.loads(data)['generator'], name)
+
+    def test_land_vectors_are_not_mostly_reverts(self):
+        doc = json.loads(self.first['random-land.json'])
+        accepted = sum(1 for v in doc['vectors'] if not v['expect']['revert'])
+        self.assertGreaterEqual(4*accepted, len(doc['vectors']))
+
+    def test_setups_are_accepted_across_seeds(self):
+        """A rejected setup step makes generation fail; no seed in the sweep may hit one."""
+        for seed in range(10):
+            with tempfile.TemporaryDirectory(dir=ROOT/'.scratch') as tmp:
+                run = subprocess.run(['lake', 'exe', 'etna-vectors', '--write', tmp, '--random', str(seed),
+                                      '--count', '40'], cwd=ROOT, capture_output=True, text=True)
+                self.assertEqual(run.returncode, 0, f'seed {seed}: {run.stderr}')
+
+    def rejected(self, *args):
+        with tempfile.TemporaryDirectory(dir=ROOT/'.scratch') as tmp:
+            run = subprocess.run(['lake', 'exe', 'etna-vectors', '--write', tmp, *args], cwd=ROOT,
+                                 capture_output=True, text=True)
+            written = sorted(p.name for p in Path(tmp).iterdir())
+        return run.returncode, written
+
+    def test_provenance_with_random_is_rejected(self):
+        self.assertEqual(self.rejected('--random', '7', '--provenance', 'abc'), (2, []))
+
+    def test_count_without_random_is_rejected(self):
+        self.assertEqual(self.rejected('--count', '5'), (2, []))
+
     def test_random_with_families_is_rejected(self):
         with tempfile.TemporaryDirectory(dir=ROOT/'.scratch') as tmp:
             run = subprocess.run(['lake', 'exe', 'etna-vectors', '--write', tmp, '--random', '7',

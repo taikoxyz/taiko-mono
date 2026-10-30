@@ -438,8 +438,9 @@ def constantsJ : JVal :=
     ("referenceHash", jNat referenceHash)]
 
 /-- One family file. Labels are unique and every hand-written vector cites a spec line. The file
-records only what the model decides; a consumer keeps its own list of known divergences. -/
-def familyFile (family : String) (provenance : Option String) (scs : List Scenario) :
+records only what the model decides; a consumer keeps its own list of known divergences. Its
+header names the command that wrote it (`generator`). -/
+def familyFileWith (generator family : String) (provenance : Option String) (scs : List Scenario) :
     Except String String := do
   let labels := scs.map (·.label)
   unless decide labels.Nodup do throw (family ++ ": duplicate vector ids")
@@ -448,11 +449,15 @@ def familyFile (family : String) (provenance : Option String) (scs : List Scenar
       throw (sc.label ++ ": a hand-written vector needs a spec line")
   let vectors ← scs.mapM (renderScenario family)
   let head : List (String × JVal) := [("schema", jStr "etna-conformance-2"), ("family", jStr family),
-    ("generator", jStr "formal/etna: lake exe etna-vectors --write testdata/etna_conformance")]
+    ("generator", jStr generator)]
   let prov : List (String × JVal) := match provenance with
     | some sha => [("provenance", jLine [("formalCommit", jStr sha)])]
     | none => []
   pure (jObj (head ++ prov ++ [("constants", constantsJ), ("vectorCount", jNat vectors.length),
     ("vectors", jArr vectors)]) 0 ++ "\n")
+
+/-- A committed family file. -/
+def familyFile (family : String) (provenance : Option String) (scs : List Scenario) : Except String String :=
+  familyFileWith "formal/etna: lake exe etna-vectors --write testdata/etna_conformance" family provenance scs
 
 end Etna.Vectors

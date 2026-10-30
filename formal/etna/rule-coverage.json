@@ -3,14 +3,14 @@
   "spec": {
     "path": "packages/protocol/docs/etna/SPEC.md",
     "revision": "2026-10-30",
-    "commit": "d4d18d398936f3fb3fce43f34f0a3b3ebc917d00",
-    "sha256": "a079ea510d85077697d4ca731202fe4717efcf7612dd6619a0838cbfaab97210"
+    "commit": "b7ca989c8e343073daa628771102bdee7fe7101b",
+    "sha256": "3957abeaf43d69d2b3fad937c5677b522305316388b9d47e099bef79a3da3a4b"
   },
   "index": {
     "path": "packages/protocol/docs/etna/rules/INDEX.md",
     "revision": "2026-10-30",
-    "commit": "d4d18d398936f3fb3fce43f34f0a3b3ebc917d00",
-    "sha256": "7305583d56b05c0a27c334f695db9cb78919c2c97fdf921cfc19da893b8928b2"
+    "commit": "b7ca989c8e343073daa628771102bdee7fe7101b",
+    "sha256": "83c238f7bd285fd0147ef6f0a8a4535ac1be15d99c53fffbaee7db76c581ebaa"
   },
   "via": {
     "LAND-6.1-2": {

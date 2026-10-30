@@ -2,12 +2,12 @@
 
 This package is a Lean 4 model of the Etna specification and the proofs about it. The
 specification is [`packages/protocol/docs/etna/SPEC.md`](../../packages/protocol/docs/etna/SPEC.md)
-at commit `90db8d05419db010512bcd6a8ae0ab01b97fe249` (2026-10-30). Both it and
+at commit `b7ca989c8e343073daa628771102bdee7fe7101b` (2026-10-30). Both it and
 [`ACCEPTANCE.md`](../../packages/protocol/docs/etna/ACCEPTANCE.md) are independently
 pinned by path, revision, source commit and SHA-256 in `spec-coverage.json`. The pin and the clauses
 cover the text with the rule-reference markers removed (`**[ID]**` prefixes and `// [ID]` lines, see
-[`rules/README.md`](../../packages/protocol/docs/etna/rules/README.md)); that text has the same
-lines as the 2026-10-29 revision, so a spec line written `spec L…` is a line of it. Any edit to the spec fails the coverage check until the clause links are
+[`rules/README.md`](../../packages/protocol/docs/etna/rules/README.md)), and a spec line written
+`spec L…` is a line of that marker-free text. Any edit to the spec fails the coverage check until the clause links are
 reviewed against the new text and the pin is updated.
 
 **The result is three headline theorems**, fund safety, accountable finality and
@@ -17,7 +17,7 @@ premise record, `Premises`. To trust the result, read the statements and the pre
 proofs. The package says nothing about the production contracts, client or guests beyond the
 conformance vectors below.
 
-The clause inventory (311 source clauses), the theorem roles and the 22 narrow claims in
+The clause inventory (313 source clauses), the theorem roles and the 22 narrow claims in
 `spec-coverage.json` are a **traceability report, not the verification result**. They record
 which spec clauses some theorem speaks to, and CI keeps them consistent. A clause marked
 partial is not proved. [`reports/rule-coverage.md`](reports/rule-coverage.md) keys the same
@@ -170,7 +170,7 @@ field.
 
 | Field                 | What it assumes                                                                                                                                                                                                                                                                                                                                                                               | Spec source                                                                                       | Used by    |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ---------- |
-| `genesis`             | `w0` is the World right after Inbox initialization (`Deployment.Genesis`), made with block 0's EL hash and stateRoot from `env.genesisHeader`, which has height 0, CometBFT hash 0 and FI cursor 0.                                                                                                                                                                                           | §10 steps 4-5 (spec L556-L557); Appendix B slot 285 (spec L775); 6.1 (spec L294); 7.2 (spec L426) | H1, H2, H3 |
+| `genesis`             | `w0` is the World right after Inbox initialization (`Deployment.Genesis`), made with block 0's EL hash and stateRoot from `env.genesisHeader`, which has height 0, CometBFT hash 0 and FI cursor 0.                                                                                                                                                                                           | §10 steps 4-5 (spec L556-L557); Appendix B slot 285 (spec L777); 6.1 (spec L294); 7.2 (spec L426) | H1, H2, H3 |
 | `verifierSound`       | Two proofs, at least one sound: every proof pair the Inbox accepts contains a sound backend, and a sound backend approves a submitted landing only if its statement is `Certifies`, i.e. the statement of a batch valid under the rules `Deployment.build` derives from the guest's uint256 opening of the stored commitments. Equivalently: every submitted landing that lands is certified. | §1 "Funds" (spec L12); §1 "Upgrades and trust" (spec L16); §8 "Verifier failure" (spec L487)      | H1, H3     |
 | `authenticatedInputs` | For a submitted landing that lands, an authenticated FI witness under an authenticated anchor, from the current generation's origin L1 block up to the landing's block, shows the World's real queue entry.                                                                                                                                                                                   | 3.3 (spec L90); 7.2 (spec L427)                                                                   | H3         |
 | `hashSeparation`      | The stored committeeConfigHash has exactly one uint256 opening (`Representable`): the deployment's own configuration.                                                                                                                                                                                                                                                                         | 6.2 item 1 (spec L360)                                                                            | H1, H3     |
@@ -233,8 +233,9 @@ The audit fails if any field is read by no headline proof.
   active at lastCheckpoint) is the condition `confirmed_key_absent_above_checkpoint` needs, as
   an explicit hypothesis rather than a premise. The model does not prove that the spec's duty
   implies it: after a rollback the context is rebuilt from the restored World. The regressions
-  show the untrusted rollback's World violates it, and an ordinary confirming World satisfies it
-  together with every other hypothesis of that theorem.
+  show that where the untrusted rollback lets an exit be confirmed the condition fails and the
+  key stays active, and that an ordinary confirming World satisfies it together with every other
+  hypothesis of that theorem.
 
 ## Witnesses
 
@@ -291,9 +292,9 @@ it), with the chain-of-custody property at every World.
   pre-execution recheck still passes; binding a registry cutoff would be an additional
   protocol rule, not a fix established by this witness.
 - **`ForcedPoisonResubmit`.** After a recovery blanks an unprovable ("poison") FI entry, anyone
-  can enqueue the same transaction again for the normal fee and stall the cursor again.
-  Suggested fix: let the guest skip unprovable content, or narrow the §1 and §8 wording. A
-  blocklist of blanked hashes stops only a verbatim copy.
+  can enqueue the same transaction again for the normal fee and stall the cursor again. The
+  spec now records this as section 12 item 20, and §1 no longer says recovery handles such a
+  transaction. A blocklist of blanked hashes would stop only a verbatim copy.
 - **`StaleDaoAuthorization` (repaired).** The old model allowed an authorization voided by
   a landing to revive after rollback. The current model increments the _current_ nonce on
   rollback, recover and explicit invalidation, and checks that nonce plus expiry on execution.
@@ -335,7 +336,7 @@ positive witness. Appending future headers preserves covered historical cutoffs.
 encoding/key and L1/EL authentication remain adapter obligations.
 
 A fully slashed member can retain current fixed committee power, so continuous positive backing
-is false. A full typed lagging-view witness also freshly signs an old-height nil precommit after
+is false; the spec records this as section 12 item 19. A full typed lagging-view witness also freshly signs an old-height nil precommit after
 newer withdrawal: own-finalized trust does not imply current global checkpoint freshness.
 Causal confirmation-to-view ordering and same-prefix inclusion are explicit requirements, as
 are post-rollback revalidation and actual producer enforcement. An available evidence period
@@ -377,9 +378,9 @@ hypothesis of its own theorem.
 - **Agreement across rounds** (`EtnaProofs/RoundSafety.lean`): `same_round_agreement` restates
   H2's finality argument for any consensus context. `height_agreement` extends it to every
   round at a height under `CrossRoundAccountable`, a predicate stating CometBFT's cross-round
-  accountability for its locking rules: if the members that sign conflicting precommits in some
-  round or break the locking rules hold less than 1/3 of the power, all valid commits at that
-  height are for the same block. The theorem adds no slashing: automatic double-sign slashing
+  accountability for its locking rules at each height: if the members that sign conflicting
+  precommits in some round or break the locking rules at that height hold less than 1/3 of the
+  power, all valid commits at that height are for the same block. The theorem adds no slashing: automatic double-sign slashing
   compares one round only (§1 "Slashing scope", spec L18).
 - **A trusted slot 284** (`EtnaProofs/TrustedSnapshot.lean`): under `SnapshotTrusted` (slot 284
   is not ahead of the cutoff of the committee active at lastCheckpoint), a key whose exit was
@@ -387,9 +388,11 @@ hypothesis of its own theorem.
   at or above lastCheckpoint. Section 8 requires the rollback to restore the last trusted
   landing's value; the model does not prove that this implies the condition, and the theorem
   says nothing about later Worlds, withdrawals, commits or slashing.
-  `EtnaWitnesses/Regressions/TrustedSnapshot.lean` shows the untrusted rollback's World violates
-  the condition, and that on an ordinary run from the initialized deployment the confirming
-  World, with the context built on it, satisfies every hypothesis of the theorem.
+  `EtnaWitnesses/Regressions/TrustedSnapshot.lean` shows that right after the untrusted rollback
+  lets key 7's exit be confirmed, the context built on that World violates the condition and
+  still activates key 7 above lastCheckpoint; and that on an ordinary run from the initialized
+  deployment the confirming World, with the context built on it, satisfies every hypothesis of
+  the theorem.
 
 ## Registry, recovery and capital alignment
 
@@ -424,10 +427,13 @@ in this update. The recorded implementation comparisons below are historical.
 
 `lake exe etna-vectors --write <dir> --random <seed> [--count <n>]` writes opt-in random
 vectors (`random-land.json`, `random-forced.json`) for differential testing: random call
-sequences whose setups are always accepted and whose final call is unconstrained, decided by the
-same model transitions. Landings in their setups can skip grid points, so they reach cases the
-enumerated families do not, such as a parent grid point with no record. They are not committed
-and CI does not check them; the default output is unchanged.
+sequences whose setups are always accepted (tested on seeds 0 to 9) and whose final call is
+unconstrained, decided by the same model transitions; half the final landings are honest, so
+both outcomes are common. Landings in their setups can skip grid points, so they reach cases the
+enumerated families do not, such as a parent grid point with no record. Each file's `generator`
+header names the seed and count; `--provenance` and `--families` do not apply, and nothing is
+written unless every file renders. They are not committed and CI does not check them;
+`check_vectors.py` still finds the committed files equal to a default run.
 
 The vectors in `testdata/etna_conformance/` are generated from the model (`EtnaVectors`) and
 record only what it decides on concrete inputs; that directory's README has the schema and how
@@ -454,7 +460,7 @@ four need an L1 block at 2^48 − 1 or a timestamp at 2^48:
 4. Slash at L1 block 2^48 − 1 (spec L161): the spec's formula gives the no-exit value; the model
    follows it, the contract refuses (safer). Unreachable.
 5. Recovery exclusion at L1 block 2^48 − 1 (spec L490): the same kind. Unreachable.
-6. Recovery origin timestamp 2^48 (spec L779): the spec asks for "range checks" without naming
+6. Recovery origin timestamp 2^48 (spec L781): the spec asks for "range checks" without naming
    the range; the contract uses 2^48, the model only the 2^256 word bound. The spec should name
    2^48. Unreachable.
 
@@ -639,10 +645,10 @@ namespace (for example `EtnaModel/Deployment.lean` and `EtnaProofs/Deployment.le
 
 - 909 theorem contracts: 163 property, 3 constant, 414 supporting, 329 regression.
 - 163 property derivation chains, checked against the live proof terms.
-- 311 source clauses: 77 partial, 231 deferred, 3 design-pending; 22 narrow claims.
+- 313 source clauses: 77 partial, 233 deferred, 3 design-pending; 22 narrow claims.
 - 568 binding rule IDs: 141 partial, 7 partial through a reviewed override, 416 deferred, 4
-  design-pending; 19 limitations and 11 assumptions, none partial.
-- 191 Python mutation/regression tests, plus kernel-replayed Lean regression modules.
+  design-pending; 21 limitations and 11 assumptions, none partial.
+- 197 Python mutation/regression tests, plus kernel-replayed Lean regression modules.
 - Current vectors: 414 Inbox/registry and 340 client rule vectors. Historical production
   comparisons: 334 contracts (6 divergences) and 340 client (1 divergence).
 

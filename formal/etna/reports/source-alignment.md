@@ -152,3 +152,20 @@ Lines below refer to old `sources/spec.md` and current `SPEC.md`; ranges include
 | `EN-3e51f5b4400b332c` | 765–765   | `EN-d1287f8e4a8fc17b` | 801–801       | presentation-only |
 
 New property edges are deliberately narrow: rate-preservation traces link only the fixed-rate clause; lifetime-flag traces link only once-per-entry/replay clauses; the common-control bound links only the initial-committee clause, not the independent capital-target formula. The final inventory is 62 partial / 246 deferred / 3 design-pending.
+
+## Re-pin to `b7ca989c8e343073daa628771102bdee7fe7101b` — 2026-10-30
+
+SPEC.md moved from `90db8d05419db010512bcd6a8ae0ab01b97fe249` (bytes unchanged at
+`d4d18d398936f3fb3fce43f34f0a3b3ebc917d00`) to `b7ca989c8e343073daa628771102bdee7fe7101b`, which
+records two limitations; ACCEPTANCE.md did not change. In the marker-free text one clause changed
+and two were added after line 625, so every `spec L…` citation above line 625 moves down by two
+lines (vectors, statements and README updated; historical reports keep their original lines).
+
+| Old clause / lines         | Current clause / lines      | Review                                                                                                                                                                                                                                |
+| -------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EN-114c11b55a88713c` / 16 | `EN-519f69d065c96fa9` / 16  | Semantic, one sentence: governance recovery step 3 can blank an unprovable forced-inclusion transaction but does not stop it being enqueued again (item 20), instead of "handled by step 3". The four regression links are unchanged. |
+| (new)                      | `EN-95f0590cf84239d4` / 626 | Section 12 item 19: a slashed member keeps its voting power until a committee that excludes it takes effect. Linked to `current_voting_power_survives_full_slash` (regression).                                                       |
+| (new)                      | `EN-0b7dc528f6439e82` / 627 | Section 12 item 20: blanking does not stop resubmission. Linked to `cleared_poison_resubmitted` (regression).                                                                                                                         |
+
+Both new clauses stay deferred: their links are regressions, which demonstrate the limitation
+and back no proof claim.

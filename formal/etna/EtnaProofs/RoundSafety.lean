@@ -43,11 +43,12 @@ theorem same_round_agreement {c : Context} {signature : Vote → Prop} {h round 
 the members that sign conflicting precommits in some round or break the locking rules hold less
 than 1/3 of the active committee's power, every two valid commits at height `h` are for the same
 block, whatever their rounds. Only same-round faults are slashable (4.1). -/
-theorem height_agreement {c : Context} {signature : Vote → Prop} {violates honest : Hash → Bool}
+theorem height_agreement {c : Context} {signature : Vote → Prop} {violates : Nat → Hash → Bool}
+    {honest : Hash → Bool}
     (crossRound : CrossRoundAccountable c signature violates) (h : Nat)
     (sameRound : ∀ round, ∀ m ∈ (activeAt c h).members, honest m.key = true →
       ¬ Etna.Statements.Equivocates c signature h round m.key)
-    (locking : ∀ m ∈ (activeAt c h).members, honest m.key = true → violates m.key = false)
+    (locking : ∀ m ∈ (activeAt c h).members, honest m.key = true → violates h m.key = false)
     (minority : 3*Committee.totalPower c.unit ((activeAt c h).members.filter fun m => !honest m.key) <
       Committee.totalPower c.unit (activeAt c h).members) :
     ∀ ra rb a b votesA votesB, CommitValid c signature h ra a votesA → CommitValid c signature h rb b votesB →
@@ -60,7 +61,7 @@ theorem height_agreement {c : Context} {signature : Vote → Prop} {violates hon
   · exact same
   exfalso
   have many := crossRound h ra rb a b votesA votesB okA okB rounds same
-  have breakers : ∀ m ∈ (activeAt c h).members, violates m.key = true → (!honest m.key) = true := by
+  have breakers : ∀ m ∈ (activeAt c h).members, violates h m.key = true → (!honest m.key) = true := by
     intro m member broke
     cases hm : honest m.key with
     | false => rfl

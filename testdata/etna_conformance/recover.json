@@ -3691,7 +3691,7 @@
       "id": "recover.hw.recovery-block-2pow48-minus1",
       "family": "recover",
       "source": "handwritten",
-      "spec": "spec L779",
+      "spec": "spec L781",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
@@ -3777,7 +3777,7 @@
       "id": "recover.hw.recovery-block-2pow48",
       "family": "recover",
       "source": "handwritten",
-      "spec": "spec L779",
+      "spec": "spec L781",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
@@ -3948,7 +3948,7 @@
       "id": "recover.hw.origin-timestamp-2pow48-minus1",
       "family": "recover",
       "source": "handwritten",
-      "spec": "spec L779",
+      "spec": "spec L781",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,
@@ -4034,7 +4034,7 @@
       "id": "recover.hw.origin-timestamp-2pow48",
       "family": "recover",
       "source": "handwritten",
-      "spec": "spec L779",
+      "spec": "spec L781",
       "setup": {
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 12,

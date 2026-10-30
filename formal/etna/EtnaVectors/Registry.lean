@@ -91,9 +91,9 @@ def withdrawCases : List Scenario := [
     (spec := some "spec L152"),
   registryOnly "registry.withdraw.to-another-account" (withdrawWhenDue 0 1 6) (withdrawSetup false),
   registryOnly "registry.hw.withdraw-at-block-2pow48-minus1" (atBlock (limit48-1) (.withdraw 1 0 1)) (withdrawSetup false)
-    (spec := some "spec L787"),
+    (spec := some "spec L789"),
   registryOnly "registry.hw.confirm-at-block-2pow48-minus1" (atBlock (limit48-1) (.confirmExit 9 0))
-    [atBlock 12 (.requestExit 1 0), coverExit 0] (spec := some "spec L791")]
+    [atBlock 12 (.requestExit 1 0), coverExit 0] (spec := some "spec L793")]
 
 def votePairs : List (String × VoteIn × VoteIn) := [
   ("precommit-conflict", {}, { blockId := 12 }),

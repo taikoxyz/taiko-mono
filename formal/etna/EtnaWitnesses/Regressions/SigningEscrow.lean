@@ -53,7 +53,8 @@ private theorem built : Built minorityEnv afterBurn rules := by
 
 /-- A real accepted slash, not a free context input. Key 9 retains 1/6 of the fixed
 committee's power above checkpoint 0 in current generation 0, while its principal is
-already zero. This refutes continual positive capital backing, not the <1/3 safety rule. -/
+already zero. This refutes continual positive capital backing, not the <1/3 safety rule
+(recorded as SPEC section 12 item 19). -/
 theorem current_voting_power_survives_full_slash :
     ProtocolState.Step minorityWorld afterBurn ∧
     ProtocolState.Trace minorityWorld afterBurn ∧
